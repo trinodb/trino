@@ -16,11 +16,13 @@ package io.trino.tests.product.iceberg;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.query.QueryResult;
 import org.assertj.core.api.Assertions;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.util.List;
+import java.util.stream.Stream;
 
 import static io.trino.tempto.assertions.QueryAssert.Row;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
@@ -47,10 +49,28 @@ public class TestIcebergSparkCompatibility
     private static final String TRINO_CATALOG = "iceberg";
     private static final String TEST_SCHEMA_NAME = "default";
 
-    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
-    public void testTrinoReadingSparkData()
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "unsupportedStorageFormats")
+    public void testTrinoWithUnsupportedFileFormat(StorageFormat storageFormat)
     {
-        String baseTableName = "test_trino_reading_primitive_types";
+        String tableName = "test_trino_unsupported_file_format_" + storageFormat;
+        String trinoTableName = trinoTableName(tableName);
+        String sparkTableName = sparkTableName(tableName);
+
+        onSpark().executeQuery(format("CREATE TABLE %s (x bigint) USING ICEBERG TBLPROPERTIES ('write.format.default'='%s')", sparkTableName, storageFormat));
+        onSpark().executeQuery(format("INSERT INTO %s VALUES (42)", sparkTableName));
+
+        assertQueryFailure(() -> onTrino().executeQuery("SELECT * FROM " + trinoTableName))
+                .hasMessageMatching("Query failed \\(#\\w+\\):\\Q File format not supported for Iceberg: " + storageFormat);
+        assertQueryFailure(() -> onTrino().executeQuery(format("INSERT INTO %s VALUES (42)", trinoTableName)))
+                .hasMessageMatching("Query failed \\(#\\w+\\):\\Q File format not supported for Iceberg: " + storageFormat);
+
+        onSpark().executeQuery("DROP TABLE " + sparkTableName);
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
+    public void testTrinoReadingSparkData(StorageFormat storageFormat)
+    {
+        String baseTableName = "test_trino_reading_primitive_types_" + storageFormat;
         String sparkTableName = sparkTableName(baseTableName);
 
         String sparkTableDefinition =
@@ -63,8 +83,9 @@ public class TestIcebergSparkCompatibility
                         ", _boolean BOOLEAN" +
                         ", _timestamp TIMESTAMP" +
                         ", _date DATE" +
-                        ") USING ICEBERG";
-        onSpark().executeQuery(format(sparkTableDefinition, sparkTableName));
+                        ") USING ICEBERG " +
+                        "TBLPROPERTIES ('write.format.default'='%s')";
+        onSpark().executeQuery(format(sparkTableDefinition, sparkTableName, storageFormat));
 
         // Validate queries on an empty table created by Spark
         String snapshotsTable = trinoTableName("\"" + baseTableName + "$snapshots\"");
@@ -105,10 +126,10 @@ public class TestIcebergSparkCompatibility
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
 
-    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
-    public void testSparkReadingTrinoData()
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
+    public void testSparkReadingTrinoData(StorageFormat storageFormat)
     {
-        String baseTableName = "test_spark_reading_primitive_types";
+        String baseTableName = "test_spark_reading_primitive_types_" + storageFormat;
         String trinoTableName = trinoTableName(baseTableName);
 
         String trinoTableDefinition =
@@ -121,8 +142,8 @@ public class TestIcebergSparkCompatibility
                         ", _boolean BOOLEAN" +
                         //", _timestamp TIMESTAMP" +
                         ", _date DATE" +
-                        ") WITH (format = 'ORC')";
-        onTrino().executeQuery(format(trinoTableDefinition, trinoTableName));
+                        ") WITH (format = '%s')";
+        onTrino().executeQuery(format(trinoTableDefinition, trinoTableName, storageFormat));
 
         String values = "VALUES (" +
                 "'a_string'" +
@@ -172,12 +193,12 @@ public class TestIcebergSparkCompatibility
         onSpark().executeQuery("DROP TABLE " + sparkTableName(baseTableName));
     }
 
-    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
-    public void testSparkReadsTrinoPartitionedTable()
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
+    public void testSparkReadsTrinoPartitionedTable(StorageFormat storageFormat)
     {
-        String baseTableName = "test_spark_reads_trino_partitioned_table";
+        String baseTableName = "test_spark_reads_trino_partitioned_table_" + storageFormat;
         String trinoTableName = trinoTableName(baseTableName);
-        onTrino().executeQuery(format("CREATE TABLE %s (_string VARCHAR, _bigint BIGINT) WITH (partitioning = ARRAY['_string'])", trinoTableName));
+        onTrino().executeQuery(format("CREATE TABLE %s (_string VARCHAR, _bigint BIGINT) WITH (partitioning = ARRAY['_string'], format = '%s')", trinoTableName, storageFormat));
         onTrino().executeQuery(format("INSERT INTO %s VALUES ('a', 1001), ('b', 1002), ('c', 1003)", trinoTableName));
 
         Row row = row("b", 1002);
@@ -189,12 +210,15 @@ public class TestIcebergSparkCompatibility
         onTrino().executeQuery("DROP TABLE " + trinoTableName);
     }
 
-    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
-    public void testTrinoReadsSparkPartitionedTable()
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
+    public void testTrinoReadsSparkPartitionedTable(StorageFormat storageFormat)
     {
-        String baseTableName = "test_trino_reads_spark_partitioned_table";
+        String baseTableName = "test_trino_reads_spark_partitioned_table_" + storageFormat;
         String sparkTableName = sparkTableName(baseTableName);
-        onSpark().executeQuery(format("CREATE TABLE %s (_string STRING, _bigint BIGINT) USING ICEBERG PARTITIONED BY (_string)", sparkTableName));
+        onSpark().executeQuery(format(
+                "CREATE TABLE %s (_string STRING, _bigint BIGINT) USING ICEBERG PARTITIONED BY (_string) TBLPROPERTIES ('write.format.default'='%s')",
+                sparkTableName,
+                storageFormat));
         onSpark().executeQuery(format("INSERT INTO %s VALUES ('a', 1001), ('b', 1002), ('c', 1003)", sparkTableName));
 
         Row row = row("b", 1002);
@@ -207,10 +231,10 @@ public class TestIcebergSparkCompatibility
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
 
-    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
-    public void testTrinoReadingCompositeSparkData()
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
+    public void testTrinoReadingCompositeSparkData(StorageFormat storageFormat)
     {
-        String baseTableName = "test_trino_reading_spark_composites";
+        String baseTableName = "test_trino_reading_spark_composites_" + storageFormat;
         String sparkTableName = sparkTableName(baseTableName);
 
         String sparkTableDefinition = "" +
@@ -219,8 +243,9 @@ public class TestIcebergSparkCompatibility
                 "  info MAP<STRING, INT>,\n" +
                 "  pets ARRAY<STRING>,\n" +
                 "  user_info STRUCT<name:STRING, surname:STRING, age:INT, gender:STRING>)" +
-                "  USING ICEBERG";
-        onSpark().executeQuery(format(sparkTableDefinition, sparkTableName));
+                "  USING ICEBERG" +
+                " TBLPROPERTIES ('write.format.default'='%s')";
+        onSpark().executeQuery(format(sparkTableDefinition, sparkTableName, storageFormat));
 
         String insert = "" +
                 "INSERT INTO TABLE %s SELECT 'Doc213', map('age', 28, 'children', 3), array('Dog', 'Cat', 'Pig'), \n" +
@@ -237,10 +262,10 @@ public class TestIcebergSparkCompatibility
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
 
-    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
-    public void testSparkReadingCompositeTrinoData()
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
+    public void testSparkReadingCompositeTrinoData(StorageFormat storageFormat)
     {
-        String baseTableName = "test_spark_reading_trino_composites";
+        String baseTableName = "test_spark_reading_trino_composites_" + storageFormat;
         String trinoTableName = trinoTableName(baseTableName);
 
         String trinoTableDefinition = "" +
@@ -248,8 +273,9 @@ public class TestIcebergSparkCompatibility
                 "  doc_id VARCHAR,\n" +
                 "  info MAP(VARCHAR, INTEGER),\n" +
                 "  pets ARRAY(VARCHAR),\n" +
-                "  user_info ROW(name VARCHAR, surname VARCHAR, age INTEGER, gender VARCHAR))";
-        onTrino().executeQuery(format(trinoTableDefinition, trinoTableName));
+                "  user_info ROW(name VARCHAR, surname VARCHAR, age INTEGER, gender VARCHAR)) " +
+                "  WITH (format = '%s')";
+        onTrino().executeQuery(format(trinoTableDefinition, trinoTableName, storageFormat));
 
         String insert = "INSERT INTO %s VALUES('Doc213', MAP(ARRAY['age', 'children'], ARRAY[28, 3]), ARRAY['Dog', 'Cat', 'Pig'], ROW('Santa', 'Claus', 1000, 'MALE'))";
         onTrino().executeQuery(format(insert, trinoTableName));
@@ -263,10 +289,10 @@ public class TestIcebergSparkCompatibility
         onTrino().executeQuery("DROP TABLE " + trinoTableName);
     }
 
-    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
-    public void testTrinoReadingNestedSparkData()
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
+    public void testTrinoReadingNestedSparkData(StorageFormat storageFormat)
     {
-        String baseTableName = "test_trino_reading_nested_spark_data";
+        String baseTableName = "test_trino_reading_nested_spark_data_" + storageFormat;
         String sparkTableName = sparkTableName(baseTableName);
 
         String sparkTableDefinition = "" +
@@ -275,8 +301,8 @@ public class TestIcebergSparkCompatibility
                 ", nested_map MAP<STRING, ARRAY<STRUCT<sname: STRING, snumber: INT>>>\n" +
                 ", nested_array ARRAY<MAP<STRING, ARRAY<STRUCT<mname: STRING, mnumber: INT>>>>\n" +
                 ", nested_struct STRUCT<name:STRING, complicated: ARRAY<MAP<STRING, ARRAY<STRUCT<mname: STRING, mnumber: INT>>>>>)\n" +
-                " USING ICEBERG";
-        onSpark().executeQuery(format(sparkTableDefinition, sparkTableName));
+                " USING ICEBERG TBLPROPERTIES ('write.format.default'='%s')";
+        onSpark().executeQuery(format(sparkTableDefinition, sparkTableName, storageFormat));
 
         String insert = "" +
                 "INSERT INTO TABLE %s SELECT" +
@@ -321,10 +347,10 @@ public class TestIcebergSparkCompatibility
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
 
-    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
-    public void testSparkReadingNestedTrinoData()
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
+    public void testSparkReadingNestedTrinoData(StorageFormat storageFormat)
     {
-        String baseTableName = "test_spark_reading_nested_trino_data";
+        String baseTableName = "test_spark_reading_nested_trino_data_" + storageFormat;
         String trinoTableName = trinoTableName(baseTableName);
 
         String trinoTableDefinition = "" +
@@ -332,8 +358,9 @@ public class TestIcebergSparkCompatibility
                 "  doc_id VARCHAR\n" +
                 ", nested_map MAP(VARCHAR, ARRAY(ROW(sname VARCHAR, snumber INT)))\n" +
                 ", nested_array ARRAY(MAP(VARCHAR, ARRAY(ROW(mname VARCHAR, mnumber INT))))\n" +
-                ", nested_struct ROW(name VARCHAR, complicated ARRAY(MAP(VARCHAR, ARRAY(ROW(mname VARCHAR, mnumber INT))))))";
-        onTrino().executeQuery(format(trinoTableDefinition, trinoTableName));
+                ", nested_struct ROW(name VARCHAR, complicated ARRAY(MAP(VARCHAR, ARRAY(ROW(mname VARCHAR, mnumber INT))))))" +
+                "  WITH (format = '%s')";
+        onTrino().executeQuery(format(trinoTableDefinition, trinoTableName, storageFormat));
 
         String insert = "" +
                 "INSERT INTO %s SELECT" +
@@ -378,10 +405,10 @@ public class TestIcebergSparkCompatibility
         onTrino().executeQuery("DROP TABLE " + trinoTableName);
     }
 
-    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
-    public void testIdBasedFieldMapping()
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
+    public void testIdBasedFieldMapping(StorageFormat storageFormat)
     {
-        String baseTableName = "test_schema_evolution_for_nested_fields";
+        String baseTableName = "test_schema_evolution_for_nested_fields_" + storageFormat;
         String trinoTableName = trinoTableName(baseTableName);
         String sparkTableName = sparkTableName(baseTableName);
 
@@ -389,8 +416,9 @@ public class TestIcebergSparkCompatibility
                 "CREATE TABLE %s (_struct STRUCT<rename:BIGINT, keep:BIGINT, drop_and_add:BIGINT, CaseSensitive:BIGINT>, _partition BIGINT)"
                         + " USING ICEBERG"
                         + " partitioned by (_partition)"
-                        + " TBLPROPERTIES ('write.format.default' = 'orc')",
-                sparkTableName));
+                        + " TBLPROPERTIES ('write.format.default' = '%s')",
+                sparkTableName,
+                storageFormat));
 
         onSpark().executeQuery(format(
                 "INSERT INTO TABLE %s SELECT "
@@ -403,18 +431,36 @@ public class TestIcebergSparkCompatibility
         onSpark().executeQuery(format("ALTER TABLE %s DROP COLUMN _struct.drop_and_add", sparkTableName));
         onSpark().executeQuery(format("ALTER TABLE %s ADD COLUMN _struct.drop_and_add BIGINT", sparkTableName));
 
-        // TODO support Row (JAVA_OBJECT) in Tempto and switch to QueryAssert
-        Assertions.assertThat(onTrino().executeQuery(format("SELECT * FROM %s", trinoTableName)).rows())
-                .containsOnly(List.of(
-                        rowBuilder()
-                                // Rename does not change id
-                                .addField("renamed", 1L)
-                                .addField("keep", 2L)
-                                .addField("CaseSensitive", 4L)
-                                // Dropping and re-adding changes id
-                                .addField("drop_and_add", null)
-                                .build(),
-                        1001L));
+        if (storageFormat == StorageFormat.PARQUET) {
+            // TODO (https://github.com/trinodb/trino/issues/8750) the results should be the same for all storage formats
+
+            // TODO support Row (JAVA_OBJECT) in Tempto and switch to QueryAssert
+            Assertions.assertThat(onTrino().executeQuery(format("SELECT * FROM %s", trinoTableName)).rows())
+                    .containsOnly(List.of(
+                            rowBuilder()
+                                    // Rename does not change id
+                                    .addField("renamed", null)
+                                    .addField("keep", 2L)
+                                    .addField("CaseSensitive", 4L)
+                                    // Dropping and re-adding changes id
+                                    .addField("drop_and_add", 3L)
+                                    .build(),
+                            1001L));
+        }
+        else {
+            // TODO support Row (JAVA_OBJECT) in Tempto and switch to QueryAssert
+            Assertions.assertThat(onTrino().executeQuery(format("SELECT * FROM %s", trinoTableName)).rows())
+                    .containsOnly(List.of(
+                            rowBuilder()
+                                    // Rename does not change id
+                                    .addField("renamed", 1L)
+                                    .addField("keep", 2L)
+                                    .addField("CaseSensitive", 4L)
+                                    // Dropping and re-adding changes id
+                                    .addField("drop_and_add", null)
+                                    .build(),
+                            1001L));
+        }
 
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
@@ -435,18 +481,19 @@ public class TestIcebergSparkCompatibility
         onTrino().executeQuery("DROP TABLE " + trinoTableName(trinoTable));
     }
 
-    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
-    public void testTrinoWritingDataWithObjectStorageLocationProvider()
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
+    public void testTrinoWritingDataWithObjectStorageLocationProvider(StorageFormat storageFormat)
     {
-        String baseTableName = "test_object_storage_location_provider";
+        String baseTableName = "test_object_storage_location_provider_" + storageFormat;
         String sparkTableName = sparkTableName(baseTableName);
         String trinoTableName = trinoTableName(baseTableName);
         String dataPath = "hdfs://hadoop-master:9000/user/hive/warehouse/test_object_storage_location_provider/obj-data";
 
         onSpark().executeQuery(format("CREATE TABLE %s (_string STRING, _bigint BIGINT) USING ICEBERG TBLPROPERTIES (" +
                         "'write.object-storage.enabled'=true," +
-                        "'write.object-storage.path'='%s')",
-                sparkTableName, dataPath));
+                        "'write.object-storage.path'='%s'," +
+                        "'write.format.default' = '%s')",
+                sparkTableName, dataPath, storageFormat));
         onTrino().executeQuery(format("INSERT INTO %s VALUES ('a_string', 1000000000000000)", trinoTableName));
 
         Row result = row("a_string", 1000000000000000L);
@@ -476,5 +523,38 @@ public class TestIcebergSparkCompatibility
     private io.trino.jdbc.Row.Builder rowBuilder()
     {
         return io.trino.jdbc.Row.builder();
+    }
+
+    @DataProvider
+    public static Object[][] storageFormats()
+    {
+        return Stream.of(StorageFormat.values())
+                .filter(StorageFormat::isSupportedInTrino)
+                .map(storageFormat -> new Object[] {storageFormat})
+                .toArray(Object[][]::new);
+    }
+
+    @DataProvider
+    public static Object[][] unsupportedStorageFormats()
+    {
+        return Stream.of(StorageFormat.values())
+                .filter(storageFormat -> !storageFormat.isSupportedInTrino())
+                .map(storageFormat -> new Object[] {storageFormat})
+                .toArray(Object[][]::new);
+    }
+
+    public enum StorageFormat
+    {
+        PARQUET,
+        ORC,
+        AVRO,
+        /**/;
+
+        public boolean isSupportedInTrino()
+        {
+            // TODO (https://github.com/trinodb/trino/issues/1324) not supported in Trino yet
+            //  - remove testTrinoWithUnsupportedFileFormat once all formats are supported
+            return this != AVRO;
+        }
     }
 }
