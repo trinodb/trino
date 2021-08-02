@@ -67,6 +67,8 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.BlockMissingException;
 import org.apache.iceberg.FileFormat;
+import org.apache.iceberg.Schema;
+import org.apache.iceberg.types.Types;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.FileMetaData;
@@ -167,6 +169,7 @@ public class IcebergPageSourceProvider
 
         HdfsContext hdfsContext = new HdfsContext(session);
         ConnectorPageSource dataPageSource = createDataPageSource(
+                table.getTableSchema(),
                 session,
                 hdfsContext,
                 new Path(split.getPath()),
@@ -181,6 +184,7 @@ public class IcebergPageSourceProvider
     }
 
     private ConnectorPageSource createDataPageSource(
+            Schema tableSchema,
             ConnectorSession session,
             HdfsContext hdfsContext,
             Path path,
@@ -205,6 +209,7 @@ public class IcebergPageSourceProvider
         switch (fileFormat) {
             case ORC:
                 return createOrcPageSource(
+                        tableSchema,
                         hdfsEnvironment,
                         session.getIdentity(),
                         hdfsEnvironment.getConfiguration(hdfsContext, path),
@@ -244,6 +249,7 @@ public class IcebergPageSourceProvider
     }
 
     private static ConnectorPageSource createOrcPageSource(
+            Schema tableSchema,
             HdfsEnvironment hdfsEnvironment,
             ConnectorIdentity identity,
             Configuration configuration,
@@ -327,7 +333,7 @@ public class IcebergPageSourceProvider
                     exception -> handleException(orcDataSourceId, exception),
                     fileColumnsByIcebergId.isEmpty()
                             ? NameBasedFieldMapper::create
-                            : new IdBasedFieldMapperFactory(columns));
+                            : new IdBasedFieldMapperFactory(columns, tableSchema));
 
             return new OrcPageSource(
                     recordReader,
@@ -363,16 +369,13 @@ public class IcebergPageSourceProvider
         // Stores a mapping between subfield names and ids for every top-level/nested column id
         private final Map<Integer, Map<String, Integer>> fieldNameToIdMappingForTableColumns;
 
-        public IdBasedFieldMapperFactory(List<IcebergColumnHandle> columns)
+        public IdBasedFieldMapperFactory(List<IcebergColumnHandle> columns, Schema tableSchema)
         {
             requireNonNull(columns, "columns is null");
 
             ImmutableMap.Builder<Integer, Map<String, Integer>> mapping = ImmutableMap.builder();
-            for (IcebergColumnHandle column : columns) {
-                // Recursively compute subfield name to id mapping for every column
-                populateMapping(column.getColumnIdentity(), mapping);
-            }
-
+            // Recursively compute subfield name to id mapping for every column
+            columns.forEach(column -> populateMapping(tableSchema.findField(column.getId()), mapping));
             this.fieldNameToIdMappingForTableColumns = mapping.build();
         }
 
@@ -388,19 +391,40 @@ public class IcebergPageSourceProvider
         }
 
         private static void populateMapping(
-                ColumnIdentity identity,
+                Types.NestedField field,
                 ImmutableMap.Builder<Integer, Map<String, Integer>> fieldNameToIdMappingForTableColumns)
         {
-            fieldNameToIdMappingForTableColumns.put(
-                    identity.getId(),
-                    identity.getChildren().stream()
-                            // Lower casing is required here because ORC StructColumnReader does the same before mapping
-                            .collect(toImmutableMap(child -> child.getName().toLowerCase(ENGLISH), ColumnIdentity::getId)));
+            List<Types.NestedField> children = getChildren(field);
 
-            for (ColumnIdentity child : identity.getChildren()) {
-                populateMapping(child, fieldNameToIdMappingForTableColumns);
-            }
+            fieldNameToIdMappingForTableColumns.put(
+                    field.fieldId(),
+                    children.stream().collect(toImmutableMap(child -> child.name().toLowerCase(ENGLISH), Types.NestedField::fieldId)));
+
+            children.forEach(child -> populateMapping(child, fieldNameToIdMappingForTableColumns));
         }
+    }
+
+    private static List<Types.NestedField> getChildren(Types.NestedField column)
+    {
+        org.apache.iceberg.types.Type fieldType = column.type();
+
+        if (!fieldType.isNestedType()) {
+            return ImmutableList.of();
+        }
+
+        if (fieldType.isListType()) {
+            return fieldType.asListType().fields();
+        }
+
+        if (fieldType.isStructType()) {
+            return fieldType.asStructType().fields();
+        }
+
+        if (fieldType.isMapType()) {
+            return fieldType.asMapType().fields();
+        }
+
+        throw new UnsupportedOperationException(format("Iceberg column type %s is not supported", fieldType.typeId()));
     }
 
     private static class IdBasedFieldMapper

@@ -133,7 +133,7 @@ import static io.trino.plugin.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
 import static io.trino.plugin.hive.util.HiveUtil.isHiveSystemSchema;
 import static io.trino.plugin.hive.util.HiveWriteUtils.getTableDefaultLocation;
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
-import static io.trino.plugin.iceberg.IcebergColumnHandle.primitiveIcebergColumnHandle;
+import static io.trino.plugin.iceberg.IcebergColumnHandle.create;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.decodeMaterializedViewData;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.encodeMaterializedViewData;
@@ -288,6 +288,7 @@ public class IcebergMetadata
                 tableName.getSchemaName(),
                 name.getTableName(),
                 name.getTableType(),
+                table.schema(),
                 snapshotId,
                 TupleDomain.all(),
                 TupleDomain.all());
@@ -680,7 +681,7 @@ public class IcebergMetadata
     @Override
     public ColumnHandle getDeleteRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return primitiveIcebergColumnHandle(0, "$row_id", BIGINT, Optional.empty());
+        return create(0, "$row_id", BIGINT, Optional.empty());
     }
 
     @Override
@@ -988,6 +989,7 @@ public class IcebergMetadata
                 new IcebergTableHandle(table.getSchemaName(),
                         table.getTableName(),
                         table.getTableType(),
+                        table.getTableSchema(),
                         table.getSnapshotId(),
                         newUnenforcedConstraint,
                         newEnforcedConstraint),
