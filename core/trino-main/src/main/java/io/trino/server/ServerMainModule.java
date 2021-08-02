@@ -30,6 +30,7 @@ import io.airlift.units.Duration;
 import io.trino.GroupByHashPageIndexerFactory;
 import io.trino.PagesIndexPageSorter;
 import io.trino.SystemSessionProperties;
+import io.trino.SystemSessionPropertiesProvider;
 import io.trino.block.BlockJsonSerde;
 import io.trino.client.NodeVersion;
 import io.trino.connector.ConnectorManager;
@@ -145,7 +146,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.configuration.ConditionalModule.installModuleIf;
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
 import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
@@ -207,6 +208,7 @@ public class ServerMainModule
         newExporter(binder).export(GcMonitor.class).withGeneratedName();
 
         // session properties
+        newSetBinder(binder, SystemSessionPropertiesProvider.class).addBinding().to(SystemSessionProperties.class);
         binder.bind(SessionPropertyManager.class).in(Scopes.SINGLETON);
         binder.bind(SystemSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(SessionPropertyDefaults.class).in(Scopes.SINGLETON);
@@ -247,11 +249,11 @@ public class ServerMainModule
 
         // network topology
         // TODO: move to CoordinatorModule when NodeScheduler is moved
-        install(installModuleIf(
+        install(conditionalModule(
                 NodeSchedulerConfig.class,
                 config -> UNIFORM == config.getNodeSchedulerPolicy(),
                 new UniformNodeSelectorModule()));
-        install(installModuleIf(
+        install(conditionalModule(
                 NodeSchedulerConfig.class,
                 config -> TOPOLOGY == config.getNodeSchedulerPolicy(),
                 new TopologyAwareNodeSelectorModule()));

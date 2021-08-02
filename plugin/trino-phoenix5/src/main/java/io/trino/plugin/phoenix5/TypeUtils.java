@@ -142,12 +142,21 @@ public final class TypeUtils
         }
 
         if (BOOLEAN.equals(type)
-                || TINYINT.equals(type)
-                || SMALLINT.equals(type)
-                || INTEGER.equals(type)
                 || BIGINT.equals(type)
                 || DOUBLE.equals(type)) {
             return jdbcObject;
+        }
+
+        if (TINYINT.equals(type)) {
+            return (long) (byte) jdbcObject;
+        }
+
+        if (SMALLINT.equals(type)) {
+            return (long) (short) jdbcObject;
+        }
+
+        if (INTEGER.equals(type)) {
+            return (long) (int) jdbcObject;
         }
 
         if (type instanceof ArrayType) {
@@ -164,7 +173,7 @@ public final class TypeUtils
         }
 
         if (REAL.equals(type)) {
-            return floatToRawIntBits((float) jdbcObject);
+            return (long) floatToRawIntBits((float) jdbcObject);
         }
 
         if (DATE.equals(type)) {

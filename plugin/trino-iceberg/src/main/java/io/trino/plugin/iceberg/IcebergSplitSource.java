@@ -15,9 +15,11 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPartitionHandle;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
+import io.trino.spi.connector.SchemaTableName;
 import org.apache.iceberg.CombinedScanTask;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.io.CloseableIterable;
@@ -32,17 +34,20 @@ import java.util.concurrent.CompletableFuture;
 
 import static com.google.common.collect.Iterators.limit;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
 public class IcebergSplitSource
         implements ConnectorSplitSource
 {
+    private final SchemaTableName schemaTableName;
     private final CloseableIterable<CombinedScanTask> combinedScanIterable;
     private final Iterator<FileScanTask> fileScanIterator;
 
-    public IcebergSplitSource(CloseableIterable<CombinedScanTask> combinedScanIterable)
+    public IcebergSplitSource(SchemaTableName schemaTableName, CloseableIterable<CombinedScanTask> combinedScanIterable)
     {
+        this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
         this.combinedScanIterable = requireNonNull(combinedScanIterable, "combinedScanIterable is null");
 
         this.fileScanIterator = Streams.stream(combinedScanIterable)
@@ -59,6 +64,9 @@ public class IcebergSplitSource
         Iterator<FileScanTask> iterator = limit(fileScanIterator, maxSize);
         while (iterator.hasNext()) {
             FileScanTask task = iterator.next();
+            if (!task.deletes().isEmpty()) {
+                throw new TrinoException(NOT_SUPPORTED, "Iceberg tables with delete files are not supported: " + schemaTableName);
+            }
             splits.add(toIcebergSplit(task));
         }
         return completedFuture(new ConnectorSplitBatch(splits, isFinished()));

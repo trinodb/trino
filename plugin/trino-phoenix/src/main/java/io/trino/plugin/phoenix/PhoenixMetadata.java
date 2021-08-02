@@ -16,7 +16,6 @@ package io.trino.plugin.phoenix;
 import io.airlift.slice.Slice;
 import io.trino.plugin.jdbc.DefaultJdbcMetadata;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
-import io.trino.plugin.jdbc.JdbcIdentity;
 import io.trino.plugin.jdbc.JdbcMetadataConfig;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
@@ -137,7 +136,7 @@ public class PhoenixMetadata
     private String toRemoteSchemaName(ConnectorSession session, String schemaName)
     {
         try (Connection connection = phoenixClient.getConnection(session)) {
-            return identifierMapping.toRemoteSchemaName(JdbcIdentity.from(session), connection, schemaName);
+            return identifierMapping.toRemoteSchemaName(session.getIdentity(), connection, schemaName);
         }
         catch (SQLException e) {
             throw new TrinoException(PHOENIX_METADATA_ERROR, "Couldn't get casing for the schema name", e);

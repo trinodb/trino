@@ -48,6 +48,7 @@ import io.trino.geospatial.Rectangle;
 import io.trino.geospatial.serde.GeometrySerde;
 import io.trino.geospatial.serde.GeometrySerializationType;
 import io.trino.geospatial.serde.JtsGeometrySerde;
+import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -56,12 +57,14 @@ import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.StandardTypes;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryCollection;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.linearref.LengthIndexedLine;
+import org.locationtech.jts.operation.distance.DistanceOp;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -1186,6 +1189,33 @@ public final class GeoFunctions
         OGCGeometry rightGeometry = deserialize(right);
         verifySameSpatialReference(leftGeometry, rightGeometry);
         return leftGeometry.isEmpty() || rightGeometry.isEmpty() ? null : leftGeometry.distance(rightGeometry);
+    }
+
+    @SqlNullable
+    @Description("Return the closest points on the two geometries")
+    @ScalarFunction("geometry_nearest_points")
+    @SqlType("row(" + GEOMETRY_TYPE_NAME + "," + GEOMETRY_TYPE_NAME + ")")
+    public static Block geometryNearestPoints(@SqlType(GEOMETRY_TYPE_NAME) Slice left, @SqlType(GEOMETRY_TYPE_NAME) Slice right)
+    {
+        Geometry leftGeometry = JtsGeometrySerde.deserialize(left);
+        Geometry rightGeometry = JtsGeometrySerde.deserialize(right);
+        if (leftGeometry.isEmpty() || rightGeometry.isEmpty()) {
+            return null;
+        }
+
+        RowType rowType = RowType.anonymous(ImmutableList.of(GEOMETRY, GEOMETRY));
+        PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(rowType));
+        GeometryFactory geometryFactory = leftGeometry.getFactory();
+        Coordinate[] nearestCoordinates = DistanceOp.nearestPoints(leftGeometry, rightGeometry);
+
+        BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(0);
+        BlockBuilder entryBlockBuilder = blockBuilder.beginBlockEntry();
+        GEOMETRY.writeSlice(entryBlockBuilder, JtsGeometrySerde.serialize(geometryFactory.createPoint(nearestCoordinates[0])));
+        GEOMETRY.writeSlice(entryBlockBuilder, JtsGeometrySerde.serialize(geometryFactory.createPoint(nearestCoordinates[1])));
+        blockBuilder.closeEntry();
+        pageBuilder.declarePosition();
+
+        return rowType.getObject(blockBuilder, blockBuilder.getPositionCount() - 1);
     }
 
     @SqlNullable

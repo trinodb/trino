@@ -54,7 +54,7 @@ public class TestOriginalFilesUtils
                 originalFileInfoList,
                 new Path(tablePath + "/000001_0"),
                 HDFS_ENVIRONMENT,
-                SESSION.getUser(),
+                SESSION.getIdentity(),
                 new OrcReaderOptions(),
                 config,
                 new FileFormatDataSourceStats());
@@ -74,7 +74,7 @@ public class TestOriginalFilesUtils
                 originalFileInfos,
                 new Path(tablePath + "/000002_0_copy_2"),
                 HDFS_ENVIRONMENT,
-                SESSION.getUser(),
+                SESSION.getIdentity(),
                 new OrcReaderOptions(),
                 config,
                 new FileFormatDataSourceStats());

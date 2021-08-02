@@ -63,6 +63,7 @@ import io.trino.sql.tree.EmptyPattern;
 import io.trino.sql.tree.Execute;
 import io.trino.sql.tree.ExistsPredicate;
 import io.trino.sql.tree.Explain;
+import io.trino.sql.tree.ExplainAnalyze;
 import io.trino.sql.tree.ExplainFormat;
 import io.trino.sql.tree.ExplainType;
 import io.trino.sql.tree.Expression;
@@ -211,10 +212,13 @@ import static io.trino.sql.QueryUtil.subquery;
 import static io.trino.sql.QueryUtil.table;
 import static io.trino.sql.QueryUtil.values;
 import static io.trino.sql.SqlFormatter.formatSql;
+import static io.trino.sql.parser.ParserAssert.assertExpressionIsInvalid;
+import static io.trino.sql.parser.ParserAssert.assertStatementIsInvalid;
 import static io.trino.sql.parser.ParserAssert.expression;
 import static io.trino.sql.parser.ParserAssert.rowPattern;
 import static io.trino.sql.parser.ParserAssert.statement;
 import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DECIMAL;
+import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.REJECT;
 import static io.trino.sql.parser.TreeNodes.columnDefinition;
 import static io.trino.sql.parser.TreeNodes.dateTimeType;
 import static io.trino.sql.parser.TreeNodes.field;
@@ -852,10 +856,22 @@ public class TestSqlParser
         assertExpression("DECIMAL '+.34'", new DecimalLiteral("+.34"));
         assertExpression("DECIMAL '-.34'", new DecimalLiteral("-.34"));
 
-        assertInvalidExpression("123.", "Unexpected decimal literal: 123.");
-        assertInvalidExpression("123.0", "Unexpected decimal literal: 123.0");
-        assertInvalidExpression(".5", "Unexpected decimal literal: .5");
-        assertInvalidExpression("123.5", "Unexpected decimal literal: 123.5");
+        assertExpression("123.", new DecimalLiteral("123."));
+        assertExpression("123.0", new DecimalLiteral("123.0"));
+        assertExpression(".5", new DecimalLiteral(".5"));
+        assertExpression("123.5", new DecimalLiteral("123.5"));
+
+        assertInvalidDecimalExpression("123.", "Unexpected decimal literal: 123.");
+        assertInvalidDecimalExpression("123.0", "Unexpected decimal literal: 123.0");
+        assertInvalidDecimalExpression(".5", "Unexpected decimal literal: .5");
+        assertInvalidDecimalExpression("123.5", "Unexpected decimal literal: 123.5");
+    }
+
+    private static void assertInvalidDecimalExpression(String sql, String message)
+    {
+        assertThatThrownBy(() -> SQL_PARSER.createExpression(sql, new ParsingOptions(REJECT)))
+                .isInstanceOfSatisfying(ParsingException.class, e ->
+                        assertThat(e.getErrorMessage()).isEqualTo(message));
     }
 
     @Test
@@ -973,8 +989,12 @@ public class TestSqlParser
         assertStatement("SHOW COLUMNS FROM \"awesome table\"", new ShowColumns(QualifiedName.of("awesome table"), Optional.empty(), Optional.empty()));
         assertStatement("SHOW COLUMNS FROM \"awesome schema\".\"awesome table\"", new ShowColumns(QualifiedName.of("awesome schema", "awesome table"), Optional.empty(), Optional.empty()));
         assertStatement("SHOW COLUMNS FROM a.b LIKE '%$_%' ESCAPE '$'", new ShowColumns(QualifiedName.of("a", "b"), Optional.of("%$_%"), Optional.of("$")));
-        assertInvalidStatement("SHOW COLUMNS FROM a.b LIKE null", "mismatched input 'null'. Expecting: <string>");
-        assertInvalidStatement("SHOW COLUMNS FROM a.b LIKE 'a' ESCAPE null'", "mismatched input 'null'. Expecting: <string>");
+
+        assertStatementIsInvalid("SHOW COLUMNS FROM a.b LIKE null")
+                .withMessage("line 1:28: mismatched input 'null'. Expecting: <string>");
+
+        assertStatementIsInvalid("SHOW COLUMNS FROM a.b LIKE 'a' ESCAPE null'")
+                .withMessage("line 1:39: mismatched input 'null'. Expecting: <string>");
     }
 
     @Test
@@ -1800,8 +1820,8 @@ public class TestSqlParser
                                 new FunctionCall(QualifiedName.of("concat"), ImmutableList.of(new StringLiteral("ban"), new StringLiteral("ana")))),
                         new Property(new Identifier("a"), new ArrayConstructor(ImmutableList.of(new StringLiteral("v1"), new StringLiteral("v2")))))));
 
-        assertStatement("EXPLAIN ANALYZE foo", new Explain(new Analyze(table, ImmutableList.of()), false, false, ImmutableList.of()));
-        assertStatement("EXPLAIN ANALYZE ANALYZE foo", new Explain(new Analyze(table, ImmutableList.of()), true, false, ImmutableList.of()));
+        assertStatement("EXPLAIN ANALYZE foo", new Explain(new Analyze(table, ImmutableList.of()), ImmutableList.of()));
+        assertStatement("EXPLAIN ANALYZE ANALYZE foo", new ExplainAnalyze(new Analyze(table, ImmutableList.of()), false));
     }
 
     @Test
@@ -2147,63 +2167,39 @@ public class TestSqlParser
     public void testExplain()
     {
         assertStatement("EXPLAIN SELECT * FROM t",
-                new Explain(simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))), false, false, ImmutableList.of()));
+                new Explain(simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))), ImmutableList.of()));
         assertStatement("EXPLAIN (TYPE LOGICAL) SELECT * FROM t",
                 new Explain(
                         simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))),
-                        false,
-                        false,
                         ImmutableList.of(new ExplainType(ExplainType.Type.LOGICAL))));
         assertStatement("EXPLAIN (TYPE LOGICAL, FORMAT TEXT) SELECT * FROM t",
                 new Explain(
                         simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))),
-                        false,
-                        false,
                         ImmutableList.of(
                                 new ExplainType(ExplainType.Type.LOGICAL),
                                 new ExplainFormat(ExplainFormat.Type.TEXT))));
-    }
 
-    @Test
-    public void testExplainVerbose()
-    {
-        assertStatement("EXPLAIN VERBOSE SELECT * FROM t",
-                new Explain(simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))), false, true, ImmutableList.of()));
-    }
+        assertStatementIsInvalid("EXPLAIN VERBOSE SELECT * FROM t")
+                .withMessageStartingWith("line 1:9: mismatched input 'VERBOSE'. Expecting: '(', 'ALTER', 'ANALYZE', 'CALL',");
 
-    @Test
-    public void testExplainVerboseTypeLogical()
-    {
-        assertStatement("EXPLAIN VERBOSE (type LOGICAL) SELECT * FROM t",
-                new Explain(simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))), false, true, ImmutableList.of(new ExplainType(ExplainType.Type.LOGICAL))));
+        assertStatementIsInvalid("EXPLAIN VERBOSE (type LOGICAL) SELECT * FROM t")
+                .withMessageStartingWith("line 1:9: mismatched input 'VERBOSE'. Expecting: '(', 'ALTER', 'ANALYZE', 'CALL',");
     }
 
     @Test
     public void testExplainAnalyze()
     {
         assertStatement("EXPLAIN ANALYZE SELECT * FROM t",
-                new Explain(simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))), true, false, ImmutableList.of()));
-    }
+                new ExplainAnalyze(simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))), false));
 
-    @Test
-    public void testExplainAnalyzeTypeDistributed()
-    {
-        assertStatement("EXPLAIN ANALYZE (type DISTRIBUTED) SELECT * FROM t",
-                new Explain(simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))), true, false, ImmutableList.of(new ExplainType(ExplainType.Type.DISTRIBUTED))));
-    }
-
-    @Test
-    public void testExplainAnalyzeVerbose()
-    {
         assertStatement("EXPLAIN ANALYZE VERBOSE SELECT * FROM t",
-                new Explain(simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))), true, true, ImmutableList.of()));
-    }
+                new ExplainAnalyze(simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))), true));
 
-    @Test
-    public void testExplainAnalyzeVerboseTypeDistributed()
-    {
-        assertStatement("EXPLAIN ANALYZE VERBOSE (type DISTRIBUTED) SELECT * FROM t",
-                new Explain(simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))), true, true, ImmutableList.of(new ExplainType(ExplainType.Type.DISTRIBUTED))));
+        assertStatementIsInvalid("EXPLAIN ANALYZE (type DISTRIBUTED) SELECT * FROM t")
+                .withMessage("line 1:18: mismatched input 'type'. Expecting: '(', 'SELECT', 'TABLE', 'VALUES'");
+
+        assertStatementIsInvalid("EXPLAIN ANALYZE VERBOSE (type DISTRIBUTED) SELECT * FROM t")
+                .withMessage("line 1:26: mismatched input 'type'. Expecting: '(', 'SELECT', 'TABLE', 'VALUES'");
     }
 
     @Test
@@ -3404,16 +3400,6 @@ public class TestSqlParser
     }
 
     /**
-     * @deprecated use {@link ParserAssert#statement(String)} instead
-     */
-    @Deprecated
-    private static void assertInvalidStatement(String statement, String expectedErrorMessageRegex)
-    {
-        assertThatThrownBy(() -> SQL_PARSER.createStatement(statement, new ParsingOptions()))
-                .isInstanceOfSatisfying(ParsingException.class, e -> assertTrue(e.getErrorMessage().matches(expectedErrorMessageRegex)));
-    }
-
-    /**
      * @deprecated use {@link ParserAssert#expression(String)} instead
      */
     @Deprecated
@@ -3436,8 +3422,8 @@ public class TestSqlParser
 
     private static void assertInvalidExpression(String expression, String expectedErrorMessageRegex)
     {
-        assertThatThrownBy(() -> createExpression(expression))
-                .isInstanceOfSatisfying(ParsingException.class, e -> assertTrue(e.getErrorMessage().matches(expectedErrorMessageRegex)));
+        assertExpressionIsInvalid(expression)
+                .withMessageMatching("line \\d+:\\d+: " + expectedErrorMessageRegex);
     }
 
     private static String indent(String value)

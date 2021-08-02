@@ -390,7 +390,7 @@ public class BackgroundHiveSplitLoader
             }
             InputFormat<?, ?> targetInputFormat = getInputFormat(configuration, schema, true);
             List<Path> targetPaths = hdfsEnvironment.doAs(
-                    hdfsContext.getIdentity().getUser(),
+                    hdfsContext.getIdentity(),
                     () -> getTargetPathsFromSymlink(fs, path));
             Set<Path> parents = targetPaths.stream()
                     .map(Path::getParent)
@@ -482,7 +482,7 @@ public class BackgroundHiveSplitLoader
             FileInputFormat.setInputPaths(jobConf, path);
             // Pass SerDes and Table parameters into input format configuration
             fromProperties(schema).forEach(jobConf::set);
-            InputSplit[] splits = hdfsEnvironment.doAs(hdfsContext.getIdentity().getUser(), () -> inputFormat.getSplits(jobConf, 0));
+            InputSplit[] splits = hdfsEnvironment.doAs(hdfsContext.getIdentity(), () -> inputFormat.getSplits(jobConf, 0));
 
             return addSplitsToSource(splits, splitFactory);
         }
@@ -492,7 +492,7 @@ public class BackgroundHiveSplitLoader
         AcidInfo.Builder acidInfoBuilder = AcidInfo.builder(path);
         boolean isFullAcid = AcidUtils.isFullAcidTable(table.getParameters());
         if (AcidUtils.isTransactionalTable(table.getParameters())) {
-            AcidUtils.Directory directory = hdfsEnvironment.doAs(hdfsContext.getIdentity().getUser(), () -> AcidUtils.getAcidState(
+            AcidUtils.Directory directory = hdfsEnvironment.doAs(hdfsContext.getIdentity(), () -> AcidUtils.getAcidState(
                     path,
                     configuration,
                     validWriteIds.orElseThrow(() -> new IllegalStateException("No validWriteIds present")),
@@ -636,7 +636,7 @@ public class BackgroundHiveSplitLoader
             }
             FileInputFormat.setInputPaths(targetJob, targetPath);
             InputSplit[] targetSplits = hdfsEnvironment.doAs(
-                    hdfsContext.getIdentity().getUser(),
+                    hdfsContext.getIdentity(),
                     () -> targetInputFormat.getSplits(targetJob, 0));
 
             InternalHiveSplitFactory splitFactory = new InternalHiveSplitFactory(

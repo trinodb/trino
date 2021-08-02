@@ -20,9 +20,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.jdbc.BaseJdbcClient;
-import io.trino.plugin.jdbc.JdbcIdentity;
 import io.trino.plugin.jdbc.mapping.IdentifierMappingModule.ForCachingIdentifierMapping;
 import io.trino.spi.TrinoException;
+import io.trino.spi.security.ConnectorIdentity;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;
@@ -50,7 +50,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public final class CachingIdentifierMapping
         implements IdentifierMapping
 {
-    private final Cache<JdbcIdentity, Mapping> remoteSchemaNames;
+    private final Cache<ConnectorIdentity, Mapping> remoteSchemaNames;
     private final Cache<RemoteTableNameCacheKey, Mapping> remoteTableNames;
     private final IdentifierMapping identifierMapping;
     private final Provider<BaseJdbcClient> baseJdbcClient;
@@ -90,7 +90,7 @@ public final class CachingIdentifierMapping
     }
 
     @Override
-    public String toRemoteSchemaName(JdbcIdentity identity, Connection connection, String schemaName)
+    public String toRemoteSchemaName(ConnectorIdentity identity, Connection connection, String schemaName)
     {
         requireNonNull(schemaName, "schemaName is null");
         verify(CharMatcher.forPredicate(Character::isUpperCase).matchesNoneOf(schemaName), "Expected schema name from internal metadata to be lowercase: %s", schemaName);
@@ -118,7 +118,7 @@ public final class CachingIdentifierMapping
     }
 
     @Override
-    public String toRemoteTableName(JdbcIdentity identity, Connection connection, String remoteSchema, String tableName)
+    public String toRemoteTableName(ConnectorIdentity identity, Connection connection, String remoteSchema, String tableName)
     {
         requireNonNull(remoteSchema, "remoteSchema is null");
         requireNonNull(tableName, "tableName is null");

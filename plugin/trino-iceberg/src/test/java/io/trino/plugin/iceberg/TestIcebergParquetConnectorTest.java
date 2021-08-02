@@ -16,7 +16,7 @@ package io.trino.plugin.iceberg;
 import static org.apache.iceberg.FileFormat.PARQUET;
 
 public class TestIcebergParquetConnectorTest
-        extends AbstractTestIcebergConnectorTest
+        extends BaseIcebergConnectorTest
 {
     public TestIcebergParquetConnectorTest()
     {

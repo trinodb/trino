@@ -42,13 +42,14 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.type.ColorType.COLOR;
 import static java.lang.Float.floatToRawIntBits;
+import static java.lang.Math.multiplyExact;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 
@@ -300,19 +301,19 @@ public final class BlockAssertions
                     VARBINARY.writeSlice(singleRowBlockWriter, (Slice) fieldValue);
                 }
                 else if (fieldValue instanceof Double) {
-                    DOUBLE.writeDouble(singleRowBlockWriter, ((Double) fieldValue).doubleValue());
+                    DOUBLE.writeDouble(singleRowBlockWriter, (Double) fieldValue);
                 }
                 else if (fieldValue instanceof Long) {
-                    BIGINT.writeLong(singleRowBlockWriter, ((Long) fieldValue).longValue());
+                    BIGINT.writeLong(singleRowBlockWriter, (Long) fieldValue);
                 }
                 else if (fieldValue instanceof Boolean) {
-                    BOOLEAN.writeBoolean(singleRowBlockWriter, ((Boolean) fieldValue).booleanValue());
+                    BOOLEAN.writeBoolean(singleRowBlockWriter, (Boolean) fieldValue);
                 }
                 else if (fieldValue instanceof Block) {
                     singleRowBlockWriter.appendStructure((Block) fieldValue);
                 }
                 else if (fieldValue instanceof Integer) {
-                    INTEGER.writeLong(singleRowBlockWriter, ((Integer) fieldValue).intValue());
+                    INTEGER.writeLong(singleRowBlockWriter, (Integer) fieldValue);
                 }
                 else {
                     throw new IllegalArgumentException();
@@ -414,11 +415,11 @@ public final class BlockAssertions
         return builder.build();
     }
 
-    public static Block createTimestampsWithTimeZoneBlock(Long... values)
+    public static Block createTimestampsWithTimeZoneMillisBlock(Long... values)
     {
-        BlockBuilder builder = TIMESTAMP_WITH_TIME_ZONE.createFixedSizeBlockBuilder(values.length);
+        BlockBuilder builder = TIMESTAMP_TZ_MILLIS.createFixedSizeBlockBuilder(values.length);
         for (long value : values) {
-            TIMESTAMP_WITH_TIME_ZONE.writeLong(builder, value);
+            TIMESTAMP_TZ_MILLIS.writeLong(builder, value);
         }
         return builder.build();
     }
@@ -460,7 +461,7 @@ public final class BlockAssertions
         BlockBuilder builder = REAL.createFixedSizeBlockBuilder(end - start);
 
         for (int i = start; i < end; i++) {
-            REAL.writeLong(builder, floatToRawIntBits((float) i));
+            REAL.writeLong(builder, floatToRawIntBits(i));
         }
 
         return builder.build();
@@ -533,7 +534,7 @@ public final class BlockAssertions
         BlockBuilder builder = TIMESTAMP_MILLIS.createFixedSizeBlockBuilder(end - start);
 
         for (int i = start; i < end; i++) {
-            TIMESTAMP_MILLIS.writeLong(builder, i * MICROSECONDS_PER_MILLISECOND);
+            TIMESTAMP_MILLIS.writeLong(builder, multiplyExact(i, MICROSECONDS_PER_MILLISECOND));
         }
 
         return builder.build();

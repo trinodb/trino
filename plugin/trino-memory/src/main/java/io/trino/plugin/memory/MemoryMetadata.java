@@ -22,7 +22,6 @@ import io.trino.spi.HostAddress;
 import io.trino.spi.Node;
 import io.trino.spi.NodeManager;
 import io.trino.spi.TrinoException;
-import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
@@ -123,18 +122,6 @@ public class MemoryMetadata
         }
 
         verify(schemas.remove(schemaName));
-    }
-
-    @Override
-    public Optional<TrinoPrincipal> getSchemaOwner(ConnectorSession session, CatalogSchemaName schemaName)
-    {
-        return Optional.empty();
-    }
-
-    @Override
-    public Map<String, Object> getSchemaProperties(ConnectorSession session, CatalogSchemaName schemaName)
-    {
-        return ImmutableMap.of();
     }
 
     @Override

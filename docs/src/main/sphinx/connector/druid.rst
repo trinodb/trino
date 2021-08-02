@@ -5,6 +5,15 @@ Druid connector
 The Druid connector allows querying an `Apache Druid <https://druid.apache.org/>`_
 database from Trino.
 
+Requirements
+------------
+
+To connect to Druid, you need:
+
+* Druid version 0.18.0 or higher.
+* Network access from the Trino coordinator and workers to your Druid broker.
+  Port 8082 is the default port.
+
 Configuration
 -------------
 
@@ -32,3 +41,12 @@ secured by basic authentication by updating the URL and adding credentials:
 
 Now you can access your Druid database in Trino with the ``druiddb`` catalog
 name from the properties file.
+
+.. _druid-sql-support:
+
+SQL support
+-----------
+
+The connector provides :ref:`globally available <sql-globally-available>` and
+:ref:`read operation <sql-read-operations>` statements to access data and
+metadata in the Druid database.

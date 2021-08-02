@@ -119,6 +119,22 @@ Finally, you can access the ``clicks`` table in the ``web`` schema::
 If you used a different name for your catalog properties file, use
 that catalog name instead of ``postgresql`` in the above examples.
 
+.. _postgresql-sql-support:
+
+SQL support
+-----------
+
+The connector provides read access and write access to data and metadata in
+PostgreSQL.  In addition to the :ref:`globally available
+<sql-globally-available>` and :ref:`read operation <sql-read-operations>`
+statements, the connector supports the following features:
+
+* :doc:`/sql/insert`
+* :doc:`/sql/delete`
+* :ref:`sql-schema-table-management`
+
+.. include:: sql-delete-limitation.fragment
+
 .. _postgresql-pushdown:
 
 Pushdown
@@ -148,15 +164,3 @@ The connector supports pushdown for a number of operations:
 * :func:`corr`
 * :func:`regr_intercept`
 * :func:`regr_slope`
-
-Limitations
------------
-
-The following SQL statements are not yet supported:
-
-* :doc:`/sql/delete`
-* :doc:`/sql/grant`
-* :doc:`/sql/revoke`
-* :doc:`/sql/show-grants`
-* :doc:`/sql/show-roles`
-* :doc:`/sql/show-role-grants`

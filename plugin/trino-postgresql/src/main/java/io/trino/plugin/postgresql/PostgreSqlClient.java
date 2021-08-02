@@ -36,6 +36,8 @@ import io.trino.plugin.jdbc.LongWriteFunction;
 import io.trino.plugin.jdbc.ObjectReadFunction;
 import io.trino.plugin.jdbc.ObjectWriteFunction;
 import io.trino.plugin.jdbc.PredicatePushdownController;
+import io.trino.plugin.jdbc.PreparedQuery;
+import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.ReadFunction;
 import io.trino.plugin.jdbc.SliceReadFunction;
 import io.trino.plugin.jdbc.SliceWriteFunction;
@@ -71,6 +73,7 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
+import io.trino.spi.predicate.Domain;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
@@ -110,6 +113,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.UUID;
 import java.util.function.BiFunction;
 import java.util.stream.Stream;
@@ -126,6 +130,7 @@ import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalDef
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRounding;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRoundingMode;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.getDomainCompactionThreshold;
 import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
 import static io.trino.plugin.jdbc.PredicatePushdownController.FULL_PUSHDOWN;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
@@ -230,15 +235,26 @@ public class PostgreSqlClient
                 domain.getType() instanceof VarcharType || domain.getType() instanceof CharType,
                 "This PredicatePushdownController can be used only for chars and varchars");
 
-        if (domain.isOnlyNull() ||
-                // PostgreSQL is case sensitive by default
-                domain.getValues().isDiscreteSet()) {
+        if (domain.isOnlyNull()) {
             return FULL_PUSHDOWN.apply(session, domain);
         }
 
+        // PostgreSQL is case sensitive by default
         // PostgreSQL by default orders lowercase letters before uppercase, which is different from Trino
         // TODO We could still push the predicates down if we could inject a PostgreSQL-specific syntax for selecting a collation for given comparison.
-        return DISABLE_PUSHDOWN.apply(session, domain);
+        if (!domain.getValues().isDiscreteSet()) {
+            // Push down of range predicate for varchar/char types could lead to incorrect results
+            // due to different sort ordering of lowercase and uppercase letters in PostgreSQL
+            return DISABLE_PUSHDOWN.apply(session, domain);
+        }
+
+        Domain simplifiedDomain = domain.simplify(getDomainCompactionThreshold(session));
+        if (!simplifiedDomain.getValues().isDiscreteSet()) {
+            // Domain#simplify can turn a discrete set into a range predicate
+            return DISABLE_PUSHDOWN.apply(session, domain);
+        }
+
+        return FULL_PUSHDOWN.apply(session, simplifiedDomain);
     };
 
     @Inject
@@ -267,7 +283,7 @@ public class PostgreSqlClient
                 ImmutableSet.<AggregateFunctionRule>builder()
                         .add(new ImplementCountAll(bigintTypeHandle))
                         .add(new ImplementCount(bigintTypeHandle))
-                        .add(new ImplementMinMax())
+                        .add(new ImplementMinMax(false))
                         .add(new ImplementSum(PostgreSqlClient::toTypeHandle))
                         .add(new ImplementAvgFloatingPoint())
                         .add(new ImplementAvgDecimal())
@@ -679,6 +695,13 @@ public class PostgreSqlClient
         return aggregateFunctionRewriter.rewrite(session, aggregate, assignments);
     }
 
+    @Override
+    public boolean supportsAggregationPushdown(ConnectorSession session, JdbcTableHandle table, List<AggregateFunction> aggregates, Map<String, ColumnHandle> assignments, List<List<ColumnHandle>> groupingSets)
+    {
+        // Postgres sorts textual types differently compared to Trino so we cannot safely pushdown any aggregations which take a text type as an input or as part of grouping set
+        return preventTextualTypeAggregationPushdown(groupingSets);
+    }
+
     private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)
     {
         return Optional.of(new JdbcTypeHandle(Types.NUMERIC, Optional.of("decimal"), Optional.of(decimalType.getPrecision()), Optional.of(decimalType.getScale()), Optional.empty(), Optional.empty()));
@@ -746,6 +769,28 @@ public class PostgreSqlClient
     public boolean isLimitGuaranteed(ConnectorSession session)
     {
         return true;
+    }
+
+    @Override
+    public OptionalLong delete(ConnectorSession session, JdbcTableHandle handle)
+    {
+        checkArgument(handle.isNamedRelation(), "Unable to delete from synthetic table: %s", handle);
+        checkArgument(handle.getLimit().isEmpty(), "Unable to delete when limit is set: %s", handle);
+        checkArgument(handle.getSortOrder().isEmpty(), "Unable to delete when sort order is set: %s", handle);
+        try (Connection connection = connectionFactory.openConnection(session)) {
+            verify(connection.getAutoCommit());
+            QueryBuilder queryBuilder = new QueryBuilder(this);
+            PreparedQuery preparedQuery = queryBuilder.prepareDelete(session, connection, handle.getRequiredNamedRelation(), handle.getConstraint());
+            try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(session, connection, preparedQuery)) {
+                int affectedRowsCount = preparedStatement.executeUpdate();
+                // connection.getAutoCommit() is not enough for PostgreSQL to make DELETE effective and explicit commit is required
+                connection.commit();
+                return OptionalLong.of(affectedRowsCount);
+            }
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
     }
 
     @Override

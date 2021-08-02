@@ -32,6 +32,7 @@ import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.connector.UpdatablePageSource;
+import io.trino.spi.metrics.Metrics;
 import io.trino.split.EmptySplit;
 import io.trino.split.PageSourceProvider;
 
@@ -115,6 +116,12 @@ public class TableScanWorkProcessorOperator
     public long getDynamicFilterSplitsProcessed()
     {
         return splitToPages.getDynamicFilterSplitsProcessed();
+    }
+
+    @Override
+    public Metrics getConnectorMetrics()
+    {
+        return splitToPages.source.getMetrics();
     }
 
     @Override
@@ -210,7 +217,10 @@ public class TableScanWorkProcessorOperator
 
         long getPhysicalInputPositions()
         {
-            return processedPositions;
+            if (source == null) {
+                return 0;
+            }
+            return source.getCompletedPositions().orElse(processedPositions);
         }
 
         DataSize getInputDataSize()

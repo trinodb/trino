@@ -35,7 +35,9 @@ import io.trino.operator.PipelineContext;
 import io.trino.operator.PipelineStatus;
 import io.trino.operator.TaskContext;
 import io.trino.operator.TaskStats;
+import io.trino.spi.predicate.Domain;
 import io.trino.sql.planner.PlanFragment;
+import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNodeId;
 import org.joda.time.DateTime;
 
@@ -43,6 +45,7 @@ import javax.annotation.Nullable;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
@@ -406,7 +409,13 @@ public class SqlTask
         return Futures.transform(taskStatusVersionChange.createNewListener(), input -> getTaskInfo(), directExecutor());
     }
 
-    public TaskInfo updateTask(Session session, Optional<PlanFragment> fragment, List<TaskSource> sources, OutputBuffers outputBuffers, OptionalInt totalPartitions)
+    public TaskInfo updateTask(
+            Session session,
+            Optional<PlanFragment> fragment,
+            List<TaskSource> sources,
+            OutputBuffers outputBuffers,
+            OptionalInt totalPartitions,
+            Map<DynamicFilterId, Domain> dynamicFilterDomains)
     {
         try {
             // The LazyOutput buffer does not support write methods, so the actual
@@ -441,6 +450,7 @@ public class SqlTask
 
             if (taskExecution != null) {
                 taskExecution.addSources(sources);
+                taskExecution.getTaskContext().addDynamicFilter(dynamicFilterDomains);
             }
         }
         catch (Error e) {

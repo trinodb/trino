@@ -14,6 +14,20 @@
 package io.trino.plugin.jdbc;
 
 import io.trino.testing.BaseConnectorSmokeTest;
+import io.trino.testing.TestingConnectorBehavior;
 
 public abstract class BaseJdbcConnectorSmokeTest
-        extends BaseConnectorSmokeTest {}
+        extends BaseConnectorSmokeTest
+{
+    @Override
+    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
+    {
+        switch (connectorBehavior) {
+            case SUPPORTS_DELETE:
+                return true;
+
+            default:
+                return super.hasBehavior(connectorBehavior);
+        }
+    }
+}

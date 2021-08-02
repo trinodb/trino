@@ -55,6 +55,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.transaction.IsolationLevel;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
@@ -2719,6 +2720,12 @@ public class TestAnalyzer
                 .hasErrorCode(TYPE_MISMATCH);
         assertFails("SELECT 'a' LIKE 'b' ESCAPE 1 FROM t1")
                 .hasErrorCode(TYPE_MISMATCH);
+        assertFails("SELECT 'abc' LIKE CHAR 'abc' FROM t1")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:19: Pattern for LIKE expression must evaluate to a varchar (actual: char(3))");
+        assertFails("SELECT 'abc' LIKE 'abc' ESCAPE CHAR '#' FROM t1")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:32: Escape for LIKE expression must evaluate to a varchar (actual: char(1))");
 
         // extract
         assertFails("SELECT EXTRACt(DAY FROM 'a') FROM t1")
@@ -4753,7 +4760,7 @@ public class TestAnalyzer
                 .hasMessage("line 1:15: column [b] of type bigint projected from storage table at position 1 has a different name from column [c] of type bigint stored in materialized view definition");
         assertFails("SELECT * FROM fresh_materialized_view_mismatched_column_type")
                 .hasErrorCode(INVALID_VIEW)
-                .hasMessage("line 1:15: column [b] of type bigint projected from storage table at position 1 has a different type from column [b] of type tinyint stored in view definition");
+                .hasMessage("line 1:15: cannot cast column [b] of type bigint projected from storage table at position 1 into column [b] of type row(tinyint) stored in view definition");
     }
 
     @Test
@@ -5098,11 +5105,11 @@ public class TestAnalyzer
                 session,
                 freshMaterializedMismatchedColumnType,
                 new ConnectorMaterializedViewDefinition(
-                        "SELECT a, CAST(b as tinyint) b FROM t1",
+                        "SELECT a, null b FROM t1",
                         Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t2")),
                         Optional.of(TPCH_CATALOG),
                         Optional.of("s1"),
-                        ImmutableList.of(new Column("a", BIGINT.getTypeId()), new Column("b", TINYINT.getTypeId())),
+                        ImmutableList.of(new Column("a", BIGINT.getTypeId()), new Column("b", RowType.anonymousRow(TINYINT).getTypeId())),
                         Optional.empty(),
                         "some user",
                         ImmutableMap.of()),

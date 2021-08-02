@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.jdbc.mapping;
 
-import io.trino.plugin.jdbc.JdbcIdentity;
 import io.trino.spi.TrinoException;
+import io.trino.spi.security.ConnectorIdentity;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -48,13 +48,13 @@ public class DefaultIdentifierMapping
     }
 
     @Override
-    public String toRemoteSchemaName(JdbcIdentity identity, Connection connection, String schemaName)
+    public String toRemoteSchemaName(ConnectorIdentity identity, Connection connection, String schemaName)
     {
         return toRemoteIdentifier(connection, schemaName);
     }
 
     @Override
-    public String toRemoteTableName(JdbcIdentity identity, Connection connection, String remoteSchema, String tableName)
+    public String toRemoteTableName(ConnectorIdentity identity, Connection connection, String remoteSchema, String tableName)
     {
         return toRemoteIdentifier(connection, tableName);
     }

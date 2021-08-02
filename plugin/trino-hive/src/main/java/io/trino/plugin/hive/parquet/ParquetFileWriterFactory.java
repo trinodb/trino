@@ -102,7 +102,7 @@ public class ParquetFileWriterFactory
                 .toArray();
 
         try {
-            FileSystem fileSystem = hdfsEnvironment.getFileSystem(session.getUser(), path, conf);
+            FileSystem fileSystem = hdfsEnvironment.getFileSystem(session.getIdentity(), path, conf);
 
             Callable<Void> rollbackAction = () -> {
                 fileSystem.delete(path, false);

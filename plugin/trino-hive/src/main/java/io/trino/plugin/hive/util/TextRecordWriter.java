@@ -24,8 +24,10 @@ import org.apache.hadoop.mapred.Reporter;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.Optional;
 import java.util.Properties;
 
+import static java.lang.Integer.parseInt;
 import static org.apache.hadoop.hive.ql.exec.Utilities.createCompressedStream;
 
 public class TextRecordWriter
@@ -35,7 +37,7 @@ public class TextRecordWriter
     private final OutputStream compressedOutput;
     private final int rowSeparator;
 
-    public TextRecordWriter(Path path, JobConf jobConf, Properties properties, boolean isCompressed)
+    public TextRecordWriter(Path path, JobConf jobConf, Properties properties, boolean isCompressed, Optional<TextHeaderWriter> textHeaderWriter)
             throws IOException
     {
         String rowSeparatorString = properties.getProperty(serdeConstants.LINE_DELIM, "\n");
@@ -50,6 +52,15 @@ public class TextRecordWriter
         rowSeparator = rowSeparatorByte;
         output = path.getFileSystem(jobConf).create(path, Reporter.NULL);
         compressedOutput = createCompressedStream(jobConf, output, isCompressed);
+
+        Optional<String> skipHeaderLine = Optional.ofNullable(properties.getProperty("skip.header.line.count"));
+        if (skipHeaderLine.isPresent()) {
+            if (parseInt(skipHeaderLine.get()) == 1) {
+                textHeaderWriter
+                        .orElseThrow(() -> new IllegalArgumentException("TextHeaderWriter must not be empty when skip.header.line.count is set to 1"))
+                        .write(compressedOutput, rowSeparator);
+            }
+        }
     }
 
     @Override

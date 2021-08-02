@@ -31,7 +31,7 @@ import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.plugin.base.security.AllowAllAccessControl;
 import io.trino.plugin.hive.HiveHdfsModule;
 import io.trino.plugin.hive.NodeVersion;
-import io.trino.plugin.hive.authentication.HiveAuthenticationModule;
+import io.trino.plugin.hive.authentication.HdfsAuthenticationModule;
 import io.trino.plugin.hive.azure.HiveAzureModule;
 import io.trino.plugin.hive.gcs.HiveGcsModule;
 import io.trino.plugin.hive.metastore.HiveMetastore;
@@ -81,7 +81,7 @@ public final class InternalIcebergConnectorFactory
                     new HiveS3Module(),
                     new HiveGcsModule(),
                     new HiveAzureModule(),
-                    new HiveAuthenticationModule(),
+                    new HdfsAuthenticationModule(),
                     new HiveMetastoreModule(metastore),
                     new MBeanServerModule(),
                     trackMetadataIo
@@ -96,7 +96,6 @@ public final class InternalIcebergConnectorFactory
                     });
 
             Injector injector = app
-                    .strictConfig()
                     .doNotInitializeLogging()
                     .setRequiredConfigurationProperties(config)
                     .initialize();

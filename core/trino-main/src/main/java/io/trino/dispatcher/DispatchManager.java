@@ -13,6 +13,7 @@
  */
 package io.trino.dispatcher;
 
+import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.Session;
@@ -49,7 +50,6 @@ import java.util.concurrent.Executor;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
 import static io.trino.execution.QueryState.QUEUED;
 import static io.trino.execution.QueryState.RUNNING;
 import static io.trino.spi.StandardErrorCode.QUERY_TEXT_TOO_LARGE;
@@ -69,6 +69,7 @@ public class DispatchManager
     private final AccessControl accessControl;
     private final SessionSupplier sessionSupplier;
     private final SessionPropertyDefaults sessionPropertyDefaults;
+    private final SessionPropertyManager sessionPropertyManager;
 
     private final int maxQueryLength;
 
@@ -89,6 +90,7 @@ public class DispatchManager
             AccessControl accessControl,
             SessionSupplier sessionSupplier,
             SessionPropertyDefaults sessionPropertyDefaults,
+            SessionPropertyManager sessionPropertyManager,
             QueryManagerConfig queryManagerConfig,
             DispatchExecutor dispatchExecutor)
     {
@@ -101,6 +103,7 @@ public class DispatchManager
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.sessionSupplier = requireNonNull(sessionSupplier, "sessionSupplier is null");
         this.sessionPropertyDefaults = requireNonNull(sessionPropertyDefaults, "sessionPropertyDefaults is null");
+        this.sessionPropertyManager = sessionPropertyManager;
 
         requireNonNull(queryManagerConfig, "queryManagerConfig is null");
         this.maxQueryLength = queryManagerConfig.getMaxQueryLength();
@@ -142,7 +145,19 @@ public class DispatchManager
         checkArgument(!query.isEmpty(), "query must not be empty string");
         checkArgument(queryTracker.tryGetQuery(queryId).isEmpty(), "query %s already exists", queryId);
 
-        return nonCancellationPropagating(Futures.submit(() -> createQueryInternal(queryId, slug, sessionContext, query, resourceGroupManager), dispatchExecutor));
+        // It is important to return a future implementation which ignores cancellation request.
+        // Using NonCancellationPropagatingFuture is not enough; it does not propagate cancel to wrapped future
+        // but it would still return true on call to isCancelled() after cancel() is called on it.
+        DispatchQueryCreationFuture queryCreationFuture = new DispatchQueryCreationFuture();
+        dispatchExecutor.execute(() -> {
+            try {
+                createQueryInternal(queryId, slug, sessionContext, query, resourceGroupManager);
+            }
+            finally {
+                queryCreationFuture.set(null);
+            }
+        });
+        return queryCreationFuture;
     }
 
     /**
@@ -170,7 +185,7 @@ public class DispatchManager
             preparedQuery = queryPreparer.prepareQuery(session, query);
 
             // select resource group
-            Optional<String> queryType = getQueryType(preparedQuery.getStatement().getClass()).map(Enum::name);
+            Optional<String> queryType = getQueryType(preparedQuery.getStatement()).map(Enum::name);
             SelectionContext<C> selectionContext = resourceGroupManager.selectGroup(new SelectionCriteria(
                     sessionContext.getIdentity().getPrincipal().isPresent(),
                     sessionContext.getIdentity().getUser(),
@@ -207,7 +222,7 @@ public class DispatchManager
         catch (Throwable throwable) {
             // creation must never fail, so register a failed query in this case
             if (session == null) {
-                session = Session.builder(new SessionPropertyManager())
+                session = Session.builder(sessionPropertyManager)
                         .setQueryId(queryId)
                         .setIdentity(sessionContext.getIdentity())
                         .setSource(sessionContext.getSource())
@@ -311,5 +326,28 @@ public class DispatchManager
 
         queryTracker.tryGetQuery(queryId)
                 .ifPresent(query -> query.fail(cause));
+    }
+
+    private static class DispatchQueryCreationFuture
+            extends AbstractFuture<Void>
+    {
+        @Override
+        protected boolean set(Void value)
+        {
+            return super.set(value);
+        }
+
+        @Override
+        protected boolean setException(Throwable throwable)
+        {
+            return super.setException(throwable);
+        }
+
+        @Override
+        public boolean cancel(boolean mayInterruptIfRunning)
+        {
+            // query submission cannot be canceled
+            return false;
+        }
     }
 }

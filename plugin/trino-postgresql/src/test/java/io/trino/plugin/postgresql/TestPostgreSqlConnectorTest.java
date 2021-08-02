@@ -13,10 +13,13 @@
  */
 package io.trino.plugin.postgresql;
 
+import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
+import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.RemoteDatabaseEvent;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.TableScanNode;
@@ -42,6 +45,7 @@ import java.util.UUID;
 import static io.trino.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.Math.round;
 import static java.lang.String.format;
@@ -258,6 +262,34 @@ public class TestPostgreSqlConnectorTest
         assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name BETWEEN 'POLAND' AND 'RPA'"))
                 .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(25)))")
                 .isNotFullyPushedDown(FilterNode.class);
+
+        // varchar IN without domain compaction
+        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name IN ('POLAND', 'ROMANIA', 'VIETNAM')"))
+                .matches("VALUES " +
+                        "(BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(25))), " +
+                        "(BIGINT '2', BIGINT '21', CAST('VIETNAM' AS varchar(25)))")
+                .isFullyPushedDown();
+
+        // varchar IN with small compaction threshold
+        assertThat(query(
+                Session.builder(getSession())
+                        .setCatalogSessionProperty("postgresql", "domain_compaction_threshold", "1")
+                        .build(),
+                "SELECT regionkey, nationkey, name FROM nation WHERE name IN ('POLAND', 'ROMANIA', 'VIETNAM')"))
+                .matches("VALUES " +
+                        "(BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(25))), " +
+                        "(BIGINT '2', BIGINT '21', CAST('VIETNAM' AS varchar(25)))")
+                // Filter node is retained as no constraint is pushed into connector.
+                // The compacted domain is a range predicate which can give wrong results
+                // if pushed down as PostgreSQL has different sort ordering for letters from Trino
+                .isNotFullyPushedDown(
+                        node(
+                                FilterNode.class,
+                                // verify that no constraint is applied by the connector
+                                tableScan(
+                                        tableHandle -> ((JdbcTableHandle) tableHandle).getConstraint().isAll(),
+                                        TupleDomain.all(),
+                                        ImmutableMap.of())));
 
         // varchar different case
         assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name = 'romania'"))

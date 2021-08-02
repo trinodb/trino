@@ -48,7 +48,6 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.ResponseBuilder;
-import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriInfo;
 
 import java.net.URLEncoder;
@@ -163,7 +162,7 @@ public class ExecutingStatementResource
         Query query = queries.get(queryId);
         if (query != null) {
             if (!query.isSlugValid(slug, token)) {
-                throw badRequest(NOT_FOUND, "Query not found");
+                throw queryNotFound();
             }
             return query;
         }
@@ -175,11 +174,11 @@ public class ExecutingStatementResource
             session = queryManager.getQuerySession(queryId);
             querySlug = queryManager.getQuerySlug(queryId);
             if (!querySlug.isValid(EXECUTING_QUERY, slug, token)) {
-                throw badRequest(NOT_FOUND, "Query not found");
+                throw queryNotFound();
             }
         }
         catch (NoSuchElementException e) {
-            throw badRequest(NOT_FOUND, "Query not found");
+            throw queryNotFound();
         }
 
         query = queries.computeIfAbsent(queryId, id -> {
@@ -280,7 +279,7 @@ public class ExecutingStatementResource
         Query query = queries.get(queryId);
         if (query != null) {
             if (!query.isSlugValid(slug, token)) {
-                throw badRequest(NOT_FOUND, "Query not found");
+                throw queryNotFound();
             }
             query.cancel();
             return Response.noContent().build();
@@ -289,13 +288,13 @@ public class ExecutingStatementResource
         // cancel the query execution directly instead of creating the statement client
         try {
             if (!queryManager.getQuerySlug(queryId).isValid(EXECUTING_QUERY, slug, token)) {
-                throw badRequest(NOT_FOUND, "Query not found");
+                throw queryNotFound();
             }
             queryManager.cancelQuery(queryId);
             return Response.noContent().build();
         }
         catch (NoSuchElementException e) {
-            throw badRequest(NOT_FOUND, "Query not found");
+            throw queryNotFound();
         }
     }
 
@@ -312,12 +311,12 @@ public class ExecutingStatementResource
         query.partialCancel(stage);
     }
 
-    private static WebApplicationException badRequest(Status status, String message)
+    private static WebApplicationException queryNotFound()
     {
         throw new WebApplicationException(
-                Response.status(status)
+                Response.status(NOT_FOUND)
                         .type(TEXT_PLAIN_TYPE)
-                        .entity(message)
+                        .entity("Query not found")
                         .build());
     }
 

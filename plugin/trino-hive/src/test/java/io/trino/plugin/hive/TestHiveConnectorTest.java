@@ -41,7 +41,6 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.plan.ExchangeNode;
-import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.planprinter.IoPlanPrinter.ColumnConstraint;
 import io.trino.sql.planner.planprinter.IoPlanPrinter.EstimatedStatsAndCost;
 import io.trino.sql.planner.planprinter.IoPlanPrinter.FormattedDomain;
@@ -222,6 +221,41 @@ public class TestHiveConnectorTest
                 .hasStackTraceContaining("Deletes must match whole partitions for non-transactional tables");
     }
 
+    @Override
+    public void testDeleteWithComplexPredicate()
+    {
+        assertThatThrownBy(super::testDeleteWithComplexPredicate)
+                .hasStackTraceContaining("Deletes must match whole partitions for non-transactional tables");
+    }
+
+    @Override
+    public void testDeleteWithSemiJoin()
+    {
+        assertThatThrownBy(super::testDeleteWithSemiJoin)
+                .hasStackTraceContaining("Deletes must match whole partitions for non-transactional tables");
+    }
+
+    @Override
+    public void testDeleteWithSubquery()
+    {
+        assertThatThrownBy(super::testDeleteWithSubquery)
+                .hasStackTraceContaining("Deletes must match whole partitions for non-transactional tables");
+    }
+
+    @Override
+    public void testDeleteWithVarcharPredicate()
+    {
+        assertThatThrownBy(super::testDeleteWithVarcharPredicate)
+                .hasStackTraceContaining("Deletes must match whole partitions for non-transactional tables");
+    }
+
+    @Override
+    public void testRowLevelDelete()
+    {
+        assertThatThrownBy(super::testRowLevelDelete)
+                .hasStackTraceContaining("Deletes must match whole partitions for non-transactional tables");
+    }
+
     @Test
     public void testRequiredPartitionFilter()
     {
@@ -376,7 +410,7 @@ public class TestHiveConnectorTest
 
         assertUpdate(session, "CREATE TABLE new_schema.test (x bigint)");
 
-        assertQueryFails(session, "DROP SCHEMA new_schema", "Schema not empty: new_schema");
+        assertQueryFails(session, "DROP SCHEMA new_schema", ".*Cannot drop non-empty schema 'new_schema'");
 
         assertUpdate(session, "DROP TABLE new_schema.test");
 
@@ -785,6 +819,7 @@ public class TestHiveConnectorTest
     }
 
     @Test
+    @Override
     public void testShowCreateSchema()
     {
         Session admin = Session.builder(getSession())
@@ -3681,6 +3716,24 @@ public class TestHiveConnectorTest
         actual = computeActual(format("SHOW CREATE TABLE %s_table_skip_header_footer", format));
         assertEquals(actual.getOnlyValue(), createTableSql);
         assertUpdate(format("DROP TABLE %s_table_skip_header_footer", format));
+
+        createTableSql = format("" +
+                        "CREATE TABLE %s.%s.%s_table_skip_header " +
+                        "WITH (\n" +
+                        "   format = '%s',\n" +
+                        "   skip_header_line_count = 1\n" +
+                        ") AS SELECT CAST(1 AS VARCHAR) AS col_name1, CAST(2 AS VARCHAR) as col_name2",
+                catalog, schema, name, format);
+
+        assertUpdate(createTableSql, 1);
+        assertUpdate(format("INSERT INTO %s.%s.%s_table_skip_header VALUES('3', '4')", catalog, schema, name), 1);
+        MaterializedResult materializedRows = computeActual(format("SELECT * FROM %s_table_skip_header", name));
+        assertEqualsIgnoreOrder(materializedRows, resultBuilder(getSession(), VARCHAR, VARCHAR)
+                .row("1", "2")
+                .row("3", "4")
+                .build()
+                .getMaterializedRows());
+        assertUpdate(format("DROP TABLE %s_table_skip_header", format));
     }
 
     @Test
@@ -3704,7 +3757,7 @@ public class TestHiveConnectorTest
                         ")\n" +
                         "WITH (\n" +
                         "   format = 'CSV',\n" +
-                        "   skip_header_line_count = 1\n" +
+                        "   skip_header_line_count = 2\n" +
                         ")",
                 getSession().getCatalog().get(),
                 getSession().getSchema().get());
@@ -3715,7 +3768,7 @@ public class TestHiveConnectorTest
                 format("INSERT INTO %s.%s.csv_table_skip_header VALUES ('name')",
                         getSession().getCatalog().get(),
                         getSession().getSchema().get())))
-                .hasMessageMatching("Inserting into Hive table with skip.header.line.count property not supported");
+                .hasMessageMatching("Inserting into Hive table with value of skip.header.line.count property greater than 1 is not supported");
 
         assertUpdate("DROP TABLE csv_table_skip_header");
 
@@ -3756,7 +3809,7 @@ public class TestHiveConnectorTest
                 format("INSERT INTO %s.%s.csv_table_skip_header_footer VALUES ('name')",
                         getSession().getCatalog().get(),
                         getSession().getSchema().get())))
-                .hasMessageMatching("Inserting into Hive table with skip.header.line.count property not supported");
+                .hasMessageMatching("Inserting into Hive table with skip.footer.line.count property not supported");
 
         assertUpdate("DROP TABLE csv_table_skip_header_footer");
     }
@@ -7300,25 +7353,6 @@ public class TestHiveConnectorTest
                 .build();
         assertQuery(session, actual, expected, assertPartialLimitWithPreSortedInputsCount(session, 1));
         assertUpdate("DROP TABLE " + tableName);
-    }
-
-    private Consumer<Plan> assertPartialLimitWithPreSortedInputsCount(Session session, int expectedCount)
-    {
-        return plan -> {
-            int actualCount = searchFrom(plan.getRoot())
-                    .where(node -> node instanceof LimitNode && ((LimitNode) node).isPartial() && ((LimitNode) node).requiresPreSortedInputs())
-                    .findAll()
-                    .size();
-            if (actualCount != expectedCount) {
-                Metadata metadata = getDistributedQueryRunner().getCoordinator().getMetadata();
-                String formattedPlan = textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, StatsAndCosts.empty(), session, 0, false);
-                throw new AssertionError(format(
-                        "Expected [\n%s\n] partial limit but found [\n%s\n] partial limit. Actual plan is [\n\n%s\n]",
-                        expectedCount,
-                        actualCount,
-                        formattedPlan));
-            }
-        };
     }
 
     @Test

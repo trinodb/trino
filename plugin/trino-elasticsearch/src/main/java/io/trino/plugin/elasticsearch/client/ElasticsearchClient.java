@@ -17,6 +17,8 @@ import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
+import com.amazonaws.auth.STSAssumeRoleSessionCredentialsProvider;
+import com.amazonaws.services.securitytoken.AWSSecurityTokenServiceClientBuilder;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.NullNode;
@@ -258,12 +260,25 @@ public class ElasticsearchClient
 
     private static AWSCredentialsProvider getAwsCredentialsProvider(AwsSecurityConfig config)
     {
+        AWSCredentialsProvider credentialsProvider = DefaultAWSCredentialsProviderChain.getInstance();
+
         if (config.getAccessKey().isPresent() && config.getSecretKey().isPresent()) {
-            return new AWSStaticCredentialsProvider(new BasicAWSCredentials(
+            credentialsProvider = new AWSStaticCredentialsProvider(new BasicAWSCredentials(
                     config.getAccessKey().get(),
                     config.getSecretKey().get()));
         }
-        return DefaultAWSCredentialsProviderChain.getInstance();
+
+        if (config.getIamRole().isPresent()) {
+            STSAssumeRoleSessionCredentialsProvider.Builder credentialsProviderBuilder = new STSAssumeRoleSessionCredentialsProvider.Builder(config.getIamRole().get(), "trino-session")
+                    .withStsClient(AWSSecurityTokenServiceClientBuilder.standard()
+                            .withRegion(config.getRegion())
+                            .withCredentials(credentialsProvider)
+                            .build());
+            config.getExternalId().ifPresent(credentialsProviderBuilder::withExternalId);
+            credentialsProvider = credentialsProviderBuilder.build();
+        }
+
+        return credentialsProvider;
     }
 
     private static Optional<SSLContext> buildSslContext(

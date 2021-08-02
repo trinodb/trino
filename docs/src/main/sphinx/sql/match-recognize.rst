@@ -181,6 +181,8 @@ Otherwise, they are considered as starting rows of empty matches. The option
 recognition is expected to pass all input rows, and it is not certain whether
 the pattern allows an empty match.
 
+.. _after_match_skip:
+
 After match skip
 ----------------
 
@@ -599,7 +601,7 @@ This is incorrect::
 It is also required that all column references and all ``classifier`` calls
 inside a pattern navigation function are consistent in referred pattern
 variables. They must all refer either to the same primary variable, the same
-union variable, or to the implicit universal patter variable. The following
+union variable, or to the implicit universal pattern variable. The following
 examples are correct::
 
     LAST(CLASSIFIER() = 'A' OR totalprice > 10) /* universal pattern variable */

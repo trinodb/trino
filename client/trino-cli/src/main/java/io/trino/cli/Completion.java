@@ -13,42 +13,42 @@
  */
 package io.trino.cli;
 
-import com.google.common.collect.ImmutableSet;
 import org.jline.reader.Completer;
+import org.jline.reader.impl.completer.AggregateCompleter;
+import org.jline.reader.impl.completer.ArgumentCompleter;
+import org.jline.reader.impl.completer.NullCompleter;
 import org.jline.reader.impl.completer.StringsCompleter;
 
-import java.util.Set;
+import java.util.List;
 
-import static java.util.Locale.ENGLISH;
-import static java.util.stream.Collectors.toSet;
+import static java.util.Arrays.asList;
 
 public final class Completion
 {
-    private static final Set<String> COMMANDS = ImmutableSet.of(
-            "SELECT",
-            "SHOW CATALOGS",
-            "SHOW COLUMNS",
-            "SHOW FUNCTIONS",
-            "SHOW SCHEMAS",
-            "SHOW SESSION",
-            "SHOW TABLES",
-            "CREATE TABLE",
-            "DROP TABLE",
-            "EXPLAIN",
-            "DESCRIBE",
-            "USE",
-            "HELP",
-            "QUIT");
-
     private Completion() {}
 
     public static Completer commandCompleter()
     {
-        return new StringsCompleter(ImmutableSet.<String>builder()
-                .addAll(COMMANDS)
-                .addAll(COMMANDS.stream()
-                        .map(value -> value.toLowerCase(ENGLISH))
-                        .collect(toSet()))
-                .build());
+        return new AggregateCompleter(buildArgumentCompleter("ALTER", asList("SCHEMA", "TABLE")),
+                buildArgumentCompleter("CREATE", asList("SCHEMA", "TABLE")),
+                buildArgumentCompleter("DESCRIBE"),
+                buildArgumentCompleter("DROP", asList("SCHEMA", "TABLE")),
+                buildArgumentCompleter("EXPLAIN"),
+                buildArgumentCompleter("HELP"),
+                buildArgumentCompleter("QUIT"),
+                buildArgumentCompleter("SELECT"),
+                buildArgumentCompleter("SHOW", asList("CATALOGS", "COLUMNS", "FUNCTIONS", "SCHEMAS", "SESSION", "TABLES")),
+                buildArgumentCompleter("USE"));
+    }
+
+    private static Completer buildArgumentCompleter(String command)
+    {
+        // NullCompleter is used to indicate the command is complete and the last word should not be repeated
+        return new ArgumentCompleter(new StringsCompleter(command), NullCompleter.INSTANCE);
+    }
+
+    private static Completer buildArgumentCompleter(String command, List<String> options)
+    {
+        return new ArgumentCompleter(new StringsCompleter(command), new StringsCompleter(options), NullCompleter.INSTANCE);
     }
 }

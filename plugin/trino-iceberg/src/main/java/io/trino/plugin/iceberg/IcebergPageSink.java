@@ -150,7 +150,7 @@ public class IcebergPageSink
     @Override
     public CompletableFuture<?> appendPage(Page page)
     {
-        hdfsEnvironment.doAs(session.getUser(), () -> doAppend(page));
+        hdfsEnvironment.doAs(session.getIdentity(), () -> doAppend(page));
 
         return NOT_BLOCKED;
     }
@@ -165,7 +165,8 @@ public class IcebergPageSink
 
             CommitTaskData task = new CommitTaskData(
                     context.getPath().toString(),
-                    new MetricsWrapper(context.writer.getMetrics()),
+                    context.getWriter().getWrittenBytes(),
+                    new MetricsWrapper(context.getWriter().getMetrics()),
                     context.getPartitionData().map(PartitionData::toJson));
 
             commitTasks.add(wrappedBuffer(jsonCodec.toJsonBytes(task)));

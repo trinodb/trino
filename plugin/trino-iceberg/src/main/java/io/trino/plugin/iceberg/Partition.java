@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
 
+import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toSet;
 
@@ -227,7 +228,7 @@ class Partition
                 this.nullCounts.merge(key, counts, Long::sum));
     }
 
-    public static Map<Integer, Object> toMap(Map<Integer, Type.PrimitiveType> idToTypeMapping, Map<Integer, ByteBuffer> idToMetricMap)
+    public static Map<Integer, Object> convertBounds(Map<Integer, Type.PrimitiveType> idToTypeMapping, Map<Integer, ByteBuffer> idToMetricMap)
     {
         if (idToMetricMap == null) {
             return null;
@@ -235,6 +236,7 @@ class Partition
         ImmutableMap.Builder<Integer, Object> map = ImmutableMap.builder();
         idToMetricMap.forEach((id, value) -> {
             Type.PrimitiveType type = idToTypeMapping.get(id);
+            verify(type != null, "No type for column id %s, known types: %s", id, idToTypeMapping);
             map.put(id, Conversions.fromByteBuffer(type, value));
         });
         return map.build();

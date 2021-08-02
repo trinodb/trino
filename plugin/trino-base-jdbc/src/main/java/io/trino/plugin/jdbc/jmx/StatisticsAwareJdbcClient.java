@@ -50,6 +50,7 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
@@ -126,9 +127,9 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
-    public boolean supportsAggregationPushdown(ConnectorSession session, JdbcTableHandle table, List<List<ColumnHandle>> groupingSets)
+    public boolean supportsAggregationPushdown(ConnectorSession session, JdbcTableHandle table, List<AggregateFunction> aggregates, Map<String, ColumnHandle> assignments, List<List<ColumnHandle>> groupingSets)
     {
-        return delegate().supportsAggregationPushdown(session, table, groupingSets);
+        return delegate().supportsAggregationPushdown(session, table, aggregates, assignments, groupingSets);
     }
 
     @Override
@@ -350,5 +351,11 @@ public final class StatisticsAwareJdbcClient
     public Optional<TableScanRedirectApplicationResult> getTableScanRedirection(ConnectorSession session, JdbcTableHandle tableHandle)
     {
         return stats.getGetTableScanRedirection().wrap(() -> delegate().getTableScanRedirection(session, tableHandle));
+    }
+
+    @Override
+    public OptionalLong delete(ConnectorSession session, JdbcTableHandle handle)
+    {
+        return stats.getDelete().wrap(() -> delegate().delete(session, handle));
     }
 }

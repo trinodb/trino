@@ -159,6 +159,9 @@ Data types
 
 The data type mappings are as follows:
 
+Primitive types
+^^^^^^^^^^^^^^^
+
 ============= =============
 Elasticsearch Trino
 ============= =============
@@ -225,6 +228,20 @@ property definition to the ``_meta.presto`` property of the target index mapping
         }
     }'
 
+Date types
+^^^^^^^^^^
+
+Elasticsearch supports a wide array of `date`_ formats including
+`built-in date formats`_ and also `custom date formats`_.
+The Elasticsearch connector supports only the default ``date`` type. All other
+date formats including `built-in date formats`_ and `custom date formats`_ are
+not supported. Dates with the `format`_ property are ignored.
+
+.. _date: https://www.elastic.co/guide/en/elasticsearch/reference/current/date.html
+.. _built-in date formats: https://www.elastic.co/guide/en/elasticsearch/reference/current/mapping-date-format.html#built-in-date-formats
+.. _custom date formats: https://www.elastic.co/guide/en/elasticsearch/reference/current/mapping-date-format.html#custom-date-formats
+.. _format: https://www.elastic.co/guide/en/elasticsearch/reference/current/mapping-date-format.html#mapping-date-format
+
 Special columns
 ---------------
 
@@ -252,6 +269,28 @@ as part of the table name, separated by a colon. For example:
 
 .. _full text query: https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-query-string-query.html#query-string-syntax
 
+Predicate push down
+-------------------
+
+The connector supports predicate push down of below data types:
+
+============= ============= =============
+Elasticsearch Trino         Supports
+============= ============= =============
+``binary``    ``VARBINARY`` ``NO``
+``boolean``   ``BOOLEAN``   ``YES``
+``double``    ``DOUBLE``    ``YES``
+``float``     ``REAL``      ``YES``
+``byte``      ``TINYINT``   ``YES``
+``short``     ``SMALLINT``  ``YES``
+``integer``   ``INTEGER``   ``YES``
+``long``      ``BIGINT``    ``YES``
+``keyword``   ``VARCHAR``   ``YES``
+``text``      ``VARCHAR``   ``NO``
+``date``      ``TIMESTAMP`` ``YES``
+``ip``        ``IPADDRESS`` ``NO``
+(all others)  (unsupported) (unsupported)
+============= ============= =============
 
 Pass-through queries
 --------------------
@@ -285,8 +324,17 @@ Additionally, the following options need to be configured appropriately:
 Property Name                                    Description
 ================================================ ==================================================================
 ``elasticsearch.aws.region``                     AWS region or the Elasticsearch endpoint. This option is required.
+
 ``elasticsearch.aws.access-key``                 AWS access key to use to connect to the Elasticsearch domain.
+                                                 If not set, the Default AWS Credentials Provider chain will be used.
+
 ``elasticsearch.aws.secret-key``                 AWS secret key to use to connect to the Elasticsearch domain.
+                                                 If not set, the Default AWS Credentials Provider chain will be used.
+
+``elasticsearch.aws.iam-role``                   Optional ARN of an IAM Role to assume to connect to the Elasticsearch domain.
+                                                 Note: the configured IAM user has to be able to assume this role.
+
+``elasticsearch.aws.external-id``                Optional external ID to pass while assuming an AWS IAM Role.
 ================================================ ==================================================================
 
 Password authentication

@@ -44,7 +44,7 @@ public class DefaultJdbcMetadataFactory
         return create(new CachingJdbcClient(
                         jdbcClient,
                         Set.of(),
-                        new SingletonJdbcIdentityCacheMapping(),
+                        new SingletonIdentityCacheMapping(),
                         new Duration(1, DAYS), true),
                 allowDropTable);
     }

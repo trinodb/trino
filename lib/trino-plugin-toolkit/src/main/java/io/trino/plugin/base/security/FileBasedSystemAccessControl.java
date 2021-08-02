@@ -195,7 +195,7 @@ public class FileBasedSystemAccessControl
 
             Bootstrap bootstrap = new Bootstrap(
                     binder -> configBinder(binder).bindConfig(FileBasedAccessControlConfig.class));
-            Injector injector = bootstrap.strictConfig()
+            Injector injector = bootstrap
                     .doNotInitializeLogging()
                     .setRequiredConfigurationProperties(config)
                     .initialize();

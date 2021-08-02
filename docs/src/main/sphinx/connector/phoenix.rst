@@ -6,11 +6,20 @@ The Phoenix connector allows querying data stored in
 `Apache HBase <https://hbase.apache.org/>`_ using
 `Apache Phoenix <https://phoenix.apache.org/>`_.
 
-Compatibility
--------------
+Requirements
+------------
 
-The ``phoenix`` connector is compatible with all Phoenix 4.x versions starting from 4.14.1.
-The ``phoenix5`` connector is compatible with all Phoenix 5.x versions starting from 5.1.0.
+To query HBase data through Phoenix, you need:
+
+*  Network access from the Trino coordinator and workers to the ZooKeeper
+   servers. The default port is 2181.
+*  A compatible version of Phoenix. There are two versions of this connector to
+   support different Phoenix versions:
+
+   *  The ``phoenix`` connector is compatible with all Phoenix 4.x versions
+      starting from 4.14.1.
+   *  The ``phoenix5`` connector is compatible with all Phoenix 5.x versions
+      starting from 5.1.0.
 
 Configuration
 -------------
@@ -170,3 +179,7 @@ Property Name               Default Value    Description
 ``bloomfilter``             ``NONE``         Bloomfilter to use. Valid values are ``NONE`` (default), ``ROW``, or ``ROWCOL``.
 =========================== ================ ==============================================================================================================
 
+SQL support
+-----------
+
+.. include:: sql-delete-limitation.fragment

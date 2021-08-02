@@ -20,7 +20,6 @@ import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
-import io.trino.plugin.jdbc.JdbcIdentity;
 import io.trino.plugin.jdbc.JdbcOutputTableHandle;
 import io.trino.plugin.jdbc.JdbcSortItem;
 import io.trino.plugin.jdbc.JdbcSplit;
@@ -40,6 +39,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
@@ -188,7 +188,6 @@ public class PhoenixClient
         extends BaseJdbcClient
 {
     private static final String ROWKEY = "ROWKEY";
-    private static final long MAX_TOPN_LIMIT = 2000000;
 
     private final Configuration configuration;
 
@@ -293,21 +292,13 @@ public class PhoenixClient
     @Override
     protected Optional<TopNFunction> topNFunction()
     {
-        return Optional.of((query, sortItems, limit) -> {
-            // TODO: Remove when this is fixed in Phoenix.
-            // Phoenix severely over-estimates the memory
-            // required to execute a topN query.
-            // https://issues.apache.org/jira/browse/PHOENIX-6436
-            if (limit > MAX_TOPN_LIMIT) {
-                return query;
-            }
-            return TopNFunction.sqlStandard(this::quoted).apply(query, sortItems, limit);
-        });
+        return Optional.of(TopNFunction.sqlStandard(this::quoted));
     }
 
     @Override
     public boolean isTopNGuaranteed(ConnectorSession session)
     {
+        // There are multiple splits and TopN is not guaranteed across them.
         return false;
     }
 
@@ -525,7 +516,7 @@ public class PhoenixClient
         }
 
         try (Connection connection = connectionFactory.openConnection(session)) {
-            JdbcIdentity identity = JdbcIdentity.from(session);
+            ConnectorIdentity identity = session.getIdentity();
             schema = getIdentifierMapping().toRemoteSchemaName(identity, connection, schema);
             table = getIdentifierMapping().toRemoteTableName(identity, connection, schema, table);
             schema = toPhoenixSchemaName(schema);

@@ -30,16 +30,17 @@ import static java.lang.String.format;
 public final class PartitionFields
 {
     private static final String NAME = "[a-z_][a-z0-9_]*";
-    private static final String FUNCTION_NAME = "\\((" + NAME + ")\\)";
-    private static final String FUNCTION_NAME_INT = "\\((" + NAME + "), *(\\d+)\\)";
+    private static final String FUNCTION_ARGUMENT_NAME = "\\((" + NAME + ")\\)";
+    private static final String FUNCTION_ARGUMENT_NAME_AND_INT = "\\((" + NAME + "), *(\\d+)\\)";
 
     private static final Pattern IDENTITY_PATTERN = Pattern.compile(NAME);
-    private static final Pattern YEAR_PATTERN = Pattern.compile("year" + FUNCTION_NAME);
-    private static final Pattern MONTH_PATTERN = Pattern.compile("month" + FUNCTION_NAME);
-    private static final Pattern DAY_PATTERN = Pattern.compile("day" + FUNCTION_NAME);
-    private static final Pattern HOUR_PATTERN = Pattern.compile("hour" + FUNCTION_NAME);
-    private static final Pattern BUCKET_PATTERN = Pattern.compile("bucket" + FUNCTION_NAME_INT);
-    private static final Pattern TRUNCATE_PATTERN = Pattern.compile("truncate" + FUNCTION_NAME_INT);
+    private static final Pattern YEAR_PATTERN = Pattern.compile("year" + FUNCTION_ARGUMENT_NAME);
+    private static final Pattern MONTH_PATTERN = Pattern.compile("month" + FUNCTION_ARGUMENT_NAME);
+    private static final Pattern DAY_PATTERN = Pattern.compile("day" + FUNCTION_ARGUMENT_NAME);
+    private static final Pattern HOUR_PATTERN = Pattern.compile("hour" + FUNCTION_ARGUMENT_NAME);
+    private static final Pattern BUCKET_PATTERN = Pattern.compile("bucket" + FUNCTION_ARGUMENT_NAME_AND_INT);
+    private static final Pattern TRUNCATE_PATTERN = Pattern.compile("truncate" + FUNCTION_ARGUMENT_NAME_AND_INT);
+    private static final Pattern VOID_PATTERN = Pattern.compile("void" + FUNCTION_ARGUMENT_NAME);
 
     private static final Pattern ICEBERG_BUCKET_PATTERN = Pattern.compile("bucket\\[(\\d+)]");
     private static final Pattern ICEBERG_TRUNCATE_PATTERN = Pattern.compile("truncate\\[(\\d+)]");
@@ -65,7 +66,9 @@ public final class PartitionFields
                 tryMatch(field, DAY_PATTERN, match -> builder.day(match.group(1))) ||
                 tryMatch(field, HOUR_PATTERN, match -> builder.hour(match.group(1))) ||
                 tryMatch(field, BUCKET_PATTERN, match -> builder.bucket(match.group(1), parseInt(match.group(2)))) ||
-                tryMatch(field, TRUNCATE_PATTERN, match -> builder.truncate(match.group(1), parseInt(match.group(2))));
+                tryMatch(field, TRUNCATE_PATTERN, match -> builder.truncate(match.group(1), parseInt(match.group(2)))) ||
+                tryMatch(field, VOID_PATTERN, match -> builder.alwaysNull(match.group(1))) ||
+                false;
         if (!matched) {
             throw new IllegalArgumentException("Invalid partition field declaration: " + field);
         }
@@ -100,6 +103,7 @@ public final class PartitionFields
             case "month":
             case "day":
             case "hour":
+            case "void":
                 return format("%s(%s)", transform, name);
         }
 
