@@ -19,6 +19,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
@@ -37,6 +38,7 @@ import java.util.regex.Pattern;
 import static io.airlift.slice.SliceUtf8.offsetOfCodePoint;
 import static io.trino.plugin.iceberg.util.Timestamps.getTimestampTz;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzToMicros;
+import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.Decimals.encodeScaledValue;
@@ -117,6 +119,8 @@ public final class PartitionTransforms
                     return new ColumnTransform(INTEGER, PartitionTransforms::hoursFromTimestampWithTimeZone);
                 }
                 throw new UnsupportedOperationException("Unsupported type for 'hour': " + field);
+            case "void":
+                return new ColumnTransform(type, getVoidTransform(type));
         }
 
         Matcher matcher = BUCKET_PATTERN.matcher(transform);
@@ -495,6 +499,12 @@ public final class PartitionTransforms
             VARBINARY.writeSlice(builder, value);
         }
         return builder.build();
+    }
+
+    public static Function<Block, Block> getVoidTransform(Type type)
+    {
+        Block nullBlock = nativeValueToBlock(type, null);
+        return block -> new RunLengthEncodedBlock(nullBlock, block.getPositionCount());
     }
 
     @VisibleForTesting

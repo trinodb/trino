@@ -86,6 +86,17 @@ public class TestIcebergPartitionEvolution
         assertQueryFailure(() -> onTrino().executeQuery("SELECT a, b, c.min, c.max, row_count FROM \"test_dropped_partition_field$partitions\""))
                 // TODO (https://github.com/trinodb/trino/issues/8729): cannot read from $partitions table because of duplicate column names
                 .hasMessageMatching("Query failed \\(#\\w+\\):\\Q Multiple entries with same key: " + (dropFirst ? "a=a and a=a" : "b=b and b=b"));
+
+        onTrino().executeQuery("INSERT INTO test_dropped_partition_field VALUES ('yet', 'another', 'row')");
+        assertThat(onTrino().executeQuery("SELECT * FROM test_dropped_partition_field"))
+                .containsOnly(
+                        row("one", "small", "snake"),
+                        row("one", "small", "rabbit"),
+                        row("one", "big", "rabbit"),
+                        row("another", "small", "snake"),
+                        row("something", "completely", "else"),
+                        row(null, null, "nothing"),
+                        row("yet", "another", "row"));
     }
 
     @DataProvider
