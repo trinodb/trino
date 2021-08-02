@@ -233,6 +233,8 @@ public class TestIcebergSparkCompatibility
         QueryResult trinoResult = onTrino().executeQuery(trinoSelect);
         Row row = row("Doc213", 28, "Cat", "Claus");
         assertThat(trinoResult).containsOnly(row);
+
+        onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
@@ -257,6 +259,8 @@ public class TestIcebergSparkCompatibility
         QueryResult sparkResult = onSpark().executeQuery(sparkSelect);
         Row row = row("Doc213", 28, "Cat", "Claus");
         assertThat(sparkResult).containsOnly(row);
+
+        onTrino().executeQuery("DROP TABLE " + trinoTableName);
     }
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
@@ -313,6 +317,8 @@ public class TestIcebergSparkCompatibility
 
         QueryResult trinoResult = onTrino().executeQuery(trinoSelect + trinoTableName);
         assertThat(trinoResult).containsOnly(row);
+
+        onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
@@ -368,6 +374,8 @@ public class TestIcebergSparkCompatibility
 
         QueryResult sparkResult = onSpark().executeQuery(sparkSelect + sparkTableName);
         assertThat(sparkResult).containsOnly(row);
+
+        onTrino().executeQuery("DROP TABLE " + trinoTableName);
     }
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
@@ -407,6 +415,8 @@ public class TestIcebergSparkCompatibility
                                 .addField("drop_and_add", null)
                                 .build(),
                         1001L));
+
+        onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
