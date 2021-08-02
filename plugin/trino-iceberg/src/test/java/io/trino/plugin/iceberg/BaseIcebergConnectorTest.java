@@ -1272,6 +1272,48 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testVoidTransform()
+    {
+        assertUpdate("CREATE TABLE test_void_transform (d VARCHAR, b BIGINT) WITH (partitioning = ARRAY['void(d)'])");
+        String values = "VALUES " +
+                "('abcd', 1)," +
+                "('abxy', 2)," +
+                "('ab598', 3)," +
+                "('mommy', 4)," +
+                "('Warsaw', 5)," +
+                "(NULL, 6)," +
+                "(NULL, 7)";
+        assertUpdate("INSERT INTO test_void_transform " + values, 7);
+        assertQuery("SELECT * FROM test_void_transform", values);
+
+        assertQuery("SELECT COUNT(*) FROM \"test_void_transform$partitions\"", "SELECT 1");
+        assertQuery(
+                "SELECT d_null, row_count, file_count, d.min, d.max, d.null_count, b.min, b.max, b.null_count FROM \"test_void_transform$partitions\"",
+                "VALUES (NULL, 7, 1, 'Warsaw', 'mommy', 2, 1, 7, 0)");
+
+        assertQuery(
+                "SELECT d, b FROM test_void_transform WHERE d IS NOT NULL",
+                "VALUES " +
+                        "('abcd', 1)," +
+                        "('abxy', 2)," +
+                        "('ab598', 3)," +
+                        "('mommy', 4)," +
+                        "('Warsaw', 5)");
+
+        assertQuery("SELECT b FROM test_void_transform WHERE d IS NULL", "VALUES 6, 7");
+
+        assertThat(query("SHOW STATS FOR test_void_transform"))
+                .projected(0, 2, 3, 4, 5, 6) // ignore data size which is available for Parquet, but not for ORC
+                .skippingTypesCheck()
+                .matches("VALUES " +
+                        "  ('d', NULL, 0.2857142857142857, NULL, NULL, NULL), " +
+                        "  ('b', NULL, 0e0, NULL, '1', '7'), " +
+                        "  (NULL, NULL, NULL, 7e0, NULL, NULL)");
+
+        assertUpdate("DROP TABLE " + "test_void_transform");
+    }
+
+    @Test
     public void testMetadataDeleteSimple()
     {
         assertUpdate("CREATE TABLE test_metadata_delete_simple (col1 BIGINT, col2 BIGINT) WITH (partitioning = ARRAY['col1'])");
