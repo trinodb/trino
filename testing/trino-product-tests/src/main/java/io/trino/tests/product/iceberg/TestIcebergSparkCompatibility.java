@@ -15,10 +15,12 @@ package io.trino.tests.product.iceberg;
 
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.query.QueryResult;
+import org.assertj.core.api.Assertions;
 import org.testng.annotations.Test;
 
 import java.sql.Date;
 import java.sql.Timestamp;
+import java.util.List;
 
 import static io.trino.tempto.assertions.QueryAssert.Row;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
@@ -29,7 +31,6 @@ import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.utils.QueryExecutors.onSpark;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
-import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 public class TestIcebergSparkCompatibility
@@ -394,19 +395,18 @@ public class TestIcebergSparkCompatibility
         onSpark().executeQuery(format("ALTER TABLE %s DROP COLUMN _struct.drop_and_add", sparkTableName));
         onSpark().executeQuery(format("ALTER TABLE %s ADD COLUMN _struct.drop_and_add BIGINT", sparkTableName));
 
-        Row expected = row(
-                rowBuilder()
-                        // Rename does not change id
-                        .addField("renamed", 1L)
-                        .addField("keep", 2L)
-                        .addField("CaseSensitive", 4L)
-                        // Dropping and re-adding changes id
-                        .addField("drop_and_add", null)
-                        .build(),
-                1001);
-
-        QueryResult result = onTrino().executeQuery(format("SELECT * FROM %s", trinoTableName));
-        assertEquals(result.column(1).get(0), expected.getValues().get(0));
+        // TODO support Row (JAVA_OBJECT) in Tempto and switch to QueryAssert
+        Assertions.assertThat(onTrino().executeQuery(format("SELECT * FROM %s", trinoTableName)).rows())
+                .containsOnly(List.of(
+                        rowBuilder()
+                                // Rename does not change id
+                                .addField("renamed", 1L)
+                                .addField("keep", 2L)
+                                .addField("CaseSensitive", 4L)
+                                // Dropping and re-adding changes id
+                                .addField("drop_and_add", null)
+                                .build(),
+                        1001L));
     }
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
