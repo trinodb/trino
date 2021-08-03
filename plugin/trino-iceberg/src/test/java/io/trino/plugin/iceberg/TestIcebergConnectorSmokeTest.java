@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.testing.BaseConnectorSmokeTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
-import org.apache.iceberg.FileFormat;
 import org.testng.annotations.Test;
 
 import static io.trino.plugin.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
@@ -33,7 +32,7 @@ public class TestIcebergConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createIcebergQueryRunner(ImmutableMap.of(), FileFormat.ORC, REQUIRED_TPCH_TABLES);
+        return createIcebergQueryRunner(ImmutableMap.of(), ImmutableMap.of(), REQUIRED_TPCH_TABLES);
     }
 
     @Override
