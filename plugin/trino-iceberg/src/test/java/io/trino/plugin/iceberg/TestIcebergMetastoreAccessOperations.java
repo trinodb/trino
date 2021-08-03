@@ -211,10 +211,11 @@ public class TestIcebergMetastoreAccessOperations
                 .containsExactly(DATA, HISTORY, SNAPSHOTS, MANIFESTS, PARTITIONS, FILES);
     }
 
-    private void assertMetastoreInvocations(String query, Multiset expectedInvocations)
+    private void assertMetastoreInvocations(String query, Multiset<?> expectedInvocations)
     {
         metastore.resetCounters();
         getQueryRunner().execute(query);
-        assertThat(metastore.getMethodInvocations()).containsExactlyInAnyOrderElementsOf(expectedInvocations);
+        assertThat(ImmutableMultiset.<Object>copyOf(metastore.getMethodInvocations()))
+                .containsExactlyInAnyOrderElementsOf(expectedInvocations);
     }
 }
