@@ -181,7 +181,7 @@ export class QueryListItem extends React.Component {
                                 <div className="progress">
                                     <div className="progress-bar progress-bar-info" role="progressbar" aria-valuenow={getProgressBarPercentage(query)} aria-valuemin="0"
                                          aria-valuemax="100" style={progressBarStyle}>
-                                        {getProgressBarTitle(query)}
+                                        {getProgressBarTitle(query, true)}
                                     </div>
                                 </div>
                             </div>
@@ -312,6 +312,10 @@ export class QueryList extends React.Component {
                 }
 
                 if (query.resourceGroupId && query.resourceGroupId.join(".").toLowerCase().indexOf(term) !== -1) {
+                    return true;
+                }
+
+                if (query.errorCode && query.errorCode.name && query.errorCode.name.toLowerCase().indexOf(term) !== -1) {
                     return true;
                 }
 
@@ -573,7 +577,7 @@ export class QueryList extends React.Component {
                 <div className="row toolbar-row">
                     <div className="col-xs-12 toolbar-col">
                         <div className="input-group input-group-sm">
-                            <input type="text" className="form-control form-control-small search-bar" placeholder="User, source, query ID, query state, resource group, or query text"
+                            <input type="text" className="form-control form-control-small search-bar" placeholder="User, source, query ID, query state, resource group, error name, or query text"
                                    onChange={this.handleSearchStringChange} value={this.state.searchString}/>
                             <span className="input-group-addon filter-addon">State:</span>
                             <div className="input-group-btn">
