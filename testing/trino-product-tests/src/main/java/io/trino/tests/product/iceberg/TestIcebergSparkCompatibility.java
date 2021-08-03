@@ -39,10 +39,6 @@ public class TestIcebergSparkCompatibility
         extends ProductTest
 {
     // TODO: Spark SQL doesn't yet support decimal.  When it does add it to the test.
-    // TODO: Spark SQL only stores TIMESTAMP WITH TIME ZONE, and Iceberg only supports
-    // TIMESTAMP with no time zone.  The Spark writes/Trino reads test can pass by
-    // stripping off the UTC.  However, I haven't been able to get the
-    // Trino writes/Spark reads test TIMESTAMPs to match.
 
     // see spark-defaults.conf
     private static final String SPARK_CATALOG = "iceberg_test";
@@ -141,7 +137,8 @@ public class TestIcebergSparkCompatibility
                         ", _real REAL" +
                         ", _double DOUBLE" +
                         ", _boolean BOOLEAN" +
-                        //", _timestamp TIMESTAMP" +
+                        //", _timestamp TIMESTAMP" -- per https://iceberg.apache.org/spark-writes/ Iceberg's timestamp is currently not supported with Spark
+                        ", _timestamptz timestamp(6) with time zone" +
                         ", _date DATE" +
                         ") WITH (format = '%s')",
                 trinoTableName,
@@ -156,6 +153,7 @@ public class TestIcebergSparkCompatibility
                         ", 100000000000.123" +
                         ", true" +
                         //", TIMESTAMP '2020-06-28 14:16:00.456'" +
+                        ", TIMESTAMP '2021-08-03 08:32:21.123456 Europe/Warsaw'" +
                         ", DATE '1950-06-28'" +
                         ")",
                 trinoTableName));
@@ -168,12 +166,34 @@ public class TestIcebergSparkCompatibility
                 100000000000.123,
                 true,
                 //"2020-06-28 14:16:00.456",
+                "2021-08-03 06:32:21.123456 UTC", // Iceberg's timestamptz stores point in time, without zone
                 "1950-06-28");
-        String startOfSelect = "SELECT _string, _bigint, _integer, _real, _double, _boolean";
-        assertThat(onTrino().executeQuery(format("%s, /* CAST(_timestamp AS VARCHAR),*/ CAST(_date AS VARCHAR) FROM %s", startOfSelect, trinoTableName)))
+        assertThat(onTrino().executeQuery(
+                "SELECT " +
+                        "  _string" +
+                        ", _bigint" +
+                        ", _integer" +
+                        ", _real" +
+                        ", _double" +
+                        ", _boolean" +
+                        // _timestamp OR CAST(_timestamp AS varchar)
+                        ", CAST(_timestamptz AS varchar)" +
+                        ", CAST(_date AS varchar)" +
+                        " FROM " + trinoTableName))
                 .containsOnly(row);
 
-        assertThat(onSpark().executeQuery(format("%s, /* CAST(_timestamp AS STRING),*/ CAST(_date AS STRING) FROM %s", startOfSelect, sparkTableName)))
+        assertThat(onSpark().executeQuery(
+                "SELECT " +
+                        "  _string" +
+                        ", _bigint" +
+                        ", _integer" +
+                        ", _real" +
+                        ", _double" +
+                        ", _boolean" +
+                        // _timestamp OR CAST(_timestamp AS string)
+                        ", CAST(_timestamptz AS string) || ' UTC'" + // Iceberg timestamptz is mapped to Spark timestamp and gets represented without time zone
+                        ", CAST(_date AS string)" +
+                        " FROM " + sparkTableName))
                 .containsOnly(row);
 
         onTrino().executeQuery("DROP TABLE " + trinoTableName);
