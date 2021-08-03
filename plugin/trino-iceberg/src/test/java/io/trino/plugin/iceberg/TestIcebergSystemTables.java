@@ -37,7 +37,7 @@ public class TestIcebergSystemTables
     protected DistributedQueryRunner createQueryRunner()
             throws Exception
     {
-        return createIcebergQueryRunner(Map.of());
+        return createIcebergQueryRunner();
     }
 
     @BeforeClass
