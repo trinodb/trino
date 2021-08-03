@@ -386,9 +386,8 @@ jobs:
           - config: default
             suite: suite-tpcds
           # this suite is not meant to be run with different configs
-          # TODO Re-enable oauth2 product tests - https://github.com/trinodb/trino/issues/8719
-          #- config: default
-          #  suite: suite-oauth2
+          - config: default
+            suite: suite-oauth2
           # this suite is not meant to be run with different configs
           - config: default
             suite: suite-compatibility
