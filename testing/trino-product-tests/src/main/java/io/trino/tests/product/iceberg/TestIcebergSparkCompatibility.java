@@ -192,7 +192,7 @@ public class TestIcebergSparkCompatibility
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
     public void testTrinoReadsSparkPartitionedTable()
     {
-        String baseTableName = "test_spark_reads_trino_partitioned_table";
+        String baseTableName = "test_trino_reads_spark_partitioned_table";
         String sparkTableName = sparkTableName(baseTableName);
         onSpark().executeQuery(format("CREATE TABLE %s (_string STRING, _bigint BIGINT) USING ICEBERG PARTITIONED BY (_string)", sparkTableName));
         onSpark().executeQuery(format("INSERT INTO %s VALUES ('a', 1001), ('b', 1002), ('c', 1003)", sparkTableName));
