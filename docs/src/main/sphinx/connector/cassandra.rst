@@ -62,9 +62,6 @@ Property Name                                      Description
                                                    ``EACH_QUORUM``, ``QUORUM``, ``LOCAL_QUORUM``, ``ONE``, ``TWO``,
                                                    ``THREE``, ``LOCAL_ONE``, ``ANY``, ``SERIAL``, ``LOCAL_SERIAL``.
 
-``cassandra.allow-drop-table``                     Set to ``true`` to allow dropping Cassandra tables from Trino
-                                                   via :doc:`/sql/drop-table`, defaults to ``false``.
-
 ``cassandra.username``                             Username used for authentication to the Cassandra cluster.
                                                    This is a global setting used for all connections, regardless
                                                    of the user connected to Trino.
