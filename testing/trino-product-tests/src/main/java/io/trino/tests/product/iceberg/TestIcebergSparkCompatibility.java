@@ -19,6 +19,7 @@ import org.assertj.core.api.Assertions;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.util.List;
@@ -38,8 +39,6 @@ import static org.testng.Assert.assertTrue;
 public class TestIcebergSparkCompatibility
         extends ProductTest
 {
-    // TODO: Spark SQL doesn't yet support decimal.  When it does add it to the test.
-
     // see spark-defaults.conf
     private static final String SPARK_CATALOG = "iceberg_test";
     private static final String TRINO_CATALOG = "iceberg";
@@ -77,6 +76,8 @@ public class TestIcebergSparkCompatibility
                         ", _integer INTEGER" +
                         ", _real REAL" +
                         ", _double DOUBLE" +
+                        ", _short_decimal decimal(8,2)" +
+                        ", _long_decimal decimal(38,19)" +
                         ", _boolean BOOLEAN" +
                         ", _timestamp TIMESTAMP" +
                         ", _date DATE" +
@@ -96,6 +97,8 @@ public class TestIcebergSparkCompatibility
                         ", 1000000000" +
                         ", 10000000.123" +
                         ", 100000000000.123" +
+                        ", CAST('123456.78' AS decimal(8,2))" +
+                        ", CAST('1234567890123456789.0123456789012345678' AS decimal(38,19))" +
                         ", true" +
                         ", TIMESTAMP '2020-06-28 14:16:00.456'" +
                         ", DATE '1950-06-28'" +
@@ -108,15 +111,40 @@ public class TestIcebergSparkCompatibility
                 1000000000,
                 10000000.123F,
                 100000000000.123,
+                new BigDecimal("123456.78"),
+                new BigDecimal("1234567890123456789.0123456789012345678"),
                 true,
                 Timestamp.valueOf("2020-06-28 14:16:00.456"),
                 Date.valueOf("1950-06-28"));
 
-        String startOfSelect = "SELECT _string, _bigint, _integer, _real, _double, _boolean";
-        assertThat(onSpark().executeQuery(format("%s, _timestamp, _date FROM %s", startOfSelect, sparkTableName)))
+        assertThat(onSpark().executeQuery(
+                "SELECT " +
+                        "  _string" +
+                        ", _bigint" +
+                        ", _integer" +
+                        ", _real" +
+                        ", _double" +
+                        ", _short_decimal" +
+                        ", _long_decimal" +
+                        ", _boolean" +
+                        ", _timestamp" +
+                        ", _date" +
+                        " FROM " + sparkTableName))
                 .containsOnly(row);
 
-        assertThat(onTrino().executeQuery(format("%s, CAST(_timestamp AS TIMESTAMP), _date FROM %s", startOfSelect, trinoTableName)))
+        assertThat(onTrino().executeQuery(
+                "SELECT " +
+                        "  _string" +
+                        ", _bigint" +
+                        ", _integer" +
+                        ", _real" +
+                        ", _double" +
+                        ", _short_decimal" +
+                        ", _long_decimal" +
+                        ", _boolean" +
+                        ", CAST(_timestamp AS TIMESTAMP)" + // TODO test the value without a CAST from timestamp with time zone to timestamp
+                        ", _date" +
+                        " FROM " + trinoTableName))
                 .containsOnly(row);
 
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
@@ -136,6 +164,8 @@ public class TestIcebergSparkCompatibility
                         ", _integer INTEGER" +
                         ", _real REAL" +
                         ", _double DOUBLE" +
+                        ", _short_decimal decimal(8,2)" +
+                        ", _long_decimal decimal(38,19)" +
                         ", _boolean BOOLEAN" +
                         //", _timestamp TIMESTAMP" -- per https://iceberg.apache.org/spark-writes/ Iceberg's timestamp is currently not supported with Spark
                         ", _timestamptz timestamp(6) with time zone" +
@@ -151,6 +181,8 @@ public class TestIcebergSparkCompatibility
                         ", 1000000000" +
                         ", 10000000.123" +
                         ", 100000000000.123" +
+                        ", DECIMAL '123456.78'" +
+                        ", DECIMAL '1234567890123456789.0123456789012345678'" +
                         ", true" +
                         //", TIMESTAMP '2020-06-28 14:16:00.456'" +
                         ", TIMESTAMP '2021-08-03 08:32:21.123456 Europe/Warsaw'" +
@@ -164,6 +196,8 @@ public class TestIcebergSparkCompatibility
                 1000000000,
                 10000000.123F,
                 100000000000.123,
+                new BigDecimal("123456.78"),
+                new BigDecimal("1234567890123456789.0123456789012345678"),
                 true,
                 //"2020-06-28 14:16:00.456",
                 "2021-08-03 06:32:21.123456 UTC", // Iceberg's timestamptz stores point in time, without zone
@@ -175,6 +209,8 @@ public class TestIcebergSparkCompatibility
                         ", _integer" +
                         ", _real" +
                         ", _double" +
+                        ", _short_decimal" +
+                        ", _long_decimal" +
                         ", _boolean" +
                         // _timestamp OR CAST(_timestamp AS varchar)
                         ", CAST(_timestamptz AS varchar)" +
@@ -189,6 +225,8 @@ public class TestIcebergSparkCompatibility
                         ", _integer" +
                         ", _real" +
                         ", _double" +
+                        ", _short_decimal" +
+                        ", _long_decimal" +
                         ", _boolean" +
                         // _timestamp OR CAST(_timestamp AS string)
                         ", CAST(_timestamptz AS string) || ' UTC'" + // Iceberg timestamptz is mapped to Spark timestamp and gets represented without time zone
