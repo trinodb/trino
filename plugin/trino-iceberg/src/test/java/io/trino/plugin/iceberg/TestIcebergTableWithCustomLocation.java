@@ -55,7 +55,6 @@ public class TestIcebergTableWithCustomLocation
         return createIcebergQueryRunner(
                 ImmutableMap.of(),
                 ImmutableMap.of("iceberg.unique-table-location", "true"),
-                new IcebergConfig().getFileFormat(),
                 ImmutableList.of(NATION),
                 Optional.of(metastoreDir));
     }

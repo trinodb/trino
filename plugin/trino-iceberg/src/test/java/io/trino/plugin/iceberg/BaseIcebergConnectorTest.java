@@ -108,7 +108,10 @@ public abstract class BaseIcebergConnectorTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createIcebergQueryRunner(ImmutableMap.of(), format, REQUIRED_TPCH_TABLES);
+        return createIcebergQueryRunner(
+                Map.of(),
+                Map.of("iceberg.file-format", format.name()),
+                REQUIRED_TPCH_TABLES);
     }
 
     @Override

@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.Test;
@@ -35,7 +33,7 @@ public class TestIcebergSnapshots
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createIcebergQueryRunner(ImmutableMap.of(), new IcebergConfig().getFileFormat(), ImmutableList.of());
+        return createIcebergQueryRunner();
     }
 
     @Test

@@ -79,7 +79,7 @@ public class TestIcebergV2
         metastoreDir = new File(tempDir, "iceberg_data");
         metastore = createTestingFileHiveMetastore(metastoreDir);
 
-        return createIcebergQueryRunner(ImmutableMap.of(), new IcebergConfig().getFileFormat(), ImmutableList.of(NATION), Optional.of(metastoreDir));
+        return createIcebergQueryRunner(ImmutableMap.of(), ImmutableMap.of(), ImmutableList.of(NATION), Optional.of(metastoreDir));
     }
 
     @AfterClass(alwaysRun = true)
