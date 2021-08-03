@@ -410,6 +410,19 @@ public class TestCassandraConnectorTest
     }
 
     @Test
+    public void testNotEqualPredicateOnClusteringColumn()
+    {
+        String sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one != 'clust_one'";
+        assertEquals(execute(sql).getRowCount(), 0);
+        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two != 2";
+        assertEquals(execute(sql).getRowCount(), 3);
+        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two >= 2 AND clust_two != 3";
+        assertEquals(execute(sql).getRowCount(), 2);
+        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two > 2 AND clust_two != 3";
+        assertEquals(execute(sql).getRowCount(), 1);
+    }
+
+    @Test
     public void testClusteringKeyPushdownInequality()
     {
         String sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one'";
