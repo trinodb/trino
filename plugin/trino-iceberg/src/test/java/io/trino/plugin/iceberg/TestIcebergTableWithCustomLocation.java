@@ -31,7 +31,6 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
-import static io.trino.tpch.TpchTable.NATION;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
@@ -55,7 +54,7 @@ public class TestIcebergTableWithCustomLocation
         return createIcebergQueryRunner(
                 ImmutableMap.of(),
                 ImmutableMap.of("iceberg.unique-table-location", "true"),
-                ImmutableList.of(NATION),
+                ImmutableList.of(),
                 Optional.of(metastoreDir));
     }
 
