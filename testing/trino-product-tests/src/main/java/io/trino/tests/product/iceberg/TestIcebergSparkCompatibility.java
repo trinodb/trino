@@ -71,9 +71,10 @@ public class TestIcebergSparkCompatibility
     public void testTrinoReadingSparkData(StorageFormat storageFormat)
     {
         String baseTableName = "test_trino_reading_primitive_types_" + storageFormat;
+        String trinoTableName = trinoTableName(baseTableName);
         String sparkTableName = sparkTableName(baseTableName);
 
-        String sparkTableDefinition =
+        onSpark().executeQuery(format(
                 "CREATE TABLE %s (" +
                         "  _string STRING" +
                         ", _bigint BIGINT" +
@@ -84,27 +85,26 @@ public class TestIcebergSparkCompatibility
                         ", _timestamp TIMESTAMP" +
                         ", _date DATE" +
                         ") USING ICEBERG " +
-                        "TBLPROPERTIES ('write.format.default'='%s')";
-        onSpark().executeQuery(format(sparkTableDefinition, sparkTableName, storageFormat));
+                        "TBLPROPERTIES ('write.format.default'='%s')",
+                sparkTableName,
+                storageFormat));
 
         // Validate queries on an empty table created by Spark
-        String snapshotsTable = trinoTableName("\"" + baseTableName + "$snapshots\"");
-        assertThat(onTrino().executeQuery(format("SELECT * FROM %s", snapshotsTable))).hasNoRows();
-        QueryResult emptyResult = onTrino().executeQuery(format("SELECT * FROM %s", trinoTableName(baseTableName)));
-        assertThat(emptyResult).hasNoRows();
+        assertThat(onTrino().executeQuery(format("SELECT * FROM %s", trinoTableName("\"" + baseTableName + "$snapshots\"")))).hasNoRows();
+        assertThat(onTrino().executeQuery(format("SELECT * FROM %s", trinoTableName))).hasNoRows();
 
-        String values = "VALUES (" +
-                "'a_string'" +
-                ", 1000000000000000" +
-                ", 1000000000" +
-                ", 10000000.123" +
-                ", 100000000000.123" +
-                ", true" +
-                ", TIMESTAMP '2020-06-28 14:16:00.456'" +
-                ", DATE '1950-06-28'" +
-                ")";
-        String insert = format("INSERT INTO %s %s", sparkTableName, values);
-        onSpark().executeQuery(insert);
+        onSpark().executeQuery(format(
+                "INSERT INTO %s VALUES (" +
+                        "'a_string'" +
+                        ", 1000000000000000" +
+                        ", 1000000000" +
+                        ", 10000000.123" +
+                        ", 100000000000.123" +
+                        ", true" +
+                        ", TIMESTAMP '2020-06-28 14:16:00.456'" +
+                        ", DATE '1950-06-28'" +
+                        ")",
+                sparkTableName));
 
         Row row = row(
                 "a_string",
@@ -117,11 +117,11 @@ public class TestIcebergSparkCompatibility
                 Date.valueOf("1950-06-28"));
 
         String startOfSelect = "SELECT _string, _bigint, _integer, _real, _double, _boolean";
-        QueryResult sparkSelect = onSpark().executeQuery(format("%s, _timestamp, _date FROM %s", startOfSelect, sparkTableName));
-        assertThat(sparkSelect).containsOnly(row);
+        assertThat(onSpark().executeQuery(format("%s, _timestamp, _date FROM %s", startOfSelect, sparkTableName)))
+                .containsOnly(row);
 
-        QueryResult trinoSelect = onTrino().executeQuery(format("%s, CAST(_timestamp AS TIMESTAMP), _date FROM %s", startOfSelect, trinoTableName(baseTableName)));
-        assertThat(trinoSelect).containsOnly(row);
+        assertThat(onTrino().executeQuery(format("%s, CAST(_timestamp AS TIMESTAMP), _date FROM %s", startOfSelect, trinoTableName)))
+                .containsOnly(row);
 
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
@@ -131,8 +131,9 @@ public class TestIcebergSparkCompatibility
     {
         String baseTableName = "test_spark_reading_primitive_types_" + storageFormat;
         String trinoTableName = trinoTableName(baseTableName);
+        String sparkTableName = sparkTableName(baseTableName);
 
-        String trinoTableDefinition =
+        onTrino().executeQuery(format(
                 "CREATE TABLE %s (" +
                         "  _string VARCHAR" +
                         ", _bigint BIGINT" +
@@ -142,21 +143,22 @@ public class TestIcebergSparkCompatibility
                         ", _boolean BOOLEAN" +
                         //", _timestamp TIMESTAMP" +
                         ", _date DATE" +
-                        ") WITH (format = '%s')";
-        onTrino().executeQuery(format(trinoTableDefinition, trinoTableName, storageFormat));
+                        ") WITH (format = '%s')",
+                trinoTableName,
+                storageFormat));
 
-        String values = "VALUES (" +
-                "'a_string'" +
-                ", 1000000000000000" +
-                ", 1000000000" +
-                ", 10000000.123" +
-                ", 100000000000.123" +
-                ", true" +
-                //", TIMESTAMP '2020-06-28 14:16:00.456'" +
-                ", DATE '1950-06-28'" +
-                ")";
-        String insert = format("INSERT INTO %s %s", trinoTableName, values);
-        onTrino().executeQuery(insert);
+        onTrino().executeQuery(format(
+                "INSERT INTO %s VALUES (" +
+                        "'a_string'" +
+                        ", 1000000000000000" +
+                        ", 1000000000" +
+                        ", 10000000.123" +
+                        ", 100000000000.123" +
+                        ", true" +
+                        //", TIMESTAMP '2020-06-28 14:16:00.456'" +
+                        ", DATE '1950-06-28'" +
+                        ")",
+                trinoTableName));
 
         Row row = row(
                 "a_string",
@@ -168,11 +170,11 @@ public class TestIcebergSparkCompatibility
                 //"2020-06-28 14:16:00.456",
                 "1950-06-28");
         String startOfSelect = "SELECT _string, _bigint, _integer, _real, _double, _boolean";
-        QueryResult trinoSelect = onTrino().executeQuery(format("%s, /* CAST(_timestamp AS VARCHAR),*/ CAST(_date AS VARCHAR) FROM %s", startOfSelect, trinoTableName));
-        assertThat(trinoSelect).containsOnly(row);
+        assertThat(onTrino().executeQuery(format("%s, /* CAST(_timestamp AS VARCHAR),*/ CAST(_date AS VARCHAR) FROM %s", startOfSelect, trinoTableName)))
+                .containsOnly(row);
 
-        QueryResult sparkSelect = onSpark().executeQuery(format("%s, /* CAST(_timestamp AS STRING),*/ CAST(_date AS STRING) FROM %s", startOfSelect, sparkTableName(baseTableName)));
-        assertThat(sparkSelect).containsOnly(row);
+        assertThat(onSpark().executeQuery(format("%s, /* CAST(_timestamp AS STRING),*/ CAST(_date AS STRING) FROM %s", startOfSelect, sparkTableName)))
+                .containsOnly(row);
 
         onTrino().executeQuery("DROP TABLE " + trinoTableName);
     }
@@ -198,6 +200,8 @@ public class TestIcebergSparkCompatibility
     {
         String baseTableName = "test_spark_reads_trino_partitioned_table_" + storageFormat;
         String trinoTableName = trinoTableName(baseTableName);
+        String sparkTableName = sparkTableName(baseTableName);
+
         onTrino().executeQuery(format("CREATE TABLE %s (_string VARCHAR, _bigint BIGINT) WITH (partitioning = ARRAY['_string'], format = '%s')", trinoTableName, storageFormat));
         onTrino().executeQuery(format("INSERT INTO %s VALUES ('a', 1001), ('b', 1002), ('c', 1003)", trinoTableName));
 
@@ -205,7 +209,7 @@ public class TestIcebergSparkCompatibility
         String select = "SELECT * FROM %s WHERE _string = 'b'";
         assertThat(onTrino().executeQuery(format(select, trinoTableName)))
                 .containsOnly(row);
-        assertThat(onSpark().executeQuery(format(select, sparkTableName(baseTableName))))
+        assertThat(onSpark().executeQuery(format(select, sparkTableName)))
                 .containsOnly(row);
         onTrino().executeQuery("DROP TABLE " + trinoTableName);
     }
@@ -214,7 +218,9 @@ public class TestIcebergSparkCompatibility
     public void testTrinoReadsSparkPartitionedTable(StorageFormat storageFormat)
     {
         String baseTableName = "test_trino_reads_spark_partitioned_table_" + storageFormat;
+        String trinoTableName = trinoTableName(baseTableName);
         String sparkTableName = sparkTableName(baseTableName);
+
         onSpark().executeQuery(format(
                 "CREATE TABLE %s (_string STRING, _bigint BIGINT) USING ICEBERG PARTITIONED BY (_string) TBLPROPERTIES ('write.format.default'='%s')",
                 sparkTableName,
@@ -225,7 +231,7 @@ public class TestIcebergSparkCompatibility
         String select = "SELECT * FROM %s WHERE _string = 'b'";
         assertThat(onSpark().executeQuery(format(select, sparkTableName)))
                 .containsOnly(row);
-        assertThat(onTrino().executeQuery(format(select, trinoTableName(baseTableName))))
+        assertThat(onTrino().executeQuery(format(select, trinoTableName)))
                 .containsOnly(row);
 
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
@@ -235,29 +241,26 @@ public class TestIcebergSparkCompatibility
     public void testTrinoReadingCompositeSparkData(StorageFormat storageFormat)
     {
         String baseTableName = "test_trino_reading_spark_composites_" + storageFormat;
+        String trinoTableName = trinoTableName(baseTableName);
         String sparkTableName = sparkTableName(baseTableName);
 
-        String sparkTableDefinition = "" +
-                "CREATE TABLE %s (" +
-                "  doc_id string,\n" +
-                "  info MAP<STRING, INT>,\n" +
-                "  pets ARRAY<STRING>,\n" +
-                "  user_info STRUCT<name:STRING, surname:STRING, age:INT, gender:STRING>)" +
-                "  USING ICEBERG" +
-                " TBLPROPERTIES ('write.format.default'='%s')";
-        onSpark().executeQuery(format(sparkTableDefinition, sparkTableName, storageFormat));
+        onSpark().executeQuery(format("" +
+                        "CREATE TABLE %s (" +
+                        "  doc_id string,\n" +
+                        "  info MAP<STRING, INT>,\n" +
+                        "  pets ARRAY<STRING>,\n" +
+                        "  user_info STRUCT<name:STRING, surname:STRING, age:INT, gender:STRING>)" +
+                        "  USING ICEBERG" +
+                        " TBLPROPERTIES ('write.format.default'='%s')",
+                sparkTableName, storageFormat));
 
-        String insert = "" +
+        onSpark().executeQuery(format(
                 "INSERT INTO TABLE %s SELECT 'Doc213', map('age', 28, 'children', 3), array('Dog', 'Cat', 'Pig'), \n" +
-                "named_struct('name', 'Santa', 'surname', 'Claus','age', 1000,'gender', 'MALE')";
-        onSpark().executeQuery(format(insert, sparkTableName));
+                        "named_struct('name', 'Santa', 'surname', 'Claus','age', 1000,'gender', 'MALE')",
+                sparkTableName));
 
-        String trinoTableName = trinoTableName(baseTableName);
-        String trinoSelect = "SELECT doc_id, info['age'], pets[2], user_info.surname FROM " + trinoTableName;
-
-        QueryResult trinoResult = onTrino().executeQuery(trinoSelect);
-        Row row = row("Doc213", 28, "Cat", "Claus");
-        assertThat(trinoResult).containsOnly(row);
+        assertThat(onTrino().executeQuery("SELECT doc_id, info['age'], pets[2], user_info.surname FROM " + trinoTableName))
+                .containsOnly(row("Doc213", 28, "Cat", "Claus"));
 
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
@@ -267,24 +270,24 @@ public class TestIcebergSparkCompatibility
     {
         String baseTableName = "test_spark_reading_trino_composites_" + storageFormat;
         String trinoTableName = trinoTableName(baseTableName);
-
-        String trinoTableDefinition = "" +
-                "CREATE TABLE %s (" +
-                "  doc_id VARCHAR,\n" +
-                "  info MAP(VARCHAR, INTEGER),\n" +
-                "  pets ARRAY(VARCHAR),\n" +
-                "  user_info ROW(name VARCHAR, surname VARCHAR, age INTEGER, gender VARCHAR)) " +
-                "  WITH (format = '%s')";
-        onTrino().executeQuery(format(trinoTableDefinition, trinoTableName, storageFormat));
-
-        String insert = "INSERT INTO %s VALUES('Doc213', MAP(ARRAY['age', 'children'], ARRAY[28, 3]), ARRAY['Dog', 'Cat', 'Pig'], ROW('Santa', 'Claus', 1000, 'MALE'))";
-        onTrino().executeQuery(format(insert, trinoTableName));
-
         String sparkTableName = sparkTableName(baseTableName);
-        String sparkSelect = "SELECT doc_id, info['age'], pets[1], user_info.surname FROM " + sparkTableName;
-        QueryResult sparkResult = onSpark().executeQuery(sparkSelect);
-        Row row = row("Doc213", 28, "Cat", "Claus");
-        assertThat(sparkResult).containsOnly(row);
+
+        onTrino().executeQuery(format(
+                "CREATE TABLE %s (" +
+                        "  doc_id VARCHAR,\n" +
+                        "  info MAP(VARCHAR, INTEGER),\n" +
+                        "  pets ARRAY(VARCHAR),\n" +
+                        "  user_info ROW(name VARCHAR, surname VARCHAR, age INTEGER, gender VARCHAR)) " +
+                        "  WITH (format = '%s')",
+                trinoTableName,
+                storageFormat));
+
+        onTrino().executeQuery(format(
+                "INSERT INTO %s VALUES('Doc213', MAP(ARRAY['age', 'children'], ARRAY[28, 3]), ARRAY['Dog', 'Cat', 'Pig'], ROW('Santa', 'Claus', 1000, 'MALE'))",
+                trinoTableName));
+
+        assertThat(onSpark().executeQuery("SELECT doc_id, info['age'], pets[1], user_info.surname FROM " + sparkTableName))
+                .containsOnly(row("Doc213", 28, "Cat", "Claus"));
 
         onTrino().executeQuery("DROP TABLE " + trinoTableName);
     }
@@ -293,45 +296,45 @@ public class TestIcebergSparkCompatibility
     public void testTrinoReadingNestedSparkData(StorageFormat storageFormat)
     {
         String baseTableName = "test_trino_reading_nested_spark_data_" + storageFormat;
+        String trinoTableName = trinoTableName(baseTableName);
         String sparkTableName = sparkTableName(baseTableName);
 
-        String sparkTableDefinition = "" +
+        onSpark().executeQuery(format(
                 "CREATE TABLE %s (\n" +
-                "  doc_id STRING\n" +
-                ", nested_map MAP<STRING, ARRAY<STRUCT<sname: STRING, snumber: INT>>>\n" +
-                ", nested_array ARRAY<MAP<STRING, ARRAY<STRUCT<mname: STRING, mnumber: INT>>>>\n" +
-                ", nested_struct STRUCT<name:STRING, complicated: ARRAY<MAP<STRING, ARRAY<STRUCT<mname: STRING, mnumber: INT>>>>>)\n" +
-                " USING ICEBERG TBLPROPERTIES ('write.format.default'='%s')";
-        onSpark().executeQuery(format(sparkTableDefinition, sparkTableName, storageFormat));
+                        "  doc_id STRING\n" +
+                        ", nested_map MAP<STRING, ARRAY<STRUCT<sname: STRING, snumber: INT>>>\n" +
+                        ", nested_array ARRAY<MAP<STRING, ARRAY<STRUCT<mname: STRING, mnumber: INT>>>>\n" +
+                        ", nested_struct STRUCT<name:STRING, complicated: ARRAY<MAP<STRING, ARRAY<STRUCT<mname: STRING, mnumber: INT>>>>>)\n" +
+                        " USING ICEBERG TBLPROPERTIES ('write.format.default'='%s')",
+                sparkTableName,
+                storageFormat));
 
-        String insert = "" +
+        onSpark().executeQuery(format(
                 "INSERT INTO TABLE %s SELECT" +
-                "  'Doc213'" +
-                ", map('s1', array(named_struct('sname', 'ASName1', 'snumber', 201), named_struct('sname', 'ASName2', 'snumber', 202)))" +
-                ", array(map('m1', array(named_struct('mname', 'MAS1Name1', 'mnumber', 301), named_struct('mname', 'MAS1Name2', 'mnumber', 302)))" +
-                "       ,map('m2', array(named_struct('mname', 'MAS2Name1', 'mnumber', 401), named_struct('mname', 'MAS2Name2', 'mnumber', 402))))" +
-                ", named_struct('name', 'S1'," +
-                "               'complicated', array(map('m1', array(named_struct('mname', 'SAMA1Name1', 'mnumber', 301), named_struct('mname', 'SAMA1Name2', 'mnumber', 302)))" +
-                "                                   ,map('m2', array(named_struct('mname', 'SAMA2Name1', 'mnumber', 401), named_struct('mname', 'SAMA2Name2', 'mnumber', 402)))))";
-        onSpark().executeQuery(format(insert, sparkTableName));
+                        "  'Doc213'" +
+                        ", map('s1', array(named_struct('sname', 'ASName1', 'snumber', 201), named_struct('sname', 'ASName2', 'snumber', 202)))" +
+                        ", array(map('m1', array(named_struct('mname', 'MAS1Name1', 'mnumber', 301), named_struct('mname', 'MAS1Name2', 'mnumber', 302)))" +
+                        "       ,map('m2', array(named_struct('mname', 'MAS2Name1', 'mnumber', 401), named_struct('mname', 'MAS2Name2', 'mnumber', 402))))" +
+                        ", named_struct('name', 'S1'," +
+                        "               'complicated', array(map('m1', array(named_struct('mname', 'SAMA1Name1', 'mnumber', 301), named_struct('mname', 'SAMA1Name2', 'mnumber', 302)))" +
+                        "                                   ,map('m2', array(named_struct('mname', 'SAMA2Name1', 'mnumber', 401), named_struct('mname', 'SAMA2Name2', 'mnumber', 402)))))",
+                sparkTableName));
 
         Row row = row("Doc213", "ASName2", 201, "MAS2Name1", 302, "SAMA1Name1", 402);
 
-        String sparkSelect = "SELECT" +
-                "  doc_id" +
-                ", nested_map['s1'][1].sname" +
-                ", nested_map['s1'][0].snumber" +
-                ", nested_array[1]['m2'][0].mname" +
-                ", nested_array[0]['m1'][1].mnumber" +
-                ", nested_struct.complicated[0]['m1'][0].mname" +
-                ", nested_struct.complicated[1]['m2'][1].mnumber" +
-                "  FROM ";
+        assertThat(onSpark().executeQuery(
+                "SELECT" +
+                        "  doc_id" +
+                        ", nested_map['s1'][1].sname" +
+                        ", nested_map['s1'][0].snumber" +
+                        ", nested_array[1]['m2'][0].mname" +
+                        ", nested_array[0]['m1'][1].mnumber" +
+                        ", nested_struct.complicated[0]['m1'][0].mname" +
+                        ", nested_struct.complicated[1]['m2'][1].mnumber" +
+                        "  FROM " + sparkTableName))
+                .containsOnly(row);
 
-        QueryResult sparkResult = onSpark().executeQuery(sparkSelect + sparkTableName);
-        assertThat(sparkResult).containsOnly(row);
-
-        String trinoTableName = trinoTableName(baseTableName);
-        String trinoSelect = "SELECT" +
+        assertThat(onTrino().executeQuery("SELECT" +
                 "  doc_id" +
                 ", nested_map['s1'][2].sname" +
                 ", nested_map['s1'][1].snumber" +
@@ -339,10 +342,8 @@ public class TestIcebergSparkCompatibility
                 ", nested_array[1]['m1'][2].mnumber" +
                 ", nested_struct.complicated[1]['m1'][1].mname" +
                 ", nested_struct.complicated[2]['m2'][2].mnumber" +
-                "  FROM ";
-
-        QueryResult trinoResult = onTrino().executeQuery(trinoSelect + trinoTableName);
-        assertThat(trinoResult).containsOnly(row);
+                "  FROM " + trinoTableName))
+                .containsOnly(row);
 
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
@@ -352,54 +353,53 @@ public class TestIcebergSparkCompatibility
     {
         String baseTableName = "test_spark_reading_nested_trino_data_" + storageFormat;
         String trinoTableName = trinoTableName(baseTableName);
+        String sparkTableName = sparkTableName(baseTableName);
 
-        String trinoTableDefinition = "" +
+        onTrino().executeQuery(format(
                 "CREATE TABLE %s (\n" +
-                "  doc_id VARCHAR\n" +
-                ", nested_map MAP(VARCHAR, ARRAY(ROW(sname VARCHAR, snumber INT)))\n" +
-                ", nested_array ARRAY(MAP(VARCHAR, ARRAY(ROW(mname VARCHAR, mnumber INT))))\n" +
-                ", nested_struct ROW(name VARCHAR, complicated ARRAY(MAP(VARCHAR, ARRAY(ROW(mname VARCHAR, mnumber INT))))))" +
-                "  WITH (format = '%s')";
-        onTrino().executeQuery(format(trinoTableDefinition, trinoTableName, storageFormat));
+                        "  doc_id VARCHAR\n" +
+                        ", nested_map MAP(VARCHAR, ARRAY(ROW(sname VARCHAR, snumber INT)))\n" +
+                        ", nested_array ARRAY(MAP(VARCHAR, ARRAY(ROW(mname VARCHAR, mnumber INT))))\n" +
+                        ", nested_struct ROW(name VARCHAR, complicated ARRAY(MAP(VARCHAR, ARRAY(ROW(mname VARCHAR, mnumber INT))))))" +
+                        "  WITH (format = '%s')",
+                trinoTableName,
+                storageFormat));
 
-        String insert = "" +
+        onTrino().executeQuery(format(
                 "INSERT INTO %s SELECT" +
-                "  'Doc213'" +
-                ", map(array['s1'], array[array[row('ASName1', 201), row('ASName2', 202)]])" +
-                ", array[map(array['m1'], array[array[row('MAS1Name1', 301), row('MAS1Name2', 302)]])" +
-                "       ,map(array['m2'], array[array[row('MAS2Name1', 401), row('MAS2Name2', 402)]])]" +
-                ", row('S1'" +
-                "      ,array[map(array['m1'], array[array[row('SAMA1Name1', 301), row('SAMA1Name2', 302)]])" +
-                "            ,map(array['m2'], array[array[row('SAMA2Name1', 401), row('SAMA2Name2', 402)]])])";
-        onTrino().executeQuery(format(insert, trinoTableName));
+                        "  'Doc213'" +
+                        ", map(array['s1'], array[array[row('ASName1', 201), row('ASName2', 202)]])" +
+                        ", array[map(array['m1'], array[array[row('MAS1Name1', 301), row('MAS1Name2', 302)]])" +
+                        "       ,map(array['m2'], array[array[row('MAS2Name1', 401), row('MAS2Name2', 402)]])]" +
+                        ", row('S1'" +
+                        "      ,array[map(array['m1'], array[array[row('SAMA1Name1', 301), row('SAMA1Name2', 302)]])" +
+                        "            ,map(array['m2'], array[array[row('SAMA2Name1', 401), row('SAMA2Name2', 402)]])])",
+                trinoTableName));
 
         Row row = row("Doc213", "ASName2", 201, "MAS2Name1", 302, "SAMA1Name1", 402);
 
-        String trinoSelect = "SELECT" +
-                "  doc_id" +
-                ", nested_map['s1'][2].sname" +
-                ", nested_map['s1'][1].snumber" +
-                ", nested_array[2]['m2'][1].mname" +
-                ", nested_array[1]['m1'][2].mnumber" +
-                ", nested_struct.complicated[1]['m1'][1].mname" +
-                ", nested_struct.complicated[2]['m2'][2].mnumber" +
-                "  FROM ";
+        assertThat(onTrino().executeQuery(
+                "SELECT" +
+                        "  doc_id" +
+                        ", nested_map['s1'][2].sname" +
+                        ", nested_map['s1'][1].snumber" +
+                        ", nested_array[2]['m2'][1].mname" +
+                        ", nested_array[1]['m1'][2].mnumber" +
+                        ", nested_struct.complicated[1]['m1'][1].mname" +
+                        ", nested_struct.complicated[2]['m2'][2].mnumber" +
+                        "  FROM " + trinoTableName))
+                .containsOnly(row);
 
-        QueryResult trinoResult = onTrino().executeQuery(trinoSelect + trinoTableName);
-        assertThat(trinoResult).containsOnly(row);
-
-        String sparkTableName = sparkTableName(baseTableName);
-        String sparkSelect = "SELECT" +
-                "  doc_id" +
-                ", nested_map['s1'][1].sname" +
-                ", nested_map['s1'][0].snumber" +
-                ", nested_array[1]['m2'][0].mname" +
-                ", nested_array[0]['m1'][1].mnumber" +
-                ", nested_struct.complicated[0]['m1'][0].mname" +
-                ", nested_struct.complicated[1]['m2'][1].mnumber" +
-                "  FROM ";
-
-        QueryResult sparkResult = onSpark().executeQuery(sparkSelect + sparkTableName);
+        QueryResult sparkResult = onSpark().executeQuery(
+                "SELECT" +
+                        "  doc_id" +
+                        ", nested_map['s1'][1].sname" +
+                        ", nested_map['s1'][0].snumber" +
+                        ", nested_array[1]['m2'][0].mname" +
+                        ", nested_array[0]['m1'][1].mnumber" +
+                        ", nested_struct.complicated[0]['m1'][0].mname" +
+                        ", nested_struct.complicated[1]['m2'][1].mnumber" +
+                        "  FROM " + sparkTableName);
         assertThat(sparkResult).containsOnly(row);
 
         onTrino().executeQuery("DROP TABLE " + trinoTableName);
