@@ -59,7 +59,6 @@ import static io.trino.plugin.iceberg.IcebergUtil.loadIcebergTable;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static io.trino.tpch.TpchTable.NATION;
-import static org.apache.iceberg.FileFormat.ORC;
 
 public class TestIcebergV2
         extends AbstractTestQueryFramework
@@ -80,7 +79,7 @@ public class TestIcebergV2
         metastoreDir = new File(tempDir, "iceberg_data");
         metastore = createTestingFileHiveMetastore(metastoreDir);
 
-        return createIcebergQueryRunner(ImmutableMap.of(), ORC, ImmutableList.of(NATION), Optional.of(metastoreDir));
+        return createIcebergQueryRunner(ImmutableMap.of(), new IcebergConfig().getFileFormat(), ImmutableList.of(NATION), Optional.of(metastoreDir));
     }
 
     @AfterClass(alwaysRun = true)
