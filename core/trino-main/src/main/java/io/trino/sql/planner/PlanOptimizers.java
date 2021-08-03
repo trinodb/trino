@@ -152,6 +152,7 @@ import io.trino.sql.planner.iterative.rule.PushDownDereferencesThroughSort;
 import io.trino.sql.planner.iterative.rule.PushDownDereferencesThroughTopN;
 import io.trino.sql.planner.iterative.rule.PushDownDereferencesThroughTopNRanking;
 import io.trino.sql.planner.iterative.rule.PushDownDereferencesThroughWindow;
+import io.trino.sql.planner.iterative.rule.PushDownProjectionsFromPatternRecognition;
 import io.trino.sql.planner.iterative.rule.PushJoinIntoTableScan;
 import io.trino.sql.planner.iterative.rule.PushLimitIntoTableScan;
 import io.trino.sql.planner.iterative.rule.PushLimitThroughMarkDistinct;
@@ -690,7 +691,9 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        ImmutableSet.of(new RemoveRedundantIdentityProjections())),
+                        ImmutableSet.of(
+                                new RemoveRedundantIdentityProjections(),
+                                new PushDownProjectionsFromPatternRecognition())),
                 new MetadataQueryOptimizer(metadata),
                 new IterativeOptimizer(
                         metadata,
