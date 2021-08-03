@@ -84,8 +84,8 @@ public class TestPhoenixTypeMapping
 
     @Test
     public void testBasicTypes()
-    {   
-        DataTypeTestToSqlDataTypeTestConverter.create()
+    {
+        DataTypeTest.create()
                 .addRoundTrip(booleanDataType(), true)
                 .addRoundTrip(booleanDataType(), false)
                 .addRoundTrip(bigintDataType(), 123_456_789_012L)
