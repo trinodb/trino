@@ -88,8 +88,6 @@ public class TestIcebergMetadataFileOperations
 
         queryRunner.execute("CREATE SCHEMA test_schema");
 
-        queryRunner.execute("CREATE SCHEMA tpch");
-
         copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, session, TpchTable.getTables());
         return queryRunner;
     }
