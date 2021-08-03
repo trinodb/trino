@@ -9,6 +9,8 @@ on:
 env:
   # An envar that signals to tests we are executing in the CI environment
   CONTINUOUS_INTEGRATION: true
+  # allow overriding Maven command
+  MAVEN: ./mvnw
   # maven.wagon.rto is in millis, defaults to 30m
   MAVEN_OPTS: "-Xmx512M -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
   MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
@@ -47,13 +49,13 @@ jobs:
       - name: Maven Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY ./mvnw install -B --strict-checksums -V -T C1 -DskipTests -P ci -pl '!:trino-server-rpm'
+          $RETRY $MAVEN install -B --strict-checksums -V -T C1 -DskipTests -P ci -pl '!:trino-server-rpm'
       - name: Test Server RPM
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY bash -c './mvnw verify -B --strict-checksums -P ci -pl :trino-server-rpm || find core/trino-server-rpm/ -exec ls -ald {} +'
+          $RETRY bash -c "$MAVEN verify -B --strict-checksums -P ci -pl :trino-server-rpm || find core/trino-server-rpm/ -exec ls -ald {} +"
       - name: Clean Maven Output
-        run: ./mvnw clean -pl '!:trino-server,!:trino-cli'
+        run: $MAVEN clean -pl '!:trino-server,!:trino-cli'
       - uses: docker/setup-qemu-action@v1
         with:
           platforms: arm64
@@ -72,14 +74,14 @@ jobs:
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY ./mvnw install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
+          $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
       - name: Error Prone Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           # Run Error Prone on one module with a retry to ensure all runtime dependencies are fetched
-          $RETRY ./mvnw ${MAVEN_TEST} -T C1 clean test-compile -P errorprone-compiler -pl ':trino-spi'
+          $RETRY $MAVEN ${MAVEN_TEST} -T C1 clean test-compile -P errorprone-compiler -pl ':trino-spi'
           # The main Error Prone run
-          ./mvnw ${MAVEN_TEST} -T C1 clean test-compile -P errorprone-compiler \
+          $MAVEN ${MAVEN_TEST} -T C1 clean test-compile -P errorprone-compiler \
             -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
 
   web-ui-checks:
@@ -104,12 +106,12 @@ jobs:
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY ./mvnw install ${MAVEN_FAST_INSTALL} -pl '!:trino-test-jdbc-compatibility-old-driver,!:trino-docs,!:trino-server,!:trino-server-rpm'
+          $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -pl '!:trino-test-jdbc-compatibility-old-driver,!:trino-docs,!:trino-server,!:trino-server-rpm'
       - name: Test old JDBC vs current server
         run: testing/trino-test-jdbc-compatibility-old-driver/bin/run_tests.sh
       - name: Test current JDBC vs old server
         if: always()
-        run: ./mvnw test ${MAVEN_TEST} -pl :trino-test-jdbc-compatibility-old-server
+        run: $MAVEN test ${MAVEN_TEST} -pl :trino-test-jdbc-compatibility-old-server
 
   hive-tests:
     runs-on: ubuntu-latest
@@ -130,7 +132,7 @@ jobs:
       - name: Install Hive Module
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl :trino-hive-hadoop2
+          $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -am -pl :trino-hive-hadoop2
       - name: Run Hive Tests
         run: |
           source testing/trino-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
@@ -153,7 +155,7 @@ jobs:
           AWS_REGION: us-east-2
         run: |
           if [ "${AWS_ACCESS_KEY_ID}" != "" ]; then
-            ./mvnw test ${MAVEN_TEST} -pl :trino-hive -P test-hive-glue
+            $MAVEN test ${MAVEN_TEST} -pl :trino-hive -P test-hive-glue
           fi
       - name: Run Hive Azure ABFS Access Key Tests
         if: matrix.config != 'config-empty' # Hive 1.x does not support Azure storage
@@ -219,10 +221,10 @@ jobs:
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY ./mvnw install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
+          $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
       - name: Maven Tests
         run: |
-          ./mvnw test ${MAVEN_TEST} -pl '
+          $MAVEN test ${MAVEN_TEST} -pl '
             !:trino-main,
             !:trino-tests,
             !:trino-raptor-legacy,
@@ -271,9 +273,9 @@ jobs:
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl $(echo '${{ matrix.modules }}' | cut -d' ' -f1)
+          $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -am -pl $(echo '${{ matrix.modules }}' | cut -d' ' -f1)
       - name: Maven Tests
-        run: ./mvnw test ${MAVEN_TEST} -pl ${{ matrix.modules }}
+        run: $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }}
 
   test-memsql:
     runs-on: ubuntu-latest
@@ -290,13 +292,13 @@ jobs:
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl :trino-memsql
+          $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -am -pl :trino-memsql
       - name: Memsql Tests
         env:
           MEMSQL_LICENSE: ${{ secrets.MEMSQL_LICENSE }}
         run: |
           if [ "${MEMSQL_LICENSE}" != "" ]; then
-            ./mvnw test ${MAVEN_TEST} -pl :trino-memsql -Dmemsql.license=${MEMSQL_LICENSE}
+            $MAVEN test ${MAVEN_TEST} -pl :trino-memsql -Dmemsql.license=${MEMSQL_LICENSE}
           fi
 
   test-bigquery:
@@ -311,22 +313,22 @@ jobs:
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl :trino-bigquery
+          $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -am -pl :trino-bigquery
       - name: Basic BigQuery Tests
-        run: ./mvnw test ${MAVEN_TEST} -pl :trino-bigquery
+        run: $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery
       - name: Cloud BigQuery Tests
         env:
           BIGQUERY_CREDENTIALS_KEY: ${{ secrets.BIGQUERY_CREDENTIALS_KEY }}
         run: |
           if [ "${BIGQUERY_CREDENTIALS_KEY}" != "" ]; then
-            ./mvnw test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests -Dbigquery.credentials-key="${BIGQUERY_CREDENTIALS_KEY}"
+            $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests -Dbigquery.credentials-key="${BIGQUERY_CREDENTIALS_KEY}"
           fi
       - name: Cloud BigQuery Case Insensitive Mapping Tests
         env:
           BIGQUERY_CREDENTIALS_KEY: ${{ secrets.BIGQUERY_CREDENTIALS_KEY }}
         run: |
           if [ "${BIGQUERY_CREDENTIALS_KEY}" != "" ]; then
-            ./mvnw test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests-case-insensitive-mapping -Dbigquery.credentials-key="${BIGQUERY_CREDENTIALS_KEY}"
+            $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests-case-insensitive-mapping -Dbigquery.credentials-key="${BIGQUERY_CREDENTIALS_KEY}"
           fi
 
   pt:
@@ -401,7 +403,7 @@ jobs:
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY ./mvnw install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs,!:trino-server-rpm'
+          $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs,!:trino-server-rpm'
       - name: Free Disk Space
         run: |
           docker image prune -af
