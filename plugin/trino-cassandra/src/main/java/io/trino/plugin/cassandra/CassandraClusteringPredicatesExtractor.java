@@ -16,7 +16,7 @@ package io.trino.plugin.cassandra;
 import com.datastax.driver.core.VersionNumber;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.cassandra.util.CassandraCqlUtils;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.Domain;
@@ -25,7 +25,7 @@ import io.trino.spi.predicate.TupleDomain;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
+import java.util.Set;
 
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -48,13 +48,12 @@ public class CassandraClusteringPredicatesExtractor
 
     public TupleDomain<ColumnHandle> getUnenforcedConstraints()
     {
-        Map<ColumnHandle, Domain> pushedDown = clusteringPushDownResult.getDomains();
-        return predicates.filter(((columnHandle, domain) -> !pushedDown.containsKey(columnHandle)));
+        return predicates.filter(((columnHandle, domain) -> !clusteringPushDownResult.hasBeenFullyPushed(columnHandle)));
     }
 
     private static ClusteringPushDownResult getClusteringKeysSet(List<CassandraColumnHandle> clusteringColumns, TupleDomain<ColumnHandle> predicates, VersionNumber cassandraVersion)
     {
-        ImmutableMap.Builder<ColumnHandle, Domain> domainsBuilder = ImmutableMap.builder();
+        ImmutableSet.Builder<ColumnHandle> fullyPushedColumnPredicates = ImmutableSet.builder();
         ImmutableList.Builder<String> clusteringColumnSql = ImmutableList.builder();
         int currentClusteringColumn = 0;
         for (CassandraColumnHandle columnHandle : clusteringColumns) {
@@ -135,7 +134,7 @@ public class CassandraClusteringPredicatesExtractor
                 break;
             }
             clusteringColumnSql.add(predicateString);
-            domainsBuilder.put(columnHandle, domain);
+            fullyPushedColumnPredicates.add(columnHandle);
             // Check for last clustering column should only be restricted by range condition
             if (predicateString.contains(">") || predicateString.contains("<")) {
                 break;
@@ -144,23 +143,23 @@ public class CassandraClusteringPredicatesExtractor
         }
         List<String> clusteringColumnPredicates = clusteringColumnSql.build();
 
-        return new ClusteringPushDownResult(domainsBuilder.build(), Joiner.on(" AND ").join(clusteringColumnPredicates));
+        return new ClusteringPushDownResult(fullyPushedColumnPredicates.build(), Joiner.on(" AND ").join(clusteringColumnPredicates));
     }
 
     private static class ClusteringPushDownResult
     {
-        private final Map<ColumnHandle, Domain> domains;
+        private final Set<ColumnHandle> fullyPushedColumnPredicates;
         private final String domainQuery;
 
-        public ClusteringPushDownResult(Map<ColumnHandle, Domain> domains, String domainQuery)
+        public ClusteringPushDownResult(Set<ColumnHandle> fullyPushedColumnPredicates, String domainQuery)
         {
-            this.domains = requireNonNull(ImmutableMap.copyOf(domains));
+            this.fullyPushedColumnPredicates = ImmutableSet.copyOf(requireNonNull(fullyPushedColumnPredicates, "fullyPushedColumnPredicates is null"));
             this.domainQuery = requireNonNull(domainQuery);
         }
 
-        public Map<ColumnHandle, Domain> getDomains()
+        public boolean hasBeenFullyPushed(ColumnHandle column)
         {
-            return domains;
+            return fullyPushedColumnPredicates.contains(column);
         }
 
         public String getDomainQuery()
