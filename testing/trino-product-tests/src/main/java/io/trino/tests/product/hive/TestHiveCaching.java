@@ -60,7 +60,7 @@ public class TestHiveCaching
         long initialAsyncDownloadedMb = beforeCacheStats.getAsyncDownloadedMb();
 
         assertThat(query("SELECT * FROM " + cachedTableName))
-                .containsExactly(tableData);
+                .containsExactlyInOrder(tableData);
 
         assertEventually(
                 new Duration(20, SECONDS),
@@ -82,7 +82,7 @@ public class TestHiveCaching
                     long beforeQueryNonLocalReads = beforeQueryCacheStats.getNonLocalReads();
 
                     assertThat(query("SELECT * FROM " + cachedTableName))
-                            .containsExactly(tableData);
+                            .containsExactlyInOrder(tableData);
 
                     // query via caching catalog should read exclusively from cache
                     CacheStats afterQueryCacheStats = getCacheStats();

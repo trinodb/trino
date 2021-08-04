@@ -112,11 +112,11 @@ public class TestHivePartitionsTable
         QueryResult partitionListResult;
 
         partitionListResult = query("SELECT * FROM " + partitionsTable);
-        assertThat(partitionListResult).containsExactly(row(1), row(2));
+        assertThat(partitionListResult).containsExactlyInOrder(row(1), row(2));
         assertColumnNames(partitionListResult, "part_col");
 
         partitionListResult = query(format("SELECT * FROM %s WHERE part_col = 1", partitionsTable));
-        assertThat(partitionListResult).containsExactly(row(1));
+        assertThat(partitionListResult).containsExactlyInOrder(row(1));
         assertColumnNames(partitionListResult, "part_col");
 
         assertQueryFailure(() -> query(format("SELECT * FROM %s WHERE no_such_column = 1", partitionsTable)))
@@ -148,17 +148,17 @@ public class TestHivePartitionsTable
         QueryResult partitionListResult;
 
         partitionListResult = query(format("SELECT * FROM %s WHERE part_col < 7", partitionsTable));
-        assertThat(partitionListResult).containsExactly(row(0), row(1), row(2), row(3), row(4), row(5), row(6));
+        assertThat(partitionListResult).containsExactlyInOrder(row(0), row(1), row(2), row(3), row(4), row(5), row(6));
         assertColumnNames(partitionListResult, "part_col");
 
         partitionListResult = query(format("SELECT a.part_col FROM (SELECT * FROM %s WHERE part_col = 1) a, (SELECT * FROM %s WHERE part_col = 1) b WHERE a.col = b.col", tableName, tableName));
-        assertThat(partitionListResult).containsExactly(row(1));
+        assertThat(partitionListResult).containsExactlyInOrder(row(1));
 
         partitionListResult = query(format("SELECT * FROM %s WHERE part_col < -10", partitionsTable));
         assertThat(partitionListResult).hasNoRows();
 
         partitionListResult = query(format("SELECT * FROM %s ORDER BY part_col LIMIT 7", partitionsTable));
-        assertThat(partitionListResult).containsExactly(row(0), row(1), row(2), row(3), row(4), row(5), row(6));
+        assertThat(partitionListResult).containsExactlyInOrder(row(0), row(1), row(2), row(3), row(4), row(5), row(6));
     }
 
     private void createPartitions(String tableName, int partitionsToCreate)

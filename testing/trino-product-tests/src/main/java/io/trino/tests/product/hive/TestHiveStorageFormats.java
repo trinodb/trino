@@ -479,7 +479,7 @@ public class TestHiveStorageFormats
 
         onHive().executeQuery(format("INSERT INTO %s VALUES(1, 'test data')", tableName));
 
-        assertThat(query("SELECT * FROM " + tableName)).containsExactly(row(1, "test data"));
+        assertThat(query("SELECT * FROM " + tableName)).containsExactlyInOrder(row(1, "test data"));
 
         onHive().executeQuery("DROP TABLE " + tableName);
     }
@@ -753,7 +753,7 @@ public class TestHiveStorageFormats
         QueryResult actual = query(format(query, tableName));
         assertThat(actual)
                 .hasColumns(expected.getColumnTypes())
-                .containsExactly(expectedRows);
+                .containsExactlyInOrder(expectedRows);
     }
 
     private void setAdminRole()

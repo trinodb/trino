@@ -32,7 +32,7 @@ public class TestBlackHoleConnector
         String nullTable = "\"blackhole\".default.nation_" + UUID.randomUUID().toString().replace("-", "");
         String table = "tpch.tiny.nation";
 
-        assertThat(query(format("SELECT count(*) from %s", table))).containsExactly(row(25));
+        assertThat(query(format("SELECT count(*) from %s", table))).containsExactlyInOrder(row(25));
         QueryResult result = query(format("CREATE TABLE %s AS SELECT * FROM %s", nullTable, table));
         try {
             assertThat(result).updatedRowsCountIsEqualTo(25);
