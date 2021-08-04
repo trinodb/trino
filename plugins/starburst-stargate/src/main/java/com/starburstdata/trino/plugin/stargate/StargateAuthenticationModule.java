@@ -81,7 +81,6 @@ public class StargateAuthenticationModule
         protected void setup(Binder binder)
         {
             install(new PasswordPassThroughModule<>(StargateConfig.class, StargateConfig::isImpersonationEnabled));
-            install(new AuthenticationBasedIdentityCacheMappingModule());
         }
 
         @Provides
