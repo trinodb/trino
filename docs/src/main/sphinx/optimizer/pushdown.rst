@@ -3,18 +3,48 @@ Pushdown
 ========
 
 Trino can push down the processing of queries, or parts of queries, into the
-connected data source. This means that a specific predicate, aggregation function,
-or other operation, is passed through to the underlying database or storage system
-for processing.
+connected data source. This means that a specific predicate, aggregation
+function, or other operation, is passed through to the underlying database or
+storage system for processing.
 
 The results of this pushdown can include the following benefits:
 
-* improved overall query performance
-* reduced network traffic between Trino and the data source
-* reduced load on the remote data source
+* Improved overall query performance
+* Reduced network traffic between Trino and the data source
+* Reduced load on the remote data source
+
+These benefits often result in significant cost reduction.
 
 Support for pushdown is specific to each connector and the relevant underlying
 database or storage system.
+
+.. _predicate-pushdown:
+
+Predicate pushdown
+------------------
+
+Predicate pushdown optimizes row-based filtering. It uses the inferred filter,
+typically resulting from a condition in a ``WHERE`` clause to omit unnecessary
+rows. The processing is pushed down to the data source by the connector and then
+processed by the data source.
+
+If predicate pushdown for a specific clause is succesful, the ``EXPLAIN`` plan
+for the query does not include a ``ScanFilterProject`` operation for that
+clause.
+
+.. _projection-pushdown:
+
+Projection pushdown
+-------------------
+
+Projection pushdown optimizes column-based filtering. It uses the columns
+specified in the ``SELECT`` clause and other parts of the query to limit access
+to these columns. The processing is pushed down to the data source by the
+connector and then the data source only reads and returns the neccessary
+columns.
+
+If projection pushdown is succesful, the ``EXPLAIN`` plan for the query only
+accesses the relevant columns in the ``Layout`` of the ``TableScan`` operation.
 
 .. _aggregation-pushdown:
 
