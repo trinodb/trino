@@ -41,6 +41,7 @@ import io.trino.plugin.hive.metastore.HivePrincipal;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.util.HiveUtil;
+import io.trino.spi.ErrorType;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
@@ -483,8 +484,10 @@ public class IcebergMetadata
             catch (TableNotFoundException e) {
                 // table disappeared during listing operation
             }
-            catch (UnknownTableTypeException e) {
-                // ignore table of unknown type
+            catch (TrinoException e) {
+                if (!e.getErrorCode().getType().equals(ErrorType.EXTERNAL)) {
+                    throw e;
+                }
             }
         }
         return columns.build();

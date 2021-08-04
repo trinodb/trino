@@ -297,7 +297,7 @@ public class HiveTableOperations
                         TableMetadataParser.read(this, io().newInputFile(metadataLocation))));
 
         if (newMetadata.get() == null) {
-            throw new TableNotFoundException(getSchemaTableName(), "Table metadata is missing.");
+            throw new TrinoException(ICEBERG_INVALID_METADATA, "Table metadata is missing or invalid: " + getSchemaTableName());
         }
 
         String newUUID = newMetadata.get().uuid();
