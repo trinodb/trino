@@ -46,6 +46,8 @@ properties files.
 
 .. include:: jdbc-common-configurations.fragment
 
+.. include:: non-transactional-insert.fragment
+
 Multiple SQL Server databases or servers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
