@@ -34,6 +34,8 @@ connection properties as appropriate for your setup:
 
 .. include:: jdbc-common-configurations.fragment
 
+.. include:: non-transactional-insert.fragment
+
 Multiple SingleStore servers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

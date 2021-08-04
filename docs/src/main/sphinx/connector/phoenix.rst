@@ -60,6 +60,8 @@ Property Name                                      Required   Description
 
 .. include:: jdbc-common-configurations.fragment
 
+.. include:: non-transactional-insert.fragment
+
 Querying Phoenix tables
 -------------------------
 
