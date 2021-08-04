@@ -28,11 +28,11 @@ public class TestLogical
     @Test(groups = {LOGICAL, QUERY_ENGINE})
     public void testLogicalOperatorsExists()
     {
-        assertThat(query("select true AND true")).containsExactly(row(true));
-        assertThat(query("select true OR false")).containsExactly(row(true));
-        assertThat(query("select 1 in (1, 2, 3)")).containsExactly(row(true));
-        assertThat(query("select 'ala ma kota' like 'ala%'")).containsExactly(row(true));
-        assertThat(query("select NOT true")).containsExactly(row(false));
-        assertThat(query("select null is null")).containsExactly(row(true));
+        assertThat(query("select true AND true")).containsExactlyInOrder(row(true));
+        assertThat(query("select true OR false")).containsExactlyInOrder(row(true));
+        assertThat(query("select 1 in (1, 2, 3)")).containsExactlyInOrder(row(true));
+        assertThat(query("select 'ala ma kota' like 'ala%'")).containsExactlyInOrder(row(true));
+        assertThat(query("select NOT true")).containsExactlyInOrder(row(false));
+        assertThat(query("select null is null")).containsExactlyInOrder(row(true));
     }
 }

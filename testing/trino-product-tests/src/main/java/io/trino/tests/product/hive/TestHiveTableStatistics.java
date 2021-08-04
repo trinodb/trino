@@ -700,7 +700,7 @@ public class TestHiveTableStatistics
                 row("c_int", null, null, null, null, null, null),
                 row(null, null, null, null, 2.0, null, null));
 
-        assertThat(query("ANALYZE " + tableName)).containsExactly(row(2));
+        assertThat(query("ANALYZE " + tableName)).containsExactlyInOrder(row(2));
         assertThat(query("SHOW STATS FOR " + tableName)).containsOnly(
                 row("c_string", 4.0, 1.0, 0.0, null, null, null),
                 row("c_int", null, 2.0, 0.0, null, "1", "2"),
@@ -733,7 +733,7 @@ public class TestHiveTableStatistics
                     row(null, null, null, null, 0.0, null, null));
         }
 
-        assertThat(query("ANALYZE " + tableNameInDatabase)).containsExactly(row(25));
+        assertThat(query("ANALYZE " + tableNameInDatabase)).containsExactlyInOrder(row(25));
 
         assertThat(query(showStatsWholeTable)).containsOnly(
                 row("n_nationkey", null, 25.0, 0.0, null, "0", "24"),
@@ -771,7 +771,7 @@ public class TestHiveTableStatistics
 
         // analyze for single partition
 
-        assertThat(query("ANALYZE " + tableNameInDatabase + " WITH (partitions = ARRAY[ARRAY['1']])")).containsExactly(row(5));
+        assertThat(query("ANALYZE " + tableNameInDatabase + " WITH (partitions = ARRAY[ARRAY['1']])")).containsExactlyInOrder(row(5));
 
         assertThat(query(showStatsWholeTable)).containsOnly(
                 row("p_nationkey", null, 5.0, 0.0, null, "1", "24"),
@@ -796,7 +796,7 @@ public class TestHiveTableStatistics
 
         // analyze for all partitions
 
-        assertThat(query("ANALYZE " + tableNameInDatabase)).containsExactly(row(15));
+        assertThat(query("ANALYZE " + tableNameInDatabase)).containsExactlyInOrder(row(15));
 
         assertThat(query(showStatsWholeTable)).containsOnly(
                 row("p_nationkey", null, 5.0, 0.0, null, "1", "24"),
@@ -848,7 +848,7 @@ public class TestHiveTableStatistics
 
         // analyze for single partition
 
-        assertThat(query("ANALYZE " + tableNameInDatabase + " WITH (partitions = ARRAY[ARRAY['AMERICA']])")).containsExactly(row(5));
+        assertThat(query("ANALYZE " + tableNameInDatabase + " WITH (partitions = ARRAY[ARRAY['AMERICA']])")).containsExactlyInOrder(row(5));
 
         assertThat(query(showStatsWholeTable)).containsOnly(
                 row("p_nationkey", null, 5.0, 0.0, null, "1", "24"),
@@ -873,7 +873,7 @@ public class TestHiveTableStatistics
 
         // column analysis for all partitions
 
-        assertThat(query("ANALYZE " + tableNameInDatabase)).containsExactly(row(15));
+        assertThat(query("ANALYZE " + tableNameInDatabase)).containsExactlyInOrder(row(15));
 
         assertThat(query(showStatsWholeTable)).containsOnly(
                 row("p_nationkey", null, 5.0, 0.0, null, "1", "24"),
@@ -943,7 +943,7 @@ public class TestHiveTableStatistics
                     row(null, null, null, null, 0.0, null, null));
         }
 
-        assertThat(query("ANALYZE " + tableNameInDatabase)).containsExactly(row(2));
+        assertThat(query("ANALYZE " + tableNameInDatabase)).containsExactlyInOrder(row(2));
 
         // SHOW STATS FORMAT: column_name, data_size, distinct_values_count, nulls_fraction, row_count
         assertThat(query("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
@@ -1012,7 +1012,7 @@ public class TestHiveTableStatistics
                     row(null, null, null, null, 0.0, null, null));
         }
 
-        assertThat(query("ANALYZE " + tableNameInDatabase)).containsExactly(row(0));
+        assertThat(query("ANALYZE " + tableNameInDatabase)).containsExactlyInOrder(row(0));
 
         assertThat(query("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
                 row("c_tinyint", 0.0, 0.0, 1.0, null, null, null),
@@ -1060,7 +1060,7 @@ public class TestHiveTableStatistics
                 row("c_binary", null, null, null, null, null, null),
                 row(null, null, null, null, 1.0, null, null));
 
-        assertThat(query("ANALYZE " + tableNameInDatabase)).containsExactly(row(1));
+        assertThat(query("ANALYZE " + tableNameInDatabase)).containsExactlyInOrder(row(1));
 
         assertThat(query("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
                 row("c_tinyint", 0.0, 0.0, 1.0, null, null, null),

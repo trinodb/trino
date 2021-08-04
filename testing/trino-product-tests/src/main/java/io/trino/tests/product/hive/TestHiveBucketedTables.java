@@ -117,7 +117,7 @@ public class TestHiveBucketedTables
                 .contains(row(25, 50));
 
         assertThat(query(format("SELECT count(*) FROM %s WHERE n_nationkey = 1", tableName)))
-                .containsExactly(row(2));
+                .containsExactlyInOrder(row(2));
     }
 
     @Test(groups = BIG_QUERY)
@@ -134,7 +134,7 @@ public class TestHiveBucketedTables
                 .contains(row(25, 75));
 
         assertThat(query(format("SELECT count(*) FROM %s WHERE n_nationkey = 1", tableName)))
-                .containsExactly(row(3));
+                .containsExactlyInOrder(row(3));
     }
 
     @Test
@@ -146,13 +146,13 @@ public class TestHiveBucketedTables
         populateHiveTable(tableName, NATION.getName());
 
         assertThat(query(format("SELECT count(*) FROM %s WHERE n_nationkey = 1", tableName)))
-                .containsExactly(row(2));
+                .containsExactlyInOrder(row(2));
         assertThat(query(format("SELECT count(*) FROM %s WHERE n_regionkey = 1", tableName)))
-                .containsExactly(row(10));
+                .containsExactlyInOrder(row(10));
         assertThat(query(format("SELECT n_regionkey, count(*) FROM %s GROUP BY n_regionkey", tableName)))
                 .containsOnly(row(0, 10), row(1, 10), row(2, 10), row(3, 10), row(4, 10));
         assertThat(query(format("SELECT count(*) FROM %s n JOIN %s n1 ON n.n_regionkey = n1.n_regionkey", tableName, tableName)))
-                .containsExactly(row(500));
+                .containsExactlyInOrder(row(500));
     }
 
     @Test
@@ -164,13 +164,13 @@ public class TestHiveBucketedTables
         populateHiveTable(tableName, NATION.getName());
 
         assertThat(query(format("SELECT count(*) FROM %s WHERE n_nationkey = 1", tableName)))
-                .containsExactly(row(2));
+                .containsExactlyInOrder(row(2));
         assertThat(query(format("SELECT count(*) FROM %s WHERE n_regionkey = 1", tableName)))
-                .containsExactly(row(10));
+                .containsExactlyInOrder(row(10));
         assertThat(query(format("SELECT n_regionkey, count(*) FROM %s GROUP BY n_regionkey", tableName)))
                 .containsOnly(row(0, 10), row(1, 10), row(2, 10), row(3, 10), row(4, 10));
         assertThat(query(format("SELECT count(*) FROM %s n JOIN %s n1 ON n.n_regionkey = n1.n_regionkey", tableName, tableName)))
-                .containsExactly(row(500));
+                .containsExactlyInOrder(row(500));
     }
 
     @Test
@@ -184,18 +184,18 @@ public class TestHiveBucketedTables
         populateHivePartitionedTable(tableName, NATION.getName(), "part_key = 'insert_2'");
 
         assertThat(query(format("SELECT count(*) FROM %s WHERE n_nationkey = 1", tableName)))
-                .containsExactly(row(4));
+                .containsExactlyInOrder(row(4));
         assertThat(query(format("SELECT count(*) FROM %s WHERE n_regionkey = 1", tableName)))
-                .containsExactly(row(20));
+                .containsExactlyInOrder(row(20));
         assertThat(query(format("SELECT count(*) FROM %s WHERE n_regionkey = 1 AND part_key = 'insert_1'", tableName)))
                 .hasRowsCount(1)
-                .containsExactly(row(10));
+                .containsExactlyInOrder(row(10));
         assertThat(query(format("SELECT n_regionkey, count(*) FROM %s WHERE part_key = 'insert_2' GROUP BY n_regionkey", tableName)))
                 .containsOnly(row(0, 10), row(1, 10), row(2, 10), row(3, 10), row(4, 10));
         assertThat(query(format("SELECT count(*) FROM %s n JOIN %s n1 ON n.n_regionkey = n1.n_regionkey", tableName, tableName)))
-                .containsExactly(row(2000));
+                .containsExactlyInOrder(row(2000));
         assertThat(query(format("SELECT count(*) FROM %s n JOIN %s n1 ON n.n_regionkey = n1.n_regionkey WHERE n.part_key = 'insert_1'", tableName, tableName)))
-                .containsExactly(row(1000));
+                .containsExactlyInOrder(row(1000));
     }
 
     @Test
@@ -204,7 +204,7 @@ public class TestHiveBucketedTables
     {
         String tableName = mutableTableInstanceOf(BUCKETED_NATION).getNameInDatabase();
         assertThat(query(format("SELECT count(*) FROM %s", tableName)))
-                .containsExactly(row(0));
+                .containsExactlyInOrder(row(0));
     }
 
     @Test
@@ -215,9 +215,9 @@ public class TestHiveBucketedTables
         populateRowToHiveTable(tableName, ImmutableList.of("2", "'name'", "2", "'comment'"), Optional.empty());
         // insert one row into nation
         assertThat(query(format("SELECT count(*) from %s", tableName)))
-                .containsExactly(row(1));
+                .containsExactlyInOrder(row(1));
         assertThat(query(format("select n_nationkey from %s where n_regionkey = 2", tableName)))
-                .containsExactly(row(2));
+                .containsExactlyInOrder(row(2));
     }
 
     @Test
@@ -230,10 +230,10 @@ public class TestHiveBucketedTables
                 "AS SELECT n_nationkey, n_name, n_regionkey, n_comment, n_name as part_key FROM %s";
         query(format(ctasQuery, tableName, NATION.getName()));
 
-        assertThat(query(format("SELECT count(*) FROM %s", tableName))).containsExactly(row(25));
-        assertThat(query(format("SELECT count(*) FROM %s WHERE n_regionkey=0", tableName))).containsExactly(row(5));
-        assertThat(query(format("SELECT count(*) FROM %s WHERE part_key='ALGERIA'", tableName))).containsExactly(row(1));
-        assertThat(query(format("SELECT count(*) FROM %s WHERE n_regionkey=0 AND part_key='ALGERIA'", tableName))).containsExactly(row(1));
+        assertThat(query(format("SELECT count(*) FROM %s", tableName))).containsExactlyInOrder(row(25));
+        assertThat(query(format("SELECT count(*) FROM %s WHERE n_regionkey=0", tableName))).containsExactlyInOrder(row(5));
+        assertThat(query(format("SELECT count(*) FROM %s WHERE part_key='ALGERIA'", tableName))).containsExactlyInOrder(row(1));
+        assertThat(query(format("SELECT count(*) FROM %s WHERE n_regionkey=0 AND part_key='ALGERIA'", tableName))).containsExactlyInOrder(row(1));
     }
 
     @Test
@@ -244,10 +244,10 @@ public class TestHiveBucketedTables
 
         query(format("INSERT INTO %s SELECT n_nationkey, n_name, n_regionkey, n_comment, n_name FROM %s", tableName, NATION.getName()));
 
-        assertThat(query(format("SELECT count(*) FROM %s", tableName))).containsExactly(row(25));
-        assertThat(query(format("SELECT count(*) FROM %s WHERE n_regionkey=0", tableName))).containsExactly(row(5));
-        assertThat(query(format("SELECT count(*) FROM %s WHERE part_key='ALGERIA'", tableName))).containsExactly(row(1));
-        assertThat(query(format("SELECT count(*) FROM %s WHERE n_regionkey=0 AND part_key='ALGERIA'", tableName))).containsExactly(row(1));
+        assertThat(query(format("SELECT count(*) FROM %s", tableName))).containsExactlyInOrder(row(25));
+        assertThat(query(format("SELECT count(*) FROM %s WHERE n_regionkey=0", tableName))).containsExactlyInOrder(row(5));
+        assertThat(query(format("SELECT count(*) FROM %s WHERE part_key='ALGERIA'", tableName))).containsExactlyInOrder(row(1));
+        assertThat(query(format("SELECT count(*) FROM %s WHERE n_regionkey=0 AND part_key='ALGERIA'", tableName))).containsExactlyInOrder(row(1));
     }
 
     @Test
@@ -260,8 +260,8 @@ public class TestHiveBucketedTables
         // make sure that insert will not overwrite existing data
         query(format("INSERT INTO %s SELECT * FROM %s", tableName, NATION.getName()));
 
-        assertThat(query(format("SELECT count(*) FROM %s", tableName))).containsExactly(row(50));
-        assertThat(query(format("SELECT count(*) FROM %s WHERE n_regionkey=0", tableName))).containsExactly(row(10));
+        assertThat(query(format("SELECT count(*) FROM %s", tableName))).containsExactlyInOrder(row(50));
+        assertThat(query(format("SELECT count(*) FROM %s WHERE n_regionkey=0", tableName))).containsExactlyInOrder(row(10));
     }
 
     @Test
@@ -274,7 +274,7 @@ public class TestHiveBucketedTables
         query(format("CREATE TABLE %s WITH (bucket_count = 10, bucketed_by = ARRAY['n_regionkey']) AS SELECT * FROM %s", tableName, NATION.getName()));
 
         assertThat(query(format("SELECT * FROM %s", tableName))).matches(PRESTO_NATION_RESULT);
-        assertThat(query(format("SELECT count(*) FROM %s WHERE n_regionkey=0", tableName))).containsExactly(row(5));
+        assertThat(query(format("SELECT count(*) FROM %s WHERE n_regionkey=0", tableName))).containsExactlyInOrder(row(5));
     }
 
     @Test

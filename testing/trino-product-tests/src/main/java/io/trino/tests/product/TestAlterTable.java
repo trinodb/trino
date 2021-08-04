@@ -67,7 +67,7 @@ public class TestAlterTable
         assertThat(query(format("ALTER TABLE %s RENAME COLUMN n_nationkey TO nationkey", TABLE_NAME)))
                 .hasRowsCount(1);
         assertThat(query(format("SELECT count(nationkey) FROM %s", TABLE_NAME)))
-                .containsExactly(row(25));
+                .containsExactlyInOrder(row(25));
         assertQueryFailure(() -> query(format("ALTER TABLE %s RENAME COLUMN nationkey TO nATIoNkEy", TABLE_NAME)))
                 .hasMessageContaining("Column 'nationkey' already exists");
         assertQueryFailure(() -> query(format("ALTER TABLE %s RENAME COLUMN nationkey TO n_regionkeY", TABLE_NAME)))
@@ -82,7 +82,7 @@ public class TestAlterTable
         query(format("CREATE TABLE %s AS SELECT * FROM nation", TABLE_NAME));
 
         assertThat(query(format("SELECT count(1) FROM %s", TABLE_NAME)))
-                .containsExactly(row(25));
+                .containsExactlyInOrder(row(25));
         assertThat(query(format("ALTER TABLE %s ADD COLUMN some_new_column BIGINT", TABLE_NAME)))
                 .hasRowsCount(1);
         assertQueryFailure(() -> query(format("ALTER TABLE %s ADD COLUMN n_nationkey BIGINT", TABLE_NAME)))
@@ -97,7 +97,7 @@ public class TestAlterTable
         query(format("CREATE TABLE %s AS SELECT n_nationkey, n_regionkey, n_name FROM nation", TABLE_NAME));
 
         assertThat(query(format("SELECT count(n_nationkey) FROM %s", TABLE_NAME)))
-                .containsExactly(row(25));
+                .containsExactlyInOrder(row(25));
         assertThat(query(format("ALTER TABLE %s DROP COLUMN n_name", TABLE_NAME)))
                 .hasRowsCount(1);
         assertThat(query(format("ALTER TABLE %s DROP COLUMN n_nationkey", TABLE_NAME)))

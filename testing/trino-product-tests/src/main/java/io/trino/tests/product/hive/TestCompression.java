@@ -70,9 +70,9 @@ public class TestCompression
             onHive().executeQuery("CREATE TABLE test_read_compressed " + tableStorageDefinition + " AS SELECT * FROM orders");
 
             assertThat(onTrino().executeQuery("SELECT count(*) FROM test_read_compressed"))
-                    .containsExactly(row(1500000));
+                    .containsExactlyInOrder(row(1500000));
             assertThat(onTrino().executeQuery("SELECT sum(o_orderkey) FROM test_read_compressed"))
-                    .containsExactly(row(4499987250000L));
+                    .containsExactlyInOrder(row(4499987250000L));
 
             assertThat((String) onTrino().executeQuery("SELECT regexp_replace(\"$path\", '.*/') FROM test_read_compressed LIMIT 1").row(0).get(0))
                     .matches(expectedFileNamePattern);
