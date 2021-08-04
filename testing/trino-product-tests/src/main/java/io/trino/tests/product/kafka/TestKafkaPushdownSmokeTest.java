@@ -89,7 +89,7 @@ public class TestKafkaPushdownSmokeTest
                 KAFKA_CATALOG,
                 SCHEMA_NAME,
                 PUSHDOWN_PARTITION_TABLE_NAME)))
-                .containsExactly(row(NUM_MESSAGES / 2));
+                .containsExactlyInOrder(row(NUM_MESSAGES / 2));
     }
 
     private static class PushdownOffsetTable
@@ -124,42 +124,42 @@ public class TestKafkaPushdownSmokeTest
                 KAFKA_CATALOG,
                 SCHEMA_NAME,
                 PUSHDOWN_OFFSET_TABLE_NAME)))
-                .containsExactly(row(10));
+                .containsExactlyInOrder(row(10));
 
         assertThat(query(format(
                 "SELECT COUNT(*) FROM %s.%s.%s WHERE _partition_offset > 5 AND _partition_offset < 10",
                 KAFKA_CATALOG,
                 SCHEMA_NAME,
                 PUSHDOWN_OFFSET_TABLE_NAME)))
-                .containsExactly(row(8));
+                .containsExactlyInOrder(row(8));
 
         assertThat(query(format(
                 "SELECT COUNT(*) FROM %s.%s.%s WHERE _partition_offset >= 5 AND _partition_offset <= 10",
                 KAFKA_CATALOG,
                 SCHEMA_NAME,
                 PUSHDOWN_OFFSET_TABLE_NAME)))
-                .containsExactly(row(12));
+                .containsExactlyInOrder(row(12));
 
         assertThat(query(format(
                 "SELECT COUNT(*) FROM %s.%s.%s WHERE _partition_offset >= 5 AND _partition_offset < 10",
                 KAFKA_CATALOG,
                 SCHEMA_NAME,
                 PUSHDOWN_OFFSET_TABLE_NAME)))
-                .containsExactly(row(10));
+                .containsExactlyInOrder(row(10));
 
         assertThat(query(format(
                 "SELECT COUNT(*) FROM %s.%s.%s WHERE _partition_offset > 5 AND _partition_offset <= 10",
                 KAFKA_CATALOG,
                 SCHEMA_NAME,
                 PUSHDOWN_OFFSET_TABLE_NAME)))
-                .containsExactly(row(10));
+                .containsExactlyInOrder(row(10));
 
         assertThat(query(format(
                 "SELECT COUNT(*) FROM %s.%s.%s WHERE _partition_offset = 5",
                 KAFKA_CATALOG,
                 SCHEMA_NAME,
                 PUSHDOWN_OFFSET_TABLE_NAME)))
-                .containsExactly(row(2));
+                .containsExactlyInOrder(row(2));
     }
 
     @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})
@@ -187,6 +187,6 @@ public class TestKafkaPushdownSmokeTest
         assertThat(query(format(
                 "SELECT COUNT(*) FROM %s.%s.%s WHERE _timestamp >= TIMESTAMP '%s' AND _timestamp < TIMESTAMP '%s'",
                 KAFKA_CATALOG, SCHEMA_NAME, PUSHDOWN_CREATE_TIME_TABLE_NAME, startTime, endTime)))
-                .containsExactly(row(endKey - startKey));
+                .containsExactlyInOrder(row(endKey - startKey));
     }
 }

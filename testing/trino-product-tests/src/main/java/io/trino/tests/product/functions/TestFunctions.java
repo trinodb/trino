@@ -27,12 +27,12 @@ public class TestFunctions
     @Test(groups = JSON_FUNCTIONS)
     public void testScalarFunction()
     {
-        assertThat(query("SELECT upper('value')")).containsExactly(row("VALUE"));
+        assertThat(query("SELECT upper('value')")).containsExactlyInOrder(row("VALUE"));
     }
 
     @Test(groups = JSON_FUNCTIONS)
     public void testAggregate()
     {
-        assertThat(query("SELECT min(x) FROM (VALUES 1,2,3,4) t(x)")).containsExactly(row(1));
+        assertThat(query("SELECT min(x) FROM (VALUES 1,2,3,4) t(x)")).containsExactlyInOrder(row(1));
     }
 }

@@ -65,14 +65,14 @@ public class TestAvroSchemaEvolution
     public void testSelectTable()
     {
         assertThat(query(format("SELECT string_col FROM %s", TABLE_NAME)))
-                .containsExactly(row("string0"));
+                .containsExactlyInOrder(row("string0"));
     }
 
     @Test(groups = AVRO)
     public void testInsertAfterSchemaEvolution()
     {
         assertThat(query(SELECT_STAR))
-                .containsExactly(row("string0", 0));
+                .containsExactlyInOrder(row("string0", 0));
 
         alterTableSchemaTo(ADDED_COLUMN_SCHEMA);
         query(format("INSERT INTO %s VALUES ('string1', 1, 101)", TABLE_NAME));
@@ -86,11 +86,11 @@ public class TestAvroSchemaEvolution
     public void testSchemaEvolutionWithIncompatibleType()
     {
         assertThat(query(COLUMNS_IN_TABLE))
-                .containsExactly(
+                .containsExactlyInOrder(
                         row("string_col", "varchar", "", ""),
                         row("int_col", "integer", "", ""));
         assertThat(query(SELECT_STAR))
-                .containsExactly(row("string0", 0));
+                .containsExactlyInOrder(row("string0", 0));
 
         alterTableSchemaTo(INCOMPATIBLE_TYPE_SCHEMA);
         assertQueryFailure(() -> query(SELECT_STAR))
@@ -101,57 +101,57 @@ public class TestAvroSchemaEvolution
     public void testSchemaEvolution()
     {
         assertThat(query(COLUMNS_IN_TABLE))
-                .containsExactly(
+                .containsExactlyInOrder(
                         row("string_col", "varchar", "", ""),
                         row("int_col", "integer", "", ""));
         assertThat(query(SELECT_STAR))
-                .containsExactly(row("string0", 0));
+                .containsExactlyInOrder(row("string0", 0));
 
         alterTableSchemaTo(CHANGE_COLUMN_TYPE_SCHEMA);
         assertThat(query(COLUMNS_IN_TABLE))
-                .containsExactly(
+                .containsExactlyInOrder(
                         row("string_col", "varchar", "", ""),
                         row("int_col", "bigint", "", ""));
         assertThat(query(SELECT_STAR))
-                .containsExactly(row("string0", 0));
+                .containsExactlyInOrder(row("string0", 0));
 
         alterTableSchemaTo(ADDED_COLUMN_SCHEMA);
         assertThat(query(COLUMNS_IN_TABLE))
-                .containsExactly(
+                .containsExactlyInOrder(
                         row("string_col", "varchar", "", ""),
                         row("int_col", "integer", "", ""),
                         row("int_col_added", "integer", "", ""));
         assertThat(query(SELECT_STAR))
-                .containsExactly(row("string0", 0, 100));
+                .containsExactlyInOrder(row("string0", 0, 100));
 
         alterTableSchemaTo(REMOVED_COLUMN_SCHEMA);
         assertThat(query(COLUMNS_IN_TABLE))
-                .containsExactly(row("int_col", "integer", "", ""));
+                .containsExactlyInOrder(row("int_col", "integer", "", ""));
         assertThat(query(SELECT_STAR))
-                .containsExactly(row(0));
+                .containsExactlyInOrder(row(0));
 
         alterTableSchemaTo(RENAMED_COLUMN_SCHEMA);
         assertThat(query(COLUMNS_IN_TABLE))
-                .containsExactly(
+                .containsExactlyInOrder(
                         row("string_col", "varchar", "", ""),
                         row("int_col_renamed", "integer", "", ""));
         assertThat(query(SELECT_STAR))
-                .containsExactly(row("string0", null));
+                .containsExactlyInOrder(row("string0", null));
     }
 
     @Test(groups = AVRO)
     public void testSchemaWhenUrlIsUnset()
     {
         assertThat(query(COLUMNS_IN_TABLE))
-                .containsExactly(
+                .containsExactlyInOrder(
                         row("string_col", "varchar", "", ""),
                         row("int_col", "integer", "", ""));
         assertThat(query(SELECT_STAR))
-                .containsExactly(row("string0", 0));
+                .containsExactlyInOrder(row("string0", 0));
 
         onHive().executeQuery(format("ALTER TABLE %s UNSET TBLPROPERTIES('avro.schema.url')", TABLE_NAME));
         assertThat(query(COLUMNS_IN_TABLE))
-                .containsExactly(
+                .containsExactlyInOrder(
                         row("dummy_col", "varchar", "", ""));
     }
 
@@ -167,7 +167,7 @@ public class TestAvroSchemaEvolution
         query(format("INSERT INTO %s VALUES ('string0', 0)", createTableLikeName));
 
         assertThat(query(format("SELECT string_col FROM %s", createTableLikeName)))
-                .containsExactly(row("string0"));
+                .containsExactlyInOrder(row("string0"));
         query("DROP TABLE IF EXISTS " + createTableLikeName);
     }
 

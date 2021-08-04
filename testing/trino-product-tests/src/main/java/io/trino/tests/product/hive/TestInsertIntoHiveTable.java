@@ -120,7 +120,7 @@ public class TestInsertIntoHiveTable
     {
         String tableNameInDatabase = mutableTablesState().get(TABLE_NAME).getNameInDatabase();
         assertThat(query("SELECT * FROM " + tableNameInDatabase)).hasNoRows();
-        assertThat(query("INSERT INTO " + tableNameInDatabase + " SELECT * from textfile_all_types")).containsExactly(row(1));
+        assertThat(query("INSERT INTO " + tableNameInDatabase + " SELECT * from textfile_all_types")).containsExactlyInOrder(row(1));
         assertThat(query("SELECT * FROM " + tableNameInDatabase)).containsOnly(
                 row(
                         127,
@@ -144,7 +144,7 @@ public class TestInsertIntoHiveTable
     public void testInsertIntoPartitionedWithSerdeProperty()
     {
         String tableNameInDatabase = mutableTablesState().get(PARTITIONED_TABLE_WITH_SERDE).getNameInDatabase();
-        assertThat(query("INSERT INTO " + tableNameInDatabase + " SELECT 1, 'Trino', '2018-01-01'")).containsExactly(row(1));
-        assertThat(query("SELECT * FROM " + tableNameInDatabase)).containsExactly(row(1, "Trino", "2018-01-01"));
+        assertThat(query("INSERT INTO " + tableNameInDatabase + " SELECT 1, 'Trino', '2018-01-01'")).containsExactlyInOrder(row(1));
+        assertThat(query("SELECT * FROM " + tableNameInDatabase)).containsExactlyInOrder(row(1, "Trino", "2018-01-01"));
     }
 }

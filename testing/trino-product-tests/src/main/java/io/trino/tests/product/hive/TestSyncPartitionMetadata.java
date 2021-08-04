@@ -177,12 +177,12 @@ public class TestSyncPartitionMetadata
     private static void assertPartitions(String tableName, QueryAssert.Row... rows)
     {
         QueryResult partitionListResult = query("SELECT * FROM \"" + tableName + "$partitions\" ORDER BY 1, 2");
-        assertThat(partitionListResult).containsExactly(rows);
+        assertThat(partitionListResult).containsExactlyInOrder(rows);
     }
 
     private static void assertData(String tableName, QueryAssert.Row... rows)
     {
         QueryResult dataResult = query("SELECT payload, col_x, col_y FROM " + tableName + " ORDER BY 1, 2, 3 ASC");
-        assertThat(dataResult).containsExactly(rows);
+        assertThat(dataResult).containsExactlyInOrder(rows);
     }
 }

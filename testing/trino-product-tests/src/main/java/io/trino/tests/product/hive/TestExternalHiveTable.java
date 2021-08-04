@@ -90,7 +90,7 @@ public class TestExternalHiveTable
         insertNationPartition(nation, 1);
 
         // Running ANALYZE on an external table is allowed as long as the user has the privileges.
-        assertThat(query("ANALYZE hive.default." + EXTERNAL_TABLE_NAME)).containsExactly(row(5));
+        assertThat(query("ANALYZE hive.default." + EXTERNAL_TABLE_NAME)).containsExactlyInOrder(row(5));
     }
 
     @Test
