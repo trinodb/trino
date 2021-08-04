@@ -84,7 +84,7 @@
             <!--
             PostgreSQL connector does not work with newer drivers due to
             fixes to handle of multidimensional arrays (>= 42.2.14) and
-            numeric types (>= 42.2.11) (Trino #7823)
+            numeric types (>= 42.2.11) (https://github.com/trinodb/trino/issues/7823)
             -->
             <version>42.2.10</version>
         </dependency>
