@@ -52,6 +52,8 @@ properties files.
 
 .. include:: jdbc-common-configurations.fragment
 
+.. include:: non-transactional-insert.fragment
+
 Multiple MySQL servers
 ^^^^^^^^^^^^^^^^^^^^^^
 
