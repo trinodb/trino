@@ -13,6 +13,8 @@
  */
 package io.trino.tests.product.iceberg;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Streams;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.query.QueryResult;
 import org.assertj.core.api.Assertions;
@@ -23,8 +25,10 @@ import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.util.List;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.tempto.assertions.QueryAssert.Row;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
@@ -605,6 +609,122 @@ public class TestIcebergSparkCompatibility
         assertQueryFailure(() -> onTrino().executeQuery("DROP TABLE " + trinoTableName))
                 .hasMessageContaining("contains Iceberg path override properties and cannot be dropped from Trino");
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
+    }
+
+    private static final List<String> SPECIAL_CHARACTER_VALUES = ImmutableList.of(
+            "with-hyphen",
+            "with.dot",
+            "with:colon",
+            "with/slash",
+            "with\\\\backslashes",
+            "with\\backslash",
+            "with=equal",
+            "with?question",
+            "with!exclamation",
+            "with%percent",
+            "with%%percents",
+            "with$dollar",
+            "with#hash",
+            "with*star",
+            "with=equals",
+            "with\"quote",
+            "with'apostrophe",
+            "with space",
+            " with space prefix",
+            "with space suffix ",
+            "with€euro",
+            "with non-ascii ąęłóść Θ Φ Δ",
+            "with👨‍🏭combining character",
+            " 👨‍🏭",
+            "👨‍🏭 ");
+
+    private static final String TRINO_INSERTED_PARTITION_VALUES =
+            Streams.mapWithIndex(SPECIAL_CHARACTER_VALUES.stream(), ((value, index) -> format("(%d, '%s')", index, escapeTrinoString(value))))
+                    .collect(Collectors.joining(", "));
+
+    private static final String SPARK_INSERTED_PARTITION_VALUES =
+            Streams.mapWithIndex(SPECIAL_CHARACTER_VALUES.stream(), ((value, index) -> format("(%d, '%s')", index, escapeSparkString(value))))
+                    .collect(Collectors.joining(", "));
+
+    private static final List<Row> EXPECTED_PARTITION_VALUES =
+            Streams.mapWithIndex(SPECIAL_CHARACTER_VALUES.stream(), ((value, index) -> row((int) index, value)))
+                    .collect(toImmutableList());
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
+    public void testStringPartitioningWithSpecialCharactersCtasInTrino()
+    {
+        String baseTableName = "test_string_partitioning_with_special_chars_ctas_in_trino";
+        String trinoTableName = trinoTableName(baseTableName);
+        String sparkTableName = sparkTableName(baseTableName);
+
+        onTrino().executeQuery("DROP TABLE IF EXISTS " + trinoTableName);
+        onTrino().executeQuery(format(
+                "CREATE TABLE %s (id, part_col) " +
+                        "WITH (partitioning = ARRAY['part_col']) " +
+                        "AS VALUES %s",
+                trinoTableName,
+                TRINO_INSERTED_PARTITION_VALUES));
+        assertSelectsOnSpecialCharacters(trinoTableName, sparkTableName);
+        onTrino().executeQuery("DROP TABLE " + trinoTableName);
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
+    public void testStringPartitioningWithSpecialCharactersInsertInTrino()
+    {
+        String baseTableName = "test_string_partitioning_with_special_chars_ctas_in_trino";
+        String trinoTableName = trinoTableName(baseTableName);
+        String sparkTableName = sparkTableName(baseTableName);
+
+        onTrino().executeQuery("DROP TABLE IF EXISTS " + trinoTableName);
+        onTrino().executeQuery(format(
+                "CREATE TABLE %s (id BIGINT, part_col VARCHAR) WITH (partitioning = ARRAY['part_col'])",
+                trinoTableName));
+        onTrino().executeQuery(format("INSERT INTO %s VALUES %s", trinoTableName, TRINO_INSERTED_PARTITION_VALUES));
+        assertSelectsOnSpecialCharacters(trinoTableName, sparkTableName);
+        onTrino().executeQuery("DROP TABLE " + trinoTableName);
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
+    public void testStringPartitioningWithSpecialCharactersInsertInSpark()
+    {
+        String baseTableName = "test_string_partitioning_with_special_chars_ctas_in_spark";
+        String trinoTableName = trinoTableName(baseTableName);
+        String sparkTableName = sparkTableName(baseTableName);
+
+        onTrino().executeQuery("DROP TABLE IF EXISTS " + trinoTableName);
+        onTrino().executeQuery(format(
+                "CREATE TABLE %s (id BIGINT, part_col VARCHAR) WITH (partitioning = ARRAY['part_col'])",
+                trinoTableName));
+        onSpark().executeQuery(format("INSERT INTO %s VALUES %s", sparkTableName, SPARK_INSERTED_PARTITION_VALUES));
+        assertSelectsOnSpecialCharacters(trinoTableName, sparkTableName);
+        onTrino().executeQuery("DROP TABLE " + trinoTableName);
+    }
+
+    private void assertSelectsOnSpecialCharacters(String trinoTableName, String sparkTableName)
+    {
+        assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName)).containsOnly(EXPECTED_PARTITION_VALUES);
+        assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).containsOnly(EXPECTED_PARTITION_VALUES);
+        for (String value : SPECIAL_CHARACTER_VALUES) {
+            String trinoValue = escapeTrinoString(value);
+            String sparkValue = escapeSparkString(value);
+            // Ensure Trino written metadata is readable from Spark and vice versa
+            assertThat(onSpark().executeQuery("SELECT count(*) FROM " + sparkTableName + " WHERE part_col = '" + sparkValue + "'"))
+                    .withFailMessage("Spark query with predicate containing '" + value + "' contained no matches, expected one")
+                    .containsOnly(row(1));
+            assertThat(onTrino().executeQuery("SELECT count(*) FROM " + trinoTableName + " WHERE part_col = '" + trinoValue + "'"))
+                    .withFailMessage("Trino query with predicate containing '" + value + "' contained no matches, expected one")
+                    .containsOnly(row(1));
+        }
+    }
+
+    private static String escapeSparkString(String value)
+    {
+        return value.replace("\\", "\\\\").replace("'", "\\'");
+    }
+
+    private static String escapeTrinoString(String value)
+    {
+        return value.replace("'", "''");
     }
 
     private static String sparkTableName(String tableName)
