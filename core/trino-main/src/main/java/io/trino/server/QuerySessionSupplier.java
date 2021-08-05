@@ -96,15 +96,15 @@ public class QuerySessionSupplier
                 .setResourceEstimates(context.getResourceEstimates())
                 .setProtocolHeaders(context.getProtocolHeaders());
 
-        defaultCatalog.ifPresent(sessionBuilder::setCatalog);
-        defaultSchema.ifPresent(sessionBuilder::setSchema);
-
         if (context.getCatalog() != null) {
             sessionBuilder.setCatalog(context.getCatalog());
+            if (context.getSchema() != null) {
+                sessionBuilder.setSchema(context.getSchema());
+            }
         }
-
-        if (context.getSchema() != null) {
-            sessionBuilder.setSchema(context.getSchema());
+        else {
+            defaultCatalog.ifPresent(sessionBuilder::setCatalog);
+            defaultSchema.ifPresent(sessionBuilder::setSchema);
         }
 
         if (context.getPath() != null) {
