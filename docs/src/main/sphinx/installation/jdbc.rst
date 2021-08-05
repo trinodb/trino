@@ -120,6 +120,7 @@ Name                                                         Description
 ============================================================ =======================================================================
 ``user``                                                     Username to use for authentication and authorization.
 ``password``                                                 Password to use for LDAP authentication.
+``sessionUser``                                              Session username override, used for impersonation.
 ``socksProxy``                                               SOCKS proxy host and port. Example: ``localhost:1080``
 ``httpProxy``                                                HTTP proxy host and port. Example: ``localhost:8888``
 ``clientInfo``                                               Extra information about the client.
