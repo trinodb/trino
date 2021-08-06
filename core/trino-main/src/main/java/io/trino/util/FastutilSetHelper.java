@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.base.util;
+package io.trino.util;
 
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.Type;
