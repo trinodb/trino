@@ -14,8 +14,6 @@
 package io.trino.plugin.fission;
 
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
@@ -44,7 +42,7 @@ public class FissionFunctionFunctions
     @ScalarFunction("fission_dnsdb")
     @Description("Converts the string to alternating case")
     @SqlType(StandardTypes.BIGINT)
-    public static long dnsdb(@SqlType(StandardTypes.VARCHAR) Slice slice)
+    public static long dnsdb(@SqlType(StandardTypes.VARCHAR) Slice slice) throws JSONException, IOException
     {
         CloseableHttpClient httpClient;
         HttpClientBuilder builder = HttpClientBuilder.create().setDefaultCookieStore(cookieStore);
@@ -65,34 +63,40 @@ public class FissionFunctionFunctions
             }
         }
         catch (IOException e) {
-            count = 0;
+            throw e;
         }
         catch (JSONException e) {
-            count = 0;
+            throw e;
         }
         return count;
     }
 
-    @ScalarFunction("fission_listdatalake")
-    @Description("DATA LAKE STUFF")
-    @SqlType(StandardTypes.VARCHAR)
-    public static Slice listDataLake(ConnectorSession session, @SqlType(StandardTypes.VARCHAR) Slice filesystem, @SqlType(StandardTypes.VARCHAR) Slice filepath)
+    @ScalarFunction("fission_despicablename")
+    @Description("Converts the string to alternating case")
+    @SqlType(StandardTypes.BIGINT)
+    public static long despicablename(@SqlType(StandardTypes.VARCHAR) Slice slice) throws JSONException, IOException
     {
         CloseableHttpClient httpClient;
         HttpClientBuilder builder = HttpClientBuilder.create().setDefaultCookieStore(cookieStore);
         httpClient = builder.build();
         String result = "";
+        int count = 0;
         try {
-            HttpGet getRequest = new HttpGet(String.format("%s/datalakeexplorer?filepath=%s", FissionFunctionConfigProvider.getFissionFunctionBaseURL(), filepath.toStringUtf8()));
+            HttpGet getRequest = new HttpGet(String.format("%s/despicablename?domain=%s", FissionFunctionConfigProvider.getFissionFunctionBaseURL(), slice.toStringUtf8()));
+            HttpResponse response = httpClient.execute(getRequest);
+            result = EntityUtils.toString(response.getEntity());
+            JSONObject myObject = new JSONObject(result);
 
-            //getRequest.setHeader(HttpHeaders.CONTENT_TYPE, "application/json");
-            // getRequest.setHeader(HttpHeaders.AUTHORIZATION, "Bearer " + session.getIdentity().getExtraCredentials().get("access-token"));
-            // HttpResponse response = httpClient.execute(getRequest);
-            // result = EntityUtils.toString(response.getEntity());
+            if (myObject.has("probs")) {
+                count = Integer.parseInt(myObject.getJSONArray("probs").getJSONArray(0).getString(0));
+            }
         }
         catch (IOException e) {
-            result = e.getMessage();
+            throw e;
         }
-        return Slices.utf8Slice(session.getIdentity().getExtraCredentials().get("access-token"));
+        catch (JSONException e) {
+            throw e;
+        }
+        return count;
     }
 }
