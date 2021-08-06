@@ -44,10 +44,7 @@ For HBase 2.x and Phoenix 5.x (5.1.0 or later) use:
 
     connector.name=phoenix5
 
-Configuration properties
-------------------------
-
-The following configuration properties are available:
+The following Phoenix-specific configuration properties are available:
 
 ================================================== ========== ===================================================================================
 Property Name                                      Required   Description
@@ -60,6 +57,10 @@ Property Name                                      Required   Description
 ``phoenix.config.resources``                       No         Comma-separated list of configuration files (e.g. ``hbase-site.xml``) to use for
                                                               connection properties.  These files must exist on the machines running Trino.
 ================================================== ========== ===================================================================================
+
+.. include:: jdbc-common-configurations.fragment
+
+.. include:: non-transactional-insert.fragment
 
 Querying Phoenix tables
 -------------------------
@@ -87,8 +88,10 @@ Finally, you can access the ``clicks`` table in the ``web`` schema::
 If you used a different name for your catalog properties file, use
 that catalog name instead of ``phoenix`` in the above examples.
 
-Data types
-----------
+.. _phoenix-type-mapping:
+
+Type mapping
+------------
 
 The data type mappings are as follows:
 
@@ -116,6 +119,7 @@ variable length ``VARBINARY`` data type. There is no way to create a
 Phoenix table in Trino that uses the ``BINARY`` data type, as Trino
 does not have an equivalent type.
 
+.. include:: jdbc-type-mapping.fragment
 
 Table properties - Phoenix
 --------------------------

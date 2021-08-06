@@ -30,6 +30,7 @@ public class IcebergConfig
     private HiveCompressionCodec compressionCodec = GZIP;
     private boolean useFileSizeFromMetadata = true;
     private int maxPartitionsPerWriter = 100;
+
     private boolean hadoopMode;
 
     public boolean isHadoopMode()
@@ -43,6 +44,8 @@ public class IcebergConfig
         this.hadoopMode = hadoopMode;
         return this;
     }
+
+    private boolean uniqueTableLocation;
 
     @NotNull
     public FileFormat getFileFormat()
@@ -102,6 +105,19 @@ public class IcebergConfig
     public IcebergConfig setMaxPartitionsPerWriter(int maxPartitionsPerWriter)
     {
         this.maxPartitionsPerWriter = maxPartitionsPerWriter;
+        return this;
+    }
+
+    public boolean isUniqueTableLocation()
+    {
+        return uniqueTableLocation;
+    }
+
+    @Config("iceberg.unique-table-location")
+    @ConfigDescription("Use randomized, unique table locations")
+    public IcebergConfig setUniqueTableLocation(boolean uniqueTableLocation)
+    {
+        this.uniqueTableLocation = uniqueTableLocation;
         return this;
     }
 }

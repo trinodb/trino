@@ -44,6 +44,10 @@ determine the user credentials for the connection, often a service user. You can
 use :doc:`secrets </security/secrets>` to avoid actual values in the catalog
 properties files.
 
+.. include:: jdbc-common-configurations.fragment
+
+.. include:: non-transactional-insert.fragment
+
 Multiple SQL Server databases or servers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -111,6 +115,8 @@ SQL Server Type                     Trino Type
 
 Complete list of `SQL Server data types
 <https://msdn.microsoft.com/en-us/library/ms187752.aspx>`_.
+
+.. include:: jdbc-type-mapping.fragment
 
 .. _sqlserver-sql-support:
 

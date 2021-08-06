@@ -15,17 +15,45 @@ package io.trino.plugin.iceberg;
 
 import com.google.inject.Binder;
 import com.google.inject.Module;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.MetastoreTypeConfig;
 import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
+import io.trino.plugin.hive.metastore.cache.CachingHiveMetastoreModule;
+import io.trino.plugin.hive.metastore.cache.ForCachingHiveMetastore;
+import io.trino.plugin.hive.metastore.file.FileMetastoreModule;
+import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreModule;
 
 import javax.inject.Inject;
 
+import java.util.Optional;
+
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
+import static java.util.Objects.requireNonNull;
+
 public class IcebergMetastoreModule
-        implements Module
+        extends AbstractConfigurationAwareModule
 {
-    @Override
-    public void configure(Binder binder)
+    private final Optional<HiveMetastore> metastore;
+
+    public IcebergMetastoreModule(Optional<HiveMetastore> metastore)
     {
+        this.metastore = requireNonNull(metastore, "metastore is null");
+    }
+
+    @Override
+    protected void setup(Binder binder)
+    {
+        if (metastore.isPresent()) {
+            binder.bind(HiveMetastore.class).annotatedWith(ForCachingHiveMetastore.class).toInstance(metastore.get());
+            install(new CachingHiveMetastoreModule());
+        }
+        else {
+            bindMetastoreModule("thrift", new ThriftMetastoreModule());
+            bindMetastoreModule("file", new FileMetastoreModule());
+            // TODO add support for Glue metastore
+        }
+
         binder.bind(MetastoreValidator.class).asEagerSingleton();
     }
 
@@ -38,5 +66,13 @@ public class IcebergMetastoreModule
                 throw new RuntimeException("Hive metastore caching must not be enabled for Iceberg");
             }
         }
+    }
+
+    private void bindMetastoreModule(String name, Module module)
+    {
+        install(conditionalModule(
+                MetastoreTypeConfig.class,
+                metastore -> name.equalsIgnoreCase(metastore.getMetastoreType()),
+                module));
     }
 }

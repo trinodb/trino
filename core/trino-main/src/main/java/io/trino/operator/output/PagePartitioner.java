@@ -11,19 +11,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg.testing;
+package io.trino.operator.output;
 
-import javax.inject.Qualifier;
+import com.google.common.util.concurrent.ListenableFuture;
+import io.trino.spi.Page;
 
-import java.lang.annotation.Retention;
-import java.lang.annotation.Target;
+import java.util.function.Supplier;
 
-import static java.lang.annotation.ElementType.FIELD;
-import static java.lang.annotation.ElementType.METHOD;
-import static java.lang.annotation.ElementType.PARAMETER;
-import static java.lang.annotation.RetentionPolicy.RUNTIME;
+public interface PagePartitioner
+{
+    void partitionPage(Page page);
 
-@Retention(RUNTIME)
-@Target({FIELD, PARAMETER, METHOD})
-@Qualifier
-public @interface ForTrackingFileIoProvider {}
+    void flush(boolean force);
+
+    ListenableFuture<Void> isFull();
+
+    long getSizeInBytes();
+
+    long getRetainedSizeInBytes();
+
+    Supplier<PartitionedOutputOperator.PartitionedOutputInfo> getOperatorInfoSupplier();
+}

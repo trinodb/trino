@@ -16,7 +16,6 @@ package io.trino.tests.product.iceberg;
 import io.trino.tempto.AfterTestWithContext;
 import io.trino.tempto.BeforeTestWithContext;
 import io.trino.tempto.ProductTest;
-import io.trino.testng.services.Flaky;
 import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
@@ -43,7 +42,6 @@ public class TestIcebergCreateTable
     }
 
     @Test(groups = {ICEBERG, STORAGE_FORMATS})
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/4864", match = "Failed to read footer of file")
     public void testCreateTable()
     {
         String tableName = "iceberg.iceberg.test_create_table_" + randomTableSuffix();
@@ -65,7 +63,6 @@ public class TestIcebergCreateTable
     }
 
     @Test(groups = {ICEBERG, STORAGE_FORMATS})
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/4864", match = "Failed to read footer of file")
     public void testCreateTableAsSelect()
     {
         String tableName = "iceberg.iceberg.test_create_table_as_select_" + randomTableSuffix();

@@ -95,7 +95,7 @@ import static org.testng.Assert.assertTrue;
 public abstract class BaseIcebergConnectorTest
         extends BaseConnectorTest
 {
-    private static final Pattern WITH_CLAUSE_EXTRACTER = Pattern.compile(".*(WITH\\s*\\([^)]*\\))\\s*$", Pattern.DOTALL);
+    private static final Pattern WITH_CLAUSE_EXTRACTOR = Pattern.compile(".*(WITH\\s*\\([^)]*\\))\\s*$", Pattern.DOTALL);
 
     private final FileFormat format;
 
@@ -627,20 +627,16 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testLargeInFailureOnPartitionedColumns()
     {
-        QualifiedObjectName tableName = new QualifiedObjectName("iceberg", "tpch", "test_large_in_failure");
-        assertUpdate(format(
-                "CREATE TABLE %s (col1 BIGINT, col2 BIGINT) WITH (partitioning = ARRAY['col2'])",
-                tableName));
-        assertUpdate(format("INSERT INTO %s VALUES (1, 10)", tableName), 1L);
-        assertUpdate(format("INSERT INTO %s VALUES (2, 20)", tableName), 1L);
+        assertUpdate("CREATE TABLE test_large_in_failure (col1 BIGINT, col2 BIGINT) WITH (partitioning = ARRAY['col2'])");
+        assertUpdate("INSERT INTO test_large_in_failure VALUES (1, 10)", 1L);
+        assertUpdate("INSERT INTO test_large_in_failure VALUES (2, 20)", 1L);
 
-        List<String> predicates = IntStream.range(0, 5000).boxed()
+        List<String> predicates = IntStream.range(0, 25_000).boxed()
                 .map(Object::toString)
                 .collect(toImmutableList());
 
         String filter = format("col2 IN (%s)", String.join(",", predicates));
-
-        assertThatThrownBy(() -> getQueryRunner().execute(format("SELECT * FROM %s WHERE %s", tableName, filter)))
+        assertThatThrownBy(() -> getQueryRunner().execute(format("SELECT * FROM test_large_in_failure WHERE %s", filter)))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessage("java.lang.StackOverflowError");
 
@@ -698,7 +694,7 @@ public abstract class BaseIcebergConnectorTest
     {
         MaterializedResult showCreateTable = computeActual("SHOW CREATE TABLE " + tableName);
         String createTable = (String) getOnlyElement(showCreateTable.getOnlyColumnAsSet());
-        Matcher matcher = WITH_CLAUSE_EXTRACTER.matcher(createTable);
+        Matcher matcher = WITH_CLAUSE_EXTRACTOR.matcher(createTable);
         return matcher.matches() ? matcher.group(1) : null;
     }
 
@@ -1273,6 +1269,48 @@ public abstract class BaseIcebergConnectorTest
                         "  (NULL, NULL, NULL, 7e0, NULL, NULL)");
 
         dropTable("test_bucket_transform");
+    }
+
+    @Test
+    public void testVoidTransform()
+    {
+        assertUpdate("CREATE TABLE test_void_transform (d VARCHAR, b BIGINT) WITH (partitioning = ARRAY['void(d)'])");
+        String values = "VALUES " +
+                "('abcd', 1)," +
+                "('abxy', 2)," +
+                "('ab598', 3)," +
+                "('mommy', 4)," +
+                "('Warsaw', 5)," +
+                "(NULL, 6)," +
+                "(NULL, 7)";
+        assertUpdate("INSERT INTO test_void_transform " + values, 7);
+        assertQuery("SELECT * FROM test_void_transform", values);
+
+        assertQuery("SELECT COUNT(*) FROM \"test_void_transform$partitions\"", "SELECT 1");
+        assertQuery(
+                "SELECT d_null, row_count, file_count, d.min, d.max, d.null_count, b.min, b.max, b.null_count FROM \"test_void_transform$partitions\"",
+                "VALUES (NULL, 7, 1, 'Warsaw', 'mommy', 2, 1, 7, 0)");
+
+        assertQuery(
+                "SELECT d, b FROM test_void_transform WHERE d IS NOT NULL",
+                "VALUES " +
+                        "('abcd', 1)," +
+                        "('abxy', 2)," +
+                        "('ab598', 3)," +
+                        "('mommy', 4)," +
+                        "('Warsaw', 5)");
+
+        assertQuery("SELECT b FROM test_void_transform WHERE d IS NULL", "VALUES 6, 7");
+
+        assertThat(query("SHOW STATS FOR test_void_transform"))
+                .projected(0, 2, 3, 4, 5, 6) // ignore data size which is available for Parquet, but not for ORC
+                .skippingTypesCheck()
+                .matches("VALUES " +
+                        "  ('d', NULL, 0.2857142857142857, NULL, NULL, NULL), " +
+                        "  ('b', NULL, 0e0, NULL, '1', '7'), " +
+                        "  (NULL, NULL, NULL, 7e0, NULL, NULL)");
+
+        assertUpdate("DROP TABLE " + "test_void_transform");
     }
 
     @Test

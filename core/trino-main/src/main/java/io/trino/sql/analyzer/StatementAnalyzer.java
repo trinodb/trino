@@ -105,7 +105,7 @@ import io.trino.sql.tree.DropView;
 import io.trino.sql.tree.Except;
 import io.trino.sql.tree.Execute;
 import io.trino.sql.tree.Explain;
-import io.trino.sql.tree.ExplainType;
+import io.trino.sql.tree.ExplainAnalyze;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FetchFirst;
 import io.trino.sql.tree.FieldReference;
@@ -282,7 +282,6 @@ import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.DereferenceExpression.getQualifiedName;
-import static io.trino.sql.tree.ExplainType.Type.DISTRIBUTED;
 import static io.trino.sql.tree.Join.Type.FULL;
 import static io.trino.sql.tree.Join.Type.INNER;
 import static io.trino.sql.tree.Join.Type.LEFT;
@@ -1149,10 +1148,14 @@ class StatementAnalyzer
         @Override
         protected Scope visitExplain(Explain node, Optional<Scope> scope)
         {
-            checkState(node.isAnalyze(), "Non analyze explain should be rewritten to Query");
-            if (node.getOptions().stream().anyMatch(option -> !option.equals(new ExplainType(DISTRIBUTED)))) {
-                throw semanticException(NOT_SUPPORTED, node, "EXPLAIN ANALYZE only supports TYPE DISTRIBUTED option");
-            }
+            process(node.getStatement(), scope);
+            analysis.resetUpdateType();
+            return createAndAssignScope(node, scope, Field.newUnqualified("Query Plan", VARCHAR));
+        }
+
+        @Override
+        protected Scope visitExplainAnalyze(ExplainAnalyze node, Optional<Scope> scope)
+        {
             process(node.getStatement(), scope);
             analysis.resetUpdateType();
             return createAndAssignScope(node, scope, Field.newUnqualified("Query Plan", VARCHAR));

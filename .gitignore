@@ -9,6 +9,7 @@ test-output/
 test-reports/
 /atlassian-ide-plugin.xml
 .idea
+.run
 .DS_Store
 .classpath
 .settings

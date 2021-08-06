@@ -70,7 +70,7 @@ public class TestIcebergSystemTables
                         .setCatalogDirectory(baseDir.toURI().toString())
                         .setMetastoreUser("test"));
 
-        queryRunner.installPlugin(new TestingIcebergPlugin(metastore, false));
+        queryRunner.installPlugin(new TestingIcebergPlugin(metastore));
         queryRunner.createCatalog("iceberg", "iceberg");
 
         return queryRunner;
@@ -88,6 +88,14 @@ public class TestIcebergSystemTables
         assertUpdate("CREATE TABLE test_schema.test_table_multilevel_partitions (_varchar VARCHAR, _bigint BIGINT, _date DATE) WITH (partitioning = ARRAY['_bigint', '_date'])");
         assertUpdate("INSERT INTO test_schema.test_table_multilevel_partitions VALUES ('a', 0, CAST('2019-09-08' AS DATE)), ('a', 1, CAST('2019-09-08' AS DATE)), ('a', 0, CAST('2019-09-09' AS DATE))", 3);
         assertQuery("SELECT count(*) FROM test_schema.test_table_multilevel_partitions", "VALUES 3");
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
+    {
+        assertUpdate("DROP TABLE IF EXISTS test_schema.test_table");
+        assertUpdate("DROP TABLE IF EXISTS test_schema.test_table_multilevel_partitions");
+        assertUpdate("DROP SCHEMA IF EXISTS test_schema");
     }
 
     @Test
@@ -167,25 +175,20 @@ public class TestIcebergSystemTables
     public void testFilesTable()
     {
         assertQuery("SHOW COLUMNS FROM test_schema.\"test_table$files\"",
-                "VALUES ('file_path', 'varchar', '', '')," +
+                "VALUES ('content', 'integer', '', '')," +
+                        "('file_path', 'varchar', '', '')," +
                         "('file_format', 'varchar', '', '')," +
                         "('record_count', 'bigint', '', '')," +
                         "('file_size_in_bytes', 'bigint', '', '')," +
                         "('column_sizes', 'map(integer, bigint)', '', '')," +
                         "('value_counts', 'map(integer, bigint)', '', '')," +
                         "('null_value_counts', 'map(integer, bigint)', '', '')," +
+                        "('nan_value_counts', 'map(integer, bigint)', '', '')," +
                         "('lower_bounds', 'map(integer, varchar)', '', '')," +
                         "('upper_bounds', 'map(integer, varchar)', '', '')," +
                         "('key_metadata', 'varbinary', '', '')," +
-                        "('split_offsets', 'array(bigint)', '', '')");
+                        "('split_offsets', 'array(bigint)', '', '')," +
+                        "('equality_ids', 'array(integer)', '', '')");
         assertQuerySucceeds("SELECT * FROM test_schema.\"test_table$files\"");
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void tearDown()
-    {
-        assertUpdate("DROP TABLE IF EXISTS test_schema.test_table");
-        assertUpdate("DROP TABLE IF EXISTS test_schema.test_table_multilevel_partitions");
-        assertUpdate("DROP SCHEMA IF EXISTS test_schema");
     }
 }

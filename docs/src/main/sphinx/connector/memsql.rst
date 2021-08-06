@@ -32,6 +32,10 @@ connection properties as appropriate for your setup:
     connection-user=root
     connection-password=secret
 
+.. include:: jdbc-common-configurations.fragment
+
+.. include:: non-transactional-insert.fragment
+
 Multiple SingleStore servers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -85,15 +89,22 @@ The connector supports pushdown for a number of operations:
 * :ref:`limit-pushdown`
 * :ref:`topn-pushdown`
 
+.. _singlestore-sql-support:
+
 SQL support
 -----------
 
-The following SQL statements are not yet supported:
+The connector provides read access and write access to data and metadata in
+a SingleStore database.  In addition to the :ref:`globally available
+<sql-globally-available>` and :ref:`read operation <sql-read-operations>`
+statements, the connector supports the following features:
 
-* :doc:`/sql/grant`
-* :doc:`/sql/revoke`
-* :doc:`/sql/show-grants`
-* :doc:`/sql/show-roles`
-* :doc:`/sql/show-role-grants`
+* :doc:`/sql/insert`
+* :doc:`/sql/delete`
+* :doc:`/sql/create-table`
+* :doc:`/sql/create-table-as`
+* :doc:`/sql/drop-table`
+* :doc:`/sql/create-schema`
+* :doc:`/sql/drop-schema`
 
 .. include:: sql-delete-limitation.fragment

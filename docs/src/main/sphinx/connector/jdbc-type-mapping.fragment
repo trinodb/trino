@@ -24,17 +24,3 @@ cached in Trino.
     - Allow forced mapping of comma separated lists of data types to convert to
       unbounded ``VARCHAR``
     -
-  * - ``case-insensitive-name-matching``
-    - Support case insensitive database and collection names
-    - False
-  * - ``case-insensitive-name-matching.cache-ttl``
-    -
-    - 1 minute
-  * - ``metadata.cache-ttl``
-    - Duration for which metadata, including table and column statistics, is
-      cached
-    - 0 (disabled caching)
-  * - ``metadata.cache-missing``
-    - Cache the fact that metadata, including table and column statistics, is
-      not available
-    - False

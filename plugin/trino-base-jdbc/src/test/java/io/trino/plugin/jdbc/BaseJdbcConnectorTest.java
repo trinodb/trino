@@ -195,7 +195,7 @@ public abstract class BaseJdbcConnectorTest
         // GROUP BY above TopN
         assertConditionallyPushedDown(
                 getSession(),
-                "SELECT clerk, sum(totalprice) FROM (SELECT clerk, totalprice FROM orders ORDER BY orderdate ASC, totalprice ASC LIMIT 10) GROUP BY clerk",
+                "SELECT custkey, sum(totalprice) FROM (SELECT custkey, totalprice FROM orders ORDER BY orderdate ASC, totalprice ASC LIMIT 10) GROUP BY custkey",
                 hasBehavior(SUPPORTS_TOPN_PUSHDOWN),
                 node(TopNNode.class, anyTree(node(TableScanNode.class))));
         // GROUP BY with JOIN
@@ -211,15 +211,98 @@ public abstract class BaseJdbcConnectorTest
                 hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY),
                 node(FilterNode.class, node(TableScanNode.class)));
         // aggregation on varchar column
-        assertThat(query("SELECT min(name) FROM nation")).isFullyPushedDown();
+        assertThat(query("SELECT count(name) FROM nation")).isFullyPushedDown();
         // aggregation on varchar column with GROUPING
-        assertThat(query("SELECT nationkey, min(name) FROM nation GROUP BY nationkey")).isFullyPushedDown();
+        assertThat(query("SELECT nationkey, count(name) FROM nation GROUP BY nationkey")).isFullyPushedDown();
         // aggregation on varchar column with WHERE
         assertConditionallyPushedDown(
                 getSession(),
-                "SELECT min(name) FROM nation WHERE name = 'ARGENTINA'",
+                "SELECT count(name) FROM nation WHERE name = 'ARGENTINA'",
                 hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY),
                 node(FilterNode.class, node(TableScanNode.class)));
+    }
+
+    @Test
+    public void testCaseSensitiveAggregationPushdown()
+    {
+        if (!hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN)) {
+            // Covered by testAggregationPushdown
+            return;
+        }
+
+        boolean expectAggregationPushdown = hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY);
+        PlanMatchPattern aggregationOverTableScan = node(AggregationNode.class, node(TableScanNode.class));
+        PlanMatchPattern groupingAggregationOverTableScan = node(AggregationNode.class, node(ProjectNode.class, node(TableScanNode.class)));
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_case_sensitive_aggregation_pushdown",
+                "(a_string varchar(1), a_char char(1), a_bigint bigint)",
+                ImmutableList.of(
+                        "'A', 'A', 1",
+                        "'B', 'B', 2",
+                        "'a', 'a', 3",
+                        "'b', 'b', 4"))) {
+            // case-sensitive functions prevent pushdown
+            assertConditionallyPushedDown(
+                    getSession(),
+                    "SELECT max(a_string), min(a_string), max(a_char), min(a_char) FROM " + table.getName(),
+                    expectAggregationPushdown,
+                    aggregationOverTableScan)
+                    .skippingTypesCheck()
+                    .matches("VALUES ('b', 'A', 'b', 'A')");
+            // distinct over case-sensitive column prevents pushdown
+            assertConditionallyPushedDown(
+                    getSession(),
+                    "SELECT distinct a_string FROM " + table.getName(),
+                    expectAggregationPushdown,
+                    groupingAggregationOverTableScan)
+                    .skippingTypesCheck()
+                    .matches("VALUES 'A', 'B', 'a', 'b'");
+            assertConditionallyPushedDown(
+                    getSession(),
+                    "SELECT distinct a_char FROM " + table.getName(),
+                    expectAggregationPushdown,
+                    groupingAggregationOverTableScan)
+                    .skippingTypesCheck()
+                    .matches("VALUES 'A', 'B', 'a', 'b'");
+            // case-sensitive grouping sets prevent pushdown
+            assertConditionallyPushedDown(getSession(),
+                    "SELECT a_string, count(*) FROM " + table.getName() + " GROUP BY a_string",
+                    expectAggregationPushdown,
+                    groupingAggregationOverTableScan)
+                    .skippingTypesCheck()
+                    .matches("VALUES ('A', BIGINT '1'), ('a', BIGINT '1'), ('b', BIGINT '1'), ('B', BIGINT '1')");
+            assertConditionallyPushedDown(getSession(),
+                    "SELECT a_char, count(*) FROM " + table.getName() + " GROUP BY a_char",
+                    expectAggregationPushdown,
+                    groupingAggregationOverTableScan)
+                    .skippingTypesCheck()
+                    .matches("VALUES ('A', BIGINT '1'), ('B', BIGINT '1'), ('a', BIGINT '1'), ('b', BIGINT '1')");
+
+            // case-insensitive functions can still be pushed down as long as grouping sets are not case-sensitive
+            assertThat(query("SELECT count(a_string), count(a_char) FROM " + table.getName())).isFullyPushedDown();
+            assertThat(query("SELECT count(a_string), count(a_char) FROM " + table.getName() + " GROUP BY a_bigint")).isFullyPushedDown();
+
+            // DISTINCT over case-sensitive columns prevents pushdown
+            assertConditionallyPushedDown(getSession(),
+                    "SELECT count(DISTINCT a_string) FROM " + table.getName(),
+                    expectAggregationPushdown,
+                    groupingAggregationOverTableScan)
+                    .skippingTypesCheck()
+                    .matches("VALUES BIGINT '4'");
+            assertConditionallyPushedDown(getSession(),
+                    "SELECT count(DISTINCT a_char) FROM " + table.getName(),
+                    expectAggregationPushdown,
+                    groupingAggregationOverTableScan)
+                    .skippingTypesCheck()
+                    .matches("VALUES BIGINT '4'");
+
+            // TODO: multiple count(DISTINCT expr) cannot be pushed down until https://github.com/trinodb/trino/pull/8562 gets merged
+            assertThat(query("SELECT count(DISTINCT a_string), count(DISTINCT a_bigint) FROM " + table.getName()))
+                    .isNotFullyPushedDown(MarkDistinctNode.class, ExchangeNode.class, ExchangeNode.class, ProjectNode.class);
+            assertThat(query("SELECT count(DISTINCT a_char), count(DISTINCT a_bigint) FROM " + table.getName()))
+                    .isNotFullyPushedDown(MarkDistinctNode.class, ExchangeNode.class, ExchangeNode.class, ProjectNode.class);
+        }
     }
 
     @Test
@@ -265,7 +348,11 @@ public abstract class BaseJdbcConnectorTest
         // distinct aggregation with GROUP BY
         assertThat(query(withMarkDistinct, "SELECT count(DISTINCT nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
         // distinct aggregation with varchar
-        assertThat(query(withMarkDistinct, "SELECT count(DISTINCT comment) FROM nation")).isFullyPushedDown();
+        assertConditionallyPushedDown(
+                withMarkDistinct,
+                "SELECT count(DISTINCT comment) FROM nation",
+                hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY),
+                node(AggregationNode.class, node(ProjectNode.class, node(TableScanNode.class))));
         // two distinct aggregations
         assertThat(query(withMarkDistinct, "SELECT count(DISTINCT regionkey), count(DISTINCT nationkey) FROM nation"))
                 .isNotFullyPushedDown(MarkDistinctNode.class, ExchangeNode.class, ExchangeNode.class, ProjectNode.class);
@@ -281,7 +368,11 @@ public abstract class BaseJdbcConnectorTest
         // distinct aggregation with GROUP BY
         assertThat(query(withoutMarkDistinct, "SELECT count(DISTINCT nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
         // distinct aggregation with varchar
-        assertThat(query(withoutMarkDistinct, "SELECT count(DISTINCT comment) FROM nation")).isFullyPushedDown();
+        assertConditionallyPushedDown(
+                withoutMarkDistinct,
+                "SELECT count(DISTINCT comment) FROM nation",
+                hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY),
+                node(AggregationNode.class, node(ProjectNode.class, node(TableScanNode.class))));
         // two distinct aggregations
         assertThat(query(withoutMarkDistinct, "SELECT count(DISTINCT regionkey), count(DISTINCT nationkey) FROM nation"))
                 .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class);
@@ -583,7 +674,7 @@ public abstract class BaseJdbcConnectorTest
                 aggregationOverTableScan);
         assertConditionallyPushedDown(
                 getSession(),
-                "SELECT regionkey, max(name) FROM nation GROUP BY regionkey LIMIT 5",
+                "SELECT regionkey, max(nationkey) FROM nation GROUP BY regionkey LIMIT 5",
                 hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN),
                 aggregationOverTableScan);
 
@@ -1042,7 +1133,7 @@ public abstract class BaseJdbcConnectorTest
         }
     }
 
-    private void assertConditionallyPushedDown(
+    private QueryAssert assertConditionallyPushedDown(
             Session session,
             @Language("SQL") String query,
             boolean condition,
@@ -1050,10 +1141,10 @@ public abstract class BaseJdbcConnectorTest
     {
         QueryAssert queryAssert = assertThat(query(session, query));
         if (condition) {
-            queryAssert.isFullyPushedDown();
+            return queryAssert.isFullyPushedDown();
         }
         else {
-            queryAssert.isNotFullyPushedDown(otherwiseExpected);
+            return queryAssert.isNotFullyPushedDown(otherwiseExpected);
         }
     }
 

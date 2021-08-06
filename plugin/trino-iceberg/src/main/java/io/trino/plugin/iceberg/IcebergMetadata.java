@@ -112,7 +112,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiPredicate;
@@ -174,6 +173,7 @@ import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
+import static java.util.UUID.randomUUID;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
@@ -207,6 +207,7 @@ public class IcebergMetadata
     private final JsonCodec<CommitTaskData> commitTaskCodec;
     private final HiveTableOperationsProvider tableOperationsProvider;
     private final String trinoVersion;
+    private final boolean useUniqueTableLocation;
 
     private final Map<String, Optional<Long>> snapshotIds = new ConcurrentHashMap<>();
     private final Map<SchemaTableName, TableMetadata> tableMetadataCache = new ConcurrentHashMap<>();
@@ -221,7 +222,8 @@ public class IcebergMetadata
             TypeManager typeManager,
             JsonCodec<CommitTaskData> commitTaskCodec,
             HiveTableOperationsProvider tableOperationsProvider,
-            String trinoVersion)
+            String trinoVersion,
+            boolean useUniqueTableLocation)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
@@ -230,6 +232,7 @@ public class IcebergMetadata
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
         this.tableOperationsProvider = requireNonNull(tableOperationsProvider, "tableOperationsProvider is null");
         this.trinoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
+        this.useUniqueTableLocation = useUniqueTableLocation;
     }
 
     @Override
@@ -339,6 +342,7 @@ public class IcebergMetadata
         }
 
         org.apache.iceberg.Table table;
+
         if (useMetastore(session)) {
             Optional<Table> hiveTable = metastore.getTable(new HiveIdentity(session), tableName.getSchemaName(), name.getTableName());
             if (hiveTable.isEmpty() || !isIcebergTable(hiveTable.get())) {
@@ -352,6 +356,14 @@ public class IcebergMetadata
                 return Optional.empty();
             }
             table = getIcebergTable(session, tableName);
+        }
+
+        try {
+            table = getIcebergTable(session, new SchemaTableName(tableName.getSchemaName(), name.getTableName()));
+        }
+        catch (TableNotFoundException | UnknownTableTypeException e) {
+            // not found or not an Iceberg table
+            return Optional.empty();
         }
 
         SchemaTableName systemTableName = new SchemaTableName(tableName.getSchemaName(), name.getTableNameWithType());
@@ -649,6 +661,16 @@ public class IcebergMetadata
             if (targetPath == null) {
                 targetPath = getTableDefaultLocation(database, hdfsContext, hdfsEnvironment, schemaName, tableName).toString();
             }
+        HdfsContext hdfsContext = new HdfsContext(session);
+        HiveIdentity identity = new HiveIdentity(session);
+        String targetPath = getTableLocation(tableMetadata.getProperties());
+        if (targetPath == null) {
+            String tableNameForLocation = tableName;
+            if (useUniqueTableLocation) {
+                tableNameForLocation += "-" + randomUUID().toString().replace("-", "");
+            }
+            targetPath = getTableDefaultLocation(database, hdfsContext, hdfsEnvironment, schemaName, tableNameForLocation).toString();
+        }
 
             TableOperations operations = tableOperationsProvider.createTableOperations(
                     hdfsContext,
@@ -761,10 +783,9 @@ public class IcebergMetadata
 
         AppendFiles appendFiles = transaction.newFastAppend();
         for (CommitTaskData task : commitTasks) {
-            HdfsContext context = new HdfsContext(session);
-
             DataFiles.Builder builder = DataFiles.builder(icebergTable.spec())
-                    .withInputFile(new HdfsInputFile(new Path(task.getPath()), hdfsEnvironment, context))
+                    .withPath(task.getPath())
+                    .withFileSizeInBytes(task.getFileSizeInBytes())
                     .withFormat(table.getFileFormat())
                     .withMetrics(task.getMetrics().metrics());
 
@@ -1147,7 +1168,8 @@ public class IcebergMetadata
 
     private Optional<Long> getSnapshotId(org.apache.iceberg.Table table, Optional<Long> snapshotId)
     {
-        return snapshotIds.computeIfAbsent(table.toString(), ignored -> snapshotId
+        // table.name() is an encoded version of SchemaTableName
+        return snapshotIds.computeIfAbsent(table.name(), ignored -> snapshotId
                 .map(id -> IcebergUtil.resolveSnapshotId(table, id))
                 .or(() -> Optional.ofNullable(table.currentSnapshot()).map(Snapshot::snapshotId)));
     }
@@ -1177,7 +1199,7 @@ public class IcebergMetadata
 
         // Generate a storage table name and create a storage table. The properties in the definition are table properties for the
         // storage table as indicated in the materialized view definition.
-        String storageTableName = "st_" + UUID.randomUUID().toString().replace("-", "");
+        String storageTableName = "st_" + randomUUID().toString().replace("-", "");
         Map<String, Object> storageTableProperties = new HashMap<>(definition.getProperties());
         storageTableProperties.putIfAbsent(FILE_FORMAT_PROPERTY, DEFAULT_FILE_FORMAT_DEFAULT);
 
@@ -1300,9 +1322,9 @@ public class IcebergMetadata
 
         AppendFiles appendFiles = transaction.newFastAppend();
         for (CommitTaskData task : commitTasks) {
-            HdfsContext context = new HdfsContext(session);
             DataFiles.Builder builder = DataFiles.builder(icebergTable.spec())
-                    .withInputFile(new HdfsInputFile(new Path(task.getPath()), hdfsEnvironment, context))
+                    .withPath(task.getPath())
+                    .withFileSizeInBytes(task.getFileSizeInBytes())
                     .withFormat(table.getFileFormat())
                     .withMetrics(task.getMetrics().metrics());
 

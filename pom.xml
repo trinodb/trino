@@ -10,7 +10,7 @@
 
     <groupId>io.trino</groupId>
     <artifactId>trino-root</artifactId>
-    <version>360-SNAPSHOT</version>
+    <version>361-SNAPSHOT</version>
 
     <name>trino-root</name>
     <description>Trino</description>
@@ -59,9 +59,9 @@
         <dep.selenium.version>3.141.59</dep.selenium.version>
         <dep.tempto.version>185</dep.tempto.version>
         <dep.gcs.version>2.0.0</dep.gcs.version>
-        <dep.errorprone.version>2.7.1</dep.errorprone.version>
-        <dep.testcontainers.version>1.15.3</dep.testcontainers.version>
-        <dep.docker-java.version>3.2.8</dep.docker-java.version>
+        <dep.errorprone.version>2.8.0</dep.errorprone.version>
+        <dep.testcontainers.version>1.16.0</dep.testcontainers.version>
+        <dep.docker-java.version>3.2.11</dep.docker-java.version>
         <dep.coral.version>1.0.60</dep.coral.version>
         <dep.confluent.version>5.5.2</dep.confluent.version>
         <!-- TODO: update after moving to Airbase 112 -->
@@ -1451,7 +1451,7 @@
             <dependency>
                 <groupId>org.postgresql</groupId>
                 <artifactId>postgresql</artifactId>
-                <version>42.2.10</version>
+                <version>42.2.23</version>
             </dependency>
 
             <dependency>
