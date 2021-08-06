@@ -24,7 +24,6 @@ import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.scalar.ArraySubscriptOperator;
-import io.trino.plugin.base.util.FastutilSetHelper;
 import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -98,6 +97,7 @@ import io.trino.type.FunctionType;
 import io.trino.type.JoniRegexp;
 import io.trino.type.LikeFunctions;
 import io.trino.type.TypeCoercion;
+import io.trino.util.FastutilSetHelper;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
