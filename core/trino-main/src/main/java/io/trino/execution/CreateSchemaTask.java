@@ -100,7 +100,7 @@ public class CreateSchemaTask
                 accessControl,
                 parameterExtractor(statement, parameters));
 
-        TrinoPrincipal principal = getCreatePrincipal(statement, session, metadata);
+        TrinoPrincipal principal = getCreatePrincipal(statement, schema, session, metadata);
         try {
             metadata.createSchema(session, schema, properties, principal);
         }
@@ -114,11 +114,12 @@ public class CreateSchemaTask
         return immediateVoidFuture();
     }
 
-    private TrinoPrincipal getCreatePrincipal(CreateSchema statement, Session session, Metadata metadata)
+    private TrinoPrincipal getCreatePrincipal(CreateSchema statement, CatalogSchemaName schema, Session session, Metadata metadata)
     {
         if (statement.getPrincipal().isPresent()) {
             TrinoPrincipal principal = createPrincipal(statement.getPrincipal().get());
-            String catalog = getSessionCatalog(metadata, session, statement);
+            String catalog = Optional.ofNullable(schema.getCatalogName())
+                    .orElseGet(() -> getSessionCatalog(metadata, session, statement));
             if (principal.getType() == PrincipalType.ROLE
                     && !metadata.listRoles(session, catalog).contains(principal.getName())) {
                 throw semanticException(ROLE_NOT_FOUND, statement, "Role '%s' does not exist", principal.getName());

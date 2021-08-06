@@ -19,12 +19,15 @@ import io.trino.connector.CatalogName;
 import io.trino.metadata.AbstractMockMetadata;
 import io.trino.metadata.Catalog;
 import io.trino.metadata.CatalogManager;
+import io.trino.metadata.MetadataUtil;
 import io.trino.metadata.SchemaPropertyManager;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
+import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.sql.tree.CreateSchema;
+import io.trino.sql.tree.PrincipalSpecification;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.transaction.TransactionManager;
 import org.testng.annotations.BeforeMethod;
@@ -50,6 +53,7 @@ public class TestCreateSchemaTask
 {
     private static final String CATALOG_NAME = "catalog";
     private Session testSession;
+    private Session testSessionWithoutCatalog;
     TestCreateSchemaTask.MockMetadata metadata;
 
     @BeforeMethod
@@ -63,6 +67,11 @@ public class TestCreateSchemaTask
         schemaPropertyManager.addProperties(testCatalog.getConnectorCatalogName(), ImmutableList.of());
         testSession = testSessionBuilder()
                 .setTransactionId(transactionManager.beginTransaction(false))
+                .build();
+        testSessionWithoutCatalog = testSessionBuilder()
+                .setTransactionId(transactionManager.beginTransaction(false))
+                .setCatalog(null)
+                .setSchema(null)
                 .build();
         metadata = new TestCreateSchemaTask.MockMetadata(
                 schemaPropertyManager,
@@ -90,6 +99,29 @@ public class TestCreateSchemaTask
         assertEquals(metadata.getCreateSchemaCount(), 1);
         getFutureValue(new CreateSchemaTask().internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, emptyList()));
         assertEquals(metadata.getCreateSchemaCount(), 1);
+    }
+
+    @Test
+    public void testCreateQualifiedSchemaWithoutSessionCatalog()
+    {
+        String schemaName = "test_db";
+        PrincipalSpecification owner = MetadataUtil.createPrincipal(new TrinoPrincipal(PrincipalType.USER, "some_user"));
+        CreateSchema statement = new CreateSchema(QualifiedName.of(CATALOG_NAME, schemaName), true, ImmutableList.of(), Optional.of(owner));
+        getFutureValue(new CreateSchemaTask().internalExecute(statement, metadata, new AllowAllAccessControl(), testSessionWithoutCatalog, emptyList()));
+        assertEquals(metadata.getCreateSchemaCount(), 1);
+        getFutureValue(new CreateSchemaTask().internalExecute(statement, metadata, new AllowAllAccessControl(), testSessionWithoutCatalog, emptyList()));
+        assertEquals(metadata.getCreateSchemaCount(), 1);
+    }
+
+    @Test
+    public void testCreateUnqualifiedSchemaWithoutSessionCatalog()
+    {
+        String schemaName = "test_db";
+        PrincipalSpecification owner = MetadataUtil.createPrincipal(new TrinoPrincipal(PrincipalType.USER, "some_user"));
+        CreateSchema statement = new CreateSchema(QualifiedName.of(schemaName), true, ImmutableList.of(), Optional.of(owner));
+        assertThatExceptionOfType(TrinoException.class)
+                .isThrownBy(() -> getFutureValue(new CreateSchemaTask().internalExecute(statement, metadata, new AllowAllAccessControl(), testSessionWithoutCatalog, emptyList())))
+                .withMessage("Catalog must be specified when session catalog is not set");
     }
 
     private static class MockMetadata
