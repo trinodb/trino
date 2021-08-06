@@ -26,6 +26,9 @@ Linux operating system
       trino soft nofile 131072
       trino hard nofile 131072
 
+..
+   These values are used in core/trino-server-rpm/src/main/resources/dist/etc/init.d/trino
+
 .. _requirements-java:
 
 Java runtime environment
