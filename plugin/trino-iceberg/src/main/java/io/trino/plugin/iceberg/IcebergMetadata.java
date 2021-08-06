@@ -85,6 +85,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.plugin.hive.util.HiveUtil.isStructuralType;
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.primitiveIcebergColumnHandle;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
@@ -648,9 +649,14 @@ public class IcebergMetadata
                 .filter(isIdentityPartition)
                 .intersect(table.getEnforcedPredicate());
 
-        TupleDomain<IcebergColumnHandle> newUnenforcedConstraint = constraint.getSummary()
+        TupleDomain<IcebergColumnHandle> remainingConstraint = constraint.getSummary()
                 .transformKeys(IcebergColumnHandle.class::cast)
-                .filter(isIdentityPartition.negate())
+                .filter(isIdentityPartition.negate());
+
+        TupleDomain<IcebergColumnHandle> newUnenforcedConstraint = remainingConstraint
+                // TODO: Remove after completing https://github.com/trinodb/trino/issues/8759
+                // Only applies to the unenforced constraint because structural types cannot be partition keys
+                .filter((columnHandle, predicate) -> !isStructuralType(columnHandle.getType()))
                 .intersect(table.getUnenforcedPredicate());
 
         if (newEnforcedConstraint.equals(table.getEnforcedPredicate())
@@ -665,7 +671,7 @@ public class IcebergMetadata
                         table.getSnapshotId(),
                         newUnenforcedConstraint,
                         newEnforcedConstraint),
-                newUnenforcedConstraint.transformKeys(ColumnHandle.class::cast),
+                remainingConstraint.transformKeys(ColumnHandle.class::cast),
                 false));
     }
 
