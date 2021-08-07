@@ -294,6 +294,41 @@ You can render the ``_id`` field to readable values with a cast to ``VARCHAR``:
      55b151633864d6438c61a9ce  |        1 | bad         |       50.0 | 2015-07-23
     (1 row)
 
+ObjectId timestamp functions
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The first four bytes of each `ObjectId <https://docs.mongodb.com/manual/reference/method/ObjectId>`_ represent
+an embedded timestamp of its creation time. Trino provides a couple of functions to take advantage of this MongoDB feature.
+
+.. function:: objectid_timestamp(ObjectId) -> timestamp
+
+    Extracts the timestamp with time zone from a given ObjectId::
+
+        SELECT objectid_timestamp(ObjectId('507f191e810c19729de860ea'));
+        -- 2012-10-17 20:46:22.000 UTC
+
+.. function:: timestamp_objectid(timestamp) -> ObjectId
+
+    Creates an ObjectId from a timestamp with time zone::
+
+        SELECT timestamp_objectid(TIMESTAMP '2021-08-07 17:51:36 +00:00');
+        -- 61 0e c8 28 00 00 00 00 00 00 00 00
+
+In MongoDB, you can filter all the documents created after ``2021-08-07 17:51:36``
+with a query like this:
+
+.. code-block:: text
+
+    db.collection.find({"_id": {"$gt": ObjectId("610ec8280000000000000000")}})
+
+In Trino, the same can be achieved with this query:
+
+.. code-block:: sql
+
+    SELECT *
+    FROM collection
+    WHERE _id > timestamp_objectid(TIMESTAMP '2021-08-07 17:51:36 +00:00');
+
 Limitations
 -----------
 
