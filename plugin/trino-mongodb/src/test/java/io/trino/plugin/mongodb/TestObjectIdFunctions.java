@@ -63,6 +63,24 @@ public class TestObjectIdFunctions
                 toTimestampWithTimeZone(ZonedDateTime.of(1979, 9, 5, 22, 51, 36, 0, UTC)));
     }
 
+    @Test
+    public void testTimestampObjectid()
+    {
+        assertFunction(
+                "timestamp_objectid(TIMESTAMP '1979-09-05 22:51:36 +00:00')",
+                OBJECT_ID,
+                new SqlVarbinary(new ObjectId("123456780000000000000000").toByteArray()));
+    }
+
+    @Test
+    public void testTimestampObjectidNull()
+    {
+        assertFunction(
+                "timestamp_objectid(null)",
+                OBJECT_ID,
+                null);
+    }
+
     private SqlTimestampWithTimeZone toTimestampWithTimeZone(ZonedDateTime zonedDateTime)
     {
         return SqlTimestampWithTimeZone.newInstance(3, zonedDateTime.toInstant().toEpochMilli(), 0, TimeZoneKey.getTimeZoneKey(zonedDateTime.getZone().getId()));
