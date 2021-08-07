@@ -462,6 +462,7 @@ T
 - :func:`tan`
 - :func:`tanh`
 - :func:`tdigest_agg`
+- :func:`timestamp_objectid`
 - :func:`timezone_hour`
 - :func:`timezone_minute`
 - :func:`to_base`
@@ -546,4 +547,3 @@ Z
 
 - :func:`zip`
 - :func:`zip_with`
-
