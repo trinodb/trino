@@ -140,7 +140,7 @@ This property is optional; the default is ``0`` and means no timeout.
 
 This flag controls the socket keep alive feature that keeps a connection alive through firewalls.
 
-This property is optional; the default is ``false``.
+This property is optional; the default is ``true``.
 
 ``mongodb.ssl.enabled``
 ^^^^^^^^^^^^^^^^^^^^^^^^
