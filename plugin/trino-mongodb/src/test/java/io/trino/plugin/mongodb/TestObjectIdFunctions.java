@@ -15,12 +15,15 @@ package io.trino.plugin.mongodb;
 
 import io.trino.operator.scalar.AbstractTestFunctions;
 import io.trino.spi.type.SqlTimestampWithTimeZone;
+import io.trino.spi.type.SqlVarbinary;
 import io.trino.spi.type.TimeZoneKey;
+import org.bson.types.ObjectId;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.time.ZonedDateTime;
 
+import static io.trino.plugin.mongodb.ObjectIdType.OBJECT_ID;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static java.time.ZoneOffset.UTC;
 
@@ -31,6 +34,24 @@ public class TestObjectIdFunctions
     protected void registerFunctions()
     {
         functionAssertions.installPlugin(new MongoPlugin());
+    }
+
+    @Test
+    public void testObjectid()
+    {
+        assertFunction(
+                "ObjectId('1234567890abcdef12345678')",
+                OBJECT_ID,
+                new SqlVarbinary(new ObjectId("1234567890abcdef12345678").toByteArray()));
+    }
+
+    @Test
+    public void testObjectidIgnoresSpaces()
+    {
+        assertFunction(
+                "ObjectId('12 34 56 78 90 ab cd ef   12 34 56 78')",
+                OBJECT_ID,
+                new SqlVarbinary(new ObjectId("1234567890abcdef12345678").toByteArray()));
     }
 
     @Test
