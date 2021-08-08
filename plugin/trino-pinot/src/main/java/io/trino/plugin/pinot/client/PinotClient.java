@@ -177,8 +177,10 @@ public class PinotClient
 
     private <T> T sendHttpGetToControllerJson(String path, JsonCodec<T> codec)
     {
+        String controllerUrl = getControllerUrl();
+        String scheme = controllerUrl.startsWith("https://") ? "https" : "http";
         return doHttpActionWithHeadersJson(
-                Request.Builder.prepareGet().setUri(URI.create(format("http://%s/%s", getControllerUrl(), path))),
+                Request.Builder.prepareGet().setUri(URI.create(format("%s://%s/%s", scheme, controllerUrl, path))),
                 Optional.empty(),
                 codec);
     }
