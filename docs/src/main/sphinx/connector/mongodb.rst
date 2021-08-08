@@ -77,6 +77,65 @@ At startup, this connector tries guessing fields' types, but it might not be cor
 
 This property is optional; the default is ``_schema``.
 
+.. note::
+
+    Trino can autogenerate the ``_schema`` contents by running a ``SELECT *`` over the collection.
+    However, not all the fields are always detected and you might need to update the schema manually or using ``ALTER TABLE``.
+
+
+Nested fields
+^^^^^^^^^^^^^
+
+Given a document with the following structure:
+
+.. code-block:: text
+
+    {
+      _id: <value>
+      nesting_1: {
+        nested_field_1_1: <value>
+        nested_field_1_2: <value>
+        ...
+      }
+      nesting_2: {
+        nesting_2_1: {
+          nested_field_2_1_1: <value>
+          nested_field_2_1_2: <value>
+          ...
+        }
+        nesting_2_2: {
+          nested_field_2_2_1: <value>
+          nested_field_2_2_2: <value>
+          ...
+        }
+      }
+    }
+
+You can define the nesting by using ``row`` as follows:
+
+.. code-block:: text
+
+    ...
+      "fields": [
+        {
+          "name": "_id",
+          "type": "ObjectId",
+          "hidden": true
+        },
+        {
+          "name": "nesting_1",
+          "type": "row(nested_field_1_1 varchar, nested_field_1_2 bigint)",
+          "hidden": false
+        },
+        {
+          "name": "nesting_2",
+          "type": "row(nesting_2_1 row(nested_field_2_1_1 varchar, nested_field_2_1_2 varchar),nesting_2_2 row(nested_field_2_2_1 varchar, nested_field_2_2_2 varchar))",
+          "hidden": false
+        }
+      ]
+    ...
+
+
 ``mongodb.case-insensitive-name-matching``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -243,64 +302,6 @@ Field           Required  Type      Description
 =============== ========= ========= =============================
 
 There is no limit on field descriptions for either key or message.
-
-.. note::
-
-    Trino can autogenerate the ``_schema`` contents by running a ``SELECT *`` over the collection.
-    However, not all the fields are always detected and you might need to update the schema manually.
-
-
-Nested fields
-^^^^^^^^^^^^^
-
-Given a document with the following structure:
-
-.. code-block:: text
-
-    {
-      _id: <value>
-      nesting_1: {
-        nested_field_1_1: <value>
-        nested_field_1_2: <value>
-        ...
-      }
-      nesting_2: {
-        nesting_2_1: {
-          nested_field_2_1_1: <value>
-          nested_field_2_1_2: <value>
-          ...
-        }
-        nesting_2_2: {
-          nested_field_2_2_1: <value>
-          nested_field_2_2_2: <value>
-          ...
-        }
-      }
-    }
-
-You can define the nesting by using ``row`` as follows:
-
-.. code-block:: text
-
-    ...
-      "fields": [
-        {
-          "name": "_id",
-          "type": "ObjectId",
-          "hidden": true
-        },
-        {
-          "name": "nesting_1",
-          "type": "row(nested_field_1_1 varchar, nested_field_1_2 bigint)",
-          "hidden": false
-        },
-        {
-          "name": "nesting_2",
-          "type": "row(nesting_2_1 row(nested_field_2_1_1 varchar, nested_field_2_1_2 varchar),nesting_2_2 row(nested_field_2_2_1 varchar, nested_field_2_2_2 varchar))",
-          "hidden": false
-        }
-      ]
-    ...
 
 ObjectId
 --------
