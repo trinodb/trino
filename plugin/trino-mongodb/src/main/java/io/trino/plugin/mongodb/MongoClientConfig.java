@@ -48,7 +48,7 @@ public class MongoClientConfig
     private int connectionTimeout = 10_000;
     private int socketTimeout;
     private int maxConnectionIdleTime;
-    private boolean socketKeepAlive;
+    private boolean socketKeepAlive = true;
     private boolean sslEnabled;
 
     // query configurations
