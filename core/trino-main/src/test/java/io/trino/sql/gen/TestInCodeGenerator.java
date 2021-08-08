@@ -56,12 +56,11 @@ public class TestInCodeGenerator
                 Collections.singletonList(constant(12345678901234.0, DOUBLE))));
         assertEquals(checkSwitchGenerationCase(INTEGER, values), DIRECT_SWITCH);
 
-        for (int i = 6; i <= 15; ++i) {
-            values.add(constant(i, INTEGER));
-        }
+        values.add(constant(6, BIGINT));
+        values.add(constant(7, BIGINT));
         assertEquals(checkSwitchGenerationCase(INTEGER, values), DIRECT_SWITCH);
 
-        values.add(constant(16, INTEGER));
+        values.add(constant(8, INTEGER));
         assertEquals(checkSwitchGenerationCase(INTEGER, values), SET_CONTAINS);
     }
 
@@ -81,12 +80,11 @@ public class TestInCodeGenerator
                 Collections.singletonList(constant(12345678901234.0, DOUBLE))));
         assertEquals(checkSwitchGenerationCase(BIGINT, values), HASH_SWITCH);
 
-        for (long i = 6; i <= 15; ++i) {
-            values.add(constant(i, BIGINT));
-        }
+        values.add(constant(6L, BIGINT));
+        values.add(constant(7L, BIGINT));
         assertEquals(checkSwitchGenerationCase(BIGINT, values), HASH_SWITCH);
 
-        values.add(constant(16L, BIGINT));
+        values.add(constant(8L, BIGINT));
         assertEquals(checkSwitchGenerationCase(BIGINT, values), SET_CONTAINS);
     }
 
@@ -99,7 +97,7 @@ public class TestInCodeGenerator
         values.add(constant(3L, DATE));
         assertEquals(checkSwitchGenerationCase(DATE, values), DIRECT_SWITCH);
 
-        for (long i = 4; i <= 15; ++i) {
+        for (long i = 4; i <= 7; ++i) {
             values.add(constant(i, DATE));
         }
         assertEquals(checkSwitchGenerationCase(DATE, values), DIRECT_SWITCH);
