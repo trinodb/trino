@@ -21,10 +21,12 @@ import io.airlift.units.MinDuration;
 
 import javax.validation.constraints.NotNull;
 
+import java.net.URI;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class PinotConfig
 {
@@ -32,7 +34,7 @@ public class PinotConfig
 
     private int maxConnectionsPerServer = 30;
 
-    private List<String> controllerUrls = ImmutableList.of();
+    private List<URI> controllerUrls = ImmutableList.of();
 
     private Duration idleTimeout = new Duration(5, TimeUnit.MINUTES);
     private Duration connectionTimeout = new Duration(1, TimeUnit.MINUTES);
@@ -52,7 +54,7 @@ public class PinotConfig
     private int maxRowsPerSplitForSegmentQueries = 50_000;
 
     @NotNull
-    public List<String> getControllerUrls()
+    public List<URI> getControllerUrls()
     {
         return controllerUrls;
     }
@@ -60,7 +62,9 @@ public class PinotConfig
     @Config("pinot.controller-urls")
     public PinotConfig setControllerUrls(String controllerUrl)
     {
-        this.controllerUrls = LIST_SPLITTER.splitToList(controllerUrl);
+        this.controllerUrls = LIST_SPLITTER.splitToList(controllerUrl).stream()
+                .map(PinotConfig::stringToUri)
+                .collect(toImmutableList());
         return this;
     }
 
@@ -256,5 +260,13 @@ public class PinotConfig
     {
         this.maxRowsPerSplitForSegmentQueries = maxRowsPerSplitForSegmentQueries;
         return this;
+    }
+
+    private static URI stringToUri(String server)
+    {
+        if (server.startsWith("http://") || server.startsWith("https://")) {
+            return URI.create(server);
+        }
+        return URI.create("http://" + server);
     }
 }
