@@ -21,6 +21,8 @@ import org.testng.annotations.Test;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 public class TestPinotConfig
 {
     @Test
@@ -45,7 +47,8 @@ public class TestPinotConfig
                         .setRequestTimeout(new Duration(30, TimeUnit.SECONDS))
                         .setMaxRowsPerSplitForSegmentQueries(50_000)
                         .setMaxRowsForBrokerQueries(50_000)
-                        .setAggregationPushdownEnabled(true));
+                        .setAggregationPushdownEnabled(true)
+                        .setCountDistinctPushdownEnabled(true));
     }
 
     @Test
@@ -70,6 +73,7 @@ public class TestPinotConfig
                 .put("pinot.max-rows-per-split-for-segment-queries", "10")
                 .put("pinot.max-rows-for-broker-queries", "5000")
                 .put("pinot.aggregation-pushdown.enabled", "false")
+                .put("pinot.count-distinct-pushdown.enabled", "false")
                 .build();
 
         PinotConfig expected = new PinotConfig()
@@ -90,8 +94,20 @@ public class TestPinotConfig
                 .setRequestTimeout(new Duration(1, TimeUnit.MINUTES))
                 .setMaxRowsPerSplitForSegmentQueries(10)
                 .setMaxRowsForBrokerQueries(5000)
-                .setAggregationPushdownEnabled(false);
+                .setAggregationPushdownEnabled(false)
+                .setCountDistinctPushdownEnabled(false);
 
         ConfigAssertions.assertFullMapping(properties, expected);
+    }
+
+    @Test
+    public void testInvalidCountDistinctPushdown()
+    {
+        assertThatThrownBy(() -> new PinotConfig()
+                .setAggregationPushdownEnabled(false)
+                .setCountDistinctPushdownEnabled(true)
+                .validate())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Invalid configuration: pinot.aggregation-pushdown.enabled must be enabled if pinot.count-distinct-pushdown.enabled");
     }
 }
