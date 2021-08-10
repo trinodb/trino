@@ -80,7 +80,8 @@ This property is optional; the default is ``_schema``.
 .. note::
 
     Trino can autogenerate the ``_schema`` contents by running a ``SELECT *`` over the collection.
-    However, not all the fields are always detected and you might need to update the schema manually or using ``ALTER TABLE``.
+    However, not all the fields are always detected and you might need to update the schema directly on the MongoDB
+    entry or, through Trino by using ``ALTER TABLE``.
 
 
 Nested fields
@@ -111,7 +112,7 @@ Given a document with the following structure:
       }
     }
 
-You can define the nesting by using ``row`` as follows:
+You can define the nesting on a MongoDB collection by using ``row`` in the corresponding ``_schema`` database entry as follows:
 
 .. code-block:: text
 
