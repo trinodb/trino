@@ -61,11 +61,13 @@ public class TestPinotIntegrationSmokeTest
         extends AbstractTestQueryFramework
 {
     private static final int MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES = 11;
+    private static final int MAX_ROWS_PER_SPLIT_FOR_BROKER_QUERIES = 12;
     // If a broker query does not supply a limit, pinot defaults to 10 rows
     private static final int DEFAULT_PINOT_LIMIT_FOR_BROKER_QUERIES = 10;
     private static final String ALL_TYPES_TABLE = "alltypes";
     private static final String MIXED_CASE_COLUMN_NAMES_TABLE = "mixed_case";
     private static final String TOO_MANY_ROWS_TABLE = "too_many_rows";
+    private static final String TOO_MANY_BROKER_ROWS_TABLE = "too_many_broker_rows";
     private static final String JSON_TABLE = "my_table";
 
     @Override
@@ -157,6 +159,24 @@ public class TestPinotIntegrationSmokeTest
         pinot.createSchema(getClass().getClassLoader().getResourceAsStream("too_many_rows_schema.json"), TOO_MANY_ROWS_TABLE);
         pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("too_many_rows_realtimeSpec.json"), TOO_MANY_ROWS_TABLE);
 
+        // Create and populate too many broker rows table and topic
+        kafka.createTopic(TOO_MANY_BROKER_ROWS_TABLE);
+        Schema tooManyBrokerRowsAvroSchema = SchemaBuilder.record(TOO_MANY_BROKER_ROWS_TABLE).fields()
+                .name("string_col").type().optional().stringType()
+                .name("updatedAt").type().optional().longType()
+                .endRecord();
+
+        ImmutableList.Builder<ProducerRecord<String, GenericRecord>> tooManyBrokerRowsRecordsBuilder = ImmutableList.builder();
+        for (int i = 0; i < MAX_ROWS_PER_SPLIT_FOR_BROKER_QUERIES + 1; i++) {
+            tooManyBrokerRowsRecordsBuilder.add(new ProducerRecord<>(TOO_MANY_BROKER_ROWS_TABLE, "key" + i, new GenericRecordBuilder(tooManyBrokerRowsAvroSchema)
+                    .set("string_col", "string_" + i)
+                    .set("updatedAt", Instant.parse("2021-05-10T00:00:00.00Z").plusMillis(i * 1000).toEpochMilli())
+                    .build()));
+        }
+        kafka.sendMessages(tooManyBrokerRowsRecordsBuilder.build().stream(), schemaRegistryAwareProducer(kafka));
+        pinot.createSchema(getClass().getClassLoader().getResourceAsStream("too_many_broker_rows_schema.json"), TOO_MANY_BROKER_ROWS_TABLE);
+        pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("too_many_broker_rows_realtimeSpec.json"), TOO_MANY_BROKER_ROWS_TABLE);
+
         // Create json table
         kafka.createTopic(JSON_TABLE);
         long key = 0L;
@@ -175,6 +195,7 @@ public class TestPinotIntegrationSmokeTest
         Map<String, String> pinotProperties = ImmutableMap.<String, String>builder()
                 .put("pinot.controller-urls", pinot.getControllerConnectString())
                 .put("pinot.max-rows-per-split-for-segment-queries", String.valueOf(MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES))
+                .put("pinot.max-rows-for-broker-queries", String.valueOf(MAX_ROWS_PER_SPLIT_FOR_BROKER_QUERIES))
                 .build();
 
         return PinotQueryRunner.createPinotQueryRunner(
@@ -576,6 +597,45 @@ public class TestPinotIntegrationSmokeTest
                         "  FROM  \"SELECT updated_at_seconds, string_col FROM " + TOO_MANY_ROWS_TABLE +
                         "  LIMIT " + (MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES + 2) + "\"",
                 tooManyRowsTableValues);
+    }
+
+    @Test
+    public void testMaxLimitForPassthroughQueries()
+            throws InterruptedException
+    {
+        assertQueryFails("SELECT string_col, updated_at_seconds" +
+                        "  FROM  \"SELECT updated_at_seconds, string_col FROM " + TOO_MANY_BROKER_ROWS_TABLE +
+                        "  LIMIT " + (MAX_ROWS_PER_SPLIT_FOR_BROKER_QUERIES + 1) + "\"",
+                "Broker query returned '13' rows, maximum allowed is '12' rows. with query \"select updated_at_seconds, string_col from too_many_broker_rows limit 13\"");
+
+        // Pinot issue preventing Integer.MAX_VALUE from being a limit: https://github.com/apache/incubator-pinot/issues/7110
+        assertQueryFails("SELECT * FROM \"SELECT string_col, long_col FROM " + ALL_TYPES_TABLE + " LIMIT " + Integer.MAX_VALUE + "\"",
+                "Unexpected response status: 500 for request \\{\"sql\" : \"select string_col, long_col from alltypes limit 2147483647\" \\} to url http://localhost:\\d+/query/sql, with headers \\{Accept=\\[application/json\\], Content-Type=\\[application/json\\]\\}, full response null");
+
+        // Pinot broker requests do not handle limits greater than Integer.MAX_VALUE
+        // Note that -2147483648 is due to an integer overflow in Pinot: https://github.com/apache/pinot/issues/7242
+        assertQueryFails("SELECT * FROM \"SELECT string_col, long_col FROM " + ALL_TYPES_TABLE + " LIMIT " + ((long) Integer.MAX_VALUE + 1) + "\"",
+                "Query select string_col, long_col from alltypes limit -2147483648 encountered exception org.apache.pinot.common.response.broker.QueryProcessingException@\\w+ with query \"select string_col, long_col from alltypes limit -2147483648\"");
+
+        String tooManyBrokerRowsTableValues = "VALUES ('string_0', '1620604800')," +
+                "  ('string_1', '1620604801')," +
+                "  ('string_2', '1620604802')," +
+                "  ('string_3', '1620604803')," +
+                "  ('string_4', '1620604804')," +
+                "  ('string_5', '1620604805')," +
+                "  ('string_6', '1620604806')," +
+                "  ('string_7', '1620604807')," +
+                "  ('string_8', '1620604808')," +
+                "  ('string_9', '1620604809')," +
+                "  ('string_10', '1620604810')," +
+                "  ('string_11', '1620604811')";
+
+        // Explicit limit is necessary otherwise pinot returns 10 rows.
+        assertQuery("SELECT string_col, updated_at_seconds" +
+                        "  FROM  \"SELECT updated_at_seconds, string_col FROM " + TOO_MANY_BROKER_ROWS_TABLE +
+                        "  WHERE string_col != 'string_12'" +
+                        "  LIMIT " + MAX_ROWS_PER_SPLIT_FOR_BROKER_QUERIES + "\"",
+                tooManyBrokerRowsTableValues);
     }
 
     @Test
