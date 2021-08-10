@@ -29,14 +29,22 @@ public class PinotColumnHandle
 {
     private final String columnName;
     private final Type dataType;
+    private final boolean returnNullOnEmptyGroup;
+
+    public PinotColumnHandle(String columnName, Type dataType)
+    {
+        this(columnName, dataType, true);
+    }
 
     @JsonCreator
     public PinotColumnHandle(
             @JsonProperty("columnName") String columnName,
-            @JsonProperty("dataType") Type dataType)
+            @JsonProperty("dataType") Type dataType,
+            @JsonProperty("returnNullOnEmptyGroup") boolean returnNullOnEmptyGroup)
     {
         this.columnName = requireNonNull(columnName, "columnName is null");
         this.dataType = requireNonNull(dataType, "dataType is null");
+        this.returnNullOnEmptyGroup = returnNullOnEmptyGroup;
     }
 
     @JsonProperty
@@ -54,6 +62,14 @@ public class PinotColumnHandle
     public ColumnMetadata getColumnMetadata()
     {
         return new ColumnMetadata(getColumnName(), getDataType());
+    }
+
+    // Some aggregations should return null on empty group, ex. min/max
+    // If false then return the value from Pinot, ex. count(*)
+    @JsonProperty
+    public boolean isReturnNullOnEmptyGroup()
+    {
+        return returnNullOnEmptyGroup;
     }
 
     @Override
@@ -83,6 +99,7 @@ public class PinotColumnHandle
         return toStringHelper(this)
                 .add("columnName", columnName)
                 .add("dataType", dataType)
+                .add("returnNullOnEmptyGroup", returnNullOnEmptyGroup)
                 .toString();
     }
 }

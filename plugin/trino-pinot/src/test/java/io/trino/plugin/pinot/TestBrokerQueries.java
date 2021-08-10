@@ -60,6 +60,7 @@ public class TestBrokerQueries
         RESPONSE.setResultTable(RESULT_TABLE);
         RESPONSE.setNumServersQueried(1);
         RESPONSE.setNumServersResponded(1);
+        RESPONSE.setNumDocsScanned(1);
     }
 
     @BeforeClass
@@ -77,7 +78,7 @@ public class TestBrokerQueries
                 .add(new PinotColumnHandle("col_1", VARCHAR))
                 .add(new PinotColumnHandle("col_2", BIGINT))
                 .build();
-        ResultsIterator resultIterator = fromResultTable(RESULT_TABLE, columnHandles);
+        ResultsIterator resultIterator = fromResultTable(RESPONSE, columnHandles, 0);
         assertTrue(resultIterator.hasNext(), "resultIterator is empty");
         BrokerResultRow row = resultIterator.next();
         assertEquals(row.getField(0), "col_3_data");
@@ -92,7 +93,7 @@ public class TestBrokerQueries
                 .add(new PinotColumnHandle("col_3", VARCHAR))
                 .add(new PinotColumnHandle("col_1", VARCHAR))
                 .build();
-        ResultsIterator resultIterator = fromResultTable(RESULT_TABLE, columnHandles);
+        ResultsIterator resultIterator = fromResultTable(RESPONSE, columnHandles, 0);
         assertTrue(resultIterator.hasNext(), "resultIterator is empty");
         BrokerResultRow row = resultIterator.next();
         assertEquals(row.getField(0), "col_3_data");
