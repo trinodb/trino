@@ -13,12 +13,16 @@
  */
 package io.trino.plugin.bigquery;
 
+import com.google.api.gax.paging.Page;
 import com.google.auth.oauth2.ServiceAccountCredentials;
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.BigQueryOptions;
+import com.google.cloud.bigquery.Dataset;
 import com.google.cloud.bigquery.DatasetInfo;
 import com.google.cloud.bigquery.QueryJobConfiguration;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.Session;
@@ -34,8 +38,10 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 
+import static com.google.cloud.bigquery.BigQuery.DatasetListOption.labelFilter;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static java.lang.String.format;
 
 public final class BigQueryQueryRunner
 {
@@ -83,6 +89,8 @@ public final class BigQueryQueryRunner
     public static class BigQuerySqlExecutor
             implements SqlExecutor
     {
+        private static final Map.Entry<String, String> BIG_QUERY_SQL_EXECUTOR_LABEL = Maps.immutableEntry("ci-automation-source", "big_query_sql_executor");
+
         private final BigQuery bigQuery;
 
         public BigQuerySqlExecutor()
@@ -102,14 +110,28 @@ public final class BigQueryQueryRunner
             }
         }
 
-        public void createDataset(String dataset)
+        public void createDataset(String datasetName)
         {
-            bigQuery.create(DatasetInfo.newBuilder(dataset).build());
+            DatasetInfo dataset = DatasetInfo.newBuilder(datasetName)
+                    .setLabels(ImmutableMap.copyOf(ImmutableSet.of(BIG_QUERY_SQL_EXECUTOR_LABEL)))
+                    .build();
+            bigQuery.create(dataset);
         }
 
         public void dropDataset(String dataset)
         {
             bigQuery.delete(dataset);
+        }
+
+        public void deleteSelfCreatedDatasets()
+        {
+            Page<Dataset> datasets = bigQuery.listDatasets(
+                    labelFilter(format("labels.%s:%s",
+                            BIG_QUERY_SQL_EXECUTOR_LABEL.getKey(),
+                            BIG_QUERY_SQL_EXECUTOR_LABEL.getValue())));
+            for (Dataset dataset : datasets.iterateAll()) {
+                dataset.delete();
+            }
         }
 
         private static BigQuery createBigQueryClient()
