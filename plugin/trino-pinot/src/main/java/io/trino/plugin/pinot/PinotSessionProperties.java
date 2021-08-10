@@ -24,6 +24,7 @@ import javax.inject.Inject;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.durationProperty;
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
@@ -35,6 +36,7 @@ public class PinotSessionProperties
     private static final String RETRY_COUNT = "retry_count";
     private static final String NON_AGGREGATE_LIMIT_FOR_BROKER_QUERIES = "non_aggregate_limit_for_broker_queries";
     private static final String AGGREGATION_PUSHDOWN_ENABLED = "aggregation_pushdown_enabled";
+    private static final String COUNT_DISTINCT_PUSHDOWN_ENABLED = "count_distinct_pushdown_enabled";
 
     @VisibleForTesting
     public static final String FORBID_SEGMENT_QUERIES = "forbid_segment_queries";
@@ -80,6 +82,13 @@ public class PinotSessionProperties
         return session.getProperty(AGGREGATION_PUSHDOWN_ENABLED, Boolean.class);
     }
 
+    public static boolean isCountDistinctPushdownEnabled(ConnectorSession session)
+    {
+        // This should never fail as this method would never be called unless aggregation pushdown is enabled
+        verify(isAggregationPushdownEnabled(session), "%s must be enabled when %s is enabled", AGGREGATION_PUSHDOWN_ENABLED, COUNT_DISTINCT_PUSHDOWN_ENABLED);
+        return session.getProperty(COUNT_DISTINCT_PUSHDOWN_ENABLED, Boolean.class);
+    }
+
     @Inject
     public PinotSessionProperties(PinotConfig pinotConfig)
     {
@@ -119,6 +128,11 @@ public class PinotSessionProperties
                         AGGREGATION_PUSHDOWN_ENABLED,
                         "Enable aggregation pushdown",
                         pinotConfig.isAggregationPushdownEnabled(),
+                        false),
+                booleanProperty(
+                        COUNT_DISTINCT_PUSHDOWN_ENABLED,
+                        "Enable count distinct pushdown",
+                        pinotConfig.isCountDistinctPushdownEnabled(),
                         false));
     }
 
