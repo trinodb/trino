@@ -200,7 +200,7 @@ public class IcebergMetadata
     private final String trinoVersion;
     private final boolean useUniqueTableLocation;
 
-    private final Map<String, Optional<Long>> snapshotIds = new ConcurrentHashMap<>();
+    private final Map<String, Long> snapshotIds = new ConcurrentHashMap<>();
     private final Map<SchemaTableName, TableMetadata> tableMetadataCache = new ConcurrentHashMap<>();
     private final ViewReaderUtil.PrestoViewReader viewReader = new ViewReaderUtil.PrestoViewReader();
 
@@ -1024,9 +1024,12 @@ public class IcebergMetadata
     private Optional<Long> getSnapshotId(org.apache.iceberg.Table table, Optional<Long> snapshotId)
     {
         // table.name() is an encoded version of SchemaTableName
-        return snapshotIds.computeIfAbsent(table.name(), ignored -> snapshotId
-                .map(id -> IcebergUtil.resolveSnapshotId(table, id))
-                .or(() -> Optional.ofNullable(table.currentSnapshot()).map(Snapshot::snapshotId)));
+        return snapshotId
+                .map(id ->
+                        snapshotIds.computeIfAbsent(
+                                table.name() + "@" + id,
+                                ignored -> IcebergUtil.resolveSnapshotId(table, id)))
+                .or(() -> Optional.ofNullable(table.currentSnapshot()).map(Snapshot::snapshotId));
     }
 
     org.apache.iceberg.Table getIcebergTable(ConnectorSession session, SchemaTableName schemaTableName)
