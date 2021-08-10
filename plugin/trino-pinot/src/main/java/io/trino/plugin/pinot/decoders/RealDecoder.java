@@ -25,6 +25,12 @@ public class RealDecoder
     @Override
     public void decode(Supplier<Object> getter, BlockBuilder output)
     {
-        output.writeInt(floatToIntBits(((Number) getter.get()).floatValue()));
+        Object value = getter.get();
+        if (value == null) {
+            output.appendNull();
+        }
+        else {
+            output.writeInt((floatToIntBits(((Number) value).floatValue())));
+        }
     }
 }
