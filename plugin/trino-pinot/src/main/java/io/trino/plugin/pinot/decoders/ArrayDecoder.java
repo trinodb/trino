@@ -42,11 +42,16 @@ public class ArrayDecoder
     public void decode(Supplier<Object> getter, BlockBuilder output)
     {
         List<?> value = (List<?>) getter.get();
-        BlockBuilder elementBlockBuilder = type.getElementType().createBlockBuilder(null, 1);
-        for (int i = 0; i < value.size(); i++) {
-            int index = i;
-            elementDecoder.decode(() -> value.get(index), elementBlockBuilder);
+        if (value == null) {
+            output.appendNull();
         }
-        type.writeObject(output, elementBlockBuilder.build());
+        else {
+            BlockBuilder elementBlockBuilder = type.getElementType().createBlockBuilder(null, 1);
+            for (int i = 0; i < value.size(); i++) {
+                int index = i;
+                elementDecoder.decode(() -> value.get(index), elementBlockBuilder);
+            }
+            type.writeObject(output, elementBlockBuilder.build());
+        }
     }
 }
