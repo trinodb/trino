@@ -134,6 +134,8 @@ supports the following features:
 
 .. include:: sql-delete-limitation.fragment
 
+.. include:: alter-schema-limitation.fragment
+
 .. _sqlserver-pushdown:
 
 Pushdown

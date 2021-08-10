@@ -106,5 +106,8 @@ statements, the connector supports the following features:
 * :doc:`/sql/drop-table`
 * :doc:`/sql/create-schema`
 * :doc:`/sql/drop-schema`
+* :doc:`/sql/alter-schema`
 
 .. include:: sql-delete-limitation.fragment
+
+.. include:: alter-schema-limitation.fragment
