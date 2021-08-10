@@ -38,8 +38,8 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
-import static io.trino.type.SingleAccessMethodCompiler.compileSingleAccessMethod;
 import static io.trino.type.TypeUtils.NULL_HASH_CODE;
+import static io.trino.util.SingleAccessMethodCompiler.compileSingleAccessMethod;
 import static java.util.Objects.requireNonNull;
 
 public final class BlockTypeOperators
