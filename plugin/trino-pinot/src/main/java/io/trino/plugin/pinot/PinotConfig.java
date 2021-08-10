@@ -52,6 +52,7 @@ public class PinotConfig
     private int fetchRetryCount = 2;
     private int nonAggregateLimitForBrokerQueries = 25_000;
     private int maxRowsPerSplitForSegmentQueries = 50_000;
+    private int maxRowsForBrokerQueries = 50_000;
 
     @NotNull
     public List<URI> getControllerUrls()
@@ -268,5 +269,17 @@ public class PinotConfig
             return URI.create(server);
         }
         return URI.create("http://" + server);
+    }
+
+    public int getMaxRowsForBrokerQueries()
+    {
+        return maxRowsForBrokerQueries;
+    }
+
+    @Config("pinot.max-rows-for-broker-queries")
+    public PinotConfig setMaxRowsForBrokerQueries(int maxRowsForBrokerQueries)
+    {
+        this.maxRowsForBrokerQueries = maxRowsForBrokerQueries;
+        return this;
     }
 }
