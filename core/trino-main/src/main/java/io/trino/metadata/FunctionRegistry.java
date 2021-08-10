@@ -77,6 +77,7 @@ import io.trino.operator.aggregation.minmaxby.MinByNAggregationFunction;
 import io.trino.operator.aggregation.multimapagg.MultimapAggregationFunction;
 import io.trino.operator.scalar.ArrayAllMatchFunction;
 import io.trino.operator.scalar.ArrayAnyMatchFunction;
+import io.trino.operator.scalar.ArrayAverageFunction;
 import io.trino.operator.scalar.ArrayCardinalityFunction;
 import io.trino.operator.scalar.ArrayCombinationsFunction;
 import io.trino.operator.scalar.ArrayContains;
@@ -508,6 +509,7 @@ public class FunctionRegistry
                 .scalars(HmacFunctions.class)
                 .scalars(DataSizeFunctions.class)
                 .scalars(FormatNumberFunction.class)
+                .scalar(ArrayAverageFunction.class)
                 .scalar(ArrayCardinalityFunction.class)
                 .scalar(ArrayContains.class)
                 .scalar(ArrayContainsSequence.class)
