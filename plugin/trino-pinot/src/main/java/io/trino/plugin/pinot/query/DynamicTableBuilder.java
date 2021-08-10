@@ -119,7 +119,7 @@ public final class DynamicTableBuilder
             }
         }
 
-        return new DynamicTable(pinotTableName, suffix, selectionColumns, groupByColumns, filter, aggregationExpressionBuilder.build(), orderBy, getTopNOrLimit(request), getOffset(request), query);
+        return new DynamicTable(pinotTableName, suffix, selectionColumns, filter, groupByColumns, aggregationExpressionBuilder.build(), orderBy, getTopNOrLimit(request), getOffset(request), query);
     }
 
     private static List<String> resolvePinotColumns(SchemaTableName schemaTableName, List<String> trinoColumnNames, Map<String, ColumnHandle> columnHandles)
