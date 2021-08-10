@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.type;
+package io.trino.util;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.ClassDefinition;
@@ -39,7 +39,7 @@ import static io.trino.util.CompilerUtils.defineClass;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static java.lang.invoke.MethodType.methodType;
 
-final class SingleAccessMethodCompiler
+public final class SingleAccessMethodCompiler
 {
     private SingleAccessMethodCompiler() {}
 
