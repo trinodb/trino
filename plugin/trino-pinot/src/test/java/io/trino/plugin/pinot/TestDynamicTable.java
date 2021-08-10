@@ -16,7 +16,6 @@ package io.trino.plugin.pinot;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
-import io.trino.plugin.pinot.query.AggregationExpression;
 import io.trino.plugin.pinot.query.DynamicTable;
 import io.trino.plugin.pinot.query.OrderByExpression;
 import io.trino.spi.connector.ColumnHandle;
@@ -33,6 +32,7 @@ import static io.trino.plugin.pinot.query.DynamicTableBuilder.OFFLINE_SUFFIX;
 import static io.trino.plugin.pinot.query.DynamicTableBuilder.REALTIME_SUFFIX;
 import static io.trino.plugin.pinot.query.DynamicTableBuilder.buildFromPql;
 import static io.trino.plugin.pinot.query.DynamicTablePqlExtractor.extractPql;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -81,8 +81,8 @@ public class TestDynamicTable
                 .add("AirlineID")
                 .build());
         assertEquals(dynamicTable.getAggregateColumns(), ImmutableList.builder()
-                .add(new AggregationExpression("max(carrierdelay)", "CarrierDelay", "MAX"))
-                .add(new AggregationExpression("avg(carrierdelay)", "CarrierDelay", "AVG"))
+                .add(new PinotColumnHandle("max(carrierdelay)", DOUBLE))
+                .add(new PinotColumnHandle("avg(carrierdelay)", DOUBLE))
                 .build());
         assertEquals(dynamicTable.getLimit().getAsLong(), limit);
     }
