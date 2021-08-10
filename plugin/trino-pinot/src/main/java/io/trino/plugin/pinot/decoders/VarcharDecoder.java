@@ -25,7 +25,13 @@ public class VarcharDecoder
     @Override
     public void decode(Supplier<Object> getter, BlockBuilder output)
     {
-        Slice slice = Slices.utf8Slice(getter.get().toString());
-        output.writeBytes(slice, 0, slice.length()).closeEntry();
+        Object value = getter.get();
+        if (value == null) {
+            output.appendNull();
+        }
+        else {
+            Slice slice = Slices.utf8Slice(value.toString());
+            output.writeBytes(slice, 0, slice.length()).closeEntry();
+        }
     }
 }
