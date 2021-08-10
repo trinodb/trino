@@ -29,6 +29,7 @@ import io.trino.plugin.pinot.query.DynamicTableBuilder;
 import io.trino.plugin.pinot.query.aggregation.ImplementApproxDistinct;
 import io.trino.plugin.pinot.query.aggregation.ImplementAvg;
 import io.trino.plugin.pinot.query.aggregation.ImplementCountAll;
+import io.trino.plugin.pinot.query.aggregation.ImplementCountDistinct;
 import io.trino.plugin.pinot.query.aggregation.ImplementMinMax;
 import io.trino.plugin.pinot.query.aggregation.ImplementSum;
 import io.trino.spi.connector.AggregateFunction;
@@ -65,6 +66,7 @@ import java.util.OptionalLong;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -90,6 +92,7 @@ public class PinotMetadata
     private final LoadingCache<Object, List<String>> allTablesCache;
     private final int maxRowsPerBrokerQuery;
     private final AggregateFunctionRewriter aggregateFunctionRewriter;
+    private final ImplementCountDistinct implementCountDistinct;
 
     @Inject
     public PinotMetadata(
@@ -118,12 +121,14 @@ public class PinotMetadata
 
         executor.execute(() -> this.allTablesCache.refresh(ALL_TABLES_CACHE_KEY));
         this.maxRowsPerBrokerQuery = pinotConfig.getMaxRowsForBrokerQueries();
+        this.implementCountDistinct = new ImplementCountDistinct();
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter(identity(), ImmutableSet.<AggregateFunctionRule>builder()
                 .add(new ImplementCountAll())
                 .add(new ImplementAvg())
                 .add(new ImplementMinMax())
                 .add(new ImplementSum())
                 .add(new ImplementApproxDistinct())
+                .add(implementCountDistinct)
                 .build());
     }
 
@@ -344,11 +349,10 @@ public class PinotMetadata
         }
 
         PinotTableHandle tableHandle = (PinotTableHandle) handle;
-        // If aggregate and grouping columns are present than no further aggregations
+        // If aggregate are present than no further aggregations
         // can be pushed down: there are currently no subqueries in pinot
         if (tableHandle.getQuery().isPresent() &&
-                (!tableHandle.getQuery().get().getAggregateColumns().isEmpty() ||
-                        !tableHandle.getQuery().get().getGroupingColumns().isEmpty())) {
+                !tableHandle.getQuery().get().getAggregateColumns().isEmpty()) {
             return Optional.empty();
         }
 
@@ -358,6 +362,7 @@ public class PinotMetadata
 
         for (AggregateFunction aggregate : aggregates) {
             Optional<PinotColumnHandle> rewriteResult = aggregateFunctionRewriter.rewrite(session, aggregate, assignments);
+            rewriteResult = applyCountDistinct(session, aggregate, assignments, tableHandle, rewriteResult);
             if (rewriteResult.isEmpty()) {
                 return Optional.empty();
             }
@@ -391,6 +396,43 @@ public class PinotMetadata
         tableHandle = new PinotTableHandle(tableHandle.getSchemaName(), tableHandle.getTableName(), tableHandle.getConstraint(), tableHandle.getLimit(), Optional.of(dynamicTable));
 
         return Optional.of(new AggregationApplicationResult<>(tableHandle, projections.build(), resultAssignments.build(), ImmutableMap.of(), false));
+    }
+
+    private Optional<PinotColumnHandle> applyCountDistinct(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments, PinotTableHandle tableHandle, Optional<PinotColumnHandle> rewriteResult)
+    {
+        AggregateFunctionRule.RewriteContext context = new AggregateFunctionRule.RewriteContext()
+        {
+            @Override
+            public Map<String, ColumnHandle> getAssignments()
+            {
+                return assignments;
+            }
+
+            @Override
+            public Function<String, String> getIdentifierQuote()
+            {
+                return identity();
+            }
+
+            @Override
+            public ConnectorSession getSession()
+            {
+                return session;
+            }
+        };
+
+        if (implementCountDistinct.getPattern().matches(aggregate, context)) {
+            Variable input = (Variable) getOnlyElement(aggregate.getInputs());
+            // If this is the second pass to applyAggregation for count distinct then
+            // the first pass will have added the distinct column to the grouping columns,
+            // otherwise do not push down the aggregation.
+            // This is to avoid count(column_name) being pushed into pinot, which is currently unsupported.
+            // Currently Pinot treats count(column_name) as count(*), i.e. it counts nulls.
+            if (tableHandle.getQuery().isEmpty() || !tableHandle.getQuery().get().getGroupingColumns().contains(input.getName())) {
+                return Optional.empty();
+            }
+        }
+        return rewriteResult;
     }
 
     @Override
