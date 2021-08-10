@@ -19,6 +19,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.confluent.kafka.serializers.KafkaAvroSerializer;
 import io.trino.plugin.pinot.client.PinotHostMapper;
+import io.trino.sql.planner.plan.AggregationNode;
+import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.ProjectNode;
@@ -66,6 +68,7 @@ public class TestPinotIntegrationSmokeTest
     private static final int DEFAULT_PINOT_LIMIT_FOR_BROKER_QUERIES = 10;
     private static final String ALL_TYPES_TABLE = "alltypes";
     private static final String MIXED_CASE_COLUMN_NAMES_TABLE = "mixed_case";
+    private static final String MIXED_CASE_DISTINCT_TABLE = "mixed_case_distinct";
     private static final String TOO_MANY_ROWS_TABLE = "too_many_rows";
     private static final String TOO_MANY_BROKER_ROWS_TABLE = "too_many_broker_rows";
     private static final String JSON_TABLE = "my_table";
@@ -137,6 +140,36 @@ public class TestPinotIntegrationSmokeTest
         kafka.sendMessages(mixedCaseProducerRecords.stream(), schemaRegistryAwareProducer(kafka));
         pinot.createSchema(getClass().getClassLoader().getResourceAsStream("mixed_case_schema.json"), MIXED_CASE_COLUMN_NAMES_TABLE);
         pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("mixed_case_realtimeSpec.json"), MIXED_CASE_COLUMN_NAMES_TABLE);
+
+        // Create and populate mixed case distinct table and topic
+        kafka.createTopic(MIXED_CASE_DISTINCT_TABLE);
+        Schema mixedCaseDistinctAvroSchema = SchemaBuilder.record(MIXED_CASE_DISTINCT_TABLE).fields()
+                .name("string_col").type().stringType().noDefault()
+                .name("updated_at").type().longType().noDefault()
+                .endRecord();
+
+        List<ProducerRecord<String, GenericRecord>> mixedCaseDistinctProducerRecords = ImmutableList.<ProducerRecord<String, GenericRecord>>builder()
+                .add(new ProducerRecord<>(MIXED_CASE_DISTINCT_TABLE, "key0", new GenericRecordBuilder(mixedCaseDistinctAvroSchema)
+                        .set("string_col", "A")
+                        .set("updated_at", Instant.parse("2021-05-10T00:00:00.00Z").toEpochMilli())
+                        .build()))
+                .add(new ProducerRecord<>(MIXED_CASE_DISTINCT_TABLE, "key1", new GenericRecordBuilder(mixedCaseDistinctAvroSchema)
+                        .set("string_col", "a")
+                        .set("updated_at", Instant.parse("2021-05-10T00:00:00.00Z").plusMillis(1000).toEpochMilli())
+                        .build()))
+                .add(new ProducerRecord<>(MIXED_CASE_DISTINCT_TABLE, "key2", new GenericRecordBuilder(mixedCaseDistinctAvroSchema)
+                        .set("string_col", "B")
+                        .set("updated_at", Instant.parse("2021-05-10T00:00:00.00Z").plusMillis(2000).toEpochMilli())
+                        .build()))
+                .add(new ProducerRecord<>(MIXED_CASE_DISTINCT_TABLE, "key3", new GenericRecordBuilder(mixedCaseDistinctAvroSchema)
+                        .set("string_col", "b")
+                        .set("updated_at", Instant.parse("2021-05-10T00:00:00.00Z").plusMillis(3000).toEpochMilli())
+                        .build()))
+                .build();
+
+        kafka.sendMessages(mixedCaseDistinctProducerRecords.stream(), schemaRegistryAwareProducer(kafka));
+        pinot.createSchema(getClass().getClassLoader().getResourceAsStream("mixed_case_distinct_schema.json"), MIXED_CASE_DISTINCT_TABLE);
+        pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("mixed_case_distinct_realtimeSpec.json"), MIXED_CASE_DISTINCT_TABLE);
 
         // Create and populate too many rows table and topic
         kafka.createTopic(TOO_MANY_ROWS_TABLE);
@@ -642,8 +675,9 @@ public class TestPinotIntegrationSmokeTest
     public void testCount()
     {
         assertQuery("SELECT \"count(*)\" FROM \"SELECT COUNT(*) FROM " + ALL_TYPES_TABLE + "\"", "VALUES " + MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES);
-        // If no limit is supplied to a broker query, 10 rows will be returned. Verify this behavior:
-        assertQuery("SELECT COUNT(*) FROM \"SELECT * FROM " + ALL_TYPES_TABLE + "\"", "VALUES " + DEFAULT_PINOT_LIMIT_FOR_BROKER_QUERIES);
+        // If no limit is supplied to a broker query, 10 arbitrary rows will be returned. Verify this behavior:
+        MaterializedResult result = computeActual("SELECT * FROM \"SELECT bool_col FROM " + ALL_TYPES_TABLE + "\"");
+        assertEquals(result.getRowCount(), DEFAULT_PINOT_LIMIT_FOR_BROKER_QUERIES);
     }
 
     @Test
@@ -871,5 +905,222 @@ public class TestPinotIntegrationSmokeTest
     {
         assertThat(query("SELECT * FROM pinot.information_schema.columns WHERE table_name = 'table_not_exist'"))
                 .returnsEmptyResult();
+    }
+
+    @Test
+    public void testAggregationPushdown()
+    {
+        // Without the limit inside the passthrough query, pinot will only return 10 rows
+        assertThat(query("SELECT COUNT(*) FROM \"SELECT * FROM " + ALL_TYPES_TABLE + " LIMIT " + MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES + "\""))
+                .isFullyPushedDown();
+
+        // Test aggregates with no grouping columns
+        assertThat(query("SELECT COUNT(*)," +
+                "  MIN(int_col), MAX(int_col)," +
+                "  MIN(long_col), MAX(long_col), AVG(long_col), SUM(long_col)," +
+                "  MIN(float_col), MAX(float_col), AVG(float_col), SUM(float_col)," +
+                "  MIN(double_col), MAX(double_col), AVG(double_col), SUM(double_col)" +
+                "  FROM " + ALL_TYPES_TABLE))
+                .isFullyPushedDown();
+
+        // Test aggregates with no grouping columns with a limit
+        assertThat(query("SELECT COUNT(*)," +
+                "  MIN(int_col), MAX(int_col)," +
+                "  MIN(long_col), MAX(long_col), AVG(long_col), SUM(long_col)," +
+                "  MIN(float_col), MAX(float_col), AVG(float_col), SUM(float_col)," +
+                "  MIN(double_col), MAX(double_col), AVG(double_col), SUM(double_col)" +
+                "  FROM " + ALL_TYPES_TABLE +
+                "  LIMIT " + MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES))
+                .isFullyPushedDown();
+
+        // Test aggregates with no grouping columns with a filter
+        assertThat(query("SELECT COUNT(*)," +
+                "  MIN(int_col), MAX(int_col)," +
+                "  MIN(long_col), MAX(long_col), AVG(long_col), SUM(long_col)," +
+                "  MIN(float_col), MAX(float_col), AVG(float_col), SUM(float_col)," +
+                "  MIN(double_col), MAX(double_col), AVG(double_col), SUM(double_col)" +
+                "  FROM " + ALL_TYPES_TABLE + " WHERE long_col < 4147483649"))
+                .isFullyPushedDown();
+
+        // Test aggregates with no grouping columns with a filter and limit
+        assertThat(query("SELECT COUNT(*)," +
+                "  MIN(int_col), MAX(int_col)," +
+                "  MIN(long_col), MAX(long_col), AVG(long_col), SUM(long_col)," +
+                "  MIN(float_col), MAX(float_col), AVG(float_col), SUM(float_col)," +
+                "  MIN(double_col), MAX(double_col), AVG(double_col), SUM(double_col)" +
+                "  FROM " + ALL_TYPES_TABLE + " WHERE long_col < 4147483649" +
+                "  LIMIT " + MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES))
+                .isFullyPushedDown();
+
+        // Test aggregates with one grouping column
+        assertThat(query("SELECT bool_col, COUNT(*)," +
+                "  MIN(int_col), MAX(int_col)," +
+                "  MIN(long_col), MAX(long_col), AVG(long_col), SUM(long_col)," +
+                "  MIN(float_col), MAX(float_col), AVG(float_col), SUM(float_col)," +
+                "  MIN(double_col), MAX(double_col), AVG(double_col), SUM(double_col)" +
+                "  FROM " + ALL_TYPES_TABLE + " GROUP BY bool_col"))
+                .isFullyPushedDown();
+
+        // Test aggregates with one grouping column and a limit
+        assertThat(query("SELECT string_col, COUNT(*)," +
+                "  MIN(int_col), MAX(int_col)," +
+                "  MIN(long_col), MAX(long_col), AVG(long_col), SUM(long_col)," +
+                "  MIN(float_col), MAX(float_col), AVG(float_col), SUM(float_col)," +
+                "  MIN(double_col), MAX(double_col), AVG(double_col), SUM(double_col)" +
+                "  FROM " + ALL_TYPES_TABLE + " GROUP BY string_col" +
+                "  LIMIT " + MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES))
+                .isFullyPushedDown();
+
+        // Test aggregates with one grouping column and a filter
+        assertThat(query("SELECT bool_col, COUNT(*)," +
+                "  MIN(int_col), MAX(int_col)," +
+                "  MIN(long_col), MAX(long_col), AVG(long_col), SUM(long_col)," +
+                "  MIN(float_col), MAX(float_col), AVG(float_col), SUM(float_col)," +
+                "  MIN(double_col), MAX(double_col), AVG(double_col), SUM(double_col)" +
+                "  FROM " + ALL_TYPES_TABLE + " WHERE long_col < 4147483649 GROUP BY bool_col"))
+                .isFullyPushedDown();
+
+        // Test aggregates with one grouping column, a filter and a limit
+        assertThat(query("SELECT string_col, COUNT(*)," +
+                "  MIN(int_col), MAX(int_col)," +
+                "  MIN(long_col), MAX(long_col), AVG(long_col), SUM(long_col)," +
+                "  MIN(float_col), MAX(float_col), AVG(float_col), SUM(float_col)," +
+                "  MIN(double_col), MAX(double_col), AVG(double_col), SUM(double_col)" +
+                "  FROM " + ALL_TYPES_TABLE + " WHERE long_col < 4147483649 GROUP BY string_col" +
+                "  LIMIT " + MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES))
+                .isFullyPushedDown();
+
+        // Test single row from pinot where filter results in an empty result set.
+        // A direct pinot query would return 1 row with default values, not null values.
+        assertThat(query("SELECT COUNT(*)," +
+                "  MIN(int_col), MAX(int_col)," +
+                "  MIN(long_col), MAX(long_col), AVG(long_col), SUM(long_col)," +
+                "  MIN(float_col), MAX(float_col), AVG(float_col), SUM(float_col)," +
+                "  MIN(double_col), MAX(double_col), AVG(double_col), SUM(double_col)" +
+                "  FROM " + ALL_TYPES_TABLE + " WHERE long_col > 4147483649")).isFullyPushedDown();
+
+        // Test passthrough queries with no aggregates
+        assertThat(query("SELECT string_col, COUNT(*)," +
+                "  MIN(int_col), MAX(int_col)," +
+                "  MIN(long_col), MAX(long_col), AVG(long_col), SUM(long_col)," +
+                "  MIN(float_col), MAX(float_col), AVG(float_col), SUM(float_col)," +
+                "  MIN(double_col), MAX(double_col), AVG(double_col), SUM(double_col)" +
+                "  FROM \"SELECT * FROM " + ALL_TYPES_TABLE + " WHERE long_col > 4147483649" +
+                "  LIMIT " + MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES + "\"  GROUP BY string_col"))
+                .isFullyPushedDown();
+
+        // Passthrough queries with aggregates will not push down more aggregations.
+        assertThat(query("SELECT bool_col, \"count(*)\", COUNT(*) FROM \"SELECT bool_col, count(*) FROM " +
+                ALL_TYPES_TABLE + " GROUP BY bool_col\" GROUP BY bool_col, \"count(*)\""))
+                .isNotFullyPushedDown(ExchangeNode.class, ProjectNode.class, AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, ProjectNode.class);
+
+        assertThat(query("SELECT bool_col, \"max(long_col)\", COUNT(*) FROM \"SELECT bool_col, max(long_col) FROM " +
+                ALL_TYPES_TABLE + " GROUP BY bool_col\" GROUP BY bool_col, \"max(long_col)\""))
+                .isNotFullyPushedDown(ExchangeNode.class, ProjectNode.class, AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, ProjectNode.class);
+
+        assertThat(query("SELECT int_col, COUNT(*) FROM " + ALL_TYPES_TABLE + " GROUP BY int_col LIMIT " + MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES))
+                .isFullyPushedDown();
+
+        // count(<column>) should not be pushed down, as pinot currently only implements count(*)
+        assertThat(query("SELECT bool_col, COUNT(long_col)" +
+                "  FROM " + ALL_TYPES_TABLE + " GROUP BY bool_col"))
+                .isNotFullyPushedDown(ProjectNode.class, AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, ProjectNode.class);
+
+        // AVG on INTEGER columns is not pushed down
+        assertThat(query("SELECT string_col, AVG(int_col) FROM " + ALL_TYPES_TABLE + " GROUP BY string_col"))
+                .isNotFullyPushedDown(ProjectNode.class, AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, ProjectNode.class);
+
+        // SUM on INTEGER columns is not pushed down
+        assertThat(query("SELECT string_col, SUM(int_col) FROM " + ALL_TYPES_TABLE + " GROUP BY string_col"))
+                .isNotFullyPushedDown(ProjectNode.class, AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, ProjectNode.class);
+
+        // MIN on VARCHAR columns is not pushed down
+        assertThat(query("SELECT bool_col, MIN(string_col)" +
+                "  FROM " + ALL_TYPES_TABLE + " GROUP BY bool_col"))
+                .isNotFullyPushedDown(ProjectNode.class, AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, ProjectNode.class);
+
+        // MAX on VARCHAR columns is not pushed down
+        assertThat(query("SELECT bool_col, MAX(string_col)" +
+                "  FROM " + ALL_TYPES_TABLE + " GROUP BY bool_col"))
+                .isNotFullyPushedDown(ProjectNode.class, AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, ProjectNode.class);
+
+        // COUNT on VARCHAR columns is not pushed down
+        assertThat(query("SELECT bool_col, COUNT(string_col)" +
+                "  FROM " + ALL_TYPES_TABLE + " GROUP BY bool_col"))
+                .isNotFullyPushedDown(ProjectNode.class, AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, ProjectNode.class);
+
+        // Distinct on varchar is pushed down
+        assertThat(query("SELECT DISTINCT string_col FROM " + ALL_TYPES_TABLE))
+                .isFullyPushedDown();
+        // Distinct on bool is pushed down
+        assertThat(query("SELECT DISTINCT bool_col FROM " + ALL_TYPES_TABLE))
+                .isFullyPushedDown();
+        // Distinct on double is pushed down
+        assertThat(query("SELECT DISTINCT double_col FROM " + ALL_TYPES_TABLE))
+                .isFullyPushedDown();
+        // Distinct on float is pushed down
+        assertThat(query("SELECT DISTINCT float_col FROM " + ALL_TYPES_TABLE))
+                .isFullyPushedDown();
+        // Distinct on long is pushed down
+        assertThat(query("SELECT DISTINCT long_col FROM " + ALL_TYPES_TABLE))
+                .isFullyPushedDown();
+        // Distinct on int is partially pushed down
+        assertThat(query("SELECT DISTINCT int_col FROM " + ALL_TYPES_TABLE))
+                .isNotFullyPushedDown(ExchangeNode.class);
+
+        // Distinct on 2 columns for supported types:
+        assertThat(query("SELECT DISTINCT bool_col, string_col FROM " + ALL_TYPES_TABLE))
+                .isFullyPushedDown();
+        assertThat(query("SELECT DISTINCT bool_col, double_col FROM " + ALL_TYPES_TABLE))
+                .isFullyPushedDown();
+        assertThat(query("SELECT DISTINCT bool_col, float_col FROM " + ALL_TYPES_TABLE))
+                .isFullyPushedDown();
+        assertThat(query("SELECT DISTINCT bool_col, long_col FROM " + ALL_TYPES_TABLE))
+                .isFullyPushedDown();
+        assertThat(query("SELECT DISTINCT bool_col, int_col FROM " + ALL_TYPES_TABLE))
+                .isNotFullyPushedDown(ExchangeNode.class);
+
+        // Test distinct for mixed case values
+        assertThat(query("SELECT DISTINCT string_col FROM " + MIXED_CASE_DISTINCT_TABLE))
+                .isFullyPushedDown();
+
+        // Approx distinct for mixed case values
+        assertThat(query("SELECT approx_distinct(string_col) FROM " + MIXED_CASE_DISTINCT_TABLE))
+                .isFullyPushedDown();
+
+        // Approx distinct on varchar is pushed down
+        assertThat(query("SELECT approx_distinct(string_col) FROM " + ALL_TYPES_TABLE))
+                .isFullyPushedDown();
+        // Approx distinct on bool is pushed down
+        assertThat(query("SELECT approx_distinct(bool_col) FROM " + ALL_TYPES_TABLE))
+                .isFullyPushedDown();
+        // Approx distinct on double is pushed down
+        assertThat(query("SELECT approx_distinct(double_col) FROM " + ALL_TYPES_TABLE))
+                .isFullyPushedDown();
+        // Approx distinct on float is pushed down
+        assertThat(query("SELECT approx_distinct(float_col) FROM " + ALL_TYPES_TABLE))
+                .isFullyPushedDown();
+        // Approx distinct on long is pushed down
+        assertThat(query("SELECT approx_distinct(long_col) FROM " + ALL_TYPES_TABLE))
+                .isFullyPushedDown();
+        // Approx distinct on int is partially pushed down
+        assertThat(query("SELECT approx_distinct(int_col) FROM " + ALL_TYPES_TABLE))
+                .isNotFullyPushedDown(ExchangeNode.class);
+
+        // Approx distinct on 2 columns for supported types:
+        assertThat(query("SELECT bool_col, approx_distinct(string_col) FROM " + ALL_TYPES_TABLE + " GROUP BY bool_col"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT bool_col, approx_distinct(double_col) FROM " + ALL_TYPES_TABLE + " GROUP BY bool_col"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT bool_col, approx_distinct(float_col) FROM " + ALL_TYPES_TABLE + " GROUP BY bool_col"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT bool_col, approx_distinct(long_col) FROM " + ALL_TYPES_TABLE + " GROUP BY bool_col"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT bool_col, approx_distinct(int_col) FROM " + ALL_TYPES_TABLE + " GROUP BY bool_col"))
+                .isNotFullyPushedDown(ExchangeNode.class);
+
+        // Distinct count is partially pushed down
+        assertThat(query("SELECT bool_col, COUNT(DISTINCT long_col) FROM " + ALL_TYPES_TABLE + " GROUP BY bool_col"))
+                .isNotFullyPushedDown(ExchangeNode.class, ProjectNode.class, AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, ProjectNode.class);
     }
 }

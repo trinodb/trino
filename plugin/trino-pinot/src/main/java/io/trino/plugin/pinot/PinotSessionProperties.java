@@ -34,6 +34,7 @@ public class PinotSessionProperties
     private static final String PREFER_BROKER_QUERIES = "prefer_broker_queries";
     private static final String RETRY_COUNT = "retry_count";
     private static final String NON_AGGREGATE_LIMIT_FOR_BROKER_QUERIES = "non_aggregate_limit_for_broker_queries";
+    private static final String AGGREGATION_PUSHDOWN_ENABLED = "aggregation_pushdown_enabled";
 
     @VisibleForTesting
     public static final String FORBID_SEGMENT_QUERIES = "forbid_segment_queries";
@@ -74,6 +75,11 @@ public class PinotSessionProperties
         return session.getProperty(NON_AGGREGATE_LIMIT_FOR_BROKER_QUERIES, Integer.class);
     }
 
+    public static boolean isAggregationPushdownEnabled(ConnectorSession session)
+    {
+        return session.getProperty(AGGREGATION_PUSHDOWN_ENABLED, Boolean.class);
+    }
+
     @Inject
     public PinotSessionProperties(PinotConfig pinotConfig)
     {
@@ -108,6 +114,11 @@ public class PinotSessionProperties
                         "Number of segments of the same host per split",
                         pinotConfig.getSegmentsPerSplit(),
                         value -> checkArgument(value > 0, "Number of segments per split must be more than zero"),
+                        false),
+                booleanProperty(
+                        AGGREGATION_PUSHDOWN_ENABLED,
+                        "Enable aggregation pushdown",
+                        pinotConfig.isAggregationPushdownEnabled(),
                         false));
     }
 

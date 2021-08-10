@@ -16,6 +16,7 @@ package io.trino.plugin.pinot.query;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import io.trino.plugin.pinot.PinotColumnHandle;
 
 import java.util.List;
 import java.util.Objects;
@@ -37,7 +38,7 @@ public final class DynamicTable
 
     // semantically aggregation is applied after constraint
     private final List<String> groupingColumns;
-    private final List<AggregationExpression> aggregateColumns;
+    private final List<PinotColumnHandle> aggregateColumns;
 
     // semantically sorting is applied after aggregation
     private final List<OrderByExpression> orderBy;
@@ -55,7 +56,7 @@ public final class DynamicTable
             @JsonProperty("selections") List<String> selections,
             @JsonProperty("filter") Optional<String> filter,
             @JsonProperty("groupingColumns") List<String> groupingColumns,
-            @JsonProperty("aggregateColumns") List<AggregationExpression> aggregateColumns,
+            @JsonProperty("aggregateColumns") List<PinotColumnHandle> aggregateColumns,
             @JsonProperty("orderBy") List<OrderByExpression> orderBy,
             @JsonProperty("limit") OptionalLong limit,
             @JsonProperty("offset") OptionalLong offset,
@@ -104,7 +105,7 @@ public final class DynamicTable
     }
 
     @JsonProperty
-    public List<AggregationExpression> getAggregateColumns()
+    public List<PinotColumnHandle> getAggregateColumns()
     {
         return aggregateColumns;
     }
