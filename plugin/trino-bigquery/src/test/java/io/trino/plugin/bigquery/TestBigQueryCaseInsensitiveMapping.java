@@ -40,10 +40,11 @@ public class TestBigQueryCaseInsensitiveMapping
 {
     protected BigQuerySqlExecutor bigQuerySqlExecutor;
 
-    @BeforeClass
+    @BeforeClass(alwaysRun = true)
     public void initBigQueryExecutor()
     {
         this.bigQuerySqlExecutor = new BigQuerySqlExecutor();
+        bigQuerySqlExecutor.deleteSelfCreatedDatasets();
     }
 
     @Override
