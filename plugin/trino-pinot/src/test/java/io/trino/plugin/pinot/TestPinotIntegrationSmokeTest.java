@@ -796,4 +796,20 @@ public class TestPinotIntegrationSmokeTest
         assertThat(query("SELECT string_col, long_col FROM " + ALL_TYPES_TABLE + "  WHERE int_col >0 AND bool_col = 'false' LIMIT " + MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES))
                 .isNotFullyPushedDown(LimitNode.class);
     }
+
+    @Test
+    public void testCreateTable()
+    {
+        assertQueryFails("CREATE TABLE test_create_table (col INT)", "This connector does not support creating tables");
+    }
+
+    /**
+     * https://github.com/trinodb/trino/issues/8307
+     */
+    @Test
+    public void testInformationSchemaColumnsTableNotExist()
+    {
+        assertThat(query("SELECT * FROM pinot.information_schema.columns WHERE table_name = 'table_not_exist'"))
+                .returnsEmptyResult();
+    }
 }
