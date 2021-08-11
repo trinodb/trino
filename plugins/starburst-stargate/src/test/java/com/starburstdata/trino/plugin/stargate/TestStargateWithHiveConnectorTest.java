@@ -72,6 +72,15 @@ public class TestStargateWithHiveConnectorTest
     }
 
     @Override
+    public void testCaseSensitiveAggregationPushdown()
+    {
+        // This is tested in TestStarburstRemoteWithMemoryWritesEnabledConnectorTest
+        assertThatThrownBy(super::testCaseSensitiveAggregationPushdown)
+                .hasMessageStartingWith("This connector does not support creating tables");
+        throw new SkipException("tested elsewhere");
+    }
+
+    @Override
     public void testCaseSensitiveTopNPushdown()
     {
         // This is tested in TestStarburstRemoteWithMemoryWritesEnabledConnectorTest
