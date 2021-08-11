@@ -19,6 +19,7 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.log.Logger;
 import io.trino.plugin.pinot.client.PinotClient;
 import io.trino.plugin.pinot.query.AggregationExpression;
 import io.trino.plugin.pinot.query.DynamicTable;
@@ -67,6 +68,8 @@ import static java.util.Objects.requireNonNull;
 public class PinotMetadata
         implements ConnectorMetadata
 {
+    private static final Logger log = Logger.get(PinotMetadata.class);
+
     private static final Object ALL_TABLES_CACHE_KEY = new Object();
     private static final String SCHEMA_NAME = "default";
     private static final String PINOT_COLUMN_NAME_PROPERTY = "pinotColumnName";
@@ -115,7 +118,15 @@ public class PinotMetadata
             DynamicTable dynamicTable = DynamicTableBuilder.buildFromPql(this, tableName);
             return new PinotTableHandle(tableName.getSchemaName(), dynamicTable.getTableName(), TupleDomain.all(), OptionalLong.empty(), Optional.of(dynamicTable));
         }
-        return new PinotTableHandle(tableName.getSchemaName(), tableName.getTableName());
+
+        try {
+            String pinotTableName = getPinotTableNameFromTrinoTableName(tableName.getTableName());
+            return new PinotTableHandle(tableName.getSchemaName(), pinotTableName);
+        }
+        catch (TableNotFoundException e) {
+            log.debug(e, "Table not found: %s", tableName);
+            return null;
+        }
     }
 
     @Override
