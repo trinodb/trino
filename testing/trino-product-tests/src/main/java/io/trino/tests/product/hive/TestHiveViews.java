@@ -221,18 +221,37 @@ public class TestHiveViews
                         "1970-01-29 16:00:00.000"));
 
         // check result on Hive
-        assertThat(onHive().executeQuery("SELECT * FROM test_from_utc_timestamp_view"))
-                .containsOnly(row(
-                        "1969-12-31 16:00:00.123",
-                        "1969-12-31 16:00:10.123",
-                        "1969-12-11 22:57:12.827",
-                        "1970-01-30 16:00:00.123",
-                        "1970-01-30 16:00:00",
-                        "1970-01-30 16:00:00.123",
-                        "1970-01-30 16:00:00.123",
-                        "1970-01-30 16:00:00",
-                        "1970-01-30 08:00:00",
-                        "1970-01-29 16:00:00"));
+        if (isObsoleteFromUtcTimestampSemantics()) {
+            // For older hive version we expect different results on Hive side; as from_utc_timestamp semantics changed over time.
+            // Currently view transformation logic always follows new semantics.
+            // Leaving Hive assertions as documentation.
+            assertThat(onHive().executeQuery("SELECT * FROM test_from_utc_timestamp_view"))
+                    .containsOnly(row(
+                            "1969-12-31 21:30:00.123",
+                            "1969-12-31 21:30:10.123",
+                            "1969-12-12 04:27:12.827",
+                            "1970-01-30 21:30:00.123",
+                            "1970-01-30 21:30:00",
+                            "1970-01-30 21:30:00.123",
+                            "1970-01-30 21:30:00.123",
+                            "1970-01-30 21:30:00",
+                            "1970-01-30 08:00:00",
+                            "1970-01-29 16:00:00"));
+        }
+        else {
+            assertThat(onHive().executeQuery("SELECT * FROM test_from_utc_timestamp_view"))
+                    .containsOnly(row(
+                            "1969-12-31 16:00:00.123",
+                            "1969-12-31 16:00:10.123",
+                            "1969-12-11 22:57:12.827",
+                            "1970-01-30 16:00:00.123",
+                            "1970-01-30 16:00:00",
+                            "1970-01-30 16:00:00.123",
+                            "1970-01-30 16:00:00.123",
+                            "1970-01-30 16:00:00",
+                            "1970-01-30 08:00:00",
+                            "1970-01-29 16:00:00"));
+        }
     }
 
     @Test(groups = HIVE_VIEWS)
@@ -256,12 +275,42 @@ public class TestHiveViews
                 "FROM test_from_utc_timestamp_corner_cases_source");
 
         // check result on Trino
-        assertViewQuery("SELECT * FROM test_from_utc_timestamp_corner_cases_view",
-                assertion -> assertion.containsOnly(
+        assertThat(query("SELECT * FROM test_from_utc_timestamp_corner_cases_view"))
+                .containsOnly(
                         row("1811-07-23 07:13:41.999"),
                         row("1938-04-24 14:13:19.999"),
                         row("1969-12-31 15:59:59.999"),
                         row("1969-12-31 16:00:00.001"),
-                        row("2128-06-11 01:53:20.001")));
+                        row("2128-06-11 01:53:20.001"));
+
+        // check result on Hive
+        if (isObsoleteFromUtcTimestampSemantics()) {
+            // For older hive version we expect different results on Hive side; as from_utc_timestamp semantics changed over time.
+            // Currently view transformation logic always follows new semantics.
+            // Leaving Hive assertions as documentation.
+            assertThat(onHive().executeQuery("SELECT * FROM test_from_utc_timestamp_corner_cases_view"))
+                    .containsOnly(
+                            row("1811-07-23 12:51:39.999"), // ???
+                            row("1938-04-24 19:43:19.999"),
+                            row("1969-12-31 21:29:59.999"),
+                            row("1969-12-31 21:30:00.001"),
+                            row("2128-06-11 07:38:20.001"));
+        }
+        else {
+            assertThat(onHive().executeQuery("SELECT * FROM test_from_utc_timestamp_corner_cases_view"))
+                    .containsOnly(
+                            row("1811-07-23 07:13:41.999"),
+                            row("1938-04-24 14:13:19.999"),
+                            row("1969-12-31 15:59:59.999"),
+                            row("1969-12-31 16:00:00.001"),
+                            row("2128-06-11 01:53:20.001"));
+        }
+    }
+
+    private boolean isObsoleteFromUtcTimestampSemantics()
+    {
+        // It appears from_utc_timestamp semantics in Hive changes some time on the way. The guess is that it happened
+        // together with change of timestamp semantics at version 3.1.
+        return getHiveVersionMajor() < 3 || (getHiveVersionMajor() == 3 && getHiveVersionMinor() < 1);
     }
 }
