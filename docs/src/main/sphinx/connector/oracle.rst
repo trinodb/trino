@@ -387,6 +387,9 @@ supports the following statements:
 * :doc:`/sql/create-table`
 * :doc:`/sql/create-table-as`
 * :doc:`/sql/drop-table`
+* :doc:`/sql/alter-table`
 * :doc:`/sql/comment`
 
 .. include:: sql-delete-limitation.fragment
+
+.. include:: alter-table-limitation.fragment
