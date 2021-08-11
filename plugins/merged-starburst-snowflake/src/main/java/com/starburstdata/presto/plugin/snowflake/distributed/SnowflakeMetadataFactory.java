@@ -48,7 +48,7 @@ public class SnowflakeMetadataFactory
     {
         return new SnowflakeMetadata(
                 connectionManager,
-                new CachingJdbcClient(jdbcClient, Set.of(), new SingletonIdentityCacheMapping(), new Duration(1, TimeUnit.DAYS), true),
+                new CachingJdbcClient(jdbcClient, Set.of(), new SingletonIdentityCacheMapping(), new Duration(1, TimeUnit.DAYS), true, Integer.MAX_VALUE),
                 allowDropTable);
     }
 }
