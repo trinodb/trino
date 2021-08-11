@@ -139,6 +139,8 @@ statements, the connector supports the following features:
 
 .. include:: sql-delete-limitation.fragment
 
+.. include:: alter-table-limitation.fragment
+
 .. _postgresql-pushdown:
 
 Pushdown
