@@ -341,7 +341,7 @@ class StatementAnalyzer
                 .process(node, Optional.empty());
     }
 
-    public Scope analyzeForUpdate(Table table, Optional<Scope> outerQueryScope, UpdateKind updateKind)
+    private Scope analyzeForUpdate(Table table, Optional<Scope> outerQueryScope, UpdateKind updateKind)
     {
         return new Visitor(outerQueryScope, warningCollector, Optional.of(updateKind))
                 .process(table, Optional.empty());
@@ -350,7 +350,7 @@ class StatementAnalyzer
     private enum UpdateKind
     {
         DELETE,
-        UPDATE;
+        UPDATE,
     }
 
     /**
@@ -358,7 +358,7 @@ class StatementAnalyzer
      * that the local query scopes hierarchy should always have outer query scope
      * (if provided) as ancestor.
      */
-    private class Visitor
+    private final class Visitor
             extends AstVisitor<Scope, Optional<Scope>>
     {
         private final Optional<Scope> outerQueryScope;
@@ -797,7 +797,7 @@ class StatementAnalyzer
             else {
                 validateColumns(node, queryScope.getRelationType());
                 columns.addAll(queryScope.getRelationType().getVisibleFields().stream()
-                        .map(field -> new ColumnMetadata(field.getName().get(), field.getType()))
+                        .map(field -> new ColumnMetadata(field.getName().orElseThrow(), field.getType()))
                         .collect(toImmutableList()));
                 queryScope.getRelationType().getVisibleFields().stream()
                         .map(this::createOutputColumn)
@@ -2038,7 +2038,7 @@ class StatementAnalyzer
             }
 
             if (node.getOrderBy().isPresent() && node.getSelect().isDistinct()) {
-                verifySelectDistinct(node, orderByExpressions, outputExpressions, sourceScope, orderByScope.get());
+                verifySelectDistinct(node, orderByExpressions, outputExpressions, sourceScope, orderByScope.orElseThrow());
             }
 
             return outputScope;
@@ -2363,7 +2363,7 @@ class StatementAnalyzer
                 }
 
                 Optional<Type> type = typeCoercion.getCommonSuperType(leftField.get().getType(), rightField.get().getType());
-                analysis.addTypes(ImmutableMap.of(NodeRef.of(column), type.get()));
+                analysis.addTypes(ImmutableMap.of(NodeRef.of(column), type.orElseThrow()));
 
                 joinFields.add(Field.newUnqualified(column.getValue(), type.get()));
 
@@ -2623,7 +2623,7 @@ class StatementAnalyzer
             }
 
             for (FunctionCall windowFunction : extractWindowFunctions(expressions.build())) {
-                ResolvedWindow resolvedWindow = resolveWindowSpecification(querySpecification, windowFunction.getWindow().get());
+                ResolvedWindow resolvedWindow = resolveWindowSpecification(querySpecification, windowFunction.getWindow().orElseThrow());
                 analysis.setWindow(windowFunction, resolvedWindow);
             }
 
@@ -2676,7 +2676,7 @@ class StatementAnalyzer
                 String name = windowFunction.getName().toString().toLowerCase(ENGLISH);
                 if (name.equals("lag") || name.equals("lead")) {
                     if (window.getOrderBy().isEmpty()) {
-                        throw semanticException(MISSING_ORDER_BY, (Node) windowFunction.getWindow().get(), "%s function requires an ORDER BY window clause", windowFunction.getName());
+                        throw semanticException(MISSING_ORDER_BY, (Node) windowFunction.getWindow().orElseThrow(), "%s function requires an ORDER BY window clause", windowFunction.getName());
                     }
                     if (window.getFrame().isPresent()) {
                         throw semanticException(INVALID_WINDOW_FRAME, window.getFrame().get(), "Cannot specify window frame for %s function", windowFunction.getName());
@@ -2936,7 +2936,7 @@ class StatementAnalyzer
 
                     Field newField = Field.newUnqualified(field.map(Identifier::getValue), analysis.getType(expression), originTable, originColumn, column.getAlias().isPresent()); // TODO don't use analysis as a side-channel. Use outputExpressions to look up the type
                     if (originTable.isPresent()) {
-                        analysis.addSourceColumns(newField, ImmutableSet.of(new SourceColumn(originTable.get(), originColumn.get())));
+                        analysis.addSourceColumns(newField, ImmutableSet.of(new SourceColumn(originTable.get(), originColumn.orElseThrow())));
                     }
                     else {
                         analysis.addSourceColumns(newField, analysis.getExpressionSourceColumns(expression));
@@ -3003,12 +3003,12 @@ class StatementAnalyzer
                         throw semanticException(TABLE_NOT_FOUND, allColumns, "Unable to resolve reference %s", prefix);
                     }
                     if (identifierChainBasis.get().getBasisType() == TABLE) {
-                        RelationType relationType = identifierChainBasis.get().getRelationType().get();
+                        RelationType relationType = identifierChainBasis.get().getRelationType().orElseThrow();
                         List<Field> fields = relationType.resolveVisibleFieldsWithRelationPrefix(Optional.of(prefix));
                         if (fields.isEmpty()) {
                             throw semanticException(COLUMN_NOT_FOUND, allColumns, "SELECT * not allowed from relation that has no columns");
                         }
-                        boolean local = scope.isLocalScope(identifierChainBasis.get().getScope().get());
+                        boolean local = scope.isLocalScope(identifierChainBasis.get().getScope().orElseThrow());
                         analyzeAllColumnsFromTable(
                                 fields,
                                 allColumns,
@@ -3236,7 +3236,7 @@ class StatementAnalyzer
                 }
 
                 for (Expression expression : orderByExpressions) {
-                    verifyOrderByAggregations(distinctGroupingColumns, sourceScope, orderByScope.get(), expression, metadata, analysis);
+                    verifyOrderByAggregations(distinctGroupingColumns, sourceScope, orderByScope.orElseThrow(), expression, metadata, analysis);
                 }
             }
         }
@@ -3421,7 +3421,7 @@ class StatementAnalyzer
 
         private void analyzeColumnMask(String currentIdentity, Table table, QualifiedObjectName tableName, Field field, Scope scope, ViewExpression mask)
         {
-            String column = field.getName().get();
+            String column = field.getName().orElseThrow();
             if (analysis.hasColumnMask(tableName, column, currentIdentity)) {
                 throw new TrinoException(INVALID_ROW_FILTER, extractLocation(table), format("Column mask for '%s.%s' is recursive", tableName, column), null);
             }
@@ -3713,7 +3713,7 @@ class StatementAnalyzer
         private void validateFromClauseOfRecursiveTerm(Relation from, Identifier name)
         {
             preOrder(from)
-                    .filter(node -> node instanceof Join)
+                    .filter(Join.class::isInstance)
                     .forEach(node -> {
                         Join join = (Join) node;
                         Join.Type type = join.getType();
@@ -3742,7 +3742,7 @@ class StatementAnalyzer
                     });
 
             preOrder(from)
-                    .filter(node -> node instanceof Except)
+                    .filter(Except.class::isInstance)
                     .forEach(node -> {
                         Except except = (Except) node;
                         List<Node> rightRecursiveReferences = findReferences(except.getRight(), name);
