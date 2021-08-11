@@ -35,6 +35,7 @@ public class StarburstSqlServerConfig
     {
         PASSWORD,
         PASSWORD_PASS_THROUGH,
+        KERBEROS,
     }
 
     private boolean bulkCopyForWriteLockDestinationTable;

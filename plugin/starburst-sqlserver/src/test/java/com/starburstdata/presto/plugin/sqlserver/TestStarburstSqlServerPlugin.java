@@ -15,9 +15,12 @@ import io.trino.spi.connector.ConnectorFactory;
 import io.trino.testing.TestingConnectorContext;
 import org.testng.annotations.Test;
 
+import java.nio.file.Path;
+
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerConfig.SQLSERVER_OVERRIDE_CATALOG_ENABLED;
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerConfig.SQLSERVER_OVERRIDE_CATALOG_NAME;
+import static java.nio.file.Files.createTempFile;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestStarburstSqlServerPlugin
@@ -59,5 +62,29 @@ public class TestStarburstSqlServerPlugin
                         SQLSERVER_OVERRIDE_CATALOG_NAME, "irrelevant"),
                 new TestingConnectorContext()))
                 .hasMessageContaining(SQLSERVER_OVERRIDE_CATALOG_ENABLED + " needs to be set in order to use " + SQLSERVER_OVERRIDE_CATALOG_NAME + " parameter");
+    }
+
+    @Test
+    public void testKerberosWithUserName()
+            throws Exception
+    {
+        Plugin plugin = new StarburstSqlServerPlugin();
+        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
+
+        Path keytab = createTempFile(null, null);
+        Path config = createTempFile(null, null);
+
+        assertThatThrownBy(() -> factory.create(
+                "test",
+                ImmutableMap.<String, String>builder()
+                        .put("connection-url", "jdbc:sqlserver:test?user=admin")
+                        .put("sqlserver.authentication.type", "KERBEROS")
+                        .put("kerberos.client.principal", "principal")
+                        .put("kerberos.client.keytab", keytab.toString())
+                        .put("kerberos.config", config.toString())
+                        .build(),
+                new TestingConnectorContext()))
+                .hasMessageMatching("(?s)Unable to create injector, see the following errors:.*" +
+                        "Cannot specify 'user' parameter in JDBC URL when using Kerberos authentication.*");
     }
 }

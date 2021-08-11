@@ -48,7 +48,8 @@ public class CatalogOverridingModule
                         .in(SINGLETON),
                 moduleBinder -> moduleBinder.bind(ConnectionFactory.class)
                         .annotatedWith(ForImpersonation.class)
-                        .to(Key.get(ConnectionFactory.class, ForCatalogOverriding.class))));
+                        .to(Key.get(ConnectionFactory.class, ForCatalogOverriding.class))
+                        .in(SINGLETON)));
     }
 
     public static class CatalogOverridingConnectionFactory
