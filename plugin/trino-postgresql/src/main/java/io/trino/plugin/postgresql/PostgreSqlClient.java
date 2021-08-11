@@ -783,7 +783,7 @@ public class PostgreSqlClient
             PreparedQuery preparedQuery = queryBuilder.prepareDelete(session, connection, handle.getRequiredNamedRelation(), handle.getConstraint());
             try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(session, connection, preparedQuery)) {
                 int affectedRowsCount = preparedStatement.executeUpdate();
-                // connection.getAutoCommit() is not enough for PostgreSQL to make DELETE effective and explicit commit is required
+                // In getPreparedStatement we set autocommit to false so here we need an explicit commit
                 connection.commit();
                 return OptionalLong.of(affectedRowsCount);
             }
