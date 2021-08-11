@@ -18,14 +18,14 @@ import io.trino.testing.QueryRunner;
 
 import static io.trino.plugin.mongodb.MongoQueryRunner.createMongoQueryRunner;
 
-public class TestMongo3LatestConnectorSmokeTest
+public class TestMongoConnectorSmokeTest
         extends BaseMongoConnectorSmokeTest
 {
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        MongoServer server = closeAfterClass(new MongoServer("3.6.20"));
+        MongoServer server = closeAfterClass(new MongoServer());
         return createMongoQueryRunner(server, ImmutableMap.of(), REQUIRED_TPCH_TABLES);
     }
 }
