@@ -89,7 +89,7 @@ public final class BigQueryQueryRunner
     public static class BigQuerySqlExecutor
             implements SqlExecutor
     {
-        private static final Map.Entry<String, String> BIG_QUERY_SQL_EXECUTOR_LABEL = Maps.immutableEntry("ci-automation-source", "big_query_sql_executor");
+        private static final Map.Entry<String, String> BIG_QUERY_SQL_EXECUTOR_LABEL = Maps.immutableEntry("ci-automation-source", "trino_tests_big_query_sql_executor");
 
         private final BigQuery bigQuery;
 
@@ -118,7 +118,7 @@ public final class BigQueryQueryRunner
             bigQuery.create(dataset);
         }
 
-        public void dropDataset(String dataset)
+        public void dropDatasetIfExists(String dataset)
         {
             bigQuery.delete(dataset);
         }
