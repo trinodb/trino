@@ -182,33 +182,30 @@ public class TestBigQueryCaseInsensitiveMapping
 
     @Test
     public void testDropSchema()
+            throws Exception
     {
-        String schema = "Test_Drop_Case_Sensitive";
-        bigQuerySqlExecutor.execute(format("DROP SCHEMA IF EXISTS `%s`", schema));
-        bigQuerySqlExecutor.execute(format("CREATE SCHEMA `%s`", schema));
-
-        assertUpdate("DROP SCHEMA " + schema.toLowerCase(ENGLISH));
+        String schemaName = "Test_Drop_Case_Sensitive";
+        try (AutoCloseable schema = withSchema(schemaName);) {
+            assertUpdate("DROP SCHEMA " + schemaName.toLowerCase(ENGLISH));
+        }
     }
 
     @Test
     public void testDropSchemaNameClash()
+            throws Exception
     {
-        String schema = "Test_Drop_Case_Sensitive_Clash";
-        bigQuerySqlExecutor.execute(format("DROP SCHEMA IF EXISTS `%s`", schema));
-        bigQuerySqlExecutor.execute(format("DROP SCHEMA IF EXISTS `%s`", schema.toLowerCase(ENGLISH)));
-        bigQuerySqlExecutor.execute(format("CREATE SCHEMA `%s`", schema));
-        bigQuerySqlExecutor.execute(format("CREATE SCHEMA `%s`", schema.toLowerCase(ENGLISH)));
-
-        assertQueryFails("DROP SCHEMA " + schema.toLowerCase(ENGLISH), "Found ambiguous names in BigQuery.*");
-
-        bigQuerySqlExecutor.execute(format("DROP SCHEMA `%s`", schema));
-        bigQuerySqlExecutor.execute(format("DROP SCHEMA `%s`", schema.toLowerCase(ENGLISH)));
+        String schemaName = "Test_Drop_Case_Sensitive_Clash";
+        try (AutoCloseable schema = withSchema(schemaName);
+                AutoCloseable secondSchema = withSchema(schemaName.toLowerCase(ENGLISH))) {
+            assertQueryFails("DROP SCHEMA " + schemaName.toLowerCase(ENGLISH), "Found ambiguous names in BigQuery.*");
+        }
     }
 
     private AutoCloseable withSchema(String schemaName)
     {
+        bigQuerySqlExecutor.dropDatasetIfExists(schemaName);
         bigQuerySqlExecutor.createDataset(schemaName);
-        return () -> bigQuerySqlExecutor.dropDataset(schemaName);
+        return () -> bigQuerySqlExecutor.dropDatasetIfExists(schemaName);
     }
 
     /**
