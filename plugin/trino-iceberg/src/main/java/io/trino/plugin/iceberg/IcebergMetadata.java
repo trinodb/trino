@@ -173,6 +173,9 @@ import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
 import static org.apache.iceberg.TableMetadata.newTableMetadata;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT_DEFAULT;
+import static org.apache.iceberg.TableProperties.OBJECT_STORE_PATH;
+import static org.apache.iceberg.TableProperties.WRITE_METADATA_LOCATION;
+import static org.apache.iceberg.TableProperties.WRITE_NEW_DATA_LOCATION;
 import static org.apache.iceberg.Transactions.createTableTransaction;
 
 public class IcebergMetadata
@@ -704,6 +707,13 @@ public class IcebergMetadata
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
+        // TODO: support path override in Iceberg table creation: https://github.com/trinodb/trino/issues/8861
+        org.apache.iceberg.Table table = getIcebergTable(session, handle.getSchemaTableName());
+        if (table.properties().containsKey(OBJECT_STORE_PATH) ||
+                table.properties().containsKey(WRITE_NEW_DATA_LOCATION) ||
+                table.properties().containsKey(WRITE_METADATA_LOCATION)) {
+            throw new TrinoException(NOT_SUPPORTED, "Table " + handle.getSchemaTableName() + " contains Iceberg path override properties and cannot be dropped from Trino");
+        }
         metastore.dropTable(new HiveIdentity(session), handle.getSchemaName(), handle.getTableName(), true);
     }
 
