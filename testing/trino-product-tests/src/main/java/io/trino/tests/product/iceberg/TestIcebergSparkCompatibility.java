@@ -22,6 +22,7 @@ import java.sql.Timestamp;
 
 import static io.trino.tempto.assertions.QueryAssert.Row;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
+import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.TestGroups.ICEBERG;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
@@ -446,6 +447,9 @@ public class TestIcebergSparkCompatibility
         assertThat(queryResult).hasRowsCount(1).hasColumnsCount(1);
         assertTrue(((String) queryResult.row(0).get(0)).contains(dataPath));
 
+        // TODO: support path override in Iceberg table creation: https://github.com/trinodb/trino/issues/8861
+        assertQueryFailure(() -> onTrino().executeQuery("DROP TABLE " + trinoTableName))
+                .hasMessageContaining("contains Iceberg path override properties and cannot be dropped from Trino");
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
 
