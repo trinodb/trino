@@ -172,7 +172,7 @@ public class SnowflakeClient
                 ImmutableSet.<AggregateFunctionRule>builder()
                         .add(new ImplementCountAll(bigintTypeHandle))
                         .add(new ImplementCount(bigintTypeHandle))
-                        .add(new ImplementMinMax())
+                        .add(new ImplementMinMax(true))
                         .add(new ImplementSum(SnowflakeClient::decimalTypeHandle))
                         .add(new ImplementAvgDecimal())
                         .add(new ImplementAvgFloatingPoint())
