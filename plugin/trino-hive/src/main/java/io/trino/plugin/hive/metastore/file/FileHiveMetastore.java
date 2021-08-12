@@ -429,21 +429,23 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized void updatePartitionStatistics(HiveIdentity identity, Table table, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
+    public synchronized void updatePartitionStatistics(HiveIdentity identity, Table table, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
     {
-        PartitionStatistics originalStatistics = getPartitionStatistics(table, extractPartitionValues(partitionName));
-        PartitionStatistics updatedStatistics = update.apply(originalStatistics);
+        updates.forEach((partitionName, update) -> {
+            PartitionStatistics originalStatistics = getPartitionStatistics(table, extractPartitionValues(partitionName));
+            PartitionStatistics updatedStatistics = update.apply(originalStatistics);
 
-        List<String> partitionValues = extractPartitionValues(partitionName);
-        Path partitionDirectory = getPartitionMetadataDirectory(table, partitionValues);
-        PartitionMetadata partitionMetadata = readSchemaFile("partition", partitionDirectory, partitionCodec)
-                .orElseThrow(() -> new PartitionNotFoundException(new SchemaTableName(table.getDatabaseName(), table.getTableName()), partitionValues));
+            List<String> partitionValues = extractPartitionValues(partitionName);
+            Path partitionDirectory = getPartitionMetadataDirectory(table, partitionValues);
+            PartitionMetadata partitionMetadata = readSchemaFile("partition", partitionDirectory, partitionCodec)
+                    .orElseThrow(() -> new PartitionNotFoundException(new SchemaTableName(table.getDatabaseName(), table.getTableName()), partitionValues));
 
-        PartitionMetadata updatedMetadata = partitionMetadata
-                .withParameters(updateStatisticsParameters(partitionMetadata.getParameters(), updatedStatistics.getBasicStatistics()))
-                .withColumnStatistics(updatedStatistics.getColumnStatistics());
+            PartitionMetadata updatedMetadata = partitionMetadata
+                    .withParameters(updateStatisticsParameters(partitionMetadata.getParameters(), updatedStatistics.getBasicStatistics()))
+                    .withColumnStatistics(updatedStatistics.getColumnStatistics());
 
-        writeSchemaFile("partition", partitionDirectory, partitionCodec, updatedMetadata, true);
+            writeSchemaFile("partition", partitionDirectory, partitionCodec, updatedMetadata, true);
+        });
     }
 
     @Override
