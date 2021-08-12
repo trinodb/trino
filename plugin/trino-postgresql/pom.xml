@@ -81,12 +81,6 @@
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
-            <!--
-            PostgreSQL connector does not work with newer drivers due to
-            fixes to handle of multidimensional arrays (>= 42.2.14) and
-            numeric types (>= 42.2.11) (https://github.com/trinodb/trino/issues/7823)
-            -->
-            <version>42.2.10</version>
         </dependency>
 
         <!-- used by tests but also needed transitively -->
