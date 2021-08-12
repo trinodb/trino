@@ -105,6 +105,7 @@ import javax.annotation.Nullable;
 import javax.inject.Inject;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -340,12 +341,18 @@ public class GlueHiveMetastore
     @Override
     public Map<String, PartitionStatistics> getPartitionStatistics(HiveIdentity identity, Table table, List<Partition> partitions)
     {
-        return partitions.stream().collect(toImmutableMap(partition -> makePartitionName(table, partition), this::getPartitionStatistics));
+        return getPartitionStatistics(partitions).entrySet().stream()
+                .collect(toImmutableMap(
+                        entry -> makePartitionName(table, entry.getKey()),
+                        Entry::getValue));
     }
 
-    private PartitionStatistics getPartitionStatistics(Partition partition)
+    private Map<Partition, PartitionStatistics> getPartitionStatistics(Collection<Partition> partitions)
     {
-        return new PartitionStatistics(getHiveBasicStatistics(partition.getParameters()), columnStatisticsProvider.getPartitionColumnStatistics(partition));
+        return columnStatisticsProvider.getPartitionColumnStatistics(partitions).entrySet().stream()
+                .collect(toImmutableMap(
+                        Entry::getKey,
+                        entry -> new PartitionStatistics(getHiveBasicStatistics(entry.getKey().getParameters()), entry.getValue())));
     }
 
     @Override
@@ -384,7 +391,7 @@ public class GlueHiveMetastore
         Partition partition = getPartition(identity, table, partitionValues)
                 .orElseThrow(() -> new TrinoException(HIVE_PARTITION_DROPPED_DURING_QUERY, "Statistics result does not contain entry for partition: " + partitionName));
 
-        PartitionStatistics currentStatistics = getPartitionStatistics(partition);
+        PartitionStatistics currentStatistics = getPartitionStatistics(ImmutableList.of(partition)).get(partition);
         PartitionStatistics updatedStatistics = update.apply(currentStatistics);
 
         try {
