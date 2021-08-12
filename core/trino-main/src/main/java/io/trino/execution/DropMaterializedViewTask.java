@@ -18,8 +18,10 @@ import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.TableHandle;
 import io.trino.security.AccessControl;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
+import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.sql.tree.DropMaterializedView;
 import io.trino.sql.tree.Expression;
 import io.trino.transaction.TransactionManager;
@@ -54,9 +56,23 @@ public class DropMaterializedViewTask
         Session session = stateMachine.getSession();
         QualifiedObjectName name = createQualifiedObjectName(session, statement, statement.getName());
 
-        Optional<ConnectorMaterializedViewDefinition> view = metadata.getMaterializedView(session, name);
-        if (view.isEmpty()) {
+        Optional<ConnectorMaterializedViewDefinition> materializedView = metadata.getMaterializedView(session, name);
+        if (materializedView.isEmpty()) {
             if (!statement.isExists()) {
+                Optional<ConnectorViewDefinition> view = metadata.getView(session, name);
+                if (view.isPresent()) {
+                    throw semanticException(
+                            TABLE_NOT_FOUND,
+                            statement,
+                            "Materialized view '%s' does not exist, but a view with that name exists. Did you mean DROP VIEW %s?", name, name);
+                }
+                Optional<TableHandle> table = metadata.getTableHandle(session, name);
+                if (table.isPresent()) {
+                    throw semanticException(
+                            TABLE_NOT_FOUND,
+                            statement,
+                            "Materialized view '%s' does not exist, but a table with that name exists. Did you mean DROP TABLE %s?", name, name);
+                }
                 throw semanticException(TABLE_NOT_FOUND, statement, "Materialized view '%s' does not exist", name);
             }
             return immediateVoidFuture();
