@@ -25,7 +25,6 @@ import io.trino.testing.datatype.CreateAsSelectDataSetup;
 import io.trino.testing.datatype.DataSetup;
 import io.trino.testing.datatype.DataType;
 import io.trino.testing.datatype.DataTypeTest;
-import io.trino.testing.datatype.DataTypeTestToSqlDataTypeTestConverter;
 import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.TrinoSqlExecutor;
 import io.trino.tpch.TpchTable;
@@ -44,10 +43,16 @@ import java.util.function.Function;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.phoenix.PhoenixQueryRunner.createPhoenixQueryRunner;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
+import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.testing.datatype.DataType.bigintDataType;
 import static io.trino.testing.datatype.DataType.booleanDataType;
@@ -57,7 +62,6 @@ import static io.trino.testing.datatype.DataType.doubleDataType;
 import static io.trino.testing.datatype.DataType.integerDataType;
 import static io.trino.testing.datatype.DataType.realDataType;
 import static io.trino.testing.datatype.DataType.smallintDataType;
-import static io.trino.testing.datatype.DataType.tinyintDataType;
 import static io.trino.testing.datatype.DataType.varcharDataType;
 import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
@@ -87,15 +91,15 @@ public class TestPhoenixTypeMapping
     @Test
     public void testBasicTypes()
     {
-        DataTypeTestToSqlDataTypeTestConverter.create()
-                .addRoundTrip(booleanDataType(), true)
-                .addRoundTrip(booleanDataType(), false)
-                .addRoundTrip(bigintDataType(), 123_456_789_012L)
-                .addRoundTrip(integerDataType(), 1_234_567_890)
-                .addRoundTrip(smallintDataType(), (short) 32_456)
-                .addRoundTrip(tinyintDataType(), (byte) 5)
-                .addRoundTrip(doubleDataType(), 123.45d)
-                .addRoundTrip(realDataType(), 123.45f)
+        SqlDataTypeTest.create()
+                .addRoundTrip("boolean", "true", BOOLEAN)
+                .addRoundTrip("boolean", "false", BOOLEAN)
+                .addRoundTrip("bigint", "123456789012", BIGINT)
+                .addRoundTrip("integer", "1234567890", INTEGER)
+                .addRoundTrip("smallint", "32456", SMALLINT)
+                .addRoundTrip("tinyint", "5", TINYINT)
+                .addRoundTrip("double", "123.45", DOUBLE)
+                .addRoundTrip("real", "123.45", REAL)
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_basic_types"));
     }
 
@@ -116,6 +120,9 @@ public class TestPhoenixTypeMapping
 
     private DataTypeTest stringDataTypeTest(Function<Integer, DataType<String>> dataTypeFactory)
     {
+//        return SqlDataTypeTest.create()
+//                .addRoundTrip(dataTypeFactory.apply(10).toString(), "text_a", CharType.createCharType(10));
+
         return DataTypeTest.create()
                 .addRoundTrip(dataTypeFactory.apply(10), "text_a")
                 .addRoundTrip(dataTypeFactory.apply(255), "text_b")
