@@ -45,6 +45,8 @@ import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.assertions.Assert.assertFalse;
 import static io.trino.testing.assertions.Assert.assertTrue;
+import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -85,6 +87,43 @@ public class TestIcebergMaterializedViews
         assertThat(actualTables).containsAll(expectedTables);
 
         assertUpdate("DROP MATERIALIZED VIEW materialized_view_show_tables_test");
+    }
+
+    @Test
+    public void testMaterializedViewsMetadata()
+    {
+        String catalogName = getSession().getCatalog().orElseThrow();
+        String schemaName = getSession().getSchema().orElseThrow();
+        String materializedViewName = format("test_materialized_view_%s", randomTableSuffix());
+
+        computeActual("CREATE TABLE region AS SELECT * FROM tpch.tiny.region LIMIT 1");
+        computeActual(format("CREATE MATERIALIZED VIEW %s AS SELECT * FROM region LIMIT 1", materializedViewName));
+
+        // test storage table name
+        assertQuery(
+                format(
+                        "SELECT storage_catalog, storage_schema, CONCAT(storage_schema, '.', storage_table)" +
+                                "FROM system.metadata.materialized_views WHERE name = '%s'",
+                        materializedViewName),
+                format(
+                        "VALUES ('%s', '%s', '%s')",
+                        catalogName,
+                        schemaName,
+                        getStorageTable(catalogName, schemaName, materializedViewName)));
+
+        // test freshness update
+        assertQuery(
+                format("SELECT is_fresh FROM system.metadata.materialized_views WHERE name = '%s'", materializedViewName),
+                "VALUES ('false')");
+
+        computeActual(format("REFRESH MATERIALIZED VIEW %s", materializedViewName));
+
+        assertQuery(
+                format("SELECT is_fresh FROM system.metadata.materialized_views WHERE name = '%s'", materializedViewName),
+                "VALUES ('true')");
+
+        assertUpdate("DROP TABLE region");
+        assertUpdate(format("DROP MATERIALIZED VIEW %s", materializedViewName));
     }
 
     @Test

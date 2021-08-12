@@ -16,6 +16,7 @@ package io.trino.testing;
 import io.trino.Session;
 import io.trino.cost.StatsAndCosts;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.QualifiedObjectName;
 import io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.plan.LimitNode;
@@ -562,9 +563,42 @@ public abstract class BaseConnectorTest
                         "FROM\n" +
                         "  nation");
 
+        // we only want to test filtering materialized views in different schemas,
+        // `viewWithComment` is in the same schema as `view` so it is not needed
+        assertUpdate("DROP MATERIALIZED VIEW " + viewWithComment);
+
+        // test filtering materialized views in system metadata table
+        assertQuery(
+                listMaterializedViewsSql("catalog_name = '" + view.getCatalogName() + "'"),
+                getTestingMaterializedViewsResultRows(view, otherView));
+
+        assertQuery(
+                listMaterializedViewsSql(
+                        "catalog_name = '" + otherView.getCatalogName() + "'",
+                        "schema_name = '" + otherView.getSchemaName() + "'"),
+                getTestingMaterializedViewsResultRow(otherView, "sarcastic comment"));
+
+        assertQuery(
+                listMaterializedViewsSql(
+                        "catalog_name = '" + view.getCatalogName() + "'",
+                        "schema_name = '" + view.getSchemaName() + "'",
+                        "name = '" + view.getObjectName() + "'"),
+                getTestingMaterializedViewsResultRow(view, ""));
+
+        assertQuery(
+                listMaterializedViewsSql("schema_name LIKE '%" + view.getSchemaName() + "%'"),
+                getTestingMaterializedViewsResultRow(view, ""));
+
+        assertQuery(
+                listMaterializedViewsSql("name LIKE '%" + view.getObjectName() + "%'"),
+                getTestingMaterializedViewsResultRow(view, ""));
+
         assertUpdate("DROP MATERIALIZED VIEW " + view);
         assertUpdate("DROP MATERIALIZED VIEW " + otherView);
-        assertUpdate("DROP MATERIALIZED VIEW " + viewWithComment);
+
+        assertQueryReturnsEmptyResult(listMaterializedViewsSql("name = '" + view.getObjectName() + "'"));
+        assertQueryReturnsEmptyResult(listMaterializedViewsSql("name = '" + otherView.getObjectName() + "'"));
+        assertQueryReturnsEmptyResult(listMaterializedViewsSql("name = '" + viewWithComment.getSchemaName() + "'"));
     }
 
     private void createTestingMaterializedView(QualifiedObjectName view, Optional<String> comment)
@@ -574,6 +608,58 @@ public abstract class BaseConnectorTest
                 "CREATE MATERIALIZED VIEW %s %s AS SELECT * FROM nation",
                 view,
                 comment.map(c -> format("COMMENT '%s'", c)).orElse("")));
+    }
+
+    private String getTestingMaterializedViewsResultRow(QualifiedObjectName materializedView, String comment)
+    {
+        return format(
+                "VALUES ('%s', '%s', '%s', '%s', '%s', 'SELECT *\nFROM\n  nation\n')",
+                materializedView.getCatalogName(),
+                materializedView.getSchemaName(),
+                materializedView.getObjectName(),
+                getSession().getUser(),
+                comment);
+    }
+
+    private String getTestingMaterializedViewsResultRows(
+            QualifiedObjectName materializedView,
+            QualifiedObjectName otherMaterializedView)
+    {
+        String user = getSession().getUser();
+        String viewDefinitionSql = "SELECT *\nFROM\n  nation\n";
+
+        return format(
+                "VALUES ('%s', '%s', '%s', '%s', '', '%s')," +
+                        "('%s', '%s', '%s', '%s', 'sarcastic comment', '%s')",
+                materializedView.getCatalogName(),
+                materializedView.getSchemaName(),
+                materializedView.getObjectName(),
+                user,
+                viewDefinitionSql,
+                otherMaterializedView.getCatalogName(),
+                otherMaterializedView.getSchemaName(),
+                otherMaterializedView.getObjectName(),
+                user,
+                viewDefinitionSql);
+    }
+
+    private String listMaterializedViewsSql(String... filterClauses)
+    {
+        StringBuilder sql = new StringBuilder("SELECT" +
+                "   catalog_name," +
+                "   schema_name," +
+                "   name," +
+                "   owner," +
+                "   comment," +
+                "   definition " +
+                "FROM system.metadata.materialized_views " +
+                "WHERE true");
+
+        for (String filterClause : filterClauses) {
+            sql.append(" AND ").append(filterClause);
+        }
+
+        return sql.toString();
     }
 
     @Test
