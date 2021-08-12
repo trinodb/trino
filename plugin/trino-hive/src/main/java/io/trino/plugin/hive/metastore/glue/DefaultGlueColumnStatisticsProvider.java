@@ -43,6 +43,8 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.statistics.ColumnStatisticType;
 import io.trino.spi.type.Type;
 
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -60,6 +62,7 @@ import static io.trino.plugin.hive.metastore.glue.converter.GlueStatConverter.to
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.runAsync;
+import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toUnmodifiableList;
 
 public class DefaultGlueColumnStatisticsProvider
@@ -99,7 +102,7 @@ public class DefaultGlueColumnStatisticsProvider
             List<String> columnNames = getAllColumns(table);
             List<List<String>> columnChunks = Lists.partition(columnNames, GLUE_COLUMN_READ_STAT_PAGE_SIZE);
             List<CompletableFuture<GetColumnStatisticsForTableResult>> getStatsFutures = columnChunks.stream()
-                    .map(partialColumns -> CompletableFuture.supplyAsync(() -> {
+                    .map(partialColumns -> supplyAsync(() -> {
                         GetColumnStatisticsForTableRequest request = new GetColumnStatisticsForTableRequest()
                                 .withCatalogId(catalogId)
                                 .withDatabaseName(table.getDatabaseName())
@@ -139,40 +142,50 @@ public class DefaultGlueColumnStatisticsProvider
     }
 
     @Override
-    public Map<String, HiveColumnStatistics> getPartitionColumnStatistics(Partition partition)
+    public Map<Partition, Map<String, HiveColumnStatistics>> getPartitionColumnStatistics(Collection<Partition> partitions)
     {
-        try {
+        Map<Partition, List<CompletableFuture<GetColumnStatisticsForPartitionResult>>> resultsForPartition = new HashMap<>();
+        for (Partition partition : partitions) {
+            ImmutableList.Builder<CompletableFuture<GetColumnStatisticsForPartitionResult>> futures = ImmutableList.builder();
             List<List<Column>> columnChunks = Lists.partition(partition.getColumns(), GLUE_COLUMN_READ_STAT_PAGE_SIZE);
-            List<CompletableFuture<GetColumnStatisticsForPartitionResult>> getStatsFutures = columnChunks.stream()
-                    .map(partialColumns -> CompletableFuture.supplyAsync(() -> {
-                        List<String> columnsNames = partialColumns.stream()
-                                .map(Column::getName)
-                                .collect(toImmutableList());
-                        GetColumnStatisticsForPartitionRequest request = new GetColumnStatisticsForPartitionRequest()
-                                .withCatalogId(catalogId)
-                                .withDatabaseName(partition.getDatabaseName())
-                                .withTableName(partition.getTableName())
-                                .withColumnNames(columnsNames)
-                                .withPartitionValues(partition.getValues());
-                        return glueClient.getColumnStatisticsForPartition(request);
-                    }, readExecutor)).collect(toImmutableList());
-
-            HiveBasicStatistics tableStatistics = getHiveBasicStatistics(partition.getParameters());
-            ImmutableMap.Builder<String, HiveColumnStatistics> columnStatsMapBuilder = ImmutableMap.builder();
-            for (CompletableFuture<GetColumnStatisticsForPartitionResult> future : getStatsFutures) {
-                GetColumnStatisticsForPartitionResult partitionColumnStats = getFutureValue(future, TrinoException.class);
-                for (ColumnStatistics columnStatistics : partitionColumnStats.getColumnStatisticsList()) {
-                    columnStatsMapBuilder.put(
-                            columnStatistics.getColumnName(),
-                            fromGlueColumnStatistics(columnStatistics.getStatisticsData(), tableStatistics.getRowCount()));
-                }
+            for (List<Column> partialPartitionColumns : columnChunks) {
+                List<String> columnsNames = partialPartitionColumns.stream()
+                        .map(Column::getName)
+                        .collect(toImmutableList());
+                GetColumnStatisticsForPartitionRequest request = new GetColumnStatisticsForPartitionRequest()
+                        .withCatalogId(catalogId)
+                        .withDatabaseName(partition.getDatabaseName())
+                        .withTableName(partition.getTableName())
+                        .withColumnNames(columnsNames)
+                        .withPartitionValues(partition.getValues());
+                futures.add(supplyAsync(() -> glueClient.getColumnStatisticsForPartition(request), readExecutor));
             }
-            return columnStatsMapBuilder.build();
+            resultsForPartition.put(partition, futures.build());
         }
-        catch (EntityNotFoundException ex) {
-            throw new TrinoException(HIVE_PARTITION_NOT_FOUND, ex);
+
+        try {
+            ImmutableMap.Builder<Partition, Map<String, HiveColumnStatistics>> partitionStatistics = ImmutableMap.builder();
+            resultsForPartition.forEach((partition, futures) -> {
+                HiveBasicStatistics tableStatistics = getHiveBasicStatistics(partition.getParameters());
+                ImmutableMap.Builder<String, HiveColumnStatistics> columnStatsMapBuilder = ImmutableMap.builder();
+
+                for (CompletableFuture<GetColumnStatisticsForPartitionResult> getColumnStatisticsResultFuture : futures) {
+                    GetColumnStatisticsForPartitionResult getColumnStatisticsResult = getFutureValue(getColumnStatisticsResultFuture);
+                    getColumnStatisticsResult.getColumnStatisticsList().forEach(columnStatistics ->
+                            columnStatsMapBuilder.put(
+                                    columnStatistics.getColumnName(),
+                                    fromGlueColumnStatistics(columnStatistics.getStatisticsData(), tableStatistics.getRowCount())));
+                }
+
+                partitionStatistics.put(partition, columnStatsMapBuilder.build());
+            });
+
+            return partitionStatistics.build();
         }
         catch (RuntimeException ex) {
+            if (ex.getCause() != null && ex.getCause() instanceof EntityNotFoundException) {
+                throw new TrinoException(HIVE_PARTITION_NOT_FOUND, ex.getCause());
+            }
             throw new TrinoException(HIVE_METASTORE_ERROR, ex);
         }
     }
