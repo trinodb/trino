@@ -227,7 +227,7 @@ When not using Kerberos with HDFS, Trino accesses HDFS using the
 OS user of the Trino process. For example, if Trino is running as
 ``nobody``, it accesses HDFS as ``nobody``. You can override this
 username by setting the ``HADOOP_USER_NAME`` system property in the
-Trino :ref:`trino_jvm_config`, replacing ``hdfs_user`` with the
+Trino :ref:`jvm_config`, replacing ``hdfs_user`` with the
 appropriate username:
 
 .. code-block:: text
@@ -712,8 +712,8 @@ before re-analyzing just a subset::
 You can also drop statistics for selected partitions only::
 
     CALL system.drop_stats(
-        schema_name => 'schema', 
-        table_name => 'table', 
+        schema_name => 'schema',
+        table_name => 'table',
         partition_values => ARRAY[ARRAY['p2_value1', 'p2_value2']])
 
 .. _hive_dynamic_filtering:
