@@ -43,6 +43,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.statistics.ColumnStatisticType;
 import io.trino.spi.type.Type;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -261,46 +262,51 @@ public class DefaultGlueColumnStatisticsProvider
     }
 
     @Override
-    public void updatePartitionStatistics(Partition partition, Map<String, HiveColumnStatistics> updatedColumnStatistics)
+    public void updatePartitionStatistics(Set<PartitionStatisticsUpdate> partitionStatisticsUpdates)
     {
-        try {
+        Map<Partition, Map<String, HiveColumnStatistics>> currentStatistics = getPartitionColumnStatistics(
+                partitionStatisticsUpdates.stream()
+                        .map(PartitionStatisticsUpdate::getPartition).collect(toImmutableList()));
+
+        List<CompletableFuture<Void>> updateFutures = new ArrayList<>();
+        for (PartitionStatisticsUpdate update : partitionStatisticsUpdates) {
+            Partition partition = update.getPartition();
+            Map<String, HiveColumnStatistics> updatedColumnStatistics = update.getColumnStatistics();
+
             HiveBasicStatistics partitionStats = getHiveBasicStatistics(partition.getParameters());
             List<ColumnStatistics> columnStats = toGlueColumnStatistics(partition, updatedColumnStatistics, partitionStats.getRowCount()).stream()
                     .filter(this::isGlueWritable)
                     .collect(toUnmodifiableList());
 
             List<List<ColumnStatistics>> columnChunks = Lists.partition(columnStats, GLUE_COLUMN_WRITE_STAT_PAGE_SIZE);
-
-            List<CompletableFuture<Void>> writePartitionStatsFutures = columnChunks.stream()
-                    .map(columnChunk ->
-                            runAsync(() -> glueClient.updateColumnStatisticsForPartition(new UpdateColumnStatisticsForPartitionRequest()
+            columnChunks.forEach(columnChunk ->
+                    updateFutures.add(runAsync(() -> glueClient.updateColumnStatisticsForPartition(
+                            new UpdateColumnStatisticsForPartitionRequest()
                                     .withCatalogId(catalogId)
                                     .withDatabaseName(partition.getDatabaseName())
                                     .withTableName(partition.getTableName())
                                     .withPartitionValues(partition.getValues())
-                                    .withColumnStatisticsList(columnChunk)), writeExecutor))
-                    .collect(toUnmodifiableList());
+                                    .withColumnStatisticsList(columnChunk)),
+                            writeExecutor)));
 
-            Map<String, HiveColumnStatistics> currentColumnStatistics = this.getPartitionColumnStatisticsIfPresent(partition).orElse(ImmutableMap.of());
-            Set<String> removedStatistics = difference(currentColumnStatistics.keySet(), updatedColumnStatistics.keySet());
-            List<CompletableFuture<Void>> deleteStatsFutures = removedStatistics.stream()
-                    .map(column -> runAsync(() ->
-                            glueClient.deleteColumnStatisticsForPartition(new DeleteColumnStatisticsForPartitionRequest()
+            Set<String> removedStatistics = difference(currentStatistics.get(partition).keySet(), updatedColumnStatistics.keySet());
+            removedStatistics.forEach(column ->
+                    updateFutures.add(runAsync(() -> glueClient.deleteColumnStatisticsForPartition(
+                            new DeleteColumnStatisticsForPartitionRequest()
                                     .withCatalogId(catalogId)
                                     .withDatabaseName(partition.getDatabaseName())
                                     .withTableName(partition.getTableName())
                                     .withPartitionValues(partition.getValues())
-                                    .withColumnName(column)), writeExecutor))
-                    .collect(toUnmodifiableList());
-
-            ImmutableList<CompletableFuture<Void>> updateOperationsFutures = ImmutableList.<CompletableFuture<Void>>builder()
-                    .addAll(writePartitionStatsFutures)
-                    .addAll(deleteStatsFutures)
-                    .build();
-
-            getFutureValue(allOf(updateOperationsFutures.toArray(CompletableFuture[]::new)));
+                                    .withColumnName(column)),
+                            writeExecutor)));
+        }
+        try {
+            getFutureValue(allOf(updateFutures.toArray(CompletableFuture[]::new)));
         }
         catch (RuntimeException ex) {
+            if (ex.getCause() != null && ex.getCause() instanceof EntityNotFoundException) {
+                throw new TrinoException(HIVE_PARTITION_NOT_FOUND, ex.getCause());
+            }
             throw new TrinoException(HIVE_METASTORE_ERROR, ex);
         }
     }

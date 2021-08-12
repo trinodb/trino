@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive.metastore;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.HivePartition;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.PartitionStatistics;
@@ -49,7 +50,12 @@ public interface HiveMetastore
 
     void updateTableStatistics(HiveIdentity identity, String databaseName, String tableName, AcidTransaction transaction, Function<PartitionStatistics, PartitionStatistics> update);
 
-    void updatePartitionStatistics(HiveIdentity identity, Table table, String partitionName, Function<PartitionStatistics, PartitionStatistics> update);
+    default void updatePartitionStatistics(HiveIdentity identity, Table table, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
+    {
+        updatePartitionStatistics(identity, table, ImmutableMap.of(partitionName, update));
+    }
+
+    void updatePartitionStatistics(HiveIdentity identity, Table table, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates);
 
     List<String> getAllTables(String databaseName);
 
