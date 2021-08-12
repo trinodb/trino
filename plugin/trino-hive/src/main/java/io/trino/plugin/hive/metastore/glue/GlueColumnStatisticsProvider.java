@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive.metastore.glue;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
 import io.trino.plugin.hive.metastore.Partition;
@@ -23,6 +24,8 @@ import io.trino.spi.type.Type;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
+
+import static java.util.Objects.requireNonNull;
 
 public interface GlueColumnStatisticsProvider
 {
@@ -39,5 +42,32 @@ public interface GlueColumnStatisticsProvider
 
     void updateTableColumnStatistics(Table table, Map<String, HiveColumnStatistics> columnStatistics);
 
-    void updatePartitionStatistics(Partition partition, Map<String, HiveColumnStatistics> columnStatistics);
+    default void updatePartitionStatistics(Partition partition, Map<String, HiveColumnStatistics> columnStatistics)
+    {
+        updatePartitionStatistics(ImmutableSet.of(new PartitionStatisticsUpdate(partition, columnStatistics)));
+    }
+
+    void updatePartitionStatistics(Set<PartitionStatisticsUpdate> partitionStatisticsUpdates);
+
+    class PartitionStatisticsUpdate
+    {
+        private final Partition partition;
+        private final Map<String, HiveColumnStatistics> columnStatistics;
+
+        public PartitionStatisticsUpdate(Partition partition, Map<String, HiveColumnStatistics> columnStatistics)
+        {
+            this.partition = requireNonNull(partition, "partition is null");
+            this.columnStatistics = ImmutableMap.copyOf(requireNonNull(columnStatistics, "columnStatistics is null"));
+        }
+
+        public Partition getPartition()
+        {
+            return partition;
+        }
+
+        public Map<String, HiveColumnStatistics> getColumnStatistics()
+        {
+            return columnStatistics;
+        }
+    }
 }
