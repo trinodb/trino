@@ -38,6 +38,8 @@ import io.trino.spi.procedure.Procedure;
 
 import javax.inject.Inject;
 
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
+
 public class SystemConnectorModule
         implements Module
 {
@@ -52,6 +54,7 @@ public class SystemConnectorModule
         globalTableBinder.addBinding().to(TableCommentSystemTable.class).in(Scopes.SINGLETON);
         globalTableBinder.addBinding().to(SchemaPropertiesSystemTable.class).in(Scopes.SINGLETON);
         globalTableBinder.addBinding().to(TablePropertiesSystemTable.class).in(Scopes.SINGLETON);
+        globalTableBinder.addBinding().to(MaterializedViewSystemTable.class).in(Scopes.SINGLETON);
         globalTableBinder.addBinding().to(MaterializedViewPropertiesSystemTable.class).in(Scopes.SINGLETON);
         globalTableBinder.addBinding().to(ColumnPropertiesSystemTable.class).in(Scopes.SINGLETON);
         globalTableBinder.addBinding().to(AnalyzePropertiesSystemTable.class).in(Scopes.SINGLETON);
@@ -78,6 +81,8 @@ public class SystemConnectorModule
 
         binder.bind(GlobalSystemConnectorFactory.class).in(Scopes.SINGLETON);
         binder.bind(SystemConnectorRegistrar.class).asEagerSingleton();
+        newOptionalBinder(binder, MaterializedViewsSystemTableAdapter.class)
+                .setDefault().to(TrinoMaterializedViewsSystemTableAdapter.class).in(Scopes.SINGLETON);
     }
 
     @ProvidesIntoSet

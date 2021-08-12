@@ -31,11 +31,13 @@ import io.trino.connector.system.ColumnPropertiesSystemTable;
 import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.connector.system.GlobalSystemConnectorFactory;
 import io.trino.connector.system.MaterializedViewPropertiesSystemTable;
+import io.trino.connector.system.MaterializedViewSystemTable;
 import io.trino.connector.system.NodeSystemTable;
 import io.trino.connector.system.SchemaPropertiesSystemTable;
 import io.trino.connector.system.TableCommentSystemTable;
 import io.trino.connector.system.TablePropertiesSystemTable;
 import io.trino.connector.system.TransactionsSystemTable;
+import io.trino.connector.system.TrinoMaterializedViewsSystemTableAdapter;
 import io.trino.cost.ComposableStatsCalculator;
 import io.trino.cost.CostCalculator;
 import io.trino.cost.CostCalculatorUsingExchanges;
@@ -384,6 +386,7 @@ public class LocalQueryRunner
                 new NodeSystemTable(nodeManager),
                 new CatalogSystemTable(metadata, accessControl),
                 new TableCommentSystemTable(metadata, accessControl),
+                new MaterializedViewSystemTable(metadata, accessControl, new TrinoMaterializedViewsSystemTableAdapter()),
                 new SchemaPropertiesSystemTable(transactionManager, metadata),
                 new TablePropertiesSystemTable(transactionManager, metadata),
                 new MaterializedViewPropertiesSystemTable(transactionManager, metadata),

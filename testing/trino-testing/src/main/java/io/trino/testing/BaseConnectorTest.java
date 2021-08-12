@@ -16,6 +16,7 @@ package io.trino.testing;
 import io.trino.Session;
 import io.trino.cost.StatsAndCosts;
 import io.trino.metadata.Metadata;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.plan.LimitNode;
@@ -599,6 +600,154 @@ public abstract class BaseConnectorTest
         assertExplainAnalyze("EXPLAIN ANALYZE SHOW SCHEMAS");
         assertExplainAnalyze("EXPLAIN ANALYZE SHOW CATALOGS");
         assertExplainAnalyze("EXPLAIN ANALYZE SHOW SESSION");
+    }
+
+    @Test
+    public void testMaterializedViewsMetadata()
+    {
+        if (!hasBehavior(SUPPORTS_CREATE_MATERIALIZED_VIEW)) {
+            return;
+        }
+
+        String catalogName = getSession().getCatalog().orElseThrow();
+        SchemaTableName materializedView = new SchemaTableName(
+                getSession().getSchema().orElseThrow(),
+                format("test_materialized_view_%s", randomTableSuffix()));
+        SchemaTableName otherMaterializedView = new SchemaTableName(
+                "other_schema",
+                format("test_materialized_view_%s", randomTableSuffix()));
+
+        computeActual(createMaterializedViewSql(materializedView));
+        computeActual(format("CREATE SCHEMA %s", otherMaterializedView.getSchemaName()));
+        computeActual(createMaterializedViewSql(otherMaterializedView));
+
+        // test freshness
+        assertQuery(
+                listMaterializedViewsSql(),
+                getMaterializedViewsResultRows(materializedView, false, otherMaterializedView));
+
+        computeActual(format("REFRESH MATERIALIZED VIEW %s", materializedView));
+
+        assertQuery(
+                listMaterializedViewsSql(),
+                getMaterializedViewsResultRows(materializedView, true, otherMaterializedView));
+
+        // test filtering by columns
+        assertQuery(
+                listMaterializedViewsSql(format("catalog_name = '%s'", catalogName)),
+                getMaterializedViewsResultRows(materializedView, true, otherMaterializedView));
+
+        assertQuery(
+                listMaterializedViewsSql(
+                        format("catalog_name = '%s'", catalogName),
+                        format("schema_name = '%s'", otherMaterializedView.getSchemaName())),
+                getMaterializedViewsResultRow(otherMaterializedView, false));
+
+        assertQuery(
+                listMaterializedViewsSql(
+                        format("catalog_name = '%s'", catalogName),
+                        format("schema_name = '%s'", materializedView.getSchemaName()),
+                        format("name = '%s'", materializedView.getTableName())),
+                getMaterializedViewsResultRow(materializedView, true));
+
+        assertQuery(
+                listMaterializedViewsSql(format("schema_name LIKE '%%%s%%'", materializedView.getSchemaName())),
+                getMaterializedViewsResultRow(materializedView, true));
+
+        assertQuery(
+                listMaterializedViewsSql(format("name LIKE '%%%s%%'", materializedView.getTableName())),
+                getMaterializedViewsResultRow(materializedView, true));
+
+        // test no materialized views
+        computeActual(format("DROP MATERIALIZED VIEW %s.%s", catalogName, materializedView));
+        computeActual(format("DROP MATERIALIZED VIEW %s.%s", catalogName, otherMaterializedView));
+
+        assertQueryReturnsEmptyResult(listMaterializedViewsSql());
+    }
+
+    private String createMaterializedViewSql(SchemaTableName materializedView)
+    {
+        return format(
+                "CREATE MATERIALIZED VIEW %s.%s.%s COMMENT 'sarcastic comment' AS %s",
+                getSession().getCatalog().orElseThrow(),
+                materializedView.getSchemaName(),
+                materializedView.getTableName(),
+                materializedViewDefinitionSql());
+    }
+
+    private String getMaterializedViewsResultRow(SchemaTableName materializedView, boolean isMaterializedViewFresh)
+    {
+        return format(
+                "VALUES ('%s', '%s', '%s', '%b', '%s', 'sarcastic comment', '%s')",
+                getSession().getCatalog().orElseThrow(),
+                materializedView.getSchemaName(),
+                materializedView.getTableName(),
+                isMaterializedViewFresh,
+                getSession().getUser(),
+                materializedViewDefinitionSql());
+    }
+
+    private String getMaterializedViewsResultRows(
+            SchemaTableName materializedView,
+            boolean isMaterializedViewFresh,
+            SchemaTableName otherMaterializedView)
+    {
+        String catalogName = getSession().getCatalog().orElseThrow();
+        String user = getSession().getUser();
+        String comment = "sarcastic comment";
+
+        return format(
+                "VALUES ('%s', '%s', '%s', '%b', '%s', '%s', '%s')," +
+                        "('%s', '%s', '%s', 'false', '%s', '%s', '%s')",
+                catalogName,
+                materializedView.getSchemaName(),
+                materializedView.getTableName(),
+                isMaterializedViewFresh,
+                user,
+                comment,
+                materializedViewDefinitionSql(),
+                catalogName,
+                otherMaterializedView.getSchemaName(),
+                otherMaterializedView.getTableName(),
+                user,
+                comment,
+                materializedViewDefinitionSql());
+    }
+
+    private String listMaterializedViewsSql(String... filterClauses)
+    {
+        StringBuilder sql = new StringBuilder("SELECT" +
+                "   catalog_name," +
+                "   schema_name," +
+                "   name," +
+                "   is_fresh," +
+                "   owner," +
+                "   comment," +
+                "   definition " +
+                "FROM system.metadata.materialized_views " +
+                "WHERE true");
+
+        for (String filterClause : filterClauses) {
+            sql.append(" AND ").append(filterClause);
+        }
+
+        return sql.toString();
+    }
+
+    private String materializedViewDefinitionSql()
+    {
+        String catalogName = getSession().getCatalog().orElseThrow();
+
+        return format(
+                "SELECT\n" +
+                        "  region.name\n" +
+                        ", region.regionkey\n" +
+                        "FROM\n" +
+                        "  (%s.tpch.region\n" +
+                        "INNER JOIN %s.tpch.nation ON (region.regionkey = nation.regionkey))\n" +
+                        "LIMIT 1\n",
+                catalogName,
+                catalogName);
     }
 
     @Test
