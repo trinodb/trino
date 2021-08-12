@@ -18,7 +18,9 @@ import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.TableHandle;
 import io.trino.security.AccessControl;
+import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.RenameView;
@@ -56,8 +58,24 @@ public class RenameViewTask
     {
         Session session = stateMachine.getSession();
         QualifiedObjectName viewName = createQualifiedObjectName(session, statement, statement.getSource());
+        Optional<ConnectorMaterializedViewDefinition> materializedView = metadata.getMaterializedView(session, viewName);
+        if (materializedView.isPresent()) {
+            throw semanticException(
+                    TABLE_NOT_FOUND,
+                    statement,
+                    "View '%s' does not exist, but a materialized view with that name exists.", viewName);
+        }
+
         Optional<ConnectorViewDefinition> viewDefinition = metadata.getView(session, viewName);
         if (viewDefinition.isEmpty()) {
+            Optional<TableHandle> table = metadata.getTableHandle(session, viewName);
+            if (table.isPresent()) {
+                throw semanticException(
+                        TABLE_NOT_FOUND,
+                        statement,
+                        "View '%s' does not exist, but a table with that name exists. Did you mean ALTER TABLE %s RENAME ...?", viewName, viewName);
+            }
+
             throw semanticException(TABLE_NOT_FOUND, statement, "View '%s' does not exist", viewName);
         }
 
