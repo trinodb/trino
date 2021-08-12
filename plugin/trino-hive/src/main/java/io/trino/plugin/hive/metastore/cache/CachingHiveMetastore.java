@@ -412,6 +412,23 @@ public class CachingHiveMetastore
     }
 
     @Override
+    public void updatePartitionStatistics(HiveIdentity identity, Table table, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
+    {
+        try {
+            delegate.updatePartitionStatistics(updateIdentity(identity), table, updates);
+        }
+        finally {
+            HiveIdentity hiveIdentity = updateIdentity(identity);
+            updates.forEach((partitionName, update) -> {
+                HivePartitionName hivePartitionName = hivePartitionName(hiveTableName(table.getDatabaseName(), table.getTableName()), partitionName);
+                partitionStatisticsCache.invalidate(new WithIdentity<>(hiveIdentity, hivePartitionName));
+                // basic stats are stored as partition properties
+                partitionCache.invalidate(new WithIdentity<>(hiveIdentity, hivePartitionName));
+            });
+        }
+    }
+
+    @Override
     public List<String> getAllTables(String databaseName)
     {
         return get(tableNamesCache, databaseName);
