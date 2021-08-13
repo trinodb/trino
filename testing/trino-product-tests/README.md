@@ -212,6 +212,38 @@ running the tests will gracefully shutdown all containers. Any follow up
 `Ctrl-C` signals will interrupt the shutdown procedure and possibly leave
 containers in an inconsistent state.
 
+## Debugging Product Tests
+
+The `run-launcher` script also accepts an argument `--debug` which can be used
+to instruct the various components (Trino co-ordinator, workers, JVM that runs
+the tests etc.) within the product test environment to expose JVM debug ports.
+
+For example to debug the `TestHiveViews.testFromUtcTimestampCornerCases` on the
+`multinode` environment you can run:
+
+```
+bin/ptl test run \
+    --environment multinode \
+    --debug \
+    -- -t TestHiveViews.testFromUtcTimestampCornerCases
+```
+
+The port numbers being used are logged in the `run-launcher` output as
+`Listening for transport dt_socket at address: <port_number>`.
+
+Once you have the port numbers you can create a *Run/Debug Configuration* in
+IntelliJ of type **Remote JVM Debug** with the following configuration:
+
+- **Debugger mode:** `Attach to remote JVM`
+- **Host:** `localhost`
+- **Port:** the debug `<port_number>` for the component you're trying to debug
+- **Command line arguments for remote JVM:** Leave this as it is
+- **Use module classpath:** `trino-product-tests`
+
+You can now start the debug configuration that you just created and IntelliJ
+will attach to the remote JVM and you can use the debugger from within
+IntelliJ.
+
 ## Known issues
 
 ### Port 1180 already allocated
