@@ -180,7 +180,7 @@ public class TestHiveViews
         onHive().executeQuery("CREATE TABLE test_from_utc_timestamp_source AS SELECT " +
                 "  CAST(123 AS tinyint) source_tinyint, " +
                 "  CAST(10123 AS smallint) source_smallint, " +
-                "  CAST(2592000123 AS int) source_integer, " +
+                "  CAST(259200123 AS int) source_integer, " +
                 "  CAST(2592000123 AS bigint) source_bigint, " +
                 "  CAST(2592000.0 AS float) source_float, " +
                 "  CAST(2592000.123 AS double) source_double, " +
@@ -211,7 +211,7 @@ public class TestHiveViews
                 .containsOnly(row(
                         "1969-12-31 16:00:00.123",
                         "1969-12-31 16:00:10.123",
-                        "1969-12-11 22:57:12.827",
+                        "1970-01-03 16:00:00.123",
                         "1970-01-30 16:00:00.123",
                         "1970-01-30 16:00:00.000",
                         "1970-01-30 16:00:00.123",
@@ -229,7 +229,7 @@ public class TestHiveViews
                     .containsOnly(row(
                             "1969-12-31 21:30:00.123",
                             "1969-12-31 21:30:10.123",
-                            "1969-12-12 04:27:12.827",
+                            "1970-01-03 21:30:00.123",
                             "1970-01-30 21:30:00.123",
                             "1970-01-30 21:30:00",
                             "1970-01-30 21:30:00.123",
@@ -243,7 +243,7 @@ public class TestHiveViews
                     .containsOnly(row(
                             "1969-12-31 16:00:00.123",
                             "1969-12-31 16:00:10.123",
-                            "1969-12-11 22:57:12.827",
+                            "1970-01-03 16:00:00.123",
                             "1970-01-30 16:00:00.123",
                             "1970-01-30 16:00:00",
                             "1970-01-30 16:00:00.123",
