@@ -36,7 +36,6 @@ import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
-import io.trino.transaction.TransactionBuilder;
 import org.apache.avro.Schema;
 import org.apache.avro.file.DataFileReader;
 import org.apache.avro.file.DataFileWriter;
@@ -1696,11 +1695,6 @@ public abstract class BaseIcebergConnectorTest
                                 .collect(toImmutableMap(entry -> columns.get(entry.getKey()), Map.Entry::getValue))));
             }
         });
-    }
-
-    private TransactionBuilder newTransaction()
-    {
-        return transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl());
     }
 
     private static class TestRelationalNumberPredicate

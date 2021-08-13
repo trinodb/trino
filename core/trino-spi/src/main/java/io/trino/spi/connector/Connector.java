@@ -190,7 +190,7 @@ public interface Connector
      */
     default boolean isSingleStatementWritesOnly()
     {
-        return false;
+        return true;
     }
 
     /**
