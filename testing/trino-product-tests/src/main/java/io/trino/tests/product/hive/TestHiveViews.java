@@ -177,17 +177,32 @@ public class TestHiveViews
     public void testFromUtcTimestamp()
     {
         onTrino().executeQuery("DROP TABLE IF EXISTS test_from_utc_timestamp_source");
-        onHive().executeQuery("CREATE TABLE test_from_utc_timestamp_source AS SELECT " +
-                "  CAST(123 AS tinyint) source_tinyint, " +
-                "  CAST(10123 AS smallint) source_smallint, " +
-                "  CAST(259200123 AS int) source_integer, " +
-                "  CAST(2592000123 AS bigint) source_bigint, " +
-                "  CAST(2592000.0 AS float) source_float, " +
-                "  CAST(2592000.123 AS double) source_double, " +
-                "  CAST(2592000.123 AS decimal(10,3)) source_decimal_three," +
-                "  CAST(2592000 AS DECIMAL(10,0)) source_decimal_zero," +
-                "  timestamp '1970-01-30 16:00:00' source_timestamp, " +
-                "  date '1970-01-30' source_date ");
+        onHive().executeQuery("CREATE TABLE test_from_utc_timestamp_source (" +
+                "  source_tinyint tinyint, " +
+                "  source_smallint smallint, " +
+                "  source_integer int, " +
+                "  source_bigint bigint, " +
+                "  source_float float, " +
+                "  source_double double, " +
+                "  source_decimal_three decimal(10,3), " +
+                "  source_decimal_zero decimal(10,0), " +
+                "  source_timestamp timestamp, " +
+                "  source_date date" +
+                ")");
+
+        // insert via Trino as we noticed problems with creating test table in Hive using CTAS at one go for some Hive distributions
+        onTrino().executeQuery("INSERT INTO test_from_utc_timestamp_source VALUES ( " +
+                "  123, " +
+                "  10123, " +
+                "  259200123, " +
+                "  2592000123, " +
+                "  2592000.0, " +
+                "  2592000.123, " +
+                "  2592000.123," +
+                "  2592000," +
+                "  timestamp '1970-01-30 16:00:00.000', " +
+                "  date '1970-01-30'" +
+                ")");
 
         onHive().executeQuery("DROP VIEW IF EXISTS test_from_utc_timestamp_view");
         onHive().executeQuery("CREATE VIEW " +
