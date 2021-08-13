@@ -16,12 +16,11 @@ import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import com.microsoft.sqlserver.jdbc.SQLServerDriver;
 import com.starburstdata.presto.plugin.jdbc.JdbcJoinPushdownSupportModule;
-import com.starburstdata.presto.plugin.jdbc.PreparingConnectionFactory;
 import com.starburstdata.presto.plugin.jdbc.StarburstJdbcMetadataFactory;
-import com.starburstdata.presto.plugin.jdbc.auth.ForImpersonation;
 import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.ForDynamicFiltering;
 import com.starburstdata.presto.plugin.jdbc.redirection.JdbcTableScanRedirectionModule;
 import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
+import com.starburstdata.presto.plugin.sqlserver.CatalogOverridingModule.ForCatalogOverriding;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
@@ -35,15 +34,10 @@ import io.trino.plugin.jdbc.MaxDomainCompactionThreshold;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.sqlserver.SqlServerTableProperties;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
-
-import java.sql.Connection;
-import java.sql.SQLException;
 
 import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
-import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerSessionProperties.getOverrideCatalog;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
 import static io.trino.plugin.jdbc.JdbcModule.bindTablePropertiesProvider;
@@ -73,39 +67,16 @@ public class StarburstSqlServerClientModule
         binder.bind(ConnectorRecordSetProvider.class).annotatedWith(ForDynamicFiltering.class).to(JdbcRecordSetProvider.class).in(SINGLETON);
 
         install(new SqlServerAuthenticationModule());
+        install(new CatalogOverridingModule());
         install(new JdbcJoinPushdownSupportModule());
         install(new JdbcTableScanRedirectionModule());
     }
 
     @Provides
     @Singleton
-    @ForImpersonation
-    public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, StarburstSqlServerConfig connectorConfig, CredentialProvider credentialProvider)
+    @ForCatalogOverriding
+    public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider)
     {
-        ConnectionFactory factory = new DriverConnectionFactory(new SQLServerDriver(), config, credentialProvider);
-        if (connectorConfig.isOverrideCatalogEnabled()) {
-            factory = new CatalogOverridingConnectionFactory(factory);
-        }
-        return factory;
-    }
-
-    private static class CatalogOverridingConnectionFactory
-            extends PreparingConnectionFactory
-    {
-        public CatalogOverridingConnectionFactory(ConnectionFactory delegate)
-        {
-            super(delegate);
-        }
-
-        @Override
-        protected void prepare(Connection connection, ConnectorSession session)
-                throws SQLException
-        {
-            String overrideCatalog = getOverrideCatalog(session).orElse(null);
-
-            if (overrideCatalog != null && !overrideCatalog.isBlank()) {
-                connection.setCatalog(overrideCatalog);
-            }
-        }
+        return new DriverConnectionFactory(new SQLServerDriver(), config, credentialProvider);
     }
 }
