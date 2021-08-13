@@ -41,13 +41,7 @@ public class SqlServerAuthenticationModule
         install(conditionalModule(
                 StarburstSqlServerConfig.class,
                 config -> config.getAuthenticationType() == PASSWORD_PASS_THROUGH,
-                moduleBinder -> {
-                    moduleBinder.bind(ConnectionFactory.class)
-                            .annotatedWith(ForBaseJdbc.class)
-                            .to(Key.get(ConnectionFactory.class, ForImpersonation.class))
-                            .in(SINGLETON);
-                    install(new PasswordPassThroughModule<>(StarburstSqlServerConfig.class, StarburstSqlServerConfig::isImpersonationEnabled));
-                }));
+                new SqlServerPasswordPassThroughModule()));
     }
 
     private static class PasswordModule
@@ -62,6 +56,20 @@ public class SqlServerAuthenticationModule
                     StarburstSqlServerConfig::isImpersonationEnabled,
                     new ImpersonationModule(),
                     noImpersonationModuleWithCredentialProvider()));
+        }
+    }
+
+    private static class SqlServerPasswordPassThroughModule
+            extends AbstractConfigurationAwareModule
+    {
+        @Override
+        protected void setup(Binder binder)
+        {
+            install(new PasswordPassThroughModule<>(StarburstSqlServerConfig.class, StarburstSqlServerConfig::isImpersonationEnabled));
+            binder.bind(ConnectionFactory.class)
+                    .annotatedWith(ForBaseJdbc.class)
+                    .to(Key.get(ConnectionFactory.class, ForImpersonation.class))
+                    .in(SINGLETON);
         }
     }
 
