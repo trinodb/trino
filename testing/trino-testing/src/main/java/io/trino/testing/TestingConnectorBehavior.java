@@ -73,6 +73,8 @@ public enum TestingConnectorBehavior
 
     SUPPORTS_CANCELLATION(false),
 
+    SUPPORTS_MULTI_STATEMENT_WRITES(false),
+
     /**/;
 
     private final Predicate<Predicate<TestingConnectorBehavior>> hasBehaviorByDefault;

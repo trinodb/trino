@@ -465,7 +465,7 @@ public class InMemoryTransactionManager
                 throw new TrinoException(MULTI_CATALOG_WRITE_CONFLICT, "Multi-catalog writes not supported in a single transaction. Already wrote to catalog " + writtenConnectorId.get());
             }
             if (transactionMetadata.isSingleStatementWritesOnly() && !autoCommitContext) {
-                throw new TrinoException(AUTOCOMMIT_WRITE_CONFLICT, "Catalog " + catalogName + " only supports writes using autocommit");
+                throw new TrinoException(AUTOCOMMIT_WRITE_CONFLICT, "Catalog only supports writes using autocommit: " + catalogName);
             }
         }
 

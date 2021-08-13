@@ -43,10 +43,12 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_TABL
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_MATERIALIZED_VIEW;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_SCHEMA;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_DATA;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_VIEW;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DELETE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DROP_COLUMN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_INSERT;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_MULTI_STATEMENT_WRITES;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_COLUMN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_SCHEMA;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_TABLE;
@@ -60,6 +62,7 @@ import static java.lang.String.join;
 import static java.util.Collections.nCopies;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -659,6 +662,12 @@ public abstract class BaseConnectorTest
                 listMaterializedViewsSql("name LIKE '%" + view.getObjectName() + "%'"),
                 getTestingMaterializedViewsResultRow(view, ""));
 
+        // verify write in transaction
+        if (!hasBehavior(SUPPORTS_MULTI_STATEMENT_WRITES)) {
+            assertThatThrownBy(() -> inTransaction(session -> computeActual(session, "REFRESH MATERIALIZED VIEW " + view)))
+                    .hasMessageMatching("Catalog only supports writes using autocommit: \\w+");
+        }
+
         assertUpdate("DROP MATERIALIZED VIEW " + view);
         assertUpdate("DROP MATERIALIZED VIEW " + otherView);
 
@@ -939,6 +948,53 @@ public abstract class BaseConnectorTest
                         "   catalog_name varchar,\n" +
                         "   schema_name varchar\n" +
                         ")");
+    }
+
+    @Test
+    public void testRollback()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_MULTI_STATEMENT_WRITES));
+
+        String table = "test_rollback_" + randomTableSuffix();
+        computeActual(format("CREATE TABLE %s (x int)", table));
+
+        assertThatThrownBy(() ->
+                inTransaction(session -> {
+                    assertUpdate(session, format("INSERT INTO %s VALUES (42)", table), 1);
+                    throw new RollbackException();
+                }))
+                .isInstanceOf(RollbackException.class);
+
+        assertQuery(format("SELECT count(*) FROM %s", table), "SELECT 0");
+    }
+
+    private static class RollbackException
+            extends RuntimeException {}
+
+    @Test
+    public void testWriteNotAllowedInTransaction()
+    {
+        skipTestUnless(!hasBehavior(SUPPORTS_MULTI_STATEMENT_WRITES));
+
+        assertWriteNotAllowedInTransaction(SUPPORTS_CREATE_SCHEMA, "CREATE SCHEMA write_not_allowed");
+        assertWriteNotAllowedInTransaction(SUPPORTS_CREATE_TABLE, "CREATE TABLE write_not_allowed (x int)");
+        assertWriteNotAllowedInTransaction(SUPPORTS_CREATE_TABLE, "DROP TABLE region");
+        assertWriteNotAllowedInTransaction(SUPPORTS_CREATE_TABLE_WITH_DATA, "CREATE TABLE write_not_allowed AS SELECT * FROM region");
+        assertWriteNotAllowedInTransaction(SUPPORTS_CREATE_VIEW, "CREATE VIEW write_not_allowed AS SELECT * FROM region");
+        assertWriteNotAllowedInTransaction(SUPPORTS_CREATE_MATERIALIZED_VIEW, "CREATE MATERIALIZED VIEW write_not_allowed AS SELECT * FROM region");
+        assertWriteNotAllowedInTransaction(SUPPORTS_RENAME_TABLE, "ALTER TABLE region RENAME TO region_name");
+        assertWriteNotAllowedInTransaction(SUPPORTS_INSERT, "INSERT INTO region (regionkey) VALUES (123)");
+        assertWriteNotAllowedInTransaction(SUPPORTS_DELETE, "DELETE FROM region WHERE regionkey = 123");
+
+        // REFRESH MATERIALIZED VIEW is tested in testMaterializedView
+    }
+
+    protected void assertWriteNotAllowedInTransaction(TestingConnectorBehavior behavior, @Language("SQL") String sql)
+    {
+        if (hasBehavior(behavior)) {
+            assertThatThrownBy(() -> inTransaction(session -> computeActual(session, sql)))
+                    .hasMessageMatching("Catalog only supports writes using autocommit: \\w+");
+        }
     }
 
     @Test
