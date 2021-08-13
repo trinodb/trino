@@ -19,6 +19,8 @@ import io.trino.array.ObjectBigArray;
 import io.trino.spi.function.AccumulatorStateFactory;
 import org.openjdk.jol.info.ClassLayout;
 
+import javax.annotation.Nullable;
+
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.UNSCALED_DECIMAL_128_SLICE_LENGTH;
 import static java.util.Objects.requireNonNull;
 
@@ -55,14 +57,17 @@ public class LongDecimalWithOverflowStateFactory
     {
         private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupedLongDecimalWithOverflowState.class).instanceSize();
         protected final ObjectBigArray<Slice> unscaledDecimals = new ObjectBigArray<>();
-        protected final LongBigArray overflows = new LongBigArray();
+        @Nullable
+        protected LongBigArray overflows; // lazily initialized on the first overflow
         protected long numberOfElements;
 
         @Override
         public void ensureCapacity(long size)
         {
             unscaledDecimals.ensureCapacity(size);
-            overflows.ensureCapacity(size);
+            if (overflows != null) {
+                overflows.ensureCapacity(size);
+            }
         }
 
         @Override
@@ -84,27 +89,44 @@ public class LongDecimalWithOverflowStateFactory
         @Override
         public long getOverflow()
         {
+            if (overflows == null) {
+                return 0;
+            }
             return overflows.get(getGroupId());
         }
 
         @Override
         public void setOverflow(long overflow)
         {
-            overflows.set(getGroupId(), overflow);
+            // setOverflow(0) must overwrite any existing overflow value
+            if (overflow == 0 && overflows == null) {
+                return;
+            }
+            long groupId = getGroupId();
+            if (overflows == null) {
+                overflows = new LongBigArray();
+                overflows.ensureCapacity(unscaledDecimals.getCapacity());
+            }
+            overflows.set(groupId, overflow);
         }
 
         @Override
         public void addOverflow(long overflow)
         {
             if (overflow != 0) {
-                overflows.add(getGroupId(), overflow);
+                long groupId = getGroupId();
+                if (overflows == null) {
+                    overflows = new LongBigArray();
+                    overflows.ensureCapacity(unscaledDecimals.getCapacity());
+                }
+                overflows.add(groupId, overflow);
             }
         }
 
         @Override
         public long getEstimatedSize()
         {
-            return INSTANCE_SIZE + unscaledDecimals.sizeOf() + overflows.sizeOf() + numberOfElements * SingleLongDecimalWithOverflowState.SIZE;
+            return INSTANCE_SIZE + unscaledDecimals.sizeOf() + (numberOfElements * SingleLongDecimalWithOverflowState.SIZE) + (overflows == null ? 0 : overflows.sizeOf());
         }
     }
 
