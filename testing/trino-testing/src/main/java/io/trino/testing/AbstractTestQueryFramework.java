@@ -50,6 +50,7 @@ import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.query.QueryAssertions.QueryAssert;
 import io.trino.sql.tree.ExplainType;
 import io.trino.testing.TestingAccessControlManager.TestingPrivilege;
+import io.trino.transaction.TransactionBuilder;
 import io.trino.util.AutoCloseableCloser;
 import org.assertj.core.api.AssertProvider;
 import org.intellij.lang.annotations.Language;
@@ -125,6 +126,16 @@ public abstract class AbstractTestQueryFramework
     protected final int getNodeCount()
     {
         return queryRunner.getNodeCount();
+    }
+
+    protected TransactionBuilder newTransaction()
+    {
+        return transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl());
+    }
+
+    protected void inTransaction(Consumer<Session> callback)
+    {
+        newTransaction().execute(getSession(), callback);
     }
 
     protected MaterializedResult computeActual(@Language("SQL") String sql)
@@ -398,7 +409,7 @@ public abstract class AbstractTestQueryFramework
     protected String getExplainPlan(String query, ExplainType.Type planType)
     {
         QueryExplainer explainer = getQueryExplainer();
-        return transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
+        return newTransaction()
                 .singleStatement()
                 .execute(getSession(), session -> {
                     return explainer.getPlan(session, sqlParser.createStatement(query, createParsingOptions(session)), planType, emptyList(), WarningCollector.NOOP);
@@ -408,7 +419,7 @@ public abstract class AbstractTestQueryFramework
     protected String getGraphvizExplainPlan(String query, ExplainType.Type planType)
     {
         QueryExplainer explainer = getQueryExplainer();
-        return transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
+        return newTransaction()
                 .singleStatement()
                 .execute(queryRunner.getDefaultSession(), session -> {
                     return explainer.getGraphvizPlan(session, sqlParser.createStatement(query, createParsingOptions(session)), planType, emptyList(), WarningCollector.NOOP);
