@@ -12,13 +12,20 @@ package com.starburstdata.presto.plugin.sqlserver;
 import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.Module;
+import com.google.inject.Provides;
+import com.google.inject.Singleton;
+import com.microsoft.sqlserver.jdbc.SQLServerDriver;
 import com.starburstdata.presto.plugin.jdbc.auth.AuthenticationBasedIdentityCacheMappingModule;
 import com.starburstdata.presto.plugin.jdbc.auth.ForImpersonation;
 import com.starburstdata.presto.plugin.jdbc.auth.PasswordPassThroughModule;
+import com.starburstdata.presto.plugin.sqlserver.CatalogOverridingModule.ForCatalogOverriding;
 import com.starburstdata.presto.plugin.toolkit.authtolocal.AuthToLocalModule;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
+import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
+import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.credential.CredentialProviderModule;
 
 import static com.google.inject.Scopes.SINGLETON;
@@ -57,6 +64,14 @@ public class SqlServerAuthenticationModule
                     new ImpersonationModule(),
                     noImpersonationModuleWithCredentialProvider()));
         }
+
+        @Provides
+        @Singleton
+        @ForCatalogOverriding
+        public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider)
+        {
+            return createBasicConnectionFactory(config, credentialProvider);
+        }
     }
 
     private static class SqlServerPasswordPassThroughModule
@@ -71,6 +86,14 @@ public class SqlServerAuthenticationModule
                     .to(Key.get(ConnectionFactory.class, ForImpersonation.class))
                     .in(SINGLETON);
         }
+
+        @Provides
+        @Singleton
+        @ForCatalogOverriding
+        public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider)
+        {
+            return createBasicConnectionFactory(config, credentialProvider);
+        }
     }
 
     private static class ImpersonationModule
@@ -83,5 +106,10 @@ public class SqlServerAuthenticationModule
             binder.install(new AuthenticationBasedIdentityCacheMappingModule());
             binder.bind(ConnectionFactory.class).annotatedWith(ForBaseJdbc.class).to(SqlServerImpersonatingConnectionFactory.class).in(SINGLETON);
         }
+    }
+
+    private static ConnectionFactory createBasicConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider)
+    {
+        return new DriverConnectionFactory(new SQLServerDriver(), config, credentialProvider);
     }
 }
