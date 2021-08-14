@@ -1,0 +1,27 @@
+{
+    "catalogs": [
+        {
+            "user": "admin",
+            "catalog": "(mysql|system)",
+            "allow": "all"
+        },
+        {
+            "group": "finance|human_resources",
+            "catalog": "postgres",
+            "allow": true
+        },
+        {
+            "catalog": "hive",
+            "allow": "all"
+        },
+        {
+            "user": "alice",
+            "catalog": "postgresql",
+            "allow": "read-only"
+        },
+        {
+            "catalog": "system",
+            "allow": "none"
+        }
+    ]
+}

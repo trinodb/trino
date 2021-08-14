@@ -70,6 +70,11 @@ public class TestFileBasedSystemAccessControl
     private static final CatalogSchemaTableName aliceView = new CatalogSchemaTableName("alice-catalog", "schema", "view");
     private static final Optional<QueryId> queryId = Optional.empty();
 
+    private static final Identity peppa = Identity.forUser("peppa").withGroups(ImmutableSet.of("finance")).build();
+    private static final Identity george = Identity.forUser("george").withGroups(ImmutableSet.of("human_resources")).build();
+    private static final Identity guest = Identity.ofUser("guest");
+    private static final Identity bannedUser = Identity.ofUser("banned_user");
+
     private static final Identity charlie = Identity.forUser("charlie").withGroups(ImmutableSet.of("guests")).build();
     private static final Identity joe = Identity.ofUser("joe");
     private static final SystemSecurityContext ADMIN = new SystemSecurityContext(admin, queryId);
@@ -758,6 +763,107 @@ public class TestFileBasedSystemAccessControl
         accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(bob, queryId), "any");
         assertEquals(accessControlManager.filterViewQueryOwnedBy(new SystemSecurityContext(bob, queryId), ImmutableSet.of("a", "b")), ImmutableSet.of("a", "b"));
         accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(bob, queryId), "any");
+    }
+
+    @Test
+    public void testCatalogRulesDocsExample()
+    {
+        String rulesFile = new File("../../docs/src/main/sphinx/security/catalog_rules.json").getAbsolutePath();
+        SystemAccessControl accessControlManager = newFileBasedSystemAccessControl(ImmutableMap.of("security.config-file", rulesFile));
+
+        // admin to access the mysql and the system catalog
+        accessControlManager.checkCanAccessCatalog(new SystemSecurityContext(admin, queryId), "mysql");
+        accessControlManager.checkCanAccessCatalog(new SystemSecurityContext(admin, queryId), "system");
+        accessControlManager.checkCanAccessCatalog(new SystemSecurityContext(admin, queryId), "hive");
+
+        // allow users from the finance and admin groups access to postgres catalog
+        accessControlManager.checkCanAccessCatalog(new SystemSecurityContext(peppa, queryId), "postgres");
+        accessControlManager.checkCanAccessCatalog(new SystemSecurityContext(george, queryId), "postgres");
+        accessControlManager.checkCanAccessCatalog(new SystemSecurityContext(george, queryId), "hive");
+
+        // allow all users to access the hive catalog
+        accessControlManager.checkCanAccessCatalog(new SystemSecurityContext(bob, queryId), "hive");
+
+        accessControlManager.checkCanAccessCatalog(new SystemSecurityContext(alice, queryId), "postgresql");
+
+        //deny all other access
+        assertThatThrownBy(() -> accessControlManager.checkCanAccessCatalog(new SystemSecurityContext(bob, queryId), "system"))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Access Denied: Cannot access catalog system");
+    }
+
+    @Test
+    public void testSchemaRulesDocsExample()
+    {
+        String rulesFile = new File("../../docs/src/main/sphinx/security/schema_rules.json").getAbsolutePath();
+        SystemAccessControl accessControlManager = newFileBasedSystemAccessControl(ImmutableMap.of("security.config-file", rulesFile));
+
+        //  provide ownership of all schemas to user admin
+        accessControlManager.checkCanCreateSchema(new SystemSecurityContext(admin, queryId), new CatalogSchemaName("postgres", "some_schema"));
+        accessControlManager.checkCanDropSchema(new SystemSecurityContext(admin, queryId), new CatalogSchemaName("postgres", "some_schema"));
+        accessControlManager.checkCanRenameSchema(new SystemSecurityContext(admin, queryId), new CatalogSchemaName("postgres", "some_schema"), "some_new_schema");
+        accessControlManager.checkCanShowCreateSchema(new SystemSecurityContext(admin, queryId), new CatalogSchemaName("postgres", "some_schema"));
+
+        //  prevent user guest from ownership of any schema
+        assertThatThrownBy(() -> accessControlManager.checkCanCreateSchema(new SystemSecurityContext(guest, queryId), new CatalogSchemaName("postgres", "some_schema")))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Access Denied: Cannot create schema postgres.some_schema");
+        assertThatThrownBy(() -> accessControlManager.checkCanDropSchema(new SystemSecurityContext(guest, queryId), new CatalogSchemaName("postgres", "some_schema")))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Access Denied: Cannot drop schema postgres.some_schema");
+        assertThatThrownBy(() -> accessControlManager.checkCanRenameSchema(new SystemSecurityContext(guest, queryId), new CatalogSchemaName("postgres", "some_schema"), "some_new_schema"))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Access Denied: Cannot rename schema from postgres.some_schema to some_new_schema");
+        assertThatThrownBy(() -> accessControlManager.checkCanShowCreateSchema(new SystemSecurityContext(guest, queryId), new CatalogSchemaName("postgres", "some_schema")))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Access Denied: Cannot show create schema for postgres.some_schema");
+
+        // treat all users as owners of the default.default schema
+        accessControlManager.checkCanCreateSchema(new SystemSecurityContext(alice, queryId), new CatalogSchemaName("default", "default"));
+        accessControlManager.checkCanDropSchema(new SystemSecurityContext(alice, queryId), new CatalogSchemaName("default", "default"));
+        accessControlManager.checkCanShowCreateSchema(new SystemSecurityContext(alice, queryId), new CatalogSchemaName("default", "default"));
+    }
+
+    @Test
+    public void testTableRulesDocsExample()
+    {
+        String rulesFile = new File("../../docs/src/main/sphinx/security/table_rules.json").getAbsolutePath();
+        SystemAccessControl accessControlManager = newFileBasedSystemAccessControl(ImmutableMap.of("security.config-file", rulesFile));
+
+        // User admin has all privileges across all tables and schemas
+        accessControlManager.checkCanCreateSchema(ADMIN, new CatalogSchemaName("postgres", "some_schema"));
+        accessControlManager.checkCanDropSchema(ADMIN, new CatalogSchemaName("postgres", "some_schema"));
+        accessControlManager.checkCanRenameSchema(ADMIN, new CatalogSchemaName("postgres", "some_schema"), "some_new_schema");
+        accessControlManager.checkCanShowCreateSchema(ADMIN, new CatalogSchemaName("postgres", "some_schema"));
+
+        // User banned_user has no privileges
+        assertAccessDenied(
+                () -> accessControlManager.checkCanSelectFromColumns(
+                        new SystemSecurityContext(bannedUser, queryId),
+                        new CatalogSchemaTableName("some_catalog", "some_schema", "some_table"),
+                        ImmutableSet.of()),
+                SELECT_TABLE_ACCESS_DENIED_MESSAGE);
+
+        // All users have SELECT privileges on default.hr.employees, but the table is filtered to only the row for the current user.
+        assertViewExpressionEquals(
+                accessControlManager.getRowFilter(CHARLIE, new CatalogSchemaTableName("default", "hr", "employee")),
+                new ViewExpression(ADMIN.getIdentity().getUser(), Optional.of("default"), Optional.of("hr"), "user = current_user"));
+
+        // All users have SELECT privileges on all tables in the default.default schema, except for the address column which is blocked, and ssn which is masked.
+        assertAccessDenied(
+                () -> accessControlManager.checkCanSelectFromColumns(
+                        UNKNOWN,
+                        new CatalogSchemaTableName("default", "default", "some_table"),
+                        ImmutableSet.of("some_table", "address")),
+                SELECT_TABLE_ACCESS_DENIED_MESSAGE);
+
+        assertViewExpressionEquals(
+                accessControlManager.getColumnMask(
+                        UNKNOWN,
+                        new CatalogSchemaTableName("default", "default", "some_table"),
+                        "SSN",
+                        VARCHAR),
+                new ViewExpression(ADMIN.getIdentity().getUser(), Optional.of("default"), Optional.of("default"), "'XXX-XX-' + substring(credit_card, -4)"));
     }
 
     @Test

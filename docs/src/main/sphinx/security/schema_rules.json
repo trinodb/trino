@@ -1,0 +1,18 @@
+{
+    "schemas": [
+        {
+            "user": "admin",
+            "schema": ".*",
+            "owner": true
+        },
+        {
+            "user": "guest",
+            "owner": false
+        },
+        {
+            "catalog": "default",
+            "schema": "default",
+            "owner": true
+        }
+    ]
+}

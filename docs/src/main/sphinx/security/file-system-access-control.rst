@@ -131,35 +131,8 @@ and ``admin`` groups access to ``postgres`` catalog, allow all users to
 access the ``hive`` catalog, and deny all other access, you can use the
 following rules:
 
-.. code-block:: json
-
-    {
-      "catalogs": [
-        {
-          "user": "admin",
-          "catalog": "(mysql|system)",
-          "allow": "all"
-        },
-        {
-          "group": "finance|human_resources",
-          "catalog": "postgres",
-          "allow": true
-        },
-        {
-          "catalog": "hive",
-          "allow": "all"
-        },
-        {
-          "user": "alice",
-          "catalog": "postgresql",
-          "allow": "read-only"
-        },
-        {
-          "catalog": "system",
-          "allow": "none"
-        }
-      ]
-    }
+.. literalinclude:: catalog_rules.json
+    :language: json
 
 For group-based rules to match, users need to be assigned to groups by a
 :doc:`/develop/group-provider`.
@@ -180,26 +153,8 @@ For example, to provide ownership of all schemas to user ``admin``, treat all
 users as owners of the ``default.default`` schema and prevent user ``guest`` from
 ownership of any schema, you can use the following rules:
 
-.. code-block:: json
-
-    {
-      "schemas": [
-        {
-          "user": "admin",
-          "schema": ".*",
-          "owner": true
-        },
-        {
-          "user": "guest",
-          "owner": false
-        },
-        {
-          "catalog": "default",
-          "schema": "default",
-          "owner": true
-        }
-      ]
-    }
+.. literalinclude:: schema_rules.json
+    :language: json
 
 Table rules
 ^^^^^^^^^^^
@@ -245,49 +200,8 @@ The example below defines the following table access policy:
 * All users have ``SELECT`` privileges on all tables in the ``default.default``
   schema, except for the ``address`` column which is blocked, and ``ssn`` which is masked.
 
-.. code-block:: json
-
-    {
-      "tables": [
-        {
-          "user": "admin",
-          "privileges": ["SELECT", "INSERT", "DELETE", "OWNERSHIP"]
-        },
-        {
-          "user": "banned_user",
-          "privileges": []
-        },
-        {
-          "catalog": "default",
-          "schema": "hr",
-          "table": "employee",
-          "privileges": ["SELECT"],
-          "filter": "user = current_user",
-          "filter_environment": {
-            "user": "admin"
-          }
-        },
-        {
-          "catalog": "default",
-          "schema": "default",
-          "table": ".*",
-          "privileges": ["SELECT"],
-          "columns" : [
-             {
-                "name": "address",
-                "allow": false
-             },
-             {
-                "name": "SSN",
-                "mask": "'XXX-XX-' + substring(credit_card, -4)",
-                "mask_environment": {
-                  "user": "admin"
-                }
-             }
-          ]
-        }
-      ]
-    }
+.. literalinclude:: table_rules.json
+    :language: json
 
 .. _session_property_rules:
 

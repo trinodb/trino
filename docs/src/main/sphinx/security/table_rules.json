@@ -1,0 +1,41 @@
+{
+    "tables": [
+        {
+            "user": "admin",
+            "privileges": ["SELECT", "INSERT", "DELETE", "OWNERSHIP"]
+        },
+        {
+            "user": "banned_user",
+            "privileges": []
+        },
+        {
+            "catalog": "default",
+            "schema": "hr",
+            "table": "employee",
+            "privileges": ["SELECT"],
+            "filter": "user = current_user",
+            "filter_environment": {
+                "user": "admin"
+            }
+        },
+        {
+            "catalog": "default",
+            "schema": "default",
+            "table": ".*",
+            "privileges": ["SELECT"],
+            "columns" : [
+                {
+                    "name": "address",
+                    "allow": false
+                },
+                {
+                    "name": "SSN",
+                    "mask": "'XXX-XX-' + substring(credit_card, -4)",
+                    "mask_environment": {
+                        "user": "admin"
+                    }
+                }
+            ]
+        }
+    ]
+}
