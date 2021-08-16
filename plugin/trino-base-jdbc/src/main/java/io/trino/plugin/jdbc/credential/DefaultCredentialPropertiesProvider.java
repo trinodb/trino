@@ -22,7 +22,7 @@ import java.util.Optional;
 import static java.util.Objects.requireNonNull;
 
 public class DefaultCredentialPropertiesProvider
-        implements CredentialPropertiesProvider
+        implements CredentialPropertiesProvider<String, String>
 {
     private final CredentialProvider provider;
 
