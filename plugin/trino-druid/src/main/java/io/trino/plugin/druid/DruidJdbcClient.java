@@ -135,6 +135,11 @@ public class DruidJdbcClient
     @Override
     public Optional<ColumnMapping> toColumnMapping(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
+        Optional<ColumnMapping> mapping = getForcedMappingToVarchar(typeHandle);
+        if (mapping.isPresent()) {
+            return mapping;
+        }
+
         switch (typeHandle.getJdbcType()) {
             case Types.VARCHAR:
                 int columnSize = typeHandle.getRequiredColumnSize();
