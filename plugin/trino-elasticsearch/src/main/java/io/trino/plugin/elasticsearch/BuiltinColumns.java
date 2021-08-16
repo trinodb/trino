@@ -30,8 +30,8 @@ import static java.util.function.Function.identity;
 enum BuiltinColumns
 {
     ID("_id", VARCHAR, new IndexMetadata.PrimitiveType("keyword"), true),
-    SOURCE("_source", VARCHAR, new IndexMetadata.PrimitiveType("keyword"),false),
-    SCORE("_score", REAL, new IndexMetadata.PrimitiveType("float"),false);
+    SOURCE("_source", VARCHAR, new IndexMetadata.PrimitiveType("keyword"), false),
+    SCORE("_score", REAL, new IndexMetadata.PrimitiveType("float"), false);
 
     private static final Map<String, BuiltinColumns> COLUMNS_BY_NAME = stream(values())
             .collect(toImmutableMap(BuiltinColumns::getName, identity()));
@@ -80,6 +80,6 @@ enum BuiltinColumns
 
     public ColumnHandle getColumnHandle()
     {
-        return new ElasticsearchColumnHandle(name, type, rawType,supportsPredicates);
+        return new ElasticsearchColumnHandle(name, type, rawType, supportsPredicates);
     }
 }

@@ -577,7 +577,7 @@ public class ElasticsearchClient
                     if (value.has("format")) {
                         formats = Arrays.asList(value.get("format").asText().split("\\|\\|"));
                     }
-                    result.add(new IndexMetadata.Field(isArray, name, new IndexMetadata.DateTimeType(value.get("format")!=null?value.get("format").asText():"date_optional_time")));
+                    result.add(new IndexMetadata.Field(isArray, name, new IndexMetadata.DateTimeType(value.get("format") != null ? value.get("format").asText() : "date_optional_time")));
                     break;
 
                 case "nested":

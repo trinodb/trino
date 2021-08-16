@@ -284,7 +284,7 @@ public class ScanQueryPageSource
         }
         if (type.equals(TIMESTAMP_TZ_MILLIS)) {
             IndexMetadata.DateTimeType dateTimeType = (IndexMetadata.DateTimeType) rawType;
-            return new TimestampDecoder(path,dateTimeType.getFormats());
+            return new TimestampDecoder(path, dateTimeType.getFormats());
         }
         if (type.equals(BOOLEAN)) {
             return new BooleanDecoder(path);
@@ -314,7 +314,7 @@ public class ScanQueryPageSource
             RowType rowType = (RowType) type;
 
             List<Decoder> decoders = rowType.getFields().stream()
-                    .map(field -> createDecoder(appendPath(path, field.getName().get()), field.getType(),rawType))
+                    .map(field -> createDecoder(appendPath(path, field.getName().get()), field.getType(), rawType))
                     .collect(toImmutableList());
 
             List<String> fieldNames = rowType.getFields().stream()
@@ -327,7 +327,7 @@ public class ScanQueryPageSource
         if (type instanceof ArrayType) {
             Type elementType = ((ArrayType) type).getElementType();
 
-            return new ArrayDecoder(createDecoder(path, elementType,rawType));
+            return new ArrayDecoder(createDecoder(path, elementType, rawType));
         }
 
         throw new UnsupportedOperationException("Type not supported: " + type);
