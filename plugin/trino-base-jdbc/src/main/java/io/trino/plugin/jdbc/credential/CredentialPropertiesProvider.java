@@ -20,7 +20,7 @@ import java.util.Map;
 /**
  * Extracts properties needed for authentication for a JDBC connection.
  */
-public interface CredentialPropertiesProvider
+public interface CredentialPropertiesProvider<K, V>
 {
-    Map<String, String> getCredentialProperties(ConnectorIdentity identity);
+    Map<K, V> getCredentialProperties(ConnectorIdentity identity);
 }
