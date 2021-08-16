@@ -18,6 +18,8 @@ import com.google.common.primitives.Ints;
 import io.trino.RowPagesBuilder;
 import io.trino.operator.MarkDistinctOperator.MarkDistinctOperatorFactory;
 import io.trino.spi.Page;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinCompiler;
@@ -34,8 +36,10 @@ import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.testing.Assertions.assertGreaterThan;
+import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.operator.GroupByHashYieldAssertion.createPagesWithDistinctHashKeys;
@@ -48,6 +52,8 @@ import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestMarkDistinctOperator
@@ -106,6 +112,60 @@ public class TestMarkDistinctOperator
         }
 
         OperatorAssertion.assertOperatorEqualsIgnoreOrder(operatorFactory, driverContext, input, expected.build(), hashEnabled, Optional.of(1));
+    }
+
+    @Test(dataProvider = "hashEnabledValues")
+    public void testRleDistinctMask(boolean hashEnabled)
+    {
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), BIGINT);
+        List<Page> inputs = rowPagesBuilder
+                .addSequencePage(100, 0)
+                .addSequencePage(100, 50)
+                .addSequencePage(1, 200)
+                .addSequencePage(1, 100)
+                .build();
+        Page firstInput = inputs.get(0);
+        Page secondInput = inputs.get(1);
+        Page singleDistinctPage = inputs.get(2);
+        Page singleNotDistinctPage = inputs.get(3);
+        OperatorFactory operatorFactory = new MarkDistinctOperatorFactory(0, new PlanNodeId("test"), rowPagesBuilder.getTypes(), ImmutableList.of(0), rowPagesBuilder.getHashChannel(), joinCompiler, blockTypeOperators);
+
+        int maskChannel = firstInput.getChannelCount(); // mask channel is appended to the input
+        try (Operator operator = operatorFactory.createOperator(driverContext)) {
+            operator.addInput(firstInput);
+            Block allDistinctOutput = operator.getOutput().getBlock(maskChannel);
+            operator.addInput(firstInput);
+            Block noDistinctOutput = operator.getOutput().getBlock(maskChannel);
+            // all distinct and no distinct conditions produce RLE blocks
+            assertInstanceOf(allDistinctOutput, RunLengthEncodedBlock.class);
+            assertTrue(BOOLEAN.getBoolean(allDistinctOutput, 0));
+            assertInstanceOf(noDistinctOutput, RunLengthEncodedBlock.class);
+            assertFalse(BOOLEAN.getBoolean(noDistinctOutput, 0));
+
+            operator.addInput(secondInput);
+            Block halfDistinctOutput = operator.getOutput().getBlock(maskChannel);
+            // [0,50) is not distinct
+            for (int position = 0; position < 50; position++) {
+                assertFalse(BOOLEAN.getBoolean(halfDistinctOutput, position));
+            }
+            for (int position = 50; position < 100; position++) {
+                assertTrue(BOOLEAN.getBoolean(halfDistinctOutput, position));
+            }
+
+            operator.addInput(singleDistinctPage);
+            Block singleDistinctBlock = operator.getOutput().getBlock(maskChannel);
+            assertFalse(singleDistinctBlock instanceof RunLengthEncodedBlock, "single position inputs should not be RLE");
+            assertTrue(BOOLEAN.getBoolean(singleDistinctBlock, 0));
+
+            operator.addInput(singleNotDistinctPage);
+            Block singleNotDistinctBlock = operator.getOutput().getBlock(maskChannel);
+            assertFalse(singleNotDistinctBlock instanceof RunLengthEncodedBlock, "single position inputs should not be RLE");
+            assertFalse(BOOLEAN.getBoolean(singleNotDistinctBlock, 0));
+        }
+        catch (Exception e) {
+            throwIfUnchecked(e);
+            throw new RuntimeException(e);
+        }
     }
 
     @Test(dataProvider = "dataType")
