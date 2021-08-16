@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.elasticsearch;
 
+import io.trino.plugin.elasticsearch.client.IndexMetadata;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.Type;
@@ -28,21 +29,23 @@ import static java.util.function.Function.identity;
 
 enum BuiltinColumns
 {
-    ID("_id", VARCHAR, true),
-    SOURCE("_source", VARCHAR, false),
-    SCORE("_score", REAL, false);
+    ID("_id", VARCHAR, new IndexMetadata.PrimitiveType("keyword"), true),
+    SOURCE("_source", VARCHAR, new IndexMetadata.PrimitiveType("keyword"),false),
+    SCORE("_score", REAL, new IndexMetadata.PrimitiveType("float"),false);
 
     private static final Map<String, BuiltinColumns> COLUMNS_BY_NAME = stream(values())
             .collect(toImmutableMap(BuiltinColumns::getName, identity()));
 
     private final String name;
     private final Type type;
+    private final IndexMetadata.Type rawType;
     private final boolean supportsPredicates;
 
-    BuiltinColumns(String name, Type type, boolean supportsPredicates)
+    BuiltinColumns(String name, Type type, IndexMetadata.Type rawType, boolean supportsPredicates)
     {
         this.name = name;
         this.type = type;
+        this.rawType = rawType;
         this.supportsPredicates = supportsPredicates;
     }
 
@@ -77,6 +80,6 @@ enum BuiltinColumns
 
     public ColumnHandle getColumnHandle()
     {
-        return new ElasticsearchColumnHandle(name, type, supportsPredicates);
+        return new ElasticsearchColumnHandle(name, type, rawType,supportsPredicates);
     }
 }

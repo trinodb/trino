@@ -83,16 +83,16 @@ public class IndexMetadata
     public static class DateTimeType
             implements Type
     {
-        private final List<String> formats;
+        private final String formats;
 
-        public DateTimeType(List<String> formats)
+        public DateTimeType(String formats)
         {
             requireNonNull(formats, "formats is null");
 
-            this.formats = ImmutableList.copyOf(formats);
+            this.formats = formats;
         }
 
-        public List<String> getFormats()
+        public String getFormats()
         {
             return formats;
         }

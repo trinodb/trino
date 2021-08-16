@@ -68,6 +68,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -92,7 +93,7 @@ public class ElasticsearchMetadata
 
     private static final Map<String, ColumnHandle> PASSTHROUGH_QUERY_COLUMNS = ImmutableMap.of(
             PASSTHROUGH_QUERY_RESULT_COLUMN_NAME,
-            new ElasticsearchColumnHandle(PASSTHROUGH_QUERY_RESULT_COLUMN_NAME, VARCHAR, false));
+            new ElasticsearchColumnHandle(PASSTHROUGH_QUERY_RESULT_COLUMN_NAME, VARCHAR, new PrimitiveType("keyword"),false));
 
     private final Type ipAddressType;
     private final ElasticsearchClient client;
@@ -238,6 +239,7 @@ public class ElasticsearchMetadata
             result.put(field.getName(), new ElasticsearchColumnHandle(
                     field.getName(),
                     toTrinoType(field),
+                    field.getType(),
                     supportsPredicates(field.getType())));
         }
 
@@ -306,7 +308,7 @@ public class ElasticsearchMetadata
         }
         else if (type instanceof DateTimeType) {
             if (((DateTimeType) type).getFormats().isEmpty()) {
-                return TIMESTAMP_MILLIS;
+                return TIMESTAMP_TZ_MILLIS;
             }
             // otherwise, skip -- we don't support custom formats, yet
         }

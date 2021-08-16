@@ -16,30 +16,33 @@ package io.trino.plugin.elasticsearch.decoders;
 import com.google.common.primitives.Longs;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.DateTimeEncoding;
 import org.elasticsearch.common.document.DocumentField;
+import org.elasticsearch.common.time.DateFormatter;
+import org.elasticsearch.common.time.DateFormatters;
 import org.elasticsearch.search.SearchHit;
 
-import java.time.Instant;
-import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.function.Supplier;
 
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
-import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
-import static java.time.format.DateTimeFormatter.ISO_DATE_TIME;
 import static java.util.Objects.requireNonNull;
 
 public class TimestampDecoder
         implements Decoder
 {
     private final String path;
+    private final String format;
 
-    public TimestampDecoder(String path)
+    public TimestampDecoder(String path, String format)
     {
         this.path = requireNonNull(path, "path is null");
+        this.format = requireNonNull(format, "format is null");
     }
 
     @Override
@@ -62,19 +65,23 @@ public class TimestampDecoder
             output.appendNull();
         }
         else {
-            LocalDateTime timestamp;
+            Long epochMillis;
+            ZoneOffset zoneOffset;
             if (value instanceof String) {
                 String valueString = (String) value;
-                Long epochMillis = Longs.tryParse(valueString);
-                if (epochMillis != null) {
-                    timestamp = LocalDateTime.ofInstant(Instant.ofEpochMilli(epochMillis), UTC);
+                epochMillis = Longs.tryParse(valueString);
+                if (epochMillis == null) {
+                    ZonedDateTime dateTime = DateFormatters.from(DateFormatter.forPattern(format).parse(valueString));
+                    zoneOffset = dateTime.getOffset();
+                    epochMillis = dateTime.toInstant().toEpochMilli();
                 }
                 else {
-                    timestamp = ISO_DATE_TIME.parse(valueString, LocalDateTime::from);
+                    zoneOffset = UTC;
                 }
             }
             else if (value instanceof Number) {
-                timestamp = LocalDateTime.ofInstant(Instant.ofEpochMilli(((Number) value).longValue()), UTC);
+                epochMillis = ((Number) value).longValue();
+                zoneOffset = UTC;
             }
             else {
                 throw new TrinoException(NOT_SUPPORTED, format(
@@ -84,9 +91,7 @@ public class TimestampDecoder
                         value.getClass().getSimpleName()));
             }
 
-            long epochMicros = timestamp.atOffset(UTC).toInstant().toEpochMilli() * MICROSECONDS_PER_MILLISECOND;
-
-            TIMESTAMP_MILLIS.writeLong(output, epochMicros);
+            TIMESTAMP_TZ_MILLIS.writeLong(output, DateTimeEncoding.packDateTimeWithZone(epochMillis, zoneOffset.getId()));
         }
     }
 }

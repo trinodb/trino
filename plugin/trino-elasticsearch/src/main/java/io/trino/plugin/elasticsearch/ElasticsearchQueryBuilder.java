@@ -14,10 +14,13 @@
 package io.trino.plugin.elasticsearch;
 
 import io.airlift.slice.Slice;
+import io.trino.plugin.elasticsearch.client.IndexMetadata;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.DateTimeEncoding;
 import io.trino.spi.type.Type;
+import org.elasticsearch.common.time.DateFormatter;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.ExistsQueryBuilder;
 import org.elasticsearch.index.query.MatchAllQueryBuilder;
@@ -28,10 +31,7 @@ import org.elasticsearch.index.query.TermQueryBuilder;
 
 import java.time.Instant;
 import java.time.ZoneOffset;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -43,6 +43,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -64,7 +65,7 @@ public final class ElasticsearchQueryBuilder
 
                 checkArgument(!domain.isNone(), "Unexpected NONE domain for %s", column.getName());
                 if (!domain.isAll()) {
-                    queryBuilder.filter(new BoolQueryBuilder().must(buildPredicate(column.getName(), domain, column.getType())));
+                    queryBuilder.filter(new BoolQueryBuilder().must(buildPredicate(column.getName(), domain, column.getType(), column.getRawType())));
                 }
             }
         }
@@ -77,7 +78,7 @@ public final class ElasticsearchQueryBuilder
         return new MatchAllQueryBuilder();
     }
 
-    private static QueryBuilder buildPredicate(String columnName, Domain domain, Type type)
+    private static QueryBuilder buildPredicate(String columnName, Domain domain, Type type, IndexMetadata.Type rawType)
     {
         checkArgument(domain.getType().isOrderable(), "Domain type must be orderable");
         BoolQueryBuilder boolQueryBuilder = new BoolQueryBuilder();
@@ -92,10 +93,10 @@ public final class ElasticsearchQueryBuilder
             return boolQueryBuilder;
         }
 
-        return buildTermQuery(boolQueryBuilder, columnName, domain, type);
+        return buildTermQuery(boolQueryBuilder, columnName, domain, type, rawType);
     }
 
-    private static QueryBuilder buildTermQuery(BoolQueryBuilder queryBuilder, String columnName, Domain domain, Type type)
+    private static QueryBuilder buildTermQuery(BoolQueryBuilder queryBuilder, String columnName, Domain domain, Type type, IndexMetadata.Type rawType)
     {
         for (Range range : domain.getValues().getRanges().getOrderedRanges()) {
             BoolQueryBuilder rangeQueryBuilder = new BoolQueryBuilder();
@@ -106,7 +107,7 @@ public final class ElasticsearchQueryBuilder
             }
             else {
                 if (!range.isLowUnbounded()) {
-                    Object lowBound = getValue(type, range.getLowBoundedValue());
+                    Object lowBound = getValue(type, rawType, range.getLowBoundedValue());
                     if (range.isLowInclusive()) {
                         rangeQueryBuilder.filter(new RangeQueryBuilder(columnName).gte(lowBound));
                     }
@@ -115,7 +116,7 @@ public final class ElasticsearchQueryBuilder
                     }
                 }
                 if (!range.isHighUnbounded()) {
-                    Object highBound = getValue(type, range.getHighBoundedValue());
+                    Object highBound = getValue(type, rawType, range.getHighBoundedValue());
                     if (range.isHighInclusive()) {
                         rangeQueryBuilder.filter(new RangeQueryBuilder(columnName).lte(highBound));
                     }
@@ -126,7 +127,7 @@ public final class ElasticsearchQueryBuilder
             }
 
             if (valuesToInclude.size() == 1) {
-                rangeQueryBuilder.filter(new TermQueryBuilder(columnName, getValue(type, getOnlyElement(valuesToInclude))));
+                rangeQueryBuilder.filter(new TermQueryBuilder(columnName, getValue(type, rawType, getOnlyElement(valuesToInclude))));
             }
             queryBuilder.should(rangeQueryBuilder);
         }
@@ -137,7 +138,7 @@ public final class ElasticsearchQueryBuilder
         return queryBuilder;
     }
 
-    private static Object getValue(Type type, Object value)
+    private static Object getValue(Type type, IndexMetadata.Type rawType, Object value)
     {
         if (type.equals(BOOLEAN) ||
                 type.equals(TINYINT) ||
@@ -153,11 +154,11 @@ public final class ElasticsearchQueryBuilder
         if (type.equals(VARCHAR)) {
             return ((Slice) value).toStringUtf8();
         }
-        if (type.equals(TIMESTAMP_MILLIS)) {
-            return Instant.ofEpochMilli(floorDiv((Long) value, MICROSECONDS_PER_MILLISECOND))
-                    .atZone(ZoneOffset.UTC)
-                    .toLocalDateTime()
-                    .format(ISO_DATE_TIME);
+        if (type.equals(TIMESTAMP_TZ_MILLIS)) {
+            IndexMetadata.DateTimeType dateTimeType = (IndexMetadata.DateTimeType) rawType;
+            String formats = dateTimeType.getFormats();
+            long millsUtc = DateTimeEncoding.unpackMillisUtc((Long) value);
+            return DateFormatter.forPattern(Arrays.asList(formats.split("\\|\\|")).get(0)).formatMillis(millsUtc);
         }
         throw new IllegalArgumentException("Unhandled type: " + type);
     }
