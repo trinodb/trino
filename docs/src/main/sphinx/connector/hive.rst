@@ -574,10 +574,10 @@ Property Name                                        Description
                                                      defaults to ``20``.
 
 ``hive.metastore.glue.read-statistics-threads``      Number of threads for parallel statistic fetches from Glue,
-                                                     defaults to ``1``.
+                                                     defaults to ``5``.
 
 ``hive.metastore.glue.write-statistics-threads``     Number of threads for parallel statistic writes to Glue,
-                                                     defaults to ``1``.
+                                                     defaults to ``5``.
 ==================================================== ============================================================
 
 Google Cloud Storage configuration
