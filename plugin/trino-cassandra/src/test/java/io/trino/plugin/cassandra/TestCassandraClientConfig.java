@@ -28,6 +28,7 @@ import static com.datastax.driver.core.ProtocolVersion.V2;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -49,6 +50,7 @@ public class TestCassandraClientConfig
                 .setAllowDropTable(false)
                 .setUsername(null)
                 .setPassword(null)
+                .setSessionRefreshInterval(new Duration(Long.MAX_VALUE, DAYS))
                 .setClientReadTimeout(new Duration(SocketOptions.DEFAULT_READ_TIMEOUT_MILLIS, MILLISECONDS))
                 .setClientConnectTimeout(new Duration(SocketOptions.DEFAULT_CONNECT_TIMEOUT_MILLIS, MILLISECONDS))
                 .setClientSoLinger(null)
@@ -90,6 +92,7 @@ public class TestCassandraClientConfig
                 .put("cassandra.allow-drop-table", "true")
                 .put("cassandra.username", "my_username")
                 .put("cassandra.password", "my_password")
+                .put("cassandra.session-refresh-interval", "5m")
                 .put("cassandra.client.read-timeout", "11ms")
                 .put("cassandra.client.connect-timeout", "22ms")
                 .put("cassandra.client.so-linger", "33")
@@ -124,6 +127,7 @@ public class TestCassandraClientConfig
                 .setAllowDropTable(true)
                 .setUsername("my_username")
                 .setPassword("my_password")
+                .setSessionRefreshInterval(new Duration(5, MINUTES))
                 .setClientReadTimeout(new Duration(11, MILLISECONDS))
                 .setClientConnectTimeout(new Duration(22, MILLISECONDS))
                 .setClientSoLinger(33)

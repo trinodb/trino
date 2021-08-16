@@ -39,6 +39,7 @@ import static com.google.common.io.Resources.getResource;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -80,10 +81,11 @@ public class CassandraServer
                         new InetSocketAddress(this.dockerContainer.getContainerIpAddress(), this.dockerContainer.getMappedPort(PORT))))
                 .withMaxSchemaAgreementWaitSeconds(30);
 
-        ReopeningCluster cluster = new ReopeningCluster(clusterBuilder::build);
+        ReopeningCluster cluster = new ReopeningCluster(clusterBuilder::build, new Duration(Long.MAX_VALUE, DAYS));
         CassandraSession session = new CassandraSession(
                 JsonCodec.listJsonCodec(ExtraColumnMetadata.class),
                 cluster,
+                new Duration(Long.MAX_VALUE, DAYS),
                 new Duration(1, MINUTES));
 
         try {

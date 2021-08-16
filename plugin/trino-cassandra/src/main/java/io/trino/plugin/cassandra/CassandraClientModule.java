@@ -201,7 +201,8 @@ public class CassandraClientModule
                 new ReopeningCluster(() -> {
                     contactPoints.forEach(clusterBuilder::addContactPoint);
                     return clusterBuilder.build();
-                }),
+                }, config.getSessionRefreshInterval()),
+                config.getSessionRefreshInterval(),
                 config.getNoHostAvailableRetryTimeout());
     }
 

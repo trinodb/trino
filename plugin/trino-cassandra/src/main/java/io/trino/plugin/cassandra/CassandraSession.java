@@ -67,7 +67,7 @@ import java.util.stream.Stream;
 import static com.datastax.driver.core.querybuilder.QueryBuilder.eq;
 import static com.datastax.driver.core.querybuilder.QueryBuilder.select;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Suppliers.memoize;
+import static com.google.common.base.Suppliers.memoizeWithExpiration;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.transform;
@@ -98,12 +98,12 @@ public class CassandraSession
     private final Supplier<Session> session;
     private final Duration noHostAvailableRetryTimeout;
 
-    public CassandraSession(JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec, Cluster cluster, Duration noHostAvailableRetryTimeout)
+    public CassandraSession(JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec, Cluster cluster, Duration sessionRefreshInterval, Duration noHostAvailableRetryTimeout)
     {
         this.extraColumnMetadataCodec = requireNonNull(extraColumnMetadataCodec, "extraColumnMetadataCodec is null");
         this.cluster = requireNonNull(cluster, "cluster is null");
         this.noHostAvailableRetryTimeout = requireNonNull(noHostAvailableRetryTimeout, "noHostAvailableRetryTimeout is null");
-        this.session = memoize(cluster::connect);
+        this.session = memoizeWithExpiration(cluster::connect, sessionRefreshInterval.roundTo(sessionRefreshInterval.getUnit()), sessionRefreshInterval.getUnit());
     }
 
     public VersionNumber getCassandraVersion()

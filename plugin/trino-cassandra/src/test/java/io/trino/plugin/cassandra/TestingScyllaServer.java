@@ -28,6 +28,7 @@ import java.util.concurrent.TimeoutException;
 import static com.datastax.driver.core.ProtocolVersion.V3;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -65,7 +66,8 @@ public class TestingScyllaServer
 
         session = new CassandraSession(
                 JsonCodec.listJsonCodec(ExtraColumnMetadata.class),
-                new ReopeningCluster(clusterBuilder::build),
+                new ReopeningCluster(clusterBuilder::build, new io.airlift.units.Duration(Long.MAX_VALUE, DAYS)),
+                new io.airlift.units.Duration(Long.MAX_VALUE, DAYS),
                 new Duration(1, MINUTES));
     }
 

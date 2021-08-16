@@ -37,6 +37,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
+import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
@@ -58,6 +59,7 @@ public class CassandraClientConfig
     private boolean allowDropTable;
     private String username;
     private String password;
+    private Duration sessionRefreshInterval = new Duration(Long.MAX_VALUE, DAYS);
     private Duration clientReadTimeout = new Duration(SocketOptions.DEFAULT_READ_TIMEOUT_MILLIS, MILLISECONDS);
     private Duration clientConnectTimeout = new Duration(SocketOptions.DEFAULT_CONNECT_TIMEOUT_MILLIS, MILLISECONDS);
     private Integer clientSoLinger;
@@ -224,6 +226,19 @@ public class CassandraClientConfig
     public CassandraClientConfig setPassword(String password)
     {
         this.password = password;
+        return this;
+    }
+
+    @MinDuration("1ms")
+    public Duration getSessionRefreshInterval()
+    {
+        return sessionRefreshInterval;
+    }
+
+    @Config("cassandra.session-refresh-interval")
+    public CassandraClientConfig setSessionRefreshInterval(Duration sessionRefreshInterval)
+    {
+        this.sessionRefreshInterval = sessionRefreshInterval;
         return this;
     }
 

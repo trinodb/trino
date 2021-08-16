@@ -17,6 +17,7 @@ import com.datastax.driver.core.CloseFuture;
 import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.DelegatingCluster;
 import io.airlift.log.Logger;
+import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
@@ -24,6 +25,7 @@ import javax.annotation.concurrent.ThreadSafe;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Suppliers.memoizeWithExpiration;
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
@@ -40,9 +42,10 @@ public class ReopeningCluster
 
     private final Supplier<Cluster> supplier;
 
-    public ReopeningCluster(Supplier<Cluster> supplier)
+    public ReopeningCluster(Supplier<Cluster> supplier, Duration sessionRefreshInterval)
     {
-        this.supplier = requireNonNull(supplier, "supplier is null");
+        requireNonNull(supplier, "supplier is null");
+        this.supplier = memoizeWithExpiration(supplier::get, sessionRefreshInterval.roundTo(sessionRefreshInterval.getUnit()), sessionRefreshInterval.getUnit());
     }
 
     @Override
@@ -50,9 +53,7 @@ public class ReopeningCluster
     {
         checkState(!closed, "Cluster has been closed");
 
-        if (delegate == null) {
-            delegate = supplier.get();
-        }
+        delegate = supplier.get();
 
         if (delegate.isClosed()) {
             log.warn("Cluster has been closed internally");
