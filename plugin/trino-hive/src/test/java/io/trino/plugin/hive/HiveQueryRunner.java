@@ -317,7 +317,12 @@ public final class HiveQueryRunner
         DistributedQueryRunner queryRunner = HiveQueryRunner.builder()
                 .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
                 .setSkipTimezoneSetup(true)
-                .setHiveProperties(ImmutableMap.of())
+                .setHiveProperties(ImmutableMap.of(
+                        "hive.non-managed-table-writes-enabled", "true",
+                        "hive.security", "allow-all",
+                        "hive.azure.abfs-storage-account", "automation3",
+                        "hive.azure.abfs-access-key", "ycT4LUrIEuTC04q5xJ7i+UmNU8PBkNzFRJRk/N7Gr+Skm72La1qB5RVwWGhes2lIwb90RDJqWR37/iNHOWlELg=="
+                ))
                 .setInitialTables(TpchTable.getTables())
                 .setBaseDataDir(baseDataDir)
                 .build();
