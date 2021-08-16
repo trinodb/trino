@@ -13,6 +13,10 @@
  */
 package io.trino.plugin.elasticsearch.client;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -62,6 +66,16 @@ public class IndexMetadata
         }
     }
 
+    @JsonTypeInfo(
+            use = JsonTypeInfo.Id.NAME,
+            include = JsonTypeInfo.As.PROPERTY,
+            property = "type")
+    @JsonSubTypes(
+            {
+            @JsonSubTypes.Type(value = PrimitiveType.class, name = "primitiveType"),
+            @JsonSubTypes.Type(value = DateTimeType.class, name = "dateTimeType"),
+            @JsonSubTypes.Type(value = ObjectType.class, name = "objectType")
+            })
     public interface Type {}
 
     public static class PrimitiveType
@@ -69,11 +83,13 @@ public class IndexMetadata
     {
         private final String name;
 
-        public PrimitiveType(String name)
+        @JsonCreator
+        public PrimitiveType(@JsonProperty("name") String name)
         {
             this.name = requireNonNull(name, "name is null");
         }
 
+        @JsonProperty
         public String getName()
         {
             return name;
@@ -85,13 +101,15 @@ public class IndexMetadata
     {
         private final String formats;
 
-        public DateTimeType(String formats)
+        @JsonCreator
+        public DateTimeType(@JsonProperty("formats") String formats)
         {
             requireNonNull(formats, "formats is null");
 
             this.formats = formats;
         }
 
+        @JsonProperty
         public String getFormats()
         {
             return formats;
@@ -103,13 +121,15 @@ public class IndexMetadata
     {
         private final List<Field> fields;
 
-        public ObjectType(List<Field> fields)
+        @JsonCreator
+        public ObjectType(@JsonProperty("fields") List<Field> fields)
         {
             requireNonNull(fields, "fields is null");
 
             this.fields = ImmutableList.copyOf(fields);
         }
 
+        @JsonProperty
         public List<Field> getFields()
         {
             return fields;

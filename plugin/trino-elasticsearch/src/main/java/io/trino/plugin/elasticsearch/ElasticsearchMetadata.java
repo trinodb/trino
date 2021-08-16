@@ -306,10 +306,7 @@ public class ElasticsearchMetadata
             }
         }
         else if (type instanceof DateTimeType) {
-            if (((DateTimeType) type).getFormats().isEmpty()) {
-                return TIMESTAMP_TZ_MILLIS;
-            }
-            // otherwise, skip -- we don't support custom formats, yet
+            return TIMESTAMP_TZ_MILLIS;
         }
         else if (type instanceof ObjectType) {
             ObjectType objectType = (ObjectType) type;
