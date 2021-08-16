@@ -104,7 +104,7 @@ Property Name                                                 Description
 
 ``cassandra.batch-size``                                      Maximum number of statements to execute in one batch.
 
-``cassandra.session-refresh-interval``                        Refresh interval for initializing a session. New keyspaces or tables
+``cassandra.session-refresh-interval``                        Refresh interval for initializing a metadata. New keyspaces or tables
                                                               created in Yugabyte CQL won't appear until the next interval.
 
 ``cassandra.client.read-timeout``                             Maximum time the Cassandra driver waits for an
