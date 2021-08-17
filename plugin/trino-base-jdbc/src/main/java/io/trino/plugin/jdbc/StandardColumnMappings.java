@@ -262,9 +262,7 @@ public final class StandardColumnMappings
 
     public static SliceWriteFunction charWriteFunction()
     {
-        return (statement, index, value) -> {
-            statement.setString(index, value.toStringUtf8());
-        };
+        return (statement, index, value) -> statement.setString(index, value.toStringUtf8());
     }
 
     public static ColumnMapping defaultVarcharColumnMapping(int columnSize, boolean isRemoteCaseSensitive)
