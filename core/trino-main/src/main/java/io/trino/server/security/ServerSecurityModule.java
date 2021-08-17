@@ -63,7 +63,7 @@ public class ServerSecurityModule
 
         newOptionalBinder(binder, PasswordAuthenticatorManager.class);
         binder.bind(CertificateAuthenticatorManager.class).in(Scopes.SINGLETON);
-
+        newOptionalBinder(binder, HeaderAuthenticatorManager.class);
         insecureHttpAuthenticationDefaults();
 
         authenticatorBinder(binder); // create empty map binder
@@ -76,6 +76,10 @@ public class ServerSecurityModule
         install(authenticatorModule("password", PasswordAuthenticator.class, used -> {
             configBinder(binder).bindConfig(PasswordAuthenticatorConfig.class);
             binder.bind(PasswordAuthenticatorManager.class).in(Scopes.SINGLETON);
+        }));
+        install(authenticatorModule("header", HeaderAuthenticator.class, headerBinder -> {
+            configBinder(headerBinder).bindConfig(HeaderAuthenticatorConfig.class);
+            headerBinder.bind(HeaderAuthenticatorManager.class).in(Scopes.SINGLETON);
         }));
         install(authenticatorModule("jwt", JwtAuthenticator.class, new JwtAuthenticatorSupportModule()));
         install(authenticatorModule("oauth2", OAuth2Authenticator.class, new OAuth2AuthenticationSupportModule()));

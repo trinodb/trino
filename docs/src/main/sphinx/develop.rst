@@ -16,6 +16,7 @@ This guide is intended for Trino contributors and plugin developers.
     develop/system-access-control
     develop/password-authenticator
     develop/certificate-authenticator
+    develop/header-authenticator
     develop/group-provider
     develop/event-listener
     develop/client-protocol

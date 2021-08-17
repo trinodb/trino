@@ -49,6 +49,7 @@ import io.trino.security.AccessControlManager;
 import io.trino.security.AccessControlModule;
 import io.trino.security.GroupProviderManager;
 import io.trino.server.security.CertificateAuthenticatorManager;
+import io.trino.server.security.HeaderAuthenticatorManager;
 import io.trino.server.security.PasswordAuthenticatorManager;
 import io.trino.server.security.ServerSecurityModule;
 import io.trino.version.EmbedVersion;
@@ -134,6 +135,8 @@ public class Server
             injector.getInstance(EventListenerManager.class).loadEventListeners();
             injector.getInstance(GroupProviderManager.class).loadConfiguredGroupProvider();
             injector.getInstance(CertificateAuthenticatorManager.class).loadCertificateAuthenticator();
+            injector.getInstance(optionalKey(HeaderAuthenticatorManager.class))
+                    .ifPresent(HeaderAuthenticatorManager::loadHeaderAuthenticator);
 
             injector.getInstance(Announcer.class).start();
 
