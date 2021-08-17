@@ -10,21 +10,47 @@
 package com.starburstdata.presto.plugin.sqlserver;
 
 import com.google.common.collect.ImmutableMap;
+import com.starburstdata.presto.kerberos.TestingKdcServer;
+import com.starburstdata.presto.testing.SystemPropertiesLock.PropertiesLock;
+import com.starburstdata.presto.testing.TestingResourceLock.ResourceLock;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.testing.TestingConnectorContext;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.nio.file.Path;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.starburstdata.presto.license.TestingLicenseManager.NOOP_LICENSE_MANAGER;
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerConfig.SQLSERVER_OVERRIDE_CATALOG_ENABLED;
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerConfig.SQLSERVER_OVERRIDE_CATALOG_NAME;
+import static com.starburstdata.presto.testing.SystemPropertiesLock.lockSystemProperties;
+import static io.airlift.testing.Closeables.closeAll;
 import static java.nio.file.Files.createTempFile;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestStarburstSqlServerPlugin
 {
+    private ResourceLock<PropertiesLock> propertiesLock;
+    private TestingKdcServer kdcServer;
+
+    @BeforeClass
+    public void setUp()
+            throws Exception
+    {
+        propertiesLock = lockSystemProperties();
+        kdcServer = new TestingKdcServer(propertiesLock);
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void teardown()
+            throws Exception
+    {
+        closeAll(kdcServer, propertiesLock);
+    }
+
     @Test
     public void testCreateConnector()
     {
@@ -86,5 +112,47 @@ public class TestStarburstSqlServerPlugin
                 new TestingConnectorContext()))
                 .hasMessageMatching("(?s)Unable to create injector, see the following errors:.*" +
                         "Cannot specify 'user' parameter in JDBC URL when using Kerberos authentication.*");
+    }
+
+    @Test
+    public void testKerberosPassThroughWithUserName()
+    {
+        Plugin plugin = new StarburstSqlServerPlugin();
+        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
+
+        assertThatThrownBy(() -> factory.create(
+                "test",
+                ImmutableMap.<String, String>builder()
+                        .put("connection-url", "jdbc:sqlserver:test?user=admin")
+                        .put("sqlserver.authentication.type", "KERBEROS_PASS_THROUGH")
+                        .put("http.authentication.krb5.config", kdcServer.getKrb5ConfFile().getPath())
+                        .put("internal-communication.shared-secret", "secret")
+                        .put("http-server.authentication.krb5.service-name", "client")
+                        .put("http-server.authentication.krb5.keytab", kdcServer.getServerKeytab().getPath())
+                        .build(),
+                new TestingConnectorContext()))
+                .hasMessageMatching("(?s)Unable to create injector, see the following errors:.*" +
+                        "Cannot specify 'user' parameter in JDBC URL when using Kerberos authentication.*");
+    }
+
+    @Test
+    public void testKerberosPassThroughWithImpersonation()
+    {
+        StarburstSqlServerPlugin plugin = new StarburstSqlServerPlugin();
+        ConnectorFactory factory = plugin.getConnectorFactory(NOOP_LICENSE_MANAGER);
+
+        assertThatThrownBy(() -> factory.create(
+                "test",
+                ImmutableMap.<String, String>builder()
+                        .put("connection-url", "jdbc:sqlserver:test")
+                        .put("sqlserver.authentication.type", "KERBEROS_PASS_THROUGH")
+                        .put("http.authentication.krb5.config", kdcServer.getKrb5ConfFile().getPath())
+                        .put("internal-communication.shared-secret", "secret")
+                        .put("http-server.authentication.krb5.service-name", "client")
+                        .put("http-server.authentication.krb5.keytab", kdcServer.getServerKeytab().getPath())
+                        .put("sqlserver.impersonation.enabled", "true")
+                        .build(),
+                new TestingConnectorContext()))
+                .hasMessageMatching("(?s).*Impersonation is not allowed when using credentials pass-through.*");
     }
 }
