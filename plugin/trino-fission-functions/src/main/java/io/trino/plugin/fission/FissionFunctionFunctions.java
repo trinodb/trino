@@ -40,63 +40,48 @@ public class FissionFunctionFunctions
     }
 
     @ScalarFunction("fission_dnsdb")
-    @Description("Converts the string to alternating case")
+    @Description("Send get request to fission dnsdb endpoint")
     @SqlType(StandardTypes.BIGINT)
-    public static long dnsdb(@SqlType(StandardTypes.VARCHAR) Slice slice) throws JSONException, IOException
+    public static long FetchDnsDb(@SqlType(StandardTypes.VARCHAR) Slice slice) throws JSONException, IOException
     {
-        CloseableHttpClient httpClient;
-        HttpClientBuilder builder = HttpClientBuilder.create().setDefaultCookieStore(cookieStore);
-        httpClient = builder.build();
-        String result = "";
         int count = 0;
-        try {
-            HttpGet getRequest = new HttpGet(String.format("%s/dnsdb?lookup=%s", FissionFunctionConfigProvider.getFissionFunctionBaseURL(), slice.toStringUtf8()));
-            HttpResponse response = httpClient.execute(getRequest);
-            result = EntityUtils.toString(response.getEntity());
-            JSONObject myObject = new JSONObject(result);
+        JSONObject myObject = ExecuteFissionFunctionGET(String.format("%s/dnsdb?lookup=%s", FissionFunctionConfigProvider.getFissionFunctionBaseURL(), slice.toStringUtf8()));
 
-            if (myObject.has("Message")) {
-                count = 0;
-            }
-            else if (myObject.has("total_count")) {
-                count = Integer.parseInt(myObject.getString("total_count"));
-            }
+        if (myObject.has("total_count")) {
+            count = Integer.parseInt(myObject.getString("total_count"));
         }
-        catch (IOException e) {
-            throw e;
-        }
-        catch (JSONException e) {
-            throw e;
-        }
+
         return count;
     }
 
     @ScalarFunction("fission_despicablename")
-    @Description("Converts the string to alternating case")
+    @Description("Send get request to fission dnsdb endpoint")
     @SqlType(StandardTypes.BIGINT)
-    public static long despicablename(@SqlType(StandardTypes.VARCHAR) Slice slice) throws JSONException, IOException
+    public static long FetchDespicableName(@SqlType(StandardTypes.VARCHAR) Slice slice) throws JSONException, IOException
     {
+        int count = 0;
+        JSONObject myObject = ExecuteFissionFunctionGET(String.format("%s/despicablename?domain=%s", FissionFunctionConfigProvider.getFissionFunctionBaseURL(), slice.toStringUtf8()));
+
+        if (myObject.has("probs")) {
+            count = Integer.parseInt(myObject.getJSONArray("probs").getJSONArray(0).getString(0));
+        }
+
+        return count;
+    }
+
+    private static JSONObject ExecuteFissionFunctionGET(String endpoint) throws JSONException, IOException
+    {
+        String result = "";
+
         CloseableHttpClient httpClient;
         HttpClientBuilder builder = HttpClientBuilder.create().setDefaultCookieStore(cookieStore);
         httpClient = builder.build();
-        String result = "";
-        int count = 0;
-        try {
-            HttpGet getRequest = new HttpGet(String.format("%s/despicablename?domain=%s", FissionFunctionConfigProvider.getFissionFunctionBaseURL(), slice.toStringUtf8()));
-            HttpResponse response = httpClient.execute(getRequest);
-            result = EntityUtils.toString(response.getEntity());
-            JSONObject myObject = new JSONObject(result);
 
-            if (myObject.has("probs")) {
-                count = Integer.parseInt(myObject.getJSONArray("probs").getJSONArray(0).getString(0));
-            }
-        }
-        catch (IOException e) {
-            throw e;
-        }
-        catch (JSONException e) {
-            throw e;
-        }
-        return count;
+        HttpGet getRequest = new HttpGet(endpoint);
+        HttpResponse response = httpClient.execute(getRequest);
+        result = EntityUtils.toString(response.getEntity());
+        JSONObject myObject = new JSONObject(result);
+
+        return myObject;
     }
 }
