@@ -27,7 +27,6 @@ import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.MessageType;
 
 import java.math.BigInteger;
-import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -250,19 +249,5 @@ public final class ParquetTypeUtils
     {
         BigInteger value = new BigInteger(bytes);
         return unscaledDecimal(value);
-    }
-
-    public static long getShortDecimalValue(ByteBuffer buffer)
-    {
-        byte[] array = new byte[buffer.remaining()];
-        buffer.get(array);
-        return getShortDecimalValue(array);
-    }
-
-    public static Slice getLongDecimalValue(ByteBuffer buffer)
-    {
-        byte[] array = new byte[buffer.remaining()];
-        buffer.get(array);
-        return getLongDecimalValue(array);
     }
 }

@@ -23,6 +23,7 @@ import org.testng.annotations.Test;
 import java.util.Set;
 
 import static com.google.common.collect.Sets.union;
+import static io.trino.parquet.predicate.ParquetLongStatistics.fromNumber;
 import static io.trino.parquet.predicate.PredicateUtils.isOnlyDictionaryEncodingPages;
 import static io.trino.parquet.predicate.PredicateUtils.isStatisticsOverflow;
 import static io.trino.spi.type.DecimalType.createDecimalType;
@@ -45,25 +46,25 @@ public class TestPredicateUtils
     @Test
     public void testIsStatisticsOverflow()
     {
-        assertFalse(isStatisticsOverflow(TINYINT, new ParquetLongStatistics(-10L, 10L)));
-        assertTrue(isStatisticsOverflow(TINYINT, new ParquetLongStatistics(-129L, 10L)));
-        assertTrue(isStatisticsOverflow(TINYINT, new ParquetLongStatistics(-10L, 129L)));
+        assertFalse(isStatisticsOverflow(TINYINT, fromNumber(-10L, 10L)));
+        assertTrue(isStatisticsOverflow(TINYINT, fromNumber(-129L, 10L)));
+        assertTrue(isStatisticsOverflow(TINYINT, fromNumber(-10L, 129L)));
 
-        assertFalse(isStatisticsOverflow(SMALLINT, new ParquetLongStatistics(-32_000L, 32_000L)));
-        assertTrue(isStatisticsOverflow(SMALLINT, new ParquetLongStatistics(-100_000L, 32_000L)));
-        assertTrue(isStatisticsOverflow(SMALLINT, new ParquetLongStatistics(-32_000L, 100_000L)));
+        assertFalse(isStatisticsOverflow(SMALLINT, fromNumber(-32_000L, 32_000L)));
+        assertTrue(isStatisticsOverflow(SMALLINT, fromNumber(-100_000L, 32_000L)));
+        assertTrue(isStatisticsOverflow(SMALLINT, fromNumber(-32_000L, 100_000L)));
 
-        assertFalse(isStatisticsOverflow(INTEGER, new ParquetLongStatistics(-2_000_000_000L, 2_000_000_000L)));
-        assertTrue(isStatisticsOverflow(INTEGER, new ParquetLongStatistics(-3_000_000_000L, 2_000_000_000L)));
-        assertTrue(isStatisticsOverflow(INTEGER, new ParquetLongStatistics(-2_000_000_000L, 3_000_000_000L)));
+        assertFalse(isStatisticsOverflow(INTEGER, fromNumber(-2_000_000_000L, 2_000_000_000L)));
+        assertTrue(isStatisticsOverflow(INTEGER, fromNumber(-3_000_000_000L, 2_000_000_000L)));
+        assertTrue(isStatisticsOverflow(INTEGER, fromNumber(-2_000_000_000L, 3_000_000_000L)));
 
         // short decimal
-        assertFalse(isStatisticsOverflow(createDecimalType(5, 0), new ParquetLongStatistics(-10_000L, 10_000L)));
-        assertTrue(isStatisticsOverflow(createDecimalType(5, 0), new ParquetLongStatistics(-100_000L, 10_000L)));
-        assertTrue(isStatisticsOverflow(createDecimalType(5, 0), new ParquetLongStatistics(-10_000L, 100_000L)));
+        assertFalse(isStatisticsOverflow(createDecimalType(5, 0), fromNumber(-10_000L, 10_000L)));
+        assertTrue(isStatisticsOverflow(createDecimalType(5, 0), fromNumber(-100_000L, 10_000L)));
+        assertTrue(isStatisticsOverflow(createDecimalType(5, 0), fromNumber(-10_000L, 100_000L)));
 
         // long decimal
-        assertFalse(isStatisticsOverflow(createDecimalType(19, 0), new ParquetLongStatistics(-1_000_000_000_000_000_000L, 1_000_000_000_000_000_000L)));
+        assertFalse(isStatisticsOverflow(createDecimalType(19, 0), fromNumber(-1_000_000_000_000_000_000L, 1_000_000_000_000_000_000L)));
     }
 
     @Test
