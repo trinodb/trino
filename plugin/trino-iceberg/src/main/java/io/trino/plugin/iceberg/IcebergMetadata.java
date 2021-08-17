@@ -818,6 +818,9 @@ public class IcebergMetadata
     {
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
         Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
+
+        System.out.println("table name: " + icebergTable.name());
+
         return Optional.ofNullable(icebergTable.currentSnapshot())
                 .map(snapshot -> new TableToken(snapshot.snapshotId()));
     }
