@@ -15,6 +15,7 @@ import com.starburstdata.presto.redirection.AbstractTableScanRedirectionTest;
 import com.starburstdata.presto.redirection.RedirectedTable;
 import io.trino.plugin.memory.MemoryPlugin;
 import io.trino.testing.QueryRunner;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -30,10 +31,17 @@ public class TestSalesforceTableScanRedirection
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        QueryRunner queryRunner = SalesforceQueryRunner.builder()
+        return SalesforceQueryRunner.builder()
                 .setTables(REQUIRED_TPCH_TABLES)
                 .addConnectorProperties(getRedirectionProperties("salesforce", "salesforce"))
                 .build();
+    }
+
+    @BeforeClass
+    @Override
+    public void populateRedirectedTable()
+    {
+        QueryRunner queryRunner = getQueryRunner();
         queryRunner.installPlugin(new MemoryPlugin());
         queryRunner.createCatalog("memory", "memory", ImmutableMap.of());
         queryRunner.execute("CREATE SCHEMA memory.target_schema");
@@ -41,7 +49,6 @@ public class TestSalesforceTableScanRedirection
                 redirectionDisabled(queryRunner.getDefaultSession()),
                 "CREATE TABLE memory.target_schema.nation__c AS " +
                         "SELECT nationkey__c, name__c, regionkey__c FROM nation__c WHERE regionkey__c = 0 LIMIT 1");
-        return queryRunner;
     }
 
     @Override

@@ -49,6 +49,7 @@ import java.sql.Types;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -217,6 +218,12 @@ public class SalesforceJdbcClient
                 columnWriters.stream()
                         .map(WriteFunction::getBindExpression)
                         .collect(joining(",")));
+    }
+
+    @Override
+    public OptionalLong delete(ConnectorSession session, JdbcTableHandle handle)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support deletes");
     }
 
     @Override
