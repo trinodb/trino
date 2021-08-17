@@ -86,7 +86,9 @@ public class SalesforceConnectionFactory
         ConnectorIdentity identity = session.getIdentity();
         Properties properties = getCredentialProperties(identity);
         Connection connection = driver.connect(connectionUrl, properties);
-        checkState(connection != null, "Driver returned null connection, make sure the connection URL '%s' is valid for the driver %s", connectionUrl, driver);
+
+        // Remove the OEM key from the log
+        checkState(connection != null, "Driver returned null connection, make sure the connection URL '%s' is valid for the driver %s", connectionUrl.replaceAll("OEMKey=\".+?\";", ""), driver);
         return connection;
     }
 
