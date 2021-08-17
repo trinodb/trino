@@ -19,11 +19,14 @@ import io.trino.plugin.jmx.JmxPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
+import io.trino.tpch.TpchColumn;
 import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.HashMap;
@@ -38,6 +41,7 @@ import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public final class SalesforceQueryRunner
@@ -62,10 +66,6 @@ public final class SalesforceQueryRunner
     private static DistributedQueryRunner createQueryRunner(Map<String, String> extraProperties, Map<String, String> connectorProperties, Iterable<TpchTable<?>> tables, boolean enableWrites)
             throws Exception
     {
-        // Uncomment to drop the TPC-H tables from Salesforce
-        // We typically do not want to do this (see comment below), but it is here if needed
-        // dropTpchTables();
-
         // Copy tables first before creating the query runner
         // We need to enable writes to copy but the returned query runner will enable writes based on the given parameter
         // We also only copy the tables if they exist
@@ -101,7 +101,7 @@ public final class SalesforceQueryRunner
         }
     }
 
-    private static void dropTpchTables()
+    private static void truncateTable(String tableName)
     {
         SalesforceConfig config = new SalesforceConfig()
                 .setUser(requireNonNull(System.getProperty("salesforce.test.user1.username"), "salesforce.test.user1.username is not set"))
@@ -109,15 +109,36 @@ public final class SalesforceQueryRunner
                 .setSecurityToken(requireNonNull(System.getProperty("salesforce.test.user1.security-token"), "salesforce.test.user1.security-token is not set"))
                 .setSandboxEnabled(true);
 
+        // Query Salesforce to get all of the Id columns for the rows and insert them into a temp table
+        // which stores the data in-memory in the driver
+        // Then use DELETE FROM the temp table to issue batched deletes to Salesforce
         String jdbcUrl = SalesforceConnectionFactory.getConnectionUrl(config);
         try (Connection connection = DriverManager.getConnection(jdbcUrl);
-                Statement statement = connection.createStatement()) {
-            for (TpchTable<?> table : TpchTable.getTables()) {
-                statement.execute("DROP TABLE IF EXISTS " + table.getTableName() + "__c");
+                Statement statement = connection.createStatement();
+                PreparedStatement preparedStatement = connection.prepareStatement(format("INSERT INTO %s__c#TEMP (Id) VALUES (?)", tableName));
+                ResultSet results = statement.executeQuery(format("SELECT Id FROM %s__c", tableName))) {
+            boolean hasData = false;
+            while (results.next()) {
+                hasData = true;
+                preparedStatement.setObject(1, results.getObject(1));
+                preparedStatement.execute();
+            }
+
+            if (hasData) {
+                statement.execute(format("DELETE FROM %s__c WHERE EXISTS SELECT Id FROM %s__c#TEMP", tableName, tableName));
+            }
+
+            // Assert the table is empty
+            try (ResultSet countResults = statement.executeQuery(format("SELECT COUNT(*) FROM %s__c", tableName))) {
+                countResults.next();
+                int numRows = countResults.getInt(1);
+                assertThat(numRows)
+                        .as(format("Table %s has %s rows but expected 0", tableName, numRows))
+                        .isEqualTo(0);
             }
         }
-        catch (SQLException throwables) {
-            throw new RuntimeException("Failed to reset CData metadata cache", throwables);
+        catch (SQLException e) {
+            throw new RuntimeException("Error truncating table", e);
         }
     }
 
@@ -143,11 +164,7 @@ public final class SalesforceQueryRunner
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
 
-            // We copy and assert in two steps as tables are only copied if they exist
             copyTpchTablesIfNotExists(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
-
-            // Assert tables are all loaded
-            assertTablesAreLoaded(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
         }
     }
 
@@ -162,45 +179,54 @@ public final class SalesforceQueryRunner
         long startTime = System.nanoTime();
         for (TpchTable<?> table : tables) {
             QualifiedObjectName qualifiedTable = new QualifiedObjectName(sourceCatalog, sourceSchema, table.getTableName().toLowerCase(ENGLISH));
-            copyTableIfNotExists(queryRunner, qualifiedTable, session);
+            copyTableIfNotExists(queryRunner, table, qualifiedTable, session);
         }
 
         log.info("Loading from %s.%s complete in %s", sourceCatalog, sourceSchema, nanosSince(startTime).toString(SECONDS));
     }
 
-    private static void copyTableIfNotExists(QueryRunner queryRunner, QualifiedObjectName table, Session session)
+    private static void copyTableIfNotExists(QueryRunner queryRunner, TpchTable<?> table, QualifiedObjectName qualifiedTable, Session session)
     {
         // Check if the table exists rather than running CREATE TABLE IF NOT EXISTS because the Salesforce table name has the suffix
         // The SQL query would fail because the e.g. 'customer' table doesn't exist, but then you get an error
         // trying to create the same 'customer__c' object in Salesforce
-        if (!queryRunner.tableExists(session, table.getObjectName() + "__c")) {
-            long start = System.nanoTime();
-            log.info("Running import for %s", table.getObjectName());
-            @Language("SQL") String sql = format("CREATE TABLE %s AS SELECT * FROM %s", table.getObjectName(), table);
-            long rows = (Long) queryRunner.execute(session, sql).getMaterializedRows().get(0).getField(0);
-            log.info("Imported %s rows for %s in %s", rows, table.getObjectName(), nanosSince(start).convertToMostSuccinctTimeUnit());
+
+        // We assert the row count if it does exist to check if it is loaded correctly
+        // If not, the table is truncated and then re-loaded
+
+        @Language("SQL") String sql;
+        if (!queryRunner.tableExists(session, qualifiedTable.getObjectName() + "__c")) {
+            log.info("Table %s does not exist, running CTAS", qualifiedTable.getObjectName());
+            sql = format("CREATE TABLE %s AS SELECT * FROM %s", qualifiedTable.getObjectName(), qualifiedTable);
         }
         else {
-            log.info("Table %s already exists, skipping import", table.getObjectName());
-        }
-    }
+            log.info("Table %s exists, checking row count", qualifiedTable.getObjectName());
+            long expectedCount = (long) queryRunner.execute(session, "SELECT count(*) FROM " + qualifiedTable).getOnlyValue();
+            long actualCount = (long) queryRunner.execute(session, "SELECT count(*) FROM " + qualifiedTable.getObjectName() + "__c").getOnlyValue();
 
-    private static void assertTablesAreLoaded(
-            QueryRunner queryRunner,
-            String sourceCatalog,
-            String sourceSchema,
-            Session session,
-            Iterable<TpchTable<?>> tables)
-    {
-        log.info("Asserting tables in %s.%s...", sourceCatalog, sourceSchema);
-        for (TpchTable<?> table : tables) {
-            String sourceTable = table.getTableName().toLowerCase(ENGLISH);
-            QualifiedObjectName qualifiedTable = new QualifiedObjectName(sourceCatalog, sourceSchema, sourceTable);
-            log.info("Running assertion for %s", qualifiedTable.getObjectName());
-            assertThat(queryRunner.execute(session, "SELECT count(*) FROM " + qualifiedTable).getOnlyValue())
-                    .as("Table is not loaded properly: %s", qualifiedTable)
-                    .isEqualTo(queryRunner.execute(session, "SELECT count(*) FROM " + qualifiedTable.getObjectName() + "__c").getOnlyValue());
+            if (expectedCount == actualCount) {
+                log.info("Table %s already exists and is loaded correctly", qualifiedTable.getObjectName());
+                return;
+            }
+
+            log.info("Table %s exists, truncating table and reloading data", qualifiedTable.getObjectName());
+            truncateTable(qualifiedTable.getObjectName().toLowerCase(ENGLISH));
+
+            String columnDefinition = table.getColumns().stream().map(TpchColumn::getSimplifiedColumnName).collect(joining("__c, ", "", "__c"));
+            String columnMappings = table.getColumns().stream().map(TpchColumn::getSimplifiedColumnName).map(name -> format("%s AS %s__c", name, name)).collect(joining(", "));
+            sql = format("INSERT INTO %s__c (%s) SELECT %s FROM %s", qualifiedTable.getObjectName(), columnDefinition, columnMappings, qualifiedTable);
         }
+
+        // Run either the CREATE or INSERT and assert that it is loaded correctly, failing if it is not
+        long start = System.nanoTime();
+        log.info("Running import for %s", qualifiedTable.getObjectName());
+        long rows = (Long) queryRunner.execute(session, sql).getMaterializedRows().get(0).getField(0);
+        log.info("Imported %s rows for %s in %s", rows, qualifiedTable.getObjectName(), nanosSince(start).convertToMostSuccinctTimeUnit());
+
+        log.info("Running assertion for %s", qualifiedTable.getObjectName());
+        assertThat(queryRunner.execute(session, "SELECT count(*) FROM " + qualifiedTable).getOnlyValue())
+                .as("Table is not loaded properly: %s", qualifiedTable)
+                .isEqualTo(queryRunner.execute(session, "SELECT count(*) FROM " + qualifiedTable.getObjectName() + "__c").getOnlyValue());
     }
 
     public static class Builder

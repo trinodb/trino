@@ -10,14 +10,17 @@
 package com.starburstdata.presto.plugin.salesforce;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.AbstractDynamicFilteringTest;
+import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.Test;
 
 import static io.airlift.testing.Assertions.assertGreaterThan;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static io.trino.tpch.TpchTable.ORDERS;
+import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.testng.Assert.assertEquals;
 
 public class TestSalesforceDynamicFiltering
         extends AbstractDynamicFilteringTest
@@ -100,44 +103,58 @@ public class TestSalesforceDynamicFiltering
     @Test(timeOut = 120_000)
     public void testDynamicFilteringDomainCompactionThreshold()
     {
-        String tableName = "orderkeys_" + randomTableSuffix();
-        try {
+        // Rather than creating and dropping the table, we only create it if it does not exist
+        // This is to avoid hitting any custom object limits in Salesforce
+        // We can't use IF NOT EXISTS because the table name has the __c suffix and the driver does not use these suffixes,
+        // so it will try to create the table anyway
+        String tableName = "orderkeys_test_df_domain_compaction";
+        if (getQueryRunner().execute(format("SHOW TABLES LIKE '%s__c'", tableName)).getRowCount() == 0) {
             assertUpdate("CREATE TABLE " + tableName + " (orderkey) AS VALUES 30000, 60000", 2);
-
-            String query = "SELECT * FROM orders__c a " +
-                    "JOIN " + tableName + "__c b ON a.orderkey__c = b.orderkey__c";
-
-            long filteredInputPositions = getQueryInputPositions(dynamicFiltering(true), query);
-            long smallCompactionInputPositions = getQueryInputPositions(dynamicFilteringWithCompactionThreshold(1), query);
-            long unfilteredInputPositions = getQueryInputPositions(dynamicFiltering(false), query);
-
-            assertGreaterThan(unfilteredInputPositions, smallCompactionInputPositions);
-            assertGreaterThan(smallCompactionInputPositions, filteredInputPositions);
         }
-        finally {
-            assertUpdate("DROP TABLE IF EXISTS " + tableName + "__c");
+        else {
+            // Assert values in table if it already exists
+            // The values returned from Salesforce are doubles
+            MaterializedResult results = getQueryRunner().execute(format("SELECT orderkey__c FROM %s__c", tableName));
+            assertEquals(results.getOnlyColumnAsSet(), ImmutableSet.of(30000.0, 60000.0));
         }
+
+        String query = "SELECT * FROM orders__c a " +
+                "JOIN " + tableName + "__c b ON a.orderkey__c = b.orderkey__c";
+
+        long filteredInputPositions = getQueryInputPositions(dynamicFiltering(true), query);
+        long smallCompactionInputPositions = getQueryInputPositions(dynamicFilteringWithCompactionThreshold(1), query);
+        long unfilteredInputPositions = getQueryInputPositions(dynamicFiltering(false), query);
+
+        assertGreaterThan(unfilteredInputPositions, smallCompactionInputPositions);
+        assertGreaterThan(smallCompactionInputPositions, filteredInputPositions);
     }
 
     @Override
     @Test(timeOut = 120_000)
     public void testDynamicFilteringCaseInsensitiveDomainCompaction()
     {
-        String tableName = "test_caseinsensitive_" + randomTableSuffix();
-        try {
+        // Rather than creating and dropping the table, we only create it if it does not exist
+        // This is to avoid hitting any custom object limits in Salesforce
+        // We can't use IF NOT EXISTS because the table name has the __c suffix and the driver does not use these suffixes,
+        // so it will try to create the table anyway
+        String tableName = "test_caseinsensitive";
+        if (getQueryRunner().execute(format("SHOW TABLES LIKE '%s__c'", tableName)).getRowCount() == 0) {
             assertUpdate("CREATE TABLE " + tableName + " (id) AS VALUES CAST('0' AS VARCHAR(1)), CAST('a' AS VARCHAR(1)), CAST('B' AS VARCHAR(1))", 3);
+        }
+        else {
+            // Assert values in table if it already exists
+            // The values returned from Salesforce are doubles
+            MaterializedResult results = getQueryRunner().execute(format("SELECT id__c FROM %s__c", tableName));
+            assertEquals(results.getOnlyColumnAsSet(), ImmutableSet.of("0", "a", "B"));
+        }
 
-            assertThat(computeActual(
-                    // Force conversion to a range predicate which would exclude the row corresponding to 'B'
-                    // if the range predicate were pushed into a case insensitive connector
-                    dynamicFilteringWithCompactionThreshold(1),
-                    "SELECT COUNT(*) FROM "
-                            + tableName + "__c a JOIN " + tableName + "__c b ON a.id__c = b.id__c")
-                    .getOnlyValue())
-                    .isEqualTo(3L);
-        }
-        finally {
-            assertUpdate("DROP TABLE IF EXISTS " + tableName + "__c");
-        }
+        assertThat(computeActual(
+                // Force conversion to a range predicate which would exclude the row corresponding to 'B'
+                // if the range predicate were pushed into a case insensitive connector
+                dynamicFilteringWithCompactionThreshold(1),
+                "SELECT COUNT(*) FROM "
+                        + tableName + "__c a JOIN " + tableName + "__c b ON a.id__c = b.id__c")
+                .getOnlyValue())
+                .isEqualTo(3L);
     }
 }

@@ -21,6 +21,7 @@ import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
+import io.trino.plugin.jdbc.JdbcMetadataConfig;
 import io.trino.plugin.jdbc.JdbcRecordSetProvider;
 import io.trino.plugin.jdbc.JdbcSplitManager;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
@@ -55,6 +56,12 @@ public class SalesforceModule
         // Set the connection URL to some value as it is a required property in the JdbcModule
         // The actual connection URL is set via the SalesforceConnectionFactory
         configBinder(binder).bindConfigDefaults(BaseJdbcConfig.class, config -> config.setConnectionUrl("jdbc:salesforce:"));
+
+        // Salesforce does not support transaction inserts -- set the default to true
+        // Writes are currently only enabled for tests, so the code that users this property won't be exercised
+        // If we do enable writes some day, users would get an odd error if they set this property by false
+        // We may want to override begin/finish insert table rather than using this property
+        configBinder(binder).bindConfigDefaults(JdbcMetadataConfig.class, config -> config.setNonTransactionalInsert(true));
     }
 
     @Provides

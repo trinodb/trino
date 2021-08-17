@@ -11,7 +11,6 @@ package com.starburstdata.presto.plugin.salesforce;
 
 import com.google.common.collect.ImmutableList;
 import com.starburstdata.presto.plugin.salesforce.testing.datatype.SalesforceCreateAndInsertDataSetup;
-import com.starburstdata.presto.plugin.salesforce.testing.datatype.SalesforceCreateAsSelectDataSetup;
 import com.starburstdata.presto.plugin.salesforce.testing.datatype.SqlDataTypeTest;
 import io.trino.Session;
 import io.trino.spi.type.DateType;
@@ -23,18 +22,16 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingSession;
 import io.trino.testing.datatype.DataSetup;
 import io.trino.testing.sql.JdbcSqlExecutor;
-import io.trino.testing.sql.TrinoSqlExecutor;
+import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.time.ZoneId;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static io.trino.spi.type.TimeType.TIME_SECONDS;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_SECONDS;
 import static java.lang.String.format;
@@ -42,6 +39,10 @@ import static java.time.ZoneOffset.UTC;
 import static java.time.format.DateTimeFormatter.ISO_DATE;
 import static java.util.Objects.requireNonNull;
 
+// Note that there are no CTAS-based type mapping tests in this class due to Salesforce custom object limits
+// We instead use static test names with no random suffix to avoid creating and deleting many tables and hitting this limit, which caused builds to fail
+// These tables are created if they don't exist and truncated when the test is closed as well as initially to ensure there is no data
+// Custom objects can be deleted by hand in Salesforce using the Object Manager
 public class TestSalesforceTypeMapping
         extends AbstractTestQueryFramework
 {
@@ -84,29 +85,17 @@ public class TestSalesforceTypeMapping
                 .addRoundTrip("double", "-1.0E17", DoubleType.DOUBLE, "-1.0E17")
                 .addRoundTrip("double", "1.0E17", DoubleType.DOUBLE, "1.0E17")
                 .addRoundTrip("double", "NULL", DoubleType.DOUBLE, "CAST(NULL as DOUBLE)")
-                .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_double"));
-    }
-
-    @Test
-    public void testTrinoCreatedParameterizedVarchar()
-    {
-        varcharSqlDataTypeTest()
-                .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_param_varchar"));
+                .execute(getQueryRunner(), salesforceCreateAndInsert("test_double"));
     }
 
     @Test
     public void testSalesforceCreatedParameterizedVarchar()
     {
-        varcharSqlDataTypeTest()
-                .execute(getQueryRunner(), salesforceCreateAndInsert("salesforce.sf_test_param_varchar"));
-    }
-
-    private SqlDataTypeTest varcharSqlDataTypeTest()
-    {
         // Maximum varchar length is 255 and you must specify a length
-        return SqlDataTypeTest.create()
+        SqlDataTypeTest.create()
                 .addRoundTrip("VARCHAR(10)", "'text_a'", VarcharType.createVarcharType(10), "CAST('text_a' AS VARCHAR(10))")
-                .addRoundTrip("VARCHAR(255)", "'text_b'", VarcharType.createVarcharType(255), "CAST('text_b' AS VARCHAR(255))");
+                .addRoundTrip("VARCHAR(255)", "'text_b'", VarcharType.createVarcharType(255), "CAST('text_b' AS VARCHAR(255))")
+                .execute(getQueryRunner(), salesforceCreateAndInsert("test_param_varchar"));
     }
 
     @Test
@@ -141,36 +130,16 @@ public class TestSalesforceTypeMapping
             Session session = Session.builder(getQueryRunner().getDefaultSession())
                     .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(timeZoneId))
                     .build();
-            testCases.execute(getQueryRunner(), session, salesforceCreateAndInsert("salesforce.test_date"));
-            testCases.execute(getQueryRunner(), session, trinoCreateAsSelect("test_date"));
+            testCases.execute(getQueryRunner(), session, salesforceCreateAndInsert("test_date"));
         }
     }
 
     @Test(dataProvider = "testTimestampDataProvider")
     public void testTime(ZoneId sessionZone)
     {
-        LocalTime timeGapInJvmZone = LocalTime.of(0, 12, 34, 0 /*567_000_000*/);
-        checkIsGap(jvmZone, timeGapInJvmZone.atDate(LocalDate.EPOCH));
-
-        // Comment out nanoseconds, only second precision is supported
-        SqlDataTypeTest tests = SqlDataTypeTest.create()
-                .addRoundTrip("TIME(0)", "TIME '01:12:34'", TIME_SECONDS, "TIME '01:12:34'")
-                .addRoundTrip("TIME(0)", "TIME '02:12:34'", TIME_SECONDS, "TIME '02:12:34'")
-                .addRoundTrip("TIME(0)", "TIME '03:12:34'", TIME_SECONDS, "TIME '03:12:34'")
-                .addRoundTrip("TIME(0)", "TIME '04:12:34'", TIME_SECONDS, "TIME '04:12:34'")
-                .addRoundTrip("TIME(0)", "TIME '05:12:34'", TIME_SECONDS, "TIME '05:12:34'")
-                .addRoundTrip("TIME(0)", "TIME '06:12:34'", TIME_SECONDS, "TIME '06:12:34'")
-                .addRoundTrip("TIME(0)", "TIME '09:12:34'", TIME_SECONDS, "TIME '09:12:34'")
-                .addRoundTrip("TIME(0)", "TIME '10:12:34'", TIME_SECONDS, "TIME '10:12:34'")
-                .addRoundTrip("TIME(0)", "TIME '15:12:34'", TIME_SECONDS, "TIME '15:12:34'")
-                .addRoundTrip("TIME(0)", "TIME '23:59:59'", TIME_SECONDS, "TIME '23:59:59'");
-
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
-                .build();
-
-        // Only use CTAS for this as inserting with Salesforce JDBC wants the time literal as a java.sql.Date.valueOf string which is actually a date and not a time
-        tests.execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_time"));
+        // TIME data types inserted via the Salesforce JDBC driver do not support the test time zone
+        // When read back the times are +1 hour
+        throw new SkipException("TIME data type tests are skipped");
     }
 
     @Test(dataProvider = "testTimestampDataProvider")
@@ -182,18 +151,17 @@ public class TestSalesforceTypeMapping
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
                 .build();
 
-        tests.addRoundTrip("TIMESTAMP(0)", "TIMESTAMP '1958-01-01 13:18:03'", TIMESTAMP_SECONDS, "CAST(TIMESTAMP '1958-01-01 13:18:03' AS TIMESTAMP(0))");
-        tests.addRoundTrip("TIMESTAMP(0)", "TIMESTAMP '2019-03-18 01:17:00'", TIMESTAMP_SECONDS, "CAST(TIMESTAMP '2019-03-18 01:17:00' AS TIMESTAMP(0))");
-        tests.addRoundTrip("TIMESTAMP(0)", "TIMESTAMP '2018-10-28 01:33:17'", TIMESTAMP_SECONDS, "CAST(TIMESTAMP '2018-10-28 01:33:17' AS TIMESTAMP(0))");
-        tests.addRoundTrip("TIMESTAMP(0)", "TIMESTAMP '2018-10-28 03:33:33'", TIMESTAMP_SECONDS, "CAST(TIMESTAMP '2018-10-28 03:33:33' AS TIMESTAMP(0))");
-        // tests.addRoundTrip("TIMESTAMP(0)", "TIMESTAMP '1970-01-01 00:00:00'", TIMESTAMP_SECONDS, "CAST(TIMESTAMP '1970-01-01 00:00:00' AS TIMESTAMP(0))"); // "TIMESTAMP '1970-01-01 00:00:00'" also is a gap in JVM zone
-        // tests.addRoundTrip("TIMESTAMP(0)", "TIMESTAMP '1970-01-01 00:13:42'", TIMESTAMP_SECONDS, "CAST(TIMESTAMP '1970-01-01 00:13:42' AS TIMESTAMP(0))"); // expected [1970-01-01T00:13:42] but found [1970-01-01T01:13:42]
-        // tests.addRoundTrip("TIMESTAMP(0)", "TIMESTAMP '2018-04-01 02:13:55'", TIMESTAMP_SECONDS, "CAST(TIMESTAMP '2018-04-01 02:13:55' AS TIMESTAMP(0))"); // [2018-04-01T02:13:55] but found [2018-04-01T03:13:55]
-        tests.addRoundTrip("TIMESTAMP(0)", "TIMESTAMP '2018-03-25 03:17:17'", TIMESTAMP_SECONDS, "CAST(TIMESTAMP '2018-03-25 03:17:17' AS TIMESTAMP(0))");
-        tests.addRoundTrip("TIMESTAMP(0)", "TIMESTAMP '1986-01-01 00:13:07'", TIMESTAMP_SECONDS, "CAST(TIMESTAMP '1986-01-01 00:13:07' AS TIMESTAMP(0))");
+        tests.addRoundTrip("TIMESTAMP", "TIMESTAMP '1958-01-01 13:18:03'", TIMESTAMP_SECONDS, "CAST(TIMESTAMP '1958-01-01 13:18:03' AS TIMESTAMP(0))");
+        tests.addRoundTrip("TIMESTAMP", "TIMESTAMP '2019-03-18 01:17:00'", TIMESTAMP_SECONDS, "CAST(TIMESTAMP '2019-03-18 01:17:00' AS TIMESTAMP(0))");
+        tests.addRoundTrip("TIMESTAMP", "TIMESTAMP '2018-10-28 01:33:17'", TIMESTAMP_SECONDS, "CAST(TIMESTAMP '2018-10-28 01:33:17' AS TIMESTAMP(0))");
+        tests.addRoundTrip("TIMESTAMP", "TIMESTAMP '2018-10-28 03:33:33'", TIMESTAMP_SECONDS, "CAST(TIMESTAMP '2018-10-28 03:33:33' AS TIMESTAMP(0))");
+        // tests.addRoundTrip("TIMESTAMP", "TIMESTAMP '1970-01-01 00:00:00'", TIMESTAMP_SECONDS, "CAST(TIMESTAMP '1970-01-01 00:00:00' AS TIMESTAMP(0))"); // "TIMESTAMP '1970-01-01 00:00:00'" also is a gap in JVM zone
+        // tests.addRoundTrip("TIMESTAMP", "TIMESTAMP '1970-01-01 00:13:42'", TIMESTAMP_SECONDS, "CAST(TIMESTAMP '1970-01-01 00:13:42' AS TIMESTAMP(0))"); // expected [1970-01-01T00:13:42] but found [1970-01-01T01:13:42]
+        // tests.addRoundTrip("TIMESTAMP", "TIMESTAMP '2018-04-01 02:13:55'", TIMESTAMP_SECONDS, "CAST(TIMESTAMP '2018-04-01 02:13:55' AS TIMESTAMP(0))"); // [2018-04-01T02:13:55] but found [2018-04-01T03:13:55]
+        tests.addRoundTrip("TIMESTAMP", "TIMESTAMP '2018-03-25 03:17:17'", TIMESTAMP_SECONDS, "CAST(TIMESTAMP '2018-03-25 03:17:17' AS TIMESTAMP(0))");
+        tests.addRoundTrip("TIMESTAMP", "TIMESTAMP '1986-01-01 00:13:07'", TIMESTAMP_SECONDS, "CAST(TIMESTAMP '1986-01-01 00:13:07' AS TIMESTAMP(0))");
 
-        // Only use CTAS for this as inserting with Salesforce JDBC wants the time literal as a java.sql.Date.valueOf string which is actually a date and not a timestamp
-        tests.execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_timestamp"));
+        tests.execute(getQueryRunner(), session, salesforceCreateAndInsert("test_timestamp"));
     }
 
     @DataProvider
@@ -208,19 +176,9 @@ public class TestSalesforceTypeMapping
         };
     }
 
-    private DataSetup trinoCreateAsSelect(String tableNamePrefix)
+    private DataSetup salesforceCreateAndInsert(String tableName)
     {
-        return trinoCreateAsSelect(getSession(), tableNamePrefix);
-    }
-
-    private DataSetup trinoCreateAsSelect(Session session, String tableNamePrefix)
-    {
-        return new SalesforceCreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
-    }
-
-    private DataSetup salesforceCreateAndInsert(String tableNamePrefix)
-    {
-        return new SalesforceCreateAndInsertDataSetup(new JdbcSqlExecutor(jdbcUrl), tableNamePrefix);
+        return new SalesforceCreateAndInsertDataSetup(new JdbcSqlExecutor(jdbcUrl), jdbcUrl, tableName);
     }
 
     private static void checkIsGap(ZoneId zone, LocalDateTime dateTime)

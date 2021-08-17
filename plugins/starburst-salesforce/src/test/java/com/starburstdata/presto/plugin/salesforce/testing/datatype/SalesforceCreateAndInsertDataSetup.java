@@ -27,13 +27,15 @@ public class SalesforceCreateAndInsertDataSetup
         extends CreateAndInsertDataSetup
 {
     private final SqlExecutor sqlExecutor;
-    private final String tableNamePrefix;
+    private final String jdbcUrl;
+    private final String tableName;
 
-    public SalesforceCreateAndInsertDataSetup(SqlExecutor sqlExecutor, String tableNamePrefix)
+    public SalesforceCreateAndInsertDataSetup(SqlExecutor sqlExecutor, String jdbcUrl, String tableName)
     {
-        super(sqlExecutor, tableNamePrefix);
+        super(sqlExecutor, tableName);
         this.sqlExecutor = sqlExecutor;
-        this.tableNamePrefix = tableNamePrefix;
+        this.jdbcUrl = jdbcUrl;
+        this.tableName = tableName;
     }
 
     @Override
@@ -67,6 +69,6 @@ public class SalesforceCreateAndInsertDataSetup
 
     private TestTable createTestTable(List<ColumnSetup> inputs)
     {
-        return new SalesforceTestTable(sqlExecutor, tableNamePrefix, tableDefinition(inputs));
+        return new SalesforceTestTable(jdbcUrl, tableName, tableDefinition(inputs));
     }
 }

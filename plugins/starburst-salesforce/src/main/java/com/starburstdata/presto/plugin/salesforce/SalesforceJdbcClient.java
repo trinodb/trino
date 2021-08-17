@@ -208,13 +208,32 @@ public class SalesforceJdbcClient
         // Here we append the "__c" to the table an column names as Salesforce custom objects end in __c
         // and we need to account for this when building the insert statement into Salesforce
         checkArgument(handle.getColumnNames().size() == columnWriters.size(), "handle and columnWriters mismatch: %s, %s", handle, columnWriters);
+
+        // For CTAS the table name and columns do not end with __c and we must append it to make Salesforce happy
+        // For normal INSERTs the names already have __c
+        String tableName;
+        if (handle.getTemporaryTableName().endsWith("__c")) {
+            tableName = quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName());
+        }
+        else {
+            tableName = quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName() + "__c");
+        }
+
+        String columnNames = handle.getColumnNames().stream()
+                .map(name -> {
+                    if (name.endsWith("__c")) {
+                        return name;
+                    }
+
+                    return name + "__c";
+                })
+                .map(this::quoted)
+                .collect(joining(", "));
+
         return format(
                 "INSERT INTO %s (%s) VALUES (%s)",
-                quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName() + "__c"),
-                handle.getColumnNames().stream()
-                        .map(name -> name + "__c")
-                        .map(this::quoted)
-                        .collect(joining(", ")),
+                tableName,
+                columnNames,
                 columnWriters.stream()
                         .map(WriteFunction::getBindExpression)
                         .collect(joining(",")));

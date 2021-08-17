@@ -83,6 +83,20 @@ They'd have to open a Trino connection, run a query against Salesforce to cache 
 
 [CData documentation](http://cdn.cdata.com/help/RFF/jdbc/pg_datatypemapping.htm) for type mappings.
 
+`TestSalesforceTypeMapping` uses only static table names rather than a table with a random suffix.
+Tables created by the driver are "custom objects", and Salesforce has a limit on the number of custom objects you can have.
+When a table is dropped, the custom object is soft-deleted and goes into a bin where it is eventually
+hard deleted after a couple weeks. Because of this, we can quickly reach the limit on the number of custom
+objects due to CI builds. There is no way to programatically hard delete a table, so instead
+we create static table names and truncate them rather than deleting them. The Salesforce CI job is configured
+to only run one job at a time across all builds.
+
+Additionally, the TPC-H tables are also only created and the data is only loaded if they do not exist.
+This is to cut down on the custom object limit as well as to cut down on CI build times as
+loading the TPC-H data into Salesforce can take several minutes.
+
+Note that these custom objects can be deleted by hand in Salesforce using the Object Manager.
+
 ## Booleans
 
 Salesforce has a "Checkbox" data type which mato a CData `bool`.
