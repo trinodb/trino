@@ -13,13 +13,42 @@
  */
 package io.trino.parquet.predicate;
 
+import io.trino.spi.type.DecimalType;
+import org.apache.parquet.io.api.Binary;
+
+import static io.trino.parquet.ParquetTypeUtils.getShortDecimalValue;
+
 public class ParquetLongStatistics
         implements ParquetRangeStatistics<Long>
 {
+    public static ParquetLongStatistics fromBinary(DecimalType type, Binary minimum, Binary maximum)
+    {
+        if (!type.isShort()) {
+            throw new IllegalArgumentException("Cannot convert long DecimalType to ParquetLongStatistics");
+        }
+        return new ParquetLongStatistics(getShortDecimalValue(minimum.getBytes()), getShortDecimalValue(maximum.getBytes()));
+    }
+
+    public static ParquetLongStatistics fromNumber(Number minimum, Number maximum)
+    {
+        if (minimum instanceof Double || minimum instanceof Float) {
+            throw unsupportedType(minimum);
+        }
+        if (maximum instanceof Double || maximum instanceof Float) {
+            throw unsupportedType(maximum);
+        }
+        return new ParquetLongStatistics(minimum.longValue(), maximum.longValue());
+    }
+
+    private static IllegalArgumentException unsupportedType(Number number)
+    {
+        return new IllegalArgumentException("Disallowed inexact conversion to ParquetLongStatistics from " + number.getClass().getName());
+    }
+
     private final Long minimum;
     private final Long maximum;
 
-    public ParquetLongStatistics(Long minimum, Long maximum)
+    private ParquetLongStatistics(Long minimum, Long maximum)
     {
         this.minimum = minimum;
         this.maximum = maximum;
