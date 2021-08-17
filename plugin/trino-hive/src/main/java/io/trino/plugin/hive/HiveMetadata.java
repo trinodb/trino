@@ -2517,7 +2517,8 @@ public class HiveMetadata
             }
         }
         // treat un-bucketed transactional table as having a single bucket on no columns
-        else if (hiveTableHandle.isInAcidTransaction()) {
+        // Note: we cannot use hiveTableHandle.isInAcidTransaction() here as transaction is not yet set in HiveTableHandle when getInsertLayout is called
+        else if (isFullAcidTable(table.getParameters())) {
             table = Table.builder(table)
                     .withStorage(storage -> storage.setBucketProperty(Optional.of(
                             new HiveBucketProperty(ImmutableList.of(), HiveBucketing.BucketingVersion.BUCKETING_V2, 1, ImmutableList.of()))))
