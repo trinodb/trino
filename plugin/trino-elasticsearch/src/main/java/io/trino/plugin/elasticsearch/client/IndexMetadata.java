@@ -43,23 +43,27 @@ public class IndexMetadata
         private final String name;
         private final Type type;
 
-        public Field(boolean isArray, String name, Type type)
+        @JsonCreator
+        public Field(@JsonProperty("isArray") boolean isArray, @JsonProperty("name") String name, @JsonProperty("type") Type type)
         {
             this.isArray = isArray;
             this.name = requireNonNull(name, "name is null");
             this.type = requireNonNull(type, "type is null");
         }
 
+        @JsonProperty
         public boolean isArray()
         {
             return isArray;
         }
 
+        @JsonProperty
         public String getName()
         {
             return name;
         }
 
+        @JsonProperty
         public Type getType()
         {
             return type;

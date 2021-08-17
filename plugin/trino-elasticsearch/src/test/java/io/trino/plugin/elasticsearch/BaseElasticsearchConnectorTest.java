@@ -36,6 +36,8 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.Map;
 
 import static io.trino.plugin.elasticsearch.ElasticsearchQueryRunner.createElasticsearchQueryRunner;
@@ -162,7 +164,7 @@ public abstract class BaseElasticsearchConnectorTest
                 .row("clerk", "varchar", "", "")
                 .row("comment", "varchar", "", "")
                 .row("custkey", "bigint", "", "")
-                .row("orderdate", "timestamp(3)", "", "")
+                .row("orderdate", "timestamp(3) with time zone", "", "")
                 .row("orderkey", "bigint", "", "")
                 .row("orderpriority", "varchar", "", "")
                 .row("orderstatus", "varchar", "", "")
@@ -204,7 +206,7 @@ public abstract class BaseElasticsearchConnectorTest
                         "   clerk varchar,\n" +
                         "   comment varchar,\n" +
                         "   custkey bigint,\n" +
-                        "   orderdate timestamp(3),\n" +
+                        "   orderdate timestamp(3) with time zone,\n" +
                         "   orderkey bigint,\n" +
                         "   orderpriority varchar,\n" +
                         "   orderstatus varchar,\n" +
@@ -604,7 +606,7 @@ public abstract class BaseElasticsearchConnectorTest
 
         MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
                 .row(true, 1.0f, 1.0d, 1, 1L, "cool", "some text", new byte[] {(byte) 0xCA, (byte) 0xFE},
-                        LocalDateTime.of(1970, 1, 1, 0, 0), "1.2.3.4", "2001:db8::1:0:0:1")
+                        ZonedDateTime.of(LocalDateTime.of(1970, 1, 1, 0, 0), ZoneOffset.UTC), "1.2.3.4", "2001:db8::1:0:0:1")
                 .build();
 
         assertEquals(rows.getMaterializedRows(), expected.getMaterializedRows());
