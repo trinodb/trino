@@ -502,8 +502,8 @@ class StatementAnalyzer
                             .map(Type::toString),
                     Column::new);
 
-            analysis.setUpdateType(
-                    "INSERT",
+            analysis.setUpdateType("INSERT");
+            analysis.setUpdateTarget(
                     targetTable,
                     Optional.empty(),
                     Optional.of(Streams.zip(
@@ -529,8 +529,8 @@ class StatementAnalyzer
 
             if (metadata.delegateMaterializedViewRefreshToConnector(session, name)) {
                 analysis.setDelegatedRefreshMaterializedView(name);
-                analysis.setUpdateType(
-                        "REFRESH MATERIALIZED VIEW",
+                analysis.setUpdateType("REFRESH MATERIALIZED VIEW");
+                analysis.setUpdateTarget(
                         name,
                         Optional.empty(),
                         Optional.empty());
@@ -590,8 +590,8 @@ class StatementAnalyzer
                             .map(Type::toString),
                     Column::new);
 
-            analysis.setUpdateType(
-                    "REFRESH MATERIALIZED VIEW",
+            analysis.setUpdateType("REFRESH MATERIALIZED VIEW");
+            analysis.setUpdateTarget(
                     targetTable,
                     Optional.empty(),
                     Optional.of(Streams.zip(
@@ -699,7 +699,8 @@ class StatementAnalyzer
             Scope tableScope = analyzer.analyzeForUpdate(table, scope, UpdateKind.DELETE);
             node.getWhere().ifPresent(where -> analyzeWhere(node, tableScope, where));
 
-            analysis.setUpdateType("DELETE", tableName, Optional.of(table), Optional.empty());
+            analysis.setUpdateType("DELETE");
+            analysis.setUpdateTarget(tableName, Optional.of(table), Optional.empty());
 
             return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
         }
@@ -708,7 +709,8 @@ class StatementAnalyzer
         protected Scope visitAnalyze(Analyze node, Optional<Scope> scope)
         {
             QualifiedObjectName tableName = createQualifiedObjectName(session, node, node.getTableName());
-            analysis.setUpdateType("ANALYZE", tableName, Optional.empty(), Optional.empty());
+            analysis.setUpdateType("ANALYZE");
+            analysis.setUpdateTarget(tableName, Optional.empty(), Optional.empty());
 
             // verify the target table exists and it's not a view
             if (metadata.getView(session, tableName).isPresent()) {
@@ -763,7 +765,8 @@ class StatementAnalyzer
                             Optional.empty(),
                             node.isWithData(),
                             true));
-                    analysis.setUpdateType("CREATE TABLE", targetTable, Optional.empty(), Optional.of(ImmutableList.of()));
+                    analysis.setUpdateType("CREATE TABLE");
+                    analysis.setUpdateTarget(targetTable, Optional.empty(), Optional.of(ImmutableList.of()));
                     return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
                 }
                 throw semanticException(TABLE_ALREADY_EXISTS, node, "Destination table '%s' already exists", targetTable);
@@ -846,8 +849,8 @@ class StatementAnalyzer
                     node.isWithData(),
                     false));
 
-            analysis.setUpdateType(
-                    "CREATE TABLE",
+            analysis.setUpdateType("CREATE TABLE");
+            analysis.setUpdateTarget(
                     targetTable,
                     Optional.empty(),
                     Optional.of(outputColumns.build()));
@@ -869,8 +872,8 @@ class StatementAnalyzer
 
             validateColumns(node, queryScope.getRelationType());
 
-            analysis.setUpdateType(
-                    "CREATE VIEW",
+            analysis.setUpdateType("CREATE VIEW");
+            analysis.setUpdateTarget(
                     viewName,
                     Optional.empty(),
                     Optional.of(queryScope.getRelationType().getVisibleFields().stream()
@@ -1069,8 +1072,8 @@ class StatementAnalyzer
 
             validateColumns(node, queryScope.getRelationType());
 
-            analysis.setUpdateType(
-                    "CREATE MATERIALIZED VIEW",
+            analysis.setUpdateType("CREATE MATERIALIZED VIEW");
+            analysis.setUpdateTarget(
                     viewName,
                     Optional.empty(),
                     Optional.of(
@@ -2311,8 +2314,8 @@ class StatementAnalyzer
                 analysis.recordSubqueries(update, analyses.get(index));
             }
 
-            analysis.setUpdateType(
-                    "UPDATE",
+            analysis.setUpdateType("UPDATE");
+            analysis.setUpdateTarget(
                     tableName,
                     Optional.of(table),
                     Optional.of(updatedColumns.stream()

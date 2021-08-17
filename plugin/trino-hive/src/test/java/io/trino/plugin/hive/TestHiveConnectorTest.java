@@ -243,6 +243,13 @@ public class TestHiveConnectorTest
     }
 
     @Override
+    public void testExplainAnalyzeWithDeleteWithSubquery()
+    {
+        assertThatThrownBy(super::testExplainAnalyzeWithDeleteWithSubquery)
+                .hasStackTraceContaining("Deletes must match whole partitions for non-transactional tables");
+    }
+
+    @Override
     public void testDeleteWithVarcharPredicate()
     {
         assertThatThrownBy(super::testDeleteWithVarcharPredicate)

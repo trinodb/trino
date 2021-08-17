@@ -98,6 +98,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.sql.analyzer.QueryType.DESCRIBE;
 import static io.trino.sql.analyzer.QueryType.EXPLAIN;
+import static java.lang.Boolean.FALSE;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.unmodifiableMap;
@@ -239,19 +240,25 @@ public class Analysis
         });
     }
 
-    public void setUpdateType(String updateType, QualifiedObjectName targetName, Optional<Table> targetTable, Optional<List<OutputColumn>> targetColumns)
+    public void setUpdateType(String updateType)
     {
         if (queryType != EXPLAIN) {
             this.updateType = updateType;
-            this.target = Optional.of(new UpdateTarget(targetName, targetTable, targetColumns));
         }
+    }
+
+    public void setUpdateTarget(QualifiedObjectName targetName, Optional<Table> targetTable, Optional<List<OutputColumn>> targetColumns)
+    {
+        this.target = Optional.of(new UpdateTarget(targetName, targetTable, targetColumns));
     }
 
     public boolean isUpdateTarget(Table table)
     {
-        return ("DELETE".equals(updateType) || "UPDATE".equals(updateType)) &&
-                target.orElseThrow(() -> new IllegalStateException("Update target not set"))
-                        .getTable().orElseThrow(() -> new IllegalStateException("Table reference not set in update target")) == table; // intentional comparison by reference
+        requireNonNull(table, "table is null");
+        return target
+                .flatMap(UpdateTarget::getTable)
+                .map(tableReference -> tableReference == table) // intentional comparison by reference
+                .orElse(FALSE);
     }
 
     public boolean isSkipMaterializedViewRefresh()

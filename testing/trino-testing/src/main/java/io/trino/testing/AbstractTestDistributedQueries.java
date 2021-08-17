@@ -703,6 +703,20 @@ public abstract class AbstractTestDistributedQueries
     }
 
     @Test
+    public void testExplainAnalyzeWithDeleteWithSubquery()
+    {
+        skipTestUnlessSupportsDeletes();
+
+        String tableName = "test_delete_" + randomTableSuffix();
+
+        // delete using a subquery
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM nation", 25);
+        assertExplainAnalyze("EXPLAIN ANALYZE DELETE FROM " + tableName + " WHERE regionkey IN (SELECT regionkey FROM region WHERE name LIKE 'A%' LIMIT 1)",
+                "SemiJoin.*");
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testDeleteWithSemiJoin()
     {
         skipTestUnlessSupportsDeletes();

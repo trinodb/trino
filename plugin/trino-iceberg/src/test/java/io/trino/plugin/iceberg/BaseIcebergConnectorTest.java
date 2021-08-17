@@ -169,6 +169,14 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Override
+    public void testExplainAnalyzeWithDeleteWithSubquery()
+    {
+        // Deletes are covered with testMetadataDelete test methods
+        assertThatThrownBy(super::testExplainAnalyzeWithDeleteWithSubquery)
+                .hasStackTraceContaining("This connector only supports delete where one or more identity-transformed partitions are deleted entirely");
+    }
+
+    @Override
     public void testDeleteWithVarcharPredicate()
     {
         // Deletes are covered with testMetadataDelete test methods
