@@ -45,10 +45,10 @@ public class FissionFunctionFunctions
     public static long FetchDnsDb(@SqlType(StandardTypes.VARCHAR) Slice slice) throws JSONException, IOException
     {
         int count = 0;
-        JSONObject myObject = ExecuteFissionFunctionGET(String.format("%s/dnsdb?lookup=%s", FissionFunctionConfigProvider.getFissionFunctionBaseURL(), slice.toStringUtf8()));
+        JSONObject jsonObject  = ExecuteFissionFunctionGET(String.format("%s/dnsdb?lookup=%s", FissionFunctionConfigProvider.getFissionFunctionBaseURL(), slice.toStringUtf8()));
 
-        if (myObject.has("total_count")) {
-            count = Integer.parseInt(myObject.getString("total_count"));
+        if (jsonObject .has("total_count")) {
+            count = Integer.parseInt(jsonObject .getString("total_count"));
         }
 
         return count;
@@ -60,10 +60,10 @@ public class FissionFunctionFunctions
     public static long FetchDespicableName(@SqlType(StandardTypes.VARCHAR) Slice slice) throws JSONException, IOException
     {
         int count = 0;
-        JSONObject myObject = ExecuteFissionFunctionGET(String.format("%s/despicablename?domain=%s", FissionFunctionConfigProvider.getFissionFunctionBaseURL(), slice.toStringUtf8()));
+        JSONObject jsonObject  = ExecuteFissionFunctionGET(String.format("%s/despicablename?domain=%s", FissionFunctionConfigProvider.getFissionFunctionBaseURL(), slice.toStringUtf8()));
 
-        if (myObject.has("probs")) {
-            count = Integer.parseInt(myObject.getJSONArray("probs").getJSONArray(0).getString(0));
+        if (jsonObject .has("probs")) {
+            count = Integer.parseInt(jsonObject .getJSONArray("probs").getJSONArray(0).getString(0));
         }
 
         return count;
@@ -80,8 +80,8 @@ public class FissionFunctionFunctions
         HttpGet getRequest = new HttpGet(endpoint);
         HttpResponse response = httpClient.execute(getRequest);
         result = EntityUtils.toString(response.getEntity());
-        JSONObject myObject = new JSONObject(result);
+        JSONObject jsonObject  = new JSONObject(result);
 
-        return myObject;
+        return jsonObject ;
     }
 }
