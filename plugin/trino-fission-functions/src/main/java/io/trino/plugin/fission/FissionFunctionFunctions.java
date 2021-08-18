@@ -57,7 +57,7 @@ public class FissionFunctionFunctions
     @ScalarFunction("fission_despicablename")
     @Description("Send get request to fission dnsdb endpoint")
     @SqlType(StandardTypes.BIGINT)
-    public static long FetchDespicableName(@SqlType(StandardTypes.VARCHAR) Slice slice) throws JSONException, IOException
+    public static long fetchDespicableName(@SqlType(StandardTypes.VARCHAR) Slice slice) throws JSONException, IOException
     {
         int count = 0;
         JSONObject jsonObject = ExecuteFissionFunctionGET(String.format("%s/despicablename?domain=%s", FissionFunctionConfigProvider.getFissionFunctionBaseURL(), slice.toStringUtf8()));
