@@ -42,7 +42,7 @@ public class FissionFunctionFunctions
     @ScalarFunction("fission_dnsdb")
     @Description("Send get request to fission dnsdb endpoint")
     @SqlType(StandardTypes.BIGINT)
-    public static long FetchDnsDb(@SqlType(StandardTypes.VARCHAR) Slice slice) throws JSONException, IOException
+    public static long fetchDnsDb(@SqlType(StandardTypes.VARCHAR) Slice slice) throws JSONException, IOException
     {
         int count = 0;
         JSONObject jsonObject = ExecuteFissionFunctionGET(String.format("%s/dnsdb?lookup=%s", FissionFunctionConfigProvider.getFissionFunctionBaseURL(), slice.toStringUtf8()));
