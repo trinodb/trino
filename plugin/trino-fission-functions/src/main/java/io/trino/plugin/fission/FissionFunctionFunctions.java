@@ -62,7 +62,7 @@ public class FissionFunctionFunctions
         int count = 0;
         JSONObject jsonObject = ExecuteFissionFunctionGET(String.format("%s/despicablename?domain=%s", FissionFunctionConfigProvider.getFissionFunctionBaseURL(), slice.toStringUtf8()));
 
-        if (jsonObject .has("probs")) {
+        if (jsonObject.has("probs")) {
             count = Integer.parseInt(jsonObject.getJSONArray("probs").getJSONArray(0).getString(0));
         }
 
