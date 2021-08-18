@@ -14,6 +14,7 @@
 package io.trino.connector;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.trino.spi.HostAddress;
 import io.trino.spi.Page;
@@ -94,6 +95,9 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 public class MockConnector
         implements Connector
 {
+    private static final String DELETE_ROW_ID = "delete_row_id";
+    private static final String UPDATE_ROW_ID = "update_row_id";
+
     private final Function<ConnectorSession, List<String>> listSchemaNames;
     private final BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables;
     private final Optional<BiFunction<ConnectorSession, SchemaTablePrefix, Stream<TableColumnsMetadata>>> streamTableColumns;
@@ -474,7 +478,7 @@ public class MockConnector
         @Override
         public ColumnHandle getUpdateRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns)
         {
-            return new MockConnectorColumnHandle("update_row_id", BIGINT);
+            return new MockConnectorColumnHandle(UPDATE_ROW_ID, BIGINT);
         }
 
         @Override
@@ -486,7 +490,7 @@ public class MockConnector
         @Override
         public ColumnHandle getDeleteRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
         {
-            return new MockConnectorColumnHandle("delete_row_id", BIGINT);
+            return new MockConnectorColumnHandle(DELETE_ROW_ID, BIGINT);
         }
 
         @Override
@@ -513,7 +517,10 @@ public class MockConnector
         @Override
         public Set<RoleGrant> listRoleGrants(ConnectorSession session, TrinoPrincipal principal)
         {
-            return roleGrants.apply(session, Optional.empty(), Optional.empty(), OptionalLong.empty()).stream().filter(grant -> grant.getGrantee().equals(principal)).collect(toImmutableSet());
+            return roleGrants.apply(session, Optional.empty(), Optional.empty(), OptionalLong.empty())
+                    .stream()
+                    .filter(grant -> grant.getGrantee().equals(principal))
+                    .collect(toImmutableSet());
         }
 
         @Override
@@ -602,31 +609,41 @@ public class MockConnector
         {
             MockConnectorTableHandle handle = (MockConnectorTableHandle) table;
             SchemaTableName tableName = handle.getTableName();
-            Set<String> projection = columns.stream()
+            List<MockConnectorColumnHandle> projection = columns.stream()
                     .map(MockConnectorColumnHandle.class::cast)
-                    .map(MockConnectorColumnHandle::getName)
-                    .collect(toImmutableSet());
+                    .collect(toImmutableList());
             List<Type> types = columns.stream()
                     .map(MockConnectorColumnHandle.class::cast)
                     .map(MockConnectorColumnHandle::getType)
                     .collect(toImmutableList());
-            List<String> columnNames = getColumns.apply(tableName).stream()
-                    .map(ColumnMetadata::getName)
-                    .collect(toImmutableList());
+            Map<String, Integer> columnIndexes = getColumnIndexes(tableName);
             List<List<?>> records = data.apply(tableName).stream()
                     .map(record -> {
                         ImmutableList.Builder<Object> projectedRow = ImmutableList.builder();
-                        for (int columnIndex = 0; columnIndex < columnNames.size(); columnIndex++) {
-                            if (projection.contains(columnNames.get(columnIndex))) {
-                                projectedRow.add(record.get(columnIndex));
+                        for (MockConnectorColumnHandle column : projection) {
+                            String columnName = column.getName();
+                            if (columnName.equals(DELETE_ROW_ID) || columnName.equals(UPDATE_ROW_ID)) {
+                                projectedRow.add(0);
+                                continue;
                             }
+                            Integer index = columnIndexes.get(columnName);
+                            requireNonNull(index, "index is null");
+                            projectedRow.add(record.get(index));
                         }
-                        // produce value for update_row_id or delete_row_id columns, needed in case of UPDATE and DELETE
-                        projectedRow.add(0);
                         return projectedRow.build();
                     })
                     .collect(toImmutableList());
             return new MockConnectorPageSource(new RecordPageSource(new InMemoryRecordSet(types, records)));
+        }
+
+        private Map<String, Integer> getColumnIndexes(SchemaTableName tableName)
+        {
+            ImmutableMap.Builder<String, Integer> columnIndexes = ImmutableMap.builder();
+            List<ColumnMetadata> columnMetadata = getColumns.apply(tableName);
+            for (int index = 0; index < columnMetadata.size(); index++) {
+                columnIndexes.put(columnMetadata.get(index).getName(), index);
+            }
+            return columnIndexes.build();
         }
     }
 

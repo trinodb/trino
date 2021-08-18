@@ -130,6 +130,9 @@ public class TestMockConnector
                 "SELECT nationkey, regionkey FROM mock.default.nation",
                 "SELECT nationkey, regionkey FROM nation");
         assertQuery(
+                "SELECT regionkey, nationkey FROM mock.default.nation",
+                "SELECT regionkey, nationkey FROM nation");
+        assertQuery(
                 "SELECT regionkey FROM mock.default.nation",
                 "SELECT regionkey FROM nation");
     }
