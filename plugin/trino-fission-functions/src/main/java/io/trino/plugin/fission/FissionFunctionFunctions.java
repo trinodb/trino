@@ -69,7 +69,7 @@ public class FissionFunctionFunctions
         return count;
     }
 
-    private static JSONObject ExecuteFissionFunctionGET(String endpoint) throws JSONException, IOException
+    private static JSONObject executeFissionFunctionGet(String endpoint) throws JSONException, IOException
     {
         String result = "";
 
