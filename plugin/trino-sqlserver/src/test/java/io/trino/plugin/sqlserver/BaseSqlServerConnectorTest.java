@@ -78,6 +78,9 @@ public abstract class BaseSqlServerConnectorTest
             case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
                 return false;
 
+            case SUPPORTS_RENAME_SCHEMA:
+                return false;
+
             default:
                 return super.hasBehavior(connectorBehavior);
         }
