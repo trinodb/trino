@@ -40,6 +40,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.APPEND;
 import static io.trino.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.ERROR;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static org.joda.time.DateTimeZone.UTC;
 
 @DefunctConfig({
         "dfs.domain-socket-path",
@@ -99,6 +100,9 @@ public class HiveConfig
 
     private String parquetTimeZone = TimeZone.getDefault().getID();
     private boolean useParquetColumnNames = true;
+
+    //This is set to UTC by default to be backward compatible
+    private String avroTimeZone = UTC.getID();
 
     private String rcfileTimeZone = TimeZone.getDefault().getID();
     private boolean rcfileWriterValidate;
@@ -660,6 +664,25 @@ public class HiveConfig
     public HiveConfig setUseParquetColumnNames(boolean useParquetColumnNames)
     {
         this.useParquetColumnNames = useParquetColumnNames;
+        return this;
+    }
+
+    public DateTimeZone getAvroDateTimeZone()
+    {
+        return DateTimeZone.forID(avroTimeZone);
+    }
+
+    @NotNull
+    public String getAvroTimeZone()
+    {
+        return avroTimeZone;
+    }
+
+    @Config("hive.avro.time-zone")
+    @ConfigDescription("Time zone for Avro read and write")
+    public HiveConfig setAvroTimeZone(String avroTimeZone)
+    {
+        this.avroTimeZone = avroTimeZone;
         return this;
     }
 

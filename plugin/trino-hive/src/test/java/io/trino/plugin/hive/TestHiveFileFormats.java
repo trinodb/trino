@@ -945,7 +945,8 @@ public class TestHiveFileFormats
                 false,
                 Optional.empty(),
                 false,
-                NO_ACID_TRANSACTION);
+                NO_ACID_TRANSACTION,
+                UTC);
 
         return pageSource.get();
     }
@@ -1015,7 +1016,8 @@ public class TestHiveFileFormats
                 false,
                 Optional.empty(),
                 false,
-                NO_ACID_TRANSACTION);
+                NO_ACID_TRANSACTION,
+                UTC);
 
         assertTrue(pageSource.isPresent());
 

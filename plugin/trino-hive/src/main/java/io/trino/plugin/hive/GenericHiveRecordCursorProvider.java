@@ -25,6 +25,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.RecordReader;
 import org.apache.hadoop.mapreduce.lib.input.LineRecordReader;
+import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
 
@@ -71,7 +72,8 @@ public class GenericHiveRecordCursorProvider
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             TypeManager typeManager,
-            boolean s3SelectPushdownEnabled)
+            boolean s3SelectPushdownEnabled,
+            DateTimeZone dateTimeZone)
     {
         configuration.setInt(LineRecordReader.MAX_LINE_LENGTH, textMaxLineLengthBytes);
 
@@ -107,7 +109,8 @@ public class GenericHiveRecordCursorProvider
                         genericRecordReader(recordReader),
                         length,
                         schema,
-                        readerColumns);
+                        readerColumns,
+                        dateTimeZone);
             }
             catch (Exception e) {
                 try {

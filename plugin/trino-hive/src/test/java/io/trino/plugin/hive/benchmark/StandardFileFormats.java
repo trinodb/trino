@@ -417,6 +417,7 @@ public final class StandardFileFormats
                     config,
                     TYPE_MANAGER,
                     UTC,
+                    UTC,
                     session);
         }
 

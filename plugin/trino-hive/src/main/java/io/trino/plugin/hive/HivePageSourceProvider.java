@@ -48,6 +48,7 @@ import io.trino.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
+import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
 
@@ -83,6 +84,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
+import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 
 public class HivePageSourceProvider
         implements ConnectorPageSourceProvider
@@ -100,6 +102,7 @@ public class HivePageSourceProvider
     private final Set<HivePageSourceFactory> pageSourceFactories;
     private final Set<HiveRecordCursorProvider> cursorProviders;
     private final Optional<OrcFileWriterFactory> orcFileWriterFactory;
+    private final DateTimeZone avroDateTimeZone;
 
     @Inject
     public HivePageSourceProvider(
@@ -132,6 +135,7 @@ public class HivePageSourceProvider
                 .add(genericCursorProvider) // generic should be last, as a fallback option
                 .build();
         this.orcFileWriterFactory = requireNonNull(orcFileWriterFactory, "orcFileWriterFactory is null");
+        this.avroDateTimeZone = requireNonNull(requireNonNull(hiveConfig, "hiveConfig is null").getAvroDateTimeZone(), "avroDateTimeZone is null");
     }
 
     @Override
@@ -172,6 +176,11 @@ public class HivePageSourceProvider
         TupleDomain<HiveColumnHandle> simplifiedDynamicFilter = dynamicFilter
                 .getCurrentPredicate()
                 .transformKeys(HiveColumnHandle.class::cast).simplify(domainCompactionThreshold);
+        DateTimeZone dateTimeZone = DateTimeZone.UTC;
+        if (isAvroFormat(hiveSplit)) {
+            dateTimeZone = avroDateTimeZone;
+            configuration.setBoolean("hive.avro.timestamp.skip.conversion", true);
+        }
         Optional<ConnectorPageSource> pageSource = createHivePageSource(
                 pageSourceFactories,
                 cursorProviders,
@@ -195,7 +204,8 @@ public class HivePageSourceProvider
                 hiveSplit.isS3SelectPushdownEnabled(),
                 hiveSplit.getAcidInfo(),
                 originalFile,
-                hiveTable.getTransaction());
+                hiveTable.getTransaction(),
+                dateTimeZone);
 
         if (pageSource.isPresent()) {
             ConnectorPageSource source = pageSource.get();
@@ -259,7 +269,8 @@ public class HivePageSourceProvider
             boolean s3SelectPushdownEnabled,
             Optional<AcidInfo> acidInfo,
             boolean originalFile,
-            AcidTransaction transaction)
+            AcidTransaction transaction,
+            DateTimeZone dateTimeZone)
     {
         if (effectivePredicate.isNone()) {
             return Optional.of(new EmptyPageSource());
@@ -333,7 +344,8 @@ public class HivePageSourceProvider
                     desiredColumns,
                     effectivePredicate,
                     typeManager,
-                    s3SelectPushdownEnabled);
+                    s3SelectPushdownEnabled,
+                    dateTimeZone);
 
             if (readerWithProjections.isPresent()) {
                 RecordCursor delegate = readerWithProjections.get().getRecordCursor();
@@ -378,6 +390,12 @@ public class HivePageSourceProvider
         }
 
         return Optional.empty();
+    }
+
+    private boolean isAvroFormat(HiveSplit split)
+    {
+        String serialzationLib = split.getSchema().getProperty(SERIALIZATION_LIB);
+        return serialzationLib != null && serialzationLib.equals("org.apache.hadoop.hive.serde2.avro.AvroSerDe");
     }
 
     private static boolean shouldSkipBucket(HiveTableHandle hiveTable, HiveSplit hiveSplit, DynamicFilter dynamicFilter)

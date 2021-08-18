@@ -48,6 +48,7 @@ import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.RecordReader;
+import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -84,7 +85,6 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static org.joda.time.DateTimeZone.UTC;
 
 public class GenericHiveRecordCursor<K, V extends Writable>
         implements RecordCursor
@@ -124,7 +124,8 @@ public class GenericHiveRecordCursor<K, V extends Writable>
             RecordReader<K, V> recordReader,
             long totalBytes,
             Properties splitSchema,
-            List<HiveColumnHandle> columns)
+            List<HiveColumnHandle> columns,
+            DateTimeZone dateTimeZone)
     {
         requireNonNull(path, "path is null");
         requireNonNull(recordReader, "recordReader is null");
@@ -166,7 +167,7 @@ public class GenericHiveRecordCursor<K, V extends Writable>
             Type columnType = column.getType();
             types[i] = columnType;
             if (columnType instanceof TimestampType) {
-                timestampEncoders[i] = createTimestampEncoder((TimestampType) columnType, UTC);
+                timestampEncoders[i] = createTimestampEncoder((TimestampType) columnType, dateTimeZone);
             }
             hiveTypes[i] = column.getHiveType();
 

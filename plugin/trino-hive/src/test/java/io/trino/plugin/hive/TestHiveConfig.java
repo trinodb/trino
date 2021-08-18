@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
+import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -73,6 +74,7 @@ public class TestHiveConfig
                 .setOrcLegacyTimeZone(TimeZone.getDefault().getID())
                 .setParquetTimeZone(TimeZone.getDefault().getID())
                 .setUseParquetColumnNames(true)
+                .setAvroTimeZone(DateTimeZone.UTC.getID())
                 .setRcfileTimeZone(TimeZone.getDefault().getID())
                 .setRcfileWriterValidate(false)
                 .setSkipDeletionForAlter(false)
@@ -143,6 +145,7 @@ public class TestHiveConfig
                 .put("hive.orc.time-zone", nonDefaultTimeZone().getID())
                 .put("hive.parquet.time-zone", nonDefaultTimeZone().getID())
                 .put("hive.parquet.use-column-names", "false")
+                .put("hive.avro.time-zone", nonDefaultTimeZone().getID())
                 .put("hive.rcfile.time-zone", nonDefaultTimeZone().getID())
                 .put("hive.rcfile.writer.validate", "true")
                 .put("hive.skip-deletion-for-alter", "true")
@@ -212,6 +215,7 @@ public class TestHiveConfig
                 .setOrcLegacyTimeZone(nonDefaultTimeZone().getID())
                 .setParquetTimeZone(nonDefaultTimeZone().getID())
                 .setUseParquetColumnNames(false)
+                .setAvroTimeZone(nonDefaultTimeZone().getID())
                 .setRcfileTimeZone(nonDefaultTimeZone().getID())
                 .setRcfileWriterValidate(true)
                 .setSkipDeletionForAlter(true)

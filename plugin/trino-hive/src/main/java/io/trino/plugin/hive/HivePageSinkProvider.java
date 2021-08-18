@@ -70,6 +70,7 @@ public class HivePageSinkProvider
     private final HiveWriterStats hiveWriterStats;
     private final long perTransactionMetastoreCacheMaximumSize;
     private final DateTimeZone parquetTimeZone;
+    private final DateTimeZone avroTimeZone;
 
     @Inject
     public HivePageSinkProvider(
@@ -105,6 +106,7 @@ public class HivePageSinkProvider
         this.hiveWriterStats = requireNonNull(hiveWriterStats, "hiveWriterStats is null");
         this.perTransactionMetastoreCacheMaximumSize = config.getPerTransactionMetastoreCacheMaximumSize();
         this.parquetTimeZone = config.getParquetDateTimeZone();
+        this.avroTimeZone = config.getAvroDateTimeZone();
     }
 
     @Override
@@ -156,6 +158,7 @@ public class HivePageSinkProvider
                 writerSortBufferSize,
                 maxOpenSortFiles,
                 parquetTimeZone,
+                avroTimeZone,
                 session,
                 nodeManager,
                 eventClient,

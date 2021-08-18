@@ -26,6 +26,7 @@ import io.trino.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe;
+import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
 
@@ -67,7 +68,8 @@ public class S3SelectRecordCursorProvider
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             TypeManager typeManager,
-            boolean s3SelectPushdownEnabled)
+            boolean s3SelectPushdownEnabled,
+            DateTimeZone dateTimeZone)
     {
         if (!s3SelectPushdownEnabled) {
             return Optional.empty();
@@ -95,7 +97,7 @@ public class S3SelectRecordCursorProvider
             String ionSqlQuery = queryBuilder.buildSql(readerColumns, effectivePredicate);
             S3SelectLineRecordReader recordReader = new S3SelectCsvRecordReader(configuration, path, start, length, schema, ionSqlQuery, s3ClientFactory);
 
-            RecordCursor cursor = new S3SelectRecordCursor<>(configuration, path, recordReader, length, schema, readerColumns);
+            RecordCursor cursor = new S3SelectRecordCursor<>(configuration, path, recordReader, length, schema, readerColumns, dateTimeZone);
             return Optional.of(new ReaderRecordCursorWithProjections(cursor, projectedReaderColumns));
         }
 

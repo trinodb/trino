@@ -145,6 +145,7 @@ public class HiveWriterFactory
     private final String sortedWritingTempStagingPath;
     private final InsertExistingPartitionsBehavior insertExistingPartitionsBehavior;
     private final DateTimeZone parquetTimeZone;
+    private final DateTimeZone avroTimeZone;
 
     private final ConnectorSession session;
     private final OptionalInt bucketCount;
@@ -178,6 +179,7 @@ public class HiveWriterFactory
             DataSize sortBufferSize,
             int maxOpenSortFiles,
             DateTimeZone parquetTimeZone,
+            DateTimeZone avroTimeZone,
             ConnectorSession session,
             NodeManager nodeManager,
             EventClient eventClient,
@@ -207,6 +209,7 @@ public class HiveWriterFactory
         this.sortedWritingTempStagingPath = getTemporaryStagingDirectoryPath(session);
         this.insertExistingPartitionsBehavior = getInsertExistingPartitionsBehavior(session);
         this.parquetTimeZone = requireNonNull(parquetTimeZone, "parquetTimeZone is null");
+        this.avroTimeZone = requireNonNull(avroTimeZone, "avroTimeZone is null");
 
         // divide input columns into partition and data columns
         requireNonNull(inputColumns, "inputColumns is null");
@@ -491,6 +494,7 @@ public class HiveWriterFactory
                     conf,
                     typeManager,
                     parquetTimeZone,
+                    avroTimeZone,
                     session);
         }
 

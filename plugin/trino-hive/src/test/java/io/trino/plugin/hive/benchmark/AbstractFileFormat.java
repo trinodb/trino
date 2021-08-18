@@ -64,6 +64,7 @@ import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMNS;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMN_TYPES;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
+import static org.joda.time.DateTimeZone.UTC;
 
 public abstract class AbstractFileFormat
         implements FileFormat
@@ -192,7 +193,8 @@ public abstract class AbstractFileFormat
                 readColumns,
                 TupleDomain.all(),
                 TYPE_MANAGER,
-                false);
+                false,
+                UTC);
 
         checkState(recordCursorWithProjections.isPresent(), "readerPageSourceWithProjections is not present");
         checkState(recordCursorWithProjections.get().getProjectedReaderColumns().isEmpty(), "projection should not be required");
