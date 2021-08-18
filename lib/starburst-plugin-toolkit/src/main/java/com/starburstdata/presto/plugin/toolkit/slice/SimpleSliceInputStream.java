@@ -141,6 +141,13 @@ public final class SimpleSliceInputStream
         return UnsafeSlice.getIntUnchecked(slice, offset + index);
     }
 
+    public Slice readSlice(int length)
+    {
+        Slice result = slice.slice(offset, length);
+        offset += length;
+        return result;
+    }
+
     public void skip(int n)
     {
         offset += n;
