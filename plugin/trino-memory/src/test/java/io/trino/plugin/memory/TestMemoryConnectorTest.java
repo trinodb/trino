@@ -100,6 +100,9 @@ public class TestMemoryConnectorTest
             case SUPPORTS_COMMENT_ON_COLUMN:
                 return false;
 
+            case SUPPORTS_RENAME_SCHEMA:
+                return false;
+
             case SUPPORTS_CREATE_VIEW:
                 return true;
 

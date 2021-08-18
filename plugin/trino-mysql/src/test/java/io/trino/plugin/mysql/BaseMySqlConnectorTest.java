@@ -65,6 +65,9 @@ public abstract class BaseMySqlConnectorTest
             case SUPPORTS_ARRAY:
                 return false;
 
+            case SUPPORTS_RENAME_SCHEMA:
+                return false;
+
             default:
                 return super.hasBehavior(connectorBehavior);
         }
