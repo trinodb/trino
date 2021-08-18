@@ -344,6 +344,13 @@ public class RecordingHiveMetastore
     }
 
     @Override
+    public void alterTableLocation(HiveIdentity identity, String databaseName, String tableName, String newLocation)
+    {
+        verifyRecordingMode();
+        delegate.alterTableLocation(identity, databaseName, tableName, newLocation);
+    }
+
+    @Override
     public void commentTable(HiveIdentity identity, String databaseName, String tableName, Optional<String> comment)
     {
         verifyRecordingMode();

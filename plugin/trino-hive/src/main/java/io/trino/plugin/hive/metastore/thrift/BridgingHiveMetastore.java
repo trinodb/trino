@@ -217,6 +217,18 @@ public class BridgingHiveMetastore
     }
 
     @Override
+    public void alterTableLocation(HiveIdentity identity, String databaseName, String tableName, String newLocation)
+    {
+        Optional<org.apache.hadoop.hive.metastore.api.Table> source = delegate.getTable(identity, databaseName, tableName);
+        if (source.isEmpty()) {
+            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
+        }
+        org.apache.hadoop.hive.metastore.api.Table table = source.get();
+        table.getSd().setLocation(newLocation);
+        alterTable(identity, databaseName, tableName, table);
+    }
+
+    @Override
     public void renameTable(HiveIdentity identity, String databaseName, String tableName, String newDatabaseName, String newTableName)
     {
         Optional<org.apache.hadoop.hive.metastore.api.Table> source = delegate.getTable(identity, databaseName, tableName);

@@ -587,6 +587,19 @@ public class FileHiveMetastore
     }
 
     @Override
+    public void alterTableLocation(HiveIdentity identity, String databaseName, String tableName, String newLocation)
+    {
+        Table table = getRequiredTable(databaseName, tableName);
+        Path tableMetadataDirectory = getTableMetadataDirectory(table);
+
+        Table newTable = Table.builder(table)
+                .withStorage(storage -> storage.setLocation(newLocation))
+                .build();
+
+        writeSchemaFile("table", tableMetadataDirectory, tableCodec, new TableMetadata(currentVersion, newTable), true);
+    }
+
+    @Override
     public synchronized void commentTable(HiveIdentity identity, String databaseName, String tableName, Optional<String> comment)
     {
         alterTable(databaseName, tableName, oldTable -> {

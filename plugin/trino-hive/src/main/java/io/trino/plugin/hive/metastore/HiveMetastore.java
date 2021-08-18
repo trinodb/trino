@@ -84,6 +84,8 @@ public interface HiveMetastore
 
     void renameTable(HiveIdentity identity, String databaseName, String tableName, String newDatabaseName, String newTableName);
 
+    void alterTableLocation(HiveIdentity identity, String databaseName, String tableName, String newLocation);
+
     void commentTable(HiveIdentity identity, String databaseName, String tableName, Optional<String> comment);
 
     void setTableOwner(HiveIdentity identity, String databaseName, String tableName, HivePrincipal principal);

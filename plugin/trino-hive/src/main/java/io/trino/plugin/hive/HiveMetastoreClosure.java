@@ -170,6 +170,11 @@ public class HiveMetastoreClosure
         delegate.renameTable(identity, databaseName, tableName, newDatabaseName, newTableName);
     }
 
+    public void alterTableLocation(HiveIdentity identity, String databaseName, String tableName, String newLocation)
+    {
+        delegate.alterTableLocation(identity, databaseName, tableName, newLocation);
+    }
+
     public void commentTable(HiveIdentity identity, String databaseName, String tableName, Optional<String> comment)
     {
         delegate.commentTable(identity, databaseName, tableName, comment);

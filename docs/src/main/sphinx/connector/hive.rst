@@ -915,6 +915,10 @@ Procedures
   Unregisters given, existing partition in the metastore for the specified table.
   The partition data is not deleted.
 
+* ``system.alter_table_location(schema_name, table_name, location)``
+
+  Alter a location in the specified external table.
+
 Special columns
 ---------------
 

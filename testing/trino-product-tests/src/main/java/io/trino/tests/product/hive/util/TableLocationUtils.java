@@ -25,9 +25,20 @@ import static java.lang.String.format;
 public final class TableLocationUtils
 {
     private static final Pattern ACID_LOCATION_PATTERN = Pattern.compile("(.*)/delta_[^/]+");
+    private static final Pattern EXTERNAL_LOCATION_PATTERN = Pattern.compile("external_location = '(.*)'");
 
     private TableLocationUtils()
     {
+    }
+
+    public static String getExternalTableLocation(String tableName)
+    {
+        String tableDefinition = getOnlyElement(onTrino().executeQuery(format("SHOW CREATE TABLE %s", tableName)).column(1));
+        Matcher externalLocationMatcher = EXTERNAL_LOCATION_PATTERN.matcher(tableDefinition);
+        if (externalLocationMatcher.find()) {
+            return externalLocationMatcher.group(1);
+        }
+        throw new IllegalArgumentException("Cannot find 'external_location' table property: " + tableDefinition);
     }
 
     public static String getTableLocation(String tableName)

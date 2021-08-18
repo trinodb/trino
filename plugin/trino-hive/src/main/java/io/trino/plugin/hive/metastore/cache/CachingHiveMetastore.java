@@ -568,6 +568,18 @@ public class CachingHiveMetastore
     }
 
     @Override
+    public void alterTableLocation(HiveIdentity identity, String databaseName, String tableName, String newLocation)
+    {
+        identity = updateIdentity(identity);
+        try {
+            delegate.alterTableLocation(identity, databaseName, tableName, newLocation);
+        }
+        finally {
+            invalidateTable(databaseName, tableName);
+        }
+    }
+
+    @Override
     public void commentTable(HiveIdentity identity, String databaseName, String tableName, Optional<String> comment)
     {
         identity = updateIdentity(identity);

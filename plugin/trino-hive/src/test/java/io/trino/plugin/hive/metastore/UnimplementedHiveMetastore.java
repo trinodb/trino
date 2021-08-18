@@ -152,6 +152,12 @@ class UnimplementedHiveMetastore
     }
 
     @Override
+    public void alterTableLocation(HiveIdentity identity, String databaseName, String tableName, String newLocation)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void commentTable(HiveIdentity identity, String databaseName, String tableName, Optional<String> comment)
     {
         throw new UnsupportedOperationException();

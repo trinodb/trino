@@ -659,6 +659,12 @@ public class GlueHiveMetastore
     }
 
     @Override
+    public void alterTableLocation(HiveIdentity identity, String databaseName, String tableName, String newLocation)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "Altering table location is not yet supported by Glue service");
+    }
+
+    @Override
     public void commentTable(HiveIdentity identity, String databaseName, String tableName, Optional<String> comment)
     {
         throw new TrinoException(NOT_SUPPORTED, "Table comment is not yet supported by Glue service");
