@@ -75,6 +75,9 @@ public class TestClickHouseConnectorTest
             case SUPPORTS_DELETE:
                 return false;
 
+            case SUPPORTS_RENAME_SCHEMA:
+                return false;
+
             default:
                 return super.hasBehavior(connectorBehavior);
         }

@@ -90,6 +90,7 @@ public class TestPhoenixConnectorTest
                 return false;
 
             case SUPPORTS_RENAME_TABLE:
+            case SUPPORTS_RENAME_SCHEMA:
                 return false;
 
             default:

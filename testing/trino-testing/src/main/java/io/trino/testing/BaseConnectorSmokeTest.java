@@ -29,6 +29,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WI
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_VIEW;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DELETE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_INSERT;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_SCHEMA;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_TABLE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ROW_LEVEL_DELETE;
@@ -234,6 +235,32 @@ public abstract class BaseConnectorSmokeTest
                 .skippingTypesCheck()
                 .containsAll(format("VALUES '%s', '%s'", getSession().getSchema().orElseThrow(), schemaName));
         assertUpdate("DROP SCHEMA " + schemaName);
+    }
+
+    @Test
+    public void testRenameSchema()
+    {
+        if (!hasBehavior(SUPPORTS_RENAME_SCHEMA)) {
+            String schemaName = getSession().getSchema().orElseThrow();
+            assertQueryFails(
+                    format("ALTER SCHEMA %s RENAME TO %s", schemaName, schemaName + randomTableSuffix()),
+                    "This connector does not support renaming schemas");
+            return;
+        }
+
+        if (!hasBehavior(SUPPORTS_CREATE_SCHEMA)) {
+            throw new SkipException("Skipping as connector does not support CREATE SCHEMA");
+        }
+
+        String schemaName = "test_rename_schema_" + randomTableSuffix();
+        try {
+            assertUpdate("CREATE SCHEMA " + schemaName);
+            assertUpdate("ALTER SCHEMA " + schemaName + " RENAME TO " + schemaName + "_renamed");
+        }
+        finally {
+            assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
+            assertUpdate("DROP SCHEMA IF EXISTS " + schemaName + "_renamed");
+        }
     }
 
     @Test
