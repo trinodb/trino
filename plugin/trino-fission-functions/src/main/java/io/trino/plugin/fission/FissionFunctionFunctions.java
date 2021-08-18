@@ -47,7 +47,7 @@ public class FissionFunctionFunctions
         int count = 0;
         JSONObject jsonObject = ExecuteFissionFunctionGET(String.format("%s/dnsdb?lookup=%s", FissionFunctionConfigProvider.getFissionFunctionBaseURL(), slice.toStringUtf8()));
 
-        if (jsonObject .has("total_count")) {
+        if (jsonObject.has("total_count")) {
             count = Integer.parseInt(jsonObject.getString("total_count"));
         }
 
