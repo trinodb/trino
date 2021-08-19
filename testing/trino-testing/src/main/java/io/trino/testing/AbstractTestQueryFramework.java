@@ -23,6 +23,7 @@ import io.trino.cost.CostCalculator;
 import io.trino.cost.CostCalculatorUsingExchanges;
 import io.trino.cost.CostCalculatorWithEstimatedExchanges;
 import io.trino.cost.CostComparator;
+import io.trino.cost.ScalarStatsCalculator;
 import io.trino.cost.TaskCountEstimator;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.TaskManagerConfig;
@@ -39,7 +40,6 @@ import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.PlanFragmenter;
 import io.trino.sql.planner.PlanOptimizers;
-import io.trino.sql.planner.RuleStatsRecorder;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.optimizations.PlanNodeSearcher;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
@@ -57,8 +57,6 @@ import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
-import org.weakref.jmx.MBeanExporter;
-import org.weakref.jmx.testing.TestingMBeanServer;
 
 import java.util.List;
 import java.util.Optional;
@@ -146,7 +144,7 @@ public abstract class AbstractTestQueryFramework
 
     protected AssertProvider<QueryAssert> query(@Language("SQL") String sql)
     {
-        return queryAssertions.query(sql);
+        return query(getSession(), sql);
     }
 
     protected AssertProvider<QueryAssert> query(Session session, @Language("SQL") String sql)
@@ -172,6 +170,11 @@ public abstract class AbstractTestQueryFramework
     protected void assertQuery(Session session, @Language("SQL") String actual, @Language("SQL") String expected)
     {
         QueryAssertions.assertQuery(queryRunner, session, actual, h2QueryRunner, expected, false, false);
+    }
+
+    protected void assertQuery(@Language("SQL") String actual, @Language("SQL") String expected, Consumer<Plan> planAssertion)
+    {
+        assertQuery(getSession(), actual, expected, planAssertion);
     }
 
     protected void assertQuery(Session session, @Language("SQL") String actual, @Language("SQL") String expected, Consumer<Plan> planAssertion)
@@ -388,7 +391,7 @@ public abstract class AbstractTestQueryFramework
 
     protected String formatSqlText(String sql)
     {
-        return formatSql(sqlParser.createStatement(sql, createParsingOptions(queryRunner.getDefaultSession())));
+        return formatSql(sqlParser.createStatement(sql, createParsingOptions(getSession())));
     }
 
     //TODO: should WarningCollector be added?
@@ -397,7 +400,7 @@ public abstract class AbstractTestQueryFramework
         QueryExplainer explainer = getQueryExplainer();
         return transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
                 .singleStatement()
-                .execute(queryRunner.getDefaultSession(), session -> {
+                .execute(getSession(), session -> {
                     return explainer.getPlan(session, sqlParser.createStatement(query, createParsingOptions(session)), planType, emptyList(), WarningCollector.NOOP);
                 });
     }
@@ -420,21 +423,21 @@ public abstract class AbstractTestQueryFramework
         TaskCountEstimator taskCountEstimator = new TaskCountEstimator(queryRunner::getNodeCount);
         CostCalculator costCalculator = new CostCalculatorUsingExchanges(taskCountEstimator);
         TypeOperators typeOperators = new TypeOperators();
+        TypeAnalyzer typeAnalyzer = new TypeAnalyzer(sqlParser, metadata);
         List<PlanOptimizer> optimizers = new PlanOptimizers(
                 metadata,
                 typeOperators,
-                new TypeAnalyzer(sqlParser, metadata),
+                typeAnalyzer,
                 new TaskManagerConfig(),
                 forceSingleNode,
-                new MBeanExporter(new TestingMBeanServer()),
                 queryRunner.getSplitManager(),
                 queryRunner.getPageSourceManager(),
                 queryRunner.getStatsCalculator(),
+                new ScalarStatsCalculator(metadata, typeAnalyzer),
                 costCalculator,
                 new CostCalculatorWithEstimatedExchanges(costCalculator, taskCountEstimator),
                 new CostComparator(featuresConfig),
                 taskCountEstimator,
-                new RuleStatsRecorder(),
                 queryRunner.getNodePartitioningManager()).get();
         return new QueryExplainer(
                 optimizers,

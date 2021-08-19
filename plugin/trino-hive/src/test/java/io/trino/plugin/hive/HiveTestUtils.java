@@ -163,7 +163,6 @@ public final class HiveTestUtils
                 hdfsEnvironment,
                 TYPE_MANAGER,
                 new NodeVersion("test_version"),
-                new OrcWriterConfig(),
                 new FileFormatDataSourceStats(),
                 new OrcWriterConfig());
     }

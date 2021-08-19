@@ -23,7 +23,6 @@ import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.ResultWithQueryId;
 import io.trino.testing.TestingConnectorBehavior;
-import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.testng.annotations.Test;
 
@@ -126,81 +125,6 @@ public abstract class BaseOracleConnectorTest
                 onRemoteDatabase(),
                 "test_unsupported_col",
                 "(one NUMBER(19), two NUMBER, three VARCHAR2(10 CHAR))");
-    }
-
-    @Test
-    @Override
-    public void testCreateTableAsSelect()
-    {
-        String tableName = "test_ctas" + randomTableSuffix();
-        assertUpdate("CREATE TABLE IF NOT EXISTS " + tableName + " AS SELECT name, regionkey FROM nation", "SELECT count(*) FROM nation");
-        assertTableColumnNames(tableName, "name", "regionkey");
-        assertUpdate("DROP TABLE " + tableName);
-
-        // Some connectors support CREATE TABLE AS but not the ordinary CREATE TABLE. Let's test CTAS IF NOT EXISTS with a table that is guaranteed to exist.
-        assertUpdate("CREATE TABLE IF NOT EXISTS nation AS SELECT orderkey, discount FROM lineitem", 0);
-        assertTableColumnNames("nation", "nationkey", "name", "regionkey", "comment");
-
-        assertCreateTableAsSelect(
-                "SELECT orderdate, orderkey, totalprice FROM orders",
-                "SELECT count(*) FROM orders");
-
-        assertCreateTableAsSelect(
-                "SELECT orderstatus, sum(totalprice) x FROM orders GROUP BY orderstatus",
-                "SELECT count(DISTINCT orderstatus) FROM orders");
-
-        assertCreateTableAsSelect(
-                "SELECT count(*) x FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey",
-                "SELECT 1");
-
-        assertCreateTableAsSelect(
-                "SELECT orderkey FROM orders ORDER BY orderkey LIMIT 10",
-                "SELECT 10");
-
-        // this is comment because Trino creates a table of varchar(1) and in oracle this unicode occupy 3 char
-        // we should try to get bytes instead of size ??
-        /*
-        assertCreateTableAsSelect(
-                "SELECT '\u2603' unicode",
-                "SELECT 1");
-        */
-        assertCreateTableAsSelect(
-                "SELECT * FROM orders WITH DATA",
-                "SELECT * FROM orders",
-                "SELECT count(*) FROM orders");
-
-        assertCreateTableAsSelect(
-                "SELECT * FROM orders WITH NO DATA",
-                "SELECT * FROM orders LIMIT 0",
-                "SELECT 0");
-
-        // Tests for CREATE TABLE with UNION ALL: exercises PushTableWriteThroughUnion optimizer
-
-        assertCreateTableAsSelect(
-                "SELECT orderdate, orderkey, totalprice FROM orders WHERE orderkey % 2 = 0 UNION ALL " +
-                        "SELECT orderdate, orderkey, totalprice FROM orders WHERE orderkey % 2 = 1",
-                "SELECT orderdate, orderkey, totalprice FROM orders",
-                "SELECT count(*) FROM orders");
-
-        assertCreateTableAsSelect(
-                Session.builder(getSession()).setSystemProperty("redistribute_writes", "true").build(),
-                "SELECT CAST(orderdate AS DATE) orderdate, orderkey, totalprice FROM orders UNION ALL " +
-                        "SELECT DATE '2000-01-01', 1234567890, 1.23",
-                "SELECT orderdate, orderkey, totalprice FROM orders UNION ALL " +
-                        "SELECT DATE '2000-01-01', 1234567890, 1.23",
-                "SELECT count(*) + 1 FROM orders");
-
-        assertCreateTableAsSelect(
-                Session.builder(getSession()).setSystemProperty("redistribute_writes", "false").build(),
-                "SELECT CAST(orderdate AS DATE) orderdate, orderkey, totalprice FROM orders UNION ALL " +
-                        "SELECT DATE '2000-01-01', 1234567890, 1.23",
-                "SELECT orderdate, orderkey, totalprice FROM orders UNION ALL " +
-                        "SELECT DATE '2000-01-01', 1234567890, 1.23",
-                "SELECT count(*) + 1 FROM orders");
-
-        assertExplainAnalyze("EXPLAIN ANALYZE CREATE TABLE " + tableName + " AS SELECT orderstatus FROM orders");
-        assertQuery("SELECT * from " + tableName, "SELECT orderstatus FROM orders");
-        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -323,7 +247,7 @@ public abstract class BaseOracleConnectorTest
     @Override
     public void testDescribeTable()
     {
-        MaterializedResult expectedColumns = resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        MaterializedResult expectedColumns = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "decimal(19,0)", "", "")
                 .row("custkey", "decimal(19,0)", "", "")
                 .row("orderstatus", "varchar(1)", "", "")
@@ -355,6 +279,22 @@ public abstract class BaseOracleConnectorTest
                         "   shippriority decimal(10, 0),\n" +
                         "   comment varchar(79)\n" +
                         ")");
+    }
+
+    @Override
+    public void testAggregationWithUnsupportedResultType()
+    {
+        // Overridden because for approx_set(bigint) a ProjectNode is present above table scan because Oracle doesn't support bigint
+        // array_agg returns array, which is not supported
+        assertThat(query("SELECT array_agg(nationkey) FROM nation"))
+                .skipResultsCorrectnessCheckForPushdown() // array_agg doesn't have a deterministic order of elements in result array
+                .isNotFullyPushedDown(AggregationNode.class);
+        // histogram returns map, which is not supported
+        assertThat(query("SELECT histogram(regionkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
+        // multimap_agg returns multimap, which is not supported
+        assertThat(query("SELECT multimap_agg(regionkey, nationkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
+        // approx_set returns HyperLogLog, which is not supported
+        assertThat(query("SELECT approx_set(nationkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class, ProjectNode.class);
     }
 
     @Test
@@ -452,8 +392,8 @@ public abstract class BaseOracleConnectorTest
                 getUser() + ".test_pdown_",
                 "(c_clob CLOB, c_nclob NCLOB)",
                 ImmutableList.of("'my_clob', 'my_nclob'"))) {
-            assertThat(query(format("SELECT c_clob FROM %s WHERE c_clob = cast('my_clob' as varchar)", table.getName()))).isNotFullyPushedDown(FilterNode.class);
-            assertThat(query(format("SELECT c_nclob FROM %s WHERE c_nclob = cast('my_nclob' as varchar)", table.getName()))).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query(format("SELECT c_clob FROM %s WHERE c_clob = VARCHAR 'my_clob'", table.getName()))).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query(format("SELECT c_nclob FROM %s WHERE c_nclob = VARCHAR 'my_nclob'", table.getName()))).isNotFullyPushedDown(FilterNode.class);
         }
     }
 
@@ -482,6 +422,4 @@ public abstract class BaseOracleConnectorTest
     {
         return TEST_USER;
     }
-
-    protected abstract SqlExecutor onRemoteDatabase();
 }

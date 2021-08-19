@@ -98,4 +98,59 @@ public class TestMergeLimits
                 })
                 .doesNotFire();
     }
+
+    @Test
+    public void testOrderSensitiveChild()
+    {
+        tester().assertThat(new MergeLimits())
+                .on(p -> p.limit(
+                        5,
+                        p.limit(3, false, ImmutableList.of(p.symbol("a")), p.values())))
+                .matches(
+                        limit(
+                                3,
+                                ImmutableList.of(),
+                                false,
+                                ImmutableList.of("a"),
+                                values()));
+    }
+
+    @Test
+    public void testOrderSensitiveParent()
+    {
+        tester().assertThat(new MergeLimits())
+                .on(p -> p.limit(
+                        3,
+                        false,
+                        ImmutableList.of(p.symbol("a")),
+                        p.limit(5, p.values())))
+                .matches(
+                        limit(
+                                3,
+                                ImmutableList.of(),
+                                false,
+                                ImmutableList.of("a"),
+                                values()));
+    }
+
+    @Test
+    public void testOrderSensitiveParentAndChild()
+    {
+        tester().assertThat(new MergeLimits())
+                .on(p -> p.limit(
+                        3,
+                        false,
+                        ImmutableList.of(p.symbol("a")),
+                        p.limit(
+                                5,
+                                ImmutableList.of(p.symbol("a"), p.symbol("b")),
+                                p.values())))
+                .matches(
+                        limit(
+                                3,
+                                ImmutableList.of(),
+                                false,
+                                ImmutableList.of("a", "b"),
+                                values()));
+    }
 }

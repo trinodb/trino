@@ -238,9 +238,9 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
-    public boolean isTopNLimitGuaranteed(ConnectorSession session)
+    public boolean isTopNGuaranteed(ConnectorSession session)
     {
-        return delegate().isTopNLimitGuaranteed(session);
+        return delegate().isTopNGuaranteed(session);
     }
 
     @Override

@@ -134,7 +134,7 @@ public class WindowFilterPushDown
         @Override
         public PlanNode visitLimit(LimitNode node, RewriteContext<Void> context)
         {
-            if (node.isWithTies()) {
+            if (node.isWithTies() || node.requiresPreSortedInputs()) {
                 return context.defaultRewrite(node);
             }
 

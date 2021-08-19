@@ -197,9 +197,11 @@ public final class LiteralEncoder
         if (type instanceof VarcharType) {
             VarcharType varcharType = (VarcharType) type;
             Slice value = (Slice) object;
+            if (varcharType.isUnbounded()) {
+                return new GenericLiteral("VARCHAR", value.toStringUtf8());
+            }
             StringLiteral stringLiteral = new StringLiteral(value.toStringUtf8());
-
-            if (!varcharType.isUnbounded() && varcharType.getBoundedLength() == SliceUtf8.countCodePoints(value)) {
+            if (varcharType.getBoundedLength() == SliceUtf8.countCodePoints(value)) {
                 return stringLiteral;
             }
             return new Cast(stringLiteral, toSqlType(type), false, true);

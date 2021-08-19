@@ -30,7 +30,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-@Test
 public class TestBigQueryIntegrationSmokeTest
         // TODO extend BaseConnectorTest
         extends AbstractTestIntegrationSmokeTest
@@ -47,10 +46,43 @@ public class TestBigQueryIntegrationSmokeTest
                 ImmutableMap.of());
     }
 
+    @Test
+    public void testCreateSchema()
+    {
+        String schemaName = "test_create_schema";
+
+        assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
+
+        assertUpdate("CREATE SCHEMA " + schemaName);
+        assertUpdate("CREATE SCHEMA IF NOT EXISTS " + schemaName);
+
+        assertQueryFails(
+                "CREATE SCHEMA " + schemaName,
+                format("\\Qline 1:1: Schema 'bigquery.%s' already exists\\E", schemaName));
+
+        assertUpdate("DROP SCHEMA " + schemaName);
+    }
+
+    @Test
+    public void testDropSchema()
+    {
+        String schemaName = "test_drop_schema";
+
+        assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
+        assertUpdate("CREATE SCHEMA " + schemaName);
+
+        assertUpdate("DROP SCHEMA " + schemaName);
+        assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
+
+        assertQueryFails(
+                "DROP SCHEMA " + schemaName,
+                format("\\Qline 1:1: Schema 'bigquery.%s' does not exist\\E", schemaName));
+    }
+
     @Override
     public void testDescribeTable()
     {
-        MaterializedResult expectedColumns = resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        MaterializedResult expectedColumns = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "bigint", "", "")
                 .row("custkey", "bigint", "", "")
                 .row("orderstatus", "varchar", "", "")
@@ -211,6 +243,21 @@ public class TestBigQueryIntegrationSmokeTest
         assertEquals((long) actualValues.getOnlyValue(), 1L);
     }
 
+    @Test(description = "regression test for https://github.com/trinodb/trino/issues/7784")
+    public void testSelectWithSingleQuoteInWhereClause()
+    {
+        String tableName = "test.select_with_single_quote";
+
+        onBigQuery("DROP TABLE IF EXISTS " + tableName);
+        onBigQuery("CREATE TABLE " + tableName + "(col INT64, val STRING)");
+        onBigQuery("INSERT INTO " + tableName + " VALUES (1,'escape\\'single quote')");
+
+        MaterializedResult actualValues = computeActual("SELECT val FROM " + tableName + " WHERE val = 'escape''single quote'");
+
+        assertEquals(actualValues.getRowCount(), 1);
+        assertEquals(actualValues.getOnlyValue(), "escape'single quote");
+    }
+
     @Test(description = "regression test for https://github.com/trinodb/trino/issues/5618")
     public void testPredicatePushdownPrunnedColumns()
     {
@@ -267,6 +314,26 @@ public class TestBigQueryIntegrationSmokeTest
         assertQuery("SELECT count(*) FROM " + viewName, "VALUES (1)");
 
         onBigQuery("DROP VIEW " + viewName);
+    }
+
+    /**
+     * https://github.com/trinodb/trino/issues/8183
+     */
+    @Test
+    public void testColumnPositionMismatch()
+    {
+        String tableName = "test.test_column_position_mismatch";
+
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        assertUpdate(format("CREATE TABLE %s (c_varchar VARCHAR, c_int INT, c_date DATE)", tableName));
+        onBigQuery(format("INSERT INTO %s VALUES ('a', 1, '2021-01-01')", tableName));
+
+        // Adding a CAST makes BigQuery return columns in a different order
+        assertQuery(
+                "SELECT c_varchar, CAST(c_int AS SMALLINT), c_date FROM " + tableName,
+                "VALUES ('a', 1, '2021-01-01')");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test

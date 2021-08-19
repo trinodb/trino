@@ -35,8 +35,8 @@ import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertContains;
 import static io.trino.testing.StatefulSleepingSum.STATEFUL_SLEEPING_SUM;
 import static io.trino.testing.assertions.Assert.assertEquals;
+import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.tpch.TpchTable.CUSTOMER;
-import static io.trino.tpch.TpchTable.LINE_ITEM;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.ORDERS;
 import static io.trino.tpch.TpchTable.REGION;
@@ -50,7 +50,7 @@ import static org.testng.Assert.assertTrue;
 public abstract class AbstractTestQueries
         extends AbstractTestQueryFramework
 {
-    protected static final List<TpchTable<?>> REQUIRED_TPCH_TABLES = ImmutableList.of(CUSTOMER, NATION, ORDERS, REGION, LINE_ITEM);
+    protected static final List<TpchTable<?>> REQUIRED_TPCH_TABLES = ImmutableList.of(CUSTOMER, NATION, ORDERS, REGION);
 
     // We can just use the default type registry, since we don't use any parametric types
     protected static final List<SqlFunction> CUSTOM_FUNCTIONS = new FunctionListBuilder()
@@ -157,16 +157,41 @@ public abstract class AbstractTestQueries
     {
         MaterializedResult actual = computeActual("SELECT orderkey FROM orders LIMIT 10");
         MaterializedResult all = computeExpected("SELECT orderkey FROM orders", actual.getTypes());
-
         assertEquals(actual.getMaterializedRows().size(), 10);
         assertContains(all, actual);
+
+        actual = computeActual(
+                "(SELECT orderkey, custkey FROM orders ORDER BY orderkey) UNION ALL " +
+                        "SELECT orderkey, custkey FROM orders WHERE orderstatus = 'F' UNION ALL " +
+                        "(SELECT orderkey, custkey FROM orders ORDER BY orderkey LIMIT 20) UNION ALL " +
+                        "(SELECT orderkey, custkey FROM orders LIMIT 5) UNION ALL " +
+                        "SELECT orderkey, custkey FROM orders LIMIT 10");
+        all = computeExpected("SELECT orderkey, custkey FROM orders", actual.getTypes());
+        assertEquals(actual.getMaterializedRows().size(), 10);
+        assertContains(all, actual);
+
+        // with ORDER BY
+        assertQuery("SELECT name FROM nation ORDER BY nationkey LIMIT 3");
+        assertQuery("SELECT name FROM nation ORDER BY regionkey LIMIT 5"); // query is deterministic because first peer group in regionkey order has 5 rows
+
+        // global aggregation, LIMIT should be removed (and connector should not prevent this from happening)
+        assertQuery("SELECT max(regionkey) FROM nation LIMIT 5");
+
+        // with aggregation
+        assertQuery("SELECT regionkey, max(name) FROM nation GROUP BY regionkey LIMIT 5");
+
+        // with DISTINCT (can be expressed as DistinctLimitNode and handled differently)
+        assertQuery("SELECT DISTINCT regionkey FROM nation LIMIT 5");
+
+        // with filter and aggregation
+        assertQuery("SELECT regionkey, count(*) FROM nation WHERE name < 'EGYPT' GROUP BY regionkey LIMIT 3");
     }
 
     @Test
     public void testLimitWithAggregation()
     {
-        MaterializedResult actual = computeActual("SELECT custkey, SUM(CAST(totalprice * 100 AS BIGINT)) FROM orders GROUP BY custkey LIMIT 10");
-        MaterializedResult all = computeExpected("SELECT custkey, SUM(CAST(totalprice * 100 AS BIGINT)) FROM orders GROUP BY custkey", actual.getTypes());
+        MaterializedResult actual = computeActual("SELECT custkey, SUM(orderkey) FROM orders GROUP BY custkey LIMIT 10");
+        MaterializedResult all = computeExpected("SELECT custkey, SUM(orderkey) FROM orders GROUP BY custkey", actual.getTypes());
 
         assertEquals(actual.getMaterializedRows().size(), 10);
         assertContains(all, actual);
@@ -206,7 +231,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testSelectWithComparison()
     {
-        assertQuery("SELECT orderkey FROM lineitem WHERE tax < discount");
+        assertQuery("SELECT orderkey FROM orders WHERE totalprice < custkey");
     }
 
     @Test
@@ -232,7 +257,12 @@ public abstract class AbstractTestQueries
     }
 
     @DataProvider
-    public static Object[][] largeInValuesCount()
+    public Object[][] largeInValuesCount()
+    {
+        return largeInValuesCountData();
+    }
+
+    protected Object[][] largeInValuesCountData()
     {
         return new Object[][] {
                 {200},
@@ -269,11 +299,14 @@ public abstract class AbstractTestQueries
         assertQueryFails("SHOW SCHEMAS LIKE 't$_%' ESCAPE ''", "Escape string must be a single character");
         assertQueryFails("SHOW SCHEMAS LIKE 't$_%' ESCAPE '$$'", "Escape string must be a single character");
 
-        Set<Object> allSchemas = computeActual("SHOW SCHEMAS").getOnlyColumnAsSet();
-        assertEquals(allSchemas, computeActual("SHOW SCHEMAS LIKE '%_%'").getOnlyColumnAsSet());
-        Set<Object> result = computeActual("SHOW SCHEMAS LIKE '%$_%' ESCAPE '$'").getOnlyColumnAsSet();
-        assertNotEquals(allSchemas, result);
-        assertThat(result).contains("information_schema").allMatch(schemaName -> ((String) schemaName).contains("_"));
+        // Using eventual assertion because set of schemas may change concurrently.
+        assertEventually(() -> {
+            Set<Object> allSchemas = computeActual("SHOW SCHEMAS").getOnlyColumnAsSet();
+            assertEquals(allSchemas, computeActual("SHOW SCHEMAS LIKE '%_%'").getOnlyColumnAsSet());
+            Set<Object> result = computeActual("SHOW SCHEMAS LIKE '%$_%' ESCAPE '$'").getOnlyColumnAsSet();
+            assertNotEquals(allSchemas, result);
+            assertThat(result).contains("information_schema").allMatch(schemaName -> ((String) schemaName).contains("_"));
+        });
     }
 
     @Test
@@ -326,7 +359,7 @@ public abstract class AbstractTestQueries
 
         // Until we migrate all connectors to parametrized varchar we check two options
         assertTrue(actual.equals(expectedParametrizedVarchar) || actual.equals(expectedUnparametrizedVarchar),
-                format("%s does not matche neither of %s and %s", actual, expectedParametrizedVarchar, expectedUnparametrizedVarchar));
+                format("%s does not match neither of %s and %s", actual, expectedParametrizedVarchar, expectedUnparametrizedVarchar));
     }
 
     @Test
@@ -413,37 +446,6 @@ public abstract class AbstractTestQueries
         assertQueryOrdered(
                 "SELECT orderkey, custkey, orderstatus FROM orders ORDER BY nullif(orderkey, 3) ASC, custkey ASC LIMIT 10",
                 "SELECT orderkey, custkey, orderstatus FROM orders ORDER BY nullif(orderkey, 3) ASC NULLS LAST, custkey ASC LIMIT 10");
-    }
-
-    @Test
-    public void testLimitPushDown()
-    {
-        MaterializedResult actual = computeActual(
-                "(TABLE orders ORDER BY orderkey) UNION ALL " +
-                        "SELECT * FROM orders WHERE orderstatus = 'F' UNION ALL " +
-                        "(TABLE orders ORDER BY orderkey LIMIT 20) UNION ALL " +
-                        "(TABLE orders LIMIT 5) UNION ALL " +
-                        "TABLE orders LIMIT 10");
-        MaterializedResult all = computeExpected("SELECT * FROM orders", actual.getTypes());
-
-        assertEquals(actual.getMaterializedRows().size(), 10);
-        assertContains(all, actual);
-
-        // with ORDER BY
-        assertQuery("SELECT name FROM nation ORDER BY nationkey LIMIT 3");
-        assertQuery("SELECT name FROM nation ORDER BY regionkey LIMIT 5"); // query is deterministic because first peer group in regionkey order has 5 rows
-
-        // global aggregation, LIMIT should be removed (and connector should not prevent this from happening)
-        assertQuery("SELECT max(regionkey) FROM nation LIMIT 5");
-
-        // with aggregation
-        assertQuery("SELECT regionkey, max(name) FROM nation GROUP BY regionkey LIMIT 5");
-
-        // with DISTINCT (can be expressed as DistinctLimitNode and handled differently)
-        assertQuery("SELECT DISTINCT regionkey FROM nation LIMIT 5");
-
-        // with filter and aggregation
-        assertQuery("SELECT regionkey, count(*) FROM nation WHERE name < 'EGYPT' GROUP BY regionkey LIMIT 3");
     }
 
     @Test

@@ -28,7 +28,7 @@ import io.trino.execution.SplitRunner;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskManagerConfig;
 import io.trino.spi.TrinoException;
-import io.trino.version.EmbedVersion;
+import io.trino.spi.VersionEmbedder;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -92,7 +92,7 @@ public class TaskExecutor
     private final int minimumNumberOfDrivers;
     private final int guaranteedNumberOfDriversPerTask;
     private final int maximumNumberOfDriversPerTask;
-    private final EmbedVersion embedVersion;
+    private final VersionEmbedder versionEmbedder;
 
     private final Ticker ticker;
 
@@ -127,7 +127,7 @@ public class TaskExecutor
     /**
      * Splits blocked by the driver.
      */
-    private final Map<PrioritizedSplitRunner, Future<?>> blockedSplits = new ConcurrentHashMap<>();
+    private final Map<PrioritizedSplitRunner, Future<Void>> blockedSplits = new ConcurrentHashMap<>();
 
     private final AtomicLongArray completedTasksPerLevel = new AtomicLongArray(5);
     private final AtomicLongArray completedSplitsPerLevel = new AtomicLongArray(5);
@@ -157,13 +157,13 @@ public class TaskExecutor
     private volatile boolean closed;
 
     @Inject
-    public TaskExecutor(TaskManagerConfig config, EmbedVersion embedVersion, MultilevelSplitQueue splitQueue)
+    public TaskExecutor(TaskManagerConfig config, VersionEmbedder versionEmbedder, MultilevelSplitQueue splitQueue)
     {
         this(requireNonNull(config, "config is null").getMaxWorkerThreads(),
                 config.getMinDrivers(),
                 config.getMinDriversPerTask(),
                 config.getMaxDriversPerTask(),
-                embedVersion,
+                versionEmbedder,
                 splitQueue,
                 Ticker.systemTicker());
     }
@@ -186,7 +186,7 @@ public class TaskExecutor
             int minDrivers,
             int guaranteedNumberOfDriversPerTask,
             int maximumNumberOfDriversPerTask,
-            EmbedVersion embedVersion,
+            VersionEmbedder versionEmbedder,
             MultilevelSplitQueue splitQueue,
             Ticker ticker)
     {
@@ -199,7 +199,7 @@ public class TaskExecutor
         this.executor = newCachedThreadPool(threadsNamed("task-processor-%s"));
         this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) executor);
         this.runnerThreads = runnerThreads;
-        this.embedVersion = requireNonNull(embedVersion, "embedVersion is null");
+        this.versionEmbedder = requireNonNull(versionEmbedder, "versionEmbedder is null");
 
         this.ticker = requireNonNull(ticker, "ticker is null");
 
@@ -243,7 +243,7 @@ public class TaskExecutor
     private synchronized void addRunnerThread()
     {
         try {
-            executor.execute(embedVersion.embedVersion(new TaskRunner()));
+            executor.execute(versionEmbedder.embedVersion(new TaskRunner()));
         }
         catch (RejectedExecutionException ignored) {
         }
@@ -305,10 +305,10 @@ public class TaskExecutor
         log.debug("Task finished or failed " + taskHandle.getTaskId());
     }
 
-    public List<ListenableFuture<?>> enqueueSplits(TaskHandle taskHandle, boolean intermediate, List<? extends SplitRunner> taskSplits)
+    public List<ListenableFuture<Void>> enqueueSplits(TaskHandle taskHandle, boolean intermediate, List<? extends SplitRunner> taskSplits)
     {
         List<PrioritizedSplitRunner> splitsToDestroy = new ArrayList<>();
-        List<ListenableFuture<?>> finishedFutures = new ArrayList<>(taskSplits.size());
+        List<ListenableFuture<Void>> finishedFutures = new ArrayList<>(taskSplits.size());
         synchronized (this) {
             for (SplitRunner taskSplit : taskSplits) {
                 PrioritizedSplitRunner prioritizedSplitRunner = new PrioritizedSplitRunner(
@@ -479,7 +479,7 @@ public class TaskExecutor
                         runningSplitInfos.add(splitInfo);
                         runningSplits.add(split);
 
-                        ListenableFuture<?> blocked;
+                        ListenableFuture<Void> blocked;
                         try {
                             blocked = split.process();
                         }

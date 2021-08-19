@@ -34,7 +34,7 @@ import static java.util.Objects.requireNonNull;
  */
 public class PageBuffer
 {
-    private final ListenableFuture<?> initialFuture;
+    private final ListenableFuture<Void> initialFuture;
 
     @Nullable
     private Page page;
@@ -45,7 +45,7 @@ public class PageBuffer
         this(NOT_BLOCKED);
     }
 
-    public PageBuffer(ListenableFuture<?> initialFuture)
+    public PageBuffer(ListenableFuture<Void> initialFuture)
     {
         this.initialFuture = initialFuture;
     }

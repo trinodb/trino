@@ -7,14 +7,14 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>355</version>
+        <version>359</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>trino-fission-functions</artifactId>
-    
+
     <description>Trino - Custom fission function plugin for the CCCS</description>
-    
+
     <packaging>trino-plugin</packaging>
 
     <properties>
@@ -22,12 +22,12 @@
     </properties>
 
     <dependencies>
-        
+
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
         </dependency>
-        
+
         <dependency>
             <groupId>org.apache.httpcomponents</groupId>
             <artifactId>httpclient</artifactId>

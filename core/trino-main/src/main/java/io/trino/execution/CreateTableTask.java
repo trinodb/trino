@@ -23,6 +23,7 @@ import io.trino.connector.CatalogName;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.RedirectionAwareTableHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
 import io.trino.security.AccessControl;
@@ -55,7 +56,7 @@ import java.util.function.Consumer;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
@@ -75,6 +76,7 @@ import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.trino.sql.tree.LikeClause.PropertiesOption.EXCLUDING;
 import static io.trino.sql.tree.LikeClause.PropertiesOption.INCLUDING;
 import static io.trino.type.UnknownType.UNKNOWN;
+import static java.lang.String.format;
 
 public class CreateTableTask
         implements DataDefinitionTask<CreateTable>
@@ -92,7 +94,7 @@ public class CreateTableTask
     }
 
     @Override
-    public ListenableFuture<?> execute(
+    public ListenableFuture<Void> execute(
             CreateTable statement,
             TransactionManager transactionManager,
             Metadata metadata,
@@ -105,7 +107,7 @@ public class CreateTableTask
     }
 
     @VisibleForTesting
-    ListenableFuture<?> internalExecute(CreateTable statement, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, Consumer<Output> outputConsumer)
+    ListenableFuture<Void> internalExecute(CreateTable statement, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, Consumer<Output> outputConsumer)
     {
         checkArgument(!statement.getElements().isEmpty(), "no columns for table");
 
@@ -116,7 +118,7 @@ public class CreateTableTask
             if (!statement.isNotExists()) {
                 throw semanticException(TABLE_ALREADY_EXISTS, statement, "Table '%s' already exists", tableName);
             }
-            return immediateFuture(null);
+            return immediateVoidFuture();
         }
 
         CatalogName catalogName = metadata.getCatalogHandle(session, tableName.getCatalogName())
@@ -166,15 +168,23 @@ public class CreateTableTask
             }
             else if (element instanceof LikeClause) {
                 LikeClause likeClause = (LikeClause) element;
-                QualifiedObjectName likeTableName = createQualifiedObjectName(session, statement, likeClause.getTableName());
-                if (metadata.getCatalogHandle(session, likeTableName.getCatalogName()).isEmpty()) {
-                    throw semanticException(CATALOG_NOT_FOUND, statement, "LIKE table catalog '%s' does not exist", likeTableName.getCatalogName());
+                QualifiedObjectName originalLikeTableName = createQualifiedObjectName(session, statement, likeClause.getTableName());
+                if (metadata.getCatalogHandle(session, originalLikeTableName.getCatalogName()).isEmpty()) {
+                    throw semanticException(CATALOG_NOT_FOUND, statement, "LIKE table catalog '%s' does not exist", originalLikeTableName.getCatalogName());
                 }
+
+                RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, originalLikeTableName);
+                TableHandle likeTable = redirection.getTableHandle()
+                        .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, statement, "LIKE table '%s' does not exist", originalLikeTableName));
+
+                QualifiedObjectName likeTableName = redirection.getRedirectedTableName().orElse(originalLikeTableName);
                 if (!tableName.getCatalogName().equals(likeTableName.getCatalogName())) {
-                    throw semanticException(NOT_SUPPORTED, statement, "LIKE table across catalogs is not supported");
+                    String message = "CREATE TABLE LIKE across catalogs is not supported";
+                    if (!originalLikeTableName.equals(likeTableName)) {
+                        message += format(". LIKE table '%s' redirected to '%s'.", originalLikeTableName, likeTableName);
+                    }
+                    throw semanticException(NOT_SUPPORTED, statement, message);
                 }
-                TableHandle likeTable = metadata.getTableHandle(session, likeTableName)
-                        .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, statement, "LIKE table '%s' does not exist", likeTableName));
 
                 TableMetadata likeTableMetadata = metadata.getTableMetadata(session, likeTable);
 
@@ -252,7 +262,7 @@ public class CreateTableTask
                 Optional.of(tableMetadata.getColumns().stream()
                         .map(column -> new OutputColumn(new Column(column.getName(), column.getType().toString()), ImmutableSet.of()))
                         .collect(toImmutableList()))));
-        return immediateFuture(null);
+        return immediateVoidFuture();
     }
 
     private static Map<String, Object> combineProperties(Set<String> specifiedPropertyKeys, Map<String, Object> defaultProperties, Map<String, Object> inheritedProperties)

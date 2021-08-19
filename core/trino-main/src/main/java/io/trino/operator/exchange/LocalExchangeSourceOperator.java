@@ -74,7 +74,7 @@ public class LocalExchangeSourceOperator
 
     private final OperatorContext operatorContext;
     private final LocalExchangeSource source;
-    private ListenableFuture<?> isBlocked = NOT_BLOCKED;
+    private ListenableFuture<Void> isBlocked = NOT_BLOCKED;
 
     public LocalExchangeSourceOperator(OperatorContext operatorContext, LocalExchangeSource source)
     {
@@ -102,7 +102,7 @@ public class LocalExchangeSourceOperator
     }
 
     @Override
-    public ListenableFuture<?> isBlocked()
+    public ListenableFuture<Void> isBlocked()
     {
         if (isBlocked.isDone()) {
             isBlocked = source.waitForReading();

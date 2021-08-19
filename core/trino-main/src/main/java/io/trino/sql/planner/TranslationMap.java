@@ -16,7 +16,9 @@ package io.trino.sql.planner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.spi.type.RowType;
 import io.trino.sql.analyzer.Analysis;
+import io.trino.sql.analyzer.ExpressionAnalyzer.LabelPrefixedReference;
 import io.trino.sql.analyzer.ResolvedField;
 import io.trino.sql.analyzer.Scope;
 import io.trino.sql.tree.DereferenceExpression;
@@ -27,11 +29,14 @@ import io.trino.sql.tree.FieldReference;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.GenericDataType;
 import io.trino.sql.tree.Identifier;
+import io.trino.sql.tree.LabelDereference;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.LambdaExpression;
+import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.RowDataType;
+import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.sql.util.AstUtils;
 
@@ -207,6 +212,31 @@ class TranslationMap
             @Override
             public Expression rewriteFunctionCall(FunctionCall node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
+                if (analysis.isPatternRecognitionFunction(node)) {
+                    ImmutableList.Builder<Expression> rewrittenArguments = ImmutableList.builder();
+                    if (!node.getArguments().isEmpty()) {
+                        rewrittenArguments.add(treeRewriter.rewrite(node.getArguments().get(0), null));
+                        if (node.getArguments().size() > 1) {
+                            // do not rewrite the offset literal
+                            rewrittenArguments.add(node.getArguments().get(1));
+                        }
+                    }
+                    // Pattern recognition functions are special constructs, passed using the form of FunctionCall.
+                    // They are not resolved like regular function calls. They are processed in LogicalIndexExtractor.
+                    return coerceIfNecessary(node, new FunctionCall(
+                            Optional.empty(),
+                            node.getName(),
+                            Optional.empty(),
+                            Optional.empty(),
+                            Optional.empty(),
+                            false,
+                            Optional.empty(),
+                            node.getProcessingMode(),
+                            rewrittenArguments.build()));
+                }
+
+                // TODO handle aggregation in pattern recognition context (and handle its processingMode)
+
                 Optional<Expression> mapped = tryGetMapping(node);
                 if (mapped.isPresent()) {
                     return coerceIfNecessary(node, mapped.get());
@@ -224,6 +254,7 @@ class TranslationMap
                         rewritten.getOrderBy(),
                         rewritten.isDistinct(),
                         rewritten.getNullTreatment(),
+                        rewritten.getProcessingMode(),
                         rewritten.getArguments());
                 return coerceIfNecessary(node, rewritten);
             }
@@ -231,6 +262,13 @@ class TranslationMap
             @Override
             public Expression rewriteDereferenceExpression(DereferenceExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
+                LabelPrefixedReference labelDereference = analysis.getLabelDereference(node);
+                if (labelDereference != null) {
+                    Expression rewritten = treeRewriter.rewrite(labelDereference.getColumn(), null);
+                    checkState(rewritten instanceof SymbolReference, "expected symbol reference, got: " + rewritten);
+                    return coerceIfNecessary(node, new LabelDereference(labelDereference.getLabel(), (SymbolReference) rewritten));
+                }
+
                 Optional<Expression> mapped = tryGetMapping(node);
                 if (mapped.isPresent()) {
                     return coerceIfNecessary(node, mapped.get());
@@ -244,7 +282,26 @@ class TranslationMap
                                     .orElseThrow(() -> new IllegalStateException(format("No mapping for %s", node))));
                 }
 
-                return rewriteExpression(node, context, treeRewriter);
+                RowType rowType = (RowType) analysis.getType(node.getBase());
+                String fieldName = node.getField().getValue();
+
+                List<RowType.Field> fields = rowType.getFields();
+                int index = -1;
+                for (int i = 0; i < fields.size(); i++) {
+                    RowType.Field field = fields.get(i);
+                    if (field.getName().isPresent() && field.getName().get().equalsIgnoreCase(fieldName)) {
+                        checkArgument(index < 0, "Ambiguous field %s in type %s", field, rowType.getDisplayName());
+                        index = i;
+                    }
+                }
+
+                checkState(index >= 0, "could not find field name: %s", node.getField());
+
+                return coerceIfNecessary(
+                        node,
+                        new SubscriptExpression(
+                                treeRewriter.rewrite(node.getBase(), context),
+                                new LongLiteral(Long.toString(index + 1))));
             }
 
             @Override

@@ -42,7 +42,7 @@ public class TestZipFunction
                 zipReturnType(INTEGER, createVarcharType(1)),
                 list(list(1, "a"), list(2, "b")));
 
-        assertFunction("zip(ARRAY[1, 2], ARRAY['a', CAST('b' AS VARCHAR)])",
+        assertFunction("zip(ARRAY[1, 2], ARRAY['a', VARCHAR 'b'])",
                 zipReturnType(INTEGER, VARCHAR),
                 list(list(1, "a"), list(2, "b")));
 

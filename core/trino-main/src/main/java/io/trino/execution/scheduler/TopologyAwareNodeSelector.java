@@ -192,7 +192,7 @@ public class TopologyAwareNodeSelector
             }
         }
 
-        ListenableFuture<?> blocked;
+        ListenableFuture<Void> blocked;
         int maxPendingForWildcardNetworkAffinity = calculateMaxPendingSplits(0, topologicalSplitCounters.size() - 1);
         if (splitWaitingForAnyNode) {
             blocked = toWhenHasSplitQueueSpaceFuture(existingTasks, calculateLowWatermark(maxPendingForWildcardNetworkAffinity));

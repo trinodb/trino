@@ -359,7 +359,7 @@ public class AccumuloMetadata
                 handle.getSerializerClassName(),
                 handle.getScanAuthorizations());
 
-        return Optional.of(new ConstraintApplicationResult<>(handle, constraint.getSummary()));
+        return Optional.of(new ConstraintApplicationResult<>(handle, constraint.getSummary(), false));
     }
 
     @Override

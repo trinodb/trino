@@ -13,6 +13,18 @@ The maximum allowed time for a query to be actively executing on the
 cluster, before it is terminated. Compared to the run time below, execution
 time does not include analysis, query planning or wait times in a queue.
 
+``query.max-planning-time``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``duration``
+* **Default value:** ``10 minutes``
+* **Session property:** ``query_max_planning_time``
+
+The maximum allowed time for a query to be actively planning the execution.
+After this period the coordinator will make its best effort to stop the
+query. Note that some operations in planning phase are not easily cancellable
+and may not terminate immediately.
+
 ``query.max-run-time``
 ^^^^^^^^^^^^^^^^^^^^^^
 

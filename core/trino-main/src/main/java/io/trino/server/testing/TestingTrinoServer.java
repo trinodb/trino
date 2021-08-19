@@ -69,6 +69,7 @@ import io.trino.server.security.CertificateAuthenticatorManager;
 import io.trino.server.security.ServerSecurityModule;
 import io.trino.spi.Plugin;
 import io.trino.spi.QueryId;
+import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.security.GroupProvider;
 import io.trino.spi.security.SystemAccessControl;
 import io.trino.split.PageSourceManager;
@@ -194,7 +195,8 @@ public class TestingTrinoServer
             Optional<URI> discoveryUri,
             Module additionalModule,
             Optional<Path> baseDataDir,
-            List<SystemAccessControl> systemAccessControls)
+            List<SystemAccessControl> systemAccessControls,
+            List<EventListener> eventListeners)
     {
         this.coordinator = coordinator;
 
@@ -316,6 +318,9 @@ public class TestingTrinoServer
         announcer = injector.getInstance(Announcer.class);
 
         accessControl.setSystemAccessControls(systemAccessControls);
+
+        EventListenerManager eventListenerManager = injector.getInstance(EventListenerManager.class);
+        eventListeners.forEach(eventListenerManager::addEventListener);
 
         announcer.forceAnnounce();
 
@@ -593,6 +598,7 @@ public class TestingTrinoServer
         private Module additionalModule = EMPTY_MODULE;
         private Optional<Path> baseDataDir = Optional.empty();
         private List<SystemAccessControl> systemAccessControls = ImmutableList.of();
+        private List<EventListener> eventListeners = ImmutableList.of();
 
         public Builder setCoordinator(boolean coordinator)
         {
@@ -636,6 +642,12 @@ public class TestingTrinoServer
             return this;
         }
 
+        public Builder setEventListeners(List<EventListener> eventListeners)
+        {
+            this.eventListeners = ImmutableList.copyOf(requireNonNull(eventListeners, "eventListeners is null"));
+            return this;
+        }
+
         public TestingTrinoServer build()
         {
             return new TestingTrinoServer(
@@ -645,7 +657,8 @@ public class TestingTrinoServer
                     discoveryUri,
                     additionalModule,
                     baseDataDir,
-                    systemAccessControls);
+                    systemAccessControls,
+                    eventListeners);
         }
     }
 }

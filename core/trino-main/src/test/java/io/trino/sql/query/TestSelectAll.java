@@ -192,9 +192,11 @@ public class TestSelectAll
         assertThat(assertions.query("SELECT (SELECT t.* FROM (SELECT 'a', 'b')) FROM (VALUES 1, 2) t(a)")).matches("VALUES 1, 2");
         assertThat(assertions.query("SELECT (SELECT t.* FROM (VALUES 0)) FROM (VALUES 1, 2) t(a)")).matches("VALUES 1, 2");
         assertThat(assertions.query("SELECT (SELECT t.* FROM (VALUES 0)) FROM (SELECT * FROM (VALUES 1, 1, 1) LIMIT 2) t(a)")).matches("VALUES 1, 1");
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT (SELECT t.* FROM (VALUES 0)) FROM (VALUES (1, 1), (2, 2)) t(a, b)"))
-                .hasMessageMatching(".*Multiple columns returned by subquery are not yet supported. Found 2");
+                .matches("VALUES " +
+                        "CAST(ROW(ROW(1, 1)) AS row(row(a integer, b integer))), " +
+                        "CAST(ROW(ROW(2, 2)) AS row(row(a integer, b integer)))");
         // the following query should fail due to multiple rows returned from subquery, but instead fails to decorrelate
         assertThatThrownBy(() -> assertions.query("SELECT (SELECT t.* FROM (VALUES 0, 1)) FROM (VALUES 2) t(a)")).hasMessageMatching(UNSUPPORTED_DECORRELATION_MESSAGE);
         // filter in subquery

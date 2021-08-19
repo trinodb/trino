@@ -15,11 +15,21 @@ package io.trino.sql.query;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.Session;
+import io.trino.plugin.tpch.TpchConnectorFactory;
 import io.trino.sql.planner.plan.JoinNode;
+import io.trino.testing.LocalQueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.List;
+
+import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RowType.field;
+import static io.trino.spi.type.RowType.rowType;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
@@ -30,6 +40,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -37,13 +48,24 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class TestSubqueries
 {
     private static final String UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG = "line .*: Given correlated subquery is not supported";
+    private static final String CATALOG = "local";
 
     private QueryAssertions assertions;
 
     @BeforeClass
     public void init()
     {
-        assertions = new QueryAssertions();
+        Session session = testSessionBuilder()
+                .setCatalog(CATALOG)
+                .setSchema(TINY_SCHEMA_NAME)
+                .build();
+
+        LocalQueryRunner runner = LocalQueryRunner.builder(session)
+                .build();
+
+        runner.createCatalog(CATALOG, new TpchConnectorFactory(1), ImmutableMap.of());
+
+        assertions = new QueryAssertions(runner);
     }
 
     @AfterClass(alwaysRun = true)
@@ -1300,5 +1322,286 @@ public class TestSubqueries
                         "LATERAL (SELECT * FROM UNNEST(b) v(y))" +
                         "ON TRUE "))
                 .matches("VALUES 1, 2, 3, 4, 5, null");
+    }
+
+    @Test
+    public void testQuantifiedComparison()
+    {
+        assertThat(assertions.query(
+                "SELECT (SELECT 2) > ALL (SELECT 1)"))
+                .describedAs("Subquery on value side")
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT ROW(2) > ALL (VALUES ROW(0), ROW(1))"))
+                .describedAs("Single-element row type, non-null and non-indeterminate values")
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT ROW(2) > ALL (VALUES ROW(0), ROW(1), ROW(NULL))"))
+                .describedAs("Single-element row type, indeterminate value")
+                .matches("VALUES CAST(NULL AS boolean)");
+
+        assertThat(assertions.query(
+                "SELECT ROW(2) > ALL (VALUES ROW(0), ROW(1), NULL)"))
+                .describedAs("Single-element row type, null value")
+                .matches("VALUES CAST(NULL AS boolean)");
+
+        assertThat(assertions.query(
+                "SELECT ROW(2) > ALL (SELECT 0 WHERE false)"))
+                .describedAs("Single-element row type, with empty set")
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT NULL > ALL (VALUES ROW(0), ROW(1))"))
+                .describedAs("Single-element row type, null value, non-null and non-indeterminate elements")
+                .matches("VALUES CAST(NULL AS boolean)");
+
+        assertThat(assertions.query(
+                "SELECT NULL > ALL (VALUES ROW(0), ROW(NULL))"))
+                .describedAs("Single-element row type, null value, indeterminate element")
+                .matches("VALUES CAST(NULL AS boolean)");
+
+        assertThat(assertions.query(
+                "SELECT NULL > ALL (VALUES ROW(0), NULL)"))
+                .describedAs("Single-element row type, null value, null element")
+                .matches("VALUES CAST(NULL AS boolean)");
+
+        assertThat(assertions.query(
+                "SELECT NULL > ALL (SELECT 0 WHERE false)"))
+                .describedAs("Single-element row type, null value, empty set")
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT BIGINT '1' = ALL (SELECT 1)"))
+                .describedAs("Implicit row type for value side w/ coercion on subquery side")
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT 1 = ALL (SELECT BIGINT '1')"))
+                .describedAs("Implicit row type for value side w/ coercion on value side")
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT 1 = ALL (SELECT 1)"))
+                .describedAs("Implicit row type for value")
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT ROW(1) = ALL (SELECT 1)"))
+                .describedAs("Explicit row type for value side")
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT ROW(BIGINT '1') = ALL (SELECT 1)"))
+                .describedAs("Explicit row type for value side w/ coercion on subquery side")
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT ROW(1) = ALL (SELECT BIGINT '1')"))
+                .describedAs("Explicit row type for value side w/ coercion on value side")
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT ROW(1, 2) = ALL (SELECT 1, 2)"))
+                .describedAs("Multi-column row type")
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT ROW(1, 2) = ALL (SELECT BIGINT '1', BIGINT '2')"))
+                .describedAs("Multi-column row type with coercion on value side")
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT ROW(BIGINT '1', BIGINT '2') = ALL (SELECT 1, 2)"))
+                .describedAs("Multi-column row type with coercion on subquery side")
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT ROW(BIGINT '1', 2) = ALL (SELECT 1, BIGINT '2')"))
+                .describedAs("Multi-column row type with coercion on both sides")
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT NULL = ALL (SELECT 1, BIGINT '2')"))
+                .describedAs("Multi-column row type, null value")
+                .matches("VALUES CAST(NULL AS boolean)");
+    }
+
+    @Test
+    public void testInPredicate()
+    {
+        assertThat(assertions.query(
+                "SELECT (SELECT 1) IN (SELECT 1)"))
+                .describedAs("Subquery on value side, implicit row type for value side")
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT (SELECT 2) IN (SELECT 1)"))
+                .describedAs("Subquery on value side, implicit row type for value side")
+                .matches("VALUES false");
+
+        assertThat(assertions.query(
+                "SELECT 1 IN (SELECT 1)"))
+                .describedAs("Implicit row type for value side")
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT 1 IN (SELECT BIGINT '1')"))
+                .describedAs("Implicit row type for value side w/ coercion on value side")
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT BIGINT '1' IN (SELECT 1)"))
+                .describedAs("Implicit row type for value side w/ coercion on subquery side")
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT ROW(1) IN (SELECT 1)"))
+                .describedAs("Explicit row type for value side")
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT ROW(1) IN (SELECT BIGINT '1')"))
+                .describedAs("Explicit row type for value side w/ coercion on value side")
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT ROW(BIGINT '1') IN (SELECT 1)"))
+                .describedAs("Explicit row type for value side with coercion on subquery side")
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT ROW(0) IN (VALUES ROW(0), ROW(1))"))
+                .describedAs("Single-element row type, non-null and non-indeterminate values, present")
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT ROW(0) IN (VALUES ROW(1), ROW(2))"))
+                .describedAs("Single-element row type, non-null and non-indeterminate values, not present")
+                .matches("VALUES false");
+
+        assertThat(assertions.query(
+                "SELECT ROW(0) IN (VALUES ROW(0), ROW(NULL))"))
+                .describedAs("Single-element row type, indeterminate element, present")
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT ROW(0) IN (VALUES ROW(1), ROW(NULL))"))
+                .describedAs("Single-element row type, indeterminate element, not present")
+                .matches("VALUES CAST(NULL AS boolean)");
+
+        assertThat(assertions.query(
+                "SELECT ROW(0) IN (VALUES ROW(0), NULL)"))
+                .describedAs("Single-element row type, null element, present")
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT ROW(0) IN (VALUES ROW(1), NULL)"))
+                .describedAs("Single-element row type, null element, not present")
+                .matches("VALUES CAST(NULL AS boolean)");
+
+        assertThat(assertions.query(
+                "SELECT ROW(0) IN (SELECT 0 WHERE false)"))
+                .describedAs("Single-element row type, with empty set")
+                .matches("VALUES false");
+
+        assertThat(assertions.query(
+                "SELECT NULL IN (VALUES ROW(0))"))
+                .describedAs("Single-element row type, null value, non-null and non-indeterminate elements")
+                .matches("VALUES CAST(NULL AS boolean)");
+
+        assertThat(assertions.query(
+                "SELECT NULL IN (VALUES ROW(0), ROW(NULL))"))
+                .describedAs("Single-element row type, null value, indeterminate element")
+                .matches("VALUES CAST(NULL AS boolean)");
+
+        assertThat(assertions.query(
+                "SELECT NULL IN (VALUES ROW(0), NULL)"))
+                .describedAs("Single-element row type, null value, null element")
+                .matches("VALUES CAST(NULL AS boolean)");
+
+        assertThat(assertions.query(
+                "SELECT NULL IN (SELECT 0 WHERE false)"))
+                .describedAs("Single-element row type, null value, empty set")
+                .matches("VALUES false");
+
+        assertThat(assertions.query(
+                "SELECT ROW(1, 2) IN (SELECT 1, 2)"))
+                .describedAs("Multi-column row type")
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT ROW(1, 2) IN (SELECT BIGINT '1', BIGINT '2')"))
+                .describedAs("Multi-column row type with coercion on value side")
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT ROW(BIGINT '1', BIGINT '2') IN (SELECT 1, 2)"))
+                .describedAs("Multi-column row type with coercion on subquery side")
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT ROW(BIGINT '1', 2) IN (SELECT 1, BIGINT '2')"))
+                .describedAs("Multi-column row type with coercion on both sides")
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT NULL IN (SELECT 1, BIGINT '2')"))
+                .describedAs("Multi-column row type, null value")
+                .matches("VALUES CAST(NULL AS boolean)");
+    }
+
+    @Test
+    public void testRowSubquery()
+    {
+        // ISO 9075-2 2016 7.19 <subquery>
+        // 2.b) If the cardinality of RRS is 0 (zero), then the value of the <row subquery> is a row whose degree is
+        //      D and whose fields are all the null value.
+        assertThat(assertions.query(
+                "SELECT (SELECT 1 AS a, 2 AS b WHERE false)"))
+                .matches("SELECT CAST(ROW(NULL, NULL) AS row(a integer, b integer))");
+
+        assertThat(assertions.query(
+                "SELECT (SELECT 1, 2) = (SELECT ROW(1, 2))"))
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT (SELECT 'a', 1)"))
+                .hasOutputTypes(List.of(rowType(field(createVarcharType(1)), field(INTEGER))))
+                .matches("SELECT ROW('a', 1)");
+
+        assertThat(assertions.query(
+                "SELECT (SELECT 'a' AS x, 1 AS y)"))
+                .hasOutputTypes(List.of(rowType(field("x", createVarcharType(1)), field("y", INTEGER))))
+                .matches("SELECT CAST(ROW('a', 1) AS row(x varchar(1), y integer))");
+
+        assertThat(assertions.query(
+                "SELECT * FROM (SELECT (SELECT 1, 2))"))
+                .matches("SELECT ROW(1, 2)");
+
+        assertThat(assertions.query(
+                "SELECT (SELECT t.* FROM (VALUES 1)) FROM (SELECT 1, 'a') t(a, b)"))
+                .matches("SELECT CAST(ROW(1, 'a') AS row(a integer, b varchar(1)))");
+
+        // The quoted identifiers are needed due to some pre-existing inconsistencies
+        // in how identifiers are canonicalized (see TypeSignatureTranslator.canonicalize())
+        assertThat(assertions.query(
+                "SELECT (SELECT t.* AS (x, y) FROM (SELECT 1, 'a') t)"))
+                .matches("SELECT CAST(ROW(1, 'a') AS row(\"X\" integer, \"Y\" varchar(1)))");
+
+        // test implicit coercion for the result of the subquery
+        assertThat(assertions.query(
+                "SELECT (SELECT 1, 2) = CAST(ROW(1,2) AS row(a bigint, b bigint))"))
+                .matches("VALUES true");
+
+        // make sure invisible fields are not exposed
+        assertThat(assertions.query(
+                "SELECT (TABLE region ORDER BY regionkey LIMIT 1)"))
+                .matches("SELECT CAST(ROW(0, 'AFRICA', 'lar deposits. blithely final packages cajole. regular waters are final requests. regular accounts are according to ') AS row(regionkey bigint, name varchar(25), \"comment\" varchar(152)))");
+
+        assertThat(assertions.query(
+                "SELECT (SELECT 'a' AS x, 1)"))
+                .matches("SELECT (SELECT CAST(ROW('a', 1) AS row(x varchar(1), integer)))");
     }
 }

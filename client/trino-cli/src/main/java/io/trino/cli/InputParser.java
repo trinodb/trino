@@ -30,7 +30,7 @@ import static java.util.Locale.ENGLISH;
 public class InputParser
         implements Parser
 {
-    private static final Set<String> SPECIAL = ImmutableSet.of("exit", "quit", "history", "help");
+    private static final Set<String> SPECIAL = ImmutableSet.of("exit", "quit", "history", "help", "clear");
 
     @Override
     public ParsedLine parse(String line, int cursor, ParseContext context)

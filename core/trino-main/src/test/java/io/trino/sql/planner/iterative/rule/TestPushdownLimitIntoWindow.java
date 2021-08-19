@@ -97,6 +97,31 @@ public class TestPushdownLimitIntoWindow
     }
 
     @Test
+    public void testLimitWithPreSortedInputs()
+    {
+        // We can push Limit with pre-sorted inputs into WindowNode if ordering scheme is satisfied
+        // We don't do it currently to avoid relying on LocalProperties outside of AddExchanges/AddLocalExchanges
+        ResolvedFunction ranking = tester().getMetadata().resolveFunction(QualifiedName.of("row_number"), fromTypes());
+        tester().assertThat(new PushdownLimitIntoWindow(tester().getMetadata()))
+                .on(p -> {
+                    Symbol a = p.symbol("a");
+                    Symbol rowNumberSymbol = p.symbol("row_number_1");
+                    OrderingScheme orderingScheme = new OrderingScheme(
+                            ImmutableList.of(a),
+                            ImmutableMap.of(a, SortOrder.ASC_NULLS_FIRST));
+                    return p.limit(
+                            3,
+                            false,
+                            ImmutableList.of(a),
+                            p.window(
+                                    new WindowNode.Specification(ImmutableList.of(), Optional.of(orderingScheme)),
+                                    ImmutableMap.of(rowNumberSymbol, newWindowNodeFunction(ranking, a)),
+                                    p.values(a)));
+                })
+                .doesNotFire();
+    }
+
+    @Test
     public void testZeroLimit()
     {
         assertZeroLimit("row_number");

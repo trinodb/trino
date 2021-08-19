@@ -14,19 +14,20 @@
 package io.trino.server.security.oauth2;
 
 import com.google.inject.Binder;
+import com.google.inject.Key;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
-import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.http.client.HttpClient;
-import io.airlift.units.Duration;
 import io.jsonwebtoken.SigningKeyResolver;
+import io.trino.server.security.jwt.ForJwk;
 import io.trino.server.security.jwt.JwkService;
 import io.trino.server.security.jwt.JwkSigningKeyResolver;
 import io.trino.server.ui.OAuth2WebUiInstalled;
 
+import javax.inject.Singleton;
+
 import java.net.URI;
-import java.util.concurrent.TimeUnit;
 
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
@@ -49,17 +50,30 @@ public class OAuth2ServiceModule
                 .setDefault()
                 .to(ScribeJavaOAuth2Client.class)
                 .in(Scopes.SINGLETON);
-        httpClientBinder(binder).bindHttpClient("oauth2-jwk", ForOAuth2.class);
+        httpClientBinder(binder)
+                .bindHttpClient("oauth2-jwk", ForOAuth2.class)
+                // Reset to defaults to override InternalCommunicationModule changes to this client default configuration.
+                // Setting a keystore and/or a truststore for internal communication changes the default SSL configuration
+                // for all clients in this guice context. This does not make sense for this client which will very rarely
+                // use the same SSL configuration, so using the system default truststore makes more sense.
+                .withConfigDefaults(config -> config
+                        .setKeyStorePath(null)
+                        .setKeyStorePassword(null)
+                        .setTrustStorePath(null)
+                        .setTrustStorePassword(null)
+                        .setAutomaticHttpsSharedSecret(null));
+        // Used by JwkService
+        binder.bind(HttpClient.class).annotatedWith(ForJwk.class).to(Key.get(HttpClient.class, ForOAuth2.class));
+        binder.bind(JwkService.class).in(Scopes.SINGLETON);
+        binder.bind(SigningKeyResolver.class).annotatedWith(ForOAuth2.class).to(JwkSigningKeyResolver.class).in(Scopes.SINGLETON);
     }
 
     @Provides
     @Singleton
-    @ForOAuth2
-    public static SigningKeyResolver createSigningKeyResolver(OAuth2Config oauth2Config, @ForOAuth2 HttpClient httpClient)
+    @ForJwk
+    public static URI createJwkAddress(OAuth2Config config)
     {
-        JwkService jwkService = new JwkService(URI.create(oauth2Config.getJwksUrl()), httpClient, new Duration(15, TimeUnit.MINUTES));
-        jwkService.start();
-        return new JwkSigningKeyResolver(jwkService);
+        return URI.create(config.getJwksUrl());
     }
 
     @Override

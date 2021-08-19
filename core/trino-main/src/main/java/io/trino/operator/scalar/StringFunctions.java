@@ -34,6 +34,7 @@ import io.trino.spi.type.StandardTypes;
 import io.trino.type.CodePointsType;
 import io.trino.type.Constraint;
 import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
+import org.apache.commons.codec.language.Soundex;
 
 import java.text.Normalizer;
 import java.util.OptionalInt;
@@ -953,5 +954,18 @@ public final class StringFunctions
         }
 
         return target;
+    }
+
+    @Description("Encodes a string into a Soundex value")
+    @ScalarFunction
+    @SqlType("varchar(4)")
+    public static Slice soundex(@SqlType(StandardTypes.VARCHAR) Slice slice)
+    {
+        try {
+            return utf8Slice(Soundex.US_ENGLISH.encode(slice.toStringUtf8()));
+        }
+        catch (IllegalArgumentException e) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
+        }
     }
 }

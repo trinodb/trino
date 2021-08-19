@@ -59,7 +59,7 @@ import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.PlanFragmenter;
 import io.trino.sql.planner.PlanNodeIdAllocator;
-import io.trino.sql.planner.PlanOptimizers;
+import io.trino.sql.planner.PlanOptimizersFactory;
 import io.trino.sql.planner.StageExecutionPlan;
 import io.trino.sql.planner.SubPlan;
 import io.trino.sql.planner.TypeAnalyzer;
@@ -84,14 +84,18 @@ import java.util.function.Consumer;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.SystemSessionProperties.isEnableDynamicFiltering;
+import static io.trino.execution.QueryState.FAILED;
+import static io.trino.execution.QueryState.PLANNING;
 import static io.trino.execution.buffer.OutputBuffers.BROADCAST_PARTITION_ID;
 import static io.trino.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static io.trino.execution.scheduler.SqlQueryScheduler.createSqlQueryScheduler;
 import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.sql.ParameterUtils.parameterExtractor;
+import static java.lang.Thread.currentThread;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -260,7 +264,13 @@ public class SqlQueryExecution
                 parameterExtractor(preparedQuery.getStatement(), preparedQuery.getParameters()),
                 warningCollector,
                 statsCalculator);
-        Analysis analysis = analyzer.analyze(preparedQuery.getStatement());
+        Analysis analysis;
+        try {
+            analysis = analyzer.analyze(preparedQuery.getStatement());
+        }
+        catch (StackOverflowError e) {
+            throw new TrinoException(NOT_SUPPORTED, "statement is too large (stack overflow during analysis)", e);
+        }
 
         stateMachine.setUpdateType(analysis.getUpdateType());
         stateMachine.setReferencedTables(analysis.getReferencedTables());
@@ -336,6 +346,12 @@ public class SqlQueryExecution
     }
 
     @Override
+    public Optional<Duration> getPlanningTime()
+    {
+        return stateMachine.getPlanningTime();
+    }
+
+    @Override
     public DateTime getLastHeartbeat()
     {
         return stateMachine.getLastHeartbeat();
@@ -379,11 +395,33 @@ public class SqlQueryExecution
                     return;
                 }
 
-                PlanRoot plan = planQuery();
-                // DynamicFilterService needs plan for query to be registered.
-                // Query should be registered before dynamic filter suppliers are requested in distribution planning.
-                registerDynamicFilteringQuery(plan);
-                planDistribution(plan);
+                AtomicReference<Thread> planningThread = new AtomicReference<>(currentThread());
+                stateMachine.getStateChange(PLANNING).addListener(() -> {
+                    if (stateMachine.getQueryState() == FAILED) {
+                        synchronized (this) {
+                            Thread thread = planningThread.get();
+                            if (thread != null) {
+                                thread.interrupt();
+                            }
+                        }
+                    }
+                }, directExecutor());
+
+                try {
+                    PlanRoot plan = planQuery();
+                    // DynamicFilterService needs plan for query to be registered.
+                    // Query should be registered before dynamic filter suppliers are requested in distribution planning.
+                    registerDynamicFilteringQuery(plan);
+                    planDistribution(plan);
+                }
+                finally {
+                    synchronized (this) {
+                        planningThread.set(null);
+                        // Clear the interrupted flag in case there was a race condition where
+                        // the planning thread was interrupted right after planning completes above
+                        Thread.interrupted();
+                    }
+                }
 
                 if (!stateMachine.transitionToStarting()) {
                     // query already started or finished
@@ -715,7 +753,7 @@ public class SqlQueryExecution
                 SplitManager splitManager,
                 NodePartitioningManager nodePartitioningManager,
                 NodeScheduler nodeScheduler,
-                PlanOptimizers planOptimizers,
+                PlanOptimizersFactory planOptimizersFactory,
                 PlanFragmenter planFragmenter,
                 RemoteTaskFactory remoteTaskFactory,
                 @ForQueryExecution ExecutorService queryExecutor,
@@ -748,7 +786,7 @@ public class SqlQueryExecution
             this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
             this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
             this.executionPolicies = requireNonNull(executionPolicies, "executionPolicies is null");
-            this.planOptimizers = requireNonNull(planOptimizers, "planOptimizers is null").get();
+            this.planOptimizers = requireNonNull(planOptimizersFactory, "planOptimizersFactory is null").get();
             this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
             this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
             this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");

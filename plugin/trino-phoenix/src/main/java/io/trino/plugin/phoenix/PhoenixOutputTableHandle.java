@@ -19,6 +19,8 @@ import io.trino.plugin.jdbc.JdbcOutputTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.spi.type.Type;
 
+import javax.annotation.Nullable;
+
 import java.util.List;
 import java.util.Optional;
 
@@ -31,14 +33,14 @@ public class PhoenixOutputTableHandle
 
     @JsonCreator
     public PhoenixOutputTableHandle(
-            @JsonProperty("schemaName") Optional<String> schemaName,
+            @JsonProperty("schemaName") @Nullable String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("columnNames") List<String> columnNames,
             @JsonProperty("columnTypes") List<Type> columnTypes,
             @JsonProperty("jdbcColumnTypes") Optional<List<JdbcTypeHandle>> jdbcColumnTypes,
             @JsonProperty("rowkeyColumn") Optional<String> rowkeyColumn)
     {
-        super("", schemaName.orElse(null), tableName, columnNames, columnTypes, jdbcColumnTypes, "");
+        super("", schemaName, tableName, columnNames, columnTypes, jdbcColumnTypes, "");
         this.rowkeyColumn = requireNonNull(rowkeyColumn, "rowkeyColumn is null");
     }
 

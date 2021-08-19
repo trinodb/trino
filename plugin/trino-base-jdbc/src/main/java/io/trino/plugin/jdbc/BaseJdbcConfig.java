@@ -32,8 +32,6 @@ import static javax.validation.constraints.Pattern.Flag.CASE_INSENSITIVE;
 public class BaseJdbcConfig
 {
     private String connectionUrl;
-    private boolean caseInsensitiveNameMatching;
-    private Duration caseInsensitiveNameMatchingCacheTtl = new Duration(1, MINUTES);
     private Set<String> jdbcTypesMappedToVarchar = ImmutableSet.of();
     private Duration metadataCacheTtl = new Duration(0, MINUTES);
     private boolean cacheMissing;
@@ -50,32 +48,6 @@ public class BaseJdbcConfig
     public BaseJdbcConfig setConnectionUrl(String connectionUrl)
     {
         this.connectionUrl = connectionUrl;
-        return this;
-    }
-
-    public boolean isCaseInsensitiveNameMatching()
-    {
-        return caseInsensitiveNameMatching;
-    }
-
-    @Config("case-insensitive-name-matching")
-    public BaseJdbcConfig setCaseInsensitiveNameMatching(boolean caseInsensitiveNameMatching)
-    {
-        this.caseInsensitiveNameMatching = caseInsensitiveNameMatching;
-        return this;
-    }
-
-    @NotNull
-    @MinDuration("0ms")
-    public Duration getCaseInsensitiveNameMatchingCacheTtl()
-    {
-        return caseInsensitiveNameMatchingCacheTtl;
-    }
-
-    @Config("case-insensitive-name-matching.cache-ttl")
-    public BaseJdbcConfig setCaseInsensitiveNameMatchingCacheTtl(Duration caseInsensitiveNameMatchingCacheTtl)
-    {
-        this.caseInsensitiveNameMatchingCacheTtl = caseInsensitiveNameMatchingCacheTtl;
         return this;
     }
 

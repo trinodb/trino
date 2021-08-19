@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import io.trino.Session;
+import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.cost.StatsProvider;
 import io.trino.metadata.Metadata;
 import io.trino.spi.connector.ColumnHandle;
@@ -158,7 +159,16 @@ public final class PlanMatchPattern
             TupleDomain<Predicate<ColumnHandle>> enforcedConstraints,
             Map<String, Predicate<ColumnHandle>> expectedColumns)
     {
-        PlanMatchPattern pattern = ConnectorAwareTableScanMatcher.create(expectedTable, enforcedConstraints);
+        return tableScan(expectedTable, enforcedConstraints, expectedColumns, statistics -> true);
+    }
+
+    public static PlanMatchPattern tableScan(
+            Predicate<ConnectorTableHandle> expectedTable,
+            TupleDomain<Predicate<ColumnHandle>> enforcedConstraints,
+            Map<String, Predicate<ColumnHandle>> expectedColumns,
+            Predicate<Optional<PlanNodeStatsEstimate>> expectedStatistics)
+    {
+        PlanMatchPattern pattern = ConnectorAwareTableScanMatcher.create(expectedTable, enforcedConstraints, expectedStatistics);
         expectedColumns.entrySet().forEach(column -> pattern.withAlias(column.getKey(), new ColumnHandleMatcher(column.getValue())));
         return pattern;
     }
@@ -391,6 +401,13 @@ public final class PlanMatchPattern
     public static PlanMatchPattern topNRanking(Consumer<TopNRankingMatcher.Builder> handler, PlanMatchPattern source)
     {
         TopNRankingMatcher.Builder builder = new TopNRankingMatcher.Builder(source);
+        handler.accept(builder);
+        return builder.build();
+    }
+
+    public static PlanMatchPattern patternRecognition(Consumer<PatternRecognitionMatcher.Builder> handler, PlanMatchPattern source)
+    {
+        PatternRecognitionMatcher.Builder builder = new PatternRecognitionMatcher.Builder(source);
         handler.accept(builder);
         return builder.build();
     }
@@ -798,7 +815,18 @@ public final class PlanMatchPattern
 
     public static PlanMatchPattern limit(long limit, List<Ordering> tiesResolvers, boolean partial, PlanMatchPattern source)
     {
-        return node(LimitNode.class, source).with(new LimitMatcher(limit, tiesResolvers, partial));
+        return limit(limit, tiesResolvers, partial, ImmutableList.of(), source);
+    }
+
+    public static PlanMatchPattern limit(long limit, List<Ordering> tiesResolvers, boolean partial, List<String> preSortedInputs, PlanMatchPattern source)
+    {
+        return node(LimitNode.class, source).with(new LimitMatcher(
+                limit,
+                tiesResolvers,
+                partial,
+                preSortedInputs.stream()
+                        .map(SymbolAlias::new)
+                        .collect(toImmutableList())));
     }
 
     public static PlanMatchPattern enforceSingleRow(PlanMatchPattern source)

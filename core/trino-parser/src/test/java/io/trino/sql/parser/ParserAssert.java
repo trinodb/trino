@@ -16,6 +16,7 @@ package io.trino.sql.parser;
 import io.trino.sql.SqlFormatter;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Node;
+import io.trino.sql.tree.RowPattern;
 import io.trino.sql.tree.Statement;
 import org.assertj.core.api.AssertProvider;
 import org.assertj.core.api.RecursiveComparisonAssert;
@@ -35,7 +36,7 @@ public class ParserAssert
         @Override
         public String toStringOf(Object object)
         {
-            if (object instanceof Statement || object instanceof Expression) {
+            if (object instanceof Statement || object instanceof Expression || object instanceof RowPattern) {
                 return SqlFormatter.formatSql((Node) object);
             }
             return super.toStringOf(object);
@@ -55,6 +56,11 @@ public class ParserAssert
     public static AssertProvider<ParserAssert> statement(String sql)
     {
         return createAssertion(statement -> new SqlParser().createStatement(statement, new ParsingOptions(AS_DECIMAL)), sql);
+    }
+
+    public static AssertProvider<ParserAssert> rowPattern(String sql)
+    {
+        return createAssertion(new SqlParser()::createRowPattern, sql);
     }
 
     private ParserAssert(Node actual, RecursiveComparisonConfiguration recursiveComparisonConfiguration)

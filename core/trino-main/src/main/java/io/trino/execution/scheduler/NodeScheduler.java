@@ -17,6 +17,7 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
@@ -43,7 +44,8 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.whenAnyCompleteCancelOthers;
 import static java.util.Objects.requireNonNull;
 
@@ -174,7 +176,7 @@ public class NodeScheduler
             }
         }
 
-        ListenableFuture<?> blocked = toWhenHasSplitQueueSpaceFuture(blockedNodes, existingTasks, calculateLowWatermark(maxPendingSplitsPerTask));
+        ListenableFuture<Void> blocked = toWhenHasSplitQueueSpaceFuture(blockedNodes, existingTasks, calculateLowWatermark(maxPendingSplitsPerTask));
         return new SplitPlacementResult(blocked, ImmutableMultimap.copyOf(assignments));
     }
 
@@ -183,35 +185,40 @@ public class NodeScheduler
         return (int) Math.ceil(maxPendingSplitsPerTask / 2.0);
     }
 
-    public static ListenableFuture<?> toWhenHasSplitQueueSpaceFuture(Set<InternalNode> blockedNodes, List<RemoteTask> existingTasks, int spaceThreshold)
+    public static ListenableFuture<Void> toWhenHasSplitQueueSpaceFuture(Set<InternalNode> blockedNodes, List<RemoteTask> existingTasks, int spaceThreshold)
     {
         if (blockedNodes.isEmpty()) {
-            return immediateFuture(null);
+            return immediateVoidFuture();
         }
         Map<String, RemoteTask> nodeToTaskMap = new HashMap<>();
         for (RemoteTask task : existingTasks) {
             nodeToTaskMap.put(task.getNodeId(), task);
         }
-        List<ListenableFuture<?>> blockedFutures = blockedNodes.stream()
+        List<ListenableFuture<Void>> blockedFutures = blockedNodes.stream()
                 .map(InternalNode::getNodeIdentifier)
                 .map(nodeToTaskMap::get)
                 .filter(Objects::nonNull)
                 .map(remoteTask -> remoteTask.whenSplitQueueHasSpace(spaceThreshold))
                 .collect(toImmutableList());
         if (blockedFutures.isEmpty()) {
-            return immediateFuture(null);
+            return immediateVoidFuture();
         }
-        return whenAnyCompleteCancelOthers(blockedFutures);
+        return asVoid(whenAnyCompleteCancelOthers(blockedFutures));
     }
 
-    public static ListenableFuture<?> toWhenHasSplitQueueSpaceFuture(List<RemoteTask> existingTasks, int spaceThreshold)
+    public static ListenableFuture<Void> toWhenHasSplitQueueSpaceFuture(List<RemoteTask> existingTasks, int spaceThreshold)
     {
         if (existingTasks.isEmpty()) {
-            return immediateFuture(null);
+            return immediateVoidFuture();
         }
-        List<ListenableFuture<?>> stateChangeFutures = existingTasks.stream()
+        List<ListenableFuture<Void>> stateChangeFutures = existingTasks.stream()
                 .map(remoteTask -> remoteTask.whenSplitQueueHasSpace(spaceThreshold))
                 .collect(toImmutableList());
-        return whenAnyCompleteCancelOthers(stateChangeFutures);
+        return asVoid(whenAnyCompleteCancelOthers(stateChangeFutures));
+    }
+
+    private static <T> ListenableFuture<Void> asVoid(ListenableFuture<T> future)
+    {
+        return Futures.transform(future, v -> null, directExecutor());
     }
 }

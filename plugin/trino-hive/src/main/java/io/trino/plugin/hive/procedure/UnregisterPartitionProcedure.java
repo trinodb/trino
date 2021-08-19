@@ -14,7 +14,6 @@
 package io.trino.plugin.hive.procedure;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.plugin.hive.HiveMetadata;
 import io.trino.plugin.hive.HiveMetastoreClosure;
 import io.trino.plugin.hive.TransactionalMetadataFactory;
 import io.trino.plugin.hive.authentication.HiveIdentity;
@@ -108,7 +107,7 @@ public class UnregisterPartitionProcedure
         Partition partition = metastore.getPartition(new HiveIdentity(session), schemaName, tableName, partitionValues)
                 .orElseThrow(() -> new TrinoException(NOT_FOUND, format("Partition '%s' does not exist", partitionName)));
 
-        SemiTransactionalHiveMetastore metastore = ((HiveMetadata) hiveMetadataFactory.create()).getMetastore();
+        SemiTransactionalHiveMetastore metastore = hiveMetadataFactory.create().getMetastore();
 
         metastore.dropPartition(
                 session,

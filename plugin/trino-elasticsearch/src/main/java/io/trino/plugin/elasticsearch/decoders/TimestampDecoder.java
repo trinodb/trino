@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.elasticsearch.decoders;
 
+import com.google.common.primitives.Longs;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import org.elasticsearch.common.document.DocumentField;
@@ -63,7 +64,14 @@ public class TimestampDecoder
         else {
             LocalDateTime timestamp;
             if (value instanceof String) {
-                timestamp = ISO_DATE_TIME.parse((String) value, LocalDateTime::from);
+                String valueString = (String) value;
+                Long epochMillis = Longs.tryParse(valueString);
+                if (epochMillis != null) {
+                    timestamp = LocalDateTime.ofInstant(Instant.ofEpochMilli(epochMillis), UTC);
+                }
+                else {
+                    timestamp = ISO_DATE_TIME.parse(valueString, LocalDateTime::from);
+                }
             }
             else if (value instanceof Number) {
                 timestamp = LocalDateTime.ofInstant(Instant.ofEpochMilli(((Number) value).longValue()), UTC);

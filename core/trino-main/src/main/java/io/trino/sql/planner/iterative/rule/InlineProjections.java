@@ -13,20 +13,25 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import io.trino.Session;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
+import io.trino.spi.type.RowType;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
+import io.trino.sql.planner.TypeAnalyzer;
+import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Literal;
+import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.sql.tree.TryExpression;
 import io.trino.sql.util.AstUtils;
@@ -41,6 +46,7 @@ import static io.trino.matching.Capture.newCapture;
 import static io.trino.sql.planner.ExpressionSymbolInliner.inlineSymbols;
 import static io.trino.sql.planner.plan.Patterns.project;
 import static io.trino.sql.planner.plan.Patterns.source;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toSet;
 
 /**
@@ -56,6 +62,12 @@ public class InlineProjections
 
     private static final Pattern<ProjectNode> PATTERN = project()
             .with(source().matching(project().capturedAs(CHILD)));
+    private final TypeAnalyzer typeAnalyzer;
+
+    public InlineProjections(TypeAnalyzer typeAnalyzer)
+    {
+        this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
+    }
 
     @Override
     public Pattern<ProjectNode> getPattern()
@@ -68,14 +80,19 @@ public class InlineProjections
     {
         ProjectNode child = captures.get(CHILD);
 
-        return inlineProjections(parent, child)
+        return inlineProjections(parent, child, context.getSession(), typeAnalyzer, context.getSymbolAllocator().getTypes())
                 .map(Result::ofPlanNode)
                 .orElse(Result.empty());
     }
 
-    static Optional<ProjectNode> inlineProjections(ProjectNode parent, ProjectNode child)
+    static Optional<ProjectNode> inlineProjections(ProjectNode parent, ProjectNode child, Session session, TypeAnalyzer typeAnalyzer, TypeProvider types)
     {
-        Set<Symbol> targets = extractInliningTargets(parent, child);
+        // squash identity projections
+        if (parent.isIdentity() && child.isIdentity()) {
+            return Optional.of((ProjectNode) parent.replaceChildren(ImmutableList.of(child.getSource())));
+        }
+
+        Set<Symbol> targets = extractInliningTargets(parent, child, session, typeAnalyzer, types);
         if (targets.isEmpty()) {
             return Optional.empty();
         }
@@ -140,7 +157,7 @@ public class InlineProjections
         return inlineSymbols(mapping, expression);
     }
 
-    private static Set<Symbol> extractInliningTargets(ProjectNode parent, ProjectNode child)
+    private static Set<Symbol> extractInliningTargets(ProjectNode parent, ProjectNode child, Session session, TypeAnalyzer typeAnalyzer, TypeProvider types)
     {
         // candidates for inlining are
         //   1. references to simple constants or symbol references
@@ -175,7 +192,18 @@ public class InlineProjections
                 .filter(entry -> entry.getValue() == 1) // reference appears just once across all expressions in parent project node
                 .filter(entry -> !tryArguments.contains(entry.getKey())) // they are not inputs to TRY. Otherwise, inlining might change semantics
                 .filter(entry -> !child.getAssignments().isIdentity(entry.getKey())) // skip identities, otherwise, this rule will keep firing forever
-                .filter(entry -> !(child.getAssignments().get(entry.getKey()) instanceof DereferenceExpression)) // skip dereferences, otherwise, inlining can cause conflicts with PushdownDereferences
+                .filter(entry -> {
+                    // skip dereferences, otherwise, inlining can cause conflicts with PushdownDereferences
+                    Expression assignment = child.getAssignments().get(entry.getKey());
+
+                    if (assignment instanceof SubscriptExpression) {
+                        if (typeAnalyzer.getType(session, types, ((SubscriptExpression) assignment).getBase()) instanceof RowType) {
+                            return false;
+                        }
+                    }
+
+                    return true;
+                })
                 .map(Map.Entry::getKey)
                 .collect(toSet());
 

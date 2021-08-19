@@ -13,7 +13,6 @@
  */
 package io.trino.operator.scalar;
 
-import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceUtf8;
 import io.airlift.slice.Slices;
@@ -22,12 +21,11 @@ import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
-
-import java.util.ArrayList;
-import java.util.List;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntList;
 
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.airlift.slice.SliceUtf8.getCodePointAt;
 import static io.airlift.slice.SliceUtf8.lengthOfCodePoint;
 import static io.airlift.slice.SliceUtf8.setCodePointAt;
@@ -35,7 +33,6 @@ import static io.trino.spi.type.Chars.padSpaces;
 import static io.trino.spi.type.Chars.truncateToLengthAndTrimSpaces;
 import static io.trino.spi.type.Varchars.truncateToLength;
 import static java.lang.Math.toIntExact;
-import static java.util.Collections.nCopies;
 
 public final class CharacterStringCasts
 {
@@ -92,16 +89,14 @@ public final class CharacterStringCasts
     @LiteralParameters({"x", "y"})
     public static Slice varcharToCharSaturatedFloorCast(@LiteralParameter("y") long y, @SqlType("varchar(x)") Slice slice)
     {
-        List<Integer> codePoints = new ArrayList<>(toCodePoints(slice));
+        IntList codePoints = toCodePoints(slice);
 
         // if Varchar(x) value length (including spaces) is greater than y, we can just truncate it
         if (codePoints.size() >= y) {
             // char(y) slice representation doesn't contain trailing spaces
-            codePoints = trimTrailing(codePoints, ' ');
-            List<Integer> codePointsTruncated = codePoints.stream()
-                    .limit(y)
-                    .collect(toImmutableList());
-            return codePointsToSliceUtf8(codePointsTruncated);
+            codePoints.size(Math.min(toIntExact(y), codePoints.size()));
+            trimTrailing(codePoints, ' ');
+            return codePointsToSliceUtf8(codePoints);
         }
 
         /*
@@ -109,49 +104,66 @@ public final class CharacterStringCasts
          * We decrement last character in input (in fact, we decrement last non-zero character) and pad the value with
          * max code point up to y characters.
          */
-        codePoints = trimTrailing(codePoints, '\0');
+        trimTrailing(codePoints, '\0');
 
         if (codePoints.isEmpty()) {
             // No non-zero characters in input and input is shorter than y. Input value is smaller than any char(4) casted back to varchar, so we return the smallest char(4) possible
-            return codePointsToSliceUtf8(nCopies(toIntExact(y), (int) '\0'));
+            return Slices.allocate(toIntExact(y));
         }
 
-        codePoints = new ArrayList<>(codePoints);
         codePoints.set(codePoints.size() - 1, codePoints.get(codePoints.size() - 1) - 1);
-        codePoints.addAll(nCopies(toIntExact(y) - codePoints.size(), Character.MAX_CODE_POINT));
+        int toAdd = toIntExact(y) - codePoints.size();
+        for (int i = 0; i < toAdd; i++) {
+            codePoints.add(Character.MAX_CODE_POINT);
+        }
 
-        verify(codePoints.get(codePoints.size() - 1) != ' '); // no trailing spaces to trim
+        verify(codePoints.getInt(codePoints.size() - 1) != ' '); // no trailing spaces to trim
 
         return codePointsToSliceUtf8(codePoints);
     }
 
-    private static List<Integer> trimTrailing(List<Integer> codePoints, int codePointToTrim)
+    @ScalarOperator(OperatorType.SATURATED_FLOOR_CAST)
+    @SqlType("varchar(y)")
+    @LiteralParameters({"x", "y"})
+    public static Slice varcharToVarcharSaturatedFloorCast(@LiteralParameter("y") long y, @SqlType("varchar(x)") Slice slice)
+    {
+        if (countCodePoints(slice) <= y) {
+            return slice;
+        }
+
+        IntList codePoints = toCodePoints(slice);
+        codePoints.size(toIntExact(y));
+        return codePointsToSliceUtf8(codePoints);
+    }
+
+    private static void trimTrailing(IntList codePoints, int codePointToTrim)
     {
         int endIndex = codePoints.size();
         while (endIndex > 0 && codePoints.get(endIndex - 1) == codePointToTrim) {
             endIndex--;
         }
-        return ImmutableList.copyOf(codePoints.subList(0, endIndex));
+        codePoints.size(endIndex);
     }
 
-    private static List<Integer> toCodePoints(Slice slice)
+    private static IntList toCodePoints(Slice slice)
     {
-        ImmutableList.Builder<Integer> codePoints = ImmutableList.builder();
+        IntList codePoints = new IntArrayList(slice.length());
         for (int offset = 0; offset < slice.length(); ) {
             int codePoint = getCodePointAt(slice, offset);
             offset += lengthOfCodePoint(slice, offset);
             codePoints.add(codePoint);
         }
-        return codePoints.build();
+        return codePoints;
     }
 
-    public static Slice codePointsToSliceUtf8(List<Integer> codePoints)
+    public static Slice codePointsToSliceUtf8(IntList codePoints)
     {
-        int length = codePoints.stream()
-                .mapToInt(SliceUtf8::lengthOfCodePoint)
-                .sum();
+        int bufferLength = 0;
+        for (int codePoint : codePoints) {
+            bufferLength += SliceUtf8.lengthOfCodePoint(codePoint);
+        }
 
-        Slice result = Slices.wrappedBuffer(new byte[length]);
+        Slice result = Slices.wrappedBuffer(new byte[bufferLength]);
         int offset = 0;
         for (int codePoint : codePoints) {
             setCodePointAt(codePoint, result, offset);

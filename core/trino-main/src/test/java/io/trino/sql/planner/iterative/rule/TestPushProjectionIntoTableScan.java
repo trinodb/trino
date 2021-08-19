@@ -19,6 +19,9 @@ import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorTableHandle;
+import io.trino.cost.PlanNodeStatsEstimate;
+import io.trino.cost.ScalarStatsCalculator;
+import io.trino.cost.SymbolStatsEstimate;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
 import io.trino.plugin.tpch.TpchColumnHandle;
@@ -45,10 +48,9 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.iterative.rule.test.RuleTester;
 import io.trino.sql.planner.plan.Assignments;
-import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
 import org.testng.annotations.Test;
 
@@ -56,7 +58,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -98,15 +99,13 @@ public class TestPushProjectionIntoTableScan
 
             ruleTester.getQueryRunner().createCatalog(MOCK_CATALOG, factory, ImmutableMap.of());
 
-            PushProjectionIntoTableScan optimizer = new PushProjectionIntoTableScan(
-                    ruleTester.getMetadata(),
-                    new TypeAnalyzer(new SqlParser(), ruleTester.getMetadata()));
+            PushProjectionIntoTableScan optimizer = createRule(ruleTester);
 
             ruleTester.assertThat(optimizer)
                     .on(p -> {
                         Symbol symbol = p.symbol(columnName, columnType);
                         return p.project(
-                                Assignments.of(p.symbol("symbol_dereference", BIGINT), new DereferenceExpression(symbol.toSymbolReference(), new Identifier("a"))),
+                                Assignments.of(p.symbol("symbol_dereference", BIGINT), new SubscriptExpression(symbol.toSymbolReference(), new LongLiteral("1"))),
                                 p.tableScan(TEST_TABLE_HANDLE, ImmutableList.of(symbol), ImmutableMap.of(symbol, inputColumnHandle)));
                     })
                     .withSession(MOCK_SESSION)
@@ -128,9 +127,7 @@ public class TestPushProjectionIntoTableScan
             MockConnectorFactory factory = createMockFactory(ImmutableMap.of(columnName, columnHandle), Optional.of(this::mockApplyProjection));
             ruleTester.getQueryRunner().createCatalog(MOCK_CATALOG, factory, ImmutableMap.of());
 
-            Metadata metadata = ruleTester.getMetadata();
-            TypeAnalyzer typeAnalyzer = new TypeAnalyzer(new SqlParser(), metadata);
-            PushProjectionIntoTableScan optimizer = new PushProjectionIntoTableScan(metadata, typeAnalyzer);
+            TypeAnalyzer typeAnalyzer = new TypeAnalyzer(new SqlParser(), ruleTester.getMetadata());
 
             // Prepare project node symbols and types
             Symbol identity = new Symbol("symbol_identity");
@@ -145,7 +142,7 @@ public class TestPushProjectionIntoTableScan
             // Prepare project node assignments
             ImmutableMap<Symbol, Expression> inputProjections = ImmutableMap.of(
                     identity, baseColumn.toSymbolReference(),
-                    dereference, new DereferenceExpression(baseColumn.toSymbolReference(), new Identifier("a")),
+                    dereference, new SubscriptExpression(baseColumn.toSymbolReference(), new LongLiteral("1")),
                     constant, new LongLiteral("5"));
 
             // Compute expected symbols after applyProjection
@@ -160,7 +157,7 @@ public class TestPushProjectionIntoTableScan
                             Map.Entry::getValue,
                             e -> column(e.getValue(), types.get(e.getKey()))));
 
-            ruleTester.assertThat(optimizer)
+            ruleTester.assertThat(createRule(ruleTester))
                     .on(p -> {
                         // Register symbols
                         Symbol columnSymbol = p.symbol(columnName, columnType);
@@ -170,10 +167,14 @@ public class TestPushProjectionIntoTableScan
 
                         return p.project(
                                 new Assignments(inputProjections),
-                                p.tableScan(
-                                        TEST_TABLE_HANDLE,
-                                        ImmutableList.of(columnSymbol),
-                                        ImmutableMap.of(columnSymbol, columnHandle)));
+                                p.tableScan(tableScan -> tableScan
+                                        .setTableHandle(TEST_TABLE_HANDLE)
+                                        .setSymbols(ImmutableList.of(columnSymbol))
+                                        .setAssignments(ImmutableMap.of(columnSymbol, columnHandle))
+                                        .setStatistics(Optional.of(PlanNodeStatsEstimate.builder()
+                                                .setOutputRowCount(42)
+                                                .addSymbolStatistics(columnSymbol, SymbolStatsEstimate.builder().setNullsFraction(0).setDistinctValuesCount(33).build())
+                                                .build()))));
                     })
                     .withSession(MOCK_SESSION)
                     .matches(project(
@@ -182,13 +183,27 @@ public class TestPushProjectionIntoTableScan
                                             e -> e.getKey().getName(),
                                             e -> expression(symbolReference(e.getValue())))),
                             tableScan(
-                                    equalTo(new MockConnectorTableHandle(
+                                    new MockConnectorTableHandle(
                                             new SchemaTableName(TEST_SCHEMA, "projected_" + TEST_TABLE),
                                             TupleDomain.all(),
-                                            Optional.of(ImmutableList.copyOf(expectedColumns.values())))),
+                                            Optional.of(ImmutableList.copyOf(expectedColumns.values())))::equals,
                                     TupleDomain.all(),
                                     expectedColumns.entrySet().stream()
-                                            .collect(toImmutableMap(Map.Entry::getKey, e -> equalTo(e.getValue()))))));
+                                            .collect(toImmutableMap(Map.Entry::getKey, e -> e.getValue()::equals)),
+                                    Optional.of(PlanNodeStatsEstimate.builder()
+                                            .setOutputRowCount(42)
+                                            .addSymbolStatistics(new Symbol(newNames.get(constant)), SymbolStatsEstimate.builder()
+                                                    .setDistinctValuesCount(1)
+                                                    .setNullsFraction(0)
+                                                    .setLowValue(5)
+                                                    .setHighValue(5)
+                                                    .build())
+                                            .addSymbolStatistics(new Symbol(newNames.get(identity)), SymbolStatsEstimate.builder()
+                                                    .setDistinctValuesCount(33)
+                                                    .setNullsFraction(0)
+                                                    .build())
+                                            .addSymbolStatistics(new Symbol(newNames.get(dereference)), SymbolStatsEstimate.unknown())
+                                            .build())::equals)));
         }
     }
 
@@ -203,11 +218,7 @@ public class TestPushProjectionIntoTableScan
             MockConnectorFactory factory = createMockFactory(ImmutableMap.of(columnName, columnHandle), Optional.of(this::mockApplyProjection));
             ruleTester.getQueryRunner().createCatalog(MOCK_CATALOG, factory, ImmutableMap.of());
 
-            Metadata metadata = ruleTester.getMetadata();
-            TypeAnalyzer typeAnalyzer = new TypeAnalyzer(new SqlParser(), metadata);
-            PushProjectionIntoTableScan optimizer = new PushProjectionIntoTableScan(metadata, typeAnalyzer);
-
-            assertThatThrownBy(() -> ruleTester.assertThat(optimizer)
+            assertThatThrownBy(() -> ruleTester.assertThat(createRule(ruleTester))
                     // projection pushdown results in different table handle without partitioning
                     .on(p -> p.project(
                             Assignments.of(),
@@ -296,7 +307,18 @@ public class TestPushProjectionIntoTableScan
         return Optional.of(new ProjectionApplicationResult<>(
                 new MockConnectorTableHandle(projectedTableName, TupleDomain.all(), Optional.of(projectedColumnsBuilder.build())),
                 outputExpressions.build(),
-                outputAssignments.build()));
+                outputAssignments.build(),
+                false));
+    }
+
+    private static PushProjectionIntoTableScan createRule(RuleTester tester)
+    {
+        Metadata metadata = tester.getMetadata();
+        TypeAnalyzer typeAnalyzer = tester.getTypeAnalyzer();
+        return new PushProjectionIntoTableScan(
+                metadata,
+                typeAnalyzer,
+                new ScalarStatsCalculator(metadata, typeAnalyzer));
     }
 
     private static TableHandle createTableHandle(String schemaName, String tableName)

@@ -16,11 +16,13 @@ package io.trino.plugin.jdbc;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.jdbc.expression.AggregateFunctionRewriter;
 import io.trino.plugin.jdbc.expression.ImplementCountAll;
+import io.trino.plugin.jdbc.mapping.DefaultIdentifierMapping;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
@@ -70,7 +72,7 @@ class TestingH2JdbcClient
 
     public TestingH2JdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory)
     {
-        super(config, "\"", connectionFactory);
+        super(config, "\"", connectionFactory, new DefaultIdentifierMapping());
     }
 
     @Override
@@ -130,7 +132,10 @@ class TestingH2JdbcClient
                 return Optional.of(timeColumnMapping(TIME_MILLIS));
 
             case Types.TIMESTAMP:
-                return Optional.of(timestampColumnMapping(TIMESTAMP_MILLIS));
+                TimestampType timestampType = typeHandle.getDecimalDigits()
+                        .map(TimestampType::createTimestampType)
+                        .orElse(TIMESTAMP_MILLIS);
+                return Optional.of(timestampColumnMapping(timestampType));
         }
 
         if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {

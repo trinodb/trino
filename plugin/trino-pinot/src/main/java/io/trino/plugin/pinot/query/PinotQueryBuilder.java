@@ -22,15 +22,20 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.RealType;
+import io.trino.spi.type.Type;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
@@ -96,11 +101,9 @@ public final class PinotQueryBuilder
         ImmutableList.Builder<String> conjunctsBuilder = ImmutableList.builder();
         timePredicate.ifPresent(conjunctsBuilder::add);
         if (!tupleDomain.equals(TupleDomain.all())) {
-            for (PinotColumnHandle columnHandle : columnHandles) {
-                Domain domain = tupleDomain.getDomains().get().get(columnHandle);
-                if (domain != null) {
-                    conjunctsBuilder.add(toPredicate(columnHandle.getColumnName(), domain));
-                }
+            Map<ColumnHandle, Domain> domains = tupleDomain.getDomains().orElseThrow();
+            for (Map.Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
+                conjunctsBuilder.add(toPredicate(((PinotColumnHandle) entry.getKey()).getColumnName(), entry.getValue()));
             }
         }
         List<String> conjuncts = conjunctsBuilder.build();
@@ -119,15 +122,15 @@ public final class PinotQueryBuilder
         for (Range range : domain.getValues().getRanges().getOrderedRanges()) {
             checkState(!range.isAll()); // Already checked
             if (range.isSingleValue()) {
-                singleValues.add(range.getSingleValue());
+                singleValues.add(convertValue(range.getType(), range.getSingleValue()));
             }
             else {
                 List<String> rangeConjuncts = new ArrayList<>();
                 if (!range.isLowUnbounded()) {
-                    rangeConjuncts.add(toConjunct(columnName, range.isLowInclusive() ? ">=" : ">", range.getLowBoundedValue()));
+                    rangeConjuncts.add(toConjunct(columnName, range.isLowInclusive() ? ">=" : ">", convertValue(range.getType(), range.getLowBoundedValue())));
                 }
                 if (!range.isHighUnbounded()) {
-                    rangeConjuncts.add(toConjunct(columnName, range.isHighInclusive() ? "<=" : "<", range.getHighBoundedValue()));
+                    rangeConjuncts.add(toConjunct(columnName, range.isHighInclusive() ? "<=" : "<", convertValue(range.getType(), range.getHighBoundedValue())));
                 }
                 // If rangeConjuncts is null, then the range was ALL, which is not supported in pql
                 checkState(!rangeConjuncts.isEmpty());
@@ -142,6 +145,14 @@ public final class PinotQueryBuilder
             }
         }
         return "(" + Joiner.on(" OR ").join(disjuncts) + ")";
+    }
+
+    private static Object convertValue(Type type, Object value)
+    {
+        if (type instanceof RealType) {
+            return intBitsToFloat(toIntExact((Long) value));
+        }
+        return value;
     }
 
     private static String toConjunct(String columnName, String operator, Object value)

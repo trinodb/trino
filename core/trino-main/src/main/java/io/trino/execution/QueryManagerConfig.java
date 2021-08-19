@@ -61,6 +61,7 @@ public class QueryManagerConfig
     private String queryExecutionPolicy = "all-at-once";
     private Duration queryMaxRunTime = new Duration(100, TimeUnit.DAYS);
     private Duration queryMaxExecutionTime = new Duration(100, TimeUnit.DAYS);
+    private Duration queryMaxPlanningTime = new Duration(10, TimeUnit.MINUTES);
     private Duration queryMaxCpuTime = new Duration(1_000_000_000, TimeUnit.DAYS);
     private Optional<DataSize> queryMaxScanPhysicalBytes = Optional.empty();
 
@@ -281,6 +282,19 @@ public class QueryManagerConfig
     public QueryManagerConfig setQueryMaxExecutionTime(Duration queryMaxExecutionTime)
     {
         this.queryMaxExecutionTime = queryMaxExecutionTime;
+        return this;
+    }
+
+    @NotNull
+    public Duration getQueryMaxPlanningTime()
+    {
+        return queryMaxPlanningTime;
+    }
+
+    @Config("query.max-planning-time")
+    public QueryManagerConfig setQueryMaxPlanningTime(Duration queryMaxPlanningTime)
+    {
+        this.queryMaxPlanningTime = queryMaxPlanningTime;
         return this;
     }
 

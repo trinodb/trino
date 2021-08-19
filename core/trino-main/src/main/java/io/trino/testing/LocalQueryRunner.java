@@ -30,16 +30,22 @@ import io.trino.connector.system.CatalogSystemTable;
 import io.trino.connector.system.ColumnPropertiesSystemTable;
 import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.connector.system.GlobalSystemConnectorFactory;
+import io.trino.connector.system.MaterializedViewPropertiesSystemTable;
 import io.trino.connector.system.NodeSystemTable;
 import io.trino.connector.system.SchemaPropertiesSystemTable;
 import io.trino.connector.system.TableCommentSystemTable;
 import io.trino.connector.system.TablePropertiesSystemTable;
 import io.trino.connector.system.TransactionsSystemTable;
+import io.trino.cost.ComposableStatsCalculator;
 import io.trino.cost.CostCalculator;
 import io.trino.cost.CostCalculatorUsingExchanges;
 import io.trino.cost.CostCalculatorWithEstimatedExchanges;
 import io.trino.cost.CostComparator;
+import io.trino.cost.FilterStatsCalculator;
+import io.trino.cost.ScalarStatsCalculator;
 import io.trino.cost.StatsCalculator;
+import io.trino.cost.StatsCalculatorModule.StatsRulesProvider;
+import io.trino.cost.StatsNormalizer;
 import io.trino.cost.TaskCountEstimator;
 import io.trino.eventlistener.EventListenerConfig;
 import io.trino.eventlistener.EventListenerManager;
@@ -66,6 +72,7 @@ import io.trino.execution.RollbackTask;
 import io.trino.execution.ScheduledSplit;
 import io.trino.execution.SetPathTask;
 import io.trino.execution.SetSessionTask;
+import io.trino.execution.SetTimeZoneTask;
 import io.trino.execution.StartTransactionTask;
 import io.trino.execution.TaskManagerConfig;
 import io.trino.execution.TaskSource;
@@ -82,6 +89,7 @@ import io.trino.metadata.CatalogManager;
 import io.trino.metadata.ColumnPropertyManager;
 import io.trino.metadata.HandleResolver;
 import io.trino.metadata.InMemoryNodeManager;
+import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.MetadataManager;
 import io.trino.metadata.MetadataUtil;
@@ -96,12 +104,13 @@ import io.trino.metadata.TablePropertyManager;
 import io.trino.operator.Driver;
 import io.trino.operator.DriverContext;
 import io.trino.operator.DriverFactory;
-import io.trino.operator.LookupJoinOperators;
 import io.trino.operator.OperatorContext;
+import io.trino.operator.OperatorFactories;
 import io.trino.operator.OutputFactory;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.StageExecutionDescriptor;
 import io.trino.operator.TaskContext;
+import io.trino.operator.TrinoOperatorFactories;
 import io.trino.operator.index.IndexJoinLookupStats;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
 import io.trino.security.GroupProviderManager;
@@ -145,7 +154,6 @@ import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.PlanFragmenter;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.PlanOptimizers;
-import io.trino.sql.planner.RuleStatsRecorder;
 import io.trino.sql.planner.SubPlan;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
@@ -169,6 +177,7 @@ import io.trino.sql.tree.ResetSession;
 import io.trino.sql.tree.Rollback;
 import io.trino.sql.tree.SetPath;
 import io.trino.sql.tree.SetSession;
+import io.trino.sql.tree.SetTimeZone;
 import io.trino.sql.tree.StartTransaction;
 import io.trino.sql.tree.Statement;
 import io.trino.testing.PageConsumerOperator.PageConsumerOutputFactory;
@@ -178,8 +187,6 @@ import io.trino.transaction.TransactionManagerConfig;
 import io.trino.type.BlockTypeOperators;
 import io.trino.util.FinalizerService;
 import org.intellij.lang.annotations.Language;
-import org.weakref.jmx.MBeanExporter;
-import org.weakref.jmx.testing.TestingMBeanServer;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -202,7 +209,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.trino.cost.StatsCalculatorModule.createNewStatsCalculator;
 import static io.trino.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
 import static io.trino.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static io.trino.spi.connector.DynamicFilter.EMPTY;
@@ -235,6 +241,7 @@ public class LocalQueryRunner
     private final BlockTypeOperators blockTypeOperators;
     private final MetadataManager metadata;
     private final StatsCalculator statsCalculator;
+    private final ScalarStatsCalculator scalarStatsCalculator;
     private final CostCalculator costCalculator;
     private final CostCalculator estimatedExchangesCostCalculator;
     private final TaskCountEstimator taskCountEstimator;
@@ -263,6 +270,8 @@ public class LocalQueryRunner
     private final boolean alwaysRevokeMemory;
     private final NodeSpillConfig nodeSpillConfig;
     private final FeaturesConfig featuresConfig;
+    private final PlanOptimizersProvider planOptimizersProvider;
+    private final OperatorFactories operatorFactories;
     private boolean printPlan;
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
@@ -284,7 +293,9 @@ public class LocalQueryRunner
             boolean withInitialTransaction,
             boolean alwaysRevokeMemory,
             int nodeCountForStats,
-            Map<String, List<PropertyMetadata<?>>> defaultSessionProperties)
+            Map<String, List<PropertyMetadata<?>>> defaultSessionProperties,
+            PlanOptimizersProvider planOptimizersProvider,
+            OperatorFactories operatorFactories)
     {
         requireNonNull(defaultSession, "defaultSession is null");
         requireNonNull(defaultSessionProperties, "defaultSessionProperties is null");
@@ -292,6 +303,8 @@ public class LocalQueryRunner
 
         this.taskManagerConfig = new TaskManagerConfig().setTaskConcurrency(4);
         this.nodeSpillConfig = requireNonNull(nodeSpillConfig, "nodeSpillConfig is null");
+        this.planOptimizersProvider = requireNonNull(planOptimizersProvider, "planOptimizersProvider is null");
+        this.operatorFactories = requireNonNull(operatorFactories, "operatorFactories is null");
         this.alwaysRevokeMemory = alwaysRevokeMemory;
         this.notificationExecutor = newCachedThreadPool(daemonThreadsNamed("local-query-runner-executor-%s"));
         this.yieldExecutor = newScheduledThreadPool(2, daemonThreadsNamed("local-query-runner-scheduler-%s"));
@@ -321,6 +334,7 @@ public class LocalQueryRunner
                 new SessionPropertyManager(new SystemSessionProperties(new QueryManagerConfig(), taskManagerConfig, new MemoryManagerConfig(), featuresConfig, new NodeMemoryConfig(), new DynamicFilterConfig(), new NodeSchedulerConfig())),
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
+                new MaterializedViewPropertyManager(),
                 new ColumnPropertyManager(),
                 new AnalyzePropertyManager(),
                 transactionManager,
@@ -332,6 +346,7 @@ public class LocalQueryRunner
         this.joinCompiler = new JoinCompiler(typeOperators);
         PageIndexerFactory pageIndexerFactory = new GroupByHashPageIndexerFactory(joinCompiler, blockTypeOperators);
         this.statsCalculator = createNewStatsCalculator(metadata, new TypeAnalyzer(sqlParser, metadata));
+        this.scalarStatsCalculator = new ScalarStatsCalculator(metadata, new TypeAnalyzer(sqlParser, metadata));
         this.taskCountEstimator = new TaskCountEstimator(() -> nodeCountForStats);
         this.costCalculator = new CostCalculatorUsingExchanges(taskCountEstimator);
         this.estimatedExchangesCostCalculator = new CostCalculatorWithEstimatedExchanges(costCalculator, taskCountEstimator);
@@ -371,6 +386,7 @@ public class LocalQueryRunner
                 new TableCommentSystemTable(metadata, accessControl),
                 new SchemaPropertiesSystemTable(transactionManager, metadata),
                 new TablePropertiesSystemTable(transactionManager, metadata),
+                new MaterializedViewPropertiesSystemTable(transactionManager, metadata),
                 new ColumnPropertiesSystemTable(transactionManager, metadata),
                 new AnalyzePropertiesSystemTable(transactionManager, metadata),
                 new TransactionsSystemTable(metadata, transactionManager)),
@@ -435,12 +451,21 @@ public class LocalQueryRunner
                 .put(Commit.class, new CommitTask())
                 .put(Rollback.class, new RollbackTask())
                 .put(SetPath.class, new SetPathTask())
+                .put(SetTimeZone.class, new SetTimeZoneTask(sqlParser, groupProvider, statsCalculator))
                 .build();
 
         SpillerStats spillerStats = new SpillerStats();
         this.singleStreamSpillerFactory = new FileSingleStreamSpillerFactory(metadata, spillerStats, featuresConfig, nodeSpillConfig);
         this.partitioningSpillerFactory = new GenericPartitioningSpillerFactory(this.singleStreamSpillerFactory);
         this.spillerFactory = new GenericSpillerFactory(singleStreamSpillerFactory);
+    }
+
+    private static StatsCalculator createNewStatsCalculator(Metadata metadata, TypeAnalyzer typeAnalyzer)
+    {
+        StatsNormalizer normalizer = new StatsNormalizer();
+        ScalarStatsCalculator scalarStatsCalculator = new ScalarStatsCalculator(metadata, typeAnalyzer);
+        FilterStatsCalculator filterStatsCalculator = new FilterStatsCalculator(metadata, scalarStatsCalculator, normalizer);
+        return new ComposableStatsCalculator(new StatsRulesProvider(metadata, scalarStatsCalculator, filterStatsCalculator, normalizer).get());
     }
 
     @Override
@@ -758,7 +783,7 @@ public class LocalQueryRunner
                 partitioningSpillerFactory,
                 new PagesIndex.TestingFactory(false),
                 joinCompiler,
-                new LookupJoinOperators(),
+                operatorFactories,
                 new OrderingCompiler(typeOperators),
                 new DynamicFilterConfig(),
                 typeOperators,
@@ -856,22 +881,21 @@ public class LocalQueryRunner
 
     public List<PlanOptimizer> getPlanOptimizers(boolean forceSingleNode)
     {
-        return new PlanOptimizers(
+        return planOptimizersProvider.getPlanOptimizers(
+                forceSingleNode,
+                sqlParser,
                 metadata,
                 typeOperators,
-                new TypeAnalyzer(sqlParser, metadata),
                 taskManagerConfig,
-                forceSingleNode,
-                new MBeanExporter(new TestingMBeanServer()),
                 splitManager,
                 pageSourceManager,
                 statsCalculator,
+                scalarStatsCalculator,
                 costCalculator,
                 estimatedExchangesCostCalculator,
-                new CostComparator(featuresConfig),
+                featuresConfig,
                 taskCountEstimator,
-                new RuleStatsRecorder(),
-                nodePartitioningManager).get();
+                nodePartitioningManager);
     }
 
     public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers, WarningCollector warningCollector)
@@ -929,6 +953,25 @@ public class LocalQueryRunner
                 .findAll();
     }
 
+    public interface PlanOptimizersProvider
+    {
+        List<PlanOptimizer> getPlanOptimizers(
+                boolean forceSingleNode,
+                SqlParser sqlParser,
+                MetadataManager metadata,
+                TypeOperators typeOperators,
+                TaskManagerConfig taskManagerConfig,
+                SplitManager splitManager,
+                PageSourceManager pageSourceManager,
+                StatsCalculator statsCalculator,
+                ScalarStatsCalculator scalarStatsCalculator,
+                CostCalculator costCalculator,
+                CostCalculator estimatedExchangesCostCalculator,
+                FeaturesConfig featuresConfig,
+                TaskCountEstimator taskCountEstimator,
+                NodePartitioningManager nodePartitioningManager);
+    }
+
     public static class Builder
     {
         private final Session defaultSession;
@@ -938,6 +981,37 @@ public class LocalQueryRunner
         private boolean alwaysRevokeMemory;
         private Map<String, List<PropertyMetadata<?>>> defaultSessionProperties = ImmutableMap.of();
         private int nodeCountForStats;
+        private PlanOptimizersProvider planOptimizersProvider = (
+                forceSingleNode,
+                sqlParser,
+                metadata,
+                typeOperators,
+                taskManagerConfig,
+                splitManager,
+                pageSourceManager,
+                statsCalculator,
+                scalarStatsCalculator,
+                costCalculator,
+                estimatedExchangesCostCalculator,
+                featuresConfig,
+                taskCountEstimator,
+                nodePartitioningManager) ->
+                new PlanOptimizers(
+                        metadata,
+                        typeOperators,
+                        new TypeAnalyzer(sqlParser, metadata),
+                        taskManagerConfig,
+                        forceSingleNode,
+                        splitManager,
+                        pageSourceManager,
+                        statsCalculator,
+                        scalarStatsCalculator,
+                        costCalculator,
+                        estimatedExchangesCostCalculator,
+                        new CostComparator(featuresConfig),
+                        taskCountEstimator,
+                        nodePartitioningManager).get();
+        private OperatorFactories operatorFactories = new TrinoOperatorFactories();
 
         private Builder(Session defaultSession)
         {
@@ -980,6 +1054,18 @@ public class LocalQueryRunner
             return this;
         }
 
+        public Builder withPlanOptimizersProvider(PlanOptimizersProvider planOptimizersProvider)
+        {
+            this.planOptimizersProvider = requireNonNull(planOptimizersProvider, "planOptimizersProvider is null");
+            return this;
+        }
+
+        public Builder withOperatorFactories(OperatorFactories operatorFactories)
+        {
+            this.operatorFactories = requireNonNull(operatorFactories, "operatorFactories is null");
+            return this;
+        }
+
         public LocalQueryRunner build()
         {
             return new LocalQueryRunner(
@@ -989,7 +1075,9 @@ public class LocalQueryRunner
                     initialTransaction,
                     alwaysRevokeMemory,
                     nodeCountForStats,
-                    defaultSessionProperties);
+                    defaultSessionProperties,
+                    planOptimizersProvider,
+                    operatorFactories);
         }
     }
 }

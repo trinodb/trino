@@ -7,14 +7,25 @@ external `PostgreSQL <https://www.postgresql.org/>`_ database. This can be used 
 different systems like PostgreSQL and Hive, or between different
 PostgreSQL instances.
 
+Requirements
+------------
+
+To connect to PostgreSQL, you need:
+
+* PostgreSQL 9.6 or higher.
+* Network access from the Trino coordinator and workers to PostgreSQL.
+  Port 5432 is the default port.
+
 Configuration
 -------------
 
-To configure the PostgreSQL connector, create a catalog properties file
-in ``etc/catalog`` named, for example, ``postgresql.properties``, to
-mount the PostgreSQL connector as the ``postgresql`` catalog.
-Create the file with the following contents, replacing the
-connection properties as appropriate for your setup:
+The connector can query a database on a PostgreSQL server. Create a catalog
+properties file that specifies the PostgreSQL connector by setting the
+``connector.name`` to ``postgresql``.
+
+For example, to access a database as the ``postgresqlsdb`` catalog, create the
+file ``etc/catalog/postgresqlsdb.properties``. Replace the connection properties
+as appropriate for your setup:
 
 .. code-block:: text
 
@@ -22,6 +33,18 @@ connection properties as appropriate for your setup:
     connection-url=jdbc:postgresql://example.net:5432/database
     connection-user=root
     connection-password=secret
+
+The ``connection-url`` defines the connection information and parameters to pass
+to the PostgreSQL JDBC driver. The parameters for the URL are available in the
+`PostgreSQL JDBC driver documentation
+<https://jdbc.postgresql.org/documentation/head/connect.html>`_. Some parameters
+can have adverse effects on the connector behavior or not work with the
+connector.
+
+The ``connection-user`` and ``connection-password`` are typically required and
+determine the user credentials for the connection, often a service user. You can
+use :doc:`secrets </security/secrets>` to avoid actual values in the catalog
+properties files.
 
 Multiple PostgreSQL databases or servers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -36,8 +59,13 @@ with a different name, making sure it ends in ``.properties``. For example,
 if you name the property file ``sales.properties``, Trino creates a
 catalog named ``sales`` using the configured connector.
 
+.. _postgresql-type-mapping:
+
+Type mapping
+------------
+
 Decimal type handling
----------------------
+^^^^^^^^^^^^^^^^^^^^^
 
 ``DECIMAL`` types with precision larger than 38 can be mapped to a Trino ``DECIMAL``
 by setting the ``decimal-mapping`` configuration property or the ``decimal_mapping`` session property to
@@ -51,7 +79,7 @@ property, which can be set to ``UNNECESSARY`` (the default),
 (see `RoundingMode <https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/math/RoundingMode.html#enum.constant.summary>`_).
 
 Array type handling
--------------------
+^^^^^^^^^^^^^^^^^^^
 
 The PostgreSQL array implementation does not support fixed dimensions whereas Trino
 support only arrays with fixed dimensions.
@@ -62,6 +90,8 @@ The following values are accepted for this property:
 * ``DISABLED`` (default): array columns are skipped.
 * ``AS_ARRAY``: array columns are interpreted as Trino ``ARRAY`` type, for array columns with fixed dimensions.
 * ``AS_JSON``: array columns are interpreted as Trino ``JSON`` type, with no constraint on dimensions.
+
+.. include:: jdbc-type-mapping.fragment
 
 Querying PostgreSQL
 -------------------
@@ -89,11 +119,18 @@ Finally, you can access the ``clicks`` table in the ``web`` schema::
 If you used a different name for your catalog properties file, use
 that catalog name instead of ``postgresql`` in the above examples.
 
+.. _postgresql-pushdown:
+
 Pushdown
 --------
 
-The connector supports :doc:`pushdown </optimizer/pushdown>` for processing the
-following aggregate functions:
+The connector supports pushdown for a number of operations:
+
+* :ref:`join-pushdown`
+* :ref:`limit-pushdown`
+* :ref:`topn-pushdown`
+
+:ref:`Aggregate pushdown <aggregation-pushdown>` for the following functions:
 
 * :func:`avg`
 * :func:`count`

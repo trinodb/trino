@@ -141,6 +141,14 @@ public interface Connector
     }
 
     /**
+     * @return the materialized view properties for this connector
+     */
+    default List<PropertyMetadata<?>> getMaterializedViewProperties()
+    {
+        return emptyList();
+    }
+
+    /**
      * @return the column properties for this connector
      */
     default List<PropertyMetadata<?>> getColumnProperties()

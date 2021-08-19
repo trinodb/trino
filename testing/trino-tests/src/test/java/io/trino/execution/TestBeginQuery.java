@@ -32,8 +32,8 @@ import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
-import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.transaction.IsolationLevel;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
@@ -220,7 +220,7 @@ public class TestBeginQuery
                         ConnectorSplit split,
                         ConnectorTableHandle table,
                         List<ColumnHandle> columns,
-                        TupleDomain<ColumnHandle> dynamicFilter)
+                        DynamicFilter dynamicFilter)
                 {
                     return new EmptyPageSource();
                 }

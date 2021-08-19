@@ -13,13 +13,10 @@
  */
 package io.trino.tests.product.launcher.env.configs;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.tests.product.launcher.docker.DockerFiles;
 import io.trino.tests.product.launcher.env.Environment;
 
 import javax.inject.Inject;
-
-import java.util.List;
 
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.PRESTO;
 import static java.util.Objects.requireNonNull;
@@ -59,12 +56,6 @@ public class ConfigHdp3
                         "/docker/presto-init.d/presto-init-hdp3.sh");
             }
         });
-    }
-
-    @Override
-    public List<String> getExcludedGroups()
-    {
-        return ImmutableList.of("iceberg");
     }
 
     @Override

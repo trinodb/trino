@@ -68,7 +68,7 @@ public final class Hadoop
 
         builder.configureContainer(HADOOP, container -> {
             portBinder.exposePort(container, 1180);  // socks proxy
-            // TODO portBinder.exposePort(container, 5006); // debug port
+            portBinder.exposePort(container, 5006); // debug port, exposed for manual use
             portBinder.exposePort(container, 8020);
             portBinder.exposePort(container, 8042);
             portBinder.exposePort(container, 8088);

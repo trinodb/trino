@@ -18,11 +18,9 @@ import io.trino.plugin.redis.util.RedisServer;
 import io.trino.testing.AbstractTestQueries;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
 
 import static io.trino.plugin.redis.RedisQueryRunner.createRedisQueryRunner;
 
-@Test
 public class TestRedisDistributedHash
         extends AbstractTestQueries
 {

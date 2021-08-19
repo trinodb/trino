@@ -71,6 +71,7 @@ public class PushDistinctLimitIntoTableScan
         Optional<PlanNode> result = pushAggregationIntoTableScan(
                 metadata,
                 context,
+                node,
                 captures.get(TABLE_SCAN),
                 ImmutableMap.of(),
                 node.getDistinctSymbols());

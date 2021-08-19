@@ -26,7 +26,7 @@ import io.trino.transaction.TransactionManager;
 
 import java.util.List;
 
-import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.getSessionCatalog;
 import static java.util.Locale.ENGLISH;
 
@@ -40,7 +40,7 @@ public class SetRoleTask
     }
 
     @Override
-    public ListenableFuture<?> execute(
+    public ListenableFuture<Void> execute(
             SetRole statement,
             TransactionManager transactionManager,
             Metadata metadata,
@@ -59,7 +59,7 @@ public class SetRoleTask
         }
         SelectedRole.Type type = toSelectedRoleType(statement.getType());
         stateMachine.addSetRole(catalog, new SelectedRole(type, statement.getRole().map(c -> c.getValue().toLowerCase(ENGLISH))));
-        return immediateFuture(null);
+        return immediateVoidFuture();
     }
 
     private static SelectedRole.Type toSelectedRoleType(SetRole.Type statementRoleType)

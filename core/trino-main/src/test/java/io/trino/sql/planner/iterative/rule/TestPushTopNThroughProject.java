@@ -22,8 +22,8 @@ import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.BooleanLiteral;
-import io.trino.sql.tree.DereferenceExpression;
-import io.trino.sql.tree.Identifier;
+import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.TestingMetadata;
 import org.testng.annotations.Test;
@@ -50,7 +50,7 @@ public class TestPushTopNThroughProject
     @Test
     public void testPushdownTopNNonIdentityProjection()
     {
-        tester().assertThat(new PushTopNThroughProject())
+        tester().assertThat(new PushTopNThroughProject(tester().getTypeAnalyzer()))
                 .on(p -> {
                     Symbol projectedA = p.symbol("projectedA");
                     Symbol a = p.symbol("a");
@@ -72,7 +72,7 @@ public class TestPushTopNThroughProject
     @Test
     public void testPushdownTopNNonIdentityProjectionWithExpression()
     {
-        tester().assertThat(new PushTopNThroughProject())
+        tester().assertThat(new PushTopNThroughProject(tester().getTypeAnalyzer()))
                 .on(p -> {
                     Symbol projectedA = p.symbol("projectedA");
                     Symbol a = p.symbol("a");
@@ -96,7 +96,7 @@ public class TestPushTopNThroughProject
     @Test
     public void testDoNotPushdownTopNThroughIdentityProjection()
     {
-        tester().assertThat(new PushTopNThroughProject())
+        tester().assertThat(new PushTopNThroughProject(tester().getTypeAnalyzer()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     return p.topN(1,
@@ -110,7 +110,7 @@ public class TestPushTopNThroughProject
     @Test
     public void testDoNotPushdownTopNThroughProjectionOverFilterOverTableScan()
     {
-        tester().assertThat(new PushTopNThroughProject())
+        tester().assertThat(new PushTopNThroughProject(tester().getTypeAnalyzer()))
                 .on(p -> {
                     Symbol projectedA = p.symbol("projectedA");
                     return p.topN(
@@ -127,7 +127,7 @@ public class TestPushTopNThroughProject
     @Test
     public void testDoNotPushdownTopNThroughProjectionOverTableScan()
     {
-        tester().assertThat(new PushTopNThroughProject())
+        tester().assertThat(new PushTopNThroughProject(tester().getTypeAnalyzer()))
                 .on(p -> {
                     Symbol projectedA = p.symbol("projectedA");
                     Symbol a = p.symbol("a");
@@ -145,7 +145,7 @@ public class TestPushTopNThroughProject
     @Test
     public void testDoesntPushDownTopNThroughExclusiveDereferences()
     {
-        tester().assertThat(new PushTopNThroughProject())
+        tester().assertThat(new PushTopNThroughProject(tester().getTypeAnalyzer()))
                 .on(p -> {
                     Symbol a = p.symbol("a", rowType);
                     return p.topN(
@@ -153,8 +153,8 @@ public class TestPushTopNThroughProject
                             ImmutableList.of(p.symbol("c")),
                             p.project(
                                     Assignments.builder()
-                                            .put(p.symbol("b"), new DereferenceExpression(a.toSymbolReference(), new Identifier("x")))
-                                            .put(p.symbol("c"), new DereferenceExpression(a.toSymbolReference(), new Identifier("y")))
+                                            .put(p.symbol("b"), new SubscriptExpression(a.toSymbolReference(), new LongLiteral("1")))
+                                            .put(p.symbol("c"), new SubscriptExpression(a.toSymbolReference(), new LongLiteral("2")))
                                             .build(),
                                     p.values(a)));
                 }).doesNotFire();
@@ -163,7 +163,7 @@ public class TestPushTopNThroughProject
     @Test
     public void testPushTopNThroughOverlappingDereferences()
     {
-        tester().assertThat(new PushTopNThroughProject())
+        tester().assertThat(new PushTopNThroughProject(tester().getTypeAnalyzer()))
                 .on(p -> {
                     Symbol a = p.symbol("a", rowType);
                     Symbol d = p.symbol("d");
@@ -172,7 +172,7 @@ public class TestPushTopNThroughProject
                             ImmutableList.of(d),
                             p.project(
                                     Assignments.builder()
-                                            .put(p.symbol("b"), new DereferenceExpression(a.toSymbolReference(), new Identifier("x")))
+                                            .put(p.symbol("b"), new SubscriptExpression(a.toSymbolReference(), new LongLiteral("1")))
                                             .put(p.symbol("c", rowType), a.toSymbolReference())
                                             .put(d, d.toSymbolReference())
                                             .build(),
@@ -180,7 +180,7 @@ public class TestPushTopNThroughProject
                 })
                 .matches(
                         project(
-                                ImmutableMap.of("b", expression("a.x"), "c", expression("a"), "d", expression("d")),
+                                ImmutableMap.of("b", expression("a[1]"), "c", expression("a"), "d", expression("d")),
                                 topN(
                                         1,
                                         ImmutableList.of(sort("d", ASCENDING, FIRST)),

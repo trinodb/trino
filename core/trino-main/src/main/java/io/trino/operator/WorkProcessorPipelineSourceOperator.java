@@ -13,6 +13,7 @@
  */
 package io.trino.operator;
 
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -28,6 +29,8 @@ import io.trino.operator.OperationTimer.OperationTiming;
 import io.trino.operator.WorkProcessor.ProcessState;
 import io.trino.spi.Page;
 import io.trino.spi.connector.UpdatablePageSource;
+import io.trino.spi.type.Type;
+import io.trino.sql.planner.LocalExecutionPlanner.OperatorFactoryWithTypes;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import javax.annotation.Nullable;
@@ -47,6 +50,7 @@ import static io.trino.operator.BlockedReason.WAITING_FOR_MEMORY;
 import static io.trino.operator.PageUtils.recordMaterializedBytes;
 import static io.trino.operator.WorkProcessor.ProcessState.Type.BLOCKED;
 import static io.trino.operator.WorkProcessor.ProcessState.Type.FINISHED;
+import static io.trino.operator.project.MergePages.mergePages;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
@@ -67,42 +71,61 @@ public class WorkProcessorPipelineSourceOperator
     private final List<WorkProcessorOperatorContext> workProcessorOperatorContexts = new ArrayList<>();
     private final List<Split> pendingSplits = new ArrayList<>();
 
-    private ListenableFuture<?> blockedFuture;
+    private ListenableFuture<Void> blockedFuture;
     private WorkProcessorSourceOperator sourceOperator;
-    private SettableFuture<?> blockedOnSplits = SettableFuture.create();
+    private SettableFuture<Void> blockedOnSplits = SettableFuture.create();
     private boolean operatorFinishing;
 
-    public static List<OperatorFactory> convertOperators(List<OperatorFactory> operatorFactories)
+    public static List<OperatorFactory> convertOperators(
+            List<OperatorFactoryWithTypes> operatorFactoriesWithTypes,
+            DataSize minOutputPageSize,
+            int minOutputPageRowCount)
     {
-        if (operatorFactories.isEmpty() || !(operatorFactories.get(0) instanceof WorkProcessorSourceOperatorFactory)) {
-            return operatorFactories;
+        if (operatorFactoriesWithTypes.isEmpty() || !(operatorFactoriesWithTypes.get(0).getOperatorFactory() instanceof WorkProcessorSourceOperatorFactory)) {
+            return toOperatorFactories(operatorFactoriesWithTypes);
         }
 
-        WorkProcessorSourceOperatorFactory sourceOperatorFactory = (WorkProcessorSourceOperatorFactory) operatorFactories.get(0);
+        WorkProcessorSourceOperatorFactory sourceOperatorFactory = (WorkProcessorSourceOperatorFactory) operatorFactoriesWithTypes.get(0).getOperatorFactory();
         ImmutableList.Builder<WorkProcessorOperatorFactory> workProcessorOperatorFactoriesBuilder = ImmutableList.builder();
         int operatorIndex = 1;
-        for (; operatorIndex < operatorFactories.size(); ++operatorIndex) {
-            if (!(operatorFactories.get(operatorIndex) instanceof WorkProcessorOperatorFactory)) {
+        for (; operatorIndex < operatorFactoriesWithTypes.size(); ++operatorIndex) {
+            OperatorFactory operatorFactory = operatorFactoriesWithTypes.get(operatorIndex).getOperatorFactory();
+            if (!(operatorFactory instanceof WorkProcessorOperatorFactory)) {
                 break;
             }
-            workProcessorOperatorFactoriesBuilder.add((WorkProcessorOperatorFactory) operatorFactories.get(operatorIndex));
+            workProcessorOperatorFactoriesBuilder.add((WorkProcessorOperatorFactory) operatorFactory);
         }
 
         List<WorkProcessorOperatorFactory> workProcessorOperatorFactories = workProcessorOperatorFactoriesBuilder.build();
         if (workProcessorOperatorFactories.isEmpty()) {
-            return operatorFactories;
+            return toOperatorFactories(operatorFactoriesWithTypes);
         }
 
         return ImmutableList.<OperatorFactory>builder()
-                .add(new WorkProcessorPipelineSourceOperatorFactory(sourceOperatorFactory, workProcessorOperatorFactories))
-                .addAll(operatorFactories.subList(operatorIndex, operatorFactories.size()))
+                .add(new WorkProcessorPipelineSourceOperatorFactory(
+                        sourceOperatorFactory,
+                        workProcessorOperatorFactories,
+                        operatorFactoriesWithTypes.get(operatorIndex - 1).getTypes(),
+                        minOutputPageSize,
+                        minOutputPageRowCount))
+                .addAll(toOperatorFactories(operatorFactoriesWithTypes.subList(operatorIndex, operatorFactoriesWithTypes.size())))
                 .build();
+    }
+
+    public static List<OperatorFactory> toOperatorFactories(List<OperatorFactoryWithTypes> operatorFactoriesWithTypes)
+    {
+        return operatorFactoriesWithTypes.stream()
+                .map(OperatorFactoryWithTypes::getOperatorFactory)
+                .collect(toImmutableList());
     }
 
     private WorkProcessorPipelineSourceOperator(
             DriverContext driverContext,
             WorkProcessorSourceOperatorFactory sourceOperatorFactory,
-            List<WorkProcessorOperatorFactory> operatorFactories)
+            List<WorkProcessorOperatorFactory> operatorFactories,
+            List<Type> outputTypes,
+            DataSize minOutputPageSize,
+            int minOutputPageRowCount)
     {
         requireNonNull(driverContext, "driverContext is null");
         requireNonNull(sourceOperatorFactory, "sourceOperatorFactory is null");
@@ -152,15 +175,22 @@ public class WorkProcessorPipelineSourceOperator
                     operatorFactory.getOperatorType(),
                     operatorMemoryTrackingContext));
             pages = operator.getOutputPages();
+            if (i == operatorFactories.size() - 1) {
+                // materialize output pages as there are no semantics guarantees for non WorkProcessor operators
+                pages = pages.map(Page::getLoadedPage);
+                pages = pages.transformProcessor(processor -> mergePages(
+                        outputTypes,
+                        minOutputPageSize.toBytes(),
+                        minOutputPageRowCount,
+                        processor,
+                        operatorContext.aggregateUserMemoryContext()));
+            }
             pages = pages
                     .yielding(() -> operatorContext.getDriverContext().getYieldSignal().isSet())
                     .withProcessEntryMonitor(() -> workProcessorOperatorEntryMonitor(operatorIndex))
                     .withProcessStateMonitor(state -> workProcessorOperatorStateMonitor(state, operatorIndex));
             pages = pages.map(page -> recordProcessedOutput(page, operatorIndex));
         }
-
-        // materialize output pages as there are no semantics guarantees for non WorkProcessor operators
-        pages = pages.map(Page::getLoadedPage);
 
         // finish early when entire pipeline is closed
         this.pages = pages.finishWhen(() -> operatorFinishing);
@@ -356,7 +386,7 @@ public class WorkProcessorPipelineSourceOperator
 
         Object splitInfo = split.getInfo();
         if (splitInfo != null) {
-            operatorContext.setInfoSupplier(() -> new SplitOperatorInfo(split.getCatalogName(), splitInfo));
+            operatorContext.setInfoSupplier(Suppliers.ofInstance(new SplitOperatorInfo(split.getCatalogName(), splitInfo)));
         }
 
         pendingSplits.add(split);
@@ -405,7 +435,7 @@ public class WorkProcessorPipelineSourceOperator
     }
 
     @Override
-    public ListenableFuture<?> startMemoryRevoke()
+    public ListenableFuture<Void> startMemoryRevoke()
     {
         // TODO: support spill
         throw new UnsupportedOperationException();
@@ -434,7 +464,7 @@ public class WorkProcessorPipelineSourceOperator
     }
 
     @Override
-    public ListenableFuture<?> isBlocked()
+    public ListenableFuture<Void> isBlocked()
     {
         if (!pages.isBlocked()) {
             return NOT_BLOCKED;
@@ -558,9 +588,9 @@ public class WorkProcessorPipelineSourceOperator
         }
 
         @Override
-        public ListenableFuture<?> setBytes(long bytes)
+        public ListenableFuture<Void> setBytes(long bytes)
         {
-            ListenableFuture<?> blocked = delegate.setBytes(bytes);
+            ListenableFuture<Void> blocked = delegate.setBytes(bytes);
             allocationListener.run();
             return blocked;
         }
@@ -689,14 +719,23 @@ public class WorkProcessorPipelineSourceOperator
     {
         private final WorkProcessorSourceOperatorFactory sourceOperatorFactory;
         private final List<WorkProcessorOperatorFactory> operatorFactories;
+        private final List<Type> outputTypes;
+        private final DataSize minOutputPageSize;
+        private final int minOutputPageRowCount;
         private boolean closed;
 
         private WorkProcessorPipelineSourceOperatorFactory(
                 WorkProcessorSourceOperatorFactory sourceOperatorFactory,
-                List<WorkProcessorOperatorFactory> operatorFactories)
+                List<WorkProcessorOperatorFactory> operatorFactories,
+                List<Type> outputTypes,
+                DataSize minOutputPageSize,
+                int minOutputPageRowCount)
         {
             this.sourceOperatorFactory = requireNonNull(sourceOperatorFactory, "sourceOperatorFactory is null");
             this.operatorFactories = requireNonNull(operatorFactories, "operatorFactories is null");
+            this.outputTypes = requireNonNull(outputTypes, "outputTypes is null");
+            this.minOutputPageSize = requireNonNull(minOutputPageSize, "minOutputPageSize is null");
+            this.minOutputPageRowCount = minOutputPageRowCount;
         }
 
         @Override
@@ -709,7 +748,13 @@ public class WorkProcessorPipelineSourceOperator
         public SourceOperator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            return new WorkProcessorPipelineSourceOperator(driverContext, sourceOperatorFactory, operatorFactories);
+            return new WorkProcessorPipelineSourceOperator(
+                    driverContext,
+                    sourceOperatorFactory,
+                    operatorFactories,
+                    outputTypes,
+                    minOutputPageSize,
+                    minOutputPageRowCount);
         }
 
         @Override

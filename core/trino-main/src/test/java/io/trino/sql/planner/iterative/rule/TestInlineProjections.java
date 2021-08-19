@@ -37,7 +37,7 @@ public class TestInlineProjections
     @Test
     public void test()
     {
-        tester().assertThat(new InlineProjections())
+        tester().assertThat(new InlineProjections(tester().getTypeAnalyzer()))
                 .on(p ->
                         p.project(
                                 Assignments.builder()
@@ -57,7 +57,7 @@ public class TestInlineProjections
                                                 .put(p.symbol("complex"), expression("x * 2"))
                                                 .put(p.symbol("literal"), expression("1"))
                                                 .put(p.symbol("complex_2"), expression("x - 1"))
-                                                .put(p.symbol("z"), expression("msg.x"))
+                                                .put(p.symbol("z"), expression("msg[1]"))
                                                 .put(p.symbol("v"), expression("x"))
                                                 .build(),
                                         p.values(p.symbol("x"), p.symbol("msg", MSG_TYPE)))))
@@ -79,14 +79,14 @@ public class TestInlineProjections
                                         ImmutableMap.of(
                                                 "x", PlanMatchPattern.expression("x"),
                                                 "y", PlanMatchPattern.expression("x * 2"),
-                                                "z", PlanMatchPattern.expression("msg.x")),
+                                                "z", PlanMatchPattern.expression("msg[1]")),
                                         values(ImmutableMap.of("x", 0, "msg", 1)))));
     }
 
     @Test
     public void testEliminatesIdentityProjection()
     {
-        tester().assertThat(new InlineProjections())
+        tester().assertThat(new InlineProjections(tester().getTypeAnalyzer()))
                 .on(p ->
                         p.project(
                                 Assignments.builder()
@@ -107,7 +107,8 @@ public class TestInlineProjections
     @Test
     public void testIdentityProjections()
     {
-        tester().assertThat(new InlineProjections())
+        // projection renaming symbol
+        tester().assertThat(new InlineProjections(tester().getTypeAnalyzer()))
                 .on(p ->
                         p.project(
                                 Assignments.of(p.symbol("output"), expression("value")),
@@ -115,18 +116,48 @@ public class TestInlineProjections
                                         Assignments.identity(p.symbol("value")),
                                         p.values(p.symbol("value")))))
                 .doesNotFire();
+
+        // identity projection
+        tester().assertThat(new InlineProjections(tester().getTypeAnalyzer()))
+                .on(p ->
+                        p.project(
+                                Assignments.identity(p.symbol("x")),
+                                p.project(
+                                        Assignments.identity(p.symbol("x"), p.symbol("y")),
+                                        p.values(p.symbol("x"), p.symbol("y")))))
+                .matches(
+                        project(
+                                ImmutableMap.of("x", PlanMatchPattern.expression("x")),
+                                values(ImmutableMap.of("x", 0, "y", 1))));
     }
 
     @Test
     public void testSubqueryProjections()
     {
-        tester().assertThat(new InlineProjections())
+        tester().assertThat(new InlineProjections(tester().getTypeAnalyzer()))
                 .on(p ->
                         p.project(
                                 Assignments.identity(p.symbol("fromOuterScope"), p.symbol("value")),
                                 p.project(
                                         Assignments.identity(p.symbol("value")),
                                         p.values(p.symbol("value")))))
-                .doesNotFire();
+                .matches(
+                        project(
+                                // cannot test outer scope symbol. projections were squashed, and the resulting assignments are:
+                                // ImmutableMap.of("fromOuterScope", PlanMatchPattern.expression("fromOuterScope"), "value", PlanMatchPattern.expression("value")),
+                                values(ImmutableMap.of("value", 0))));
+
+        tester().assertThat(new InlineProjections(tester().getTypeAnalyzer()))
+                .on(p ->
+                        p.project(
+                                Assignments.identity(p.symbol("fromOuterScope"), p.symbol("value_1")),
+                                p.project(
+                                        Assignments.of(p.symbol("value_1"), expression("value - 1")),
+                                        p.values(p.symbol("value")))))
+                .matches(
+                        project(
+                                // cannot test outer scope symbol. projections were squashed, and the resulting assignments are:
+                                // ImmutableMap.of("fromOuterScope", PlanMatchPattern.expression("fromOuterScope"), "value_1", PlanMatchPattern.expression("value - 1")),
+                                values(ImmutableMap.of("value", 0))));
     }
 }

@@ -19,6 +19,7 @@ import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.plugin.jdbc.UnsupportedTypeHandling;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
+import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
@@ -28,6 +29,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.List;
 
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
@@ -59,11 +61,13 @@ public class TestPhoenixConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
-            case SUPPORTS_COMMENT_ON_TABLE:
-            case SUPPORTS_COMMENT_ON_COLUMN:
+            case SUPPORTS_LIMIT_PUSHDOWN:
+            case SUPPORTS_TOPN_PUSHDOWN:
+            case SUPPORTS_AGGREGATION_PUSHDOWN:
                 return false;
 
-            case SUPPORTS_TOPN_PUSHDOWN:
+            case SUPPORTS_COMMENT_ON_TABLE:
+            case SUPPORTS_COMMENT_ON_COLUMN:
                 return false;
 
             case SUPPORTS_RENAME_TABLE:
@@ -85,15 +89,6 @@ public class TestPhoenixConnectorTest
     {
         // Apparently all Phoenix types are supported in the Phoenix connector.
         throw new SkipException("Cannot find an unsupported data type");
-    }
-
-    @Override
-    public void testRenameTable()
-    {
-        assertThatThrownBy(super::testRenameTable)
-                // TODO (https://github.com/trinodb/trino/issues/7204) support table rename in Phoenix
-                .hasMessageContaining("This connector does not support renaming tables");
-        throw new SkipException("Rename table is not yet supported by Phoenix connector");
     }
 
     @Override
@@ -310,6 +305,25 @@ public class TestPhoenixConnectorTest
         assertUpdate("INSERT INTO test_col_insert(pk, col1) VALUES('1', 'val1')", 1);
         assertUpdate("INSERT INTO test_col_insert(pk, col2) VALUES('1', 'val2')", 1);
         assertQuery("SELECT * FROM test_col_insert", "SELECT 1, 'val1', 'val2'");
+    }
+
+    @Override
+    protected TestTable createTableWithDoubleAndRealColumns(String name, List<String> rows)
+    {
+        return new TestTable(onRemoteDatabase(), name, "(t_double double primary key, u_double double, v_real float, w_real float)", rows);
+    }
+
+    @Override
+    protected SqlExecutor onRemoteDatabase()
+    {
+        return sql -> {
+            try {
+                executeInPhoenix(sql);
+            }
+            catch (SQLException e) {
+                throw new RuntimeException(e);
+            }
+        };
     }
 
     private void executeInPhoenix(String sql)

@@ -36,10 +36,11 @@ public class LimitNode
     private final long count;
     private final Optional<OrderingScheme> tiesResolvingScheme;
     private final boolean partial;
+    private final List<Symbol> preSortedInputs;
 
     public LimitNode(PlanNodeId id, PlanNode source, long count, boolean partial)
     {
-        this(id, source, count, Optional.empty(), partial);
+        this(id, source, count, Optional.empty(), partial, ImmutableList.of());
     }
 
     @JsonCreator
@@ -48,7 +49,8 @@ public class LimitNode
             @JsonProperty("source") PlanNode source,
             @JsonProperty("count") long count,
             @JsonProperty("tiesResolvingScheme") Optional<OrderingScheme> tiesResolvingScheme,
-            @JsonProperty("partial") boolean partial)
+            @JsonProperty("partial") boolean partial,
+            @JsonProperty("requiresPreSortedInputs") List<Symbol> preSortedInputs)
     {
         super(id);
         this.partial = partial;
@@ -56,10 +58,12 @@ public class LimitNode
         requireNonNull(source, "source is null");
         checkArgument(count >= 0, "count must be greater than or equal to zero");
         requireNonNull(tiesResolvingScheme, "tiesResolvingScheme is null");
+        requireNonNull(preSortedInputs, "requiresPreSortedInputs is null");
 
         this.source = source;
         this.count = count;
         this.tiesResolvingScheme = tiesResolvingScheme;
+        this.preSortedInputs = ImmutableList.copyOf(preSortedInputs);
     }
 
     @Override
@@ -97,6 +101,17 @@ public class LimitNode
         return partial;
     }
 
+    public boolean requiresPreSortedInputs()
+    {
+        return !preSortedInputs.isEmpty();
+    }
+
+    @JsonProperty
+    public List<Symbol> getPreSortedInputs()
+    {
+        return preSortedInputs;
+    }
+
     @Override
     public List<Symbol> getOutputSymbols()
     {
@@ -112,6 +127,6 @@ public class LimitNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new LimitNode(getId(), Iterables.getOnlyElement(newChildren), count, tiesResolvingScheme, isPartial());
+        return new LimitNode(getId(), Iterables.getOnlyElement(newChildren), count, tiesResolvingScheme, isPartial(), preSortedInputs);
     }
 }

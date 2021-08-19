@@ -14,10 +14,10 @@
 package io.trino.plugin.geospatial;
 
 import io.trino.Session;
+import io.trino.plugin.hive.TestingHivePlugin;
 import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.testing.TestingHivePlugin;
 import io.trino.spi.security.PrincipalType;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;

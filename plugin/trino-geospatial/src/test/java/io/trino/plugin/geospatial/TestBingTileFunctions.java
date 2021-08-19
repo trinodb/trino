@@ -110,10 +110,10 @@ public class TestBingTileFunctions
     @Test
     public void testBingTileCoordinates()
     {
-        assertFunction("bing_tile_coordinates(bing_tile('213')).x", INTEGER, 3);
-        assertFunction("bing_tile_coordinates(bing_tile('213')).y", INTEGER, 5);
-        assertFunction("bing_tile_coordinates(bing_tile('123030123010121')).x", INTEGER, 21845);
-        assertFunction("bing_tile_coordinates(bing_tile('123030123010121')).y", INTEGER, 13506);
+        assertFunction("bing_tile_coordinates(bing_tile('213'))[1]", INTEGER, 3);
+        assertFunction("bing_tile_coordinates(bing_tile('213'))[2]", INTEGER, 5);
+        assertFunction("bing_tile_coordinates(bing_tile('123030123010121'))[1]", INTEGER, 21845);
+        assertFunction("bing_tile_coordinates(bing_tile('123030123010121'))[2]", INTEGER, 13506);
 
         assertCachedInstanceHasBoundedRetainedSize("bing_tile_coordinates(bing_tile('213'))");
     }

@@ -15,19 +15,39 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
+import io.trino.metadata.QualifiedObjectName;
+import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.sql.tree.ExplainType;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
+import io.trino.transaction.TransactionId;
+import io.trino.transaction.TransactionManager;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+import java.util.Set;
+
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.testing.MaterializedResult.DEFAULT_PRECISION;
+import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.DELETE_TABLE;
+import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_MATERIALIZED_VIEW;
+import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.INSERT_TABLE;
+import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.REFRESH_MATERIALIZED_VIEW;
+import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
+import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.UPDATE_TABLE;
+import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.assertions.Assert.assertFalse;
 import static io.trino.testing.assertions.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestIcebergMaterializedViews
         extends AbstractTestQueryFramework
@@ -50,6 +70,128 @@ public class TestIcebergMaterializedViews
         assertUpdate("CREATE TABLE base_table2 (_varchar VARCHAR, _bigint BIGINT, _date DATE) WITH (partitioning = ARRAY['_bigint', '_date'])");
         assertUpdate("INSERT INTO base_table2 VALUES ('a', 0, DATE '2019-09-08'), ('a', 1, DATE '2019-09-08'), ('a', 0, DATE '2019-09-09')", 3);
         assertQuery("SELECT count(*) FROM base_table2", "VALUES 3");
+    }
+
+    @Test
+    public void testShowTables()
+    {
+        assertUpdate("CREATE MATERIALIZED VIEW materialized_view_show_tables_test AS SELECT * FROM base_table1");
+        SchemaTableName storageTableName = getStorageTable("iceberg", "tpch", "materialized_view_show_tables_test");
+
+        Set<String> expectedTables = ImmutableSet.of("base_table1", "base_table2", "materialized_view_show_tables_test", storageTableName.getTableName());
+        Set<String> actualTables = computeActual("SHOW TABLES").getOnlyColumnAsSet().stream()
+                .map(String.class::cast)
+                .collect(toImmutableSet());
+        // containsAll rather than isEqualTo as the test is not singleThreaded
+        assertThat(actualTables).containsAll(expectedTables);
+
+        assertUpdate("DROP MATERIALIZED VIEW materialized_view_show_tables_test");
+    }
+
+    @Test
+    public void testCreateWithInvalidPropertyFails()
+    {
+        assertThatThrownBy(() -> computeActual("CREATE MATERIALIZED VIEW materialized_view_with_property " +
+                "WITH (invalid_property = ARRAY['_date']) AS " +
+                "SELECT _bigint, _date FROM base_table1"))
+                .hasMessage("Catalog 'iceberg' does not support materialized view property 'invalid_property'");
+    }
+
+    @Test
+    public void testShowCreate()
+    {
+        assertUpdate("CREATE MATERIALIZED VIEW materialized_view_with_property " +
+                "WITH (partitioning = ARRAY['_date']) AS " +
+                "SELECT _bigint, _date FROM base_table1");
+        assertQuery("SELECT COUNT(*) FROM materialized_view_with_property", "VALUES 6");
+        assertThat(computeActual("SHOW CREATE MATERIALIZED VIEW materialized_view_with_property").getOnlyValue())
+                .isEqualTo(
+                        "CREATE MATERIALIZED VIEW iceberg.tpch.materialized_view_with_property\n" +
+                                "WITH (\n" +
+                                "   format = 'ORC',\n" +
+                                "   partitioning = ARRAY['_date']\n" +
+                                ") AS\n" +
+                                "SELECT\n" +
+                                "  _bigint\n" +
+                                ", _date\n" +
+                                "FROM\n" +
+                                "  base_table1");
+        assertUpdate("DROP MATERIALIZED VIEW materialized_view_with_property");
+    }
+
+    @Test
+    public void testSystemMaterializedViewProperties()
+    {
+        assertThat(computeActual("SELECT * FROM system.metadata.materialized_view_properties WHERE catalog_name = 'iceberg'"))
+                .contains(new MaterializedRow(DEFAULT_PRECISION, "iceberg", "partitioning", "[]", "array(varchar)", "Partition transforms"));
+    }
+
+    @Test
+    public void testSessionCatalogSchema()
+    {
+        Session session = Session.builder(getSession())
+                .setCatalog("tpch")
+                .setSchema("tiny")
+                .build();
+        assertUpdate(session, "CREATE MATERIALIZED VIEW iceberg.tpch.materialized_view_session_test AS SELECT * FROM nation");
+        assertQuery(session, "SELECT COUNT(*) FROM iceberg.tpch.materialized_view_session_test", "VALUES 25");
+        assertUpdate(session, "DROP MATERIALIZED VIEW iceberg.tpch.materialized_view_session_test");
+
+        session = Session.builder(getSession())
+                .setCatalog(null)
+                .setSchema(null)
+                .build();
+        assertUpdate(session, "CREATE MATERIALIZED VIEW iceberg.tpch.materialized_view_session_test AS SELECT * FROM iceberg.tpch.base_table1");
+        assertQuery(session, "SELECT COUNT(*) FROM iceberg.tpch.materialized_view_session_test", "VALUES 6");
+        assertUpdate(session, "DROP MATERIALIZED VIEW iceberg.tpch.materialized_view_session_test");
+    }
+
+    @Test
+    public void testDropIfExists()
+    {
+        assertQueryFails(
+                "DROP MATERIALIZED VIEW non_existing_materialized_view",
+                "line 1:1: Materialized view 'iceberg.tpch.non_existing_materialized_view' does not exist");
+        assertUpdate("DROP MATERIALIZED VIEW IF EXISTS non_existing_materialized_view");
+    }
+
+    @Test
+    public void testDropDenyPermission()
+    {
+        assertUpdate("CREATE MATERIALIZED VIEW materialized_view_drop_deny AS SELECT * FROM base_table1");
+        assertAccessDenied(
+                "DROP MATERIALIZED VIEW materialized_view_drop_deny",
+                "Cannot drop materialized view .*.materialized_view_drop_deny.*",
+                privilege("materialized_view_drop_deny", DROP_MATERIALIZED_VIEW));
+        assertUpdate("DROP MATERIALIZED VIEW materialized_view_drop_deny");
+    }
+
+    @Test
+    public void testRefreshDenyPermission()
+    {
+        assertUpdate("CREATE MATERIALIZED VIEW materialized_view_refresh_deny AS SELECT * FROM base_table1");
+        assertAccessDenied(
+                "REFRESH MATERIALIZED VIEW materialized_view_refresh_deny",
+                "Cannot refresh materialized view .*.materialized_view_refresh_deny.*",
+                privilege("materialized_view_refresh_deny", REFRESH_MATERIALIZED_VIEW));
+
+        assertUpdate("DROP MATERIALIZED VIEW materialized_view_refresh_deny");
+    }
+
+    @Test
+    public void testRefreshAllowedWithRestrictedStorageTable()
+    {
+        assertUpdate("CREATE MATERIALIZED VIEW materialized_view_refresh AS SELECT * FROM base_table1");
+        SchemaTableName storageTable = getStorageTable("iceberg", "tpch", "materialized_view_refresh");
+
+        assertAccessAllowed(
+                "REFRESH MATERIALIZED VIEW materialized_view_refresh",
+                privilege(storageTable.getTableName(), INSERT_TABLE),
+                privilege(storageTable.getTableName(), DELETE_TABLE),
+                privilege(storageTable.getTableName(), UPDATE_TABLE),
+                privilege(storageTable.getTableName(), SELECT_COLUMN));
+
+        assertUpdate("DROP MATERIALIZED VIEW materialized_view_refresh");
     }
 
     @Test(enabled = false) // TODO https://github.com/trinodb/trino/issues/5892
@@ -308,5 +450,16 @@ public class TestIcebergMaterializedViews
         for (MaterializedRow row : baseResult.getMaterializedRows()) {
             assertUpdate("DROP TABLE IF EXISTS " + row.getField(0).toString());
         }
+    }
+
+    private SchemaTableName getStorageTable(String catalogName, String schemaName, String objectName)
+    {
+        TransactionManager transactionManager = getQueryRunner().getTransactionManager();
+        TransactionId transactionId = transactionManager.beginTransaction(false);
+        Session session = getSession().beginTransactionId(transactionId, transactionManager, getQueryRunner().getAccessControl());
+        Optional<ConnectorMaterializedViewDefinition> materializedView = getQueryRunner().getMetadata()
+                .getMaterializedView(session, new QualifiedObjectName(catalogName, schemaName, objectName));
+        assertThat(materializedView).isPresent();
+        return materializedView.get().getStorageTable().get().getSchemaTableName();
     }
 }

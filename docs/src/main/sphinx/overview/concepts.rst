@@ -8,9 +8,9 @@ Overview
 To understand Trino, you must first understand the terms and concepts
 used throughout the Trino documentation.
 
-While it's easy to understand statements and queries, as an end-user
+While it is easy to understand statements and queries, as an end-user
 you should have familiarity with concepts such as stages and splits to
-take full advantage of Trino to execute efficient queries.  As a
+take full advantage of Trino to execute efficient queries. As a
 Trino administrator or a Trino contributor you should understand how
 Trino's concepts of stages map to tasks and how tasks contain a set
 of drivers which process data.
@@ -21,8 +21,8 @@ general to most specific.
 
 .. note::
 
-    The book `Presto: The Definitive Guide
-    <https://trino.io/presto-the-definitive-guide.html>`_ and the research
+    The book `Trino: The Definitive Guide
+    <https://trino.io/trino-the-definitive-guide.html>`_ and the research
     paper `Presto: SQL on Everything <https://trino.io/paper.html>`_ can
     provide further information about Trino and the concepts in use.
 

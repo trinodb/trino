@@ -39,9 +39,6 @@ import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Warmup;
-import org.openjdk.jmh.runner.Runner;
-import org.openjdk.jmh.runner.options.Options;
-import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -59,12 +56,13 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.plugin.hive.HiveType.toHiveType;
 import static io.trino.plugin.hive.TestHiveReaderProjectionsUtil.createProjectedColumnHandle;
-import static io.trino.plugin.hive.benchmark.FileFormat.TRINO_ORC;
+import static io.trino.plugin.hive.benchmark.BenchmarkFileFormat.TRINO_ORC;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static java.nio.file.Files.createTempDirectory;
@@ -130,8 +128,9 @@ public class BenchmarkProjectionPushdownHive
         private int readColumnCount = 1;
 
         @Param({"TRINO_ORC", "TRINO_PARQUET"})
-        private FileFormat fileFormat = TRINO_ORC;
+        private BenchmarkFileFormat benchmarkFileFormat = TRINO_ORC;
 
+        private FileFormat fileFormat;
         private TestData dataToWrite;
         private File dataFile;
 
@@ -141,6 +140,7 @@ public class BenchmarkProjectionPushdownHive
         public void setup()
                 throws IOException
         {
+            fileFormat = benchmarkFileFormat.getFormat();
             Metadata metadata = createTestMetadataManager();
             Type columnType = metadata.fromSqlType(columnTypeString);
             checkState(columnType instanceof RowType, "expected column to have RowType");
@@ -336,12 +336,9 @@ public class BenchmarkProjectionPushdownHive
     public static void main(String[] args)
             throws Exception
     {
-        Options opt = new OptionsBuilder()
-                .include(".*\\." + BenchmarkProjectionPushdownHive.class.getSimpleName() + ".*")
-                .jvmArgsAppend("-Xmx4g", "-Xms4g", "-XX:+UseG1GC")
-                .build();
-
-        new Runner(opt).run();
+        benchmark(BenchmarkProjectionPushdownHive.class)
+                .withOptions(optionsBuilder -> optionsBuilder.jvmArgsAppend("-Xmx4g", "-Xms4g", "-XX:+UseG1GC"))
+                .run();
     }
 
     @SuppressWarnings("SameParameterValue")

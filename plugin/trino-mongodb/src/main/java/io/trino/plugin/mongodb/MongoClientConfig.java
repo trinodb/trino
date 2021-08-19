@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.mongodb.MongoCredential;
 import com.mongodb.ServerAddress;
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.configuration.DefunctConfig;
 
 import javax.validation.constraints.Min;
@@ -110,6 +111,7 @@ public class MongoClientConfig
     }
 
     @Config("mongodb.credentials")
+    @ConfigSecuritySensitive
     public MongoClientConfig setCredentials(String credentials)
     {
         this.credentials = buildCredentials(SPLITTER.split(credentials));

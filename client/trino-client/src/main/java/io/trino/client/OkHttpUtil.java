@@ -15,12 +15,10 @@ package io.trino.client;
 
 import com.google.common.base.CharMatcher;
 import com.google.common.net.HostAndPort;
-import io.airlift.security.pem.PemReader;
 import okhttp3.Credentials;
 import okhttp3.Interceptor;
 import okhttp3.JavaNetCookieJar;
 import okhttp3.OkHttpClient;
-import okhttp3.Request;
 import okhttp3.internal.tls.LegacyHostnameVerifier;
 
 import javax.net.ssl.KeyManager;
@@ -49,7 +47,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
@@ -92,16 +89,6 @@ public final class OkHttpUtil
         return chain -> chain.proceed(chain.request().newBuilder()
                 .addHeader(AUTHORIZATION, "Bearer " + accessToken)
                 .build());
-    }
-
-    public static Interceptor interceptRequest(Consumer<Request> consumer)
-    {
-        requireNonNull(consumer, "consumer is null");
-
-        return chain -> {
-            consumer.accept(chain.request());
-            return chain.proceed(chain.request());
-        };
     }
 
     public static void setupTimeouts(OkHttpClient.Builder clientBuilder, int timeout, TimeUnit unit)

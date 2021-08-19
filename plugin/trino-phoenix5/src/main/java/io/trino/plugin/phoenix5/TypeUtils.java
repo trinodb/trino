@@ -86,7 +86,7 @@ public final class TypeUtils
     {
         BlockBuilder builder = type.createBlockBuilder(null, elements.length);
         for (Object element : elements) {
-            writeNativeValue(type, builder, jdbcObjectToPrestoNative(session, element, type));
+            writeNativeValue(type, builder, jdbcObjectToTrinoNative(session, element, type));
         }
         return builder.build();
     }
@@ -97,7 +97,7 @@ public final class TypeUtils
         Object[] valuesArray = new Object[positionCount];
         int subArrayLength = 1;
         for (int i = 0; i < positionCount; i++) {
-            Object objectValue = prestoNativeToJdbcObject(session, elementType, readNativeValue(elementType, block, i));
+            Object objectValue = trinoNativeToJdbcObject(session, elementType, readNativeValue(elementType, block, i));
             valuesArray[i] = objectValue;
             if (objectValue != null && objectValue.getClass().isArray()) {
                 subArrayLength = Math.max(subArrayLength, Array.getLength(objectValue));
@@ -135,27 +135,27 @@ public final class TypeUtils
         }
     }
 
-    private static Object jdbcObjectToPrestoNative(ConnectorSession session, Object jdbcObject, Type prestoType)
+    private static Object jdbcObjectToTrinoNative(ConnectorSession session, Object jdbcObject, Type type)
     {
         if (jdbcObject == null) {
             return null;
         }
 
-        if (BOOLEAN.equals(prestoType)
-                || TINYINT.equals(prestoType)
-                || SMALLINT.equals(prestoType)
-                || INTEGER.equals(prestoType)
-                || BIGINT.equals(prestoType)
-                || DOUBLE.equals(prestoType)) {
+        if (BOOLEAN.equals(type)
+                || TINYINT.equals(type)
+                || SMALLINT.equals(type)
+                || INTEGER.equals(type)
+                || BIGINT.equals(type)
+                || DOUBLE.equals(type)) {
             return jdbcObject;
         }
 
-        if (prestoType instanceof ArrayType) {
-            return jdbcObjectArrayToBlock(session, ((ArrayType) prestoType).getElementType(), (Object[]) jdbcObject);
+        if (type instanceof ArrayType) {
+            return jdbcObjectArrayToBlock(session, ((ArrayType) type).getElementType(), (Object[]) jdbcObject);
         }
 
-        if (prestoType instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) prestoType;
+        if (type instanceof DecimalType) {
+            DecimalType decimalType = (DecimalType) type;
             BigDecimal value = (BigDecimal) jdbcObject;
             if (decimalType.isShort()) {
                 return encodeShortScaledValue(value, decimalType.getScale());
@@ -163,11 +163,11 @@ public final class TypeUtils
             return encodeScaledValue(value, decimalType.getScale());
         }
 
-        if (REAL.equals(prestoType)) {
+        if (REAL.equals(type)) {
             return floatToRawIntBits((float) jdbcObject);
         }
 
-        if (DATE.equals(prestoType)) {
+        if (DATE.equals(type)) {
             long localMillis = ((Date) jdbcObject).getTime();
             // Convert it to a ~midnight in UTC.
             long utcMillis = ISOChronology.getInstance().getZone().getMillisKeepLocal(UTC, localMillis);
@@ -175,68 +175,68 @@ public final class TypeUtils
             return MILLISECONDS.toDays(utcMillis);
         }
 
-        if (prestoType instanceof VarcharType) {
+        if (type instanceof VarcharType) {
             return utf8Slice((String) jdbcObject);
         }
 
-        if (prestoType instanceof CharType) {
+        if (type instanceof CharType) {
             return utf8Slice(CharMatcher.is(' ').trimTrailingFrom((String) jdbcObject));
         }
 
-        throw new TrinoException(NOT_SUPPORTED, format("Unsupported type %s and object type %s", prestoType, jdbcObject.getClass()));
+        throw new TrinoException(NOT_SUPPORTED, format("Unsupported type %s and object type %s", type, jdbcObject.getClass()));
     }
 
-    private static Object prestoNativeToJdbcObject(ConnectorSession session, Type prestoType, Object prestoNative)
+    private static Object trinoNativeToJdbcObject(ConnectorSession session, Type type, Object object)
     {
-        if (prestoNative == null) {
+        if (object == null) {
             return null;
         }
 
-        if (DOUBLE.equals(prestoType) || BOOLEAN.equals(prestoType) || BIGINT.equals(prestoType)) {
-            return prestoNative;
+        if (DOUBLE.equals(type) || BOOLEAN.equals(type) || BIGINT.equals(type)) {
+            return object;
         }
 
-        if (prestoType instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) prestoType;
+        if (type instanceof DecimalType) {
+            DecimalType decimalType = (DecimalType) type;
             if (decimalType.isShort()) {
-                BigInteger unscaledValue = BigInteger.valueOf((long) prestoNative);
+                BigInteger unscaledValue = BigInteger.valueOf((long) object);
                 return new BigDecimal(unscaledValue, decimalType.getScale(), new MathContext(decimalType.getPrecision()));
             }
-            BigInteger unscaledValue = decodeUnscaledValue((Slice) prestoNative);
+            BigInteger unscaledValue = decodeUnscaledValue((Slice) object);
             return new BigDecimal(unscaledValue, decimalType.getScale(), new MathContext(decimalType.getPrecision()));
         }
 
-        if (REAL.equals(prestoType)) {
-            return intBitsToFloat(toIntExact((long) prestoNative));
+        if (REAL.equals(type)) {
+            return intBitsToFloat(toIntExact((long) object));
         }
 
-        if (TINYINT.equals(prestoType)) {
-            return SignedBytes.checkedCast((long) prestoNative);
+        if (TINYINT.equals(type)) {
+            return SignedBytes.checkedCast((long) object);
         }
 
-        if (SMALLINT.equals(prestoType)) {
-            return Shorts.checkedCast((long) prestoNative);
+        if (SMALLINT.equals(type)) {
+            return Shorts.checkedCast((long) object);
         }
 
-        if (INTEGER.equals(prestoType)) {
-            return toIntExact((long) prestoNative);
+        if (INTEGER.equals(type)) {
+            return toIntExact((long) object);
         }
 
-        if (DATE.equals(prestoType)) {
+        if (DATE.equals(type)) {
             // convert to midnight in default time zone
-            long millis = DAYS.toMillis((long) prestoNative);
+            long millis = DAYS.toMillis((long) object);
             return new Date(UTC.getMillisKeepLocal(DateTimeZone.getDefault(), millis));
         }
 
-        if (prestoType instanceof VarcharType || prestoType instanceof CharType) {
-            return ((Slice) prestoNative).toStringUtf8();
+        if (type instanceof VarcharType || type instanceof CharType) {
+            return ((Slice) object).toStringUtf8();
         }
 
-        if (prestoType instanceof ArrayType) {
+        if (type instanceof ArrayType) {
             // process subarray of multi-dimensional array
-            return getJdbcObjectArray(session, ((ArrayType) prestoType).getElementType(), (Block) prestoNative);
+            return getJdbcObjectArray(session, ((ArrayType) type).getElementType(), (Block) object);
         }
 
-        throw new TrinoException(NOT_SUPPORTED, "Unsupported type: " + prestoType);
+        throw new TrinoException(NOT_SUPPORTED, "Unsupported type: " + type);
     }
 }

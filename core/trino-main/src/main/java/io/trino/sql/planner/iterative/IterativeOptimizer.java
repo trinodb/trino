@@ -14,6 +14,7 @@
 package io.trino.sql.planner.iterative;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
@@ -21,12 +22,14 @@ import io.trino.cost.CachingCostProvider;
 import io.trino.cost.CachingStatsProvider;
 import io.trino.cost.CostCalculator;
 import io.trino.cost.CostProvider;
+import io.trino.cost.StatsAndCosts;
 import io.trino.cost.StatsCalculator;
 import io.trino.cost.StatsProvider;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.matching.Capture;
 import io.trino.matching.Match;
 import io.trino.matching.Pattern;
+import io.trino.metadata.Metadata;
 import io.trino.spi.TrinoException;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.RuleStatsRecorder;
@@ -34,6 +37,7 @@ import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
 import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.planprinter.PlanPrinter;
 
 import java.util.Iterator;
 import java.util.List;
@@ -53,24 +57,30 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 public class IterativeOptimizer
         implements PlanOptimizer
 {
+    private static final Logger LOG = Logger.get(IterativeOptimizer.class);
+
     private final RuleStatsRecorder stats;
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
     private final List<PlanOptimizer> legacyRules;
+    private final Set<Rule<?>> rules;
     private final RuleIndex ruleIndex;
     private final Predicate<Session> useLegacyRules;
+    private final Metadata metadata;
 
-    public IterativeOptimizer(RuleStatsRecorder stats, StatsCalculator statsCalculator, CostCalculator costCalculator, Set<Rule<?>> rules)
+    public IterativeOptimizer(Metadata metadata, RuleStatsRecorder stats, StatsCalculator statsCalculator, CostCalculator costCalculator, Set<Rule<?>> rules)
     {
-        this(stats, statsCalculator, costCalculator, session -> false, ImmutableList.of(), rules);
+        this(metadata, stats, statsCalculator, costCalculator, session -> false, ImmutableList.of(), rules);
     }
 
-    public IterativeOptimizer(RuleStatsRecorder stats, StatsCalculator statsCalculator, CostCalculator costCalculator, Predicate<Session> useLegacyRules, List<PlanOptimizer> legacyRules, Set<Rule<?>> newRules)
+    public IterativeOptimizer(Metadata metadata, RuleStatsRecorder stats, StatsCalculator statsCalculator, CostCalculator costCalculator, Predicate<Session> useLegacyRules, List<PlanOptimizer> legacyRules, Set<Rule<?>> newRules)
     {
+        this.metadata = requireNonNull(metadata, "metadata is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
         this.useLegacyRules = requireNonNull(useLegacyRules, "useLegacyRules is null");
+        this.rules = requireNonNull(newRules, "rules is null");
         this.legacyRules = ImmutableList.copyOf(legacyRules);
         this.ruleIndex = RuleIndex.builder()
                 .register(newRules)
@@ -99,6 +109,12 @@ public class IterativeOptimizer
         exploreGroup(memo.getRootGroup(), context);
 
         return memo.extract();
+    }
+
+    // Used for diagnostics.
+    public Set<Rule<?>> getRules()
+    {
+        return rules;
     }
 
     private boolean exploreGroup(int group, Context context)
@@ -166,6 +182,14 @@ public class IterativeOptimizer
             try {
                 long start = System.nanoTime();
                 result = rule.apply(match.capture(nodeCapture), match.captures(), ruleContext(context));
+
+                if (LOG.isDebugEnabled() && !result.isEmpty()) {
+                    LOG.debug(
+                            "Rule: %s\nBefore:\n%s\nAfter:\n%s",
+                            rule.getClass().getName(),
+                            PlanPrinter.textLogicalPlan(node, context.symbolAllocator.getTypes(), metadata, StatsAndCosts.empty(), context.session, 0, false),
+                            PlanPrinter.textLogicalPlan(result.getTransformedPlan().get(), context.symbolAllocator.getTypes(), metadata, StatsAndCosts.empty(), context.session, 0, false));
+                }
                 duration = System.nanoTime() - start;
             }
             catch (RuntimeException e) {

@@ -1206,6 +1206,14 @@ export class QueryDetail extends React.Component {
                             </tr>
                             <tr>
                                 <td className="info-title">
+                                    Time zone
+                                </td>
+                                <td className="info-text">
+                                    {query.session.timeZone}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td className="info-title">
                                     Client Address
                                 </td>
                                 <td className="info-text">

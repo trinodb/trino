@@ -97,7 +97,7 @@ public class JdbcConnector
     {
         checkConnectorSupports(READ_COMMITTED, isolationLevel);
         JdbcTransactionHandle transaction = new JdbcTransactionHandle();
-        transactions.put(transaction, jdbcMetadataFactory.create());
+        transactions.put(transaction, jdbcMetadataFactory.create(transaction));
         return transaction;
     }
 

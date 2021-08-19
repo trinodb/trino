@@ -172,7 +172,7 @@ public class MockRemoteTaskFactory
         private int unacknowledgedSplits;
 
         @GuardedBy("this")
-        private SettableFuture<?> whenSplitQueueHasSpace = SettableFuture.create();
+        private SettableFuture<Void> whenSplitQueueHasSpace = SettableFuture.create();
 
         private final PartitionedSplitCountTracker partitionedSplitCountTracker;
 
@@ -423,7 +423,7 @@ public class MockRemoteTaskFactory
         }
 
         @Override
-        public synchronized ListenableFuture<?> whenSplitQueueHasSpace(int threshold)
+        public synchronized ListenableFuture<Void> whenSplitQueueHasSpace(int threshold)
         {
             return nonCancellationPropagating(whenSplitQueueHasSpace);
         }

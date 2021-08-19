@@ -67,4 +67,14 @@ public final class JdbcSortItem
     {
         return Objects.hash(column, sortOrder);
     }
+
+    @Override
+    public String toString()
+    {
+        return new StringBuilder()
+                .append(column)
+                .append(" ")
+                .append(sortOrder)
+                .toString();
+    }
 }

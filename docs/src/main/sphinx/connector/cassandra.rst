@@ -5,10 +5,14 @@ Cassandra connector
 The Cassandra connector allows querying data stored in
 `Apache Cassandra <https://cassandra.apache.org/>`_.
 
-Compatibility
--------------
+Requirements
+------------
 
-Connector is tested against Cassandra version 2.2 and 3.11, but any intermediate or newer versions are expected to work.
+To connect to Cassandra, you need:
+
+* Cassandra version 2.2 or higher.
+* Network access from the Trino coordinator and workers to Cassandra.
+  Port 9042 is the default port.
 
 Configuration
 -------------
@@ -249,7 +253,7 @@ Limitations
 -----------
 
 * Queries without filters containing the partition key result in fetching all partitions.
-  This causes a full scan of the entire data set, therefore it's much slower compared to a similar
+  This causes a full scan of the entire data set, and is therefore much slower compared to a similar
   query with a partition key as a filter.
 * ``IN`` list filters are only allowed on index (that is, partition key or clustering key) columns.
 * Range (``<`` or ``>`` and ``BETWEEN``) filters can be applied only to the partition keys.

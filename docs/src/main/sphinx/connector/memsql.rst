@@ -7,6 +7,15 @@ creating tables in an external SingleStore database. The SingleStore connector
 is very similar to the MySQL connector with the only difference being the
 underlying driver.
 
+Requirements
+------------
+
+To connect to SingleStore, you need:
+
+* SingleStore version 7.3 or higher.
+* Network access from the Trino coordinator and workers to SingleStore. Port
+  3306 is the default port.
+
 Configuration
 -------------
 
@@ -57,6 +66,24 @@ Finally, you can access the ``clicks`` table in the ``web`` database::
 
 If you used a different name for your catalog properties file, use
 that catalog name instead of ``memsql`` in the above examples.
+
+.. _memsql-type-mapping:
+
+Type mapping
+------------
+
+.. include:: jdbc-type-mapping.fragment
+
+.. _memsql-pushdown:
+
+Pushdown
+--------
+
+The connector supports pushdown for a number of operations:
+
+* :ref:`join-pushdown`
+* :ref:`limit-pushdown`
+* :ref:`topn-pushdown`
 
 Limitations
 -----------

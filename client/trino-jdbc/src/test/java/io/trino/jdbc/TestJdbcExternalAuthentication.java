@@ -239,7 +239,7 @@ public class TestJdbcExternalAuthentication
     private Connection createConnection()
             throws SQLException
     {
-        String url = format("jdbc:presto://localhost:%s", server.getHttpsAddress().getPort());
+        String url = format("jdbc:trino://localhost:%s", server.getHttpsAddress().getPort());
         Properties properties = new Properties();
         properties.setProperty("user", "test");
         properties.setProperty("SSL", "true");

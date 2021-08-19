@@ -19,6 +19,7 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.plan.CorrelatedJoinNode.Type;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch;
 
 import java.util.List;
 import java.util.Optional;
@@ -188,6 +189,11 @@ public final class Patterns
         return typeOf(WindowNode.class);
     }
 
+    public static Pattern<PatternRecognitionNode> patternRecognition()
+    {
+        return typeOf(PatternRecognitionNode.class);
+    }
+
     public static Pattern<RowNumberNode> rowNumber()
     {
         return typeOf(RowNumberNode.class);
@@ -319,6 +325,11 @@ public final class Patterns
         {
             return property("count", LimitNode::getCount);
         }
+
+        public static Property<LimitNode, Lookup, Boolean> requiresPreSortedInputs()
+        {
+            return property("requiresPreSortedInputs", LimitNode::requiresPreSortedInputs);
+        }
     }
 
     public static final class Sample
@@ -390,6 +401,14 @@ public final class Patterns
         public static Property<ExceptNode, Lookup, Boolean> distinct()
         {
             return property("distinct", ExceptNode::isDistinct);
+        }
+    }
+
+    public static final class PatternRecognition
+    {
+        public static Property<PatternRecognitionNode, Lookup, RowsPerMatch> rowsPerMatch()
+        {
+            return property("rowsPerMatch", PatternRecognitionNode::getRowsPerMatch);
         }
     }
 }

@@ -79,7 +79,6 @@ public class TestOrcWriter
                             .withRowGroupMaxRowCount(ORC_ROW_GROUP_SIZE)
                             .withDictionaryMaxMemory(DataSize.of(32, MEGABYTE))
                             .withBloomFilterColumns(ImmutableSet.copyOf(columnNames)),
-                    false,
                     ImmutableMap.of(),
                     true,
                     validationMode,

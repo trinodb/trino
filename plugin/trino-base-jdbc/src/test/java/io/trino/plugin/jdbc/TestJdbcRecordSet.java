@@ -25,7 +25,10 @@ import org.testng.annotations.Test;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
 
+import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
+import static io.airlift.testing.Closeables.closeAll;
 import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_BIGINT;
 import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_VARCHAR;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -42,6 +45,7 @@ public class TestJdbcRecordSet
     private JdbcTableHandle table;
     private JdbcSplit split;
     private Map<String, JdbcColumnHandle> columnHandles;
+    private ExecutorService executor;
 
     @BeforeClass
     public void setUp()
@@ -52,13 +56,16 @@ public class TestJdbcRecordSet
         table = database.getTableHandle(SESSION, new SchemaTableName("example", "numbers"));
         split = database.getSplit(SESSION, table);
         columnHandles = database.getColumnHandles(SESSION, table);
+        executor = newDirectExecutorService();
     }
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
             throws Exception
     {
-        database.close();
+        closeAll(
+                database,
+                () -> executor.shutdownNow());
     }
 
     @Test
@@ -163,6 +170,6 @@ public class TestJdbcRecordSet
 
     private JdbcRecordSet createRecordSet(List<JdbcColumnHandle> columnHandles)
     {
-        return new JdbcRecordSet(jdbcClient, SESSION, split, table, columnHandles);
+        return new JdbcRecordSet(jdbcClient, executor, SESSION, split, table, columnHandles);
     }
 }

@@ -17,11 +17,13 @@ import com.google.common.collect.ImmutableList;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.EnvironmentDefaults;
 import io.trino.tests.product.launcher.env.environment.MultinodeKafka;
+import io.trino.tests.product.launcher.env.environment.MultinodeKafkaSsl;
 import io.trino.tests.product.launcher.env.environment.SinglenodeCassandra;
 import io.trino.tests.product.launcher.env.environment.SinglenodeKerberosKmsHdfsImpersonation;
 import io.trino.tests.product.launcher.env.environment.SinglenodeKerberosKmsHdfsNoImpersonation;
 import io.trino.tests.product.launcher.env.environment.SinglenodeLdap;
 import io.trino.tests.product.launcher.env.environment.SinglenodeLdapAndFile;
+import io.trino.tests.product.launcher.env.environment.SinglenodeLdapBindDn;
 import io.trino.tests.product.launcher.env.environment.SinglenodeLdapInsecure;
 import io.trino.tests.product.launcher.env.environment.SinglenodeLdapReferrals;
 import io.trino.tests.product.launcher.suite.Suite;
@@ -45,9 +47,11 @@ public class Suite6NonGeneric
                 testOnEnvironment(SinglenodeLdapAndFile.class).withGroups("ldap", "ldap_and_file", "ldap_cli", "ldap_and_file_cli").build(),
                 testOnEnvironment(SinglenodeLdapInsecure.class).withGroups("ldap").build(),
                 testOnEnvironment(SinglenodeLdapReferrals.class).withGroups("ldap").build(),
+                testOnEnvironment(SinglenodeLdapBindDn.class).withGroups("ldap").withExcludedGroups("ldap_multiple_binds").build(),
                 testOnEnvironment(SinglenodeKerberosKmsHdfsNoImpersonation.class).withGroups("storage_formats").build(),
                 testOnEnvironment(SinglenodeKerberosKmsHdfsImpersonation.class).withGroups("storage_formats").build(),
                 testOnEnvironment(SinglenodeCassandra.class).withGroups("cassandra").build(),
-                testOnEnvironment(MultinodeKafka.class).withGroups("kafka").build());
+                testOnEnvironment(MultinodeKafka.class).withGroups("kafka").build(),
+                testOnEnvironment(MultinodeKafkaSsl.class).withGroups("kafka").build());
     }
 }

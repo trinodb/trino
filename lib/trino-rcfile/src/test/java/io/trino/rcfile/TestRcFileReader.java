@@ -13,9 +13,6 @@
  */
 package io.trino.rcfile;
 
-import org.testng.annotations.Test;
-
-@Test
 public class TestRcFileReader
         extends AbstractTestRcFileReader
 {

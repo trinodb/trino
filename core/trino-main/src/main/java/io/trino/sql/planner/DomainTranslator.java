@@ -83,6 +83,7 @@ import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.OperatorType.SATURATED_FLOOR_CAST;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.TypeUtils.isFloatingPointNaN;
 import static io.trino.sql.ExpressionUtils.and;
 import static io.trino.sql.ExpressionUtils.combineConjuncts;
@@ -438,6 +439,17 @@ public final class DomainTranslator
         protected ExtractionResult visitNotExpression(NotExpression node, Boolean complement)
         {
             return process(node.getValue(), !complement);
+        }
+
+        @Override
+        protected ExtractionResult visitSymbolReference(SymbolReference node, Boolean complement)
+        {
+            if (types.get(Symbol.from(node)).equals(BOOLEAN)) {
+                ComparisonExpression newNode = new ComparisonExpression(EQUAL, node, TRUE_LITERAL);
+                return visitComparisonExpression(newNode, complement);
+            }
+
+            return visitExpression(node, complement);
         }
 
         @Override

@@ -18,7 +18,10 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.SchemaTableName;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 public interface HiveMaterializedViewMetadata
 {
@@ -26,7 +29,15 @@ public interface HiveMaterializedViewMetadata
 
     void dropMaterializedView(ConnectorSession session, SchemaTableName viewName);
 
+    List<SchemaTableName> listMaterializedViews(ConnectorSession session, Optional<String> schemaName);
+
+    Map<SchemaTableName, ConnectorMaterializedViewDefinition> getMaterializedViews(ConnectorSession session, Optional<String> schemaName);
+
     Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName);
 
     MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name);
+
+    boolean delegateMaterializedViewRefreshToConnector(ConnectorSession session, SchemaTableName viewName);
+
+    CompletableFuture<?> refreshMaterializedView(ConnectorSession session, SchemaTableName viewName);
 }

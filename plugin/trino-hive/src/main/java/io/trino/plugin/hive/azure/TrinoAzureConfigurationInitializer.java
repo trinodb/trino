@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive.azure;
 
+import com.google.common.net.HostAndPort;
 import io.trino.plugin.hive.ConfigurationInitializer;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.adl.AdlFileSystem;
@@ -20,6 +21,9 @@ import org.apache.hadoop.fs.azurebfs.AzureBlobFileSystem;
 
 import javax.inject.Inject;
 
+import java.net.InetSocketAddress;
+import java.net.Proxy;
+import java.net.Proxy.Type;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -79,6 +83,9 @@ public class TrinoAzureConfigurationInitializer
         checkArgument(
                 !(abfsAccessKey.isPresent() && abfsOAuthClientSecret.isPresent()),
                 "Multiple ABFS authentication methods configured: access key and OAuth2");
+
+        config.getAdlProxyHost().ifPresent(proxyHost ->
+                io.trino.hadoop.$internal.com.microsoft.azure.datalake.store.HttpTransport.setConnectionProxy(proxyForHost(proxyHost)));
     }
 
     @Override
@@ -115,5 +122,10 @@ public class TrinoAzureConfigurationInitializer
     private static Optional<String> dropEmpty(Optional<String> optional)
     {
         return optional.filter(value -> !value.isEmpty());
+    }
+
+    private static Proxy proxyForHost(HostAndPort address)
+    {
+        return new Proxy(Type.HTTP, new InetSocketAddress(address.getHost(), address.getPort()));
     }
 }
