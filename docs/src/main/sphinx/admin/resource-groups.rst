@@ -64,13 +64,35 @@ Resource group properties
   * ``query_priority``: all sub-groups must also be configured with ``query_priority``.
     Queued queries are selected strictly according to their priority.
 
-* ``schedulingWeight`` (optional): weight of this sub-group. See above.
-  Defaults to ``1``.
+* ``schedulingWeight`` (optional): weight of this subgroup used in ``weight`` 
+  and the ``weighted_fair`` scheduling policy. Defaults to ``1``. See
+  :ref:`scheduleweight-example`.
 
 * ``jmxExport`` (optional): If true, group statistics are exported to JMX for monitoring.
   Defaults to ``false``.
 
 * ``subGroups`` (optional): list of sub-groups.
+
+.. _scheduleweight-example:
+
+Scheduling weight example
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Schedule weighting is a method of assigning a priority to a resource. Subgroups
+with a higher scheduling weight are given higher priority. For example, to
+ensure timely execution of scheduled pipelines queries, weight them higher than
+adhoc queries.
+
+In the following example, pipeline queries are weighted with a value of ``350``,
+which is higher than the adhoc queries that have a scheduling weight of ``150``.
+This means that approximately 70% (350 out of 500 queries) of your queries come
+from the pipeline subgroup, and 30% (150 out of 500 queries) come from the adhoc
+subgroup in a given timeframe. Alternatively, if you set each subgroup value to
+``1``, the weight of the queries for the pipeline and adhoc subgroups are split
+evenly and each receive 50% of the queries in a given timeframe. 
+
+.. literalinclude:: schedule-weight-example.json
+    :language: text
 
 Selector rules
 --------------
