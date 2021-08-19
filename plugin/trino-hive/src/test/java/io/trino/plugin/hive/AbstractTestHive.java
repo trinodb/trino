@@ -142,6 +142,7 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Arrays;
@@ -295,7 +296,6 @@ import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.nio.file.Files.createTempDirectory;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -652,7 +652,7 @@ public abstract class AbstractTestHive
         executor = newCachedThreadPool(daemonThreadsNamed("hive-%s"));
         heartbeatService = newScheduledThreadPool(1);
         // Use separate staging directory for each test class to prevent intermittent failures coming from test parallelism
-        temporaryStagingDirectory = createTempDirectory("trino-staging-");
+        temporaryStagingDirectory = Paths.get("/tmp/" + UUID.randomUUID());
     }
 
     @AfterClass(alwaysRun = true)
