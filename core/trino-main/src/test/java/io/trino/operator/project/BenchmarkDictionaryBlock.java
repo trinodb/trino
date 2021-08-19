@@ -63,6 +63,12 @@ public class BenchmarkDictionaryBlock
     }
 
     @Benchmark
+    public long getLogicalSizeInBytes(BenchmarkData data)
+    {
+        return data.getDictionaryBlock().getLogicalSizeInBytes();
+    }
+
+    @Benchmark
     public Block copyPositions(BenchmarkData data)
     {
         int[] positionIds = data.getPositionsIds();
@@ -173,6 +179,14 @@ public class BenchmarkDictionaryBlock
         BenchmarkData data = new BenchmarkData();
         data.setup();
         getSizeInBytes(data);
+    }
+
+    @Test
+    public void testGetLogicalSizeInBytes()
+    {
+        BenchmarkData data = new BenchmarkData();
+        data.setup();
+        getLogicalSizeInBytes(data);
     }
 
     @Test

@@ -319,14 +319,17 @@ public class DictionaryBlock
         // Calculation of logical size can be performed as part of calculateCompactSize() with minor modifications.
         // Keeping this calculation separate as this is a little more expensive and may not be called as often.
         long sizeInBytes = 0;
-        long[] seenSizes = new long[dictionary.getPositionCount()];
-        Arrays.fill(seenSizes, -1L);
-        for (int i = 0; i < getPositionCount(); i++) {
-            int position = getId(i);
-            if (seenSizes[position] < 0) {
-                seenSizes[position] = dictionary.getRegionSizeInBytes(position, 1);
+        // Number of times each dictionary index is seen
+        int[] dictionaryIndexSeenCount = new int[dictionary.getPositionCount()];
+        for (int i = 0; i < positionCount; i++) {
+            dictionaryIndexSeenCount[getId(i)] += 1;
+        }
+
+        for (int dictionaryIndex = 0; dictionaryIndex < dictionaryIndexSeenCount.length; dictionaryIndex++) {
+            int seenCount = dictionaryIndexSeenCount[dictionaryIndex];
+            if (seenCount > 0) {
+                sizeInBytes += dictionary.getRegionSizeInBytes(dictionaryIndex, 1) * seenCount;
             }
-            sizeInBytes += seenSizes[position];
         }
 
         logicalSizeInBytes = sizeInBytes;
