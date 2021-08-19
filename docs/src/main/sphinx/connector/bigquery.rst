@@ -176,6 +176,21 @@ For each Trino table which maps to BigQuery view there exists a system table whi
 Given a BigQuery view ``customer_view`` you can send query
 ``SELECT * customer_view$view_definition`` to see the SQL which defines view in BigQuery.
 
+.. _bigquery-sql-support:
+
+SQL support
+-----------
+
+The connector provides read and write access to data and metadata in
+the BigQuery database. In addition to the :ref:`globally available
+<sql-globally-available>` and :ref:`read operation <sql-read-operations>`
+statements, the connector supports the following features:
+
+* :doc:`/sql/create-table`
+* :doc:`/sql/drop-table`
+* :doc:`/sql/create-schema`
+* :doc:`/sql/drop-schema`
+
 FAQ
 ---
 
@@ -184,4 +199,3 @@ What is the Pricing for the Storage API?
 
 See the `BigQuery pricing documentation
 <https://cloud.google.com/bigquery/pricing#storage-api>`_.
-
