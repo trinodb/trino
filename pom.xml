@@ -48,7 +48,7 @@
 
         <dep.accumulo.version>1.7.4</dep.accumulo.version>
         <dep.accumulo-hadoop.version>2.7.7-1</dep.accumulo-hadoop.version>
-        <dep.antlr.version>4.9</dep.antlr.version>
+        <dep.antlr.version>4.9.2</dep.antlr.version>
         <dep.airlift.version>208</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.aws-sdk.version>1.11.946</dep.aws-sdk.version>
@@ -975,7 +975,7 @@
             <dependency>
                 <groupId>com.github.ben-manes.caffeine</groupId>
                 <artifactId>caffeine</artifactId>
-                <version>3.0.2</version>
+                <version>3.0.3</version>
             </dependency>
 
             <dependency>
@@ -1377,7 +1377,7 @@
             <dependency>
                 <groupId>org.checkerframework</groupId>
                 <artifactId>checker-qual</artifactId>
-                <version>3.14.0</version>
+                <version>3.18.0</version>
             </dependency>
 
             <!-- force newer version to be used for dependencies -->
@@ -1397,7 +1397,7 @@
                 <groupId>org.jdbi</groupId>
                 <artifactId>jdbi3-bom</artifactId>
                 <type>pom</type>
-                <version>3.20.0</version>
+                <version>3.21.0</version>
                 <scope>import</scope>
             </dependency>
 
