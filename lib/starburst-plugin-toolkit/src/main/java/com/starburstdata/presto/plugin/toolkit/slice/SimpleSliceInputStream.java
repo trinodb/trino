@@ -152,4 +152,9 @@ public final class SimpleSliceInputStream
     {
         offset += n;
     }
+
+    public Slice asSlice()
+    {
+        return slice.slice(offset, slice.length() - offset);
+    }
 }
