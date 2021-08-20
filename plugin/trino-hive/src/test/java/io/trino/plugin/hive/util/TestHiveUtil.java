@@ -13,6 +13,12 @@
  */
 package io.trino.plugin.hive.util;
 
+import com.google.common.collect.ImmutableSet;
+import io.airlift.units.DataSize;
+import io.trino.parquet.writer.ParquetWriterOptions;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.security.ConnectorIdentity;
+import io.trino.spi.type.TimeZoneKey;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.metastore.Warehouse;
 import org.apache.hadoop.hive.metastore.api.MetaException;
@@ -27,16 +33,22 @@ import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormat;
 import org.testng.annotations.Test;
 
+import java.time.Instant;
 import java.util.AbstractList;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
 import java.util.Properties;
 
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.trino.plugin.hive.HiveStorageFormat.AVRO;
 import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
+import static io.trino.plugin.hive.HiveTableProperties.PARQUET_BLOOM_FILTER_COLUMNS;
+import static io.trino.plugin.hive.HiveTableProperties.PARQUET_BLOOM_FILTER_FPP;
 import static io.trino.plugin.hive.util.HiveUtil.getDeserializer;
 import static io.trino.plugin.hive.util.HiveUtil.getInputFormat;
+import static io.trino.plugin.hive.util.HiveUtil.getParquetWriterOptions;
 import static io.trino.plugin.hive.util.HiveUtil.parseHiveTimestamp;
 import static io.trino.plugin.hive.util.HiveUtil.toPartitionValues;
 import static io.trino.type.DateTimes.MICROSECONDS_PER_MILLISECOND;
@@ -44,6 +56,8 @@ import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_CLASS;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_FORMAT;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
 public class TestHiveUtil
@@ -143,5 +157,104 @@ public class TestHiveUtil
             }
         }
         throw new IllegalStateException("no non-default timezone");
+    }
+
+    @Test
+    public void testGetParquetWriterOptions()
+    {
+        Properties tableProperties = new Properties();
+        TestingConnectorSession session = new TestingConnectorSession();
+
+        assertThat(getParquetWriterOptions(session, tableProperties))
+                .isEqualToComparingFieldByFieldRecursively(ParquetWriterOptions.builder()
+                        .setMaxPageSize(TestingConnectorSession.PARQUET_WRITER_PAGE_SIZE)
+                        .setMaxBlockSize(TestingConnectorSession.PARQUET_WRITER_BLOCK_SIZE)
+                        .build());
+
+        tableProperties.setProperty(PARQUET_BLOOM_FILTER_COLUMNS, "col_1, col_2, col_3");
+        assertThatThrownBy(() -> getParquetWriterOptions(session, tableProperties))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Parquet bloom filter false positive probability is missing");
+
+        tableProperties.setProperty(PARQUET_BLOOM_FILTER_FPP, "-1");
+        assertThatThrownBy(() -> getParquetWriterOptions(session, tableProperties))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("False positive probability should be between 0 and 1");
+
+        tableProperties.setProperty(PARQUET_BLOOM_FILTER_FPP, "0.05");
+        assertThat(getParquetWriterOptions(session, tableProperties))
+                .isEqualToComparingFieldByFieldRecursively(ParquetWriterOptions.builder()
+                        .setMaxPageSize(TestingConnectorSession.PARQUET_WRITER_PAGE_SIZE)
+                        .setMaxBlockSize(TestingConnectorSession.PARQUET_WRITER_BLOCK_SIZE)
+                        .setBloomFilterFpp(0.05)
+                        .setBloomFilterColumns(ImmutableSet.of("col_1", "col_2", "col_3"))
+                        .build());
+
+        tableProperties.setProperty(PARQUET_BLOOM_FILTER_FPP, "invalid number.7");
+        assertThatThrownBy(() -> getParquetWriterOptions(session, tableProperties))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("'invalid number.7' is an invalid bloom filter false positive probability");
+    }
+
+    private static class TestingConnectorSession
+            implements ConnectorSession
+    {
+        public static final DataSize PARQUET_WRITER_PAGE_SIZE = DataSize.ofBytes(800);
+        public static final DataSize PARQUET_WRITER_BLOCK_SIZE = DataSize.ofBytes(1024 * 1024);
+
+        @Override
+        public String getQueryId()
+        {
+            return "";
+        }
+
+        @Override
+        public Optional<String> getSource()
+        {
+            return Optional.empty();
+        }
+
+        @Override
+        public ConnectorIdentity getIdentity()
+        {
+            return null;
+        }
+
+        @Override
+        public TimeZoneKey getTimeZoneKey()
+        {
+            return null;
+        }
+
+        @Override
+        public Locale getLocale()
+        {
+            return null;
+        }
+
+        @Override
+        public Optional<String> getTraceToken()
+        {
+            return Optional.empty();
+        }
+
+        @Override
+        public Instant getStart()
+        {
+            return null;
+        }
+
+        @Override
+        public <T> T getProperty(String propertyName, Class<T> type)
+        {
+            switch (propertyName) {
+                case "parquet_writer_page_size":
+                    return (T) PARQUET_WRITER_PAGE_SIZE;
+                case "parquet_writer_block_size":
+                    return (T) PARQUET_WRITER_BLOCK_SIZE;
+                default:
+                    return (T) DataSize.ofBytes(0);
+            }
+        }
     }
 }

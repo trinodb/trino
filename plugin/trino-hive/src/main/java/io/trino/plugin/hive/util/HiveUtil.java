@@ -17,7 +17,9 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import io.airlift.compress.lzo.LzoCodec;
 import io.airlift.compress.lzo.LzopCodec;
 import io.airlift.slice.Slice;
@@ -25,8 +27,10 @@ import io.airlift.slice.SliceUtf8;
 import io.airlift.slice.Slices;
 import io.trino.hadoop.TextLineLengthLimitExceededException;
 import io.trino.orc.OrcWriterOptions;
+import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HivePartitionKey;
+import io.trino.plugin.hive.HiveSessionProperties;
 import io.trino.plugin.hive.HiveStorageFormat;
 import io.trino.plugin.hive.HiveTimestampPrecision;
 import io.trino.plugin.hive.HiveType;
@@ -36,6 +40,7 @@ import io.trino.plugin.hive.metastore.SortingColumn;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.type.ArrayType;
@@ -91,9 +96,11 @@ import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -126,6 +133,8 @@ import static io.trino.plugin.hive.HiveMetadata.SKIP_HEADER_COUNT_KEY;
 import static io.trino.plugin.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static io.trino.plugin.hive.HiveTableProperties.ORC_BLOOM_FILTER_COLUMNS;
 import static io.trino.plugin.hive.HiveTableProperties.ORC_BLOOM_FILTER_FPP;
+import static io.trino.plugin.hive.HiveTableProperties.PARQUET_BLOOM_FILTER_COLUMNS;
+import static io.trino.plugin.hive.HiveTableProperties.PARQUET_BLOOM_FILTER_FPP;
 import static io.trino.plugin.hive.HiveType.toHiveTypes;
 import static io.trino.plugin.hive.metastore.SortingColumn.Order.ASCENDING;
 import static io.trino.plugin.hive.metastore.SortingColumn.Order.DESCENDING;
@@ -1012,6 +1021,47 @@ public final class HiveUtil
     public static List<HiveType> getColumnTypes(Properties schema)
     {
         return toHiveTypes(schema.getProperty(IOConstants.COLUMNS_TYPES, ""));
+    }
+
+    public static ParquetWriterOptions getParquetWriterOptions(ConnectorSession session, Properties tableProperties)
+    {
+        return getParquetWriterOptions(session, ImmutableMap.copyOf(Maps.fromProperties(tableProperties)));
+    }
+
+    public static ParquetWriterOptions getParquetWriterOptions(ConnectorSession session, Map<String, Object> tableProperties)
+    {
+        ParquetWriterOptions.Builder parquetWriterOptionsBuilder = ParquetWriterOptions.builder()
+                .setMaxPageSize(HiveSessionProperties.getParquetWriterPageSize(session))
+                .setMaxBlockSize(HiveSessionProperties.getParquetWriterBlockSize(session));
+
+        if (tableProperties.containsKey(PARQUET_BLOOM_FILTER_COLUMNS) && !tableProperties.containsKey(PARQUET_BLOOM_FILTER_FPP)) {
+            throw new IllegalArgumentException("Parquet bloom filter false positive probability is missing");
+        }
+        if (tableProperties.containsKey(PARQUET_BLOOM_FILTER_COLUMNS) && tableProperties.containsKey(PARQUET_BLOOM_FILTER_FPP)) {
+            configureParquetBloomFilter(tableProperties, parquetWriterOptionsBuilder);
+        }
+
+        return parquetWriterOptionsBuilder.build();
+    }
+
+    private static void configureParquetBloomFilter(Map<String, Object> tableProperties, ParquetWriterOptions.Builder parquetWriterOptionsBuilder)
+    {
+        String bloomFilterFppText = tableProperties.get(PARQUET_BLOOM_FILTER_FPP).toString();
+        String bloomFilterColumnsText = tableProperties.get(PARQUET_BLOOM_FILTER_COLUMNS).toString();
+
+        try {
+            double bloomFilterFpp = parseDouble(bloomFilterFppText);
+            Set<String> bloomFilterColumns = ImmutableSet.copyOf(COLUMN_NAMES_SPLITTER.splitToList(bloomFilterColumnsText));
+
+            parquetWriterOptionsBuilder
+                    .setBloomFilterFpp(bloomFilterFpp)
+                    .setBloomFilterColumns(bloomFilterColumns);
+        }
+        catch (NumberFormatException e) {
+            throw new IllegalArgumentException(format(
+                    "'%s' is an invalid bloom filter false positive probability",
+                    bloomFilterFppText));
+        }
     }
 
     public static OrcWriterOptions getOrcWriterOptions(Properties schema, OrcWriterOptions orcWriterOptions)

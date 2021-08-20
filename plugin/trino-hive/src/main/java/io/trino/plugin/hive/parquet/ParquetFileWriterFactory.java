@@ -14,7 +14,6 @@
 package io.trino.plugin.hive.parquet;
 
 import io.trino.parquet.writer.ParquetSchemaConverter;
-import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.plugin.hive.FileWriter;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HiveFileWriterFactory;
@@ -46,6 +45,7 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
 import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
 import static io.trino.plugin.hive.util.HiveUtil.getColumnNames;
 import static io.trino.plugin.hive.util.HiveUtil.getColumnTypes;
+import static io.trino.plugin.hive.util.HiveUtil.getParquetWriterOptions;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -85,11 +85,6 @@ public class ParquetFileWriterFactory
             return Optional.empty();
         }
 
-        ParquetWriterOptions parquetWriterOptions = ParquetWriterOptions.builder()
-                .setMaxPageSize(HiveSessionProperties.getParquetWriterPageSize(session))
-                .setMaxBlockSize(HiveSessionProperties.getParquetWriterBlockSize(session))
-                .build();
-
         CompressionCodecName compressionCodecName = getCompression(conf);
 
         List<String> fileColumnNames = getColumnNames(schema);
@@ -117,7 +112,7 @@ public class ParquetFileWriterFactory
                     fileColumnTypes,
                     schemaConverter.getMessageType(),
                     schemaConverter.getPrimitiveTypes(),
-                    parquetWriterOptions,
+                    getParquetWriterOptions(session, schema),
                     fileInputColumnIndexes,
                     compressionCodecName));
         }
