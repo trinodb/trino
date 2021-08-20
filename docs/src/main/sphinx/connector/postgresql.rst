@@ -137,6 +137,7 @@ statements, the connector supports the following features:
 
 * :doc:`/sql/insert`
 * :doc:`/sql/delete`
+* :doc:`/sql/truncate`
 * :ref:`sql-schema-table-management`
 
 .. include:: sql-delete-limitation.fragment

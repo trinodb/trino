@@ -109,6 +109,7 @@ public abstract class BaseJdbcConnectorTest
     {
         switch (connectorBehavior) {
             case SUPPORTS_DELETE:
+            case SUPPORTS_TRUNCATE:
                 return true;
 
             default:
