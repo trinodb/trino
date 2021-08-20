@@ -45,7 +45,7 @@ public class FissionFunctionFunctions
     public static long fetchDnsDb(@SqlType(StandardTypes.VARCHAR) Slice slice) throws JSONException, IOException
     {
         int count = 0;
-        JSONObject jsonObject = ExecuteFissionFunctionGET(String.format("%s/dnsdb?lookup=%s", FissionFunctionConfigProvider.getFissionFunctionBaseURL(), slice.toStringUtf8()));
+        JSONObject jsonObject = executeFissionFunctionGet(String.format("%s/dnsdb?lookup=%s", FissionFunctionConfigProvider.getFissionFunctionBaseURL(), slice.toStringUtf8()));
 
         if (jsonObject.has("total_count")) {
             count = Integer.parseInt(jsonObject.getString("total_count"));
@@ -60,7 +60,7 @@ public class FissionFunctionFunctions
     public static long fetchDespicableName(@SqlType(StandardTypes.VARCHAR) Slice slice) throws JSONException, IOException
     {
         int count = 0;
-        JSONObject jsonObject = ExecuteFissionFunctionGET(String.format("%s/despicablename?domain=%s", FissionFunctionConfigProvider.getFissionFunctionBaseURL(), slice.toStringUtf8()));
+        JSONObject jsonObject = executeFissionFunctionGet(String.format("%s/despicablename?domain=%s", FissionFunctionConfigProvider.getFissionFunctionBaseURL(), slice.toStringUtf8()));
 
         if (jsonObject.has("probs")) {
             count = Integer.parseInt(jsonObject.getJSONArray("probs").getJSONArray(0).getString(0));
@@ -71,17 +71,11 @@ public class FissionFunctionFunctions
 
     private static JSONObject executeFissionFunctionGet(String endpoint) throws JSONException, IOException
     {
-        String result = "";
-
-        CloseableHttpClient httpClient;
-        HttpClientBuilder builder = HttpClientBuilder.create().setDefaultCookieStore(cookieStore);
-        httpClient = builder.build();
-
-        HttpGet getRequest = new HttpGet(endpoint);
-        HttpResponse response = httpClient.execute(getRequest);
-        result = EntityUtils.toString(response.getEntity());
-        JSONObject jsonObject = new JSONObject(result);
-
-        return jsonObject;
+        try (CloseableHttpClient httpClient = HttpClientBuilder.create().setDefaultCookieStore(cookieStore).build()) {
+            HttpGet getRequest = new HttpGet(endpoint);
+            HttpResponse response = httpClient.execute(getRequest);
+            String result = EntityUtils.toString(response.getEntity());
+            return new JSONObject(result);
+        }
     }
 }
