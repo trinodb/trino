@@ -643,6 +643,40 @@ connector.
         also have more overhead and increase load on the system.
       - ``64 MB``
 
+SQL support
+-----------
+
+The connector provides read access and write access to data and metadata in the
+configured object storage system and metadata stores. In addition to the
+:ref:`globally available <sql-globally-available>` and :ref:`read operation
+<sql-read-operations>` statements, the connector supports the following
+features:
+
+* :ref:`sql-write-operations`:
+
+  * :ref:`sql-data-management`, see also :ref:`hive-data-management`
+  * :ref:`sql-schema-table-management`
+  * :ref:`sql-views-management`
+
+* :ref:`sql-security-operations`, see also :ref:`hive-sql-standard-based-authorization`
+
+.. _hive-data-management:
+
+Data management
+^^^^^^^^^^^^^^^
+
+The :ref:`sql-data-management` functionality includes support for ``INSERT``,
+``UPDATE``, and ``DELETE`` statements, with the exact support depending on the
+storage system, file format, and metastore:
+
+:doc:`/sql/delete` applied to non-transactional tables is only supported if the
+table is partitioned and the ``WHERE`` clause matches entire partitions.
+Transactional Hive tables with ORC format support "row-by-row" deletion, in
+which the ``WHERE`` clause may match arbitrary sets of rows.
+
+:doc:`/sql/update` is only supported for transactional Hive tables with format
+ORC. ``UPDATE`` of partition or bucket columns is not supported.
+
 Table statistics
 ----------------
 
@@ -999,19 +1033,8 @@ Drop a schema::
 
     DROP SCHEMA hive.web
 
-Hive connector limitations
---------------------------
-
-* :doc:`/sql/alter-schema` usage fails, since the Hive metastore does not support renaming schemas.
-* :doc:`/sql/delete` applied to non-transactional tables is only supported if the table is partitioned and
-  the ``WHERE`` clause matches entire partitions. Transactional Hive tables with ORC format support
-  "row-by-row" deletion, in which the ``WHERE`` clause may match arbitrary sets of rows.
-* :doc:`/sql/update` is only supported for transactional Hive tables with format ORC.  ``UPDATE`` of partition or bucket
-  columns is not supported.
-
-
 Hive 3 related limitations
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+--------------------------
 
 * For security reasons, the ``sys`` system catalog is not accessible.
 
