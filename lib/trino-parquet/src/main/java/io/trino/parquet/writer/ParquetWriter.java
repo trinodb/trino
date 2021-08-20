@@ -93,10 +93,15 @@ public class ParquetWriter
 
     private static ParquetProperties getParquetProperties(ParquetWriterOptions writerOption)
     {
-        return ParquetProperties.builder()
+        ParquetProperties.Builder builder = ParquetProperties.builder()
                 .withWriterVersion(PARQUET_2_0)
-                .withPageSize(writerOption.getMaxPageSize())
-                .build();
+                .withPageSize(writerOption.getMaxPageSize());
+
+        for (String column : writerOption.getBloomFilterColumns()) {
+            builder.withBloomFilterEnabled(column, true);
+        }
+
+        return builder.build();
     }
 
     public long getWrittenBytes()
