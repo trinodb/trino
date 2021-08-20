@@ -103,6 +103,7 @@ statements, the connector supports the following features:
 
 * :doc:`/sql/insert`
 * :doc:`/sql/delete`
+* :doc:`/sql/truncate`
 * :doc:`/sql/create-table`
 * :doc:`/sql/create-table-as`
 * :doc:`/sql/drop-table`

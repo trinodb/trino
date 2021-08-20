@@ -1039,6 +1039,13 @@ public abstract class BaseJdbcClient
         }
     }
 
+    @Override
+    public void truncateTable(ConnectorSession session, JdbcTableHandle handle)
+    {
+        String sql = "TRUNCATE TABLE " + quoted(handle.asPlainTable().getRemoteTableName());
+        execute(session, sql);
+    }
+
     protected String quoted(@Nullable String catalog, @Nullable String schema, String table)
     {
         StringBuilder sb = new StringBuilder();
