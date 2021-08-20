@@ -87,15 +87,16 @@ public class ParquetWriter
         requireNonNull(primitiveTypes, "primitiveTypes is null");
         this.writerOption = requireNonNull(writerOption, "writerOption is null");
         requireNonNull(compressionCodecName, "compressionCodecName is null");
+        this.columnWriters = ParquetWriters.getColumnWriters(messageType, primitiveTypes, getParquetProperties(writerOption), compressionCodecName);
+        this.chunkMaxLogicalBytes = max(1, CHUNK_MAX_BYTES / 2);
+    }
 
-        ParquetProperties parquetProperties = ParquetProperties.builder()
+    private static ParquetProperties getParquetProperties(ParquetWriterOptions writerOption)
+    {
+        return ParquetProperties.builder()
                 .withWriterVersion(PARQUET_2_0)
                 .withPageSize(writerOption.getMaxPageSize())
                 .build();
-
-        this.columnWriters = ParquetWriters.getColumnWriters(messageType, primitiveTypes, parquetProperties, compressionCodecName);
-
-        this.chunkMaxLogicalBytes = max(1, CHUNK_MAX_BYTES / 2);
     }
 
     public long getWrittenBytes()
