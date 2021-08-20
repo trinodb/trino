@@ -474,6 +474,13 @@ public class CachingJdbcClient
         return deletedRowsCount;
     }
 
+    @Override
+    public void truncateTable(ConnectorSession session, JdbcTableHandle handle)
+    {
+        delegate.truncateTable(session, handle);
+        onDataChanged(handle.getRequiredNamedRelation().getSchemaTableName());
+    }
+
     @Managed
     public void flushCache()
     {

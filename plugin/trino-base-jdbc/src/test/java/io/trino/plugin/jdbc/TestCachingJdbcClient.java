@@ -426,6 +426,41 @@ public class TestCachingJdbcClient
         });
     }
 
+    @Test
+    public void testTruncateTable()
+    {
+        CachingJdbcClient cachingJdbcClient = cachingStatisticsAwareJdbcClient(FOREVER, true, 10000);
+        ConnectorSession session = createSession("table");
+
+        JdbcTableHandle table = createTable(new SchemaTableName(schema, "table"));
+
+        // load
+        assertStatisticsCacheStats(cachingJdbcClient).misses(1).afterRunning(() -> {
+            assertThat(cachingJdbcClient.getTableStatistics(session, table, TupleDomain.all())).isEqualTo(NON_EMPTY_STATS);
+        });
+
+        // read from cache
+        assertStatisticsCacheStats(cachingJdbcClient).hits(1).afterRunning(() -> {
+            assertThat(cachingJdbcClient.getTableStatistics(session, table, TupleDomain.all())).isEqualTo(NON_EMPTY_STATS);
+        });
+
+        // invalidate
+        cachingJdbcClient.truncateTable(SESSION, table);
+
+        // load again
+        assertStatisticsCacheStats(cachingJdbcClient).misses(1).afterRunning(() -> {
+            assertThat(cachingJdbcClient.getTableStatistics(session, table, TupleDomain.all())).isEqualTo(NON_EMPTY_STATS);
+        });
+
+        // read from cache
+        assertStatisticsCacheStats(cachingJdbcClient).hits(1).afterRunning(() -> {
+            assertThat(cachingJdbcClient.getTableStatistics(session, table, TupleDomain.all())).isEqualTo(NON_EMPTY_STATS);
+        });
+
+        // cleanup
+        this.jdbcClient.dropTable(SESSION, table);
+    }
+
     private CachingJdbcClient cachingStatisticsAwareJdbcClient(Duration duration, boolean cacheMissing, long cacheMaximumSize)
     {
         JdbcClient jdbcClient = database.getJdbcClient();
