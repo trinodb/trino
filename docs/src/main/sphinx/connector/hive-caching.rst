@@ -90,7 +90,7 @@ To use caching on multiple catalogs, you need to configure different caching
 directories  and different BookKeeper and data-transfer ports.
 
 .. list-table:: **Cache Configuration Parameters**
-  :widths: 15, 80, 5
+  :widths: 25, 63, 12
   :header-rows: 1
 
   * - Property
@@ -101,10 +101,10 @@ directories  and different BookKeeper and data-transfer ports.
     - ``false``
   * - ``hive.cache.location``
     - Required directory location to use for the cache storage on each worker.
-      Separate multiple directories, which can be mount points for separate drives, with commas
-      ``hive.cache.location=/var/lib/trino/cache1,/var/lib/trino/cache2``.
-      More tips can be found in the :ref:`recommendations
-      <hive-cache-recommendations>`.
+      Separate multiple directories, which can be mount points for separate
+      drives, with commas. More tips can be found in the :ref:`recommendations
+      <hive-cache-recommendations>`. Example:
+      ``hive.cache.location=/var/lib/trino/cache1,/var/lib/trino/cache2``
     -
   * - ``hive.cache.data-transfer-port``
     -  The TCP/IP port used to transfer data managed by the cache.
@@ -114,14 +114,14 @@ directories  and different BookKeeper and data-transfer ports.
     - ``8899``
   * - ``hive.cache.read-mode``
     - Operational mode for the cache as described earlier in the architecture
-      section. ``async`` and ``read-through`` are the supported.
+      section. ``async`` and ``read-through`` are the supported modes.
     - ``async``
   * - ``hive.cache.ttl``
     - Time to live for objects in the cache. Objects, which have not been
       requested for the TTL value, are removed from the cache.
     - ``7d``
   * - ``hive.cache.disk-usage-percentage``
-    - Percentage of disk space used for cached data
+    - Percentage of disk space used for cached data.
     - 80
 
 .. _hive-cache-recommendations:
