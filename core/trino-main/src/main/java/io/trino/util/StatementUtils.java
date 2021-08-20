@@ -75,6 +75,7 @@ import io.trino.sql.tree.ShowTables;
 import io.trino.sql.tree.StartTransaction;
 import io.trino.sql.tree.Statement;
 import io.trino.sql.tree.TableExecute;
+import io.trino.sql.tree.TruncateTable;
 import io.trino.sql.tree.Update;
 import io.trino.sql.tree.Use;
 
@@ -141,6 +142,7 @@ public final class StatementUtils
             .put(DropSchema.class, DATA_DEFINITION)
             .put(DropTable.class, DATA_DEFINITION)
             .put(DropView.class, DATA_DEFINITION)
+            .put(TruncateTable.class, DATA_DEFINITION)
             .put(Grant.class, DATA_DEFINITION)
             .put(GrantRoles.class, DATA_DEFINITION)
             .put(Prepare.class, DATA_DEFINITION)

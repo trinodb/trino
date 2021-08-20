@@ -122,6 +122,7 @@ import io.trino.sql.tree.TableExecute;
 import io.trino.sql.tree.TableSubquery;
 import io.trino.sql.tree.TransactionAccessMode;
 import io.trino.sql.tree.TransactionMode;
+import io.trino.sql.tree.TruncateTable;
 import io.trino.sql.tree.Union;
 import io.trino.sql.tree.Unnest;
 import io.trino.sql.tree.Update;
@@ -1495,6 +1496,15 @@ public final class SqlFormatter
                         .append(indentString(indent))
                         .append("WHERE ").append(formatExpression(node.getWhere().get()));
             }
+            return null;
+        }
+
+        @Override
+        protected Void visitTruncateTable(TruncateTable node, Integer indent)
+        {
+            builder.append("TRUNCATE TABLE ");
+            builder.append(formatName(node.getTableName()));
+
             return null;
         }
 

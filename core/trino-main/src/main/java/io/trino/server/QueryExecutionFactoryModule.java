@@ -59,6 +59,7 @@ import io.trino.execution.SetTimeZoneTask;
 import io.trino.execution.SetViewAuthorizationTask;
 import io.trino.execution.SqlQueryExecution.SqlQueryExecutionFactory;
 import io.trino.execution.StartTransactionTask;
+import io.trino.execution.TruncateTableTask;
 import io.trino.execution.UseTask;
 import io.trino.sql.tree.AddColumn;
 import io.trino.sql.tree.Call;
@@ -98,6 +99,7 @@ import io.trino.sql.tree.SetTimeZone;
 import io.trino.sql.tree.SetViewAuthorization;
 import io.trino.sql.tree.StartTransaction;
 import io.trino.sql.tree.Statement;
+import io.trino.sql.tree.TruncateTable;
 import io.trino.sql.tree.Use;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -133,6 +135,7 @@ public class QueryExecutionFactoryModule
         bindDataDefinitionTask(binder, executionBinder, DropSchema.class, DropSchemaTask.class);
         bindDataDefinitionTask(binder, executionBinder, DropTable.class, DropTableTask.class);
         bindDataDefinitionTask(binder, executionBinder, DropView.class, DropViewTask.class);
+        bindDataDefinitionTask(binder, executionBinder, TruncateTable.class, TruncateTableTask.class);
         bindDataDefinitionTask(binder, executionBinder, CreateMaterializedView.class, CreateMaterializedViewTask.class);
         bindDataDefinitionTask(binder, executionBinder, DropMaterializedView.class, DropMaterializedViewTask.class);
         bindDataDefinitionTask(binder, executionBinder, Grant.class, GrantTask.class);

@@ -78,6 +78,7 @@ import static io.trino.spi.security.AccessDeniedException.denySetTableProperties
 import static io.trino.spi.security.AccessDeniedException.denySetUser;
 import static io.trino.spi.security.AccessDeniedException.denyShowColumns;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateTable;
+import static io.trino.spi.security.AccessDeniedException.denyTruncateTable;
 import static io.trino.spi.security.AccessDeniedException.denyUpdateTableColumns;
 import static io.trino.spi.security.AccessDeniedException.denyViewQuery;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.ADD_COLUMN;
@@ -112,6 +113,7 @@ import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SET_USER;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SHOW_COLUMNS;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SHOW_CREATE_TABLE;
+import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.TRUNCATE_TABLE;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.UPDATE_TABLE;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.VIEW_QUERY;
 import static java.util.Objects.requireNonNull;
@@ -459,6 +461,17 @@ public class TestingAccessControlManager
     }
 
     @Override
+    public void checkCanTruncateTable(SecurityContext context, QualifiedObjectName tableName)
+    {
+        if (shouldDenyPrivilege(context.getIdentity().getUser(), tableName.getObjectName(), TRUNCATE_TABLE)) {
+            denyTruncateTable(tableName.toString());
+        }
+        if (denyPrivileges.isEmpty()) {
+            super.checkCanTruncateTable(context, tableName);
+        }
+    }
+
+    @Override
     public void checkCanUpdateTableColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> updatedColumnNames)
     {
         if (shouldDenyPrivilege(context.getIdentity().getUser(), tableName.getObjectName(), UPDATE_TABLE)) {
@@ -687,7 +700,7 @@ public class TestingAccessControlManager
         EXECUTE_QUERY, VIEW_QUERY, KILL_QUERY,
         EXECUTE_FUNCTION,
         CREATE_SCHEMA, DROP_SCHEMA, RENAME_SCHEMA,
-        SHOW_CREATE_TABLE, CREATE_TABLE, DROP_TABLE, RENAME_TABLE, COMMENT_TABLE, COMMENT_COLUMN, INSERT_TABLE, DELETE_TABLE, UPDATE_TABLE, SET_TABLE_PROPERTIES, SHOW_COLUMNS,
+        SHOW_CREATE_TABLE, CREATE_TABLE, DROP_TABLE, RENAME_TABLE, COMMENT_TABLE, COMMENT_COLUMN, INSERT_TABLE, DELETE_TABLE, UPDATE_TABLE, TRUNCATE_TABLE, SET_TABLE_PROPERTIES, SHOW_COLUMNS,
         ADD_COLUMN, DROP_COLUMN, RENAME_COLUMN, SELECT_COLUMN,
         CREATE_VIEW, RENAME_VIEW, DROP_VIEW, CREATE_VIEW_WITH_SELECT_COLUMNS,
         CREATE_MATERIALIZED_VIEW, REFRESH_MATERIALIZED_VIEW, DROP_MATERIALIZED_VIEW, RENAME_MATERIALIZED_VIEW,

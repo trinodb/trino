@@ -251,6 +251,11 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
+    public void checkCanTruncateTable(SystemSecurityContext context, CatalogSchemaTableName table)
+    {
+    }
+
+    @Override
     public void checkCanUpdateTableColumns(SystemSecurityContext securityContext, CatalogSchemaTableName table, Set<String> updatedColumnNames)
     {
     }
