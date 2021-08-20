@@ -1072,9 +1072,7 @@ public final class HiveUtil
             }
             try {
                 double fpp = parseDouble(schema.getProperty(ORC_BLOOM_FILTER_FPP));
-                if (fpp > 0.0 && fpp < 1.0) {
-                    throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, format("Invalid value for bloom filter: %f", fpp));
-                }
+                checkArgument(fpp > 0.0 && fpp < 1.0, "False positive probability should be between 0 and 1");
                 return orcWriterOptions
                         .withBloomFilterColumns(ImmutableSet.copyOf(COLUMN_NAMES_SPLITTER.splitToList(schema.getProperty(ORC_BLOOM_FILTER_COLUMNS))))
                         .withBloomFilterFpp(fpp);
