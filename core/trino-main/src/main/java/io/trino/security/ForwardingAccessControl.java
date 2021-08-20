@@ -172,6 +172,12 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
+    public void checkCanTruncateTable(SecurityContext context, QualifiedObjectName tableName)
+    {
+        delegate().checkCanTruncateTable(context, tableName);
+    }
+
+    @Override
     public void checkCanRenameTable(SecurityContext context, QualifiedObjectName tableName, QualifiedObjectName newTableName)
     {
         delegate().checkCanRenameTable(context, tableName, newTableName);

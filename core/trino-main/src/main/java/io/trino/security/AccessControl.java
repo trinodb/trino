@@ -286,6 +286,13 @@ public interface AccessControl
     void checkCanDeleteFromTable(SecurityContext context, QualifiedObjectName tableName);
 
     /**
+     * Check if identity is allowed to truncate the specified table.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanTruncateTable(SecurityContext context, QualifiedObjectName tableName);
+
+    /**
      * Check if identity is allowed to update the specified table.
      *
      * @throws AccessDeniedException if not allowed

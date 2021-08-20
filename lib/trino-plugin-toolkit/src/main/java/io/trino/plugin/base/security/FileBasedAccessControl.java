@@ -83,6 +83,7 @@ import static io.trino.spi.security.AccessDeniedException.denyShowColumns;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateSchema;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateTable;
 import static io.trino.spi.security.AccessDeniedException.denyShowTables;
+import static io.trino.spi.security.AccessDeniedException.denyTruncateTable;
 import static io.trino.spi.security.AccessDeniedException.denyUpdateTableColumns;
 import static java.util.Objects.requireNonNull;
 
@@ -355,6 +356,14 @@ public class FileBasedAccessControl
     {
         if (!checkTablePermission(context, tableName, DELETE)) {
             denyDeleteTable(tableName.toString());
+        }
+    }
+
+    @Override
+    public void checkCanTruncateTable(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+        if (!checkTablePermission(context, tableName, DELETE)) {
+            denyTruncateTable(tableName.toString());
         }
     }
 

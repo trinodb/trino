@@ -106,6 +106,7 @@ import static io.trino.spi.security.AccessDeniedException.denyShowCreateTable;
 import static io.trino.spi.security.AccessDeniedException.denyShowRoleAuthorizationDescriptors;
 import static io.trino.spi.security.AccessDeniedException.denyShowSchemas;
 import static io.trino.spi.security.AccessDeniedException.denyShowTables;
+import static io.trino.spi.security.AccessDeniedException.denyTruncateTable;
 import static io.trino.spi.security.AccessDeniedException.denyUpdateTableColumns;
 import static io.trino.spi.security.AccessDeniedException.denyViewQuery;
 import static io.trino.spi.security.AccessDeniedException.denyWriteSystemInformationAccess;
@@ -522,6 +523,14 @@ public class FileBasedSystemAccessControl
     {
         if (!checkTablePermission(context, table, OWNERSHIP)) {
             denyDropTable(table.toString());
+        }
+    }
+
+    @Override
+    public void checkCanTruncateTable(SystemSecurityContext context, CatalogSchemaTableName table)
+    {
+        if (!checkTablePermission(context, table, DELETE)) {
+            denyTruncateTable(table.toString());
         }
     }
 

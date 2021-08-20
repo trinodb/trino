@@ -255,6 +255,11 @@ public interface Metadata
      */
     void dropTable(Session session, TableHandle tableHandle);
 
+    /**
+     * Truncates the specified table
+     */
+    void truncateTable(Session session, TableHandle tableHandle);
+
     Optional<NewTableLayout> getNewTableLayout(Session session, String catalogName, ConnectorTableMetadata tableMetadata);
 
     /**

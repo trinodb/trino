@@ -81,6 +81,7 @@ import io.trino.execution.StartTransactionTask;
 import io.trino.execution.TableExecuteContextManager;
 import io.trino.execution.TaskManagerConfig;
 import io.trino.execution.TaskSource;
+import io.trino.execution.TruncateTableTask;
 import io.trino.execution.resourcegroups.NoOpResourceGroupManager;
 import io.trino.execution.scheduler.NodeScheduler;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
@@ -192,6 +193,7 @@ import io.trino.sql.tree.SetSession;
 import io.trino.sql.tree.SetTimeZone;
 import io.trino.sql.tree.StartTransaction;
 import io.trino.sql.tree.Statement;
+import io.trino.sql.tree.TruncateTable;
 import io.trino.testing.PageConsumerOperator.PageConsumerOutputFactory;
 import io.trino.transaction.InMemoryTransactionManager;
 import io.trino.transaction.TransactionId;
@@ -461,6 +463,7 @@ public class LocalQueryRunner
                 .put(CreateView.class, new CreateViewTask(sqlParser, groupProvider, statsCalculator))
                 .put(DropTable.class, new DropTableTask())
                 .put(DropView.class, new DropViewTask())
+                .put(TruncateTable.class, new TruncateTableTask())
                 .put(RenameColumn.class, new RenameColumnTask())
                 .put(RenameMaterializedView.class, new RenameMaterializedViewTask())
                 .put(RenameTable.class, new RenameTableTask())

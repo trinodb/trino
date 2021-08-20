@@ -274,6 +274,12 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public void checkCanTruncateTable(SystemSecurityContext context, CatalogSchemaTableName table)
+    {
+        delegate().checkCanTruncateTable(context, table);
+    }
+
+    @Override
     public void checkCanUpdateTableColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> updatedColumnNames)
     {
         delegate().checkCanUpdateTableColumns(context, table, updatedColumnNames);

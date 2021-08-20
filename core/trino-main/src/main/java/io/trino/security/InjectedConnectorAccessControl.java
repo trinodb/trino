@@ -126,6 +126,13 @@ public class InjectedConnectorAccessControl
     }
 
     @Override
+    public void checkCanTruncateTable(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+        checkArgument(context == null, "context must be null");
+        accessControl.checkCanTruncateTable(securityContext, getQualifiedObjectName(tableName));
+    }
+
+    @Override
     public void checkCanRenameTable(ConnectorSecurityContext context, SchemaTableName tableName, SchemaTableName newTableName)
     {
         checkArgument(context == null, "context must be null");

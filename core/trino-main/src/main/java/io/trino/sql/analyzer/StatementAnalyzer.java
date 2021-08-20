@@ -176,6 +176,7 @@ import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.Table;
 import io.trino.sql.tree.TableExecute;
 import io.trino.sql.tree.TableSubquery;
+import io.trino.sql.tree.TruncateTable;
 import io.trino.sql.tree.Union;
 import io.trino.sql.tree.Unnest;
 import io.trino.sql.tree.Update;
@@ -953,6 +954,12 @@ class StatementAnalyzer
             // CallArgument value expressions must be constant
             createConstantAnalyzer(metadata, accessControl, session, analysis.getParameters(), WarningCollector.NOOP, analysis.isDescribe())
                     .analyze(node.getValue(), createScope(scope));
+            return createAndAssignScope(node, scope);
+        }
+
+        @Override
+        protected Scope visitTruncateTable(TruncateTable node, Optional<Scope> scope)
+        {
             return createAndAssignScope(node, scope);
         }
 
