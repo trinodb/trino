@@ -364,4 +364,10 @@ public final class StatisticsAwareJdbcClient
     {
         return stats.getDelete().wrap(() -> delegate().delete(session, handle));
     }
+
+    @Override
+    public void truncateTable(ConnectorSession session, JdbcTableHandle handle)
+    {
+        stats.getTruncateTable().wrap(() -> delegate().truncateTable(session, handle));
+    }
 }

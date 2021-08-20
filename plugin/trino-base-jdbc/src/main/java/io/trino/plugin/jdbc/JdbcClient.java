@@ -179,4 +179,6 @@ public interface JdbcClient
     }
 
     OptionalLong delete(ConnectorSession session, JdbcTableHandle handle);
+
+    void truncateTable(ConnectorSession session, JdbcTableHandle handle);
 }

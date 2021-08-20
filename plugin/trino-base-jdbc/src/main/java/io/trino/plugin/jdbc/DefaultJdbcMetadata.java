@@ -716,6 +716,12 @@ public class DefaultJdbcMetadata
     }
 
     @Override
+    public void truncateTable(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        jdbcClient.truncateTable(session, (JdbcTableHandle) tableHandle);
+    }
+
+    @Override
     public void setColumnComment(ConnectorSession session, ConnectorTableHandle table, ColumnHandle column, Optional<String> comment)
     {
         JdbcTableHandle tableHandle = (JdbcTableHandle) table;
