@@ -57,6 +57,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_TABLE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ROW_LEVEL_DELETE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TOPN_PUSHDOWN;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TRUNCATE;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
@@ -1222,6 +1223,22 @@ public abstract class BaseConnectorTest
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_row_delete", "AS SELECT * FROM region")) {
             assertUpdate("DELETE FROM " + table.getName() + " WHERE regionkey = 2", 1);
             assertQuery("SELECT count(*) FROM " + table.getName(), "VALUES 4");
+        }
+    }
+
+    @Test
+    public void testTruncateTable()
+    {
+        if (!hasBehavior(SUPPORTS_TRUNCATE)) {
+            assertQueryFails("TRUNCATE TABLE nation", "This connector does not support truncating tables");
+            return;
+        }
+
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_truncate", "AS SELECT * FROM region")) {
+            assertUpdate("TRUNCATE TABLE " + table.getName());
+            assertQuery("SELECT count(*) FROM " + table.getName(), "VALUES 0");
         }
     }
 

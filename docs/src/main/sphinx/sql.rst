@@ -68,6 +68,7 @@ Trino also provides :doc:`numerous SQL functions and operators<functions>`.
     sql/show-stats
     sql/show-tables
     sql/start-transaction
+    sql/truncate
     sql/update
     sql/use
     sql/values

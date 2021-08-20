@@ -101,6 +101,7 @@ public class TestFileBasedSystemAccessControl
     private static final String TABLE_COMMENT_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot comment table to .*";
     private static final String INSERT_TABLE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot insert into table .*";
     private static final String DELETE_TABLE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot delete from table .*";
+    private static final String TRUNCATE_TABLE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot truncate table .*";
     private static final String DROP_TABLE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot drop table .*";
     private static final String CREATE_TABLE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot show create table for .*";
     private static final String RENAME_TABLE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot rename table .*";
@@ -132,9 +133,11 @@ public class TestFileBasedSystemAccessControl
         accessControl.checkCanShowColumns(UNKNOWN, new CatalogSchemaTableName("some-catalog", "unknown", "unknown"));
         accessControl.checkCanInsertIntoTable(UNKNOWN, new CatalogSchemaTableName("some-catalog", "unknown", "unknown"));
         accessControl.checkCanDeleteFromTable(UNKNOWN, new CatalogSchemaTableName("some-catalog", "unknown", "unknown"));
+        accessControl.checkCanTruncateTable(UNKNOWN, new CatalogSchemaTableName("some-catalog", "unknown", "unknown"));
 
         accessControl.checkCanCreateTable(UNKNOWN, new CatalogSchemaTableName("some-catalog", "unknown", "unknown"));
         accessControl.checkCanDropTable(UNKNOWN, new CatalogSchemaTableName("some-catalog", "unknown", "unknown"));
+        accessControl.checkCanTruncateTable(UNKNOWN, new CatalogSchemaTableName("some-catalog", "unknown", "unknown"));
         accessControl.checkCanRenameTable(UNKNOWN,
                 new CatalogSchemaTableName("some-catalog", "unknown", "unknown"),
                 new CatalogSchemaTableName("some-catalog", "unknown", "new_unknown"));
@@ -545,6 +548,15 @@ public class TestFileBasedSystemAccessControl
 
         accessControl.checkCanDeleteFromTable(ADMIN, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"));
         assertAccessDenied(() -> accessControl.checkCanDeleteFromTable(CHARLIE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable")), DELETE_TABLE_ACCESS_DENIED_MESSAGE);
+    }
+
+    @Test
+    public void testTableRulesForCheckCanTruncateTable()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table.json");
+
+        accessControl.checkCanTruncateTable(ADMIN, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"));
+        assertAccessDenied(() -> accessControl.checkCanTruncateTable(CHARLIE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable")), TRUNCATE_TABLE_ACCESS_DENIED_MESSAGE);
     }
 
     @Test

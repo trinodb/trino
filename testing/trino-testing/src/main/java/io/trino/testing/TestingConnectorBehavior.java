@@ -71,6 +71,8 @@ public enum TestingConnectorBehavior
     SUPPORTS_DELETE(false),
     SUPPORTS_ROW_LEVEL_DELETE(SUPPORTS_DELETE),
 
+    SUPPORTS_TRUNCATE(false),
+
     SUPPORTS_ARRAY,
 
     SUPPORTS_CANCELLATION(false),

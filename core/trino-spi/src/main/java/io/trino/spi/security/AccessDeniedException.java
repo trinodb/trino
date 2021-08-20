@@ -318,6 +318,16 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot delete from table %s%s", tableName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denyTruncateTable(String tableName)
+    {
+        denyTruncateTable(tableName, null);
+    }
+
+    public static void denyTruncateTable(String tableName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot truncate table %s%s", tableName, formatExtraInfo(extraInfo)));
+    }
+
     public static void denyUpdateTableColumns(String tableName, Set<String> updatedColumnNames)
     {
         denyUpdateTableColumns(tableName, updatedColumnNames, null);
