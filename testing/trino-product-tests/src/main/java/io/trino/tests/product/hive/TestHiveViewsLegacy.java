@@ -123,6 +123,20 @@ public class TestHiveViewsLegacy
     }
 
     @Override
+    public void testMapConstructionInView()
+    {
+        assertThatThrownBy(super::testMapConstructionInView)
+                .hasMessageContaining("Unexpected parameters (varchar(15), varchar(15)) for function map");
+    }
+
+    @Override
+    public void testPmodFunction()
+    {
+        assertThatThrownBy(super::testPmodFunction)
+                .hasMessageContaining("Function 'pmod' not registered");
+    }
+
+    @Override
     public void testNestedHiveViews()
     {
         assertThatThrownBy(super::testNestedHiveViews)
