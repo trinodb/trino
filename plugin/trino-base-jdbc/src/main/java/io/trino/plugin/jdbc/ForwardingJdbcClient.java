@@ -312,6 +312,12 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
+    public void renameSchema(ConnectorSession session, String schemaName, String newSchemaName)
+    {
+        delegate().renameSchema(session, schemaName, newSchemaName);
+    }
+
+    @Override
     public Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName)
     {
         return delegate().getSystemTable(session, tableName);

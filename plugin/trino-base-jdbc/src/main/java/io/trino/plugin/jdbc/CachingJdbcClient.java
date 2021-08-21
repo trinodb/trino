@@ -366,6 +366,13 @@ public class CachingJdbcClient
     }
 
     @Override
+    public void renameSchema(ConnectorSession session, String schemaName, String newSchemaName)
+    {
+        delegate.renameSchema(session, schemaName, newSchemaName);
+        invalidateSchemasCache();
+    }
+
+    @Override
     public void setColumnComment(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Optional<String> comment)
     {
         delegate.setColumnComment(session, handle, column, comment);
