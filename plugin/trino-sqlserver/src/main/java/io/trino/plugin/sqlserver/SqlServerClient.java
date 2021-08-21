@@ -242,6 +242,12 @@ public class SqlServerClient
     }
 
     @Override
+    public void renameSchema(ConnectorSession session, String schemaName, String newSchemaName)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming schemas");
+    }
+
+    @Override
     protected void copyTableSchema(Connection connection, String catalogName, String schemaName, String tableName, String newTableName, List<String> columnNames)
     {
         String sql = format(

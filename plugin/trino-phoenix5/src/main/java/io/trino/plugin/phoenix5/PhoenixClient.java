@@ -614,6 +614,12 @@ public class PhoenixClient
     }
 
     @Override
+    public void renameSchema(ConnectorSession session, String schemaName, String newSchemaName)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming schemas");
+    }
+
+    @Override
     public Map<String, Object> getTableProperties(ConnectorSession session, JdbcTableHandle handle)
     {
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
