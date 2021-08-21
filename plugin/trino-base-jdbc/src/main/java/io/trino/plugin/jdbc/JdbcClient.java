@@ -163,6 +163,8 @@ public interface JdbcClient
 
     void dropSchema(ConnectorSession session, String schemaName);
 
+    void renameSchema(ConnectorSession session, String schemaName, String newSchemaName);
+
     default Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName)
     {
         return Optional.empty();

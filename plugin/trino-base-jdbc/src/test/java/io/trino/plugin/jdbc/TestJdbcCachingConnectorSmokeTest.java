@@ -131,7 +131,6 @@ public class TestJdbcCachingConnectorSmokeTest
     {
         switch (connectorBehavior) {
             case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
-            case SUPPORTS_RENAME_SCHEMA:
                 return false;
 
             default:
