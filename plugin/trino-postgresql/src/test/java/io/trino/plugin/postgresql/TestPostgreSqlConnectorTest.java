@@ -116,9 +116,6 @@ public class TestPostgreSqlConnectorTest
             case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
                 return false;
 
-            case SUPPORTS_RENAME_SCHEMA:
-                return false;
-
             case SUPPORTS_CANCELLATION:
                 return true;
 

@@ -777,4 +777,10 @@ public class DefaultJdbcMetadata
     {
         jdbcClient.dropSchema(session, schemaName);
     }
+
+    @Override
+    public void renameSchema(ConnectorSession session, String schemaName, String newSchemaName)
+    {
+        jdbcClient.renameSchema(session, schemaName, newSchemaName);
+    }
 }

@@ -828,6 +828,25 @@ public abstract class BaseJdbcClient
         return "DROP SCHEMA " + quoted(schemaName);
     }
 
+    @Override
+    public void renameSchema(ConnectorSession session, String schemaName, String newSchemaName)
+    {
+        ConnectorIdentity identity = session.getIdentity();
+        try (Connection connection = connectionFactory.openConnection(session)) {
+            String remoteSchemaName = identifierMapping.toRemoteSchemaName(identity, connection, schemaName);
+            String newRemoteSchemaName = identifierMapping.toRemoteSchemaName(identity, connection, newSchemaName);
+            execute(connection, renameSchemaSql(remoteSchemaName, newRemoteSchemaName));
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
+    }
+
+    protected String renameSchemaSql(String remoteSchemaName, String newRemoteSchemaName)
+    {
+        return "ALTER SCHEMA " + quoted(remoteSchemaName) + " RENAME TO " + quoted(newRemoteSchemaName);
+    }
+
     protected void execute(ConnectorSession session, String query)
     {
         try (Connection connection = connectionFactory.openConnection(session)) {

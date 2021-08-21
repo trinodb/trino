@@ -331,6 +331,12 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
+    public void renameSchema(ConnectorSession session, String schemaName, String newSchemaName)
+    {
+        stats.getRenameSchema().wrap(() -> delegate().renameSchema(session, schemaName, newSchemaName));
+    }
+
+    @Override
     public Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName)
     {
         return delegate().getSystemTable(session, tableName);
