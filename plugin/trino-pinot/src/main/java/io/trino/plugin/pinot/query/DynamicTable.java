@@ -147,6 +147,7 @@ public final class DynamicTable
         DynamicTable that = (DynamicTable) other;
         return tableName.equals(that.tableName) &&
                 selections.equals(that.selections) &&
+                filter.equals(that.filter) &&
                 groupingColumns.equals(that.groupingColumns) &&
                 aggregateColumns.equals(that.aggregateColumns) &&
                 orderBy.equals(that.orderBy) &&
@@ -158,7 +159,7 @@ public final class DynamicTable
     @Override
     public int hashCode()
     {
-        return Objects.hash(tableName, selections, groupingColumns, aggregateColumns, orderBy, limit, offset, query);
+        return Objects.hash(tableName, selections, filter, groupingColumns, aggregateColumns, orderBy, limit, offset, query);
     }
 
     @Override
@@ -167,6 +168,7 @@ public final class DynamicTable
         return toStringHelper(this)
                 .add("tableName", tableName)
                 .add("selections", selections)
+                .add("filter", filter)
                 .add("groupingColumns", groupingColumns)
                 .add("aggregateColumns", aggregateColumns)
                 .add("orderBy", orderBy)
