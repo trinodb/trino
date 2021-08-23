@@ -444,8 +444,8 @@ public class TestIcebergSparkCompatibility
         String dataPath = "hdfs://hadoop-master:9000/user/hive/warehouse/test_object_storage_location_provider/obj-data";
 
         onSpark().executeQuery(format("CREATE TABLE %s (_string STRING, _bigint BIGINT) USING ICEBERG TBLPROPERTIES (" +
-                "'write.object-storage.enabled'=true," +
-                "'write.object-storage.path'='%s')",
+                        "'write.object-storage.enabled'=true," +
+                        "'write.object-storage.path'='%s')",
                 sparkTableName, dataPath));
         onTrino().executeQuery(format("INSERT INTO %s VALUES ('a_string', 1000000000000000)", trinoTableName));
 
