@@ -41,7 +41,9 @@ public final class UuidOperators
     public static Slice uuid()
     {
         java.util.UUID uuid = randomUUID();
-        return wrappedLongArray(uuid.getMostSignificantBits(), uuid.getLeastSignificantBits());
+        return wrappedLongArray(
+                reverseBytes(uuid.getMostSignificantBits()),
+                reverseBytes(uuid.getLeastSignificantBits()));
     }
 
     @LiteralParameters("x")
