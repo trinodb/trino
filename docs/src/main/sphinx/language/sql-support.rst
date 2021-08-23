@@ -14,7 +14,7 @@ write operations, then a :doc:`/sql/delete` statement cannot be executed against
 the data source.
 
 Similarly, if the underlying system does not have any security concepts, SQL
-statements like :doc:`/sql/create-role` can not be supported by Trino and the
+statements like :doc:`/sql/create-role` cannot be supported by Trino and the
 connector.
 
 The categories of these different topics are related to :ref:`read operations
@@ -76,7 +76,7 @@ connector accessing a data source. They are supported by all connectors:
 Write operations
 ----------------
 
-The following statements provide write access to data and meta data exposed by
+The following statements provide write access to data and meta data exposed
 by a connector accessing a data source. Availability varies widely from
 connector to connector:
 
@@ -150,7 +150,7 @@ Transactions
 ------------
 
 The following statements manage transactions. Most connectors do not support
-transactions. Most connectors do not support transactions:
+transactions:
 
 * :doc:`/sql/start-transaction`
 * :doc:`/sql/commit`
