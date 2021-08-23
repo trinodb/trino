@@ -114,3 +114,11 @@ Pinot                        Trino
 ``STRING_ARRAY``             ``VARCHAR``
 ==========================   ============
 
+.. _pinot-sql-support:
+
+SQL support
+-----------
+
+The connector provides :ref:`globally available <sql-globally-available>` and
+:ref:`read operation <sql-read-operations>` statements to access data and
+metadata in Pinot.
