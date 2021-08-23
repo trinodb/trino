@@ -258,3 +258,26 @@ Limitations
   query with a partition key as a filter.
 * ``IN`` list filters are only allowed on index (that is, partition key or clustering key) columns.
 * Range (``<`` or ``>`` and ``BETWEEN``) filters can be applied only to the partition keys.
+
+.. _cassandra-sql-support:
+
+SQL support
+-----------
+
+The connector provides read and write access to data and metadata in
+the Cassandra database. In addition to the :ref:`globally available
+<sql-globally-available>` and :ref:`read operation <sql-read-operations>`
+statements, the connector supports the following features:
+
+* :doc:`/sql/insert`
+* :doc:`/sql/delete` see :ref:`sql-delete-limitation`
+* :doc:`/sql/create-table`
+* :doc:`/sql/create-table-as`
+* :doc:`/sql/drop-table`
+
+.. _sql-delete-limitation:
+
+SQL delete limitation
+^^^^^^^^^^^^^^^^^^^^^
+
+``DELETE`` is only supported if the ``WHERE`` clause matches entire partitions.
