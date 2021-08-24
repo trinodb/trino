@@ -255,6 +255,7 @@ import static io.trino.plugin.hive.util.Statistics.fromComputedStatistics;
 import static io.trino.plugin.hive.util.Statistics.reduce;
 import static io.trino.plugin.hive.util.SystemTables.getSourceTableNameFromSystemTable;
 import static io.trino.spi.StandardErrorCode.INVALID_ANALYZE_PROPERTY;
+import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_NAME;
 import static io.trino.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -2834,8 +2835,19 @@ public class HiveMetadata
 
     private static void validateColumns(ConnectorTableMetadata tableMetadata)
     {
-        // Validate types are supported
+        // Validate the name and the type of each column
         for (ColumnMetadata column : tableMetadata.getColumns()) {
+            String columnName = column.getName();
+            if (columnName.startsWith(" ")) {
+                throw new TrinoException(INVALID_COLUMN_NAME, format("Column name '%s' is invalid because it contains a leading space", columnName));
+            }
+            if (columnName.endsWith(" ")) {
+                throw new TrinoException(INVALID_COLUMN_NAME, format("Column name '%s' is invalid because it contains a trailing space", columnName));
+            }
+            if (columnName.contains(",")) {
+                throw new TrinoException(INVALID_COLUMN_NAME, format("Column name '%s' is invalid because it contains a comma", columnName));
+            }
+            // validate type is supported
             toHiveType(column.getType());
         }
 
