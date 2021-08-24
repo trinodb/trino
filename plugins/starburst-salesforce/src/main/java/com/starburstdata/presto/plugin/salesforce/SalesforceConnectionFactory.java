@@ -56,7 +56,7 @@ public class SalesforceConnectionFactory
     // the URL from being logged or thrown in an error message
     private final Driver driver;
     private final String connectionUrl;
-    private final CredentialPropertiesProvider credentialPropertiesProvider;
+    private final CredentialPropertiesProvider<String, String> credentialPropertiesProvider;
 
     public SalesforceConnectionFactory(SalesforceConfig salesforceConfig, CredentialProvider credentialProvider)
     {
