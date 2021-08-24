@@ -25,15 +25,20 @@ import java.sql.Timestamp;
 import java.util.List;
 import java.util.stream.Stream;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.tempto.assertions.QueryAssert.Row;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.TestGroups.ICEBERG;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.trino.tests.product.iceberg.TestIcebergSparkCompatibility.CreateMode.CREATE_TABLE_AND_INSERT;
+import static io.trino.tests.product.iceberg.TestIcebergSparkCompatibility.CreateMode.CREATE_TABLE_AS_SELECT;
+import static io.trino.tests.product.iceberg.TestIcebergSparkCompatibility.CreateMode.CREATE_TABLE_WITH_NO_DATA_AND_INSERT;
 import static io.trino.tests.product.utils.QueryExecutors.onSpark;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
+import static java.util.Arrays.asList;
 import static org.testng.Assert.assertTrue;
 
 public class TestIcebergSparkCompatibility
@@ -150,45 +155,61 @@ public class TestIcebergSparkCompatibility
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
 
-    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
-    public void testSparkReadingTrinoData(StorageFormat storageFormat)
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "testSparkReadingTrinoDataDataProvider")
+    public void testSparkReadingTrinoData(StorageFormat storageFormat, CreateMode createMode)
     {
-        String baseTableName = "test_spark_reading_primitive_types_" + storageFormat;
+        String baseTableName = "test_spark_reading_primitive_types_" + storageFormat + "_" + createMode;
         String trinoTableName = trinoTableName(baseTableName);
         String sparkTableName = sparkTableName(baseTableName);
 
-        onTrino().executeQuery(format(
-                "CREATE TABLE %s (" +
-                        "  _string VARCHAR" +
-                        ", _bigint BIGINT" +
-                        ", _integer INTEGER" +
-                        ", _real REAL" +
-                        ", _double DOUBLE" +
-                        ", _short_decimal decimal(8,2)" +
-                        ", _long_decimal decimal(38,19)" +
-                        ", _boolean BOOLEAN" +
-                        //", _timestamp TIMESTAMP" -- per https://iceberg.apache.org/spark-writes/ Iceberg's timestamp is currently not supported with Spark
-                        ", _timestamptz timestamp(6) with time zone" +
-                        ", _date DATE" +
-                        ") WITH (format = '%s')",
-                trinoTableName,
-                storageFormat));
+        String namedValues = "SELECT " +
+                "  VARCHAR 'a_string' _string " +
+                ", 1000000000000000 _bigint " +
+                ", 1000000000 _integer " +
+                ", REAL '10000000.123' _real " +
+                ", DOUBLE '100000000000.123' _double " +
+                ", DECIMAL '123456.78' _short_decimal " +
+                ", DECIMAL '1234567890123456789.0123456789012345678' _long_decimal " +
+                ", true _boolean " +
+                //", TIMESTAMP '2020-06-28 14:16:00.456' _timestamp " +
+                ", TIMESTAMP '2021-08-03 08:32:21.123456 Europe/Warsaw' _timestamptz " +
+                ", DATE '1950-06-28' _date " +
+                "";
 
-        onTrino().executeQuery(format(
-                "INSERT INTO %s VALUES (" +
-                        "'a_string'" +
-                        ", 1000000000000000" +
-                        ", 1000000000" +
-                        ", 10000000.123" +
-                        ", 100000000000.123" +
-                        ", DECIMAL '123456.78'" +
-                        ", DECIMAL '1234567890123456789.0123456789012345678'" +
-                        ", true" +
-                        //", TIMESTAMP '2020-06-28 14:16:00.456'" +
-                        ", TIMESTAMP '2021-08-03 08:32:21.123456 Europe/Warsaw'" +
-                        ", DATE '1950-06-28'" +
-                        ")",
-                trinoTableName));
+        switch (createMode) {
+            case CREATE_TABLE_AND_INSERT:
+                onTrino().executeQuery(format(
+                        "CREATE TABLE %s (" +
+                                "  _string VARCHAR" +
+                                ", _bigint BIGINT" +
+                                ", _integer INTEGER" +
+                                ", _real REAL" +
+                                ", _double DOUBLE" +
+                                ", _short_decimal decimal(8,2)" +
+                                ", _long_decimal decimal(38,19)" +
+                                ", _boolean BOOLEAN" +
+                                //", _timestamp TIMESTAMP" -- per https://iceberg.apache.org/spark-writes/ Iceberg's timestamp is currently not supported with Spark
+                                ", _timestamptz timestamp(6) with time zone" +
+                                ", _date DATE" +
+                                ") WITH (format = '%s')",
+                        trinoTableName,
+                        storageFormat));
+
+                onTrino().executeQuery(format("INSERT INTO %s %s", trinoTableName, namedValues));
+                break;
+
+            case CREATE_TABLE_AS_SELECT:
+                onTrino().executeQuery(format("CREATE TABLE %s AS %s", trinoTableName, namedValues));
+                break;
+
+            case CREATE_TABLE_WITH_NO_DATA_AND_INSERT:
+                onTrino().executeQuery(format("CREATE TABLE %s AS %s WITH NO DATA", trinoTableName, namedValues));
+                onTrino().executeQuery(format("INSERT INTO %s %s", trinoTableName, namedValues));
+                break;
+
+            default:
+                throw new UnsupportedOperationException("Unsupported create mode: " + createMode);
+        }
 
         Row row = row(
                 "a_string",
@@ -235,6 +256,18 @@ public class TestIcebergSparkCompatibility
                 .containsOnly(row);
 
         onTrino().executeQuery("DROP TABLE " + trinoTableName);
+    }
+
+    @DataProvider
+    public Object[][] testSparkReadingTrinoDataDataProvider()
+    {
+        return Stream.of(storageFormats())
+                .map(array -> getOnlyElement(asList(array)))
+                .flatMap(storageFormat -> Stream.of(
+                        new Object[] {storageFormat, CREATE_TABLE_AND_INSERT},
+                        new Object[] {storageFormat, CREATE_TABLE_AS_SELECT},
+                        new Object[] {storageFormat, CREATE_TABLE_WITH_NO_DATA_AND_INSERT}))
+                .toArray(Object[][]::new);
     }
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
@@ -614,5 +647,12 @@ public class TestIcebergSparkCompatibility
             //  - remove testTrinoWithUnsupportedFileFormat once all formats are supported
             return this != AVRO;
         }
+    }
+
+    public enum CreateMode
+    {
+        CREATE_TABLE_AND_INSERT,
+        CREATE_TABLE_AS_SELECT,
+        CREATE_TABLE_WITH_NO_DATA_AND_INSERT,
     }
 }
