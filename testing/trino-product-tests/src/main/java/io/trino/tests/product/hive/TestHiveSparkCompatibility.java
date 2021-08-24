@@ -28,7 +28,7 @@ import static io.trino.tests.product.utils.QueryExecutors.onSpark;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 
-public class TestSparkCompatibility
+public class TestHiveSparkCompatibility
         extends ProductTest
 {
     // see spark-defaults.conf
