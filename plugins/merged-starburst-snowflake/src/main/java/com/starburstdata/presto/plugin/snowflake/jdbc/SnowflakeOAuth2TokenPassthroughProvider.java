@@ -20,7 +20,7 @@ import static com.starburstdata.presto.plugin.toolkit.OAuth2TokenPassThrough.OAU
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 
 public class SnowflakeOAuth2TokenPassthroughProvider
-        implements CredentialPropertiesProvider
+        implements CredentialPropertiesProvider<String, String>
 {
     @Override
     public Map<String, String> getCredentialProperties(ConnectorIdentity identity)

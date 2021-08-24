@@ -32,7 +32,7 @@ public class WarehouseAwarePoolingConnectionFactory
             Properties connectionProperties,
             BaseJdbcConfig config,
             JdbcConnectionPoolConfig poolConfig,
-            CredentialPropertiesProvider credentialPropertiesProvider)
+            CredentialPropertiesProvider<String, String> credentialPropertiesProvider)
     {
         super(catalogName, driverClass, connectionProperties, config, poolConfig, credentialPropertiesProvider);
     }

@@ -20,7 +20,7 @@ import java.util.Map;
 import static java.util.Objects.requireNonNull;
 
 public class SnowflakeOauthPropertiesProvider
-        implements CredentialPropertiesProvider
+        implements CredentialPropertiesProvider<String, String>
 {
     private final SnowflakeOauthService snowflakeOauthService;
 
