@@ -19,7 +19,7 @@ import java.util.Map;
 import java.util.Optional;
 
 public class StargateImpersonatingCredentialPropertiesProvider
-        implements CredentialPropertiesProvider
+        implements CredentialPropertiesProvider<String, String>
 {
     private final CredentialProvider credentialProvider;
     private final AuthToLocal authToLocal;

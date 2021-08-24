@@ -178,7 +178,7 @@ public class StargateAuthenticationModule
                 StargateConfig connectorConfig,
                 StargateSslConfig sslConfig,
                 StargateKerberosConfig kerberosConfig,
-                CredentialPropertiesProvider credentialPropertiesProvider)
+                CredentialPropertiesProvider<String, String> credentialPropertiesProvider)
         {
             checkState(connectorConfig.isSslEnabled(), "SSL must be enabled when using Kerberos authentication");
 
