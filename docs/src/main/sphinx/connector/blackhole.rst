@@ -97,3 +97,24 @@ delay before consuming or producing a new page::
       page_processing_delay = '5s'
     );
 
+.. _blackhole-sql-support:
+
+SQL support
+-----------
+
+The connector provides :ref:`globally available <sql-globally-available>`,
+:ref:`read operation <sql-read-operations>`, and supports the following
+additional features:
+
+* :doc:`/sql/insert`
+* :doc:`/sql/create-table`
+* :doc:`/sql/create-table-as`
+* :doc:`/sql/drop-table`
+* :doc:`/sql/create-schema`
+* :doc:`/sql/drop-schema`
+
+.. note::
+
+  The connector discards all written data. While read operations are supported,
+  they will return rows with all NULL values, with the number of rows controlled
+  via table properties.
