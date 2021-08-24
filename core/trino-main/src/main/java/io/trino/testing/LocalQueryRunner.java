@@ -23,6 +23,7 @@ import io.trino.GroupByHashPageIndexerFactory;
 import io.trino.PagesIndexPageSorter;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
+import io.trino.SystemSessionPropertiesProvider;
 import io.trino.connector.CatalogName;
 import io.trino.connector.ConnectorManager;
 import io.trino.connector.system.AnalyzePropertiesSystemTable;
@@ -196,6 +197,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -287,6 +289,7 @@ public class LocalQueryRunner
         return new Builder(defaultSession);
     }
 
+    // TODO clean-up constructor signature and construction of many objects https://github.com/trinodb/trino/issues/8996
     private LocalQueryRunner(
             Session defaultSession,
             FeaturesConfig featuresConfig,
@@ -296,7 +299,8 @@ public class LocalQueryRunner
             int nodeCountForStats,
             Map<String, List<PropertyMetadata<?>>> defaultSessionProperties,
             PlanOptimizersProvider planOptimizersProvider,
-            OperatorFactories operatorFactories)
+            OperatorFactories operatorFactories,
+            Set<SystemSessionPropertiesProvider> extraSessionProperties)
     {
         requireNonNull(defaultSession, "defaultSession is null");
         requireNonNull(defaultSessionProperties, "defaultSessionProperties is null");
@@ -332,7 +336,7 @@ public class LocalQueryRunner
 
         this.metadata = new MetadataManager(
                 featuresConfig,
-                new SessionPropertyManager(new SystemSessionProperties(new QueryManagerConfig(), taskManagerConfig, new MemoryManagerConfig(), featuresConfig, new NodeMemoryConfig(), new DynamicFilterConfig(), new NodeSchedulerConfig())),
+                createSessionPropertyManager(extraSessionProperties, taskManagerConfig, featuresConfig),
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
                 new MaterializedViewPropertyManager(),
@@ -460,6 +464,26 @@ public class LocalQueryRunner
         this.singleStreamSpillerFactory = new FileSingleStreamSpillerFactory(metadata, spillerStats, featuresConfig, nodeSpillConfig);
         this.partitioningSpillerFactory = new GenericPartitioningSpillerFactory(this.singleStreamSpillerFactory);
         this.spillerFactory = new GenericSpillerFactory(singleStreamSpillerFactory);
+    }
+
+    private static SessionPropertyManager createSessionPropertyManager(
+            Set<SystemSessionPropertiesProvider> extraSessionProperties,
+            TaskManagerConfig taskManagerConfig,
+            FeaturesConfig featuresConfig)
+    {
+        Set<SystemSessionPropertiesProvider> systemSessionProperties = ImmutableSet.<SystemSessionPropertiesProvider>builder()
+                .addAll(requireNonNull(extraSessionProperties, "extraSessionProperties is null"))
+                .add(new SystemSessionProperties(
+                        new QueryManagerConfig(),
+                        taskManagerConfig,
+                        new MemoryManagerConfig(),
+                        featuresConfig,
+                        new NodeMemoryConfig(),
+                        new DynamicFilterConfig(),
+                        new NodeSchedulerConfig()))
+                .build();
+
+        return new SessionPropertyManager(systemSessionProperties);
     }
 
     private static StatsCalculator createNewStatsCalculator(Metadata metadata, TypeAnalyzer typeAnalyzer)
@@ -982,6 +1006,7 @@ public class LocalQueryRunner
         private boolean initialTransaction;
         private boolean alwaysRevokeMemory;
         private Map<String, List<PropertyMetadata<?>>> defaultSessionProperties = ImmutableMap.of();
+        private Set<SystemSessionPropertiesProvider> extraSessionProperties = ImmutableSet.of();
         private int nodeCountForStats;
         private PlanOptimizersProvider planOptimizersProvider = (
                 forceSingleNode,
@@ -1068,6 +1093,17 @@ public class LocalQueryRunner
             return this;
         }
 
+        /**
+         * This method is required to pass in system session properties and their
+         * metadata for Trino extension modules (separate from the default system
+         * session properties, provided to the query runner at {@link LocalQueryRunner#createSessionPropertyManager}.
+         */
+        public Builder withExtraSystemSessionProperties(Set<SystemSessionPropertiesProvider> extraSessionProperties)
+        {
+            this.extraSessionProperties = ImmutableSet.copyOf(requireNonNull(extraSessionProperties, "extraSessionProperties is null"));
+            return this;
+        }
+
         public LocalQueryRunner build()
         {
             return new LocalQueryRunner(
@@ -1079,7 +1115,8 @@ public class LocalQueryRunner
                     nodeCountForStats,
                     defaultSessionProperties,
                     planOptimizersProvider,
-                    operatorFactories);
+                    operatorFactories,
+                    extraSessionProperties);
         }
     }
 }
