@@ -88,7 +88,7 @@ public class FissionFunctionFunctions
     {
         try (CloseableHttpClient httpClient = HttpClientBuilder.create().setDefaultCookieStore(cookieStore).build()) {
             HttpGet getRequest = new HttpGet(endpoint);
-            if (azureToken == null || !azureToken.isEmpty()) {
+            if (azureToken != null || !azureToken.isEmpty()) {
                 getRequest.setHeader("Authorization", "Bearer " + azureToken);
             }
             HttpResponse response = httpClient.execute(getRequest);
