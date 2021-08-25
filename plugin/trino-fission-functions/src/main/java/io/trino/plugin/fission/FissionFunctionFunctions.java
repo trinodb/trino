@@ -14,6 +14,7 @@
 package io.trino.plugin.fission;
 
 import io.airlift.slice.Slice;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
@@ -28,6 +29,8 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.IOException;
+
+import static io.airlift.slice.Slices.utf8Slice;
 
 public class FissionFunctionFunctions
 {
@@ -75,19 +78,18 @@ public class FissionFunctionFunctions
     public static Slice FetchListDataLake(ConnectorSession session, @SqlType(StandardTypes.VARCHAR) Slice filesystem, @SqlType(StandardTypes.VARCHAR) Slice filepath) throws JSONException, IOException
     {
         JSONObject jsonObject = executeFissionFunctionGET(String.format("%s/listdatalake?filesystem=%s&filepath=%s", FissionFunctionConfigProvider.getFissionFunctionBaseURL(), filesystem.toStringUtf8(), filepath.toStringUtf8()), session.getIdentity().getExtraCredentials().get("access-token"));
-        
         return utf8Slice(jsonObject.getJSONArray("result").toString());
     }
 
-    private static JSONObject executeFissionFunctionGet(String endpoint) throws JSONException, IOException
+    private static JSONObject executeFissionFunctionGet(String endPoint) throws JSONException, IOException
     {
-        executeFissionFunctionGET(endpoint, "");
+        return executeFissionFunctionGET(endPoint, "");
     }
 
     private static JSONObject executeFissionFunctionGET(String endPoint, String azureToken) throws JSONException, IOException
     {
         try (CloseableHttpClient httpClient = HttpClientBuilder.create().setDefaultCookieStore(cookieStore).build()) {
-            HttpGet getRequest = new HttpGet(endpoint);
+            HttpGet getRequest = new HttpGet(endPoint);
             if (azureToken != null || !azureToken.isEmpty()) {
                 getRequest.setHeader("Authorization", "Bearer " + azureToken);
             }
