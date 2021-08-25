@@ -22,6 +22,7 @@ import io.trino.spi.connector.ConnectorHandleResolver;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.trino.plugin.iceberg.InternalIcebergConnectorFactory.createConnector;
 import static java.util.Objects.requireNonNull;
 
@@ -52,6 +53,6 @@ public class TestingIcebergConnectorFactory
     @Override
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
-        return createConnector(catalogName, config, context, metastore, fileIoProvider);
+        return createConnector(catalogName, config, context, EMPTY_MODULE, metastore, fileIoProvider);
     }
 }

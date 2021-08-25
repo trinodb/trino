@@ -64,6 +64,7 @@ public final class InternalIcebergConnectorFactory
             String catalogName,
             Map<String, String> config,
             ConnectorContext context,
+            Module module,
             Optional<HiveMetastore> metastore,
             Optional<FileIoProvider> fileIoProvider)
     {
@@ -91,7 +92,8 @@ public final class InternalIcebergConnectorFactory
                         binder.bind(TypeManager.class).toInstance(context.getTypeManager());
                         binder.bind(PageIndexerFactory.class).toInstance(context.getPageIndexerFactory());
                         binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
-                    });
+                    },
+                    module);
 
             Injector injector = app
                     .doNotInitializeLogging()
