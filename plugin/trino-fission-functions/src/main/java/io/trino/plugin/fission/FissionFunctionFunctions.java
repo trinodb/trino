@@ -69,10 +69,33 @@ public class FissionFunctionFunctions
         return count;
     }
 
+    @ScalarFunction("fission_listdatalake")
+    @Description("Explore datalake, Requires AzureToken")
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice FetchListDataLake(ConnectorSession session, @SqlType(StandardTypes.VARCHAR) Slice filesystem, @SqlType(StandardTypes.VARCHAR) Slice filepath) throws JSONException, IOException
+    {
+        JSONObject jsonObject = executeFissionFunctionGET(String.format("%s/listdatalake?filesystem=%s&filepath=%s", FissionFunctionConfigProvider.getFissionFunctionBaseURL(), filesystem.toStringUtf8(), filepath.toStringUtf8()), session.getIdentity().getExtraCredentials().get("access-token"));
+        
+        return utf8Slice(jsonObject.getJSONArray("result").toString());
+    }
+
     private static JSONObject executeFissionFunctionGet(String endpoint) throws JSONException, IOException
     {
         try (CloseableHttpClient httpClient = HttpClientBuilder.create().setDefaultCookieStore(cookieStore).build()) {
             HttpGet getRequest = new HttpGet(endpoint);
+            HttpResponse response = httpClient.execute(getRequest);
+            String result = EntityUtils.toString(response.getEntity());
+            return new JSONObject(result);
+        }
+    }
+
+    private static JSONObject xecuteFissionFunctionGET(String endPoint, String azureToken) throws JSONException, IOException
+    {
+        try (CloseableHttpClient httpClient = HttpClientBuilder.create().setDefaultCookieStore(cookieStore).build()) {
+            HttpGet getRequest = new HttpGet(endpoint);
+            if (!azureToken.isEmpty()) {
+                getRequest.setHeader("Authorization", "Bearer " + azureToken);
+            }
             HttpResponse response = httpClient.execute(getRequest);
             String result = EntityUtils.toString(response.getEntity());
             return new JSONObject(result);
