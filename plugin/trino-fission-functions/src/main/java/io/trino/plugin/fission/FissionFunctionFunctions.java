@@ -81,19 +81,14 @@ public class FissionFunctionFunctions
 
     private static JSONObject executeFissionFunctionGet(String endpoint) throws JSONException, IOException
     {
-        try (CloseableHttpClient httpClient = HttpClientBuilder.create().setDefaultCookieStore(cookieStore).build()) {
-            HttpGet getRequest = new HttpGet(endpoint);
-            HttpResponse response = httpClient.execute(getRequest);
-            String result = EntityUtils.toString(response.getEntity());
-            return new JSONObject(result);
-        }
+        executeFissionFunctionGET(endpoint, "");
     }
 
     private static JSONObject executeFissionFunctionGET(String endPoint, String azureToken) throws JSONException, IOException
     {
         try (CloseableHttpClient httpClient = HttpClientBuilder.create().setDefaultCookieStore(cookieStore).build()) {
             HttpGet getRequest = new HttpGet(endpoint);
-            if (!azureToken.isEmpty()) {
+            if (azureToken == null || !azureToken.isEmpty()) {
                 getRequest.setHeader("Authorization", "Bearer " + azureToken);
             }
             HttpResponse response = httpClient.execute(getRequest);
