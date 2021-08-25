@@ -30,6 +30,7 @@ import java.nio.file.Paths;
 import java.util.ListResourceBundle;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.trino.tests.product.launcher.cli.Launcher.EnvironmentCommand;
 import static io.trino.tests.product.launcher.cli.Launcher.SuiteCommand;
 import static io.trino.tests.product.launcher.cli.Launcher.TestCommand;
@@ -95,7 +96,7 @@ public class Launcher
 
     protected Extensions getExtensions()
     {
-        return new Extensions(binder -> {});
+        return new Extensions(EMPTY_MODULE);
     }
 
     @Command(
