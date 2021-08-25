@@ -29,7 +29,6 @@ import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitManager;
 import io.trino.plugin.base.classloader.ClassLoaderSafeNodePartitioningProvider;
 import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.plugin.base.jmx.MBeanServerModule;
-import io.trino.plugin.base.security.AllowAllAccessControl;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.hive.HiveHdfsModule;
 import io.trino.plugin.hive.NodeVersion;
@@ -42,6 +41,7 @@ import io.trino.spi.NodeManager;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.Connector;
+import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
@@ -111,6 +111,7 @@ public final class InternalIcebergConnectorFactory
             Set<SessionPropertiesProvider> sessionPropertiesProviders = injector.getInstance(Key.get(new TypeLiteral<Set<SessionPropertiesProvider>>() {}));
             IcebergTableProperties icebergTableProperties = injector.getInstance(IcebergTableProperties.class);
             Set<Procedure> procedures = injector.getInstance(Key.get(new TypeLiteral<Set<Procedure>>() {}));
+            ConnectorAccessControl accessControl = injector.getInstance(ConnectorAccessControl.class);
 
             return new IcebergConnector(
                     lifeCycleManager,
@@ -124,7 +125,7 @@ public final class InternalIcebergConnectorFactory
                     sessionPropertiesProviders,
                     IcebergSchemaProperties.SCHEMA_PROPERTIES,
                     icebergTableProperties.getTableProperties(),
-                    new AllowAllAccessControl(),
+                    accessControl,
                     procedures);
         }
     }
