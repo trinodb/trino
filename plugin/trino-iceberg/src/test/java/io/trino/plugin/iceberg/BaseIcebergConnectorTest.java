@@ -141,7 +141,7 @@ public abstract class BaseIcebergConnectorTest
     {
         // Deletes are covered with testMetadataDelete test methods
         assertThatThrownBy(super::testDelete)
-                .hasStackTraceContaining("This connector only supports delete where one or more partitions are deleted entirely");
+                .hasStackTraceContaining("This connector only supports delete where one or more identity-transformed partitions are deleted entirely");
     }
 
     @Override
@@ -149,7 +149,7 @@ public abstract class BaseIcebergConnectorTest
     {
         // Deletes are covered with testMetadataDelete test methods
         assertThatThrownBy(super::testDeleteWithComplexPredicate)
-                .hasStackTraceContaining("This connector only supports delete where one or more partitions are deleted entirely");
+                .hasStackTraceContaining("This connector only supports delete where one or more identity-transformed partitions are deleted entirely");
     }
 
     @Override
@@ -157,7 +157,7 @@ public abstract class BaseIcebergConnectorTest
     {
         // Deletes are covered with testMetadataDelete test methods
         assertThatThrownBy(super::testDeleteWithSemiJoin)
-                .hasStackTraceContaining("This connector only supports delete where one or more partitions are deleted entirely");
+                .hasStackTraceContaining("This connector only supports delete where one or more identity-transformed partitions are deleted entirely");
     }
 
     @Override
@@ -165,7 +165,7 @@ public abstract class BaseIcebergConnectorTest
     {
         // Deletes are covered with testMetadataDelete test methods
         assertThatThrownBy(super::testDeleteWithSubquery)
-                .hasStackTraceContaining("This connector only supports delete where one or more partitions are deleted entirely");
+                .hasStackTraceContaining("This connector only supports delete where one or more identity-transformed partitions are deleted entirely");
     }
 
     @Override
@@ -173,7 +173,7 @@ public abstract class BaseIcebergConnectorTest
     {
         // Deletes are covered with testMetadataDelete test methods
         assertThatThrownBy(super::testDeleteWithVarcharPredicate)
-                .hasStackTraceContaining("This connector only supports delete where one or more partitions are deleted entirely");
+                .hasStackTraceContaining("This connector only supports delete where one or more identity-transformed partitions are deleted entirely");
     }
 
     @Override
@@ -181,7 +181,7 @@ public abstract class BaseIcebergConnectorTest
     {
         // Deletes are covered with testMetadataDelete test methods
         assertThatThrownBy(super::testRowLevelDelete)
-                .hasStackTraceContaining("This connector only supports delete where one or more partitions are deleted entirely");
+                .hasStackTraceContaining("This connector only supports delete where one or more identity-transformed partitions are deleted entirely");
     }
 
     @Test
@@ -1323,7 +1323,7 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("INSERT INTO test_metadata_delete_simple VALUES(1, 100), (1, 101), (1, 102), (2, 200), (2, 201), (3, 300)", 6);
         assertQueryFails(
                 "DELETE FROM test_metadata_delete_simple WHERE col1 = 1 AND col2 > 101",
-                "This connector only supports delete where one or more partitions are deleted entirely");
+                "This connector only supports delete where one or more identity-transformed partitions are deleted entirely");
         assertQuery("SELECT sum(col2) FROM test_metadata_delete_simple", "SELECT 1004");
         assertQuery("SELECT count(*) FROM \"test_metadata_delete_simple$partitions\"", "SELECT 3");
         assertUpdate("DELETE FROM test_metadata_delete_simple WHERE col1 = 1");
@@ -1361,7 +1361,7 @@ public abstract class BaseIcebergConnectorTest
         assertQuery("SELECT count(*) FROM \"test_metadata_delete$partitions\"", "SELECT 6");
         assertQuery("SELECT * FROM test_metadata_delete", "SELECT orderkey, linenumber, linestatus FROM lineitem WHERE linestatus <> 'O' AND linenumber <> 3");
 
-        assertQueryFails("DELETE FROM test_metadata_delete WHERE orderkey=1", "This connector only supports delete where one or more partitions are deleted entirely");
+        assertQueryFails("DELETE FROM test_metadata_delete WHERE orderkey=1", "This connector only supports delete where one or more identity-transformed partitions are deleted entirely");
 
         dropTable("test_metadata_delete");
     }
