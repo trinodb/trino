@@ -13,15 +13,20 @@
  */
 package io.trino.security;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.testing.TempFile;
 import io.trino.spi.security.GroupProvider;
 import io.trino.spi.security.GroupProviderFactory;
+import io.trino.spi.security.GroupProviderResultListener;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
@@ -44,6 +49,24 @@ public class TestGroupProviderManager
         }
     };
 
+    private class TestGroupProviderResultListener
+            implements GroupProviderResultListener
+    {
+        List<String> notificationHistory = new LinkedList<>();
+
+        @Override
+        public void notify(String user, Set<String> groups)
+        {
+            notificationHistory.add(user);
+        }
+
+        public List<String> getNotificationHistory()
+        {
+            return notificationHistory;
+        }
+    };
+    private final TestGroupProviderResultListener testGroupProviderResultListener = new TestGroupProviderResultListener();
+
     @Test
     public void testGroupProviderIsLoaded()
             throws IOException
@@ -52,9 +75,11 @@ public class TestGroupProviderManager
             Files.write(tempFile.path(), "group-provider.name=testGroupProvider".getBytes(UTF_8));
             GroupProviderManager groupProviderManager = new GroupProviderManager();
             groupProviderManager.addGroupProviderFactory(TEST_GROUP_PROVIDER_FACTORY);
+            groupProviderManager.addGroupProviderResultListener(testGroupProviderResultListener);
             groupProviderManager.loadConfiguredGroupProvider(tempFile.file());
             assertEquals(groupProviderManager.getGroups("alice"), ImmutableSet.of("test", "alice"));
             assertEquals(groupProviderManager.getGroups("bob"), ImmutableSet.of("test", "bob"));
+            assertEquals(testGroupProviderResultListener.getNotificationHistory(), ImmutableList.of("alice", "bob"));
         }
     }
 }

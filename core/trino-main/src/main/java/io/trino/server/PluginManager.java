@@ -31,6 +31,7 @@ import io.trino.spi.eventlistener.EventListenerFactory;
 import io.trino.spi.resourcegroups.ResourceGroupConfigurationManagerFactory;
 import io.trino.spi.security.CertificateAuthenticatorFactory;
 import io.trino.spi.security.GroupProviderFactory;
+import io.trino.spi.security.GroupProviderResultListener;
 import io.trino.spi.security.PasswordAuthenticatorFactory;
 import io.trino.spi.security.SystemAccessControlFactory;
 import io.trino.spi.session.SessionPropertyConfigurationManagerFactory;
@@ -212,6 +213,11 @@ public class PluginManager
         for (GroupProviderFactory groupProviderFactory : plugin.getGroupProviderFactories()) {
             log.info("Registering group provider %s", groupProviderFactory.getName());
             groupProviderManager.addGroupProviderFactory(groupProviderFactory);
+        }
+
+        for (GroupProviderResultListener groupProviderResultListener : plugin.getGroupProviderResultListeners()) {
+            log.info("Registering group provider result listener %s", groupProviderResultListener);
+            groupProviderManager.addGroupProviderResultListener(groupProviderResultListener);
         }
     }
 

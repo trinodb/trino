@@ -19,6 +19,7 @@ import io.trino.spi.eventlistener.EventListenerFactory;
 import io.trino.spi.resourcegroups.ResourceGroupConfigurationManagerFactory;
 import io.trino.spi.security.CertificateAuthenticatorFactory;
 import io.trino.spi.security.GroupProviderFactory;
+import io.trino.spi.security.GroupProviderResultListener;
 import io.trino.spi.security.PasswordAuthenticatorFactory;
 import io.trino.spi.security.SystemAccessControlFactory;
 import io.trino.spi.session.SessionPropertyConfigurationManagerFactory;
@@ -63,6 +64,11 @@ public interface Plugin
     }
 
     default Iterable<GroupProviderFactory> getGroupProviderFactories()
+    {
+        return emptyList();
+    }
+
+    default Iterable<GroupProviderResultListener> getGroupProviderResultListeners()
     {
         return emptyList();
     }

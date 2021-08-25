@@ -20,10 +20,14 @@ import io.airlift.log.Logger;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.security.GroupProvider;
 import io.trino.spi.security.GroupProviderFactory;
+import io.trino.spi.security.GroupProviderResultListener;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -45,6 +49,7 @@ public class GroupProviderManager
     private static final String GROUP_PROVIDER_PROPERTY_NAME = "group-provider.name";
     private final Map<String, GroupProviderFactory> groupProviderFactories = new ConcurrentHashMap<>();
     private final AtomicReference<Optional<GroupProvider>> configuredGroupProvider = new AtomicReference<>(Optional.empty());
+    private final List<GroupProviderResultListener> groupProviderResultListeners = Collections.synchronizedList(new LinkedList<>());
 
     public void addGroupProviderFactory(GroupProviderFactory groupProviderFactory)
     {
@@ -53,6 +58,11 @@ public class GroupProviderManager
         if (groupProviderFactories.putIfAbsent(groupProviderFactory.getName(), groupProviderFactory) != null) {
             throw new IllegalArgumentException(format("Group provider '%s' is already registered", groupProviderFactory.getName()));
         }
+    }
+
+    public void addGroupProviderResultListener(GroupProviderResultListener groupProviderResultListener)
+    {
+        groupProviderResultListeners.add(groupProviderResultListener);
     }
 
     public void loadConfiguredGroupProvider()
@@ -101,9 +111,13 @@ public class GroupProviderManager
     public Set<String> getGroups(String user)
     {
         requireNonNull(user, "user is null");
-        return configuredGroupProvider.get()
+        Set<String> result = configuredGroupProvider.get()
                 .map(provider -> provider.getGroups(user))
                 .map(ImmutableSet::copyOf)
                 .orElse(ImmutableSet.of());
+        for (GroupProviderResultListener listener : groupProviderResultListeners) {
+            listener.notify(user, result);
+        }
+        return result;
     }
 }
