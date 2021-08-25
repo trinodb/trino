@@ -89,7 +89,7 @@ public class FissionFunctionFunctions
         }
     }
 
-    private static JSONObject xecuteFissionFunctionGET(String endPoint, String azureToken) throws JSONException, IOException
+    private static JSONObject executeFissionFunctionGET(String endPoint, String azureToken) throws JSONException, IOException
     {
         try (CloseableHttpClient httpClient = HttpClientBuilder.create().setDefaultCookieStore(cookieStore).build()) {
             HttpGet getRequest = new HttpGet(endpoint);
