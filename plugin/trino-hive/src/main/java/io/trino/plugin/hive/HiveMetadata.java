@@ -2839,13 +2839,13 @@ public class HiveMetadata
         for (ColumnMetadata column : tableMetadata.getColumns()) {
             String columnName = column.getName();
             if (columnName.startsWith(" ")) {
-                throw new TrinoException(INVALID_COLUMN_NAME, format("Column name '%s' is invalid since it contains a leading space", columnName));
+                throw new TrinoException(INVALID_COLUMN_NAME, format("Column name '%s' is invalid because it contains a leading space", columnName));
             }
             if (columnName.endsWith(" ")) {
-                throw new TrinoException(INVALID_COLUMN_NAME, format("Column name '%s' is invalid since it contains a trailing space", columnName));
+                throw new TrinoException(INVALID_COLUMN_NAME, format("Column name '%s' is invalid because it contains a trailing space", columnName));
             }
             if (columnName.contains(",")) {
-                throw new TrinoException(INVALID_COLUMN_NAME, format("Column name '%s' is invalid since it contains a comma", columnName));
+                throw new TrinoException(INVALID_COLUMN_NAME, format("Column name '%s' is invalid because it contains a comma", columnName));
             }
             // validate type is supported
             toHiveType(column.getType());
