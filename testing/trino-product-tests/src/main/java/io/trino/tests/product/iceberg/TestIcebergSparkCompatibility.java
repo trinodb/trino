@@ -174,6 +174,7 @@ public class TestIcebergSparkCompatibility
                 //", TIMESTAMP '2020-06-28 14:16:00.456' _timestamp " +
                 ", TIMESTAMP '2021-08-03 08:32:21.123456 Europe/Warsaw' _timestamptz " +
                 ", DATE '1950-06-28' _date " +
+                //", TIME '01:23:45.123456' _time " +
                 "";
 
         switch (createMode) {
@@ -191,6 +192,7 @@ public class TestIcebergSparkCompatibility
                                 //", _timestamp TIMESTAMP" -- per https://iceberg.apache.org/spark-writes/ Iceberg's timestamp is currently not supported with Spark
                                 ", _timestamptz timestamp(6) with time zone" +
                                 ", _date DATE" +
+                                //", _time time(6)" + -- per https://iceberg.apache.org/spark-writes/ Iceberg's time is currently not supported with Spark
                                 ") WITH (format = '%s')",
                         trinoTableName,
                         storageFormat));
@@ -222,7 +224,9 @@ public class TestIcebergSparkCompatibility
                 true,
                 //"2020-06-28 14:16:00.456",
                 "2021-08-03 06:32:21.123456 UTC", // Iceberg's timestamptz stores point in time, without zone
-                "1950-06-28");
+                "1950-06-28"
+                // "01:23:45.123456"
+        /**/);
         assertThat(onTrino().executeQuery(
                 "SELECT " +
                         "  _string" +
@@ -236,6 +240,7 @@ public class TestIcebergSparkCompatibility
                         // _timestamp OR CAST(_timestamp AS varchar)
                         ", CAST(_timestamptz AS varchar)" +
                         ", CAST(_date AS varchar)" +
+                        //", CAST(_time AS varchar)" +
                         " FROM " + trinoTableName))
                 .containsOnly(row);
 
@@ -252,6 +257,7 @@ public class TestIcebergSparkCompatibility
                         // _timestamp OR CAST(_timestamp AS string)
                         ", CAST(_timestamptz AS string) || ' UTC'" + // Iceberg timestamptz is mapped to Spark timestamp and gets represented without time zone
                         ", CAST(_date AS string)" +
+                        // ", CAST(_time AS string)" +
                         " FROM " + sparkTableName))
                 .containsOnly(row);
 
