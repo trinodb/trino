@@ -151,6 +151,7 @@ import io.trino.sql.planner.iterative.rule.PushDownDereferenceThroughSemiJoin;
 import io.trino.sql.planner.iterative.rule.PushDownDereferenceThroughUnnest;
 import io.trino.sql.planner.iterative.rule.PushDownDereferencesThroughAssignUniqueId;
 import io.trino.sql.planner.iterative.rule.PushDownDereferencesThroughLimit;
+import io.trino.sql.planner.iterative.rule.PushDownDereferencesThroughMarkDistinct;
 import io.trino.sql.planner.iterative.rule.PushDownDereferencesThroughRowNumber;
 import io.trino.sql.planner.iterative.rule.PushDownDereferencesThroughSort;
 import io.trino.sql.planner.iterative.rule.PushDownDereferencesThroughTopN;
@@ -336,6 +337,7 @@ public class PlanOptimizers
                 new PushProjectionThroughUnion(),
                 new PushProjectionThroughExchange(),
                 // Dereference pushdown rules
+                new PushDownDereferencesThroughMarkDistinct(typeAnalyzer),
                 new PushDownDereferenceThroughProject(typeAnalyzer),
                 new PushDownDereferenceThroughUnnest(typeAnalyzer),
                 new PushDownDereferenceThroughSemiJoin(typeAnalyzer),
