@@ -329,9 +329,24 @@ In Trino, the same can be achieved with this query:
     FROM collection
     WHERE _id > timestamp_objectid(TIMESTAMP '2021-08-07 17:51:36 +00:00');
 
-Limitations
+.. _mongodb-sql-support:
+
+SQL support
 -----------
 
-The following operations are not supported:
+The connector provides read and write access to data and metadata in
+MongoDB. In addition to the :ref:`globally available
+<sql-globally-available>` and :ref:`read operation <sql-read-operations>`
+statements, the connector supports the following features:
 
-- Row deletion with :doc:`/sql/delete`
+* :doc:`/sql/insert`
+* :doc:`/sql/create-table`
+* :doc:`/sql/create-table-as`
+* :doc:`/sql/drop-table`
+* :doc:`/sql/alter-table`
+
+ALTER TABLE
+^^^^^^^^^^^
+
+The connector does not support ``ALTER TABLE RENAME`` operations. Other uses of
+``ALTER TABLE`` are supported.
