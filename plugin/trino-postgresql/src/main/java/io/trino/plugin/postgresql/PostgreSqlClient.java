@@ -120,9 +120,7 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
-import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.airlift.slice.Slices.wrappedLongArray;
 import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
 import static io.trino.plugin.base.util.JsonTypeUtil.toJsonValue;
 import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
@@ -198,6 +196,8 @@ import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.round;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.TypeSignature.mapType;
+import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
+import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
@@ -1219,26 +1219,14 @@ public class PostgreSqlClient
 
     private static SliceWriteFunction uuidWriteFunction()
     {
-        return (statement, index, value) -> {
-            long high = Long.reverseBytes(value.getLong(0));
-            long low = Long.reverseBytes(value.getLong(SIZE_OF_LONG));
-            UUID uuid = new UUID(high, low);
-            statement.setObject(index, uuid, Types.OTHER);
-        };
-    }
-
-    private static Slice uuidSlice(UUID uuid)
-    {
-        return wrappedLongArray(
-                Long.reverseBytes(uuid.getMostSignificantBits()),
-                Long.reverseBytes(uuid.getLeastSignificantBits()));
+        return (statement, index, value) -> statement.setObject(index, trinoUuidToJavaUuid(value), Types.OTHER);
     }
 
     private ColumnMapping uuidColumnMapping()
     {
         return ColumnMapping.sliceMapping(
                 uuidType,
-                (resultSet, columnIndex) -> uuidSlice((UUID) resultSet.getObject(columnIndex)),
+                (resultSet, columnIndex) -> javaUuidToTrinoUuid((UUID) resultSet.getObject(columnIndex)),
                 uuidWriteFunction());
     }
 }

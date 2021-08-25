@@ -16,9 +16,11 @@ package io.trino.plugin.pinot;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
+import javax.annotation.PostConstruct;
 import javax.validation.constraints.NotNull;
 
 import java.net.URI;
@@ -26,6 +28,7 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class PinotConfig
@@ -52,6 +55,9 @@ public class PinotConfig
     private int fetchRetryCount = 2;
     private int nonAggregateLimitForBrokerQueries = 25_000;
     private int maxRowsPerSplitForSegmentQueries = 50_000;
+    private int maxRowsForBrokerQueries = 50_000;
+    private boolean aggregationPushdownEnabled = true;
+    private boolean countDistinctPushdownEnabled = true;
 
     @NotNull
     public List<URI> getControllerUrls()
@@ -268,5 +274,50 @@ public class PinotConfig
             return URI.create(server);
         }
         return URI.create("http://" + server);
+    }
+
+    public int getMaxRowsForBrokerQueries()
+    {
+        return maxRowsForBrokerQueries;
+    }
+
+    @Config("pinot.max-rows-for-broker-queries")
+    public PinotConfig setMaxRowsForBrokerQueries(int maxRowsForBrokerQueries)
+    {
+        this.maxRowsForBrokerQueries = maxRowsForBrokerQueries;
+        return this;
+    }
+
+    public boolean isAggregationPushdownEnabled()
+    {
+        return aggregationPushdownEnabled;
+    }
+
+    @Config("pinot.aggregation-pushdown.enabled")
+    public PinotConfig setAggregationPushdownEnabled(boolean aggregationPushdownEnabled)
+    {
+        this.aggregationPushdownEnabled = aggregationPushdownEnabled;
+        return this;
+    }
+
+    public boolean isCountDistinctPushdownEnabled()
+    {
+        return countDistinctPushdownEnabled;
+    }
+
+    @Config("pinot.count-distinct-pushdown.enabled")
+    @ConfigDescription("Controls whether distinct count is pushed down to Pinot. Distinct count pushdown can cause Pinot to do a full scan. Aggregation pushdown must also be enabled in addition to this parameter otherwise no pushdowns will be enabled.")
+    public PinotConfig setCountDistinctPushdownEnabled(boolean countDistinctPushdownEnabled)
+    {
+        this.countDistinctPushdownEnabled = countDistinctPushdownEnabled;
+        return this;
+    }
+
+    @PostConstruct
+    public void validate()
+    {
+        checkState(
+                !countDistinctPushdownEnabled || aggregationPushdownEnabled,
+                "Invalid configuration: pinot.aggregation-pushdown.enabled must be enabled if pinot.count-distinct-pushdown.enabled");
     }
 }

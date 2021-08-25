@@ -15,7 +15,6 @@ package io.trino.plugin.clickhouse;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.slice.Slice;
 import io.trino.plugin.base.expression.AggregateFunctionRewriter;
 import io.trino.plugin.base.expression.AggregateFunctionRule;
 import io.trino.plugin.jdbc.BaseJdbcClient;
@@ -68,8 +67,6 @@ import java.util.UUID;
 import java.util.function.BiFunction;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
-import static io.airlift.slice.Slices.wrappedLongArray;
 import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalDefaultScale;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRounding;
@@ -111,8 +108,9 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
+import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
-import static java.lang.Long.reverseBytes;
 import static java.lang.Math.max;
 import static java.lang.String.format;
 import static java.lang.String.join;
@@ -491,25 +489,12 @@ public class ClickHouseClient
     {
         return ColumnMapping.sliceMapping(
                 uuidType,
-                (resultSet, columnIndex) -> uuidSlice((UUID) resultSet.getObject(columnIndex)),
+                (resultSet, columnIndex) -> javaUuidToTrinoUuid((UUID) resultSet.getObject(columnIndex)),
                 uuidWriteFunction());
     }
 
-    // see io.trino.type.UuidType#getObjectValue
     private static SliceWriteFunction uuidWriteFunction()
     {
-        return (statement, index, value) -> {
-            long high = reverseBytes(value.getLong(0));
-            long low = reverseBytes(value.getLong(SIZE_OF_LONG));
-            UUID uuid = new UUID(high, low);
-            statement.setObject(index, uuid, Types.OTHER);
-        };
-    }
-
-    private static Slice uuidSlice(UUID uuid)
-    {
-        return wrappedLongArray(
-                reverseBytes(uuid.getMostSignificantBits()),
-                reverseBytes(uuid.getLeastSignificantBits()));
+        return (statement, index, value) -> statement.setObject(index, trinoUuidToJavaUuid(value), Types.OTHER);
     }
 }

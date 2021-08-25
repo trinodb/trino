@@ -22,13 +22,12 @@ import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 
-import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
-import static io.airlift.slice.Slices.wrappedLongArray;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.OperatorType.CAST;
-import static java.lang.Long.reverseBytes;
+import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
+import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
 import static java.util.UUID.randomUUID;
 
 public final class UuidOperators
@@ -41,7 +40,7 @@ public final class UuidOperators
     public static Slice uuid()
     {
         java.util.UUID uuid = randomUUID();
-        return wrappedLongArray(uuid.getMostSignificantBits(), uuid.getLeastSignificantBits());
+        return javaUuidToTrinoUuid(uuid);
     }
 
     @LiteralParameters("x")
@@ -52,9 +51,7 @@ public final class UuidOperators
         try {
             java.util.UUID uuid = java.util.UUID.fromString(slice.toStringUtf8());
             if (slice.length() == 36) {
-                return wrappedLongArray(
-                        reverseBytes(uuid.getMostSignificantBits()),
-                        reverseBytes(uuid.getLeastSignificantBits()));
+                return javaUuidToTrinoUuid(uuid);
             }
             throw new TrinoException(INVALID_CAST_ARGUMENT, "Invalid UUID string length: " + slice.length());
         }
@@ -67,9 +64,7 @@ public final class UuidOperators
     @SqlType(StandardTypes.VARCHAR)
     public static Slice castFromUuidToVarchar(@SqlType(StandardTypes.UUID) Slice slice)
     {
-        long high = reverseBytes(slice.getLong(0));
-        long low = reverseBytes(slice.getLong(SIZE_OF_LONG));
-        return utf8Slice(new java.util.UUID(high, low).toString());
+        return utf8Slice(trinoUuidToJavaUuid(slice).toString());
     }
 
     @ScalarOperator(CAST)
