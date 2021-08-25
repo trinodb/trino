@@ -7395,17 +7395,17 @@ public class TestHiveConnectorTest
         if (columnName.equals(" aleadingspace")) {
             assertThatThrownBy(() -> super.testColumnName(columnName))
                     .hasMessageMatching(format("Column name '%s' is invalid since it contains a leading space", columnName));
-            throw new SkipException("works incorrectly, column name is trimmed");
+            return;
         }
         if (columnName.equals("atrailingspace ")) {
             assertThatThrownBy(() -> super.testColumnName(columnName))
                     .hasMessageMatching(format("Column name '%s' is invalid since it contains a trailing space", columnName));
-            throw new SkipException("works incorrectly, column name is trimmed");
+            return;
         }
         if (columnName.equals("a,comma")) {
             assertThatThrownBy(() -> super.testColumnName(columnName))
                     .hasMessageMatching(format("Column name '%s' is invalid since it contains a comma", columnName));
-            throw new SkipException("works incorrectly");
+            return;
         }
 
         super.testColumnName(columnName);
