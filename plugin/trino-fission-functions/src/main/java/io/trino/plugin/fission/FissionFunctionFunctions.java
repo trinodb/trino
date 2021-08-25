@@ -14,7 +14,6 @@
 package io.trino.plugin.fission;
 
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
@@ -25,6 +24,8 @@ import org.apache.http.impl.client.BasicCookieStore;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.util.EntityUtils;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import java.io.IOException;
 
@@ -39,22 +40,42 @@ public class FissionFunctionFunctions
     }
 
     @ScalarFunction("fission_dnsdb")
-    @Description("Converts the string to alternating case")
-    @SqlType(StandardTypes.VARCHAR)
-    public static Slice dnsdb(@SqlType(StandardTypes.VARCHAR) Slice slice)
+    @Description("Send get request to fission dnsdb endpoint")
+    @SqlType(StandardTypes.BIGINT)
+    public static long fetchDnsDb(@SqlType(StandardTypes.VARCHAR) Slice slice) throws JSONException, IOException
     {
-        CloseableHttpClient httpClient;
-        HttpClientBuilder builder = HttpClientBuilder.create().setDefaultCookieStore(cookieStore);
-        httpClient = builder.build();
-        String result = "";
-        try {
-            HttpGet getRequest = new HttpGet(String.format("%s/dnsdb?lookup=%s", FissionFunctionConfigProvider.getFissionFunctionBaseURL(), slice.toStringUtf8()));
+        int count = 0;
+        JSONObject jsonObject = executeFissionFunctionGet(String.format("%s/dnsdb?lookup=%s", FissionFunctionConfigProvider.getFissionFunctionBaseURL(), slice.toStringUtf8()));
+
+        if (jsonObject.has("total_count")) {
+            count = Integer.parseInt(jsonObject.getString("total_count"));
+        }
+
+        return count;
+    }
+
+    @ScalarFunction("fission_despicablename")
+    @Description("Send get request to fission dnsdb endpoint")
+    @SqlType(StandardTypes.BIGINT)
+    public static long fetchDespicableName(@SqlType(StandardTypes.VARCHAR) Slice slice) throws JSONException, IOException
+    {
+        int count = 0;
+        JSONObject jsonObject = executeFissionFunctionGet(String.format("%s/despicablename?domain=%s", FissionFunctionConfigProvider.getFissionFunctionBaseURL(), slice.toStringUtf8()));
+
+        if (jsonObject.has("probs")) {
+            count = Integer.parseInt(jsonObject.getJSONArray("probs").getJSONArray(0).getString(0));
+        }
+
+        return count;
+    }
+
+    private static JSONObject executeFissionFunctionGet(String endpoint) throws JSONException, IOException
+    {
+        try (CloseableHttpClient httpClient = HttpClientBuilder.create().setDefaultCookieStore(cookieStore).build()) {
+            HttpGet getRequest = new HttpGet(endpoint);
             HttpResponse response = httpClient.execute(getRequest);
-            result = EntityUtils.toString(response.getEntity());
+            String result = EntityUtils.toString(response.getEntity());
+            return new JSONObject(result);
         }
-        catch (IOException e) {
-            result = e.getMessage();
-        }
-        return Slices.utf8Slice(result);
     }
 }
