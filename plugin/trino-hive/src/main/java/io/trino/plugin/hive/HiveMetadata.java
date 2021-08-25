@@ -2847,7 +2847,8 @@ public class HiveMetadata
             if (columnName.contains(",")) {
                 throw new TrinoException(INVALID_COLUMN_NAME, format("Column name '%s' is invalid since it contains a comma", columnName));
             }
-            toHiveType(column.getType());   // validate type is supported
+            // validate type is supported
+            toHiveType(column.getType());
         }
 
         if (getHiveStorageFormat(tableMetadata.getProperties()) != HiveStorageFormat.CSV) {
