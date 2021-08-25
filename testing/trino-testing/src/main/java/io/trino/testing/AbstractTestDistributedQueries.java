@@ -138,11 +138,11 @@ public abstract class AbstractTestDistributedQueries
     {
         String tableName = "test_create_" + randomTableSuffix();
         if (!supportsCreateTable()) {
-            assertQueryFails("CREATE TABLE " + tableName + " (a bigint, b double, c varchar)", "This connector does not support creating tables");
+            assertQueryFails("CREATE TABLE " + tableName + " (a bigint, b double, c varchar(50))", "This connector does not support creating tables");
             return;
         }
 
-        assertUpdate("CREATE TABLE " + tableName + " (a bigint, b double, c varchar)");
+        assertUpdate("CREATE TABLE " + tableName + " (a bigint, b double, c varchar(50))");
         assertTrue(getQueryRunner().tableExists(getSession(), tableName));
         assertTableColumnNames(tableName, "a", "b", "c");
 
@@ -154,11 +154,11 @@ public abstract class AbstractTestDistributedQueries
 
         // TODO (https://github.com/trinodb/trino/issues/5901) revert to longer name when Oracle version is updated
         tableName = "test_cr_tab_not_exists_" + randomTableSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " (a bigint, b varchar, c double)");
+        assertUpdate("CREATE TABLE " + tableName + " (a bigint, b varchar(50), c double)");
         assertTrue(getQueryRunner().tableExists(getSession(), tableName));
         assertTableColumnNames(tableName, "a", "b", "c");
 
-        assertUpdate("CREATE TABLE IF NOT EXISTS " + tableName + " (d bigint, e varchar)");
+        assertUpdate("CREATE TABLE IF NOT EXISTS " + tableName + " (d bigint, e varchar(50))");
         assertTrue(getQueryRunner().tableExists(getSession(), tableName));
         assertTableColumnNames(tableName, "a", "b", "c");
 
@@ -167,12 +167,12 @@ public abstract class AbstractTestDistributedQueries
 
         // Test CREATE TABLE LIKE
         tableName = "test_create_original_" + randomTableSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " (a bigint, b double, c varchar)");
+        assertUpdate("CREATE TABLE " + tableName + " (a bigint, b double, c varchar(50))");
         assertTrue(getQueryRunner().tableExists(getSession(), tableName));
         assertTableColumnNames(tableName, "a", "b", "c");
 
         String tableNameLike = "test_create_like_" + randomTableSuffix();
-        assertUpdate("CREATE TABLE " + tableNameLike + " (LIKE " + tableName + ", d bigint, e varchar)");
+        assertUpdate("CREATE TABLE " + tableNameLike + " (LIKE " + tableName + ", d bigint, e varchar(50))");
         assertTrue(getQueryRunner().tableExists(getSession(), tableNameLike));
         assertTableColumnNames(tableNameLike, "a", "b", "c", "d", "e");
 
@@ -488,7 +488,7 @@ public abstract class AbstractTestDistributedQueries
         assertQueryFails("ALTER TABLE " + tableName + " ADD COLUMN X bigint", ".* Column 'X' already exists");
         assertQueryFails("ALTER TABLE " + tableName + " ADD COLUMN q bad_type", ".* Unknown type 'bad_type' for column 'q'");
 
-        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN a varchar");
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN a varchar(50)");
         assertUpdate("INSERT INTO " + tableName + " SELECT 'second', 'xxx'", 1);
         assertQuery(
                 "SELECT x, a FROM " + tableName,
@@ -500,8 +500,8 @@ public abstract class AbstractTestDistributedQueries
                 "SELECT x, a, b FROM " + tableName,
                 "VALUES ('first', NULL, NULL), ('second', 'xxx', NULL), ('third', 'yyy', 33.3)");
 
-        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN IF NOT EXISTS c varchar");
-        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN IF NOT EXISTS c varchar");
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN IF NOT EXISTS c varchar(50)");
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN IF NOT EXISTS c varchar(50)");
         assertUpdate("INSERT INTO " + tableName + " SELECT 'fourth', 'zzz', 55.3E0, 'newColumn'", 1);
         assertQuery(
                 "SELECT x, a, b, c FROM " + tableName,
@@ -566,13 +566,13 @@ public abstract class AbstractTestDistributedQueries
 
         String tableName = "test_insert_unicode_" + randomTableSuffix();
 
-        assertUpdate("CREATE TABLE " + tableName + "(test varchar)");
+        assertUpdate("CREATE TABLE " + tableName + "(test varchar(50))");
         assertUpdate("INSERT INTO " + tableName + "(test) VALUES 'Hello', U&'hello\\6d4B\\8Bd5\\+10FFFFworld\\7F16\\7801' ", 2);
         assertThat(computeActual("SELECT test FROM " + tableName).getOnlyColumnAsSet())
                 .containsExactlyInAnyOrder("Hello", "hello测试􏿿world编码");
         assertUpdate("DROP TABLE " + tableName);
 
-        assertUpdate("CREATE TABLE " + tableName + "(test varchar)");
+        assertUpdate("CREATE TABLE " + tableName + "(test varchar(50))");
         assertUpdate("INSERT INTO " + tableName + "(test) VALUES 'aa', 'bé'", 2);
         assertQuery("SELECT test FROM " + tableName, "VALUES 'aa', 'bé'");
         assertQuery("SELECT test FROM " + tableName + " WHERE test = 'aa'", "VALUES 'aa'");
@@ -581,7 +581,7 @@ public abstract class AbstractTestDistributedQueries
         assertQueryReturnsEmptyResult("SELECT test FROM " + tableName + " WHERE test = 'ba'");
         assertUpdate("DROP TABLE " + tableName);
 
-        assertUpdate("CREATE TABLE " + tableName + "(test varchar)");
+        assertUpdate("CREATE TABLE " + tableName + "(test varchar(50))");
         assertUpdate("INSERT INTO " + tableName + "(test) VALUES 'a', 'é'", 2);
         assertQuery("SELECT test FROM " + tableName, "VALUES 'a', 'é'");
         assertQuery("SELECT test FROM " + tableName + " WHERE test = 'a'", "VALUES 'a'");
@@ -1188,7 +1188,7 @@ public abstract class AbstractTestDistributedQueries
 
         try {
             // TODO test with both CTAS *and* CREATE TABLE + INSERT, since they use different connector API methods.
-            assertUpdate("CREATE TABLE " + tableName + "(key varchar, " + nameInSql + " varchar)");
+            assertUpdate("CREATE TABLE " + tableName + "(key varchar(50), " + nameInSql + " varchar(50))");
         }
         catch (RuntimeException e) {
             if (isColumnNameRejected(e, columnName, delimited)) {
@@ -1288,7 +1288,7 @@ public abstract class AbstractTestDistributedQueries
             // TODO test with both CTAS *and* CREATE TABLE + INSERT, since they use different connector API methods.
             String createTable = "" +
                     "CREATE TABLE " + tableName + " AS " +
-                    "SELECT CAST(row_id AS varchar) row_id, CAST(value AS " + trinoTypeName + ") value " +
+                    "SELECT CAST(row_id AS varchar(50)) row_id, CAST(value AS " + trinoTypeName + ") value " +
                     "FROM (VALUES " +
                     "  ('null value', NULL), " +
                     "  ('sample value', " + sampleValueLiteral + "), " +
