@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Module;
-import com.google.inject.util.Types;
+import com.google.inject.TypeLiteral;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.event.client.EventModule;
@@ -107,7 +107,7 @@ public final class InternalIcebergConnectorFactory
             ConnectorNodePartitioningProvider connectorDistributionProvider = injector.getInstance(ConnectorNodePartitioningProvider.class);
             IcebergSessionProperties icebergSessionProperties = injector.getInstance(IcebergSessionProperties.class);
             IcebergTableProperties icebergTableProperties = injector.getInstance(IcebergTableProperties.class);
-            Set<Procedure> procedures = injector.getInstance((Key<Set<Procedure>>) Key.get(Types.setOf(Procedure.class)));
+            Set<Procedure> procedures = injector.getInstance(Key.get(new TypeLiteral<Set<Procedure>>() {}));
 
             return new IcebergConnector(
                     lifeCycleManager,
