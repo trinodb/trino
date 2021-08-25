@@ -28,7 +28,7 @@ Trino:
 For how to get started with the Pulsar connector, see the
 :doc:`pulsar-tutorial`.
 
-Requirements
+Requirement
 ------------
 
 To connect to Pulsar, you need:
