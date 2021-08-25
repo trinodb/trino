@@ -77,16 +77,16 @@ public class FissionFunctionFunctions
     @SqlType(StandardTypes.VARCHAR)
     public static Slice FetchListDataLake(ConnectorSession session, @SqlType(StandardTypes.VARCHAR) Slice filesystem, @SqlType(StandardTypes.VARCHAR) Slice filepath) throws JSONException, IOException
     {
-        JSONObject jsonObject = executeFissionFunctionGET(String.format("%s/listdatalake?filesystem=%s&filepath=%s", FissionFunctionConfigProvider.getFissionFunctionBaseURL(), filesystem.toStringUtf8(), filepath.toStringUtf8()), session.getIdentity().getExtraCredentials().get("access-token"));
+        JSONObject jsonObject = executeFissionFunctionGet(String.format("%s/listdatalake?filesystem=%s&filepath=%s", FissionFunctionConfigProvider.getFissionFunctionBaseURL(), filesystem.toStringUtf8(), filepath.toStringUtf8()), session.getIdentity().getExtraCredentials().get("access-token")); 
         return utf8Slice(jsonObject.getJSONArray("result").toString());
     }
 
     private static JSONObject executeFissionFunctionGet(String endPoint) throws JSONException, IOException
     {
-        return executeFissionFunctionGET(endPoint, "");
+        return executeFissionFunctionGet(endPoint, "");
     }
 
-    private static JSONObject executeFissionFunctionGET(String endPoint, String azureToken) throws JSONException, IOException
+    private static JSONObject executeFissionFunctionGet(String endPoint, String azureToken) throws JSONException, IOException
     {
         try (CloseableHttpClient httpClient = HttpClientBuilder.create().setDefaultCookieStore(cookieStore).build()) {
             HttpGet getRequest = new HttpGet(endPoint);
