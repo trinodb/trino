@@ -7392,19 +7392,16 @@ public class TestHiveConnectorTest
     @Override
     public void testColumnName(String columnName)
     {
-        if (columnName.equals(" aleadingspace")) {
+        if (columnName.equals("atrailingspace ") || columnName.equals(" aleadingspace")) {
+            // TODO (https://github.com/trinodb/trino/issues/3461)
             assertThatThrownBy(() -> super.testColumnName(columnName))
-                    .hasMessageMatching(format("Column name '%s' is invalid since it contains a leading space", columnName));
-            throw new SkipException("works incorrectly, column name is trimmed");
-        }
-        if (columnName.equals("atrailingspace ")) {
-            assertThatThrownBy(() -> super.testColumnName(columnName))
-                    .hasMessageMatching(format("Column name '%s' is invalid since it contains a trailing space", columnName));
+                    .hasMessageMatching("Table '.*' does not have columns \\[" + columnName + "]");
             throw new SkipException("works incorrectly, column name is trimmed");
         }
         if (columnName.equals("a,comma")) {
+            // TODO (https://github.com/trinodb/trino/issues/3537)
             assertThatThrownBy(() -> super.testColumnName(columnName))
-                    .hasMessageMatching(format("Column name '%s' is invalid since it contains a comma", columnName));
+                    .hasMessageMatching("Table '.*' does not have columns \\[a,comma]");
             throw new SkipException("works incorrectly");
         }
 
