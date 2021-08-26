@@ -75,7 +75,7 @@ public class FissionFunctionFunctions
     @ScalarFunction("fission_listdatalake")
     @Description("Explore datalake, Requires AzureToken")
     @SqlType(StandardTypes.VARCHAR)
-    public static Slice FetchListDataLake(ConnectorSession session, @SqlType(StandardTypes.VARCHAR) Slice filesystem, @SqlType(StandardTypes.VARCHAR) Slice filepath) throws JSONException, IOException
+    public static Slice fetchListDataLake(ConnectorSession session, @SqlType(StandardTypes.VARCHAR) Slice filesystem, @SqlType(StandardTypes.VARCHAR) Slice filepath) throws JSONException, IOException
     {
         JSONObject jsonObject = executeFissionFunctionGet(String.format("%s/listdatalake?filesystem=%s&filepath=%s", FissionFunctionConfigProvider.getFissionFunctionBaseURL(), filesystem.toStringUtf8(), filepath.toStringUtf8()), session.getIdentity().getExtraCredentials().getOrDefault("access-token", ""));
         return utf8Slice(jsonObject.getJSONArray("result").toString());
