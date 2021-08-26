@@ -15,6 +15,7 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
+import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.metadata.Metadata;
@@ -22,6 +23,7 @@ import io.trino.metadata.OperatorNotFoundException;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.InvocationConvention;
+import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.LongTimestampWithTimeZone;
@@ -32,6 +34,7 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
+import io.trino.spi.type.VarcharType;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.planner.ExpressionInterpreter;
 import io.trino.sql.planner.LiteralEncoder;
@@ -54,6 +57,8 @@ import java.time.temporal.ChronoUnit;
 import java.time.zone.ZoneOffsetTransition;
 import java.util.Optional;
 
+import static com.google.common.base.Verify.verify;
+import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -473,8 +478,29 @@ public class UnwrapCastInComparison
                 return false;
             }
 
+            boolean coercible = new TypeCoercion(metadata::getType).canCoerce(source, target);
+            if (source instanceof VarcharType && target instanceof CharType) {
+                // char should probably be coercible to varchar, not vice-versa. The code here needs to be updated when things change.
+                verify(coercible, "%s was expected to be coercible to %s", source, target);
+
+                VarcharType sourceVarchar = (VarcharType) source;
+                CharType targetChar = (CharType) target;
+
+                if (sourceVarchar.isUnbounded() || sourceVarchar.getBoundedLength() > targetChar.getLength()) {
+                    // Truncation, not injective.
+                    return false;
+                }
+                if (sourceVarchar.getBoundedLength() == 0) {
+                    // the source domain is single-element set
+                    return true;
+                }
+                int actualLengthWithoutSpaces = countCodePoints((Slice) value);
+                verify(actualLengthWithoutSpaces <= targetChar.getLength(), "Incorrect char value [%s] for %s", ((Slice) value).toStringUtf8(), targetChar);
+                return sourceVarchar.getBoundedLength() == actualLengthWithoutSpaces;
+            }
+
             // Well-behaved implicit casts are injective
-            return new TypeCoercion(metadata::getType).canCoerce(source, target);
+            return coercible;
         }
 
         private Object coerce(Object value, ResolvedFunction coercion)
