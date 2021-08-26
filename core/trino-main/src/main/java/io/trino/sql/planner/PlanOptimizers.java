@@ -378,6 +378,14 @@ public class PlanOptimizers
                 new PushDownDereferencesThroughRowNumber(typeAnalyzer),
                 new PushDownDereferencesThroughTopNRanking(typeAnalyzer));
 
+        Set<Rule<?>> limitPushdownRules = ImmutableSet.of(
+                new PushLimitThroughOffset(),
+                new PushLimitThroughProject(typeAnalyzer),
+                new PushLimitThroughMarkDistinct(),
+                new PushLimitThroughOuterJoin(),
+                new PushLimitThroughSemiJoin(),
+                new PushLimitThroughUnion());
+
         IterativeOptimizer inlineProjections = new IterativeOptimizer(
                 metadata,
                 ruleStats,
@@ -445,6 +453,7 @@ public class PlanOptimizers
                         ImmutableSet.<Rule<?>>builder()
                                 .addAll(columnPruningRules)
                                 .addAll(projectionPushdownRules)
+                                .addAll(limitPushdownRules)
                                 .addAll(new UnwrapRowSubscript().rules())
                                 .addAll(new PushCastIntoRow().rules())
                                 .addAll(ImmutableSet.of(
@@ -458,16 +467,10 @@ public class PlanOptimizers
                                         new RemoveFullSample(),
                                         new EvaluateZeroSample(),
                                         new PushOffsetThroughProject(),
-                                        new PushLimitThroughOffset(),
-                                        new PushLimitThroughProject(typeAnalyzer),
                                         new MergeLimits(),
                                         new MergeLimitWithSort(),
                                         new MergeLimitOverProjectWithSort(),
                                         new MergeLimitWithTopN(),
-                                        new PushLimitThroughMarkDistinct(),
-                                        new PushLimitThroughOuterJoin(),
-                                        new PushLimitThroughSemiJoin(),
-                                        new PushLimitThroughUnion(),
                                         new RemoveTrivialFilters(),
                                         new RemoveRedundantLimit(),
                                         new RemoveRedundantOffset(),
