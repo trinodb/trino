@@ -39,6 +39,9 @@ import static io.trino.tempto.query.QueryExecutor.param;
 import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.product.TestGroups.BIG_QUERY;
 import static io.trino.tests.product.TpchTableResults.PRESTO_NATION_RESULT;
+import static io.trino.tests.product.hive.BucketingType.BUCKETED_DEFAULT;
+import static io.trino.tests.product.hive.BucketingType.BUCKETED_V1;
+import static io.trino.tests.product.hive.BucketingType.BUCKETED_V2;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static io.trino.tests.product.utils.TableDefinitionUtils.mutableTableInstanceOf;
@@ -289,13 +292,13 @@ public class TestHiveBucketedTables
         List<String> bucketV1NameOptions = ImmutableList.of(bucketV1);
         List<String> bucketV2NameOptions = ImmutableList.of(bucketV2Standard, bucketV2DirectInsert);
 
-        testBucketingVersion(BucketingType.BUCKETED_DEFAULT, value, false, (getHiveVersionMajor() < 3) ? bucketV1NameOptions : bucketV2NameOptions);
-        testBucketingVersion(BucketingType.BUCKETED_DEFAULT, value, true, (getHiveVersionMajor() < 3) ? bucketV1NameOptions : bucketV2NameOptions);
-        testBucketingVersion(BucketingType.BUCKETED_V1, value, false, bucketV1NameOptions);
-        testBucketingVersion(BucketingType.BUCKETED_V1, value, true, bucketV1NameOptions);
+        testBucketingVersion(BUCKETED_DEFAULT, value, false, (getHiveVersionMajor() < 3) ? bucketV1NameOptions : bucketV2NameOptions);
+        testBucketingVersion(BUCKETED_DEFAULT, value, true, (getHiveVersionMajor() < 3) ? bucketV1NameOptions : bucketV2NameOptions);
+        testBucketingVersion(BUCKETED_V1, value, false, bucketV1NameOptions);
+        testBucketingVersion(BUCKETED_V1, value, true, bucketV1NameOptions);
         if (getHiveVersionMajor() >= 3) {
-            testBucketingVersion(BucketingType.BUCKETED_V2, value, false, bucketV2NameOptions);
-            testBucketingVersion(BucketingType.BUCKETED_V2, value, true, bucketV2NameOptions);
+            testBucketingVersion(BUCKETED_V2, value, false, bucketV2NameOptions);
+            testBucketingVersion(BUCKETED_V2, value, true, bucketV2NameOptions);
         }
     }
 
