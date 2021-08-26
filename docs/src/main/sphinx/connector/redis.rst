@@ -226,3 +226,12 @@ In addition to the above Kafka types, the Redis connector supports ``hash`` type
     }
 
 .. _Kafka connector: ./kafka.html
+
+.. _redis-sql-support:
+
+SQL support
+-----------
+
+The connector provides :ref:`globally available <sql-globally-available>` and
+:ref:`read operation <sql-read-operations>` statements to access data and
+metadata in Redis.
