@@ -95,9 +95,12 @@ public class LoginBasedSubjectProvider
 
                 credentialCache.ifPresent(file -> {
                     options.put("ticketCache", file.getAbsolutePath());
-                    options.put("useTicketCache", "true");
                     options.put("renewTGT", "true");
                 });
+
+                if (!keytab.isPresent() || credentialCache.isPresent()) {
+                    options.put("useTicketCache", "true");
+                }
 
                 principal.ifPresent(value -> options.put("principal", value));
 
