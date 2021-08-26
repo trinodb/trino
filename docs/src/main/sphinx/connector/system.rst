@@ -110,3 +110,12 @@ System connector procedures
 
     Kill the query identified by ``query_id``. The query failure message
     includes the specified ``message``.
+
+.. _system-sql-support:
+
+SQL support
+-----------
+
+The connector provides :ref:`globally available <sql-globally-available>` and
+:ref:`read operation <sql-read-operations>` statements to access Trino system
+data and metadata.
