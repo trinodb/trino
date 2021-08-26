@@ -234,6 +234,8 @@ public class TrinoResultSetMetaData
                 return Clob.class.getName();
             case Types.ARRAY:
                 return Array.class.getName();
+            case Types.NULL:
+                return "unknown";
         }
         return String.class.getName();
     }
