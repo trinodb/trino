@@ -306,6 +306,9 @@ public class MockConnector
         public void renameSchema(ConnectorSession session, String source, String target) {}
 
         @Override
+        public void setSchemaAuthorization(ConnectorSession session, String source, TrinoPrincipal principal) {}
+
+        @Override
         public void dropSchema(ConnectorSession session, String schemaName) {}
 
         @Override
@@ -365,7 +368,40 @@ public class MockConnector
         public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting) {}
 
         @Override
+        public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle) {}
+
+        @Override
+        public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTableName) {}
+
+        @Override
+        public void setTableComment(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<String> comment) {}
+
+        @Override
+        public void setColumnComment(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, Optional<String> comment) {}
+
+        @Override
+        public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column) {}
+
+        @Override
+        public void setTableAuthorization(ConnectorSession session, SchemaTableName tableName, TrinoPrincipal principal) {}
+
+        @Override
+        public void renameColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle source, String target) {}
+
+        @Override
+        public void dropColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column) {}
+
+        @Override
         public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, boolean replace) {}
+
+        @Override
+        public void renameView(ConnectorSession session, SchemaTableName source, SchemaTableName target) {}
+
+        @Override
+        public void setViewAuthorization(ConnectorSession session, SchemaTableName viewName, TrinoPrincipal principal) {}
+
+        @Override
+        public void dropView(ConnectorSession session, SchemaTableName viewName) {}
 
         @Override
         public void createMaterializedView(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition definition, boolean replace, boolean ignoreExisting) {}
