@@ -192,8 +192,13 @@ public class TrinoResultSetMetaData
     public String getColumnClassName(int column)
             throws SQLException
     {
+        return getType(column(column).getColumnType());
+    }
+
+    static String getType(int type)
+    {
         // see javax.sql.rowset.RowSetMetaDataImpl
-        switch (column(column).getColumnType()) {
+        switch (type) {
             case Types.NUMERIC:
             case Types.DECIMAL:
                 return BigDecimal.class.getName();
