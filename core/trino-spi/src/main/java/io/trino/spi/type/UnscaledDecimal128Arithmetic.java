@@ -1739,6 +1739,8 @@ public final class UnscaledDecimal128Arithmetic
 
     private static void pack(Slice decimal, int v0, int v1, int v2, int v3, boolean negative)
     {
+        // check if the result is zero and if so, don't create negative zeros:
+        negative &= v0 != 0 | v1 != 0 | v2 != 0 | v3 != 0;
         setRawInt(decimal, 0, v0);
         setRawInt(decimal, 1, v1);
         setRawInt(decimal, 2, v2);
@@ -1747,6 +1749,8 @@ public final class UnscaledDecimal128Arithmetic
 
     private static void pack(Slice decimal, int v0, int v1, long high, boolean negative)
     {
+        // check if the result is zero and if so, don't create negative zeros:
+        negative &= v0 != 0 | v1 != 0 | high != 0;
         setRawInt(decimal, 0, v0);
         setRawInt(decimal, 1, v1);
         setNegativeLong(decimal, high, negative);
@@ -1754,6 +1758,8 @@ public final class UnscaledDecimal128Arithmetic
 
     private static void pack(Slice decimal, long low, long high, boolean negative)
     {
+        // check if the result is zero and if so, don't create negative zeros:
+        negative &= low != 0 | high != 0;
         setRawLong(decimal, 0, low);
         setNegativeLong(decimal, high, negative);
     }
