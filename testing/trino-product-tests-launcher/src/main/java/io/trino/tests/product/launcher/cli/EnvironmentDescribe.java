@@ -131,7 +131,7 @@ public class EnvironmentDescribe
         {
             Optional<Path> environmentLogPath = environmentUpOptions.logsDirBase.map(dir -> dir.resolve(environmentUpOptions.environment));
 
-            Environment.Builder builder = environmentFactory.get(environmentUpOptions.environment, environmentConfig)
+            Environment.Builder builder = environmentFactory.get(environmentUpOptions.environment, environmentConfig, environmentUpOptions.extraOptions)
                     .setContainerOutputMode(environmentOptions.output)
                     .setLogsBaseDir(environmentLogPath);
 

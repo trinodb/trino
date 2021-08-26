@@ -2,8 +2,12 @@
 Deploying Trino
 ================
 
+.. _requirements:
+
 Requirements
 ------------
+
+.. _requirements-linux:
 
 Linux operating system
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -27,15 +31,16 @@ Linux operating system
 Java runtime environment
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-Trino requires a 64-bit version of Java 11, with a minimum required version of 11.0.7.
-Newer patch versions such as 11.0.8 or 11.0.9 are recommended. Earlier patch versions
-such as 11.0.2 do not work, nor will earlier major versions such as Java 8. Newer major
-versions such as Java 12 or 13 are not supported -- they may work, but are not tested.
+Trino requires a 64-bit version of Java 11, with a minimum required version of 11.0.11.
+Earlier patch versions such as 11.0.2 do not work, nor will earlier major versions such as Java 8.
+Newer major versions such as Java 12 or 13 are not supported -- they may work, but are not tested.
 
 We recommend using `Azul Zulu <https://www.azul.com/downloads/zulu-community/>`_
 as the JDK for Trino, as Trino is tested against that distribution.
 Zulu is also the JDK used by the
 `Trino Docker image <https://hub.docker.com/r/trinodb/trino>`_.
+
+.. _requirements-python:
 
 Python
 ^^^^^^
@@ -101,7 +106,7 @@ The above properties are described below:
   The location (filesystem path) of the data directory. Trino stores
   logs and other data here.
 
-.. _trino_jvm_config:
+.. _jvm_config:
 
 JVM config
 ^^^^^^^^^^
@@ -249,6 +254,8 @@ This would set the minimum level to ``INFO`` for both
 The default minimum level is ``INFO``,
 thus the above example does not actually change anything.
 There are four levels: ``DEBUG``, ``INFO``, ``WARN`` and ``ERROR``.
+
+.. _catalog_properties:
 
 Catalog properties
 ^^^^^^^^^^^^^^^^^^

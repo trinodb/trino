@@ -46,41 +46,41 @@ public class TestComparison
     public void testLessThanOperatorExists(String leftOperand, String rightOperand, String typeName)
     {
         assertThat(query(format("select cast(%s as %s) < cast(%s as %s)", leftOperand, typeName, rightOperand, typeName)))
-                .containsExactly(row(true));
+                .containsExactlyInOrder(row(true));
     }
 
     @Test(groups = {COMPARISON, QUERY_ENGINE}, dataProvider = "operands")
     public void testGreaterThanOperatorExists(String leftOperand, String rightOperand, String typeName)
     {
         assertThat(query(format("select cast(%s as %s) > cast(%s as %s)", leftOperand, typeName, rightOperand, typeName)))
-                .containsExactly(row(false));
+                .containsExactlyInOrder(row(false));
     }
 
     @Test(groups = {COMPARISON, QUERY_ENGINE}, dataProvider = "operands")
     public void testLessThanOrEqualOperatorExists(String leftOperand, String rightOperand, String typeName)
     {
         assertThat(query(format("select cast(%s as %s) <= cast(%s as %s)", leftOperand, typeName, rightOperand, typeName)))
-                .containsExactly(row(true));
+                .containsExactlyInOrder(row(true));
     }
 
     @Test(groups = {COMPARISON, QUERY_ENGINE}, dataProvider = "operands")
     public void testGreaterThanOrEqualOperatorExists(String leftOperand, String rightOperand, String typeName)
     {
         assertThat(query(format("select cast(%s as %s) >= cast(%s as %s)", leftOperand, typeName, rightOperand, typeName)))
-                .containsExactly(row(false));
+                .containsExactlyInOrder(row(false));
     }
 
     @Test(groups = {COMPARISON, QUERY_ENGINE}, dataProvider = "operands")
     public void testEqualOperatorExists(String leftOperand, String rightOperand, String typeName)
     {
         assertThat(query(format("select cast(%s as %s) = cast(%s as %s)", leftOperand, typeName, rightOperand, typeName)))
-                .containsExactly(row(false));
+                .containsExactlyInOrder(row(false));
     }
 
     @Test(groups = {COMPARISON, QUERY_ENGINE}, dataProvider = "operands")
     public void testBetweenOperatorExists(String leftOperand, String rightOperand, String typeName)
     {
         assertThat(query(format("select cast(%s as %s) BETWEEN cast(%s as %s) AND cast(%s as %s)", leftOperand, typeName, leftOperand, typeName, rightOperand, typeName)))
-                .containsExactly(row(true));
+                .containsExactlyInOrder(row(true));
     }
 }

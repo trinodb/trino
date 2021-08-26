@@ -20,6 +20,8 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.security.AccessControl;
+import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
+import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.RenameTable;
 import io.trino.transaction.TransactionManager;
@@ -27,7 +29,7 @@ import io.trino.transaction.TransactionManager;
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -45,7 +47,7 @@ public class RenameTableTask
     }
 
     @Override
-    public ListenableFuture<?> execute(
+    public ListenableFuture<Void> execute(
             RenameTable statement,
             TransactionManager transactionManager,
             Metadata metadata,
@@ -56,12 +58,35 @@ public class RenameTableTask
     {
         Session session = stateMachine.getSession();
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getSource());
+
+        Optional<ConnectorMaterializedViewDefinition> materializedView = metadata.getMaterializedView(session, tableName);
+        if (materializedView.isPresent()) {
+            if (!statement.isExists()) {
+                throw semanticException(
+                        TABLE_NOT_FOUND,
+                        statement,
+                        "Table '%s' does not exist, but a materialized view with that name exists.", tableName);
+            }
+            return immediateVoidFuture();
+        }
+
+        Optional<ConnectorViewDefinition> view = metadata.getView(session, tableName);
+        if (view.isPresent()) {
+            if (!statement.isExists()) {
+                throw semanticException(
+                        TABLE_NOT_FOUND,
+                        statement,
+                        "Table '%s' does not exist, but a view with that name exists. Did you mean ALTER VIEW %s RENAME ...?", tableName, tableName);
+            }
+            return immediateVoidFuture();
+        }
+
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
         if (tableHandle.isEmpty()) {
             if (!statement.isExists()) {
                 throw semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", tableName);
             }
-            return immediateFuture(null);
+            return immediateVoidFuture();
         }
 
         QualifiedObjectName target = createQualifiedObjectName(session, statement, statement.getTarget());
@@ -78,6 +103,6 @@ public class RenameTableTask
 
         metadata.renameTable(session, tableHandle.get(), target);
 
-        return immediateFuture(null);
+        return immediateVoidFuture();
     }
 }

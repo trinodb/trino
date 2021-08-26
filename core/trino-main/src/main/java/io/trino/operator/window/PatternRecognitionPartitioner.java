@@ -21,6 +21,7 @@ import io.trino.operator.window.matcher.Matcher;
 import io.trino.operator.window.pattern.LabelEvaluator.Evaluation;
 import io.trino.operator.window.pattern.LogicalIndexNavigation;
 import io.trino.operator.window.pattern.MeasureComputation;
+import io.trino.spi.function.WindowFunction;
 import io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch;
 import io.trino.sql.tree.SkipTo;
 
@@ -76,7 +77,8 @@ public class PatternRecognitionPartitioner
             int partitionStart,
             int partitionEnd,
             int[] outputChannels,
-            List<FramedWindowFunction> windowFunctions,
+            List<WindowFunction> windowFunctions,
+            List<FrameInfo> frames,
             PagesHashStrategy peerGroupHashStrategy,
             Map<FrameBoundKey, PagesIndexComparator> frameBoundComparators)
     {

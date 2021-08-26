@@ -18,8 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.metadata.Metadata;
 import io.trino.spi.type.Type;
 import io.trino.sql.ExpressionTestUtils;
-import io.trino.sql.parser.ParsingOptions;
-import io.trino.sql.parser.SqlParser;
+import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.SymbolReference;
 import org.testng.annotations.Test;
@@ -35,7 +34,6 @@ import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.ExpressionUtils.extractConjuncts;
-import static io.trino.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static org.testng.Assert.assertEquals;
 
 public class TestSortExpressionExtractor
@@ -93,7 +91,7 @@ public class TestSortExpressionExtractor
 
     private Expression expression(String sql)
     {
-        return ExpressionTestUtils.planExpression(metadata, TEST_SESSION, TYPE_PROVIDER, rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(sql, new ParsingOptions())));
+        return ExpressionTestUtils.planExpression(metadata, TEST_SESSION, TYPE_PROVIDER, PlanBuilder.expression(sql));
     }
 
     private void assertNoSortExpression(String expression)

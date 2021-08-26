@@ -366,7 +366,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public ListenableFuture<?> refreshMaterializedView(Session session, QualifiedObjectName viewName)
+    public ListenableFuture<Void> refreshMaterializedView(Session session, QualifiedObjectName viewName)
     {
         throw new UnsupportedOperationException();
     }

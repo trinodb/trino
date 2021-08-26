@@ -22,10 +22,15 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-@Test
 public abstract class BaseMongoDistributedQueries
         extends AbstractTestDistributedQueries
 {
+    @Override
+    protected boolean supportsCreateSchema()
+    {
+        return false;
+    }
+
     @Override
     protected boolean supportsDelete()
     {
@@ -51,15 +56,9 @@ public abstract class BaseMongoDistributedQueries
     }
 
     @Override
-    public void testCreateSchema()
+    protected boolean supportsRenameTable()
     {
-        // the connector does not support creating schemas
-    }
-
-    @Override
-    public void testRenameTable()
-    {
-        // the connector does not support renaming tables
+        return false;
     }
 
     @Override

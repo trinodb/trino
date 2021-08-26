@@ -227,7 +227,7 @@ When not using Kerberos with HDFS, Trino accesses HDFS using the
 OS user of the Trino process. For example, if Trino is running as
 ``nobody``, it accesses HDFS as ``nobody``. You can override this
 username by setting the ``HADOOP_USER_NAME`` system property in the
-Trino :ref:`trino_jvm_config`, replacing ``hdfs_user`` with the
+Trino :ref:`jvm_config`, replacing ``hdfs_user`` with the
 appropriate username:
 
 .. code-block:: text
@@ -454,7 +454,8 @@ Property Name                                      Description                  
 ``hive.metastore-cache-ttl``            Duration how long cached metastore data should be considered ``0s``
                                         valid.
 
-``hive.metastore-cache-maximum-size``   Hive metastore cache maximum size.                            10000
+``hive.metastore-cache-maximum-size``   Maximum number of metastore data objects in the Hive         10000
+                                        metastore cache.
 
 ``hive.metastore-refresh-interval``     Asynchronously refresh cached metastore data after access
                                         if it is older than this but is not yet expired, allowing
@@ -573,10 +574,10 @@ Property Name                                        Description
                                                      defaults to ``20``.
 
 ``hive.metastore.glue.read-statistics-threads``      Number of threads for parallel statistic fetches from Glue,
-                                                     defaults to ``1``.
+                                                     defaults to ``5``.
 
 ``hive.metastore.glue.write-statistics-threads``     Number of threads for parallel statistic writes to Glue,
-                                                     defaults to ``1``.
+                                                     defaults to ``5``.
 ==================================================== ============================================================
 
 Google Cloud Storage configuration
@@ -706,11 +707,14 @@ with keys ``p2_value1, p2_value2``.
 Note that if statistics were previously collected for all columns, they need to be dropped
 before re-analyzing just a subset::
 
-    CALL system.drop_stats(schema_name, table_name)
+    CALL system.drop_stats('schema_name', 'table_name')
 
 You can also drop statistics for selected partitions only::
 
-    CALL system.drop_stats(schema_name, table_name, ARRAY[ARRAY['p2_value1', 'p2_value2']])
+    CALL system.drop_stats(
+        schema_name => 'schema',
+        table_name => 'table',
+        partition_values => ARRAY[ARRAY['p2_value1', 'p2_value2']])
 
 .. _hive_dynamic_filtering:
 
@@ -999,9 +1003,9 @@ Hive connector limitations
 --------------------------
 
 * :doc:`/sql/alter-schema` usage fails, since the Hive metastore does not support renaming schemas.
-* :doc:`/sql/delete` applied to non-transactional tables is only supported if the ``WHERE`` clause matches entire partitions.
-  Transactional Hive tables with format ORC support "row-by-row" deletion, in which the ``WHERE`` clause may match arbitrary
-  sets of rows.
+* :doc:`/sql/delete` applied to non-transactional tables is only supported if the table is partitioned and
+  the ``WHERE`` clause matches entire partitions. Transactional Hive tables with ORC format support
+  "row-by-row" deletion, in which the ``WHERE`` clause may match arbitrary sets of rows.
 * :doc:`/sql/update` is only supported for transactional Hive tables with format ORC.  ``UPDATE`` of partition or bucket
   columns is not supported.
 

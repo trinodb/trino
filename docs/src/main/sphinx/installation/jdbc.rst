@@ -80,7 +80,7 @@ This example JDBC URL locates a Trino instance running on port ``8080`` on
 ``example.net``, with the catalog ``hive`` and the schema ``sales`` defined.
 
 .. note::
-  
+
   Typically, the JDBC driver classname is configured automatically by your
   client. If it is not, use ``io.trino.jdbc.TrinoDriver`` wherever a driver
   classname is required.
@@ -110,6 +110,8 @@ These methods may be mixed; some parameters may be specified in the URL,
 while others are specified using properties. However, the same parameter
 may not be specified using both methods.
 
+.. _jdbc-parameter-reference:
+
 Parameter reference
 -------------------
 
@@ -118,6 +120,7 @@ Name                                                         Description
 ============================================================ =======================================================================
 ``user``                                                     Username to use for authentication and authorization.
 ``password``                                                 Password to use for LDAP authentication.
+``sessionUser``                                              Session username override, used for impersonation.
 ``socksProxy``                                               SOCKS proxy host and port. Example: ``localhost:1080``
 ``httpProxy``                                                HTTP proxy host and port. Example: ``localhost:8888``
 ``clientInfo``                                               Extra information about the client.
@@ -131,15 +134,18 @@ Name                                                         Description
                                                              if the ``source`` parameter has not been set. If neither this
                                                              property nor ``ApplicationName`` or ``source`` are set, the source
                                                              name for the query is ``trino-jdbc``.
-``accessToken``                                              Access token for token based authentication.
-``SSL``                                                      Use HTTPS for connections
-``SSLVerification``                                          The method of SSL verification. There are three modes: ``FULL``
+``accessToken``                                              :doc:`JWT </security/jwt>` access token for token based authentication.
+``SSL``                                                      Set ``true`` to specify using HTTPS/TLS for connections.
+``SSLVerification``                                          The method of TLS verification. There are three modes: ``FULL``
                                                              (default), ``CA`` and ``NONE``. For ``FULL``, the normal TLS
                                                              verification is performed. For ``CA``, only the CA is verified but
                                                              hostname mismatch is allowed. For ``NONE``, there is no verification.
-``SSLKeyStorePath``                                          The location of the Java KeyStore file that contains the certificate
-                                                             and private key to use for authentication.
-``SSLKeyStorePassword``                                      The password for the KeyStore.
+``SSLKeyStorePath``                                          Use only when connecting to a Trino cluster that has :doc:`certificate
+                                                             authentication </security/certificate>` enabled.
+                                                             Specifies the path to a :doc:`PEM </security/inspect-pem>` or :doc:`JKS
+                                                             </security/inspect-jks>` file, which must contain a certificate that
+                                                             is trusted by the Trino cluster you connect to.
+``SSLKeyStorePassword``                                      The password for the KeyStore, if any.
 ``SSLKeyStoreType``                                          The type of the KeyStore. The default type is provided by the Java
                                                              ``keystore.type`` security property or ``jks`` if none exists.
 ``SSLTrustStorePath``                                        The location of the Java TrustStore file to use.

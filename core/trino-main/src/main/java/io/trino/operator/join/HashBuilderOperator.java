@@ -16,6 +16,7 @@ package io.trino.operator.join;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.execution.Lifespan;
 import io.trino.memory.context.LocalMemoryContext;
@@ -47,7 +48,8 @@ import java.util.Queue;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.checkSuccess;
 import static io.airlift.concurrent.MoreFutures.getDone;
 import static java.lang.String.format;
@@ -202,7 +204,7 @@ public class HashBuilderOperator
     private final LocalMemoryContext localUserMemoryContext;
     private final LocalMemoryContext localRevocableMemoryContext;
     private final PartitionedLookupSourceFactory lookupSourceFactory;
-    private final ListenableFuture<?> lookupSourceFactoryDestroyed;
+    private final ListenableFuture<Void> lookupSourceFactoryDestroyed;
     private final int partitionIndex;
 
     private final List<Integer> outputChannels;
@@ -220,10 +222,10 @@ public class HashBuilderOperator
     private final HashCollisionsCounter hashCollisionsCounter;
 
     private State state = State.CONSUMING_INPUT;
-    private Optional<ListenableFuture<?>> lookupSourceNotNeeded = Optional.empty();
+    private Optional<ListenableFuture<Void>> lookupSourceNotNeeded = Optional.empty();
     private final SpilledLookupSourceHandle spilledLookupSourceHandle = new SpilledLookupSourceHandle();
     private Optional<SingleStreamSpiller> spiller = Optional.empty();
-    private ListenableFuture<?> spillInProgress = NOT_BLOCKED;
+    private ListenableFuture<Void> spillInProgress = NOT_BLOCKED;
     private Optional<ListenableFuture<List<Page>>> unspillInProgress = Optional.empty();
     @Nullable
     private LookupSourceSupplier lookupSourceSupplier;
@@ -284,7 +286,7 @@ public class HashBuilderOperator
     }
 
     @Override
-    public ListenableFuture<?> isBlocked()
+    public ListenableFuture<Void> isBlocked()
     {
         switch (state) {
             case CONSUMING_INPUT:
@@ -300,7 +302,8 @@ public class HashBuilderOperator
                 return spilledLookupSourceHandle.getUnspillingOrDisposeRequested();
 
             case INPUT_UNSPILLING:
-                return unspillInProgress.orElseThrow(() -> new IllegalStateException("Unspilling in progress, but unspilling future not set"));
+                return unspillInProgress.map(HashBuilderOperator::asVoid)
+                        .orElseThrow(() -> new IllegalStateException("Unspilling in progress, but unspilling future not set"));
 
             case INPUT_UNSPILLED_AND_BUILT:
                 return spilledLookupSourceHandle.getDisposeRequested();
@@ -309,6 +312,11 @@ public class HashBuilderOperator
                 return NOT_BLOCKED;
         }
         throw new IllegalStateException("Unhandled state: " + state);
+    }
+
+    private static <T> ListenableFuture<Void> asVoid(ListenableFuture<T> future)
+    {
+        return Futures.transform(future, v -> null, directExecutor());
     }
 
     @Override
@@ -363,7 +371,7 @@ public class HashBuilderOperator
     }
 
     @Override
-    public ListenableFuture<?> startMemoryRevoke()
+    public ListenableFuture<Void> startMemoryRevoke()
     {
         checkState(spillEnabled, "Spill not enabled, no revokable memory should be reserved");
 
@@ -373,7 +381,7 @@ public class HashBuilderOperator
             long indexSizeAfterCompaction = index.getEstimatedSize().toBytes();
             if (indexSizeAfterCompaction < indexSizeBeforeCompaction * INDEX_COMPACTION_ON_REVOCATION_TARGET) {
                 finishMemoryRevoke = Optional.of(() -> {});
-                return immediateFuture(null);
+                return immediateVoidFuture();
             }
 
             finishMemoryRevoke = Optional.of(() -> {
@@ -401,13 +409,13 @@ public class HashBuilderOperator
         if (operatorContext.getReservedRevocableBytes() == 0) {
             // Probably stale revoking request
             finishMemoryRevoke = Optional.of(() -> {});
-            return immediateFuture(null);
+            return immediateVoidFuture();
         }
 
         throw new IllegalStateException(format("State %s cannot have revocable memory, but has %s revocable bytes", state, operatorContext.getReservedRevocableBytes()));
     }
 
-    private ListenableFuture<?> spillIndex()
+    private ListenableFuture<Void> spillIndex()
     {
         checkState(spiller.isEmpty(), "Spiller already created");
         spiller = Optional.of(singleStreamSpillerFactory.create(

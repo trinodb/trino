@@ -31,8 +31,11 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static io.trino.connector.MockConnectorEntities.TPCH_NATION_DATA;
+import static io.trino.connector.MockConnectorEntities.TPCH_NATION_SCHEMA;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestMockConnector
         extends AbstractTestQueryFramework
@@ -49,7 +52,12 @@ public class TestMockConnector
                 new MockConnectorPlugin(
                         MockConnectorFactory.builder()
                                 .withListSchemaNames(connectionSession -> ImmutableList.of("default"))
-                                .withGetColumns(schemaTableName -> ImmutableList.of(new ColumnMetadata("nationkey", BIGINT)))
+                                .withGetColumns(schemaTableName -> {
+                                    if (schemaTableName.equals(new SchemaTableName("default", "nation"))) {
+                                        return TPCH_NATION_SCHEMA;
+                                    }
+                                    return ImmutableList.of(new ColumnMetadata("nationkey", BIGINT));
+                                })
                                 .withGetTableHandle((session, tableName) -> new MockConnectorTableHandle(tableName))
                                 .withGetMaterializedViews((session, schemaTablePrefix) -> ImmutableMap.of(
                                         new SchemaTableName("default", "test_materialized_view"),
@@ -62,6 +70,12 @@ public class TestMockConnector
                                                 Optional.empty(),
                                                 "alice",
                                                 ImmutableMap.of())))
+                                .withData(schemaTableName -> {
+                                    if (schemaTableName.equals(new SchemaTableName("default", "nation"))) {
+                                        return TPCH_NATION_DATA;
+                                    }
+                                    throw new UnsupportedOperationException();
+                                })
                                 .build()));
         queryRunner.createCatalog("mock", "mock");
         return queryRunner;
@@ -101,5 +115,58 @@ public class TestMockConnector
     public void testDropMaterializedView()
     {
         assertUpdate("DROP MATERIALIZED VIEW mock.default.test_materialized_view");
+    }
+
+    @Test
+    public void testDataGeneration()
+    {
+        assertQuery(
+                "SELECT * FROM mock.default.nation",
+                "SELECT * FROM nation");
+        assertQuery(
+                "SELECT nationkey FROM mock.default.nation",
+                "SELECT nationkey FROM nation");
+        assertQuery(
+                "SELECT nationkey, regionkey FROM mock.default.nation",
+                "SELECT nationkey, regionkey FROM nation");
+        assertQuery(
+                "SELECT regionkey, nationkey FROM mock.default.nation",
+                "SELECT regionkey, nationkey FROM nation");
+        assertQuery(
+                "SELECT regionkey FROM mock.default.nation",
+                "SELECT regionkey FROM nation");
+    }
+
+    @Test
+    public void testInsert()
+    {
+        assertQuery("SELECT count(*) FROM mock.default.nation", "SELECT 25");
+        assertUpdate("INSERT INTO mock.default.nation VALUES (101, 'POLAND', 0, 'No comment')", 1);
+        // Mock connector only pretends support for INSERT, it does not manipulate any data
+        assertQuery("SELECT count(*) FROM mock.default.nation", "SELECT 25");
+    }
+
+    @Test
+    public void testDelete()
+    {
+        assertQuery("SELECT count(*) FROM mock.default.nation", "SELECT 25");
+        assertUpdate("DELETE FROM mock.default.nation", 25);
+        assertUpdate("DELETE FROM mock.default.nation WHERE nationkey = 1", 1);
+        assertUpdate("DELETE FROM mock.default.nation WHERE false", 0);
+        // Mock connector only pretends support for DELETE, it does not manipulate any data
+        assertQuery("SELECT count(*) FROM mock.default.nation", "SELECT 25");
+    }
+
+    @Test
+    public void testUpdate()
+    {
+        assertQuery("SELECT count(*) FROM mock.default.nation WHERE name = 'ALGERIA'", "SELECT 1");
+        assertUpdate("UPDATE mock.default.nation SET name = 'ALGERIA'", 25);
+        assertUpdate("UPDATE mock.default.nation SET name = 'ALGERIA' WHERE nationkey = 1", 1);
+        assertThatThrownBy(() -> assertUpdate("UPDATE mock.default.nation SET name = 'x' WHERE false", 0))
+                // TODO https://github.com/trinodb/trino/issues/8855 - UPDATE with WHERE false currently is not supported
+                .hasMessage("Invalid descendant for DeleteNode or UpdateNode: io.trino.sql.planner.plan.ExchangeNode");
+        // Mock connector only pretends support for UPDATE, it does not manipulate any data
+        assertQuery("SELECT count(*) FROM mock.default.nation WHERE name = 'ALGERIA'", "SELECT 1");
     }
 }

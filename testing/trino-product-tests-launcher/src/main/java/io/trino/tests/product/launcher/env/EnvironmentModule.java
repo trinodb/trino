@@ -55,7 +55,6 @@ public final class EnvironmentModule
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(PortBinder.class).in(SINGLETON);
         binder.bind(EnvironmentFactory.class).in(SINGLETON);
         binder.bind(EnvironmentConfigFactory.class).in(SINGLETON);
         binder.bind(EnvironmentOptions.class).toInstance(environmentOptions);
@@ -84,6 +83,21 @@ public final class EnvironmentModule
     public EnvironmentConfig provideEnvironmentConfig(EnvironmentOptions options, EnvironmentConfigFactory factory)
     {
         return factory.getConfig(options.config);
+    }
+
+    @Provides
+    @Singleton
+    public PortBinder providePortBinder(EnvironmentOptions options)
+    {
+        if (options.bindPorts) {
+            if (options.bindPortsBase > 0) {
+                return new PortBinder.ShiftingPortBinder(new PortBinder.FixedPortBinder(), options.bindPortsBase);
+            }
+
+            return new PortBinder.FixedPortBinder();
+        }
+
+        return new PortBinder.DefaultPortBinder();
     }
 
     @Provides

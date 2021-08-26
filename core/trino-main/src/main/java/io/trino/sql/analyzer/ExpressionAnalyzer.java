@@ -52,7 +52,9 @@ import io.trino.spi.type.TypeNotFoundException;
 import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.analyzer.Analysis.PredicateCoercions;
+import io.trino.sql.analyzer.Analysis.Range;
 import io.trino.sql.analyzer.Analysis.ResolvedWindow;
+import io.trino.sql.analyzer.PatternRecognitionAnalyzer.PatternRecognitionAnalysis;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
@@ -97,6 +99,7 @@ import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.LikePredicate;
 import io.trino.sql.tree.LogicalBinaryExpression;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.MeasureDefinition;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NotExpression;
@@ -107,7 +110,9 @@ import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.ProcessingMode;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.QuantifiedComparisonExpression;
+import io.trino.sql.tree.RangeQuantifier;
 import io.trino.sql.tree.Row;
+import io.trino.sql.tree.RowPattern;
 import io.trino.sql.tree.SearchedCaseExpression;
 import io.trino.sql.tree.SimpleCaseExpression;
 import io.trino.sql.tree.SortItem;
@@ -120,8 +125,10 @@ import io.trino.sql.tree.SymbolReference;
 import io.trino.sql.tree.TimeLiteral;
 import io.trino.sql.tree.TimestampLiteral;
 import io.trino.sql.tree.TryExpression;
+import io.trino.sql.tree.VariableDefinition;
 import io.trino.sql.tree.WhenClause;
 import io.trino.sql.tree.WindowFrame;
+import io.trino.sql.tree.WindowOperation;
 import io.trino.type.FunctionType;
 import io.trino.type.TypeCoercion;
 import io.trino.type.UnknownType;
@@ -135,6 +142,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -157,7 +165,10 @@ import static io.trino.spi.StandardErrorCode.INVALID_PARAMETER_USAGE;
 import static io.trino.spi.StandardErrorCode.INVALID_PATTERN_RECOGNITION_FUNCTION;
 import static io.trino.spi.StandardErrorCode.INVALID_PROCESSING_MODE;
 import static io.trino.spi.StandardErrorCode.INVALID_WINDOW_FRAME;
+import static io.trino.spi.StandardErrorCode.INVALID_WINDOW_MEASURE;
 import static io.trino.spi.StandardErrorCode.MISSING_ORDER_BY;
+import static io.trino.spi.StandardErrorCode.MISSING_ROW_PATTERN;
+import static io.trino.spi.StandardErrorCode.MISSING_VARIABLE_DEFINITIONS;
 import static io.trino.spi.StandardErrorCode.NESTED_WINDOW;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
@@ -188,9 +199,10 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.NodeUtils.getSortItemsFromOrderBy;
 import static io.trino.sql.analyzer.Analyzer.verifyNoAggregateWindowOrGroupingFunctions;
+import static io.trino.sql.analyzer.CanonicalizationAware.canonicalizationAwareKey;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractExpressions;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractLocation;
-import static io.trino.sql.analyzer.ExpressionTreeUtils.extractWindowFunctions;
+import static io.trino.sql.analyzer.ExpressionTreeUtils.extractWindowExpressions;
 import static io.trino.sql.analyzer.SemanticExceptions.missingAttributeException;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -233,7 +245,7 @@ public class ExpressionAnalyzer
 
     private final Metadata metadata;
     private final AccessControl accessControl;
-    private final Function<Node, StatementAnalyzer> statementAnalyzerFactory;
+    private final BiFunction<Node, CorrelationSupport, StatementAnalyzer> statementAnalyzerFactory;
     private final TypeProvider symbolTypes;
     private final boolean isDescribe;
 
@@ -270,28 +282,29 @@ public class ExpressionAnalyzer
     private final Map<NodeRef<DereferenceExpression>, LabelPrefixedReference> labelDereferences = new LinkedHashMap<>();
     // Record functions specific to row pattern recognition context
     private final Set<NodeRef<FunctionCall>> patternRecognitionFunctions = new LinkedHashSet<>();
+    private final Map<NodeRef<RangeQuantifier>, Range> ranges = new LinkedHashMap<>();
+    private final Map<NodeRef<RowPattern>, Set<String>> undefinedLabels = new LinkedHashMap<>();
+    private final Map<NodeRef<WindowOperation>, MeasureDefinition> measureDefinitions = new LinkedHashMap<>();
 
     private final Session session;
     private final Map<NodeRef<Parameter>, Expression> parameters;
     private final WarningCollector warningCollector;
     private final TypeCoercion typeCoercion;
-    private final CorrelationSupport correlationSupport;
     private final Function<Expression, Type> getPreanalyzedType;
-    private final Function<FunctionCall, ResolvedWindow> getResolvedWindow;
+    private final Function<Node, ResolvedWindow> getResolvedWindow;
     private final List<Field> sourceFields = new ArrayList<>();
 
     public ExpressionAnalyzer(
             Metadata metadata,
             AccessControl accessControl,
-            Function<Node, StatementAnalyzer> statementAnalyzerFactory,
+            BiFunction<Node, CorrelationSupport, StatementAnalyzer> statementAnalyzerFactory,
             Session session,
             TypeProvider symbolTypes,
             Map<NodeRef<Parameter>, Expression> parameters,
             WarningCollector warningCollector,
             boolean isDescribe,
-            CorrelationSupport correlationSupport,
             Function<Expression, Type> getPreanalyzedType,
-            Function<FunctionCall, ResolvedWindow> getResolvedWindow)
+            Function<Node, ResolvedWindow> getResolvedWindow)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
@@ -302,7 +315,6 @@ public class ExpressionAnalyzer
         this.isDescribe = isDescribe;
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         this.typeCoercion = new TypeCoercion(metadata::getType);
-        this.correlationSupport = requireNonNull(correlationSupport, "correlationSupport is null");
         this.getPreanalyzedType = requireNonNull(getPreanalyzedType, "getPreanalyzedType is null");
         this.getResolvedWindow = requireNonNull(getResolvedWindow, "getResolvedWindow is null");
     }
@@ -384,7 +396,13 @@ public class ExpressionAnalyzer
     public Type analyze(Expression expression, Scope scope)
     {
         Visitor visitor = new Visitor(scope, warningCollector);
-        return visitor.process(expression, new StackableAstVisitor.StackableAstVisitorContext<>(Context.notInLambda(scope)));
+        return visitor.process(expression, new StackableAstVisitor.StackableAstVisitorContext<>(Context.notInLambda(scope, CorrelationSupport.ALLOWED)));
+    }
+
+    public Type analyze(Expression expression, Scope scope, CorrelationSupport correlationSupport)
+    {
+        Visitor visitor = new Visitor(scope, warningCollector);
+        return visitor.process(expression, new StackableAstVisitor.StackableAstVisitorContext<>(Context.notInLambda(scope, correlationSupport)));
     }
 
     private Type analyze(Expression expression, Scope scope, Set<String> labels)
@@ -399,10 +417,10 @@ public class ExpressionAnalyzer
         return visitor.process(expression, new StackableAstVisitor.StackableAstVisitorContext<>(context));
     }
 
-    private void analyzeWindow(ResolvedWindow window, Scope scope, Node originalNode)
+    private void analyzeWindow(ResolvedWindow window, Scope scope, Node originalNode, CorrelationSupport correlationSupport)
     {
         Visitor visitor = new Visitor(scope, warningCollector);
-        visitor.analyzeWindow(window, new StackableAstVisitor.StackableAstVisitorContext<>(Context.notInLambda(scope)), originalNode);
+        visitor.analyzeWindow(window, new StackableAstVisitor.StackableAstVisitorContext<>(Context.notInLambda(scope, correlationSupport)), originalNode);
     }
 
     public Set<NodeRef<SubqueryExpression>> getSubqueries()
@@ -448,6 +466,21 @@ public class ExpressionAnalyzer
     public Set<NodeRef<FunctionCall>> getPatternRecognitionFunctions()
     {
         return patternRecognitionFunctions;
+    }
+
+    public Map<NodeRef<RangeQuantifier>, Range> getRanges()
+    {
+        return ranges;
+    }
+
+    public Map<NodeRef<RowPattern>, Set<String>> getUndefinedLabels()
+    {
+        return undefinedLabels;
+    }
+
+    public Map<NodeRef<WindowOperation>, MeasureDefinition> getMeasureDefinitions()
+    {
+        return measureDefinitions;
     }
 
     private class Visitor
@@ -537,7 +570,7 @@ public class ExpressionAnalyzer
 
         private Type handleResolvedField(Expression node, ResolvedField resolvedField, StackableAstVisitorContext<Context> context)
         {
-            if (!resolvedField.isLocal() && correlationSupport != CorrelationSupport.ALLOWED) {
+            if (!resolvedField.isLocal() && context.getContext().getCorrelationSupport() != CorrelationSupport.ALLOWED) {
                 throw semanticException(NOT_SUPPORTED, node, "Reference to column '%s' from outer scope not allowed in this context", node);
             }
 
@@ -592,7 +625,7 @@ public class ExpressionAnalyzer
                         if (resolvedField.isEmpty()) {
                             throw semanticException(COLUMN_NOT_FOUND, node, "Column %s prefixed with label %s cannot be resolved", unlabeledName, label);
                         }
-                        // Correlation is not allowed in pattern recognition context. CorrelationSupport.DISALLOWED was set when creating the ExpressionAnalyzer,
+                        // Correlation is not allowed in pattern recognition context. Visitor's context for pattern recognition has CorrelationSupport.DISALLOWED,
                         // and so the following call should fail if the field is from outer scope.
                         Type type = process(unlabeled, new StackableAstVisitorContext<>(context.getContext().notExpectingLabels()));
                         labelDereferences.put(NodeRef.of(node), new LabelPrefixedReference(label, unlabeled));
@@ -852,24 +885,21 @@ public class ExpressionAnalyzer
                 coerceType(context, node.getValue(), VARCHAR, "Left side of LIKE expression");
             }
 
-            Type patternType = getVarcharType(node.getPattern(), context);
-            coerceType(context, node.getPattern(), patternType, "Pattern for LIKE expression");
+            Type patternType = process(node.getPattern(), context);
+            if (!(patternType instanceof VarcharType)) {
+                // TODO can pattern be of char type?
+                coerceType(context, node.getPattern(), VARCHAR, "Pattern for LIKE expression");
+            }
             if (node.getEscape().isPresent()) {
                 Expression escape = node.getEscape().get();
-                Type escapeType = getVarcharType(escape, context);
-                coerceType(context, escape, escapeType, "Escape for LIKE expression");
+                Type escapeType = process(escape, context);
+                if (!(escapeType instanceof VarcharType)) {
+                    // TODO can escape be of char type?
+                    coerceType(context, escape, VARCHAR, "Escape for LIKE expression");
+                }
             }
 
             return setExpressionType(node, BOOLEAN);
-        }
-
-        private Type getVarcharType(Expression value, StackableAstVisitorContext<Context> context)
-        {
-            Type type = process(value, context);
-            if (!(type instanceof VarcharType)) {
-                return VARCHAR;
-            }
-            return type;
         }
 
         @Override
@@ -1173,9 +1203,9 @@ public class ExpressionAnalyzer
             if (!window.isFrameInherited()) {
                 window.getFrame().ifPresent(childNodes::add);
             }
-            List<FunctionCall> nestedWindowFunctions = extractWindowFunctions(childNodes.build());
-            if (!nestedWindowFunctions.isEmpty()) {
-                throw semanticException(NESTED_WINDOW, nestedWindowFunctions.get(0), "Cannot nest window functions inside window specification");
+            List<Expression> nestedWindowExpressions = extractWindowExpressions(childNodes.build());
+            if (!nestedWindowExpressions.isEmpty()) {
+                throw semanticException(NESTED_WINDOW, nestedWindowExpressions.get(0), "Cannot nest window functions or row pattern measures inside window specification");
             }
 
             if (!window.isPartitionByInherited()) {
@@ -1200,6 +1230,65 @@ public class ExpressionAnalyzer
 
             if (window.getFrame().isPresent() && !window.isFrameInherited()) {
                 WindowFrame frame = window.getFrame().get();
+
+                if (frame.getPattern().isPresent()) {
+                    if (frame.getVariableDefinitions().isEmpty()) {
+                        throw semanticException(MISSING_VARIABLE_DEFINITIONS, frame, "Pattern recognition requires DEFINE clause");
+                    }
+                    if (frame.getType() != ROWS) {
+                        throw semanticException(INVALID_WINDOW_FRAME, frame, "Pattern recognition requires ROWS frame type");
+                    }
+                    if (frame.getStart().getType() != CURRENT_ROW || frame.getEnd().isEmpty()) {
+                        throw semanticException(INVALID_WINDOW_FRAME, frame, "Pattern recognition requires frame specified as BETWEEN CURRENT ROW AND ...");
+                    }
+                    PatternRecognitionAnalysis analysis = PatternRecognitionAnalyzer.analyze(
+                            frame.getSubsets(),
+                            frame.getVariableDefinitions(),
+                            frame.getMeasures(),
+                            frame.getPattern().get(),
+                            frame.getAfterMatchSkipTo());
+
+                    ranges.putAll(analysis.getRanges());
+                    undefinedLabels.put(NodeRef.of(frame.getPattern().get()), analysis.getUndefinedLabels());
+
+                    PatternRecognitionAnalyzer.validateNoPatternAnchors(frame.getPattern().get());
+
+                    // analyze expressions in MEASURES and DEFINE (with set of all labels passed as context)
+                    for (VariableDefinition variableDefinition : frame.getVariableDefinitions()) {
+                        Expression expression = variableDefinition.getExpression();
+                        Type type = process(expression, new StackableAstVisitorContext<>(context.getContext().patternRecognition(analysis.getAllLabels())));
+                        if (!type.equals(BOOLEAN)) {
+                            throw semanticException(TYPE_MISMATCH, expression, "Expression defining a label must be boolean (actual type: %s)", type);
+                        }
+                    }
+                    for (MeasureDefinition measureDefinition : frame.getMeasures()) {
+                        Expression expression = measureDefinition.getExpression();
+                        process(expression, new StackableAstVisitorContext<>(context.getContext().patternRecognition(analysis.getAllLabels())));
+                    }
+
+                    // validate pattern recognition expressions: MATCH_NUMBER() is not allowed in window
+                    // this must run after the expressions in MEASURES and DEFINE are analyzed, and the patternRecognitionFunctions are recorded
+                    PatternRecognitionAnalyzer.validateNoMatchNumber(frame.getMeasures(), frame.getVariableDefinitions(), patternRecognitionFunctions);
+
+                    // TODO prohibited nesting: pattern recognition in frame end expression(?)
+                }
+                else {
+                    if (!frame.getMeasures().isEmpty()) {
+                        throw semanticException(MISSING_ROW_PATTERN, frame, "Row pattern measures require PATTERN clause");
+                    }
+                    if (frame.getAfterMatchSkipTo().isPresent()) {
+                        throw semanticException(MISSING_ROW_PATTERN, frame.getAfterMatchSkipTo().get(), "AFTER MATCH SKIP clause requires PATTERN clause");
+                    }
+                    if (frame.getPatternSearchMode().isPresent()) {
+                        throw semanticException(MISSING_ROW_PATTERN, frame.getPatternSearchMode().get(), "%s modifier requires PATTERN clause", frame.getPatternSearchMode().get().getMode().name());
+                    }
+                    if (!frame.getSubsets().isEmpty()) {
+                        throw semanticException(MISSING_ROW_PATTERN, frame.getSubsets().get(0), "Union variable definitions require PATTERN clause");
+                    }
+                    if (!frame.getVariableDefinitions().isEmpty()) {
+                        throw semanticException(MISSING_ROW_PATTERN, frame.getVariableDefinitions().get(0), "Primary pattern variable definitions require PATTERN clause");
+                    }
+                }
 
                 // validate frame start and end types
                 FrameBound.Type startType = frame.getStart().getType();
@@ -1352,6 +1441,36 @@ public class ExpressionAnalyzer
             frameBoundCalculations.put(NodeRef.of(offsetValue), function);
         }
 
+        @Override
+        protected Type visitWindowOperation(WindowOperation node, StackableAstVisitorContext<Context> context)
+        {
+            ResolvedWindow window = getResolvedWindow.apply(node);
+            checkState(window != null, "no resolved window for: " + node);
+
+            if (window.getFrame().isEmpty()) {
+                throw semanticException(INVALID_WINDOW_MEASURE, node, "Measure %s is not defined in the corresponding window", node.getName().getValue());
+            }
+            CanonicalizationAware<Identifier> canonicalName = canonicalizationAwareKey(node.getName());
+            List<MeasureDefinition> matchingMeasures = window.getFrame().get().getMeasures().stream()
+                    .filter(measureDefinition -> canonicalizationAwareKey(measureDefinition.getName()).equals(canonicalName))
+                    .collect(toImmutableList());
+            if (matchingMeasures.isEmpty()) {
+                throw semanticException(INVALID_WINDOW_MEASURE, node, "Measure %s is not defined in the corresponding window", node.getName().getValue());
+            }
+            if (matchingMeasures.size() > 1) {
+                throw semanticException(AMBIGUOUS_NAME, node, "Measure %s is defined more than once", node.getName().getValue());
+            }
+            MeasureDefinition matchingMeasure = getOnlyElement(matchingMeasures);
+            measureDefinitions.put(NodeRef.of(node), matchingMeasure);
+
+            analyzeWindow(window, context, (Node) node.getWindow());
+
+            Expression expression = matchingMeasure.getExpression();
+            Type type = window.isFrameInherited() ? getPreanalyzedType.apply(expression) : getExpressionType(expression);
+
+            return setExpressionType(node, type);
+        }
+
         public List<TypeSignatureProvider> getCallArgumentTypes(List<Expression> arguments, StackableAstVisitorContext<Context> context)
         {
             ImmutableList.Builder<TypeSignatureProvider> argumentTypesBuilder = ImmutableList.builder();
@@ -1368,7 +1487,6 @@ public class ExpressionAnalyzer
                                         parameters,
                                         warningCollector,
                                         isDescribe,
-                                        correlationSupport,
                                         getPreanalyzedType,
                                         getResolvedWindow);
                                 if (context.getContext().isInLambda()) {
@@ -1834,9 +1952,40 @@ public class ExpressionAnalyzer
         protected Type visitInPredicate(InPredicate node, StackableAstVisitorContext<Context> context)
         {
             Expression value = node.getValue();
+            Expression valueList = node.getValueList();
+
+            // When an IN-predicate containing a subquery: `x IN (SELECT ...)` is planned, both `value` and `valueList` are pre-planned.
+            // In the row pattern matching context, expressions can contain labeled column references, navigations, CALSSIFIER(), and MATCH_NUMBER() calls.
+            // None of these can be pre-planned. Instead, the query fails:
+            // - if such elements are in the `value list` (subquery), the analysis of the subquery fails as it is done in a non-pattern-matching context.
+            // - if such elements are in `value`, they are captured by the below check.
+            //
+            // NOTE: Theoretically, if the IN-predicate does not contain CLASSIFIER() or MATCH_NUMBER() calls, it could be pre-planned
+            // on the condition that all column references of the `value` are consistently navigated (i.e., the expression is effectively evaluated within a single row),
+            // and that the same navigation should be applied to the resulting symbol.
+            // Currently, we only support the case when there are no explicit labels or navigations. This is a special case of such
+            // consistent navigating, as the column reference `x` defaults to `RUNNING LAST(universal_pattern_variable.x)`.
+            if (context.getContext().isPatternRecognition() && valueList instanceof SubqueryExpression) {
+                extractExpressions(ImmutableList.of(value), FunctionCall.class).stream()
+                        .filter(ExpressionAnalyzer::isPatternRecognitionFunction)
+                        .findFirst()
+                        .ifPresent(function -> {
+                            throw semanticException(NOT_SUPPORTED, function, "IN-PREDICATE with %s function is not yet supported", function.getName().getSuffix());
+                        });
+                extractExpressions(ImmutableList.of(value), DereferenceExpression.class).stream()
+                        .forEach(dereference -> {
+                            QualifiedName qualifiedName = DereferenceExpression.getQualifiedName(dereference);
+                            if (qualifiedName != null) {
+                                String label = label(qualifiedName.getOriginalParts().get(0));
+                                if (context.getContext().getLabels().contains(label)) {
+                                    throw semanticException(NOT_SUPPORTED, dereference, "IN-PREDICATE with labeled column reference is not yet supported");
+                                }
+                            }
+                        });
+            }
+
             Type declaredValueType = process(value, context);
 
-            Expression valueList = node.getValueList();
             if (valueList instanceof InListExpression) {
                 process(valueList, context);
                 InListExpression inListExpression = (InListExpression) valueList;
@@ -1919,7 +2068,7 @@ public class ExpressionAnalyzer
             if (context.getContext().isInLambda()) {
                 throw semanticException(NOT_SUPPORTED, node, "Lambda expression cannot contain subqueries");
             }
-            StatementAnalyzer analyzer = statementAnalyzerFactory.apply(node);
+            StatementAnalyzer analyzer = statementAnalyzerFactory.apply(node, context.getContext().getCorrelationSupport());
             Scope subqueryScope = Scope.builder()
                     .withParent(context.getContext().getScope())
                     .build();
@@ -1945,7 +2094,7 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitExists(ExistsPredicate node, StackableAstVisitorContext<Context> context)
         {
-            StatementAnalyzer analyzer = statementAnalyzerFactory.apply(node);
+            StatementAnalyzer analyzer = statementAnalyzerFactory.apply(node, context.getContext().getCorrelationSupport());
             Scope subqueryScope = Scope.builder()
                     .withParent(context.getContext().getScope())
                     .build();
@@ -2010,6 +2159,10 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitLambdaExpression(LambdaExpression node, StackableAstVisitorContext<Context> context)
         {
+            if (context.getContext().isPatternRecognition()) {
+                throw semanticException(NOT_SUPPORTED, node, "Lambda expression in pattern recognition context is not yet supported");
+            }
+
             verifyNoAggregateWindowOrGroupingFunctions(metadata, node.getBody(), "Lambda expression");
             if (!context.getContext().isExpectingLambda()) {
                 throw semanticException(TYPE_MISMATCH, node, "Lambda expression should always be used inside a function");
@@ -2233,46 +2386,55 @@ public class ExpressionAnalyzer
         // necessary for the analysis of expressions in the context of row pattern recognition
         private final Set<String> labels;
 
+        private final CorrelationSupport correlationSupport;
+
         private Context(
                 Scope scope,
                 List<Type> functionInputTypes,
                 Map<FieldId, LambdaArgumentDeclaration> fieldToLambdaArgumentDeclaration,
-                Set<String> labels)
+                Set<String> labels,
+                CorrelationSupport correlationSupport)
         {
             this.scope = requireNonNull(scope, "scope is null");
             this.functionInputTypes = functionInputTypes;
             this.fieldToLambdaArgumentDeclaration = fieldToLambdaArgumentDeclaration;
             this.labels = labels;
+            this.correlationSupport = requireNonNull(correlationSupport, "correlationSupport is null");
         }
 
-        public static Context notInLambda(Scope scope)
+        public static Context notInLambda(Scope scope, CorrelationSupport correlationSupport)
         {
-            return new Context(scope, null, null, null);
+            return new Context(scope, null, null, null, correlationSupport);
         }
 
         public Context inLambda(Scope scope, Map<FieldId, LambdaArgumentDeclaration> fieldToLambdaArgumentDeclaration)
         {
-            return new Context(scope, null, requireNonNull(fieldToLambdaArgumentDeclaration, "fieldToLambdaArgumentDeclaration is null"), labels);
+            return new Context(scope, null, requireNonNull(fieldToLambdaArgumentDeclaration, "fieldToLambdaArgumentDeclaration is null"), labels, correlationSupport);
         }
 
         public Context expectingLambda(List<Type> functionInputTypes)
         {
-            return new Context(scope, requireNonNull(functionInputTypes, "functionInputTypes is null"), this.fieldToLambdaArgumentDeclaration, labels);
+            return new Context(scope, requireNonNull(functionInputTypes, "functionInputTypes is null"), this.fieldToLambdaArgumentDeclaration, labels, correlationSupport);
         }
 
         public Context notExpectingLambda()
         {
-            return new Context(scope, null, this.fieldToLambdaArgumentDeclaration, labels);
+            return new Context(scope, null, this.fieldToLambdaArgumentDeclaration, labels, correlationSupport);
         }
 
         public static Context patternRecognition(Scope scope, Set<String> labels)
         {
-            return new Context(scope, null, null, requireNonNull(labels, "labels is null"));
+            return new Context(scope, null, null, requireNonNull(labels, "labels is null"), CorrelationSupport.DISALLOWED);
+        }
+
+        public Context patternRecognition(Set<String> labels)
+        {
+            return new Context(scope, functionInputTypes, fieldToLambdaArgumentDeclaration, requireNonNull(labels, "labels is null"), CorrelationSupport.DISALLOWED);
         }
 
         public Context notExpectingLabels()
         {
-            return new Context(scope, functionInputTypes, fieldToLambdaArgumentDeclaration, null);
+            return new Context(scope, functionInputTypes, fieldToLambdaArgumentDeclaration, null, correlationSupport);
         }
 
         Scope getScope()
@@ -2312,6 +2474,11 @@ public class ExpressionAnalyzer
             checkState(isPatternRecognition());
             return labels;
         }
+
+        public CorrelationSupport getCorrelationSupport()
+        {
+            return correlationSupport;
+        }
     }
 
     public static boolean isPatternRecognitionFunction(FunctionCall node)
@@ -2345,7 +2512,7 @@ public class ExpressionAnalyzer
             WarningCollector warningCollector,
             Set<String> labels)
     {
-        ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, groupProvider, accessControl, TypeProvider.empty(), warningCollector, CorrelationSupport.DISALLOWED);
+        ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, groupProvider, accessControl, TypeProvider.empty(), warningCollector);
         analyzer.analyze(expression, scope, labels);
 
         updateAnalysis(analysis, analyzer, session, accessControl);
@@ -2408,8 +2575,8 @@ public class ExpressionAnalyzer
             WarningCollector warningCollector,
             CorrelationSupport correlationSupport)
     {
-        ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, groupProvider, accessControl, TypeProvider.empty(), warningCollector, correlationSupport);
-        analyzer.analyze(expression, scope);
+        ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, groupProvider, accessControl, TypeProvider.empty(), warningCollector);
+        analyzer.analyze(expression, scope, correlationSupport);
 
         updateAnalysis(analysis, analyzer, session, accessControl);
         analysis.addExpressionFields(expression, analyzer.getSourceFields());
@@ -2439,8 +2606,8 @@ public class ExpressionAnalyzer
             ResolvedWindow window,
             Node originalNode)
     {
-        ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, groupProvider, accessControl, TypeProvider.empty(), warningCollector, correlationSupport);
-        analyzer.analyzeWindow(window, scope, originalNode);
+        ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, groupProvider, accessControl, TypeProvider.empty(), warningCollector);
+        analyzer.analyzeWindow(window, scope, originalNode, correlationSupport);
 
         updateAnalysis(analysis, analyzer, session, accessControl);
 
@@ -2472,6 +2639,9 @@ public class ExpressionAnalyzer
         analysis.addTableColumnReferences(accessControl, session.getIdentity(), analyzer.getTableColumnReferences());
         analysis.addLabelDereferences(analyzer.getLabelDereferences());
         analysis.addPatternRecognitionFunctions(analyzer.getPatternRecognitionFunctions());
+        analysis.setRanges(analyzer.getRanges());
+        analysis.setUndefinedLabels(analyzer.getUndefinedLabels());
+        analysis.setMeasureDefinitions(analyzer.getMeasureDefinitions());
         analysis.addPredicateCoercions(analyzer.getPredicateCoercions());
     }
 
@@ -2485,30 +2655,15 @@ public class ExpressionAnalyzer
             TypeProvider types,
             WarningCollector warningCollector)
     {
-        return create(analysis, session, metadata, sqlParser, groupProvider, accessControl, types, warningCollector, CorrelationSupport.ALLOWED);
-    }
-
-    public static ExpressionAnalyzer create(
-            Analysis analysis,
-            Session session,
-            Metadata metadata,
-            SqlParser sqlParser,
-            GroupProvider groupProvider,
-            AccessControl accessControl,
-            TypeProvider types,
-            WarningCollector warningCollector,
-            CorrelationSupport correlationSupport)
-    {
         return new ExpressionAnalyzer(
                 metadata,
                 accessControl,
-                node -> new StatementAnalyzer(analysis, metadata, sqlParser, groupProvider, accessControl, session, warningCollector, correlationSupport),
+                (node, correlationSupport) -> new StatementAnalyzer(analysis, metadata, sqlParser, groupProvider, accessControl, session, warningCollector, correlationSupport),
                 session,
                 types,
                 analysis.getParameters(),
                 warningCollector,
                 analysis.isDescribe(),
-                correlationSupport,
                 analysis::getType,
                 analysis::getWindow);
     }
@@ -2584,7 +2739,7 @@ public class ExpressionAnalyzer
         return new ExpressionAnalyzer(
                 metadata,
                 accessControl,
-                node -> {
+                (node, correlationSupport) -> {
                     throw statementAnalyzerRejection.apply(node);
                 },
                 session,
@@ -2592,7 +2747,6 @@ public class ExpressionAnalyzer
                 parameters,
                 warningCollector,
                 isDescribe,
-                CorrelationSupport.ALLOWED,
                 expression -> { throw new IllegalStateException("Cannot access preanalyzed types"); },
                 functionCall -> { throw new IllegalStateException("Cannot access resolved windows"); });
     }

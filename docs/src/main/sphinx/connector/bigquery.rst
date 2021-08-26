@@ -45,24 +45,28 @@ that should generally lead to better read performance:
 Requirements
 ------------
 
-Enable the BigQuery Storage API
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+To connect to BigQuery, you need:
 
-Follow `these instructions <https://cloud.google.com/bigquery/docs/reference/storage/#enabling_the_api>`_.
+* To enable the `BigQuery Storage Read API
+  <https://cloud.google.com/bigquery/docs/reference/storage/#enabling_the_api>`_.
+* Network access from your Trino coordinator and workers to the
+  Google Cloud API service endpoint. This endpoint uses HTTPS, or port 443.
+* To configure BigQuery so that the Trino coordinator and workers have `permissions
+  in BigQuery <https://cloud.google.com/bigquery/docs/reference/storage#permissions>`_.
+* To set up authentication. Your authentiation options differ depending on whether
+  you are using Dataproc/Google Compute Engine (GCE) or not.
 
-Authentication
-^^^^^^^^^^^^^^
+  **On Dataproc/GCE** the authentication is done from the machine's role.
 
-**On GCE/Dataproc** the authentication is taken from the machine's role.
+  **Outside Dataproc/GCE** you have 3 options:
 
-**Outside GCE/Dataproc** you have 3 options:
-
-* Use a service account JSON key and ``GOOGLE_APPLICATION_CREDENTIALS`` as
-  described `here <https://cloud.google.com/docs/authentication/getting-started>`_.
-* Set ``bigquery.credentials-key`` in the catalog properties file.
-  It should contain the contents of the JSON file, encoded using base64.
-* Set ``bigquery.credentials-file`` in the catalog properties file.
-  It should point to the location of the JSON file.
+  * Use a service account JSON key and ``GOOGLE_APPLICATION_CREDENTIALS`` as
+    described in the Google Cloud authentication `getting started guide
+    <https://cloud.google.com/docs/authentication/getting-started>`_.
+  * Set ``bigquery.credentials-key`` in the catalog properties file. It should
+    contain the contents of the JSON file, encoded using base64.
+  * Set ``bigquery.credentials-file`` in the catalog properties file. It should
+    point to the location of the JSON file.
 
 Configuration
 -------------
@@ -83,7 +87,7 @@ Multiple GCP projects
 
 The BigQuery connector can only access a single GCP project.Thus, if you have
 data in multiple GCP projects, You need to create several catalogs, each
-pointingto a different GCP project. For example, if you have two GCP projects,
+pointing to a different GCP project. For example, if you have two GCP projects,
 one for the sales and one for analytics, you can create two properties files in
 ``etc/catalog`` named ``sales.properties`` and ``analytics.properties``, both
 having ``connector.name=bigquery`` but with different ``project-id``. This will
@@ -120,9 +124,9 @@ a few caveats:
 Configuration properties
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-===================================================== ============================================================== ==============================================
+===================================================== ============================================================== ======================================================
 Property                                              Description                                                    Default
-===================================================== ============================================================== ==============================================
+===================================================== ============================================================== ======================================================
 ``bigquery.project-id``                               The Google Cloud Project ID where the data reside              Taken from the service account
 ``bigquery.parent-project-id``                        The project ID Google Cloud Project to bill for the export     Taken from the service account
 ``bigquery.parallelism``                              The number of partitions to split the data into                The number of executors
@@ -132,15 +136,15 @@ Property                                              Description               
 ``bigquery.view-materialization-project``             The project where the materialized view is going to be created The view's project
 ``bigquery.view-materialization-dataset``             The dataset where the materialized view is going to be created The view's dataset
 ``bigquery.max-read-rows-retries``                    The number of retries in case of retryable server issues       ``3``
-``bigquery.credentials-key``                          The base64 encoded credentials key                             None. See `authentication <#authentication>`_
-``bigquery.credentials-file``                         The path to the JSON credentials file                          None. See `authentication <#authentication>`_
+``bigquery.credentials-key``                          The base64 encoded credentials key                             None. See the `requirements <#requirements>`_ section.
+``bigquery.credentials-file``                         The path to the JSON credentials file                          None. See the `requirements <#requirements>`_ section.
 ``bigquery.case-insensitive-name-matching``           Match dataset and table names case-insensitively               ``false``
 ``bigquery.case-insensitive-name-matching.cache-ttl`` Duration for which remote dataset and table names will be      ``1m``
                                                       cached. Higher values reduce the number of API calls to
                                                       BigQuery but can cause newly created dataset or tables to not
                                                       be visible until the configured duration. Set to ``0ms`` to
                                                       disable the cache.
-===================================================== ============================================================== ==============================================
+===================================================== ============================================================== ======================================================
 
 Data types
 ----------
@@ -172,6 +176,21 @@ For each Trino table which maps to BigQuery view there exists a system table whi
 Given a BigQuery view ``customer_view`` you can send query
 ``SELECT * customer_view$view_definition`` to see the SQL which defines view in BigQuery.
 
+.. _bigquery-sql-support:
+
+SQL support
+-----------
+
+The connector provides read and write access to data and metadata in
+the BigQuery database. In addition to the :ref:`globally available
+<sql-globally-available>` and :ref:`read operation <sql-read-operations>`
+statements, the connector supports the following features:
+
+* :doc:`/sql/create-table`
+* :doc:`/sql/drop-table`
+* :doc:`/sql/create-schema`
+* :doc:`/sql/drop-schema`
+
 FAQ
 ---
 
@@ -180,4 +199,3 @@ What is the Pricing for the Storage API?
 
 See the `BigQuery pricing documentation
 <https://cloud.google.com/bigquery/pricing#storage-api>`_.
-

@@ -72,6 +72,7 @@ import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.CreateTableAsSelect;
 import io.trino.sql.tree.Delete;
 import io.trino.sql.tree.Explain;
+import io.trino.sql.tree.ExplainAnalyze;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.GenericLiteral;
@@ -241,7 +242,7 @@ public class LogicalPlanner
 
     public PlanNode planStatement(Analysis analysis, Statement statement)
     {
-        if ((statement instanceof CreateTableAsSelect && analysis.getCreate().get().isCreateTableAsSelectNoOp()) ||
+        if ((statement instanceof CreateTableAsSelect && analysis.getCreate().orElseThrow().isCreateTableAsSelectNoOp()) ||
                 statement instanceof RefreshMaterializedView && analysis.isSkipMaterializedViewRefresh()) {
             Symbol symbol = symbolAllocator.newSymbol("rows", BIGINT);
             PlanNode source = new ValuesNode(idAllocator.getNextId(), ImmutableList.of(symbol), ImmutableList.of(new Row(ImmutableList.of(new GenericLiteral("BIGINT", "0")))));
@@ -253,7 +254,7 @@ public class LogicalPlanner
     private RelationPlan planStatementWithoutOutput(Analysis analysis, Statement statement)
     {
         if (statement instanceof CreateTableAsSelect) {
-            if (analysis.getCreate().get().isCreateTableAsSelectNoOp()) {
+            if (analysis.getCreate().orElseThrow().isCreateTableAsSelectNoOp()) {
                 throw new TrinoException(NOT_SUPPORTED, "CREATE TABLE IF NOT EXISTS is not supported in this context " + statement.getClass().getSimpleName());
             }
             return createTableCreationPlan(analysis, ((CreateTableAsSelect) statement).getQuery());
@@ -277,13 +278,13 @@ public class LogicalPlanner
         if (statement instanceof Query) {
             return createRelationPlan(analysis, (Query) statement);
         }
-        if (statement instanceof Explain && ((Explain) statement).isAnalyze()) {
-            return createExplainAnalyzePlan(analysis, (Explain) statement);
+        if (statement instanceof ExplainAnalyze) {
+            return createExplainAnalyzePlan(analysis, (ExplainAnalyze) statement);
         }
         throw new TrinoException(NOT_SUPPORTED, "Unsupported statement type " + statement.getClass().getSimpleName());
     }
 
-    private RelationPlan createExplainAnalyzePlan(Analysis analysis, Explain statement)
+    private RelationPlan createExplainAnalyzePlan(Analysis analysis, ExplainAnalyze statement)
     {
         RelationPlan underlyingPlan = planStatementWithoutOutput(analysis, statement.getStatement());
         PlanNode root = underlyingPlan.getRoot();
@@ -303,7 +304,7 @@ public class LogicalPlanner
 
     private RelationPlan createAnalyzePlan(Analysis analysis, Analyze analyzeStatement)
     {
-        TableHandle targetTable = analysis.getAnalyzeTarget().get();
+        TableHandle targetTable = analysis.getAnalyzeTarget().orElseThrow();
 
         // Plan table scan
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, targetTable);
@@ -347,8 +348,8 @@ public class LogicalPlanner
 
     private RelationPlan createTableCreationPlan(Analysis analysis, Query query)
     {
-        Analysis.Create create = analysis.getCreate().get();
-        QualifiedObjectName destination = create.getDestination().get();
+        Analysis.Create create = analysis.getCreate().orElseThrow();
+        QualifiedObjectName destination = create.getDestination().orElseThrow();
 
         RelationPlan plan = createRelationPlan(analysis, query);
         if (!create.isCreateTableAsSelectWithData()) {
@@ -356,7 +357,7 @@ public class LogicalPlanner
             plan = new RelationPlan(root, plan.getScope(), plan.getFieldMappings(), Optional.empty());
         }
 
-        ConnectorTableMetadata tableMetadata = create.getMetadata().get();
+        ConnectorTableMetadata tableMetadata = create.getMetadata().orElseThrow();
 
         Optional<NewTableLayout> newTableLayout = create.getLayout();
 
@@ -472,7 +473,7 @@ public class LogicalPlanner
 
     private RelationPlan createInsertPlan(Analysis analysis, Insert insertStatement)
     {
-        Analysis.Insert insert = analysis.getInsert().get();
+        Analysis.Insert insert = analysis.getInsert().orElseThrow();
         TableHandle tableHandle = insert.getTarget();
         Query query = insertStatement.getQuery();
         Optional<NewTableLayout> newTableLayout = insert.getNewTableLayout();

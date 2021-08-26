@@ -43,6 +43,7 @@ public final class TestGroups
     public static final String HIVE_COMPRESSION = "hive_compression";
     public static final String HIVE_TRANSACTIONAL = "hive_transactional";
     public static final String HIVE_VIEWS = "hive_views";
+    public static final String HIVE_VIEW_COMPATIBILITY = "hive_view_compatibility";
     public static final String HIVE_CACHING = "hive_caching";
     public static final String HIVE_WITH_EXTERNAL_WRITES = "hive_with_external_writes";
     public static final String AUTHORIZATION = "authorization";
@@ -53,6 +54,7 @@ public final class TestGroups
     public static final String LDAP_AND_FILE = "ldap_and_file";
     public static final String LDAP_CLI = "ldap_cli";
     public static final String LDAP_AND_FILE_CLI = "ldap_and_file_cli";
+    public static final String LDAP_MULTIPLE_BINDS = "ldap_multiple_binds";
     public static final String SKIP_ON_CDH = "skip_on_cdh";
     public static final String HDP3_ONLY = "hdp3_only";
     public static final String TLS = "tls";

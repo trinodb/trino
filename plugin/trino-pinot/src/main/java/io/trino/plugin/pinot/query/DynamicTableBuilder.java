@@ -16,13 +16,20 @@ package io.trino.plugin.pinot.query;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.pinot.PinotColumnHandle;
+import io.trino.plugin.pinot.PinotException;
 import io.trino.plugin.pinot.PinotMetadata;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.Type;
 import org.apache.pinot.common.request.AggregationInfo;
 import org.apache.pinot.common.request.BrokerRequest;
 import org.apache.pinot.common.request.SelectionSort;
+import org.apache.pinot.common.utils.DataSchema;
+import org.apache.pinot.core.query.aggregation.function.AggregationFunction;
+import org.apache.pinot.core.query.request.context.QueryContext;
+import org.apache.pinot.core.query.request.context.utils.BrokerRequestToQueryContextConverter;
 import org.apache.pinot.sql.parsers.CalciteSqlCompiler;
 
 import java.util.List;
@@ -32,7 +39,14 @@ import java.util.OptionalLong;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.pinot.PinotErrorCode.PINOT_UNSUPPORTED_COLUMN_TYPE;
 import static io.trino.plugin.pinot.query.FilterToPinotSqlConverter.convertFilter;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -40,10 +54,8 @@ import static java.util.Objects.requireNonNull;
 public final class DynamicTableBuilder
 {
     private static final CalciteSqlCompiler REQUEST_COMPILER = new CalciteSqlCompiler();
-    private static final String COLUMN_KEY = "column";
     private static final String WILDCARD = "*";
-    public static final Set<String> DOUBLE_AGGREGATIONS = ImmutableSet.of("distinctcounthll", "avg");
-    public static final Set<String> BIGINT_AGGREGATIONS = ImmutableSet.of("count", "distinctcount");
+    public static final Set<Type> SUPPORTED_INPUT_TYPES = ImmutableSet.of(INTEGER, BIGINT, REAL, DOUBLE);
     public static final String OFFLINE_SUFFIX = "_OFFLINE";
     public static final String REALTIME_SUFFIX = "_REALTIME";
 
@@ -93,33 +105,48 @@ public final class DynamicTableBuilder
         else {
             filter = Optional.empty();
         }
-
-        ImmutableList.Builder<AggregationExpression> aggregationExpressionBuilder = ImmutableList.builder();
+        QueryContext queryContext = BrokerRequestToQueryContextConverter.convert(request);
+        ImmutableList.Builder<PinotColumnHandle> aggregateColumnsBuilder = ImmutableList.builder();
         if (request.getAggregationsInfo() != null) {
-            for (AggregationInfo aggregationInfo : request.getAggregationsInfo()) {
-                String baseColumnName = aggregationInfo.getAggregationParams().get(COLUMN_KEY);
-                AggregationExpression aggregationExpression;
-                if (baseColumnName.equals(WILDCARD)) {
-                    aggregationExpression = new AggregationExpression(getOutputColumnName(aggregationInfo, baseColumnName),
-                            baseColumnName,
-                            aggregationInfo.getAggregationType());
-                }
-                else {
-                    PinotColumnHandle columnHandle = (PinotColumnHandle) columnHandles.get(baseColumnName);
-                    if (columnHandle == null) {
-                        throw new ColumnNotFoundException(schemaTableName, aggregationInfo.getAggregationParams().get(COLUMN_KEY));
-                    }
-                    aggregationExpression = new AggregationExpression(
-                            getOutputColumnName(aggregationInfo, columnHandle.getColumnName()),
-                            columnHandle.getColumnName(),
-                            aggregationInfo.getAggregationType());
-                }
-
-                aggregationExpressionBuilder.add(aggregationExpression);
+            for (AggregationFunction aggregationFunction : queryContext.getAggregationFunctions()) {
+                aggregationFunction.getResultColumnName();
+                aggregationFunction.getType().getName();
+                aggregateColumnsBuilder.add(new PinotColumnHandle(
+                        aggregationFunction.getResultColumnName(),
+                        toTrinoType(aggregationFunction.getFinalResultColumnType())));
             }
         }
 
-        return new DynamicTable(pinotTableName, suffix, selectionColumns, groupByColumns, filter, aggregationExpressionBuilder.build(), orderBy, getTopNOrLimit(request), getOffset(request), query);
+        return new DynamicTable(pinotTableName, suffix, selectionColumns, filter, groupByColumns, aggregateColumnsBuilder.build(), orderBy, getTopNOrLimit(request), getOffset(request), query);
+    }
+
+    private static Type toTrinoType(DataSchema.ColumnDataType columnDataType)
+    {
+        switch (columnDataType) {
+            case INT:
+                return INTEGER;
+            case LONG:
+                return BIGINT;
+            case FLOAT:
+                return REAL;
+            case DOUBLE:
+                return DOUBLE;
+            case STRING:
+                return VARCHAR;
+            case BYTES:
+                return VARBINARY;
+            case INT_ARRAY:
+                return new ArrayType(INTEGER);
+            case LONG_ARRAY:
+                return new ArrayType(BIGINT);
+            case DOUBLE_ARRAY:
+                return new ArrayType(DOUBLE);
+            case STRING_ARRAY:
+                return new ArrayType(VARCHAR);
+            default:
+                break;
+        }
+        throw new PinotException(PINOT_UNSUPPORTED_COLUMN_TYPE, Optional.empty(), "Unsupported column data type: " + columnDataType);
     }
 
     private static List<String> resolvePinotColumns(SchemaTableName schemaTableName, List<String> trinoColumnNames, Map<String, ColumnHandle> columnHandles)

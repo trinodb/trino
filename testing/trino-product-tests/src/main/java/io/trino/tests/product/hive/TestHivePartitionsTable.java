@@ -35,6 +35,7 @@ import java.util.stream.IntStream;
 
 import static io.trino.tempto.Requirements.compose;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
+import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.fulfillment.table.TableRequirements.immutableTable;
 import static io.trino.tempto.fulfillment.table.TableRequirements.mutableTable;
@@ -111,25 +112,25 @@ public class TestHivePartitionsTable
         QueryResult partitionListResult;
 
         partitionListResult = query("SELECT * FROM " + partitionsTable);
-        assertThat(partitionListResult).containsExactly(row(1), row(2));
+        assertThat(partitionListResult).containsExactlyInOrder(row(1), row(2));
         assertColumnNames(partitionListResult, "part_col");
 
         partitionListResult = query(format("SELECT * FROM %s WHERE part_col = 1", partitionsTable));
-        assertThat(partitionListResult).containsExactly(row(1));
+        assertThat(partitionListResult).containsExactlyInOrder(row(1));
         assertColumnNames(partitionListResult, "part_col");
 
-        assertThat(() -> query(format("SELECT * FROM %s WHERE no_such_column = 1", partitionsTable)))
-                .failsWithMessage("Column 'no_such_column' cannot be resolved");
-        assertThat(() -> query(format("SELECT * FROM %s WHERE col = 1", partitionsTable)))
-                .failsWithMessage("Column 'col' cannot be resolved");
+        assertQueryFailure(() -> query(format("SELECT * FROM %s WHERE no_such_column = 1", partitionsTable)))
+                .hasMessageContaining("Column 'no_such_column' cannot be resolved");
+        assertQueryFailure(() -> query(format("SELECT * FROM %s WHERE col = 1", partitionsTable)))
+                .hasMessageContaining("Column 'col' cannot be resolved");
     }
 
     @Test(groups = HIVE_PARTITIONING)
     @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testShowPartitionsFromUnpartitionedTable()
     {
-        assertThat(() -> query("SELECT * FROM \"nation$partitions\""))
-                .failsWithMessageMatching(".*Table 'hive.default.nation\\$partitions' does not exist");
+        assertQueryFailure(() -> query("SELECT * FROM \"nation$partitions\""))
+                .hasMessageMatching(".*Table 'hive.default.nation\\$partitions' does not exist");
     }
 
     @Test(groups = HIVE_PARTITIONING)
@@ -147,17 +148,17 @@ public class TestHivePartitionsTable
         QueryResult partitionListResult;
 
         partitionListResult = query(format("SELECT * FROM %s WHERE part_col < 7", partitionsTable));
-        assertThat(partitionListResult).containsExactly(row(0), row(1), row(2), row(3), row(4), row(5), row(6));
+        assertThat(partitionListResult).containsExactlyInOrder(row(0), row(1), row(2), row(3), row(4), row(5), row(6));
         assertColumnNames(partitionListResult, "part_col");
 
         partitionListResult = query(format("SELECT a.part_col FROM (SELECT * FROM %s WHERE part_col = 1) a, (SELECT * FROM %s WHERE part_col = 1) b WHERE a.col = b.col", tableName, tableName));
-        assertThat(partitionListResult).containsExactly(row(1));
+        assertThat(partitionListResult).containsExactlyInOrder(row(1));
 
         partitionListResult = query(format("SELECT * FROM %s WHERE part_col < -10", partitionsTable));
         assertThat(partitionListResult).hasNoRows();
 
         partitionListResult = query(format("SELECT * FROM %s ORDER BY part_col LIMIT 7", partitionsTable));
-        assertThat(partitionListResult).containsExactly(row(0), row(1), row(2), row(3), row(4), row(5), row(6));
+        assertThat(partitionListResult).containsExactlyInOrder(row(0), row(1), row(2), row(3), row(4), row(5), row(6));
     }
 
     private void createPartitions(String tableName, int partitionsToCreate)

@@ -31,6 +31,29 @@ connection properties as appropriate for your setup:
     connection-user=root
     connection-password=secret
 
+The ``connection-url`` defines the connection information and parameters to pass
+to the MySQL JDBC driver. The supported parameters for the URL are
+available in the `MySQL Developer Guide
+<https://dev.mysql.com/doc/connector-j/8.0/en/>`_.
+
+For example, the following ``connection-url`` allows you to
+configure the JDBC driver to interpret time values based on UTC as a timezone on
+the server, and serves as a `workaround for a known issue
+<https://dev.mysql.com/doc/connector-j/8.0/en/connector-j-usagenotes-known-issues-limitations.html>`_.
+
+.. code-block:: text
+
+    connection-url=jdbc:mysql://example.net:3306?serverTimezone=UTC
+
+The ``connection-user`` and ``connection-password`` are typically required and
+determine the user credentials for the connection, often a service user. You can
+use :doc:`secrets </security/secrets>` to avoid actual values in the catalog
+properties files.
+
+.. include:: jdbc-common-configurations.fragment
+
+.. include:: non-transactional-insert.fragment
+
 Multiple MySQL servers
 ^^^^^^^^^^^^^^^^^^^^^^
 
@@ -87,7 +110,6 @@ Finally, you can access the ``clicks`` table in the ``web`` database::
 If you used a different name for your catalog properties file, use
 that catalog name instead of ``mysql`` in the above examples.
 
-
 .. _mysql-pushdown:
 
 Pushdown
@@ -113,14 +135,22 @@ The connector supports pushdown for a number of operations:
 * :func:`var_pop`
 * :func:`var_samp`
 
-Limitations
+.. _mysql-sql-support:
+
+SQL support
 -----------
 
-The following SQL statements are not yet supported:
+The connector provides read access and write access to data and metadata in the
+MySQL database. In addition to the :ref:`globally available <sql-globally-available>` and
+:ref:`read operation <sql-read-operations>` statements, the connector supports
+the following statements:
 
+* :doc:`/sql/insert`
 * :doc:`/sql/delete`
-* :doc:`/sql/grant`
-* :doc:`/sql/revoke`
-* :doc:`/sql/show-grants`
-* :doc:`/sql/show-roles`
-* :doc:`/sql/show-role-grants`
+* :doc:`/sql/create-table`
+* :doc:`/sql/create-table-as`
+* :doc:`/sql/drop-table`
+* :doc:`/sql/create-schema`
+* :doc:`/sql/drop-schema`
+
+.. include:: sql-delete-limitation.fragment

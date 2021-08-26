@@ -16,6 +16,7 @@ package io.trino.plugin.accumulo;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
+import io.trino.plugin.base.TypeDeserializerModule;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
@@ -45,10 +46,10 @@ public class AccumuloConnectorFactory
 
         Bootstrap app = new Bootstrap(
                 new JsonModule(),
-                new AccumuloModule(context.getTypeManager()));
+                new TypeDeserializerModule(context.getTypeManager()),
+                new AccumuloModule());
 
         Injector injector = app
-                .strictConfig()
                 .doNotInitializeLogging()
                 .setRequiredConfigurationProperties(config)
                 .initialize();

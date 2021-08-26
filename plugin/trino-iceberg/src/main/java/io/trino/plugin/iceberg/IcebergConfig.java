@@ -22,6 +22,7 @@ import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
 import static io.trino.plugin.hive.HiveCompressionCodec.GZIP;
+import static io.trino.plugin.iceberg.CatalogType.HIVE;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 
 public class IcebergConfig
@@ -30,6 +31,20 @@ public class IcebergConfig
     private HiveCompressionCodec compressionCodec = GZIP;
     private boolean useFileSizeFromMetadata = true;
     private int maxPartitionsPerWriter = 100;
+    private boolean uniqueTableLocation;
+    private CatalogType catalogType = HIVE;
+
+    public CatalogType getCatalogType()
+    {
+        return catalogType;
+    }
+
+    @Config("iceberg.catalog.type")
+    public IcebergConfig setCatalogType(CatalogType catalogType)
+    {
+        this.catalogType = catalogType;
+        return this;
+    }
 
     @NotNull
     public FileFormat getFileFormat()
@@ -89,6 +104,19 @@ public class IcebergConfig
     public IcebergConfig setMaxPartitionsPerWriter(int maxPartitionsPerWriter)
     {
         this.maxPartitionsPerWriter = maxPartitionsPerWriter;
+        return this;
+    }
+
+    public boolean isUniqueTableLocation()
+    {
+        return uniqueTableLocation;
+    }
+
+    @Config("iceberg.unique-table-location")
+    @ConfigDescription("Use randomized, unique table locations")
+    public IcebergConfig setUniqueTableLocation(boolean uniqueTableLocation)
+    {
+        this.uniqueTableLocation = uniqueTableLocation;
         return this;
     }
 }

@@ -27,12 +27,14 @@ Authentication
   :maxdepth: 1
 
   security/authentication-types
-  security/ldap
   security/password-file
+  security/ldap
   security/salesforce
   security/oauth2
   security/kerberos
   security/cli
+  security/certificate
+  security/jwt
 
 User name management
 ====================

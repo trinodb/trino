@@ -25,6 +25,7 @@ import io.trino.sql.analyzer.QueryExplainer;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.Explain;
+import io.trino.sql.tree.ExplainAnalyze;
 import io.trino.sql.tree.ExplainFormat;
 import io.trino.sql.tree.ExplainOption;
 import io.trino.sql.tree.ExplainType;
@@ -87,13 +88,15 @@ final class ExplainRewrite
         }
 
         @Override
+        protected Node visitExplainAnalyze(ExplainAnalyze node, Void context)
+        {
+            Statement statement = (Statement) process(node.getStatement(), context);
+            return new ExplainAnalyze(node.getLocation(), statement, node.isVerbose());
+        }
+
+        @Override
         protected Node visitExplain(Explain node, Void context)
         {
-            if (node.isAnalyze()) {
-                Statement statement = (Statement) process(node.getStatement(), context);
-                return new Explain(statement, node.isAnalyze(), node.isVerbose(), node.getOptions());
-            }
-
             ExplainType.Type planType = DISTRIBUTED;
             ExplainFormat.Type planFormat = TEXT;
             List<ExplainOption> options = node.getOptions();

@@ -17,8 +17,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.ObjectMapperProvider;
-import io.trino.plugin.accumulo.AccumuloModule;
 import io.trino.plugin.accumulo.conf.AccumuloConfig;
+import io.trino.plugin.base.TypeDeserializer;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.Type;
@@ -56,7 +56,7 @@ public class ZooKeeperMetadataManager
 
         // Create JSON deserializer for the AccumuloTable
         ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
-        objectMapperProvider.setJsonDeserializers(ImmutableMap.of(Type.class, new AccumuloModule.TypeDeserializer(typeManager)));
+        objectMapperProvider.setJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(typeManager)));
         mapper = objectMapperProvider.get();
 
         String zkMetadataRoot = config.getZkMetadataRoot();

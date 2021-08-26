@@ -48,7 +48,9 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
@@ -100,7 +102,7 @@ public class SourcePartitionedScheduler
     private boolean noMoreScheduleGroups;
     private State state = State.INITIALIZED;
 
-    private SettableFuture<?> whenFinishedOrNewLifespanAdded = SettableFuture.create();
+    private SettableFuture<Void> whenFinishedOrNewLifespanAdded = SettableFuture.create();
 
     private SourcePartitionedScheduler(
             SqlStageExecution stage,
@@ -417,9 +419,14 @@ public class SourcePartitionedScheduler
         return new ScheduleResult(
                 false,
                 overallNewTasks.build(),
-                nonCancellationPropagating(whenAnyComplete(overallBlockedFutures)),
+                nonCancellationPropagating(asVoid(whenAnyComplete(overallBlockedFutures))),
                 blockedReason,
                 overallSplitAssignmentCount);
+    }
+
+    private static <T> ListenableFuture<Void> asVoid(ListenableFuture<T> future)
+    {
+        return Futures.transform(future, v -> null, directExecutor());
     }
 
     private synchronized void dropListenersFromWhenFinishedOrNewLifespansAdded()
@@ -534,7 +541,7 @@ public class SourcePartitionedScheduler
     {
         public final ConnectorPartitionHandle partitionHandle;
         public ListenableFuture<SplitBatch> nextSplitBatchFuture;
-        public ListenableFuture<?> placementFuture = Futures.immediateFuture(null);
+        public ListenableFuture<Void> placementFuture = immediateVoidFuture();
         public final Set<Split> pendingSplits = new HashSet<>();
         public ScheduleGroupState state = ScheduleGroupState.INITIALIZED;
 

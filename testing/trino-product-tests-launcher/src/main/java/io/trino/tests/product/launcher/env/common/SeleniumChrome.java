@@ -28,7 +28,7 @@ import static java.util.Objects.requireNonNull;
 public class SeleniumChrome
         implements EnvironmentExtender
 {
-    private static final DockerImageName CHROME_IMAGE = DockerImageName.parse("selenium/standalone-chrome-debug").withTag("3.141.59");
+    private static final DockerImageName CHROME_IMAGE = DockerImageName.parse("selenium/standalone-chrome-debug").withTag("3.141.59-20210804");
     private static final int SELENIUM_PORT = 7777;
     private static final Duration STARTUP_TIMEOUT = Duration.ofSeconds(15);
 

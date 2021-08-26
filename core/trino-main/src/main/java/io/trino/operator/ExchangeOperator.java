@@ -92,7 +92,7 @@ public class ExchangeOperator
     private final PlanNodeId sourceId;
     private final ExchangeClient exchangeClient;
     private final PagesSerde serde;
-    private ListenableFuture<?> isBlocked = NOT_BLOCKED;
+    private ListenableFuture<Void> isBlocked = NOT_BLOCKED;
 
     public ExchangeOperator(
             OperatorContext operatorContext,
@@ -151,7 +151,7 @@ public class ExchangeOperator
     }
 
     @Override
-    public ListenableFuture<?> isBlocked()
+    public ListenableFuture<Void> isBlocked()
     {
         // Avoid registering a new callback in the ExchangeClient when one is already pending
         if (isBlocked.isDone()) {

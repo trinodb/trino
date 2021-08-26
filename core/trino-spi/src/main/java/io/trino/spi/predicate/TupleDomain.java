@@ -40,8 +40,8 @@ import static java.lang.String.format;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
+import static java.util.stream.Collectors.toUnmodifiableList;
 
 /**
  * Defines a set of valid tuples according to the constraints on each of its constituent columns
@@ -184,7 +184,7 @@ public final class TupleDomain<T>
     {
         return domains.map(map -> map.entrySet().stream()
                 .map(entry -> new ColumnDomain<>(entry.getKey(), entry.getValue()))
-                .collect(toList()));
+                .collect(toUnmodifiableList()));
     }
 
     private static <T> boolean containsNoneDomain(Map<T, Domain> domains)
@@ -436,43 +436,6 @@ public final class TupleDomain<T>
             }
             return domain;
         });
-    }
-
-    /**
-     * @deprecated This method is deprecated because it drops part of the {@link TupleDomain} information
-     * when mapping function inadvertenly returns null. Use {@link #filter(BiPredicate)} or {@link #transformKeys(Function)}
-     * instead.
-     */
-    @Deprecated
-    public <U> TupleDomain<U> transform(Function<T, U> function)
-    {
-        if (isNone()) {
-            return none();
-        }
-        if (isAll()) {
-            return all();
-        }
-
-        Map<T, Domain> domains = this.domains.orElseThrow();
-        HashMap<U, Domain> result = new LinkedHashMap<>(domains.size());
-        for (Map.Entry<T, Domain> entry : domains.entrySet()) {
-            U key = function.apply(entry.getKey());
-
-            // TODO null-friendliness here is a source of potential bugs, for example code like
-            //      converted = tupleDomain.transform(tableScan.getAssignments()::get)
-            //  silently drops information about correlated symbols.
-            if (key == null) {
-                continue;
-            }
-
-            Domain previous = result.put(key, entry.getValue());
-
-            if (previous != null) {
-                throw new IllegalArgumentException(format("Every argument must have a unique mapping. %s maps to %s and %s", entry.getKey(), entry.getValue(), previous));
-            }
-        }
-
-        return TupleDomain.withColumnDomains(result);
     }
 
     public <U> TupleDomain<U> transformKeys(Function<T, U> function)

@@ -75,6 +75,7 @@ import io.trino.sql.planner.iterative.rule.MergeLimitWithDistinct;
 import io.trino.sql.planner.iterative.rule.MergeLimitWithSort;
 import io.trino.sql.planner.iterative.rule.MergeLimitWithTopN;
 import io.trino.sql.planner.iterative.rule.MergeLimits;
+import io.trino.sql.planner.iterative.rule.MergePatternRecognitionNodes;
 import io.trino.sql.planner.iterative.rule.MergeProjectWithValues;
 import io.trino.sql.planner.iterative.rule.MergeUnion;
 import io.trino.sql.planner.iterative.rule.MultipleDistinctAggregationToMarkDistinct;
@@ -110,6 +111,8 @@ import io.trino.sql.planner.iterative.rule.PruneMarkDistinctColumns;
 import io.trino.sql.planner.iterative.rule.PruneOffsetColumns;
 import io.trino.sql.planner.iterative.rule.PruneOrderByInAggregation;
 import io.trino.sql.planner.iterative.rule.PruneOutputSourceColumns;
+import io.trino.sql.planner.iterative.rule.PrunePattenRecognitionColumns;
+import io.trino.sql.planner.iterative.rule.PrunePatternRecognitionSourceColumns;
 import io.trino.sql.planner.iterative.rule.PruneProjectColumns;
 import io.trino.sql.planner.iterative.rule.PruneRowNumberColumns;
 import io.trino.sql.planner.iterative.rule.PruneSampleColumns;
@@ -336,6 +339,8 @@ public class PlanOptimizers
                 new PruneMarkDistinctColumns(),
                 new PruneOffsetColumns(),
                 new PruneOutputSourceColumns(),
+                new PrunePattenRecognitionColumns(),
+                new PrunePatternRecognitionSourceColumns(),
                 new PruneProjectColumns(),
                 new PruneRowNumberColumns(),
                 new PruneSampleColumns(),
@@ -714,6 +719,7 @@ public class PlanOptimizers
                                 // add UnaliasSymbolReferences when it's ported
                                 .add(new RemoveRedundantIdentityProjections())
                                 .addAll(GatherAndMergeWindows.rules())
+                                .addAll(MergePatternRecognitionNodes.rules())
                                 .add(new PushPredicateThroughProjectIntoRowNumber(metadata, typeOperators))
                                 .add(new PushPredicateThroughProjectIntoWindow(metadata, typeOperators))
                                 .build()),

@@ -14,6 +14,8 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
@@ -30,6 +32,7 @@ import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.connector.UpdatablePageSource;
+import io.trino.spi.metrics.Metrics;
 import io.trino.split.EmptySplit;
 import io.trino.split.PageSourceProvider;
 
@@ -42,6 +45,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.trino.operator.PageUtils.recordMaterializedBytes;
 import static java.util.Objects.requireNonNull;
@@ -112,6 +116,12 @@ public class TableScanWorkProcessorOperator
     public long getDynamicFilterSplitsProcessed()
     {
         return splitToPages.getDynamicFilterSplitsProcessed();
+    }
+
+    @Override
+    public Metrics getConnectorMetrics()
+    {
+        return splitToPages.source.getMetrics();
     }
 
     @Override
@@ -207,7 +217,10 @@ public class TableScanWorkProcessorOperator
 
         long getPhysicalInputPositions()
         {
-            return processedPositions;
+            if (source == null) {
+                return 0;
+            }
+            return source.getCompletedPositions().orElse(processedPositions);
         }
 
         DataSize getInputDataSize()
@@ -270,7 +283,7 @@ public class TableScanWorkProcessorOperator
 
             CompletableFuture<?> isBlocked = pageSource.isBlocked();
             if (!isBlocked.isDone()) {
-                return ProcessState.blocked(toListenableFuture(isBlocked));
+                return ProcessState.blocked(asVoid(toListenableFuture(isBlocked)));
             }
 
             Page page = pageSource.getNextPage();
@@ -288,5 +301,10 @@ public class TableScanWorkProcessorOperator
 
             return ProcessState.ofResult(page);
         }
+    }
+
+    private static <T> ListenableFuture<Void> asVoid(ListenableFuture<T> future)
+    {
+        return Futures.transform(future, v -> null, directExecutor());
     }
 }

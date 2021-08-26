@@ -16,7 +16,6 @@ package io.trino.memory;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.AbstractFuture;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.trino.spi.QueryId;
@@ -38,6 +37,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.operator.Operator.NOT_BLOCKED;
 import static java.util.Objects.requireNonNull;
 
@@ -55,7 +55,7 @@ public class MemoryPool
 
     @Nullable
     @GuardedBy("this")
-    private NonCancellableMemoryFuture<?> future;
+    private NonCancellableMemoryFuture<Void> future;
 
     @GuardedBy("this")
     // TODO: It would be better if we just tracked QueryContexts, but their lifecycle is managed by a weak reference, so we can't do that
@@ -108,11 +108,11 @@ public class MemoryPool
     /**
      * Reserves the given number of bytes. Caller should wait on the returned future, before allocating more memory.
      */
-    public ListenableFuture<?> reserve(QueryId queryId, String allocationTag, long bytes)
+    public ListenableFuture<Void> reserve(QueryId queryId, String allocationTag, long bytes)
     {
         checkArgument(bytes >= 0, "bytes is negative");
 
-        ListenableFuture<?> result;
+        ListenableFuture<Void> result;
         synchronized (this) {
             if (bytes != 0) {
                 queryMemoryReservations.merge(queryId, bytes, Long::sum);
@@ -140,11 +140,11 @@ public class MemoryPool
         listeners.forEach(listener -> listener.onMemoryReserved(this));
     }
 
-    public ListenableFuture<?> reserveRevocable(QueryId queryId, long bytes)
+    public ListenableFuture<Void> reserveRevocable(QueryId queryId, long bytes)
     {
         checkArgument(bytes >= 0, "bytes is negative");
 
-        ListenableFuture<?> result;
+        ListenableFuture<Void> result;
         synchronized (this) {
             if (bytes != 0) {
                 queryMemoryRevocableReservations.merge(queryId, bytes, Long::sum);
@@ -245,7 +245,7 @@ public class MemoryPool
     // Because, we remove the tagged allocations from this MemoryPool for queryId, and then we reserve
     // N bytes with MOVE_QUERY_TAG in the targetMemoryPool, and then immediately overwrite it
     // with a put() call.
-    synchronized ListenableFuture<?> moveQuery(QueryId queryId, MemoryPool targetMemoryPool)
+    synchronized ListenableFuture<Void> moveQuery(QueryId queryId, MemoryPool targetMemoryPool)
     {
         long originalReserved = getQueryMemoryReservation(queryId);
         long originalRevocableReserved = getQueryRevocableMemoryReservation(queryId);
@@ -253,9 +253,9 @@ public class MemoryPool
         Map<String, Long> taggedAllocations = taggedMemoryAllocations.remove(queryId);
         if (taggedAllocations == null) {
             // query is not registered (likely a race with query completion)
-            return Futures.immediateFuture(null);
+            return immediateVoidFuture();
         }
-        ListenableFuture<?> future = targetMemoryPool.reserve(queryId, MOVE_QUERY_TAG, originalReserved);
+        ListenableFuture<Void> future = targetMemoryPool.reserve(queryId, MOVE_QUERY_TAG, originalReserved);
         free(queryId, MOVE_QUERY_TAG, originalReserved);
         targetMemoryPool.reserveRevocable(queryId, originalRevocableReserved);
         freeRevocable(queryId, originalRevocableReserved);

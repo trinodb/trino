@@ -90,7 +90,7 @@ public class TestHiveViews
         onTrino().executeQuery("DROP TABLE IF EXISTS pageAds");
         onTrino().executeQuery("CREATE TABLE pageAds(pageid, adid_list) WITH (format='TEXTFILE') AS " +
                 "VALUES " +
-                "  (CAST('two' AS varchar), ARRAY[11, 22]), " +
+                "  (VARCHAR 'two', ARRAY[11, 22]), " +
                 "  ('nothing', NULL), " +
                 "  ('zero', ARRAY[]), " +
                 "  ('one', ARRAY[42])");
@@ -172,5 +172,160 @@ public class TestHiveViews
                 "SELECT * FROM test_json_tuple_view",
                 queryAssert -> queryAssert.containsOnly(row(3, "Mateusz", "Gajewski", "true", "1000", null, null)));
     }
+
+    @Test(groups = HIVE_VIEWS)
+    public void testFromUtcTimestamp()
+    {
+        onTrino().executeQuery("DROP TABLE IF EXISTS test_from_utc_timestamp_source");
+        onHive().executeQuery("CREATE TABLE test_from_utc_timestamp_source (" +
+                "  source_tinyint tinyint, " +
+                "  source_smallint smallint, " +
+                "  source_integer int, " +
+                "  source_bigint bigint, " +
+                "  source_float float, " +
+                "  source_double double, " +
+                "  source_decimal_three decimal(10,3), " +
+                "  source_decimal_zero decimal(10,0), " +
+                "  source_timestamp timestamp, " +
+                "  source_date date" +
+                ")");
+
+        // insert via Trino as we noticed problems with creating test table in Hive using CTAS at one go for some Hive distributions
+        onTrino().executeQuery("INSERT INTO test_from_utc_timestamp_source VALUES ( " +
+                "  123, " +
+                "  10123, " +
+                "  259200123, " +
+                "  2592000123, " +
+                "  2592000.0, " +
+                "  2592000.123, " +
+                "  2592000.123," +
+                "  2592000," +
+                "  timestamp '1970-01-30 16:00:00.000', " +
+                "  date '1970-01-30'" +
+                ")");
+
+        onHive().executeQuery("DROP VIEW IF EXISTS test_from_utc_timestamp_view");
+        onHive().executeQuery("CREATE VIEW " +
+                "test_from_utc_timestamp_view " +
+                "AS SELECT " +
+                // TODO(https://github.com/trinodb/trino/issues/8853) add testcases with 3-letter tz names (like PST) when we have $canonicalize_hive_timezone_id logic in place
+                "   CAST(from_utc_timestamp(source_tinyint, 'America/Los_Angeles') AS STRING) ts_tinyint, " +
+                "   CAST(from_utc_timestamp(source_smallint, 'America/Los_Angeles') AS STRING) ts_smallint, " +
+                "   CAST(from_utc_timestamp(source_integer, 'America/Los_Angeles') AS STRING) ts_integer, " +
+                "   CAST(from_utc_timestamp(source_bigint, 'America/Los_Angeles') AS STRING) ts_bigint, " +
+                "   CAST(from_utc_timestamp(source_float, 'America/Los_Angeles') AS STRING) ts_float, " +
+                "   CAST(from_utc_timestamp(source_double, 'America/Los_Angeles') AS STRING) ts_double, " +
+                "   CAST(from_utc_timestamp(source_decimal_three, 'America/Los_Angeles') AS STRING) ts_decimal_three, " +
+                "   CAST(from_utc_timestamp(source_decimal_zero, 'America/Los_Angeles') AS STRING) ts_decimal_zero, " +
+                "   CAST(from_utc_timestamp(source_timestamp, 'America/Los_Angeles') AS STRING) ts_timestamp, " +
+                "   CAST(from_utc_timestamp(source_date, 'America/Los_Angeles') AS STRING) ts_date " +
+                "FROM test_from_utc_timestamp_source");
+
+        // check result on Trino
+        assertThat(query("SELECT * FROM test_from_utc_timestamp_view"))
+                .containsOnly(row(
+                        "1969-12-31 16:00:00.123",
+                        "1969-12-31 16:00:10.123",
+                        "1970-01-03 16:00:00.123",
+                        "1970-01-30 16:00:00.123",
+                        "1970-01-30 16:00:00.000",
+                        "1970-01-30 16:00:00.123",
+                        "1970-01-30 16:00:00.123",
+                        "1970-01-30 16:00:00.000",
+                        "1970-01-30 08:00:00.000",
+                        "1970-01-29 16:00:00.000"));
+
+        // check result on Hive
+        if (isObsoleteFromUtcTimestampSemantics()) {
+            // For older hive version we expect different results on Hive side; as from_utc_timestamp semantics changed over time.
+            // Currently view transformation logic always follows new semantics.
+            // Leaving Hive assertions as documentation.
+            assertThat(onHive().executeQuery("SELECT * FROM test_from_utc_timestamp_view"))
+                    .containsOnly(row(
+                            "1969-12-31 21:30:00.123",
+                            "1969-12-31 21:30:10.123",
+                            "1970-01-03 21:30:00.123",
+                            "1970-01-30 21:30:00.123",
+                            "1970-01-30 21:30:00",
+                            "1970-01-30 21:30:00.123",
+                            "1970-01-30 21:30:00.123",
+                            "1970-01-30 21:30:00",
+                            "1970-01-30 08:00:00",
+                            "1970-01-29 16:00:00"));
+        }
+        else {
+            assertThat(onHive().executeQuery("SELECT * FROM test_from_utc_timestamp_view"))
+                    .containsOnly(row(
+                            "1969-12-31 16:00:00.123",
+                            "1969-12-31 16:00:10.123",
+                            "1970-01-03 16:00:00.123",
+                            "1970-01-30 16:00:00.123",
+                            "1970-01-30 16:00:00",
+                            "1970-01-30 16:00:00.123",
+                            "1970-01-30 16:00:00.123",
+                            "1970-01-30 16:00:00",
+                            "1970-01-30 08:00:00",
+                            "1970-01-29 16:00:00"));
+        }
+    }
+
+    @Test(groups = HIVE_VIEWS)
+    public void testFromUtcTimestampCornerCases()
+    {
+        onTrino().executeQuery("DROP TABLE IF EXISTS test_from_utc_timestamp_corner_cases_source");
+        onTrino().executeQuery("CREATE TABLE test_from_utc_timestamp_corner_cases_source AS SELECT * FROM (VALUES " +
+                "  CAST(-5000000000001 AS BIGINT)," +
+                "  CAST(-1000000000001 AS BIGINT)," +
+                "  -1," +
+                "  1," +
+                "  5000000000001" +
+                ")" +
+                "AS source(source_bigint)");
+
+        onHive().executeQuery("DROP VIEW IF EXISTS test_from_utc_timestamp_corner_cases_view");
+        onHive().executeQuery("CREATE VIEW " +
+                "test_from_utc_timestamp_corner_cases_view " +
+                "AS SELECT " +
+                "   CAST(from_utc_timestamp(source_bigint, 'America/Los_Angeles') as STRING) ts_bigint " +
+                "FROM test_from_utc_timestamp_corner_cases_source");
+
+        // check result on Trino
+        assertThat(query("SELECT * FROM test_from_utc_timestamp_corner_cases_view"))
+                .containsOnly(
+                        row("1811-07-23 07:13:41.999"),
+                        row("1938-04-24 14:13:19.999"),
+                        row("1969-12-31 15:59:59.999"),
+                        row("1969-12-31 16:00:00.001"),
+                        row("2128-06-11 01:53:20.001"));
+
+        // check result on Hive
+        if (isObsoleteFromUtcTimestampSemantics()) {
+            // For older hive version we expect different results on Hive side; as from_utc_timestamp semantics changed over time.
+            // Currently view transformation logic always follows new semantics.
+            // Leaving Hive assertions as documentation.
+            assertThat(onHive().executeQuery("SELECT * FROM test_from_utc_timestamp_corner_cases_view"))
+                    .containsOnly(
+                            row("1811-07-23 12:51:39.999"), // ???
+                            row("1938-04-24 19:43:19.999"),
+                            row("1969-12-31 21:29:59.999"),
+                            row("1969-12-31 21:30:00.001"),
+                            row("2128-06-11 07:38:20.001"));
+        }
+        else {
+            assertThat(onHive().executeQuery("SELECT * FROM test_from_utc_timestamp_corner_cases_view"))
+                    .containsOnly(
+                            row("1811-07-23 07:13:41.999"),
+                            row("1938-04-24 14:13:19.999"),
+                            row("1969-12-31 15:59:59.999"),
+                            row("1969-12-31 16:00:00.001"),
+                            row("2128-06-11 01:53:20.001"));
+        }
+    }
+
+    private boolean isObsoleteFromUtcTimestampSemantics()
+    {
+        // It appears from_utc_timestamp semantics in Hive changes some time on the way. The guess is that it happened
+        // together with change of timestamp semantics at version 3.1.
+        return getHiveVersionMajor() < 3 || (getHiveVersionMajor() == 3 && getHiveVersionMinor() < 1);
+    }
 }
-/**/

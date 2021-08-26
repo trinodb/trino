@@ -16,7 +16,7 @@ package io.trino.dispatcher;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
-import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.FluentFuture;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
@@ -66,17 +66,18 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static io.airlift.concurrent.MoreFutures.addTimeout;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.jaxrs.AsyncResponseHandler.bindAsyncResponse;
 import static io.trino.execution.QueryState.FAILED;
 import static io.trino.execution.QueryState.QUEUED;
 import static io.trino.server.HttpRequestSessionContext.AUTHENTICATED_IDENTITY;
+import static io.trino.server.protocol.QueryInfoUrlFactory.getQueryInfoUri;
 import static io.trino.server.protocol.Slug.Context.EXECUTING_QUERY;
 import static io.trino.server.protocol.Slug.Context.QUEUED_QUERY;
 import static io.trino.server.security.ResourceSecurity.AccessType.AUTHENTICATED_USER;
@@ -196,7 +197,7 @@ public class QueuedStatementResource
         // let authentication filter know that identity lifecycle has been handed off
         servletRequest.setAttribute(AUTHENTICATED_IDENTITY, null);
 
-        return createQueryResultsResponse(query.getQueryResults(query.getLastToken(), uriInfo), compressionEnabled);
+        return createQueryResultsResponse(query.getQueryResults(query.getLastToken(), uriInfo));
     }
 
     @ResourceSecurity(PUBLIC)
@@ -213,25 +214,21 @@ public class QueuedStatementResource
     {
         Query query = getQuery(queryId, slug, token);
 
-        // wait for query to be dispatched, up to the wait timeout
-        ListenableFuture<?> futureStateChange = addTimeout(
-                query.waitForDispatched(),
-                () -> null,
-                WAIT_ORDERING.min(MAX_WAIT_TIME, maxWait),
-                timeoutExecutor);
+        ListenableFuture<Response> future = getStatus(query, token, maxWait, uriInfo);
+        bindAsyncResponse(asyncResponse, future, responseExecutor);
+    }
 
-        // when state changes, fetch the next result
-        ListenableFuture<QueryResults> queryResultsFuture = Futures.transform(
-                futureStateChange,
-                ignored -> query.getQueryResults(token, uriInfo),
-                responseExecutor);
+    private ListenableFuture<Response> getStatus(Query query, long token, Duration maxWait, UriInfo uriInfo)
+    {
+        long waitMillis = WAIT_ORDERING.min(MAX_WAIT_TIME, maxWait).toMillis();
 
-        // transform to Response
-        ListenableFuture<Response> response = Futures.transform(
-                queryResultsFuture,
-                queryResults -> createQueryResultsResponse(queryResults, compressionEnabled),
-                directExecutor());
-        bindAsyncResponse(asyncResponse, response, responseExecutor);
+        return FluentFuture.from(query.waitForDispatched())
+                // wait for query to be dispatched, up to the wait timeout
+                .withTimeout(waitMillis, MILLISECONDS, timeoutExecutor)
+                .catching(TimeoutException.class, ignored -> null, directExecutor())
+                // when state changes, fetch the next result
+                .transform(ignored -> query.getQueryResults(token, uriInfo), responseExecutor)
+                .transform(this::createQueryResultsResponse, directExecutor());
     }
 
     @ResourceSecurity(PUBLIC)
@@ -257,22 +254,13 @@ public class QueuedStatementResource
         return query;
     }
 
-    private static Response createQueryResultsResponse(QueryResults results, boolean compressionEnabled)
+    private Response createQueryResultsResponse(QueryResults results)
     {
         Response.ResponseBuilder builder = Response.ok(results);
         if (!compressionEnabled) {
             builder.encoding("identity");
         }
         return builder.build();
-    }
-
-    private static URI getQueryHtmlUri(QueryId queryId, UriInfo uriInfo, Optional<URI> queryInfoUrl)
-    {
-        return queryInfoUrl.orElseGet(() ->
-                uriInfo.getRequestUriBuilder()
-                        .replacePath("ui/query.html")
-                        .replaceQuery(queryId.toString())
-                        .build());
     }
 
     private static URI getQueuedUri(QueryId queryId, Slug slug, long token, UriInfo uriInfo)
@@ -298,7 +286,7 @@ public class QueuedStatementResource
         QueryState state = queryError.map(error -> FAILED).orElse(QUEUED);
         return new QueryResults(
                 queryId.toString(),
-                getQueryHtmlUri(queryId, uriInfo, queryInfoUrl),
+                getQueryInfoUri(queryInfoUrl, queryId, uriInfo),
                 null,
                 nextUri,
                 null,
@@ -335,7 +323,7 @@ public class QueuedStatementResource
         private final AtomicLong lastToken = new AtomicLong();
 
         @GuardedBy("this")
-        private ListenableFuture<?> querySubmissionFuture;
+        private ListenableFuture<Void> querySubmissionFuture;
 
         public Query(String query, SessionContext sessionContext, DispatchManager dispatchManager, QueryInfoUrlFactory queryInfoUrlFactory)
         {
@@ -367,7 +355,7 @@ public class QueuedStatementResource
             return querySubmissionFuture != null && querySubmissionFuture.isDone();
         }
 
-        private ListenableFuture<?> waitForDispatched()
+        private ListenableFuture<Void> waitForDispatched()
         {
             // if query submission has not finished, wait for it to finish
             synchronized (this) {

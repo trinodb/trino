@@ -14,7 +14,9 @@
 package io.trino.connector;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
+import io.trino.spi.HostAddress;
 import io.trino.spi.Page;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
@@ -45,14 +47,15 @@ import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.DynamicFilter;
-import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.connector.FixedSplitSource;
+import io.trino.spi.connector.InMemoryRecordSet;
 import io.trino.spi.connector.JoinApplicationResult;
 import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.ProjectionApplicationResult;
+import io.trino.spi.connector.RecordPageSource;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SortItem;
@@ -66,6 +69,7 @@ import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.transaction.IsolationLevel;
+import io.trino.spi.type.Type;
 
 import java.util.Collection;
 import java.util.List;
@@ -80,8 +84,10 @@ import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.connector.MockConnector.MockConnectorSplit.MOCK_CONNECTOR_SPLIT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -89,6 +95,9 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 public class MockConnector
         implements Connector
 {
+    private static final String DELETE_ROW_ID = "delete_row_id";
+    private static final String UPDATE_ROW_ID = "update_row_id";
+
     private final Function<ConnectorSession, List<String>> listSchemaNames;
     private final BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables;
     private final Optional<BiFunction<ConnectorSession, SchemaTablePrefix, Stream<TableColumnsMetadata>>> streamTableColumns;
@@ -111,6 +120,7 @@ public class MockConnector
     private final Supplier<Iterable<EventListener>> eventListeners;
     private final MockConnectorFactory.ListRoleGrants roleGrants;
     private final MockConnectorAccessControl accessControl;
+    private final Function<SchemaTableName, List<List<?>>> data;
 
     MockConnector(
             Function<ConnectorSession, List<String>> listSchemaNames,
@@ -134,7 +144,7 @@ public class MockConnector
             BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableProperties> getTableProperties,
             Supplier<Iterable<EventListener>> eventListeners,
             MockConnectorFactory.ListRoleGrants roleGrants,
-            MockConnectorAccessControl accessControl)
+            MockConnectorAccessControl accessControl, Function<SchemaTableName, List<List<?>>> data)
     {
         this.listSchemaNames = requireNonNull(listSchemaNames, "listSchemaNames is null");
         this.listTables = requireNonNull(listTables, "listTables is null");
@@ -158,6 +168,7 @@ public class MockConnector
         this.eventListeners = requireNonNull(eventListeners, "eventListeners is null");
         this.roleGrants = requireNonNull(roleGrants, "roleGrants is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
+        this.data = requireNonNull(data, "data is null");
     }
 
     @Override
@@ -175,7 +186,7 @@ public class MockConnector
     @Override
     public ConnectorPageSourceProvider getPageSourceProvider()
     {
-        return new MockPageSourceProvider();
+        return new MockConnectorPageSourceProvider();
     }
 
     @Override
@@ -192,7 +203,7 @@ public class MockConnector
             @Override
             public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableHandle table, SplitSchedulingStrategy splitSchedulingStrategy, DynamicFilter dynamicFilter)
             {
-                return new FixedSplitSource(ImmutableList.of());
+                return new FixedSplitSource(ImmutableList.of(MOCK_CONNECTOR_SPLIT));
             }
         };
     }
@@ -467,8 +478,23 @@ public class MockConnector
         @Override
         public ColumnHandle getUpdateRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns)
         {
-            return new MockConnectorColumnHandle("update_row_id", BIGINT);
+            return new MockConnectorColumnHandle(UPDATE_ROW_ID, BIGINT);
         }
+
+        @Override
+        public ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle)
+        {
+            return tableHandle;
+        }
+
+        @Override
+        public ColumnHandle getDeleteRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
+        {
+            return new MockConnectorColumnHandle(DELETE_ROW_ID, BIGINT);
+        }
+
+        @Override
+        public void finishDelete(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments) {}
 
         @Override
         public boolean usesLegacyTableLayouts()
@@ -491,7 +517,10 @@ public class MockConnector
         @Override
         public Set<RoleGrant> listRoleGrants(ConnectorSession session, TrinoPrincipal principal)
         {
-            return roleGrants.apply(session, Optional.empty(), Optional.empty(), OptionalLong.empty()).stream().filter(grant -> grant.getGrantee().equals(principal)).collect(toImmutableSet());
+            return roleGrants.apply(session, Optional.empty(), Optional.empty(), OptionalLong.empty())
+                    .stream()
+                    .filter(grant -> grant.getGrantee().equals(principal))
+                    .collect(toImmutableSet());
         }
 
         @Override
@@ -572,20 +601,73 @@ public class MockConnector
         public void abort() {}
     }
 
-    private static class MockPageSourceProvider
+    private class MockConnectorPageSourceProvider
             implements ConnectorPageSourceProvider
     {
         @Override
         public ConnectorPageSource createPageSource(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<ColumnHandle> columns, DynamicFilter dynamicFilter)
         {
-            return new MockPageSource();
+            MockConnectorTableHandle handle = (MockConnectorTableHandle) table;
+            SchemaTableName tableName = handle.getTableName();
+            List<MockConnectorColumnHandle> projection = columns.stream()
+                    .map(MockConnectorColumnHandle.class::cast)
+                    .collect(toImmutableList());
+            List<Type> types = columns.stream()
+                    .map(MockConnectorColumnHandle.class::cast)
+                    .map(MockConnectorColumnHandle::getType)
+                    .collect(toImmutableList());
+            Map<String, Integer> columnIndexes = getColumnIndexes(tableName);
+            List<List<?>> records = data.apply(tableName).stream()
+                    .map(record -> {
+                        ImmutableList.Builder<Object> projectedRow = ImmutableList.builder();
+                        for (MockConnectorColumnHandle column : projection) {
+                            String columnName = column.getName();
+                            if (columnName.equals(DELETE_ROW_ID) || columnName.equals(UPDATE_ROW_ID)) {
+                                projectedRow.add(0);
+                                continue;
+                            }
+                            Integer index = columnIndexes.get(columnName);
+                            requireNonNull(index, "index is null");
+                            projectedRow.add(record.get(index));
+                        }
+                        return projectedRow.build();
+                    })
+                    .collect(toImmutableList());
+            return new MockConnectorPageSource(new RecordPageSource(new InMemoryRecordSet(types, records)));
+        }
+
+        private Map<String, Integer> getColumnIndexes(SchemaTableName tableName)
+        {
+            ImmutableMap.Builder<String, Integer> columnIndexes = ImmutableMap.builder();
+            List<ColumnMetadata> columnMetadata = getColumns.apply(tableName);
+            for (int index = 0; index < columnMetadata.size(); index++) {
+                columnIndexes.put(columnMetadata.get(index).getName(), index);
+            }
+            return columnIndexes.build();
         }
     }
 
-    private static class MockPageSource
-            extends EmptyPageSource
+    public enum MockConnectorSplit
+            implements ConnectorSplit
     {
+        MOCK_CONNECTOR_SPLIT;
+
         @Override
-        public void updateRows(Page page, List<Integer> columnValueAndRowIdChannels) {}
+        public boolean isRemotelyAccessible()
+        {
+            return true;
+        }
+
+        @Override
+        public List<HostAddress> getAddresses()
+        {
+            return ImmutableList.of();
+        }
+
+        @Override
+        public Object getInfo()
+        {
+            return "mock connector split";
+        }
     }
 }

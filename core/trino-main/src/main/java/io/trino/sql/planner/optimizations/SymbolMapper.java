@@ -63,7 +63,7 @@ public class SymbolMapper
 {
     private final Function<Symbol, Symbol> mappingFunction;
 
-    private SymbolMapper(Function<Symbol, Symbol> mappingFunction)
+    public SymbolMapper(Function<Symbol, Symbol> mappingFunction)
     {
         this.mappingFunction = requireNonNull(mappingFunction, "mappingFunction is null");
     }
@@ -243,6 +243,16 @@ public class SymbolMapper
 
     public PatternRecognitionNode map(PatternRecognitionNode node, PlanNode source)
     {
+        ImmutableMap.Builder<Symbol, WindowNode.Function> newFunctions = ImmutableMap.builder();
+        node.getWindowFunctions().forEach((symbol, function) -> {
+            List<Expression> newArguments = function.getArguments().stream()
+                    .map(this::map)
+                    .collect(toImmutableList());
+            WindowNode.Frame newFrame = map(function.getFrame());
+
+            newFunctions.put(map(symbol), new WindowNode.Function(function.getResolvedFunction(), newArguments, newFrame, function.isIgnoreNulls()));
+        });
+
         ImmutableMap.Builder<Symbol, Measure> newMeasures = ImmutableMap.builder();
         node.getMeasures().forEach((symbol, measure) -> {
             ExpressionAndValuePointers newExpression = map(measure.getExpressionAndValuePointers());
@@ -261,6 +271,7 @@ public class SymbolMapper
                         .map(this::map)
                         .collect(toImmutableSet()),
                 node.getPreSortedOrderPrefix(),
+                newFunctions.build(),
                 newMeasures.build(),
                 node.getCommonBaseFrame().map(this::map),
                 node.getRowsPerMatch(),

@@ -31,6 +31,7 @@ import io.trino.connector.system.ColumnPropertiesSystemTable;
 import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.connector.system.GlobalSystemConnectorFactory;
 import io.trino.connector.system.MaterializedViewPropertiesSystemTable;
+import io.trino.connector.system.MaterializedViewSystemTable;
 import io.trino.connector.system.NodeSystemTable;
 import io.trino.connector.system.SchemaPropertiesSystemTable;
 import io.trino.connector.system.TableCommentSystemTable;
@@ -72,6 +73,7 @@ import io.trino.execution.RollbackTask;
 import io.trino.execution.ScheduledSplit;
 import io.trino.execution.SetPathTask;
 import io.trino.execution.SetSessionTask;
+import io.trino.execution.SetTimeZoneTask;
 import io.trino.execution.StartTransactionTask;
 import io.trino.execution.TaskManagerConfig;
 import io.trino.execution.TaskSource;
@@ -176,6 +178,7 @@ import io.trino.sql.tree.ResetSession;
 import io.trino.sql.tree.Rollback;
 import io.trino.sql.tree.SetPath;
 import io.trino.sql.tree.SetSession;
+import io.trino.sql.tree.SetTimeZone;
 import io.trino.sql.tree.StartTransaction;
 import io.trino.sql.tree.Statement;
 import io.trino.testing.PageConsumerOperator.PageConsumerOutputFactory;
@@ -382,6 +385,7 @@ public class LocalQueryRunner
                 new NodeSystemTable(nodeManager),
                 new CatalogSystemTable(metadata, accessControl),
                 new TableCommentSystemTable(metadata, accessControl),
+                new MaterializedViewSystemTable(metadata, accessControl),
                 new SchemaPropertiesSystemTable(transactionManager, metadata),
                 new TablePropertiesSystemTable(transactionManager, metadata),
                 new MaterializedViewPropertiesSystemTable(transactionManager, metadata),
@@ -449,6 +453,7 @@ public class LocalQueryRunner
                 .put(Commit.class, new CommitTask())
                 .put(Rollback.class, new RollbackTask())
                 .put(SetPath.class, new SetPathTask())
+                .put(SetTimeZone.class, new SetTimeZoneTask(sqlParser, groupProvider, statsCalculator))
                 .build();
 
         SpillerStats spillerStats = new SpillerStats();

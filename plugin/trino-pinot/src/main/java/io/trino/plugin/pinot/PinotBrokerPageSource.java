@@ -28,8 +28,12 @@ import io.trino.spi.connector.ConnectorSession;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.pinot.PinotErrorCode.PINOT_EXCEPTION;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class PinotBrokerPageSource
@@ -45,6 +49,8 @@ public class PinotBrokerPageSource
     private boolean finished;
     private long readTimeNanos;
     private long completedBytes;
+    private final AtomicLong currentRowCount = new AtomicLong();
+    private final int limitForBrokerQueries;
 
     private Iterator<BrokerResultRow> resultIterator;
 
@@ -52,13 +58,15 @@ public class PinotBrokerPageSource
             ConnectorSession session,
             PinotQuery query,
             List<PinotColumnHandle> columnHandles,
-            PinotClient pinotClient)
+            PinotClient pinotClient,
+            int limitForBrokerQueries)
     {
         this.query = requireNonNull(query, "query is null");
         this.pinotClient = requireNonNull(pinotClient, "pinotClient is null");
         this.session = requireNonNull(session, "session is null");
         this.columnHandles = requireNonNull(columnHandles, "columnHandles is null");
         this.decoders = createDecoders(columnHandles);
+        this.limitForBrokerQueries = limitForBrokerQueries;
 
         this.columnBuilders = columnHandles.stream()
                 .map(PinotColumnHandle::getDataType)
@@ -113,6 +121,12 @@ public class PinotBrokerPageSource
         int rowCount = 0;
         while (size < PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES && resultIterator.hasNext()) {
             rowCount++;
+            // The limit for broker queries can be exceeded if the broker query was created via pushdown.
+            // The reason for the limit is that Pinot brokers allocate memory based on the limit size.
+            // This is a temporary workaround to address https://github.com/apache/pinot/issues/7110
+            if (currentRowCount.incrementAndGet() > limitForBrokerQueries) {
+                throw new PinotException(PINOT_EXCEPTION, Optional.of(query.getQuery()), format("Broker query returned '%s' rows, maximum allowed is '%s' rows.", currentRowCount.get(), limitForBrokerQueries));
+            }
             BrokerResultRow row = resultIterator.next();
             for (int i = 0; i < decoders.size(); i++) {
                 int fieldIndex = i;

@@ -19,7 +19,6 @@ import io.trino.operator.PartitionFunction;
 import io.trino.operator.exchange.PageReference.PageReleasedListener;
 import io.trino.spi.Page;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
-import it.unimi.dsi.fastutil.ints.IntList;
 
 import java.util.List;
 import java.util.function.Consumer;
@@ -56,33 +55,42 @@ class PartitioningExchanger
     }
 
     @Override
-    public synchronized void accept(Page page)
+    public void accept(Page page)
     {
-        // reset the assignment lists
-        for (IntList partitionAssignment : partitionAssignments) {
-            partitionAssignment.clear();
-        }
+        partitionPage(page, partitionedPagePreparer.apply(page));
+    }
 
-        // assign each row to a partition
-        Page partitionPage = partitionedPagePreparer.apply(page);
+    private synchronized void partitionPage(Page page, Page partitionPage)
+    {
+        // assign each row to a partition. The assignments lists are all expected to cleared by the previous iterations
         for (int position = 0; position < partitionPage.getPositionCount(); position++) {
             int partition = partitionFunction.getPartition(partitionPage, position);
             partitionAssignments[partition].add(position);
         }
 
         // build a page for each partition
-        for (int partition = 0; partition < buffers.size(); partition++) {
+        for (int partition = 0; partition < partitionAssignments.length; partition++) {
             IntArrayList positions = partitionAssignments[partition];
-            if (!positions.isEmpty()) {
-                Page pageSplit = page.copyPositions(positions.elements(), 0, positions.size());
-                memoryManager.updateMemoryUsage(pageSplit.getRetainedSizeInBytes());
-                buffers.get(partition).accept(new PageReference(pageSplit, 1, onPageReleased));
+            int partitionSize = positions.size();
+            if (partitionSize == 0) {
+                continue;
             }
+            Page pageSplit;
+            if (partitionSize == page.getPositionCount()) {
+                pageSplit = page; // entire page will be sent to this partition, no copies necessary
+            }
+            else {
+                pageSplit = page.copyPositions(positions.elements(), 0, partitionSize);
+            }
+            // clear the assigned positions list for the next iteration to start empty
+            positions.clear();
+            memoryManager.updateMemoryUsage(pageSplit.getRetainedSizeInBytes());
+            buffers.get(partition).accept(new PageReference(pageSplit, 1, onPageReleased));
         }
     }
 
     @Override
-    public ListenableFuture<?> waitForWriting()
+    public ListenableFuture<Void> waitForWriting()
     {
         return memoryManager.getNotFullFuture();
     }

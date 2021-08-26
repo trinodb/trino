@@ -31,6 +31,7 @@ import io.trino.server.DynamicFilterService;
 import io.trino.spi.TrinoException;
 import io.trino.split.RemoteSplit;
 import io.trino.sql.planner.PlanFragment;
+import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.RemoteSourceNode;
@@ -62,8 +63,10 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
+import static io.trino.SystemSessionProperties.isEnableCoordinatorDynamicFiltersDistribution;
 import static io.trino.failuredetector.FailureDetector.State.GONE;
 import static io.trino.operator.ExchangeOperator.REMOTE_CONNECTOR_ID;
+import static io.trino.server.DynamicFilterService.getOutboundDynamicFilters;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.REMOTE_HOST_GONE;
 import static java.util.Objects.requireNonNull;
@@ -106,6 +109,8 @@ public final class SqlStageExecution
     private final AtomicReference<OutputBuffers> outputBuffers = new AtomicReference<>();
 
     private final ListenerManager<Set<Lifespan>> completedLifespansChangeListeners = new ListenerManager<>();
+
+    private final Set<DynamicFilterId> outboundDynamicFilterIds;
 
     public static SqlStageExecution createSqlStageExecution(
             StageId stageId,
@@ -167,6 +172,12 @@ public final class SqlStageExecution
             }
         }
         this.exchangeSources = fragmentToExchangeSource.build();
+        if (isEnableCoordinatorDynamicFiltersDistribution(stateMachine.getSession())) {
+            this.outboundDynamicFilterIds = getOutboundDynamicFilters(stateMachine.getFragment());
+        }
+        else {
+            this.outboundDynamicFilterIds = ImmutableSet.of();
+        }
     }
 
     // this is a separate method to ensure that the `this` reference is not leaked during construction
@@ -286,7 +297,7 @@ public final class SqlStageExecution
         return stateMachine.getTotalMemoryReservation();
     }
 
-    public synchronized Duration getTotalCpuTime()
+    public Duration getTotalCpuTime()
     {
         long millis = getAllTasks().stream()
                 .mapToLong(task -> task.getTaskInfo().getStats().getTotalCpuTime().toMillis())
@@ -456,6 +467,7 @@ public final class SqlStageExecution
                 totalPartitions,
                 outputBuffers,
                 nodeTaskMap.createPartitionedSplitCountTracker(node, taskId),
+                outboundDynamicFilterIds,
                 summarizeTaskInfo);
 
         completeSources.forEach(task::noMoreSplits);

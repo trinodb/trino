@@ -27,7 +27,7 @@ import io.trino.spi.connector.ConnectorHandleResolver;
 
 import java.util.Map;
 
-import static io.airlift.configuration.ConditionalModule.installModuleIf;
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static java.util.Objects.requireNonNull;
 
 public class AtopConnectorFactory
@@ -67,11 +67,11 @@ public class AtopConnectorFactory
                             context.getNodeManager(),
                             context.getNodeManager().getEnvironment(),
                             catalogName),
-                    installModuleIf(
+                    conditionalModule(
                             AtopConnectorConfig.class,
                             config -> config.getSecurity() == AtopSecurity.NONE,
                             new AllowAllAccessControlModule()),
-                    installModuleIf(
+                    conditionalModule(
                             AtopConnectorConfig.class,
                             config -> config.getSecurity() == AtopSecurity.FILE,
                             binder -> {
@@ -80,7 +80,6 @@ public class AtopConnectorFactory
                             }));
 
             Injector injector = app
-                    .strictConfig()
                     .doNotInitializeLogging()
                     .setRequiredConfigurationProperties(requiredConfig)
                     .initialize();

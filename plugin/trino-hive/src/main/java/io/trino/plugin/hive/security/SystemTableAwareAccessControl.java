@@ -15,15 +15,18 @@
 package io.trino.plugin.hive.security;
 
 import io.trino.plugin.base.security.ForwardingConnectorAccessControl;
+import io.trino.plugin.hive.SystemTableProvider;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSecurityContext;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.AccessDeniedException;
 
+import javax.inject.Inject;
+
 import java.util.Optional;
 import java.util.Set;
 
-import static io.trino.plugin.hive.HiveMetadata.getSourceTableNameFromSystemTable;
+import static io.trino.plugin.hive.util.SystemTables.getSourceTableNameFromSystemTable;
 import static io.trino.spi.security.AccessDeniedException.denySelectTable;
 import static io.trino.spi.security.AccessDeniedException.denyShowColumns;
 import static java.util.Objects.requireNonNull;
@@ -32,10 +35,13 @@ public class SystemTableAwareAccessControl
         extends ForwardingConnectorAccessControl
 {
     private final ConnectorAccessControl delegate;
+    private final Set<SystemTableProvider> systemTableProviders;
 
-    public SystemTableAwareAccessControl(ConnectorAccessControl delegate)
+    @Inject
+    public SystemTableAwareAccessControl(ConnectorAccessControl delegate, Set<SystemTableProvider> systemTableProviders)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
+        this.systemTableProviders = requireNonNull(systemTableProviders, "systemTableProviders is null");
     }
 
     @Override
@@ -47,7 +53,7 @@ public class SystemTableAwareAccessControl
     @Override
     public void checkCanShowColumns(ConnectorSecurityContext context, SchemaTableName tableName)
     {
-        Optional<SchemaTableName> sourceTableName = getSourceTableNameFromSystemTable(tableName);
+        Optional<SchemaTableName> sourceTableName = getSourceTableNameFromSystemTable(systemTableProviders, tableName);
         if (sourceTableName.isPresent()) {
             try {
                 checkCanShowColumns(context, sourceTableName.get());
@@ -64,7 +70,7 @@ public class SystemTableAwareAccessControl
     @Override
     public Set<String> filterColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columns)
     {
-        Optional<SchemaTableName> sourceTableName = getSourceTableNameFromSystemTable(tableName);
+        Optional<SchemaTableName> sourceTableName = getSourceTableNameFromSystemTable(systemTableProviders, tableName);
         if (sourceTableName.isPresent()) {
             return filterColumns(context, sourceTableName.get(), columns);
         }
@@ -74,7 +80,7 @@ public class SystemTableAwareAccessControl
     @Override
     public void checkCanSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
     {
-        Optional<SchemaTableName> sourceTableName = getSourceTableNameFromSystemTable(tableName);
+        Optional<SchemaTableName> sourceTableName = getSourceTableNameFromSystemTable(systemTableProviders, tableName);
         if (sourceTableName.isPresent()) {
             try {
                 checkCanSelectFromColumns(context, sourceTableName.get(), columnNames);

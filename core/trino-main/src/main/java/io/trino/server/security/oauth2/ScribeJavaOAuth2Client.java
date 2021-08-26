@@ -39,7 +39,6 @@ public class ScribeJavaOAuth2Client
         implements OAuth2Client
 {
     private final DynamicCallbackOAuth2Service service;
-    private final Optional<String> audience;
 
     @Inject
     public ScribeJavaOAuth2Client(OAuth2Config config, @ForOAuth2 HttpClient httpClient)
@@ -47,7 +46,6 @@ public class ScribeJavaOAuth2Client
         requireNonNull(config, "config is null");
         requireNonNull(httpClient, "httpClient is null");
         service = new DynamicCallbackOAuth2Service(config, httpClient);
-        audience = config.getAudience();
     }
 
     @Override
@@ -56,19 +54,18 @@ public class ScribeJavaOAuth2Client
         ImmutableMap.Builder<String, String> parameters = ImmutableMap.builder();
         parameters.put(REDIRECT_URI, callbackUri.toString());
         parameters.put(STATE, state);
-        audience.ifPresent(audience -> parameters.put("audience", audience));
         nonceHash.ifPresent(n -> parameters.put(NONCE, n));
         return URI.create(service.getAuthorizationUrl(parameters.build()));
     }
 
     @Override
-    public AccessToken getAccessToken(String code, URI callbackUri)
+    public OAuth2Response getOAuth2Response(String code, URI callbackUri)
             throws ChallengeFailedException
     {
         OpenIdOAuth2AccessToken accessToken = (OpenIdOAuth2AccessToken) service.getAccessToken(code, callbackUri.toString());
         Optional<Instant> validUntil = Optional.ofNullable(accessToken.getExpiresIn()).map(expiresSeconds -> Instant.now().plusSeconds(expiresSeconds));
         Optional<String> idToken = Optional.ofNullable(accessToken.getOpenIdToken());
-        return new AccessToken(accessToken.getAccessToken(), validUntil, idToken);
+        return new OAuth2Response(accessToken.getAccessToken(), validUntil, idToken);
     }
 
     // Callback URI must be relative to client's view of the server.

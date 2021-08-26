@@ -30,7 +30,7 @@ import io.trino.transaction.TransactionManager;
 
 import java.util.List;
 
-import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.SessionPropertyManager.evaluatePropertyValue;
 import static io.trino.metadata.SessionPropertyManager.serializeSessionProperty;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
@@ -49,7 +49,7 @@ public class SetSessionTask
     }
 
     @Override
-    public ListenableFuture<?> execute(
+    public ListenableFuture<Void> execute(
             SetSession statement,
             TransactionManager transactionManager,
             Metadata metadata,
@@ -104,6 +104,6 @@ public class SetSessionTask
 
         stateMachine.addSetSessionProperties(propertyName.toString(), value);
 
-        return immediateFuture(null);
+        return immediateVoidFuture();
     }
 }

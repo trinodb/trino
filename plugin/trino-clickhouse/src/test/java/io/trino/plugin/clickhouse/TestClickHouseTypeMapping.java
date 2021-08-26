@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.spi.type.TimeZoneKey;
+import io.trino.spi.type.UuidType;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.datatype.CreateAndInsertDataSetup;
@@ -25,7 +26,6 @@ import io.trino.testing.datatype.DataSetup;
 import io.trino.testing.datatype.DataTypeTest;
 import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.TrinoSqlExecutor;
-import io.trino.type.UuidType;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -312,8 +312,8 @@ public class TestClickHouseTypeMapping
     public void testEnum()
     {
         SqlDataTypeTest.create()
-                .addRoundTrip("Enum('hello' = 1, 'world' = 2)", "'hello'", createUnboundedVarcharType(), "CAST('hello' AS varchar)")
-                .addRoundTrip("Enum('hello' = 1, 'world' = 2)", "'world'", createUnboundedVarcharType(), "CAST('world' AS varchar)")
+                .addRoundTrip("Enum('hello' = 1, 'world' = 2)", "'hello'", createUnboundedVarcharType(), "VARCHAR 'hello'")
+                .addRoundTrip("Enum('hello' = 1, 'world' = 2)", "'world'", createUnboundedVarcharType(), "VARCHAR 'world'")
                 .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_enum"));
     }
 
@@ -337,9 +337,9 @@ public class TestClickHouseTypeMapping
     {
         SqlDataTypeTest.create()
                 // TODO map to Trino IPADDRESS
-                .addRoundTrip("IPv4", "'116.253.40.133'", createUnboundedVarcharType(), "CAST('116.253.40.133' AS varchar)")
+                .addRoundTrip("IPv4", "'116.253.40.133'", createUnboundedVarcharType(), "VARCHAR '116.253.40.133'")
                 // TODO map to Trino IPADDRESS
-                .addRoundTrip("IPv6", "'2001:44c8:129:2632:33:0:252:2'", createUnboundedVarcharType(), "CAST('2001:44c8:129:2632:33:0:252:2' AS varchar)")
+                .addRoundTrip("IPv6", "'2001:44c8:129:2632:33:0:252:2'", createUnboundedVarcharType(), "VARCHAR '2001:44c8:129:2632:33:0:252:2'")
                 .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_ip"));
 
         // TODO add test with IPADDRESS written from Trino

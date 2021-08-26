@@ -94,10 +94,12 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addTimeout;
 import static io.trino.SystemSessionProperties.isExchangeCompressionEnabled;
 import static io.trino.execution.QueryState.FAILED;
+import static io.trino.server.protocol.QueryInfoUrlFactory.getQueryInfoUri;
 import static io.trino.server.protocol.QueryResultRows.queryResultRowsBuilder;
 import static io.trino.server.protocol.Slug.Context.EXECUTING_QUERY;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -339,7 +341,7 @@ class Query
         }
 
         // wait for a results data or query to finish, up to the wait timeout
-        ListenableFuture<?> futureStateChange = addTimeout(
+        ListenableFuture<Void> futureStateChange = addTimeout(
                 getFutureStateChange(),
                 () -> null,
                 wait,
@@ -349,7 +351,7 @@ class Query
         return Futures.transform(futureStateChange, ignored -> getNextResult(token, uriInfo, targetResultSize), resultsProcessorExecutor);
     }
 
-    private synchronized ListenableFuture<?> getFutureStateChange()
+    private synchronized ListenableFuture<Void> getFutureStateChange()
     {
         // if the exchange client is open, wait for data
         if (!exchangeClient.isClosed()) {
@@ -362,7 +364,7 @@ class Query
             return queryDoneFuture(queryManager.getQueryState(queryId));
         }
         catch (NoSuchElementException e) {
-            return immediateFuture(null);
+            return immediateVoidFuture();
         }
     }
 
@@ -409,11 +411,6 @@ class Query
 
         verify(nextToken.isPresent(), "Cannot generate next result when next token is not present");
         verify(token == nextToken.getAsLong(), "Expected token to equal next token");
-        URI queryHtmlUri = queryInfoUrl.orElseGet(() ->
-                uriInfo.getRequestUriBuilder()
-                        .replacePath("ui/query.html")
-                        .replaceQuery(queryId.toString())
-                        .build());
 
         // get the query info before returning
         // force update if query manager is closed
@@ -476,7 +473,7 @@ class Query
         // first time through, self is null
         QueryResults queryResults = new QueryResults(
                 queryId.toString(),
-                queryHtmlUri,
+                getQueryInfoUri(queryInfoUrl, queryId, uriInfo),
                 partialCancelUri,
                 nextResultsUri,
                 resultRows.getColumns().orElse(null),
@@ -584,10 +581,10 @@ class Query
         }
     }
 
-    private ListenableFuture<?> queryDoneFuture(QueryState currentState)
+    private ListenableFuture<Void> queryDoneFuture(QueryState currentState)
     {
         if (currentState.isDone()) {
-            return immediateFuture(null);
+            return immediateVoidFuture();
         }
         return Futures.transformAsync(queryManager.getStateChange(queryId, currentState), this::queryDoneFuture, directExecutor());
     }

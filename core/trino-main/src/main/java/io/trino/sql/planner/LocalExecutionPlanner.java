@@ -68,7 +68,6 @@ import io.trino.operator.OutputFactory;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesSpatialIndexFactory;
 import io.trino.operator.PartitionFunction;
-import io.trino.operator.PartitionedOutputOperator.PartitionedOutputFactory;
 import io.trino.operator.PipelineExecutionStrategy;
 import io.trino.operator.RefreshMaterializedViewOperator.RefreshMaterializedViewOperatorFactory;
 import io.trino.operator.RowNumberOperator;
@@ -85,7 +84,6 @@ import io.trino.operator.StreamingAggregationOperator;
 import io.trino.operator.TableDeleteOperator.TableDeleteOperatorFactory;
 import io.trino.operator.TableScanOperator.TableScanOperatorFactory;
 import io.trino.operator.TaskContext;
-import io.trino.operator.TaskOutputOperator.TaskOutputFactory;
 import io.trino.operator.TopNOperator;
 import io.trino.operator.TopNRankingOperator;
 import io.trino.operator.UpdateOperator.UpdateOperatorFactory;
@@ -116,6 +114,7 @@ import io.trino.operator.join.LookupSourceFactory;
 import io.trino.operator.join.NestedLoopJoinBridge;
 import io.trino.operator.join.NestedLoopJoinPagesSupplier;
 import io.trino.operator.join.PartitionedLookupSourceFactory;
+import io.trino.operator.output.TaskOutputOperator.TaskOutputFactory;
 import io.trino.operator.project.CursorProcessor;
 import io.trino.operator.project.PageProcessor;
 import io.trino.operator.project.PageProjection;
@@ -256,12 +255,14 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Range.closedOpen;
+import static com.google.common.collect.Sets.difference;
 import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.trino.SystemSessionProperties.getAggregationOperatorUnspillMemoryLimit;
 import static io.trino.SystemSessionProperties.getFilterAndProjectMinOutputPageRowCount;
 import static io.trino.SystemSessionProperties.getFilterAndProjectMinOutputPageSize;
 import static io.trino.SystemSessionProperties.getTaskConcurrency;
 import static io.trino.SystemSessionProperties.getTaskWriterCount;
+import static io.trino.SystemSessionProperties.isEnableCoordinatorDynamicFiltersDistribution;
 import static io.trino.SystemSessionProperties.isEnableLargeDynamicFilters;
 import static io.trino.SystemSessionProperties.isExchangeCompressionEnabled;
 import static io.trino.SystemSessionProperties.isLateMaterializationEnabled;
@@ -488,7 +489,8 @@ public class LocalExecutionPlanner
                 outputLayout,
                 types,
                 partitionedSourceOrder,
-                new PartitionedOutputFactory(
+                operatorFactories.partitionedOutput(
+                        taskContext,
                         partitionFunction,
                         partitionChannels,
                         partitionConstants,
@@ -508,11 +510,11 @@ public class LocalExecutionPlanner
             OutputFactory outputOperatorFactory)
     {
         Session session = taskContext.getSession();
-        LocalExecutionPlanContext context = new LocalExecutionPlanContext(taskContext, metadata, typeOperators, types);
+        LocalExecutionPlanContext context = new LocalExecutionPlanContext(taskContext, types);
 
         PhysicalOperation physicalOperation = plan.accept(new Visitor(session, stageExecutionDescriptor), context);
 
-        Function<Page, Page> pagePreprocessor = enforceLayoutProcessor(outputLayout, physicalOperation.getLayout());
+        Function<Page, Page> pagePreprocessor = enforceLoadedLayoutProcessor(outputLayout, physicalOperation.getLayout());
 
         List<Type> outputTypes = outputLayout.stream()
                 .map(types::get)
@@ -549,10 +551,6 @@ public class LocalExecutionPlanner
         private final List<DriverFactory> driverFactories;
         private final Optional<IndexSourceContext> indexSourceContext;
 
-        // the collector is shared with all subContexts to allow local dynamic filtering
-        // with multiple table scans (e.g. co-located joins).
-        private final LocalDynamicFiltersCollector dynamicFiltersCollector;
-
         // this is shared with all subContexts
         private final AtomicInteger nextPipelineId;
 
@@ -560,14 +558,13 @@ public class LocalExecutionPlanner
         private boolean inputDriver = true;
         private OptionalInt driverInstanceCount = OptionalInt.empty();
 
-        public LocalExecutionPlanContext(TaskContext taskContext, Metadata metadata, TypeOperators typeOperators, TypeProvider types)
+        public LocalExecutionPlanContext(TaskContext taskContext, TypeProvider types)
         {
             this(
                     taskContext,
                     types,
                     new ArrayList<>(),
                     Optional.empty(),
-                    new LocalDynamicFiltersCollector(metadata, typeOperators, taskContext.getSession()),
                     new AtomicInteger(0));
         }
 
@@ -576,14 +573,12 @@ public class LocalExecutionPlanner
                 TypeProvider types,
                 List<DriverFactory> driverFactories,
                 Optional<IndexSourceContext> indexSourceContext,
-                LocalDynamicFiltersCollector dynamicFiltersCollector,
                 AtomicInteger nextPipelineId)
         {
             this.taskContext = taskContext;
             this.types = types;
             this.driverFactories = driverFactories;
             this.indexSourceContext = indexSourceContext;
-            this.dynamicFiltersCollector = dynamicFiltersCollector;
             this.nextPipelineId = nextPipelineId;
         }
 
@@ -677,12 +672,26 @@ public class LocalExecutionPlanner
 
         public LocalDynamicFiltersCollector getDynamicFiltersCollector()
         {
-            return dynamicFiltersCollector;
+            return taskContext.getLocalDynamicFiltersCollector();
         }
 
         private void addLocalDynamicFilters(Map<DynamicFilterId, Domain> dynamicTupleDomain)
         {
-            dynamicFiltersCollector.collectDynamicFilterDomains(dynamicTupleDomain);
+            taskContext.addDynamicFilter(dynamicTupleDomain);
+        }
+
+        private void registerCoordinatorDynamicFilters(List<DynamicFilters.Descriptor> dynamicFilters)
+        {
+            if (!isEnableCoordinatorDynamicFiltersDistribution(taskContext.getSession())) {
+                return;
+            }
+            Set<DynamicFilterId> consumedFilterIds = dynamicFilters.stream()
+                    .map(DynamicFilters.Descriptor::getId)
+                    .collect(toImmutableSet());
+            LocalDynamicFiltersCollector dynamicFiltersCollector = getDynamicFiltersCollector();
+            // Don't repeat registration of node-local filters or those already registered by another scan (e.g. co-located joins)
+            dynamicFiltersCollector.register(
+                    difference(consumedFilterIds, dynamicFiltersCollector.getRegisteredDynamicFilterIds()));
         }
 
         private void addCoordinatorDynamicFilters(Map<DynamicFilterId, Domain> dynamicTupleDomain)
@@ -718,12 +727,12 @@ public class LocalExecutionPlanner
         public LocalExecutionPlanContext createSubContext()
         {
             checkState(indexSourceContext.isEmpty(), "index build plan cannot have sub-contexts");
-            return new LocalExecutionPlanContext(taskContext, types, driverFactories, indexSourceContext, dynamicFiltersCollector, nextPipelineId);
+            return new LocalExecutionPlanContext(taskContext, types, driverFactories, indexSourceContext, nextPipelineId);
         }
 
         public LocalExecutionPlanContext createIndexSourceSubContext(IndexSourceContext indexSourceContext)
         {
-            return new LocalExecutionPlanContext(taskContext, types, driverFactories, Optional.of(indexSourceContext), dynamicFiltersCollector, nextPipelineId);
+            return new LocalExecutionPlanContext(taskContext, types, driverFactories, Optional.of(indexSourceContext), nextPipelineId);
         }
 
         public OptionalInt getDriverInstanceCount()
@@ -1172,7 +1181,37 @@ public class LocalExecutionPlanner
                 nextOutputChannel++;
             }
 
-            // TODO here go window functions in the following channels, similarly to measures
+            // process window functions
+            ImmutableList.Builder<WindowFunctionDefinition> windowFunctionsBuilder = ImmutableList.builder();
+            for (Map.Entry<Symbol, WindowNode.Function> entry : node.getWindowFunctions().entrySet()) {
+                // window functions outputs go in remaining channels starting after the last measure channel
+                outputMappings.put(entry.getKey(), nextOutputChannel);
+                nextOutputChannel++;
+
+                WindowNode.Function function = entry.getValue();
+                ResolvedFunction resolvedFunction = function.getResolvedFunction();
+                ImmutableList.Builder<Integer> arguments = ImmutableList.builder();
+                for (Expression argument : function.getArguments()) {
+                    if (!(argument instanceof LambdaExpression)) {
+                        Symbol argumentSymbol = Symbol.from(argument);
+                        arguments.add(source.getLayout().get(argumentSymbol));
+                    }
+                }
+                WindowFunctionSupplier windowFunctionSupplier = metadata.getWindowFunctionImplementation(resolvedFunction);
+                Type type = resolvedFunction.getSignature().getReturnType();
+
+                List<LambdaExpression> lambdaExpressions = function.getArguments().stream()
+                        .filter(LambdaExpression.class::isInstance)
+                        .map(LambdaExpression.class::cast)
+                        .collect(toImmutableList());
+                List<FunctionType> functionTypes = resolvedFunction.getSignature().getArgumentTypes().stream()
+                        .filter(FunctionType.class::isInstance)
+                        .map(FunctionType.class::cast)
+                        .collect(toImmutableList());
+
+                List<LambdaProvider> lambdaProviders = makeLambdaProviders(lambdaExpressions, windowFunctionSupplier.getLambdaInterfaces(), functionTypes);
+                windowFunctionsBuilder.add(window(windowFunctionSupplier, type, function.isIgnoreNulls(), lambdaProviders, arguments.build()));
+            }
 
             // prepare structures specific to PatternRecognitionNode
             // 1. establish a two-way mapping of IrLabels to `int`
@@ -1195,7 +1234,7 @@ public class LocalExecutionPlanner
                     .map(baseFrame -> {
                         checkArgument(
                                 baseFrame.getType() == ROWS &&
-                                        baseFrame.getEndType() == CURRENT_ROW,
+                                        baseFrame.getStartType() == CURRENT_ROW,
                                 "invalid base frame");
                         return new FrameInfo(
                                 baseFrame.getType(),
@@ -1266,7 +1305,7 @@ public class LocalExecutionPlanner
                     node.getId(),
                     source.getTypes(),
                     outputChannels.build(),
-                    ImmutableList.of(), // TODO support window functions
+                    windowFunctionsBuilder.build(),
                     partitionChannels,
                     preGroupedChannels,
                     sortChannels,
@@ -1730,7 +1769,13 @@ public class LocalExecutionPlanner
             }
 
             log.debug("[TableScan] Dynamic filters: %s", dynamicFilters);
-            return context.getDynamicFiltersCollector().createDynamicFilter(dynamicFilters, tableScanNode.getAssignments(), context.getTypes());
+            context.registerCoordinatorDynamicFilters(dynamicFilters);
+            return context.getDynamicFiltersCollector().createDynamicFilter(
+                    dynamicFilters,
+                    tableScanNode.getAssignments(),
+                    context.getTypes(),
+                    metadata,
+                    typeOperators);
         }
 
         @Override
@@ -3090,7 +3135,7 @@ public class LocalExecutionPlanner
                     blockTypeOperators);
 
             List<Symbol> expectedLayout = node.getInputs().get(0);
-            Function<Page, Page> pagePreprocessor = enforceLayoutProcessor(expectedLayout, source.getLayout());
+            Function<Page, Page> pagePreprocessor = enforceLoadedLayoutProcessor(expectedLayout, source.getLayout());
             context.addDriverFactory(
                     subContext.isInputDriver(),
                     false,
@@ -3174,7 +3219,7 @@ public class LocalExecutionPlanner
                 LocalExecutionPlanContext subContext = driverFactoryParameters.getSubContext();
 
                 List<Symbol> expectedLayout = node.getInputs().get(i);
-                Function<Page, Page> pagePreprocessor = enforceLayoutProcessor(expectedLayout, source.getLayout());
+                Function<Page, Page> pagePreprocessor = enforceLoadedLayoutProcessor(expectedLayout, source.getLayout());
 
                 context.addDriverFactory(
                         subContext.isInputDriver(),
@@ -3566,7 +3611,7 @@ public class LocalExecutionPlanner
         };
     }
 
-    private static Function<Page, Page> enforceLayoutProcessor(List<Symbol> expectedLayout, Map<Symbol, Integer> inputLayout)
+    private static Function<Page, Page> enforceLoadedLayoutProcessor(List<Symbol> expectedLayout, Map<Symbol, Integer> inputLayout)
     {
         int[] channels = expectedLayout.stream()
                 .peek(symbol -> checkArgument(inputLayout.containsKey(symbol), "channel not found for symbol: %s", symbol))
@@ -3574,8 +3619,8 @@ public class LocalExecutionPlanner
                 .toArray();
 
         if (Arrays.equals(channels, range(0, inputLayout.size()).toArray())) {
-            // this is an identity mapping
-            return Function.identity();
+            // this is an identity mapping, simply ensuring that the page is fully loaded is sufficient
+            return PageChannelSelector.identitySelection();
         }
 
         return new PageChannelSelector(channels);

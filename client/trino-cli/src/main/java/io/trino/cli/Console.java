@@ -16,8 +16,6 @@ package io.trino.cli;
 import com.google.common.base.CharMatcher;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
-import io.airlift.log.Logging;
-import io.airlift.log.LoggingConfiguration;
 import io.airlift.units.Duration;
 import io.trino.cli.ClientOptions.OutputFormat;
 import io.trino.cli.Trino.VersionProvider;
@@ -54,7 +52,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.StandardSystemProperty.USER_HOME;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Strings.nullToEmpty;
-import static com.google.common.io.ByteStreams.nullOutputStream;
 import static com.google.common.io.Files.asCharSource;
 import static com.google.common.util.concurrent.Uninterruptibles.awaitUninterruptibly;
 import static io.trino.cli.Completion.commandCompleter;
@@ -111,8 +108,6 @@ public class Console
         boolean hasQuery = clientOptions.execute != null;
         boolean isFromFile = !isNullOrEmpty(clientOptions.file);
 
-        initializeLogging(clientOptions.logLevelsFile);
-
         String query = clientOptions.execute;
         if (hasQuery) {
             query += ";";
@@ -162,6 +157,7 @@ public class Console
         try (QueryRunner queryRunner = new QueryRunner(
                 session,
                 clientOptions.debug,
+                clientOptions.networkLogging,
                 clientOptions.socksProxy,
                 clientOptions.httpProxy,
                 clientOptions.keystorePath,
@@ -436,33 +432,5 @@ public class Console
             return Paths.get(path);
         }
         return Paths.get(nullToEmpty(USER_HOME.value()), ".trino_history");
-    }
-
-    private static void initializeLogging(String logLevelsFile)
-    {
-        // unhook out and err while initializing logging or logger will print to them
-        PrintStream out = System.out;
-        PrintStream err = System.err;
-
-        try {
-            LoggingConfiguration config = new LoggingConfiguration();
-
-            if (logLevelsFile == null) {
-                System.setOut(new PrintStream(nullOutputStream()));
-                System.setErr(new PrintStream(nullOutputStream()));
-
-                config.setConsoleEnabled(false);
-            }
-            else {
-                config.setLevelsFile(logLevelsFile);
-            }
-
-            Logging logging = Logging.initialize();
-            logging.configure(config);
-        }
-        finally {
-            System.setOut(out);
-            System.setErr(err);
-        }
     }
 }

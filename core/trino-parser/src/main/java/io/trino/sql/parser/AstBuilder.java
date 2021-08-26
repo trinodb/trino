@@ -74,6 +74,7 @@ import io.trino.sql.tree.ExcludedPattern;
 import io.trino.sql.tree.Execute;
 import io.trino.sql.tree.ExistsPredicate;
 import io.trino.sql.tree.Explain;
+import io.trino.sql.tree.ExplainAnalyze;
 import io.trino.sql.tree.ExplainFormat;
 import io.trino.sql.tree.ExplainOption;
 import io.trino.sql.tree.ExplainType;
@@ -178,6 +179,7 @@ import io.trino.sql.tree.SetRole;
 import io.trino.sql.tree.SetSchemaAuthorization;
 import io.trino.sql.tree.SetSession;
 import io.trino.sql.tree.SetTableAuthorization;
+import io.trino.sql.tree.SetTimeZone;
 import io.trino.sql.tree.SetViewAuthorization;
 import io.trino.sql.tree.ShowCatalogs;
 import io.trino.sql.tree.ShowColumns;
@@ -221,6 +223,7 @@ import io.trino.sql.tree.WhenClause;
 import io.trino.sql.tree.Window;
 import io.trino.sql.tree.WindowDefinition;
 import io.trino.sql.tree.WindowFrame;
+import io.trino.sql.tree.WindowOperation;
 import io.trino.sql.tree.WindowReference;
 import io.trino.sql.tree.WindowSpecification;
 import io.trino.sql.tree.With;
@@ -1069,7 +1072,13 @@ class AstBuilder
     @Override
     public Node visitExplain(SqlBaseParser.ExplainContext context)
     {
-        return new Explain(getLocation(context), context.ANALYZE() != null, context.VERBOSE() != null, (Statement) visit(context.statement()), visit(context.explainOption(), ExplainOption.class));
+        return new Explain(getLocation(context), (Statement) visit(context.statement()), visit(context.explainOption(), ExplainOption.class));
+    }
+
+    @Override
+    public Node visitExplainAnalyze(SqlBaseParser.ExplainAnalyzeContext context)
+    {
+        return new ExplainAnalyze(getLocation(context), context.VERBOSE() != null, (Statement) visit(context.statement()));
     }
 
     @Override
@@ -1368,6 +1377,16 @@ class AstBuilder
     public Node visitSetPath(SqlBaseParser.SetPathContext context)
     {
         return new SetPath(getLocation(context), (PathSpecification) visit(context.pathSpecification()));
+    }
+
+    @Override
+    public Node visitSetTimeZone(SqlBaseParser.SetTimeZoneContext context)
+    {
+        Optional<Expression> timeZone = Optional.empty();
+        if (context.expression() != null) {
+            timeZone = Optional.of((Expression) visit(context.expression()));
+        }
+        return new SetTimeZone(getLocation(context), timeZone);
     }
 
     // ***************** boolean expressions ******************
@@ -2086,6 +2105,12 @@ class AstBuilder
     }
 
     @Override
+    public Node visitMeasure(SqlBaseParser.MeasureContext context)
+    {
+        return new WindowOperation(getLocation(context), (Identifier) visit(context.identifier()), (Window) visit(context.over()));
+    }
+
+    @Override
     public Node visitLambda(SqlBaseParser.LambdaContext context)
     {
         List<LambdaArgumentDeclaration> arguments = visit(context.identifier(), Identifier.class).stream()
@@ -2164,11 +2189,25 @@ class AstBuilder
     @Override
     public Node visitWindowFrame(SqlBaseParser.WindowFrameContext context)
     {
+        Optional<PatternSearchMode> searchMode = Optional.empty();
+        if (context.INITIAL() != null) {
+            searchMode = Optional.of(new PatternSearchMode(getLocation(context.INITIAL()), INITIAL));
+        }
+        else if (context.SEEK() != null) {
+            searchMode = Optional.of(new PatternSearchMode(getLocation(context.SEEK()), SEEK));
+        }
+
         return new WindowFrame(
                 getLocation(context),
-                getFrameType(context.frameType),
-                (FrameBound) visit(context.start),
-                visitIfPresent(context.end, FrameBound.class));
+                getFrameType(context.frameExtent().frameType),
+                (FrameBound) visit(context.frameExtent().start),
+                visitIfPresent(context.frameExtent().end, FrameBound.class),
+                visit(context.measureDefinition(), MeasureDefinition.class),
+                visitIfPresent(context.skipTo(), SkipTo.class),
+                searchMode,
+                visitIfPresent(context.rowPattern(), RowPattern.class),
+                visit(context.subsetDefinition(), SubsetDefinition.class),
+                visit(context.variableDefinition(), VariableDefinition.class));
     }
 
     @Override

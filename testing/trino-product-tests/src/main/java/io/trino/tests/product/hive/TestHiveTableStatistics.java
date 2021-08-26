@@ -700,7 +700,7 @@ public class TestHiveTableStatistics
                 row("c_int", null, null, null, null, null, null),
                 row(null, null, null, null, 2.0, null, null));
 
-        assertThat(query("ANALYZE " + tableName)).containsExactly(row(2));
+        assertThat(query("ANALYZE " + tableName)).containsExactlyInOrder(row(2));
         assertThat(query("SHOW STATS FOR " + tableName)).containsOnly(
                 row("c_string", 4.0, 1.0, 0.0, null, null, null),
                 row("c_int", null, 2.0, 0.0, null, "1", "2"),
@@ -733,7 +733,7 @@ public class TestHiveTableStatistics
                     row(null, null, null, null, 0.0, null, null));
         }
 
-        assertThat(query("ANALYZE " + tableNameInDatabase)).containsExactly(row(25));
+        assertThat(query("ANALYZE " + tableNameInDatabase)).containsExactlyInOrder(row(25));
 
         assertThat(query(showStatsWholeTable)).containsOnly(
                 row("n_nationkey", null, 25.0, 0.0, null, "0", "24"),
@@ -771,7 +771,7 @@ public class TestHiveTableStatistics
 
         // analyze for single partition
 
-        assertThat(query("ANALYZE " + tableNameInDatabase + " WITH (partitions = ARRAY[ARRAY['1']])")).containsExactly(row(5));
+        assertThat(query("ANALYZE " + tableNameInDatabase + " WITH (partitions = ARRAY[ARRAY['1']])")).containsExactlyInOrder(row(5));
 
         assertThat(query(showStatsWholeTable)).containsOnly(
                 row("p_nationkey", null, 5.0, 0.0, null, "1", "24"),
@@ -796,7 +796,7 @@ public class TestHiveTableStatistics
 
         // analyze for all partitions
 
-        assertThat(query("ANALYZE " + tableNameInDatabase)).containsExactly(row(15));
+        assertThat(query("ANALYZE " + tableNameInDatabase)).containsExactlyInOrder(row(15));
 
         assertThat(query(showStatsWholeTable)).containsOnly(
                 row("p_nationkey", null, 5.0, 0.0, null, "1", "24"),
@@ -848,7 +848,7 @@ public class TestHiveTableStatistics
 
         // analyze for single partition
 
-        assertThat(query("ANALYZE " + tableNameInDatabase + " WITH (partitions = ARRAY[ARRAY['AMERICA']])")).containsExactly(row(5));
+        assertThat(query("ANALYZE " + tableNameInDatabase + " WITH (partitions = ARRAY[ARRAY['AMERICA']])")).containsExactlyInOrder(row(5));
 
         assertThat(query(showStatsWholeTable)).containsOnly(
                 row("p_nationkey", null, 5.0, 0.0, null, "1", "24"),
@@ -873,7 +873,7 @@ public class TestHiveTableStatistics
 
         // column analysis for all partitions
 
-        assertThat(query("ANALYZE " + tableNameInDatabase)).containsExactly(row(15));
+        assertThat(query("ANALYZE " + tableNameInDatabase)).containsExactlyInOrder(row(15));
 
         assertThat(query(showStatsWholeTable)).containsOnly(
                 row("p_nationkey", null, 5.0, 0.0, null, "1", "24"),
@@ -943,7 +943,7 @@ public class TestHiveTableStatistics
                     row(null, null, null, null, 0.0, null, null));
         }
 
-        assertThat(query("ANALYZE " + tableNameInDatabase)).containsExactly(row(2));
+        assertThat(query("ANALYZE " + tableNameInDatabase)).containsExactlyInOrder(row(2));
 
         // SHOW STATS FORMAT: column_name, data_size, distinct_values_count, nulls_fraction, row_count
         assertThat(query("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
@@ -1012,7 +1012,7 @@ public class TestHiveTableStatistics
                     row(null, null, null, null, 0.0, null, null));
         }
 
-        assertThat(query("ANALYZE " + tableNameInDatabase)).containsExactly(row(0));
+        assertThat(query("ANALYZE " + tableNameInDatabase)).containsExactlyInOrder(row(0));
 
         assertThat(query("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
                 row("c_tinyint", 0.0, 0.0, 1.0, null, null, null),
@@ -1060,7 +1060,7 @@ public class TestHiveTableStatistics
                 row("c_binary", null, null, null, null, null, null),
                 row(null, null, null, null, 1.0, null, null));
 
-        assertThat(query("ANALYZE " + tableNameInDatabase)).containsExactly(row(1));
+        assertThat(query("ANALYZE " + tableNameInDatabase)).containsExactlyInOrder(row(1));
 
         assertThat(query("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
                 row("c_tinyint", 0.0, 0.0, 1.0, null, null, null),
@@ -1146,7 +1146,7 @@ public class TestHiveTableStatistics
                     "CAST(345.670 AS DECIMAL(10, 5)), " +
                     "TIMESTAMP '2015-05-10 12:15:30', " +
                     "DATE '2015-05-08', " +
-                    "CAST('ela ma kot' AS VARCHAR), " +
+                    "VARCHAR 'ela ma kot', " +
                     "CAST('ela ma ko' AS VARCHAR(10)), " +
                     "CAST('ela m     ' AS CHAR(10)), " +
                     "false, " +
@@ -1199,12 +1199,12 @@ public class TestHiveTableStatistics
                     "           CAST(345.670 AS DECIMAL(10, 5)), " +
                     "           TIMESTAMP '2015-05-10 12:15:30.000', " +
                     "           DATE '2015-05-08', " +
-                    "           CAST('p1 varchar' AS VARCHAR), " +
+                    "           VARCHAR 'p1 varchar', " +
                     "           CAST('p1 varchar10' AS VARCHAR(10)), " +
                     "           CAST('p1 char10' AS CHAR(10)), false, " +
                     "           CAST('p1 binary' as VARBINARY), " +
                     "           BIGINT '1', " +
-                    "           CAST('partition1' AS VARCHAR)" +
+                    "           VARCHAR 'partition1'" +
                     "        ), " +
                     "        (null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, BIGINT '1', 'partition1'), " +
                     "        (" +
@@ -1218,13 +1218,13 @@ public class TestHiveTableStatistics
                     "           CAST(999.670 AS DECIMAL(10, 5)), " +
                     "           TIMESTAMP '2015-05-10 12:45:30.000', " +
                     "           DATE '2015-05-09', " +
-                    "           CAST('p2 varchar' AS VARCHAR), " +
+                    "           VARCHAR 'p2 varchar', " +
                     "           CAST('p2 varchar10' AS VARCHAR(10)), " +
                     "           CAST('p2 char10' AS CHAR(10)), " +
                     "           true, " +
                     "           CAST('p2 binary' as VARBINARY), " +
                     "           BIGINT '2', " +
-                    "           CAST('partition2' AS VARCHAR)" +
+                    "           VARCHAR 'partition2'" +
                     "        ), " +
                     "        (null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, BIGINT '2', 'partition2') " +
                     "" +
@@ -1389,7 +1389,7 @@ public class TestHiveTableStatistics
                     row("p_varchar", 40.0, 1.0, 0.0, null, null, null),
                     row(null, null, null, null, 4.0, null, null)));
 
-            query(format("INSERT INTO %s VALUES( TINYINT '100', SMALLINT '334', INTEGER '445', BIGINT '556', REAL '667.340', DOUBLE '778.560', CAST(889.0 AS DECIMAL(10, 0)), CAST(1000.670 AS DECIMAL(10, 5)), TIMESTAMP '2015-05-10 12:45:31', DATE '2015-05-10', CAST('p2 varchar' AS VARCHAR), CAST('p2 varchar10' AS VARCHAR(10)), CAST('p2 char10' AS CHAR(10)), true, CAST('p2 binary' as VARBINARY), BIGINT '2', 'partition2')", tableName));
+            query(format("INSERT INTO %s VALUES( TINYINT '100', SMALLINT '334', INTEGER '445', BIGINT '556', REAL '667.340', DOUBLE '778.560', CAST(889.0 AS DECIMAL(10, 0)), CAST(1000.670 AS DECIMAL(10, 5)), TIMESTAMP '2015-05-10 12:45:31', DATE '2015-05-10', VARCHAR 'p2 varchar', CAST('p2 varchar10' AS VARCHAR(10)), CAST('p2 char10' AS CHAR(10)), true, CAST('p2 binary' as VARBINARY), BIGINT '2', 'partition2')", tableName));
             query(format("INSERT INTO %s VALUES( null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, BIGINT '2', 'partition2')", tableName));
 
             assertThat(query(showStatsPartitionTwo)).containsOnly(ImmutableList.of(

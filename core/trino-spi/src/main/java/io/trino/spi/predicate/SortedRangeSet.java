@@ -233,6 +233,14 @@ public final class SortedRangeSet
         return copyOf(first.getType(), rangeList);
     }
 
+    static SortedRangeSet of(List<Range> rangeList)
+    {
+        if (rangeList.isEmpty()) {
+            throw new IllegalArgumentException("cannot use empty rangeList");
+        }
+        return copyOf(rangeList.get(0).getType(), rangeList);
+    }
+
     private static SortedRangeSet of(Type type, Object value)
     {
         checkNotNaN(type, value);
@@ -779,7 +787,7 @@ public final class SortedRangeSet
         SortedRangeSet other = (SortedRangeSet) obj;
         return hashCode() == other.hashCode() && // compare hash codes because they are cached, so this is cheap and efficient
                 Objects.equals(this.type, other.type) &&
-                Arrays.equals(inclusive, inclusive) &&
+                Arrays.equals(this.inclusive, other.inclusive) &&
                 blocksEqual(this.sortedRanges, other.sortedRanges);
     }
 

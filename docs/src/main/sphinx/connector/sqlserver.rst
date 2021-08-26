@@ -44,6 +44,10 @@ determine the user credentials for the connection, often a service user. You can
 use :doc:`secrets </security/secrets>` to avoid actual values in the catalog
 properties files.
 
+.. include:: jdbc-common-configurations.fragment
+
+.. include:: non-transactional-insert.fragment
+
 Multiple SQL Server databases or servers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -114,14 +118,23 @@ Complete list of `SQL Server data types
 
 .. include:: jdbc-type-mapping.fragment
 
+.. _sqlserver-sql-support:
+
 SQL support
 -----------
 
-The following SQL statements are not yet supported:
+The connector provides read access and write access to data and metadata in SQL
+Server. In addition to the :ref:`globally available <sql-globally-available>`
+and :ref:`read operation <sql-read-operations>` statements, the connector
+supports the following features:
 
+* :doc:`/sql/insert`
 * :doc:`/sql/delete`
-* :doc:`/sql/grant`
-* :doc:`/sql/revoke`
+* :ref:`sql-schema-table-management`
+
+.. include:: sql-delete-limitation.fragment
+
+.. include:: alter-table-limitation.fragment
 
 .. _sqlserver-pushdown:
 

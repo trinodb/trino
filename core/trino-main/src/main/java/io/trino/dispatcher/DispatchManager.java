@@ -14,6 +14,7 @@
 package io.trino.dispatcher;
 
 import com.google.common.util.concurrent.AbstractFuture;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.Session;
 import io.trino.execution.QueryIdGenerator;
@@ -49,7 +50,6 @@ import java.util.concurrent.Executor;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.trino.execution.QueryState.QUEUED;
 import static io.trino.execution.QueryState.RUNNING;
 import static io.trino.spi.StandardErrorCode.QUERY_TEXT_TOO_LARGE;
@@ -69,6 +69,7 @@ public class DispatchManager
     private final AccessControl accessControl;
     private final SessionSupplier sessionSupplier;
     private final SessionPropertyDefaults sessionPropertyDefaults;
+    private final SessionPropertyManager sessionPropertyManager;
 
     private final int maxQueryLength;
 
@@ -89,6 +90,7 @@ public class DispatchManager
             AccessControl accessControl,
             SessionSupplier sessionSupplier,
             SessionPropertyDefaults sessionPropertyDefaults,
+            SessionPropertyManager sessionPropertyManager,
             QueryManagerConfig queryManagerConfig,
             DispatchExecutor dispatchExecutor)
     {
@@ -101,6 +103,7 @@ public class DispatchManager
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.sessionSupplier = requireNonNull(sessionSupplier, "sessionSupplier is null");
         this.sessionPropertyDefaults = requireNonNull(sessionPropertyDefaults, "sessionPropertyDefaults is null");
+        this.sessionPropertyManager = sessionPropertyManager;
 
         requireNonNull(queryManagerConfig, "queryManagerConfig is null");
         this.maxQueryLength = queryManagerConfig.getMaxQueryLength();
@@ -134,7 +137,7 @@ public class DispatchManager
         return queryIdGenerator.createNextQueryId();
     }
 
-    public ListenableFuture<?> createQuery(QueryId queryId, Slug slug, SessionContext sessionContext, String query)
+    public ListenableFuture<Void> createQuery(QueryId queryId, Slug slug, SessionContext sessionContext, String query)
     {
         requireNonNull(queryId, "queryId is null");
         requireNonNull(sessionContext, "sessionContext is null");
@@ -142,6 +145,9 @@ public class DispatchManager
         checkArgument(!query.isEmpty(), "query must not be empty string");
         checkArgument(queryTracker.tryGetQuery(queryId).isEmpty(), "query %s already exists", queryId);
 
+        // It is important to return a future implementation which ignores cancellation request.
+        // Using NonCancellationPropagatingFuture is not enough; it does not propagate cancel to wrapped future
+        // but it would still return true on call to isCancelled() after cancel() is called on it.
         DispatchQueryCreationFuture queryCreationFuture = new DispatchQueryCreationFuture();
         dispatchExecutor.execute(() -> {
             try {
@@ -179,7 +185,7 @@ public class DispatchManager
             preparedQuery = queryPreparer.prepareQuery(session, query);
 
             // select resource group
-            Optional<String> queryType = getQueryType(preparedQuery.getStatement().getClass()).map(Enum::name);
+            Optional<String> queryType = getQueryType(preparedQuery.getStatement()).map(Enum::name);
             SelectionContext<C> selectionContext = resourceGroupManager.selectGroup(new SelectionCriteria(
                     sessionContext.getIdentity().getPrincipal().isPresent(),
                     sessionContext.getIdentity().getUser(),
@@ -216,7 +222,7 @@ public class DispatchManager
         catch (Throwable throwable) {
             // creation must never fail, so register a failed query in this case
             if (session == null) {
-                session = Session.builder(new SessionPropertyManager())
+                session = Session.builder(sessionPropertyManager)
                         .setQueryId(queryId)
                         .setIdentity(sessionContext.getIdentity())
                         .setSource(sessionContext.getSource())
@@ -246,14 +252,14 @@ public class DispatchManager
         return queryAdded;
     }
 
-    public ListenableFuture<?> waitForDispatched(QueryId queryId)
+    public ListenableFuture<Void> waitForDispatched(QueryId queryId)
     {
         return queryTracker.tryGetQuery(queryId)
                 .map(dispatchQuery -> {
                     dispatchQuery.recordHeartbeat();
                     return dispatchQuery.getDispatchedFuture();
                 })
-                .orElseGet(() -> immediateFuture(null));
+                .orElseGet(Futures::immediateVoidFuture);
     }
 
     public List<BasicQueryInfo> getQueries()
@@ -323,10 +329,10 @@ public class DispatchManager
     }
 
     private static class DispatchQueryCreationFuture
-            extends AbstractFuture<QueryInfo>
+            extends AbstractFuture<Void>
     {
         @Override
-        protected boolean set(QueryInfo value)
+        protected boolean set(Void value)
         {
             return super.set(value);
         }

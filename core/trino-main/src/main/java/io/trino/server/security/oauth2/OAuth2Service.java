@@ -13,49 +13,72 @@
  */
 package io.trino.server.security.oauth2;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
-import com.google.common.hash.Hashing;
 import com.google.common.io.BaseEncoding;
 import com.google.common.io.Resources;
+import io.airlift.http.client.HttpClient;
+import io.airlift.http.client.JsonResponseHandler;
+import io.airlift.http.client.Request;
+import io.airlift.log.Logger;
 import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.SigningKeyResolver;
-import io.trino.server.security.oauth2.OAuth2Client.AccessToken;
+import io.jsonwebtoken.impl.DefaultClaims;
+import io.trino.server.security.oauth2.OAuth2Client.OAuth2Response;
+import io.trino.server.ui.OAuth2WebUiInstalled;
+import io.trino.server.ui.OAuthWebUiCookie;
 
 import javax.inject.Inject;
+import javax.ws.rs.core.Response;
+import javax.ws.rs.core.UriBuilder;
+import javax.ws.rs.core.UriInfo;
 
 import java.io.IOException;
 import java.net.URI;
-import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.TemporalAmount;
+import java.util.Collection;
 import java.util.Date;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
-import java.util.UUID;
 
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.hash.Hashing.sha256;
+import static com.google.common.net.HttpHeaders.AUTHORIZATION;
+import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
+import static io.airlift.json.JsonCodec.mapJsonCodec;
+import static io.jsonwebtoken.Claims.AUDIENCE;
+import static io.trino.server.security.oauth2.OAuth2CallbackResource.CALLBACK_ENDPOINT;
+import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_LOCATION;
+import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.time.Instant.now;
 import static java.util.Objects.requireNonNull;
+import static javax.ws.rs.HttpMethod.POST;
+import static javax.ws.rs.core.Response.Status.BAD_REQUEST;
 
 public class OAuth2Service
 {
+    private static final Logger LOG = Logger.get(OAuth2Service.class);
+
     public static final String REDIRECT_URI = "redirect_uri";
     public static final String STATE = "state";
     public static final String NONCE = "nonce";
     public static final String OPENID_SCOPE = "openid";
 
     private static final String STATE_AUDIENCE_UI = "trino_oauth_ui";
-    private static final String STATE_AUDIENCE_REST = "trino_oauth_rest";
     private static final String FAILURE_REPLACEMENT_TEXT = "<!-- ERROR_MESSAGE -->";
     private static final Random SECURE_RANDOM = new SecureRandom();
+    public static final String HANDLER_STATE_CLAIM = "handler_state";
+    private static final JsonResponseHandler<Map<String, Object>> USERINFO_RESPONSE_HANDLER = createJsonResponseHandler(mapJsonCodec(String.class, Object.class));
 
     private final OAuth2Client client;
     private final SigningKeyResolver signingKeyResolver;
@@ -67,31 +90,67 @@ public class OAuth2Service
     private final TemporalAmount challengeTimeout;
     private final byte[] stateHmac;
 
+    private final HttpClient httpClient;
+    private final String issuer;
+    private final String accessTokenIssuer;
+    private final String clientId;
+    private final Optional<URI> userinfoUri;
+    private final Set<String> allowedAudiences;
+
+    private final OAuth2TokenHandler tokenHandler;
+
+    private final boolean webUiOAuthEnabled;
+
     @Inject
-    public OAuth2Service(OAuth2Client client, @ForOAuth2 SigningKeyResolver signingKeyResolver, OAuth2Config oauth2Config)
+    public OAuth2Service(OAuth2Client client, @ForOAuth2 SigningKeyResolver signingKeyResolver, @ForOAuth2 HttpClient httpClient, OAuth2Config oauth2Config, OAuth2TokenHandler tokenHandler, Optional<OAuth2WebUiInstalled> webUiOAuthEnabled)
             throws IOException
     {
         this.client = requireNonNull(client, "client is null");
         this.signingKeyResolver = requireNonNull(signingKeyResolver, "signingKeyResolver is null");
+        requireNonNull(oauth2Config, "oauth2Config is null");
 
         this.successHtml = Resources.toString(Resources.getResource(getClass(), "/oauth2/success.html"), UTF_8);
         this.failureHtml = Resources.toString(Resources.getResource(getClass(), "/oauth2/failure.html"), UTF_8);
         verify(failureHtml.contains(FAILURE_REPLACEMENT_TEXT), "login.html does not contain the replacement text");
 
-        requireNonNull(oauth2Config, "oauth2Config is null");
         this.scopes = oauth2Config.getScopes();
         this.challengeTimeout = Duration.ofMillis(oauth2Config.getChallengeTimeout().toMillis());
         this.stateHmac = oauth2Config.getStateKey()
                 .map(key -> sha256().hashString(key, UTF_8).asBytes())
                 .orElseGet(() -> secureRandomBytes(32));
+
+        this.httpClient = requireNonNull(httpClient, "httpClient is null");
+        this.issuer = oauth2Config.getIssuer();
+        this.accessTokenIssuer = oauth2Config.getAccessTokenIssuer().orElse(issuer);
+        this.clientId = oauth2Config.getClientId();
+        this.userinfoUri = oauth2Config.getUserinfoUrl().map(url -> UriBuilder.fromUri(url).build());
+        this.allowedAudiences = ImmutableSet.<String>builder()
+                .addAll(oauth2Config.getAdditionalAudiences())
+                .add(clientId)
+                .build();
+
+        this.tokenHandler = requireNonNull(tokenHandler, "tokenHandler is null");
+
+        this.webUiOAuthEnabled = requireNonNull(webUiOAuthEnabled, "webUiOAuthEnabled is null").isPresent();
     }
 
-    public OAuthChallenge startWebUiChallenge(URI callbackUri)
+    public Response startOAuth2Challenge(UriInfo uriInfo)
     {
-        Instant challengeExpiration = Instant.now().plus(challengeTimeout);
+        return startOAuth2Challenge(uriInfo, Optional.empty());
+    }
+
+    public Response startOAuth2Challenge(UriInfo uriInfo, String handlerState)
+    {
+        return startOAuth2Challenge(uriInfo, Optional.of(handlerState));
+    }
+
+    private Response startOAuth2Challenge(UriInfo uriInfo, Optional<String> handlerState)
+    {
+        Instant challengeExpiration = now().plus(challengeTimeout);
         String state = Jwts.builder()
                 .signWith(SignatureAlgorithm.HS256, stateHmac)
                 .setAudience(STATE_AUDIENCE_UI)
+                .claim(HANDLER_STATE_CLAIM, handlerState.orElse(null))
                 .setExpiration(Date.from(challengeExpiration))
                 .compact();
 
@@ -104,63 +163,106 @@ public class OAuth2Service
         else {
             nonce = Optional.empty();
         }
-        return new OAuthChallenge(client.getAuthorizationUri(state, callbackUri, nonce.map(OAuth2Service::hashNonce)), challengeExpiration, nonce);
+        Response.ResponseBuilder response = Response.seeOther(
+                client.getAuthorizationUri(
+                        state,
+                        uriInfo.getBaseUri().resolve(CALLBACK_ENDPOINT),
+                        nonce.map(OAuth2Service::hashNonce)));
+        nonce.ifPresent(nce -> response.cookie(NonceCookie.create(nce, challengeExpiration)));
+        return response.build();
     }
 
-    public URI startRestChallenge(URI callbackUri, UUID authId)
+    public Response handleOAuth2Error(String state, String error, String errorDescription, String errorUri)
     {
-        String state = Jwts.builder()
-                .signWith(SignatureAlgorithm.HS256, stateHmac)
-                .setId(authId.toString())
-                .setAudience(STATE_AUDIENCE_REST)
-                .setExpiration(Date.from(Instant.now().plus(challengeTimeout)))
-                .compact();
-        return client.getAuthorizationUri(state, callbackUri, Optional.empty());
+        try {
+            Claims stateClaims = parseState(state);
+            Optional.ofNullable(stateClaims.get(HANDLER_STATE_CLAIM, String.class))
+                    .ifPresent(value ->
+                            tokenHandler.setTokenExchangeError(value,
+                                    format("Authentication response could not be verified: error=%s, errorDescription=%s, errorUri=%s",
+                                            error, errorDescription, errorDescription)));
+        }
+        catch (ChallengeFailedException | RuntimeException e) {
+            LOG.debug(e, "Authentication response could not be verified invalid state: state=%s", state);
+            return Response.status(BAD_REQUEST)
+                    .entity(getInternalFailureHtml("Authentication response could not be verified"))
+                    .cookie(NonceCookie.delete())
+                    .build();
+        }
+
+        LOG.debug("OAuth server returned an error: error=%s, error_description=%s, error_uri=%s, state=%s", error, errorDescription, errorUri, state);
+        return Response.ok()
+                .entity(getCallbackErrorHtml(error))
+                .cookie(NonceCookie.delete())
+                .build();
     }
 
-    public OAuthResult finishChallenge(Optional<UUID> authId, String code, URI callbackUri, Optional<String> nonce)
+    public Response finishOAuth2Challenge(String state, String code, URI callbackUri, Optional<String> nonce)
+    {
+        Optional<String> handlerState;
+        try {
+            Claims stateClaims = parseState(state);
+            handlerState = Optional.ofNullable(stateClaims.get(HANDLER_STATE_CLAIM, String.class));
+        }
+        catch (ChallengeFailedException | RuntimeException e) {
+            LOG.debug(e, "Authentication response could not be verified invalid state: state=%s", state);
+            return Response.status(BAD_REQUEST)
+                    .entity(getInternalFailureHtml("Authentication response could not be verified"))
+                    .cookie(NonceCookie.delete())
+                    .build();
+        }
+
+        // Note: the Web UI may be disabled, so REST requests can not redirect to a success or error page inside of the Web UI
+        try {
+            // fetch access token
+            OAuth2Response oauth2Response = client.getOAuth2Response(code, callbackUri);
+            Claims parsedToken = validateAndParseOAuth2Response(oauth2Response, nonce).orElseThrow(() -> new ChallengeFailedException("invalid access token"));
+
+            // determine expiration
+            Instant validUntil = determineExpiration(oauth2Response.getValidUntil(), parsedToken.getExpiration());
+
+            if (handlerState.isEmpty()) {
+                return Response
+                        .seeOther(URI.create(UI_LOCATION))
+                        .cookie(OAuthWebUiCookie.create(oauth2Response.getAccessToken(), validUntil), NonceCookie.delete())
+                        .build();
+            }
+
+            tokenHandler.setAccessToken(handlerState.get(), oauth2Response.getAccessToken());
+
+            Response.ResponseBuilder builder = Response.ok(getSuccessHtml());
+            if (webUiOAuthEnabled) {
+                builder.cookie(OAuthWebUiCookie.create(oauth2Response.getAccessToken(), validUntil));
+            }
+            return builder.cookie(NonceCookie.delete()).build();
+        }
+        catch (ChallengeFailedException | RuntimeException e) {
+            LOG.debug(e, "Authentication response could not be verified: state=%s", state);
+            handlerState.ifPresent(value ->
+                    tokenHandler.setTokenExchangeError(value, format("Authentication response could not be verified: state=%s", value)));
+            return Response.status(BAD_REQUEST)
+                    .cookie(NonceCookie.delete())
+                    .entity(getInternalFailureHtml("Authentication response could not be verified"))
+                    .build();
+        }
+    }
+
+    private static Instant determineExpiration(Optional<Instant> validUntil, Date expiration)
             throws ChallengeFailedException
     {
-        requireNonNull(callbackUri, "callbackUri is null");
-        requireNonNull(authId, "authId is null");
-        requireNonNull(code, "code is null");
-
-        // fetch access token
-        AccessToken accessToken = client.getAccessToken(code, callbackUri);
-
-        // validate access token is trusted by this server
-        Claims parsedToken = Jwts.parser()
-                .setSigningKeyResolver(signingKeyResolver)
-                .parseClaimsJws(accessToken.getAccessToken())
-                .getBody();
-
-        validateNonce(authId, accessToken, nonce);
-
-        // determine expiration
-        Instant validUntil = accessToken.getValidUntil()
-                .map(instant -> Ordering.natural().min(instant, parsedToken.getExpiration().toInstant()))
-                .orElse(parsedToken.getExpiration().toInstant());
-
-        return new OAuthResult(authId, accessToken.getAccessToken(), validUntil);
-    }
-
-    public Optional<UUID> getAuthId(String state)
-            throws ChallengeFailedException
-    {
-        Claims stateClaims = parseState(state);
-        if (STATE_AUDIENCE_UI.equals(stateClaims.getAudience())) {
-            return Optional.empty();
-        }
-        if (STATE_AUDIENCE_REST.equals(stateClaims.getAudience())) {
-            try {
-                return Optional.of(UUID.fromString(stateClaims.getId()));
+        if (validUntil.isPresent()) {
+            if (expiration != null) {
+                return Ordering.natural().min(validUntil.get(), expiration.toInstant());
             }
-            catch (IllegalArgumentException e) {
-                throw new ChallengeFailedException("State is does not contain an auth ID");
-            }
+
+            return validUntil.get();
         }
-        // this is very unlikely, but is a good safety check
-        throw new ChallengeFailedException("Unexpected state audience");
+
+        if (expiration != null) {
+            return expiration.toInstant();
+        }
+
+        throw new ChallengeFailedException("no valid expiration date");
     }
 
     private Claims parseState(String state)
@@ -169,6 +271,7 @@ public class OAuth2Service
         try {
             return Jwts.parser()
                     .setSigningKey(stateHmac)
+                    .requireAudience(STATE_AUDIENCE_UI)
                     .parseClaimsJws(state)
                     .getBody();
         }
@@ -177,11 +280,102 @@ public class OAuth2Service
         }
     }
 
-    public Jws<Claims> parseClaimsJws(String token)
+    private Optional<Claims> validateAndParseOAuth2Response(OAuth2Response oauth2Response, Optional<String> nonce)
+            throws ChallengeFailedException
     {
-        return Jwts.parser()
+        validateIdTokenAndNonce(oauth2Response, nonce);
+
+        return internalConvertTokenToClaims(oauth2Response.getAccessToken());
+    }
+
+    private void validateIdTokenAndNonce(OAuth2Response oauth2Response, Optional<String> nonce)
+            throws ChallengeFailedException
+    {
+        if (nonce.isPresent() && oauth2Response.getIdToken().isPresent()) {
+            // validate ID token including nonce
+            Claims claims = Jwts.parser()
+                    .setSigningKeyResolver(signingKeyResolver)
+                    .requireIssuer(issuer)
+                    .require(NONCE, hashNonce(nonce.get()))
+                    .parseClaimsJws(oauth2Response.getIdToken().get())
+                    .getBody();
+            validateAudience(claims, false);
+        }
+        else if (nonce.isPresent() != oauth2Response.getIdToken().isPresent()) {
+            // The user did not grant the requested scope `openid` thus either
+            // we do not have the ID token and therefore can't validate the
+            // nonce, or the ID token is present but the nonce is not.
+            throw new ChallengeFailedException("Cannot validate nonce parameter");
+        }
+    }
+
+    public Optional<Map<String, Object>> convertTokenToClaims(String token)
+            throws ChallengeFailedException
+    {
+        return internalConvertTokenToClaims(token).map(claims -> claims);
+    }
+
+    private Optional<Claims> internalConvertTokenToClaims(String accessToken)
+            throws ChallengeFailedException
+    {
+        if (userinfoUri.isPresent()) {
+            // validate access token is trusted by remote userinfo endpoint
+            Request request = Request.builder()
+                    .setMethod(POST)
+                    .addHeader(AUTHORIZATION, "Bearer " + accessToken)
+                    .setUri(userinfoUri.get())
+                    .build();
+            try {
+                Map<String, Object> userinfoClaims = httpClient.execute(request, USERINFO_RESPONSE_HANDLER);
+                Claims claims = new DefaultClaims(userinfoClaims);
+                validateAudience(claims, true);
+                return Optional.of(claims);
+            }
+            catch (RuntimeException e) {
+                LOG.error(e, "Received bad response from userinfo endpoint");
+                return Optional.empty();
+            }
+        }
+
+        // validate access token is trusted by this server
+        Claims claims = Jwts.parser()
                 .setSigningKeyResolver(signingKeyResolver)
-                .parseClaimsJws(token);
+                .requireIssuer(accessTokenIssuer)
+                .parseClaimsJws(accessToken)
+                .getBody();
+        validateAudience(claims, true);
+        return Optional.of(claims);
+    }
+
+    private void validateAudience(Claims claims, boolean isAccessToken)
+            throws ChallengeFailedException
+    {
+        Set<String> validAudiences;
+        Object tokenAudience = claims.get(AUDIENCE);
+        if (isAccessToken) {
+            // The null/empty check is for access tokens which do not contain an audience. ID tokens must have an audience.
+            if (tokenAudience == null || (tokenAudience instanceof Collection && ((Collection<?>) tokenAudience).isEmpty())) {
+                return;
+            }
+            validAudiences = allowedAudiences;
+        }
+        else {
+            validAudiences = Set.of(clientId);
+        }
+
+        if (tokenAudience instanceof String) {
+            if (!validAudiences.contains((String) tokenAudience)) {
+                throw new ChallengeFailedException(format("Invalid Audience: %s. Allowed audiences: %s", tokenAudience, allowedAudiences));
+            }
+        }
+        else if (tokenAudience instanceof Collection) {
+            if (((Collection<?>) tokenAudience).stream().map(String.class::cast).noneMatch(validAudiences::contains)) {
+                throw new ChallengeFailedException(format("Invalid Audience: %s. Allowed audiences: %s", tokenAudience, allowedAudiences));
+            }
+        }
+        else {
+            throw new ChallengeFailedException(format("Invalid Audience: %s", tokenAudience));
+        }
     }
 
     public String getSuccessHtml()
@@ -197,29 +391,6 @@ public class OAuth2Service
     public String getInternalFailureHtml(String errorMessage)
     {
         return failureHtml.replace(FAILURE_REPLACEMENT_TEXT, nullToEmpty(errorMessage));
-    }
-
-    private void validateNonce(Optional<UUID> authId, AccessToken accessToken, Optional<String> nonce)
-            throws ChallengeFailedException
-    {
-        if (authId.isPresent()) {
-            // authId is available only for REST API calls.
-            // do not validate nonce if it's a REST challenge
-            // the challenge was not started by a web browser therefore it is expected that the cookie is missing
-            return;
-        }
-
-        // user did not grant the requested scope `openid` so we don't have the ID token and therefore can't validate the nonce
-        // or the ID token is present but the nonce is not which means that someone is trying to obtain the token which he is not supposed to get
-        if (nonce.isPresent() != accessToken.getIdToken().isPresent()) {
-            throw new ChallengeFailedException("Cannot validate nonce parameter");
-        }
-
-        // validate nonce from the ID token
-        nonce.ifPresent(n -> Jwts.parser()
-                .setSigningKeyResolver(signingKeyResolver)
-                .require(NONCE, hashNonce(n))
-                .parseClaimsJws(accessToken.getIdToken().get()));
     }
 
     private static byte[] secureRandomBytes(int count)
@@ -252,72 +423,11 @@ public class OAuth2Service
         return BaseEncoding.base64Url().encode(secureRandomBytes(18));
     }
 
-    private static String hashNonce(String nonce)
+    @VisibleForTesting
+    public static String hashNonce(String nonce)
     {
-        return Hashing.sha256()
-                .hashString(nonce, StandardCharsets.UTF_8)
+        return sha256()
+                .hashString(nonce, UTF_8)
                 .toString();
-    }
-
-    public static class OAuthChallenge
-    {
-        private final URI redirectUrl;
-        private final Instant challengeExpiration;
-        private final Optional<String> nonce;
-
-        public OAuthChallenge(URI redirectUrl, Instant challengeExpiration, Optional<String> nonce)
-        {
-            this.redirectUrl = requireNonNull(redirectUrl, "redirectUrl is null");
-            this.challengeExpiration = requireNonNull(challengeExpiration, "challengeExpiration is null");
-            this.nonce = requireNonNull(nonce, "nonce is null");
-        }
-
-        public URI getRedirectUrl()
-        {
-            return redirectUrl;
-        }
-
-        public Instant getChallengeExpiration()
-        {
-            return challengeExpiration;
-        }
-
-        public Optional<String> getNonce()
-        {
-            return nonce;
-        }
-    }
-
-    public static class OAuthResult
-    {
-        private final Optional<UUID> authId;
-        private final String accessToken;
-        private final Instant tokenExpiration;
-
-        public OAuthResult(Optional<UUID> authId, String accessToken, Instant tokenExpiration)
-        {
-            this.authId = requireNonNull(authId, "authId is null");
-            this.accessToken = requireNonNull(accessToken, "accessToken is null");
-            this.tokenExpiration = requireNonNull(tokenExpiration, "tokenExpiration is null");
-        }
-
-        /**
-         * Get auth ID if this is a REST client request.
-         * This will be empty if the authentication request is a web UI login.
-         */
-        public Optional<UUID> getAuthId()
-        {
-            return authId;
-        }
-
-        public String getAccessToken()
-        {
-            return accessToken;
-        }
-
-        public Instant getTokenExpiration()
-        {
-            return tokenExpiration;
-        }
     }
 }

@@ -227,7 +227,7 @@ public class TestDistributedEngineOnlyQueries
                 "date_column date)");
 
         assertUpdate("INSERT INTO " + tableName + " (tinyint_column, integer_column, decimal_column, real_column) VALUES (1e0, 2e0, 3e0, 4e0)", 1);
-        assertUpdate("INSERT INTO " + tableName + " (char_column, bounded_varchar_column, unbounded_varchar_column) VALUES (CAST('aa     ' AS varchar), CAST('aa     ' AS varchar), CAST('aa     ' AS varchar))", 1);
+        assertUpdate("INSERT INTO " + tableName + " (char_column, bounded_varchar_column, unbounded_varchar_column) VALUES (VARCHAR 'aa     ', VARCHAR 'aa     ', VARCHAR 'aa     ')", 1);
         assertUpdate("INSERT INTO " + tableName + " (char_column, bounded_varchar_column, unbounded_varchar_column) VALUES (NULL, NULL, NULL)", 1);
         assertUpdate("INSERT INTO " + tableName + " (char_column, bounded_varchar_column, unbounded_varchar_column) VALUES (CAST(NULL AS varchar), CAST(NULL AS varchar), CAST(NULL AS varchar))", 1);
         assertUpdate("INSERT INTO " + tableName + " (date_column) VALUES (TIMESTAMP '2019-11-18 22:13:40')", 1);
@@ -267,5 +267,21 @@ public class TestDistributedEngineOnlyQueries
         assertThatThrownBy(() -> query("SELECT min(row_number) FROM n"))
                 .hasMessage("line 1:12: Column 'row_number' cannot be resolved");
         assertUpdate(getSession(), "DROP TABLE n");
+    }
+
+    @Test
+    public void testImplicitCastToRowWithFieldsRequiringDelimitation()
+    {
+        // source table uses char(4) as ROW fields
+        assertUpdate("CREATE TABLE source_table(r ROW(a char(4), b char(4)))");
+
+        // target table uses varchar as ROW fields which will enforce implicit CAST on INSERT
+        // field names in target table require delimitation
+        //  - "a b" has whitespace
+        //  - "from" is a reserved key word
+        assertUpdate("CREATE TABLE target_table(r ROW(\"a b\" varchar, \"from\" varchar))");
+
+        // run INSERT to verify that field names in generated CAST expressions are properly delimited
+        assertUpdate("INSERT INTO target_table SELECT * from source_table", 0);
     }
 }

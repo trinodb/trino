@@ -262,6 +262,13 @@ public class RecordingHiveMetastore
     }
 
     @Override
+    public void updatePartitionStatistics(HiveIdentity identity, Table table, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
+    {
+        verifyRecordingMode();
+        delegate.updatePartitionStatistics(identity, table, updates);
+    }
+
+    @Override
     public List<String> getAllTables(String databaseName)
     {
         return loadValue(allTablesCache, databaseName, () -> delegate.getAllTables(databaseName));

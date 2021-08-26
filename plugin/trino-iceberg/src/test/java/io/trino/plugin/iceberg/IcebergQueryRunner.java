@@ -20,11 +20,13 @@ import io.trino.Session;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.tpch.TpchTable;
-import org.apache.iceberg.FileFormat;
 
+import java.io.File;
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
@@ -38,27 +40,33 @@ public final class IcebergQueryRunner
 
     private IcebergQueryRunner() {}
 
-    public static DistributedQueryRunner createIcebergQueryRunner(Map<String, String> extraProperties, List<TpchTable<?>> tpchTables)
+    public static DistributedQueryRunner createIcebergQueryRunner()
             throws Exception
     {
-        FileFormat defaultFormat = new IcebergConfig().getFileFormat();
-        return createIcebergQueryRunner(extraProperties, defaultFormat, tpchTables);
+        return createIcebergQueryRunner(
+                Map.of(),
+                Map.of(),
+                List.of());
     }
 
-    public static DistributedQueryRunner createIcebergQueryRunner(Map<String, String> extraProperties)
+    public static DistributedQueryRunner createIcebergQueryRunner(
+            Map<String, String> extraProperties,
+            Map<String, String> connectorProperties,
+            Iterable<TpchTable<?>> tables)
             throws Exception
     {
-        FileFormat defaultFormat = new IcebergConfig().getFileFormat();
-        return createIcebergQueryRunner(extraProperties, defaultFormat, TpchTable.getTables());
+        return createIcebergQueryRunner(
+                extraProperties,
+                connectorProperties,
+                tables,
+                Optional.empty());
     }
 
-    public static DistributedQueryRunner createIcebergQueryRunner(Map<String, String> extraProperties, FileFormat format)
-            throws Exception
-    {
-        return createIcebergQueryRunner(extraProperties, format, TpchTable.getTables());
-    }
-
-    public static DistributedQueryRunner createIcebergQueryRunner(Map<String, String> extraProperties, FileFormat format, List<TpchTable<?>> tables)
+    public static DistributedQueryRunner createIcebergQueryRunner(
+            Map<String, String> extraProperties,
+            Map<String, String> connectorProperties,
+            Iterable<TpchTable<?>> tables,
+            Optional<File> metastoreDirectory)
             throws Exception
     {
         Session session = testSessionBuilder()
@@ -73,16 +81,13 @@ public final class IcebergQueryRunner
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
 
-        Path dataDir = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data");
+        Path dataDir = metastoreDirectory.map(File::toPath).orElseGet(() -> queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data"));
 
         queryRunner.installPlugin(new IcebergPlugin());
-        Map<String, String> icebergProperties = ImmutableMap.<String, String>builder()
-                .put("hive.metastore", "file")
-                .put("hive.metastore.catalog.dir", dataDir.toString())
-                .put("iceberg.file-format", format.name())
-                .build();
-
-        queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", icebergProperties);
+        connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
+        connectorProperties.putIfAbsent("hive.metastore", "file");
+        connectorProperties.putIfAbsent("hive.metastore.catalog.dir", dataDir.toString());
+        queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", connectorProperties);
 
         queryRunner.execute("CREATE SCHEMA tpch");
 
@@ -98,7 +103,7 @@ public final class IcebergQueryRunner
         Map<String, String> properties = ImmutableMap.of("http-server.http.port", "8080");
         DistributedQueryRunner queryRunner = null;
         try {
-            queryRunner = createIcebergQueryRunner(properties);
+            queryRunner = createIcebergQueryRunner(properties, Map.of(), TpchTable.getTables());
         }
         catch (Throwable t) {
             log.error(t);

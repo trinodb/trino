@@ -48,7 +48,7 @@ public class ScaledWriterScheduler
     private final long writerMinSizeBytes;
     private final Set<InternalNode> scheduledNodes = new HashSet<>();
     private final AtomicBoolean done = new AtomicBoolean();
-    private volatile SettableFuture<?> future = SettableFuture.create();
+    private volatile SettableFuture<Void> future = SettableFuture.create();
 
     public ScaledWriterScheduler(
             SqlStageExecution stage,

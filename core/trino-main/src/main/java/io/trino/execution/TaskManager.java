@@ -22,9 +22,12 @@ import io.trino.execution.buffer.BufferResult;
 import io.trino.execution.buffer.OutputBuffers;
 import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
 import io.trino.memory.MemoryPoolAssignmentsRequest;
+import io.trino.spi.predicate.Domain;
 import io.trino.sql.planner.PlanFragment;
+import io.trino.sql.planner.plan.DynamicFilterId;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 
@@ -86,7 +89,14 @@ public interface TaskManager
      * Updates the task plan, sources and output buffers.  If the task does not
      * already exist, it is created and then updated.
      */
-    TaskInfo updateTask(Session session, TaskId taskId, Optional<PlanFragment> fragment, List<TaskSource> sources, OutputBuffers outputBuffers, OptionalInt totalPartitions);
+    TaskInfo updateTask(
+            Session session,
+            TaskId taskId,
+            Optional<PlanFragment> fragment,
+            List<TaskSource> sources,
+            OutputBuffers outputBuffers,
+            OptionalInt totalPartitions,
+            Map<DynamicFilterId, Domain> dynamicFilterDomains);
 
     /**
      * Cancels a task.  If the task does not already exist, it is created and then

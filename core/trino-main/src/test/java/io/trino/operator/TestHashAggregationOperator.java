@@ -774,7 +774,7 @@ public class TestHashAggregationOperator
             return new Spiller()
             {
                 @Override
-                public ListenableFuture<?> spill(Iterator<Page> pageIterator)
+                public ListenableFuture<Void> spill(Iterator<Page> pageIterator)
                 {
                     return immediateFailedFuture(new IOException("Failed to spill"));
                 }

@@ -9,6 +9,7 @@ test-output/
 test-reports/
 /atlassian-ide-plugin.xml
 .idea
+.run
 .DS_Store
 .classpath
 .settings
@@ -24,3 +25,4 @@ benchmark_outputs
 .mvn/timing.properties
 node_modules
 product-test-reports
+.vscode/

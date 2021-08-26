@@ -51,6 +51,10 @@ To disable connection pooling, update properties to include the following:
 
     oracle.connection-pool.enabled=false
 
+.. include:: jdbc-common-configurations.fragment
+
+.. include:: non-transactional-insert.fragment
+
 Multiple Oracle servers
 ^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -368,15 +372,24 @@ The connector supports pushdown for a number of operations:
 * :ref:`limit-pushdown`
 * :ref:`topn-pushdown`
 
-Limitations
+.. _oracle-sql-support:
+
+SQL support
 -----------
 
-The following SQL statements are not supported:
+The connector provides read access and write access to data and metadata in
+Oracle. In addition to the :ref:`globally available <sql-globally-available>`
+and :ref:`read operation <sql-read-operations>` statements, the connector
+supports the following statements:
 
+* :doc:`/sql/insert`
 * :doc:`/sql/delete`
+* :doc:`/sql/create-table`
+* :doc:`/sql/create-table-as`
+* :doc:`/sql/drop-table`
 * :doc:`/sql/alter-table`
-* :doc:`/sql/grant`
-* :doc:`/sql/revoke`
-* :doc:`/sql/show-grants`
-* :doc:`/sql/show-roles`
-* :doc:`/sql/show-role-grants`
+* :doc:`/sql/comment`
+
+.. include:: sql-delete-limitation.fragment
+
+.. include:: alter-table-limitation.fragment

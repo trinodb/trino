@@ -28,6 +28,7 @@ import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.operator.OperationTimer.OperationTiming;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
+import io.trino.spi.metrics.Metrics;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import javax.annotation.Nullable;
@@ -83,11 +84,12 @@ public class OperatorContext
     private final CounterStat outputPositions = new CounterStat();
 
     private final AtomicLong dynamicFilterSplitsProcessed = new AtomicLong();
+    private final AtomicReference<Metrics> metrics = new AtomicReference<>(Metrics.EMPTY);  // this is not incremental, but gets overwritten by the latest value.
 
     private final AtomicLong physicalWrittenDataSize = new AtomicLong();
 
-    private final AtomicReference<SettableFuture<?>> memoryFuture;
-    private final AtomicReference<SettableFuture<?>> revocableMemoryFuture;
+    private final AtomicReference<SettableFuture<Void>> memoryFuture;
+    private final AtomicReference<SettableFuture<Void>> revocableMemoryFuture;
     private final AtomicReference<BlockedMonitor> blockedMonitor = new AtomicReference<>();
     private final AtomicLong blockedWallNanos = new AtomicLong();
 
@@ -219,12 +221,22 @@ public class OperatorContext
         dynamicFilterSplitsProcessed.getAndAdd(dynamicFilterSplits);
     }
 
+    /**
+     * Overwrites the metrics with the latest one.
+     *
+     * @param metrics Latest operator's metrics.
+     */
+    public void setLatestMetrics(Metrics metrics)
+    {
+        this.metrics.set(metrics);
+    }
+
     public void recordPhysicalWrittenData(long sizeInBytes)
     {
         physicalWrittenDataSize.getAndAdd(sizeInBytes);
     }
 
-    public void recordBlocked(ListenableFuture<?> blocked)
+    public void recordBlocked(ListenableFuture<Void> blocked)
     {
         requireNonNull(blocked, "blocked is null");
 
@@ -244,12 +256,12 @@ public class OperatorContext
         operationTimer.recordOperationComplete(finishTiming);
     }
 
-    public ListenableFuture<?> isWaitingForMemory()
+    public ListenableFuture<Void> isWaitingForMemory()
     {
         return memoryFuture.get();
     }
 
-    public ListenableFuture<?> isWaitingForRevocableMemory()
+    public ListenableFuture<Void> isWaitingForRevocableMemory()
     {
         return revocableMemoryFuture.get();
     }
@@ -332,12 +344,12 @@ public class OperatorContext
         return operatorMemoryContext.getRevocableMemory();
     }
 
-    private static void updateMemoryFuture(ListenableFuture<?> memoryPoolFuture, AtomicReference<SettableFuture<?>> targetFutureReference)
+    private static void updateMemoryFuture(ListenableFuture<Void> memoryPoolFuture, AtomicReference<SettableFuture<Void>> targetFutureReference)
     {
         if (!memoryPoolFuture.isDone()) {
-            SettableFuture<?> currentMemoryFuture = targetFutureReference.get();
+            SettableFuture<Void> currentMemoryFuture = targetFutureReference.get();
             while (currentMemoryFuture.isDone()) {
-                SettableFuture<?> settableFuture = SettableFuture.create();
+                SettableFuture<Void> settableFuture = SettableFuture.create();
                 // We can't replace one that's not done, because the task may be blocked on that future
                 if (targetFutureReference.compareAndSet(currentMemoryFuture, settableFuture)) {
                     currentMemoryFuture = settableFuture;
@@ -347,7 +359,7 @@ public class OperatorContext
                 }
             }
 
-            SettableFuture<?> finalMemoryFuture = currentMemoryFuture;
+            SettableFuture<Void> finalMemoryFuture = currentMemoryFuture;
             // Create a new future, so that this operator can un-block before the pool does, if it's moved to a new pool
             memoryPoolFuture.addListener(() -> finalMemoryFuture.set(null), directExecutor());
         }
@@ -531,6 +543,7 @@ public class OperatorContext
                 outputPositions.getTotalCount(),
 
                 dynamicFilterSplitsProcessed.get(),
+                metrics.get(),
 
                 succinctBytes(physicalWrittenDataSize.get()),
 
@@ -655,11 +668,11 @@ public class OperatorContext
             implements LocalMemoryContext
     {
         private final LocalMemoryContext delegate;
-        private final AtomicReference<SettableFuture<?>> memoryFuture;
+        private final AtomicReference<SettableFuture<Void>> memoryFuture;
         private final Runnable allocationListener;
         private final boolean closeable;
 
-        InternalLocalMemoryContext(LocalMemoryContext delegate, AtomicReference<SettableFuture<?>> memoryFuture, Runnable allocationListener, boolean closeable)
+        InternalLocalMemoryContext(LocalMemoryContext delegate, AtomicReference<SettableFuture<Void>> memoryFuture, Runnable allocationListener, boolean closeable)
         {
             this.delegate = requireNonNull(delegate, "delegate is null");
             this.memoryFuture = requireNonNull(memoryFuture, "memoryFuture is null");
@@ -674,13 +687,13 @@ public class OperatorContext
         }
 
         @Override
-        public ListenableFuture<?> setBytes(long bytes)
+        public ListenableFuture<Void> setBytes(long bytes)
         {
             if (bytes == delegate.getBytes()) {
                 return NOT_BLOCKED;
             }
 
-            ListenableFuture<?> blocked = delegate.setBytes(bytes);
+            ListenableFuture<Void> blocked = delegate.setBytes(bytes);
             updateMemoryFuture(blocked, memoryFuture);
             allocationListener.run();
             return blocked;
@@ -712,11 +725,11 @@ public class OperatorContext
             implements AggregatedMemoryContext
     {
         private final AggregatedMemoryContext delegate;
-        private final AtomicReference<SettableFuture<?>> memoryFuture;
+        private final AtomicReference<SettableFuture<Void>> memoryFuture;
         private final Runnable allocationListener;
         private final boolean closeable;
 
-        InternalAggregatedMemoryContext(AggregatedMemoryContext delegate, AtomicReference<SettableFuture<?>> memoryFuture, Runnable allocationListener, boolean closeable)
+        InternalAggregatedMemoryContext(AggregatedMemoryContext delegate, AtomicReference<SettableFuture<Void>> memoryFuture, Runnable allocationListener, boolean closeable)
         {
             this.delegate = requireNonNull(delegate, "delegate is null");
             this.memoryFuture = requireNonNull(memoryFuture, "memoryFuture is null");

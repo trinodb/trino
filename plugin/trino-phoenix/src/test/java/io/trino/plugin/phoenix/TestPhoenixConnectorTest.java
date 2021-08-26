@@ -72,6 +72,7 @@ public class TestPhoenixConnectorTest
                 return false;
 
             case SUPPORTS_RENAME_TABLE:
+            case SUPPORTS_RENAME_SCHEMA:
                 return false;
 
             default:
@@ -202,7 +203,7 @@ public class TestPhoenixConnectorTest
 
         assertThatThrownBy(() -> getQueryRunner().execute("DROP SCHEMA new_schema"))
                 .isInstanceOf(RuntimeException.class)
-                .hasMessage("ERROR 723 (43M06): Cannot mutate schema as schema has existing tables schemaName=NEW_SCHEMA");
+                .hasMessageContaining("Cannot drop non-empty schema 'new_schema'");
 
         assertUpdate("DROP TABLE new_schema.test");
         assertUpdate("DROP SCHEMA new_schema");

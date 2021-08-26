@@ -19,6 +19,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
@@ -37,6 +38,7 @@ import java.util.regex.Pattern;
 import static io.airlift.slice.SliceUtf8.offsetOfCodePoint;
 import static io.trino.plugin.iceberg.util.Timestamps.getTimestampTz;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzToMicros;
+import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.Decimals.encodeScaledValue;
@@ -117,44 +119,14 @@ public final class PartitionTransforms
                     return new ColumnTransform(INTEGER, PartitionTransforms::hoursFromTimestampWithTimeZone);
                 }
                 throw new UnsupportedOperationException("Unsupported type for 'hour': " + field);
+            case "void":
+                return new ColumnTransform(type, getVoidTransform(type));
         }
 
         Matcher matcher = BUCKET_PATTERN.matcher(transform);
         if (matcher.matches()) {
             int count = parseInt(matcher.group(1));
-            if (type.equals(INTEGER)) {
-                return new ColumnTransform(INTEGER, block -> bucketInteger(block, count));
-            }
-            if (type.equals(BIGINT)) {
-                return new ColumnTransform(INTEGER, block -> bucketBigint(block, count));
-            }
-            if (isShortDecimal(type)) {
-                DecimalType decimal = (DecimalType) type;
-                return new ColumnTransform(INTEGER, block -> bucketShortDecimal(decimal, block, count));
-            }
-            if (isLongDecimal(type)) {
-                DecimalType decimal = (DecimalType) type;
-                return new ColumnTransform(INTEGER, block -> bucketLongDecimal(decimal, block, count));
-            }
-            if (type.equals(DATE)) {
-                return new ColumnTransform(INTEGER, block -> bucketDate(block, count));
-            }
-            if (type.equals(TIME_MICROS)) {
-                return new ColumnTransform(INTEGER, block -> bucketTime(block, count));
-            }
-            if (type.equals(TIMESTAMP_MICROS)) {
-                return new ColumnTransform(INTEGER, block -> bucketTimestamp(block, count));
-            }
-            if (type.equals(TIMESTAMP_TZ_MICROS)) {
-                return new ColumnTransform(INTEGER, block -> bucketTimestampWithTimeZone(block, count));
-            }
-            if (type instanceof VarcharType) {
-                return new ColumnTransform(INTEGER, block -> bucketVarchar(block, count));
-            }
-            if (type.equals(VARBINARY)) {
-                return new ColumnTransform(INTEGER, block -> bucketVarbinary(block, count));
-            }
-            throw new UnsupportedOperationException("Unsupported type for 'bucket': " + field);
+            return new ColumnTransform(INTEGER, getBucketTransform(type, count));
         }
 
         matcher = TRUNCATE_PATTERN.matcher(transform);
@@ -184,6 +156,43 @@ public final class PartitionTransforms
         }
 
         throw new UnsupportedOperationException("Unsupported partition transform: " + field);
+    }
+
+    public static Function<Block, Block> getBucketTransform(Type type, int count)
+    {
+        if (type.equals(INTEGER)) {
+            return block -> bucketInteger(block, count);
+        }
+        if (type.equals(BIGINT)) {
+            return block -> bucketBigint(block, count);
+        }
+        if (isShortDecimal(type)) {
+            DecimalType decimal = (DecimalType) type;
+            return block -> bucketShortDecimal(decimal, block, count);
+        }
+        if (isLongDecimal(type)) {
+            DecimalType decimal = (DecimalType) type;
+            return block -> bucketLongDecimal(decimal, block, count);
+        }
+        if (type.equals(DATE)) {
+            return block -> bucketDate(block, count);
+        }
+        if (type.equals(TIME_MICROS)) {
+            return block -> bucketTime(block, count);
+        }
+        if (type.equals(TIMESTAMP_MICROS)) {
+            return block -> bucketTimestamp(block, count);
+        }
+        if (type.equals(TIMESTAMP_TZ_MICROS)) {
+            return block -> bucketTimestampWithTimeZone(block, count);
+        }
+        if (type instanceof VarcharType) {
+            return block -> bucketVarchar(block, count);
+        }
+        if (type.equals(VARBINARY)) {
+            return block -> bucketVarbinary(block, count);
+        }
+        throw new UnsupportedOperationException("Unsupported type for 'bucket': " + type);
     }
 
     private static Block yearsFromDate(Block block)
@@ -345,7 +354,7 @@ public final class PartitionTransforms
 
     private static Block bucketVarbinary(Block block, int count)
     {
-        return bucketBlock(block, count, position -> bucketHash(VARCHAR.getSlice(block, position)));
+        return bucketBlock(block, count, position -> bucketHash(VARBINARY.getSlice(block, position)));
     }
 
     private static Block bucketBlock(Block block, int count, IntUnaryOperator hasher)
@@ -490,6 +499,12 @@ public final class PartitionTransforms
             VARBINARY.writeSlice(builder, value);
         }
         return builder.build();
+    }
+
+    public static Function<Block, Block> getVoidTransform(Type type)
+    {
+        Block nullBlock = nativeValueToBlock(type, null);
+        return block -> new RunLengthEncodedBlock(nullBlock, block.getPositionCount());
     }
 
     @VisibleForTesting

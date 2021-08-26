@@ -98,7 +98,7 @@ public class TestTextFileHiveTable
                         "   skip_footer_line_count = 1 " +
                         ")",
                 warehouseDirectory));
-        assertThat(query("SELECT * FROM test_create_textfile_skip_header_footer")).containsExactly(row("value"));
+        assertThat(query("SELECT * FROM test_create_textfile_skip_header_footer")).containsExactlyInOrder(row("value"));
         onHive().executeQuery("DROP TABLE test_create_textfile_skip_header_footer");
     }
 
@@ -111,8 +111,8 @@ public class TestTextFileHiveTable
                 " (col1 int) " +
                 "STORED AS TEXTFILE " +
                 "TBLPROPERTIES ('skip.header.line.count'='1')");
-        assertThatThrownBy(() -> onTrino().executeQuery("INSERT INTO test_textfile_skip_header VALUES (1)"))
-                .hasMessageMatching(".* Inserting into Hive table with skip.header.line.count property not supported");
+        onTrino().executeQuery("INSERT INTO test_textfile_skip_header VALUES (1)");
+        assertThat(query("SELECT * FROM test_textfile_skip_header")).containsOnly(row(1));
         onHive().executeQuery("DROP TABLE test_textfile_skip_header");
 
         onHive().executeQuery("DROP TABLE IF EXISTS test_textfile_skip_footer");
@@ -132,7 +132,35 @@ public class TestTextFileHiveTable
                 "STORED AS TEXTFILE " +
                 "TBLPROPERTIES ('skip.header.line.count'='1', 'skip.footer.line.count'='1')");
         assertThatThrownBy(() -> onTrino().executeQuery("INSERT INTO test_textfile_skip_header_footer VALUES (1)"))
-                .hasMessageMatching(".* Inserting into Hive table with skip.header.line.count property not supported");
+                .hasMessageMatching(".* Inserting into Hive table with skip.footer.line.count property not supported");
         onHive().executeQuery("DROP TABLE test_textfile_skip_header_footer");
+    }
+
+    @Test
+    public void testCreateTextFileTableAsSelectSkipHeaderFooter()
+    {
+        onHive().executeQuery("DROP TABLE IF EXISTS test_create_textfile_skip_header");
+        onTrino().executeQuery(
+                "CREATE TABLE test_create_textfile_skip_header " +
+                        "WITH ( " +
+                        "   format = 'TEXTFILE', " +
+                        "   skip_header_line_count = 1 " +
+                        ") " +
+                        "AS SELECT 1  AS col_header1, 2 as col_header2;");
+        onTrino().executeQuery("INSERT INTO test_create_textfile_skip_header VALUES (3, 4)");
+        assertThat(query("SELECT * FROM test_create_textfile_skip_header")).containsOnly(row(1, 2), row(3, 4));
+        assertThat(onHive().executeQuery("SELECT * FROM test_create_textfile_skip_header")).containsOnly(row(1, 2), row(3, 4));
+        onHive().executeQuery("DROP TABLE test_create_textfile_skip_header");
+
+        onHive().executeQuery("DROP TABLE IF EXISTS test_create_textfile_skip_footer");
+        assertThatThrownBy(() -> onTrino().executeQuery(
+                "CREATE TABLE test_create_textfile_skip_footer " +
+                        "WITH ( " +
+                        "   format = 'TEXTFILE', " +
+                        "   skip_footer_line_count = 1 " +
+                        ") " +
+                        "AS SELECT 1  AS col_header;")
+        ).hasMessageMatching(".* Creating Hive table with data with value of skip.footer.line.count property greater than 0 is not supported");
+        onHive().executeQuery("DROP TABLE test_create_textfile_skip_footer");
     }
 }

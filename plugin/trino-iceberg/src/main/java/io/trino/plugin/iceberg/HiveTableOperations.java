@@ -28,7 +28,6 @@ import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.FileOutputFormat;
-import org.apache.iceberg.LocationProviders;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableMetadataParser;
 import org.apache.iceberg.TableOperations;
@@ -52,8 +51,11 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.hive.HiveType.toHiveType;
+import static io.trino.plugin.hive.ViewReaderUtil.isHiveOrPrestoView;
+import static io.trino.plugin.hive.ViewReaderUtil.isPrestoView;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
+import static io.trino.plugin.iceberg.IcebergUtil.getLocationProvider;
 import static io.trino.plugin.iceberg.IcebergUtil.isIcebergTable;
 import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
@@ -133,6 +135,10 @@ public class HiveTableOperations
 
         Table table = getTable();
 
+        if (isPrestoView(table) && isHiveOrPrestoView(table)) {
+            // this is a Hive view, hence not a table
+            throw new TableNotFoundException(getSchemaTableName());
+        }
         if (!isIcebergTable(table)) {
             throw new UnknownTableTypeException(getSchemaTableName());
         }
@@ -255,7 +261,7 @@ public class HiveTableOperations
     public LocationProvider locationProvider()
     {
         TableMetadata metadata = current();
-        return LocationProviders.locationsFor(metadata.location(), metadata.properties());
+        return getLocationProvider(getSchemaTableName(), metadata.location(), metadata.properties());
     }
 
     private Table getTable()
@@ -292,7 +298,6 @@ public class HiveTableOperations
         Tasks.foreach(newLocation)
                 .retry(20)
                 .exponentialBackoff(100, 5000, 600000, 4.0)
-                .suppressFailureWhenFinished()
                 .run(metadataLocation -> newMetadata.set(
                         TableMetadataParser.read(this, io().newInputFile(metadataLocation))));
 

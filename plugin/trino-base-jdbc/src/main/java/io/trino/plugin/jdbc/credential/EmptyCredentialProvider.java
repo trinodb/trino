@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.jdbc.credential;
 
-import io.trino.plugin.jdbc.JdbcIdentity;
+import io.trino.spi.security.ConnectorIdentity;
 
 import java.util.Optional;
 
@@ -21,13 +21,13 @@ public class EmptyCredentialProvider
         implements CredentialProvider
 {
     @Override
-    public Optional<String> getConnectionUser(Optional<JdbcIdentity> jdbcIdentity)
+    public Optional<String> getConnectionUser(Optional<ConnectorIdentity> jdbcIdentity)
     {
         return Optional.empty();
     }
 
     @Override
-    public Optional<String> getConnectionPassword(Optional<JdbcIdentity> jdbcIdentity)
+    public Optional<String> getConnectionPassword(Optional<ConnectorIdentity> jdbcIdentity)
     {
         return Optional.empty();
     }

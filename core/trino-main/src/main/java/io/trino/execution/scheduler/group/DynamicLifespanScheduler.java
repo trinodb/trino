@@ -54,7 +54,7 @@ public class DynamicLifespanScheduler
     private boolean initialScheduled;
     // Write to newDriverGroupReady field is guarded. Read of the reference
     // is either guarded, or is guaranteed to happen in the same thread as the write.
-    private SettableFuture<?> newDriverGroupReady = SettableFuture.create();
+    private SettableFuture<Void> newDriverGroupReady = SettableFuture.create();
 
     @GuardedBy("this")
     private final List<Lifespan> recentlyCompletedDriverGroups = new ArrayList<>();
@@ -105,7 +105,7 @@ public class DynamicLifespanScheduler
     {
         checkState(initialScheduled);
 
-        SettableFuture<?> newDriverGroupReady;
+        SettableFuture<Void> newDriverGroupReady;
         synchronized (this) {
             for (Lifespan newlyCompletedDriverGroup : newlyCompletedDriverGroups) {
                 checkArgument(!newlyCompletedDriverGroup.isTaskWide());
@@ -117,7 +117,7 @@ public class DynamicLifespanScheduler
     }
 
     @Override
-    public SettableFuture<?> schedule(SourceScheduler scheduler)
+    public SettableFuture<Void> schedule(SourceScheduler scheduler)
     {
         // Return a new future even if newDriverGroupReady has not finished.
         // Returning the same SettableFuture instance could lead to ListenableFuture retaining too many listener objects.

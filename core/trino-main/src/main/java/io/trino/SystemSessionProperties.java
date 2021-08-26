@@ -44,10 +44,12 @@ import static io.trino.spi.session.PropertyMetadata.enumProperty;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 
 public final class SystemSessionProperties
+        implements SystemSessionPropertiesProvider
 {
     public static final String OPTIMIZE_HASH_GENERATION = "optimize_hash_generation";
     public static final String JOIN_DISTRIBUTION_TYPE = "join_distribution_type";
@@ -125,6 +127,7 @@ public final class SystemSessionProperties
     public static final String PREDICATE_PUSHDOWN_USE_TABLE_PROPERTIES = "predicate_pushdown_use_table_properties";
     public static final String LATE_MATERIALIZATION = "late_materialization";
     public static final String ENABLE_DYNAMIC_FILTERING = "enable_dynamic_filtering";
+    public static final String ENABLE_COORDINATOR_DYNAMIC_FILTERS_DISTRIBUTION = "enable_coordinator_dynamic_filters_distribution";
     public static final String ENABLE_LARGE_DYNAMIC_FILTERS = "enable_large_dynamic_filters";
     public static final String QUERY_MAX_MEMORY_PER_NODE = "query_max_memory_per_node";
     public static final String QUERY_MAX_TOTAL_MEMORY_PER_NODE = "query_max_total_memory_per_node";
@@ -139,6 +142,7 @@ public final class SystemSessionProperties
     public static final String USE_LEGACY_WINDOW_FILTER_PUSHDOWN = "use_legacy_window_filter_pushdown";
     public static final String MAX_UNACKNOWLEDGED_SPLITS_PER_TASK = "max_unacknowledged_splits_per_task";
     public static final String MERGE_PROJECT_WITH_VALUES = "merge_project_with_values";
+    public static final String TIME_ZONE_ID = "time_zone_id";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -569,6 +573,11 @@ public final class SystemSessionProperties
                         dynamicFilterConfig.isEnableDynamicFiltering(),
                         false),
                 booleanProperty(
+                        ENABLE_COORDINATOR_DYNAMIC_FILTERS_DISTRIBUTION,
+                        "Enable distribution of dynamic filters from coordinator to all workers",
+                        dynamicFilterConfig.isEnableCoordinatorDynamicFiltersDistribution(),
+                        false),
+                booleanProperty(
                         ENABLE_LARGE_DYNAMIC_FILTERS,
                         "Enable collection of large dynamic filters",
                         dynamicFilterConfig.isEnableLargeDynamicFilters(),
@@ -641,9 +650,20 @@ public final class SystemSessionProperties
                         MERGE_PROJECT_WITH_VALUES,
                         "Inline project expressions into values",
                         featuresConfig.isMergeProjectWithValues(),
-                        false));
+                        false),
+                stringProperty(
+                        TIME_ZONE_ID,
+                        "Time Zone Id for the current session",
+                        null,
+                        value -> {
+                            if (value != null) {
+                                getTimeZoneKey(value);
+                            }
+                        },
+                        true));
     }
 
+    @Override
     public List<PropertyMetadata<?>> getSessionProperties()
     {
         return sessionProperties;
@@ -1074,6 +1094,11 @@ public final class SystemSessionProperties
         return session.getSystemProperty(ENABLE_DYNAMIC_FILTERING, Boolean.class);
     }
 
+    public static boolean isEnableCoordinatorDynamicFiltersDistribution(Session session)
+    {
+        return session.getSystemProperty(ENABLE_COORDINATOR_DYNAMIC_FILTERS_DISTRIBUTION, Boolean.class);
+    }
+
     public static boolean isEnableLargeDynamicFilters(Session session)
     {
         return session.getSystemProperty(ENABLE_LARGE_DYNAMIC_FILTERS, Boolean.class);
@@ -1142,5 +1167,10 @@ public final class SystemSessionProperties
     public static boolean isMergeProjectWithValues(Session session)
     {
         return session.getSystemProperty(MERGE_PROJECT_WITH_VALUES, Boolean.class);
+    }
+
+    public static Optional<String> getTimeZoneId(Session session)
+    {
+        return Optional.ofNullable(session.getSystemProperty(TIME_ZONE_ID, String.class));
     }
 }

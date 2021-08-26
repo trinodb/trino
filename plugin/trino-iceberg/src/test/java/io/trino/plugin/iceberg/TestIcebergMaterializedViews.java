@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.metadata.QualifiedObjectName;
@@ -35,6 +33,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.plugin.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
 import static io.trino.testing.MaterializedResult.DEFAULT_PRECISION;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.DELETE_TABLE;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_MATERIALIZED_VIEW;
@@ -46,6 +45,8 @@ import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.assertions.Assert.assertFalse;
 import static io.trino.testing.assertions.Assert.assertTrue;
+import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -56,7 +57,7 @@ public class TestIcebergMaterializedViews
     protected DistributedQueryRunner createQueryRunner()
             throws Exception
     {
-        return IcebergQueryRunner.createIcebergQueryRunner(ImmutableMap.of(), new IcebergConfig().getFileFormat(), ImmutableList.of());
+        return createIcebergQueryRunner();
     }
 
     @BeforeClass
@@ -86,6 +87,43 @@ public class TestIcebergMaterializedViews
         assertThat(actualTables).containsAll(expectedTables);
 
         assertUpdate("DROP MATERIALIZED VIEW materialized_view_show_tables_test");
+    }
+
+    @Test
+    public void testMaterializedViewsMetadata()
+    {
+        String catalogName = getSession().getCatalog().orElseThrow();
+        String schemaName = getSession().getSchema().orElseThrow();
+        String materializedViewName = format("test_materialized_view_%s", randomTableSuffix());
+
+        computeActual("CREATE TABLE region AS SELECT * FROM tpch.tiny.region LIMIT 1");
+        computeActual(format("CREATE MATERIALIZED VIEW %s AS SELECT * FROM region LIMIT 1", materializedViewName));
+
+        // test storage table name
+        assertQuery(
+                format(
+                        "SELECT storage_catalog, storage_schema, CONCAT(storage_schema, '.', storage_table)" +
+                                "FROM system.metadata.materialized_views WHERE name = '%s'",
+                        materializedViewName),
+                format(
+                        "VALUES ('%s', '%s', '%s')",
+                        catalogName,
+                        schemaName,
+                        getStorageTable(catalogName, schemaName, materializedViewName)));
+
+        // test freshness update
+        assertQuery(
+                format("SELECT is_fresh FROM system.metadata.materialized_views WHERE name = '%s'", materializedViewName),
+                "VALUES ('false')");
+
+        computeActual(format("REFRESH MATERIALIZED VIEW %s", materializedViewName));
+
+        assertQuery(
+                format("SELECT is_fresh FROM system.metadata.materialized_views WHERE name = '%s'", materializedViewName),
+                "VALUES ('true')");
+
+        assertUpdate("DROP TABLE region");
+        assertUpdate(format("DROP MATERIALIZED VIEW %s", materializedViewName));
     }
 
     @Test
@@ -194,7 +232,7 @@ public class TestIcebergMaterializedViews
         assertUpdate("DROP MATERIALIZED VIEW materialized_view_refresh");
     }
 
-    @Test(enabled = false) // TODO https://github.com/trinodb/trino/issues/5892
+    @Test
     public void testCreateRefreshSelect()
     {
         Session session = getSession();
@@ -280,7 +318,7 @@ public class TestIcebergMaterializedViews
         assertUpdate("DROP MATERIALIZED VIEW materialized_view_join_part");
     }
 
-    @Test(enabled = false) // TODO https://github.com/trinodb/trino/issues/5892
+    @Test
     public void testDetectStaleness()
     {
         // Base tables and materialized views for staleness check
@@ -334,11 +372,9 @@ public class TestIcebergMaterializedViews
         assertUpdate("DROP MATERIALIZED VIEW materialized_view_join_part_stale");
     }
 
-    @Test(enabled = false) // TODO https://github.com/trinodb/trino/issues/5892
+    @Test
     public void testSqlFeatures()
     {
-        Session session = getSession();
-
         // Materialized views to test SQL features
         assertUpdate("CREATE MATERIALIZED VIEW materialized_view_window WITH (partitioning = ARRAY['_date']) as select _date, " +
                 "sum(_bigint) OVER (partition by _date order by _date) as sum_ints from base_table1");
@@ -362,13 +398,17 @@ public class TestIcebergMaterializedViews
         assertQueryFails("show create view  materialized_view_window",
                 "line 1:1: Relation 'iceberg.tpch.materialized_view_window' is a materialized view, not a view");
 
-        assertQuery(session, "show create materialized view  materialized_view_window",
-                "VALUES ('CREATE MATERIALIZED VIEW iceberg.tpch.materialized_view_window AS\n" +
+        assertThat(computeScalar("show create materialized view  materialized_view_window"))
+                .isEqualTo("CREATE MATERIALIZED VIEW iceberg.tpch.materialized_view_window\n" +
+                        "WITH (\n" +
+                        "   format = 'ORC',\n" +
+                        "   partitioning = ARRAY['_date']\n" +
+                        ") AS\n" +
                         "SELECT\n" +
                         "  _date\n" +
                         ", sum(_bigint) OVER (PARTITION BY _date ORDER BY _date ASC) sum_ints\n" +
                         "FROM\n" +
-                        "  base_table1')");
+                        "  base_table1");
 
         assertQueryFails("INSERT INTO materialized_view_window VALUES (0, '2019-09-08'), (1, DATE '2019-09-09'), (2, DATE '2019-09-09')",
                 "Inserting into materialized views is not supported");
@@ -389,7 +429,7 @@ public class TestIcebergMaterializedViews
         assertUpdate("DROP MATERIALIZED VIEW materialized_view_subquery");
     }
 
-    @Test(enabled = false) // TODO https://github.com/trinodb/trino/issues/5892
+    @Test
     public void testReplace()
     {
         // Materialized view to test 'replace' feature
@@ -406,7 +446,7 @@ public class TestIcebergMaterializedViews
         assertUpdate("DROP MATERIALIZED VIEW materialized_view_replace");
     }
 
-    @Test(enabled = false) // TODO https://github.com/trinodb/trino/issues/5892
+    @Test
     public void testNestedMaterializedViews()
     {
         // Base table and materialized views for nested materialized view testing

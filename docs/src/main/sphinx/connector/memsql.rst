@@ -7,6 +7,15 @@ creating tables in an external SingleStore database. The SingleStore connector
 is very similar to the MySQL connector with the only difference being the
 underlying driver.
 
+Requirements
+------------
+
+To connect to SingleStore, you need:
+
+* SingleStore version 7.3 or higher.
+* Network access from the Trino coordinator and workers to SingleStore. Port
+  3306 is the default port.
+
 Configuration
 -------------
 
@@ -22,6 +31,10 @@ connection properties as appropriate for your setup:
     connection-url=jdbc:mariadb://example.net:3306
     connection-user=root
     connection-password=secret
+
+.. include:: jdbc-common-configurations.fragment
+
+.. include:: non-transactional-insert.fragment
 
 Multiple SingleStore servers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -76,14 +89,25 @@ The connector supports pushdown for a number of operations:
 * :ref:`limit-pushdown`
 * :ref:`topn-pushdown`
 
-Limitations
+.. _singlestore-sql-support:
+
+SQL support
 -----------
 
-The following SQL statements are not yet supported:
+The connector provides read access and write access to data and metadata in
+a SingleStore database.  In addition to the :ref:`globally available
+<sql-globally-available>` and :ref:`read operation <sql-read-operations>`
+statements, the connector supports the following features:
 
+* :doc:`/sql/insert`
 * :doc:`/sql/delete`
-* :doc:`/sql/grant`
-* :doc:`/sql/revoke`
-* :doc:`/sql/show-grants`
-* :doc:`/sql/show-roles`
-* :doc:`/sql/show-role-grants`
+* :doc:`/sql/create-table`
+* :doc:`/sql/create-table-as`
+* :doc:`/sql/drop-table`
+* :doc:`/sql/alter-table`
+* :doc:`/sql/create-schema`
+* :doc:`/sql/drop-schema`
+
+.. include:: sql-delete-limitation.fragment
+
+.. include:: alter-table-limitation.fragment

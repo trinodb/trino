@@ -16,6 +16,7 @@ package io.trino.operator.join;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.execution.Lifespan;
 import io.trino.operator.DriverContext;
@@ -35,6 +36,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -127,6 +129,7 @@ public class NestedLoopJoinOperator
     }
 
     private final ListenableFuture<NestedLoopJoinPages> nestedLoopJoinPagesFuture;
+    private final ListenableFuture<Void> blockedFutureView;
 
     private final OperatorContext operatorContext;
     private final Runnable afterClose;
@@ -144,9 +147,15 @@ public class NestedLoopJoinOperator
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.nestedLoopJoinPagesFuture = joinBridge.getPagesFuture();
+        blockedFutureView = asVoid(nestedLoopJoinPagesFuture);
         this.probeChannels = Ints.toArray(requireNonNull(probeChannels, "probeChannels is null"));
         this.buildChannels = Ints.toArray(requireNonNull(buildChannels, "buildChannels is null"));
         this.afterClose = requireNonNull(afterClose, "afterClose is null");
+    }
+
+    private static <T> ListenableFuture<Void> asVoid(ListenableFuture<T> future)
+    {
+        return Futures.transform(future, v -> null, directExecutor());
     }
 
     @Override
@@ -173,9 +182,9 @@ public class NestedLoopJoinOperator
     }
 
     @Override
-    public ListenableFuture<?> isBlocked()
+    public ListenableFuture<Void> isBlocked()
     {
-        return nestedLoopJoinPagesFuture;
+        return blockedFutureView;
     }
 
     @Override

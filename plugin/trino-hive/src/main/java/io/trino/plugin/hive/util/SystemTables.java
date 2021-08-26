@@ -14,18 +14,33 @@
 
 package io.trino.plugin.hive.util;
 
+import io.trino.plugin.hive.SystemTableProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.RecordCursor;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.TupleDomain;
 
+import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 
-public class SystemTables
+public final class SystemTables
 {
     private SystemTables() {}
+
+    public static Optional<SchemaTableName> getSourceTableNameFromSystemTable(
+            Set<SystemTableProvider> systemTableProviders,
+            SchemaTableName tableName)
+    {
+        return systemTableProviders.stream()
+                .map(provider -> provider.getSourceTableName(tableName))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .findAny();
+    }
 
     public static SystemTable createSystemTable(ConnectorTableMetadata metadata, Function<TupleDomain<Integer>, RecordCursor> cursor)
     {

@@ -51,6 +51,8 @@ import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadat
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static io.trino.operator.aggregation.AggregationUtils.generateAggregationName;
+import static io.trino.spi.type.Decimals.MAX_PRECISION;
+import static io.trino.spi.type.Decimals.MAX_SHORT_PRECISION;
 import static io.trino.spi.type.Decimals.writeBigDecimal;
 import static io.trino.spi.type.Decimals.writeShortDecimal;
 import static io.trino.spi.type.TypeSignatureParameter.typeVariable;
@@ -63,9 +65,13 @@ public class DecimalAverageAggregation
 {
     public static final DecimalAverageAggregation DECIMAL_AVERAGE_AGGREGATION = new DecimalAverageAggregation();
 
+    // Constant references for short/long decimal types for use in operations that only manipulate unscaled values
+    private static final DecimalType LONG_DECIMAL_TYPE = DecimalType.createDecimalType(MAX_PRECISION, 0);
+    private static final DecimalType SHORT_DECIMAL_TYPE = DecimalType.createDecimalType(MAX_SHORT_PRECISION, 0);
+
     private static final String NAME = "avg";
-    private static final MethodHandle SHORT_DECIMAL_INPUT_FUNCTION = methodHandle(DecimalAverageAggregation.class, "inputShortDecimal", Type.class, LongDecimalWithOverflowAndLongState.class, Block.class, int.class);
-    private static final MethodHandle LONG_DECIMAL_INPUT_FUNCTION = methodHandle(DecimalAverageAggregation.class, "inputLongDecimal", Type.class, LongDecimalWithOverflowAndLongState.class, Block.class, int.class);
+    private static final MethodHandle SHORT_DECIMAL_INPUT_FUNCTION = methodHandle(DecimalAverageAggregation.class, "inputShortDecimal", LongDecimalWithOverflowAndLongState.class, Block.class, int.class);
+    private static final MethodHandle LONG_DECIMAL_INPUT_FUNCTION = methodHandle(DecimalAverageAggregation.class, "inputLongDecimal", LongDecimalWithOverflowAndLongState.class, Block.class, int.class);
 
     private static final MethodHandle SHORT_DECIMAL_OUTPUT_FUNCTION = methodHandle(DecimalAverageAggregation.class, "outputShortDecimal", DecimalType.class, LongDecimalWithOverflowAndLongState.class, BlockBuilder.class);
     private static final MethodHandle LONG_DECIMAL_OUTPUT_FUNCTION = methodHandle(DecimalAverageAggregation.class, "outputLongDecimal", DecimalType.class, LongDecimalWithOverflowAndLongState.class, BlockBuilder.class);
@@ -124,7 +130,6 @@ public class DecimalAverageAggregation
             inputFunction = LONG_DECIMAL_INPUT_FUNCTION;
             outputFunction = LONG_DECIMAL_OUTPUT_FUNCTION;
         }
-        inputFunction = inputFunction.bindTo(type);
         outputFunction = outputFunction.bindTo(type);
 
         AggregationMetadata metadata = new AggregationMetadata(
@@ -150,7 +155,7 @@ public class DecimalAverageAggregation
         return ImmutableList.of(new ParameterMetadata(STATE), new ParameterMetadata(BLOCK_INPUT_CHANNEL, type), new ParameterMetadata(BLOCK_INDEX));
     }
 
-    public static void inputShortDecimal(Type type, LongDecimalWithOverflowAndLongState state, Block block, int position)
+    public static void inputShortDecimal(LongDecimalWithOverflowAndLongState state, Block block, int position)
     {
         state.addLong(1); // row counter
 
@@ -159,11 +164,11 @@ public class DecimalAverageAggregation
             sum = UnscaledDecimal128Arithmetic.unscaledDecimal();
             state.setLongDecimal(sum);
         }
-        long overflow = UnscaledDecimal128Arithmetic.addWithOverflow(sum, UnscaledDecimal128Arithmetic.unscaledDecimal(type.getLong(block, position)), sum);
+        long overflow = UnscaledDecimal128Arithmetic.addWithOverflow(sum, UnscaledDecimal128Arithmetic.unscaledDecimal(SHORT_DECIMAL_TYPE.getLong(block, position)), sum);
         state.addOverflow(overflow);
     }
 
-    public static void inputLongDecimal(Type type, LongDecimalWithOverflowAndLongState state, Block block, int position)
+    public static void inputLongDecimal(LongDecimalWithOverflowAndLongState state, Block block, int position)
     {
         state.addLong(1); // row counter
 
@@ -172,7 +177,7 @@ public class DecimalAverageAggregation
             sum = UnscaledDecimal128Arithmetic.unscaledDecimal();
             state.setLongDecimal(sum);
         }
-        long overflow = UnscaledDecimal128Arithmetic.addWithOverflow(sum, type.getSlice(block, position), sum);
+        long overflow = UnscaledDecimal128Arithmetic.addWithOverflow(sum, LONG_DECIMAL_TYPE.getSlice(block, position), sum);
         state.addOverflow(overflow);
     }
 

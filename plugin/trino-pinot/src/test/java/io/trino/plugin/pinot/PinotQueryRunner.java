@@ -18,8 +18,10 @@ import com.google.inject.Module;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.Session;
+import io.trino.connector.CatalogName;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.kafka.TestingKafka;
 
 import java.util.Map;
 import java.util.Optional;
@@ -28,6 +30,8 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public class PinotQueryRunner
 {
+    public static final String PINOT_CATALOG = "pinot";
+
     private PinotQueryRunner()
     {
     }
@@ -40,15 +44,22 @@ public class PinotQueryRunner
                 .setExtraProperties(extraProperties)
                 .build();
         queryRunner.installPlugin(new PinotPlugin(extension));
-        queryRunner.createCatalog("pinot", "pinot", extraPinotProperties);
+        queryRunner.createCatalog(PINOT_CATALOG, "pinot", extraPinotProperties);
         return queryRunner;
     }
 
     public static Session createSession(String schema)
     {
+        return createSession(schema, new PinotConfig());
+    }
+
+    public static Session createSession(String schema, PinotConfig config)
+    {
         SessionPropertyManager sessionPropertyManager = new SessionPropertyManager();
+        PinotSessionProperties pinotSessionProperties = new PinotSessionProperties(config);
+        sessionPropertyManager.addConnectorSessionProperties(new CatalogName(PINOT_CATALOG), pinotSessionProperties.getSessionProperties());
         return testSessionBuilder(sessionPropertyManager)
-                .setCatalog("pinot")
+                .setCatalog(PINOT_CATALOG)
                 .setSchema(schema)
                 .build();
     }
@@ -57,9 +68,13 @@ public class PinotQueryRunner
             throws Exception
     {
         Logging.initialize();
+        TestingKafka kafka = TestingKafka.createWithSchemaRegistry();
+        kafka.start();
+        TestingPinotCluster pinot = new TestingPinotCluster(kafka.getNetwork());
+        pinot.start();
         Map<String, String> properties = ImmutableMap.of("http-server.http.port", "8080");
         Map<String, String> pinotProperties = ImmutableMap.<String, String>builder()
-                .put("pinot.controller-urls", "localhost:9000")
+                .put("pinot.controller-urls", pinot.getControllerConnectString())
                 .put("pinot.segments-per-split", "10")
                 .put("pinot.request-timeout", "3m")
                 .build();

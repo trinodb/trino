@@ -185,9 +185,9 @@ final class BlockUtil
     {
         int used = 0;
         for (boolean position : positions) {
-            if (position) {
-                used++;
-            }
+            // Avoid branching by casting boolean to integer.
+            // This improves CPU utilization by avoiding branch mispredictions.
+            used += position ? 1 : 0;
         }
         return used;
     }

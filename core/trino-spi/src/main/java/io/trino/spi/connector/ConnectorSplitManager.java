@@ -13,10 +13,6 @@
  */
 package io.trino.spi.connector;
 
-import io.trino.spi.predicate.TupleDomain;
-
-import java.util.function.Supplier;
-
 public interface ConnectorSplitManager
 {
     @Deprecated
@@ -29,27 +25,6 @@ public interface ConnectorSplitManager
         throw new UnsupportedOperationException();
     }
 
-    @Deprecated
-    default ConnectorSplitSource getSplits(
-            ConnectorTransactionHandle transaction,
-            ConnectorSession session,
-            ConnectorTableHandle table,
-            SplitSchedulingStrategy splitSchedulingStrategy)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Deprecated
-    default ConnectorSplitSource getSplits(
-            ConnectorTransactionHandle transaction,
-            ConnectorSession session,
-            ConnectorTableHandle table,
-            SplitSchedulingStrategy splitSchedulingStrategy,
-            Supplier<TupleDomain<ColumnHandle>> dynamicFilter)
-    {
-        return getSplits(transaction, session, table, splitSchedulingStrategy);
-    }
-
     default ConnectorSplitSource getSplits(
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
@@ -57,7 +32,7 @@ public interface ConnectorSplitManager
             SplitSchedulingStrategy splitSchedulingStrategy,
             DynamicFilter dynamicFilter)
     {
-        return getSplits(transaction, session, table, splitSchedulingStrategy, dynamicFilter::getCurrentPredicate);
+        throw new UnsupportedOperationException();
     }
 
     enum SplitSchedulingStrategy

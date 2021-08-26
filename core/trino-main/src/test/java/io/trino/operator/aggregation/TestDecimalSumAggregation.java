@@ -127,14 +127,18 @@ public class TestDecimalSumAggregation
         addToState(state, TWO.pow(126));
 
         assertEquals(state.getOverflow(), 1);
-        DecimalSumAggregation.outputLongDecimal(TYPE, state, new VariableWidthBlockBuilder(null, 10, 100));
+        DecimalSumAggregation.outputLongDecimal(state, new VariableWidthBlockBuilder(null, 10, 100));
     }
 
     private static void addToState(LongDecimalWithOverflowState state, BigInteger value)
     {
         BlockBuilder blockBuilder = TYPE.createFixedSizeBlockBuilder(1);
         TYPE.writeSlice(blockBuilder, unscaledDecimal(value));
-
-        DecimalSumAggregation.inputLongDecimal(TYPE, state, blockBuilder.build(), 0);
+        if (TYPE.isShort()) {
+            DecimalSumAggregation.inputShortDecimal(state, blockBuilder.build(), 0);
+        }
+        else {
+            DecimalSumAggregation.inputLongDecimal(state, blockBuilder.build(), 0);
+        }
     }
 }

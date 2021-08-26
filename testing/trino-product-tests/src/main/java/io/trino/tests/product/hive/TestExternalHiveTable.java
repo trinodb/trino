@@ -24,6 +24,7 @@ import org.testng.annotations.Test;
 
 import static io.trino.tempto.Requirements.compose;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
+import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.fulfillment.table.MutableTablesState.mutableTablesState;
 import static io.trino.tempto.fulfillment.table.TableRequirements.mutableTable;
@@ -89,7 +90,7 @@ public class TestExternalHiveTable
         insertNationPartition(nation, 1);
 
         // Running ANALYZE on an external table is allowed as long as the user has the privileges.
-        assertThat(query("ANALYZE hive.default." + EXTERNAL_TABLE_NAME)).containsExactly(row(5));
+        assertThat(query("ANALYZE hive.default." + EXTERNAL_TABLE_NAME)).containsExactlyInOrder(row(5));
     }
 
     @Test
@@ -98,9 +99,9 @@ public class TestExternalHiveTable
         TableInstance<?> nation = mutableTablesState().get(NATION.getName());
         onHive().executeQuery("DROP TABLE IF EXISTS " + EXTERNAL_TABLE_NAME);
         onHive().executeQuery("CREATE EXTERNAL TABLE " + EXTERNAL_TABLE_NAME + " LIKE " + nation.getNameInDatabase());
-        assertThat(() -> onTrino().executeQuery(
+        assertQueryFailure(() -> onTrino().executeQuery(
                 "INSERT INTO hive.default." + EXTERNAL_TABLE_NAME + " SELECT * FROM hive.default." + nation.getNameInDatabase()))
-                .failsWithMessage("Cannot write to non-managed Hive table");
+                .hasMessageContaining("Cannot write to non-managed Hive table");
     }
 
     @Test
@@ -109,8 +110,8 @@ public class TestExternalHiveTable
         TableInstance<?> nation = mutableTablesState().get(NATION.getName());
         onHive().executeQuery("DROP TABLE IF EXISTS " + EXTERNAL_TABLE_NAME);
         onHive().executeQuery("CREATE EXTERNAL TABLE " + EXTERNAL_TABLE_NAME + " LIKE " + nation.getNameInDatabase());
-        assertThat(() -> onTrino().executeQuery("DELETE FROM hive.default." + EXTERNAL_TABLE_NAME))
-                .failsWithMessage("Cannot delete from non-managed Hive table");
+        assertQueryFailure(() -> onTrino().executeQuery("DELETE FROM hive.default." + EXTERNAL_TABLE_NAME))
+                .hasMessageContaining("Cannot delete from non-managed Hive table");
     }
 
     @Test
@@ -125,8 +126,8 @@ public class TestExternalHiveTable
         assertThat(onTrino().executeQuery("SELECT * FROM " + EXTERNAL_TABLE_NAME))
                 .hasRowsCount(3 * NATION_PARTITIONED_BY_REGIONKEY_NUMBER_OF_LINES_PER_SPLIT);
 
-        assertThat(() -> onTrino().executeQuery("DELETE FROM hive.default." + EXTERNAL_TABLE_NAME + " WHERE p_name IS NOT NULL"))
-                .failsWithMessage("Deletes must match whole partitions for non-transactional tables");
+        assertQueryFailure(() -> onTrino().executeQuery("DELETE FROM hive.default." + EXTERNAL_TABLE_NAME + " WHERE p_name IS NOT NULL"))
+                .hasMessageContaining("Deletes must match whole partitions for non-transactional tables");
 
         onTrino().executeQuery("DELETE FROM hive.default." + EXTERNAL_TABLE_NAME + " WHERE p_regionkey = 1");
         assertThat(onTrino().executeQuery("SELECT * FROM " + EXTERNAL_TABLE_NAME))

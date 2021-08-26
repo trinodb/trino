@@ -14,9 +14,11 @@
 package io.trino.spi.connector;
 
 import io.trino.spi.Page;
+import io.trino.spi.metrics.Metrics;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.OptionalLong;
 import java.util.concurrent.CompletableFuture;
 
 public interface ConnectorPageSource
@@ -29,6 +31,16 @@ public interface ConnectorPageSource
      * If size is not available, this method should return zero.
      */
     long getCompletedBytes();
+
+    /**
+     * Gets the number of input rows processed by this page source so far.
+     * By default, the positions count of the page returned from getNextPage
+     * is used to calculate the number of input rows.
+     */
+    default OptionalLong getCompletedPositions()
+    {
+        return OptionalLong.empty();
+    }
 
     /**
      * Gets the wall time this page source spent reading data from the input.
@@ -69,5 +81,15 @@ public interface ConnectorPageSource
     default CompletableFuture<?> isBlocked()
     {
         return NOT_BLOCKED;
+    }
+
+    /**
+     * Returns the connector's metrics, mapping a metric ID to its latest value.
+     * Each call must return an immutable snapshot of available metrics.
+     * Same ID metrics are merged across all tasks and exposed via OperatorStats.
+     */
+    default Metrics getMetrics()
+    {
+        return Metrics.EMPTY;
     }
 }

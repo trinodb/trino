@@ -24,22 +24,11 @@ import java.util.Objects;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-/**
- * Redis specific connector column handle.
- */
 public final class RedisColumnHandle
         implements DecoderColumnHandle, Comparable<RedisColumnHandle>
 {
     private final int ordinalPosition;
-
-    /**
-     * Column Name
-     */
     private final String name;
-
-    /**
-     * Column type
-     */
     private final Type type;
 
     /**
@@ -62,9 +51,6 @@ public final class RedisColumnHandle
      */
     private final boolean keyDecoder;
 
-    /**
-     * True if the column should be hidden.
-     */
     private final boolean hidden;
 
     /**

@@ -26,6 +26,7 @@ import io.trino.operator.WorkProcessor.TransformationState;
 import io.trino.operator.WorkProcessorAssertion.Transform;
 import io.trino.spi.Page;
 import io.trino.spi.connector.UpdatablePageSource;
+import io.trino.spi.metrics.Metrics;
 import io.trino.sql.planner.LocalExecutionPlanner.OperatorFactoryWithTypes;
 import io.trino.sql.planner.plan.PlanNodeId;
 import org.testng.annotations.AfterClass;
@@ -82,7 +83,7 @@ public class TestWorkProcessorPipelineSourceOperator
                 Transform.of(Optional.of(split), TransformationState.ofResult(page1, false)),
                 Transform.of(Optional.of(split), TransformationState.ofResult(page2, true))));
 
-        SettableFuture<?> firstBlockedFuture = SettableFuture.create();
+        SettableFuture<Void> firstBlockedFuture = SettableFuture.create();
         Transformation<Page, Page> firstOperatorPages = transformationFrom(ImmutableList.of(
                 Transform.of(Optional.of(page1), TransformationState.blocked(firstBlockedFuture)),
                 Transform.of(Optional.of(page1), TransformationState.ofResult(page3, true)),
@@ -90,7 +91,7 @@ public class TestWorkProcessorPipelineSourceOperator
                 Transform.of(Optional.of(page2), TransformationState.finished())),
                 (left, right) -> left.getPositionCount() == right.getPositionCount());
 
-        SettableFuture<?> secondBlockedFuture = SettableFuture.create();
+        SettableFuture<Void> secondBlockedFuture = SettableFuture.create();
         Transformation<Page, Page> secondOperatorPages = transformationFrom(ImmutableList.of(
                 Transform.of(Optional.of(page3), TransformationState.ofResult(page5, true)),
                 Transform.of(Optional.of(page4), TransformationState.needsMoreData()),
@@ -390,6 +391,12 @@ public class TestWorkProcessorPipelineSourceOperator
         public Duration getReadTime()
         {
             return new Duration(7, NANOSECONDS);
+        }
+
+        @Override
+        public Metrics getConnectorMetrics()
+        {
+            return Metrics.EMPTY;
         }
 
         @Override

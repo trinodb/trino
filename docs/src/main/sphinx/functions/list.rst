@@ -114,6 +114,7 @@ C
 - :func:`crc32`
 - :func:`cume_dist`
 - :data:`current_date`
+- :func:`current_groups`
 - :data:`current_time`
 - :data:`current_timestamp`
 - :func:`current_timezone`
@@ -263,7 +264,7 @@ L
 - :func:`lower`
 - :func:`lpad`
 - :func:`ltrim`
-- ``luhn_check``
+- :func:`luhn_check`
 
 M
 -
@@ -314,7 +315,7 @@ O
 -
 
 - ``objectid``
-- ``objectid_timestamp``
+- :func:`objectid_timestamp`
 - :ref:`OR <logical_operators>`
 
 P
@@ -461,6 +462,7 @@ T
 - :func:`tan`
 - :func:`tanh`
 - :func:`tdigest_agg`
+- :func:`timestamp_objectid`
 - :func:`timezone_hour`
 - :func:`timezone_minute`
 - :func:`to_base`
@@ -545,4 +547,3 @@ Z
 
 - :func:`zip`
 - :func:`zip_with`
-
