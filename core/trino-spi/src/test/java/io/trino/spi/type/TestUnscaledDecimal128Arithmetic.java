@@ -33,6 +33,7 @@ import static io.trino.spi.type.UnscaledDecimal128Arithmetic.addWithOverflow;
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.compare;
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.divide;
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.isNegative;
+import static io.trino.spi.type.UnscaledDecimal128Arithmetic.isZero;
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.multiply;
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.multiply256Destructive;
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.overflows;
@@ -103,13 +104,27 @@ public class TestUnscaledDecimal128Arithmetic
         assertRescale(unscaledDecimal(10), 0, unscaledDecimal(10L));
         assertRescale(unscaledDecimal(-10), 0, unscaledDecimal(-10L));
         assertRescale(unscaledDecimal(10), -20, unscaledDecimal(0L));
+        assertRescale(unscaledDecimal(14), -1, unscaledDecimal(1));
+        assertRescale(unscaledDecimal(14), -2, unscaledDecimal(0));
+        assertRescale(unscaledDecimal(14), -3, unscaledDecimal(0));
         assertRescale(unscaledDecimal(15), -1, unscaledDecimal(2));
+        assertRescale(unscaledDecimal(15), -2, unscaledDecimal(0));
+        assertRescale(unscaledDecimal(15), -3, unscaledDecimal(0));
         assertRescale(unscaledDecimal(1050), -3, unscaledDecimal(1));
         assertRescale(unscaledDecimal(15), 1, unscaledDecimal(150));
         assertRescale(unscaledDecimal(-14), -1, unscaledDecimal(-1));
+        assertRescale(unscaledDecimal(-14), -2, unscaledDecimal(0));
+        assertRescale(unscaledDecimal(-14), -20, unscaledDecimal(0));
+        assertRescale(unscaledDecimal(-15), -1, unscaledDecimal(-2));
+        assertRescale(unscaledDecimal(-15), -2, unscaledDecimal(0));
+        assertRescale(unscaledDecimal(-15), -20, unscaledDecimal(0));
         assertRescale(unscaledDecimal(-14), 1, unscaledDecimal(-140));
         assertRescale(unscaledDecimal(0), 1, unscaledDecimal(0));
+        assertRescale(unscaledDecimal(0), -1, unscaledDecimal(0));
+        assertRescale(unscaledDecimal(0), -20, unscaledDecimal(0));
+        assertRescale(unscaledDecimal(4), -1, unscaledDecimal(0));
         assertRescale(unscaledDecimal(5), -1, unscaledDecimal(1));
+        assertRescale(unscaledDecimal(5), -2, unscaledDecimal(0));
         assertRescale(unscaledDecimal(10), 10, unscaledDecimal(100000000000L));
         assertRescale(unscaledDecimal("150000000000000000000"), -20, unscaledDecimal(2));
         assertRescale(unscaledDecimal("-140000000000000000000"), -20, unscaledDecimal(-1));
@@ -138,6 +153,16 @@ public class TestUnscaledDecimal128Arithmetic
         assertEquals(add(unscaledDecimal(0), unscaledDecimal(0)), unscaledDecimal(0));
         assertEquals(add(unscaledDecimal(1), unscaledDecimal(0)), unscaledDecimal(1));
         assertEquals(add(unscaledDecimal(1), unscaledDecimal(1)), unscaledDecimal(2));
+        assertEquals(add(unscaledDecimal(-1), unscaledDecimal(0)), unscaledDecimal(-1));
+        assertEquals(add(unscaledDecimal(-1), unscaledDecimal(-1)), unscaledDecimal(-2));
+        assertEquals(add(unscaledDecimal(-1), unscaledDecimal(1)), unscaledDecimal(0));
+        assertEquals(add(unscaledDecimal(1), unscaledDecimal(-1)), unscaledDecimal(0));
+        assertEquals(add(unscaledDecimal("10000000000000000000000000000000000000"), unscaledDecimal(0)), unscaledDecimal("10000000000000000000000000000000000000"));
+        assertEquals(add(unscaledDecimal("10000000000000000000000000000000000000"), unscaledDecimal("10000000000000000000000000000000000000")), unscaledDecimal("20000000000000000000000000000000000000"));
+        assertEquals(add(unscaledDecimal("-10000000000000000000000000000000000000"), unscaledDecimal(0)), unscaledDecimal("-10000000000000000000000000000000000000"));
+        assertEquals(add(unscaledDecimal("-10000000000000000000000000000000000000"), unscaledDecimal("-10000000000000000000000000000000000000")), unscaledDecimal("-20000000000000000000000000000000000000"));
+        assertEquals(add(unscaledDecimal("-10000000000000000000000000000000000000"), unscaledDecimal("10000000000000000000000000000000000000")), unscaledDecimal(0));
+        assertEquals(add(unscaledDecimal("10000000000000000000000000000000000000"), unscaledDecimal("-10000000000000000000000000000000000000")), unscaledDecimal(0));
 
         assertEquals(add(unscaledDecimal(1L << 32), unscaledDecimal(0)), unscaledDecimal(1L << 32));
         assertEquals(add(unscaledDecimal(1L << 31), unscaledDecimal(1L << 31)), unscaledDecimal(1L << 32));
@@ -159,11 +184,15 @@ public class TestUnscaledDecimal128Arithmetic
     {
         assertMultiply(0, 0, 0);
         assertMultiply(1, 0, 0);
+        assertMultiply(0, 1, 0);
+        assertMultiply(-1, 0, 0);
+        assertMultiply(0, -1, 0);
         assertMultiply(1, 1, 1);
         assertMultiply(1, -1, -1);
         assertMultiply(-1, -1, 1);
         assertMultiply(MAX_DECIMAL_UNSCALED_VALUE, 0, 0);
         assertMultiply(MAX_DECIMAL_UNSCALED_VALUE, 1, MAX_DECIMAL_UNSCALED_VALUE);
+        assertMultiply(MIN_DECIMAL_UNSCALED_VALUE, 0, 0);
         assertMultiply(MIN_DECIMAL_UNSCALED_VALUE, 1, MIN_DECIMAL_UNSCALED_VALUE);
         assertMultiply(MAX_DECIMAL_UNSCALED_VALUE, -1, MIN_DECIMAL_UNSCALED_VALUE);
         assertMultiply(MIN_DECIMAL_UNSCALED_VALUE, -1, MAX_DECIMAL_UNSCALED_VALUE);
@@ -210,7 +239,17 @@ public class TestUnscaledDecimal128Arithmetic
         assertShiftRight(unscaledDecimal(0), 33, true, unscaledDecimal(0));
 
         assertShiftRight(unscaledDecimal(1), 1, true, unscaledDecimal(1));
+        assertShiftRight(unscaledDecimal(1), 1, false, unscaledDecimal(0));
+        assertShiftRight(unscaledDecimal(1), 2, true, unscaledDecimal(0));
+        assertShiftRight(unscaledDecimal(1), 2, false, unscaledDecimal(0));
         assertShiftRight(unscaledDecimal(-4), 1, true, unscaledDecimal(-2));
+        assertShiftRight(unscaledDecimal(-4), 1, false, unscaledDecimal(-2));
+        assertShiftRight(unscaledDecimal(-4), 2, true, unscaledDecimal(-1));
+        assertShiftRight(unscaledDecimal(-4), 2, false, unscaledDecimal(-1));
+        assertShiftRight(unscaledDecimal(-4), 3, true, unscaledDecimal(-1));
+        assertShiftRight(unscaledDecimal(-4), 3, false, unscaledDecimal(0));
+        assertShiftRight(unscaledDecimal(-4), 4, true, unscaledDecimal(0));
+        assertShiftRight(unscaledDecimal(-4), 4, false, unscaledDecimal(0));
 
         assertShiftRight(unscaledDecimal(1L << 32), 32, true, unscaledDecimal(1));
         assertShiftRight(unscaledDecimal(1L << 31), 32, true, unscaledDecimal(1));
@@ -347,16 +386,9 @@ public class TestUnscaledDecimal128Arithmetic
     public void testCompare()
     {
         assertCompare(unscaledDecimal(0), unscaledDecimal(0), 0);
-        assertCompare(negate(unscaledDecimal(0)), unscaledDecimal(0), 0);
-        assertCompare(unscaledDecimal(0), negate(unscaledDecimal(0)), 0);
 
         assertCompare(unscaledDecimal(0), unscaledDecimal(10), -1);
         assertCompare(unscaledDecimal(10), unscaledDecimal(0), 1);
-        assertCompare(negate(unscaledDecimal(0)), unscaledDecimal(10), -1);
-        assertCompare(unscaledDecimal(10), negate(unscaledDecimal(0)), 1);
-
-        assertCompare(negate(unscaledDecimal(0)), MAX_DECIMAL, -1);
-        assertCompare(MAX_DECIMAL, negate(unscaledDecimal(0)), 1);
 
         assertCompare(unscaledDecimal(-10), unscaledDecimal(-11), 1);
         assertCompare(unscaledDecimal(-11), unscaledDecimal(-11), 0);
@@ -376,7 +408,6 @@ public class TestUnscaledDecimal128Arithmetic
 
         assertEquals(negate(unscaledDecimal(1)), unscaledDecimal(-1));
         assertEquals(negate(unscaledDecimal(-1)), unscaledDecimal(1));
-        assertEquals(negate(negate(unscaledDecimal(0))), unscaledDecimal(0));
     }
 
     @Test
@@ -391,7 +422,6 @@ public class TestUnscaledDecimal128Arithmetic
     public void testToString()
     {
         assertEquals(toUnscaledString(unscaledDecimal(0)), "0");
-        assertEquals(toUnscaledString(negate(unscaledDecimal(0))), "0");
         assertEquals(toUnscaledString(unscaledDecimal(1)), "1");
         assertEquals(toUnscaledString(unscaledDecimal(-1)), "-1");
         assertEquals(toUnscaledString(unscaledDecimal(MAX_DECIMAL)), MAX_DECIMAL_UNSCALED_VALUE.toString());
@@ -609,9 +639,15 @@ public class TestUnscaledDecimal128Arithmetic
     private static void assertDivideAllSigns(Slice dividend, int dividendRescaleFactor, Slice divisor, int divisorRescaleFactor)
     {
         assertDivide(dividend, dividendRescaleFactor, divisor, divisorRescaleFactor);
-        assertDivide(dividend, dividendRescaleFactor, negate(divisor), divisorRescaleFactor);
-        assertDivide(negate(dividend), dividendRescaleFactor, divisor, divisorRescaleFactor);
-        assertDivide(negate(dividend), dividendRescaleFactor, negate(divisor), divisorRescaleFactor);
+        if (!isZero(divisor)) {
+            assertDivide(dividend, dividendRescaleFactor, negate(divisor), divisorRescaleFactor);
+        }
+        if (!isZero(dividend)) {
+            assertDivide(negate(dividend), dividendRescaleFactor, divisor, divisorRescaleFactor);
+        }
+        if (!isZero(dividend) && !isZero(divisor)) {
+            assertDivide(negate(dividend), dividendRescaleFactor, negate(divisor), divisorRescaleFactor);
+        }
     }
 
     private static void assertDivide(Slice dividend, int dividendRescaleFactor, Slice divisor, int divisorRescaleFactor)
