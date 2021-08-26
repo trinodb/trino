@@ -93,3 +93,12 @@ that may impact the usage of this connector. Increasing the cache duration and/o
 may prevent the limit from being reached. Running queries on the ``information_schema.columns``
 table without a schema and table name filter may lead to hitting the limit, as this requires
 fetching the sheet data for every table, unless it is already cached.
+
+.. _google-sheets-sql-support:
+
+SQL support
+-----------
+
+The connector provides :ref:`globally available <sql-globally-available>` and
+:ref:`read operation <sql-read-operations>` statements to access data and
+metadata in Google Sheets.
