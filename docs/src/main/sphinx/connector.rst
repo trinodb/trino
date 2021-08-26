@@ -31,6 +31,7 @@ from different data sources.
     Pinot           <connector/pinot>
     PostgreSQL      <connector/postgresql>
     Prometheus      <connector/prometheus>
+    Pulsar          <connector/pulsar>
     Redis           <connector/redis>
     Redshift        <connector/redshift>
     SingleStore (MemSQL)          <connector/memsql>
