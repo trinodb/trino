@@ -189,6 +189,23 @@ public class TestMetadataManager
                 .isEmpty();
     }
 
+    @Test
+    public void testColumnsQueryWithUpperCaseFilter()
+    {
+        // TODO (https://github.com/trinodb/trino/issues/17) this should return no rows
+        assertThat(queryRunner.execute("SELECT * FROM system.jdbc.columns WHERE table_schem = 'upper_case_schema' AND table_name = 'upper_case_table'"))
+                .hasSize(100);
+        // TODO (https://github.com/trinodb/trino/issues/17) this should return 100 rows
+        assertThat(queryRunner.execute("SELECT * FROM system.jdbc.columns WHERE table_schem = 'UPPER_CASE_SCHEMA'"))
+                .isEmpty();
+        // TODO (https://github.com/trinodb/trino/issues/17) this should return 100 rows
+        assertThat(queryRunner.execute("SELECT * FROM system.jdbc.columns WHERE table_name = 'UPPER_CASE_TABLE'"))
+                .isEmpty();
+        // TODO (https://github.com/trinodb/trino/issues/17) this should return 100 rows
+        assertThat(queryRunner.execute("SELECT * FROM system.jdbc.columns WHERE table_schem = 'UPPER_CASE_TABLE' AND table_name = 'UPPER_CASE_TABLE'"))
+                .isEmpty();
+    }
+
     private static ConnectorViewDefinition getConnectorViewDefinition()
     {
         return new ConnectorViewDefinition(
