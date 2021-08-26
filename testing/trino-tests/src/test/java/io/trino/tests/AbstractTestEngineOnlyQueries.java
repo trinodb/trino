@@ -5188,6 +5188,71 @@ public abstract class AbstractTestEngineOnlyQueries
     }
 
     @Test
+    public void testAggregationInPatternMatching()
+    {
+        assertQuery(
+                "SELECT even_count, even_sum, odd_count, odd_sum " +
+                        "          FROM orders " +
+                        "                 MATCH_RECOGNIZE ( " +
+                        "                   MEASURES " +
+                        "                           count(EVEN.totalprice) AS even_count, " +
+                        "                           sum(EVEN.totalprice) AS even_sum, " +
+                        "                           count(ODD.totalprice) AS odd_count, " +
+                        "                           sum(ODD.totalprice) AS odd_sum " +
+                        "                   ONE ROW PER MATCH " +
+                        "                   PATTERN ((EVEN | ODD)*) " +
+                        "                   DEFINE EVEN AS orderkey % 2 = 0 " +
+                        "                )",
+                "SELECT " +
+                        "       count(totalprice) FILTER (WHERE orderkey % 2 = 0), " +
+                        "       sum(totalprice) FILTER (WHERE orderkey % 2 = 0), " +
+                        "       count(totalprice) FILTER (WHERE orderkey % 2 != 0), " +
+                        "       sum(totalprice) FILTER (WHERE orderkey % 2 != 0) " +
+                        "FROM orders");
+
+        assertQuery(
+                "SELECT count_a, sum_a, count_b, sum_b " +
+                        "          FROM lineitem " +
+                        "                 MATCH_RECOGNIZE ( " +
+                        "                   ORDER BY orderkey, partkey, linenumber, suppkey " +
+                        "                   MEASURES " +
+                        "                           count(A.extendedprice) AS count_a, " +
+                        "                           sum(A.extendedprice) AS sum_a, " +
+                        "                           count(B.extendedprice) AS count_b, " +
+                        "                           sum(B.extendedprice) AS sum_b " +
+                        "                   ONE ROW PER MATCH " +
+                        "                   PATTERN ((A | B)*) " +
+                        "                   DEFINE A AS sum(A.extendedprice) - A.extendedprice <= sum(B.extendedprice) " +
+                        "                )",
+                "VALUES (30102, 1.076107263589997E9, 30073, 1.076082496880001E9)");
+
+        // multiple partitions
+        assertQuery(
+                "SELECT linenumber, count_a, sum_a, count_b, sum_b " +
+                        "          FROM lineitem " +
+                        "                 MATCH_RECOGNIZE ( " +
+                        "                   PARTITION BY linenumber " +
+                        "                   ORDER BY orderkey, partkey, suppkey " +
+                        "                   MEASURES " +
+                        "                           count(A.extendedprice) AS count_a, " +
+                        "                           sum(A.extendedprice) AS sum_a, " +
+                        "                           count(B.extendedprice) AS count_b, " +
+                        "                           sum(B.extendedprice) AS sum_b " +
+                        "                   ONE ROW PER MATCH " +
+                        "                   PATTERN ((A | B)*) " +
+                        "                   DEFINE A AS sum(A.extendedprice) - A.extendedprice <= sum(B.extendedprice) " +
+                        "                )",
+                "VALUES " +
+                        "       (1, 7527, 2.700130296299994E8,  7473, 2.699966325600006E8), " +
+                        "       (2, 6405, 2.3050976446000075E8, 6495, 2.305150154200002E8), " +
+                        "       (3, 5338, 1.9243010705000016E8, 5379, 1.924638281E8), " +
+                        "       (4, 4280, 1.5419989523000014E8, 4346, 1.542295559599997E8), " +
+                        "       (5, 3203, 1.137980570099999E8,  3235, 1.1375865371999986E8), " +
+                        "       (6, 2139, 7.687316147999987E7,  2182, 7.692793139999984E7), " +
+                        "       (7, 1094, 3.821874121000001E7,  1079, 3.8255387239999995E7) ");
+    }
+
+    @Test
     public void testShowSession()
     {
         Session session = new Session(
