@@ -42,9 +42,11 @@ import org.apache.hadoop.hive.common.type.Date;
 import org.apache.hadoop.hive.common.type.HiveVarchar;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorUtils;
+import org.apache.hadoop.hive.serde2.objectinspector.StandardUnionObjectInspector.StandardUnion;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.JavaHiveVarcharObjectInspector;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfoUtils;
+import org.apache.hadoop.hive.serde2.typeinfo.UnionTypeInfo;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
@@ -180,17 +182,51 @@ public class TestHiveBucketing
                 1704489973,
                 -788784060);
 
+        assertBucketEquals("uniontype<bigint,double,string>", null, 0, 0);
+        assertBucketEquals("uniontype<bigint,double,string>", asList((byte) 0, null, null, null), 0, 0);
+        assertBucketEquals("uniontype<bigint,double,string>", asList((byte) 0, 10L, null, null), 10, 1757052779);
+        assertBucketEquals("uniontype<bigint,double,string>", asList((byte) 1, null, 12.54, null), -1586578834, 1999451836);
+        assertBucketEquals("uniontype<bigint,double,string>", asList((byte) 2, null, null, "Trino Rocks!!"), -1273641318, -1291105351);
+        assertBucketEquals(
+                "uniontype<map<array<double>,map<int,string>>,struct<field1:bigint, field2:double, field3:string>>",
+                asList(
+                        (byte) 0,
+                        ImmutableMap.of(ImmutableList.of(12.3, 45.7), ImmutableMap.of(123, "test99")),
+                        null),
+                -34001111,
+                -1565874874);
+        assertBucketEquals(
+                "uniontype<map<array<double>,map<int,string>>,struct<field1:bigint, field2:double, field3:string>>,uniontype<bigint,double,string>",
+                asList(
+                        (byte) 1,
+                        null,
+                        ImmutableList.of(100L, 12.35, "Trino Rocks!!")),
+                -1536442882,
+                508696778);
+
         // multiple bucketing columns
         assertBucketEquals(
-                ImmutableList.of("float", "array<smallint>", "map<string,bigint>", "struct<field1:double, field2:date>"),
-                ImmutableList.of(12.34F, ImmutableList.of((short) 5, (short) 8, (short) 13), ImmutableMap.of("key", 123L), ImmutableList.of(12.35, Date.valueOf("1970-01-01"))),
-                -1600123774,
-                1606434793);
+                ImmutableList.of("float", "array<smallint>", "map<string,bigint>", "struct<field1:double, field2:date>", "uniontype<bigint,double,string>"),
+                ImmutableList.of(
+                        12.34F,
+                        ImmutableList.of((short) 5, (short) 8, (short) 13),
+                        ImmutableMap.of("key", 123L),
+                        ImmutableList.of(12.35, Date.valueOf("1970-01-01")),
+                        asList((byte) 0, 10L, null, null)),
+                1935770568,
+                16923810);
         assertBucketEquals(
-                ImmutableList.of("double", "array<smallint>", "boolean", "map<string,bigint>", "tinyint", "struct<field1:double, field2:date>"),
-                asList(null, ImmutableList.of((short) 5, (short) 8, (short) 13), null, ImmutableMap.of("key", 123L), null, ImmutableList.of(12.35, Date.valueOf("2015-01-01"))),
-                222594082,
-                -1758972258);
+                ImmutableList.of("double", "array<smallint>", "boolean", "map<string,bigint>", "tinyint", "struct<field1:double, field2:date>", "uniontype<bigint,double,string>"),
+                asList(
+                        null,
+                        ImmutableList.of((short) 5, (short) 8, (short) 13),
+                        null,
+                        ImmutableMap.of("key", 123L),
+                        null,
+                        ImmutableList.of(12.35, Date.valueOf("2015-01-01")),
+                        asList((byte) 2, null, null, "Trino Rocks!!")),
+                1331807928,
+                15329499);
     }
 
     @Test
@@ -315,9 +351,16 @@ public class TestHiveBucketing
         ImmutableList.Builder<Entry<ObjectInspector, Object>> columnBindingsBuilder = ImmutableList.builder();
         for (int i = 0; i < hiveTypeStrings.size(); i++) {
             Object javaValue = hiveValues.get(i);
+            TypeInfo typeInfo = hiveTypeInfos.get(i);
+
+            if (typeInfo instanceof UnionTypeInfo && javaValue != null) {
+                List<?> unionValue = (List<?>) javaValue;
+                byte tag = (byte) unionValue.get(0);
+                javaValue = new StandardUnion(tag, unionValue.get(tag + 1));
+            }
 
             columnBindingsBuilder.add(Maps.immutableEntry(
-                    TypeInfoUtils.getStandardJavaObjectInspectorFromTypeInfo(hiveTypeInfos.get(i)),
+                    TypeInfoUtils.getStandardJavaObjectInspectorFromTypeInfo(typeInfo),
                     javaValue));
         }
         return getHiveBucketHashCode(bucketingVersion, columnBindingsBuilder.build());

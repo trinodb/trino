@@ -24,6 +24,7 @@ import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.StructTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
+import org.apache.hadoop.hive.serde2.typeinfo.UnionTypeInfo;
 import org.apache.hive.common.util.Murmur3;
 
 import java.util.List;
@@ -130,7 +131,7 @@ final class HiveBucketingV2
             case STRUCT:
                 return hashOfStruct((StructTypeInfo) type, block.getObject(position, Block.class));
             case UNION:
-                // TODO: support more types, e.g. ROW
+                return hashOfUnion((UnionTypeInfo) type, block.getObject(position, Block.class));
         }
         throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive category: " + type.getCategory());
     }
@@ -196,7 +197,7 @@ final class HiveBucketingV2
             case STRUCT:
                 return hashOfStruct((StructTypeInfo) type, (Block) value);
             case UNION:
-                // TODO: support more types, e.g. ROW
+                return hashOfUnion((UnionTypeInfo) type, (Block) value);
         }
         throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive category: " + type.getCategory());
     }
@@ -232,6 +233,12 @@ final class HiveBucketingV2
             result = result * 31 + hash(typeInfos.get(i), singleRowBlock, i);
         }
         return result;
+    }
+
+    private static int hashOfUnion(UnionTypeInfo type, Block singleRowBlock)
+    {
+        int tag = singleRowBlock.getByte(0, 0);
+        return hash(type.getAllUnionObjectTypeInfos().get(tag), singleRowBlock, tag + 1);
     }
 
     // big-endian
