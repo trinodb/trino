@@ -234,8 +234,8 @@ import static io.trino.plugin.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
 import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static io.trino.plugin.hive.util.CompressionConfigUtil.configureCompression;
 import static io.trino.plugin.hive.util.ConfigurationUtils.toJobConf;
-import static io.trino.plugin.hive.util.HiveBucketing.bucketedOnTimestamp;
 import static io.trino.plugin.hive.util.HiveBucketing.getHiveBucketHandle;
+import static io.trino.plugin.hive.util.HiveBucketing.isSupportedBucketing;
 import static io.trino.plugin.hive.util.HiveUtil.columnExtraInfo;
 import static io.trino.plugin.hive.util.HiveUtil.getPartitionKeyColumnHandles;
 import static io.trino.plugin.hive.util.HiveUtil.getRegularColumnHandles;
@@ -2512,8 +2512,8 @@ public class HiveMetadata
                 .orElseThrow(() -> new TableNotFoundException(tableName));
 
         if (table.getStorage().getBucketProperty().isPresent()) {
-            if (bucketedOnTimestamp(table.getStorage().getBucketProperty().get(), table)) {
-                throw new TrinoException(NOT_SUPPORTED, "Writing to tables bucketed on timestamp not supported");
+            if (!isSupportedBucketing(table)) {
+                throw new TrinoException(NOT_SUPPORTED, "Cannot write to a table bucketed on an unsupported type");
             }
         }
         // treat un-bucketed transactional table as having a single bucket on no columns
@@ -2582,6 +2582,13 @@ public class HiveMetadata
         }
         if (!bucketProperty.get().getSortedBy().isEmpty() && !isSortedWritingEnabled(session)) {
             throw new TrinoException(NOT_SUPPORTED, "Writing to bucketed sorted Hive tables is disabled");
+        }
+
+        List<Column> dataColumn = getColumnHandles(tableMetadata, ImmutableSet.copyOf(partitionedBy)).stream()
+                .map(HiveColumnHandle::toMetastoreColumn)
+                .collect(toImmutableList());
+        if (!isSupportedBucketing(bucketProperty.get(), dataColumn, tableMetadata.getTable().getTableName())) {
+            throw new TrinoException(NOT_SUPPORTED, "Cannot write to a table bucketed on an unsupported type");
         }
 
         List<String> bucketedBy = bucketProperty.get().getBucketedBy();

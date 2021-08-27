@@ -22,13 +22,17 @@ import io.trino.tempto.configuration.Configuration;
 import io.trino.tempto.fulfillment.table.MutableTableRequirement;
 import io.trino.tempto.fulfillment.table.hive.HiveTableDefinition;
 import io.trino.testng.services.Flaky;
+import io.trino.tests.product.hive.util.TemporaryHiveTable;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.collect.Lists.cartesianProduct;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.anyOf;
+import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
 import static io.trino.tempto.fulfillment.table.MutableTableRequirement.State.PREPARED;
@@ -42,12 +46,15 @@ import static io.trino.tests.product.TpchTableResults.PRESTO_NATION_RESULT;
 import static io.trino.tests.product.hive.BucketingType.BUCKETED_DEFAULT;
 import static io.trino.tests.product.hive.BucketingType.BUCKETED_V1;
 import static io.trino.tests.product.hive.BucketingType.BUCKETED_V2;
+import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
+import static io.trino.tests.product.hive.util.TemporaryHiveTable.temporaryHiveTable;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static io.trino.tests.product.utils.TableDefinitionUtils.mutableTableInstanceOf;
 import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.sql.JDBCType.VARCHAR;
+import static java.util.stream.Collectors.joining;
 
 public class TestHiveBucketedTables
         extends HiveProductTest
@@ -302,6 +309,110 @@ public class TestHiveBucketedTables
         }
     }
 
+    @Test(dataProvider = "testBucketingWithUnsupportedDataTypesDataProvider")
+    public void testBucketingWithUnsupportedDataTypes(BucketingType bucketingType, String columnToBeBucketed)
+    {
+        try (TemporaryHiveTable table = temporaryHiveTable("table_with_unsupported_bucketing_types_" + randomTableSuffix())) {
+            String tableName = table.getName();
+            onHive().executeQuery(format("CREATE TABLE %s (" +
+                            "n_integer       INT," +
+                            "n_decimal       DECIMAL(9, 2)," +
+                            "n_timestamp     TIMESTAMP," +
+                            "n_char          CHAR(10)," +
+                            "n_binary        BINARY," +
+                            "n_union         UNIONTYPE<INT,STRING>," +
+                            "n_struct        STRUCT<field1:INT,field2:STRING>) " +
+                            "CLUSTERED BY (%s) INTO 2 BUCKETS " +
+                            "STORED AS ORC " +
+                            "%s",
+                    tableName,
+                    columnToBeBucketed,
+                    hiveTableProperties(bucketingType)));
+
+            assertThat(onTrino().executeQuery("SHOW CREATE TABLE " + tableName))
+                    .containsOnly(row(format(
+                            "CREATE TABLE hive.default.%s (\n" +
+                                    "   n_integer integer,\n" +
+                                    "   n_decimal decimal(9, 2),\n" +
+                                    "   n_timestamp timestamp(3),\n" +
+                                    "   n_char char(10),\n" +
+                                    "   n_binary varbinary,\n" +
+                                    "   n_union ROW(tag tinyint, field0 integer, field1 varchar),\n" +
+                                    "   n_struct ROW(field1 integer, field2 varchar)\n" +
+                                    ")\n" +
+                                    "WITH (\n" +
+                                    "   bucket_count = 2,\n" +
+                                    "   bucketed_by = ARRAY['%s'],\n" +
+                                    "   bucketing_version = %s,\n" +
+                                    "   format = 'ORC',\n" +
+                                    "   sorted_by = ARRAY[]\n" +
+                                    ")",
+                            tableName,
+                            columnToBeBucketed,
+                            getExpectedBucketVersion(bucketingType))));
+
+            populateRowToHiveTable(
+                    tableName,
+                    ImmutableList.<String>builder()
+                            .add("1")
+                            .add("CAST(1 AS DECIMAL(9, 2))")
+                            .add("CAST('2015-01-01T00:01:00.15' AS TIMESTAMP)")
+                            .add("'char value'")
+                            .add("unhex('00010203')")
+                            .add("create_union(0, 1, 'union value')")
+                            .add("named_struct('field1', 1, 'field2', 'Field2')")
+                            .build(),
+                    Optional.empty());
+
+            assertThat(onTrino().executeQuery(format("SELECT * FROM %s", tableName)))
+                    .hasRowsCount(1);
+
+            assertQueryFailure(() -> onTrino().executeQuery("SELECT \"$bucket\" FROM " + tableName))
+                    .hasMessageMatching("Query failed \\(#\\w+\\):\\Q line 1:8: Column '$bucket' cannot be resolved");
+
+            assertQueryFailure(() -> onTrino().executeQuery(format("INSERT INTO %s(n_integer) VALUES (1)", tableName)))
+                    .hasMessageMatching("Query failed \\(#\\w+\\): Cannot write to a table bucketed on an unsupported type");
+
+            String newTableName = "new_" + tableName;
+
+            // TODO Trino should reject if the user specifies to bucket on unsupported column type (https://github.com/trinodb/trino/issues/9094)
+            onTrino().executeQuery(format("CREATE TABLE %s (LIKE %s INCLUDING PROPERTIES)", newTableName, tableName));
+
+            assertQueryFailure(() -> onTrino().executeQuery("SELECT \"$bucket\" FROM " + newTableName))
+                    .hasMessageMatching("Query failed \\(#\\w+\\):\\Q line 1:8: Column '$bucket' cannot be resolved");
+
+            assertQueryFailure(() -> onTrino().executeQuery(format("INSERT INTO %s(n_integer) VALUES (1)", newTableName)))
+                    .hasMessageMatching("Query failed \\(#\\w+\\): Cannot write to a table bucketed on an unsupported type");
+
+            onTrino().executeQuery("DROP TABLE " + newTableName);
+
+            assertQueryFailure(() -> onTrino()
+                    .executeQuery(format(
+                            "CREATE TABLE %s WITH (%s) AS SELECT * FROM %s",
+                            newTableName,
+                            bucketingType.getTrinoTableProperties(columnToBeBucketed, 2).stream().collect(joining(",")),
+                            tableName)))
+                    .hasMessageMatching("Query failed \\(#\\w+\\): Cannot write to a table bucketed on an unsupported type");
+        }
+    }
+
+    @DataProvider
+    public static Object[][] testBucketingWithUnsupportedDataTypesDataProvider()
+    {
+        return cartesianProduct(
+                ImmutableList.of(BUCKETED_DEFAULT, BUCKETED_V1, BUCKETED_V2),
+                ImmutableList.<String>builder()
+                        .add("n_decimal")
+                        .add("n_timestamp")
+                        .add("n_char")
+                        .add("n_binary")
+                        .add("n_union")
+                        .add("n_struct")
+                        .build()).stream()
+                .map(List::toArray)
+                .toArray(Object[][]::new);
+    }
+
     private void testBucketingVersion(BucketingType bucketingType, String value, boolean insertWithTrino, List<String> expectedFileNameOptions)
     {
         log.info("Testing with bucketingType=%s, value='%s', insertWithTrino=%s, expectedFileNamePossibilites=%s", bucketingType, value, insertWithTrino, expectedFileNameOptions);
@@ -331,6 +442,20 @@ public class TestHiveBucketedTables
         tableProperties.add("'transactional'='false'");
         tableProperties.addAll(bucketingType.getHiveTableProperties());
         return "TBLPROPERTIES(" + join(",", tableProperties.build()) + ")";
+    }
+
+    private String getExpectedBucketVersion(BucketingType bucketingType)
+    {
+        switch (bucketingType) {
+            case BUCKETED_DEFAULT:
+                return getHiveVersionMajor() < 3 ? "1" : "2";
+            case BUCKETED_V1:
+                return "1";
+            case BUCKETED_V2:
+                return "2";
+            default:
+                throw new UnsupportedOperationException("Not supported for " + bucketingType);
+        }
     }
 
     private static void populateRowToHiveTable(String destination, List<String> values, Optional<String> partition)
