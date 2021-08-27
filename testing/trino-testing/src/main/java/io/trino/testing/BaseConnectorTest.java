@@ -181,6 +181,72 @@ public abstract class BaseConnectorTest
         assertQuery("SELECT shippriority, clerk, totalprice FROM orders");
     }
 
+    // Test char and varchar comparisons. Currently, unless such comparison is unwrapped in the engine, it's not pushed down into the connector,
+    // but this can change with expression-based predicate pushdown.
+    @Test
+    public void testCharVarcharComparison()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
+
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_char_varchar",
+                "(k, v) AS VALUES" +
+                        "   (-1, CAST(NULL AS char(3))), " +
+                        "   (3, CAST('   ' AS char(3)))," +
+                        "   (6, CAST('x  ' AS char(3)))")) {
+            // varchar of length shorter than column's length
+            assertQuery(
+                    "SELECT k, v FROM " + table.getName() + " WHERE v = CAST('  ' AS varchar(2))",
+                    // The value is included because both sides of the comparison are coerced to char(3)
+                    "VALUES (3, '   ')");
+
+            // varchar of length longer than column's length
+            assertQuery(
+                    "SELECT k, v FROM " + table.getName() + " WHERE v = CAST('  ' AS varchar(4))",
+                    // The value is included because both sides of the comparison are coerced to char(4)
+                    "VALUES (3, '   ')");
+
+            // value that's not all-spaces
+            assertQuery(
+                    "SELECT k, v FROM " + table.getName() + " WHERE v = CAST('x ' AS varchar(2))",
+                    // The value is included because both sides of the comparison are coerced to char(3)
+                    "VALUES (6, 'x  ')");
+        }
+    }
+
+    // Test varchar and char comparisons. Currently, unless such comparison is unwrapped in the engine, it's not pushed down into the connector,
+    // but this can change with expression-based predicate pushdown.
+    @Test
+    public void testVarcharCharComparison()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
+
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_varchar_char",
+                "(k, v) AS VALUES" +
+                        "   (-1, CAST(NULL AS varchar(3))), " +
+                        "   (0, CAST('' AS varchar(3)))," +
+                        "   (1, CAST(' ' AS varchar(3))), " +
+                        "   (2, CAST('  ' AS varchar(3))), " +
+                        "   (3, CAST('   ' AS varchar(3)))," +
+                        "   (4, CAST('x' AS varchar(3)))," +
+                        "   (5, CAST('x ' AS varchar(3)))," +
+                        "   (6, CAST('x  ' AS varchar(3)))")) {
+            assertQuery(
+                    "SELECT k, v FROM " + table.getName() + " WHERE v = CAST('  ' AS char(2))",
+                    // The 3-spaces value is included because both sides of the comparison are coerced to char(3)
+                    "VALUES (0, ''), (1, ' '), (2, '  '), (3, '   ')");
+
+            // value that's not all-spaces
+            assertQuery(
+                    "SELECT k, v FROM " + table.getName() + " WHERE v = CAST('x ' AS char(2))",
+                    // The 3-spaces value is included because both sides of the comparison are coerced to char(3)
+                    "VALUES (4, 'x'), (5, 'x '), (6, 'x  ')");
+        }
+    }
+
     @Test
     public void testAggregation()
     {
