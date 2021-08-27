@@ -18,8 +18,11 @@ import com.google.auth.oauth2.ServiceAccountCredentials;
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.BigQueryOptions;
 import com.google.cloud.bigquery.Dataset;
+import com.google.cloud.bigquery.DatasetId;
 import com.google.cloud.bigquery.DatasetInfo;
 import com.google.cloud.bigquery.QueryJobConfiguration;
+import com.google.cloud.bigquery.Table;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
@@ -36,8 +39,10 @@ import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.util.Base64;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
+import static com.google.cloud.bigquery.BigQuery.DatasetDeleteOption.deleteContents;
 import static com.google.cloud.bigquery.BigQuery.DatasetListOption.labelFilter;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -45,6 +50,8 @@ import static java.lang.String.format;
 
 public final class BigQueryQueryRunner
 {
+    private static final Logger log = Logger.get(BigQueryQueryRunner.class);
+
     private static final String TPCH_SCHEMA = "tpch";
 
     private BigQueryQueryRunner() {}
@@ -130,8 +137,18 @@ public final class BigQueryQueryRunner
                             BIG_QUERY_SQL_EXECUTOR_LABEL.getKey(),
                             BIG_QUERY_SQL_EXECUTOR_LABEL.getValue())));
             for (Dataset dataset : datasets.iterateAll()) {
-                dataset.delete();
+                log.info("Remove '%s' dataset that contains '%s' tables", dataset.getDatasetId().getDataset(), getTableNames(dataset.getDatasetId()));
+                dataset.delete(deleteContents());
             }
+        }
+
+        private List<String> getTableNames(DatasetId datasetId)
+        {
+            ImmutableList.Builder<String> tableNames = ImmutableList.builder();
+            for (Table table : bigQuery.listTables(datasetId).iterateAll()) {
+                tableNames.add(table.getTableId().getTable());
+            }
+            return tableNames.build();
         }
 
         private static BigQuery createBigQueryClient()
