@@ -28,7 +28,7 @@ public class TestBigQueryType
     {
         assertThat(BigQueryType.timeToStringConverter(
                 Long.valueOf(303497217825L)))
-                .isEqualTo("'12:34:56'");
+                .isEqualTo("'16:00:00.148'");
     }
 
     @Test
