@@ -45,6 +45,11 @@ public class IndexMetadata
         private final String name;
         private final Type type;
 
+        public Field(boolean isArray, String name, Type type)
+        {
+            this(false, isArray, name, type);
+        }
+
         public Field(boolean asRawJson, boolean isArray, String name, Type type)
         {
             checkArgument(!asRawJson || !isArray,
@@ -78,7 +83,7 @@ public class IndexMetadata
         @Override
         public int hashCode()
         {
-            return Objects.hash(isArray, name, type);
+            return Objects.hash(asRawJson, isArray, name, type);
         }
 
         @Override
@@ -91,9 +96,10 @@ public class IndexMetadata
                 return false;
             }
             Field field = (Field) o;
-            return isArray == field.isArray &&
-                name.equals(field.name) &&
-                type.equals(field.type);
+            return asRawJson == field.asRawJson &&
+                    isArray == field.isArray &&
+                    name.equals(field.name) &&
+                    type.equals(field.type);
         }
     }
 
@@ -168,8 +174,8 @@ public class IndexMetadata
             }
             DateTimeType that = (DateTimeType) o;
             return this.formats.size() == that.formats.size()
-                && this.formats.stream().collect(Collectors.toMap(Function.identity(), s -> 1L, Long::sum))
-                .equals(that.formats.stream().collect(Collectors.toMap(Function.identity(), s -> 1L, Long::sum)));
+                    && this.formats.stream().collect(Collectors.toMap(Function.identity(), s -> 1L, Long::sum))
+                    .equals(that.formats.stream().collect(Collectors.toMap(Function.identity(), s -> 1L, Long::sum)));
         }
     }
 

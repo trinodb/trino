@@ -79,7 +79,7 @@ public class ElasticsearchConfig
     private boolean unionSchemaIndicesForAlias;
     private int maxNumberOfIndicesForAliasSchema;
     private boolean failOnAliasSchemaMismatch;
-    private String defaultDataTypeForAliasSchemaMismatch = "text";
+    private String dataTypeForAliasSchemaMismatch;
 
     private Duration indexMetaDataCacheTtl = new Duration(1, MINUTES);
     private long indexMetaDataCacheMaximumSize = 1000;
@@ -191,20 +191,18 @@ public class ElasticsearchConfig
         return this;
     }
 
-    public String getDefaultDataTypeForAliasSchemaMismatch()
+    public String getDataTypeForAliasSchemaMismatch()
     {
-        return defaultDataTypeForAliasSchemaMismatch;
+        return dataTypeForAliasSchemaMismatch;
     }
 
-    /*
-    @Config("elasticsearch.default-datatype-for-alias-schema-mismatch")
-    @ConfigDescription("Default datatype for alias schema mismatch")
-    public ElasticsearchConfig setDefaultDataTypeForAliasSchemaMismatch(String defaultDataTypeForAliasSchemaMismatch)
+    @Config("elasticsearch.datatype-for-alias-schema-mismatch")
+    @ConfigDescription("Datatype for alias schema mismatch")
+    public ElasticsearchConfig setDataTypeForAliasSchemaMismatch(String dataTypeForAliasSchemaMismatch)
     {
-        this.defaultDataTypeForAliasSchemaMismatch = defaultDataTypeForAliasSchemaMismatch;
+        this.dataTypeForAliasSchemaMismatch = dataTypeForAliasSchemaMismatch;
         return this;
     }
-    */
 
     @NotNull
     @Min(1)

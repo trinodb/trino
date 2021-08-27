@@ -59,6 +59,7 @@ public class TestElasticsearchConfig
                 .setSecurity(null)
                 .setUnionSchemaIndicesForAlias(false)
                 .setMaxNumberOfIndicesForAliasSchema(0)
+                .setDataTypeForAliasSchemaMismatch(null)
                 .setFailOnAliasSchemaMismatch(false)
                 .setIndexMetaDataCacheTtl(new Duration(1, MINUTES))
                 .setIndexMetaDataCacheMaximumSize(1000));
@@ -96,7 +97,7 @@ public class TestElasticsearchConfig
                 .put("elasticsearch.union-schema-indices-for-alias", "true")
                 .put("elasticsearch.max-number-of-indices-for-alias-schema", "10")
                 .put("elasticsearch.fail-on-alias-schema-mismatch", "true")
-                .put("elasticsearch.default-datatype-for-alias-schema-mismatch", "long")
+                .put("elasticsearch.datatype-for-alias-schema-mismatch", "long")
                 .put("elasticsearch.index-metadata-cache-ttl", "10m")
                 .put("elasticsearch.index-metadata-cache-maximum-size", "10000")
                 .build();
@@ -126,6 +127,7 @@ public class TestElasticsearchConfig
                 .setUnionSchemaIndicesForAlias(true)
                 .setMaxNumberOfIndicesForAliasSchema(10)
                 .setFailOnAliasSchemaMismatch(true)
+                .setDataTypeForAliasSchemaMismatch("long")
                 .setIndexMetaDataCacheTtl(new Duration(10, MINUTES))
                 .setIndexMetaDataCacheMaximumSize(10000);
 

@@ -23,7 +23,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.NullNode;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Strings;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -112,6 +111,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -155,7 +155,7 @@ public class ElasticsearchClient
     private boolean unionSchemaIndicesForAlias;
     private int maxNumberOfIndicesForAliasSchema;
     private boolean failOnAliasSchemaMismatch;
-    private String defaultDataTypeForAliasSchemaMismatch;
+    private String dataTypeForAliasSchemaMismatch;
 
     private final TimeStat searchStats = new TimeStat(MILLISECONDS);
     private final TimeStat nextPageStats = new TimeStat(MILLISECONDS);
@@ -182,7 +182,7 @@ public class ElasticsearchClient
         this.unionSchemaIndicesForAlias = config.isUnionSchemaIndicesForAlias();
         this.maxNumberOfIndicesForAliasSchema = config.getMaxNumberOfIndicesForAliasSchema();
         this.failOnAliasSchemaMismatch = config.isFailOnAliasSchemaMismatch();
-        this.defaultDataTypeForAliasSchemaMismatch = config.getDefaultDataTypeForAliasSchemaMismatch();
+        this.dataTypeForAliasSchemaMismatch = config.getDataTypeForAliasSchemaMismatch();
         indexMetaDataCache = newCacheBuilder(OptionalLong.of(config.getIndexMetaDataCacheTtl().toMillis()), config.getIndexMetaDataCacheMaximumSize())
             .build(CacheLoader.asyncReloading(CacheLoader.from(this::loadIndexMetadata), Executors.newSingleThreadExecutor()));
     }
@@ -652,7 +652,7 @@ public class ElasticsearchClient
 
     private IndexMetadata.Field mergeNestedFields(String fieldName, List<IndexMetadata.Field> fields, String index, String parentPrefix)
     {
-        String prefix = Strings.isNullOrEmpty(parentPrefix) ? fieldName : getFlattenedKey(parentPrefix, fieldName);
+        String prefix = isNullOrEmpty(parentPrefix) ? fieldName : getFlattenedKey(parentPrefix, fieldName);
         IndexMetadata.ObjectType type = fields.stream()
                 .map(field -> (IndexMetadata.ObjectType) field.getType())
                 .reduce((nestedSchema1, nestedSchema2) -> merge(index, prefix, nestedSchema1, nestedSchema2))
@@ -678,18 +678,20 @@ public class ElasticsearchClient
 
         if (!typeMismatchFields.isEmpty() && failOnAliasSchemaMismatch) {
             Set<String> failedColNames = typeMismatchFields.keySet();
-            if (!Strings.isNullOrEmpty(parent)) {
+            if (!isNullOrEmpty(parent)) {
                 failedColNames = failedColNames.stream().map(c -> format("%s.%s", parent, c)).collect(Collectors.toSet());
             }
-            throw new RuntimeException(format("Table(Alias index) '%s' has columns '%s' having data type mismatch", index, failedColNames));
+            throw new TrinoException(ELASTICSEARCH_INVALID_METADATA, format("Table(Alias index) '%s' has columns '%s' having data type mismatch", index, failedColNames));
         }
 
         Set<IndexMetadata.Field> correctedFields = typeMismatchFields.entrySet().stream()
                 .map(fieldNameToFieldsList -> {
-                    String column = Strings.isNullOrEmpty(parent) ? fieldNameToFieldsList.getKey() : getFlattenedKey(parent, fieldNameToFieldsList.getKey());
-                    LOG.warn("Column '%s' in index(alias) '%s' has data type mismatch, Setting to default data type - '%s'",
-                            column, index, defaultDataTypeForAliasSchemaMismatch);
-                    return new IndexMetadata.Field(false, fieldNameToFieldsList.getKey(), new IndexMetadata.PrimitiveType(defaultDataTypeForAliasSchemaMismatch));
+                    String column = isNullOrEmpty(parent) ? fieldNameToFieldsList.getKey() : getFlattenedKey(parent, fieldNameToFieldsList.getKey());
+                    final boolean asRawJson = isNullOrEmpty(dataTypeForAliasSchemaMismatch);
+                    final String dataTypeForMismatchedField = asRawJson ? "text" : dataTypeForAliasSchemaMismatch;
+                    LOG.warn("Column '%s' in index(alias) '%s' has data type mismatch, Hence decoding as - '%s'",
+                            column, index, asRawJson ? "rawJson" : dataTypeForMismatchedField);
+                    return new IndexMetadata.Field(asRawJson, false, fieldNameToFieldsList.getKey(), new IndexMetadata.PrimitiveType(dataTypeForMismatchedField));
                 })
                 .collect(Collectors.toSet());
 
