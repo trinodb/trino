@@ -14,8 +14,9 @@
 package io.trino.tests.product.hive;
 
 import io.trino.tempto.ProductTest;
-import io.trino.tempto.query.QueryResult;
 import org.testng.annotations.Test;
+
+import java.util.List;
 
 import static io.trino.tempto.assertions.QueryAssert.Row;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
@@ -39,9 +40,10 @@ public class TestHiveSparkCompatibility
     {
         // Spark tables can be created using native Spark code or by going through Hive code
         // This tests the native Spark path.
-        String baseTableName = "test_trino_reading_spark_native_buckets_" + randomTableSuffix();
+        String sparkTableName = "test_trino_reading_spark_native_buckets_" + randomTableSuffix();
+        String trinoTableName = format("%s.default.%s", TRINO_CATALOG, sparkTableName);
 
-        String sparkTableDefinition =
+        onSpark().executeQuery(format(
                 "CREATE TABLE `default`.`%s` (\n" +
                         "  `a_string` STRING,\n" +
                         "  `a_bigint` BIGINT,\n" +
@@ -54,47 +56,45 @@ public class TestHiveSparkCompatibility
                         "INTO 4 BUCKETS\n" +
                         // Hive requires "original" files of transactional tables to conform to the bucketed tables naming pattern
                         // We can disable transactions or add another pattern to BackgroundHiveSplitLoader
-                        "TBLPROPERTIES ('transactional'='false')";
-        onSpark().executeQuery(format(sparkTableDefinition, baseTableName));
+                        "TBLPROPERTIES ('transactional'='false')",
+                sparkTableName));
 
-        String values = "VALUES " +
-                "('one', 1000000000000000, 1000000000, 10000000.123, 100000000000.123, true)" +
-                ", ('two', -1000000000000000, -1000000000, -10000000.123, -100000000000.123, false)" +
-                ", ('three', 2000000000000000, 2000000000, 20000000.123, 200000000000.123, true)" +
-                ", ('four', -2000000000000000, -2000000000, -20000000.123, -200000000000.123, false)";
-        String insert = format("INSERT INTO %s %s", baseTableName, values);
-        onSpark().executeQuery(insert);
+        onSpark().executeQuery(format(
+                "INSERT INTO %s VALUES " +
+                        "('one', 1000000000000000, 1000000000, 10000000.123, 100000000000.123, true)" +
+                        ", ('two', -1000000000000000, -1000000000, -10000000.123, -100000000000.123, false)" +
+                        ", ('three', 2000000000000000, 2000000000, 20000000.123, 200000000000.123, true)" +
+                        ", ('four', -2000000000000000, -2000000000, -20000000.123, -200000000000.123, false)",
+                sparkTableName));
 
-        Row row1 = row("one", 1000000000000000L, 1000000000, 10000000.123F, 100000000000.123, true);
-        Row row2 = row("two", -1000000000000000L, -1000000000, -10000000.123F, -100000000000.123, false);
-        Row row3 = row("three", 2000000000000000L, 2000000000, 20000000.123F, 200000000000.123, true);
-        Row row4 = row("four", -2000000000000000L, -2000000000, -20000000.123F, -200000000000.123, false);
+        List<Row> expected = List.of(
+                row("one", 1000000000000000L, 1000000000, 10000000.123F, 100000000000.123, true),
+                row("two", -1000000000000000L, -1000000000, -10000000.123F, -100000000000.123, false),
+                row("three", 2000000000000000L, 2000000000, 20000000.123F, 200000000000.123, true),
+                row("four", -2000000000000000L, -2000000000, -20000000.123F, -200000000000.123, false));
+        assertThat(onSpark().executeQuery("SELECT a_string, a_bigint, an_integer, a_real, a_double, a_boolean FROM " + sparkTableName))
+                .containsOnly(expected);
+        assertThat(onTrino().executeQuery("SELECT a_string, a_bigint, an_integer, a_real, a_double, a_boolean FROM " + trinoTableName))
+                .containsOnly(expected);
 
-        String startOfSelect = "SELECT a_string, a_bigint, an_integer, a_real, a_double, a_boolean";
-        QueryResult sparkSelect = onSpark().executeQuery(format("%s FROM %s", startOfSelect, baseTableName));
-        assertThat(sparkSelect).containsOnly(row1, row2, row3, row4);
+        assertThat(onTrino().executeQuery("SHOW CREATE TABLE " + trinoTableName))
+                .containsOnly(row(format(
+                        "CREATE TABLE %s (\n" +
+                                "   a_string varchar,\n" +
+                                "   a_bigint bigint,\n" +
+                                "   an_integer integer,\n" +
+                                "   a_real real,\n" +
+                                "   a_double double,\n" +
+                                "   a_boolean boolean\n" +
+                                ")\n" +
+                                "WITH (\n" +
+                                "   format = 'ORC'\n" +
+                                ")",
+                        trinoTableName)));
 
-        QueryResult trinoSelect = onTrino().executeQuery(format("%s FROM %s", startOfSelect, format("%s.default.%s", TRINO_CATALOG, baseTableName)));
-        assertThat(trinoSelect).containsOnly(row1, row2, row3, row4);
-
-        String trinoTableDefinition =
-                "CREATE TABLE %s.default.%s (\n" +
-                        "   a_string varchar,\n" +
-                        "   a_bigint bigint,\n" +
-                        "   an_integer integer,\n" +
-                        "   a_real real,\n" +
-                        "   a_double double,\n" +
-                        "   a_boolean boolean\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   format = 'ORC'\n" +
-                        ")";
-        assertThat(onTrino().executeQuery(format("SHOW CREATE TABLE %s.default.%s", TRINO_CATALOG, baseTableName)))
-                .containsOnly(row(format(trinoTableDefinition, TRINO_CATALOG, baseTableName)));
-
-        assertQueryFailure(() -> onTrino().executeQuery(format("%s, \"$bucket\" FROM %s", startOfSelect, format("%s.default.%s", TRINO_CATALOG, baseTableName))))
+        assertQueryFailure(() -> onTrino().executeQuery("SELECT a_string, a_bigint, an_integer, a_real, a_double, a_boolean \"$bucket\" FROM " + trinoTableName))
                 .hasMessageContaining("Column '$bucket' cannot be resolved");
 
-        onSpark().executeQuery("DROP TABLE " + baseTableName);
+        onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
 }
