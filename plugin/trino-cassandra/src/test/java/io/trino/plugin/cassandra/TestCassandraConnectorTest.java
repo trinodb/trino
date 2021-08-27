@@ -225,6 +225,13 @@ public class TestCassandraConnectorTest
                         ")");
     }
 
+    @Override
+    public void testCharVarcharComparison()
+    {
+        assertThatThrownBy(super::testCharVarcharComparison)
+                .hasMessage("unsupported type: char(3)");
+    }
+
     @Test
     public void testPartitionKeyPredicate()
     {

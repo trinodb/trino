@@ -33,6 +33,7 @@ import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -207,6 +208,18 @@ public class TestClickHouseConnectorTest
                         "col_default Nullable(Int64) DEFAULT 43," +
                         "col_nonnull_default Int64 DEFAULT 42," +
                         "col_required2 Int64) ENGINE=Log");
+    }
+
+    @Override
+    public void testCharVarcharComparison()
+    {
+        assertThatThrownBy(super::testCharVarcharComparison)
+                .hasMessageContaining("For query: ")
+                .hasMessageContaining("Actual rows")
+                .hasMessageContaining("Expected rows");
+
+        // TODO run the test with clickhouse.map-string-as-varchar
+        throw new SkipException("");
     }
 
     @Test

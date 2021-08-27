@@ -184,6 +184,13 @@ public abstract class BaseIcebergConnectorTest
                 .hasStackTraceContaining("This connector only supports delete where one or more identity-transformed partitions are deleted entirely");
     }
 
+    @Override
+    public void testCharVarcharComparison()
+    {
+        assertThatThrownBy(super::testCharVarcharComparison)
+                .hasMessage("Type not supported for Iceberg: char(3)");
+    }
+
     @Test
     @Override
     public void testShowCreateSchema()
