@@ -131,7 +131,7 @@ import static io.trino.plugin.hive.metastore.SortingColumn.Order.ASCENDING;
 import static io.trino.plugin.hive.metastore.SortingColumn.Order.DESCENDING;
 import static io.trino.plugin.hive.util.ConfigurationUtils.copy;
 import static io.trino.plugin.hive.util.ConfigurationUtils.toJobConf;
-import static io.trino.plugin.hive.util.HiveBucketing.bucketedOnTimestamp;
+import static io.trino.plugin.hive.util.HiveBucketing.isSupportedBucketing;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -845,7 +845,7 @@ public final class HiveUtil
         // add hidden columns
         columns.add(pathColumnHandle());
         if (table.getStorage().getBucketProperty().isPresent()) {
-            if (!bucketedOnTimestamp(table.getStorage().getBucketProperty().get(), table)) {
+            if (isSupportedBucketing(table)) {
                 columns.add(bucketColumnHandle());
             }
         }
