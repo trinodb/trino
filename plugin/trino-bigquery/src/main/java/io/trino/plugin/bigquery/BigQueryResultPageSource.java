@@ -64,6 +64,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -171,7 +172,7 @@ public class BigQueryResultPageSource
                     type.writeLong(output, toTrinoTimestamp(((Utf8) value).toString()));
                 }
                 else if (type.equals(TIME_WITH_TIME_ZONE)) {
-                    type.writeLong(output, DateTimeEncoding.packDateTimeWithZone(((Long) value).longValue() / 1000, TimeZoneKey.UTC_KEY));
+                    type.writeLong(output, DateTimeEncoding.packTimeWithTimeZone(((Long) value).longValue() * MICROSECONDS_PER_MILLISECOND, 0));
                 }
                 else if (type.equals(TIMESTAMP_TZ_MILLIS)) {
                     type.writeLong(output, DateTimeEncoding.packDateTimeWithZone(((Long) value).longValue() / 1000, TimeZoneKey.UTC_KEY));
