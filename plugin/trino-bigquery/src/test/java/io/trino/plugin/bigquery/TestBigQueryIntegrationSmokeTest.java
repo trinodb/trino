@@ -384,6 +384,25 @@ public class TestBigQueryIntegrationSmokeTest
                         ")");
     }
 
+    @Test
+    public void testTimeType()
+    {
+        String tableName = "test.test_time_type";
+
+        onBigQuery("DROP TABLE IF EXISTS " + tableName);
+        onBigQuery("CREATE TABLE " + tableName + " (a TIME)");
+        onBigQuery("INSERT INTO " + tableName + " VALUES ('01:02:03.123'), ('23:59:59.999')");
+
+        assertThat(query("SELECT a FROM " + tableName))
+                .containsAll("VALUES (TIME '01:02:03.123+00:00'), (TIME '23:59:59.999+00:00')");
+        assertThat(query("SELECT a FROM " + tableName + " WHERE a = TIME '01:02:03.123+00:00'"))
+                .containsAll("VALUES (TIME '01:02:03.123+00:00')");
+        assertThat(query("SELECT a FROM " + tableName + " WHERE rand() = 42 OR a = TIME '01:02:03.123+00:00'"))
+                .containsAll("VALUES (TIME '01:02:03.123+00:00')");
+
+        onBigQuery("DROP TABLE " + tableName);
+    }
+
     private void onBigQuery(String sql)
     {
         bigQuerySqlExecutor.execute(sql);
