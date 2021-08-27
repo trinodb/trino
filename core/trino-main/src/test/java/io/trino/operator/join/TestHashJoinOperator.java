@@ -399,8 +399,7 @@ public class TestHashJoinOperator
     @DataProvider
     public Object[][] joinWithSpillValues()
     {
-        List<List<Object>> dictionaryProcessingValues = ImmutableList.of(ImmutableList.of(true), ImmutableList.of(false));
-        return product(joinWithSpillParameters(true), dictionaryProcessingValues).stream()
+        return joinWithSpillParameters(true).stream()
                 .map(List::toArray)
                 .toArray(Object[][]::new);
     }
@@ -408,11 +407,10 @@ public class TestHashJoinOperator
     @DataProvider
     public Object[][] joinWithFailingSpillValues()
     {
-        List<List<Object>> dictionaryProcessingValues = ImmutableList.of(ImmutableList.of(true), ImmutableList.of(false));
         List<List<Object>> spillFailValues = Arrays.stream(WhenSpillFails.values())
                 .map(ImmutableList::<Object>of)
                 .collect(toList());
-        return product(product(joinWithSpillParameters(false), spillFailValues), dictionaryProcessingValues).stream()
+        return product(joinWithSpillParameters(false), spillFailValues).stream()
                 .map(List::toArray)
                 .toArray(Object[][]::new);
     }
@@ -440,14 +438,14 @@ public class TestHashJoinOperator
     }
 
     @Test(dataProvider = "joinWithSpillValues")
-    public void testInnerJoinWithSpill(boolean probeHashEnabled, List<WhenSpill> whenSpill, boolean isDictionaryProcessingJoinEnabled)
+    public void testInnerJoinWithSpill(boolean probeHashEnabled, List<WhenSpill> whenSpill)
             throws Exception
     {
         innerJoinWithSpill(probeHashEnabled, whenSpill, SINGLE_STREAM_SPILLER_FACTORY, PARTITIONING_SPILLER_FACTORY);
     }
 
     @Test(dataProvider = "joinWithFailingSpillValues")
-    public void testInnerJoinWithFailingSpill(boolean probeHashEnabled, List<WhenSpill> whenSpill, WhenSpillFails whenSpillFails, boolean isDictionaryProcessingJoinEnabled)
+    public void testInnerJoinWithFailingSpill(boolean probeHashEnabled, List<WhenSpill> whenSpill, WhenSpillFails whenSpillFails)
     {
         DummySpillerFactory buildSpillerFactory = new DummySpillerFactory();
         DummySpillerFactory joinSpillerFactory = new DummySpillerFactory();
