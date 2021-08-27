@@ -96,11 +96,7 @@ public class PartitionedLookupSource
 
         // this generator is only used for getJoinPosition without a rawHash and in this case
         // the hash channels are always packed in a page without extra columns
-        int[] hashChannels = new int[hashChannelTypes.size()];
-        for (int i = 0; i < hashChannels.length; i++) {
-            hashChannels[i] = i;
-        }
-        this.partitionGenerator = new LocalPartitionGenerator(new InterpretedHashGenerator(hashChannelTypes, hashChannels, blockTypeOperators), lookupSources.size());
+        this.partitionGenerator = new LocalPartitionGenerator(InterpretedHashGenerator.createPositionalWithTypes(hashChannelTypes, blockTypeOperators), lookupSources.size());
 
         this.partitionMask = lookupSources.size() - 1;
         this.shiftSize = numberOfTrailingZeros(lookupSources.size()) + 1;
