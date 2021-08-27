@@ -168,17 +168,29 @@ public class TestHiveBucketing
 
         assertBucketEquals("map<array<double>,map<int,string>>", ImmutableMap.of(ImmutableList.of(12.3, 45.7), ImmutableMap.of(123, "test99")), -34001111, -1565874874);
 
+        assertBucketEquals("struct<field1:bigint, field2:double, field3:string>", null, 0, 0);
+        assertBucketEquals("struct<field1:bigint, field2:double, field3:string>", asList(null, null, null), 0, 0);
+        assertBucketEquals("struct<field1:bigint, field2:double, field3:string>", asList(1L, null, null), 961, -1856487876);
+        assertBucketEquals("struct<field1:bigint, field2:double, field3:string>", ImmutableList.of(10L, 12.3, "Trino Rocks!!"), 277146753, 1264647249);
+        assertBucketEquals(
+                "struct<field1:map<array<double>,map<int,string>>, field2:struct<field1:bigint, field2:double, field3:string>>",
+                ImmutableList.of(
+                        ImmutableMap.of(ImmutableList.of(12.3, 45.7), ImmutableMap.of(123, "test99")),
+                        ImmutableList.of(100L, 12.35, "Trino Rocks!!")),
+                1704489973,
+                -788784060);
+
         // multiple bucketing columns
         assertBucketEquals(
-                ImmutableList.of("float", "array<smallint>", "map<string,bigint>"),
-                ImmutableList.of(12.34F, ImmutableList.of((short) 5, (short) 8, (short) 13), ImmutableMap.of("key", 123L)),
-                95411006,
-                932898434);
+                ImmutableList.of("float", "array<smallint>", "map<string,bigint>", "struct<field1:double, field2:date>"),
+                ImmutableList.of(12.34F, ImmutableList.of((short) 5, (short) 8, (short) 13), ImmutableMap.of("key", 123L), ImmutableList.of(12.35, Date.valueOf("1970-01-01"))),
+                -1600123774,
+                1606434793);
         assertBucketEquals(
-                ImmutableList.of("double", "array<smallint>", "boolean", "map<string,bigint>", "tinyint"),
-                asList(null, ImmutableList.of((short) 5, (short) 8, (short) 13), null, ImmutableMap.of("key", 123L), null),
-                154207826,
-                -1120812524);
+                ImmutableList.of("double", "array<smallint>", "boolean", "map<string,bigint>", "tinyint", "struct<field1:double, field2:date>"),
+                asList(null, ImmutableList.of((short) 5, (short) 8, (short) 13), null, ImmutableMap.of("key", 123L), null, ImmutableList.of(12.35, Date.valueOf("2015-01-01"))),
+                222594082,
+                -1758972258);
     }
 
     @Test

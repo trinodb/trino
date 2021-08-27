@@ -22,6 +22,7 @@ import io.trino.spi.type.Type;
 import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
+import org.apache.hadoop.hive.serde2.typeinfo.StructTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 
 import java.util.List;
@@ -122,6 +123,7 @@ final class HiveBucketingV1
             case MAP:
                 return hashOfMap((MapTypeInfo) type, block.getObject(position, Block.class));
             case STRUCT:
+                return hashOfStruct((StructTypeInfo) type, block.getObject(position, Block.class));
             case UNION:
                 // TODO: support more types, e.g. ROW
         }
@@ -184,8 +186,9 @@ final class HiveBucketingV1
             case MAP:
                 return hashOfMap((MapTypeInfo) type, (Block) value);
             case STRUCT:
+                return hashOfStruct((StructTypeInfo) type, (Block) value);
             case UNION:
-                // TODO: support more types, e.g. ROW
+                // TODO: support more types, e.g. UNION
         }
         throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive category: " + type.getCategory());
     }
@@ -207,6 +210,16 @@ final class HiveBucketingV1
         int result = 0;
         for (int i = 0; i < singleListBlock.getPositionCount(); i++) {
             result = result * 31 + hash(elementTypeInfo, singleListBlock, i);
+        }
+        return result;
+    }
+
+    private static int hashOfStruct(StructTypeInfo type, Block singleRowBlock)
+    {
+        List<TypeInfo> typeInfos = type.getAllStructFieldTypeInfos();
+        int result = 0;
+        for (int i = 0; i < singleRowBlock.getPositionCount(); i++) {
+            result = result * 31 + hash(typeInfos.get(i), singleRowBlock, i);
         }
         return result;
     }
