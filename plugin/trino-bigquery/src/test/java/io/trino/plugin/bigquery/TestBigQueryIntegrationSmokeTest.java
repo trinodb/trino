@@ -13,10 +13,12 @@
  */
 package io.trino.plugin.bigquery;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.AbstractTestIntegrationSmokeTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.sql.TestTable;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -401,6 +403,21 @@ public class TestBigQueryIntegrationSmokeTest
                 .matches("VALUES TIME '01:02:03.123+00:00'");
 
         onBigQuery("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testDatetimeType()
+    {
+        try (TestTable table = new TestTable(
+                bigQuerySqlExecutor,
+                "test.test_datetime_type",
+                "(a DATETIME)",
+                ImmutableList.of("'2021-08-27 12:34:56.123'", "'2022-09-28 01:02:03.987'"))) {
+            assertThat(query("SELECT a FROM " + table.getName()))
+                    .matches("VALUES TIMESTAMP '2021-08-27 12:34:56.123', TIMESTAMP '2022-09-28 01:02:03.987'");
+            assertThat(query("SELECT a FROM " + table.getName() + " WHERE a = TIMESTAMP '2021-08-27 12:34:56.123'"))
+                    .matches("VALUES TIMESTAMP '2021-08-27 12:34:56.123'");
+        }
     }
 
     private void onBigQuery(String sql)

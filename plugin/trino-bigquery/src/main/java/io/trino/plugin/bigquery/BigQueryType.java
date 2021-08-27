@@ -39,6 +39,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -51,6 +52,7 @@ import java.util.Map;
 
 import static com.google.cloud.bigquery.Field.Mode.REPEATED;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.math.LongMath.divide;
 import static io.trino.plugin.bigquery.BigQueryMetadata.NUMERIC_DATA_TYPE_PRECISION;
 import static io.trino.plugin.bigquery.BigQueryMetadata.NUMERIC_DATA_TYPE_SCALE;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -62,7 +64,6 @@ import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
-import static java.time.ZoneOffset.systemDefault;
 import static java.util.stream.Collectors.toList;
 
 public enum BigQueryType
@@ -147,7 +148,7 @@ public enum BigQueryType
 
     static String datetimeToStringConverter(Object value)
     {
-        return formatTimestamp(((Long) value).longValue(), systemDefault());
+        return formatTimestamp(divide(((long) value), MICROSECONDS_PER_MILLISECOND, RoundingMode.UNNECESSARY), UTC);
     }
 
     static String timeToStringConverter(Object value)
