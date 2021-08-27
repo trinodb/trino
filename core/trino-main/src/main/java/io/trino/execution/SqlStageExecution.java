@@ -252,9 +252,6 @@ public final class SqlStageExecution
             return;
         }
 
-        if (getAllTasks().stream().anyMatch(task -> getState() == StageState.RUNNING)) {
-            stateMachine.transitionToRunning();
-        }
         if (isFlushing()) {
             stateMachine.transitionToFlushing();
         }
