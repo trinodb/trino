@@ -230,7 +230,7 @@ public abstract class BaseJdbcConnectorTest
             return;
         }
 
-        boolean expectAggregationPushdown = hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY);
+        boolean supportsPushdownWithVarcharInequality = hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY);
         PlanMatchPattern aggregationOverTableScan = node(AggregationNode.class, node(TableScanNode.class));
         PlanMatchPattern groupingAggregationOverTableScan = node(AggregationNode.class, node(ProjectNode.class, node(TableScanNode.class)));
         try (TestTable table = new TestTable(
@@ -246,7 +246,7 @@ public abstract class BaseJdbcConnectorTest
             assertConditionallyPushedDown(
                     getSession(),
                     "SELECT max(a_string), min(a_string), max(a_char), min(a_char) FROM " + table.getName(),
-                    expectAggregationPushdown,
+                    supportsPushdownWithVarcharInequality,
                     aggregationOverTableScan)
                     .skippingTypesCheck()
                     .matches("VALUES ('b', 'A', 'b', 'A')");
@@ -254,27 +254,27 @@ public abstract class BaseJdbcConnectorTest
             assertConditionallyPushedDown(
                     getSession(),
                     "SELECT distinct a_string FROM " + table.getName(),
-                    expectAggregationPushdown,
+                    supportsPushdownWithVarcharInequality,
                     groupingAggregationOverTableScan)
                     .skippingTypesCheck()
                     .matches("VALUES 'A', 'B', 'a', 'b'");
             assertConditionallyPushedDown(
                     getSession(),
                     "SELECT distinct a_char FROM " + table.getName(),
-                    expectAggregationPushdown,
+                    supportsPushdownWithVarcharInequality,
                     groupingAggregationOverTableScan)
                     .skippingTypesCheck()
                     .matches("VALUES 'A', 'B', 'a', 'b'");
             // case-sensitive grouping sets prevent pushdown
             assertConditionallyPushedDown(getSession(),
                     "SELECT a_string, count(*) FROM " + table.getName() + " GROUP BY a_string",
-                    expectAggregationPushdown,
+                    supportsPushdownWithVarcharInequality,
                     groupingAggregationOverTableScan)
                     .skippingTypesCheck()
                     .matches("VALUES ('A', BIGINT '1'), ('a', BIGINT '1'), ('b', BIGINT '1'), ('B', BIGINT '1')");
             assertConditionallyPushedDown(getSession(),
                     "SELECT a_char, count(*) FROM " + table.getName() + " GROUP BY a_char",
-                    expectAggregationPushdown,
+                    supportsPushdownWithVarcharInequality,
                     groupingAggregationOverTableScan)
                     .skippingTypesCheck()
                     .matches("VALUES ('A', BIGINT '1'), ('B', BIGINT '1'), ('a', BIGINT '1'), ('b', BIGINT '1')");
@@ -286,13 +286,13 @@ public abstract class BaseJdbcConnectorTest
             // DISTINCT over case-sensitive columns prevents pushdown
             assertConditionallyPushedDown(getSession(),
                     "SELECT count(DISTINCT a_string) FROM " + table.getName(),
-                    expectAggregationPushdown,
+                    supportsPushdownWithVarcharInequality,
                     groupingAggregationOverTableScan)
                     .skippingTypesCheck()
                     .matches("VALUES BIGINT '4'");
             assertConditionallyPushedDown(getSession(),
                     "SELECT count(DISTINCT a_char) FROM " + table.getName(),
-                    expectAggregationPushdown,
+                    supportsPushdownWithVarcharInequality,
                     groupingAggregationOverTableScan)
                     .skippingTypesCheck()
                     .matches("VALUES BIGINT '4'");
