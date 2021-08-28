@@ -92,7 +92,7 @@ public class TestHiveSparkCompatibility
                                 ")",
                         trinoTableName)));
 
-        assertQueryFailure(() -> onTrino().executeQuery("SELECT a_string, a_bigint, an_integer, a_real, a_double, a_boolean \"$bucket\" FROM " + trinoTableName))
+        assertQueryFailure(() -> onTrino().executeQuery("SELECT a_string, a_bigint, an_integer, a_real, a_double, a_boolean, \"$bucket\" FROM " + trinoTableName))
                 .hasMessageContaining("Column '$bucket' cannot be resolved");
 
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
