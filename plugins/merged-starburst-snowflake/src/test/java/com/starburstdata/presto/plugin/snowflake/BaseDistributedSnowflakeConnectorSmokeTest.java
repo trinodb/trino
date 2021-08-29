@@ -24,6 +24,8 @@ public abstract class BaseDistributedSnowflakeConnectorSmokeTest
         switch (connectorBehavior) {
             case SUPPORTS_DELETE:
                 return true;
+            case SUPPORTS_RENAME_SCHEMA:
+                return false;
             default:
                 return super.hasBehavior(connectorBehavior);
         }

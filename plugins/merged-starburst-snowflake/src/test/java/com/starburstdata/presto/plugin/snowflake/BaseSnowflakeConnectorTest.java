@@ -58,6 +58,7 @@ public abstract class BaseSnowflakeConnectorTest
     {
         switch (connectorBehavior) {
             case SUPPORTS_ARRAY:
+            case SUPPORTS_RENAME_SCHEMA:
             case SUPPORTS_COMMENT_ON_TABLE:
             case SUPPORTS_COMMENT_ON_COLUMN:
                 return false;
