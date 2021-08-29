@@ -7390,25 +7390,17 @@ public class TestHiveConnectorTest
     }
 
     @Override
-    public void testColumnName(String columnName)
+    protected boolean isColumnNameRejected(Exception exception, String columnName, boolean delimited)
     {
-        if (columnName.equals(" aleadingspace")) {
-            assertThatThrownBy(() -> super.testColumnName(columnName))
-                    .hasMessageMatching(format("Column name '%s' is invalid because it contains a leading space", columnName));
-            return;
+        switch (columnName) {
+            case " aleadingspace":
+                return "Hive column names must not start with a space: ' aleadingspace'".equals(exception.getMessage());
+            case "atrailingspace ":
+                return "Hive column names must not end with a space: 'atrailingspace '".equals(exception.getMessage());
+            case "a,comma":
+                return "Hive column names must not contain commas: 'a,comma'".equals(exception.getMessage());
         }
-        if (columnName.equals("atrailingspace ")) {
-            assertThatThrownBy(() -> super.testColumnName(columnName))
-                    .hasMessageMatching(format("Column name '%s' is invalid because it contains a trailing space", columnName));
-            return;
-        }
-        if (columnName.equals("a,comma")) {
-            assertThatThrownBy(() -> super.testColumnName(columnName))
-                    .hasMessageMatching(format("Column name '%s' is invalid because it contains a comma", columnName));
-            return;
-        }
-
-        super.testColumnName(columnName);
+        return false;
     }
 
     private void testColumnPruning(Session session, HiveStorageFormat storageFormat)

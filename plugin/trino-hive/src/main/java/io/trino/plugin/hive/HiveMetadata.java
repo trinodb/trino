@@ -255,7 +255,6 @@ import static io.trino.plugin.hive.util.Statistics.fromComputedStatistics;
 import static io.trino.plugin.hive.util.Statistics.reduce;
 import static io.trino.plugin.hive.util.SystemTables.getSourceTableNameFromSystemTable;
 import static io.trino.spi.StandardErrorCode.INVALID_ANALYZE_PROPERTY;
-import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_NAME;
 import static io.trino.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -2839,13 +2838,13 @@ public class HiveMetadata
         for (ColumnMetadata column : tableMetadata.getColumns()) {
             String columnName = column.getName();
             if (columnName.startsWith(" ")) {
-                throw new TrinoException(INVALID_COLUMN_NAME, format("Column name '%s' is invalid because it contains a leading space", columnName));
+                throw new TrinoException(NOT_SUPPORTED, format("Hive column names must not start with a space: '%s'", columnName));
             }
             if (columnName.endsWith(" ")) {
-                throw new TrinoException(INVALID_COLUMN_NAME, format("Column name '%s' is invalid because it contains a trailing space", columnName));
+                throw new TrinoException(NOT_SUPPORTED, format("Hive column names must not end with a space: '%s'", columnName));
             }
             if (columnName.contains(",")) {
-                throw new TrinoException(INVALID_COLUMN_NAME, format("Column name '%s' is invalid because it contains a comma", columnName));
+                throw new TrinoException(NOT_SUPPORTED, format("Hive column names must not contain commas: '%s'", columnName));
             }
             // validate type is supported
             toHiveType(column.getType());
