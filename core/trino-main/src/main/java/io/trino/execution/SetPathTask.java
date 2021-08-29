@@ -30,8 +30,8 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
 import static io.trino.spi.StandardErrorCode.MISSING_CATALOG_NAME;
-import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static java.util.Locale.ENGLISH;
@@ -71,9 +71,7 @@ public class SetPathTask
 
             element.getCatalog().ifPresent(catalog -> {
                 String catalogName = catalog.getValue().toLowerCase(ENGLISH);
-                if (metadata.getCatalogHandle(session, catalogName).isEmpty()) {
-                    throw new TrinoException(NOT_FOUND, "Catalog does not exist: " + catalogName);
-                }
+                getRequiredCatalogHandle(metadata, session, statement, catalogName);
             });
         }
         stateMachine.setSetPath(sqlPath.toString());

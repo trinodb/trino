@@ -709,7 +709,7 @@ public class TestTrinoDriver
     public void testBadQuery()
             throws Exception
     {
-        try (Connection connection = createConnection("test", "tiny")) {
+        try (Connection connection = createConnection(TEST_CATALOG, "tiny")) {
             try (Statement statement = connection.createStatement()) {
                 try (ResultSet ignored = statement.executeQuery("SELECT * FROM bad_table")) {
                     fail("expected exception");
