@@ -17,6 +17,8 @@ import com.starburstdata.presto.plugin.jdbc.expression.ImplementCovariancePop;
 import com.starburstdata.presto.plugin.jdbc.expression.ImplementCovarianceSamp;
 import com.starburstdata.presto.plugin.jdbc.redirection.TableScanRedirection;
 import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
+import io.trino.plugin.base.expression.AggregateFunctionRewriter;
+import io.trino.plugin.base.expression.AggregateFunctionRule;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
@@ -32,8 +34,6 @@ import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteTableName;
-import io.trino.plugin.jdbc.expression.AggregateFunctionRewriter;
-import io.trino.plugin.jdbc.expression.AggregateFunctionRule;
 import io.trino.plugin.jdbc.expression.ImplementAvgDecimal;
 import io.trino.plugin.jdbc.expression.ImplementAvgFloatingPoint;
 import io.trino.plugin.jdbc.expression.ImplementCount;
@@ -102,7 +102,7 @@ public class StarburstOracleClient
 
     private final boolean synonymsEnabled;
     private final LicenseManager licenseManager;
-    private final AggregateFunctionRewriter aggregateFunctionRewriter;
+    private final AggregateFunctionRewriter<JdbcExpression> aggregateFunctionRewriter;
     private final boolean statisticsEnabled;
     private final TableScanRedirection tableScanRedirection;
 
@@ -121,9 +121,9 @@ public class StarburstOracleClient
         synonymsEnabled = oracleConfig.isSynonymsEnabled();
         this.licenseManager = requireNonNull(licenseManager, "licenseManager is null");
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(PRESTO_BIGINT_TYPE, Optional.empty(), 0, 0, Optional.empty());
-        this.aggregateFunctionRewriter = new AggregateFunctionRewriter(
+        this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(
                 this::quoted,
-                ImmutableSet.<AggregateFunctionRule>builder()
+                ImmutableSet.<AggregateFunctionRule<JdbcExpression>>builder()
                         .add(new ImplementCountAll(bigintTypeHandle))
                         .add(new ImplementCount(bigintTypeHandle))
                         .add(new ImplementMinMax(true))
