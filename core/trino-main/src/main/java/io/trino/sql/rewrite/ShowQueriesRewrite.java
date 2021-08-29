@@ -105,6 +105,7 @@ import static io.trino.metadata.MetadataListing.listCatalogs;
 import static io.trino.metadata.MetadataListing.listSchemas;
 import static io.trino.metadata.MetadataUtil.createCatalogSchemaName;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
+import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_MATERIALIZED_VIEW_PROPERTY;
@@ -388,9 +389,7 @@ final class ShowQueriesRewrite
         protected Node visitShowColumns(ShowColumns showColumns, Void context)
         {
             QualifiedObjectName tableName = createQualifiedObjectName(session, showColumns, showColumns.getTable());
-            if (metadata.getCatalogHandle(session, tableName.getCatalogName()).isEmpty()) {
-                throw semanticException(CATALOG_NOT_FOUND, showColumns, "Catalog '%s' does not exist", tableName.getCatalogName());
-            }
+            getRequiredCatalogHandle(metadata, session, showColumns, tableName.getCatalogName());
             if (!metadata.schemaExists(session, new CatalogSchemaName(tableName.getCatalogName(), tableName.getSchemaName()))) {
                 throw semanticException(SCHEMA_NOT_FOUND, showColumns, "Schema '%s' does not exist", tableName.getSchemaName());
             }

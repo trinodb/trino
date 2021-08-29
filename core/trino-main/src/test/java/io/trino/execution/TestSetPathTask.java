@@ -79,7 +79,7 @@ public class TestSetPathTask
         assertEquals(stateMachine.getSetPath(), "foo");
     }
 
-    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "Catalog does not exist: .*")
+    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "Catalog '.*' does not exist")
     public void testSetPathInvalidCatalog()
     {
         PathSpecification invalidPathSpecification = new PathSpecification(Optional.empty(), ImmutableList.of(
