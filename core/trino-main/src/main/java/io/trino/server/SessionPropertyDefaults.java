@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 import io.trino.Session;
+import io.trino.security.AccessControl;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.resourcegroups.SessionPropertyConfigurationManagerContext;
@@ -97,7 +98,7 @@ public class SessionPropertyDefaults
         log.info("-- Loaded session property configuration manager %s --", name);
     }
 
-    public Session newSessionWithDefaultProperties(Session session, Optional<String> queryType, ResourceGroupId resourceGroupId)
+    public Session newSessionWithDefaultProperties(Session session, Optional<String> queryType, ResourceGroupId resourceGroupId, AccessControl accessControl)
     {
         SessionPropertyConfigurationManager configurationManager = delegate.get();
         if (configurationManager == null) {
@@ -113,6 +114,6 @@ public class SessionPropertyDefaults
 
         Map<String, String> systemPropertyOverrides = configurationManager.getSystemSessionProperties(context);
         Map<String, Map<String, String>> catalogPropertyOverrides = configurationManager.getCatalogSessionProperties(context);
-        return session.withDefaultProperties(systemPropertyOverrides, catalogPropertyOverrides);
+        return session.withDefaultProperties(systemPropertyOverrides, catalogPropertyOverrides, accessControl);
     }
 }

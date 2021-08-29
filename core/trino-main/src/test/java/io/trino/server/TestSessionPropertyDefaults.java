@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.node.NodeInfo;
 import io.trino.Session;
 import io.trino.metadata.SessionPropertyManager;
+import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.QueryId;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.security.Identity;
@@ -42,8 +43,7 @@ public class TestSessionPropertyDefaults
         SessionPropertyDefaults sessionPropertyDefaults = new SessionPropertyDefaults(TEST_NODE_INFO);
         SessionPropertyConfigurationManagerFactory factory = new TestingSessionPropertyConfigurationManagerFactory(
                 ImmutableMap.<String, String>builder()
-                        .put(QUERY_MAX_MEMORY, "override")
-                        .put("system_default", "system_default")
+                        .put(QUERY_MAX_MEMORY, "1GB")
                         .build(),
                 ImmutableMap.of(
                         "testCatalog",
@@ -76,13 +76,12 @@ public class TestSessionPropertyDefaults
                                 .put("explicit_set", "explicit_set")
                                 .build()));
 
-        session = sessionPropertyDefaults.newSessionWithDefaultProperties(session, Optional.empty(), TEST_RESOURCE_GROUP_ID);
+        session = sessionPropertyDefaults.newSessionWithDefaultProperties(session, Optional.empty(), TEST_RESOURCE_GROUP_ID, new AllowAllAccessControl());
 
         assertEquals(session.getSystemProperties(), ImmutableMap.<String, String>builder()
                 .put(QUERY_MAX_MEMORY, "1GB")
                 .put(JOIN_DISTRIBUTION_TYPE, "partitioned")
                 .put(HASH_PARTITION_COUNT, "43")
-                .put("system_default", "system_default")
                 .build());
         assertEquals(
                 session.getUnprocessedCatalogProperties(),

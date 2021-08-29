@@ -49,7 +49,6 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.connector.CatalogName.createInformationSchemaCatalogName;
 import static io.trino.connector.CatalogName.createSystemTablesCatalogName;
@@ -389,15 +388,38 @@ public final class Session
                 protocolHeaders);
     }
 
-    public Session withDefaultProperties(Map<String, String> systemPropertyDefaults, Map<String, Map<String, String>> catalogPropertyDefaults)
+    public Session withDefaultProperties(Map<String, String> systemPropertyDefaults, Map<String, Map<String, String>> catalogPropertyDefaults, AccessControl accessControl)
     {
         requireNonNull(systemPropertyDefaults, "systemPropertyDefaults is null");
         requireNonNull(catalogPropertyDefaults, "catalogPropertyDefaults is null");
 
-        // to remove this check properties must be authenticated and validated as in beginTransactionId
-        checkState(
-                this.transactionId.isEmpty() && this.connectorProperties.isEmpty(),
-                "Session properties cannot be overridden once a transaction is active");
+        for (Entry<String, String> property : systemPropertyDefaults.entrySet()) {
+            // verify permissions
+            accessControl.checkCanSetSystemSessionProperty(identity, property.getKey());
+
+            // validate session property value
+            sessionPropertyManager.validateSystemSessionProperty(property.getKey(), property.getValue());
+        }
+
+        if (transactionId.isPresent()) {
+            // Now that there is a transaction, the catalog name can be resolved to a connector, and the catalog properties can be validated
+            for (Entry<String, Map<String, String>> catalogEntry : catalogPropertyDefaults.entrySet()) {
+                String catalogName = catalogEntry.getKey();
+                CatalogName catalog = new CatalogName(catalogName);
+                Map<String, String> catalogProperties = catalogEntry.getValue();
+                if (catalogProperties.isEmpty()) {
+                    continue;
+                }
+
+                for (Entry<String, String> property : catalogProperties.entrySet()) {
+                    // verify permissions
+                    accessControl.checkCanSetCatalogSessionProperty(new SecurityContext(transactionId.get(), identity, queryId), catalogName, property.getKey());
+
+                    // validate session property value
+                    sessionPropertyManager.validateCatalogSessionProperty(catalog, catalogName, property.getKey(), property.getValue());
+                }
+            }
+        }
 
         Map<String, String> systemProperties = new HashMap<>();
         systemProperties.putAll(systemPropertyDefaults);
