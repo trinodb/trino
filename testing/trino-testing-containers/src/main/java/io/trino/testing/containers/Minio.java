@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import io.airlift.log.Logger;
 import org.testcontainers.containers.Network;
+import org.testcontainers.containers.wait.strategy.WaitStrategy;
 
 import java.util.Map;
 import java.util.Optional;
@@ -46,6 +47,7 @@ public class Minio
             Map<String, String> filesToMount,
             Map<String, String> envVars,
             Optional<Network> network,
+            Optional<WaitStrategy> waitStrategy,
             int retryLimit)
     {
         super(
@@ -55,6 +57,7 @@ public class Minio
                 filesToMount,
                 envVars,
                 network,
+                waitStrategy,
                 retryLimit);
     }
 
@@ -103,7 +106,7 @@ public class Minio
         @Override
         public Minio build()
         {
-            return new Minio(image, hostName, exposePorts, filesToMount, envVars, network, startupRetryLimit);
+            return new Minio(image, hostName, exposePorts, filesToMount, envVars, network, waitStrategy, startupRetryLimit);
         }
     }
 }

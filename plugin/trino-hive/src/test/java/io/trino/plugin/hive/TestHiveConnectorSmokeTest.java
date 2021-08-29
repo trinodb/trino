@@ -13,16 +13,20 @@
  */
 package io.trino.plugin.hive;
 
+import com.google.common.collect.ImmutableMap;
+import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.testing.BaseConnectorSmokeTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import org.testng.annotations.Test;
 
+import static io.trino.plugin.hive.HiveHadoopQueryRunner.createHadoopQueryRunner;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 // Redundant over TestHiveConnectorTest, but exists to exercise BaseConnectorSmokeTest
 // Some features like views may be supported by Hive only.
+@Test(singleThreaded = true) // Otherwise, CI hangs on the way
 public class TestHiveConnectorSmokeTest
         extends BaseConnectorSmokeTest
 {
@@ -30,9 +34,13 @@ public class TestHiveConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return HiveQueryRunner.builder()
-                .setInitialTables(REQUIRED_TPCH_TABLES)
-                .build();
+        HiveHadoop hadoopServer = closeAfterClass(HiveHadoop.builder().build());
+        hadoopServer.start();
+        return createHadoopQueryRunner(
+                hadoopServer,
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                REQUIRED_TPCH_TABLES);
     }
 
     @Override
@@ -57,6 +65,13 @@ public class TestHiveConnectorSmokeTest
             default:
                 return super.hasBehavior(connectorBehavior);
         }
+    }
+
+    @Override
+    public void testRenameSchema()
+    {
+        assertThatThrownBy(super::testRenameSchema)
+                .hasMessage("Hive metastore does not support renaming schemas");
     }
 
     @Override

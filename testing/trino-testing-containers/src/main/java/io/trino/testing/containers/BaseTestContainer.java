@@ -23,6 +23,7 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 import org.testcontainers.containers.wait.strategy.Wait;
+import org.testcontainers.containers.wait.strategy.WaitStrategy;
 
 import java.time.Duration;
 import java.util.List;
@@ -46,6 +47,7 @@ public abstract class BaseTestContainer
     private final Map<String, String> filesToMount;
     private final Map<String, String> envVars;
     private final Optional<Network> network;
+    private final Optional<WaitStrategy> waitStrategy;
     private final int startupRetryLimit;
 
     private GenericContainer<?> container;
@@ -57,6 +59,7 @@ public abstract class BaseTestContainer
             Map<String, String> filesToMount,
             Map<String, String> envVars,
             Optional<Network> network,
+            Optional<WaitStrategy> waitStrategy,
             int startupRetryLimit)
     {
         checkArgument(startupRetryLimit > 0, "startupRetryLimit needs to be greater or equal to 0");
@@ -67,6 +70,7 @@ public abstract class BaseTestContainer
         this.filesToMount = requireNonNull(filesToMount, "filesToMount is null");
         this.envVars = requireNonNull(envVars, "envVars is null");
         this.network = requireNonNull(network, "network is null");
+        this.waitStrategy = requireNonNull(waitStrategy, "waitStrategy is null");
         this.startupRetryLimit = startupRetryLimit;
         setupContainer();
     }
@@ -80,7 +84,7 @@ public abstract class BaseTestContainer
         container.withEnv(envVars);
         container.withCreateContainerCmdModifier(c -> c.withHostName(hostName))
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
-                .waitingFor(Wait.forListeningPort())
+                .waitingFor(waitStrategy.orElseGet(Wait::forListeningPort))
                 .withStartupTimeout(Duration.ofMinutes(5));
         network.ifPresent(container::withNetwork);
     }
@@ -102,9 +106,20 @@ public abstract class BaseTestContainer
                 dockerPath);
     }
 
+    protected String getContainerIpAddress()
+    {
+        //noinspection deprecation
+        return container.getContainerInfo().getNetworkSettings().getIpAddress();
+    }
+
     protected HostAndPort getMappedHostAndPortForExposedPort(int exposedPort)
     {
         return fromParts(container.getHost(), container.getMappedPort(exposedPort));
+    }
+
+    protected int getMappedPortForExposedPort(int exposedPort)
+    {
+        return container.getMappedPort(exposedPort);
     }
 
     public void start()
@@ -138,6 +153,7 @@ public abstract class BaseTestContainer
         protected Map<String, String> filesToMount = ImmutableMap.of();
         protected Map<String, String> envVars = ImmutableMap.of();
         protected Optional<Network> network = Optional.empty();
+        protected Optional<WaitStrategy> waitStrategy = Optional.empty();
         protected int startupRetryLimit = 1;
 
         protected SELF self;
