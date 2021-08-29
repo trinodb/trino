@@ -17,6 +17,8 @@ import com.starburstdata.presto.plugin.jdbc.redirection.TableScanRedirection;
 import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
+import io.trino.plugin.base.expression.AggregateFunctionRewriter;
+import io.trino.plugin.base.expression.AggregateFunctionRule;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
@@ -35,8 +37,6 @@ import io.trino.plugin.jdbc.ObjectWriteFunction;
 import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.SliceWriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
-import io.trino.plugin.jdbc.expression.AggregateFunctionRewriter;
-import io.trino.plugin.jdbc.expression.AggregateFunctionRule;
 import io.trino.plugin.jdbc.expression.ImplementAvgFloatingPoint;
 import io.trino.plugin.jdbc.expression.ImplementCount;
 import io.trino.plugin.jdbc.expression.ImplementCountAll;
@@ -181,7 +181,7 @@ public class SapHanaClient
 
     private static final TimeZone UTC_TIME_ZONE = TimeZone.getTimeZone(ZoneId.of("UTC"));
 
-    private final AggregateFunctionRewriter aggregateFunctionRewriter;
+    private final AggregateFunctionRewriter<JdbcExpression> aggregateFunctionRewriter;
     private final boolean statisticsEnabled;
     private final TableScanRedirection tableScanRedirection;
 
@@ -196,9 +196,9 @@ public class SapHanaClient
         super(baseJdbcConfig, "\"", connectionFactory, identifierMapping);
 
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.empty(), 0, 0, Optional.empty());
-        this.aggregateFunctionRewriter = new AggregateFunctionRewriter(
+        this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(
                 this::quoted,
-                ImmutableSet.<AggregateFunctionRule>builder()
+                ImmutableSet.<AggregateFunctionRule<JdbcExpression>>builder()
                         .add(new ImplementCountAll(bigintTypeHandle))
                         .add(new ImplementCount(bigintTypeHandle))
                         .add(new ImplementMinMax(true))
