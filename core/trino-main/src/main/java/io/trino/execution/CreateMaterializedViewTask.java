@@ -21,7 +21,6 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.security.AccessControl;
-import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.security.GroupProvider;
 import io.trino.sql.analyzer.Analysis;
@@ -42,7 +41,7 @@ import java.util.Optional;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
-import static io.trino.spi.StandardErrorCode.NOT_FOUND;
+import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
 import static io.trino.sql.NodeUtils.mapFromProperties;
 import static io.trino.sql.ParameterUtils.parameterExtractor;
 import static io.trino.sql.SqlFormatterUtil.getFormattedSql;
@@ -101,8 +100,7 @@ public class CreateMaterializedViewTask
 
         String owner = session.getUser();
 
-        CatalogName catalogName = metadata.getCatalogHandle(session, name.getCatalogName())
-                .orElseThrow(() -> new TrinoException(NOT_FOUND, "Catalog does not exist: " + name.getCatalogName()));
+        CatalogName catalogName = getRequiredCatalogHandle(metadata, session, statement, name.getCatalogName());
 
         Map<String, Expression> sqlProperties = mapFromProperties(statement.getProperties());
         Map<String, Object> properties = metadata.getMaterializedViewPropertyManager().getProperties(
