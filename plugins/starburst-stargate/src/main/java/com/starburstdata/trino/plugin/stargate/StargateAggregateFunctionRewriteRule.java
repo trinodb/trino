@@ -11,10 +11,10 @@ package com.starburstdata.trino.plugin.stargate;
 
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
+import io.trino.plugin.base.expression.AggregateFunctionRule;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
-import io.trino.plugin.jdbc.expression.AggregateFunctionRule;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SortOrder;
@@ -35,7 +35,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
 class StargateAggregateFunctionRewriteRule
-        implements AggregateFunctionRule
+        implements AggregateFunctionRule<JdbcExpression>
 {
     private final Function<ConnectorSession, Set<String>> supportedFunctions;
     private final Function<Type, Optional<JdbcTypeHandle>> toTypeHandle;

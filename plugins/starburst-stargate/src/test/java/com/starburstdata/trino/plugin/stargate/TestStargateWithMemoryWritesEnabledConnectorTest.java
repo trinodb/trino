@@ -62,6 +62,9 @@ public class TestStargateWithMemoryWritesEnabledConnectorTest
                 // memory connector does not support deletes
                 return false;
 
+            case SUPPORTS_RENAME_SCHEMA:
+                return false;
+
             default:
                 return super.hasBehavior(connectorBehavior);
         }

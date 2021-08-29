@@ -19,6 +19,7 @@ import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.jdbc.TrinoConnection;
+import io.trino.plugin.base.expression.AggregateFunctionRewriter;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
@@ -34,7 +35,6 @@ import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.SliceWriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
-import io.trino.plugin.jdbc.expression.AggregateFunctionRewriter;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
@@ -153,7 +153,7 @@ public class StargateClient
 
     private final boolean enableWrites;
     private final Cache<FunctionsCacheKey, Set<String>> supportedAggregateFunctions;
-    private final AggregateFunctionRewriter aggregateFunctionRewriter;
+    private final AggregateFunctionRewriter<JdbcExpression> aggregateFunctionRewriter;
     private final boolean statisticsEnabled;
     private final TableScanRedirection tableScanRedirection;
 
@@ -174,7 +174,7 @@ public class StargateClient
         this.supportedAggregateFunctions = CacheBuilder.newBuilder()
                 .expireAfterWrite(30, MINUTES)
                 .build();
-        this.aggregateFunctionRewriter = new AggregateFunctionRewriter(this::quoted, Set.of(
+        this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(this::quoted, Set.of(
                 new StargateAggregateFunctionRewriteRule(
                         this::getSupportedAggregateFunctions,
                         this::toTypeHandle)));
