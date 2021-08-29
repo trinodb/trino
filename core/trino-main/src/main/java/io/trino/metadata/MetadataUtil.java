@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import io.trino.Session;
+import io.trino.connector.CatalogName;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.ColumnMetadata;
@@ -35,9 +36,9 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.MISSING_CATALOG_NAME;
 import static io.trino.spi.StandardErrorCode.MISSING_SCHEMA_NAME;
-import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
 import static io.trino.spi.security.PrincipalType.ROLE;
 import static io.trino.spi.security.PrincipalType.USER;
@@ -100,14 +101,18 @@ public final class MetadataUtil
         return null;
     }
 
+    public static CatalogName getRequiredCatalogHandle(Metadata metadata, Session session, Node node, String catalogName)
+    {
+        return metadata.getCatalogHandle(session, catalogName)
+                .orElseThrow(() -> semanticException(CATALOG_NOT_FOUND, node, "Catalog '%s' does not exist", catalogName));
+    }
+
     public static String getSessionCatalog(Metadata metadata, Session session, Node node)
     {
         String catalog = session.getCatalog().orElseThrow(() ->
                 semanticException(MISSING_CATALOG_NAME, node, "Session catalog must be set"));
 
-        if (metadata.getCatalogHandle(session, catalog).isEmpty()) {
-            throw new TrinoException(NOT_FOUND, "Catalog does not exist: " + catalog);
-        }
+        getRequiredCatalogHandle(metadata, session, node, catalog);
 
         return catalog;
     }
