@@ -402,7 +402,7 @@ public class QueryAssertions
         public QueryAssert returnsEmptyResult()
         {
             return satisfies(actual -> {
-                assertThat(actual.getRowCount()).as("row count").isEqualTo(0);
+                assertThat(actual.getMaterializedRows()).as("rows").isEmpty();
             });
         }
 
