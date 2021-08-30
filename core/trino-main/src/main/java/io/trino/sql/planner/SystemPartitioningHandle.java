@@ -21,7 +21,6 @@ import io.trino.execution.scheduler.NodeScheduler;
 import io.trino.execution.scheduler.NodeSelector;
 import io.trino.metadata.InternalNode;
 import io.trino.operator.BucketPartitionFunction;
-import io.trino.operator.HashGenerator;
 import io.trino.operator.InterpretedHashGenerator;
 import io.trino.operator.PartitionFunction;
 import io.trino.operator.PrecomputedHashGenerator;
@@ -256,35 +255,6 @@ public final class SystemPartitioningHandle
             public String toString()
             {
                 return toStringHelper(this)
-                        .add("bucketCount", bucketCount)
-                        .toString();
-            }
-        }
-
-        private static class HashBucketFunction
-                implements BucketFunction
-        {
-            private final HashGenerator generator;
-            private final int bucketCount;
-
-            public HashBucketFunction(HashGenerator generator, int bucketCount)
-            {
-                checkArgument(bucketCount > 0, "partitionCount must be at least 1");
-                this.generator = generator;
-                this.bucketCount = bucketCount;
-            }
-
-            @Override
-            public int getBucket(Page page, int position)
-            {
-                return generator.getPartition(bucketCount, position, page);
-            }
-
-            @Override
-            public String toString()
-            {
-                return toStringHelper(this)
-                        .add("generator", generator)
                         .add("bucketCount", bucketCount)
                         .toString();
             }
