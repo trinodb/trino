@@ -96,8 +96,8 @@ public class TestIcebergMaterializedViews
         String schemaName = getSession().getSchema().orElseThrow();
         String materializedViewName = format("test_materialized_view_%s", randomTableSuffix());
 
-        computeActual("CREATE TABLE region AS SELECT * FROM tpch.tiny.region LIMIT 1");
-        computeActual(format("CREATE MATERIALIZED VIEW %s AS SELECT * FROM region LIMIT 1", materializedViewName));
+        computeActual("CREATE TABLE small_region AS SELECT * FROM tpch.tiny.region LIMIT 1");
+        computeActual(format("CREATE MATERIALIZED VIEW %s AS SELECT * FROM small_region LIMIT 1", materializedViewName));
 
         // test storage table name
         assertQuery(
@@ -122,7 +122,7 @@ public class TestIcebergMaterializedViews
                 format("SELECT is_fresh FROM system.metadata.materialized_views WHERE name = '%s'", materializedViewName),
                 "VALUES ('true')");
 
-        assertUpdate("DROP TABLE region");
+        assertUpdate("DROP TABLE small_region");
         assertUpdate(format("DROP MATERIALIZED VIEW %s", materializedViewName));
     }
 
