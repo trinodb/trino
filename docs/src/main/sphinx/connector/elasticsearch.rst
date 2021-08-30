@@ -437,3 +437,12 @@ Property Name                                    Description
 ``elasticsearch.auth.user``                      User name to use to connect to Elasticsearch.
 ``elasticsearch.auth.password``                  Password to use to connect to Elasticsearch.
 ================================================ ==================================================================
+
+.. _elasticsearch-sql-support:
+
+SQL support
+-----------
+
+The connector provides :ref:`globally available <sql-globally-available>` and
+:ref:`read operation <sql-read-operations>` statements to access data and
+metadata in the Elasticsearch catalog.
