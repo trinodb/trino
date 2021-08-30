@@ -25,6 +25,7 @@ import io.trino.execution.buffer.SerializedPage;
 import io.trino.jmh.Benchmarks;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.memory.context.SimpleLocalMemoryContext;
+import io.trino.operator.BucketPartitionFunction;
 import io.trino.operator.DriverContext;
 import io.trino.operator.OperatorFactories;
 import io.trino.operator.OutputFactory;
@@ -32,7 +33,6 @@ import io.trino.operator.PartitionFunction;
 import io.trino.operator.PrecomputedHashGenerator;
 import io.trino.operator.TaskContext;
 import io.trino.operator.TrinoOperatorFactories;
-import io.trino.operator.exchange.LocalPartitionGenerator;
 import io.trino.spi.Page;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
@@ -44,6 +44,7 @@ import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.VarcharType;
+import io.trino.sql.planner.SystemPartitioningHandle.SystemPartitionFunction.HashBucketFunction;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.TestingTaskContext;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -69,6 +70,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.IntStream;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -285,9 +287,9 @@ public class BenchmarkPartitionedOutputOperator
 
         private PartitionedOutputOperator createPartitionedOutputOperator()
         {
-            PartitionFunction partitionFunction = new LocalPartitionGenerator(
-                    new PrecomputedHashGenerator(0),
-                    partitionCount);
+            PartitionFunction partitionFunction = new BucketPartitionFunction(
+                    new HashBucketFunction(new PrecomputedHashGenerator(0), partitionCount),
+                    IntStream.range(0, partitionCount).toArray());
             PagesSerdeFactory serdeFactory = new PagesSerdeFactory(createTestMetadataManager().getBlockEncodingSerde(), enableCompression);
 
             PartitionedOutputBuffer buffer = createPartitionedOutputBuffer();
