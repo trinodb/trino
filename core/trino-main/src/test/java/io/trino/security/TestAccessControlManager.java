@@ -27,6 +27,7 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.plugin.base.security.AllowAllAccessControl;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
+import io.trino.plugin.base.security.DefaultSystemAccessControl;
 import io.trino.plugin.base.security.ReadOnlySystemAccessControl;
 import io.trino.plugin.tpch.TpchConnectorFactory;
 import io.trino.spi.QueryId;
@@ -440,12 +441,12 @@ public class TestAccessControlManager
 
     private AccessControlManager createAccessControlManager(TransactionManager testTransactionManager)
     {
-        return new AccessControlManager(testTransactionManager, emptyEventListenerManager(), new AccessControlConfig());
+        return new AccessControlManager(testTransactionManager, emptyEventListenerManager(), new AccessControlConfig(), new DefaultSystemAccessControl());
     }
 
     private AccessControlManager createAccessControlManager(EventListenerManager eventListenerManager, AccessControlConfig config)
     {
-        return new AccessControlManager(createTestTransactionManager(), eventListenerManager, config);
+        return new AccessControlManager(createTestTransactionManager(), eventListenerManager, config, new DefaultSystemAccessControl());
     }
 
     private SystemAccessControlFactory eventListeningSystemAccessControlFactory(String name, EventListener... eventListeners)

@@ -16,6 +16,7 @@ package io.trino.testing;
 import com.google.common.collect.ImmutableSet;
 import io.trino.eventlistener.EventListenerManager;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.plugin.base.security.DefaultSystemAccessControl;
 import io.trino.security.AccessControlConfig;
 import io.trino.security.AccessControlManager;
 import io.trino.security.SecurityContext;
@@ -126,7 +127,7 @@ public class TestingAccessControlManager
     @Inject
     public TestingAccessControlManager(TransactionManager transactionManager, EventListenerManager eventListenerManager)
     {
-        super(transactionManager, eventListenerManager, new AccessControlConfig());
+        super(transactionManager, eventListenerManager, new AccessControlConfig(), new DefaultSystemAccessControl());
     }
 
     public void loadSystemAccessControl(String name, Map<String, String> properties)
