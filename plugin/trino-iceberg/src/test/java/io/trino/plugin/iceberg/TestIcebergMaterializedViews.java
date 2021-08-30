@@ -103,7 +103,9 @@ public class TestIcebergMaterializedViews
         assertQuery(
                 format(
                         "SELECT storage_catalog, storage_schema, CONCAT(storage_schema, '.', storage_table)" +
-                                "FROM system.metadata.materialized_views WHERE name = '%s'",
+                                "FROM system.metadata.materialized_views WHERE schema_name = '%s' AND name = '%s'",
+                        // TODO (https://github.com/trinodb/trino/issues/9039) remove redundant schema_name filter
+                        schemaName,
                         materializedViewName),
                 format(
                         "VALUES ('%s', '%s', '%s')",
@@ -113,13 +115,15 @@ public class TestIcebergMaterializedViews
 
         // test freshness update
         assertQuery(
-                format("SELECT is_fresh FROM system.metadata.materialized_views WHERE name = '%s'", materializedViewName),
+                // TODO (https://github.com/trinodb/trino/issues/9039) remove redundant schema_name filter
+                format("SELECT is_fresh FROM system.metadata.materialized_views WHERE schema_name = '%s' AND name = '%s'", schemaName, materializedViewName),
                 "VALUES ('false')");
 
         computeActual(format("REFRESH MATERIALIZED VIEW %s", materializedViewName));
 
         assertQuery(
-                format("SELECT is_fresh FROM system.metadata.materialized_views WHERE name = '%s'", materializedViewName),
+                // TODO (https://github.com/trinodb/trino/issues/9039) remove redundant schema_name filter
+                format("SELECT is_fresh FROM system.metadata.materialized_views WHERE schema_name = '%s' AND name = '%s'", schemaName, materializedViewName),
                 "VALUES ('true')");
 
         assertUpdate("DROP TABLE small_region");
