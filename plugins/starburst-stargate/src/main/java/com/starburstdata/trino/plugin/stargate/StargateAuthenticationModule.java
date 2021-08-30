@@ -22,7 +22,7 @@ import io.trino.jdbc.TrinoDriver;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
-import io.trino.plugin.jdbc.ExtraCredentialsBasedJdbcIdentityCacheMappingModule;
+import io.trino.plugin.jdbc.ExtraCredentialsBasedIdentityCacheMappingModule;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.credential.CredentialConfig;
 import io.trino.plugin.jdbc.credential.CredentialPropertiesProvider;
@@ -107,7 +107,7 @@ public class StargateAuthenticationModule
         protected void setup(Binder binder)
         {
             install(new CredentialProviderModule());
-            install(new ExtraCredentialsBasedJdbcIdentityCacheMappingModule());
+            install(new ExtraCredentialsBasedIdentityCacheMappingModule());
             configBinder(binder).bindConfig(StargateCredentialConfig.class);
         }
 
