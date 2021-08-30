@@ -43,7 +43,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /**
  * Test {@link io.trino.sql.query.QueryAssertions}.
  */
-public abstract class AbstractQueryAssertionsTest
+public abstract class BaseQueryAssertionsTest
         extends AbstractTestQueryFramework
 {
     protected static Session createSession()
