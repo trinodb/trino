@@ -23,15 +23,15 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.CharType;
-import io.trino.spi.type.DateTimeEncoding;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.SmallintType;
-import io.trino.spi.type.TimeWithTimeZoneType;
+import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TinyintType;
@@ -39,7 +39,6 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 
-import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -52,7 +51,7 @@ import java.util.Map;
 
 import static com.google.cloud.bigquery.Field.Mode.REPEATED;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.math.LongMath.divide;
+import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.bigquery.BigQueryMetadata.DEFAULT_NUMERIC_TYPE_PRECISION;
 import static io.trino.plugin.bigquery.BigQueryMetadata.DEFAULT_NUMERIC_TYPE_SCALE;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -60,10 +59,17 @@ import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.Decimals.isShortDecimal;
 import static io.trino.spi.type.TimeWithTimeZoneType.DEFAULT_PRECISION;
 import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
-import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_SECOND;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.Integer.parseInt;
+import static java.lang.Math.floorDiv;
+import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
@@ -74,15 +80,15 @@ public enum BigQueryType
     BOOLEAN(BooleanType.BOOLEAN, BigQueryType::simpleToStringConverter),
     BYTES(VarbinaryType.VARBINARY, BigQueryType::bytesToStringConverter),
     DATE(DateType.DATE, BigQueryType::dateToStringConverter),
-    DATETIME(TimestampType.TIMESTAMP_MILLIS, BigQueryType::datetimeToStringConverter),
+    DATETIME(TimestampType.TIMESTAMP_MICROS, BigQueryType::datetimeToStringConverter),
     FLOAT(DoubleType.DOUBLE, BigQueryType::floatToStringConverter),
     GEOGRAPHY(VarcharType.VARCHAR, BigQueryType::stringToStringConverter),
     INTEGER(BigintType.BIGINT, BigQueryType::simpleToStringConverter),
     NUMERIC(null, BigQueryType::numericToStringConverter),
     RECORD(null, BigQueryType::simpleToStringConverter),
     STRING(createUnboundedVarcharType(), BigQueryType::stringToStringConverter),
-    TIME(TimeWithTimeZoneType.TIME_WITH_TIME_ZONE, BigQueryType::timeToStringConverter),
-    TIMESTAMP(TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS, BigQueryType::timestampToStringConverter);
+    TIME(TimeType.TIME_MICROS, BigQueryType::timeToStringConverter),
+    TIMESTAMP(TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS, BigQueryType::timestampToStringConverter);
 
     private static final int[] NANO_FACTOR = {
             -1, // 0, no need to multiply
@@ -96,8 +102,8 @@ public enum BigQueryType
             10, // 8 digits after the dot
             1, // 9 digits after the dot
     };
-    private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("''HH:mm:ss.SSS''");
-    private static final DateTimeFormatter DATETIME_FORMATTER = DateTimeFormatter.ofPattern("''yyyy-MM-dd HH:mm:ss.SSS''");
+    private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("''HH:mm:ss.SSSSSS''");
+    private static final DateTimeFormatter DATETIME_FORMATTER = DateTimeFormatter.ofPattern("''yyyy-MM-dd HH:mm:ss.SSSSSS''");
 
     private final Type nativeType;
     private final ToStringConverter toStringConverter;
@@ -135,7 +141,8 @@ public enum BigQueryType
 
     static long toTrinoTimestamp(String datetime)
     {
-        return toLocalDateTime(datetime).toInstant(UTC).toEpochMilli() * MICROSECONDS_PER_MILLISECOND;
+        Instant instant = toLocalDateTime(datetime).toInstant(UTC);
+        return (instant.getEpochSecond() * MICROSECONDS_PER_SECOND) + (instant.getNano() / NANOSECONDS_PER_MICROSECOND);
     }
 
     private static String floatToStringConverter(Object value)
@@ -156,33 +163,40 @@ public enum BigQueryType
 
     static String datetimeToStringConverter(Object value)
     {
-        return formatTimestamp(divide(((long) value), MICROSECONDS_PER_MILLISECOND, RoundingMode.UNNECESSARY), UTC);
+        long epochMicros = (long) value;
+        long epochSeconds = floorDiv(epochMicros, MICROSECONDS_PER_SECOND);
+        int nanoAdjustment = floorMod(epochMicros, MICROSECONDS_PER_SECOND) * NANOSECONDS_PER_MICROSECOND;
+        return formatTimestamp(epochSeconds, nanoAdjustment, UTC);
     }
 
     static String timeToStringConverter(Object value)
     {
-        long longValue = ((Long) value).longValue();
-        long nanosUtc = DateTimeEncoding.unpackTimeNanos(longValue);
-        ZoneId zoneId = ZoneId.of(DateTimeEncoding.unpackZoneKey(longValue).getId());
-        return TIME_FORMATTER.format(toZonedDateTime(nanosUtc / NANOSECONDS_PER_MILLISECOND, zoneId));
+        long time = (long) value;
+        verify(0 <= time, "Invalid time value: %s", time);
+        long epochSeconds = time / PICOSECONDS_PER_SECOND;
+        long nanoAdjustment = (time % PICOSECONDS_PER_SECOND) / PICOSECONDS_PER_NANOSECOND;
+        return TIME_FORMATTER.format(toZonedDateTime(epochSeconds, nanoAdjustment, UTC));
     }
 
     static String timestampToStringConverter(Object value)
     {
-        long longValue = ((Long) value).longValue();
-        long millisUtc = DateTimeEncoding.unpackMillisUtc(longValue);
-        ZoneId zoneId = ZoneId.of(DateTimeEncoding.unpackZoneKey(longValue).getId());
-        return formatTimestamp(millisUtc, zoneId);
+        LongTimestampWithTimeZone timestamp = (LongTimestampWithTimeZone) value;
+        long epochMillis = timestamp.getEpochMillis();
+        long epochSeconds = floorDiv(epochMillis, MILLISECONDS_PER_SECOND);
+        int nanoAdjustment = floorMod(epochMillis, MILLISECONDS_PER_SECOND) * NANOSECONDS_PER_MILLISECOND + timestamp.getPicosOfMilli() / PICOSECONDS_PER_NANOSECOND;
+        ZoneId zoneId = getTimeZoneKey(timestamp.getTimeZoneKey()).getZoneId();
+        return formatTimestamp(epochSeconds, nanoAdjustment, zoneId);
     }
 
-    private static String formatTimestamp(long millisUtc, ZoneId zoneId)
+    private static String formatTimestamp(long epochSeconds, long nanoAdjustment, ZoneId zoneId)
     {
-        return DATETIME_FORMATTER.format(toZonedDateTime(millisUtc, zoneId));
+        return DATETIME_FORMATTER.format(toZonedDateTime(epochSeconds, nanoAdjustment, zoneId));
     }
 
-    private static ZonedDateTime toZonedDateTime(long millisUtc, ZoneId zoneId)
+    private static ZonedDateTime toZonedDateTime(long epochSeconds, long nanoAdjustment, ZoneId zoneId)
     {
-        return ZonedDateTime.ofInstant(Instant.ofEpochMilli(millisUtc), zoneId);
+        Instant instant = Instant.ofEpochSecond(epochSeconds, nanoAdjustment);
+        return ZonedDateTime.ofInstant(instant, zoneId);
     }
 
     static String stringToStringConverter(Object value)
@@ -259,10 +273,10 @@ public enum BigQueryType
         if (type == createTimeWithTimeZoneType(DEFAULT_PRECISION)) {
             return StandardSQLTypeName.TIME;
         }
-        if (type == TimestampType.TIMESTAMP_MILLIS) {
+        if (type == TimestampType.TIMESTAMP_MICROS) {
             return StandardSQLTypeName.DATETIME;
         }
-        if (type == TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS) {
+        if (type == TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS) {
             return StandardSQLTypeName.TIMESTAMP;
         }
         if (type instanceof CharType || type instanceof VarcharType) {

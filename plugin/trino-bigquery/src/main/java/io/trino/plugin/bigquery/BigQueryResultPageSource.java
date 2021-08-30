@@ -25,11 +25,10 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.DateTimeEncoding;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.RowType;
-import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.spi.type.VarbinaryType;
@@ -63,10 +62,16 @@ import static io.trino.spi.type.Decimals.encodeShortScaledValue;
 import static io.trino.spi.type.Decimals.isLongDecimal;
 import static io.trino.spi.type.Decimals.isShortDecimal;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.LongTimestampWithTimeZone.fromEpochMillisAndFraction;
+import static io.trino.spi.type.TimeType.TIME_MICROS;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
+import static java.lang.Math.floorDiv;
+import static java.lang.Math.floorMod;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -176,14 +181,11 @@ public class BigQueryResultPageSource
                 else if (type.equals(DATE)) {
                     type.writeLong(output, ((Number) value).intValue());
                 }
-                else if (type.equals(TIMESTAMP_MILLIS)) {
+                else if (type.equals(TIMESTAMP_MICROS)) {
                     type.writeLong(output, toTrinoTimestamp(((Utf8) value).toString()));
                 }
-                else if (type.equals(TIME_WITH_TIME_ZONE)) {
-                    type.writeLong(output, DateTimeEncoding.packTimeWithTimeZone(((Long) value).longValue() * MICROSECONDS_PER_MILLISECOND, 0));
-                }
-                else if (type.equals(TIMESTAMP_TZ_MILLIS)) {
-                    type.writeLong(output, DateTimeEncoding.packDateTimeWithZone(((Long) value).longValue() / 1000, TimeZoneKey.UTC_KEY));
+                else if (type.equals(TIME_MICROS)) {
+                    type.writeLong(output, (long) value * PICOSECONDS_PER_MICROSECOND);
                 }
                 else {
                     throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Unhandled type for %s: %s", javaType.getSimpleName(), type));
@@ -194,6 +196,12 @@ public class BigQueryResultPageSource
             }
             else if (javaType == Slice.class) {
                 writeSlice(output, type, value);
+            }
+            else if (javaType == LongTimestampWithTimeZone.class) {
+                verify(type.equals(TIMESTAMP_TZ_MICROS));
+                long epochMicros = (long) value;
+                int picosOfMillis = toIntExact(floorMod(epochMicros, MICROSECONDS_PER_MILLISECOND)) * PICOSECONDS_PER_MICROSECOND;
+                type.writeObject(output, fromEpochMillisAndFraction(floorDiv(epochMicros, MICROSECONDS_PER_MILLISECOND), picosOfMillis, UTC_KEY));
             }
             else if (javaType == Block.class) {
                 writeBlock(output, type, value);
