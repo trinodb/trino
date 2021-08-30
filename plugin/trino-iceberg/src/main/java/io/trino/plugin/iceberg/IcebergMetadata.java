@@ -43,6 +43,7 @@ import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.DiscretePredicates;
 import io.trino.spi.connector.MaterializedViewFreshness;
+import io.trino.spi.connector.MaterializedViewNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SystemTable;
@@ -859,7 +860,12 @@ public class IcebergMetadata
             String schema = strings.get(0);
             String name = strings.get(1);
             SchemaTableName schemaTableName = new SchemaTableName(schema, name);
-            if (!isTableCurrent(session, getTableHandle(session, schemaTableName), entry.getValue())) {
+            IcebergTableHandle tableHandle = getTableHandle(session, schemaTableName);
+
+            if (tableHandle == null) {
+                throw new MaterializedViewNotFoundException(materializedViewName);
+            }
+            if (!isTableCurrent(session, tableHandle, entry.getValue())) {
                 return new MaterializedViewFreshness(false);
             }
         }
