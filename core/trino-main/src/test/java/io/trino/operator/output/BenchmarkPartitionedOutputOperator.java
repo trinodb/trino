@@ -34,6 +34,8 @@ import io.trino.operator.PrecomputedHashGenerator;
 import io.trino.operator.TaskContext;
 import io.trino.operator.TrinoOperatorFactories;
 import io.trino.spi.Page;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
@@ -44,7 +46,7 @@ import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.VarcharType;
-import io.trino.sql.planner.SystemPartitioningHandle.SystemPartitionFunction.HashBucketFunction;
+import io.trino.sql.planner.HashBucketFunction;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.TestingTaskContext;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -71,10 +73,17 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
+import java.util.stream.LongStream;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.trino.block.BlockAssertions.createLongDictionaryBlock;
+import static io.trino.block.BlockAssertions.createLongsBlock;
+import static io.trino.block.BlockAssertions.createRLEBlock;
+import static io.trino.block.BlockAssertions.createRandomBlockForType;
+import static io.trino.block.BlockAssertions.createRandomLongsBlock;
 import static io.trino.execution.buffer.BufferState.OPEN;
 import static io.trino.execution.buffer.BufferState.TERMINAL_BUFFER_STATES;
 import static io.trino.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
@@ -128,7 +137,7 @@ public class BenchmarkPartitionedOutputOperator
     @SuppressWarnings("unused")
     public static class BenchmarkData
     {
-        private static final int POSITION_COUNT = 8192;
+        private static final int DEFAULT_POSITION_COUNT = 8192;
         private static final DataSize MAX_PARTITION_BUFFER_SIZE = DataSize.of(256, MEGABYTE);
         private static final ExecutorService EXECUTOR = newCachedThreadPool(daemonThreadsNamed("BenchmarkPartitionedOutputOperator-executor-%s"));
         private static final ScheduledExecutorService SCHEDULER = newScheduledThreadPool(1, daemonThreadsNamed("BenchmarkPartitionedOutputOperator-scheduledExecutor-%s"));
@@ -145,10 +154,21 @@ public class BenchmarkPartitionedOutputOperator
         @Param({"1", "2"})
         private int channelCount = 1;
 
+        @Param("8192")
+        private int positionCount = DEFAULT_POSITION_COUNT;
+
         @Param({
                 "BIGINT",
+                "BIGINT_SKEWED_HASH",
                 "DICTIONARY_BIGINT",
                 "RLE_BIGINT",
+                "BIGINT_PARTITION_CHANNEL_20_PERCENT",
+                "BIGINT_DICTIONARY_PARTITION_CHANNEL_20_PERCENT",
+                "BIGINT_DICTIONARY_PARTITION_CHANNEL_50_PERCENT",
+                "BIGINT_DICTIONARY_PARTITION_CHANNEL_80_PERCENT",
+                "BIGINT_DICTIONARY_PARTITION_CHANNEL_100_PERCENT",
+                "RLE_PARTITION_BIGINT",
+                "RLE_PARTITION_NULL_BIGINT",
                 "LONG_DECIMAL",
                 "INTEGER",
                 "SMALLINT",
@@ -167,6 +187,8 @@ public class BenchmarkPartitionedOutputOperator
         @Param({"0", "0.2"})
         private float nullRate = 0.2F;
 
+        private OptionalInt nullChannel;
+
         private List<Type> types;
         private int pageCount;
         private Page dataPage;
@@ -175,18 +197,114 @@ public class BenchmarkPartitionedOutputOperator
         public enum TestType
         {
             BIGINT(BigintType.BIGINT, 5000),
+            BIGINT_SKEWED_HASH(BigintType.BIGINT, 5000) {
+                @Override
+                public Page createPage(List<Type> types, int positionCount, float nullRate)
+                {
+                    return page(
+                            positionCount,
+                            types.size(),
+                            () -> createRandomBlockForType(BigintType.BIGINT, positionCount, nullRate),
+                            createRandomLongsBlock(positionCount, 2));
+                }
+            },
             DICTIONARY_BIGINT(BigintType.BIGINT, 3000) {
                 @Override
                 public Page createPage(List<Type> types, int positionCount, float nullRate)
                 {
-                    return createRandomDictionaryPage(types, POSITION_COUNT, nullRate);
+                    return createRandomDictionaryPage(types, positionCount, nullRate);
                 }
             },
             RLE_BIGINT(BigintType.BIGINT, 3000) {
                 @Override
                 public Page createPage(List<Type> types, int positionCount, float nullRate)
                 {
-                    return createRandomRlePage(types, POSITION_COUNT, nullRate);
+                    return createRandomRlePage(types, positionCount, nullRate);
+                }
+            },
+            BIGINT_PARTITION_CHANNEL_20_PERCENT(BigintType.BIGINT, 3000) {
+                @Override
+                public Page createPage(List<Type> types, int positionCount, float nullRate)
+                {
+                    return page(
+                            positionCount,
+                            types.size(),
+                            () -> createRandomBlockForType(BigintType.BIGINT, positionCount, nullRate),
+                            createLongsBlock(LongStream.range(0, positionCount)
+                                    .mapToObj(value -> value % (positionCount / 5))
+                                    .collect(toImmutableList())));
+                }
+            },
+            BIGINT_DICTIONARY_PARTITION_CHANNEL_20_PERCENT(BigintType.BIGINT, 3000) {
+                @Override
+                public Page createPage(List<Type> types, int positionCount, float nullRate)
+                {
+                    return page(
+                            positionCount,
+                            types.size(),
+                            () -> createRandomBlockForType(BigintType.BIGINT, positionCount, nullRate),
+                            createLongDictionaryBlock(0, positionCount, positionCount / 5));
+                }
+            },
+            BIGINT_DICTIONARY_PARTITION_CHANNEL_50_PERCENT(BigintType.BIGINT, 3000) {
+                @Override
+                public Page createPage(List<Type> types, int positionCount, float nullRate)
+                {
+                    return page(
+                            positionCount,
+                            types.size(),
+                            () -> createRandomBlockForType(BigintType.BIGINT, positionCount, nullRate),
+                            createLongDictionaryBlock(0, positionCount, positionCount / 2));
+                }
+            },
+            BIGINT_DICTIONARY_PARTITION_CHANNEL_80_PERCENT(BigintType.BIGINT, 3000) {
+                @Override
+                public Page createPage(List<Type> types, int positionCount, float nullRate)
+                {
+                    return page(
+                            positionCount,
+                            types.size(),
+                            () -> createRandomBlockForType(BigintType.BIGINT, positionCount, nullRate),
+                            createLongDictionaryBlock(0, positionCount, (int) (positionCount * 0.8)));
+                }
+            },
+            BIGINT_DICTIONARY_PARTITION_CHANNEL_100_PERCENT(BigintType.BIGINT, 3000) {
+                @Override
+                public Page createPage(List<Type> types, int positionCount, float nullRate)
+                {
+                    return page(
+                            positionCount,
+                            types.size(),
+                            () -> createRandomBlockForType(BigintType.BIGINT, positionCount, nullRate),
+                            createLongDictionaryBlock(0, positionCount, positionCount));
+                }
+            },
+            RLE_PARTITION_BIGINT(BigintType.BIGINT, 5000) {
+                @Override
+                public Page createPage(List<Type> types, int positionCount, float nullRate)
+                {
+                    return page(
+                            positionCount,
+                            types.size(),
+                            () -> createRandomBlockForType(BigintType.BIGINT, positionCount, nullRate),
+                            createRLEBlock(42, positionCount));
+                }
+            },
+            RLE_PARTITION_NULL_BIGINT(BigintType.BIGINT, 20) {
+                @Override
+                public Page createPage(List<Type> types, int positionCount, float nullRate)
+                {
+                    return page(
+                            positionCount,
+                            types.size(),
+                            () -> createRandomBlockForType(BigintType.BIGINT, positionCount, nullRate),
+                            new RunLengthEncodedBlock(createLongsBlock((Long) null), positionCount));
+                }
+
+                @Override
+                public OptionalInt getNullChannel()
+                {
+                    return OptionalInt.of(1);
                 }
             },
             LONG_DECIMAL(createDecimalType(MAX_SHORT_PRECISION + 1), 5000),
@@ -213,17 +331,22 @@ public class BenchmarkPartitionedOutputOperator
 
             public Page createPage(List<Type> types, int positionCount, float nullRate)
             {
-                return createRandomPage(types, POSITION_COUNT, nullRate);
-            }
-
-            public Type getType()
-            {
-                return type;
+                return createRandomPage(types, positionCount, nullRate);
             }
 
             public int getPageCount()
             {
                 return pageCount;
+            }
+
+            public OptionalInt getNullChannel()
+            {
+                return OptionalInt.empty();
+            }
+
+            public List<Type> getTypes(int channelCount)
+            {
+                return nCopies(channelCount, type);
             }
         }
 
@@ -264,13 +387,26 @@ public class BenchmarkPartitionedOutputOperator
             // We don't check blackhole is not null, because blackhole has to be injected by jmh (should not be created manually)
             // and in case of unit test it will be null
             this.blackhole = blackhole;
-            types = nCopies(channelCount, type.getType());
-            dataPage = type.createPage(types, POSITION_COUNT, nullRate);
+            types = type.getTypes(channelCount);
+            dataPage = type.createPage(types, positionCount, nullRate);
             pageCount = type.getPageCount();
+            nullChannel = type.getNullChannel();
             types = ImmutableList.<Type>builder()
                     .addAll(types)
                     .add(BIGINT) // dataPage has pre-computed hash block at the last channel
                     .build();
+        }
+
+        private static Page page(int positionCount, int channelCount, Supplier<Block> standardBlock, Block partitionBlock)
+        {
+            ImmutableList.Builder<Block> blocks = ImmutableList.builder();
+            for (int i = 0; i < channelCount; i++) {
+                blocks.add(standardBlock.get());
+            }
+            blocks.add(partitionBlock);
+            return new Page(
+                    positionCount,
+                    blocks.build().toArray(new Block[0]));
         }
 
         private PartitionedOutputBuffer createPartitionedOutputBuffer()
@@ -301,7 +437,7 @@ public class BenchmarkPartitionedOutputOperator
                     ImmutableList.of(types.size() - 1), // hash block is at the last channel
                     ImmutableList.of(Optional.empty()),
                     false,
-                    OptionalInt.empty(),
+                    nullChannel,
                     buffer,
                     MAX_PARTITION_BUFFER_SIZE);
             return (PartitionedOutputOperator) operatorFactory
