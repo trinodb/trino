@@ -1368,10 +1368,8 @@ public final class UnscaledDecimal128Arithmetic
         int[] multiPrecisionQuotient = new int[NUMBER_OF_INTS * 2];
         divideUnsignedMultiPrecision(dividend, divisor, multiPrecisionQuotient);
 
-        packUnsigned(multiPrecisionQuotient, quotient);
-        packUnsigned(dividend, remainder);
-        setNegative(quotient, quotientIsNegative);
-        setNegative(remainder, dividendIsNegative);
+        pack(multiPrecisionQuotient, quotient, quotientIsNegative);
+        pack(dividend, remainder, dividendIsNegative);
         throwIfOverflows(quotient);
         throwIfOverflows(remainder);
     }
@@ -1671,7 +1669,7 @@ public final class UnscaledDecimal128Arithmetic
         return (int) val;
     }
 
-    private static void packUnsigned(int[] digits, Slice decimal)
+    private static void pack(int[] digits, Slice decimal, boolean negative)
     {
         if (digitsInIntegerBase(digits) > NUMBER_OF_INTS) {
             throwOverflowException();
@@ -1679,7 +1677,7 @@ public final class UnscaledDecimal128Arithmetic
         if ((digits[3] & SIGN_INT_MASK) != 0) {
             throwOverflowException();
         }
-        pack(decimal, digits[0], digits[1], digits[2], digits[3], false);
+        pack(decimal, digits[0], digits[1], digits[2], digits[3], negative);
     }
 
     private static boolean divideCheckRound(Slice decimal, int divisor, Slice result)
