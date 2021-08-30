@@ -38,6 +38,7 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.TableHandle;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
+import io.trino.plugin.base.security.DefaultSystemAccessControl;
 import io.trino.security.AccessControl;
 import io.trino.security.AccessControlConfig;
 import io.trino.security.AccessControlManager;
@@ -4918,7 +4919,8 @@ public class TestAnalyzer
         AccessControlManager accessControlManager = new AccessControlManager(
                 transactionManager,
                 emptyEventListenerManager(),
-                new AccessControlConfig());
+                new AccessControlConfig(),
+                new DefaultSystemAccessControl());
         accessControlManager.setSystemAccessControls(List.of(AllowAllSystemAccessControl.INSTANCE));
         this.accessControl = accessControlManager;
 
