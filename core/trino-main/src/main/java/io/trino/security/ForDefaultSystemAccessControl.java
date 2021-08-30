@@ -11,22 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.base.security;
+package io.trino.security;
 
-import io.trino.spi.security.SystemSecurityContext;
+import javax.inject.Qualifier;
 
-import static io.trino.spi.security.AccessDeniedException.denyImpersonateUser;
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
 
-/**
- * Default system access control rules.
- * By default all access is allowed except for user impersonation.
- */
-public class DefaultSystemAccessControl
-        extends AllowAllSystemAccessControl
+import static java.lang.annotation.ElementType.FIELD;
+import static java.lang.annotation.ElementType.METHOD;
+import static java.lang.annotation.ElementType.PARAMETER;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
+
+@Retention(RUNTIME)
+@Target({FIELD, PARAMETER, METHOD})
+@Qualifier
+public @interface ForDefaultSystemAccessControl
 {
-    @Override
-    public void checkCanImpersonateUser(SystemSecurityContext context, String userName)
-    {
-        denyImpersonateUser(context.getIdentity().getUser(), userName);
-    }
 }

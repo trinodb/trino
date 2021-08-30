@@ -23,7 +23,6 @@ import io.trino.connector.CatalogName;
 import io.trino.eventlistener.EventListenerManager;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
-import io.trino.plugin.base.security.DefaultSystemAccessControl;
 import io.trino.plugin.base.security.FileBasedSystemAccessControl;
 import io.trino.plugin.base.security.ForwardingSystemAccessControl;
 import io.trino.plugin.base.security.ReadOnlySystemAccessControl;
@@ -85,6 +84,7 @@ public class AccessControlManager
     private final TransactionManager transactionManager;
     private final EventListenerManager eventListenerManager;
     private final List<File> configFiles;
+    private final SystemAccessControl defaultAccessControl;
     private final Map<String, SystemAccessControlFactory> systemAccessControlFactories = new ConcurrentHashMap<>();
     private final Map<CatalogName, CatalogAccessControlEntry> connectorAccessControl = new ConcurrentHashMap<>();
 
@@ -94,12 +94,16 @@ public class AccessControlManager
     private final CounterStat authorizationFail = new CounterStat();
 
     @Inject
-    public AccessControlManager(TransactionManager transactionManager, EventListenerManager eventListenerManager, AccessControlConfig config)
+    public AccessControlManager(
+            TransactionManager transactionManager,
+            EventListenerManager eventListenerManager,
+            AccessControlConfig config,
+            @ForDefaultSystemAccessControl SystemAccessControl defaultAccessControl)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
         this.configFiles = ImmutableList.copyOf(config.getAccessControlFiles());
-        addSystemAccessControlFactory(new DefaultSystemAccessControl.Factory());
+        this.defaultAccessControl = requireNonNull(defaultAccessControl, "defaultAccessControl is null");
         addSystemAccessControlFactory(new AllowAllSystemAccessControl.Factory());
         addSystemAccessControlFactory(new ReadOnlySystemAccessControl.Factory());
         addSystemAccessControlFactory(new FileBasedSystemAccessControl.Factory());
@@ -132,8 +136,8 @@ public class AccessControlManager
         List<File> configFiles = this.configFiles;
         if (configFiles.isEmpty()) {
             if (!CONFIG_FILE.exists()) {
-                setSystemAccessControl(DefaultSystemAccessControl.NAME, ImmutableMap.of());
-                log.info("Using system access control %s", DefaultSystemAccessControl.NAME);
+                setSystemAccessControls(ImmutableList.of(defaultAccessControl));
+                log.info("Using default system access control");
                 return;
             }
             configFiles = ImmutableList.of(CONFIG_FILE);
