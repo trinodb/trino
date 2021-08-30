@@ -117,14 +117,14 @@ public class TestIcebergMaterializedViews
         assertQuery(
                 // TODO (https://github.com/trinodb/trino/issues/9039) remove redundant schema_name filter
                 format("SELECT is_fresh FROM system.metadata.materialized_views WHERE schema_name = '%s' AND name = '%s'", schemaName, materializedViewName),
-                "VALUES ('false')");
+                "VALUES false");
 
         computeActual(format("REFRESH MATERIALIZED VIEW %s", materializedViewName));
 
         assertQuery(
                 // TODO (https://github.com/trinodb/trino/issues/9039) remove redundant schema_name filter
                 format("SELECT is_fresh FROM system.metadata.materialized_views WHERE schema_name = '%s' AND name = '%s'", schemaName, materializedViewName),
-                "VALUES ('true')");
+                "VALUES true");
 
         assertUpdate("DROP TABLE small_region");
         assertUpdate(format("DROP MATERIALIZED VIEW %s", materializedViewName));
