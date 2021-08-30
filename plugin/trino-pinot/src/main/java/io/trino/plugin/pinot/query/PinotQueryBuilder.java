@@ -25,6 +25,8 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
+import io.trino.spi.type.VarbinaryType;
+import org.apache.commons.codec.binary.Hex;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -155,6 +157,9 @@ public final class PinotQueryBuilder
         }
         else if (type instanceof VarcharType) {
             return ((Slice) value).toStringUtf8();
+        }
+        else if (type instanceof VarbinaryType) {
+            return Hex.encodeHexString(((Slice) value).getBytes());
         }
         return value;
     }
