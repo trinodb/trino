@@ -25,6 +25,9 @@ import org.testng.annotations.Test;
 
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.TimeType.createTimeType;
+import static io.trino.spi.type.TimestampType.createTimestampType;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 
 public class TestBigQueryTypeMapping
         extends AbstractTestQueryFramework
@@ -89,6 +92,107 @@ public class TestBigQueryTypeMapping
                 .addRoundTrip("NUMERIC(10, 3)", "CAST(NULL AS NUMERIC)", createDecimalType(10, 3), "CAST(NULL AS DECIMAL(10, 3))")
                 .addRoundTrip("NUMERIC(38, 9)", "CAST(NULL AS NUMERIC)", createDecimalType(38, 9), "CAST(NULL AS DECIMAL(38, 9))")
                 .execute(getQueryRunner(), bigqueryCreateAndInsert("test.numeric"));
+    }
+
+    @Test
+    public void testDatetime()
+    {
+        SqlDataTypeTest.create()
+                // before epoch
+                .addRoundTrip("datetime", "datetime '1958-01-01 13:18:03.123'", createTimestampType(6), "TIMESTAMP '1958-01-01 13:18:03.123000'")
+                // after epoch
+                .addRoundTrip("datetime", "datetime '2019-03-18 10:01:17.987'", createTimestampType(6), "TIMESTAMP '2019-03-18 10:01:17.987000'")
+                .addRoundTrip("datetime", "datetime '2018-10-28 01:33:17.456'", createTimestampType(6), "TIMESTAMP '2018-10-28 01:33:17.456000'")
+                .addRoundTrip("datetime", "datetime '2018-10-28 03:33:33.333'", createTimestampType(6), "TIMESTAMP '2018-10-28 03:33:33.333000'")
+                // epoch
+                .addRoundTrip("datetime", "datetime '1970-01-01 00:00:00.000'", createTimestampType(6), "TIMESTAMP '1970-01-01 00:00:00.000000'")
+                .addRoundTrip("datetime", "datetime '1970-01-01 00:13:42.000'", createTimestampType(6), "TIMESTAMP '1970-01-01 00:13:42.000000'")
+                .addRoundTrip("datetime", "datetime '2018-04-01 02:13:55.123'", createTimestampType(6), "TIMESTAMP '2018-04-01 02:13:55.123000'")
+                .addRoundTrip("datetime", "datetime '2018-03-25 03:17:17.000'", createTimestampType(6), "TIMESTAMP '2018-03-25 03:17:17.000000'")
+                .addRoundTrip("datetime", "datetime '1986-01-01 00:13:07.000'", createTimestampType(6), "TIMESTAMP '1986-01-01 00:13:07.000000'")
+
+                // same as above but with higher precision
+                .addRoundTrip("datetime", "datetime '1958-01-01 13:18:03.123456'", createTimestampType(6), "TIMESTAMP '1958-01-01 13:18:03.123456'")
+                .addRoundTrip("datetime", "datetime '2019-03-18 10:01:17.987654'", createTimestampType(6), "TIMESTAMP '2019-03-18 10:01:17.987654'")
+                .addRoundTrip("datetime", "datetime '2018-10-28 01:33:17.123456'", createTimestampType(6), "TIMESTAMP '2018-10-28 01:33:17.123456'")
+                .addRoundTrip("datetime", "datetime '2018-10-28 03:33:33.333333'", createTimestampType(6), "TIMESTAMP '2018-10-28 03:33:33.333333'")
+                .addRoundTrip("datetime", "datetime '1970-01-01 00:00:00.000000'", createTimestampType(6), "TIMESTAMP '1970-01-01 00:00:00.000000'")
+                .addRoundTrip("datetime", "datetime '1970-01-01 00:13:42.123456'", createTimestampType(6), "TIMESTAMP '1970-01-01 00:13:42.123456'")
+                .addRoundTrip("datetime", "datetime '2018-04-01 02:13:55.123456'", createTimestampType(6), "TIMESTAMP '2018-04-01 02:13:55.123456'")
+                .addRoundTrip("datetime", "datetime '2018-03-25 03:17:17.456789'", createTimestampType(6), "TIMESTAMP '2018-03-25 03:17:17.456789'")
+                .addRoundTrip("datetime", "datetime '1986-01-01 00:13:07.456789'", createTimestampType(6), "TIMESTAMP '1986-01-01 00:13:07.456789'")
+                .addRoundTrip("datetime", "datetime '2021-09-07 23:59:59.999999'", createTimestampType(6), "TIMESTAMP '2021-09-07 23:59:59.999999'")
+
+                // test arbitrary time for all supported precisions
+                .addRoundTrip("datetime", "datetime '1970-01-01 00:00:01'", createTimestampType(6), "TIMESTAMP '1970-01-01 00:00:01.000000'")
+                .addRoundTrip("datetime", "datetime '1970-01-01 00:00:01.1'", createTimestampType(6), "TIMESTAMP '1970-01-01 00:00:01.100000'")
+                .addRoundTrip("datetime", "datetime '1970-01-01 00:00:01.12'", createTimestampType(6), "TIMESTAMP '1970-01-01 00:00:01.120000'")
+                .addRoundTrip("datetime", "datetime '1970-01-01 00:00:01.123'", createTimestampType(6), "TIMESTAMP '1970-01-01 00:00:01.123000'")
+                .addRoundTrip("datetime", "datetime '1970-01-01 00:00:01.1234'", createTimestampType(6), "TIMESTAMP '1970-01-01 00:00:01.123400'")
+                .addRoundTrip("datetime", "datetime '1970-01-01 00:00:01.12345'", createTimestampType(6), "TIMESTAMP '1970-01-01 00:00:01.123450'")
+                .addRoundTrip("datetime", "datetime '1970-01-01 00:00:01.123456'", createTimestampType(6), "TIMESTAMP '1970-01-01 00:00:01.123456'")
+
+                // negative epoch
+                .addRoundTrip("datetime", "datetime '1969-12-31 23:59:59.999995'", createTimestampType(6), "TIMESTAMP '1969-12-31 23:59:59.999995'")
+                .addRoundTrip("datetime", "datetime '1969-12-31 23:59:59.999949'", createTimestampType(6), "TIMESTAMP '1969-12-31 23:59:59.999949'")
+                .addRoundTrip("datetime", "datetime '1969-12-31 23:59:59.999994'", createTimestampType(6), "TIMESTAMP '1969-12-31 23:59:59.999994'")
+
+                .execute(getQueryRunner(), bigqueryCreateAndInsert("test.datetime"));
+    }
+
+    @Test
+    public void testTime()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("time", "'00:00:00'", createTimeType(6), "TIME '00:00:00.000000'")
+                .addRoundTrip("time", "'00:00:00.000000'", createTimeType(6), "TIME '00:00:00.000000'")
+                .addRoundTrip("time", "'00:00:00.123456'", createTimeType(6), "TIME '00:00:00.123456'")
+                .addRoundTrip("time", "'12:34:56'", createTimeType(6), "TIME '12:34:56.000000'")
+                .addRoundTrip("time", "'12:34:56.123456'", createTimeType(6), "TIME '12:34:56.123456'")
+
+                // maximal value for a precision
+                .addRoundTrip("time", "'23:59:59'", createTimeType(6), "TIME '23:59:59.000000'")
+                .addRoundTrip("time", "'23:59:59.9'", createTimeType(6), "TIME '23:59:59.900000'")
+                .addRoundTrip("time", "'23:59:59.99'", createTimeType(6), "TIME '23:59:59.990000'")
+                .addRoundTrip("time", "'23:59:59.999'", createTimeType(6), "TIME '23:59:59.999000'")
+                .addRoundTrip("time", "'23:59:59.9999'", createTimeType(6), "TIME '23:59:59.999900'")
+                .addRoundTrip("time", "'23:59:59.99999'", createTimeType(6), "TIME '23:59:59.999990'")
+                .addRoundTrip("time", "'23:59:59.999999'", createTimeType(6), "TIME '23:59:59.999999'")
+
+                .execute(getQueryRunner(), bigqueryCreateAndInsert("test.time"));
+    }
+
+    @Test
+    public void testTimestampWithTimeZone()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("TIMESTAMP", "TIMESTAMP '1970-01-01 00:00:00.000000 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1970-01-01 00:00:00.000000 UTC'")
+                .addRoundTrip("TIMESTAMP", "TIMESTAMP '1970-01-01 00:00:00.000000 Asia/Kathmandu'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1969-12-31 18:30:00.000000 UTC'")
+                .addRoundTrip("TIMESTAMP", "TIMESTAMP '1970-01-01 00:00:00.000000+02:17'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1969-12-31 21:43:00.000000 UTC'")
+                .addRoundTrip("TIMESTAMP", "TIMESTAMP '1970-01-01 00:00:00.000000-07:31'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1970-01-01 07:31:00.000000 UTC'")
+                .addRoundTrip("TIMESTAMP", "TIMESTAMP '1958-01-01 13:18:03.123456 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1958-01-01 13:18:03.123456 UTC'")
+                .addRoundTrip("TIMESTAMP", "TIMESTAMP '1958-01-01 13:18:03.123000 Asia/Kathmandu'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1958-01-01 07:48:03.123000 UTC'")
+                .addRoundTrip("TIMESTAMP", "TIMESTAMP '1958-01-01 13:18:03.123000+02:17'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1958-01-01 11:01:03.123000 UTC'")
+                .addRoundTrip("TIMESTAMP", "TIMESTAMP '1958-01-01 13:18:03.123000-07:31'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1958-01-01 20:49:03.123000 UTC'")
+                .addRoundTrip("TIMESTAMP", "TIMESTAMP '2019-03-18 10:01:17.987654 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '2019-03-18 10:01:17.987654 UTC'")
+                .addRoundTrip("TIMESTAMP", "TIMESTAMP '2019-03-18 10:01:17.987000 Asia/Kathmandu'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '2019-03-18 04:16:17.987000 UTC'")
+                .addRoundTrip("TIMESTAMP", "TIMESTAMP '2019-03-18 10:01:17.987000+02:17'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '2019-03-18 07:44:17.987000 UTC'")
+                .addRoundTrip("TIMESTAMP", "TIMESTAMP '2019-03-18 10:01:17.987000-07:31'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '2019-03-18 17:32:17.987000 UTC'")
+                .addRoundTrip("TIMESTAMP", "TIMESTAMP '2021-09-07 23:59:59.999999-00:00'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '2021-09-07 23:59:59.999999 UTC'")
+                .execute(getQueryRunner(), bigqueryCreateAndInsert("test.timestamp_tz"));
     }
 
     private DataSetup bigqueryCreateAndInsert(String tableNamePrefix)
