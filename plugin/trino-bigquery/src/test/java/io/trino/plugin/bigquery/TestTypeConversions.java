@@ -24,7 +24,7 @@ import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.RowType;
-import io.trino.spi.type.TimeWithTimeZoneType;
+import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
@@ -66,7 +66,7 @@ public class TestTypeConversions
     @Test
     public void testConvertDateTimeField()
     {
-        assertSimpleFieldTypeConversion(LegacySQLTypeName.DATETIME, TimestampType.TIMESTAMP_MILLIS);
+        assertSimpleFieldTypeConversion(LegacySQLTypeName.DATETIME, TimestampType.TIMESTAMP_MICROS);
     }
 
     @Test
@@ -102,13 +102,13 @@ public class TestTypeConversions
     @Test
     public void testConvertTimeField()
     {
-        assertSimpleFieldTypeConversion(LegacySQLTypeName.TIME, TimeWithTimeZoneType.TIME_WITH_TIME_ZONE);
+        assertSimpleFieldTypeConversion(LegacySQLTypeName.TIME, TimeType.TIME_MICROS);
     }
 
     @Test
     public void testConvertTimestampField()
     {
-        assertSimpleFieldTypeConversion(LegacySQLTypeName.TIMESTAMP, TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE);
+        assertSimpleFieldTypeConversion(LegacySQLTypeName.TIMESTAMP, TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS);
     }
 
     @Test
@@ -178,7 +178,7 @@ public class TestTypeConversions
     @Test
     public void testConvertDateTimeColumn()
     {
-        assertSimpleColumnTypeConversion(LegacySQLTypeName.DATETIME, TimestampType.TIMESTAMP_MILLIS);
+        assertSimpleColumnTypeConversion(LegacySQLTypeName.DATETIME, TimestampType.TIMESTAMP_MICROS);
     }
 
     @Test
@@ -214,13 +214,13 @@ public class TestTypeConversions
     @Test
     public void testConvertTimeColumn()
     {
-        assertSimpleColumnTypeConversion(LegacySQLTypeName.TIME, TimeWithTimeZoneType.TIME_WITH_TIME_ZONE);
+        assertSimpleColumnTypeConversion(LegacySQLTypeName.TIME, TimeType.TIME_MICROS);
     }
 
     @Test
     public void testConvertTimestampColumn()
     {
-        assertSimpleColumnTypeConversion(LegacySQLTypeName.TIMESTAMP, TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE);
+        assertSimpleColumnTypeConversion(LegacySQLTypeName.TIMESTAMP, TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS);
     }
 
     @Test

@@ -158,15 +158,15 @@ BigQuery       Trino                           Notes
 ``BOOLEAN``    ``BOOLEAN``
 ``BYTES``      ``VARBINARY``
 ``DATE``       ``DATE``
-``DATETIME``   ``TIMESTAMP``
+``DATETIME``   ``TIMESTAMP(6)``
 ``FLOAT``      ``DOUBLE``
 ``GEOGRAPHY``  ``VARCHAR``                     In `Well-known text (WKT) <https://en.wikipedia.org/wiki/Well-known_text_representation_of_geometry>`_ format
 ``INTEGER``    ``BIGINT``
 ``NUMERIC``    ``DECIMAL(P,S)``                Defaults to ``38`` as precision and ``9`` as scale
 ``RECORD``     ``ROW``
 ``STRING``     ``VARCHAR``
-``TIME``       ``TIME_WITH_TIME_ZONE``         Time zone is UTC
-``TIMESTAMP``  ``TIMESTAMP_WITH_TIME_ZONE``    Time zone is UTC
+``TIME``       ``TIME(6)``
+``TIMESTAMP``  ``TIMESTAMP(6) WITH TIME ZONE`` Time zone is UTC
 =============  =============================== =============================================================================================================
 
 System tables

@@ -134,9 +134,9 @@ public class TestBigQueryIntegrationSmokeTest
                 {"double", "double"},
                 {"decimal", "decimal(38,9)"},
                 {"date", "date"},
-                {"time with time zone", "time(3) with time zone"},
-                {"timestamp", "timestamp(3)"},
-                {"timestamp with time zone", "timestamp(3) with time zone"},
+                {"time with time zone", "time(6)"},
+                {"timestamp(6)", "timestamp(6)"},
+                {"timestamp(6) with time zone", "timestamp(6) with time zone"},
                 {"char", "varchar"},
                 {"char(65535)", "varchar"},
                 {"varchar", "varchar"},
@@ -400,40 +400,6 @@ public class TestBigQueryIntegrationSmokeTest
                             "   a bigint,\n" +
                             "   b bigint\n" +
                             ")");
-        }
-    }
-
-    @Test
-    public void testTimeType()
-    {
-        String tableName = "test.test_time_type";
-
-        onBigQuery("DROP TABLE IF EXISTS " + tableName);
-        onBigQuery("CREATE TABLE " + tableName + " (a TIME)");
-        onBigQuery("INSERT INTO " + tableName + " VALUES ('01:02:03.123'), ('23:59:59.999')");
-
-        assertThat(query("SELECT a FROM " + tableName))
-                .matches("VALUES TIME '01:02:03.123+00:00', TIME '23:59:59.999+00:00'");
-        assertThat(query("SELECT a FROM " + tableName + " WHERE a = TIME '01:02:03.123+00:00'"))
-                .matches("VALUES TIME '01:02:03.123+00:00'");
-        assertThat(query("SELECT a FROM " + tableName + " WHERE rand() = 42 OR a = TIME '01:02:03.123+00:00'"))
-                .matches("VALUES TIME '01:02:03.123+00:00'");
-
-        onBigQuery("DROP TABLE " + tableName);
-    }
-
-    @Test
-    public void testDatetimeType()
-    {
-        try (TestTable table = new TestTable(
-                bigQuerySqlExecutor,
-                "test.test_datetime_type",
-                "(a DATETIME)",
-                ImmutableList.of("'2021-08-27 12:34:56.123'", "'2022-09-28 01:02:03.987'"))) {
-            assertThat(query("SELECT a FROM " + table.getName()))
-                    .matches("VALUES TIMESTAMP '2021-08-27 12:34:56.123', TIMESTAMP '2022-09-28 01:02:03.987'");
-            assertThat(query("SELECT a FROM " + table.getName() + " WHERE a = TIMESTAMP '2021-08-27 12:34:56.123'"))
-                    .matches("VALUES TIMESTAMP '2021-08-27 12:34:56.123'");
         }
     }
 
