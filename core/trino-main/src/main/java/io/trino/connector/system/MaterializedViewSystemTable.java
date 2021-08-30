@@ -26,6 +26,7 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.InMemoryRecordSet;
 import io.trino.spi.connector.MaterializedViewFreshness;
+import io.trino.spi.connector.MaterializedViewNotFoundException;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
@@ -102,9 +103,17 @@ public class MaterializedViewSystemTable
 
             getMaterializedViews(session, metadata, accessControl, tablePrefix).forEach((tableName, definition) -> {
                 QualifiedObjectName name = new QualifiedObjectName(tablePrefix.getCatalogName(), tableName.getSchemaName(), tableName.getTableName());
-                MaterializedViewFreshness freshness = metadata.getMaterializedViewFreshness(session, name);
-                Object[] materializedViewRow = createMaterializedViewRow(name, freshness, definition);
+                MaterializedViewFreshness freshness;
 
+                try {
+                    freshness = metadata.getMaterializedViewFreshness(session, name);
+                }
+                catch (MaterializedViewNotFoundException e) {
+                    // Ignore materialized view that was dropped during query execution (race condition)
+                    return;
+                }
+
+                Object[] materializedViewRow = createMaterializedViewRow(name, freshness, definition);
                 displayTable.addRow(materializedViewRow);
             });
         });
