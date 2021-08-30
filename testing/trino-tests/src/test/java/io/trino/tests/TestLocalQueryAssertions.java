@@ -26,7 +26,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * Test {@link io.trino.sql.query.QueryAssertions} with {@link io.trino.testing.LocalQueryRunner}
  */
 public class TestLocalQueryAssertions
-        extends AbstractQueryAssertionsTest
+        extends BaseQueryAssertionsTest
 {
     @Override
     protected QueryRunner createQueryRunner()
