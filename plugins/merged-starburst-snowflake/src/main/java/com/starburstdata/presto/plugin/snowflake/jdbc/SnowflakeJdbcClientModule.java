@@ -43,7 +43,7 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
-import io.trino.plugin.jdbc.ExtraCredentialsBasedJdbcIdentityCacheMappingModule;
+import io.trino.plugin.jdbc.ExtraCredentialsBasedIdentityCacheMappingModule;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcMetadataFactory;
@@ -335,7 +335,7 @@ public class SnowflakeJdbcClientModule
             @Override
             protected void setup(Binder binder)
             {
-                install(new ExtraCredentialsBasedJdbcIdentityCacheMappingModule());
+                install(new ExtraCredentialsBasedIdentityCacheMappingModule());
             }
 
             @Provides
