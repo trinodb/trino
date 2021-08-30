@@ -563,8 +563,13 @@ public final class BlockAssertions
     public static Block createLongDictionaryBlock(int start, int length)
     {
         checkArgument(length > 5, "block must have more than 5 entries");
+        return createLongDictionaryBlock(start, length, length / 5);
+    }
 
-        int dictionarySize = length / 5;
+    public static Block createLongDictionaryBlock(int start, int length, int dictionarySize)
+    {
+        checkArgument(dictionarySize > 0, "dictionarySize must be greater than 0");
+
         BlockBuilder builder = BIGINT.createBlockBuilder(null, dictionarySize);
         for (int i = start; i < start + dictionarySize; i++) {
             BIGINT.writeLong(builder, i);
