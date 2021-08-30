@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.decoder.avro;
+package io.trino.plugin.pulsar.decoder.protobufnative;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
@@ -36,11 +36,11 @@ import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
-import org.apache.avro.generic.GenericEnumSymbol;
-import org.apache.avro.generic.GenericFixed;
-import org.apache.avro.generic.GenericRecord;
+import org.apache.pulsar.shade.com.google.protobuf.ByteString;
+import org.apache.pulsar.shade.com.google.protobuf.DynamicMessage;
+import org.apache.pulsar.shade.com.google.protobuf.EnumValue;
 
-import java.nio.ByteBuffer;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -55,12 +55,13 @@ import static java.lang.Float.floatToIntBits;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public class AvroColumnDecoder
+/**
+ * Pulsar {@link org.apache.pulsar.shade.org.apache.pulsar.common.schema.SchemaType#PROTOBUF_NATIVE} ColumnDecoder.
+ */
+public class PulsarProtobufNativeColumnDecoder
 {
     private static final Set<Type> SUPPORTED_PRIMITIVE_TYPES = ImmutableSet.of(
             BooleanType.BOOLEAN,
-            TinyintType.TINYINT,
-            SmallintType.SMALLINT,
             IntegerType.INTEGER,
             BigintType.BIGINT,
             RealType.REAL,
@@ -71,19 +72,17 @@ public class AvroColumnDecoder
     private final String columnMapping;
     private final String columnName;
 
-    public AvroColumnDecoder(DecoderColumnHandle columnHandle)
+    public PulsarProtobufNativeColumnDecoder(DecoderColumnHandle columnHandle)
     {
         try {
             requireNonNull(columnHandle, "columnHandle is null");
-            this.columnType = columnHandle.getType();
-            this.columnMapping = columnHandle.getMapping();
-
-            this.columnName = columnHandle.getName();
+            columnType = columnHandle.getType();
+            columnMapping = columnHandle.getMapping();
+            columnName = columnHandle.getName();
             checkArgument(!columnHandle.isInternal(), "unexpected internal column '%s'", columnName);
             checkArgument(columnHandle.getFormatHint() == null, "unexpected format hint '%s' defined for column '%s'", columnHandle.getFormatHint(), columnName);
             checkArgument(columnHandle.getDataFormat() == null, "unexpected data format '%s' defined for column '%s'", columnHandle.getDataFormat(), columnName);
             checkArgument(columnHandle.getMapping() != null, "mapping not defined for column '%s'", columnName);
-
             checkArgument(isSupportedType(columnType), "Unsupported column type '%s' for column '%s'", columnType, columnName);
         }
         catch (IllegalArgumentException e) {
@@ -91,7 +90,7 @@ public class AvroColumnDecoder
         }
     }
 
-    protected boolean isSupportedType(Type type)
+    private static boolean isSupportedType(Type type)
     {
         if (isSupportedPrimitive(type)) {
             return true;
@@ -105,8 +104,7 @@ public class AvroColumnDecoder
         if (type instanceof MapType) {
             List<Type> typeParameters = type.getTypeParameters();
             checkArgument(typeParameters.size() == 2, "expecting exactly two type parameters for map");
-            checkArgument(typeParameters.get(0) instanceof VarcharType, "Unsupported column type '%s' for map key", typeParameters.get(0));
-            return isSupportedType(type.getTypeParameters().get(1));
+            return isSupportedType(typeParameters.get(1)) && isSupportedType(typeParameters.get(0));
         }
 
         if (type instanceof RowType) {
@@ -120,30 +118,30 @@ public class AvroColumnDecoder
         return false;
     }
 
-    protected boolean isSupportedPrimitive(Type type)
+    private static boolean isSupportedPrimitive(Type type)
     {
         return type instanceof VarcharType || SUPPORTED_PRIMITIVE_TYPES.contains(type);
     }
 
-    public FieldValueProvider decodeField(GenericRecord avroRecord)
+    public FieldValueProvider decodeField(DynamicMessage dynamicMessage)
     {
-        Object avroColumnValue = locateNode(avroRecord, columnMapping);
-        return new ObjectValueProvider(avroColumnValue, columnType, columnName);
+        Object columnValue = locateNode(dynamicMessage, columnMapping);
+        return new ObjectValueProvider(columnValue, columnType, columnName);
     }
 
-    private static Object locateNode(GenericRecord element, String columnMapping)
+    private static Object locateNode(DynamicMessage element, String columnMapping)
     {
         Object value = element;
         for (String pathElement : Splitter.on('/').omitEmptyStrings().split(columnMapping)) {
             if (value == null) {
                 return null;
             }
-            value = ((GenericRecord) value).get(pathElement);
+            value = ((DynamicMessage) value).getField(((DynamicMessage) value).getDescriptorForType().findFieldByName(pathElement));
         }
         return value;
     }
 
-    static class ObjectValueProvider
+    private static class ObjectValueProvider
             extends FieldValueProvider
     {
         private final Object value;
@@ -187,13 +185,18 @@ public class AvroColumnDecoder
             if (value instanceof Long || value instanceof Integer) {
                 return ((Number) value).longValue();
             }
+
+            if (columnType instanceof RealType) {
+                return floatToIntBits((Float) value);
+            }
+
             throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, format("cannot decode object of '%s' as '%s' for column '%s'", value.getClass(), columnType, columnName));
         }
 
         @Override
         public Slice getSlice()
         {
-            return AvroColumnDecoder.getSlice(value, columnType, columnName);
+            return PulsarProtobufNativeColumnDecoder.getSlice(value, columnType, columnName);
         }
 
         @Override
@@ -203,25 +206,26 @@ public class AvroColumnDecoder
         }
     }
 
-    protected static Slice getSlice(Object value, Type type, String columnName)
+    private static Slice getSlice(Object value, Type type, String columnName)
     {
-        if (type instanceof VarcharType && (value instanceof CharSequence || value instanceof GenericEnumSymbol)) {
-            return truncateToLength(utf8Slice(value.toString()), type);
+        if (value instanceof ByteString) {
+            return Slices.wrappedBuffer(((ByteString) value).toByteArray());
+        }
+        else if (value instanceof EnumValue) { //enum
+            return truncateToLength(utf8Slice(((EnumValue) value).getName()), type);
+        }
+        else if (value instanceof byte[]) {
+            return Slices.wrappedBuffer((byte[]) value);
         }
 
-        if (type instanceof VarbinaryType) {
-            if (value instanceof ByteBuffer) {
-                return Slices.wrappedBuffer((ByteBuffer) value);
-            }
-            else if (value instanceof GenericFixed) {
-                return Slices.wrappedBuffer(((GenericFixed) value).bytes());
-            }
+        if (type instanceof VarcharType) {
+            return truncateToLength(utf8Slice(value.toString()), type);
         }
 
         throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, format("cannot decode object of '%s' as '%s' for column '%s'", value.getClass(), type, columnName));
     }
 
-    protected static Block serializeObject(BlockBuilder builder, Object value, Type type, String columnName)
+    private static Block serializeObject(BlockBuilder builder, Object value, Type type, String columnName)
     {
         if (type instanceof ArrayType) {
             return serializeList(builder, value, type, columnName);
@@ -236,7 +240,7 @@ public class AvroColumnDecoder
         return null;
     }
 
-    protected static Block serializeList(BlockBuilder parentBlockBuilder, Object value, Type type, String columnName)
+    private static Block serializeList(BlockBuilder parentBlockBuilder, Object value, Type type, String columnName)
     {
         if (value == null) {
             checkState(parentBlockBuilder != null, "parentBlockBuilder is null");
@@ -258,9 +262,9 @@ public class AvroColumnDecoder
         return blockBuilder.build();
     }
 
-    protected static void serializePrimitive(BlockBuilder blockBuilder, Object value, Type type, String columnName)
+    private static void serializePrimitive(BlockBuilder blockBuilder, Object value, Type type, String columnName)
     {
-        requireNonNull(blockBuilder, "blockBuilder is null");
+        requireNonNull(blockBuilder, "parent blockBuilder is null");
 
         if (value == null) {
             blockBuilder.appendNull();
@@ -272,7 +276,9 @@ public class AvroColumnDecoder
             return;
         }
 
-        if ((value instanceof Integer || value instanceof Long) && (type instanceof BigintType || type instanceof IntegerType || type instanceof SmallintType || type instanceof TinyintType)) {
+        if ((value instanceof Integer || value instanceof Long)
+                && (type instanceof BigintType || type instanceof IntegerType
+                || type instanceof SmallintType || type instanceof TinyintType)) {
             type.writeLong(blockBuilder, ((Number) value).longValue());
             return;
         }
@@ -295,7 +301,7 @@ public class AvroColumnDecoder
         throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, format("cannot decode object of '%s' as '%s' for column '%s'", value.getClass(), type, columnName));
     }
 
-    protected static Block serializeMap(BlockBuilder parentBlockBuilder, Object value, Type type, String columnName)
+    private static Block serializeMap(BlockBuilder parentBlockBuilder, Object value, Type type, String columnName)
     {
         if (value == null) {
             checkState(parentBlockBuilder != null, "parentBlockBuilder is null");
@@ -303,7 +309,8 @@ public class AvroColumnDecoder
             return null;
         }
 
-        Map<?, ?> map = (Map<?, ?>) value;
+        Map<?, ?> map = parseProtobufMap(value);
+
         List<Type> typeParameters = type.getTypeParameters();
         Type keyType = typeParameters.get(0);
         Type valueType = typeParameters.get(1);
@@ -319,7 +326,7 @@ public class AvroColumnDecoder
         BlockBuilder entryBuilder = blockBuilder.beginBlockEntry();
         for (Map.Entry<?, ?> entry : map.entrySet()) {
             if (entry.getKey() != null) {
-                keyType.writeSlice(entryBuilder, truncateToLength(utf8Slice(entry.getKey().toString()), keyType));
+                serializeObject(entryBuilder, entry.getKey(), keyType, columnName);
                 serializeObject(entryBuilder, entry.getValue(), valueType, columnName);
             }
         }
@@ -331,7 +338,16 @@ public class AvroColumnDecoder
         return null;
     }
 
-    protected static Block serializeRow(BlockBuilder parentBlockBuilder, Object value, Type type, String columnName)
+    protected static Map parseProtobufMap(Object value)
+    {
+        Map map = new HashMap();
+        for (Object mapMsg : ((List) value)) {
+            map.put(((DynamicMessage) mapMsg).getField(((DynamicMessage) mapMsg).getDescriptorForType().findFieldByName(PROTOBUF_MAP_KEY_NAME)), ((DynamicMessage) mapMsg).getField(((DynamicMessage) mapMsg).getDescriptorForType().findFieldByName(PROTOBUF_MAP_VALUE_NAME)));
+        }
+        return map;
+    }
+
+    private static Block serializeRow(BlockBuilder parentBlockBuilder, Object value, Type type, String columnName)
     {
         if (value == null) {
             checkState(parentBlockBuilder != null, "parent block builder is null");
@@ -347,11 +363,12 @@ public class AvroColumnDecoder
             blockBuilder = type.createBlockBuilder(null, 1);
         }
         BlockBuilder singleRowBuilder = blockBuilder.beginBlockEntry();
-        GenericRecord record = (GenericRecord) value;
+        checkState(value instanceof DynamicMessage, "Row Field value should be DynamicMessage type.");
+        DynamicMessage record = (DynamicMessage) value;
         List<Field> fields = ((RowType) type).getFields();
         for (Field field : fields) {
             checkState(field.getName().isPresent(), "field name not found");
-            serializeObject(singleRowBuilder, record.get(field.getName().get()), field.getType(), columnName);
+            serializeObject(singleRowBuilder, record.getField(((DynamicMessage) value).getDescriptorForType().findFieldByName(field.getName().get())), field.getType(), columnName);
         }
         blockBuilder.closeEntry();
         if (parentBlockBuilder == null) {
@@ -359,4 +376,7 @@ public class AvroColumnDecoder
         }
         return null;
     }
+
+    protected static final String PROTOBUF_MAP_KEY_NAME = "key";
+    protected static final String PROTOBUF_MAP_VALUE_NAME = "value";
 }
