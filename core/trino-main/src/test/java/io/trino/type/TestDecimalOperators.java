@@ -741,6 +741,9 @@ public class TestDecimalOperators
         // decimal / bigint
         assertDecimalFunction("DECIMAL '9.0' / BIGINT '3'", decimal("3.0"));
         assertDecimalFunction("DECIMAL '0.018' / BIGINT '9'", decimal(".002"));
+        assertDecimalFunction("DECIMAL '-0.018' / BIGINT '9'", decimal("-.002"));
+        assertDecimalFunction("DECIMAL '0.018' / BIGINT '-9'", decimal("-.002"));
+        assertDecimalFunction("DECIMAL '-0.018' / BIGINT '-9'", decimal(".002"));
         assertDecimalFunction("DECIMAL '.999' / BIGINT '9'", decimal(".111"));
     }
 
@@ -753,9 +756,13 @@ public class TestDecimalOperators
         assertDecimalFunction("BIGINT '9' % DECIMAL '.1'", decimal(".0"));
 
         // decimal % bigint
-        assertDecimalFunction("DECIMAL '9.0' / BIGINT '3'", decimal("3.0"));
-        assertDecimalFunction("DECIMAL '0.018' / BIGINT '9'", decimal(".002"));
-        assertDecimalFunction("DECIMAL '.999' / BIGINT '9'", decimal(".111"));
+        assertDecimalFunction("DECIMAL '13.0' % BIGINT '9'", decimal("04.0"));
+        assertDecimalFunction("DECIMAL '-13.0' % BIGINT '9'", decimal("-04.0"));
+        assertDecimalFunction("DECIMAL '13.0' % BIGINT '-9'", decimal("04.0"));
+        assertDecimalFunction("DECIMAL '-13.0' % BIGINT '-9'", decimal("-04.0"));
+        assertDecimalFunction("DECIMAL '18.00' % BIGINT '3'", decimal("00.00"));
+        assertDecimalFunction("DECIMAL '9.0' % BIGINT '3'", decimal("0.0"));
+        assertDecimalFunction("DECIMAL '5.128' % BIGINT '2'", decimal("1.128"));
     }
 
     @Test
