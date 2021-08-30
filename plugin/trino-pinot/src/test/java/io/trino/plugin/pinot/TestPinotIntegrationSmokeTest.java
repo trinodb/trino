@@ -750,7 +750,7 @@ public class TestPinotIntegrationSmokeTest
                         "  FROM " + ALL_TYPES_TABLE +
                         "  WHERE bytes_col = X'' AND element_at(bool_array_col, 1) = 'null'"))
                 .matches("VALUES (VARCHAR 'null')")
-                .isNotFullyPushedDown(FilterNode.class);
+                .isNotFullyPushedDown(ExchangeNode.class, ProjectNode.class, FilterNode.class);
 
         // Default null value for booleans is the string 'null'
         // Booleans are treated as a string
@@ -1229,6 +1229,51 @@ public class TestPinotIntegrationSmokeTest
                 "  FROM " + ALL_TYPES_TABLE +
                 "  WHERE int_col NOT IN (54, 56)" +
                 "  GROUP BY int_col"))
+                .isFullyPushedDown();
+    }
+
+    @Test
+    public void testVarbinaryFilters()
+    {
+        assertThat(query("SELECT string_col" +
+                "  FROM " + ALL_TYPES_TABLE +
+                "  WHERE bytes_col = X''"))
+                .matches("VALUES (VARCHAR 'null'), (VARCHAR 'array_null')")
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT string_col" +
+                "  FROM " + ALL_TYPES_TABLE +
+                "  WHERE bytes_col != X''"))
+                .matches("VALUES (VARCHAR 'string_0')," +
+                        "  (VARCHAR 'string_1200')," +
+                        "  (VARCHAR 'string_2400')," +
+                        "  (VARCHAR 'string_3600')," +
+                        "  (VARCHAR 'string_4800')," +
+                        "  (VARCHAR 'string_6000')," +
+                        "  (VARCHAR 'string_7200')," +
+                        "  (VARCHAR 'string_8400')," +
+                        "  (VARCHAR 'string_9600')")
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT string_col" +
+                "  FROM " + ALL_TYPES_TABLE +
+                "  WHERE bytes_col = X'73 74 72 69 6e 67 5f 30'"))
+                .matches("VALUES (VARCHAR 'string_0')")
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT string_col" +
+                "  FROM " + ALL_TYPES_TABLE +
+                "  WHERE bytes_col != X'73 74 72 69 6e 67 5f 30'"))
+                .matches("VALUES (VARCHAR 'null')," +
+                        "  (VARCHAR 'array_null')," +
+                        "  (VARCHAR 'string_1200')," +
+                        "  (VARCHAR 'string_2400')," +
+                        "  (VARCHAR 'string_3600')," +
+                        "  (VARCHAR 'string_4800')," +
+                        "  (VARCHAR 'string_6000')," +
+                        "  (VARCHAR 'string_7200')," +
+                        "  (VARCHAR 'string_8400')," +
+                        "  (VARCHAR 'string_9600')")
                 .isFullyPushedDown();
     }
 }
