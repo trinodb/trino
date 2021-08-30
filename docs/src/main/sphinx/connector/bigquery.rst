@@ -152,22 +152,22 @@ Data types
 With a few exceptions, all BigQuery types are mapped directly to their Trino
 counterparts. Here are all the mappings:
 
-=============  ============================ =============================================================================================================
-BigQuery       Trino                        Notes
-=============  ============================ =============================================================================================================
+=============  =============================== =============================================================================================================
+BigQuery       Trino                           Notes
+=============  =============================== =============================================================================================================
 ``BOOLEAN``    ``BOOLEAN``
 ``BYTES``      ``VARBINARY``
 ``DATE``       ``DATE``
 ``DATETIME``   ``TIMESTAMP``
 ``FLOAT``      ``DOUBLE``
-``GEOGRAPHY``  ``VARCHAR``                  In `Well-known text (WKT) <https://en.wikipedia.org/wiki/Well-known_text_representation_of_geometry>`_ format
+``GEOGRAPHY``  ``VARCHAR``                     In `Well-known text (WKT) <https://en.wikipedia.org/wiki/Well-known_text_representation_of_geometry>`_ format
 ``INTEGER``    ``BIGINT``
-``NUMERIC``    ``DECIMAL(P,S)``             Defaults to ``38`` as precision and ``9`` as scale
+``NUMERIC``    ``DECIMAL(P,S)``                Defaults to ``38`` as precision and ``9`` as scale
 ``RECORD``     ``ROW``
 ``STRING``     ``VARCHAR``
-``TIME``       ``TIME_WITH_TIME_ZONE``      Time zone is UTC
-``TIMESTAMP``  ``TIMESTAMP_WITH_TIME_ZONE`` Time zone is UTC
-=============  ============================ =============================================================================================================
+``TIME``       ``TIME_WITH_TIME_ZONE``         Time zone is UTC
+``TIMESTAMP``  ``TIMESTAMP_WITH_TIME_ZONE``    Time zone is UTC
+=============  =============================== =============================================================================================================
 
 System tables
 -------------
