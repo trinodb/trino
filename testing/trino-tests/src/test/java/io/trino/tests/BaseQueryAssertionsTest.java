@@ -96,6 +96,20 @@ public abstract class BaseQueryAssertionsTest
     }
 
     @Test
+    public void testReturnsEmptyResult()
+    {
+        assertThat(query("SELECT 'foobar' WHERE false")).returnsEmptyResult();
+
+        QueryAssert queryAssert = assertThat(query("VALUES 'foobar'"));
+        assertThatThrownBy(queryAssert::returnsEmptyResult)
+                .hasMessage("[rows] \nExpecting empty but was:<[[foobar]]>");
+
+        queryAssert = assertThat(query("VALUES 'foo', 'bar'"));
+        assertThatThrownBy(queryAssert::returnsEmptyResult)
+                .hasMessage("[rows] \nExpecting empty but was:<[[foo], [bar]]>");
+    }
+
+    @Test
     public void testVarbinaryResult()
     {
         assertThat(query("SELECT X'001234'")).matches("VALUES X'001234'");
