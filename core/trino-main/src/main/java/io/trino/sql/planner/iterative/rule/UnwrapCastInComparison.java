@@ -480,9 +480,6 @@ public class UnwrapCastInComparison
 
             boolean coercible = new TypeCoercion(metadata::getType).canCoerce(source, target);
             if (source instanceof VarcharType && target instanceof CharType) {
-                // char should probably be coercible to varchar, not vice-versa. The code here needs to be updated when things change.
-                verify(coercible, "%s was expected to be coercible to %s", source, target);
-
                 VarcharType sourceVarchar = (VarcharType) source;
                 CharType targetChar = (CharType) target;
 
@@ -490,6 +487,8 @@ public class UnwrapCastInComparison
                     // Truncation, not injective.
                     return false;
                 }
+                // char should probably be coercible to varchar, not vice-versa. The code here needs to be updated when things change.
+                verify(coercible, "%s was expected to be coercible to %s", source, target);
                 if (sourceVarchar.getBoundedLength() == 0) {
                     // the source domain is single-element set
                     return true;
