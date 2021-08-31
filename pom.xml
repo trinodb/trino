@@ -634,7 +634,7 @@
             <dependency>
                 <groupId>io.airlift</groupId>
                 <artifactId>aircompressor</artifactId>
-                <version>0.19</version>
+                <version>0.21</version>
             </dependency>
 
             <dependency>
