@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Ints;
 import io.trino.Session;
 import io.trino.execution.QueryStats;
-import io.trino.metadata.QualifiedObjectName;
 import io.trino.operator.OperatorStats;
 import io.trino.plugin.base.metrics.LongCount;
 import io.trino.spi.QueryId;
@@ -48,6 +47,7 @@ import static io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAS
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestMemoryConnectorTest
@@ -516,14 +516,12 @@ public class TestMemoryConnectorTest
     @Test
     public void testCreateTableAndViewInNotExistSchema()
     {
-        int tablesBeforeCreate = listMemoryTables().size();
-
         assertQueryFails("CREATE TABLE schema3.test_table3 (x date)", "Schema schema3 not found");
+        assertFalse(getQueryRunner().tableExists(getSession(), "schema3.test_table3"));
         assertQueryFails("CREATE VIEW schema4.test_view4 AS SELECT 123 x", "Schema schema4 not found");
+        assertFalse(getQueryRunner().tableExists(getSession(), "schema4.test_view4"));
         assertQueryFails("CREATE OR REPLACE VIEW schema5.test_view5 AS SELECT 123 x", "Schema schema5 not found");
-
-        int tablesAfterCreate = listMemoryTables().size();
-        assertEquals(tablesBeforeCreate, tablesAfterCreate);
+        assertFalse(getQueryRunner().tableExists(getSession(), "schema5.test_view5"));
     }
 
     @Test
@@ -561,11 +559,6 @@ public class TestMemoryConnectorTest
 
         assertUpdate("DROP VIEW test_different_schema.test_view_renamed");
         assertUpdate("DROP SCHEMA test_different_schema");
-    }
-
-    private List<QualifiedObjectName> listMemoryTables()
-    {
-        return getQueryRunner().listTables(getSession(), "memory", "default");
     }
 
     private void assertQueryResult(@Language("SQL") String sql, Object... expected)
