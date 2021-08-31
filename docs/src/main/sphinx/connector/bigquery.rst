@@ -162,7 +162,7 @@ BigQuery       Trino                        Notes
 ``FLOAT``      ``DOUBLE``
 ``GEOGRAPHY``  ``VARCHAR``                  In `Well-known text (WKT) <https://en.wikipedia.org/wiki/Well-known_text_representation_of_geometry>`_ format
 ``INTEGER``    ``BIGINT``
-``NUMERIC``    ``DECIMAL(38,9)``
+``NUMERIC``    ``DECIMAL(P,S)``             Defaults to ``38`` as precision and ``9`` as scale
 ``RECORD``     ``ROW``
 ``STRING``     ``VARCHAR``
 ``TIME``       ``TIME_WITH_TIME_ZONE``      Time zone is UTC

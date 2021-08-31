@@ -226,9 +226,9 @@ public class TestTypeConversions
     @Test
     public void testConvertOneLevelRecordColumn()
     {
-        BigQueryColumnHandle column = new BigQueryColumnHandle("rec", BigQueryType.RECORD, Field.Mode.NULLABLE, ImmutableList.of(
-                new BigQueryColumnHandle("sub_s", BigQueryType.STRING, Field.Mode.NULLABLE, ImmutableList.of(), null),
-                new BigQueryColumnHandle("sub_i", BigQueryType.INTEGER, Field.Mode.NULLABLE, ImmutableList.of(), null)
+        BigQueryColumnHandle column = new BigQueryColumnHandle("rec", BigQueryType.RECORD, Field.Mode.NULLABLE, null, null, ImmutableList.of(
+                new BigQueryColumnHandle("sub_s", BigQueryType.STRING, Field.Mode.NULLABLE, null, null, ImmutableList.of(), null),
+                new BigQueryColumnHandle("sub_i", BigQueryType.INTEGER, Field.Mode.NULLABLE, null, null, ImmutableList.of(), null)
         ), null);
         ColumnMetadata metadata = column.getColumnMetadata();
         RowType targetType = RowType.rowType(
@@ -240,13 +240,13 @@ public class TestTypeConversions
     @Test
     public void testConvertTwoLevelsRecordColumn()
     {
-        BigQueryColumnHandle column = new BigQueryColumnHandle("rec", BigQueryType.RECORD, Field.Mode.NULLABLE, ImmutableList.of(
-                new BigQueryColumnHandle("sub_rec", BigQueryType.RECORD, Field.Mode.NULLABLE, ImmutableList.of(
-                        new BigQueryColumnHandle("sub_sub_s", BigQueryType.STRING, Field.Mode.NULLABLE, ImmutableList.of(), null),
-                        new BigQueryColumnHandle("sub_sub_i", BigQueryType.INTEGER, Field.Mode.NULLABLE, ImmutableList.of(), null)
+        BigQueryColumnHandle column = new BigQueryColumnHandle("rec", BigQueryType.RECORD, Field.Mode.NULLABLE, null, null, ImmutableList.of(
+                new BigQueryColumnHandle("sub_rec", BigQueryType.RECORD, Field.Mode.NULLABLE, null, null, ImmutableList.of(
+                        new BigQueryColumnHandle("sub_sub_s", BigQueryType.STRING, Field.Mode.NULLABLE, null, null, ImmutableList.of(), null),
+                        new BigQueryColumnHandle("sub_sub_i", BigQueryType.INTEGER, Field.Mode.NULLABLE, null, null, ImmutableList.of(), null)
                 ), null),
-                new BigQueryColumnHandle("sub_s", BigQueryType.STRING, Field.Mode.NULLABLE, ImmutableList.of(), null),
-                new BigQueryColumnHandle("sub_i", BigQueryType.INTEGER, Field.Mode.NULLABLE, ImmutableList.of(), null)
+                new BigQueryColumnHandle("sub_s", BigQueryType.STRING, Field.Mode.NULLABLE, null, null, ImmutableList.of(), null),
+                new BigQueryColumnHandle("sub_i", BigQueryType.INTEGER, Field.Mode.NULLABLE, null, null, ImmutableList.of(), null)
         ), null);
         ColumnMetadata metadata = column.getColumnMetadata();
         RowType targetType = RowType.rowType(
@@ -261,7 +261,7 @@ public class TestTypeConversions
     @Test
     public void testConvertStringArrayColumn()
     {
-        BigQueryColumnHandle column = new BigQueryColumnHandle("test", BigQueryType.STRING, Field.Mode.REPEATED, ImmutableList.of(), null);
+        BigQueryColumnHandle column = new BigQueryColumnHandle("test", BigQueryType.STRING, Field.Mode.REPEATED, null, null, ImmutableList.of(), null);
         ColumnMetadata metadata = column.getColumnMetadata();
         assertThat(metadata.getType()).isEqualTo(new ArrayType(VarcharType.VARCHAR));
     }
@@ -296,6 +296,6 @@ public class TestTypeConversions
 
     private static BigQueryColumnHandle createColumn(LegacySQLTypeName type)
     {
-        return new BigQueryColumnHandle("test", BigQueryType.valueOf(type.name()), Field.Mode.NULLABLE, ImmutableList.of(), null);
+        return new BigQueryColumnHandle("test", BigQueryType.valueOf(type.name()), Field.Mode.NULLABLE, null, null, ImmutableList.of(), null);
     }
 }
