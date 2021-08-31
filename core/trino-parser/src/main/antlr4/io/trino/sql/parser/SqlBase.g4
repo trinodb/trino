@@ -59,20 +59,20 @@ statement
     | DROP TABLE (IF EXISTS)? qualifiedName                            #dropTable
     | INSERT INTO qualifiedName columnAliases? query                   #insertInto
     | DELETE FROM qualifiedName (WHERE booleanExpression)?             #delete
-    | ALTER TABLE (IF EXISTS)? from=qualifiedName RENAME TO to=qualifiedName        #renameTable
     | COMMENT ON TABLE qualifiedName IS (string | NULL)                #commentTable
     | COMMENT ON COLUMN qualifiedName IS (string | NULL)               #commentColumn
+    | ALTER TABLE (IF EXISTS)? from=qualifiedName
+        RENAME TO to=qualifiedName                                     #renameTable
+    | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
+        ADD COLUMN (IF NOT EXISTS)? column=columnDefinition            #addColumn
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         RENAME COLUMN (IF EXISTS)? from=identifier TO to=identifier    #renameColumn
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         DROP COLUMN (IF EXISTS)? column=qualifiedName                  #dropColumn
-    | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
-        ADD COLUMN (IF NOT EXISTS)? column=columnDefinition            #addColumn
     | ALTER TABLE tableName=qualifiedName SET AUTHORIZATION principal  #setTableAuthorization
     | ANALYZE qualifiedName (WITH properties)?                         #analyze
-    | CREATE (OR REPLACE)?  MATERIALIZED VIEW
-        (IF NOT EXISTS)?
-        qualifiedName
+    | CREATE (OR REPLACE)? MATERIALIZED VIEW
+        (IF NOT EXISTS)? qualifiedName
         (COMMENT string)?
         (WITH properties)? AS query                                    #createMaterializedView
     | CREATE (OR REPLACE)? VIEW qualifiedName
@@ -108,8 +108,7 @@ statement
         (privilege (',' privilege)* | ALL PRIVILEGES)
         ON (SCHEMA | TABLE)? qualifiedName
         FROM grantee=principal                                         #revoke
-    | SHOW GRANTS
-        (ON TABLE? qualifiedName)?                                     #showGrants
+    | SHOW GRANTS (ON TABLE? qualifiedName)?                           #showGrants
     | EXPLAIN ('(' explainOption (',' explainOption)* ')')? statement  #explain
     | EXPLAIN ANALYZE VERBOSE? statement                               #explainAnalyze
     | SHOW CREATE TABLE qualifiedName                                  #showCreateTable
@@ -182,12 +181,14 @@ property
     : identifier EQ expression
     ;
 
-queryNoWith:
-      queryTerm
+queryNoWith
+    : queryTerm
       (ORDER BY sortItem (',' sortItem)*)?
       (OFFSET offset=rowCount (ROW | ROWS)?)?
-      ((LIMIT limit=limitRowCount) | (FETCH (FIRST | NEXT) (fetchFirst=rowCount)? (ROW | ROWS) (ONLY | WITH TIES)))?
-      ;
+      ( (LIMIT limit=limitRowCount)
+      | (FETCH (FIRST | NEXT) (fetchFirst=rowCount)? (ROW | ROWS) (ONLY | WITH TIES))
+      )?
+    ;
 
 limitRowCount
     : ALL
@@ -209,7 +210,7 @@ queryPrimary
     : querySpecification                   #queryPrimaryDefault
     | TABLE qualifiedName                  #table
     | VALUES expression (',' expression)*  #inlineTable
-    | '(' queryNoWith  ')'                 #subquery
+    | '(' queryNoWith ')'                  #subquery
     ;
 
 sortItem
@@ -272,8 +273,8 @@ relation
       ( CROSS JOIN right=sampledRelation
       | joinType JOIN rightRelation=relation joinCriteria
       | NATURAL joinType JOIN right=sampledRelation
-      )                                           #joinRelation
-    | sampledRelation                             #relationDefault
+      )                                                     #joinRelation
+    | sampledRelation                                       #relationDefault
     ;
 
 joinType
@@ -302,17 +303,18 @@ sampleType
 patternRecognition
     : aliasedRelation (
         MATCH_RECOGNIZE '('
-                (PARTITION BY partition+=expression (',' partition+=expression)*)?
-                (ORDER BY sortItem (',' sortItem)*)?
-                (MEASURES measureDefinition (',' measureDefinition)*)?
-                rowsPerMatch?
-                (AFTER MATCH skipTo)?
-                (INITIAL | SEEK)?
-                PATTERN '(' rowPattern ')'
-                (SUBSET subsetDefinition (',' subsetDefinition)*)?
-                DEFINE variableDefinition (',' variableDefinition)*
-            ')'
-        (AS? identifier columnAliases?)?)?
+          (PARTITION BY partition+=expression (',' partition+=expression)*)?
+          (ORDER BY sortItem (',' sortItem)*)?
+          (MEASURES measureDefinition (',' measureDefinition)*)?
+          rowsPerMatch?
+          (AFTER MATCH skipTo)?
+          (INITIAL | SEEK)?
+          PATTERN '(' rowPattern ')'
+          (SUBSET subsetDefinition (',' subsetDefinition)*)?
+          DEFINE variableDefinition (',' variableDefinition)*
+        ')'
+        (AS? identifier columnAliases?)?
+      )?
     ;
 
 measureDefinition
@@ -909,12 +911,12 @@ WRITE: 'WRITE';
 YEAR: 'YEAR';
 ZONE: 'ZONE';
 
-EQ  : '=';
-NEQ : '<>' | '!=';
-LT  : '<';
-LTE : '<=';
-GT  : '>';
-GTE : '>=';
+EQ: '=';
+NEQ: '<>' | '!=';
+LT: '<';
+LTE: '<=';
+GT: '>';
+GTE: '>=';
 
 PLUS: '+';
 MINUS: '-';
@@ -922,7 +924,7 @@ ASTERISK: '*';
 SLASH: '/';
 PERCENT: '%';
 CONCAT: '||';
-QUESTION_MARK : '?';
+QUESTION_MARK: '?';
 
 STRING
     : '\'' ( ~'\'' | '\'\'' )* '\''
@@ -936,7 +938,7 @@ UNICODE_STRING
 // its a correct literal when the AST is being constructed. This
 // allows us to provide more meaningful error messages to the user
 BINARY_LITERAL
-    :  'X\'' (~'\'')* '\''
+    : 'X\'' (~'\'')* '\''
     ;
 
 INTEGER_VALUE
