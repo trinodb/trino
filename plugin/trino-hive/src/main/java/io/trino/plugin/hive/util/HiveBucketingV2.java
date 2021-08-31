@@ -18,6 +18,7 @@ import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
+import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
 import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
@@ -25,9 +26,14 @@ import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 import org.apache.hive.common.util.Murmur3;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.math.MathContext;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.spi.type.Decimals.decodeUnscaledValue;
+import static io.trino.spi.type.Decimals.readBigDecimal;
 import static java.lang.Double.doubleToLongBits;
 import static java.lang.Double.doubleToRawLongBits;
 import static java.lang.Float.floatToIntBits;
@@ -110,6 +116,8 @@ final class HiveBucketingV2
                         // We do not support bucketing on timestamp
                         break;
                     case DECIMAL:
+                        BigDecimal value = readBigDecimal((DecimalType) trinoType, block, position);
+                        return Murmur3.hash32(value.unscaledValue().toByteArray());
                     case CHAR:
                     case BINARY:
                     case TIMESTAMPLOCALTZ:
@@ -143,6 +151,7 @@ final class HiveBucketingV2
             case PRIMITIVE:
                 PrimitiveTypeInfo typeInfo = (PrimitiveTypeInfo) type;
                 PrimitiveCategory primitiveCategory = typeInfo.getPrimitiveCategory();
+                Type trinoType = requireNonNull(HiveTypeTranslator.fromPrimitiveType(typeInfo));
                 switch (primitiveCategory) {
                     case BOOLEAN:
                         return (boolean) value ? 1 : 0;
@@ -175,6 +184,16 @@ final class HiveBucketingV2
                         // We do not support bucketing on timestamp
                         break;
                     case DECIMAL:
+                        DecimalType decimalType = (DecimalType) trinoType;
+                        BigInteger unscaledValue;
+                        if (decimalType.isShort()) {
+                            unscaledValue = BigInteger.valueOf((long) value);
+                        }
+                        else {
+                            unscaledValue = decodeUnscaledValue((Slice) value);
+                        }
+                        BigDecimal bigDecimal = new BigDecimal(unscaledValue, decimalType.getScale(), new MathContext(decimalType.getPrecision()));
+                        return Murmur3.hash32(bigDecimal.unscaledValue().toByteArray());
                     case CHAR:
                     case BINARY:
                     case TIMESTAMPLOCALTZ:

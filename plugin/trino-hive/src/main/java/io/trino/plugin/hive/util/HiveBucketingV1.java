@@ -18,15 +18,21 @@ import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
+import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
 import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.math.MathContext;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.spi.type.Decimals.decodeUnscaledValue;
+import static io.trino.spi.type.Decimals.readBigDecimal;
 import static java.lang.Double.doubleToLongBits;
 import static java.lang.Float.floatToIntBits;
 import static java.lang.Float.intBitsToFloat;
@@ -105,6 +111,7 @@ final class HiveBucketingV1
                         // We do not support bucketing on timestamp
                         break;
                     case DECIMAL:
+                        return readBigDecimal((DecimalType) trinoType, block, position).hashCode();
                     case CHAR:
                     case BINARY:
                     case TIMESTAMPLOCALTZ:
@@ -138,6 +145,7 @@ final class HiveBucketingV1
             case PRIMITIVE:
                 PrimitiveTypeInfo typeInfo = (PrimitiveTypeInfo) type;
                 PrimitiveCategory primitiveCategory = typeInfo.getPrimitiveCategory();
+                Type trinoType = requireNonNull(HiveTypeTranslator.fromPrimitiveType(typeInfo));
                 switch (primitiveCategory) {
                     case BOOLEAN:
                         return (boolean) value ? 1 : 0;
@@ -167,6 +175,15 @@ final class HiveBucketingV1
                         // We do not support bucketing on timestamp
                         break;
                     case DECIMAL:
+                        DecimalType decimalType = (DecimalType) trinoType;
+                        BigInteger unscaledValue;
+                        if (decimalType.isShort()) {
+                            unscaledValue = BigInteger.valueOf((long) value);
+                        }
+                        else {
+                            unscaledValue = decodeUnscaledValue((Slice) value);
+                        }
+                        return new BigDecimal(unscaledValue, decimalType.getScale(), new MathContext(decimalType.getPrecision())).hashCode();
                     case CHAR:
                     case BINARY:
                     case TIMESTAMPLOCALTZ:

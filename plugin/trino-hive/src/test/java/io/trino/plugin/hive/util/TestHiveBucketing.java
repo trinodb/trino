@@ -28,6 +28,7 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.DateType;
+import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.MapType;
@@ -39,6 +40,7 @@ import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import org.apache.hadoop.hive.common.type.Date;
+import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.common.type.HiveVarchar;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorUtils;
@@ -59,6 +61,7 @@ import static io.trino.plugin.hive.HiveTestUtils.TYPE_MANAGER;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V2;
 import static io.trino.plugin.hive.util.HiveBucketing.getHiveBuckets;
+import static io.trino.spi.type.Decimals.encodeScaledValue;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.lang.Double.longBitsToDouble;
@@ -141,6 +144,13 @@ public class TestHiveBucketing
         assertBucketEquals("date", Date.valueOf("2015-11-19"), 16758, 8542395);
         assertBucketEquals("date", Date.valueOf("1950-11-19"), -6983, -431619185);
 
+        assertBucketEquals("decimal(18,3)", null, 0, 0);
+        assertBucketEquals("decimal(38,3)", null, 0, 0);
+        assertBucketEquals("decimal(18,3)", HiveDecimal.create("314.001"), 9734034, -330044031);
+        assertBucketEquals("decimal(18,3)", HiveDecimal.create("-314.001"), -9734028, -485436059);
+        assertBucketEquals("decimal(37,3)", HiveDecimal.create("2718281828459045235360287471352662.497"), -1008551972, -1207675361);
+        assertBucketEquals("decimal(37,18)", HiveDecimal.create("-2718281828459045235.360287471352662497"), 1008551993, 303261957);
+
         for (BucketingVersion version : BucketingVersion.values()) {
             List<TypeInfo> typeInfos = ImmutableList.of(timestampTypeInfo);
 
@@ -160,25 +170,27 @@ public class TestHiveBucketing
         assertBucketEquals("array<boolean>", ImmutableList.of(), 0, 0);
         assertBucketEquals("array<smallint>", ImmutableList.of((short) 5, (short) 8, (short) 13), 5066, -905011156);
         assertBucketEquals("array<string>", ImmutableList.of("test1", "test2", "test3", "test4"), 957612994, 1305539282);
+        assertBucketEquals("array<decimal(18,3)>", ImmutableList.of(HiveDecimal.create("314.001"), HiveDecimal.create("-314.001")), 292021026, -2126866428);
         assertBucketEquals("array<array<bigint>>", ImmutableList.of(ImmutableList.of(10L, 20L), ImmutableList.of(-10L, -20L), asList((Object) null)), 326368, 611324477);
 
         assertBucketEquals("map<float,date>", null, 0, 0);
         assertBucketEquals("map<double,timestamp>", ImmutableMap.of(), 0, 0);
         assertBucketEquals("map<string,bigint>", ImmutableMap.of("key", 123L, "key2", 123456789L, "key3", -123456L), 127880789, -1910999650);
+        assertBucketEquals("map<decimal(37,18),bigint>", ImmutableMap.of(HiveDecimal.create("-2718281828459045235.360287471352662497"), 123L, HiveDecimal.create("2718281828459045235.360287471352662497"), 123456789L), 14074688, -780991352);
 
         assertBucketEquals("map<array<double>,map<int,string>>", ImmutableMap.of(ImmutableList.of(12.3, 45.7), ImmutableMap.of(123, "test99")), -34001111, -1565874874);
 
         // multiple bucketing columns
         assertBucketEquals(
-                ImmutableList.of("float", "array<smallint>", "map<string,bigint>"),
-                ImmutableList.of(12.34F, ImmutableList.of((short) 5, (short) 8, (short) 13), ImmutableMap.of("key", 123L)),
-                95411006,
-                932898434);
+                ImmutableList.of("float", "array<smallint>", "map<string,bigint>", "decimal(18,3)"),
+                ImmutableList.of(12.34F, ImmutableList.of((short) 5, (short) 8, (short) 13), ImmutableMap.of("key", 123L), HiveDecimal.create("314.001")),
+                -1327492076,
+                -1474963649);
         assertBucketEquals(
-                ImmutableList.of("double", "array<smallint>", "boolean", "map<string,bigint>", "tinyint"),
-                asList(null, ImmutableList.of((short) 5, (short) 8, (short) 13), null, ImmutableMap.of("key", 123L), null),
-                154207826,
-                -1120812524);
+                ImmutableList.of("double", "array<smallint>", "boolean", "map<string,bigint>", "tinyint", "decimal(37,18)"),
+                asList(null, ImmutableList.of((short) 5, (short) 8, (short) 13), null, ImmutableMap.of("key", 123L), null, HiveDecimal.create("-2718281828459045235.360287471352662497")),
+                1494027303,
+                -82187919);
     }
 
     @Test
@@ -427,6 +439,13 @@ public class TestHiveBucketing
         }
         if (type instanceof DateType) {
             return (long) ((Date) hiveValue).toEpochDay();
+        }
+        if (type instanceof DecimalType) {
+            DecimalType decimalType = (DecimalType) type;
+            if (decimalType.isShort()) {
+                return ((HiveDecimal) hiveValue).unscaledValue().longValueExact();
+            }
+            return encodeScaledValue(((HiveDecimal) hiveValue).bigDecimalValue());
         }
 
         throw new IllegalArgumentException("Unsupported bucketing type: " + type);

@@ -403,7 +403,6 @@ public class TestHiveBucketedTables
         return cartesianProduct(
                 ImmutableList.of(BUCKETED_DEFAULT, BUCKETED_V1, BUCKETED_V2),
                 ImmutableList.<String>builder()
-                        .add("n_decimal")
                         .add("n_timestamp")
                         .add("n_char")
                         .add("n_binary")
