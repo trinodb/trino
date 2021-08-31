@@ -41,21 +41,6 @@ Drop table::
 
     DROP TABLE memory.default.nation;
 
-.. _memory_dynamic_filtering:
-
-Dynamic filtering
------------------
-
-The Memory connector supports the :doc:`dynamic filtering </admin/dynamic-filtering>` optimization.
-Dynamic filters are pushed into local table scan on worker nodes for broadcast joins.
-
-Delayed execution for dynamic filters
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-For the Memory connector, a table scan is delayed until the collection of dynamic filters.
-This can be disabled by using the configuration property ``memory.enable-lazy-dynamic-filtering``
-in the catalog file.
-
 .. _memory-sql-support:
 
 SQL support
@@ -79,6 +64,23 @@ DROP TABLE
 Upon execution of a ``DROP TABLE`` operation, memory is not released
 immediately. It is instead released after the next write operation to the
 connector.
+
+.. _memory_dynamic_filtering:
+
+Dynamic filtering
+-----------------
+
+The Memory connector supports the :doc:`dynamic filtering </admin/dynamic-filtering>` optimization.
+Dynamic filters are pushed into local table scan on worker nodes for broadcast joins.
+
+Delayed execution for dynamic filters
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+For the Memory connector, a table scan is delayed until the collection of dynamic filters.
+This can be disabled by using the configuration property ``memory.enable-lazy-dynamic-filtering``
+in the catalog file.
+
+
 
 Limitations
 -----------
