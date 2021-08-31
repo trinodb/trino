@@ -344,6 +344,31 @@ sparse representation, switching to a dense representation when it becomes more 
 A P4HyperLogLog sketch is similar to :ref:`hyperloglog_type`, but it starts (and remains)
 in the dense representation.
 
+SetDigest
+---------
+
+.. _setdigest_type:
+
+``SetDigest``
+^^^^^^^^^^^^^
+
+A SetDigest (setdigest) is a data sketch structure used
+in calculating `Jaccard similarity coefficient <https://en.wikipedia.org/wiki/Jaccard_index>`_
+between two sets.
+
+SetDigest encapsulates the following components:
+
+- `HyperLogLog <https://en.wikipedia.org/wiki/HyperLogLog>`_
+- `MinHash with a single hash function <http://en.wikipedia.org/wiki/MinHash#Variant_with_a_single_hash_function>`_
+
+The HyperLogLog structure is used for the approximation of the distinct elements
+in the original set.
+
+The MinHash structure is used to store a low memory footprint signature of the original set.
+The similarity of any two sets is estimated by comparing their signatures.
+
+SetDigests are additive, meaning they can be merged together.
+
 Quantile digest
 ---------------
 
