@@ -14,6 +14,7 @@
 package io.trino.plugin.fission;
 
 import io.airlift.slice.Slice;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
@@ -28,6 +29,8 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.IOException;
+
+import static io.airlift.slice.Slices.utf8Slice;
 
 public class FissionFunctionFunctions
 {
@@ -69,10 +72,27 @@ public class FissionFunctionFunctions
         return count;
     }
 
-    private static JSONObject executeFissionFunctionGet(String endpoint) throws JSONException, IOException
+    @ScalarFunction("fission_listdatalake")
+    @Description("Explore datalake, Requires AzureToken")
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice fetchListDataLake(ConnectorSession session, @SqlType(StandardTypes.VARCHAR) Slice filesystem, @SqlType(StandardTypes.VARCHAR) Slice filepath) throws JSONException, IOException
+    {
+        JSONObject jsonObject = executeFissionFunctionGet(String.format("%s/listdatalake?filesystem=%s&filepath=%s", FissionFunctionConfigProvider.getFissionFunctionBaseURL(), filesystem.toStringUtf8(), filepath.toStringUtf8()), session.getIdentity().getExtraCredentials().getOrDefault("access-token", ""));
+        return utf8Slice(jsonObject.getJSONArray("result").toString());
+    }
+
+    private static JSONObject executeFissionFunctionGet(String endPoint) throws JSONException, IOException
+    {
+        return executeFissionFunctionGet(endPoint, "");
+    }
+
+    private static JSONObject executeFissionFunctionGet(String endPoint, String azureToken) throws JSONException, IOException
     {
         try (CloseableHttpClient httpClient = HttpClientBuilder.create().setDefaultCookieStore(cookieStore).build()) {
-            HttpGet getRequest = new HttpGet(endpoint);
+            HttpGet getRequest = new HttpGet(endPoint);
+            if (azureToken != null && !azureToken.isEmpty()) {
+                getRequest.setHeader("Authorization", "Bearer " + azureToken);
+            }
             HttpResponse response = httpClient.execute(getRequest);
             String result = EntityUtils.toString(response.getEntity());
             return new JSONObject(result);
