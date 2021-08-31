@@ -115,7 +115,7 @@ class BigQueryFilterQueryBuilder
         }
         else if (singleValues.size() > 1) {
             String values = singleValues.stream()
-                    .map(column.getBigQueryType()::convertToString)
+                    .map(value -> column.getBigQueryType().convertToString(column.getTrinoType(), value))
                     .collect(joining(","));
             disjuncts.add(quote(columnName) + " IN (" + values + ")");
         }
@@ -131,7 +131,7 @@ class BigQueryFilterQueryBuilder
 
     private String toPredicate(String columnName, String operator, Object value, BigQueryColumnHandle column)
     {
-        String valueAsString = column.getBigQueryType().convertToString(value);
+        String valueAsString = column.getBigQueryType().convertToString(column.getTrinoType(), value);
         return quote(columnName) + " " + operator + " " + valueAsString;
     }
 

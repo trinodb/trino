@@ -52,14 +52,16 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.plugin.bigquery.BigQueryMetadata.NUMERIC_DATA_TYPE_PRECISION;
-import static io.trino.plugin.bigquery.BigQueryMetadata.NUMERIC_DATA_TYPE_SCALE;
 import static io.trino.plugin.bigquery.BigQueryType.toTrinoTimestamp;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.Decimals.encodeShortScaledValue;
+import static io.trino.spi.type.Decimals.isLongDecimal;
+import static io.trino.spi.type.Decimals.isShortDecimal;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
@@ -165,6 +167,12 @@ public class BigQueryResultPageSource
                 else if (type.equals(INTEGER)) {
                     type.writeLong(output, ((Number) value).intValue());
                 }
+                else if (type instanceof DecimalType) {
+                    verify(isShortDecimal(type), "The type should be short decimal");
+                    DecimalType decimalType = (DecimalType) type;
+                    BigDecimal decimal = DECIMAL_CONVERTER.convert(decimalType.getPrecision(), decimalType.getScale(), value);
+                    type.writeLong(output, encodeShortScaledValue(decimal, decimalType.getScale()));
+                }
                 else if (type.equals(DATE)) {
                     type.writeLong(output, ((Number) value).intValue());
                 }
@@ -206,8 +214,10 @@ public class BigQueryResultPageSource
             type.writeSlice(output, utf8Slice(((Utf8) value).toString()));
         }
         else if (type instanceof DecimalType) {
-            BigDecimal bdValue = DECIMAL_CONVERTER.convert(value);
-            type.writeSlice(output, Decimals.encodeScaledValue(bdValue, NUMERIC_DATA_TYPE_SCALE));
+            verify(isLongDecimal(type), "The type should be long decimal");
+            DecimalType decimalType = (DecimalType) type;
+            BigDecimal decimal = DECIMAL_CONVERTER.convert(decimalType.getPrecision(), decimalType.getScale(), value);
+            type.writeSlice(output, Decimals.encodeScaledValue(decimal, decimalType.getScale()));
         }
         else if (type instanceof VarbinaryType) {
             if (value instanceof ByteBuffer) {
@@ -312,13 +322,11 @@ public class BigQueryResultPageSource
     static class AvroDecimalConverter
     {
         private static final DecimalConversion AVRO_DECIMAL_CONVERSION = new DecimalConversion();
-        private static final Schema AVRO_DECIMAL_SCHEMA = new Schema.Parser().parse(format(
-                "{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":%d,\"scale\":%d}",
-                NUMERIC_DATA_TYPE_PRECISION, NUMERIC_DATA_TYPE_SCALE));
 
-        BigDecimal convert(Object value)
+        BigDecimal convert(int precision, int scale, Object value)
         {
-            return AVRO_DECIMAL_CONVERSION.fromBytes((ByteBuffer) value, AVRO_DECIMAL_SCHEMA, AVRO_DECIMAL_SCHEMA.getLogicalType());
+            Schema schema = new Schema.Parser().parse(format("{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":%d,\"scale\":%d}", precision, scale));
+            return AVRO_DECIMAL_CONVERSION.fromBytes((ByteBuffer) value, schema, schema.getLogicalType());
         }
     }
 }
