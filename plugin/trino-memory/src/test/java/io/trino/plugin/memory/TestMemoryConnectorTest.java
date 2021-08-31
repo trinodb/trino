@@ -117,17 +117,6 @@ public class TestMemoryConnectorTest
         throw new SkipException("Cassandra connector does not support column default values");
     }
 
-    @Test
-    public void testCreateAndDropTable()
-    {
-        int tablesBeforeCreate = listMemoryTables().size();
-        assertUpdate("CREATE TABLE test AS SELECT * FROM tpch.tiny.nation", "SELECT count(*) FROM nation");
-        assertEquals(listMemoryTables().size(), tablesBeforeCreate + 1);
-
-        assertUpdate("DROP TABLE test");
-        assertEquals(listMemoryTables().size(), tablesBeforeCreate);
-    }
-
     // it has to be RuntimeException as FailureInfo$FailureException is private
     @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "line 1:1: Destination table 'memory.default.nation' already exists")
     public void testCreateTableWhenTableIsAlreadyCreated()
