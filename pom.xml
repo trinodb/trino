@@ -59,7 +59,7 @@
         <dep.selenium.version>3.141.59</dep.selenium.version>
         <dep.tempto.version>185</dep.tempto.version>
         <dep.gcs.version>2.0.0</dep.gcs.version>
-        <dep.errorprone.version>2.8.1</dep.errorprone.version>
+        <dep.errorprone.version>2.9.0</dep.errorprone.version>
         <dep.testcontainers.version>1.16.0</dep.testcontainers.version>
         <dep.docker-java.version>3.2.11</dep.docker-java.version>
         <dep.coral.version>1.0.89</dep.coral.version>
