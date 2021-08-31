@@ -42,6 +42,8 @@ final class Conversions
                 field.getName(),
                 BigQueryType.valueOf(field.getType().name()),
                 getMode(field),
+                field.getPrecision(),
+                field.getScale(),
                 subColumns,
                 field.getDescription(),
                 false);
@@ -65,6 +67,18 @@ final class Conversions
             public BigQueryType getBigQueryType()
             {
                 return BigQueryType.valueOf(field.getType().name());
+            }
+
+            @Override
+            public Long getPrecision()
+            {
+                return field.getPrecision();
+            }
+
+            @Override
+            public Long getScale()
+            {
+                return field.getScale();
             }
 
             @Override

@@ -53,15 +53,18 @@ import java.util.Map;
 import static com.google.cloud.bigquery.Field.Mode.REPEATED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.math.LongMath.divide;
-import static io.trino.plugin.bigquery.BigQueryMetadata.NUMERIC_DATA_TYPE_PRECISION;
-import static io.trino.plugin.bigquery.BigQueryMetadata.NUMERIC_DATA_TYPE_SCALE;
+import static io.trino.plugin.bigquery.BigQueryMetadata.DEFAULT_NUMERIC_TYPE_PRECISION;
+import static io.trino.plugin.bigquery.BigQueryMetadata.DEFAULT_NUMERIC_TYPE_SCALE;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.Decimals.isShortDecimal;
 import static io.trino.spi.type.TimeWithTimeZoneType.DEFAULT_PRECISION;
 import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.Integer.parseInt;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static java.util.stream.Collectors.toList;
@@ -75,7 +78,7 @@ public enum BigQueryType
     FLOAT(DoubleType.DOUBLE, BigQueryType::simpleToStringConverter),
     GEOGRAPHY(VarcharType.VARCHAR, BigQueryType::stringToStringConverter),
     INTEGER(BigintType.BIGINT, BigQueryType::simpleToStringConverter),
-    NUMERIC(DecimalType.createDecimalType(NUMERIC_DATA_TYPE_PRECISION, NUMERIC_DATA_TYPE_SCALE), BigQueryType::numericToStringConverter),
+    NUMERIC(null, BigQueryType::numericToStringConverter),
     RECORD(null, BigQueryType::simpleToStringConverter),
     STRING(createUnboundedVarcharType(), BigQueryType::stringToStringConverter),
     TIME(TimeWithTimeZoneType.TIME_WITH_TIME_ZONE, BigQueryType::timeToStringConverter),
@@ -187,7 +190,7 @@ public enum BigQueryType
     static String numericToStringConverter(Object value)
     {
         Slice slice = (Slice) value;
-        return Decimals.toString(slice, NUMERIC_DATA_TYPE_SCALE);
+        return Decimals.toString(slice, DEFAULT_NUMERIC_TYPE_SCALE);
     }
 
     static String bytesToStringConverter(Object value)
@@ -277,14 +280,30 @@ public enum BigQueryType
         return "'" + value + "'";
     }
 
-    String convertToString(Object value)
+    String convertToString(Type type, Object value)
     {
+        if (type instanceof DecimalType) {
+            if (isShortDecimal(type)) {
+                return "NUMERIC " + quote(Decimals.toString((long) value, ((DecimalType) type).getScale()));
+            }
+            return "NUMERIC " + quote(Decimals.toString((Slice) value, ((DecimalType) type).getScale()));
+        }
         return toStringConverter.convertToString(value);
     }
 
     public Type getNativeType(BigQueryType.Adaptor typeAdaptor)
     {
         switch (this) {
+            case NUMERIC:
+                Long precision = typeAdaptor.getPrecision();
+                Long scale = typeAdaptor.getScale();
+                if (precision != null && scale != null) {
+                    return createDecimalType(toIntExact(precision), toIntExact(scale));
+                }
+                if (precision != null) {
+                    return createDecimalType(toIntExact(precision));
+                }
+                return createDecimalType(DEFAULT_NUMERIC_TYPE_PRECISION, DEFAULT_NUMERIC_TYPE_SCALE);
             case RECORD:
                 // create the row
                 Map<String, BigQueryType.Adaptor> subTypes = typeAdaptor.getBigQuerySubTypes();
@@ -299,6 +318,10 @@ public enum BigQueryType
     interface Adaptor
     {
         BigQueryType getBigQueryType();
+
+        Long getPrecision();
+
+        Long getScale();
 
         Map<String, BigQueryType.Adaptor> getBigQuerySubTypes();
 

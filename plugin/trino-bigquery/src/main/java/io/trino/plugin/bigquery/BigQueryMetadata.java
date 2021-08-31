@@ -80,8 +80,8 @@ public class BigQueryMetadata
 {
     private static final Logger log = Logger.get(BigQueryMetadata.class);
 
-    static final int NUMERIC_DATA_TYPE_PRECISION = 38;
-    static final int NUMERIC_DATA_TYPE_SCALE = 9;
+    static final int DEFAULT_NUMERIC_TYPE_PRECISION = 38;
+    static final int DEFAULT_NUMERIC_TYPE_SCALE = 9;
     static final String INFORMATION_SCHEMA = "information_schema";
     private static final String VIEW_DEFINITION_SYSTEM_TABLE_SUFFIX = "$view_definition";
 
