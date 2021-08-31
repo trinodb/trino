@@ -114,7 +114,7 @@ public class TestMemoryConnectorTest
     @Override
     protected TestTable createTableWithDefaultColumns()
     {
-        throw new SkipException("Cassandra connector does not support column default values");
+        throw new SkipException("Memory connector does not support column default values");
     }
 
     // it has to be RuntimeException as FailureInfo$FailureException is private
