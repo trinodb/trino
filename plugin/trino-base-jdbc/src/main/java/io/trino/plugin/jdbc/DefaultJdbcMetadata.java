@@ -439,8 +439,13 @@ public class DefaultJdbcMetadata
             return Optional.empty();
         }
 
+        boolean limitGuaranteed = jdbcClient.isLimitGuaranteed(session);
+
         if (handle.getLimit().isPresent() && handle.getLimit().getAsLong() <= limit) {
-            return Optional.empty();
+            if (!limitGuaranteed) {
+                return Optional.empty();
+            }
+            return Optional.of(new LimitApplicationResult<>(handle, limitGuaranteed, false));
         }
 
         handle = new JdbcTableHandle(
@@ -452,7 +457,7 @@ public class DefaultJdbcMetadata
                 handle.getOtherReferencedTables(),
                 handle.getNextSyntheticColumnId());
 
-        return Optional.of(new LimitApplicationResult<>(handle, jdbcClient.isLimitGuaranteed(session), false));
+        return Optional.of(new LimitApplicationResult<>(handle, limitGuaranteed, false));
     }
 
     @Override

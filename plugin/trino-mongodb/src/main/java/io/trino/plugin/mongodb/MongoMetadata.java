@@ -263,12 +263,12 @@ public class MongoMetadata
             return Optional.empty();
         }
 
-        // MongoDB doesn't support limit number greater than integer max
-        if (limit > Integer.MAX_VALUE) {
-            return Optional.empty();
+        if (handle.getLimit().isPresent() && handle.getLimit().getAsInt() <= limit) {
+            return Optional.of(new LimitApplicationResult<>(handle, true, false));
         }
 
-        if (handle.getLimit().isPresent() && handle.getLimit().getAsInt() <= limit) {
+        // MongoDB doesn't support limit number greater than integer max
+        if (limit > Integer.MAX_VALUE) {
             return Optional.empty();
         }
 

@@ -258,10 +258,14 @@ public class PinotMetadata
     public Optional<LimitApplicationResult<ConnectorTableHandle>> applyLimit(ConnectorSession session, ConnectorTableHandle table, long limit)
     {
         PinotTableHandle handle = (PinotTableHandle) table;
+        Optional<DynamicTable> dynamicTable = handle.getQuery();
         if (handle.getLimit().isPresent() && handle.getLimit().getAsLong() <= limit) {
+            if (dynamicTable.isPresent()) {
+                // single split - limit already present in handle is enforced
+                return Optional.of(new LimitApplicationResult<>(handle, true, false));
+            }
             return Optional.empty();
         }
-        Optional<DynamicTable> dynamicTable = handle.getQuery();
         if (dynamicTable.isPresent() &&
                 (dynamicTable.get().getLimit().isEmpty() || dynamicTable.get().getLimit().getAsLong() > limit)) {
             dynamicTable = Optional.of(new DynamicTable(dynamicTable.get().getTableName(),

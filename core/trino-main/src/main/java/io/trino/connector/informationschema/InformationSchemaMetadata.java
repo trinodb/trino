@@ -183,7 +183,7 @@ public class InformationSchemaMetadata
         InformationSchemaTableHandle table = (InformationSchemaTableHandle) handle;
 
         if (table.getLimit().isPresent() && table.getLimit().getAsLong() <= limit) {
-            return Optional.empty();
+            return Optional.of(new LimitApplicationResult<>(table, true, false));
         }
 
         return Optional.of(new LimitApplicationResult<>(

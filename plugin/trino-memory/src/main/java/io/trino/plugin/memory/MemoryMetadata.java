@@ -401,7 +401,7 @@ public class MemoryMetadata
         MemoryTableHandle table = (MemoryTableHandle) handle;
 
         if (table.getLimit().isPresent() && table.getLimit().getAsLong() <= limit) {
-            return Optional.empty();
+            return Optional.of(new LimitApplicationResult<>(table, true, true));
         }
 
         return Optional.of(new LimitApplicationResult<>(
