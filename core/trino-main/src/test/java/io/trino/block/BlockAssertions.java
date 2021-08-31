@@ -32,6 +32,7 @@ import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
@@ -41,6 +42,7 @@ import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.block.ArrayBlock.fromElementBlock;
@@ -225,6 +227,18 @@ public final class BlockAssertions
                 positionCount,
                 nullRate,
                 () -> String.valueOf(RANDOM.nextLong())));
+    }
+
+    public static Block createRandomLongsBlock(int positionCount, int numberOfUniqueValues)
+    {
+        checkArgument(positionCount >= numberOfUniqueValues, "numberOfUniqueValues must be between 1 and positionCount: %s but was %s", positionCount, numberOfUniqueValues);
+        int[] uniqueValues = chooseRandomUnique(positionCount, numberOfUniqueValues).stream()
+                .mapToInt(Integer::intValue)
+                .toArray();
+        return createLongsBlock(IntStream.range(0, positionCount)
+                .mapToLong(position -> uniqueValues[RANDOM.nextInt(numberOfUniqueValues)])
+                .boxed()
+                .collect(toImmutableList()));
     }
 
     public static Block createRandomLongsBlock(int positionCount, float nullRate)
@@ -773,6 +787,15 @@ public final class BlockAssertions
 
     private static Set<Integer> chooseRandomUnique(int bound, int count)
     {
+        if (count < bound / 10) {
+            // it's an order of bound/count faster to use this method for small enough count/bound ratio
+            Set<Integer> values = new HashSet<>(count);
+            while (values.size() < count) {
+                values.add(RANDOM.nextInt(bound));
+            }
+            return ImmutableSet.copyOf(values);
+        }
+
         List<Integer> allNumbers = IntStream.range(0, bound).boxed().collect(toList());
         Collections.shuffle(allNumbers, RANDOM);
         return allNumbers.stream().limit(count).collect(toImmutableSet());
