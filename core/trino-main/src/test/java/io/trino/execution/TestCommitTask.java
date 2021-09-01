@@ -130,7 +130,7 @@ public class TestCommitTask
                 new ResourceGroupId("test"),
                 true,
                 transactionManager,
-                new AccessControlManager(transactionManager, emptyEventListenerManager(), new AccessControlConfig(), new DefaultSystemAccessControl()),
+                new AccessControlManager(transactionManager, emptyEventListenerManager(), new AccessControlConfig(), DefaultSystemAccessControl.NAME),
                 executor,
                 metadata,
                 WarningCollector.NOOP,
