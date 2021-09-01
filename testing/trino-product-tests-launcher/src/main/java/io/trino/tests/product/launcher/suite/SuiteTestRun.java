@@ -26,7 +26,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.trino.tests.product.launcher.env.Environments.nameForEnvironmentClass;
+import static io.trino.tests.product.launcher.Configurations.nameForEnvironmentClass;
 import static java.lang.System.getenv;
 import static java.util.Objects.requireNonNull;
 

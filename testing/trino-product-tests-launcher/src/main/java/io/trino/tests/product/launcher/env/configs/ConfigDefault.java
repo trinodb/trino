@@ -17,7 +17,7 @@ import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.EnvironmentDefaults;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.trino.tests.product.launcher.env.Environments.nameForConfigClass;
+import static io.trino.tests.product.launcher.Configurations.nameForConfigClass;
 
 public class ConfigDefault
         implements EnvironmentConfig

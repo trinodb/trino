@@ -21,7 +21,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.tests.product.launcher.env.Environments.canonicalName;
+import static io.trino.tests.product.launcher.Configurations.canonicalName;
 import static java.util.Objects.requireNonNull;
 
 public final class EnvironmentFactory
