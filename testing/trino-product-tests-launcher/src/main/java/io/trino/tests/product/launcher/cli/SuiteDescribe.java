@@ -142,6 +142,7 @@ public class SuiteDescribe
             out.printf("Suite '%s' with configuration '%s' consists of following test runs: \n", suiteName, this.config);
 
             for (SuiteTestRun testRun : suite.getTestRuns(config)) {
+                testRun = testRun.withConfigApplied(config);
                 TestRun.TestRunOptions runOptions = createTestRunOptions(suiteName, testRun, config);
                 out.printf("\n%s test run %s\n\n", environmentOptions.launcherBin, OptionsPrinter.format(environmentOptions, runOptions));
             }
