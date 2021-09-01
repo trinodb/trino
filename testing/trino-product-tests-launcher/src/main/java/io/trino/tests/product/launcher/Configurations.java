@@ -24,6 +24,7 @@ import io.trino.tests.product.launcher.suite.Suite;
 import java.io.IOException;
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.reflect.Modifier.isAbstract;
 
@@ -87,7 +88,10 @@ public final class Configurations
 
     public static String nameForSuiteClass(Class<? extends Suite> clazz)
     {
-        return CaseFormat.UPPER_CAMEL.to(CaseFormat.LOWER_HYPHEN, clazz.getSimpleName().replace("Suite", "Suite-")).replace("--", "-");
+        String className = clazz.getSimpleName();
+        checkArgument(className.matches("^Suite[A-Z0-9].*"), "Name of %s should start with 'Suite'", clazz);
+        // For a suite "Suite1", the UPPER_CAMEL to LOWER_HYPHEN conversion won't insert a hyphen after "Suite"
+        return "suite-" + CaseFormat.UPPER_CAMEL.to(CaseFormat.LOWER_HYPHEN, className.replaceFirst("^Suite", ""));
     }
 
     private static String canonicalName(Class<?> clazz)
