@@ -443,6 +443,7 @@ public abstract class AbstractTestHiveViews
     }
 
     @Test(groups = HIVE_VIEWS)
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/9074", match = "FAILED: Execution Error, return code 2 from org.apache.hadoop.hive.ql.exec.mr.MapRedTask")
     public void testNestedGroupBy()
     {
         onHive().executeQuery("DROP VIEW IF EXISTS test_nested_group_by_view");
