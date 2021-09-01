@@ -42,7 +42,7 @@ public class FlakyTestRetryAnalyzer
     private static final String ENABLED_SYSTEM_PROPERTY = "io.trino.testng.services.FlakyTestRetryAnalyzer.enabled";
 
     @VisibleForTesting
-    static final int ALLOWED_RETRIES_COUNT = 2;
+    static final int ALLOWED_RETRIES_COUNT = 4;
 
     @GuardedBy("this")
     private final Map<String, Long> retryCounter = new HashMap<>();
