@@ -30,7 +30,6 @@ import javax.inject.Inject;
 import static io.trino.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.HADOOP;
-import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_HADOOP_INIT_D;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
@@ -57,12 +56,7 @@ public class SinglenodeSparkIceberg
     @Override
     public void extendEnvironment(Environment.Builder builder)
     {
-        builder.configureContainer(HADOOP, dockerContainer -> {
-            dockerContainer.setDockerImageName("ghcr.io/trinodb/testing/hdp3.1-hive:" + hadoopImagesVersion);
-            dockerContainer.withCopyFileToContainer(
-                    forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-hdp3/apply-hdp3-config.sh")),
-                    CONTAINER_HADOOP_INIT_D + "apply-hdp3-config.sh");
-        });
+        builder.configureContainer(HADOOP, container -> container.setDockerImageName("ghcr.io/trinodb/testing/hdp3.1-hive:" + hadoopImagesVersion));
 
         builder.configureContainer(COORDINATOR, container -> container
                 .withCopyFileToContainer(
