@@ -115,7 +115,7 @@ modes.
 
 * Disabled
 * Legacy
-* Experimental
+* Advanced
 
 You can configure the behavior in your catalog properties file.
 
@@ -145,7 +145,7 @@ different behaviors to the SQL version, the returned results may differ. In more
 extreme cases the queries might fail, or not even be able to be parsed and
 executed.
 
-**Experimental**
+**Advanced**
 
 The new behavior is better engineered and has the potential to become a lot
 more powerful than the legacy implementation. It can analyze, process, and
@@ -160,7 +160,7 @@ It supports the following Hive view functionality:
 * ``LATERAL VIEW [OUTER] EXPLODE`` on array of struct
 * ``LATERAL VIEW json_tuple``
 
-You can enable the experimental behavior with
+You can enable the advanced behavior with
 ``hive.translate-hive-views=true``. Remove the
 ``hive.legacy-hive-view-translation`` property or set it to ``false`` to make
 sure legacy is not enabled.
