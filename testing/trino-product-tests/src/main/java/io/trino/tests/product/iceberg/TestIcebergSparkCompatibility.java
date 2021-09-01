@@ -513,52 +513,94 @@ public class TestIcebergSparkCompatibility
         String trinoTableName = trinoTableName(baseTableName);
         String sparkTableName = sparkTableName(baseTableName);
 
+        onSpark().executeQuery("DROP TABLE IF EXISTS " + sparkTableName);
         onSpark().executeQuery(format(
-                "CREATE TABLE %s (_struct STRUCT<rename:BIGINT, keep:BIGINT, drop_and_add:BIGINT, CaseSensitive:BIGINT>, _partition BIGINT)"
+                "CREATE TABLE %s (" +
+                        "remove_col BIGINT, " +
+                        "rename_col BIGINT, " +
+                        "keep_col BIGINT, " +
+                        "drop_and_add_col BIGINT, " +
+                        "CaseSensitiveCol BIGINT, " +
+                        "a_struct STRUCT<removed: BIGINT, rename:BIGINT, keep:BIGINT, drop_and_add:BIGINT, CaseSensitive:BIGINT>, " +
+                        "a_partition BIGINT) "
                         + " USING ICEBERG"
-                        + " partitioned by (_partition)"
+                        + " PARTITIONED BY (a_partition)"
                         + " TBLPROPERTIES ('write.format.default' = '%s')",
                 sparkTableName,
                 storageFormat));
 
         onSpark().executeQuery(format(
-                "INSERT INTO TABLE %s SELECT "
-                        + "named_struct('rename', 1, 'keep', 2, 'drop_and_add', 3, 'CaseSensitive', 4), "
-                        + "1001",
+                "INSERT INTO TABLE %s SELECT " +
+                        "1, " + // remove_col
+                        "2, " + // rename_col
+                        "3, " + // keep_col
+                        "4, " + // drop_and_add_col,
+                        "5, " + // CaseSensitiveCol,
+                        " named_struct('removed', 10, 'rename', 11, 'keep', 12, 'drop_and_add', 13, 'CaseSensitive', 14), " // a_struct
+                        + "1001", // a_partition
                 sparkTableName));
 
-        // Alter nested fields using Spark. Trino does not support this yet.
-        onSpark().executeQuery(format("ALTER TABLE %s RENAME COLUMN _struct.rename TO renamed", sparkTableName));
-        onSpark().executeQuery(format("ALTER TABLE %s DROP COLUMN _struct.drop_and_add", sparkTableName));
-        onSpark().executeQuery(format("ALTER TABLE %s ADD COLUMN _struct.drop_and_add BIGINT", sparkTableName));
+        onSpark().executeQuery(format("ALTER TABLE %s DROP COLUMN remove_col", sparkTableName));
+        onSpark().executeQuery(format("ALTER TABLE %s RENAME COLUMN rename_col TO quite_renamed_col", sparkTableName));
+        onSpark().executeQuery(format("ALTER TABLE %s DROP COLUMN drop_and_add_col", sparkTableName));
+        onSpark().executeQuery(format("ALTER TABLE %s ADD COLUMN drop_and_add_col BIGINT", sparkTableName));
+        onSpark().executeQuery(format("ALTER TABLE %s ADD COLUMN add_col BIGINT", sparkTableName));
+
+        onSpark().executeQuery(format("ALTER TABLE %s DROP COLUMN a_struct.removed", sparkTableName));
+        onSpark().executeQuery(format("ALTER TABLE %s RENAME COLUMN a_struct.rename TO renamed", sparkTableName));
+        onSpark().executeQuery(format("ALTER TABLE %s DROP COLUMN a_struct.drop_and_add", sparkTableName));
+        onSpark().executeQuery(format("ALTER TABLE %s ADD COLUMN a_struct.drop_and_add BIGINT", sparkTableName));
+        onSpark().executeQuery(format("ALTER TABLE %s ADD COLUMN a_struct.added BIGINT", sparkTableName));
+
+        assertThat(onTrino().executeQuery("DESCRIBE " + trinoTableName).project(1, 2))
+                .containsOnly(
+                        row("quite_renamed_col", "bigint"),
+                        row("keep_col", "bigint"),
+                        row("drop_and_add_col", "bigint"),
+                        row("add_col", "bigint"),
+                        row("casesensitivecol", "bigint"),
+                        row("a_struct", "row(renamed bigint, keep bigint, CaseSensitive bigint, drop_and_add bigint, added bigint)"),
+                        row("a_partition", "bigint"));
 
         if (storageFormat == StorageFormat.PARQUET) {
             // TODO (https://github.com/trinodb/trino/issues/8750) the results should be the same for all storage formats
 
             // TODO support Row (JAVA_OBJECT) in Tempto and switch to QueryAssert
-            Assertions.assertThat(onTrino().executeQuery(format("SELECT * FROM %s", trinoTableName)).rows())
-                    .containsOnly(List.of(
+            Assertions.assertThat(onTrino().executeQuery(format("SELECT quite_renamed_col, keep_col, drop_and_add_col, add_col, casesensitivecol, a_struct, a_partition FROM %s", trinoTableName)).rows())
+                    .containsOnly(asList(
+                            2L, // quite_renamed_col
+                            3L, // keep_col
+                            null, // drop_and_add_col; dropping and re-adding changes id
+                            null, // add_col
+                            5L, // CaseSensitiveCol
                             rowBuilder()
                                     // Rename does not change id
                                     .addField("renamed", null)
-                                    .addField("keep", 2L)
-                                    .addField("CaseSensitive", 4L)
-                                    // Dropping and re-adding changes id
-                                    .addField("drop_and_add", 3L)
+                                    .addField("keep", 12L)
+                                    .addField("CaseSensitive", 14L)
+                                    // Dropping and re-adding changes id, so TODO it should be null
+                                    .addField("drop_and_add", 13L)
+                                    .addField("added", null)
                                     .build(),
                             1001L));
         }
         else {
             // TODO support Row (JAVA_OBJECT) in Tempto and switch to QueryAssert
-            Assertions.assertThat(onTrino().executeQuery(format("SELECT * FROM %s", trinoTableName)).rows())
-                    .containsOnly(List.of(
+            Assertions.assertThat(onTrino().executeQuery(format("SELECT quite_renamed_col, keep_col, drop_and_add_col, add_col, casesensitivecol, a_struct, a_partition FROM %s", trinoTableName)).rows())
+                    .containsOnly(asList(
+                            2L, // quite_renamed_col
+                            3L, // keep_col
+                            null, // drop_and_add_col; dropping and re-adding changes id
+                            null, // add_col
+                            5L, // CaseSensitiveCol
                             rowBuilder()
                                     // Rename does not change id
-                                    .addField("renamed", 1L)
-                                    .addField("keep", 2L)
-                                    .addField("CaseSensitive", 4L)
+                                    .addField("renamed", 11L)
+                                    .addField("keep", 12L)
+                                    .addField("CaseSensitive", 14L)
                                     // Dropping and re-adding changes id
                                     .addField("drop_and_add", null)
+                                    .addField("added", null)
                                     .build(),
                             1001L));
         }
