@@ -83,7 +83,9 @@ public final class Configurations
 
     public static String nameForConfigClass(Class<? extends EnvironmentConfig> clazz)
     {
-        return canonicalName(clazz);
+        String className = clazz.getSimpleName();
+        checkArgument(className.matches("^Config[A-Z].*"), "Name of %s should start with 'Config'", clazz);
+        return canonicalName(className);
     }
 
     public static String nameForSuiteClass(Class<? extends Suite> clazz)
