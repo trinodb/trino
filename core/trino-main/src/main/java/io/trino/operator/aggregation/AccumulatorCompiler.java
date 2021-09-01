@@ -48,7 +48,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -60,13 +59,18 @@ import static io.airlift.bytecode.Access.PUBLIC;
 import static io.airlift.bytecode.Access.a;
 import static io.airlift.bytecode.Parameter.arg;
 import static io.airlift.bytecode.ParameterizedType.type;
+import static io.airlift.bytecode.expression.BytecodeExpressions.and;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantLong;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantString;
+import static io.airlift.bytecode.expression.BytecodeExpressions.greaterThan;
+import static io.airlift.bytecode.expression.BytecodeExpressions.inlineIf;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeDynamic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
+import static io.airlift.bytecode.expression.BytecodeExpressions.isNull;
 import static io.airlift.bytecode.expression.BytecodeExpressions.not;
+import static io.airlift.bytecode.expression.BytecodeExpressions.or;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import static io.trino.operator.aggregation.AggregationMetadata.countInputChannels;
 import static io.trino.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
@@ -134,8 +138,8 @@ public final class AccumulatorCompiler
             lambdaProviderFields.add(definition.declareField(a(PRIVATE, FINAL), "lambdaProvider_" + i, LambdaProvider.class));
         }
 
-        FieldDefinition inputChannelsField = definition.declareField(a(PRIVATE, FINAL), "inputChannels", type(List.class, Integer.class));
-        FieldDefinition maskChannelField = definition.declareField(a(PRIVATE, FINAL), "maskChannel", type(Optional.class, Integer.class));
+        FieldDefinition inputChannelsField = definition.declareField(a(PRIVATE, FINAL), "inputChannels", int[].class);
+        FieldDefinition maskChannelField = definition.declareField(a(PRIVATE, FINAL), "maskChannel", int.class);
 
         // Generate constructor
         generateConstructor(
@@ -291,25 +295,19 @@ public final class AccumulatorCompiler
             parameterVariables.add(scope.declareVariable(Block.class, "block" + i));
         }
         Variable masksBlock = scope.declareVariable(Block.class, "masksBlock");
-        body.comment("masksBlock = maskChannel.map(page.blockGetter()).orElse(null);")
-                .append(thisVariable.getField(maskChannelField))
+        body.comment("masksBlock = extractMaskBlock(page, maskChannel);")
                 .append(page)
-                .invokeStatic(type(AggregationUtils.class), "pageBlockGetter", type(Function.class, Integer.class, Block.class), type(Page.class))
-                .invokeVirtual(Optional.class, "map", Optional.class, Function.class)
-                .pushNull()
-                .invokeVirtual(Optional.class, "orElse", Object.class, Object.class)
-                .checkCast(Block.class)
+                .append(thisVariable.getField(maskChannelField))
+                .invokeStatic(AggregationUtils.class, "extractMaskBlock", Block.class, Page.class, int.class)
                 .putVariable(masksBlock);
 
         // Get all parameter blocks
         for (int i = 0; i < countInputChannels(parameterMetadatas); i++) {
-            body.comment("%s = page.getBlock(inputChannels.get(%d));", parameterVariables.get(i).getName(), i)
+            body.comment("%s = page.getBlock(inputChannels[%d]);", parameterVariables.get(i).getName(), i)
                     .append(page)
                     .append(thisVariable.getField(inputChannelsField))
                     .push(i)
-                    .invokeInterface(List.class, "get", Object.class, int.class)
-                    .checkCast(Integer.class)
-                    .invokeVirtual(Integer.class, "intValue", int.class)
+                    .getIntArrayElement()
                     .invokeVirtual(Page.class, "getBlock", Block.class, int.class)
                     .putVariable(parameterVariables.get(i));
         }
@@ -540,30 +538,45 @@ public final class AccumulatorCompiler
         for (int i = 0; i < parameterVariables.size(); i++) {
             if (!nullable.get(i)) {
                 Variable variableDefinition = parameterVariables.get(i);
-                loopBody = new IfStatement("if(!%s.isNull(position))", variableDefinition.getName())
-                        .condition(new BytecodeBlock()
-                                .getVariable(variableDefinition)
-                                .getVariable(positionVariable)
-                                .invokeInterface(Block.class, "isNull", boolean.class, int.class))
+                Variable parameterMayHaveNull = scope.declareVariable(boolean.class, variableDefinition.getName() + "_mayHaveNull");
+                block.append(new BytecodeBlock()
+                        .comment("%s = %s.mayHaveNull()", parameterMayHaveNull.getName(), variableDefinition.getName())
+                        .getVariable(variableDefinition)
+                        .invokeInterface(Block.class, "mayHaveNull", boolean.class)
+                        .putVariable(parameterMayHaveNull));
+                loopBody = new IfStatement("if(!(%s && %s.isNull(position)))", parameterMayHaveNull.getName(), variableDefinition.getName())
+                        .condition(and(parameterMayHaveNull, variableDefinition.invoke("isNull", boolean.class, positionVariable)))
                         .ifFalse(loopBody);
             }
         }
 
-        loopBody = new IfStatement("if(testMask(%s, position))", masksBlock.getName())
-                .condition(new BytecodeBlock()
-                        .getVariable(masksBlock)
-                        .getVariable(positionVariable)
-                        .invokeStatic(CompilerOperations.class, "testMask", boolean.class, Block.class, int.class))
+        loopBody = new IfStatement("if(%s == null || testMask(%s, position))", masksBlock.getName(), masksBlock.getName())
+                .condition(or(isNull(masksBlock), invokeStatic(CompilerOperations.class, "testMask", boolean.class, masksBlock, positionVariable)))
                 .ifTrue(loopBody);
 
-        block.append(new ForLoop()
+        BytecodeNode forLoop = new ForLoop()
                 .initialize(new BytecodeBlock().putVariable(positionVariable, 0))
                 .condition(new BytecodeBlock()
                         .getVariable(positionVariable)
                         .getVariable(rowsVariable)
                         .invokeStatic(CompilerOperations.class, "lessThan", boolean.class, int.class, int.class))
                 .update(new BytecodeBlock().incrementVariable(positionVariable, (byte) 1))
-                .body(loopBody));
+                .body(loopBody);
+
+        // Skip the loop when a RunLengthEncodedBlock of null exists as input for non-nullable accumulators
+        for (int i = 0; i < parameterVariables.size(); i++) {
+            if (!nullable.get(i)) {
+                Variable variableDefinition = parameterVariables.get(i);
+                forLoop = new IfStatement("if(!isRleNullBlock(%s))", variableDefinition.getName())
+                        .condition(invokeStatic(AggregationUtils.class, "isRleNullBlock", boolean.class, variableDefinition))
+                        .ifFalse(forLoop);
+            }
+        }
+
+        // Skip loop processing when there are no rows, or all positions are eliminated by the mask
+        block.append(new IfStatement("if(%s > 0 && (%s == null || !isRleFalseMask(%s)))", rowsVariable.getName(), masksBlock.getName(), masksBlock.getName())
+                .condition(and(greaterThan(rowsVariable, constantInt(0)), or(isNull(masksBlock), not(invokeStatic(AggregationUtils.class, "isRleFalseMask", boolean.class, masksBlock)))))
+                .ifTrue(forLoop));
 
         return block;
     }
@@ -1011,8 +1024,10 @@ public final class AccumulatorCompiler
                             .cast(LambdaProvider.class)));
         }
 
-        body.append(thisVariable.setField(inputChannelsField, generateRequireNotNull(inputChannels)));
-        body.append(thisVariable.setField(maskChannelField, generateRequireNotNull(maskChannel)));
+        body.append(thisVariable.setField(inputChannelsField, invokeStatic(AggregationUtils.class, "listOfIntegersToIntArray", int[].class, generateRequireNotNull(inputChannels))));
+        body.append(inlineIf(generateRequireNotNull(maskChannel).invoke("isPresent", boolean.class),
+                thisVariable.setField(maskChannelField, maskChannel.invoke("get", Object.class).cast(Integer.class).invoke("intValue", int.class)),
+                thisVariable.setField(maskChannelField, constantInt(-1))));
 
         String createState;
         if (grouped) {

@@ -14,6 +14,8 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.base.CaseFormat;
+import com.google.common.primitives.Ints;
+import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.operator.aggregation.state.CentralMomentsState;
 import io.trino.operator.aggregation.state.CorrelationState;
 import io.trino.operator.aggregation.state.CovarianceState;
@@ -21,12 +23,15 @@ import io.trino.operator.aggregation.state.RegressionState;
 import io.trino.operator.aggregation.state.VarianceState;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.TypeSignature;
 
+import javax.annotation.Nullable;
+
 import java.util.List;
-import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static java.util.Locale.ENGLISH;
 
 public final class AggregationUtils
@@ -240,10 +245,36 @@ public final class AggregationUtils
         return sb.toString();
     }
 
-    // used by aggregation compiler
-    @SuppressWarnings("UnusedDeclaration")
-    public static Function<Integer, Block> pageBlockGetter(final Page page)
+    @UsedByGeneratedCode
+    public static int[] listOfIntegersToIntArray(List<Integer> integers)
     {
-        return page::getBlock;
+        return Ints.toArray(integers);
+    }
+
+    @Nullable
+    @UsedByGeneratedCode
+    public static Block extractMaskBlock(final Page page, final int maskChannel)
+    {
+        if (maskChannel < 0) {
+            return null;
+        }
+        Block block = page.getBlock(maskChannel);
+        if (block instanceof RunLengthEncodedBlock && block.getPositionCount() > 0 && BOOLEAN.getBoolean(block, 0)) {
+            // Filter out RLE true blocks so that they don't need to be checked in the processing loop
+            return null;
+        }
+        return block;
+    }
+
+    @UsedByGeneratedCode
+    public static boolean isRleFalseMask(@Nullable Block masksBlock)
+    {
+        return (masksBlock instanceof RunLengthEncodedBlock && masksBlock.getPositionCount() > 0 && !BOOLEAN.getBoolean(masksBlock, 0));
+    }
+
+    @UsedByGeneratedCode
+    public static boolean isRleNullBlock(@Nullable Block inputBlock)
+    {
+        return (inputBlock instanceof RunLengthEncodedBlock && inputBlock.getPositionCount() > 0 && inputBlock.isNull(0));
     }
 }
