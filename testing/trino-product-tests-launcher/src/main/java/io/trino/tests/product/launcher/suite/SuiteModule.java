@@ -19,6 +19,7 @@ import com.google.inject.multibindings.MapBinder;
 
 import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
+import static io.trino.tests.product.launcher.suite.Suites.findSuitesByPackageName;
 import static io.trino.tests.product.launcher.suite.Suites.nameForSuiteClass;
 import static java.util.Objects.requireNonNull;
 
@@ -39,7 +40,7 @@ public final class SuiteModule
         binder.bind(SuiteFactory.class).in(SINGLETON);
 
         MapBinder<String, Suite> suites = newMapBinder(binder, String.class, Suite.class);
-        Suites.findSuitesByPackageName(BASE_SUITES_PACKAGE).forEach(clazz -> suites.addBinding(nameForSuiteClass(clazz)).to(clazz).in(SINGLETON));
+        findSuitesByPackageName(BASE_SUITES_PACKAGE).forEach(clazz -> suites.addBinding(nameForSuiteClass(clazz)).to(clazz).in(SINGLETON));
 
         binder.install(additionalSuites);
     }
