@@ -69,7 +69,7 @@ public final class Environments
         }
     }
 
-    public static List<Class<? extends EnvironmentProvider>> findByBasePackage(String packageName)
+    public static List<Class<? extends EnvironmentProvider>> findEnvironmentsByBasePackage(String packageName)
     {
         try {
             return ClassPath.from(Environments.class.getClassLoader()).getTopLevelClassesRecursive(packageName).stream()
@@ -98,7 +98,7 @@ public final class Environments
         }
     }
 
-    public static String nameForClass(Class<? extends EnvironmentProvider> clazz)
+    public static String nameForEnvironmentClass(Class<? extends EnvironmentProvider> clazz)
     {
         return canonicalName(clazz);
     }

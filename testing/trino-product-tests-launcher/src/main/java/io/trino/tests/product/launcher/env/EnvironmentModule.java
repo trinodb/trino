@@ -70,7 +70,7 @@ public final class EnvironmentModule
         binder.bind(StandardMultinode.class).in(SINGLETON);
 
         MapBinder<String, EnvironmentProvider> environments = newMapBinder(binder, String.class, EnvironmentProvider.class);
-        Environments.findByBasePackage(ENVIRONMENT_PACKAGE).forEach(clazz -> environments.addBinding(Environments.nameForClass(clazz)).to(clazz).in(SINGLETON));
+        Environments.findEnvironmentsByBasePackage(ENVIRONMENT_PACKAGE).forEach(clazz -> environments.addBinding(Environments.nameForEnvironmentClass(clazz)).to(clazz).in(SINGLETON));
 
         MapBinder<String, EnvironmentConfig> environmentConfigs = newMapBinder(binder, String.class, EnvironmentConfig.class);
         Environments.findConfigsByBasePackage(CONFIG_PACKAGE).forEach(clazz -> environmentConfigs.addBinding(nameForConfigClass(clazz)).to(clazz).in(SINGLETON));
