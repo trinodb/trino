@@ -33,10 +33,10 @@ import java.io.File;
 
 import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
-import static io.trino.tests.product.launcher.env.Environments.findConfigsByBasePackage;
-import static io.trino.tests.product.launcher.env.Environments.findEnvironmentsByBasePackage;
-import static io.trino.tests.product.launcher.env.Environments.nameForConfigClass;
-import static io.trino.tests.product.launcher.env.Environments.nameForEnvironmentClass;
+import static io.trino.tests.product.launcher.Configurations.findConfigsByBasePackage;
+import static io.trino.tests.product.launcher.Configurations.findEnvironmentsByBasePackage;
+import static io.trino.tests.product.launcher.Configurations.nameForConfigClass;
+import static io.trino.tests.product.launcher.Configurations.nameForEnvironmentClass;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
 
