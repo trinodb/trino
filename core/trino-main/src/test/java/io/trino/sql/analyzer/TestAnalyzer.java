@@ -4920,7 +4920,7 @@ public class TestAnalyzer
                 transactionManager,
                 emptyEventListenerManager(),
                 new AccessControlConfig(),
-                new DefaultSystemAccessControl());
+                DefaultSystemAccessControl.NAME);
         accessControlManager.setSystemAccessControls(List.of(AllowAllSystemAccessControl.INSTANCE));
         this.accessControl = accessControlManager;
 

@@ -513,7 +513,7 @@ public class TestQueryStateMachine
                 transactionManager,
                 emptyEventListenerManager(),
                 new AccessControlConfig(),
-                new DefaultSystemAccessControl());
+                DefaultSystemAccessControl.NAME);
         accessControl.setSystemAccessControls(List.of(AllowAllSystemAccessControl.INSTANCE));
         QueryStateMachine stateMachine = QueryStateMachine.beginWithTicker(
                 QUERY,
