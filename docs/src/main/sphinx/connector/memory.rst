@@ -63,7 +63,7 @@ DROP TABLE
 
 Upon execution of a ``DROP TABLE`` operation, memory is not released
 immediately. It is instead released after the next write operation to the
-connector.
+catalog.
 
 .. _memory_dynamic_filtering:
 
