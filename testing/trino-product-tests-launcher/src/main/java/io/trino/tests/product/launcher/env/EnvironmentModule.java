@@ -33,7 +33,10 @@ import java.io.File;
 
 import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
+import static io.trino.tests.product.launcher.env.Environments.findConfigsByBasePackage;
+import static io.trino.tests.product.launcher.env.Environments.findEnvironmentsByBasePackage;
 import static io.trino.tests.product.launcher.env.Environments.nameForConfigClass;
+import static io.trino.tests.product.launcher.env.Environments.nameForEnvironmentClass;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
 
@@ -70,10 +73,10 @@ public final class EnvironmentModule
         binder.bind(StandardMultinode.class).in(SINGLETON);
 
         MapBinder<String, EnvironmentProvider> environments = newMapBinder(binder, String.class, EnvironmentProvider.class);
-        Environments.findEnvironmentsByBasePackage(ENVIRONMENT_PACKAGE).forEach(clazz -> environments.addBinding(Environments.nameForEnvironmentClass(clazz)).to(clazz).in(SINGLETON));
+        findEnvironmentsByBasePackage(ENVIRONMENT_PACKAGE).forEach(clazz -> environments.addBinding(nameForEnvironmentClass(clazz)).to(clazz).in(SINGLETON));
 
         MapBinder<String, EnvironmentConfig> environmentConfigs = newMapBinder(binder, String.class, EnvironmentConfig.class);
-        Environments.findConfigsByBasePackage(CONFIG_PACKAGE).forEach(clazz -> environmentConfigs.addBinding(nameForConfigClass(clazz)).to(clazz).in(SINGLETON));
+        findConfigsByBasePackage(CONFIG_PACKAGE).forEach(clazz -> environmentConfigs.addBinding(nameForConfigClass(clazz)).to(clazz).in(SINGLETON));
 
         binder.install(additionalEnvironments);
     }
