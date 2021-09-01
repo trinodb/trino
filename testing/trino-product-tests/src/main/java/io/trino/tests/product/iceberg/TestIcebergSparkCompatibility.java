@@ -230,7 +230,7 @@ public class TestIcebergSparkCompatibility
                 "2021-08-03 06:32:21.123456 UTC", // Iceberg's timestamptz stores point in time, without zone
                 "1950-06-28"
                 // "01:23:45.123456"
-        /**/);
+                /**/);
         assertThat(onTrino().executeQuery(
                 "SELECT " +
                         "  _string" +
