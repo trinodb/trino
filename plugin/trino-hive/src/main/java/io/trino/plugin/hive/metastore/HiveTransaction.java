@@ -15,6 +15,7 @@ package io.trino.plugin.hive.metastore;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.hive.HiveMetastoreClosure;
+import io.trino.plugin.hive.HivePartition;
 import io.trino.plugin.hive.HiveTableHandle;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.authentication.HiveIdentity;
@@ -22,6 +23,7 @@ import io.trino.spi.connector.SchemaTableName;
 import org.apache.hadoop.hive.common.ValidTxnWriteIdList;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ScheduledFuture;
 
@@ -63,13 +65,25 @@ public class HiveTransaction
 
     public ValidTxnWriteIdList getValidWriteIds(HiveMetastoreClosure metastore, HiveTableHandle tableHandle)
     {
+        List<SchemaTableName> lockedTables;
+        List<HivePartition> lockedPartitions;
+
+        if (tableHandle.getPartitionColumns().isEmpty() || tableHandle.getPartitions().isEmpty()) {
+            lockedTables = ImmutableList.of(tableHandle.getSchemaTableName());
+            lockedPartitions = ImmutableList.of();
+        }
+        else {
+            lockedTables = ImmutableList.of();
+            lockedPartitions = tableHandle.getPartitions().get();
+        }
+
         // Different calls for same table might need to lock different partitions so acquire locks every time
         metastore.acquireSharedReadLock(
                 identity,
                 queryId,
                 transactionId,
-                tableHandle.getPartitions().isEmpty() ? ImmutableList.of(tableHandle.getSchemaTableName()) : ImmutableList.of(),
-                tableHandle.getPartitions().orElse(ImmutableList.of()));
+                lockedTables,
+                lockedPartitions);
 
         // For repeatable reads within a query, use the same list of valid transactions for a table which have once been used
         return validHiveTransactionsForTable.computeIfAbsent(tableHandle.getSchemaTableName(), schemaTableName -> new ValidTxnWriteIdList(
