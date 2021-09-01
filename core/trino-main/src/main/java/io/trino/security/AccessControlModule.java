@@ -23,7 +23,6 @@ import io.airlift.log.Logger;
 import io.trino.plugin.base.security.DefaultSystemAccessControl;
 import io.trino.plugin.base.util.LoggingInvocationHandler;
 import io.trino.spi.security.GroupProvider;
-import io.trino.spi.security.SystemAccessControl;
 
 import static com.google.common.reflect.Reflection.newProxy;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
@@ -37,10 +36,7 @@ public class AccessControlModule
     public void configure(Binder binder)
     {
         configBinder(binder).bindConfig(AccessControlConfig.class);
-        newOptionalBinder(binder, Key.get(SystemAccessControl.class, ForDefaultSystemAccessControl.class))
-                .setDefault()
-                .to(DefaultSystemAccessControl.class)
-                .in(Scopes.SINGLETON);
+        newOptionalBinder(binder, Key.get(String.class, DefaultSystemAccessControlName.class)).setDefault().toInstance(DefaultSystemAccessControl.NAME);
         binder.bind(AccessControlManager.class).in(Scopes.SINGLETON);
         binder.bind(GroupProviderManager.class).in(Scopes.SINGLETON);
         binder.bind(GroupProvider.class).to(GroupProviderManager.class).in(Scopes.SINGLETON);

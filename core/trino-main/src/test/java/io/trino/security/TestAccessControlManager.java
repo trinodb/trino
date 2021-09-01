@@ -441,12 +441,12 @@ public class TestAccessControlManager
 
     private AccessControlManager createAccessControlManager(TransactionManager testTransactionManager)
     {
-        return new AccessControlManager(testTransactionManager, emptyEventListenerManager(), new AccessControlConfig(), new DefaultSystemAccessControl());
+        return new AccessControlManager(testTransactionManager, emptyEventListenerManager(), new AccessControlConfig(), DefaultSystemAccessControl.NAME);
     }
 
     private AccessControlManager createAccessControlManager(EventListenerManager eventListenerManager, AccessControlConfig config)
     {
-        return new AccessControlManager(createTestTransactionManager(), eventListenerManager, config, new DefaultSystemAccessControl());
+        return new AccessControlManager(createTestTransactionManager(), eventListenerManager, config, DefaultSystemAccessControl.NAME);
     }
 
     private SystemAccessControlFactory eventListeningSystemAccessControlFactory(String name, EventListener... eventListeners)

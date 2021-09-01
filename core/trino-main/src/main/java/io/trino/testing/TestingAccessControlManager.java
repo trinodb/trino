@@ -127,7 +127,7 @@ public class TestingAccessControlManager
     @Inject
     public TestingAccessControlManager(TransactionManager transactionManager, EventListenerManager eventListenerManager)
     {
-        super(transactionManager, eventListenerManager, new AccessControlConfig(), new DefaultSystemAccessControl());
+        super(transactionManager, eventListenerManager, new AccessControlConfig(), DefaultSystemAccessControl.NAME);
     }
 
     public void loadSystemAccessControl(String name, Map<String, String> properties)
