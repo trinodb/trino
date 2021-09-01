@@ -625,6 +625,14 @@ public class TestHiveConnectorTest
         assertUpdate(user, "ALTER SCHEMA test_schema_authorization SET AUTHORIZATION ROLE admin");
         assertQueryFails(user, "ALTER SCHEMA test_schema_authorization SET AUTHORIZATION ROLE admin", "Access Denied: Cannot set authorization for schema test_schema_authorization to ROLE admin");
 
+        // switch owner back to user, and then change the owner to ROLE admin from a different catalog to verify roles are relative to the catalog of the schema
+        assertUpdate(admin, "ALTER SCHEMA test_schema_authorization SET AUTHORIZATION user");
+        Session userSessionInDifferentCatalog = testSessionBuilder()
+                .setIdentity(Identity.forUser("user").withPrincipal(getSession().getIdentity().getPrincipal()).build())
+                .build();
+        assertUpdate(userSessionInDifferentCatalog, "ALTER SCHEMA hive.test_schema_authorization SET AUTHORIZATION ROLE admin");
+        assertUpdate(admin, "ALTER SCHEMA test_schema_authorization SET AUTHORIZATION user");
+
         assertUpdate(admin, "DROP SCHEMA test_schema_authorization");
     }
 
