@@ -15,9 +15,9 @@ package io.trino.plugin.pulsar.decoder.protobufnative;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.decoder.DecoderColumnHandle;
 import io.trino.plugin.pulsar.PulsarColumnHandle;
-import io.trino.plugin.pulsar.PulsarColumnMetadata;
 import io.trino.plugin.pulsar.PulsarRowDecoder;
 import io.trino.plugin.pulsar.PulsarRowDecoderFactory;
 import io.trino.spi.TrinoException;
@@ -46,6 +46,10 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.pulsar.PulsarColumnMetadata.PROPERTY_KEY_HANDLE_TYPE;
+import static io.trino.plugin.pulsar.PulsarColumnMetadata.PROPERTY_KEY_INTERNAL;
+import static io.trino.plugin.pulsar.PulsarColumnMetadata.PROPERTY_KEY_MAPPING;
+import static io.trino.plugin.pulsar.PulsarColumnMetadata.PROPERTY_KEY_NAME_CASE_SENSITIVE;
 import static io.trino.plugin.pulsar.PulsarErrorCode.PULSAR_SCHEMA_ERROR;
 import static io.trino.spi.StandardErrorCode.COLUMN_TYPE_UNKNOWN;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
@@ -71,7 +75,7 @@ public class PulsarProtobufNativeRowDecoderFactory
     }
 
     @Override
-    public List<ColumnMetadata> extractColumnMetadata(TopicName topicName, SchemaInfo schemaInfo, PulsarColumnHandle.HandleKeyValueType handleKeyValueType)
+    public List<ColumnMetadata> extractColumnMetadata(TopicName topicName, SchemaInfo schemaInfo, PulsarColumnHandle.HandleKeyValueType handleKeyValueType, boolean withInternalProperties)
     {
         List<ColumnMetadata> columnMetadata;
         String schemaJson = new String(schemaInfo.getSchema(), StandardCharsets.ISO_8859_1);
@@ -88,12 +92,22 @@ public class PulsarProtobufNativeRowDecoderFactory
 
         //Protobuf have not yet supported Cyclic Objects.
         columnMetadata = schema.getFields().stream()
-                .map(field ->
-                        new PulsarColumnMetadata(PulsarColumnMetadata.getColumnName(handleKeyValueType, field.getName()),
-                                parseProtobufTrinoType(field), field.getType().toString(), null, false, false,
-                                handleKeyValueType, new PulsarColumnMetadata.DecoderExtraInfo(field.getName(),
-                                null, null))
+                .map(field -> {
+                    ColumnMetadata.Builder metaBuilder = ColumnMetadata.builder()
+                            .setName(field.getName())
+                            .setType(parseProtobufTrinoType(field))
+                            .setComment(Optional.of(field.getType().toString()))
+                            .setHidden(false);
+                    if (withInternalProperties) {
+                        metaBuilder.setProperties(ImmutableMap.of(
+                                PROPERTY_KEY_NAME_CASE_SENSITIVE, field.getName(),
+                                PROPERTY_KEY_INTERNAL, false,
+                                PROPERTY_KEY_HANDLE_TYPE, handleKeyValueType,
+                                PROPERTY_KEY_MAPPING, field.getName()));
+                    }
 
+                    return metaBuilder.build();
+                    }
                 ).collect(toList());
 
         return columnMetadata;

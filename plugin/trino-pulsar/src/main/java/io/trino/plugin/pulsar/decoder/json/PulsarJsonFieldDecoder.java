@@ -20,7 +20,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.FieldValueProvider;
-import io.trino.decoder.json.DefaultJsonFieldDecoder;
+import io.trino.decoder.json.JsonFieldDecoder;
 import io.trino.decoder.json.JsonRowDecoderFactory;
 import io.trino.plugin.pulsar.PulsarConnectorUtils;
 import io.trino.spi.TrinoException;
@@ -70,16 +70,8 @@ import static java.lang.Long.parseLong;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-/**
- * Extended {@link io.trino.decoder.json.DefaultJsonFieldDecoder} with support for additional types
- * 1) support {@link ArrayType}.
- * 2) support {@link MapType}.
- * 3) support {@link RowType}.
- * 4) support {@link TimestampType},{@link DateType},{@link TimeType}.
- * 5) support {@link RealType}.
- */
 public class PulsarJsonFieldDecoder
-        extends DefaultJsonFieldDecoder
+        implements JsonFieldDecoder
 {
     private final DecoderColumnHandle pulsarColumnHandle;
     private final long pulsarColumnMinValue;
@@ -168,17 +160,25 @@ public class PulsarJsonFieldDecoder
      * JsonValueProvider.
      */
     public static class PulsarJsonValueProvider
-            extends DefaultJsonFieldDecoder.JsonValueProvider
+            extends FieldValueProvider
     {
+        private final JsonNode value;
+        private final DecoderColumnHandle columnHandle;
+        private final long minValue;
+        private final long maxValue;
+
         public PulsarJsonValueProvider(JsonNode value, DecoderColumnHandle columnHandle, long minValue, long maxValue)
         {
-            super(value, columnHandle, minValue, maxValue);
+            this.value = value;
+            this.columnHandle = columnHandle;
+            this.minValue = minValue;
+            this.maxValue = maxValue;
         }
 
         @Override
         public long getLong()
         {
-            return columnHandle.getType() == TimestampType.TIMESTAMP_MILLIS ?
+            return columnHandle.getType() == TimestampType.TIMESTAMP_MILLIS || columnHandle.getType() == TIME_MILLIS ?
                     PulsarConnectorUtils.roundToTrinoTime(getLong(value, columnHandle.getType(), columnHandle.getName(), minValue, maxValue)) :
                                         getLong(value, columnHandle.getType(), columnHandle.getName(), minValue, maxValue);
         }
@@ -187,6 +187,30 @@ public class PulsarJsonFieldDecoder
         public Block getBlock()
         {
             return serializeObject(null, value, columnHandle.getType(), columnHandle.getName());
+        }
+
+        @Override
+        public final boolean isNull()
+        {
+            return value.isMissingNode() || value.isNull();
+        }
+
+        @Override
+        public boolean getBoolean()
+        {
+            return getBoolean(value, columnHandle.getType(), columnHandle.getName());
+        }
+
+        @Override
+        public double getDouble()
+        {
+            return getDouble(value, columnHandle.getType(), columnHandle.getName());
+        }
+
+        @Override
+        public Slice getSlice()
+        {
+            return getSlice(value, columnHandle.getType());
         }
 
         public static boolean getBoolean(JsonNode value, Type type, String columnName)

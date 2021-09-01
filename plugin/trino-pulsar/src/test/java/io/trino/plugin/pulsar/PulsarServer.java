@@ -129,7 +129,7 @@ public class PulsarServer
     public static final int PULSAR_PORT = 6650;
     public static final int ZK_PORT = 2181;
     public static final int BK_PORT = 3181;
-    public static final String DEFAULT_IMAGE_NAME = "apachepulsar/pulsar:latest";
+    public static final String DEFAULT_IMAGE_NAME = "apachepulsar/pulsar:2.8.0";
 
     private final GenericContainer<?> pulsar;
     private final List<Consumer> consumers = new ArrayList<>();

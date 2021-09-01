@@ -34,23 +34,18 @@ public class PulsarConnector
     private final ConnectorMetadata metadata;
     private final ConnectorSplitManager splitManager;
     private final ConnectorRecordSetProvider recordSetProvider;
-    private final PulsarConnectorConfig pulsarConnectorConfig;
 
     @Inject
     public PulsarConnector(
             LifeCycleManager lifeCycleManager,
             ConnectorMetadata metadata,
             ConnectorSplitManager splitManager,
-            ConnectorRecordSetProvider recordSetProvider,
-            PulsarConnectorConfig pulsarConnectorConfig)
+            ConnectorRecordSetProvider recordSetProvider)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
-        this.pulsarConnectorConfig = requireNonNull(pulsarConnectorConfig, "pulsarConnectorConfig is null");
-        requireNonNull(this.pulsarConnectorConfig.getWebServiceUrl(), "web-service-url is null");
-        requireNonNull(this.pulsarConnectorConfig.getZookeeperUri(), "zookeeper-uri is null");
     }
 
     @Override

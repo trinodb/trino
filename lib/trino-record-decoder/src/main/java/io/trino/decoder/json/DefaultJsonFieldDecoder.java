@@ -46,13 +46,6 @@ public class DefaultJsonFieldDecoder
     private final long minValue;
     private final long maxValue;
 
-    protected DefaultJsonFieldDecoder()
-    {
-        this.columnHandle = null;
-        this.minValue = 0;
-        this.maxValue = 0;
-    }
-
     public DefaultJsonFieldDecoder(DecoderColumnHandle columnHandle)
     {
         this.columnHandle = requireNonNull(columnHandle, "columnHandle is null");
@@ -110,10 +103,10 @@ public class DefaultJsonFieldDecoder
     public static class JsonValueProvider
             extends FieldValueProvider
     {
-        protected final JsonNode value;
-        protected final DecoderColumnHandle columnHandle;
-        protected final long minValue;
-        protected final long maxValue;
+        private final JsonNode value;
+        private final DecoderColumnHandle columnHandle;
+        private final long minValue;
+        private final long maxValue;
 
         public JsonValueProvider(JsonNode value, DecoderColumnHandle columnHandle, long minValue, long maxValue)
         {

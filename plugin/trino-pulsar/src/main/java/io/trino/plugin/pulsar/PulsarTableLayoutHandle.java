@@ -21,6 +21,7 @@ import io.trino.spi.predicate.TupleDomain;
 
 import java.util.Objects;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class PulsarTableLayoutHandle
@@ -73,6 +74,9 @@ public class PulsarTableLayoutHandle
     @Override
     public String toString()
     {
-        return table.toString();
+        return toStringHelper(this)
+                .add("table", table)
+                .add("tupleDomain", tupleDomain)
+                .toString();
     }
 }

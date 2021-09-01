@@ -14,8 +14,10 @@
 package io.trino.plugin.pulsar.util;
 
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.pulsar.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.pulsar.shade.io.netty.util.concurrent.FastThreadLocal;
 
 public class ObjectMapperFactory
@@ -31,6 +33,11 @@ public class ObjectMapperFactory
         mapper.configure(DeserializationFeature.READ_UNKNOWN_ENUM_VALUES_AS_NULL, true);
         mapper.setSerializationInclusion(Include.NON_NULL);
         return mapper;
+    }
+
+    public static com.fasterxml.jackson.databind.JsonNode toOriginalJsonNode(JsonNode jsonNode) throws JsonProcessingException
+    {
+        return ObjectMapperFactory.getThreadLocal().readTree(jsonNode.toString());
     }
 
     private static final FastThreadLocal<ObjectMapper> JSON_MAPPER = new FastThreadLocal<ObjectMapper>()

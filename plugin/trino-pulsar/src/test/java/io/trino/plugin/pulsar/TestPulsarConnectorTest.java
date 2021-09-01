@@ -161,7 +161,8 @@ public class TestPulsarConnectorTest
         assertEquals(actualColumns.getMaterializedRows().get(0).getField(0), "information_schema");
         assertEquals(actualColumns.getMaterializedRows().get(1).getField(0), "public/default");
         assertEquals(actualColumns.getMaterializedRows().get(2).getField(0), "public/functions");
-        assertEquals(actualColumns.getMaterializedRows().get(3).getField(0), "sample/standalone/ns1");
+        assertEquals(actualColumns.getMaterializedRows().get(3).getField(0), "pulsar/system");
+        assertEquals(actualColumns.getMaterializedRows().get(4).getField(0), "sample/ns1");
     }
 
     @Test

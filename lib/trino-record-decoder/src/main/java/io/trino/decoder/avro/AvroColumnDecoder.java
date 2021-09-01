@@ -25,6 +25,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
+import io.trino.spi.type.DateType;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.MapType;
@@ -32,6 +33,8 @@ import io.trino.spi.type.RealType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.RowType.Field;
 import io.trino.spi.type.SmallintType;
+import io.trino.spi.type.TimeType;
+import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
@@ -50,6 +53,8 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.decoder.DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
+import static io.trino.spi.type.TimeType.TIME_MILLIS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.Varchars.truncateToLength;
 import static java.lang.Float.floatToIntBits;
 import static java.lang.String.format;
@@ -65,6 +70,9 @@ public class AvroColumnDecoder
             BigintType.BIGINT,
             RealType.REAL,
             DoubleType.DOUBLE,
+            TIMESTAMP_MILLIS,
+            DateType.DATE,
+            TIME_MILLIS,
             VarbinaryType.VARBINARY);
 
     private final Type columnType;
@@ -77,7 +85,6 @@ public class AvroColumnDecoder
             requireNonNull(columnHandle, "columnHandle is null");
             this.columnType = columnHandle.getType();
             this.columnMapping = columnHandle.getMapping();
-
             this.columnName = columnHandle.getName();
             checkArgument(!columnHandle.isInternal(), "unexpected internal column '%s'", columnName);
             checkArgument(columnHandle.getFormatHint() == null, "unexpected format hint '%s' defined for column '%s'", columnHandle.getFormatHint(), columnName);
@@ -187,6 +194,10 @@ public class AvroColumnDecoder
             if (value instanceof Long || value instanceof Integer) {
                 return ((Number) value).longValue();
             }
+
+            if (columnType instanceof RealType) {
+                return floatToIntBits((Float) value);
+            }
             throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, format("cannot decode object of '%s' as '%s' for column '%s'", value.getClass(), columnType, columnName));
         }
 
@@ -289,6 +300,11 @@ public class AvroColumnDecoder
 
         if (type instanceof VarcharType || type instanceof VarbinaryType) {
             type.writeSlice(blockBuilder, getSlice(value, type, columnName));
+            return;
+        }
+
+        if (type instanceof TimeType || type instanceof DateType || type instanceof TimestampType) {
+            type.writeLong(blockBuilder, (Long) value);
             return;
         }
 

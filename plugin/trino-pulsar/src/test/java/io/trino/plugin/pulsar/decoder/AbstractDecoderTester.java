@@ -18,7 +18,6 @@ import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.FieldValueProvider;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.pulsar.PulsarColumnHandle;
-import io.trino.plugin.pulsar.PulsarColumnMetadata;
 import io.trino.plugin.pulsar.PulsarConnectorConfig;
 import io.trino.plugin.pulsar.PulsarDispatchingRowDecoderFactory;
 import io.trino.plugin.pulsar.PulsarMetadata;
@@ -38,6 +37,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.trino.plugin.pulsar.PulsarColumnMetadata.PROPERTY_KEY_DATA_FORMAT;
+import static io.trino.plugin.pulsar.PulsarColumnMetadata.PROPERTY_KEY_FORMAT_HINT;
+import static io.trino.plugin.pulsar.PulsarColumnMetadata.PROPERTY_KEY_HANDLE_TYPE;
+import static io.trino.plugin.pulsar.PulsarColumnMetadata.PROPERTY_KEY_INTERNAL;
+import static io.trino.plugin.pulsar.PulsarColumnMetadata.PROPERTY_KEY_MAPPING;
+import static io.trino.plugin.pulsar.PulsarColumnMetadata.PROPERTY_KEY_NAME_CASE_SENSITIVE;
 import static org.testng.Assert.assertNotNull;
 
 /**
@@ -121,19 +126,19 @@ public abstract class AbstractDecoderTester
     {
         List<PulsarColumnHandle> columnHandles = new ArrayList<>();
         List<ColumnMetadata> columnMetadata = pulsarMetadata.getPulsarColumns(topicName, schemaInfo,
-                includeInternalColumn, handleKeyValueType);
+                includeInternalColumn, true, handleKeyValueType);
 
-        columnMetadata.forEach(column -> {
-            PulsarColumnMetadata pulsarColumnMetadata = (PulsarColumnMetadata) column;
+        columnMetadata.forEach(columnMeta -> {
             columnHandles.add(new PulsarColumnHandle(
                     catalogName.toString(),
-                    pulsarColumnMetadata.getNameWithCase(),
-                    pulsarColumnMetadata.getType(),
-                    pulsarColumnMetadata.isHidden(),
-                    pulsarColumnMetadata.isInternal(),
-                    pulsarColumnMetadata.getDecoderExtraInfo().getMapping(),
-                    pulsarColumnMetadata.getDecoderExtraInfo().getDataFormat(), pulsarColumnMetadata.getDecoderExtraInfo().getFormatHint(),
-                    Optional.of(pulsarColumnMetadata.getHandleKeyValueType())));
+                    (String) columnMeta.getProperties().get(PROPERTY_KEY_NAME_CASE_SENSITIVE),
+                    columnMeta.getType(),
+                    columnMeta.isHidden(),
+                    columnMeta.getProperties().containsKey(PROPERTY_KEY_INTERNAL) ? (Boolean) columnMeta.getProperties().get(PROPERTY_KEY_INTERNAL) : false,
+                    (String) columnMeta.getProperties().get(PROPERTY_KEY_MAPPING),
+                    (String) columnMeta.getProperties().get(PROPERTY_KEY_DATA_FORMAT),
+                    (String) columnMeta.getProperties().get(PROPERTY_KEY_FORMAT_HINT),
+                    Optional.of((PulsarColumnHandle.HandleKeyValueType) columnMeta.getProperties().get(PROPERTY_KEY_HANDLE_TYPE))));
         });
         return columnHandles;
     }

@@ -63,8 +63,7 @@ public class PulsarConnectorManagedLedgerFactory
     @Inject
     public PulsarConnectorManagedLedgerFactory(PulsarConnectorConfig pulsarConnectorConfig) throws Exception
     {
-        metadataStore = MetadataStoreFactory.create(pulsarConnectorConfig.getZookeeperUri(),
-                MetadataStoreConfig.builder().build());
+        metadataStore = MetadataStoreFactory.create(pulsarConnectorConfig.getZookeeperUri(), MetadataStoreConfig.builder().build());
         managedLedgerFactory = initManagedLedgerFactory(pulsarConnectorConfig);
 
         // start stats provider
@@ -72,8 +71,7 @@ public class PulsarConnectorManagedLedgerFactory
 
         pulsarConnectorConfig.getStatsProviderConfigs().forEach(clientConfiguration::setProperty);
 
-        defaultOffloader = initManagedLedgerOffloader(
-                pulsarConnectorConfig.getOffloadPolices(), pulsarConnectorConfig);
+        defaultOffloader = initManagedLedgerOffloader(pulsarConnectorConfig.getOffloadPolices(), pulsarConnectorConfig);
     }
 
     private ManagedLedgerFactory initManagedLedgerFactory(PulsarConnectorConfig pulsarConnectorConfig)

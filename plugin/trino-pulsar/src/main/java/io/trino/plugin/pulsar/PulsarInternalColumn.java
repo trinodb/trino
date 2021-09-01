@@ -15,6 +15,7 @@ package io.trino.plugin.pulsar;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.TimestampType;
@@ -28,6 +29,9 @@ import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static io.trino.plugin.pulsar.PulsarColumnMetadata.PROPERTY_KEY_HANDLE_TYPE;
+import static io.trino.plugin.pulsar.PulsarColumnMetadata.PROPERTY_KEY_INTERNAL;
+import static io.trino.plugin.pulsar.PulsarColumnMetadata.PROPERTY_KEY_NAME_CASE_SENSITIVE;
 import static java.util.Objects.requireNonNull;
 
 public class PulsarInternalColumn
@@ -86,10 +90,18 @@ public class PulsarInternalColumn
         return new PulsarColumnHandle(catalogName, getName(), getType(), hidden, true, getName(), null, null, Optional.of(PulsarColumnHandle.HandleKeyValueType.NONE));
     }
 
-    PulsarColumnMetadata getColumnMetadata(boolean hidden)
+    ColumnMetadata getColumnMetadata(boolean hidden)
     {
-        return new PulsarColumnMetadata(name, type, comment, null, hidden, true,
-                PulsarColumnHandle.HandleKeyValueType.NONE, new PulsarColumnMetadata.DecoderExtraInfo());
+        return ColumnMetadata.builder()
+                .setName(name)
+                .setType(type)
+                .setComment(Optional.of(comment))
+                .setHidden(hidden)
+                .setProperties(ImmutableMap.of(
+                        PROPERTY_KEY_NAME_CASE_SENSITIVE, name,
+                        PROPERTY_KEY_INTERNAL, true,
+                        PROPERTY_KEY_HANDLE_TYPE, PulsarColumnHandle.HandleKeyValueType.NONE))
+                .build();
     }
 
     public static Set<PulsarInternalColumn> getInternalFields()

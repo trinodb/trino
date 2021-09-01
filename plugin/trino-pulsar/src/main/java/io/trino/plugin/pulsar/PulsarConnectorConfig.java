@@ -30,6 +30,8 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.regex.Matcher;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
+
 public class PulsarConnectorConfig
 {
     private String webServiceUrl;
@@ -486,38 +488,38 @@ public class PulsarConnectorConfig
     @Override
     public String toString()
     {
-        return "PulsarConnectorConfig{" +
-                "webServiceUrl='" + webServiceUrl + '\'' +
-                ", zookeeperUri='" + zookeeperUri + '\'' +
-                ", entryReadBatchSize=" + entryReadBatchSize +
-                ", targetNumSplits=" + targetNumSplits +
-                ", maxSplitMessageQueueSize=" + maxSplitMessageQueueSize +
-                ", maxSplitEntryQueueSize=" + maxSplitEntryQueueSize +
-                ", maxSplitQueueSizeBytes=" + maxSplitQueueSizeBytes +
-                ", maxMessageSize=" + maxMessageSize +
-                ", statsProvider='" + statsProvider + '\'' +
-                ", statsProviderConfigs=" + statsProviderConfigs +
-                ", authPluginClassName='" + authPluginClassName + '\'' +
-                ", authParams='" + authParams + '\'' +
-                ", tlsTrustCertsFilePath='" + tlsTrustCertsFilePath + '\'' +
-                ", tlsAllowInsecureConnection=" + tlsAllowInsecureConnection +
-                ", tlsHostnameVerificationEnable=" + tlsHostnameVerificationEnable +
-                ", namespaceDelimiterRewriteEnable=" + namespaceDelimiterRewriteEnable +
-                ", rewriteNamespaceDelimiter='" + rewriteNamespaceDelimiter + '\'' +
-                ", managedLedgerOffloadDriver='" + managedLedgerOffloadDriver + '\'' +
-                ", managedLedgerOffloadMaxThreads=" + managedLedgerOffloadMaxThreads +
-                ", offloadersDirectory='" + offloadersDirectory + '\'' +
-                ", offloaderProperties=" + offloaderProperties +
-                ", pulsarAdmin=" + pulsarAdmin +
-                ", bookkeeperThrottleValue=" + bookkeeperThrottleValue +
-                ", bookkeeperNumIOThreads=" + bookkeeperNumIOThreads +
-                ", bookkeeperNumWorkerThreads=" + bookkeeperNumWorkerThreads +
-                ", bookkeeperUseV2Protocol=" + bookkeeperUseV2Protocol +
-                ", bookkeeperExplicitInterval=" + bookkeeperExplicitInterval +
-                ", managedLedgerCacheSizeMB=" + managedLedgerCacheSizeMB +
-                ", managedLedgerNumWorkerThreads=" + managedLedgerNumWorkerThreads +
-                ", managedLedgerNumSchedulerThreads=" + managedLedgerNumSchedulerThreads +
-                ", narExtractionDirectory='" + narExtractionDirectory + '\'' +
-                '}';
+        return toStringHelper(this)
+                .add("webServiceUrl", webServiceUrl)
+                .add("zookeeperUri", zookeeperUri)
+                .add("entryReadBatchSize", entryReadBatchSize)
+                .add("targetNumSplits", targetNumSplits)
+                .add("maxSplitMessageQueueSize", maxSplitMessageQueueSize)
+                .add("maxSplitEntryQueueSize", maxSplitEntryQueueSize)
+                .add("maxSplitQueueSizeBytes", maxSplitQueueSizeBytes)
+                .add("maxMessageSize", maxMessageSize)
+                .add("statsProvider", statsProvider)
+                .add("statsProviderConfigs", statsProviderConfigs)
+                .add("authPluginClassName", authPluginClassName)
+                .add("authParams", authParams)
+                .add("tlsTrustCertsFilePath", tlsTrustCertsFilePath)
+                .add("tlsAllowInsecureConnection", tlsAllowInsecureConnection)
+                .add("tlsHostnameVerificationEnable", tlsHostnameVerificationEnable)
+                .add("namespaceDelimiterRewriteEnable", namespaceDelimiterRewriteEnable)
+                .add("rewriteNamespaceDelimiter", rewriteNamespaceDelimiter)
+                .add("managedLedgerOffloadDriver", managedLedgerOffloadDriver)
+                .add("managedLedgerOffloadMaxThreads", managedLedgerOffloadMaxThreads)
+                .add("offloadersDirectory", offloadersDirectory)
+                .add("offloaderProperties", offloaderProperties)
+                .add("pulsarAdmin", pulsarAdmin)
+                .add("bookkeeperThrottleValue", bookkeeperThrottleValue)
+                .add("bookkeeperNumIOThreads", bookkeeperNumIOThreads)
+                .add("bookkeeperNumWorkerThreads", bookkeeperNumWorkerThreads)
+                .add("bookkeeperUseV2Protocol", bookkeeperUseV2Protocol)
+                .add("bookkeeperExplicitInterval", bookkeeperExplicitInterval)
+                .add("managedLedgerCacheSizeMB", managedLedgerCacheSizeMB)
+                .add("managedLedgerNumWorkerThreads", managedLedgerNumWorkerThreads)
+                .add("managedLedgerNumSchedulerThreads", managedLedgerNumSchedulerThreads)
+                .add("narExtractionDirectory", narExtractionDirectory)
+                .toString();
     }
 }

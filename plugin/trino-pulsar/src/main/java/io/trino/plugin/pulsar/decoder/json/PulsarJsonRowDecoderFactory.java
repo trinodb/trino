@@ -15,6 +15,7 @@ package io.trino.plugin.pulsar.decoder.json;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.decoder.DecoderColumnHandle;
 import io.trino.plugin.pulsar.PulsarColumnHandle;
@@ -50,6 +51,10 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.pulsar.PulsarColumnMetadata.PROPERTY_KEY_HANDLE_TYPE;
+import static io.trino.plugin.pulsar.PulsarColumnMetadata.PROPERTY_KEY_INTERNAL;
+import static io.trino.plugin.pulsar.PulsarColumnMetadata.PROPERTY_KEY_MAPPING;
+import static io.trino.plugin.pulsar.PulsarColumnMetadata.PROPERTY_KEY_NAME_CASE_SENSITIVE;
 import static io.trino.plugin.pulsar.PulsarErrorCode.PULSAR_SCHEMA_ERROR;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.TimeType.TIME_MILLIS;
@@ -80,7 +85,7 @@ public class PulsarJsonRowDecoderFactory
     }
 
     @Override
-    public List<ColumnMetadata> extractColumnMetadata(TopicName topicName, SchemaInfo schemaInfo, PulsarColumnHandle.HandleKeyValueType handleKeyValueType)
+    public List<ColumnMetadata> extractColumnMetadata(TopicName topicName, SchemaInfo schemaInfo, PulsarColumnHandle.HandleKeyValueType handleKeyValueType, boolean withInternalProperties)
     {
         List<ColumnMetadata> columnMetadata;
         String schemaJson = new String(schemaInfo.getSchema(), StandardCharsets.ISO_8859_1);
@@ -98,13 +103,21 @@ public class PulsarJsonRowDecoderFactory
 
         try {
             columnMetadata = schema.getFields().stream()
-                    .map(field ->
-                            new PulsarColumnMetadata(PulsarColumnMetadata.getColumnName(handleKeyValueType, field.name()), parseJsonTrinoType(field.name(), field.schema()),
-                                    field.schema().toString(), null, false, false,
-                                    handleKeyValueType, new PulsarColumnMetadata.DecoderExtraInfo(
-                                    field.name(), null, null))
-
-                    ).collect(toList());
+                    .map(field -> {
+                        ColumnMetadata.Builder metaBuilder = ColumnMetadata.builder()
+                                    .setName(PulsarColumnMetadata.getColumnName(handleKeyValueType, field.name()))
+                                    .setType(parseJsonTrinoType(field.name(), field.schema()))
+                                    .setComment(Optional.of(field.schema().toString()))
+                                    .setHidden(false);
+                        if (withInternalProperties) {
+                            metaBuilder.setProperties(ImmutableMap.of(
+                                    PROPERTY_KEY_NAME_CASE_SENSITIVE, PulsarColumnMetadata.getColumnName(handleKeyValueType, field.name()),
+                                    PROPERTY_KEY_INTERNAL, false,
+                                    PROPERTY_KEY_HANDLE_TYPE, handleKeyValueType,
+                                    PROPERTY_KEY_MAPPING, field.name()));
+                        }
+                        return metaBuilder.build();
+                    }).collect(toList());
         }
         catch (StackOverflowError e) {
             log.warn(e, "Topic " + topicName.toString() + " extractColumnMetadata failed.");

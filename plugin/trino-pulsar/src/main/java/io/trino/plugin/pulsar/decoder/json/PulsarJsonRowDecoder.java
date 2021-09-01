@@ -85,7 +85,7 @@ public class PulsarJsonRowDecoder
             JsonFieldDecoder decoder = entry.getValue();
             com.fasterxml.jackson.databind.JsonNode node = null;
             try {
-                node = toOriginalJsonNode(locateNode(record.getJsonNode(), columnHandle));
+                node = ObjectMapperFactory.toOriginalJsonNode(locateNode(record.getJsonNode(), columnHandle));
             }
             catch (JsonProcessingException e) {
                 throw new TrinoException(GENERIC_INTERNAL_ERROR, "Decoding json record failed.", e);
@@ -93,10 +93,5 @@ public class PulsarJsonRowDecoder
             decodedRow.put(columnHandle, decoder.decode(node));
         }
         return Optional.of(decodedRow);
-    }
-
-    private com.fasterxml.jackson.databind.JsonNode toOriginalJsonNode(JsonNode jsonNode) throws JsonProcessingException
-    {
-        return ObjectMapperFactory.getThreadLocal().readTree(jsonNode.toString());
     }
 }

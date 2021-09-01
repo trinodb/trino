@@ -298,7 +298,7 @@ public class TestAvroDecoder
         TrinoException exception = expectThrows(TrinoException.class,
                 () -> {
                     decoderFactory.extractColumnMetadata(topicName, cyclicSchema.getSchemaInfo(),
-                            PulsarColumnHandle.HandleKeyValueType.NONE);
+                            PulsarColumnHandle.HandleKeyValueType.NONE, false);
                 });
 
         assertEquals("Topic "

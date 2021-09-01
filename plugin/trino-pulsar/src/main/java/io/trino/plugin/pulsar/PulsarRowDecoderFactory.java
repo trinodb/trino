@@ -35,7 +35,8 @@ public interface PulsarRowDecoderFactory
     List<ColumnMetadata> extractColumnMetadata(
             TopicName topicName,
             SchemaInfo schemaInfo,
-            PulsarColumnHandle.HandleKeyValueType handleKeyValueType);
+            PulsarColumnHandle.HandleKeyValueType handleKeyValueType,
+            boolean withInternalProperties);
 
     /**
      * createRowDecoder RowDecoder by pulsar SchemaInfo and column DecoderColumnHandles.

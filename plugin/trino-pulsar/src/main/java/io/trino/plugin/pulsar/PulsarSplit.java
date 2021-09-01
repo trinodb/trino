@@ -32,6 +32,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class PulsarSplit
@@ -233,22 +234,22 @@ public class PulsarSplit
     @Override
     public String toString()
     {
-        return "PulsarSplit{"
-                + "splitId=" + splitId
-                + ", catalogName='" + catalogName + '\''
-                + ", originSchemaName='" + originSchemaName + '\''
-                + ", schemaName='" + schemaName + '\''
-                + ", tableName='" + tableName + '\''
-                + ", splitSize=" + splitSize
-                + ", schema='" + schema + '\''
-                + ", schemaType=" + schemaType
-                + ", startPositionEntryId=" + startPositionEntryId
-                + ", endPositionEntryId=" + endPositionEntryId
-                + ", startPositionLedgerId=" + startPositionLedgerId
-                + ", endPositionLedgerId=" + endPositionLedgerId
-                + ", schemaInfoProperties=" + schemaInfoProperties
-                + (offloadPolicies == null ? "" : offloadPolicies.toString())
-                + '}';
+        return toStringHelper(this)
+                .add("splitId", splitId)
+                .add("catalogName", catalogName)
+                .add("originSchemaName", originSchemaName)
+                .add("schemaName", schemaName)
+                .add("tableName", tableName)
+                .add("splitSize", splitSize)
+                .add("schema", schema)
+                .add("schemaType", schemaType)
+                .add("startPositionEntryId", startPositionEntryId)
+                .add("endPositionEntryId", endPositionEntryId)
+                .add("startPositionLedgerId", startPositionLedgerId)
+                .add("endPositionLedgerId", endPositionLedgerId)
+                .add("schemaInfoProperties", schemaInfoProperties)
+                .add("offloadPolicies", (offloadPolicies == null ? null : offloadPolicies.toString()))
+                .toString();
     }
 
     public SchemaInfo getSchemaInfo()

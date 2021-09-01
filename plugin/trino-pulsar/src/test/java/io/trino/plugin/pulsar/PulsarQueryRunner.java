@@ -24,6 +24,11 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
+import static io.trino.plugin.pulsar.PulsarServer.SELECT_FROM_CUSTOMER;
+import static io.trino.plugin.pulsar.PulsarServer.SELECT_FROM_LINEITEM;
+import static io.trino.plugin.pulsar.PulsarServer.SELECT_FROM_NATION;
+import static io.trino.plugin.pulsar.PulsarServer.SELECT_FROM_ORDERS;
+import static io.trino.plugin.pulsar.PulsarServer.SELECT_FROM_REGION;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public class PulsarQueryRunner
@@ -76,5 +81,11 @@ public class PulsarQueryRunner
         Logger log = Logger.get(PulsarQueryRunner.class);
         log.info("======== SERVER STARTED ========");
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
+        pulsarServer.copyAndIngestTpchData(queryRunner.execute(SELECT_FROM_CUSTOMER), PulsarServer.CUSTOMER, PulsarServer.Customer.class, 2);
+        pulsarServer.copyAndIngestTpchData(queryRunner.execute(SELECT_FROM_ORDERS), PulsarServer.ORDERS, PulsarServer.Orders.class, 3);
+        pulsarServer.copyAndIngestTpchData(queryRunner.execute(SELECT_FROM_LINEITEM), PulsarServer.LINEITEM, PulsarServer.LineItem.class, 4);
+        pulsarServer.copyAndIngestTpchData(queryRunner.execute(SELECT_FROM_NATION), PulsarServer.NATION, PulsarServer.Nation.class, 1);
+        pulsarServer.copyAndIngestTpchData(queryRunner.execute(SELECT_FROM_REGION), PulsarServer.REGION, PulsarServer.Region.class, 1);
+        log.info("======== Done ========");
     }
 }

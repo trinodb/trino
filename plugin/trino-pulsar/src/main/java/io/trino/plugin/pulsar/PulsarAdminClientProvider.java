@@ -17,7 +17,6 @@ import org.apache.pulsar.client.admin.PulsarAdmin;
 import org.apache.pulsar.client.admin.PulsarAdminBuilder;
 import org.apache.pulsar.client.api.PulsarClientException;
 
-import javax.validation.constraints.NotNull;
 import javax.ws.rs.client.ClientBuilder;
 
 public class PulsarAdminClientProvider
@@ -25,7 +24,6 @@ public class PulsarAdminClientProvider
     private PulsarAdminClientProvider()
     { }
 
-    @NotNull
     public static PulsarAdmin getPulsarAdmin(PulsarConnectorConfig config) throws PulsarClientException
     {
         PulsarAdminBuilder builder = PulsarAdmin.builder();

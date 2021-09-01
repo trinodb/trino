@@ -86,26 +86,25 @@ public class PulsarTableHandle
     }
 
     @Override
-    public int hashCode()
+    public boolean equals(Object o)
     {
-        return Objects.hash(catalogName, schemaName, tableName, topicName);
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof PulsarTableHandle)) {
+            return false;
+        }
+        PulsarTableHandle that = (PulsarTableHandle) o;
+        return getCatalogName().equals(that.getCatalogName()) &&
+                getSchemaName().equals(that.getSchemaName()) &&
+                getTableName().equals(that.getTableName()) &&
+                getTopicName().equals(that.getTopicName());
     }
 
     @Override
-    public boolean equals(Object obj)
+    public int hashCode()
     {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-
-        PulsarTableHandle other = (PulsarTableHandle) obj;
-        return Objects.equals(this.catalogName, other.catalogName)
-                && Objects.equals(this.schemaName, other.schemaName)
-                && Objects.equals(this.tableName, other.tableName)
-                && Objects.equals(this.topicName, other.topicName);
+        return Objects.hash(getCatalogName(), getSchemaName(), getTableName(), getTopicName());
     }
 
     @Override

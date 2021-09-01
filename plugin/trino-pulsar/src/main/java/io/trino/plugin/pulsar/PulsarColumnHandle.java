@@ -20,9 +20,18 @@ import io.trino.decoder.DecoderColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.Type;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.trino.plugin.pulsar.PulsarColumnMetadata.PROPERTY_KEY_DATA_FORMAT;
+import static io.trino.plugin.pulsar.PulsarColumnMetadata.PROPERTY_KEY_FORMAT_HINT;
+import static io.trino.plugin.pulsar.PulsarColumnMetadata.PROPERTY_KEY_HANDLE_TYPE;
+import static io.trino.plugin.pulsar.PulsarColumnMetadata.PROPERTY_KEY_INTERNAL;
+import static io.trino.plugin.pulsar.PulsarColumnMetadata.PROPERTY_KEY_MAPPING;
+import static io.trino.plugin.pulsar.PulsarColumnMetadata.PROPERTY_KEY_NAME_CASE_SENSITIVE;
 import static java.util.Objects.requireNonNull;
 
 public class PulsarColumnHandle
@@ -34,14 +43,8 @@ public class PulsarColumnHandle
 
     private final Type type;
 
-    /**
-     * True if the column should be hidden.
-     */
     private final boolean hidden;
 
-    /**
-     * True if the column is internal to the connector and not defined by a topic definition.
-     */
     private final boolean internal;
 
     private HandleKeyValueType handleKeyValueType;
@@ -176,9 +179,19 @@ public class PulsarColumnHandle
 
     ColumnMetadata getColumnMetadata()
     {
-        return new PulsarColumnMetadata(name, type, null, null, hidden,
-                internal, handleKeyValueType, new PulsarColumnMetadata.DecoderExtraInfo(
-                mapping, dataFormat, formatHint));
+        Map<String, Object> properties = new HashMap<>();
+        properties.put(PROPERTY_KEY_NAME_CASE_SENSITIVE, name);
+        properties.put(PROPERTY_KEY_INTERNAL, internal);
+        properties.put(PROPERTY_KEY_HANDLE_TYPE, handleKeyValueType);
+        properties.put(PROPERTY_KEY_MAPPING, mapping);
+        properties.put(PROPERTY_KEY_DATA_FORMAT, dataFormat);
+        properties.put(PROPERTY_KEY_FORMAT_HINT, formatHint);
+        return ColumnMetadata.builder()
+                .setName(name)
+                .setType(type)
+                .setHidden(hidden)
+                .setProperties(properties)
+                .build();
     }
 
     @Override
@@ -187,69 +200,40 @@ public class PulsarColumnHandle
         if (this == o) {
             return true;
         }
-        if (o == null || getClass() != o.getClass()) {
+        if (!(o instanceof PulsarColumnHandle)) {
             return false;
         }
-
         PulsarColumnHandle that = (PulsarColumnHandle) o;
-
-        if (hidden != that.hidden) {
-            return false;
-        }
-        if (internal != that.internal) {
-            return false;
-        }
-        if (catalogName != null ? !catalogName.equals(that.catalogName) : that.catalogName != null) {
-            return false;
-        }
-        if (name != null ? !name.equals(that.name) : that.name != null) {
-            return false;
-        }
-        if (type != null ? !type.equals(that.type) : that.type != null) {
-            return false;
-        }
-        if (mapping != null ? !mapping.equals(that.mapping) : that.mapping != null) {
-            return false;
-        }
-        if (dataFormat != null ? !dataFormat.equals(that.dataFormat) : that.dataFormat != null) {
-            return false;
-        }
-
-        if (formatHint != null ? !formatHint.equals(that.formatHint) : that.formatHint != null) {
-            return false;
-        }
-
-        return Objects.equals(handleKeyValueType, that.handleKeyValueType);
+        return isHidden() == that.isHidden() &&
+                isInternal() == that.isInternal() &&
+                Objects.equals(getCatalogName(), that.getCatalogName()) &&
+                Objects.equals(getName(), that.getName()) &&
+                Objects.equals(getType(), that.getType()) &&
+                getHandleKeyValueType() == that.getHandleKeyValueType() &&
+                Objects.equals(getMapping(), that.getMapping()) &&
+                Objects.equals(getDataFormat(), that.getDataFormat()) &&
+                Objects.equals(getFormatHint(), that.getFormatHint());
     }
 
     @Override
     public int hashCode()
     {
-        int result = catalogName != null ? catalogName.hashCode() : 0;
-        result = 31 * result + (name != null ? name.hashCode() : 0);
-        result = 31 * result + (type != null ? type.hashCode() : 0);
-        result = 31 * result + (hidden ? 1 : 0);
-        result = 31 * result + (internal ? 1 : 0);
-        result = 31 * result + (mapping != null ? mapping.hashCode() : 0);
-        result = 31 * result + (dataFormat != null ? dataFormat.hashCode() : 0);
-        result = 31 * result + (formatHint != null ? formatHint.hashCode() : 0);
-        result = 31 * result + (handleKeyValueType != null ? handleKeyValueType.hashCode() : 0);
-        return result;
+        return Objects.hash(getCatalogName(), getName(), getType(), isHidden(), isInternal(), getHandleKeyValueType(), getMapping(), getDataFormat(), getFormatHint());
     }
 
     @Override
     public String toString()
     {
-        return "PulsarColumnHandle{"
-                + "catalogName='" + catalogName + '\''
-                + ", name='" + name + '\''
-                + ", type=" + type
-                + ", hidden=" + hidden
-                + ", internal=" + internal
-                + ", mapping=" + mapping
-                + ", dataFormat=" + dataFormat
-                + ", formatHint=" + formatHint
-                + ", handleKeyValueType=" + handleKeyValueType
-                + '}';
+        return toStringHelper(this)
+                .add("catalogName", catalogName)
+                .add("name", name)
+                .add("type", type)
+                .add("hidden", hidden)
+                .add("internal", internal)
+                .add("handleKeyValueType", handleKeyValueType)
+                .add("mapping", mapping)
+                .add("dataFormat", dataFormat)
+                .add("formatHint", formatHint)
+                .toString();
     }
 }

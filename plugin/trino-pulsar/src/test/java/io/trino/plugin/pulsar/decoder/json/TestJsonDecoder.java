@@ -288,7 +288,7 @@ public class TestJsonDecoder
         TrinoException exception = expectThrows(TrinoException.class,
                 () -> {
                     decoderFactory.extractColumnMetadata(topicName, cyclicSchema.getSchemaInfo(),
-                            PulsarColumnHandle.HandleKeyValueType.NONE);
+                            PulsarColumnHandle.HandleKeyValueType.NONE, false);
                 });
 
         assertEquals("Topic " + topicName.toString() + " schema may contains cyclic definitions.", exception.getMessage());

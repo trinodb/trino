@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Properties;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.lang.String.format;
 import static org.apache.pulsar.shade.org.apache.pulsar.common.util.FieldParser.value;
 
@@ -998,78 +999,78 @@ public class OffloadPoliciesImpl
         if (this == o) {
             return true;
         }
-        if (o == null || getClass() != o.getClass()) {
+        if (!(o instanceof OffloadPoliciesImpl)) {
             return false;
         }
         OffloadPoliciesImpl that = (OffloadPoliciesImpl) o;
-        return Objects.equals(offloadersDirectory, that.offloadersDirectory) &&
-                Objects.equals(managedLedgerOffloadDriver, that.managedLedgerOffloadDriver) &&
-                Objects.equals(managedLedgerOffloadMaxThreads, that.managedLedgerOffloadMaxThreads) &&
-                Objects.equals(managedLedgerOffloadPrefetchRounds, that.managedLedgerOffloadPrefetchRounds) &&
-                Objects.equals(managedLedgerOffloadThresholdInBytes, that.managedLedgerOffloadThresholdInBytes) &&
-                Objects.equals(managedLedgerOffloadDeletionLagInMillis, that.managedLedgerOffloadDeletionLagInMillis) &&
-                managedLedgerOffloadedReadPriority == that.managedLedgerOffloadedReadPriority &&
-                Objects.equals(s3ManagedLedgerOffloadRegion, that.s3ManagedLedgerOffloadRegion) &&
-                Objects.equals(s3ManagedLedgerOffloadBucket, that.s3ManagedLedgerOffloadBucket) &&
-                Objects.equals(s3ManagedLedgerOffloadServiceEndpoint, that.s3ManagedLedgerOffloadServiceEndpoint) &&
-                Objects.equals(s3ManagedLedgerOffloadMaxBlockSizeInBytes, that.s3ManagedLedgerOffloadMaxBlockSizeInBytes) &&
-                Objects.equals(s3ManagedLedgerOffloadReadBufferSizeInBytes, that.s3ManagedLedgerOffloadReadBufferSizeInBytes) &&
-                Objects.equals(s3ManagedLedgerOffloadCredentialId, that.s3ManagedLedgerOffloadCredentialId) &&
-                Objects.equals(s3ManagedLedgerOffloadCredentialSecret, that.s3ManagedLedgerOffloadCredentialSecret) &&
-                Objects.equals(s3ManagedLedgerOffloadRole, that.s3ManagedLedgerOffloadRole) &&
-                Objects.equals(s3ManagedLedgerOffloadRoleSessionName, that.s3ManagedLedgerOffloadRoleSessionName) &&
-                Objects.equals(gcsManagedLedgerOffloadRegion, that.gcsManagedLedgerOffloadRegion) &&
-                Objects.equals(gcsManagedLedgerOffloadBucket, that.gcsManagedLedgerOffloadBucket) &&
-                Objects.equals(gcsManagedLedgerOffloadMaxBlockSizeInBytes, that.gcsManagedLedgerOffloadMaxBlockSizeInBytes) &&
-                Objects.equals(gcsManagedLedgerOffloadReadBufferSizeInBytes, that.gcsManagedLedgerOffloadReadBufferSizeInBytes) &&
-                Objects.equals(gcsManagedLedgerOffloadServiceAccountKeyFile, that.gcsManagedLedgerOffloadServiceAccountKeyFile) &&
-                Objects.equals(fileSystemProfilePath, that.fileSystemProfilePath) &&
-                Objects.equals(fileSystemURI, that.fileSystemURI) &&
-                Objects.equals(managedLedgerOffloadBucket, that.managedLedgerOffloadBucket) &&
-                Objects.equals(managedLedgerOffloadRegion, that.managedLedgerOffloadRegion) &&
-                Objects.equals(managedLedgerOffloadServiceEndpoint, that.managedLedgerOffloadServiceEndpoint) &&
-                Objects.equals(managedLedgerOffloadMaxBlockSizeInBytes, that.managedLedgerOffloadMaxBlockSizeInBytes) &&
-                Objects.equals(managedLedgerOffloadReadBufferSizeInBytes, that.managedLedgerOffloadReadBufferSizeInBytes);
+        return getOffloadersDirectory().equals(that.getOffloadersDirectory()) &&
+                getManagedLedgerOffloadDriver().equals(that.getManagedLedgerOffloadDriver()) &&
+                getManagedLedgerOffloadMaxThreads().equals(that.getManagedLedgerOffloadMaxThreads()) &&
+                getManagedLedgerOffloadPrefetchRounds().equals(that.getManagedLedgerOffloadPrefetchRounds()) &&
+                getManagedLedgerOffloadThresholdInBytes().equals(that.getManagedLedgerOffloadThresholdInBytes()) &&
+                getManagedLedgerOffloadDeletionLagInMillis().equals(that.getManagedLedgerOffloadDeletionLagInMillis()) &&
+                getManagedLedgerOffloadedReadPriority() == that.getManagedLedgerOffloadedReadPriority() &&
+                getS3ManagedLedgerOffloadRegion().equals(that.getS3ManagedLedgerOffloadRegion()) &&
+                getS3ManagedLedgerOffloadBucket().equals(that.getS3ManagedLedgerOffloadBucket()) &&
+                getS3ManagedLedgerOffloadServiceEndpoint().equals(that.getS3ManagedLedgerOffloadServiceEndpoint()) &&
+                getS3ManagedLedgerOffloadMaxBlockSizeInBytes().equals(that.getS3ManagedLedgerOffloadMaxBlockSizeInBytes()) &&
+                getS3ManagedLedgerOffloadReadBufferSizeInBytes().equals(that.getS3ManagedLedgerOffloadReadBufferSizeInBytes()) &&
+                getS3ManagedLedgerOffloadCredentialId().equals(that.getS3ManagedLedgerOffloadCredentialId()) &&
+                getS3ManagedLedgerOffloadCredentialSecret().equals(that.getS3ManagedLedgerOffloadCredentialSecret()) &&
+                getS3ManagedLedgerOffloadRole().equals(that.getS3ManagedLedgerOffloadRole()) &&
+                getS3ManagedLedgerOffloadRoleSessionName().equals(that.getS3ManagedLedgerOffloadRoleSessionName()) &&
+                getGcsManagedLedgerOffloadRegion().equals(that.getGcsManagedLedgerOffloadRegion()) &&
+                getGcsManagedLedgerOffloadBucket().equals(that.getGcsManagedLedgerOffloadBucket()) &&
+                getGcsManagedLedgerOffloadMaxBlockSizeInBytes().equals(that.getGcsManagedLedgerOffloadMaxBlockSizeInBytes()) &&
+                getGcsManagedLedgerOffloadReadBufferSizeInBytes().equals(that.getGcsManagedLedgerOffloadReadBufferSizeInBytes()) &&
+                getGcsManagedLedgerOffloadServiceAccountKeyFile().equals(that.getGcsManagedLedgerOffloadServiceAccountKeyFile()) &&
+                getFileSystemProfilePath().equals(that.getFileSystemProfilePath()) &&
+                getFileSystemURI().equals(that.getFileSystemURI()) &&
+                getManagedLedgerOffloadBucket().equals(that.getManagedLedgerOffloadBucket()) &&
+                getManagedLedgerOffloadRegion().equals(that.getManagedLedgerOffloadRegion()) &&
+                getManagedLedgerOffloadServiceEndpoint().equals(that.getManagedLedgerOffloadServiceEndpoint()) &&
+                getManagedLedgerOffloadMaxBlockSizeInBytes().equals(that.getManagedLedgerOffloadMaxBlockSizeInBytes()) &&
+                getManagedLedgerOffloadReadBufferSizeInBytes().equals(that.getManagedLedgerOffloadReadBufferSizeInBytes());
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(offloadersDirectory, managedLedgerOffloadDriver, managedLedgerOffloadMaxThreads, managedLedgerOffloadPrefetchRounds, managedLedgerOffloadThresholdInBytes, managedLedgerOffloadDeletionLagInMillis, managedLedgerOffloadedReadPriority, s3ManagedLedgerOffloadRegion, s3ManagedLedgerOffloadBucket, s3ManagedLedgerOffloadServiceEndpoint, s3ManagedLedgerOffloadMaxBlockSizeInBytes, s3ManagedLedgerOffloadReadBufferSizeInBytes, s3ManagedLedgerOffloadCredentialId, s3ManagedLedgerOffloadCredentialSecret, s3ManagedLedgerOffloadRole, s3ManagedLedgerOffloadRoleSessionName, gcsManagedLedgerOffloadRegion, gcsManagedLedgerOffloadBucket, gcsManagedLedgerOffloadMaxBlockSizeInBytes, gcsManagedLedgerOffloadReadBufferSizeInBytes, gcsManagedLedgerOffloadServiceAccountKeyFile, fileSystemProfilePath, fileSystemURI, managedLedgerOffloadBucket, managedLedgerOffloadRegion, managedLedgerOffloadServiceEndpoint, managedLedgerOffloadMaxBlockSizeInBytes, managedLedgerOffloadReadBufferSizeInBytes);
+        return Objects.hash(getOffloadersDirectory(), getManagedLedgerOffloadDriver(), getManagedLedgerOffloadMaxThreads(), getManagedLedgerOffloadPrefetchRounds(), getManagedLedgerOffloadThresholdInBytes(), getManagedLedgerOffloadDeletionLagInMillis(), getManagedLedgerOffloadedReadPriority(), getS3ManagedLedgerOffloadRegion(), getS3ManagedLedgerOffloadBucket(), getS3ManagedLedgerOffloadServiceEndpoint(), getS3ManagedLedgerOffloadMaxBlockSizeInBytes(), getS3ManagedLedgerOffloadReadBufferSizeInBytes(), getS3ManagedLedgerOffloadCredentialId(), getS3ManagedLedgerOffloadCredentialSecret(), getS3ManagedLedgerOffloadRole(), getS3ManagedLedgerOffloadRoleSessionName(), getGcsManagedLedgerOffloadRegion(), getGcsManagedLedgerOffloadBucket(), getGcsManagedLedgerOffloadMaxBlockSizeInBytes(), getGcsManagedLedgerOffloadReadBufferSizeInBytes(), getGcsManagedLedgerOffloadServiceAccountKeyFile(), getFileSystemProfilePath(), getFileSystemURI(), getManagedLedgerOffloadBucket(), getManagedLedgerOffloadRegion(), getManagedLedgerOffloadServiceEndpoint(), getManagedLedgerOffloadMaxBlockSizeInBytes(), getManagedLedgerOffloadReadBufferSizeInBytes());
     }
 
     @Override
     public String toString()
     {
-        return "OffloadPoliciesImpl{" +
-                "offloadersDirectory='" + offloadersDirectory + '\'' +
-                ", managedLedgerOffloadDriver='" + managedLedgerOffloadDriver + '\'' +
-                ", managedLedgerOffloadMaxThreads=" + managedLedgerOffloadMaxThreads +
-                ", managedLedgerOffloadPrefetchRounds=" + managedLedgerOffloadPrefetchRounds +
-                ", managedLedgerOffloadThresholdInBytes=" + managedLedgerOffloadThresholdInBytes +
-                ", managedLedgerOffloadDeletionLagInMillis=" + managedLedgerOffloadDeletionLagInMillis +
-                ", managedLedgerOffloadedReadPriority=" + managedLedgerOffloadedReadPriority +
-                ", s3ManagedLedgerOffloadRegion='" + s3ManagedLedgerOffloadRegion + '\'' +
-                ", s3ManagedLedgerOffloadBucket='" + s3ManagedLedgerOffloadBucket + '\'' +
-                ", s3ManagedLedgerOffloadServiceEndpoint='" + s3ManagedLedgerOffloadServiceEndpoint + '\'' +
-                ", s3ManagedLedgerOffloadMaxBlockSizeInBytes=" + s3ManagedLedgerOffloadMaxBlockSizeInBytes +
-                ", s3ManagedLedgerOffloadReadBufferSizeInBytes=" + s3ManagedLedgerOffloadReadBufferSizeInBytes +
-                ", s3ManagedLedgerOffloadCredentialId='" + s3ManagedLedgerOffloadCredentialId + '\'' +
-                ", s3ManagedLedgerOffloadCredentialSecret='" + s3ManagedLedgerOffloadCredentialSecret + '\'' +
-                ", s3ManagedLedgerOffloadRole='" + s3ManagedLedgerOffloadRole + '\'' +
-                ", s3ManagedLedgerOffloadRoleSessionName='" + s3ManagedLedgerOffloadRoleSessionName + '\'' +
-                ", gcsManagedLedgerOffloadRegion='" + gcsManagedLedgerOffloadRegion + '\'' +
-                ", gcsManagedLedgerOffloadBucket='" + gcsManagedLedgerOffloadBucket + '\'' +
-                ", gcsManagedLedgerOffloadMaxBlockSizeInBytes=" + gcsManagedLedgerOffloadMaxBlockSizeInBytes +
-                ", gcsManagedLedgerOffloadReadBufferSizeInBytes=" + gcsManagedLedgerOffloadReadBufferSizeInBytes +
-                ", gcsManagedLedgerOffloadServiceAccountKeyFile='" + gcsManagedLedgerOffloadServiceAccountKeyFile + '\'' +
-                ", fileSystemProfilePath='" + fileSystemProfilePath + '\'' +
-                ", fileSystemURI='" + fileSystemURI + '\'' +
-                ", managedLedgerOffloadBucket='" + managedLedgerOffloadBucket + '\'' +
-                ", managedLedgerOffloadRegion='" + managedLedgerOffloadRegion + '\'' +
-                ", managedLedgerOffloadServiceEndpoint='" + managedLedgerOffloadServiceEndpoint + '\'' +
-                ", managedLedgerOffloadMaxBlockSizeInBytes=" + managedLedgerOffloadMaxBlockSizeInBytes +
-                ", managedLedgerOffloadReadBufferSizeInBytes=" + managedLedgerOffloadReadBufferSizeInBytes +
-                '}';
+        return toStringHelper(this)
+                .add("offloadersDirectory", offloadersDirectory)
+                .add("managedLedgerOffloadDriver", managedLedgerOffloadDriver)
+                .add("managedLedgerOffloadMaxThreads", managedLedgerOffloadMaxThreads)
+                .add("managedLedgerOffloadPrefetchRounds", managedLedgerOffloadPrefetchRounds)
+                .add("managedLedgerOffloadThresholdInBytes", managedLedgerOffloadThresholdInBytes)
+                .add("managedLedgerOffloadDeletionLagInMillis", managedLedgerOffloadDeletionLagInMillis)
+                .add("managedLedgerOffloadedReadPriority", managedLedgerOffloadedReadPriority)
+                .add("s3ManagedLedgerOffloadRegion", s3ManagedLedgerOffloadRegion)
+                .add("s3ManagedLedgerOffloadBucket", s3ManagedLedgerOffloadBucket)
+                .add("s3ManagedLedgerOffloadServiceEndpoint", s3ManagedLedgerOffloadServiceEndpoint)
+                .add("s3ManagedLedgerOffloadMaxBlockSizeInBytes", s3ManagedLedgerOffloadMaxBlockSizeInBytes)
+                .add("s3ManagedLedgerOffloadReadBufferSizeInBytes", s3ManagedLedgerOffloadReadBufferSizeInBytes)
+                .add("s3ManagedLedgerOffloadCredentialId", s3ManagedLedgerOffloadCredentialId)
+                .add("s3ManagedLedgerOffloadCredentialSecret", s3ManagedLedgerOffloadCredentialSecret)
+                .add("s3ManagedLedgerOffloadRole", s3ManagedLedgerOffloadRole)
+                .add("s3ManagedLedgerOffloadRoleSessionName", s3ManagedLedgerOffloadRoleSessionName)
+                .add("gcsManagedLedgerOffloadRegion", gcsManagedLedgerOffloadRegion)
+                .add("gcsManagedLedgerOffloadBucket", gcsManagedLedgerOffloadBucket)
+                .add("gcsManagedLedgerOffloadMaxBlockSizeInBytes", gcsManagedLedgerOffloadMaxBlockSizeInBytes)
+                .add("gcsManagedLedgerOffloadReadBufferSizeInBytes", gcsManagedLedgerOffloadReadBufferSizeInBytes)
+                .add("gcsManagedLedgerOffloadServiceAccountKeyFile", gcsManagedLedgerOffloadServiceAccountKeyFile)
+                .add("fileSystemProfilePath", fileSystemProfilePath)
+                .add("fileSystemURI", fileSystemURI)
+                .add("managedLedgerOffloadBucket", managedLedgerOffloadBucket)
+                .add("managedLedgerOffloadRegion", managedLedgerOffloadRegion)
+                .add("managedLedgerOffloadServiceEndpoint", managedLedgerOffloadServiceEndpoint)
+                .add("managedLedgerOffloadMaxBlockSizeInBytes", managedLedgerOffloadMaxBlockSizeInBytes)
+                .add("managedLedgerOffloadReadBufferSizeInBytes", managedLedgerOffloadReadBufferSizeInBytes)
+                .toString();
     }
 }

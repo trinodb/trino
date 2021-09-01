@@ -51,10 +51,10 @@ public class PulsarDispatchingRowDecoderFactory
         return rowDecoderFactory.createRowDecoder(topicName, schemaInfo, columns);
     }
 
-    public List<ColumnMetadata> extractColumnMetadata(TopicName topicName, SchemaInfo schemaInfo, PulsarColumnHandle.HandleKeyValueType handleKeyValueType)
+    public List<ColumnMetadata> extractColumnMetadata(TopicName topicName, SchemaInfo schemaInfo, PulsarColumnHandle.HandleKeyValueType handleKeyValueType, boolean withInternalProperties)
     {
         PulsarRowDecoderFactory rowDecoderFactory = createDecoderFactory(schemaInfo);
-        return rowDecoderFactory.extractColumnMetadata(topicName, schemaInfo, handleKeyValueType);
+        return rowDecoderFactory.extractColumnMetadata(topicName, schemaInfo, handleKeyValueType, withInternalProperties);
     }
 
     private PulsarRowDecoderFactory createDecoderFactory(SchemaInfo schemaInfo)

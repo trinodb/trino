@@ -13,13 +13,13 @@
  */
 package io.trino.plugin.pulsar.decoder.primitive;
 
+import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.decoder.DecoderColumnHandle;
 import io.trino.plugin.pulsar.PulsarColumnHandle;
 import io.trino.plugin.pulsar.PulsarColumnMetadata;
 import io.trino.plugin.pulsar.PulsarRowDecoder;
 import io.trino.plugin.pulsar.PulsarRowDecoderFactory;
-import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
@@ -40,9 +40,13 @@ import org.apache.pulsar.shade.org.apache.pulsar.common.schema.SchemaType;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
-import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.plugin.pulsar.PulsarColumnMetadata.PROPERTY_KEY_HANDLE_TYPE;
+import static io.trino.plugin.pulsar.PulsarColumnMetadata.PROPERTY_KEY_INTERNAL;
+import static io.trino.plugin.pulsar.PulsarColumnMetadata.PROPERTY_KEY_MAPPING;
+import static io.trino.plugin.pulsar.PulsarColumnMetadata.PROPERTY_KEY_NAME_CASE_SENSITIVE;
 import static io.trino.spi.type.TimeType.TIME_MILLIS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 
@@ -65,15 +69,22 @@ public class PulsarPrimitiveRowDecoderFactory
     }
 
     @Override
-    public List<ColumnMetadata> extractColumnMetadata(TopicName topicName, SchemaInfo schemaInfo, PulsarColumnHandle.HandleKeyValueType handleKeyValueType)
+    public List<ColumnMetadata> extractColumnMetadata(TopicName topicName, SchemaInfo schemaInfo, PulsarColumnHandle.HandleKeyValueType handleKeyValueType, boolean withInternalProperties)
     {
-        ColumnMetadata valueColumn = new PulsarColumnMetadata(
-                PulsarColumnMetadata.getColumnName(handleKeyValueType, PRIMITIVE_COLUMN_NAME),
-                parsePrimitiveTrinoType(PRIMITIVE_COLUMN_NAME, schemaInfo.getType()),
-                "The value of the message with primitive type schema", null, false, false,
-                handleKeyValueType, new PulsarColumnMetadata.DecoderExtraInfo(PRIMITIVE_COLUMN_NAME,
-                null, null));
-        return Arrays.asList(valueColumn);
+        ColumnMetadata.Builder metaBuilder =
+                ColumnMetadata.builder()
+                        .setName(PulsarColumnMetadata.getColumnName(handleKeyValueType, PRIMITIVE_COLUMN_NAME))
+                        .setType(parsePrimitiveTrinoType(PRIMITIVE_COLUMN_NAME, schemaInfo.getType()))
+                        .setComment(Optional.of("The value of the message with primitive type schema"))
+                        .setHidden(false);
+        if (withInternalProperties) {
+            metaBuilder.setProperties(ImmutableMap.of(
+                    PROPERTY_KEY_NAME_CASE_SENSITIVE, PulsarColumnMetadata.getColumnName(handleKeyValueType, PRIMITIVE_COLUMN_NAME),
+                    PROPERTY_KEY_INTERNAL, false,
+                    PROPERTY_KEY_HANDLE_TYPE, handleKeyValueType,
+                    PROPERTY_KEY_MAPPING, PRIMITIVE_COLUMN_NAME));
+        }
+        return Arrays.asList(metaBuilder.build());
     }
 
     private Type parsePrimitiveTrinoType(String fieldName, SchemaType pulsarType)

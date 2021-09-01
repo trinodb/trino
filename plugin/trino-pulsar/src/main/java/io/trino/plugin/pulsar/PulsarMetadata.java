@@ -56,6 +56,12 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+import static io.trino.plugin.pulsar.PulsarColumnMetadata.PROPERTY_KEY_DATA_FORMAT;
+import static io.trino.plugin.pulsar.PulsarColumnMetadata.PROPERTY_KEY_FORMAT_HINT;
+import static io.trino.plugin.pulsar.PulsarColumnMetadata.PROPERTY_KEY_HANDLE_TYPE;
+import static io.trino.plugin.pulsar.PulsarColumnMetadata.PROPERTY_KEY_INTERNAL;
+import static io.trino.plugin.pulsar.PulsarColumnMetadata.PROPERTY_KEY_MAPPING;
+import static io.trino.plugin.pulsar.PulsarColumnMetadata.PROPERTY_KEY_NAME_CASE_SENSITIVE;
 import static io.trino.plugin.pulsar.PulsarConnectorUtils.restoreNamespaceDelimiterIfNeeded;
 import static io.trino.plugin.pulsar.PulsarErrorCode.PULSAR_ADMIN_ERROR;
 import static io.trino.plugin.pulsar.PulsarErrorCode.PULSAR_SCHEMA_ERROR;
@@ -102,6 +108,8 @@ public class PulsarMetadata
         this.decoderFactory = decoderFactory;
         this.catalogName = requireNonNull(catalogName, "catalogName is null").toString();
         this.pulsarConnectorConfig = pulsarConnectorConfig;
+        requireNonNull(this.pulsarConnectorConfig.getWebServiceUrl(), "web-service-url is null");
+        requireNonNull(this.pulsarConnectorConfig.getZookeeperUri(), "zookeeper-uri is null");
         this.hideInternalColumns = pulsarConnectorConfig.isHideInternalColumns();
     }
 
@@ -164,7 +172,7 @@ public class PulsarMetadata
     {
         ConnectorTableMetadata connectorTableMetadata;
         SchemaTableName schemaTableName = PulsarHandleResolver.convertTableHandle(table).toSchemaTableName();
-        connectorTableMetadata = getTableMetadata(schemaTableName, !hideInternalColumns);
+        connectorTableMetadata = getTableMetadata(schemaTableName, !hideInternalColumns, false);
         if (connectorTableMetadata == null) {
             ImmutableList.Builder<ColumnMetadata> builder = ImmutableList.builder();
             connectorTableMetadata = new ConnectorTableMetadata(schemaTableName, builder.build());
@@ -220,7 +228,7 @@ public class PulsarMetadata
     {
         PulsarTableHandle pulsarTableHandle = PulsarHandleResolver.convertTableHandle(tableHandle);
 
-        ConnectorTableMetadata tableMetaData = getTableMetadata(pulsarTableHandle.toSchemaTableName(), false);
+        ConnectorTableMetadata tableMetaData = getTableMetadata(pulsarTableHandle.toSchemaTableName(), false, true);
         if (tableMetaData == null) {
             return new HashMap<>();
         }
@@ -228,18 +236,16 @@ public class PulsarMetadata
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
 
         tableMetaData.getColumns().forEach(columnMetadata -> {
-            PulsarColumnMetadata pulsarColumnMetadata = (PulsarColumnMetadata) columnMetadata;
-
             PulsarColumnHandle pulsarColumnHandle = new PulsarColumnHandle(
                     catalogName,
-                    pulsarColumnMetadata.getNameWithCase(),
-                    pulsarColumnMetadata.getType(),
-                    pulsarColumnMetadata.isHidden(),
-                    pulsarColumnMetadata.isInternal(),
-                    pulsarColumnMetadata.getDecoderExtraInfo().getMapping(),
-                    pulsarColumnMetadata.getDecoderExtraInfo().getDataFormat(),
-                    pulsarColumnMetadata.getDecoderExtraInfo().getFormatHint(),
-                    Optional.of(pulsarColumnMetadata.getHandleKeyValueType()));
+                    (String) columnMetadata.getProperties().get(PROPERTY_KEY_NAME_CASE_SENSITIVE),
+                    columnMetadata.getType(),
+                    columnMetadata.isHidden(),
+                    columnMetadata.getProperties().containsKey(PROPERTY_KEY_INTERNAL) ? (Boolean) columnMetadata.getProperties().get(PROPERTY_KEY_INTERNAL) : false,
+                    (String) columnMetadata.getProperties().get(PROPERTY_KEY_MAPPING),
+                    (String) columnMetadata.getProperties().get(PROPERTY_KEY_DATA_FORMAT),
+                    (String) columnMetadata.getProperties().get(PROPERTY_KEY_FORMAT_HINT),
+                    Optional.of((PulsarColumnHandle.HandleKeyValueType) columnMetadata.getProperties().get(PROPERTY_KEY_HANDLE_TYPE)));
 
             columnHandles.put(columnMetadata.getName(), pulsarColumnHandle);
         });
@@ -277,7 +283,7 @@ public class PulsarMetadata
         }
 
         for (SchemaTableName tableName : tableNames) {
-            ConnectorTableMetadata connectorTableMetadata = getTableMetadata(tableName, !hideInternalColumns);
+            ConnectorTableMetadata connectorTableMetadata = getTableMetadata(tableName, !hideInternalColumns, false);
             if (connectorTableMetadata != null) {
                 columns.put(tableName, connectorTableMetadata.getColumns());
             }
@@ -292,7 +298,7 @@ public class PulsarMetadata
         return true;
     }
 
-    private ConnectorTableMetadata getTableMetadata(SchemaTableName schemaTableName, boolean withInternalColumns)
+    private ConnectorTableMetadata getTableMetadata(SchemaTableName schemaTableName, boolean withInternalColumns, boolean withInternalProperties)
     {
         if (schemaTableName.getSchemaName().equals(INFORMATION_SCHEMA)) {
             return null;
@@ -323,8 +329,7 @@ public class PulsarMetadata
         catch (PulsarClientException e) {
             throw new TrinoException(PULSAR_ADMIN_ERROR, "fail to create pulsar admin client", e);
         }
-        List<ColumnMetadata> handles = getPulsarColumns(
-                topicName, schemaInfo, withInternalColumns, PulsarColumnHandle.HandleKeyValueType.NONE);
+        List<ColumnMetadata> handles = getPulsarColumns(topicName, schemaInfo, withInternalColumns, withInternalProperties, PulsarColumnHandle.HandleKeyValueType.NONE);
 
         return new ConnectorTableMetadata(schemaTableName, handles);
     }
@@ -337,14 +342,15 @@ public class PulsarMetadata
             TopicName topicName,
             SchemaInfo schemaInfo,
             boolean withInternalColumns,
+            boolean withInternalProperties,
             PulsarColumnHandle.HandleKeyValueType handleKeyValueType)
     {
         SchemaType schemaType = schemaInfo.getType();
         if (schemaType.isStruct() || schemaType.isPrimitive()) {
-            return getPulsarColumnsFromSchema(topicName, schemaInfo, withInternalColumns, handleKeyValueType);
+            return getPulsarColumnsFromSchema(topicName, schemaInfo, withInternalColumns, withInternalProperties, handleKeyValueType);
         }
         else if (schemaType.equals(SchemaType.KEY_VALUE)) {
-            return getPulsarColumnsFromKeyValueSchema(topicName, schemaInfo, withInternalColumns);
+            return getPulsarColumnsFromKeyValueSchema(topicName, schemaInfo, withInternalProperties, withInternalColumns);
         }
         else {
             throw new IllegalArgumentException("Unsupported schema : " + schemaInfo);
@@ -355,10 +361,11 @@ public class PulsarMetadata
             TopicName topicName,
             SchemaInfo schemaInfo,
             boolean withInternalColumns,
+            boolean withInternalProperties,
             PulsarColumnHandle.HandleKeyValueType handleKeyValueType)
     {
         ImmutableList.Builder<ColumnMetadata> builder = ImmutableList.builder();
-        builder.addAll(decoderFactory.extractColumnMetadata(topicName, schemaInfo, handleKeyValueType));
+        builder.addAll(decoderFactory.extractColumnMetadata(topicName, schemaInfo, handleKeyValueType, withInternalProperties));
         if (withInternalColumns) {
             PulsarInternalColumn.getInternalFields()
                     .stream().forEach(pulsarInternalColumn -> builder.add(pulsarInternalColumn.getColumnMetadata(false)));
@@ -369,18 +376,17 @@ public class PulsarMetadata
     List<ColumnMetadata> getPulsarColumnsFromKeyValueSchema(
             TopicName topicName,
             SchemaInfo schemaInfo,
-            boolean withInternalColumns)
+            boolean withInternalColumns,
+            boolean withInternalProperties)
     {
         ImmutableList.Builder<ColumnMetadata> builder = ImmutableList.builder();
         KeyValue<SchemaInfo, SchemaInfo> kvSchemaInfo = KeyValueSchemaInfo.decodeKeyValueSchemaInfo(schemaInfo);
         SchemaInfo keySchemaInfo = kvSchemaInfo.getKey();
-        List<ColumnMetadata> keyColumnMetadataList = getPulsarColumns(topicName, keySchemaInfo, withInternalColumns,
-                PulsarColumnHandle.HandleKeyValueType.KEY);
+        List<ColumnMetadata> keyColumnMetadataList = getPulsarColumns(topicName, keySchemaInfo, withInternalColumns, withInternalProperties, PulsarColumnHandle.HandleKeyValueType.KEY);
         builder.addAll(keyColumnMetadataList);
 
         SchemaInfo valueSchemaInfo = kvSchemaInfo.getValue();
-        List<ColumnMetadata> valueColumnMetadataList = getPulsarColumns(topicName, valueSchemaInfo, withInternalColumns,
-                PulsarColumnHandle.HandleKeyValueType.VALUE);
+        List<ColumnMetadata> valueColumnMetadataList = getPulsarColumns(topicName, valueSchemaInfo, withInternalColumns, withInternalProperties, PulsarColumnHandle.HandleKeyValueType.VALUE);
         builder.addAll(valueColumnMetadataList);
 
         if (withInternalColumns) {
