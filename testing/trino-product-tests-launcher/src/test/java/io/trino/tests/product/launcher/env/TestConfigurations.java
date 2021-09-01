@@ -13,9 +13,13 @@
  */
 package io.trino.tests.product.launcher.env;
 
+import io.trino.tests.product.launcher.suite.suites.Suite1;
+import io.trino.tests.product.launcher.suite.suites.Suite6NonGeneric;
+import io.trino.tests.product.launcher.suite.suites.SuiteTpcds;
 import org.testng.annotations.Test;
 
 import static io.trino.tests.product.launcher.Configurations.canonicalName;
+import static io.trino.tests.product.launcher.Configurations.nameForSuiteClass;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestConfigurations
@@ -29,5 +33,16 @@ public class TestConfigurations
         assertThat(canonicalName("duza-ala")).isEqualTo("duza-ala");
         assertThat(canonicalName("duza-Ala")).isEqualTo("duza-ala");
         assertThat(canonicalName("duza----Ala")).isEqualTo("duza-ala");
+    }
+
+    @Test
+    public void testSuiteName()
+    {
+        // suite name with a number
+        assertThat(nameForSuiteClass(Suite1.class)).isEqualTo("suite-1");
+        // suite name with a word
+        assertThat(nameForSuiteClass(SuiteTpcds.class)).isEqualTo("suite-tpcds");
+        // suite name with a number  and then a word
+        assertThat(nameForSuiteClass(Suite6NonGeneric.class)).isEqualTo("suite-6-non-generic");
     }
 }
