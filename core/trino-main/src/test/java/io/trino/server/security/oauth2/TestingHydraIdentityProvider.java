@@ -63,6 +63,7 @@ public class TestingHydraIdentityProvider
         implements AutoCloseable
 {
     private static final String HYDRA_IMAGE = "oryd/hydra:v1.9.0-sqlite";
+    private static final String ISSUER = "https://localhost:4444/";
 
     private final Network network = Network.newNetwork();
     private final AutoCloseableCloser closer = AutoCloseableCloser.create();
@@ -100,7 +101,7 @@ public class TestingHydraIdentityProvider
                 .withNetworkAliases("hydra")
                 .withExposedPorts(4444, 4445)
                 .withEnv("DSN", "memory")
-                .withEnv("URLS_SELF_ISSUER", "https://localhost:4444/")
+                .withEnv("URLS_SELF_ISSUER", ISSUER)
                 .withEnv("URLS_CONSENT", loginAndConsentBaseUrl + "/consent")
                 .withEnv("URLS_LOGIN", loginAndConsentBaseUrl + "/login")
                 .withEnv("SERVE_TLS_KEY_PATH", "/tmp/certs/localhost.pem")
@@ -324,7 +325,7 @@ public class TestingHydraIdentityProvider
                                     .put("http-server.https.keystore.path", Resources.getResource("cert/localhost.pem").getPath())
                                     .put("http-server.https.keystore.key", "")
                                     .put("http-server.authentication.type", "oauth2")
-                                    .put("http-server.authentication.oauth2.issuer", authServerUrl)
+                                    .put("http-server.authentication.oauth2.issuer", ISSUER)
                                     .put("http-server.authentication.oauth2.auth-url", authServerUrl + "/oauth2/auth")
                                     .put("http-server.authentication.oauth2.token-url", authServerUrl + "/oauth2/token")
                                     .put("http-server.authentication.oauth2.jwks-url", authServerUrl + "/.well-known/jwks.json")
