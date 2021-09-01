@@ -340,6 +340,7 @@ jobs:
           - default
           - hdp3
           - cdh5
+          - hive3
         suite:
           - suite-1
           - suite-2
@@ -353,6 +354,13 @@ jobs:
                || contains(github.event.pull_request.labels.*.name, 'tests:all')
                || contains(github.event.pull_request.labels.*.name, 'tests:hive')
                }}
+
+          - config: hive3
+              ignore exclusion if: >-
+                ${{ github.event_name != 'pull_request'
+                 || contains(github.event.pull_request.labels.*.name, 'tests:all')
+                 || contains(github.event.pull_request.labels.*.name, 'tests:hive')
+                 }}
 
           - config: default
             ignore exclusion if: >-
