@@ -70,7 +70,7 @@ public class SuiteTestRun
 
     public String getEnvironmentName()
     {
-        return Environments.nameForClass(environment);
+        return Environments.nameForEnvironmentClass(environment);
     }
 
     public Map<String, String> getExtraOptions()
