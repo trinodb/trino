@@ -15,6 +15,8 @@ package io.trino.plugin.bigquery;
 
 import com.google.cloud.bigquery.Field;
 import com.google.cloud.bigquery.FieldList;
+import com.google.cloud.bigquery.LegacySQLTypeName;
+import com.google.common.base.Enums;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.ColumnMetadata;
 
@@ -36,6 +38,7 @@ final class Conversions
         List<BigQueryColumnHandle> subColumns = subFields == null ?
                 Collections.emptyList() :
                 subFields.stream()
+                        .filter(subField -> isSupportedType(subField.getType()))
                         .map(Conversions::toColumnHandle)
                         .collect(Collectors.toList());
         return new BigQueryColumnHandle(
@@ -57,6 +60,11 @@ final class Conversions
                 .setComment(Optional.ofNullable(field.getDescription()))
                 .setNullable(getMode(field) == Field.Mode.NULLABLE)
                 .build();
+    }
+
+    public static boolean isSupportedType(LegacySQLTypeName type)
+    {
+        return Enums.getIfPresent(BigQueryType.class, type.name()).isPresent();
     }
 
     static BigQueryType.Adaptor adapt(Field field)
