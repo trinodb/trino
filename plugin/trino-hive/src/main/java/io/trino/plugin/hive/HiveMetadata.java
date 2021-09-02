@@ -178,6 +178,7 @@ import static io.trino.plugin.hive.HiveSessionProperties.isOptimizedMismatchedBu
 import static io.trino.plugin.hive.HiveSessionProperties.isParallelPartitionedBucketedWrites;
 import static io.trino.plugin.hive.HiveSessionProperties.isProjectionPushdownEnabled;
 import static io.trino.plugin.hive.HiveSessionProperties.isPropagateTableScanSortingProperties;
+import static io.trino.plugin.hive.HiveSessionProperties.isQueryPartitionFilterRequired;
 import static io.trino.plugin.hive.HiveSessionProperties.isRespectTableFormat;
 import static io.trino.plugin.hive.HiveSessionProperties.isSortedWritingEnabled;
 import static io.trino.plugin.hive.HiveSessionProperties.isStatisticsEnabled;
@@ -2202,7 +2203,7 @@ public class HiveMetadata
     public void validateScan(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         HiveTableHandle handle = (HiveTableHandle) tableHandle;
-        if (HiveSessionProperties.isQueryPartitionFilterRequired(session) && handle.getAnalyzePartitionValues().isEmpty() && handle.getEnforcedConstraint().isAll()) {
+        if (isQueryPartitionFilterRequired(session) && handle.getAnalyzePartitionValues().isEmpty() && handle.getEnforcedConstraint().isAll()) {
             List<HiveColumnHandle> partitionColumns = handle.getPartitionColumns();
             if (!partitionColumns.isEmpty()) {
                 Optional<Set<ColumnHandle>> referencedColumns = handle.getConstraintColumns();
