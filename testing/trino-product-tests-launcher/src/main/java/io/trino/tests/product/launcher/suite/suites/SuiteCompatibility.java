@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.EnvironmentDefaults;
-import io.trino.tests.product.launcher.env.environment.SinglenodeCompatibility;
+import io.trino.tests.product.launcher.env.environment.EnvSinglenodeCompatibility;
 import io.trino.tests.product.launcher.suite.Suite;
 import io.trino.tests.product.launcher.suite.SuiteTestRun;
 
@@ -52,12 +52,12 @@ public class SuiteCompatibility
         verify(config.getHadoopBaseImage().equals(EnvironmentDefaults.HADOOP_BASE_IMAGE), "The suite should be run with default HADOOP_BASE_IMAGE. Leave HADOOP_BASE_IMAGE unset.");
 
         ImmutableList<SuiteTestRun> trinoCompatibilityTestRuns = testedTrinoDockerImages().stream()
-                .map(image -> testOnEnvironment(SinglenodeCompatibility.class, ImmutableMap.of("compatibility.testDockerImage", image))
+                .map(image -> testOnEnvironment(EnvSinglenodeCompatibility.class, ImmutableMap.of("compatibility.testDockerImage", image))
                         .withGroups("hive_view_compatibility")
                         .build())
                 .collect(toImmutableList());
         ImmutableList<SuiteTestRun> prestoCompatibilityTestRuns = testedPrestoDockerImages().stream()
-                .map(image -> testOnEnvironment(SinglenodeCompatibility.class, ImmutableMap.of("compatibility.testDockerImage", image))
+                .map(image -> testOnEnvironment(EnvSinglenodeCompatibility.class, ImmutableMap.of("compatibility.testDockerImage", image))
                         .withGroups("hive_view_compatibility")
                         .build())
                 .collect(toImmutableList());

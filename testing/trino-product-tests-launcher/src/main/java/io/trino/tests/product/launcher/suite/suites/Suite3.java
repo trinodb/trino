@@ -15,10 +15,10 @@ package io.trino.tests.product.launcher.suite.suites;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
-import io.trino.tests.product.launcher.env.environment.MultinodeTls;
-import io.trino.tests.product.launcher.env.environment.MultinodeTlsKerberos;
-import io.trino.tests.product.launcher.env.environment.SinglenodeKerberosHdfsImpersonationWithDataProtection;
-import io.trino.tests.product.launcher.env.environment.SinglenodeKerberosHdfsImpersonationWithWireEncryption;
+import io.trino.tests.product.launcher.env.environment.EnvMultinodeTls;
+import io.trino.tests.product.launcher.env.environment.EnvMultinodeTlsKerberos;
+import io.trino.tests.product.launcher.env.environment.EnvSinglenodeKerberosHdfsImpersonationWithDataProtection;
+import io.trino.tests.product.launcher.env.environment.EnvSinglenodeKerberosHdfsImpersonationWithWireEncryption;
 import io.trino.tests.product.launcher.suite.Suite;
 import io.trino.tests.product.launcher.suite.SuiteTestRun;
 
@@ -33,16 +33,16 @@ public class Suite3
     public List<SuiteTestRun> getTestRuns(EnvironmentConfig config)
     {
         return ImmutableList.of(
-                testOnEnvironment(MultinodeTls.class)
+                testOnEnvironment(EnvMultinodeTls.class)
                         .withGroups("smoke", "cli", "group-by", "join", "tls")
                         .build(),
-                testOnEnvironment(MultinodeTlsKerberos.class)
+                testOnEnvironment(EnvMultinodeTlsKerberos.class)
                         .withGroups("cli", "group-by", "join", "tls")
                         .build(),
-                testOnEnvironment(SinglenodeKerberosHdfsImpersonationWithWireEncryption.class)
+                testOnEnvironment(EnvSinglenodeKerberosHdfsImpersonationWithWireEncryption.class)
                         .withGroups("storage_formats", "cli", "hdfs_impersonation", "authorization")
                         .build(),
-                testOnEnvironment(SinglenodeKerberosHdfsImpersonationWithDataProtection.class)
+                testOnEnvironment(EnvSinglenodeKerberosHdfsImpersonationWithDataProtection.class)
                         .withTests("TestHiveStorageFormats.testOrcTableCreatedInTrino", "TestHiveCreateTable.testCreateTable")
                         .build());
     }
