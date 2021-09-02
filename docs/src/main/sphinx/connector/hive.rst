@@ -311,6 +311,8 @@ Property Name                                      Description                  
                                                    * ``OVERWRITE`` - overwrites existing partitions
                                                    * ``ERROR`` - modifying existing partitions is not allowed
 
+``hive.target-max-file-size``                      Best effort maximum size of new files.                       ``1GB``
+
 ``hive.create-empty-bucket-files``                 Should empty files be created for buckets that have no data? ``false``
 
 ``hive.max-partitions-per-writers``                Maximum number of partitions per writer.                     100
