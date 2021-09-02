@@ -43,7 +43,7 @@ public class RevokeRolesTask
     @Override
     public String getName()
     {
-        return "GRANT ROLE";
+        return "REVOKE ROLE";
     }
 
     @Override
