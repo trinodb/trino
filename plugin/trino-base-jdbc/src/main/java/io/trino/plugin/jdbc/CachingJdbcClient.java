@@ -479,7 +479,7 @@ public class CachingJdbcClient
 
     private IdentityCacheKey getIdentityKey(ConnectorSession session)
     {
-        return identityMapping.getRemoteUserCacheKey(session.getIdentity());
+        return identityMapping.getRemoteUserCacheKey(session);
     }
 
     private Map<String, Object> getSessionProperties(ConnectorSession session)
