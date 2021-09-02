@@ -19,6 +19,7 @@ import io.trino.tests.product.launcher.env.Debug;
 import io.trino.tests.product.launcher.env.DockerContainer;
 import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
+import io.trino.tests.product.launcher.env.EnvironmentContainers;
 import io.trino.tests.product.launcher.env.ServerPackage;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
@@ -69,6 +70,9 @@ public final class Standard
     public static final String CONTAINER_PRESTO_JVM_CONFIG = CONTAINER_PRESTO_ETC + "/jvm.config";
     public static final String CONTAINER_PRESTO_ACCESS_CONTROL_PROPERTIES = CONTAINER_PRESTO_ETC + "/access-control.properties";
     public static final String CONTAINER_PRESTO_CONFIG_PROPERTIES = CONTAINER_PRESTO_ETC + "/config.properties";
+    /**
+     * @deprecated please use {@link EnvironmentContainers#configureTempto} instead.
+     */
     public static final String CONTAINER_TEMPTO_PROFILE_CONFIG = "/docker/presto-product-tests/conf/tempto/tempto-configuration-profile-config-file.yaml";
 
     private final DockerFiles dockerFiles;
