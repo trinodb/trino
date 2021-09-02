@@ -387,6 +387,23 @@ public class TestBigQueryIntegrationSmokeTest
     }
 
     @Test
+    public void testSkipUnsupportedType()
+    {
+        try (TestTable table = new TestTable(
+                bigQuerySqlExecutor,
+                "test.test_skip_unsupported_type",
+                "(a INT64, unsupported BIGNUMERIC, b INT64)",
+                ImmutableList.of("1, 999, 2"))) {
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 2)");
+            assertThat((String) computeActual("SHOW CREATE TABLE " + table.getName()).getOnlyValue())
+                    .isEqualTo("CREATE TABLE bigquery." + table.getName() + " (\n" +
+                            "   a bigint,\n" +
+                            "   b bigint\n" +
+                            ")");
+        }
+    }
+
+    @Test
     public void testTimeType()
     {
         String tableName = "test.test_time_type";
