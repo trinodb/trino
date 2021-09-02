@@ -59,14 +59,14 @@ public class FissionFunctionFunctions
 
     @ScalarFunction("fission_despicablename")
     @Description("Send get request to fission dnsdb endpoint")
-    @SqlType(StandardTypes.BIGINT)
-    public static long fetchDespicableName(@SqlType(StandardTypes.VARCHAR) Slice slice) throws JSONException, IOException
+    @SqlType(StandardTypes.DOUBLE)
+    public static double fetchDespicableName(@SqlType(StandardTypes.VARCHAR) Slice slice) throws JSONException, IOException
     {
-        int count = 0;
+        double count = 0;
         JSONObject jsonObject = executeFissionFunctionGet(String.format("%s/despicablename?domain=%s", FissionFunctionConfigProvider.getFissionFunctionBaseURL(), slice.toStringUtf8()));
 
         if (jsonObject.has("probs")) {
-            count = Integer.parseInt(jsonObject.getJSONArray("probs").getJSONArray(0).getString(0));
+            count = Double.parseDouble(jsonObject.getJSONArray("probs").getJSONArray(0).getString(0));
         }
 
         return count;
