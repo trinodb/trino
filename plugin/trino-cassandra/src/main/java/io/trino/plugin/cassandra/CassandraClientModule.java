@@ -154,10 +154,10 @@ public class CassandraClientModule
         options.setConsistencyLevel(config.getConsistencyLevel());
         clusterBuilder.withQueryOptions(options);
 
-        if (config.getSpeculativeExecutionLimit() > 1) {
+        if (config.getSpeculativeExecutionLimit().isPresent()) {
             clusterBuilder.withSpeculativeExecutionPolicy(new ConstantSpeculativeExecutionPolicy(
                     config.getSpeculativeExecutionDelay().toMillis(), // delay before a new execution is launched
-                    config.getSpeculativeExecutionLimit())); // maximum number of executions
+                    config.getSpeculativeExecutionLimit().get())); // maximum number of executions
         }
 
         return new CassandraSession(
