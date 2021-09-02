@@ -78,14 +78,14 @@ public final class Configurations
 
     public static String nameForEnvironmentClass(Class<? extends EnvironmentProvider> clazz)
     {
-        return canonicalName(clazz);
+        return canonicalEnvironmentName(clazz.getSimpleName());
     }
 
     public static String nameForConfigClass(Class<? extends EnvironmentConfig> clazz)
     {
         String className = clazz.getSimpleName();
         checkArgument(className.matches("^Config[A-Z].*"), "Name of %s should start with 'Config'", clazz);
-        return canonicalName(className);
+        return canonicalConfigName(className);
     }
 
     public static String nameForSuiteClass(Class<? extends Suite> clazz)
@@ -96,15 +96,20 @@ public final class Configurations
         return "suite-" + CaseFormat.UPPER_CAMEL.to(CaseFormat.LOWER_HYPHEN, className.replaceFirst("^Suite", ""));
     }
 
-    private static String canonicalName(Class<?> clazz)
+    public static String canonicalEnvironmentName(String name)
     {
-        return canonicalName(clazz.getSimpleName());
+        return canonicalName(name);
+    }
+
+    public static String canonicalConfigName(String name)
+    {
+        return canonicalName(name);
     }
 
     /**
      * Converts camel case name to hyphenated. Returns input if the name is already hyphenated.
      */
-    public static String canonicalName(String name)
+    private static String canonicalName(String name)
     {
         return CaseFormat.UPPER_CAMEL.to(CaseFormat.LOWER_HYPHEN, name)
                 .replaceAll("-+", "-");

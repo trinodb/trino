@@ -19,28 +19,28 @@ import io.trino.tests.product.launcher.suite.suites.Suite6NonGeneric;
 import io.trino.tests.product.launcher.suite.suites.SuiteTpcds;
 import org.testng.annotations.Test;
 
-import static io.trino.tests.product.launcher.Configurations.canonicalName;
+import static io.trino.tests.product.launcher.Configurations.canonicalEnvironmentName;
 import static io.trino.tests.product.launcher.Configurations.nameForSuiteClass;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestConfigurations
 {
     @Test
-    public void testCanonicalName()
+    public void testCanonicalEnvironmentName()
     {
         // canonical environment name should be retain as is
-        assertThat(canonicalName("ala")).isEqualTo("ala");
-        assertThat(canonicalName("duza-ala")).isEqualTo("duza-ala");
-        assertThat(canonicalName("duza-Ala")).isEqualTo("duza-ala");
+        assertThat(canonicalEnvironmentName("ala")).isEqualTo("ala");
+        assertThat(canonicalEnvironmentName("duza-ala")).isEqualTo("duza-ala");
+        assertThat(canonicalEnvironmentName("duza-Ala")).isEqualTo("duza-ala");
 
         // a name of the class (as if copy-pasted from IDE) should result in canonical environment name
-        assertThat(canonicalName("Ala")).isEqualTo("ala");
-        assertThat(canonicalName("DuzaAla")).isEqualTo("duza-ala");
+        assertThat(canonicalEnvironmentName("Ala")).isEqualTo("ala");
+        assertThat(canonicalEnvironmentName("DuzaAla")).isEqualTo("duza-ala");
         // real life example
-        assertThat(canonicalName(SinglenodeSqlserver.class.getSimpleName())).isEqualTo("singlenode-sqlserver");
+        assertThat(canonicalEnvironmentName(SinglenodeSqlserver.class.getSimpleName())).isEqualTo("singlenode-sqlserver");
 
         // document current state; this behavior is neither intentional or (currently) forbidden
-        assertThat(canonicalName("duza----Ala")).isEqualTo("duza-ala");
+        assertThat(canonicalEnvironmentName("duza----Ala")).isEqualTo("duza-ala");
     }
 
     @Test
