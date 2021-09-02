@@ -70,7 +70,7 @@ public class CassandraClientConfig
     private boolean tokenAwareShuffleReplicas;
     private List<String> allowedAddresses = ImmutableList.of();
     private Duration noHostAvailableRetryTimeout = new Duration(1, MINUTES);
-    private int speculativeExecutionLimit = 1;
+    private Optional<Integer> speculativeExecutionLimit = Optional.empty();
     private Duration speculativeExecutionDelay = new Duration(500, MILLISECONDS);
     private ProtocolVersion protocolVersion;
     private boolean tlsEnabled;
@@ -379,16 +379,15 @@ public class CassandraClientConfig
         return this;
     }
 
-    @Min(1)
-    public int getSpeculativeExecutionLimit()
+    public Optional<@Min(1) Integer> getSpeculativeExecutionLimit()
     {
         return speculativeExecutionLimit;
     }
 
     @Config("cassandra.speculative-execution.limit")
-    public CassandraClientConfig setSpeculativeExecutionLimit(int speculativeExecutionLimit)
+    public CassandraClientConfig setSpeculativeExecutionLimit(Integer speculativeExecutionLimit)
     {
-        this.speculativeExecutionLimit = speculativeExecutionLimit;
+        this.speculativeExecutionLimit = Optional.ofNullable(speculativeExecutionLimit);
         return this;
     }
 

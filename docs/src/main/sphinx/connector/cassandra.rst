@@ -147,7 +147,7 @@ Property Name                                                 Description
 
 ``cassandra.no-host-available-retry-timeout``                 Retry timeout for ``NoHostAvailableException``, defaults to ``1m``.
 
-``cassandra.speculative-execution.limit``                     The number of speculative executions, defaults to ``1``.
+``cassandra.speculative-execution.limit``                     The number of speculative executions. This is disabled by default.
 
 ``cassandra.speculative-execution.delay``                     The delay between each speculative execution, defaults to ``500ms``.
 
