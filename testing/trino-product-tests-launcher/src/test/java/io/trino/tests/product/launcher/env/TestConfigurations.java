@@ -36,6 +36,7 @@ public class TestConfigurations
         // a name of the class (as if copy-pasted from IDE) should result in canonical environment name
         assertThat(canonicalEnvironmentName("Ala")).isEqualTo("ala");
         assertThat(canonicalEnvironmentName("DuzaAla")).isEqualTo("duza-ala");
+        assertThat(canonicalEnvironmentName("EnvDuzaAla")).isEqualTo("duza-ala");
         // real life example
         assertThat(canonicalEnvironmentName(SinglenodeSqlserver.class.getSimpleName())).isEqualTo("singlenode-sqlserver");
 
