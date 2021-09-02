@@ -63,6 +63,7 @@ import java.util.Properties;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static com.starburstdata.presto.plugin.snowflake.jdbc.SnowflakeClient.SNOWFLAKE_MAX_LIST_EXPRESSIONS;
+import static com.starburstdata.presto.plugin.snowflake.jdbc.SnowflakeJdbcSessionProperties.WAREHOUSE;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
@@ -354,7 +355,7 @@ public class SnowflakeJdbcClientModule
         Properties properties = new Properties();
 
         snowflakeConfig.getRole().ifPresent(role -> properties.setProperty("role", role));
-        snowflakeConfig.getWarehouse().ifPresent(warehouse -> properties.setProperty("warehouse", warehouse));
+        snowflakeConfig.getWarehouse().ifPresent(warehouse -> properties.setProperty(WAREHOUSE, warehouse));
         snowflakeConfig.getDatabase().ifPresent(database -> properties.setProperty("db", database));
 
         properties.setProperty("JDBC_TREAT_DECIMAL_AS_INT", "false"); // avoid cast to Long which overflows

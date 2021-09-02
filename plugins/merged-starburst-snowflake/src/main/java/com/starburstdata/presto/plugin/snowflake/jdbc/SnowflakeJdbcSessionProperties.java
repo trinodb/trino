@@ -26,7 +26,7 @@ import static java.util.Objects.requireNonNull;
 public class SnowflakeJdbcSessionProperties
         implements SessionPropertiesProvider
 {
-    private static final String WAREHOUSE = "warehouse";
+    static final String WAREHOUSE = "warehouse";
 
     private final SnowflakeConfig snowflakeConfig;
 

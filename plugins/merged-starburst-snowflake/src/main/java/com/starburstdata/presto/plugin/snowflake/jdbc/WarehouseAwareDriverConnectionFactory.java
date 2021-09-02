@@ -22,6 +22,7 @@ import java.sql.SQLException;
 import java.util.Properties;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.starburstdata.presto.plugin.snowflake.jdbc.SnowflakeJdbcSessionProperties.WAREHOUSE;
 import static com.starburstdata.presto.plugin.snowflake.jdbc.SnowflakeJdbcSessionProperties.getWarehouse;
 import static java.util.Objects.requireNonNull;
 
@@ -63,7 +64,7 @@ public class WarehouseAwareDriverConnectionFactory
         Properties properties = new Properties();
         properties.putAll(connectionProperties);
         properties.putAll(credentialPropertiesProvider.getCredentialProperties(identity));
-        getWarehouse(session).ifPresent(warehouse -> properties.put("warehouse", warehouse));
+        getWarehouse(session).ifPresent(warehouse -> properties.put(WAREHOUSE, warehouse));
         return properties;
     }
 }

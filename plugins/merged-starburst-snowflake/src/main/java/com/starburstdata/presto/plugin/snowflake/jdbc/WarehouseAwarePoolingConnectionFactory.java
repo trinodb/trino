@@ -21,6 +21,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 
+import static com.starburstdata.presto.plugin.snowflake.jdbc.SnowflakeJdbcSessionProperties.WAREHOUSE;
 import static com.starburstdata.presto.plugin.snowflake.jdbc.SnowflakeJdbcSessionProperties.getWarehouse;
 
 public class WarehouseAwarePoolingConnectionFactory
@@ -41,7 +42,7 @@ public class WarehouseAwarePoolingConnectionFactory
     protected Map<String, String> getConnectionProperties(ConnectorSession session)
     {
         Map<String, String> properties = new HashMap<>(super.getConnectionProperties(session));
-        getWarehouse(session).ifPresent(warehouse -> properties.put("warehouse", warehouse));
+        getWarehouse(session).ifPresent(warehouse -> properties.put(WAREHOUSE, warehouse));
         return ImmutableMap.copyOf(properties);
     }
 }
