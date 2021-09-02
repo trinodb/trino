@@ -13,6 +13,7 @@
  */
 package io.trino.tests.product.launcher.env;
 
+import io.trino.tests.product.launcher.env.environment.SinglenodeSqlserver;
 import io.trino.tests.product.launcher.suite.suites.Suite1;
 import io.trino.tests.product.launcher.suite.suites.Suite6NonGeneric;
 import io.trino.tests.product.launcher.suite.suites.SuiteTpcds;
@@ -27,11 +28,18 @@ public class TestConfigurations
     @Test
     public void testCanonicalName()
     {
+        // canonical environment name should be retain as is
         assertThat(canonicalName("ala")).isEqualTo("ala");
-        assertThat(canonicalName("Ala")).isEqualTo("ala");
-        assertThat(canonicalName("DuzaAla")).isEqualTo("duza-ala");
         assertThat(canonicalName("duza-ala")).isEqualTo("duza-ala");
         assertThat(canonicalName("duza-Ala")).isEqualTo("duza-ala");
+
+        // a name of the class (as if copy-pasted from IDE) should result in canonical environment name
+        assertThat(canonicalName("Ala")).isEqualTo("ala");
+        assertThat(canonicalName("DuzaAla")).isEqualTo("duza-ala");
+        // real life example
+        assertThat(canonicalName(SinglenodeSqlserver.class.getSimpleName())).isEqualTo("singlenode-sqlserver");
+
+        // document current state; this behavior is neither intentional or (currently) forbidden
         assertThat(canonicalName("duza----Ala")).isEqualTo("duza-ala");
     }
 
