@@ -21,6 +21,7 @@ import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.HashCollisionsCounter;
 import io.trino.operator.MergeHashSort;
 import io.trino.operator.OperatorContext;
+import io.trino.operator.StreamingReductionRatio;
 import io.trino.operator.Work;
 import io.trino.operator.WorkProcessor;
 import io.trino.operator.aggregation.AccumulatorFactory;
@@ -35,6 +36,7 @@ import io.trino.type.BlockTypeOperators;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -43,6 +45,7 @@ import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.operator.Operator.NOT_BLOCKED;
 import static java.lang.Math.max;
+import static java.util.Objects.requireNonNull;
 
 public class SpillableHashAggregationBuilder
         implements HashAggregationBuilder
@@ -66,6 +69,7 @@ public class SpillableHashAggregationBuilder
     private ListenableFuture<Void> spillInProgress = immediateVoidFuture();
     private final JoinCompiler joinCompiler;
     private final BlockTypeOperators blockTypeOperators;
+    private final AtomicReference<StreamingReductionRatio> streamingReductionRatio;
 
     // todo get rid of that and only use revocable memory
     private long emptyHashAggregationBuilderSize;
@@ -86,7 +90,8 @@ public class SpillableHashAggregationBuilder
             DataSize memoryLimitForMergeWithMemory,
             SpillerFactory spillerFactory,
             JoinCompiler joinCompiler,
-            BlockTypeOperators blockTypeOperators)
+            BlockTypeOperators blockTypeOperators,
+            AtomicReference<StreamingReductionRatio> streamingReductionRatio)
     {
         this.accumulatorFactories = accumulatorFactories;
         this.step = step;
@@ -102,6 +107,7 @@ public class SpillableHashAggregationBuilder
         this.spillerFactory = spillerFactory;
         this.joinCompiler = joinCompiler;
         this.blockTypeOperators = blockTypeOperators;
+        this.streamingReductionRatio = requireNonNull(streamingReductionRatio, "streamingReductionRatio is null");
 
         rebuildHashAggregationBuilder();
     }
@@ -317,7 +323,8 @@ public class SpillableHashAggregationBuilder
                 memoryLimitForMerge,
                 hashAggregationBuilder.getKeyChannels(),
                 joinCompiler,
-                blockTypeOperators));
+                blockTypeOperators,
+                streamingReductionRatio));
 
         return merger.get().buildResult();
     }
@@ -345,7 +352,8 @@ public class SpillableHashAggregationBuilder
                     updateMemory();
                     // TODO: Support GroupByHash yielding in spillable hash aggregation (https://github.com/trinodb/trino/issues/460)
                     return true;
-                });
+                },
+                streamingReductionRatio);
         emptyHashAggregationBuilderSize = hashAggregationBuilder.getSizeInMemory();
     }
 }

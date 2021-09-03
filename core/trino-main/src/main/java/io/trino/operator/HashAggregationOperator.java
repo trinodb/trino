@@ -36,6 +36,7 @@ import io.trino.type.BlockTypeOperators;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -293,6 +294,8 @@ public class HashAggregationOperator
     // for yield when memory is not available
     private Work<?> unfinishedWork;
 
+    private final AtomicReference<StreamingReductionRatio> streamingReductionRatio;
+
     public HashAggregationOperator(
             OperatorContext operatorContext,
             List<Type> groupByTypes,
@@ -338,6 +341,7 @@ public class HashAggregationOperator
         this.hashCollisionsCounter = new HashCollisionsCounter(operatorContext);
         operatorContext.setInfoSupplier(hashCollisionsCounter);
         this.useSystemMemory = useSystemMemory;
+        this.streamingReductionRatio = new AtomicReference<>(new StreamingReductionRatio());
 
         this.memoryContext = operatorContext.localUserMemoryContext();
         if (useSystemMemory) {
@@ -406,7 +410,8 @@ public class HashAggregationOperator
                                 return true;
                             }
                             return operatorContext.isWaitingForMemory().isDone();
-                        });
+                        },
+                        streamingReductionRatio);
             }
             else {
                 verify(!useSystemMemory, "using system memory in spillable aggregations is not supported");
@@ -422,7 +427,8 @@ public class HashAggregationOperator
                         memoryLimitForMergeWithMemory,
                         spillerFactory,
                         joinCompiler,
-                        blockTypeOperators);
+                        blockTypeOperators,
+                        streamingReductionRatio);
             }
 
             // assume initial aggregationBuilder is not full
@@ -436,6 +442,9 @@ public class HashAggregationOperator
         if (unfinishedWork.process()) {
             unfinishedWork = null;
         }
+
+        System.out.println(streamingReductionRatio.toString());
+
         aggregationBuilder.updateMemory();
     }
 
