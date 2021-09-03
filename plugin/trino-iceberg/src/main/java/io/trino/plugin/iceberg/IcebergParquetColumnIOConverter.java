@@ -20,21 +20,22 @@ import io.trino.parquet.PrimitiveField;
 import io.trino.parquet.RichColumnDescriptor;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
-import io.trino.spi.type.NamedTypeSignature;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignatureParameter;
 import org.apache.parquet.io.ColumnIO;
 import org.apache.parquet.io.GroupColumnIO;
 import org.apache.parquet.io.PrimitiveColumnIO;
 
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.parquet.ParquetTypeUtils.getArrayElementColumn;
 import static io.trino.parquet.ParquetTypeUtils.getMapKeyValueColumn;
-import static io.trino.parquet.ParquetTypeUtils.lookupColumnByName;
+import static io.trino.parquet.ParquetTypeUtils.lookupColumnById;
+import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.io.ColumnIOUtil.columnDefinitionLevel;
 import static org.apache.parquet.io.ColumnIOUtil.columnRepetitionLevel;
 import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
@@ -43,14 +44,16 @@ public final class IcebergParquetColumnIOConverter
 {
     private IcebergParquetColumnIOConverter() {}
 
-    public static Optional<Field> constructField(Type type, ColumnIO columnIO)
+    public static Optional<Field> constructField(FieldContext context, ColumnIO columnIO)
     {
+        requireNonNull(context, "context is null");
         if (columnIO == null) {
             return Optional.empty();
         }
         boolean required = columnIO.getType().getRepetition() != OPTIONAL;
         int repetitionLevel = columnRepetitionLevel(columnIO);
         int definitionLevel = columnDefinitionLevel(columnIO);
+        Type type = context.getType();
         if (type instanceof RowType) {
             RowType rowType = (RowType) type;
             GroupColumnIO groupColumnIO = (GroupColumnIO) columnIO;
@@ -59,8 +62,8 @@ public final class IcebergParquetColumnIOConverter
             boolean structHasParameters = false;
             for (int i = 0; i < fields.size(); i++) {
                 RowType.Field rowField = fields.get(i);
-                String name = rowField.getName().orElseThrow().toLowerCase(Locale.ENGLISH);
-                Optional<Field> field = constructField(rowField.getType(), lookupColumnByName(groupColumnIO, name));
+                ColumnIdentity fieldIdentity = context.getColumnIdentity().getChildren().get(i);
+                Optional<Field> field = constructField(new FieldContext(rowField.getType(), fieldIdentity), lookupColumnById(groupColumnIO, fieldIdentity.getId()));
                 structHasParameters |= field.isPresent();
                 fieldsBuilder.add(field);
             }
@@ -76,8 +79,13 @@ public final class IcebergParquetColumnIOConverter
             if (keyValueColumnIO.getChildrenCount() != 2) {
                 return Optional.empty();
             }
-            Optional<Field> keyField = constructField(mapType.getKeyType(), keyValueColumnIO.getChild(0));
-            Optional<Field> valueField = constructField(mapType.getValueType(), keyValueColumnIO.getChild(1));
+            checkArgument(context.getColumnIdentity().getChildren().size() == 2, "Not a map: %s", context);
+            ColumnIdentity keyIdentity = context.getColumnIdentity().getChildren().get(0);
+            ColumnIdentity valueIdentity = context.getColumnIdentity().getChildren().get(1);
+            // TODO validate column ID
+            Optional<Field> keyField = constructField(new FieldContext(mapType.getKeyType(), keyIdentity), keyValueColumnIO.getChild(0));
+            // TODO validate column ID
+            Optional<Field> valueField = constructField(new FieldContext(mapType.getValueType(), valueIdentity), keyValueColumnIO.getChild(1));
             return Optional.of(new GroupField(type, repetitionLevel, definitionLevel, required, ImmutableList.of(keyField, valueField)));
         }
         if (type instanceof ArrayType) {
@@ -86,11 +94,45 @@ public final class IcebergParquetColumnIOConverter
             if (groupColumnIO.getChildrenCount() != 1) {
                 return Optional.empty();
             }
-            Optional<Field> field = constructField(arrayType.getElementType(), getArrayElementColumn(groupColumnIO.getChild(0)));
+            checkArgument(context.getColumnIdentity().getChildren().size() == 1, "Not an array: %s", context);
+            ColumnIdentity elementIdentity = getOnlyElement(context.getColumnIdentity().getChildren());
+            // TODO validate column ID
+            Optional<Field> field = constructField(new FieldContext(arrayType.getElementType(), elementIdentity), getArrayElementColumn(groupColumnIO.getChild(0)));
             return Optional.of(new GroupField(type, repetitionLevel, definitionLevel, required, ImmutableList.of(field)));
         }
         PrimitiveColumnIO primitiveColumnIO = (PrimitiveColumnIO) columnIO;
         RichColumnDescriptor column = new RichColumnDescriptor(primitiveColumnIO.getColumnDescriptor(), columnIO.getType().asPrimitiveType());
         return Optional.of(new PrimitiveField(type, repetitionLevel, definitionLevel, required, column, primitiveColumnIO.getId()));
+    }
+
+    public static class FieldContext
+    {
+        private final Type type;
+        private final ColumnIdentity columnIdentity;
+
+        public FieldContext(Type type, ColumnIdentity columnIdentity)
+        {
+            this.type = requireNonNull(type, "type is null");
+            this.columnIdentity = requireNonNull(columnIdentity, "columnIdentity is null");
+        }
+
+        public Type getType()
+        {
+            return type;
+        }
+
+        public ColumnIdentity getColumnIdentity()
+        {
+            return columnIdentity;
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("type", type)
+                    .add("columnIdentity", columnIdentity)
+                    .toString();
+        }
     }
 }

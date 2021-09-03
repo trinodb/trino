@@ -44,8 +44,10 @@ import io.trino.plugin.hive.orc.OrcPageSource;
 import io.trino.plugin.hive.orc.OrcPageSource.ColumnAdaptation;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.parquet.HdfsParquetDataSource;
+import io.trino.plugin.hive.parquet.HiveParquetColumnIOConverter;
 import io.trino.plugin.hive.parquet.ParquetPageSource;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
+import io.trino.plugin.iceberg.IcebergParquetColumnIOConverter.FieldContext;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -71,6 +73,7 @@ import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.FileMetaData;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
+import org.apache.parquet.io.ColumnIO;
 import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.schema.MessageType;
 
@@ -101,7 +104,6 @@ import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CANNOT_OPEN_SPLIT
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CURSOR_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_MISSING_DATA;
-import static io.trino.plugin.iceberg.IcebergParquetColumnIOConverter.constructField;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcLazyReadSmallRanges;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcMaxBufferSize;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcMaxMergeDistance;
@@ -455,10 +457,12 @@ public class IcebergPageSourceProvider
                     .filter(field -> field.getId() != null)
                     .collect(toImmutableMap(field -> field.getId().intValue(), Function.identity()));
 
+            // Map by name for a migrated table
+            boolean mapByName = parquetIdToField.isEmpty();
+
             List<org.apache.parquet.schema.Type> parquetFields = regularColumns.stream()
                     .map(column -> {
-                        if (parquetIdToField.isEmpty()) {
-                            // This is a migrated table
+                        if (mapByName) {
                             return getParquetTypeByName(column.getName(), fileSchema);
                         }
                         return parquetIdToField.get(column.getId());
@@ -504,7 +508,11 @@ public class IcebergPageSourceProvider
                     internalFields.add(Optional.empty());
                 }
                 else {
-                    internalFields.add(constructField(column.getType(), messageColumnIO.getChild(parquetField.getName())));
+                    // The top level columns are already mapped by name/id appropriately.
+                    ColumnIO columnIO = messageColumnIO.getChild(parquetField.getName());
+                    internalFields.add(mapByName
+                            ? HiveParquetColumnIOConverter.constructField(trinoType, columnIO)
+                            : IcebergParquetColumnIOConverter.constructField(new FieldContext(trinoType, column.getColumnIdentity()), columnIO));
                 }
             }
 
