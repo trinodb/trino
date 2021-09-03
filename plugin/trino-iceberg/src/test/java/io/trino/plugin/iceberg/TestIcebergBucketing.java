@@ -118,14 +118,8 @@ public class TestIcebergBucketing
         assertBucketAndHashEquals("string", "test string", 671244848);
         assertBucketAndHashEquals("string", "Trino rocks", 2131833594);
         assertBucketAndHashEquals("string", "\u5f3a\u5927\u7684Trino\u5f15\u64ce", 822296301); // 3-byte UTF-8 sequences (in Basic Plane, i.e. Plane 0)
-        // TODO https://github.com/apache/iceberg/issues/2837: Iceberg value is incorrect
-        assertThatThrownBy(() -> assertBucketAndHashEquals("string", "\uD83D\uDCB0", 661122892)) // 4-byte UTF-8 codepoint (non-BMP)
-                .isInstanceOf(AssertionError.class)
-                .hasMessage("icebergType=string, bucketCount=2147483647, icebergBucket=468848164, trinoBucket=661122892; expected [468848164] but found [661122892]");
-        // TODO https://github.com/apache/iceberg/issues/2837: Iceberg value is incorrect
-        assertThatThrownBy(() -> assertBucketAndHashEquals("string", "\uD843\uDFFC\uD843\uDFFD\uD843\uDFFE\uD843\uDFFF", 2094039023)) // 4 code points: 20FFC - 20FFF. 4-byte UTF-8 sequences in Supplementary Plane 2
-                .isInstanceOf(AssertionError.class)
-                .hasMessage("icebergType=string, bucketCount=2147483647, icebergBucket=775615312, trinoBucket=2094039023; expected [775615312] but found [2094039023]");
+        assertBucketAndHashEquals("string", "\uD83D\uDCB0", 661122892); // 4-byte UTF-8 codepoint (non-BMP)
+        assertBucketAndHashEquals("string", "\uD843\uDFFC\uD843\uDFFD\uD843\uDFFE\uD843\uDFFF", 2094039023); // 4 code points: 20FFC - 20FFF. 4-byte UTF-8 sequences in Supplementary Plane 2
 
         assertBucketAndHashEquals("binary", null, null);
         assertBucketAndHashEquals("binary", ByteBuffer.wrap(new byte[] {}), 0);
