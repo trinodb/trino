@@ -1250,6 +1250,7 @@ public class LocalExecutionPlanner
 
             ConnectorSession connectorSession = session.toConnectorSession();
             // 4. prepare label evaluations (LabelEvaluator is to be instantiated once per Partition)
+            ImmutableList.Builder<List<PhysicalValuePointer>> evaluationsValuePointers = ImmutableList.builder();
             List<EvaluationSupplier> labelEvaluations = node.getVariableDefinitions().values().stream()
                     .map(expressionAndValuePointers -> {
                         // compile the rewritten expression
@@ -1257,6 +1258,7 @@ public class LocalExecutionPlanner
 
                         // prepare physical value accessors to provide input for the expression
                         List<PhysicalValuePointer> physicalValuePointers = preparePhysicalValuePointers(expressionAndValuePointers, mapping, source.getLayout(), context);
+                        evaluationsValuePointers.add(physicalValuePointers);
 
                         // build label evaluation
                         return new EvaluationSupplier(pageProjectionSupplier, physicalValuePointers, labelNames, connectorSession);
@@ -1297,7 +1299,7 @@ public class LocalExecutionPlanner
                     skipToNavigation,
                     node.getSkipToPosition(),
                     node.isInitial(),
-                    new Matcher(program),
+                    new Matcher(program, evaluationsValuePointers.build()),
                     labelEvaluations);
 
             OperatorFactory operatorFactory = new WindowOperatorFactory(
