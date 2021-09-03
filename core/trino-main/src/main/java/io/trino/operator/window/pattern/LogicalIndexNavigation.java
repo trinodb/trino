@@ -15,6 +15,7 @@ package io.trino.operator.window.pattern;
 
 import io.trino.operator.window.matcher.ArrayView;
 
+import java.util.Objects;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -40,6 +41,26 @@ public class LogicalIndexNavigation
         checkArgument(logicalOffset >= 0, "logical offset must be >= 0, actual: ", logicalOffset);
         this.logicalOffset = logicalOffset;
         this.physicalOffset = physicalOffset;
+    }
+
+    public Set<Integer> getLabels()
+    {
+        return labels;
+    }
+
+    public boolean isLast()
+    {
+        return last;
+    }
+
+    public int getLogicalOffset()
+    {
+        return logicalOffset;
+    }
+
+    public int getPhysicalOffset()
+    {
+        return physicalOffset;
     }
 
     /**
@@ -180,5 +201,49 @@ public class LogicalIndexNavigation
             return position;
         }
         return -1;
+    }
+
+    // for thread equivalence
+    public LogicalIndexNavigation withoutLogicalOffset()
+    {
+        return withLogicalOffset(0);
+    }
+
+    public LogicalIndexNavigation withLogicalOffset(int logicalOffset)
+    {
+        return new LogicalIndexNavigation(labels, last, running, logicalOffset, physicalOffset);
+    }
+
+    public LogicalIndexNavigation withoutPhysicalOffset()
+    {
+        return withPhysicalOffset(0);
+    }
+
+    public LogicalIndexNavigation withPhysicalOffset(int physicalOffset)
+    {
+        return new LogicalIndexNavigation(labels, last, running, logicalOffset, physicalOffset);
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        LogicalIndexNavigation that = (LogicalIndexNavigation) o;
+        return last == that.last &&
+                running == that.running &&
+                logicalOffset == that.logicalOffset &&
+                physicalOffset == that.physicalOffset &&
+                Objects.equals(labels, that.labels);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(labels, last, running, logicalOffset, physicalOffset);
     }
 }

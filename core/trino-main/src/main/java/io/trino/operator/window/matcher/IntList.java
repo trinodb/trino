@@ -13,9 +13,16 @@
  */
 package io.trino.operator.window.matcher;
 
+import io.airlift.slice.SizeOf;
+import org.openjdk.jol.info.ClassLayout;
+
+import java.util.Arrays;
+
 class IntList
 {
-    private final int[] values;
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(IntList.class).instanceSize();
+
+    private int[] values;
     private int next;
 
     public IntList(int capacity)
@@ -23,8 +30,15 @@ class IntList
         this.values = new int[capacity];
     }
 
+    private IntList(int[] values, int next)
+    {
+        this.values = values;
+        this.next = next;
+    }
+
     public void add(int value)
     {
+        ensureCapacity(next);
         values[next] = value;
         next++;
     }
@@ -32,6 +46,13 @@ class IntList
     public int get(int index)
     {
         return values[index];
+    }
+
+    public void set(int index, int value)
+    {
+        ensureCapacity(index);
+        values[index] = value;
+        next = Math.max(next, index + 1);
     }
 
     public int size()
@@ -42,5 +63,27 @@ class IntList
     public void clear()
     {
         next = 0;
+    }
+
+    public IntList copy()
+    {
+        return new IntList(values.clone(), next);
+    }
+
+    public ArrayView toArrayView()
+    {
+        return new ArrayView(values, next);
+    }
+
+    private void ensureCapacity(int index)
+    {
+        if (index >= values.length) {
+            values = Arrays.copyOf(values, Math.max(values.length * 2, index + 1));
+        }
+    }
+
+    public long getSizeInBytes()
+    {
+        return INSTANCE_SIZE + SizeOf.sizeOf(values);
     }
 }
