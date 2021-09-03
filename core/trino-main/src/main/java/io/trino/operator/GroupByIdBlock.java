@@ -13,6 +13,7 @@
  */
 package io.trino.operator;
 
+import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -31,6 +32,10 @@ public class GroupByIdBlock
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupByIdBlock.class).instanceSize();
 
+    /**
+     * The total number of groups produced by the entire query's aggregation
+     * function.
+     */
     private final long groupCount;
     private final Block block;
 
@@ -49,6 +54,24 @@ public class GroupByIdBlock
     public long getGroupId(int position)
     {
         return BIGINT.getLong(block, position);
+    }
+
+    /**
+     * Gets the number of unique group ids within GroupByIdBlock. This value
+     * indicates the number of groups in a single page.
+     *
+     * Should be recomputed on each call, because new rows (positions) could
+     * have been added after initialization.
+     */
+    public long getUniqueIdCount()
+    {
+        ImmutableSet.Builder<Long> uniqueGroupIds = ImmutableSet.builder();
+
+        for (int currentRow = 0; currentRow < getPositionCount(); ++currentRow) {
+            uniqueGroupIds.add(getGroupId(currentRow));
+        }
+
+        return uniqueGroupIds.build().size();
     }
 
     @Override
