@@ -85,17 +85,17 @@ public class TestWorkProcessorPipelineSourceOperator
 
         SettableFuture<Void> firstBlockedFuture = SettableFuture.create();
         Transformation<Page, Page> firstOperatorPages = transformationFrom(ImmutableList.of(
-                Transform.of(Optional.of(page1), TransformationState.blocked(firstBlockedFuture)),
-                Transform.of(Optional.of(page1), TransformationState.ofResult(page3, true)),
-                Transform.of(Optional.of(page2), TransformationState.ofResult(page4, false)),
-                Transform.of(Optional.of(page2), TransformationState.finished())),
+                        Transform.of(Optional.of(page1), TransformationState.blocked(firstBlockedFuture)),
+                        Transform.of(Optional.of(page1), TransformationState.ofResult(page3, true)),
+                        Transform.of(Optional.of(page2), TransformationState.ofResult(page4, false)),
+                        Transform.of(Optional.of(page2), TransformationState.finished())),
                 (left, right) -> left.getPositionCount() == right.getPositionCount());
 
         SettableFuture<Void> secondBlockedFuture = SettableFuture.create();
         Transformation<Page, Page> secondOperatorPages = transformationFrom(ImmutableList.of(
-                Transform.of(Optional.of(page3), TransformationState.ofResult(page5, true)),
-                Transform.of(Optional.of(page4), TransformationState.needsMoreData()),
-                Transform.of(Optional.empty(), TransformationState.blocked(secondBlockedFuture))),
+                        Transform.of(Optional.of(page3), TransformationState.ofResult(page5, true)),
+                        Transform.of(Optional.of(page4), TransformationState.needsMoreData()),
+                        Transform.of(Optional.empty(), TransformationState.blocked(secondBlockedFuture))),
                 (left, right) -> left.getPositionCount() == right.getPositionCount());
 
         TestWorkProcessorSourceOperatorFactory sourceOperatorFactory = new TestWorkProcessorSourceOperatorFactory(
