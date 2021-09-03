@@ -58,7 +58,7 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 /**
  * Contains information about {@link Operator} execution.
  * <p>
- * Not thread-safe. Only {@link #getOperatorStats()}, {@link #getNestedOperatorStats()}
+ * Not thread-safe. Only {@link #getNestedOperatorStats()}
  * and revocable-memory-related operations are thread-safe.
  */
 public class OperatorContext
@@ -508,7 +508,7 @@ public class OperatorContext
         return format("%s-%s", operatorType, planNodeId);
     }
 
-    public OperatorStats getOperatorStats()
+    private OperatorStats getOperatorStats()
     {
         Supplier<? extends OperatorInfo> infoSupplier = this.infoSupplier.get();
         OperatorInfo info = Optional.ofNullable(infoSupplier).map(Supplier::get).orElse(null);
