@@ -37,10 +37,12 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.List;
 import java.util.OptionalInt;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -200,7 +202,7 @@ public class TestMemoryTracking
         systemMemory.setBytes(200_000_000);
 
         assertStats(
-                operatorContext.getOperatorStats(),
+                operatorContext.getNestedOperatorStats(),
                 driverContext.getDriverStats(),
                 pipelineContext.getPipelineStats(),
                 taskContext.getTaskStats(),
@@ -211,7 +213,7 @@ public class TestMemoryTracking
         // allocate more and check peak memory reservation
         userMemory.setBytes(600_000_000);
         assertStats(
-                operatorContext.getOperatorStats(),
+                operatorContext.getNestedOperatorStats(),
                 driverContext.getDriverStats(),
                 pipelineContext.getPipelineStats(),
                 taskContext.getTaskStats(),
@@ -221,7 +223,7 @@ public class TestMemoryTracking
 
         userMemory.setBytes(userMemory.getBytes() - 300_000_000);
         assertStats(
-                operatorContext.getOperatorStats(),
+                operatorContext.getNestedOperatorStats(),
                 driverContext.getDriverStats(),
                 pipelineContext.getPipelineStats(),
                 taskContext.getTaskStats(),
@@ -231,7 +233,7 @@ public class TestMemoryTracking
 
         userMemory.setBytes(userMemory.getBytes() - 300_000_000);
         assertStats(
-                operatorContext.getOperatorStats(),
+                operatorContext.getNestedOperatorStats(),
                 driverContext.getDriverStats(),
                 pipelineContext.getPipelineStats(),
                 taskContext.getTaskStats(),
@@ -242,7 +244,7 @@ public class TestMemoryTracking
         operatorContext.destroy();
 
         assertStats(
-                operatorContext.getOperatorStats(),
+                operatorContext.getNestedOperatorStats(),
                 driverContext.getDriverStats(),
                 pipelineContext.getPipelineStats(),
                 taskContext.getTaskStats(),
@@ -259,7 +261,7 @@ public class TestMemoryTracking
         LocalMemoryContext revocableMemory = operatorContext.localRevocableMemoryContext();
         revocableMemory.setBytes(100_000_000);
         assertStats(
-                operatorContext.getOperatorStats(),
+                operatorContext.getNestedOperatorStats(),
                 driverContext.getDriverStats(),
                 pipelineContext.getPipelineStats(),
                 taskContext.getTaskStats(),
@@ -270,7 +272,7 @@ public class TestMemoryTracking
         systemMemory.setBytes(100_000_000);
         revocableMemory.setBytes(200_000_000);
         assertStats(
-                operatorContext.getOperatorStats(),
+                operatorContext.getNestedOperatorStats(),
                 driverContext.getDriverStats(),
                 pipelineContext.getPipelineStats(),
                 taskContext.getTaskStats(),
@@ -285,7 +287,7 @@ public class TestMemoryTracking
         LocalMemoryContext localMemoryContext = operatorContext.localUserMemoryContext();
         assertTrue(localMemoryContext.trySetBytes(100_000_000));
         assertStats(
-                operatorContext.getOperatorStats(),
+                operatorContext.getNestedOperatorStats(),
                 driverContext.getDriverStats(),
                 pipelineContext.getPipelineStats(),
                 taskContext.getTaskStats(),
@@ -295,7 +297,7 @@ public class TestMemoryTracking
 
         assertTrue(localMemoryContext.trySetBytes(200_000_000));
         assertStats(
-                operatorContext.getOperatorStats(),
+                operatorContext.getNestedOperatorStats(),
                 driverContext.getDriverStats(),
                 pipelineContext.getPipelineStats(),
                 taskContext.getTaskStats(),
@@ -305,7 +307,7 @@ public class TestMemoryTracking
 
         assertTrue(localMemoryContext.trySetBytes(100_000_000));
         assertStats(
-                operatorContext.getOperatorStats(),
+                operatorContext.getNestedOperatorStats(),
                 driverContext.getDriverStats(),
                 pipelineContext.getPipelineStats(),
                 taskContext.getTaskStats(),
@@ -316,7 +318,7 @@ public class TestMemoryTracking
         // allocating more than the pool size should fail and we should have the same stats as before
         assertFalse(localMemoryContext.trySetBytes(memoryPool.getMaxBytes() + 1));
         assertStats(
-                operatorContext.getOperatorStats(),
+                operatorContext.getNestedOperatorStats(),
                 driverContext.getDriverStats(),
                 pipelineContext.getPipelineStats(),
                 taskContext.getTaskStats(),
@@ -351,7 +353,7 @@ public class TestMemoryTracking
     }
 
     private void assertStats(
-            OperatorStats operatorStats,
+            List<OperatorStats> nestedOperatorStats,
             DriverStats driverStats,
             PipelineStats pipelineStats,
             TaskStats taskStats,
@@ -359,6 +361,7 @@ public class TestMemoryTracking
             long expectedRevocableMemory,
             long expectedSystemMemory)
     {
+        OperatorStats operatorStats = getOnlyElement(nestedOperatorStats);
         assertEquals(operatorStats.getUserMemoryReservation().toBytes(), expectedUserMemory);
         assertEquals(driverStats.getUserMemoryReservation().toBytes(), expectedUserMemory);
         assertEquals(pipelineStats.getUserMemoryReservation().toBytes(), expectedUserMemory);
