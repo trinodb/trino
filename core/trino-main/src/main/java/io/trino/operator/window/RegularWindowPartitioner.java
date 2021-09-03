@@ -14,6 +14,7 @@
 package io.trino.operator.window;
 
 import com.google.common.collect.Streams;
+import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.operator.PagesHashStrategy;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesIndexComparator;
@@ -37,7 +38,8 @@ public class RegularWindowPartitioner
             List<WindowFunction> windowFunctions,
             List<FrameInfo> frames,
             PagesHashStrategy peerGroupHashStrategy,
-            Map<FrameBoundKey, PagesIndexComparator> frameBoundComparators)
+            Map<FrameBoundKey, PagesIndexComparator> frameBoundComparators,
+            AggregatedMemoryContext memoryContext)
     {
         List<FramedWindowFunction> functions = Streams.zip(windowFunctions.stream(), frames.stream(), FramedWindowFunction::new)
                 .collect(toImmutableList());

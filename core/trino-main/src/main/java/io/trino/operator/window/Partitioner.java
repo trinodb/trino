@@ -13,6 +13,7 @@
  */
 package io.trino.operator.window;
 
+import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.operator.PagesHashStrategy;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesIndexComparator;
@@ -32,5 +33,6 @@ public interface Partitioner
             List<WindowFunction> windowFunctions,
             List<FrameInfo> frames,
             PagesHashStrategy peerGroupHashStrategy,
-            Map<FrameBoundKey, PagesIndexComparator> frameBoundComparators);
+            Map<FrameBoundKey, PagesIndexComparator> frameBoundComparators,
+            AggregatedMemoryContext memoryContext);
 }
