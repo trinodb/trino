@@ -14,6 +14,7 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -24,6 +25,7 @@ import io.trino.metadata.Split;
 import io.trino.operator.WorkProcessor.Transformation;
 import io.trino.operator.WorkProcessor.TransformationState;
 import io.trino.operator.WorkProcessorAssertion.Transform;
+import io.trino.plugin.base.metrics.LongCount;
 import io.trino.spi.Page;
 import io.trino.spi.connector.UpdatablePageSource;
 import io.trino.spi.metrics.Metrics;
@@ -194,8 +196,12 @@ public class TestWorkProcessorPipelineSourceOperator
         assertEquals(operatorStats.get(2).getOutputPositions(), 5);
         assertEquals(operatorStats.get(2).getOutputDataSize().toBytes(), 45);
 
-        // assert source operator input stats are correct
+        // assert source operator stats are correct
         OperatorStats sourceOperatorStats = operatorStats.get(0);
+
+        assertEquals(sourceOperatorStats.getMetrics().getMetrics(), ImmutableMap.of("testMetric", new LongCount(1)));
+        assertEquals(sourceOperatorStats.getDynamicFilterSplitsProcessed(), 42L);
+
         assertEquals(sourceOperatorStats.getPhysicalInputDataSize(), DataSize.ofBytes(1));
         assertEquals(sourceOperatorStats.getPhysicalInputPositions(), 2);
 
@@ -394,9 +400,15 @@ public class TestWorkProcessorPipelineSourceOperator
         }
 
         @Override
+        public long getDynamicFilterSplitsProcessed()
+        {
+            return 42;
+        }
+
+        @Override
         public Metrics getConnectorMetrics()
         {
-            return Metrics.EMPTY;
+            return new Metrics(ImmutableMap.of("testMetric", new LongCount(1)));
         }
 
         @Override
