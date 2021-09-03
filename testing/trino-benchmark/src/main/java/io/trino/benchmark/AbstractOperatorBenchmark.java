@@ -68,7 +68,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -299,8 +298,7 @@ public abstract class AbstractOperatorBenchmark
                         session,
                         () -> {},
                         false,
-                        false,
-                        OptionalInt.empty());
+                        false);
 
         CpuTimer cpuTimer = new CpuTimer();
         Map<String, Long> executionStats = execute(taskContext);

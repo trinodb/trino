@@ -26,7 +26,6 @@ import io.trino.sql.planner.plan.DynamicFilterId;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalInt;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -39,7 +38,6 @@ public class TaskUpdateRequest
     private final Optional<PlanFragment> fragment;
     private final List<TaskSource> sources;
     private final OutputBuffers outputIds;
-    private final OptionalInt totalPartitions;
     private final Map<DynamicFilterId, Domain> dynamicFilterDomains;
 
     @JsonCreator
@@ -49,7 +47,6 @@ public class TaskUpdateRequest
             @JsonProperty("fragment") Optional<PlanFragment> fragment,
             @JsonProperty("sources") List<TaskSource> sources,
             @JsonProperty("outputIds") OutputBuffers outputIds,
-            @JsonProperty("totalPartitions") OptionalInt totalPartitions,
             @JsonProperty("dynamicFilterDomains") Map<DynamicFilterId, Domain> dynamicFilterDomains)
     {
         requireNonNull(session, "session is null");
@@ -57,7 +54,6 @@ public class TaskUpdateRequest
         requireNonNull(fragment, "fragment is null");
         requireNonNull(sources, "sources is null");
         requireNonNull(outputIds, "outputIds is null");
-        requireNonNull(totalPartitions, "totalPartitions is null");
         requireNonNull(dynamicFilterDomains, "dynamicFilterDomains is null");
 
         this.session = session;
@@ -65,7 +61,6 @@ public class TaskUpdateRequest
         this.fragment = fragment;
         this.sources = ImmutableList.copyOf(sources);
         this.outputIds = outputIds;
-        this.totalPartitions = totalPartitions;
         this.dynamicFilterDomains = dynamicFilterDomains;
     }
 
@@ -100,12 +95,6 @@ public class TaskUpdateRequest
     }
 
     @JsonProperty
-    public OptionalInt getTotalPartitions()
-    {
-        return totalPartitions;
-    }
-
-    @JsonProperty
     public Map<DynamicFilterId, Domain> getDynamicFilterDomains()
     {
         return dynamicFilterDomains;
@@ -120,7 +109,6 @@ public class TaskUpdateRequest
                 .add("fragment", fragment)
                 .add("sources", sources)
                 .add("outputIds", outputIds)
-                .add("totalPartitions", totalPartitions)
                 .add("dynamicFilterDomains", dynamicFilterDomains)
                 .toString();
     }
