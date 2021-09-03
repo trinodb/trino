@@ -17,7 +17,6 @@ import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.security.TrinoPrincipal;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
@@ -78,7 +77,6 @@ public interface TrinoCatalog
      * @param session Trino session
      * @param schemaTableName Trino schema and table name
      * @return Iceberg table loaded
-     * @throws TableNotFoundException if table not found
      * @throws UnknownTableTypeException if table is not of Iceberg type in the metastore
      */
     Table loadTable(ConnectorSession session, SchemaTableName schemaTableName);
