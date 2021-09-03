@@ -46,6 +46,22 @@ columns.
 If projection pushdown is succesful, the ``EXPLAIN`` plan for the query only
 accesses the relevant columns in the ``Layout`` of the ``TableScan`` operation.
 
+.. _dereference-pushdown:
+
+Dereference pushdown
+--------------------
+
+Projection pushdown and dereference pushdown limit access to relevant columns,
+except dereference pushdown is more selective. It limits access to only read the
+specified fields within a top level or nested ``ROW`` data type.
+
+For example, consider a table in the Hive connector that has a ``ROW`` type
+column with several fields. If a query only accesses one field, dereference
+pushdown allows the file reader to read only that single field within the row.
+The same applies to fields of a row nested within the top level row. This can
+result in significant savings in the amount of data read from the storage
+system.
+
 .. _aggregation-pushdown:
 
 Aggregation pushdown
