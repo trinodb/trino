@@ -312,7 +312,7 @@ public class TestHashAggregationOperator
 
         Operator operator = operatorFactory.createOperator(driverContext);
         toPages(operator, input.iterator(), revokeMemoryWhenAddingPages);
-        assertEquals(operator.getOperatorContext().getOperatorStats().getUserMemoryReservation().toBytes(), 0);
+        assertEquals(getOnlyElement(operator.getOperatorContext().getNestedOperatorStats()).getUserMemoryReservation().toBytes(), 0);
     }
 
     @Test(dataProvider = "hashEnabled", expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded per-node user memory limit of 10B.*")
