@@ -42,6 +42,7 @@ import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -72,6 +73,22 @@ public abstract class BaseSnowflakeConnectorTest
             default:
                 return super.hasBehavior(connectorBehavior);
         }
+    }
+
+    @Override
+    public void testCharVarcharComparison()
+    {
+        // Snowflake does not have a CHAR type. They map it to varchar, which does not have the same fixed width semantics
+        assertThatThrownBy(super::testCharVarcharComparison)
+                .isInstanceOf(AssertionError.class);
+
+        // Also assert that CHAR columns end up as VARCHAR in Snowflake
+        String tableName = "test_char_is_varchar_" + randomTableSuffix();
+        assertUpdate(format("CREATE TABLE %s AS SELECT CHAR 'is_actually_a_varchar' AS a_char", tableName), 1);
+        assertThat((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue())
+                .matches("CREATE TABLE \\w+\\.\\w+\\.\\w+ \\Q(\n" +
+                        "   a_char varchar(21)\n" +
+                        ")");
     }
 
     @Override
