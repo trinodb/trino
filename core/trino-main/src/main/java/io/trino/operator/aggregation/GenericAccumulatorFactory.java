@@ -445,6 +445,79 @@ public class GenericAccumulatorFactory
         }
     }
 
+    private static class RawAsIntermediateGroupedAccumulator
+            implements GroupedAccumulator
+    {
+        private final GroupedAccumulator accumulator;
+        private final Optional<Integer> maskChannel;
+
+        public RawAsIntermediateGroupedAccumulator(
+                GroupedAccumulator accumulator,
+                List<Type> inputTypes,
+                List<Integer> inputChannels,
+                Optional<Integer> maskChannel,
+                Session session,
+                JoinCompiler joinCompiler,
+                BlockTypeOperators blockTypeOperators)
+        {
+            this.accumulator = requireNonNull(accumulator, "accumulator is null");
+            this.maskChannel = requireNonNull(maskChannel, "maskChannel is null");
+
+            int[] inputs = new int[inputChannels.size() + 1];
+            inputs[0] = 0; // we'll use the first channel for group id column
+            for (int i = 0; i < inputChannels.size(); i++) {
+                inputs[i + 1] = inputChannels.get(i) + 1;
+            }
+        }
+
+        @Override
+        public long getEstimatedSize()
+        {
+            return accumulator.getEstimatedSize();
+        }
+
+        @Override
+        public Type getFinalType()
+        {
+            return accumulator.getFinalType();
+        }
+
+        @Override
+        public Type getIntermediateType()
+        {
+            return null;
+        }
+
+        @Override
+        public void addInput(GroupByIdBlock groupIdsBlock, Page page)
+        {
+            // add input as intermediate
+        }
+
+        @Override
+        public void addIntermediate(GroupByIdBlock groupIdsBlock, Block block)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void evaluateIntermediate(int groupId, BlockBuilder output)
+        {
+        }
+
+        @Override
+        public void evaluateFinal(int groupId, BlockBuilder output)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void prepareFinal()
+        {
+            throw new UnsupportedOperationException();
+        }
+    }
+
     private static class OrderingAccumulator
             implements Accumulator
     {
