@@ -25,13 +25,18 @@ import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.session.PropertyMetadata;
+import io.trino.spi.type.ArrayType;
 
 import javax.inject.Inject;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.dataSizeProperty;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.durationProperty;
 import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
@@ -43,6 +48,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 
 public final class HiveSessionProperties
         implements SessionPropertiesProvider
@@ -95,6 +101,7 @@ public final class HiveSessionProperties
     private static final String TEMPORARY_STAGING_DIRECTORY_PATH = "temporary_staging_directory_path";
     private static final String IGNORE_ABSENT_PARTITIONS = "ignore_absent_partitions";
     private static final String QUERY_PARTITION_FILTER_REQUIRED = "query_partition_filter_required";
+    private static final String QUERY_PARTITION_FILTER_REQUIRED_SCHEMAS = "query_partition_filter_required_schemas";
     private static final String PROJECTION_PUSHDOWN_ENABLED = "projection_pushdown_enabled";
     private static final String TIMESTAMP_PRECISION = "timestamp_precision";
     private static final String PARQUET_OPTIMIZED_WRITER_ENABLED = "experimental_parquet_optimized_writer_enabled";
@@ -392,6 +399,23 @@ public final class HiveSessionProperties
                         "Require filter on partition column",
                         hiveConfig.isQueryPartitionFilterRequired(),
                         false),
+                new PropertyMetadata<>(
+                        QUERY_PARTITION_FILTER_REQUIRED_SCHEMAS,
+                        "List of schemas for which filter on partition column is enforced.",
+                        new ArrayType(VARCHAR),
+                        Set.class,
+                        hiveConfig.getQueryPartitionFilterRequiredSchemas(),
+                        false,
+                        object -> ((Collection<?>) object).stream()
+                                .map(String.class::cast)
+                                .peek(property -> {
+                                    if (isNullOrEmpty(property)) {
+                                        throw new TrinoException(INVALID_SESSION_PROPERTY, format("Invalid null or empty value in %s property", QUERY_PARTITION_FILTER_REQUIRED_SCHEMAS));
+                                    }
+                                })
+                                .map(schema -> schema.toLowerCase(ENGLISH))
+                                .collect(toImmutableSet()),
+                        value -> value),
                 booleanProperty(
                         PROJECTION_PUSHDOWN_ENABLED,
                         "Projection push down enabled for hive",
@@ -680,6 +704,14 @@ public final class HiveSessionProperties
     public static boolean isQueryPartitionFilterRequired(ConnectorSession session)
     {
         return session.getProperty(QUERY_PARTITION_FILTER_REQUIRED, Boolean.class);
+    }
+
+    @SuppressWarnings("unchecked cast")
+    public static Set<String> getQueryPartitionFilterRequiredSchemas(ConnectorSession session)
+    {
+        Set<String> schemas = (Set<String>) session.getProperty(QUERY_PARTITION_FILTER_REQUIRED_SCHEMAS, Set.class);
+        requireNonNull(schemas, "queryPartitionFilterRequiredSchemas is null");
+        return schemas;
     }
 
     public static boolean isProjectionPushdownEnabled(ConnectorSession session)

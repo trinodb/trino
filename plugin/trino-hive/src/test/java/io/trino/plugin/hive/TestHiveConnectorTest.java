@@ -59,6 +59,7 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.ResultWithQueryId;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
+import io.trino.testing.sql.TrinoSqlExecutor;
 import io.trino.type.TypeDeserializer;
 import org.apache.hadoop.fs.Path;
 import org.intellij.lang.annotations.Language;
@@ -261,14 +262,15 @@ public class TestHiveConnectorTest
                 .hasStackTraceContaining("Deletes must match whole partitions for non-transactional tables");
     }
 
-    @Test
-    public void testRequiredPartitionFilter()
+    @Test(dataProvider = "queryPartitionFilterRequiredSchemasDataProvider")
+    public void testRequiredPartitionFilter(String queryPartitionFilterRequiredSchemas)
     {
         Session session = Session.builder(getSession())
                 .setIdentity(Identity.forUser("hive")
                         .withConnectorRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
                         .build())
                 .setCatalogSessionProperty("hive", "query_partition_filter_required", "true")
+                .setCatalogSessionProperty("hive", "query_partition_filter_required_schemas", queryPartitionFilterRequiredSchemas)
                 .build();
 
         assertUpdate(session, "CREATE TABLE test_required_partition_filter(id integer, a varchar, b varchar, ds varchar) WITH (partitioned_by = ARRAY['ds'])");
@@ -307,14 +309,15 @@ public class TestHiveConnectorTest
         assertUpdate(session, "DROP TABLE test_required_partition_filter");
     }
 
-    @Test
-    public void testRequiredPartitionFilterInferred()
+    @Test(dataProvider = "queryPartitionFilterRequiredSchemasDataProvider")
+    public void testRequiredPartitionFilterInferred(String queryPartitionFilterRequiredSchemas)
     {
         Session session = Session.builder(getSession())
                 .setIdentity(Identity.forUser("hive")
                         .withConnectorRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
                         .build())
                 .setCatalogSessionProperty("hive", "query_partition_filter_required", "true")
+                .setCatalogSessionProperty("hive", "query_partition_filter_required_schemas", queryPartitionFilterRequiredSchemas)
                 .build();
 
         assertUpdate(session, "CREATE TABLE test_partition_filter_inferred_left(id integer, a varchar, b varchar, ds varchar) WITH (partitioned_by = ARRAY['ds'])");
@@ -337,6 +340,71 @@ public class TestHiveConnectorTest
 
         assertUpdate(session, "DROP TABLE test_partition_filter_inferred_left");
         assertUpdate(session, "DROP TABLE test_partition_filter_inferred_right");
+    }
+
+    @DataProvider
+    private Object[][] queryPartitionFilterRequiredSchemasDataProvider()
+    {
+        return new Object[][]{
+                {"[]"},
+                {"[\"tpch\"]"}
+        };
+    }
+
+    @Test
+    public void testRequiredPartitionFilterAppliedOnDifferentSchema()
+    {
+        String schemaName = "schema_" + randomTableSuffix();
+        Session session = Session.builder(getSession())
+                .setIdentity(Identity.forUser("hive")
+                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .build())
+                .setCatalogSessionProperty("hive", "query_partition_filter_required", "true")
+                .setCatalogSessionProperty("hive", "query_partition_filter_required_schemas", format("[\"%s\"]", schemaName))
+                .build();
+
+        getQueryRunner().execute("CREATE SCHEMA " + schemaName);
+
+        try (TestTable table = new TestTable(
+                new TrinoSqlExecutor(getQueryRunner(), session),
+                "test_required_partition_filter_",
+                "(id integer, a varchar, b varchar) WITH (partitioned_by = ARRAY['b'])",
+                ImmutableList.of("1, '1', 'b'"))) {
+            // no partition filter
+            assertQuery(session, format("SELECT id FROM %s WHERE a = '1'", table.getName()), "SELECT 1");
+            computeActual(session, format("EXPLAIN SELECT id FROM %s WHERE a = '1'", table.getName()));
+            computeActual(session, format("EXPLAIN ANALYZE SELECT id FROM %s WHERE a = '1'", table.getName()));
+
+            // partition filter that gets removed by planner
+            assertQuery(session, format("SELECT id FROM %s WHERE b IS NOT NULL OR true", table.getName()), "SELECT 1");
+
+            // Join on non-partition column
+            assertUpdate(session, format("CREATE TABLE %s.%s_right (id integer, a varchar, b varchar, ds varchar) WITH (partitioned_by = ARRAY['ds'])", schemaName, table.getName()));
+
+            assertUpdate(session, format("INSERT INTO %s.%s_right (id, a, ds) VALUES (1, 'a', '1')", schemaName, table.getName()), 1);
+
+            assertQueryFails(
+                    session,
+                    format("SELECT count(*) FROM %2$s l JOIN %s.%2$s_right r ON l.id = r.id WHERE r.a = 'a'", schemaName, table.getName()),
+                    format("Filter required on %s\\.%s_right for at least one partition column: ds", schemaName, table.getName()));
+
+            assertQuery(session, format("SELECT count(*) FROM %2$s l JOIN %s.%2$s_right r ON l.id = r.id WHERE r.ds = '1'", schemaName, table.getName()), "SELECT 1");
+
+            assertUpdate(session, format("DROP TABLE %s.%s_right", schemaName, table.getName()));
+        }
+        getQueryRunner().execute("DROP SCHEMA " + schemaName);
+    }
+
+    @Test
+    public void testInvalidValueForQueryPartitionFilterRequiredSchemas()
+    {
+        assertQueryFails(
+                "SET SESSION hive.query_partition_filter_required_schemas = ARRAY['tpch', null]",
+                "line 1:1: Invalid null or empty value in query_partition_filter_required_schemas property");
+
+        assertQueryFails(
+                "SET SESSION hive.query_partition_filter_required_schemas = ARRAY['tpch', '']",
+                "line 1:1: Invalid null or empty value in query_partition_filter_required_schemas property");
     }
 
     @Test

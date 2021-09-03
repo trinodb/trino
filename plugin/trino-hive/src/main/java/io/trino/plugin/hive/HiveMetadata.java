@@ -170,6 +170,7 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static io.trino.plugin.hive.HivePartitionManager.extractPartitionValues;
 import static io.trino.plugin.hive.HiveSessionProperties.getCompressionCodec;
 import static io.trino.plugin.hive.HiveSessionProperties.getHiveStorageFormat;
+import static io.trino.plugin.hive.HiveSessionProperties.getQueryPartitionFilterRequiredSchemas;
 import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
 import static io.trino.plugin.hive.HiveSessionProperties.isBucketExecutionEnabled;
 import static io.trino.plugin.hive.HiveSessionProperties.isCollectColumnStatisticsOnWrite;
@@ -2203,7 +2204,7 @@ public class HiveMetadata
     public void validateScan(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         HiveTableHandle handle = (HiveTableHandle) tableHandle;
-        if (isQueryPartitionFilterRequired(session) && handle.getAnalyzePartitionValues().isEmpty() && handle.getEnforcedConstraint().isAll()) {
+        if (isQueryPartitionFilterRequiredForTable(session, handle.getSchemaTableName()) && handle.getAnalyzePartitionValues().isEmpty() && handle.getEnforcedConstraint().isAll()) {
             List<HiveColumnHandle> partitionColumns = handle.getPartitionColumns();
             if (!partitionColumns.isEmpty()) {
                 Optional<Set<ColumnHandle>> referencedColumns = handle.getConstraintColumns();
@@ -3043,5 +3044,13 @@ public class HiveMetadata
             }
         }
         return Optional.empty();
+    }
+
+    private static boolean isQueryPartitionFilterRequiredForTable(ConnectorSession session, SchemaTableName schemaTableName)
+    {
+        Set<String> requiredSchemas = getQueryPartitionFilterRequiredSchemas(session);
+        // If query_partition_filter_required_schemas is empty then we would apply partition filter for all tables.
+        return isQueryPartitionFilterRequired(session) &&
+                requiredSchemas.isEmpty() || requiredSchemas.contains(schemaTableName.getSchemaName());
     }
 }
