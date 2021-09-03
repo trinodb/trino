@@ -15,6 +15,7 @@ package io.trino.plugin.hive;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
@@ -34,12 +35,14 @@ import javax.validation.constraints.NotNull;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.TimeZone;
 
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.APPEND;
 import static io.trino.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.ERROR;
+import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 @DefunctConfig({
@@ -136,6 +139,7 @@ public class HiveConfig
 
     private boolean allowRegisterPartition;
     private boolean queryPartitionFilterRequired;
+    private Set<String> queryPartitionFilterRequiredSchemas = ImmutableSet.of();
 
     private boolean projectionPushdownEnabled = true;
 
@@ -986,6 +990,19 @@ public class HiveConfig
     public HiveConfig setQueryPartitionFilterRequired(boolean queryPartitionFilterRequired)
     {
         this.queryPartitionFilterRequired = queryPartitionFilterRequired;
+        return this;
+    }
+
+    public Set<String> getQueryPartitionFilterRequiredSchemas()
+    {
+        return queryPartitionFilterRequiredSchemas;
+    }
+
+    @Config("hive.query-partition-filter-required-schemas")
+    @ConfigDescription("List of schemas for which filter on partition column is enforced")
+    public HiveConfig setQueryPartitionFilterRequiredSchemas(String queryPartitionFilterRequiredSchemas)
+    {
+        this.queryPartitionFilterRequiredSchemas = ImmutableSet.copyOf(SPLITTER.splitToList(queryPartitionFilterRequiredSchemas.toLowerCase(ENGLISH)));
         return this;
     }
 
