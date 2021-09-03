@@ -44,7 +44,6 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.List;
 import java.util.Map;
-import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
@@ -94,8 +93,6 @@ public class TaskContext
     private final boolean perOperatorCpuTimerEnabled;
     private final boolean cpuTimerEnabled;
 
-    private final OptionalInt totalPartitions;
-
     private final Object cumulativeMemoryLock = new Object();
     private final AtomicDouble cumulativeUserMemory = new AtomicDouble(0.0);
     private final AtomicDouble cumulativeSystemMemory = new AtomicDouble(0.0);
@@ -127,8 +124,7 @@ public class TaskContext
             MemoryTrackingContext taskMemoryContext,
             Runnable notifyStatusChanged,
             boolean perOperatorCpuTimerEnabled,
-            boolean cpuTimerEnabled,
-            OptionalInt totalPartitions)
+            boolean cpuTimerEnabled)
     {
         TaskContext taskContext = new TaskContext(
                 queryContext,
@@ -140,8 +136,7 @@ public class TaskContext
                 taskMemoryContext,
                 notifyStatusChanged,
                 perOperatorCpuTimerEnabled,
-                cpuTimerEnabled,
-                totalPartitions);
+                cpuTimerEnabled);
         taskContext.initialize();
         return taskContext;
     }
@@ -156,8 +151,7 @@ public class TaskContext
             MemoryTrackingContext taskMemoryContext,
             Runnable notifyStatusChanged,
             boolean perOperatorCpuTimerEnabled,
-            boolean cpuTimerEnabled,
-            OptionalInt totalPartitions)
+            boolean cpuTimerEnabled)
     {
         this.taskStateMachine = requireNonNull(taskStateMachine, "taskStateMachine is null");
         this.gcMonitor = requireNonNull(gcMonitor, "gcMonitor is null");
@@ -172,7 +166,6 @@ public class TaskContext
         this.localDynamicFiltersCollector = new LocalDynamicFiltersCollector(session);
         this.perOperatorCpuTimerEnabled = perOperatorCpuTimerEnabled;
         this.cpuTimerEnabled = cpuTimerEnabled;
-        this.totalPartitions = requireNonNull(totalPartitions, "totalPartitions is null");
     }
 
     // the state change listener is added here in a separate initialize() method
@@ -186,11 +179,6 @@ public class TaskContext
     public TaskId getTaskId()
     {
         return taskStateMachine.getTaskId();
-    }
-
-    public OptionalInt getTotalPartitions()
-    {
-        return totalPartitions;
     }
 
     public PipelineContext addPipelineContext(int pipelineId, boolean inputPipeline, boolean outputPipeline, boolean partitioned)

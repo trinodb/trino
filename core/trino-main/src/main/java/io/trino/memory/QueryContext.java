@@ -33,7 +33,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.OptionalInt;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
@@ -293,8 +292,7 @@ public class QueryContext
             Session session,
             Runnable notifyStatusChanged,
             boolean perOperatorCpuTimerEnabled,
-            boolean cpuTimerEnabled,
-            OptionalInt totalPartitions)
+            boolean cpuTimerEnabled)
     {
         TaskContext taskContext = TaskContext.createTaskContext(
                 this,
@@ -306,8 +304,7 @@ public class QueryContext
                 queryMemoryContext.newMemoryTrackingContext(),
                 notifyStatusChanged,
                 perOperatorCpuTimerEnabled,
-                cpuTimerEnabled,
-                totalPartitions);
+                cpuTimerEnabled);
         taskContexts.put(taskStateMachine.getTaskId(), taskContext);
         return taskContext;
     }

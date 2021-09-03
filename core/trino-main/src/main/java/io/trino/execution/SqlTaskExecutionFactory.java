@@ -26,7 +26,6 @@ import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.TypeProvider;
 
 import java.util.List;
-import java.util.OptionalInt;
 import java.util.concurrent.Executor;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
@@ -67,16 +66,14 @@ public class SqlTaskExecutionFactory
             OutputBuffer outputBuffer,
             PlanFragment fragment,
             List<TaskSource> sources,
-            Runnable notifyStatusChanged,
-            OptionalInt totalPartitions)
+            Runnable notifyStatusChanged)
     {
         TaskContext taskContext = queryContext.addTaskContext(
                 taskStateMachine,
                 session,
                 notifyStatusChanged,
                 perOperatorCpuTimerEnabled,
-                cpuTimerEnabled,
-                totalPartitions);
+                cpuTimerEnabled);
 
         LocalExecutionPlan localExecutionPlan;
         try (SetThreadName ignored = new SetThreadName("Task-%s", taskStateMachine.getTaskId())) {
