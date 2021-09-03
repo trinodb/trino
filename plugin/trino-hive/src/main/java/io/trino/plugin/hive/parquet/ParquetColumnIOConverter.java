@@ -20,47 +20,52 @@ import io.trino.parquet.PrimitiveField;
 import io.trino.parquet.RichColumnDescriptor;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
-import io.trino.spi.type.NamedTypeSignature;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignatureParameter;
 import org.apache.parquet.io.ColumnIO;
 import org.apache.parquet.io.GroupColumnIO;
 import org.apache.parquet.io.PrimitiveColumnIO;
 
-import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 
 import static io.trino.parquet.ParquetTypeUtils.getArrayElementColumn;
 import static io.trino.parquet.ParquetTypeUtils.getMapKeyValueColumn;
 import static io.trino.parquet.ParquetTypeUtils.lookupColumnByName;
+import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.io.ColumnIOUtil.columnDefinitionLevel;
 import static org.apache.parquet.io.ColumnIOUtil.columnRepetitionLevel;
 import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
 
-public final class ParquetColumnIOConverter
+public abstract class ParquetColumnIOConverter<Context>
 {
-    private ParquetColumnIOConverter() {}
-
-    public static Optional<Field> constructField(Type type, ColumnIO columnIO)
+    public static ParquetColumnIOConverter<Type> withLookupColumnByName()
     {
-        if (columnIO == null) {
+        return new ByNameParquetColumnIOConverter();
+    }
+
+    public Optional<Field> constructField(Context context, Optional<ColumnIO> columnIO)
+    {
+        if (columnIO.isEmpty()) {
             return Optional.empty();
         }
+        return constructField(context, columnIO.get());
+    }
+
+    protected Optional<Field> constructField(Context context, ColumnIO columnIO)
+    {
+        requireNonNull(columnIO, "columnIO is null");
+
         boolean required = columnIO.getType().getRepetition() != OPTIONAL;
         int repetitionLevel = columnRepetitionLevel(columnIO);
         int definitionLevel = columnDefinitionLevel(columnIO);
+        Type type = getType(context);
         if (type instanceof RowType) {
             GroupColumnIO groupColumnIO = (GroupColumnIO) columnIO;
-            List<Type> parameters = type.getTypeParameters();
             ImmutableList.Builder<Optional<Field>> fieldsBuilder = ImmutableList.builder();
-            List<TypeSignatureParameter> fields = type.getTypeSignature().getParameters();
             boolean structHasParameters = false;
-            for (int i = 0; i < fields.size(); i++) {
-                NamedTypeSignature namedTypeSignature = fields.get(i).getNamedTypeSignature();
-                String name = namedTypeSignature.getName().get().toLowerCase(Locale.ENGLISH);
-                Optional<Field> field = constructField(parameters.get(i), lookupColumnByName(groupColumnIO, name));
+            for (int fieldIndex = 0; fieldIndex < type.getTypeParameters().size(); fieldIndex++) {
+                Optional<Field> field = getRowFieldField(context, groupColumnIO, fieldIndex);
                 structHasParameters |= field.isPresent();
                 fieldsBuilder.add(field);
             }
@@ -71,26 +76,87 @@ public final class ParquetColumnIOConverter
         }
         if (type instanceof MapType) {
             GroupColumnIO groupColumnIO = (GroupColumnIO) columnIO;
-            MapType mapType = (MapType) type;
-            GroupColumnIO keyValueColumnIO = getMapKeyValueColumn(groupColumnIO);
-            if (keyValueColumnIO.getChildrenCount() != 2) {
+            Optional<Field> keyField = getMapKeyField(context, groupColumnIO);
+            Optional<Field> valueField = getMapValueField(context, groupColumnIO);
+            if (keyField.isEmpty() || valueField.isEmpty()) {
                 return Optional.empty();
             }
-            Optional<Field> keyField = constructField(mapType.getKeyType(), keyValueColumnIO.getChild(0));
-            Optional<Field> valueField = constructField(mapType.getValueType(), keyValueColumnIO.getChild(1));
             return Optional.of(new GroupField(type, repetitionLevel, definitionLevel, required, ImmutableList.of(keyField, valueField)));
         }
         if (type instanceof ArrayType) {
             GroupColumnIO groupColumnIO = (GroupColumnIO) columnIO;
-            List<Type> types = type.getTypeParameters();
-            if (groupColumnIO.getChildrenCount() != 1) {
+            Optional<Field> field = getArrayElementField(context, groupColumnIO);
+            if (field.isEmpty()) {
                 return Optional.empty();
             }
-            Optional<Field> field = constructField(types.get(0), getArrayElementColumn(groupColumnIO.getChild(0)));
             return Optional.of(new GroupField(type, repetitionLevel, definitionLevel, required, ImmutableList.of(field)));
         }
         PrimitiveColumnIO primitiveColumnIO = (PrimitiveColumnIO) columnIO;
         RichColumnDescriptor column = new RichColumnDescriptor(primitiveColumnIO.getColumnDescriptor(), columnIO.getType().asPrimitiveType());
         return Optional.of(new PrimitiveField(type, repetitionLevel, definitionLevel, required, column, primitiveColumnIO.getId()));
+    }
+
+    protected abstract Type getType(Context context);
+
+    protected abstract Optional<Field> getArrayElementField(Context arrayContext, GroupColumnIO groupColumnIO);
+
+    protected abstract Optional<Field> getMapKeyField(Context mapContext, GroupColumnIO groupColumnIO);
+
+    protected abstract Optional<Field> getMapValueField(Context mapContext, GroupColumnIO groupColumnIO);
+
+    protected abstract Optional<Field> getRowFieldField(Context rowContext, GroupColumnIO groupColumnIO, int rowFieldIndex);
+
+    private static class ByNameParquetColumnIOConverter
+            extends ParquetColumnIOConverter<Type>
+    {
+        @Override
+        protected Type getType(Type type)
+        {
+            return requireNonNull(type, "type is null");
+        }
+
+        @Override
+        protected Optional<Field> getArrayElementField(Type arrayType, GroupColumnIO groupColumnIO)
+        {
+            if (groupColumnIO.getChildrenCount() != 1) {
+                return Optional.empty();
+            }
+            return constructField(
+                    ((ArrayType) arrayType).getElementType(),
+                    getArrayElementColumn(groupColumnIO.getChild(0)));
+        }
+
+        @Override
+        protected Optional<Field> getMapKeyField(Type mapType, GroupColumnIO groupColumnIO)
+        {
+            GroupColumnIO keyValueColumnIO = getMapKeyValueColumn(groupColumnIO);
+            if (keyValueColumnIO.getChildrenCount() != 2) {
+                return Optional.empty();
+            }
+            return constructField(
+                    ((MapType) mapType).getKeyType(),
+                    keyValueColumnIO.getChild(0));
+        }
+
+        @Override
+        protected Optional<Field> getMapValueField(Type mapType, GroupColumnIO groupColumnIO)
+        {
+            GroupColumnIO keyValueColumnIO = getMapKeyValueColumn(groupColumnIO);
+            if (keyValueColumnIO.getChildrenCount() != 2) {
+                return Optional.empty();
+            }
+            return constructField(
+                    ((MapType) mapType).getValueType(),
+                    keyValueColumnIO.getChild(1));
+        }
+
+        @Override
+        protected Optional<Field> getRowFieldField(Type rowType, GroupColumnIO groupColumnIO, int rowFieldIndex)
+        {
+            RowType.Field rowField = ((RowType) rowType).getFields().get(rowFieldIndex);
+            String name = rowField.getName().orElseThrow();
+            return Optional.ofNullable(lookupColumnByName(groupColumnIO, name.toLowerCase(ENGLISH)))
+                    .flatMap(columnIO -> constructField(rowField.getType(), columnIO));
+        }
     }
 }

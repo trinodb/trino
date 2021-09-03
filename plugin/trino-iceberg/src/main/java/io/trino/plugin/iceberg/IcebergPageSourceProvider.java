@@ -44,6 +44,7 @@ import io.trino.plugin.hive.orc.OrcPageSource;
 import io.trino.plugin.hive.orc.OrcPageSource.ColumnAdaptation;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.parquet.HdfsParquetDataSource;
+import io.trino.plugin.hive.parquet.ParquetColumnIOConverter;
 import io.trino.plugin.hive.parquet.ParquetPageSource;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.spi.TrinoException;
@@ -96,7 +97,6 @@ import static io.trino.parquet.ParquetTypeUtils.getDescriptors;
 import static io.trino.parquet.ParquetTypeUtils.getParquetTypeByName;
 import static io.trino.parquet.predicate.PredicateUtils.buildPredicate;
 import static io.trino.parquet.predicate.PredicateUtils.predicateMatches;
-import static io.trino.plugin.hive.parquet.ParquetColumnIOConverter.constructField;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CANNOT_OPEN_SPLIT;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CURSOR_ERROR;
@@ -504,7 +504,9 @@ public class IcebergPageSourceProvider
                     internalFields.add(Optional.empty());
                 }
                 else {
-                    internalFields.add(constructField(column.getType(), messageColumnIO.getChild(parquetField.getName())));
+                    internalFields.add(ParquetColumnIOConverter.withLookupColumnByName().constructField(
+                            column.getType(),
+                            Optional.ofNullable(messageColumnIO.getChild(parquetField.getName()))));
                 }
             }
 

@@ -92,7 +92,6 @@ import static io.trino.plugin.hive.HiveSessionProperties.getParquetMaxReadBlockS
 import static io.trino.plugin.hive.HiveSessionProperties.isParquetIgnoreStatistics;
 import static io.trino.plugin.hive.HiveSessionProperties.isParquetUseColumnIndex;
 import static io.trino.plugin.hive.HiveSessionProperties.isUseParquetColumnNames;
-import static io.trino.plugin.hive.parquet.ParquetColumnIOConverter.constructField;
 import static io.trino.plugin.hive.util.HiveUtil.getDeserializerClassName;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.String.format;
@@ -311,7 +310,9 @@ public class ParquetPageSourceFactory
                 internalFields.add(Optional.ofNullable(getParquetType(column, fileSchema, useColumnNames))
                         .flatMap(field -> {
                             String columnName = useColumnNames ? column.getBaseColumnName() : fileSchema.getFields().get(column.getBaseHiveColumnIndex()).getName();
-                            return constructField(column.getBaseType(), lookupColumnByName(messageColumn, columnName));
+                            return ParquetColumnIOConverter.withLookupColumnByName().constructField(
+                                    column.getBaseType(),
+                                    Optional.ofNullable(lookupColumnByName(messageColumn, columnName)));
                         }));
             }
         }
