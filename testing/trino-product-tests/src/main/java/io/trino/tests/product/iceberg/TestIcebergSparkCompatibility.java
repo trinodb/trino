@@ -562,48 +562,24 @@ public class TestIcebergSparkCompatibility
                         row("a_struct", "row(renamed bigint, keep bigint, CaseSensitive bigint, drop_and_add bigint, added bigint)"),
                         row("a_partition", "bigint"));
 
-        if (storageFormat == StorageFormat.PARQUET) {
-            // TODO (https://github.com/trinodb/trino/issues/8750) the results should be the same for all storage formats
-
-            // TODO support Row (JAVA_OBJECT) in Tempto and switch to QueryAssert
-            Assertions.assertThat(onTrino().executeQuery(format("SELECT quite_renamed_col, keep_col, drop_and_add_col, add_col, casesensitivecol, a_struct, a_partition FROM %s", trinoTableName)).rows())
-                    .containsOnly(asList(
-                            2L, // quite_renamed_col
-                            3L, // keep_col
-                            null, // drop_and_add_col; dropping and re-adding changes id
-                            null, // add_col
-                            5L, // CaseSensitiveCol
-                            rowBuilder()
-                                    // Rename does not change id
-                                    .addField("renamed", null)
-                                    .addField("keep", 12L)
-                                    .addField("CaseSensitive", 14L)
-                                    // Dropping and re-adding changes id, so TODO it should be null
-                                    .addField("drop_and_add", 13L)
-                                    .addField("added", null)
-                                    .build(),
-                            1001L));
-        }
-        else {
-            // TODO support Row (JAVA_OBJECT) in Tempto and switch to QueryAssert
-            Assertions.assertThat(onTrino().executeQuery(format("SELECT quite_renamed_col, keep_col, drop_and_add_col, add_col, casesensitivecol, a_struct, a_partition FROM %s", trinoTableName)).rows())
-                    .containsOnly(asList(
-                            2L, // quite_renamed_col
-                            3L, // keep_col
-                            null, // drop_and_add_col; dropping and re-adding changes id
-                            null, // add_col
-                            5L, // CaseSensitiveCol
-                            rowBuilder()
-                                    // Rename does not change id
-                                    .addField("renamed", 11L)
-                                    .addField("keep", 12L)
-                                    .addField("CaseSensitive", 14L)
-                                    // Dropping and re-adding changes id
-                                    .addField("drop_and_add", null)
-                                    .addField("added", null)
-                                    .build(),
-                            1001L));
-        }
+        // TODO support Row (JAVA_OBJECT) in Tempto and switch to QueryAssert
+        Assertions.assertThat(onTrino().executeQuery(format("SELECT quite_renamed_col, keep_col, drop_and_add_col, add_col, casesensitivecol, a_struct, a_partition FROM %s", trinoTableName)).rows())
+                .containsOnly(asList(
+                        2L, // quite_renamed_col
+                        3L, // keep_col
+                        null, // drop_and_add_col; dropping and re-adding changes id
+                        null, // add_col
+                        5L, // CaseSensitiveCol
+                        rowBuilder()
+                                // Rename does not change id
+                                .addField("renamed", 11L)
+                                .addField("keep", 12L)
+                                .addField("CaseSensitive", 14L)
+                                // Dropping and re-adding changes id
+                                .addField("drop_and_add", null)
+                                .addField("added", null)
+                                .build(),
+                        1001L));
 
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
