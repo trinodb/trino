@@ -59,6 +59,9 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.ConnectorIdentity;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import org.apache.hadoop.conf.Configuration;
@@ -72,6 +75,8 @@ import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.FileMetaData;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
+import org.apache.parquet.io.ColumnIO;
+import org.apache.parquet.io.GroupColumnIO;
 import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.schema.MessageType;
 
@@ -86,14 +91,19 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static io.trino.orc.OrcReader.ProjectedLayout.fullyProjectedLayout;
+import static io.trino.parquet.ParquetTypeUtils.getArrayElementColumn;
 import static io.trino.parquet.ParquetTypeUtils.getColumnIO;
 import static io.trino.parquet.ParquetTypeUtils.getDescriptors;
+import static io.trino.parquet.ParquetTypeUtils.getMapKeyValueColumn;
 import static io.trino.parquet.ParquetTypeUtils.getParquetTypeByName;
 import static io.trino.parquet.predicate.PredicateUtils.buildPredicate;
 import static io.trino.parquet.predicate.PredicateUtils.predicateMatches;
@@ -455,10 +465,12 @@ public class IcebergPageSourceProvider
                     .filter(field -> field.getId() != null)
                     .collect(toImmutableMap(field -> field.getId().intValue(), Function.identity()));
 
+            // Map by name for a migrated table
+            boolean mapByName = parquetIdToField.isEmpty();
+
             List<org.apache.parquet.schema.Type> parquetFields = regularColumns.stream()
                     .map(column -> {
-                        if (parquetIdToField.isEmpty()) {
-                            // This is a migrated table
+                        if (mapByName) {
                             return getParquetTypeByName(column.getName(), fileSchema);
                         }
                         return parquetIdToField.get(column.getId());
@@ -504,9 +516,11 @@ public class IcebergPageSourceProvider
                     internalFields.add(Optional.empty());
                 }
                 else {
-                    internalFields.add(ParquetColumnIOConverter.withLookupColumnByName().constructField(
-                            column.getType(),
-                            Optional.ofNullable(messageColumnIO.getChild(parquetField.getName()))));
+                    // The top level columns are already mapped by name/id appropriately.
+                    Optional<ColumnIO> columnIO = Optional.ofNullable(messageColumnIO.getChild(parquetField.getName()));
+                    internalFields.add(mapByName
+                            ? ParquetColumnIOConverter.withLookupColumnByName().constructField(trinoType, columnIO)
+                            : IcebergParquetColumnIOConverter.create().constructField(new FieldContext(trinoType, column.getColumnIdentity()), columnIO));
                 }
             }
 
@@ -565,5 +579,120 @@ public class IcebergPageSourceProvider
             return new TrinoException(ICEBERG_BAD_DATA, exception);
         }
         return new TrinoException(ICEBERG_CURSOR_ERROR, format("Failed to read ORC file: %s", dataSourceId), exception);
+    }
+
+    private static class IcebergParquetColumnIOConverter
+            extends ParquetColumnIOConverter<FieldContext>
+    {
+        static IcebergParquetColumnIOConverter create()
+        {
+            return new IcebergParquetColumnIOConverter();
+        }
+
+        @Override
+        protected Type getType(FieldContext context)
+        {
+            return context.getType();
+        }
+
+        @Override
+        protected Optional<Field> getArrayElementField(FieldContext arrayContext, GroupColumnIO groupColumnIO)
+        {
+            checkArgument(arrayContext.getColumnIdentity().getChildren().size() == 1, "Not an array: %s", arrayContext);
+
+            if (groupColumnIO.getChildrenCount() != 1) {
+                return Optional.empty();
+            }
+            return constructField(
+                    new FieldContext(
+                            ((ArrayType) arrayContext.getType()).getElementType(),
+                            getOnlyElement(arrayContext.getColumnIdentity().getChildren())),
+                    // TODO validate column ID
+                    getArrayElementColumn(groupColumnIO.getChild(0)));
+        }
+
+        @Override
+        protected Optional<Field> getMapKeyField(FieldContext mapContext, GroupColumnIO groupColumnIO)
+        {
+            checkArgument(mapContext.getColumnIdentity().getChildren().size() == 2, "Not a map: %s", mapContext);
+
+            GroupColumnIO keyValueColumnIO = getMapKeyValueColumn(groupColumnIO);
+            if (keyValueColumnIO.getChildrenCount() != 2) {
+                return Optional.empty();
+            }
+            return constructField(
+                    new FieldContext(
+                            ((MapType) mapContext.getType()).getKeyType(),
+                            mapContext.getColumnIdentity().getChildren().get(0)),
+                    // TODO validate column ID
+                    keyValueColumnIO.getChild(0));
+        }
+
+        @Override
+        protected Optional<Field> getMapValueField(FieldContext mapContext, GroupColumnIO groupColumnIO)
+        {
+            checkArgument(mapContext.getColumnIdentity().getChildren().size() == 2, "Not a map: %s", mapContext);
+
+            GroupColumnIO keyValueColumnIO = getMapKeyValueColumn(groupColumnIO);
+            if (keyValueColumnIO.getChildrenCount() != 2) {
+                return Optional.empty();
+            }
+            return constructField(
+                    new FieldContext(
+                            ((MapType) mapContext.getType()).getValueType(),
+                            mapContext.getColumnIdentity().getChildren().get(1)),
+                    // TODO validate column ID
+                    keyValueColumnIO.getChild(1));
+        }
+
+        @Override
+        protected Optional<Field> getRowFieldField(FieldContext rowContext, GroupColumnIO groupColumnIO, int rowFieldIndex)
+        {
+            checkArgument(rowFieldIndex < rowContext.getColumnIdentity().getChildren().size(), "Row field out of bounds, or not a row: %s, %s", rowFieldIndex, rowContext);
+
+            FieldContext rowFieldContext = new FieldContext(
+                    ((RowType) rowContext.getType()).getFields().get(rowFieldIndex).getType(),
+                    rowContext.getColumnIdentity().getChildren().get(rowFieldIndex));
+
+            int fieldId = rowFieldContext.getColumnIdentity().getId();
+            for (int i = 0; i < groupColumnIO.getChildrenCount(); i++) {
+                ColumnIO child = groupColumnIO.getChild(i);
+                if (child.getType().getId().intValue() == fieldId) {
+                    return constructField(rowFieldContext, child);
+                }
+            }
+            return Optional.empty();
+        }
+    }
+
+    private static class FieldContext
+    {
+        private final Type type;
+        private final ColumnIdentity columnIdentity;
+
+        public FieldContext(Type type, ColumnIdentity columnIdentity)
+        {
+            this.type = requireNonNull(type, "type is null");
+            this.columnIdentity = requireNonNull(columnIdentity, "columnIdentity is null");
+        }
+
+        public Type getType()
+        {
+            return type;
+        }
+
+        public ColumnIdentity getColumnIdentity()
+        {
+            return columnIdentity;
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("type", type)
+                    .add("columnIdentity", columnIdentity)
+                    .toString();
+        }
     }
 }
