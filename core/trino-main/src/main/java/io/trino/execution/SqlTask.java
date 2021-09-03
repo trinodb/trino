@@ -47,7 +47,6 @@ import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Executor;
@@ -414,7 +413,6 @@ public class SqlTask
             Optional<PlanFragment> fragment,
             List<TaskSource> sources,
             OutputBuffers outputBuffers,
-            OptionalInt totalPartitions,
             Map<DynamicFilterId, Domain> dynamicFilterDomains)
     {
         try {
@@ -441,8 +439,7 @@ public class SqlTask
                             outputBuffer,
                             fragment.get(),
                             sources,
-                            this::notifyStatusChanged,
-                            totalPartitions);
+                            this::notifyStatusChanged);
                     taskHolderReference.compareAndSet(taskHolder, new TaskHolder(taskExecution));
                     needsPlan.set(false);
                 }
