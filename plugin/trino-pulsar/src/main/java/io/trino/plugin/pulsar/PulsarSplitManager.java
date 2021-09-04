@@ -29,6 +29,7 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.IntegerType;
+import org.apache.bookkeeper.mledger.Entry;
 import org.apache.bookkeeper.mledger.ManagedLedgerConfig;
 import org.apache.bookkeeper.mledger.ManagedLedgerException;
 import org.apache.bookkeeper.mledger.ManagedLedgerFactory;
@@ -472,19 +473,28 @@ public class PulsarSplitManager
 
     private static PositionImpl findPosition(ReadOnlyCursor readOnlyCursor, long timestamp) throws ManagedLedgerException, InterruptedException
     {
-        return (PositionImpl) readOnlyCursor.findNewestMatching(SearchAllAvailableEntries,
-            entry -> {
+        return (PositionImpl) readOnlyCursor.findNewestMatching(SearchAllAvailableEntries, new org.apache.pulsar.shade.com.google.common.base.Predicate<Entry>() {
+            @Override
+            public boolean apply(Entry entry)
+            {
+                MessageImpl<byte[]> msg = null;
                 try {
-                    long entryTimestamp = MessageImpl.getEntryTimestamp(entry.getDataBuffer());
-                    return entryTimestamp <= timestamp;
+                    msg = MessageImpl.deserializeBrokerEntryMetaDataFirst(entry.getDataBuffer());
+                    return msg.getBrokerEntryMetadata() != null
+                            ? msg.getBrokerEntryMetadata().getBrokerTimestamp() <= timestamp
+                            : msg.getPublishTime() <= timestamp;
                 }
                 catch (Exception e) {
-                    log.error(e, "fail To deserialize message when finding position with error: %s", e);
+                    log.error(e, "Failed To deserialize message when finding position with error: %s", e);
                 }
                 finally {
                     entry.release();
+                    if (msg != null) {
+                        msg.recycle();
+                    }
                 }
                 return false;
-            });
+            }
+        });
     }
 }

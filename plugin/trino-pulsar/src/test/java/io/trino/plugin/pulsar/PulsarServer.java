@@ -326,7 +326,7 @@ public class PulsarServer
         public long custkey;
         public String orderstatus;
         public double totalprice;
-        @org.apache.avro.reflect.AvroSchema("{\"type\":\"int\",\"logicalType\":\"date\"}")
+        @org.apache.pulsar.shade.org.apache.avro.reflect.AvroSchema("{\"type\":\"int\",\"logicalType\":\"date\"}")
         @JsonSerialize(using = LocalDateSerializer.class)
         public LocalDate orderdate;
         public String orderpriority;
@@ -363,13 +363,13 @@ public class PulsarServer
         public double tax;
         public String returnflag;
         public String linestatus;
-        @org.apache.avro.reflect.AvroSchema("{ \"type\": \"int\", \"logicalType\": \"date\" }")
+        @org.apache.pulsar.shade.org.apache.avro.reflect.AvroSchema("{ \"type\": \"int\", \"logicalType\": \"date\" }")
         @JsonSerialize(using = LocalDateSerializer.class)
         public LocalDate shipdate;
-        @org.apache.avro.reflect.AvroSchema("{ \"type\": \"int\", \"logicalType\": \"date\" }")
+        @org.apache.pulsar.shade.org.apache.avro.reflect.AvroSchema("{ \"type\": \"int\", \"logicalType\": \"date\" }")
         @JsonSerialize(using = LocalDateSerializer.class)
         public LocalDate commitdate;
-        @org.apache.avro.reflect.AvroSchema("{ \"type\": \"int\", \"logicalType\": \"date\" }")
+        @org.apache.pulsar.shade.org.apache.avro.reflect.AvroSchema("{ \"type\": \"int\", \"logicalType\": \"date\" }")
         @JsonSerialize(using = LocalDateSerializer.class)
         public LocalDate receiptdate;
         public String shipinstruct;
