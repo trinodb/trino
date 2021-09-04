@@ -18,6 +18,8 @@ import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.RetryingConnectionFactory;
 import io.trino.plugin.jdbc.credential.StaticCredentialProvider;
+import net.jodah.failsafe.Failsafe;
+import net.jodah.failsafe.RetryPolicy;
 import oracle.jdbc.OracleDriver;
 import org.testcontainers.containers.OracleContainer;
 import org.testcontainers.utility.MountableFile;
@@ -35,6 +37,10 @@ public class TestingOracleServer
         extends OracleContainer
         implements Closeable
 {
+    private static final RetryPolicy<Object> RETRY_POLICY = new RetryPolicy<>()
+            .withMaxAttempts(3)
+            .handleIf(throwable -> throwable instanceof IllegalStateException);
+
     private static final String TEST_TABLESPACE = "trino_test";
 
     public static final String TEST_USER = "trino_test";
@@ -62,14 +68,8 @@ public class TestingOracleServer
             throw new RuntimeException(e);
         }
 
-        try {
-            execInContainer("/bin/bash", "/etc/init.d/oracle-xe", "restart");
-        }
-        catch (InterruptedException | IOException e) {
-            throw new RuntimeException(e);
-        }
+        Failsafe.with(RETRY_POLICY).run(this::restart);
 
-        waitUntilContainerStarted();
         try (Connection connection = getConnectionFactory().openConnection(SESSION);
                 Statement statement = connection.createStatement()) {
             statement.execute(format("CREATE TABLESPACE %s DATAFILE 'test_db.dat' SIZE 100M ONLINE", TEST_TABLESPACE));
@@ -80,6 +80,19 @@ public class TestingOracleServer
         catch (SQLException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private void restart()
+    {
+        try {
+            execInContainer("/bin/bash", "/etc/init.d/oracle-xe", "restart");
+        }
+        catch (InterruptedException | IOException e) {
+            throw new RuntimeException(e);
+        }
+
+        // This throws IllegalStateException when container is started but cannot communicate with JDBC driver
+        waitUntilContainerStarted();
     }
 
     @Override
