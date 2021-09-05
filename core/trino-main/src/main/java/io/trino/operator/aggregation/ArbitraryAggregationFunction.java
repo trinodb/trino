@@ -15,6 +15,7 @@ package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
+import io.trino.metadata.AggregationFunctionMetadata;
 import io.trino.metadata.FunctionArgumentDefinition;
 import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.FunctionMetadata;
@@ -29,9 +30,6 @@ import io.trino.operator.aggregation.state.GenericDoubleState;
 import io.trino.operator.aggregation.state.GenericDoubleStateSerializer;
 import io.trino.operator.aggregation.state.GenericLongState;
 import io.trino.operator.aggregation.state.GenericLongStateSerializer;
-import io.trino.operator.aggregation.state.NullableBooleanState;
-import io.trino.operator.aggregation.state.NullableDoubleState;
-import io.trino.operator.aggregation.state.NullableLongState;
 import io.trino.operator.aggregation.state.StateCompiler;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -92,25 +90,9 @@ public class ArbitraryAggregationFunction
                         true,
                         "Return an arbitrary non-null input value",
                         AGGREGATE),
-                true,
-                false);
-    }
-
-    @Override
-    public List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
-    {
-        Type type = functionBinding.getTypeVariable("T");
-        if (type.getJavaType() == long.class) {
-            return ImmutableList.of(StateCompiler.getSerializedType(NullableLongState.class).getTypeSignature());
-        }
-        if (type.getJavaType() == double.class) {
-            return ImmutableList.of(StateCompiler.getSerializedType(NullableDoubleState.class).getTypeSignature());
-        }
-        if (type.getJavaType() == boolean.class) {
-            return ImmutableList.of(StateCompiler.getSerializedType(NullableBooleanState.class).getTypeSignature());
-        }
-        // native container type is Slice or Block
-        return ImmutableList.of(new BlockPositionStateSerializer(type).getSerializedType().getTypeSignature());
+                new AggregationFunctionMetadata(
+                        false,
+                        new TypeSignature("T")));
     }
 
     @Override

@@ -15,6 +15,7 @@ package io.trino.operator.aggregation.minmaxby;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
+import io.trino.metadata.AggregationFunctionMetadata;
 import io.trino.metadata.FunctionArgumentDefinition;
 import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.FunctionDependencies;
@@ -56,6 +57,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.TypeSignature.arrayType;
 import static io.trino.util.Failures.checkCondition;
 import static io.trino.util.MinMaxCompare.getMinMaxCompare;
 import static io.trino.util.Reflection.methodHandle;
@@ -81,7 +83,7 @@ public abstract class AbstractMinMaxByNAggregationFunction
                                 name,
                                 ImmutableList.of(typeVariable("V"), orderableTypeParameter("K")),
                                 ImmutableList.of(),
-                                TypeSignature.arrayType(new TypeSignature("V")),
+                                arrayType(new TypeSignature("V")),
                                 ImmutableList.of(new TypeSignature("V"), new TypeSignature("K"), BIGINT.getTypeSignature()),
                                 false),
                         true,
@@ -93,18 +95,13 @@ public abstract class AbstractMinMaxByNAggregationFunction
                         true,
                         description,
                         AGGREGATE),
-                true,
-                false);
+                new AggregationFunctionMetadata(
+                        false,
+                        BIGINT.getTypeSignature(),
+                        arrayType(new TypeSignature("K")),
+                        arrayType(new TypeSignature("V"))));
         this.name = requireNonNull(name, "name is null");
         this.min = min;
-    }
-
-    @Override
-    public List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
-    {
-        Type keyType = functionBinding.getTypeVariable("K");
-        Type valueType = functionBinding.getTypeVariable("V");
-        return ImmutableList.of(TypedKeyValueHeap.getSerializedType(keyType, valueType).getTypeSignature());
     }
 
     @Override

@@ -2397,7 +2397,13 @@ public final class MetadataManager
     @Override
     public AggregationFunctionMetadata getAggregationFunctionMetadata(ResolvedFunction resolvedFunction)
     {
-        return functions.getAggregationFunctionMetadata(toFunctionBinding(resolvedFunction));
+        AggregationFunctionMetadata aggregationFunctionMetadata = functions.getAggregationFunctionMetadata(resolvedFunction.getFunctionId());
+        return new AggregationFunctionMetadata(
+                aggregationFunctionMetadata.isOrderSensitive(),
+                aggregationFunctionMetadata.getIntermediateType().map(typeSignature -> {
+                    FunctionBinding functionBinding = toFunctionBinding(resolvedFunction);
+                    return applyBoundVariables(typeSignature, functionBinding);
+                }));
     }
 
     @Override
