@@ -26,6 +26,12 @@ import io.trino.metadata.SqlAggregationFunction;
 import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
 import io.trino.operator.aggregation.state.BlockPositionState;
 import io.trino.operator.aggregation.state.BlockPositionStateSerializer;
+import io.trino.operator.aggregation.state.GenericBooleanState;
+import io.trino.operator.aggregation.state.GenericBooleanStateSerializer;
+import io.trino.operator.aggregation.state.GenericDoubleState;
+import io.trino.operator.aggregation.state.GenericDoubleStateSerializer;
+import io.trino.operator.aggregation.state.GenericLongState;
+import io.trino.operator.aggregation.state.GenericLongStateSerializer;
 import io.trino.operator.aggregation.state.NullableBooleanState;
 import io.trino.operator.aggregation.state.NullableDoubleState;
 import io.trino.operator.aggregation.state.NullableLongState;
@@ -64,19 +70,19 @@ import static io.trino.util.Reflection.methodHandle;
 public abstract class AbstractMinMaxAggregationFunction
         extends SqlAggregationFunction
 {
-    private static final MethodHandle LONG_INPUT_FUNCTION = methodHandle(AbstractMinMaxAggregationFunction.class, "input", MethodHandle.class, NullableLongState.class, long.class);
-    private static final MethodHandle DOUBLE_INPUT_FUNCTION = methodHandle(AbstractMinMaxAggregationFunction.class, "input", MethodHandle.class, NullableDoubleState.class, double.class);
-    private static final MethodHandle BOOLEAN_INPUT_FUNCTION = methodHandle(AbstractMinMaxAggregationFunction.class, "input", MethodHandle.class, NullableBooleanState.class, boolean.class);
+    private static final MethodHandle LONG_INPUT_FUNCTION = methodHandle(AbstractMinMaxAggregationFunction.class, "input", MethodHandle.class, GenericLongState.class, long.class);
+    private static final MethodHandle DOUBLE_INPUT_FUNCTION = methodHandle(AbstractMinMaxAggregationFunction.class, "input", MethodHandle.class, GenericDoubleState.class, double.class);
+    private static final MethodHandle BOOLEAN_INPUT_FUNCTION = methodHandle(AbstractMinMaxAggregationFunction.class, "input", MethodHandle.class, GenericBooleanState.class, boolean.class);
     private static final MethodHandle BLOCK_POSITION_INPUT_FUNCTION = methodHandle(AbstractMinMaxAggregationFunction.class, "input", MethodHandle.class, BlockPositionState.class, Block.class, int.class);
 
-    private static final MethodHandle LONG_OUTPUT_FUNCTION = methodHandle(NullableLongState.class, "write", Type.class, NullableLongState.class, BlockBuilder.class);
-    private static final MethodHandle DOUBLE_OUTPUT_FUNCTION = methodHandle(NullableDoubleState.class, "write", Type.class, NullableDoubleState.class, BlockBuilder.class);
-    private static final MethodHandle BOOLEAN_OUTPUT_FUNCTION = methodHandle(NullableBooleanState.class, "write", Type.class, NullableBooleanState.class, BlockBuilder.class);
+    private static final MethodHandle LONG_OUTPUT_FUNCTION = methodHandle(GenericLongState.class, "write", Type.class, GenericLongState.class, BlockBuilder.class);
+    private static final MethodHandle DOUBLE_OUTPUT_FUNCTION = methodHandle(GenericDoubleState.class, "write", Type.class, GenericDoubleState.class, BlockBuilder.class);
+    private static final MethodHandle BOOLEAN_OUTPUT_FUNCTION = methodHandle(GenericBooleanState.class, "write", Type.class, GenericBooleanState.class, BlockBuilder.class);
     private static final MethodHandle BLOCK_POSITION_OUTPUT_FUNCTION = methodHandle(BlockPositionState.class, "write", Type.class, BlockPositionState.class, BlockBuilder.class);
 
-    private static final MethodHandle LONG_COMBINE_FUNCTION = methodHandle(AbstractMinMaxAggregationFunction.class, "combine", MethodHandle.class, NullableLongState.class, NullableLongState.class);
-    private static final MethodHandle DOUBLE_COMBINE_FUNCTION = methodHandle(AbstractMinMaxAggregationFunction.class, "combine", MethodHandle.class, NullableDoubleState.class, NullableDoubleState.class);
-    private static final MethodHandle BOOLEAN_COMBINE_FUNCTION = methodHandle(AbstractMinMaxAggregationFunction.class, "combine", MethodHandle.class, NullableBooleanState.class, NullableBooleanState.class);
+    private static final MethodHandle LONG_COMBINE_FUNCTION = methodHandle(AbstractMinMaxAggregationFunction.class, "combine", MethodHandle.class, GenericLongState.class, GenericLongState.class);
+    private static final MethodHandle DOUBLE_COMBINE_FUNCTION = methodHandle(AbstractMinMaxAggregationFunction.class, "combine", MethodHandle.class, GenericDoubleState.class, GenericDoubleState.class);
+    private static final MethodHandle BOOLEAN_COMBINE_FUNCTION = methodHandle(AbstractMinMaxAggregationFunction.class, "combine", MethodHandle.class, GenericBooleanState.class, GenericBooleanState.class);
     private static final MethodHandle BLOCK_POSITION_COMBINE_FUNCTION = methodHandle(AbstractMinMaxAggregationFunction.class, "combine", MethodHandle.class, BlockPositionState.class, BlockPositionState.class);
 
     private final boolean min;
@@ -156,22 +162,22 @@ public abstract class AbstractMinMaxAggregationFunction
         AccumulatorStateSerializer<?> stateSerializer;
 
         if (type.getJavaType() == long.class) {
-            stateInterface = NullableLongState.class;
-            stateSerializer = StateCompiler.generateStateSerializer(stateInterface, classLoader);
+            stateInterface = GenericLongState.class;
+            stateSerializer = new GenericLongStateSerializer(type);
             inputFunction = LONG_INPUT_FUNCTION.bindTo(compareMethodHandle);
             combineFunction = LONG_COMBINE_FUNCTION.bindTo(compareMethodHandle);
             outputFunction = LONG_OUTPUT_FUNCTION.bindTo(type);
         }
         else if (type.getJavaType() == double.class) {
-            stateInterface = NullableDoubleState.class;
-            stateSerializer = StateCompiler.generateStateSerializer(stateInterface, classLoader);
+            stateInterface = GenericDoubleState.class;
+            stateSerializer = new GenericDoubleStateSerializer(type);
             inputFunction = DOUBLE_INPUT_FUNCTION.bindTo(compareMethodHandle);
             combineFunction = DOUBLE_COMBINE_FUNCTION.bindTo(compareMethodHandle);
             outputFunction = DOUBLE_OUTPUT_FUNCTION.bindTo(type);
         }
         else if (type.getJavaType() == boolean.class) {
-            stateInterface = NullableBooleanState.class;
-            stateSerializer = StateCompiler.generateStateSerializer(stateInterface, classLoader);
+            stateInterface = GenericBooleanState.class;
+            stateSerializer = new GenericBooleanStateSerializer(type);
             inputFunction = BOOLEAN_INPUT_FUNCTION.bindTo(compareMethodHandle);
             combineFunction = BOOLEAN_COMBINE_FUNCTION.bindTo(compareMethodHandle);
             outputFunction = BOOLEAN_OUTPUT_FUNCTION.bindTo(type);
@@ -222,19 +228,19 @@ public abstract class AbstractMinMaxAggregationFunction
     }
 
     @UsedByGeneratedCode
-    public static void input(MethodHandle methodHandle, NullableDoubleState state, double value)
+    public static void input(MethodHandle methodHandle, GenericDoubleState state, double value)
     {
         compareAndUpdateState(methodHandle, state, value);
     }
 
     @UsedByGeneratedCode
-    public static void input(MethodHandle methodHandle, NullableLongState state, long value)
+    public static void input(MethodHandle methodHandle, GenericLongState state, long value)
     {
         compareAndUpdateState(methodHandle, state, value);
     }
 
     @UsedByGeneratedCode
-    public static void input(MethodHandle methodHandle, NullableBooleanState state, boolean value)
+    public static void input(MethodHandle methodHandle, GenericBooleanState state, boolean value)
     {
         compareAndUpdateState(methodHandle, state, value);
     }
@@ -246,19 +252,19 @@ public abstract class AbstractMinMaxAggregationFunction
     }
 
     @UsedByGeneratedCode
-    public static void combine(MethodHandle methodHandle, NullableLongState state, NullableLongState otherState)
+    public static void combine(MethodHandle methodHandle, GenericLongState state, GenericLongState otherState)
     {
         compareAndUpdateState(methodHandle, state, otherState.getLong());
     }
 
     @UsedByGeneratedCode
-    public static void combine(MethodHandle methodHandle, NullableDoubleState state, NullableDoubleState otherState)
+    public static void combine(MethodHandle methodHandle, GenericDoubleState state, GenericDoubleState otherState)
     {
         compareAndUpdateState(methodHandle, state, otherState.getDouble());
     }
 
     @UsedByGeneratedCode
-    public static void combine(MethodHandle methodHandle, NullableBooleanState state, NullableBooleanState otherState)
+    public static void combine(MethodHandle methodHandle, GenericBooleanState state, GenericBooleanState otherState)
     {
         compareAndUpdateState(methodHandle, state, otherState.getBoolean());
     }
@@ -269,7 +275,7 @@ public abstract class AbstractMinMaxAggregationFunction
         compareAndUpdateState(methodHandle, state, otherState.getBlock(), otherState.getPosition());
     }
 
-    private static void compareAndUpdateState(MethodHandle methodHandle, NullableLongState state, long value)
+    private static void compareAndUpdateState(MethodHandle methodHandle, GenericLongState state, long value)
     {
         if (state.isNull()) {
             state.setNull(false);
@@ -286,7 +292,7 @@ public abstract class AbstractMinMaxAggregationFunction
         }
     }
 
-    private static void compareAndUpdateState(MethodHandle methodHandle, NullableDoubleState state, double value)
+    private static void compareAndUpdateState(MethodHandle methodHandle, GenericDoubleState state, double value)
     {
         if (state.isNull()) {
             state.setNull(false);
@@ -303,7 +309,7 @@ public abstract class AbstractMinMaxAggregationFunction
         }
     }
 
-    private static void compareAndUpdateState(MethodHandle methodHandle, NullableBooleanState state, boolean value)
+    private static void compareAndUpdateState(MethodHandle methodHandle, GenericBooleanState state, boolean value)
     {
         if (state.isNull()) {
             state.setNull(false);
