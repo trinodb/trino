@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.oracle;
 
+import io.airlift.log.Logger;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
@@ -37,6 +38,7 @@ public class TestingOracleServer
         extends OracleContainer
         implements Closeable
 {
+    private static final Logger log = Logger.get(TestingOracleServer.class);
     private static final RetryPolicy<Object> RETRY_POLICY = new RetryPolicy<>()
             .withMaxAttempts(3)
             .handleIf(throwable -> throwable instanceof IllegalStateException);
@@ -72,6 +74,7 @@ public class TestingOracleServer
 
         try (Connection connection = getConnectionFactory().openConnection(SESSION);
                 Statement statement = connection.createStatement()) {
+            log.info("Create tablespace");
             statement.execute(format("CREATE TABLESPACE %s DATAFILE 'test_db.dat' SIZE 100M ONLINE", TEST_TABLESPACE));
             statement.execute(format("CREATE USER %s IDENTIFIED BY %s DEFAULT TABLESPACE %s", TEST_USER, TEST_PASS, TEST_TABLESPACE));
             statement.execute(format("GRANT UNLIMITED TABLESPACE TO %s", TEST_USER));
