@@ -35,6 +35,8 @@ import io.trino.operator.aggregation.BigintApproximateMostFrequent;
 import io.trino.operator.aggregation.BitwiseAndAggregation;
 import io.trino.operator.aggregation.BitwiseOrAggregation;
 import io.trino.operator.aggregation.BooleanAndAggregation;
+import io.trino.operator.aggregation.BooleanApproximateCountDistinctAggregation;
+import io.trino.operator.aggregation.BooleanDefaultApproximateCountDistinctAggregation;
 import io.trino.operator.aggregation.BooleanOrAggregation;
 import io.trino.operator.aggregation.CentralMomentsAggregation;
 import io.trino.operator.aggregation.ChecksumAggregationFunction;
@@ -420,6 +422,8 @@ public class FunctionRegistry
                 .window(LeadFunction.class)
                 .aggregate(ApproximateCountDistinctAggregation.class)
                 .aggregate(DefaultApproximateCountDistinctAggregation.class)
+                .aggregate(BooleanApproximateCountDistinctAggregation.class)
+                .aggregate(BooleanDefaultApproximateCountDistinctAggregation.class)
                 .aggregate(SumDataSizeForStats.class)
                 .aggregate(MaxDataSizeForStats.class)
                 .aggregates(CountAggregation.class)
