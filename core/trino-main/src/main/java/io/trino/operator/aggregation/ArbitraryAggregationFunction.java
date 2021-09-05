@@ -23,6 +23,12 @@ import io.trino.metadata.SqlAggregationFunction;
 import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
 import io.trino.operator.aggregation.state.BlockPositionState;
 import io.trino.operator.aggregation.state.BlockPositionStateSerializer;
+import io.trino.operator.aggregation.state.GenericBooleanState;
+import io.trino.operator.aggregation.state.GenericBooleanStateSerializer;
+import io.trino.operator.aggregation.state.GenericDoubleState;
+import io.trino.operator.aggregation.state.GenericDoubleStateSerializer;
+import io.trino.operator.aggregation.state.GenericLongState;
+import io.trino.operator.aggregation.state.GenericLongStateSerializer;
 import io.trino.operator.aggregation.state.NullableBooleanState;
 import io.trino.operator.aggregation.state.NullableDoubleState;
 import io.trino.operator.aggregation.state.NullableLongState;
@@ -54,19 +60,19 @@ public class ArbitraryAggregationFunction
     public static final ArbitraryAggregationFunction ARBITRARY_AGGREGATION = new ArbitraryAggregationFunction();
     private static final String NAME = "arbitrary";
 
-    private static final MethodHandle LONG_INPUT_FUNCTION = methodHandle(ArbitraryAggregationFunction.class, "input", Type.class, NullableLongState.class, Block.class, int.class);
-    private static final MethodHandle DOUBLE_INPUT_FUNCTION = methodHandle(ArbitraryAggregationFunction.class, "input", Type.class, NullableDoubleState.class, Block.class, int.class);
-    private static final MethodHandle BOOLEAN_INPUT_FUNCTION = methodHandle(ArbitraryAggregationFunction.class, "input", Type.class, NullableBooleanState.class, Block.class, int.class);
+    private static final MethodHandle LONG_INPUT_FUNCTION = methodHandle(ArbitraryAggregationFunction.class, "input", Type.class, GenericLongState.class, Block.class, int.class);
+    private static final MethodHandle DOUBLE_INPUT_FUNCTION = methodHandle(ArbitraryAggregationFunction.class, "input", Type.class, GenericDoubleState.class, Block.class, int.class);
+    private static final MethodHandle BOOLEAN_INPUT_FUNCTION = methodHandle(ArbitraryAggregationFunction.class, "input", Type.class, GenericBooleanState.class, Block.class, int.class);
     private static final MethodHandle BLOCK_POSITION_INPUT_FUNCTION = methodHandle(ArbitraryAggregationFunction.class, "input", Type.class, BlockPositionState.class, Block.class, int.class);
 
-    private static final MethodHandle LONG_OUTPUT_FUNCTION = methodHandle(NullableLongState.class, "write", Type.class, NullableLongState.class, BlockBuilder.class);
-    private static final MethodHandle DOUBLE_OUTPUT_FUNCTION = methodHandle(NullableDoubleState.class, "write", Type.class, NullableDoubleState.class, BlockBuilder.class);
-    private static final MethodHandle BOOLEAN_OUTPUT_FUNCTION = methodHandle(NullableBooleanState.class, "write", Type.class, NullableBooleanState.class, BlockBuilder.class);
+    private static final MethodHandle LONG_OUTPUT_FUNCTION = methodHandle(GenericLongState.class, "write", Type.class, GenericLongState.class, BlockBuilder.class);
+    private static final MethodHandle DOUBLE_OUTPUT_FUNCTION = methodHandle(GenericDoubleState.class, "write", Type.class, GenericDoubleState.class, BlockBuilder.class);
+    private static final MethodHandle BOOLEAN_OUTPUT_FUNCTION = methodHandle(GenericBooleanState.class, "write", Type.class, GenericBooleanState.class, BlockBuilder.class);
     private static final MethodHandle BLOCK_POSITION_OUTPUT_FUNCTION = methodHandle(BlockPositionState.class, "write", Type.class, BlockPositionState.class, BlockBuilder.class);
 
-    private static final MethodHandle LONG_COMBINE_FUNCTION = methodHandle(ArbitraryAggregationFunction.class, "combine", NullableLongState.class, NullableLongState.class);
-    private static final MethodHandle DOUBLE_COMBINE_FUNCTION = methodHandle(ArbitraryAggregationFunction.class, "combine", NullableDoubleState.class, NullableDoubleState.class);
-    private static final MethodHandle BOOLEAN_COMBINE_FUNCTION = methodHandle(ArbitraryAggregationFunction.class, "combine", NullableBooleanState.class, NullableBooleanState.class);
+    private static final MethodHandle LONG_COMBINE_FUNCTION = methodHandle(ArbitraryAggregationFunction.class, "combine", GenericLongState.class, GenericLongState.class);
+    private static final MethodHandle DOUBLE_COMBINE_FUNCTION = methodHandle(ArbitraryAggregationFunction.class, "combine", GenericDoubleState.class, GenericDoubleState.class);
+    private static final MethodHandle BOOLEAN_COMBINE_FUNCTION = methodHandle(ArbitraryAggregationFunction.class, "combine", GenericBooleanState.class, GenericBooleanState.class);
     private static final MethodHandle BLOCK_POSITION_COMBINE_FUNCTION = methodHandle(ArbitraryAggregationFunction.class, "combine", BlockPositionState.class, BlockPositionState.class);
 
     protected ArbitraryAggregationFunction()
@@ -127,22 +133,22 @@ public class ArbitraryAggregationFunction
         AccumulatorStateSerializer<?> stateSerializer;
 
         if (type.getJavaType() == long.class) {
-            stateInterface = NullableLongState.class;
-            stateSerializer = StateCompiler.generateStateSerializer(stateInterface, classLoader);
+            stateInterface = GenericLongState.class;
+            stateSerializer = new GenericLongStateSerializer(type);
             inputFunction = LONG_INPUT_FUNCTION;
             combineFunction = LONG_COMBINE_FUNCTION;
             outputFunction = LONG_OUTPUT_FUNCTION;
         }
         else if (type.getJavaType() == double.class) {
-            stateInterface = NullableDoubleState.class;
-            stateSerializer = StateCompiler.generateStateSerializer(stateInterface, classLoader);
+            stateInterface = GenericDoubleState.class;
+            stateSerializer = new GenericDoubleStateSerializer(type);
             inputFunction = DOUBLE_INPUT_FUNCTION;
             combineFunction = DOUBLE_COMBINE_FUNCTION;
             outputFunction = DOUBLE_OUTPUT_FUNCTION;
         }
         else if (type.getJavaType() == boolean.class) {
-            stateInterface = NullableBooleanState.class;
-            stateSerializer = StateCompiler.generateStateSerializer(stateInterface, classLoader);
+            stateInterface = GenericBooleanState.class;
+            stateSerializer = new GenericBooleanStateSerializer(type);
             inputFunction = BOOLEAN_INPUT_FUNCTION;
             combineFunction = BOOLEAN_COMBINE_FUNCTION;
             outputFunction = BOOLEAN_OUTPUT_FUNCTION;
@@ -181,7 +187,7 @@ public class ArbitraryAggregationFunction
         return ImmutableList.of(new ParameterMetadata(STATE), new ParameterMetadata(BLOCK_INPUT_CHANNEL, value), new ParameterMetadata(BLOCK_INDEX));
     }
 
-    public static void input(Type type, NullableDoubleState state, Block block, int position)
+    public static void input(Type type, GenericDoubleState state, Block block, int position)
     {
         if (!state.isNull()) {
             return;
@@ -190,7 +196,7 @@ public class ArbitraryAggregationFunction
         state.setDouble(type.getDouble(block, position));
     }
 
-    public static void input(Type type, NullableLongState state, Block block, int position)
+    public static void input(Type type, GenericLongState state, Block block, int position)
     {
         if (!state.isNull()) {
             return;
@@ -199,7 +205,7 @@ public class ArbitraryAggregationFunction
         state.setLong(type.getLong(block, position));
     }
 
-    public static void input(Type type, NullableBooleanState state, Block block, int position)
+    public static void input(Type type, GenericBooleanState state, Block block, int position)
     {
         if (!state.isNull()) {
             return;
@@ -217,7 +223,7 @@ public class ArbitraryAggregationFunction
         state.setPosition(position);
     }
 
-    public static void combine(NullableLongState state, NullableLongState otherState)
+    public static void combine(GenericLongState state, GenericLongState otherState)
     {
         if (!state.isNull()) {
             return;
@@ -226,7 +232,7 @@ public class ArbitraryAggregationFunction
         state.setLong(otherState.getLong());
     }
 
-    public static void combine(NullableDoubleState state, NullableDoubleState otherState)
+    public static void combine(GenericDoubleState state, GenericDoubleState otherState)
     {
         if (!state.isNull()) {
             return;
@@ -235,7 +241,7 @@ public class ArbitraryAggregationFunction
         state.setDouble(otherState.getDouble());
     }
 
-    public static void combine(NullableBooleanState state, NullableBooleanState otherState)
+    public static void combine(GenericBooleanState state, GenericBooleanState otherState)
     {
         if (!state.isNull()) {
             return;
