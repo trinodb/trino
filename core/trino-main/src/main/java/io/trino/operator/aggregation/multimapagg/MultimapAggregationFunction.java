@@ -16,6 +16,7 @@ package io.trino.operator.aggregation.multimapagg;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.trino.array.ObjectBigArray;
+import io.trino.metadata.AggregationFunctionMetadata;
 import io.trino.metadata.FunctionArgumentDefinition;
 import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.FunctionMetadata;
@@ -105,17 +106,11 @@ public class MultimapAggregationFunction
                         true,
                         "Aggregates all the rows (key/value pairs) into a single multimap",
                         AGGREGATE),
-                true,
-                true);
+                new AggregationFunctionMetadata(
+                        true,
+                        new TypeSignature("V"),
+                        new TypeSignature("K")));
         this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
-    }
-
-    @Override
-    public List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
-    {
-        Type keyType = functionBinding.getTypeVariable("K");
-        Type valueType = functionBinding.getTypeVariable("V");
-        return ImmutableList.of(new MultimapAggregationStateSerializer(keyType, valueType).getSerializedType().getTypeSignature());
     }
 
     @Override

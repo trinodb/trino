@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.metadata.AggregationFunctionMetadata;
 import io.trino.metadata.FunctionArgumentDefinition;
 import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.FunctionMetadata;
@@ -55,6 +56,7 @@ import static io.trino.spi.StandardErrorCode.EXCEEDED_FUNCTION_MEMORY_LIMIT;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.TypeSignature.arrayType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.util.Reflection.methodHandle;
 import static java.lang.String.format;
@@ -98,14 +100,13 @@ public class ListaggAggregationFunction
                         true,
                         "concatenates the input values with the specified separator",
                         AGGREGATE),
-                true,
-                true);
-    }
-
-    @Override
-    public List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
-    {
-        return ImmutableList.of(new ListaggAggregationStateSerializer(VARCHAR).getSerializedType().getTypeSignature());
+                new AggregationFunctionMetadata(
+                        true,
+                        VARCHAR.getTypeSignature(),
+                        BOOLEAN.getTypeSignature(),
+                        VARCHAR.getTypeSignature(),
+                        BOOLEAN.getTypeSignature(),
+                        arrayType(VARCHAR.getTypeSignature())));
     }
 
     @Override

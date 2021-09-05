@@ -16,13 +16,13 @@ package io.trino.operator.aggregation;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.airlift.slice.Slice;
+import io.trino.metadata.AggregationFunctionMetadata;
 import io.trino.metadata.FunctionArgumentDefinition;
 import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlAggregationFunction;
 import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
-import io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateSerializer;
 import io.trino.operator.aggregation.state.LongDecimalWithOverflowState;
 import io.trino.operator.aggregation.state.LongDecimalWithOverflowStateFactory;
 import io.trino.operator.aggregation.state.LongDecimalWithOverflowStateSerializer;
@@ -55,6 +55,7 @@ import static io.trino.spi.type.TypeSignatureParameter.typeVariable;
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.throwIfOverflows;
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.throwOverflowException;
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.util.Reflection.methodHandle;
 
 public class DecimalSumAggregation
@@ -87,14 +88,9 @@ public class DecimalSumAggregation
                         true,
                         "Calculates the sum over the input values",
                         AGGREGATE),
-                true,
-                false);
-    }
-
-    @Override
-    public List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
-    {
-        return ImmutableList.of(new LongDecimalWithOverflowAndLongStateSerializer().getSerializedType().getTypeSignature());
+                new AggregationFunctionMetadata(
+                        false,
+                        VARBINARY.getTypeSignature()));
     }
 
     @Override
