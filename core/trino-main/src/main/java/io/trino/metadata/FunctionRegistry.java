@@ -54,6 +54,9 @@ import io.trino.operator.aggregation.IntervalDayToSecondAverageAggregation;
 import io.trino.operator.aggregation.IntervalDayToSecondSumAggregation;
 import io.trino.operator.aggregation.IntervalYearToMonthAverageAggregation;
 import io.trino.operator.aggregation.IntervalYearToMonthSumAggregation;
+import io.trino.operator.aggregation.LegacyApproximateDoublePercentileAggregations;
+import io.trino.operator.aggregation.LegacyApproximateLongPercentileAggregations;
+import io.trino.operator.aggregation.LegacyApproximateRealPercentileAggregations;
 import io.trino.operator.aggregation.LongSumAggregation;
 import io.trino.operator.aggregation.MapAggregationFunction;
 import io.trino.operator.aggregation.MapUnionAggregation;
@@ -430,10 +433,13 @@ public class FunctionRegistry
                 .aggregates(VarianceAggregation.class)
                 .aggregates(CentralMomentsAggregation.class)
                 .aggregates(ApproximateLongPercentileAggregations.class)
+                .aggregates(LegacyApproximateLongPercentileAggregations.class)
                 .aggregates(ApproximateLongPercentileArrayAggregations.class)
                 .aggregates(ApproximateDoublePercentileAggregations.class)
+                .aggregates(LegacyApproximateDoublePercentileAggregations.class)
                 .aggregates(ApproximateDoublePercentileArrayAggregations.class)
                 .aggregates(ApproximateRealPercentileAggregations.class)
+                .aggregates(LegacyApproximateRealPercentileAggregations.class)
                 .aggregates(ApproximateRealPercentileArrayAggregations.class)
                 .aggregates(CountIfAggregation.class)
                 .aggregates(BooleanAndAggregation.class)
