@@ -707,7 +707,7 @@ final class ShowQueriesRewrite
             List<Expression> rows = metadata.listFunctions().stream()
                     .filter(function -> !function.isHidden())
                     .map(function -> row(
-                            new StringLiteral(function.getActualName()),
+                            new StringLiteral(function.getSignature().getName()),
                             new StringLiteral(function.getSignature().getReturnType().toString()),
                             new StringLiteral(Joiner.on(", ").join(function.getSignature().getArgumentTypes())),
                             new StringLiteral(getFunctionType(function)),

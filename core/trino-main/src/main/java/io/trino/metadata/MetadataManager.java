@@ -2384,7 +2384,7 @@ public final class MetadataManager
         return new FunctionMetadata(
                 functionMetadata.getFunctionId(),
                 resolvedFunction.getSignature().toSignature(),
-                functionMetadata.getActualName(),
+                functionMetadata.getCanonicalName(),
                 functionMetadata.isNullable(),
                 argumentDefinitions,
                 functionMetadata.isHidden(),
