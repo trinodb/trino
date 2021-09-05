@@ -15,6 +15,7 @@ package io.trino.operator.aggregation;
 
 import java.util.Optional;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class AggregationHeader
@@ -64,5 +65,17 @@ public class AggregationHeader
     public boolean isHidden()
     {
         return hidden;
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("name", name)
+                .add("description", description)
+                .add("decomposable", decomposable)
+                .add("orderSensitive", orderSensitive)
+                .add("hidden", hidden)
+                .toString();
     }
 }

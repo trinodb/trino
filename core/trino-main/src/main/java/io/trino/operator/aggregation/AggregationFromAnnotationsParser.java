@@ -41,6 +41,7 @@ import java.util.stream.Stream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.operator.ParametricFunctionHelpers.signatureWithName;
 import static io.trino.operator.aggregation.AggregationImplementation.Parser.parseImplementation;
 import static io.trino.operator.annotations.FunctionsParserHelper.parseDescription;
 import static java.lang.String.format;
@@ -83,7 +84,7 @@ public final class AggregationFromAnnotationsParser
                     for (AggregationHeader header : parseHeaders(aggregationDefinition, outputFunction)) {
                         AggregationImplementation onlyImplementation = parseImplementation(aggregationDefinition, header, stateClass, inputFunction, removeInputFunction, outputFunction, combineFunction);
                         ParametricImplementationsGroup<AggregationImplementation> implementations = ParametricImplementationsGroup.of(onlyImplementation);
-                        builder.add(new ParametricAggregation(implementations.getSignature(), header, implementations, deprecated));
+                        builder.add(new ParametricAggregation(signatureWithName(header.getName(), implementations.getSignature()), header, implementations, deprecated));
                     }
                 }
             }
@@ -109,7 +110,7 @@ public final class AggregationFromAnnotationsParser
         }
 
         ParametricImplementationsGroup<AggregationImplementation> implementations = implementationsBuilder.build();
-        return new ParametricAggregation(implementations.getSignature(), header, implementations, deprecated);
+        return new ParametricAggregation(signatureWithName(header.getName(), implementations.getSignature()), header, implementations, deprecated);
     }
 
     private static AggregationHeader parseHeader(AnnotatedElement aggregationDefinition)

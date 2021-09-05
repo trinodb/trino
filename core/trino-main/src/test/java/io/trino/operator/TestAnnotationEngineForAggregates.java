@@ -69,6 +69,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.metadata.Signature.typeVariable;
@@ -1215,16 +1216,26 @@ public class TestAnnotationEngineForAggregates
         assertEquals(
                 aggregationOutputFunctions.stream()
                         .map(aggregateFunction -> aggregateFunction.getFunctionMetadata().getSignature().getName())
-                        .collect(toImmutableList()),
-                ImmutableList.of("aggregation_output", "aggregation_output", "aggregation_output"));
+                        .collect(toImmutableSet()),
+                ImmutableSet.of("aggregation_output", "aggregation_output_alias_1", "aggregation_output_alias_2"));
+        assertEquals(
+                aggregationOutputFunctions.stream()
+                        .map(aggregateFunction -> aggregateFunction.getFunctionMetadata().getCanonicalName())
+                        .collect(toImmutableSet()),
+                ImmutableSet.of("aggregation_output"));
 
         List<ParametricAggregation> aggregationFunctions = parseFunctionDefinitions(AggregationFunctionWithAlias.class);
         assertEquals(aggregationFunctions.size(), 3);
         assertEquals(
                 aggregationFunctions.stream()
                         .map(aggregateFunction -> aggregateFunction.getFunctionMetadata().getSignature().getName())
-                        .collect(toImmutableList()),
-                ImmutableList.of("aggregation", "aggregation", "aggregation"));
+                        .collect(toImmutableSet()),
+                ImmutableSet.of("aggregation", "aggregation_alias_1", "aggregation_alias_2"));
+        assertEquals(
+                aggregationFunctions.stream()
+                        .map(aggregateFunction -> aggregateFunction.getFunctionMetadata().getCanonicalName())
+                        .collect(toImmutableSet()),
+                ImmutableSet.of("aggregation"));
     }
 
     private static InternalAggregationFunction specializeAggregationFunction(BoundSignature boundSignature, SqlAggregationFunction aggregation)

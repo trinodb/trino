@@ -15,6 +15,7 @@ package io.trino.operator;
 
 import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.FunctionDependencies;
+import io.trino.metadata.Signature;
 import io.trino.operator.annotations.ImplementationDependency;
 
 import java.lang.invoke.MethodHandle;
@@ -25,11 +26,25 @@ public final class ParametricFunctionHelpers
 {
     private ParametricFunctionHelpers() {}
 
-    public static MethodHandle bindDependencies(MethodHandle handle, List<ImplementationDependency> dependencies, FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    public static MethodHandle bindDependencies(MethodHandle handle,
+            List<ImplementationDependency> dependencies,
+            FunctionBinding functionBinding,
+            FunctionDependencies functionDependencies)
     {
         for (ImplementationDependency dependency : dependencies) {
             handle = MethodHandles.insertArguments(handle, 0, dependency.resolve(functionBinding, functionDependencies));
         }
         return handle;
+    }
+
+    public static Signature signatureWithName(String name, Signature signature)
+    {
+        return new Signature(
+                name,
+                signature.getTypeVariableConstraints(),
+                signature.getLongVariableConstraints(),
+                signature.getReturnType(),
+                signature.getArgumentTypes(),
+                signature.isVariableArity());
     }
 }
