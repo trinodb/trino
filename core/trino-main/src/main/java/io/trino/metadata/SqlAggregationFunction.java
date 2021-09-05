@@ -35,17 +35,9 @@ public abstract class SqlAggregationFunction
     private final boolean orderSensitive;
     private final boolean decomposable;
 
-    public static List<SqlAggregationFunction> createFunctionByAnnotations(Class<?> aggregationDefinition)
-    {
-        return ImmutableList.of(AggregationFromAnnotationsParser.parseFunctionDefinition(aggregationDefinition));
-    }
-
     public static List<SqlAggregationFunction> createFunctionsByAnnotations(Class<?> aggregationDefinition)
     {
-        return AggregationFromAnnotationsParser.parseFunctionDefinitions(aggregationDefinition)
-                .stream()
-                .map(SqlAggregationFunction.class::cast)
-                .collect(toImmutableList());
+        return ImmutableList.copyOf(AggregationFromAnnotationsParser.parseFunctionDefinitions(aggregationDefinition));
     }
 
     protected SqlAggregationFunction(FunctionMetadata functionMetadata, boolean decomposable, boolean orderSensitive)
