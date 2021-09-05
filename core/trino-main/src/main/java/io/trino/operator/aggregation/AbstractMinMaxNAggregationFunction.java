@@ -15,6 +15,7 @@ package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
+import io.trino.metadata.AggregationFunctionMetadata;
 import io.trino.metadata.FunctionArgumentDefinition;
 import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.FunctionDependencies;
@@ -30,7 +31,6 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.util.MinMaxCompare;
@@ -87,16 +87,11 @@ public abstract class AbstractMinMaxNAggregationFunction
                         true,
                         description,
                         AGGREGATE),
-                true,
-                false);
+                new AggregationFunctionMetadata(
+                        false,
+                        BIGINT.getTypeSignature(),
+                        TypeSignature.arrayType(new TypeSignature("E"))));
         this.min = min;
-    }
-
-    @Override
-    public List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
-    {
-        Type type = functionBinding.getTypeVariable("E");
-        return ImmutableList.of(RowType.anonymous(ImmutableList.of(BIGINT, type)).getTypeSignature());
     }
 
     @Override

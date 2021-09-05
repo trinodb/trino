@@ -16,6 +16,7 @@ package io.trino.operator.aggregation;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.airlift.stats.QuantileDigest;
+import io.trino.metadata.AggregationFunctionMetadata;
 import io.trino.metadata.FunctionArgumentDefinition;
 import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.FunctionMetadata;
@@ -46,6 +47,7 @@ import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadat
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static io.trino.operator.aggregation.AggregationUtils.generateAggregationName;
+import static io.trino.spi.type.StandardTypes.QDIGEST;
 import static io.trino.spi.type.TypeSignature.parametricType;
 import static io.trino.util.MoreMath.nearlyEqual;
 import static io.trino.util.Reflection.methodHandle;
@@ -78,15 +80,9 @@ public final class MergeQuantileDigestFunction
                         true,
                         "Merges the input quantile digests into a single quantile digest",
                         AGGREGATE),
-                true,
-                true);
-    }
-
-    @Override
-    public List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
-    {
-        Type valueType = functionBinding.getTypeVariable("T");
-        return ImmutableList.of(new QuantileDigestStateSerializer(valueType).getSerializedType().getTypeSignature());
+                new AggregationFunctionMetadata(
+                        true,
+                        parametricType(QDIGEST, new TypeSignature("T"))));
     }
 
     @Override

@@ -16,6 +16,7 @@ package io.trino.operator.aggregation;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
+import io.trino.metadata.AggregationFunctionMetadata;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.FunctionDependencies;
@@ -77,8 +78,9 @@ public class ParametricAggregation
                         details.getDescription().orElse(""),
                         AGGREGATE,
                         details.isDeprecated()),
-                details.isDecomposable(),
-                details.isOrderSensitive());
+                new AggregationFunctionMetadata(
+                        details.isOrderSensitive(),
+                        details.isDecomposable() ? Optional.of(getSerializedType(stateClass).getTypeSignature()) : Optional.empty()));
         this.stateClass = requireNonNull(stateClass, "stateClass is null");
         checkArgument(implementations.isNullable(), "currently aggregates are required to be nullable");
         this.implementations = requireNonNull(implementations, "implementations is null");
@@ -107,13 +109,6 @@ public class ParametricAggregation
                 dependency.declareDependencies(builder);
             }
         }
-    }
-
-    @Override
-    public List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
-    {
-        // Use state compiler to extract intermediate types
-        return ImmutableList.of(getSerializedType(stateClass).getTypeSignature());
     }
 
     @Override

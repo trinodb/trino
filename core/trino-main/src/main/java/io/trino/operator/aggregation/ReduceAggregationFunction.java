@@ -15,6 +15,7 @@ package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
+import io.trino.metadata.AggregationFunctionMetadata;
 import io.trino.metadata.FunctionArgumentDefinition;
 import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.FunctionMetadata;
@@ -92,14 +93,9 @@ public class ReduceAggregationFunction
                         true,
                         "Reduce input elements into a single value",
                         AGGREGATE),
-                true,
-                false);
-    }
-
-    @Override
-    public List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
-    {
-        return ImmutableList.of(functionBinding.getTypeVariable("S").getTypeSignature());
+                new AggregationFunctionMetadata(
+                        false,
+                        new TypeSignature("S")));
     }
 
     @Override
