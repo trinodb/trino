@@ -820,13 +820,13 @@ public class FunctionRegistry
         return functions.get(functionId).getFunctionMetadata();
     }
 
-    public AggregationFunctionMetadata getAggregationFunctionMetadata(FunctionBinding functionBinding)
+    public AggregationFunctionMetadata getAggregationFunctionMetadata(FunctionId functionId)
     {
-        SqlFunction function = functions.get(functionBinding.getFunctionId());
-        checkArgument(function instanceof SqlAggregationFunction, "%s is not an aggregation function", functionBinding.getBoundSignature());
+        SqlFunction function = functions.get(functionId);
+        checkArgument(function instanceof SqlAggregationFunction, "%s is not an aggregation function", function.getFunctionMetadata().getSignature());
 
         SqlAggregationFunction aggregationFunction = (SqlAggregationFunction) function;
-        return aggregationFunction.getAggregationMetadata(functionBinding);
+        return aggregationFunction.getAggregationMetadata();
     }
 
     public WindowFunctionSupplier getWindowFunctionImplementation(FunctionBinding functionBinding, FunctionDependencies functionDependencies)

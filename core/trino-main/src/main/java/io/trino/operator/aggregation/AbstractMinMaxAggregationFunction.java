@@ -16,6 +16,7 @@ package io.trino.operator.aggregation;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.trino.annotation.UsedByGeneratedCode;
+import io.trino.metadata.AggregationFunctionMetadata;
 import io.trino.metadata.FunctionArgumentDefinition;
 import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.FunctionDependencies;
@@ -32,9 +33,6 @@ import io.trino.operator.aggregation.state.GenericDoubleState;
 import io.trino.operator.aggregation.state.GenericDoubleStateSerializer;
 import io.trino.operator.aggregation.state.GenericLongState;
 import io.trino.operator.aggregation.state.GenericLongStateSerializer;
-import io.trino.operator.aggregation.state.NullableBooleanState;
-import io.trino.operator.aggregation.state.NullableDoubleState;
-import io.trino.operator.aggregation.state.NullableLongState;
 import io.trino.operator.aggregation.state.StateCompiler;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -104,8 +102,9 @@ public abstract class AbstractMinMaxAggregationFunction
                         true,
                         description,
                         AGGREGATE),
-                true,
-                false);
+                new AggregationFunctionMetadata(
+                        false,
+                        new TypeSignature("E")));
         this.min = min;
     }
 
@@ -113,23 +112,6 @@ public abstract class AbstractMinMaxAggregationFunction
     public FunctionDependencyDeclaration getFunctionDependencies()
     {
         return getMinMaxCompareFunctionDependencies(new TypeSignature("E"), min);
-    }
-
-    @Override
-    public List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
-    {
-        Type type = functionBinding.getTypeVariable("E");
-        if (type.getJavaType() == long.class) {
-            return ImmutableList.of(StateCompiler.getSerializedType(NullableLongState.class).getTypeSignature());
-        }
-        if (type.getJavaType() == double.class) {
-            return ImmutableList.of(StateCompiler.getSerializedType(NullableDoubleState.class).getTypeSignature());
-        }
-        if (type.getJavaType() == boolean.class) {
-            return ImmutableList.of(StateCompiler.getSerializedType(NullableBooleanState.class).getTypeSignature());
-        }
-        // native container type is Slice or Block
-        return ImmutableList.of(new BlockPositionStateSerializer(type).getSerializedType().getTypeSignature());
     }
 
     @Override

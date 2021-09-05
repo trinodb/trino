@@ -142,7 +142,7 @@ public class TestAnnotationEngineForAggregates
                 new BoundSignature(expectedSignature.getName(), DoubleType.DOUBLE, ImmutableList.of(DoubleType.DOUBLE)),
                 ImmutableMap.of(),
                 ImmutableMap.of());
-        AggregationFunctionMetadata aggregationMetadata = aggregation.getAggregationMetadata(functionBinding);
+        AggregationFunctionMetadata aggregationMetadata = aggregation.getAggregationMetadata();
         assertFalse(aggregationMetadata.isOrderSensitive());
         assertTrue(aggregationMetadata.getIntermediateType().isPresent());
         InternalAggregationFunction specialized = aggregation.specialize(functionBinding, NO_FUNCTION_DEPENDENCIES);
@@ -227,7 +227,7 @@ public class TestAnnotationEngineForAggregates
                 new BoundSignature(aggregation.getFunctionMetadata().getSignature().getName(), DoubleType.DOUBLE, ImmutableList.of(DoubleType.DOUBLE)),
                 ImmutableMap.of(),
                 ImmutableMap.of());
-        AggregationFunctionMetadata aggregationMetadata = aggregation.getAggregationMetadata(functionBinding);
+        AggregationFunctionMetadata aggregationMetadata = aggregation.getAggregationMetadata();
         assertFalse(aggregationMetadata.isOrderSensitive());
         assertTrue(aggregationMetadata.getIntermediateType().isPresent());
         InternalAggregationFunction specialized = aggregation.specialize(functionBinding, NO_FUNCTION_DEPENDENCIES);
@@ -282,7 +282,7 @@ public class TestAnnotationEngineForAggregates
                 new BoundSignature(aggregation.getFunctionMetadata().getSignature().getName(), DoubleType.DOUBLE, ImmutableList.of(DoubleType.DOUBLE)),
                 ImmutableMap.of(),
                 ImmutableMap.of());
-        AggregationFunctionMetadata aggregationMetadata = aggregation.getAggregationMetadata(functionBinding);
+        AggregationFunctionMetadata aggregationMetadata = aggregation.getAggregationMetadata();
         assertFalse(aggregationMetadata.isOrderSensitive());
         assertFalse(aggregationMetadata.getIntermediateType().isPresent());
         InternalAggregationFunction specialized = aggregation.specialize(functionBinding, NO_FUNCTION_DEPENDENCIES);
@@ -371,7 +371,7 @@ public class TestAnnotationEngineForAggregates
                 new BoundSignature(aggregation.getFunctionMetadata().getSignature().getName(), DoubleType.DOUBLE, ImmutableList.of(DoubleType.DOUBLE)),
                 ImmutableMap.of("T", DoubleType.DOUBLE),
                 ImmutableMap.of());
-        AggregationFunctionMetadata aggregationMetadata = aggregation.getAggregationMetadata(functionBinding);
+        AggregationFunctionMetadata aggregationMetadata = aggregation.getAggregationMetadata();
         assertFalse(aggregationMetadata.isOrderSensitive());
         assertTrue(aggregationMetadata.getIntermediateType().isPresent());
         InternalAggregationFunction specialized = aggregation.specialize(functionBinding, NO_FUNCTION_DEPENDENCIES);
@@ -436,7 +436,7 @@ public class TestAnnotationEngineForAggregates
                 new BoundSignature(aggregation.getFunctionMetadata().getSignature().getName(), DoubleType.DOUBLE, ImmutableList.of(DoubleType.DOUBLE)),
                 ImmutableMap.of(),
                 ImmutableMap.of());
-        AggregationFunctionMetadata aggregationMetadata = aggregation.getAggregationMetadata(functionBinding);
+        AggregationFunctionMetadata aggregationMetadata = aggregation.getAggregationMetadata();
         assertFalse(aggregationMetadata.isOrderSensitive());
         assertTrue(aggregationMetadata.getIntermediateType().isPresent());
         InternalAggregationFunction specialized = aggregation.specialize(functionBinding, NO_FUNCTION_DEPENDENCIES);
@@ -533,7 +533,7 @@ public class TestAnnotationEngineForAggregates
                 new BoundSignature(aggregation.getFunctionMetadata().getSignature().getName(), DoubleType.DOUBLE, ImmutableList.of(new ArrayType(DoubleType.DOUBLE))),
                 ImmutableMap.of("T", DoubleType.DOUBLE),
                 ImmutableMap.of());
-        AggregationFunctionMetadata aggregationMetadata = aggregation.getAggregationMetadata(functionBinding);
+        AggregationFunctionMetadata aggregationMetadata = aggregation.getAggregationMetadata();
         assertFalse(aggregationMetadata.isOrderSensitive());
         assertTrue(aggregationMetadata.getIntermediateType().isPresent());
         InternalAggregationFunction specialized = aggregation.specialize(functionBinding, NO_FUNCTION_DEPENDENCIES);
@@ -630,7 +630,7 @@ public class TestAnnotationEngineForAggregates
                 new BoundSignature(aggregation.getFunctionMetadata().getSignature().getName(), DoubleType.DOUBLE, ImmutableList.of(new ArrayType(DoubleType.DOUBLE))),
                 ImmutableMap.of("T", DoubleType.DOUBLE),
                 ImmutableMap.of());
-        AggregationFunctionMetadata aggregationMetadata = aggregation.getAggregationMetadata(functionBinding);
+        AggregationFunctionMetadata aggregationMetadata = aggregation.getAggregationMetadata();
         assertFalse(aggregationMetadata.isOrderSensitive());
         assertTrue(aggregationMetadata.getIntermediateType().isPresent());
         InternalAggregationFunction specialized = aggregation.specialize(functionBinding, NO_FUNCTION_DEPENDENCIES);
@@ -721,7 +721,7 @@ public class TestAnnotationEngineForAggregates
                 new BoundSignature(aggregation1.getFunctionMetadata().getSignature().getName(), DoubleType.DOUBLE, ImmutableList.of(DoubleType.DOUBLE)),
                 ImmutableMap.of(),
                 ImmutableMap.of());
-        AggregationFunctionMetadata aggregationMetadata = aggregation1.getAggregationMetadata(functionBinding);
+        AggregationFunctionMetadata aggregationMetadata = aggregation1.getAggregationMetadata();
         assertFalse(aggregationMetadata.isOrderSensitive());
         assertTrue(aggregationMetadata.getIntermediateType().isPresent());
         InternalAggregationFunction specialized = aggregation1.specialize(functionBinding, NO_FUNCTION_DEPENDENCIES);
@@ -939,7 +939,7 @@ public class TestAnnotationEngineForAggregates
                 new BoundSignature(aggregation.getFunctionMetadata().getSignature().getName(), createVarcharType(17), ImmutableList.of(createVarcharType(17))),
                 ImmutableMap.of(),
                 ImmutableMap.of("x", 17L));
-        AggregationFunctionMetadata aggregationMetadata = aggregation.getAggregationMetadata(functionBinding);
+        AggregationFunctionMetadata aggregationMetadata = aggregation.getAggregationMetadata();
         assertFalse(aggregationMetadata.isOrderSensitive());
         assertTrue(aggregationMetadata.getIntermediateType().isPresent());
         InternalAggregationFunction specialized = aggregation.specialize(functionBinding, NO_FUNCTION_DEPENDENCIES);
@@ -1015,7 +1015,7 @@ public class TestAnnotationEngineForAggregates
                         .put("y", 13L)
                         .put("z", 30L)
                         .build());
-        AggregationFunctionMetadata aggregationMetadata = aggregation.getAggregationMetadata(functionBinding);
+        AggregationFunctionMetadata aggregationMetadata = aggregation.getAggregationMetadata();
         assertFalse(aggregationMetadata.isOrderSensitive());
         assertTrue(aggregationMetadata.getIntermediateType().isPresent());
         InternalAggregationFunction specialized = aggregation.specialize(functionBinding, NO_FUNCTION_DEPENDENCIES);
@@ -1232,7 +1232,7 @@ public class TestAnnotationEngineForAggregates
         FunctionMetadata functionMetadata = aggregation.getFunctionMetadata();
         FunctionBinding functionBinding = MetadataManager.toFunctionBinding(functionMetadata.getFunctionId(), boundSignature, functionMetadata.getSignature());
 
-        AggregationFunctionMetadata aggregationMetadata = aggregation.getAggregationMetadata(functionBinding);
+        AggregationFunctionMetadata aggregationMetadata = aggregation.getAggregationMetadata();
         assertFalse(aggregationMetadata.isOrderSensitive());
         assertTrue(aggregationMetadata.getIntermediateType().isPresent());
 
