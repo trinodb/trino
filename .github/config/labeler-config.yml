@@ -1,0 +1,3 @@
+# Pull Request Labeler Github Action Configuration: https://github.com/marketplace/actions/labeler
+docs:
+  - docs/**/*
