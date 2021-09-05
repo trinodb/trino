@@ -135,7 +135,7 @@ public class PushAggregationIntoTableScan
 
         List<AggregateFunction> aggregateFunctions = aggregationsList.stream()
                 .map(Entry::getValue)
-                .map(aggregation -> toAggregateFunction(context, aggregation))
+                .map(aggregation -> toAggregateFunction(metadata, context, aggregation))
                 .collect(toImmutableList());
 
         List<Symbol> aggregationOutputSymbols = aggregationsList.stream()
@@ -214,8 +214,9 @@ public class PushAggregationIntoTableScan
                         assignmentBuilder.build()));
     }
 
-    private static AggregateFunction toAggregateFunction(Context context, AggregationNode.Aggregation aggregation)
+    private static AggregateFunction toAggregateFunction(Metadata metadata, Context context, AggregationNode.Aggregation aggregation)
     {
+        String canonicalName = metadata.getFunctionMetadata(aggregation.getResolvedFunction()).getCanonicalName();
         BoundSignature signature = aggregation.getResolvedFunction().getSignature();
 
         ImmutableList.Builder<ConnectorExpression> arguments = new ImmutableList.Builder<>();
@@ -231,7 +232,7 @@ public class PushAggregationIntoTableScan
                 .map(symbol -> new Variable(symbol.getName(), context.getSymbolAllocator().getTypes().get(symbol)));
 
         return new AggregateFunction(
-                signature.getName(),
+                canonicalName,
                 signature.getReturnType(),
                 arguments.build(),
                 sortBy.orElse(ImmutableList.of()),
