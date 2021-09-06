@@ -96,6 +96,7 @@ import io.trino.sql.tree.SetTimeZone;
 import io.trino.sql.tree.SetViewAuthorization;
 import io.trino.sql.tree.StartTransaction;
 import io.trino.sql.tree.Statement;
+import io.trino.sql.tree.TableExecute;
 import io.trino.sql.tree.Use;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -115,6 +116,9 @@ public class QueryExecutionFactoryModule
         for (Class<? extends Statement> statement : getNonDataDefinitionStatements()) {
             executionBinder.addBinding(statement).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
         }
+
+        // we want to execute TableExecute in distributed manner so we are binding it to SqlQueryExecutionFactory.
+        executionBinder.addBinding(TableExecute.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
 
         binder.bind(DataDefinitionExecutionFactory.class).in(Scopes.SINGLETON);
         bindDataDefinitionTask(binder, executionBinder, AddColumn.class, AddColumnTask.class);
