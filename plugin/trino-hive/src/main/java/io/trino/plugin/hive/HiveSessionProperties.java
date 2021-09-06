@@ -76,6 +76,7 @@ public final class HiveSessionProperties
     private static final String CREATE_EMPTY_BUCKET_FILES = "create_empty_bucket_files";
     private static final String PARQUET_USE_COLUMN_NAME = "parquet_use_column_names";
     private static final String PARQUET_IGNORE_STATISTICS = "parquet_ignore_statistics";
+    private static final String PARQUET_USE_COLUMN_INDEX = "parquet_use_column_index";
     private static final String PARQUET_MAX_READ_BLOCK_SIZE = "parquet_max_read_block_size";
     private static final String PARQUET_WRITER_BLOCK_SIZE = "parquet_writer_block_size";
     private static final String PARQUET_WRITER_PAGE_SIZE = "parquet_writer_page_size";
@@ -100,7 +101,6 @@ public final class HiveSessionProperties
     private static final String DYNAMIC_FILTERING_PROBE_BLOCKING_TIMEOUT = "dynamic_filtering_probe_blocking_timeout";
     private static final String OPTIMIZE_SYMLINK_LISTING = "optimize_symlink_listing";
     private static final String LEGACY_HIVE_VIEW_TRANSLATION = "legacy_hive_view_translation";
-    private static final String PARQUET_USE_COLUMN_INDEX = "parquet_use_column_index";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -297,6 +297,11 @@ public final class HiveSessionProperties
                         "Ignore statistics from Parquet to allow querying files with corrupted or incorrect statistics",
                         parquetReaderConfig.isIgnoreStatistics(),
                         false),
+                booleanProperty(
+                        PARQUET_USE_COLUMN_INDEX,
+                        "Use Parquet column index",
+                        parquetReaderConfig.isUseColumnIndex(),
+                        false),
                 dataSizeProperty(
                         PARQUET_MAX_READ_BLOCK_SIZE,
                         "Parquet: Maximum size of a block to read",
@@ -417,11 +422,6 @@ public final class HiveSessionProperties
                         LEGACY_HIVE_VIEW_TRANSLATION,
                         "Use legacy Hive view translation mechanism",
                         hiveConfig.isLegacyHiveViewTranslation(),
-                        false),
-                booleanProperty(
-                        PARQUET_USE_COLUMN_INDEX,
-                        "Use Parquet column index",
-                        parquetReaderConfig.isUseColumnIndex(),
                         false));
     }
 
@@ -583,6 +583,11 @@ public final class HiveSessionProperties
         return session.getProperty(PARQUET_IGNORE_STATISTICS, Boolean.class);
     }
 
+    public static boolean isParquetUseColumnIndex(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_USE_COLUMN_INDEX, Boolean.class);
+    }
+
     public static DataSize getParquetMaxReadBlockSize(ConnectorSession session)
     {
         return session.getProperty(PARQUET_MAX_READ_BLOCK_SIZE, DataSize.class);
@@ -705,10 +710,5 @@ public final class HiveSessionProperties
     public static boolean isLegacyHiveViewTranslation(ConnectorSession session)
     {
         return session.getProperty(LEGACY_HIVE_VIEW_TRANSLATION, Boolean.class);
-    }
-
-    public static boolean isParquetUseColumnIndex(ConnectorSession session)
-    {
-        return session.getProperty(PARQUET_USE_COLUMN_INDEX, Boolean.class);
     }
 }
