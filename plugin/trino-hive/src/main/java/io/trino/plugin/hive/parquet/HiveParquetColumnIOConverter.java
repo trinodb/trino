@@ -37,9 +37,9 @@ import static org.apache.parquet.io.ColumnIOUtil.columnDefinitionLevel;
 import static org.apache.parquet.io.ColumnIOUtil.columnRepetitionLevel;
 import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
 
-public final class ParquetColumnIOConverter
+public final class HiveParquetColumnIOConverter
 {
-    private ParquetColumnIOConverter() {}
+    private HiveParquetColumnIOConverter() {}
 
     public static Optional<Field> constructField(Type type, ColumnIO columnIO)
     {
