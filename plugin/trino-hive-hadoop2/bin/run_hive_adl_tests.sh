@@ -4,10 +4,7 @@ set -euo pipefail -x
 
 . "${BASH_SOURCE%/*}/common.sh"
 
-test -v ADL_NAME
-test -v ADL_CLIENT_ID
-test -v ADL_CREDENTIAL
-test -v ADL_REFRESH_URL
+check_vars ADL_NAME ADL_CLIENT_ID ADL_CREDENTIAL ADL_REFRESH_URL
 
 cleanup_hadoop_docker_containers
 start_hadoop_docker_containers
