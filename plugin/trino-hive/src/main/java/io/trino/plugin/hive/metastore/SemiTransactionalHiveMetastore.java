@@ -1412,25 +1412,30 @@ public class SemiTransactionalHiveMetastore
         }
         catch (Throwable t) {
             log.warn("Rolling back due to metastore commit failure: %s", t.getMessage());
-            committer.cancelUnstartedAsyncRenames();
+            try {
+                committer.cancelUnstartedAsyncRenames();
 
-            committer.undoUpdateStatisticsOperations(transaction);
-            committer.undoAddPartitionOperations();
-            committer.undoAddTableOperations();
+                committer.undoUpdateStatisticsOperations(transaction);
+                committer.undoAddPartitionOperations();
+                committer.undoAddTableOperations();
 
-            committer.waitForAsyncRenamesSuppressThrowables();
+                committer.waitForAsyncRenamesSuppressThrowables();
 
-            // fileRenameFutures must all come back before any file system cleanups are carried out.
-            // Otherwise, files that should be deleted may be created after cleanup is done.
-            committer.executeCleanupTasksForAbort(declaredIntentionsToWrite);
+                // fileRenameFutures must all come back before any file system cleanups are carried out.
+                // Otherwise, files that should be deleted may be created after cleanup is done.
+                committer.executeCleanupTasksForAbort(declaredIntentionsToWrite);
 
-            committer.executeRenameTasksForAbort();
+                committer.executeRenameTasksForAbort();
 
-            // Partition directory must be put back before relevant metastore operation can be undone
-            committer.undoAlterTableOperations();
-            committer.undoAlterPartitionOperations();
+                // Partition directory must be put back before relevant metastore operation can be undone
+                committer.undoAlterTableOperations();
+                committer.undoAlterPartitionOperations();
 
-            rollbackShared();
+                rollbackShared();
+            }
+            catch (RuntimeException e) {
+                t.addSuppressed(new Exception("Failed to roll back after commit failure", e));
+            }
 
             throw t;
         }
