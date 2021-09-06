@@ -74,6 +74,7 @@ import io.trino.sql.tree.ShowStats;
 import io.trino.sql.tree.ShowTables;
 import io.trino.sql.tree.StartTransaction;
 import io.trino.sql.tree.Statement;
+import io.trino.sql.tree.TableExecute;
 import io.trino.sql.tree.Update;
 import io.trino.sql.tree.Use;
 
@@ -160,6 +161,7 @@ public final class StatementUtils
             .put(SetTimeZone.class, DATA_DEFINITION)
             .put(SetViewAuthorization.class, DATA_DEFINITION)
             .put(StartTransaction.class, DATA_DEFINITION)
+            .put(TableExecute.class, DATA_DEFINITION) // TODO: should we define it as DATA_DEFINITION if explictily use SqlQueryExecutionFactory for it?
             .put(Use.class, DATA_DEFINITION)
             .build();
 
