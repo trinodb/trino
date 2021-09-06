@@ -20,10 +20,8 @@ import io.trino.parquet.PrimitiveField;
 import io.trino.parquet.RichColumnDescriptor;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
-import io.trino.spi.type.NamedTypeSignature;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignatureParameter;
 import org.apache.parquet.io.ColumnIO;
 import org.apache.parquet.io.GroupColumnIO;
 import org.apache.parquet.io.PrimitiveColumnIO;
@@ -52,15 +50,15 @@ public final class ParquetColumnIOConverter
         int repetitionLevel = columnRepetitionLevel(columnIO);
         int definitionLevel = columnDefinitionLevel(columnIO);
         if (type instanceof RowType) {
+            RowType rowType = (RowType) type;
             GroupColumnIO groupColumnIO = (GroupColumnIO) columnIO;
-            List<Type> parameters = type.getTypeParameters();
             ImmutableList.Builder<Optional<Field>> fieldsBuilder = ImmutableList.builder();
-            List<TypeSignatureParameter> fields = type.getTypeSignature().getParameters();
+            List<RowType.Field> fields = rowType.getFields();
             boolean structHasParameters = false;
             for (int i = 0; i < fields.size(); i++) {
-                NamedTypeSignature namedTypeSignature = fields.get(i).getNamedTypeSignature();
-                String name = namedTypeSignature.getName().get().toLowerCase(Locale.ENGLISH);
-                Optional<Field> field = constructField(parameters.get(i), lookupColumnByName(groupColumnIO, name));
+                RowType.Field rowField = fields.get(i);
+                String name = rowField.getName().orElseThrow().toLowerCase(Locale.ENGLISH);
+                Optional<Field> field = constructField(rowField.getType(), lookupColumnByName(groupColumnIO, name));
                 structHasParameters |= field.isPresent();
                 fieldsBuilder.add(field);
             }
@@ -70,8 +68,8 @@ public final class ParquetColumnIOConverter
             return Optional.empty();
         }
         if (type instanceof MapType) {
-            GroupColumnIO groupColumnIO = (GroupColumnIO) columnIO;
             MapType mapType = (MapType) type;
+            GroupColumnIO groupColumnIO = (GroupColumnIO) columnIO;
             GroupColumnIO keyValueColumnIO = getMapKeyValueColumn(groupColumnIO);
             if (keyValueColumnIO.getChildrenCount() != 2) {
                 return Optional.empty();
@@ -81,12 +79,12 @@ public final class ParquetColumnIOConverter
             return Optional.of(new GroupField(type, repetitionLevel, definitionLevel, required, ImmutableList.of(keyField, valueField)));
         }
         if (type instanceof ArrayType) {
+            ArrayType arrayType = (ArrayType) type;
             GroupColumnIO groupColumnIO = (GroupColumnIO) columnIO;
-            List<Type> types = type.getTypeParameters();
             if (groupColumnIO.getChildrenCount() != 1) {
                 return Optional.empty();
             }
-            Optional<Field> field = constructField(types.get(0), getArrayElementColumn(groupColumnIO.getChild(0)));
+            Optional<Field> field = constructField(arrayType.getElementType(), getArrayElementColumn(groupColumnIO.getChild(0)));
             return Optional.of(new GroupField(type, repetitionLevel, definitionLevel, required, ImmutableList.of(field)));
         }
         PrimitiveColumnIO primitiveColumnIO = (PrimitiveColumnIO) columnIO;
