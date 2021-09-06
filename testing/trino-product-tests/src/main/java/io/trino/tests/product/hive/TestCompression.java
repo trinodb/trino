@@ -20,6 +20,7 @@ import io.trino.tempto.configuration.Configuration;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.fulfillment.table.TableRequirements.immutableTable;
@@ -78,6 +79,28 @@ public class TestCompression
         assertThat(query("SELECT * FROM " + tableName)).containsExactlyInOrder(row(1, "test data"));
 
         onHive().executeQuery("DROP TABLE " + tableName);
+    }
+
+    @Test(groups = HIVE_COMPRESSION)
+    public void testSnappyCompressedParquetTableCreatedInTrino()
+    {
+        String tableName = "table_trino_parquet_snappy";
+        onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);
+        onTrino().executeQuery(format(
+                "CREATE TABLE %s (" +
+                        "   c_bigint BIGINT," +
+                        "   c_varchar VARCHAR(255))" +
+                        "WITH (format='PARQUET')",
+                tableName));
+
+        String catalog = (String) getOnlyElement(getOnlyElement(onTrino().executeQuery("SELECT CURRENT_CATALOG").rows()));
+        onTrino().executeQuery("SET SESSION " + catalog + ".compression_codec = 'SNAPPY'");
+        onTrino().executeQuery(format("INSERT INTO %s VALUES(1, 'test data')", tableName));
+
+        assertThat(onTrino().executeQuery("SELECT * FROM " + tableName)).containsExactlyInOrder(row(1, "test data"));
+        assertThat(onHive().executeQuery("SELECT * FROM " + tableName)).containsExactlyInOrder(row(1, "test data"));
+
+        onTrino().executeQuery("DROP TABLE " + tableName);
     }
 
     private void testReadCompressedTextfileTable(String tableStorageDefinition, String compressionCodec, @Language("RegExp") String expectedFileNamePattern)
