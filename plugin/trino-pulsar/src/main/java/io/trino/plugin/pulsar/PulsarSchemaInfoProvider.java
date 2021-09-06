@@ -24,7 +24,6 @@ import org.apache.pulsar.client.api.Schema;
 import org.apache.pulsar.client.api.schema.SchemaInfoProvider;
 import org.apache.pulsar.shade.org.apache.pulsar.common.naming.TopicName;
 import org.apache.pulsar.shade.org.apache.pulsar.common.protocol.schema.BytesSchemaVersion;
-import org.apache.pulsar.shade.org.apache.pulsar.common.schema.LongSchemaVersion;
 import org.apache.pulsar.shade.org.apache.pulsar.common.schema.SchemaInfo;
 import org.apache.pulsar.shade.org.apache.pulsar.common.util.FutureUtil;
 import org.apache.pulsar.shade.org.glassfish.jersey.internal.inject.InjectionManagerFactory;
@@ -70,7 +69,12 @@ public class PulsarSchemaInfoProvider
     {
         try {
             if (null == schemaVersion) {
-                return completedFuture(cache.get(BytesSchemaVersion.of((new LongSchemaVersion(0)).bytes())));
+                try (PulsarAdmin pulsarAdmin = PulsarAdminClientProvider.getPulsarAdmin(pulsarConnectorConfig)) {
+                    return completedFuture(pulsarAdmin.schemas().getSchemaInfoWithVersion(topicName.toString()).getSchemaInfo());
+                }
+                catch (PulsarAdminException | PulsarClientException e) {
+                    return FutureUtil.failedFuture(e.getCause());
+                }
             }
             return completedFuture(cache.get(BytesSchemaVersion.of(schemaVersion)));
         }
