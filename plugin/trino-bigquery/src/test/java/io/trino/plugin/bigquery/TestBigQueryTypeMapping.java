@@ -24,6 +24,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 
 public class TestBigQueryTypeMapping
         extends AbstractTestQueryFramework
@@ -44,6 +45,19 @@ public class TestBigQueryTypeMapping
         return BigQueryQueryRunner.createQueryRunner(
                 ImmutableMap.of(),
                 ImmutableMap.of());
+    }
+
+    @Test
+    public void testFloat()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("float64", "NULL", DOUBLE, "CAST(NULL AS DOUBLE)")
+                .addRoundTrip("float64", "1.0E100", DOUBLE, "1.0E100")
+                .addRoundTrip("float64", "123.456E10", DOUBLE, "123.456E10")
+                .addRoundTrip("float64", "CAST('NaN' AS float64)", DOUBLE, "nan()")
+                .addRoundTrip("float64", "CAST('Infinity' AS float64)", DOUBLE, "+infinity()")
+                .addRoundTrip("float64", "CAST('-Infinity' AS float64)", DOUBLE, "-infinity()")
+                .execute(getQueryRunner(), bigqueryCreateAndInsert("test.float"));
     }
 
     @Test

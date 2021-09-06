@@ -75,7 +75,7 @@ public enum BigQueryType
     BYTES(VarbinaryType.VARBINARY, BigQueryType::bytesToStringConverter),
     DATE(DateType.DATE, BigQueryType::dateToStringConverter),
     DATETIME(TimestampType.TIMESTAMP_MILLIS, BigQueryType::datetimeToStringConverter),
-    FLOAT(DoubleType.DOUBLE, BigQueryType::simpleToStringConverter),
+    FLOAT(DoubleType.DOUBLE, BigQueryType::floatToStringConverter),
     GEOGRAPHY(VarcharType.VARCHAR, BigQueryType::stringToStringConverter),
     INTEGER(BigintType.BIGINT, BigQueryType::simpleToStringConverter),
     NUMERIC(null, BigQueryType::numericToStringConverter),
@@ -136,6 +136,11 @@ public enum BigQueryType
     static long toTrinoTimestamp(String datetime)
     {
         return toLocalDateTime(datetime).toInstant(UTC).toEpochMilli() * MICROSECONDS_PER_MILLISECOND;
+    }
+
+    private static String floatToStringConverter(Object value)
+    {
+        return format("CAST('%s' AS float64)", value);
     }
 
     static String simpleToStringConverter(Object value)
