@@ -3,11 +3,8 @@ set -euxo pipefail
 
 . "${BASH_SOURCE%/*}/common.sh"
 
-test -v ABFS_ACCOUNT
-test -v ABFS_CONTAINER
-test -v ABFS_OAUTH_ENDPOINT
-test -v ABFS_OAUTH_CLIENTID
-test -v ABFS_OAUTH_SECRET
+check_vars ABFS_ACCOUNT ABFS_CONTAINER \
+    ABFS_OAUTH_ENDPOINT ABFS_OAUTH_CLIENTID ABFS_OAUTH_SECRET
 
 test_directory="$(date '+%Y%m%d-%H%M%S')-$(uuidgen | sha1sum | cut -b 1-6)"
 

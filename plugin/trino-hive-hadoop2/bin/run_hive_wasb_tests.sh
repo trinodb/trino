@@ -4,9 +4,7 @@ set -euo pipefail -x
 
 . "${BASH_SOURCE%/*}/common.sh"
 
-test -v WASB_CONTAINER
-test -v WASB_ACCOUNT
-test -v WASB_ACCESS_KEY
+check_vars WASB_CONTAINER WASB_ACCOUNT WASB_ACCESS_KEY
 
 cleanup_hadoop_docker_containers
 start_hadoop_docker_containers
