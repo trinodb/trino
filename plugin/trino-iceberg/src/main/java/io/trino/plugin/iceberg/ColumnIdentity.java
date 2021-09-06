@@ -48,7 +48,7 @@ public class ColumnIdentity
         this.id = id;
         this.name = requireNonNull(name, "name is null");
         this.typeCategory = requireNonNull(typeCategory, "typeCategory is null");
-        this.children = requireNonNull(children, "children is null");
+        this.children = ImmutableList.copyOf(requireNonNull(children, "children is null"));
         checkArgument(
                 children.isEmpty() == (typeCategory == PRIMITIVE),
                 "Children should be empty if and only if column type is primitive");
