@@ -119,7 +119,7 @@ public class TableScanWorkProcessorOperator
     }
 
     @Override
-    public Metrics getConnectorMetrics()
+    public Metrics getMetrics()
     {
         return splitToPages.source.getMetrics();
     }

@@ -218,6 +218,8 @@ public class WorkProcessorPipelineSourceOperator
         WorkProcessorOperatorContext context = workProcessorOperatorContexts.get(operatorIndex);
         timer.recordOperationComplete(context.operatorTiming);
 
+        context.metrics.set(context.operator.getMetrics());
+
         if (operatorIndex == 0) {
             // update input stats for source operator
             WorkProcessorSourceOperator sourceOperator = (WorkProcessorSourceOperator) context.operator;
@@ -234,7 +236,6 @@ public class WorkProcessorPipelineSourceOperator
             long deltaReadTimeNanos = deltaAndSet(context.readTimeNanos, sourceOperator.getReadTime().roundTo(NANOSECONDS));
 
             context.dynamicFilterSplitsProcessed.set(sourceOperator.getDynamicFilterSplitsProcessed());
-            context.metrics.set(sourceOperator.getConnectorMetrics());
 
             operatorContext.recordPhysicalInputWithTiming(deltaPhysicalInputDataSize, deltaPhysicalInputPositions, deltaReadTimeNanos);
             operatorContext.recordNetworkInput(deltaInternalNetworkInputDataSize, deltaInternalNetworkInputPositions);
