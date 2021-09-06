@@ -21,7 +21,7 @@ function retry() {
     return ${EXIT_CODE}
 }
 
-function hadoop_master_container(){
+function hadoop_master_container() {
     docker-compose -f "${DOCKER_COMPOSE_LOCATION}" ps -q hadoop-master | grep .
 }
 
@@ -76,10 +76,28 @@ function cleanup_hadoop_docker_containers() {
     cleanup_docker_containers "${DOCKER_COMPOSE_LOCATION}"
 }
 
-function termination_handler(){
+function termination_handler() {
     set +e
     cleanup_docker_containers "$@"
     exit 130
+}
+
+# Check that all arguments are the names of non-empty variables.
+function check_vars() {
+    ( # Subshell to preserve xtrace
+        set +x # Disable xtrace to make the messages printed clear
+        local failing=0
+        for arg; do
+            if [[ ! -v "${arg}" ]]; then
+                echo "error: Variable not set: ${arg}" >&2
+                failing=1
+            elif [[ -z "${!arg}" ]]; then
+                echo "error: Variable is empty: ${arg}" >&2
+                failing=1
+            fi
+        done
+        return "$failing"
+    )
 }
 
 SCRIPT_DIR="${BASH_SOURCE%/*}"

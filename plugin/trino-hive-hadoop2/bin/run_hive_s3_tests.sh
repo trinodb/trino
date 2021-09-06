@@ -4,6 +4,9 @@ set -euo pipefail -x
 
 . "${BASH_SOURCE%/*}/common.sh"
 
+check_vars S3_BUCKET S3_BUCKET_ENDPOINT \
+    AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
+
 cleanup_hadoop_docker_containers
 start_hadoop_docker_containers
 

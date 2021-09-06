@@ -4,9 +4,7 @@ set -euo pipefail -x
 
 . "${BASH_SOURCE%/*}/common.sh"
 
-test -v ABFS_CONTAINER
-test -v ABFS_ACCOUNT
-test -v ABFS_ACCESS_KEY
+check_vars ABFS_CONTAINER ABFS_ACCOUNT ABFS_ACCESS_KEY
 
 cleanup_hadoop_docker_containers
 start_hadoop_docker_containers
