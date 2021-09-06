@@ -92,7 +92,7 @@ import static io.trino.plugin.hive.HiveSessionProperties.getParquetMaxReadBlockS
 import static io.trino.plugin.hive.HiveSessionProperties.isParquetIgnoreStatistics;
 import static io.trino.plugin.hive.HiveSessionProperties.isParquetUseColumnIndex;
 import static io.trino.plugin.hive.HiveSessionProperties.isUseParquetColumnNames;
-import static io.trino.plugin.hive.parquet.ParquetColumnIOConverter.constructField;
+import static io.trino.plugin.hive.parquet.HiveParquetColumnIOConverter.constructField;
 import static io.trino.plugin.hive.util.HiveUtil.getDeserializerClassName;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.String.format;
