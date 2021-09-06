@@ -1688,8 +1688,7 @@ public final class UnscaledDecimal128Arithmetic
         return (remainder >= (divisor >> 1));
     }
 
-    // visible for testing
-    static int divide(Slice decimal, int divisor, Slice result)
+    private static int divide(Slice decimal, int divisor, Slice result)
     {
         if (divisor == 0) {
             throwDivisionByZeroException();
