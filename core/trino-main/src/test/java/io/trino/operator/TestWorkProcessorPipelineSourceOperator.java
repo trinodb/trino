@@ -188,7 +188,7 @@ public class TestWorkProcessorPipelineSourceOperator
         assertNull(pipelineOperator.getOutput());
         assertTrue(pipelineOperator.isFinished());
 
-        // assert number of processed rows is correct
+        // assert operator stats are correct
         operatorStats = pipelineOperatorContext.getNestedOperatorStats();
         assertEquals(operatorStats.get(0).getOutputPositions(), 3);
         assertEquals(operatorStats.get(1).getInputPositions(), 3);
@@ -203,10 +203,12 @@ public class TestWorkProcessorPipelineSourceOperator
         assertEquals(operatorStats.get(2).getOutputPositions(), 5);
         assertEquals(operatorStats.get(2).getOutputDataSize().toBytes(), 45);
 
+        assertEquals(operatorStats.get(1).getMetrics().getMetrics(), ImmutableMap.of("testOperatorMetric", new LongCount(1)));
+
         // assert source operator stats are correct
         OperatorStats sourceOperatorStats = operatorStats.get(0);
 
-        assertEquals(sourceOperatorStats.getMetrics().getMetrics(), ImmutableMap.of("testMetric", new LongCount(1)));
+        assertEquals(sourceOperatorStats.getMetrics().getMetrics(), ImmutableMap.of("testSourceMetric", new LongCount(1)));
         assertEquals(sourceOperatorStats.getDynamicFilterSplitsProcessed(), 42L);
 
         assertEquals(sourceOperatorStats.getPhysicalInputDataSize(), DataSize.ofBytes(1));
@@ -232,6 +234,11 @@ public class TestWorkProcessorPipelineSourceOperator
         assertEquals(sourceOperatorStats.getInputPositions(), pipelineStats.getProcessedInputPositions());
 
         assertEquals(sourceOperatorStats.getAddInputWall(), pipelineStats.getPhysicalInputReadTime());
+
+        // assert pipeline metrics
+        List<OperatorStats> operatorSummaries = pipelineStats.getOperatorSummaries();
+        assertEquals(operatorSummaries.get(0).getMetrics().getMetrics(), ImmutableMap.of("testSourceMetric", new LongCount(1)));
+        assertEquals(operatorSummaries.get(1).getMetrics().getMetrics(), ImmutableMap.of("testOperatorMetric", new LongCount(1)));
     }
 
     @Test
@@ -413,9 +420,9 @@ public class TestWorkProcessorPipelineSourceOperator
         }
 
         @Override
-        public Metrics getConnectorMetrics()
+        public Metrics getMetrics()
         {
-            return new Metrics(ImmutableMap.of("testMetric", new LongCount(1)));
+            return new Metrics(ImmutableMap.of("testSourceMetric", new LongCount(1)));
         }
 
         @Override
@@ -508,6 +515,12 @@ public class TestWorkProcessorPipelineSourceOperator
         {
             operatorInfo.count++;
             return Optional.of(operatorInfo);
+        }
+
+        @Override
+        public Metrics getMetrics()
+        {
+            return new Metrics(ImmutableMap.of("testOperatorMetric", new LongCount(1)));
         }
 
         @Override
