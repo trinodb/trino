@@ -164,7 +164,7 @@ public class ScanFilterAndProjectOperator
     }
 
     @Override
-    public Metrics getConnectorMetrics()
+    public Metrics getMetrics()
     {
         return metrics;
     }

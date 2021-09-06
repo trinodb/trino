@@ -176,7 +176,7 @@ public class WorkProcessorSourceOperatorAdapter
     public void close()
             throws Exception
     {
-        operatorContext.setLatestMetrics(sourceOperator.getConnectorMetrics());
+        operatorContext.setLatestMetrics(sourceOperator.getMetrics());
         sourceOperator.close();
     }
 
@@ -193,7 +193,7 @@ public class WorkProcessorSourceOperatorAdapter
         long currentInputPositions = sourceOperator.getInputPositions();
 
         long currentDynamicFilterSplitsProcessed = sourceOperator.getDynamicFilterSplitsProcessed();
-        Metrics currentMetrics = sourceOperator.getConnectorMetrics();
+        Metrics currentMetrics = sourceOperator.getMetrics();
 
         if (currentPhysicalInputBytes != previousPhysicalInputBytes
                 || currentPhysicalInputPositions != previousPhysicalInputPositions
