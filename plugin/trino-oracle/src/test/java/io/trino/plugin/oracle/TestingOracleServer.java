@@ -26,12 +26,14 @@ import org.testcontainers.containers.OracleContainer;
 import org.testcontainers.utility.MountableFile;
 
 import java.io.Closeable;
-import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.temporal.ChronoUnit;
 
+import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.testing.TestingConnectorSession.SESSION;
+import static io.trino.testing.containers.TestContainers.startOrReuse;
 import static java.lang.String.format;
 
 public class TestingOracleServer
@@ -39,9 +41,13 @@ public class TestingOracleServer
         implements Closeable
 {
     private static final Logger log = Logger.get(TestingOracleServer.class);
-    private static final RetryPolicy<Object> RETRY_POLICY = new RetryPolicy<>()
-            .withMaxAttempts(3)
-            .handleIf(throwable -> throwable instanceof IllegalStateException);
+    private static final RetryPolicy<Object> CONTAINER_RETRY_POLICY = new RetryPolicy<>()
+            .withBackoff(1, 5, ChronoUnit.SECONDS)
+            .withMaxAttempts(5)
+            .onRetry(event -> log.warn(
+                    "Container initialization failed on attempt %s, will retry. Exception: %s",
+                    event.getAttemptCount(),
+                    event.getLastFailure().getMessage()));
 
     private static final String TEST_TABLESPACE = "trino_test";
 
@@ -53,10 +59,27 @@ public class TestingOracleServer
     {
         super("wnameless/oracle-xe-11g-r2");
 
+        Failsafe.with(CONTAINER_RETRY_POLICY).run(this::createContainer);
+    }
+
+    private void createContainer()
+            throws Exception
+    {
         withCopyFileToContainer(MountableFile.forClasspathResource("init.sql"), "/docker-entrypoint-initdb.d/init.sql");
 
-        start();
+        Closeable cleanup = startOrReuse(this);
+        try {
+            setUpDatabase();
+        }
+        catch (Exception e) {
+            closeAllSuppress(e, cleanup);
+            throw e;
+        }
+    }
 
+    private void setUpDatabase()
+            throws Exception
+    {
         try (Connection connection = getConnectionFactory().openConnection(SESSION);
                 Statement statement = connection.createStatement()) {
             // this is added to allow more processes on database, otherwise the tests end up giving
@@ -66,11 +89,10 @@ public class TestingOracleServer
             statement.execute("ALTER SYSTEM SET processes=1000 SCOPE=SPFILE");
             statement.execute("ALTER SYSTEM SET disk_asynch_io = FALSE SCOPE = SPFILE");
         }
-        catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
 
-        Failsafe.with(RETRY_POLICY).run(this::restart);
+        execInContainer("/bin/bash", "/etc/init.d/oracle-xe", "restart");
+
+        waitUntilContainerStarted();
 
         try (Connection connection = getConnectionFactory().openConnection(SESSION);
                 Statement statement = connection.createStatement()) {
@@ -80,22 +102,6 @@ public class TestingOracleServer
             statement.execute(format("GRANT UNLIMITED TABLESPACE TO %s", TEST_USER));
             statement.execute(format("GRANT ALL PRIVILEGES TO %s", TEST_USER));
         }
-        catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private void restart()
-    {
-        try {
-            execInContainer("/bin/bash", "/etc/init.d/oracle-xe", "restart");
-        }
-        catch (InterruptedException | IOException e) {
-            throw new RuntimeException(e);
-        }
-
-        // This throws IllegalStateException when container is started but cannot communicate with JDBC driver
-        waitUntilContainerStarted();
     }
 
     @Override
