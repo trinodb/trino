@@ -508,6 +508,19 @@ public class OperatorContext
         return format("%s-%s", operatorType, planNodeId);
     }
 
+    public List<OperatorStats> getNestedOperatorStats()
+    {
+        Supplier<List<OperatorStats>> nestedOperatorStatsSupplier = this.nestedOperatorStatsSupplier.get();
+        return Optional.ofNullable(nestedOperatorStatsSupplier)
+                .map(Supplier::get)
+                .orElseGet(() -> ImmutableList.of(getOperatorStats()));
+    }
+
+    public <C, R> R accept(QueryContextVisitor<C, R> visitor, C context)
+    {
+        return visitor.visitOperatorContext(this, context);
+    }
+
     private OperatorStats getOperatorStats()
     {
         Supplier<? extends OperatorInfo> infoSupplier = this.infoSupplier.get();
@@ -566,19 +579,6 @@ public class OperatorContext
 
                 memoryFuture.get().isDone() ? Optional.empty() : Optional.of(WAITING_FOR_MEMORY),
                 info);
-    }
-
-    public List<OperatorStats> getNestedOperatorStats()
-    {
-        Supplier<List<OperatorStats>> nestedOperatorStatsSupplier = this.nestedOperatorStatsSupplier.get();
-        return Optional.ofNullable(nestedOperatorStatsSupplier)
-                .map(Supplier::get)
-                .orElseGet(() -> ImmutableList.of(getOperatorStats()));
-    }
-
-    public <C, R> R accept(QueryContextVisitor<C, R> visitor, C context)
-    {
-        return visitor.visitOperatorContext(this, context);
     }
 
     private static long nanosBetween(long start, long end)
