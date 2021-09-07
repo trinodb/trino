@@ -86,6 +86,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.LongStream;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -135,6 +136,7 @@ import static io.trino.sql.planner.planprinter.IoPlanPrinter.FormattedMarker.Bou
 import static io.trino.sql.planner.planprinter.IoPlanPrinter.FormattedMarker.Bound.EXACTLY;
 import static io.trino.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
 import static io.trino.sql.tree.ExplainType.Type.DISTRIBUTED;
+import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.DELETE_TABLE;
@@ -7391,6 +7393,31 @@ public class TestHiveConnectorTest
                 .setCatalogSessionProperty("hive", "propagate_table_scan_sorting_properties", "true")
                 .build();
         assertQuery(session, actual, expected, assertPartialLimitWithPreSortedInputsCount(session, 1));
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test(dataProvider = "testCreateTableWithCompressionCodecDataProvider")
+    public void testCreateTableWithCompressionCodec(HiveCompressionCodec compressionCodec)
+    {
+        testWithAllStorageFormats((session, hiveStorageFormat) -> testCreateTableWithCompressionCodec(session, hiveStorageFormat, compressionCodec));
+    }
+
+    @DataProvider
+    public Object[][] testCreateTableWithCompressionCodecDataProvider()
+    {
+        return Stream.of(HiveCompressionCodec.values())
+                .collect(toDataProvider());
+    }
+
+    private void testCreateTableWithCompressionCodec(Session session, HiveStorageFormat storageFormat, HiveCompressionCodec compressionCodec)
+    {
+        session = Session.builder(session)
+                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "compression_codec", compressionCodec.name())
+                .build();
+        String tableName = "test_table_with_compression_" + compressionCodec;
+        assertUpdate(session, format("CREATE TABLE %s WITH (format = '%s') AS TABLE tpch.tiny.nation", tableName, storageFormat), 25);
+        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation");
+        assertQuery("SELECT count(*) FROM " + tableName, "VALUES 25");
         assertUpdate("DROP TABLE " + tableName);
     }
 
