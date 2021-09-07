@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.starburstdata.presto</groupId>
         <artifactId>starburst-enterprise-root</artifactId>
-        <version>361-e-SNAPSHOT</version>
+        <version>364-e-SNAPSHOT</version>
         <relativePath>../..</relativePath>
     </parent>
 
@@ -74,7 +74,6 @@
         <dependency>
             <groupId>com.hubspot.jinjava</groupId>
             <artifactId>jinjava</artifactId>
-            <version>2.5.7</version>
             <exclusions>
                 <exclusion>
                     <groupId>com.google.code.findbugs</groupId>
