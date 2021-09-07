@@ -135,7 +135,7 @@ jobs:
           $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -am -pl :trino-hive-hadoop2
       - name: Run Hive Tests
         run: |
-          source testing/trino-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
+          source plugin/trino-hive-hadoop2/conf/hive-tests-${{ matrix.config }}.sh &&
             plugin/trino-hive-hadoop2/bin/run_hive_tests.sh
       - name: Run Hive S3 Tests
         env:
@@ -145,7 +145,7 @@ jobs:
           S3_BUCKET_ENDPOINT: "s3.us-east-2.amazonaws.com"
         run: |
           if [ "${AWS_ACCESS_KEY_ID}" != "" ]; then
-            source testing/trino-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
+            source plugin/trino-hive-hadoop2/conf/hive-tests-${{ matrix.config }}.sh &&
               plugin/trino-hive-hadoop2/bin/run_hive_s3_tests.sh
           fi
       - name: Run Hive Glue Tests
@@ -165,7 +165,7 @@ jobs:
           ABFS_ACCESS_KEY: ${{ secrets.AZURE_ABFS_ACCESSKEY }}
         run: |
           if [ "${ABFS_CONTAINER}" != "" ]; then
-            source testing/trino-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
+            source plugin/trino-hive-hadoop2/conf/hive-tests-${{ matrix.config }}.sh &&
               plugin/trino-hive-hadoop2/bin/run_hive_abfs_access_key_tests.sh
           fi
       - name: Run Hive Azure ABFS OAuth Tests
@@ -178,7 +178,7 @@ jobs:
           ABFS_OAUTH_SECRET: ${{ secrets.AZURE_ABFS_OAUTH_SECRET }}
         run: |
           if [ -n "$ABFS_CONTAINER" ]; then
-            source testing/trino-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
+            source plugin/trino-hive-hadoop2/conf/hive-tests-${{ matrix.config }}.sh &&
               plugin/trino-hive-hadoop2/bin/run_hive_abfs_oauth_tests.sh
           fi
       - name: Run Hive Azure WASB Tests
@@ -189,7 +189,7 @@ jobs:
           WASB_ACCESS_KEY: ${{ secrets.AZURE_WASB_ACCESSKEY }}
         run: |
           if [ "${WASB_CONTAINER}" != "" ]; then
-            source testing/trino-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
+            source plugin/trino-hive-hadoop2/conf/hive-tests-${{ matrix.config }}.sh &&
               plugin/trino-hive-hadoop2/bin/run_hive_wasb_tests.sh
           fi
       - name: Run Hive Azure ADL Tests
@@ -201,12 +201,12 @@ jobs:
           ADL_REFRESH_URL: ${{ secrets.AZURE_ADL_REFRESHURL }}
         run: |
           if [ "${ADL_NAME}" != "" ]; then
-            source testing/trino-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
+            source plugin/trino-hive-hadoop2/conf/hive-tests-${{ matrix.config }}.sh &&
               plugin/trino-hive-hadoop2/bin/run_hive_adl_tests.sh
           fi
       - name: Run Hive Alluxio Tests
         run: |
-          source testing/trino-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
+          source plugin/trino-hive-hadoop2/conf/hive-tests-${{ matrix.config }}.sh &&
             plugin/trino-hive-hadoop2/bin/run_hive_alluxio_tests.sh
 
   test-other-modules:
