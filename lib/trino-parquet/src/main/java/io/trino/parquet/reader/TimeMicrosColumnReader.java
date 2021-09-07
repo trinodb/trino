@@ -14,9 +14,14 @@
 package io.trino.parquet.reader;
 
 import io.trino.parquet.RichColumnDescriptor;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.TimeType;
 import io.trino.spi.type.Timestamps;
 import io.trino.spi.type.Type;
+
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static java.lang.String.format;
 
 public class TimeMicrosColumnReader
         extends PrimitiveColumnReader
@@ -31,7 +36,12 @@ public class TimeMicrosColumnReader
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
             long picos = valuesReader.readLong() * Timestamps.PICOSECONDS_PER_MICROSECOND;
-            type.writeLong(blockBuilder, picos);
+            if (type instanceof TimeType) {
+                type.writeLong(blockBuilder, picos);
+            }
+            else {
+                throw new TrinoException(NOT_SUPPORTED, format("Unsupported Trino column type (%s) for Parquet column (%s)", type, columnDescriptor));
+            }
         }
         else if (isValueNull()) {
             blockBuilder.appendNull();
