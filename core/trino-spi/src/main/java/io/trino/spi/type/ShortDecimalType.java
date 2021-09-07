@@ -127,7 +127,7 @@ final class ShortDecimalType
     @ScalarOperator(HASH_CODE)
     private static long hashCodeOperator(long value)
     {
-        return value;
+        return AbstractLongType.hash(value);
     }
 
     @ScalarOperator(XX_HASH_64)
