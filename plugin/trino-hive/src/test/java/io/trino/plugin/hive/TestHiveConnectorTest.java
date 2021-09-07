@@ -7579,11 +7579,10 @@ public class TestHiveConnectorTest
     {
         testWithAllStorageFormats((session, storageFormat) -> {
             if (isNativeParquetWriter(session, storageFormat)) {
-                // TODO (https://github.com/trinodb/trino/issues/9143) Hive connector cannot read Parquet file created by native Parquet writer when hive.timestamp_precision=NANOSECONDS
+                // TODO (https://github.com/trinodb/trino/issues/5357) Implement variable precision timestamp handling for optimized Parquet writer
                 assertThatThrownBy(() -> testTimestampPrecisionInsert(session, storageFormat))
-                        .hasMessageStartingWith("Execution of 'actual' query failed: SELECT ts FROM test_timestamp_precision_")
-                        .hasRootCauseMessage("io.trino.spi.type.LongTimestampType")
-                        .hasStackTraceContaining("at io.trino.parquet.reader.Int64TimestampMillisColumnReader.readValue");
+                        .hasMessage("Unsupported primitive type: timestamp(9)")
+                        .hasStackTraceContaining("at io.trino.parquet.writer.ParquetSchemaConverter.getPrimitiveType");
                 return;
             }
             testTimestampPrecisionInsert(session, storageFormat);
@@ -7616,11 +7615,10 @@ public class TestHiveConnectorTest
     {
         testWithAllStorageFormats((session, storageFormat) -> {
             if (isNativeParquetWriter(session, storageFormat)) {
-                // TODO (https://github.com/trinodb/trino/issues/9143) Hive connector cannot read Parquet file created by native Parquet writer when hive.timestamp_precision=NANOSECONDS
+                // TODO (https://github.com/trinodb/trino/issues/5357) Implement variable precision timestamp handling for optimized Parquet writer
                 assertThatThrownBy(() -> testTimestampPrecisionCtas(session, storageFormat))
-                        .hasMessageStartingWith("Execution of 'actual' query failed: SELECT ts FROM test_timestamp_precision_")
-                        .hasRootCauseMessage("io.trino.spi.type.LongTimestampType")
-                        .hasStackTraceContaining("at io.trino.parquet.reader.Int64TimestampMillisColumnReader.readValue");
+                        .hasMessage("Unsupported primitive type: timestamp(9)")
+                        .hasStackTraceContaining("at io.trino.parquet.writer.ParquetSchemaConverter.getPrimitiveType");
                 return;
             }
             testTimestampPrecisionCtas(session, storageFormat);
