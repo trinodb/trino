@@ -16,6 +16,7 @@ package io.trino.parquet.reader;
 import io.trino.parquet.RichColumnDescriptor;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
@@ -43,7 +44,13 @@ public class Int64TimestampMillisColumnReader
                 type.writeLong(blockBuilder, packDateTimeWithZone(utcMillis, UTC_KEY));
             }
             else if (type instanceof TimestampType) {
-                type.writeLong(blockBuilder, utcMillis * MICROSECONDS_PER_MILLISECOND);
+                long epochMicros = utcMillis * MICROSECONDS_PER_MILLISECOND;
+                if (((TimestampType) type).isShort()) {
+                    type.writeLong(blockBuilder, epochMicros);
+                }
+                else {
+                    type.writeObject(blockBuilder, new LongTimestamp(epochMicros, 0));
+                }
             }
             else {
                 throw new TrinoException(NOT_SUPPORTED, format("Unsupported Trino column type (%s) for Parquet column (%s)", type, columnDescriptor));
