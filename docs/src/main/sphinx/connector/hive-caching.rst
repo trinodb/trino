@@ -56,16 +56,21 @@ systems.
 Architecture
 ------------
 
-Caching can operate in two modes. The default async mode provides the queried
-data directly and caches any objects asynchronously afterwards. Any following
-queries requesting the cached objects are served directly from the cache.
+Caching can operate in two modes. The async mode provides the queried data
+directly and caches any objects asynchronously afterwards. Async is the default
+and recommended mode. The query doesn't pay the cost of warming up the cache.
+The cache is populated in the background and the query bypasses the cache if the
+cache is not already populated. Any following queries requesting the cached
+objects are served directly from the cache.
 
-The other mode is a read-through cache. After first retrieval from storage by
-any query, objects are cached in the local cache storage on the workers.
+The other mode is a read-through cache. In this mode, if an object is not found
+in the cache, it is read from the storage, placed in the cache, and then provided
+to the requesting query. In read-through mode, the query always reads from cache
+and must wait for the cache to be populated.
 
-In both modes objects are cached on local storage of each worker and managed by
-a BookKeeper component. Workers can request cached objects from other workers to
-avoid requests from the object storage.
+In both modes, objects are cached on local storage of each worker. Workers can
+request cached objects from other workers to avoid requests from the object
+storage.
 
 The cache chunks are 1MB in size and are well suited for ORC or Parquet file
 formats.
