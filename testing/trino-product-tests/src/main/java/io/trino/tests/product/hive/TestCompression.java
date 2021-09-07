@@ -24,10 +24,12 @@ import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.fulfillment.table.TableRequirements.immutableTable;
 import static io.trino.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.ORDERS;
+import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.product.TestGroups.HIVE_COMPRESSION;
 import static io.trino.tests.product.TestGroups.SKIP_ON_CDH;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
+import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestCompression
@@ -43,7 +45,7 @@ public class TestCompression
     @Test(groups = {HIVE_COMPRESSION, SKIP_ON_CDH /* no lzo support in CDH image */})
     public void testReadTextfileWithLzop()
     {
-        testReadCompressedTable(
+        testReadCompressedTextfileTable(
                 "STORED AS TEXTFILE",
                 "com.hadoop.compression.lzo.LzopCodec",
                 ".*\\.lzo"); // LZOP compression uses .lzo file extension by default
@@ -52,14 +54,33 @@ public class TestCompression
     @Test(groups = {HIVE_COMPRESSION, SKIP_ON_CDH /* no lzo support in CDH image */})
     public void testReadSequencefileWithLzo()
     {
-        testReadCompressedTable(
+        testReadCompressedTextfileTable(
                 "STORED AS SEQUENCEFILE",
                 "com.hadoop.compression.lzo.LzoCodec",
                 // sequencefile stores compression information in the file header, so no suffix expected
                 "\\d+_0");
     }
 
-    private void testReadCompressedTable(String tableStorageDefinition, String compressionCodec, @Language("RegExp") String expectedFileNamePattern)
+    @Test(groups = HIVE_COMPRESSION)
+    public void testSnappyCompressedParquetTableCreatedInHive()
+    {
+        String tableName = "table_hive_parquet_snappy";
+        onHive().executeQuery("DROP TABLE IF EXISTS " + tableName);
+        onHive().executeQuery(format(
+                "CREATE TABLE %s (" +
+                        "   c_bigint BIGINT," +
+                        "   c_varchar VARCHAR(255))" +
+                        "STORED AS PARQUET " +
+                        "TBLPROPERTIES(\"parquet.compression\"=\"SNAPPY\")",
+                tableName));
+        onHive().executeQuery(format("INSERT INTO %s VALUES(1, 'test data')", tableName));
+
+        assertThat(query("SELECT * FROM " + tableName)).containsExactlyInOrder(row(1, "test data"));
+
+        onHive().executeQuery("DROP TABLE " + tableName);
+    }
+
+    private void testReadCompressedTextfileTable(String tableStorageDefinition, String compressionCodec, @Language("RegExp") String expectedFileNamePattern)
     {
         onHive().executeQuery("DROP TABLE IF EXISTS test_read_compressed");
 
