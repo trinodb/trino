@@ -7913,7 +7913,7 @@ public class TestHiveConnectorTest
             test.accept(session, storageFormat.getFormat());
         }
         catch (Exception | AssertionError e) {
-            fail(format("Failure for format %s with properties %s", storageFormat.getFormat(), session.getConnectorProperties()), e);
+            fail(format("Failure for format %s with properties %s / %s", storageFormat.getFormat(), session.getConnectorProperties(), session.getUnprocessedCatalogProperties()), e);
         }
     }
 
