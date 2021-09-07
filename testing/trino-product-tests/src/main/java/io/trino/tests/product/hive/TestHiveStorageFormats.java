@@ -462,28 +462,6 @@ public class TestHiveStorageFormats
         onTrino().executeQuery("DROP TABLE orc_table_created_in_trino");
     }
 
-    @Test(groups = STORAGE_FORMATS)
-    public void testSnappyCompressedParquetTableCreatedInHive()
-    {
-        String tableName = "table_created_in_hive_parquet";
-
-        onHive().executeQuery("DROP TABLE IF EXISTS " + tableName);
-
-        onHive().executeQuery(format(
-                "CREATE TABLE %s (" +
-                        "   c_bigint BIGINT," +
-                        "   c_varchar VARCHAR(255))" +
-                        "STORED AS PARQUET " +
-                        "TBLPROPERTIES(\"parquet.compression\"=\"SNAPPY\")",
-                tableName));
-
-        onHive().executeQuery(format("INSERT INTO %s VALUES(1, 'test data')", tableName));
-
-        assertThat(query("SELECT * FROM " + tableName)).containsExactlyInOrder(row(1, "test data"));
-
-        onHive().executeQuery("DROP TABLE " + tableName);
-    }
-
     @Test
     public void testOrcStructsWithNonLowercaseFields()
             throws SQLException
