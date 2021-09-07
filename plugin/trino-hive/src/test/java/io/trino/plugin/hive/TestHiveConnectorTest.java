@@ -24,6 +24,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 import io.trino.Session;
+import io.trino.connector.CatalogName;
 import io.trino.cost.StatsAndCosts;
 import io.trino.execution.QueryInfo;
 import io.trino.metadata.InsertTableHandle;
@@ -7399,7 +7400,15 @@ public class TestHiveConnectorTest
     @Test(dataProvider = "testCreateTableWithCompressionCodecDataProvider")
     public void testCreateTableWithCompressionCodec(HiveCompressionCodec compressionCodec)
     {
-        testWithAllStorageFormats((session, hiveStorageFormat) -> testCreateTableWithCompressionCodec(session, hiveStorageFormat, compressionCodec));
+        testWithAllStorageFormats((session, hiveStorageFormat) -> {
+            if (isNativeParquetWriter(session, hiveStorageFormat) && compressionCodec == HiveCompressionCodec.LZ4) {
+                // TODO (https://github.com/trinodb/trino/issues/9142) Support LZ4 compression with native Parquet writer
+                assertThatThrownBy(() -> testCreateTableWithCompressionCodec(session, hiveStorageFormat, compressionCodec))
+                        .hasMessage("Unsupported codec: LZ4");
+                return;
+            }
+            testCreateTableWithCompressionCodec(session, hiveStorageFormat, compressionCodec);
+        });
     }
 
     @DataProvider
@@ -7568,7 +7577,17 @@ public class TestHiveConnectorTest
     @Test
     public void testTimestampPrecisionInsert()
     {
-        testWithAllStorageFormats(this::testTimestampPrecisionInsert);
+        testWithAllStorageFormats((session, storageFormat) -> {
+            if (isNativeParquetWriter(session, storageFormat)) {
+                // TODO (https://github.com/trinodb/trino/issues/9143) Hive connector cannot read Parquet file created by native Parquet writer when hive.timestamp_precision=NANOSECONDS
+                assertThatThrownBy(() -> testTimestampPrecisionInsert(session, storageFormat))
+                        .hasMessageStartingWith("Execution of 'actual' query failed: SELECT ts FROM test_timestamp_precision_")
+                        .hasRootCauseMessage("io.trino.spi.type.LongTimestampType")
+                        .hasStackTraceContaining("at io.trino.parquet.reader.Int64TimestampMillisColumnReader.readValue");
+                return;
+            }
+            testTimestampPrecisionInsert(session, storageFormat);
+        });
     }
 
     private void testTimestampPrecisionInsert(Session session, HiveStorageFormat storageFormat)
@@ -7595,7 +7614,17 @@ public class TestHiveConnectorTest
     @Test
     public void testTimestampPrecisionCtas()
     {
-        testWithAllStorageFormats(this::testTimestampPrecisionCtas);
+        testWithAllStorageFormats((session, storageFormat) -> {
+            if (isNativeParquetWriter(session, storageFormat)) {
+                // TODO (https://github.com/trinodb/trino/issues/9143) Hive connector cannot read Parquet file created by native Parquet writer when hive.timestamp_precision=NANOSECONDS
+                assertThatThrownBy(() -> testTimestampPrecisionCtas(session, storageFormat))
+                        .hasMessageStartingWith("Execution of 'actual' query failed: SELECT ts FROM test_timestamp_precision_")
+                        .hasRootCauseMessage("io.trino.spi.type.LongTimestampType")
+                        .hasStackTraceContaining("at io.trino.parquet.reader.Int64TimestampMillisColumnReader.readValue");
+                return;
+            }
+            testTimestampPrecisionCtas(session, storageFormat);
+        });
     }
 
     private void testTimestampPrecisionCtas(Session session, HiveStorageFormat storageFormat)
@@ -7917,13 +7946,34 @@ public class TestHiveConnectorTest
         }
     }
 
+    private boolean isNativeParquetWriter(Session session, HiveStorageFormat storageFormat)
+    {
+        return storageFormat == HiveStorageFormat.PARQUET &&
+                ("true".equals(session.getConnectorProperties(new CatalogName("hive")).get("experimental_parquet_optimized_writer_enabled")) ||
+                        "true".equals(session.getUnprocessedCatalogProperties().getOrDefault("hive", Map.of()).get("experimental_parquet_optimized_writer_enabled")));
+    }
+
     private List<TestingHiveStorageFormat> getAllTestingHiveStorageFormat()
     {
         Session session = getSession();
+        String catalog = session.getCatalog().orElseThrow();
         ImmutableList.Builder<TestingHiveStorageFormat> formats = ImmutableList.builder();
         for (HiveStorageFormat hiveStorageFormat : HiveStorageFormat.values()) {
             if (hiveStorageFormat == HiveStorageFormat.CSV) {
                 // CSV supports only unbounded VARCHAR type
+                continue;
+            }
+            if (hiveStorageFormat == HiveStorageFormat.PARQUET) {
+                formats.add(new TestingHiveStorageFormat(
+                        Session.builder(session)
+                                .setCatalogSessionProperty(catalog, "experimental_parquet_optimized_writer_enabled", "false")
+                                .build(),
+                        hiveStorageFormat));
+                formats.add(new TestingHiveStorageFormat(
+                        Session.builder(session)
+                                .setCatalogSessionProperty(catalog, "experimental_parquet_optimized_writer_enabled", "true")
+                                .build(),
+                        hiveStorageFormat));
                 continue;
             }
             formats.add(new TestingHiveStorageFormat(session, hiveStorageFormat));
