@@ -69,11 +69,8 @@ public final class PredicateUtils
 {
     private PredicateUtils() {}
 
-    public static boolean isStatisticsOverflow(Type type, ParquetLongStatistics statistics)
+    public static boolean isStatisticsOverflow(Type type, long min, long max)
     {
-        long min = statistics.getMin();
-        long max = statistics.getMax();
-
         if (type == TINYINT) {
             return min < Byte.MIN_VALUE || max > Byte.MAX_VALUE;
         }
