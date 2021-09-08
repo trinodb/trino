@@ -1203,4 +1203,32 @@ public class TestPinotIntegrationSmokeTest
                 .withRootCauseInstanceOf(RuntimeException.class)
                 .withMessage("Operation not supported for DISTINCT aggregation function");
     }
+
+    @Test
+    public void testInClause()
+    {
+        assertThat(query("SELECT string_col, sum(long_col)" +
+                "  FROM " + ALL_TYPES_TABLE +
+                "  WHERE string_col IN ('string_1200','string_2400','string_3600')" +
+                "  GROUP BY string_col"))
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT string_col, sum(long_col)" +
+                "  FROM " + ALL_TYPES_TABLE +
+                "  WHERE string_col NOT IN ('string_1200','string_2400','string_3600')" +
+                "  GROUP BY string_col"))
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT int_col, sum(long_col)" +
+                "  FROM " + ALL_TYPES_TABLE +
+                "  WHERE int_col IN (54, 56)" +
+                "  GROUP BY int_col"))
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT int_col, sum(long_col)" +
+                "  FROM " + ALL_TYPES_TABLE +
+                "  WHERE int_col NOT IN (54, 56)" +
+                "  GROUP BY int_col"))
+                .isFullyPushedDown();
+    }
 }
