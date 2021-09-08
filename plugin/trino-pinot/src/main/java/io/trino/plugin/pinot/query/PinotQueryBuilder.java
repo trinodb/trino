@@ -24,6 +24,7 @@ import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.VarcharType;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -136,13 +137,13 @@ public final class PinotQueryBuilder
                 checkState(!rangeConjuncts.isEmpty());
                 disjuncts.add("(" + Joiner.on(" AND ").join(rangeConjuncts) + ")");
             }
-            // Add back all of the possible single values either as an equality or an IN predicate
-            if (singleValues.size() == 1) {
-                disjuncts.add(toConjunct(columnName, "=", getOnlyElement(singleValues)));
-            }
-            else if (singleValues.size() > 1) {
-                disjuncts.add(inClauseValues(columnName, singleValues));
-            }
+        }
+        // Add back all of the possible single values either as an equality or an IN predicate
+        if (singleValues.size() == 1) {
+            disjuncts.add(toConjunct(columnName, "=", getOnlyElement(singleValues)));
+        }
+        else if (singleValues.size() > 1) {
+            disjuncts.add(inClauseValues(columnName, singleValues));
         }
         return "(" + Joiner.on(" OR ").join(disjuncts) + ")";
     }
@@ -151,6 +152,9 @@ public final class PinotQueryBuilder
     {
         if (type instanceof RealType) {
             return intBitsToFloat(toIntExact((Long) value));
+        }
+        else if (type instanceof VarcharType) {
+            return ((Slice) value).toStringUtf8();
         }
         return value;
     }
