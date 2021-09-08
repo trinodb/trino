@@ -29,6 +29,10 @@ public class RealDecoder
         if (value == null) {
             output.appendNull();
         }
+        else if (value instanceof String) {
+            // Pinot returns NEGATIVE_INFINITY, POSITIVE_INFINITY as a String
+            output.writeInt(floatToIntBits(Float.valueOf((String) value)));
+        }
         else {
             output.writeInt((floatToIntBits(((Number) value).floatValue())));
         }
