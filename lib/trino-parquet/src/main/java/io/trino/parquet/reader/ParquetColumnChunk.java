@@ -29,7 +29,7 @@ import org.apache.parquet.format.Util;
 import org.apache.parquet.internal.column.columnindex.OffsetIndex;
 
 import java.io.IOException;
-import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -81,7 +81,7 @@ public class ParquetColumnChunk
     public PageReader readAllPages()
             throws IOException
     {
-        List<DataPage> pages = new ArrayList<>();
+        LinkedList<DataPage> pages = new LinkedList<>();
         DictionaryPage dictionaryPage = null;
         long valueCount = 0;
         int dataPageCount = 0;
@@ -113,7 +113,7 @@ public class ParquetColumnChunk
                     break;
             }
         }
-        return new PageReader(descriptor.getColumnChunkMetaData().getCodec(), pages, dictionaryPage, offsetIndex);
+        return new PageReader(descriptor.getColumnChunkMetaData().getCodec(), pages, dictionaryPage, offsetIndex, valueCount);
     }
 
     private boolean hasMorePages(long valuesCountReadSoFar, int dataPageCountReadSoFar)
