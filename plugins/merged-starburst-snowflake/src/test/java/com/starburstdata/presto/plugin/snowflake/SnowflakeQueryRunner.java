@@ -18,8 +18,6 @@ import io.trino.plugin.jmx.JmxPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.security.Identity;
 import io.trino.testing.DistributedQueryRunner;
-import io.trino.testing.QueryRunner;
-import io.trino.tpch.TpchTable;
 
 import java.util.Map;
 import java.util.Optional;
@@ -40,18 +38,11 @@ import static com.starburstdata.presto.plugin.snowflake.SnowflakeServer.TEST_DAT
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeServer.TEST_WAREHOUSE;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeServer.USER;
 import static io.airlift.testing.Closeables.closeAllSuppress;
-import static io.airlift.units.Duration.nanosSince;
-import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
-import static io.trino.testing.QueryAssertions.copyTable;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.SECONDS;
 
 class SnowflakeQueryRunner
 {
-    private static final Logger LOG = Logger.get(SnowflakeQueryRunner.class);
-
     private static final String TPCH_CATALOG = "tpch";
     private static final String SNOWFLAKE_CATALOG = "snowflake";
 
@@ -151,18 +142,6 @@ class SnowflakeQueryRunner
             throw e;
         }
         return queryRunner;
-    }
-
-    private static void copyTpchTables(
-            QueryRunner queryRunner,
-            Iterable<TpchTable<?>> tables)
-    {
-        LOG.info("Loading data from %s.%s...", TPCH_CATALOG, TINY_SCHEMA_NAME);
-        long startTime = System.nanoTime();
-        for (TpchTable<?> table : tables) {
-            copyTable(queryRunner, TPCH_CATALOG, TINY_SCHEMA_NAME, table.getTableName().toLowerCase(ENGLISH), queryRunner.getDefaultSession());
-        }
-        LOG.info("Loading from %s.%s complete in %s", TPCH_CATALOG, TINY_SCHEMA_NAME, nanosSince(startTime).toString(SECONDS));
     }
 
     private static Session createSession(boolean useOktaCredentials)
@@ -272,7 +251,7 @@ class SnowflakeQueryRunner
         // Uncomment below when you need to recreate the data set. Be careful not to delete shared testing resources.
         //server.dropSchemaIfExistsCascade(TEST_SCHEMA);
         //server.createSchema(TEST_SCHEMA);
-        //copyTpchTables(queryRunner, TpchTable.getTables());
+        //copyTpchTables(queryRunner, TPCH_CATALOG, TEST_SCHEMA, queryRunner.getDefaultSession(), TpchTable.getTables());
         Logger log = Logger.get(SnowflakeQueryRunner.class);
         log.info("======== SERVER STARTED ========");
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
