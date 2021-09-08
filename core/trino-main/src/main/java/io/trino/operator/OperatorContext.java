@@ -85,6 +85,7 @@ public class OperatorContext
 
     private final AtomicLong dynamicFilterSplitsProcessed = new AtomicLong();
     private final AtomicReference<Metrics> metrics = new AtomicReference<>(Metrics.EMPTY);  // this is not incremental, but gets overwritten by the latest value.
+    private final AtomicReference<Metrics> connectorMetrics = new AtomicReference<>(Metrics.EMPTY); // this is not incremental, but gets overwritten by the latest value.
 
     private final AtomicLong physicalWrittenDataSize = new AtomicLong();
 
@@ -229,6 +230,11 @@ public class OperatorContext
     public void setLatestMetrics(Metrics metrics)
     {
         this.metrics.set(metrics);
+    }
+
+    public void setLatestConnectorMetrics(Metrics metrics)
+    {
+        this.connectorMetrics.set(metrics);
     }
 
     public void recordPhysicalWrittenData(long sizeInBytes)
@@ -557,6 +563,7 @@ public class OperatorContext
 
                 dynamicFilterSplitsProcessed.get(),
                 metrics.get(),
+                connectorMetrics.get(),
 
                 succinctBytes(physicalWrittenDataSize.get()),
 

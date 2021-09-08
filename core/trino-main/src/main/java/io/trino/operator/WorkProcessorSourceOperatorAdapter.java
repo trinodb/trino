@@ -177,6 +177,7 @@ public class WorkProcessorSourceOperatorAdapter
             throws Exception
     {
         operatorContext.setLatestMetrics(sourceOperator.getMetrics());
+        operatorContext.setLatestConnectorMetrics(sourceOperator.getConnectorMetrics());
         sourceOperator.close();
     }
 
@@ -194,6 +195,7 @@ public class WorkProcessorSourceOperatorAdapter
 
         long currentDynamicFilterSplitsProcessed = sourceOperator.getDynamicFilterSplitsProcessed();
         Metrics currentMetrics = sourceOperator.getMetrics();
+        Metrics currentConnectorMetrics = sourceOperator.getConnectorMetrics();
 
         if (currentPhysicalInputBytes != previousPhysicalInputBytes
                 || currentPhysicalInputPositions != previousPhysicalInputPositions
@@ -234,6 +236,7 @@ public class WorkProcessorSourceOperatorAdapter
         }
 
         operatorContext.setLatestMetrics(currentMetrics);
+        operatorContext.setLatestConnectorMetrics(currentConnectorMetrics);
     }
 
     private static class SplitBuffer
