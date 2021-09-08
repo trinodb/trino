@@ -96,7 +96,7 @@ public class TestPinotIntegrationSmokeTest
                             Arrays.asList("string_" + (offset), "string1_" + (offset + 1), "string2_" + (offset + 2)),
                             Arrays.asList(false, true, true),
                             Arrays.asList(54, -10001, 1000),
-                            Arrays.asList(-7.33F + i, .004F - i, 17.034F + i),
+                            Arrays.asList(-7.33F + i, Float.POSITIVE_INFINITY, 17.034F + i),
                             Arrays.asList(-17.33D + i, .00014D - i, 10596.034D + i),
                             Arrays.asList(-3147483647L + i, 12L - i, 4147483647L + i),
                             Instant.parse("2021-05-10T00:00:00.00Z").plusMillis(offset).toEpochMilli())));
@@ -1275,5 +1275,31 @@ public class TestPinotIntegrationSmokeTest
                         "  (VARCHAR 'string_8400')," +
                         "  (VARCHAR 'string_9600')")
                 .isFullyPushedDown();
+    }
+
+    @Test
+    public void testRealWithInfinity()
+    {
+        assertThat(query("SELECT element_at(float_array_col, 1)" +
+                "  FROM " + ALL_TYPES_TABLE +
+                "  WHERE bytes_col = X''"))
+                .matches("VALUES  (CAST(-POWER(0, -1) AS REAL))," +
+                        "  (CAST(-POWER(0, -1) AS REAL))");
+
+        assertThat(query("SELECT element_at(float_array_col, 1) FROM \"SELECT float_array_col" +
+                "  FROM " + ALL_TYPES_TABLE +
+                "  WHERE bytes_col = '' \""))
+                .matches("VALUES  (CAST(-POWER(0, -1) AS REAL))," +
+                        "  (CAST(-POWER(0, -1) AS REAL))");
+
+        assertThat(query("SELECT element_at(float_array_col, 2)" +
+                "  FROM " + ALL_TYPES_TABLE +
+                "  WHERE string_col = 'string_0'"))
+                .matches("VALUES (CAST(POWER(0, -1) AS REAL))");
+
+        assertThat(query("SELECT element_at(float_array_col, 2) FROM \"SELECT float_array_col" +
+                "  FROM " + ALL_TYPES_TABLE +
+                "  WHERE string_col = 'string_0'\""))
+                .matches("VALUES (CAST(POWER(0, -1) AS REAL))");
     }
 }
