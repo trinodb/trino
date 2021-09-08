@@ -236,6 +236,7 @@ public class WorkProcessorPipelineSourceOperator
             long deltaReadTimeNanos = deltaAndSet(context.readTimeNanos, sourceOperator.getReadTime().roundTo(NANOSECONDS));
 
             context.dynamicFilterSplitsProcessed.set(sourceOperator.getDynamicFilterSplitsProcessed());
+            context.connectorMetrics.set(sourceOperator.getConnectorMetrics());
 
             operatorContext.recordPhysicalInputWithTiming(deltaPhysicalInputDataSize, deltaPhysicalInputPositions, deltaReadTimeNanos);
             operatorContext.recordNetworkInput(deltaInternalNetworkInputDataSize, deltaInternalNetworkInputPositions);
@@ -341,6 +342,7 @@ public class WorkProcessorPipelineSourceOperator
 
                         context.dynamicFilterSplitsProcessed.get(),
                         context.metrics.get(),
+                        context.connectorMetrics.get(),
 
                         DataSize.ofBytes(0),
 
@@ -681,6 +683,7 @@ public class WorkProcessorPipelineSourceOperator
 
         final AtomicLong dynamicFilterSplitsProcessed = new AtomicLong();
         final AtomicReference<Metrics> metrics = new AtomicReference<>(Metrics.EMPTY);
+        final AtomicReference<Metrics> connectorMetrics = new AtomicReference<>(Metrics.EMPTY);
 
         final AtomicLong peakUserMemoryReservation = new AtomicLong();
         final AtomicLong peakSystemMemoryReservation = new AtomicLong();
