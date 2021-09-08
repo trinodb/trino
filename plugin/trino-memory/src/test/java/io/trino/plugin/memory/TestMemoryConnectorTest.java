@@ -170,7 +170,7 @@ public class TestMemoryConnectorTest
                 .getQueryStats()
                 .getOperatorSummaries()
                 .stream()
-                .map(OperatorStats::getMetrics)
+                .map(OperatorStats::getConnectorMetrics)
                 .reduce(Metrics.EMPTY, Metrics::mergeWith);
     }
 
