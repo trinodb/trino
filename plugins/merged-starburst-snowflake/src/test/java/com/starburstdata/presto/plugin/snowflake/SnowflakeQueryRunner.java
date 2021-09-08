@@ -105,6 +105,7 @@ class SnowflakeQueryRunner
             Optional<String> warehouse,
             Optional<String> database,
             Map<String, String> connectorProperties,
+            Map<String, String> extraProperties,
             int nodeCount,
             boolean useOktaCredentials)
             throws Exception
@@ -117,6 +118,7 @@ class SnowflakeQueryRunner
                 "GRANT SELECT ON VIEW USER_CONTEXT TO ROLE \"PUBLIC\";");
         DistributedQueryRunner queryRunner = StarburstDistributedQueryRunner.builder(createSession(useOktaCredentials))
                 .setNodeCount(nodeCount)
+                .setExtraProperties(extraProperties)
                 .build();
 
         try {
@@ -172,6 +174,7 @@ class SnowflakeQueryRunner
         private Optional<String> warehouseName = Optional.of(TEST_WAREHOUSE);
         private Optional<String> databaseName = Optional.of(TEST_DATABASE);
         private ImmutableMap.Builder<String, String> connectorProperties = ImmutableMap.builder();
+        private ImmutableMap.Builder<String, String> extraProperties = ImmutableMap.builder();
         private int nodeCount = 3;
         private boolean useOktaCredentials;
 
@@ -204,6 +207,12 @@ class SnowflakeQueryRunner
             return this;
         }
 
+        public Builder withExtraProperties(Map<String, String> extraProperties)
+        {
+            this.extraProperties.putAll(requireNonNull(extraProperties, "extraProperties is null"));
+            return this;
+        }
+
         public Builder withNodeCount(int nodeCount)
         {
             this.nodeCount = nodeCount;
@@ -226,7 +235,7 @@ class SnowflakeQueryRunner
         public DistributedQueryRunner build()
                 throws Exception
         {
-            return createSnowflakeQueryRunner(server, connectorName, warehouseName, databaseName, connectorProperties.build(), nodeCount, useOktaCredentials);
+            return createSnowflakeQueryRunner(server, connectorName, warehouseName, databaseName, connectorProperties.build(), extraProperties.build(), nodeCount, useOktaCredentials);
         }
     }
 
@@ -242,10 +251,8 @@ class SnowflakeQueryRunner
         SnowflakeServer server = new SnowflakeServer();
         DistributedQueryRunner queryRunner = jdbcBuilder()
                 .withServer(server)
-                .withConnectorProperties(ImmutableMap.<String, String>builder()
-                        .putAll(impersonationDisabled())
-                        .put("http-server.http.port", "8080")
-                        .build())
+                .withConnectorProperties(impersonationDisabled())
+                .withExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
                 .build();
 
         // Uncomment below when you need to recreate the data set. Be careful not to delete shared testing resources.
