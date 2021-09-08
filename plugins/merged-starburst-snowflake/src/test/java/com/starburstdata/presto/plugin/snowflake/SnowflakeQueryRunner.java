@@ -12,6 +12,7 @@ package com.starburstdata.presto.plugin.snowflake;
 import com.google.common.collect.ImmutableMap;
 import com.starburstdata.presto.testing.StarburstDistributedQueryRunner;
 import io.airlift.log.Logger;
+import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.plugin.jmx.JmxPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
@@ -257,15 +258,23 @@ class SnowflakeQueryRunner
     public static void main(String[] args)
             throws Exception
     {
+        Logging.initialize();
+
         SnowflakeServer server = new SnowflakeServer();
-        try (DistributedQueryRunner runner = jdbcBuilder()
+        DistributedQueryRunner queryRunner = jdbcBuilder()
                 .withServer(server)
-                .withAdditionalProperties(impersonationDisabled())
-                .build()) {
-            // Uncomment below when you need to recreate the data set. Be careful not to delete shared testing resources.
-            //server.dropSchemaIfExistsCascade(TEST_SCHEMA);
-            //server.createSchema(TEST_SCHEMA);
-            //copyTpchTables(runner, TpchTable.getTables());
-        }
+                .withAdditionalProperties(ImmutableMap.<String, String>builder()
+                        .putAll(impersonationDisabled())
+                        .put("http-server.http.port", "8080")
+                        .build())
+                .build();
+
+        // Uncomment below when you need to recreate the data set. Be careful not to delete shared testing resources.
+        //server.dropSchemaIfExistsCascade(TEST_SCHEMA);
+        //server.createSchema(TEST_SCHEMA);
+        //copyTpchTables(queryRunner, TpchTable.getTables());
+        Logger log = Logger.get(SnowflakeQueryRunner.class);
+        log.info("======== SERVER STARTED ========");
+        log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
     }
 }
