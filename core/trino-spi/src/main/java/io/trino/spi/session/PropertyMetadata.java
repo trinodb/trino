@@ -139,6 +139,12 @@ public final class PropertyMetadata<T>
         return encoder.apply(value);
     }
 
+    @Override
+    public String toString()
+    {
+        return "PropertyMetadata{" + name + "}";
+    }
+
     public static PropertyMetadata<Boolean> booleanProperty(String name, String description, Boolean defaultValue, boolean hidden)
     {
         return booleanProperty(name, description, defaultValue, value -> {}, hidden);
