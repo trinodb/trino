@@ -22,7 +22,6 @@ import org.apache.parquet.internal.column.columnindex.OffsetIndex;
 
 import java.io.IOException;
 import java.util.LinkedList;
-import java.util.List;
 import java.util.OptionalLong;
 
 import static io.trino.parquet.ParquetCompressionUtils.decompress;
@@ -31,24 +30,25 @@ class PageReader
 {
     private final CompressionCodecName codec;
     private final long valueCount;
-    private final List<DataPage> compressedPages;
+    private final LinkedList<DataPage> compressedPages;
     private final DictionaryPage compressedDictionaryPage;
     private final OffsetIndex offsetIndex;
     private int pageIndex;
 
+    /**
+     * @param compressedPages This parameter will be mutated destructively as {@link DataPage} entries are removed as part of {@link #readPage()}. The caller
+     * should not retain a reference to this list after passing it in as a constructor argument.
+     */
     public PageReader(CompressionCodecName codec,
-                      List<DataPage> compressedPages,
+                      LinkedList<DataPage> compressedPages,
                       DictionaryPage compressedDictionaryPage,
-                      OffsetIndex offsetIndex)
+                      OffsetIndex offsetIndex,
+                      long valueCount)
     {
         this.codec = codec;
-        this.compressedPages = new LinkedList<>(compressedPages);
+        this.compressedPages = compressedPages;
         this.compressedDictionaryPage = compressedDictionaryPage;
-        int count = 0;
-        for (DataPage page : compressedPages) {
-            count += page.getValueCount();
-        }
-        this.valueCount = count;
+        this.valueCount = valueCount;
         this.offsetIndex = offsetIndex;
         this.pageIndex = 0;
     }
@@ -63,7 +63,7 @@ class PageReader
         if (compressedPages.isEmpty()) {
             return null;
         }
-        DataPage compressedPage = compressedPages.remove(0);
+        DataPage compressedPage = compressedPages.removeFirst();
         try {
             OptionalLong firstRowIndex = getFirstRowIndex(pageIndex, offsetIndex);
             pageIndex++;
