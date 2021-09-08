@@ -43,7 +43,6 @@ public class TestingOracleServer
     private static final RetryPolicy<Object> CONTAINER_RETRY_POLICY = new RetryPolicy<>()
             .withBackoff(1, 5, ChronoUnit.SECONDS)
             .withMaxAttempts(5)
-            .handleIf(throwable -> throwable instanceof RetryableException)
             .onRetry(event -> log.warn(
                     "Container initialization failed on attempt %s, will retry. Exception: %s",
                     event.getAttemptCount(),
@@ -63,7 +62,6 @@ public class TestingOracleServer
     }
 
     private TestingOracleContainer createContainer()
-            throws RetryableException
     {
         TestingOracleContainer container = new TestingOracleContainer("wnameless/oracle-xe-11g-r2");
         container.withCopyFileToContainer(MountableFile.forClasspathResource("init.sql"), "/docker-entrypoint-initdb.d/init.sql");
@@ -73,9 +71,8 @@ public class TestingOracleServer
             setUpDatabase(container);
         }
         catch (Exception e) {
-            container.stop();
-            closeAllSuppress(e);
-            throw new RetryableException(e);
+            closeAllSuppress(e, container::stop);
+            throw new RuntimeException(e);
         }
 
         return container;
@@ -159,15 +156,6 @@ public class TestingOracleServer
         protected void waitUntilContainerStarted()
         {
             super.waitUntilContainerStarted();
-        }
-    }
-
-    private static class RetryableException
-            extends Exception
-    {
-        public RetryableException(Throwable cause)
-        {
-            super(cause);
         }
     }
 }
