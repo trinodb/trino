@@ -12,6 +12,7 @@ package com.starburstdata.presto.plugin.snowflake;
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.spi.security.Identity;
+import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import org.testng.annotations.Test;
@@ -49,7 +50,7 @@ public class TestJdbcSnowflakeConnectorTest
     public void testSnowflakeUseDefaultUserWarehouseAndDatabase()
             throws Exception
     {
-        try (QueryRunner queryRunner = jdbcBuilder()
+        try (DistributedQueryRunner queryRunner = jdbcBuilder()
                 .withWarehouse(Optional.empty())
                 .withDatabase(Optional.empty())
                 .withAdditionalProperties(impersonationDisabled())

@@ -107,7 +107,7 @@ class SnowflakeQueryRunner
         return new Builder(SNOWFLAKE_JDBC);
     }
 
-    private static QueryRunner createSnowflakeQueryRunner(
+    private static DistributedQueryRunner createSnowflakeQueryRunner(
             SnowflakeServer server,
             String connectorName,
             Optional<String> warehouse,
@@ -243,7 +243,7 @@ class SnowflakeQueryRunner
             return this;
         }
 
-        public QueryRunner build()
+        public DistributedQueryRunner build()
                 throws Exception
         {
             return createSnowflakeQueryRunner(server, connectorName, warehouseName, databaseName, additionalPropertiesBuilder.build(), nodeCount, useOktaCredentials);
@@ -258,7 +258,7 @@ class SnowflakeQueryRunner
             throws Exception
     {
         SnowflakeServer server = new SnowflakeServer();
-        try (QueryRunner runner = jdbcBuilder()
+        try (DistributedQueryRunner runner = jdbcBuilder()
                 .withServer(server)
                 .withAdditionalProperties(impersonationDisabled())
                 .build()) {

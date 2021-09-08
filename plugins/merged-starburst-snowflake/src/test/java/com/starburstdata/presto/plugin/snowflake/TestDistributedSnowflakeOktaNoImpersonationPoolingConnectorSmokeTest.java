@@ -12,6 +12,7 @@ package com.starburstdata.presto.plugin.snowflake;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.spi.security.Identity;
+import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.Test;
 
@@ -45,7 +46,7 @@ public class TestDistributedSnowflakeOktaNoImpersonationPoolingConnectorSmokeTes
     public void testOktaWithoutConnectionPooling()
             throws Exception
     {
-        try (QueryRunner queryRunner = distributedBuilder()
+        try (DistributedQueryRunner queryRunner = distributedBuilder()
                 .withAdditionalProperties(oktaImpersonationEnabled(false))
                 .withOktaCredentials(true)
                 .build()) {
