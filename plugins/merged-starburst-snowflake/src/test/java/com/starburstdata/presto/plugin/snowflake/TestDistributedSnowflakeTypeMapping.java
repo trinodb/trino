@@ -31,7 +31,7 @@ public class TestDistributedSnowflakeTypeMapping
     {
         return distributedBuilder()
                 .withServer(server)
-                .withAdditionalProperties(impersonationDisabled())
+                .withConnectorProperties(impersonationDisabled())
                 .build();
     }
 

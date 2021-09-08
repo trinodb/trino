@@ -36,7 +36,7 @@ public class TestJdbcSnowflakeWithFixedRole
     {
         return jdbcBuilder()
                 .withServer(server)
-                .withAdditionalProperties(impersonationDisabled())
+                .withConnectorProperties(impersonationDisabled())
                 .withDatabase(Optional.of(PUBLIC_DB))
                 .withConnectionPooling()
                 .build();

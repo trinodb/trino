@@ -32,7 +32,7 @@ public class TestDistributedSnowflakeOktaWithImpresonationConnectorSmokeTest
     {
         return distributedBuilder()
                 .withServer(server)
-                .withAdditionalProperties(oktaImpersonationEnabled(true))
+                .withConnectorProperties(oktaImpersonationEnabled(true))
                 .withOktaCredentials(true)
                 .build();
     }

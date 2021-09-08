@@ -36,7 +36,7 @@ public class TestDistributedSnowflakeConnectorTest
     {
         return distributedBuilder()
                 .withServer(server)
-                .withAdditionalProperties(impersonationDisabled())
+                .withConnectorProperties(impersonationDisabled())
                 .withConnectionPooling()
                 .build();
     }

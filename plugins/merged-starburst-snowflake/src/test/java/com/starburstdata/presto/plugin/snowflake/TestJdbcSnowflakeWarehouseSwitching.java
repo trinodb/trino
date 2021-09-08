@@ -38,7 +38,7 @@ public class TestJdbcSnowflakeWarehouseSwitching
     {
         return jdbcBuilder()
                 .withServer(server)
-                .withAdditionalProperties(impersonationDisabled())
+                .withConnectorProperties(impersonationDisabled())
                 .withConnectionPooling()
                 .build();
     }

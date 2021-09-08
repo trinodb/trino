@@ -26,7 +26,7 @@ public class TestJdbcSnowflakeWithImpersonationConnectorSmokeTest
             throws Exception
     {
         return jdbcBuilder()
-                .withAdditionalProperties(impersonationEnabled())
+                .withConnectorProperties(impersonationEnabled())
                 .build();
     }
 

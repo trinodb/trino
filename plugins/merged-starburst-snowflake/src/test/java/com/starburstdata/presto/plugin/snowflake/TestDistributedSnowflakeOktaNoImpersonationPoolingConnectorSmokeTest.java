@@ -36,7 +36,7 @@ public class TestDistributedSnowflakeOktaNoImpersonationPoolingConnectorSmokeTes
     {
         return distributedBuilder()
                 .withServer(server)
-                .withAdditionalProperties(oktaImpersonationEnabled(false))
+                .withConnectorProperties(oktaImpersonationEnabled(false))
                 .withOktaCredentials(true)
                 .withConnectionPooling()
                 .build();
@@ -47,7 +47,7 @@ public class TestDistributedSnowflakeOktaNoImpersonationPoolingConnectorSmokeTes
             throws Exception
     {
         try (DistributedQueryRunner queryRunner = distributedBuilder()
-                .withAdditionalProperties(oktaImpersonationEnabled(false))
+                .withConnectorProperties(oktaImpersonationEnabled(false))
                 .withOktaCredentials(true)
                 .build()) {
             Session session = getSession();

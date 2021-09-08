@@ -22,7 +22,7 @@ public class TestDistributedSnowflakeWithImpersonationConnectorSmokeTest
             throws Exception
     {
         return distributedBuilder()
-                .withAdditionalProperties(impersonationEnabled())
+                .withConnectorProperties(impersonationEnabled())
                 .build();
     }
 }

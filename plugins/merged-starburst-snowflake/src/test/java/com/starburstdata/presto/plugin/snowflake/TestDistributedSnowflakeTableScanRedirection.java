@@ -28,7 +28,7 @@ public class TestDistributedSnowflakeTableScanRedirection
     {
         return distributedBuilder()
                 .withServer(server)
-                .withAdditionalProperties(ImmutableMap.<String, String>builder()
+                .withConnectorProperties(ImmutableMap.<String, String>builder()
                         .putAll(impersonationDisabled())
                         .putAll(getRedirectionProperties("snowflake", TEST_SCHEMA))
                         .build())

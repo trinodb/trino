@@ -33,7 +33,7 @@ public class TestJdbcSnowflakeConnectorTest
     {
         return jdbcBuilder()
                 .withServer(server)
-                .withAdditionalProperties(impersonationDisabled())
+                .withConnectorProperties(impersonationDisabled())
                 .withConnectionPooling()
                 .build();
     }
@@ -53,7 +53,7 @@ public class TestJdbcSnowflakeConnectorTest
         try (DistributedQueryRunner queryRunner = jdbcBuilder()
                 .withWarehouse(Optional.empty())
                 .withDatabase(Optional.empty())
-                .withAdditionalProperties(impersonationDisabled())
+                .withConnectorProperties(impersonationDisabled())
                 .build()) {
             Session session = Session.builder(queryRunner.getDefaultSession())
                     .setIdentity(Identity.ofUser(SnowflakeServer.USER))

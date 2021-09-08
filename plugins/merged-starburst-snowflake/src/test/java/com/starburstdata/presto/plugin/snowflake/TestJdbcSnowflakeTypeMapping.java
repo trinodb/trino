@@ -23,7 +23,7 @@ public class TestJdbcSnowflakeTypeMapping
     {
         return jdbcBuilder()
                 .withServer(server)
-                .withAdditionalProperties(impersonationDisabled())
+                .withConnectorProperties(impersonationDisabled())
                 .build();
     }
 }

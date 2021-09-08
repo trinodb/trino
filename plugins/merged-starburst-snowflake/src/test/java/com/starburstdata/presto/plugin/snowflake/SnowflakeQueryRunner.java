@@ -89,7 +89,7 @@ class SnowflakeQueryRunner
     static Builder distributedBuilder()
     {
         return new Builder(SNOWFLAKE_DISTRIBUTED)
-                .withAdditionalProperties(ImmutableMap.of(
+                .withConnectorProperties(ImmutableMap.of(
                         "snowflake.stage-schema", TEST_SCHEMA,
                         "snowflake.retry-canceled-queries", "true"));
     }
@@ -104,7 +104,7 @@ class SnowflakeQueryRunner
             String connectorName,
             Optional<String> warehouse,
             Optional<String> database,
-            Map<String, String> additionalProperties,
+            Map<String, String> connectorProperties,
             int nodeCount,
             boolean useOktaCredentials)
             throws Exception
@@ -128,7 +128,7 @@ class SnowflakeQueryRunner
                     .put("connection-url", JDBC_URL)
                     .put("connection-user", USER)
                     .put("connection-password", PASSWORD)
-                    .putAll(additionalProperties);
+                    .putAll(connectorProperties);
             warehouse.ifPresent(warehouseName -> properties.put("snowflake.warehouse", warehouseName));
             database.ifPresent(databaseName -> properties.put("snowflake.database", databaseName));
 
@@ -171,7 +171,7 @@ class SnowflakeQueryRunner
         private SnowflakeServer server = new SnowflakeServer();
         private Optional<String> warehouseName = Optional.of(TEST_WAREHOUSE);
         private Optional<String> databaseName = Optional.of(TEST_DATABASE);
-        private ImmutableMap.Builder<String, String> additionalPropertiesBuilder = ImmutableMap.builder();
+        private ImmutableMap.Builder<String, String> connectorProperties = ImmutableMap.builder();
         private int nodeCount = 3;
         private boolean useOktaCredentials;
 
@@ -198,9 +198,9 @@ class SnowflakeQueryRunner
             return this;
         }
 
-        public Builder withAdditionalProperties(Map<String, String> additionalProperties)
+        public Builder withConnectorProperties(Map<String, String> connectorProperties)
         {
-            additionalPropertiesBuilder.putAll(requireNonNull(additionalProperties, "additionalProperties is null"));
+            this.connectorProperties.putAll(requireNonNull(connectorProperties, "connectorProperties is null"));
             return this;
         }
 
@@ -212,8 +212,8 @@ class SnowflakeQueryRunner
 
         public Builder withConnectionPooling()
         {
-            additionalPropertiesBuilder.put("connection-pool.enabled", "true");
-            additionalPropertiesBuilder.put("connection-pool.max-size", "50");
+            connectorProperties.put("connection-pool.enabled", "true");
+            connectorProperties.put("connection-pool.max-size", "50");
             return this;
         }
 
@@ -226,7 +226,7 @@ class SnowflakeQueryRunner
         public DistributedQueryRunner build()
                 throws Exception
         {
-            return createSnowflakeQueryRunner(server, connectorName, warehouseName, databaseName, additionalPropertiesBuilder.build(), nodeCount, useOktaCredentials);
+            return createSnowflakeQueryRunner(server, connectorName, warehouseName, databaseName, connectorProperties.build(), nodeCount, useOktaCredentials);
         }
     }
 
@@ -242,7 +242,7 @@ class SnowflakeQueryRunner
         SnowflakeServer server = new SnowflakeServer();
         DistributedQueryRunner queryRunner = jdbcBuilder()
                 .withServer(server)
-                .withAdditionalProperties(ImmutableMap.<String, String>builder()
+                .withConnectorProperties(ImmutableMap.<String, String>builder()
                         .putAll(impersonationDisabled())
                         .put("http-server.http.port", "8080")
                         .build())

@@ -26,7 +26,7 @@ public class TestSnowflakeTableStatistics
             throws Exception
     {
         return jdbcBuilder()
-                .withAdditionalProperties(impersonationDisabled())
+                .withConnectorProperties(impersonationDisabled())
                 .build();
     }
 

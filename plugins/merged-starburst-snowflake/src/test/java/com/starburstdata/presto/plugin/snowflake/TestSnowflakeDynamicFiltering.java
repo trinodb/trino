@@ -23,7 +23,7 @@ public class TestSnowflakeDynamicFiltering
             throws Exception
     {
         return distributedBuilder()
-                .withAdditionalProperties(impersonationDisabled())
+                .withConnectorProperties(impersonationDisabled())
                 .build();
     }
 

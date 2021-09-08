@@ -28,7 +28,7 @@ public class TestSnowflakeJmxStats
     {
         return distributedBuilder()
                 // using single worker instance, because workers overwrites their JMX stats
-                .withAdditionalProperties(oktaImpersonationEnabled(false))
+                .withConnectorProperties(oktaImpersonationEnabled(false))
                 .withOktaCredentials(true)
                 .withNodeCount(1)
                 .build();
