@@ -38,6 +38,7 @@ import io.trino.sql.planner.iterative.rule.CreatePartialTopN;
 import io.trino.sql.planner.iterative.rule.DecorrelateInnerUnnestWithGlobalAggregation;
 import io.trino.sql.planner.iterative.rule.DecorrelateLeftUnnestWithGlobalAggregation;
 import io.trino.sql.planner.iterative.rule.DecorrelateUnnest;
+import io.trino.sql.planner.iterative.rule.DeriveNotNull;
 import io.trino.sql.planner.iterative.rule.DesugarArrayConstructor;
 import io.trino.sql.planner.iterative.rule.DesugarAtTimeZone;
 import io.trino.sql.planner.iterative.rule.DesugarCurrentCatalog;
@@ -692,6 +693,12 @@ public class PlanOptimizers
                                 .addAll(simplifyOptimizerRules) // Should be always run after PredicatePushDown
                                 .add(new PushPredicateIntoTableScan(metadata, typeOperators, typeAnalyzer))
                                 .build()),
+                new IterativeOptimizer(
+                        metadata,
+                        ruleStats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
+                        ImmutableSet.of(new DeriveNotNull())),
                 new UnaliasSymbolReferences(metadata), // Run again because predicate pushdown and projection pushdown might add more projections
                 columnPruningOptimizer, // Make sure to run this before index join. Filtered projections may not have all the columns.
                 new IndexJoinOptimizer(metadata, typeOperators), // Run this after projections and filters have been fully simplified and pushed down

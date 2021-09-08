@@ -143,6 +143,7 @@ public final class SystemSessionProperties
     public static final String MAX_UNACKNOWLEDGED_SPLITS_PER_TASK = "max_unacknowledged_splits_per_task";
     public static final String MERGE_PROJECT_WITH_VALUES = "merge_project_with_values";
     public static final String TIME_ZONE_ID = "time_zone_id";
+    public static final String DERIVE_ISNOTNULL_PREDICATES = "derive_isnotnull_predicates";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -660,7 +661,12 @@ public final class SystemSessionProperties
                                 getTimeZoneKey(value);
                             }
                         },
-                        true));
+                        true),
+                booleanProperty(
+                        DERIVE_ISNOTNULL_PREDICATES,
+                        "Derive IS_NOT_NULL predicates from INNER joins when possible",
+                        featuresConfig.isDeriveIsNotNullPredicates(),
+                        false));
     }
 
     @Override
@@ -1172,5 +1178,10 @@ public final class SystemSessionProperties
     public static Optional<String> getTimeZoneId(Session session)
     {
         return Optional.ofNullable(session.getSystemProperty(TIME_ZONE_ID, String.class));
+    }
+
+    public static boolean deriveIsNotNullPredicates(Session session)
+    {
+        return session.getSystemProperty(DERIVE_ISNOTNULL_PREDICATES, Boolean.class);
     }
 }
