@@ -82,18 +82,28 @@ public final class Domain
 
     public static Domain singleValue(Type type, Object value)
     {
-        return new Domain(ValueSet.of(type, value), false);
+        return singleValue(type, value, false);
+    }
+
+    public static Domain singleValue(Type type, Object value, boolean nullAllowed)
+    {
+        return new Domain(ValueSet.of(type, value), nullAllowed);
     }
 
     public static Domain multipleValues(Type type, List<?> values)
+    {
+        return multipleValues(type, values, false);
+    }
+
+    public static Domain multipleValues(Type type, List<?> values, boolean nullAllowed)
     {
         if (values.isEmpty()) {
             throw new IllegalArgumentException("values cannot be empty");
         }
         if (values.size() == 1) {
-            return singleValue(type, values.get(0));
+            return singleValue(type, values.get(0), nullAllowed);
         }
-        return new Domain(ValueSet.of(type, values.get(0), values.subList(1, values.size()).toArray()), false);
+        return new Domain(ValueSet.of(type, values.get(0), values.subList(1, values.size()).toArray()), nullAllowed);
     }
 
     public Type getType()
