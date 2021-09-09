@@ -29,6 +29,7 @@ import io.airlift.slice.Slice;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.trino.plugin.hive.HiveApplyProjectionUtil.ProjectedColumnRepresentation;
+import io.trino.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior;
 import io.trino.plugin.hive.LocationService.WriteInfo;
 import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.plugin.hive.acid.AcidSchema;
@@ -105,7 +106,9 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator;
 import org.apache.hadoop.hive.serde.serdeConstants;
@@ -170,6 +173,7 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static io.trino.plugin.hive.HivePartitionManager.extractPartitionValues;
 import static io.trino.plugin.hive.HiveSessionProperties.getCompressionCodec;
 import static io.trino.plugin.hive.HiveSessionProperties.getHiveStorageFormat;
+import static io.trino.plugin.hive.HiveSessionProperties.getInsertExistingPartitionsBehavior;
 import static io.trino.plugin.hive.HiveSessionProperties.getQueryPartitionFilterRequiredSchemas;
 import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
 import static io.trino.plugin.hive.HiveSessionProperties.isBucketExecutionEnabled;
@@ -218,6 +222,7 @@ import static io.trino.plugin.hive.HiveTableProperties.isTransactional;
 import static io.trino.plugin.hive.HiveType.HIVE_STRING;
 import static io.trino.plugin.hive.HiveType.toHiveType;
 import static io.trino.plugin.hive.HiveWriterFactory.computeBucketedFileName;
+import static io.trino.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY;
 import static io.trino.plugin.hive.PartitionUpdate.UpdateMode.APPEND;
 import static io.trino.plugin.hive.PartitionUpdate.UpdateMode.NEW;
 import static io.trino.plugin.hive.PartitionUpdate.UpdateMode.OVERWRITE;
@@ -249,6 +254,7 @@ import static io.trino.plugin.hive.util.HiveUtil.toPartitionValues;
 import static io.trino.plugin.hive.util.HiveUtil.verifyPartitionTypeSupported;
 import static io.trino.plugin.hive.util.HiveWriteUtils.checkTableIsWritable;
 import static io.trino.plugin.hive.util.HiveWriteUtils.initializeSerializer;
+import static io.trino.plugin.hive.util.HiveWriteUtils.isFileCreatedByQuery;
 import static io.trino.plugin.hive.util.HiveWriteUtils.isS3FileSystem;
 import static io.trino.plugin.hive.util.HiveWriteUtils.isWritableType;
 import static io.trino.plugin.hive.util.Statistics.ReduceOperator.ADD;
@@ -1657,6 +1663,11 @@ public class HiveMetadata
                 transaction);
 
         WriteInfo writeInfo = locationService.getQueryWriteInfo(locationHandle);
+        if (getInsertExistingPartitionsBehavior(session) == InsertExistingPartitionsBehavior.OVERWRITE
+                && isTransactionalTable(table.getParameters())
+                && writeInfo.getWriteMode() == DIRECT_TO_TARGET_EXISTING_DIRECTORY) {
+            throw new TrinoException(NOT_SUPPORTED, "Overwriting existing partition in transactional tables doesn't support DIRECT_TO_TARGET_EXISTING_DIRECTORY write mode");
+        }
         metastore.declareIntentionToWrite(session, writeInfo.getWriteMode(), writeInfo.getWritePath(), tableName);
         return result;
     }
@@ -1759,14 +1770,22 @@ public class HiveMetadata
                 if (!partition.getStorage().getStorageFormat().getInputFormat().equals(handle.getPartitionStorageFormat().getInputFormat()) && isRespectTableFormat(session)) {
                     throw new TrinoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, "Partition format changed during insert");
                 }
-                if (partitionUpdate.getUpdateMode() == OVERWRITE) {
-                    metastore.dropPartition(session, handle.getSchemaName(), handle.getTableName(), partition.getValues(), true);
-                }
                 PartitionStatistics partitionStatistics = createPartitionStatistics(
                         partitionUpdate.getStatistics(),
                         columnTypes,
                         getColumnStatistics(partitionComputedStatistics, partition.getValues()));
-                metastore.addPartition(session, handle.getSchemaName(), handle.getTableName(), partition, partitionUpdate.getWritePath(), partitionStatistics);
+                if (partitionUpdate.getUpdateMode() == OVERWRITE) {
+                    if (handle.getLocationHandle().getWriteMode() == DIRECT_TO_TARGET_EXISTING_DIRECTORY) {
+                        removeNonCurrentQueryFiles(session, partitionUpdate.getTargetPath());
+                    }
+                    else {
+                        metastore.dropPartition(session, handle.getSchemaName(), handle.getTableName(), partition.getValues(), true);
+                        metastore.addPartition(session, handle.getSchemaName(), handle.getTableName(), partition, partitionUpdate.getWritePath(), partitionStatistics);
+                    }
+                }
+                else {
+                    metastore.addPartition(session, handle.getSchemaName(), handle.getTableName(), partition, partitionUpdate.getWritePath(), partitionStatistics);
+                }
             }
             else {
                 throw new IllegalArgumentException(format("Unsupported update mode: %s", partitionUpdate.getUpdateMode()));
@@ -1786,6 +1805,27 @@ public class HiveMetadata
                 partitionUpdates.stream()
                         .map(PartitionUpdate::getName)
                         .collect(toImmutableList())));
+    }
+
+    private void removeNonCurrentQueryFiles(ConnectorSession session, Path partitionPath)
+    {
+        String queryId = session.getQueryId();
+        try {
+            FileSystem fileSystem = hdfsEnvironment.getFileSystem(new HdfsContext(session), partitionPath);
+            RemoteIterator<LocatedFileStatus> iterator = fileSystem.listFiles(partitionPath, false);
+            while (iterator.hasNext()) {
+                Path file = iterator.next().getPath();
+                if (!isFileCreatedByQuery(file.getName(), queryId)) {
+                    fileSystem.delete(file, false);
+                }
+            }
+        }
+        catch (Exception ex) {
+            throw new TrinoException(
+                    HIVE_FILESYSTEM_ERROR,
+                    format("Failed to delete partition %s files during overwrite", partitionPath),
+                    ex);
+        }
     }
 
     private void createOrcAcidVersionFile(HdfsContext context, Path deltaDirectory)
