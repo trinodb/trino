@@ -127,7 +127,7 @@ public final class BigQueryQueryRunner
 
         public void dropDatasetIfExists(String dataset)
         {
-            bigQuery.delete(dataset);
+            bigQuery.delete(dataset, deleteContents());
         }
 
         public void deleteSelfCreatedDatasets()
