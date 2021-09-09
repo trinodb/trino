@@ -107,6 +107,7 @@ import static io.trino.spi.security.AccessDeniedException.denyShowTables;
 import static io.trino.spi.security.AccessDeniedException.denyUpdateTableColumns;
 import static io.trino.spi.security.AccessDeniedException.denyViewQuery;
 import static io.trino.spi.security.AccessDeniedException.denyWriteSystemInformationAccess;
+import static io.trino.spi.security.PrincipalType.ROLE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -625,6 +626,12 @@ public class FileBasedSystemAccessControl
         if (!checkTablePermission(context, table, OWNERSHIP)) {
             denySetTableAuthorization(table.toString(), principal);
         }
+        // also, grant access only when the principal is a role which can create views, and we're a member of that role
+        if (principal.getType() != ROLE
+                || !context.getIdentity().getEnabledRoles().contains(principal.getName())
+                || !checkTablePermission(getSecurityContextForPrincipal(context, principal), table, OWNERSHIP)) {
+            denySetTableAuthorization(table.toString(), principal);
+        }
     }
 
     @Override
@@ -695,6 +702,12 @@ public class FileBasedSystemAccessControl
     public void checkCanSetViewAuthorization(SystemSecurityContext context, CatalogSchemaTableName view, TrinoPrincipal principal)
     {
         if (!checkTablePermission(context, view, OWNERSHIP)) {
+            denySetViewAuthorization(view.toString(), principal);
+        }
+        // also, grant access only when the principal is a role which can create views, and we're a member of that role
+        if (principal.getType() != ROLE
+                || !context.getIdentity().getEnabledRoles().contains(principal.getName())
+                || !checkTablePermission(getSecurityContextForPrincipal(context, principal), view, OWNERSHIP)) {
             denySetViewAuthorization(view.toString(), principal);
         }
     }
@@ -992,6 +1005,11 @@ public class FileBasedSystemAccessControl
             }
         }
         return false;
+    }
+
+    private static SystemSecurityContext getSecurityContextForPrincipal(SystemSecurityContext context, TrinoPrincipal principal)
+    {
+        return new SystemSecurityContext(Identity.forUser("").withEnabledRoles(Set.of(principal.getName())).build(), context.getQueryId());
     }
 
     public static Builder builder()
