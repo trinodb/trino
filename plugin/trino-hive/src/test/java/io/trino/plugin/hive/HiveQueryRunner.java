@@ -301,7 +301,7 @@ public final class HiveQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        // You need to add "--user admin" to your CLI and execute "SET ROLE admin" for queries to work
+        // You need to add "--user admin" to your CLI and execute "SET ROLE admin IN hive" for queries to work
         Optional<Path> baseDataDir = Optional.empty();
         if (args.length > 0) {
             if (args.length != 1) {
