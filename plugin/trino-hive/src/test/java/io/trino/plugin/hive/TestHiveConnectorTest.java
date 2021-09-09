@@ -403,6 +403,44 @@ public class TestHiveConnectorTest
     }
 
     @Test
+    public void testProjectionPushdownWithNestedData()
+    {
+        Session admin = Session.builder(getSession())
+                .setIdentity(Identity.forUser("hive")
+                        .withConnectorRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .build())
+                .setCatalogSessionProperty(catalog, "parquet_use_column_names", "true")
+                .build();
+        assertUpdate(
+                admin,
+                "CREATE TABLE nest_test (\n"
+                        + "   ride ROW(ride_id bigint),\n"
+                        + "   bundle_set ROW(bundle_set_id varchar, bundles array(ROW(offers array(ROW(offer_id varchar, cost_estimate ROW(estimated_cost_min bigint), offer_key varchar))))),\n"
+                        + "   ds varchar\n"
+                        + ")\n"
+                        + "WITH (\n"
+                        + "   format = 'PARQUET',\n"
+                        + "   partitioned_by = ARRAY['ds']\n"
+                        + ")");
+        try {
+            assertUpdate(admin, "insert into nest_test values(null, null, '2021-09-01')", 1);
+            assertQuery(
+                    admin,
+                    "SELECT\n"
+                            + "    ride.ride_id,\n"
+                            + "    TRY(FILTER(FLATTEN(TRANSFORM(bundle_set.bundles, b -> b.offers)), o -> o.offer_key = 'standard')[1].offer_id) as standard_offer_id,\n"
+                            + "    TRY(FILTER(FLATTEN(TRANSFORM(bundle_set.bundles, b -> b.offers)), o -> o.offer_key = 'standard')[1].cost_estimate.estimated_cost_min) AS standard_price_local,\n"
+                            + "    bundle_set.bundle_set_id AS bundle_set_id,\n"
+                            + "    TRANSFORM(bundle_set.bundles, b -> b.offers) as bundle_set_offers\n"
+                            + "FROM nest_test\n"
+                            + "WHERE ds = '2021-09-01'");
+        }
+        finally {
+            assertUpdate(admin, "DROP TABLE nest_test");
+        }
+    }
+
+    @Test
     public void testSchemaOperations()
     {
         Session session = Session.builder(getSession())
