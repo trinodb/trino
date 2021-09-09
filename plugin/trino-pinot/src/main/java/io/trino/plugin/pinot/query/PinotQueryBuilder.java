@@ -24,8 +24,8 @@ import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.VarcharType;
 import io.trino.spi.type.VarbinaryType;
+import io.trino.spi.type.VarcharType;
 import org.apache.commons.codec.binary.Hex;
 
 import java.util.ArrayList;
