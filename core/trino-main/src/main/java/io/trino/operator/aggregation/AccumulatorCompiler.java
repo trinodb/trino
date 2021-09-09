@@ -48,7 +48,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -134,14 +133,20 @@ public final class AccumulatorCompiler
             lambdaProviderFields.add(definition.declareField(a(PRIVATE, FINAL), "lambdaProvider_" + i, LambdaProvider.class));
         }
 
-        FieldDefinition inputChannelsField = definition.declareField(a(PRIVATE, FINAL), "inputChannels", type(List.class, Integer.class));
-        FieldDefinition maskChannelField = definition.declareField(a(PRIVATE, FINAL), "maskChannel", type(Optional.class, Integer.class));
+        FieldDefinition maskChannelField = definition.declareField(a(PRIVATE, FINAL), "maskChannel", int.class);
+
+        int inputChannelCount = countInputChannels(metadata.getValueInputMetadata());
+        ImmutableList.Builder<FieldDefinition> inputFieldsBuilder = ImmutableList.builderWithExpectedSize(inputChannelCount);
+        for (int i = 0; i < inputChannelCount; i++) {
+            inputFieldsBuilder.add(definition.declareField(a(PRIVATE, FINAL), "inputChannel" + i, int.class));
+        }
+        List<FieldDefinition> inputChannelFields = inputFieldsBuilder.build();
 
         // Generate constructor
         generateConstructor(
                 definition,
                 stateFieldAndDescriptors,
-                inputChannelsField,
+                inputChannelFields,
                 maskChannelField,
                 lambdaProviderFields,
                 grouped);
@@ -150,7 +155,7 @@ public final class AccumulatorCompiler
         generateAddInput(
                 definition,
                 stateFields,
-                inputChannelsField,
+                inputChannelFields,
                 maskChannelField,
                 metadata.getValueInputMetadata(),
                 metadata.getLambdaInterfaces(),
@@ -261,7 +266,7 @@ public final class AccumulatorCompiler
     private static void generateAddInput(
             ClassDefinition definition,
             List<FieldDefinition> stateField,
-            FieldDefinition inputChannelsField,
+            List<FieldDefinition> inputChannelFields,
             FieldDefinition maskChannelField,
             List<ParameterMetadata> parameterMetadatas,
             List<Class<?>> lambdaInterfaces,
@@ -286,33 +291,26 @@ public final class AccumulatorCompiler
             generateEnsureCapacity(scope, stateField, body);
         }
 
-        List<Variable> parameterVariables = new ArrayList<>();
-        for (int i = 0; i < countInputChannels(parameterMetadatas); i++) {
-            parameterVariables.add(scope.declareVariable(Block.class, "block" + i));
-        }
         Variable masksBlock = scope.declareVariable(Block.class, "masksBlock");
-        body.comment("masksBlock = maskChannel.map(page.blockGetter()).orElse(null);")
+        body.comment("masksBlock = extractMaskBlock(%s, page);", maskChannelField.getName())
                 .append(thisVariable.getField(maskChannelField))
                 .append(page)
-                .invokeStatic(type(AggregationUtils.class), "pageBlockGetter", type(Function.class, Integer.class, Block.class), type(Page.class))
-                .invokeVirtual(Optional.class, "map", Optional.class, Function.class)
-                .pushNull()
-                .invokeVirtual(Optional.class, "orElse", Object.class, Object.class)
-                .checkCast(Block.class)
+                .invokeStatic(AggregationUtils.class, "extractMaskBlock", Block.class, int.class, Page.class)
                 .putVariable(masksBlock);
 
-        // Get all parameter blocks
-        for (int i = 0; i < countInputChannels(parameterMetadatas); i++) {
-            body.comment("%s = page.getBlock(inputChannels.get(%d));", parameterVariables.get(i).getName(), i)
+        ImmutableList.Builder<Variable> variablesBuilder = ImmutableList.builderWithExpectedSize(inputChannelFields.size());
+        for (int i = 0; i < inputChannelFields.size(); i++) {
+            FieldDefinition inputChannelField = inputChannelFields.get(i);
+            Variable blockVariable = scope.declareVariable(Block.class, "block" + i);
+            variablesBuilder.add(blockVariable);
+            body.comment("%s = page.getBlock(%s);", blockVariable.getName(), inputChannelField.getName())
                     .append(page)
-                    .append(thisVariable.getField(inputChannelsField))
-                    .push(i)
-                    .invokeInterface(List.class, "get", Object.class, int.class)
-                    .checkCast(Integer.class)
-                    .invokeVirtual(Integer.class, "intValue", int.class)
+                    .append(thisVariable.getField(inputChannelField))
                     .invokeVirtual(Page.class, "getBlock", Block.class, int.class)
-                    .putVariable(parameterVariables.get(i));
+                    .putVariable(blockVariable);
         }
+        List<Variable> parameterVariables = variablesBuilder.build();
+
         BytecodeBlock block = generateInputForLoop(
                 stateField,
                 parameterMetadatas,
@@ -556,14 +554,21 @@ public final class AccumulatorCompiler
                         .invokeStatic(CompilerOperations.class, "testMask", boolean.class, Block.class, int.class))
                 .ifTrue(loopBody);
 
-        block.append(new ForLoop()
+        ForLoop forLoop = new ForLoop()
                 .initialize(new BytecodeBlock().putVariable(positionVariable, 0))
                 .condition(new BytecodeBlock()
                         .getVariable(positionVariable)
                         .getVariable(rowsVariable)
                         .invokeStatic(CompilerOperations.class, "lessThan", boolean.class, int.class, int.class))
                 .update(new BytecodeBlock().incrementVariable(positionVariable, (byte) 1))
-                .body(loopBody));
+                .body(loopBody);
+
+        block.append(new IfStatement("if(!maskGuaranteedToFilterAllRows(%s, %s))", rowsVariable.getName(), masksBlock.getName())
+                .condition(new BytecodeBlock()
+                        .getVariable(rowsVariable)
+                        .getVariable(masksBlock)
+                        .invokeStatic(AggregationUtils.class, "maskGuaranteedToFilterAllRows", boolean.class, int.class, Block.class))
+                .ifFalse(forLoop));
 
         return block;
     }
@@ -969,7 +974,7 @@ public final class AccumulatorCompiler
     private static void generateConstructor(
             ClassDefinition definition,
             List<StateFieldAndDescriptor> stateFieldAndDescriptors,
-            FieldDefinition inputChannelsField,
+            List<FieldDefinition> inputChannelFields,
             FieldDefinition maskChannelField,
             List<FieldDefinition> lambdaProviderFields,
             boolean grouped)
@@ -1011,8 +1016,28 @@ public final class AccumulatorCompiler
                             .cast(LambdaProvider.class)));
         }
 
-        body.append(thisVariable.setField(inputChannelsField, generateRequireNotNull(inputChannels)));
-        body.append(thisVariable.setField(maskChannelField, generateRequireNotNull(maskChannel)));
+        body.append(thisVariable.setField(maskChannelField, invokeStatic(type(CompilerOperations.class), "optionalChannelToIntOrNegative", type(int.class), ImmutableList.of(type(Optional.class, Integer.class)), generateRequireNotNull(maskChannel))));
+        // Validate inputChannels argument list
+        body.append(generateRequireNotNull(inputChannels))
+                .push(inputChannelFields.size())
+                .invokeStatic(type(CompilerOperations.class), "validateChannelsListLength", type(void.class), ImmutableList.of(type(List.class, Integer.class), type(int.class)));
+        // Initialize inputChannels fields
+        if (!inputChannelFields.isEmpty()) {
+            // Assign each inputChannel field from the list or assign -1 if the input list is empty (eg: intermediate aggregations don't use the input parameters)
+            BytecodeBlock assignFromList = new BytecodeBlock().comment("(this.inputChannel = %s.get(i), ...)", inputChannels.getName());
+            BytecodeBlock assignNegative = new BytecodeBlock().comment("(this.inputChannel = -1, ...)");
+            for (int i = 0; i < inputChannelFields.size(); i++) {
+                FieldDefinition inputChannelField = inputChannelFields.get(i);
+                assignFromList.append(thisVariable.setField(
+                        inputChannelField,
+                        inputChannels.invoke("get", Object.class, constantInt(i)).cast(int.class)));
+                assignNegative.append(thisVariable.setField(inputChannelField, constantInt(-1)));
+            }
+            body.append(new IfStatement("if(%s.isEmpty())", inputChannels.getName())
+                    .condition(new BytecodeBlock().append(inputChannels).invokeInterface(List.class, "isEmpty", boolean.class))
+                    .ifTrue(assignNegative)
+                    .ifFalse(assignFromList));
+        }
 
         String createState;
         if (grouped) {
