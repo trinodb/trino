@@ -25,6 +25,7 @@ import io.trino.parquet.writer.valuewriter.PrimitiveValueWriter;
 import io.trino.parquet.writer.valuewriter.RealValueWriter;
 import io.trino.parquet.writer.valuewriter.TimeMicrosValueWriter;
 import io.trino.parquet.writer.valuewriter.TimestampMillisValueWriter;
+import io.trino.parquet.writer.valuewriter.TimestampNanosValueWriter;
 import io.trino.parquet.writer.valuewriter.TimestampTzMicrosValueWriter;
 import io.trino.parquet.writer.valuewriter.TimestampTzMillisValueWriter;
 import io.trino.spi.TrinoException;
@@ -38,6 +39,8 @@ import org.apache.parquet.column.ParquetProperties;
 import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.schema.GroupType;
+import org.apache.parquet.schema.LogicalTypeAnnotation;
+import org.apache.parquet.schema.LogicalTypeAnnotation.TimestampLogicalTypeAnnotation;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.OriginalType;
 import org.apache.parquet.schema.PrimitiveType;
@@ -45,6 +48,7 @@ import org.apache.parquet.schema.PrimitiveType;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -58,6 +62,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.TIME_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
@@ -183,11 +188,20 @@ final class ParquetWriters
         }
         if (TIMESTAMP_MILLIS.equals(type)) {
             verifyParquetType(type, parquetType, OriginalType.TIMESTAMP_MILLIS);
+            // TODO when writing with Hive connector, isAdjustedToUTC is being set to true, which might be incorrect
+            //   verifyParquetType(type, parquetType, TimestampLogicalTypeAnnotation.class, isTimestamp(LogicalTypeAnnotation.TimeUnit.MILLIS));
             return new TimestampMillisValueWriter(valuesWriter, type, parquetType);
         }
         if (TIMESTAMP_MICROS.equals(type)) {
             verifyParquetType(type, parquetType, OriginalType.TIMESTAMP_MICROS);
+            // TODO when writing with Hive connector, isAdjustedToUTC is being set to true, which might be incorrect
+            //   verifyParquetType(type, parquetType, TimestampLogicalTypeAnnotation.class, isTimestamp(LogicalTypeAnnotation.TimeUnit.MICROS));
             return new BigintValueWriter(valuesWriter, type, parquetType);
+        }
+        if (TIMESTAMP_NANOS.equals(type)) {
+            verifyParquetType(type, parquetType, (OriginalType) null); // no OriginalType for timestamp NANOS
+            verifyParquetType(type, parquetType, TimestampLogicalTypeAnnotation.class, isTimestamp(LogicalTypeAnnotation.TimeUnit.NANOS));
+            return new TimestampNanosValueWriter(valuesWriter, type, parquetType);
         }
         if (TIMESTAMP_TZ_MILLIS.equals(type)) {
             verifyParquetType(type, parquetType, OriginalType.TIMESTAMP_MILLIS);
@@ -213,5 +227,21 @@ final class ParquetWriters
     private static void verifyParquetType(Type type, PrimitiveType parquetType, OriginalType originalType)
     {
         checkArgument(parquetType.getOriginalType() == originalType, "Wrong Parquet type '%s' for Trino type '%s'", parquetType, type);
+    }
+
+    private static <T> void verifyParquetType(Type type, PrimitiveType parquetType, Class<T> annotationType, Predicate<T> predicate)
+    {
+        checkArgument(
+                annotationType.isInstance(parquetType.getLogicalTypeAnnotation()) &&
+                        predicate.test(annotationType.cast(parquetType.getLogicalTypeAnnotation())),
+                "Wrong Parquet type '%s' for Trino type '%s'", parquetType, type);
+    }
+
+    private static Predicate<TimestampLogicalTypeAnnotation> isTimestamp(LogicalTypeAnnotation.TimeUnit precision)
+    {
+        requireNonNull(precision, "precision is null");
+        return annotation -> annotation.getUnit() == precision &&
+                // isAdjustedToUTC=false indicates Local semantics (timestamps not normalized to UTC)
+                !annotation.isAdjustedToUTC();
     }
 }

@@ -7645,16 +7645,7 @@ public class TestHiveConnectorTest
     @Test
     public void testTimestampPrecisionInsert()
     {
-        testWithAllStorageFormats((session, storageFormat) -> {
-            if (isNativeParquetWriter(session, storageFormat)) {
-                // TODO (https://github.com/trinodb/trino/issues/5357) Implement variable precision timestamp handling for optimized Parquet writer
-                assertThatThrownBy(() -> testTimestampPrecisionInsert(session, storageFormat))
-                        .hasMessage("Unsupported primitive type: timestamp(9)")
-                        .hasStackTraceContaining("at io.trino.parquet.writer.ParquetSchemaConverter.getPrimitiveType");
-                return;
-            }
-            testTimestampPrecisionInsert(session, storageFormat);
-        });
+        testWithAllStorageFormats(this::testTimestampPrecisionInsert);
     }
 
     private void testTimestampPrecisionInsert(Session session, HiveStorageFormat storageFormat)
@@ -7681,16 +7672,7 @@ public class TestHiveConnectorTest
     @Test
     public void testTimestampPrecisionCtas()
     {
-        testWithAllStorageFormats((session, storageFormat) -> {
-            if (isNativeParquetWriter(session, storageFormat)) {
-                // TODO (https://github.com/trinodb/trino/issues/5357) Implement variable precision timestamp handling for optimized Parquet writer
-                assertThatThrownBy(() -> testTimestampPrecisionCtas(session, storageFormat))
-                        .hasMessage("Unsupported primitive type: timestamp(9)")
-                        .hasStackTraceContaining("at io.trino.parquet.writer.ParquetSchemaConverter.getPrimitiveType");
-                return;
-            }
-            testTimestampPrecisionCtas(session, storageFormat);
-        });
+        testWithAllStorageFormats((session, storageFormat) -> testTimestampPrecisionCtas(session, storageFormat));
     }
 
     private void testTimestampPrecisionCtas(Session session, HiveStorageFormat storageFormat)
