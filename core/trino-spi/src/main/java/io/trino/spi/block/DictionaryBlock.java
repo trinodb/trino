@@ -219,22 +219,62 @@ public class DictionaryBlock
         }
 
         long dictionaryBlockSize;
-        if (uniqueIds == dictionary.getPositionCount()) {
-            // dictionary is compact, all positions were used
-            dictionaryBlockSize = dictionary.getSizeInBytes();
-        }
-        else {
-            dictionaryBlockSize = dictionary.getPositionsSizeInBytes(used);
-        }
 
         if (dictionary instanceof DictionaryBlock) {
             // dictionary is nested, compaction would unnest it and nested ids
             // array shouldn't be accounted for
-            dictionaryBlockSize -= (Integer.BYTES * (long) uniqueIds);
+            DictionaryBlock nestedDictionary = (DictionaryBlock) dictionary;
+            if (uniqueIds == dictionary.getPositionCount()) {
+                // dictionary is compact, all positions were used
+                dictionaryBlockSize = nestedDictionary.getCompactedDictionarySizeInBytes();
+            }
+            else {
+                dictionaryBlockSize = nestedDictionary.getCompactedDictionaryPositionsSizeInBytes(used);
+            }
+        }
+        else {
+            if (uniqueIds == dictionary.getPositionCount()) {
+                // dictionary is compact, all positions were used
+                dictionaryBlockSize = dictionary.getSizeInBytes();
+            }
+            else {
+                dictionaryBlockSize = dictionary.getPositionsSizeInBytes(used);
+            }
         }
 
         this.sizeInBytes = dictionaryBlockSize + (Integer.BYTES * (long) positionCount);
         this.uniqueIds = uniqueIds;
+    }
+
+    /**
+     * Returns size of compacted dictionary. This is computed as if the dictionaries were unnested.
+     */
+    private long getCompactedDictionarySizeInBytes()
+    {
+        if (sizeInBytes < 0) {
+            calculateCompactSize();
+        }
+
+        return sizeInBytes - (Integer.BYTES * (long) positionCount);
+    }
+
+    /**
+     * Returns size of compacted dictionary for given positions. This is computed as if the dictionaries were unnested.
+     */
+    private long getCompactedDictionaryPositionsSizeInBytes(boolean[] positions)
+    {
+        boolean[] used = new boolean[dictionary.getPositionCount()];
+        for (int i = 0; i < positions.length; i++) {
+            if (positions[i]) {
+                used[getId(i)] = true;
+            }
+        }
+
+        if (dictionary instanceof DictionaryBlock) {
+            return ((DictionaryBlock) dictionary).getCompactedDictionaryPositionsSizeInBytes(used);
+        }
+
+        return dictionary.getPositionsSizeInBytes(used);
     }
 
     @Override
