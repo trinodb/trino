@@ -45,6 +45,8 @@ public class DictionaryBlock
     private volatile long sizeInBytes = -1;
     private volatile long logicalSizeInBytes = -1;
     private volatile int uniqueIds = -1;
+    // isSequentialIds is only valid when uniqueIds is computed
+    private volatile boolean isSequentialIds;
     private final DictionaryId dictionarySourceId;
 
     public DictionaryBlock(Block dictionary, int[] ids)
@@ -74,6 +76,11 @@ public class DictionaryBlock
 
     public DictionaryBlock(int idsOffset, int positionCount, Block dictionary, int[] ids, boolean dictionaryIsCompacted, DictionaryId dictionarySourceId)
     {
+        this(idsOffset, positionCount, dictionary, ids, dictionaryIsCompacted, false, dictionarySourceId);
+    }
+
+    public DictionaryBlock(int idsOffset, int positionCount, Block dictionary, int[] ids, boolean dictionaryIsCompacted, boolean isSequentialIds, DictionaryId dictionarySourceId)
+    {
         requireNonNull(dictionary, "dictionary is null");
         requireNonNull(ids, "ids is null");
 
@@ -99,6 +106,11 @@ public class DictionaryBlock
             this.sizeInBytes = dictionary.getSizeInBytes() + (Integer.BYTES * (long) positionCount);
             this.uniqueIds = dictionary.getPositionCount();
         }
+
+        if (isSequentialIds && !dictionaryIsCompacted) {
+            throw new IllegalArgumentException("sequential ids flag is only valid for compacted dictionary");
+        }
+        this.isSequentialIds = isSequentialIds;
     }
 
     @Override
@@ -210,12 +222,17 @@ public class DictionaryBlock
     {
         int uniqueIds = 0;
         boolean[] used = new boolean[dictionary.getPositionCount()];
+        int previousPosition = -1;
+        boolean isSequentialIds = true;
         for (int i = 0; i < positionCount; i++) {
             int position = getId(i);
             if (!used[position]) {
                 uniqueIds++;
                 used[position] = true;
             }
+
+            isSequentialIds = isSequentialIds && previousPosition < position;
+            previousPosition = position;
         }
 
         long dictionaryBlockSize;
@@ -231,6 +248,8 @@ public class DictionaryBlock
             else {
                 dictionaryBlockSize = nestedDictionary.getCompactedDictionaryPositionsSizeInBytes(used);
             }
+            // nested dictionaries are assumed not to have sequential ids
+            isSequentialIds = false;
         }
         else {
             if (uniqueIds == dictionary.getPositionCount()) {
@@ -244,6 +263,7 @@ public class DictionaryBlock
 
         this.sizeInBytes = dictionaryBlockSize + (Integer.BYTES * (long) positionCount);
         this.uniqueIds = uniqueIds;
+        this.isSequentialIds = isSequentialIds;
     }
 
     /**
@@ -482,6 +502,24 @@ public class DictionaryBlock
         return Slices.wrappedIntArray(ids, idsOffset, positionCount);
     }
 
+    boolean isSequentialIds()
+    {
+        if (uniqueIds < 0) {
+            calculateCompactSize();
+        }
+
+        return isSequentialIds;
+    }
+
+    int getUniqueIds()
+    {
+        if (uniqueIds < 0) {
+            calculateCompactSize();
+        }
+
+        return uniqueIds;
+    }
+
     public int getId(int position)
     {
         checkValidPosition(position, positionCount);
@@ -548,7 +586,17 @@ public class DictionaryBlock
         }
         try {
             Block compactDictionary = dictionary.copyPositions(dictionaryPositionsToCopy.elements(), 0, dictionaryPositionsToCopy.size());
-            return new DictionaryBlock(positionCount, compactDictionary, newIds, true);
+            return new DictionaryBlock(
+                    0,
+                    positionCount,
+                    compactDictionary,
+                    newIds,
+                    true,
+                    // Copied dictionary positions match ids sequence. Therefore new
+                    // compact dictionary block has sequential ids only if single position
+                    // is not used more than once.
+                    uniqueIds == positionCount,
+                    randomDictionaryId());
         }
         catch (UnsupportedOperationException e) {
             // ignore if copy positions is not supported for the dictionary block
