@@ -227,12 +227,8 @@ class BigQueryClient
         String project = viewMaterializationProject.orElse(remoteTableId.getProject());
         String dataset = viewMaterializationDataset.orElse(remoteTableId.getDataset());
 
-        String remoteDatasetName = toRemoteDataset(project, dataset)
-                .map(RemoteDatabaseObject::getOnlyRemoteName)
-                .orElse(dataset);
-        DatasetId datasetId = DatasetId.of(project, remoteDatasetName);
         String name = format("_pbc_%s", randomUUID().toString().toLowerCase(ENGLISH).replace("-", ""));
-        return TableId.of(datasetId.getProject(), datasetId.getDataset(), name);
+        return TableId.of(project, dataset, name);
     }
 
     Table update(TableInfo table)
@@ -293,12 +289,8 @@ class BigQueryClient
 
     private String fullTableName(TableId remoteTableId)
     {
-        String remoteSchemaName = toRemoteDataset(remoteTableId.getProject(), remoteTableId.getDataset())
-                .map(RemoteDatabaseObject::getOnlyRemoteName)
-                .orElse(remoteTableId.getDataset());
-        String remoteTableName = toRemoteTable(remoteTableId.getProject(), remoteSchemaName, remoteTableId.getTable())
-                .map(RemoteDatabaseObject::getOnlyRemoteName)
-                .orElse(remoteTableId.getTable());
+        String remoteSchemaName = remoteTableId.getDataset();
+        String remoteTableName = remoteTableId.getTable();
         remoteTableId = TableId.of(remoteTableId.getProject(), remoteSchemaName, remoteTableName);
         return format("%s.%s.%s", remoteTableId.getProject(), remoteTableId.getDataset(), remoteTableId.getTable());
     }
