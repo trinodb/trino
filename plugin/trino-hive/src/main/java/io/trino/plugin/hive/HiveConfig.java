@@ -128,6 +128,7 @@ public class HiveConfig
 
     private boolean isTemporaryStagingDirectoryEnabled = true;
     private String temporaryStagingDirectoryPath = "/tmp/presto-${USER}";
+    private boolean delegateTransactionalManagedTableLocationToMetastore;
 
     private Duration fileStatusCacheExpireAfterWrite = new Duration(1, MINUTES);
     private long fileStatusCacheMaxSize = 1000 * 1000;
@@ -939,6 +940,19 @@ public class HiveConfig
     public String getTemporaryStagingDirectoryPath()
     {
         return temporaryStagingDirectoryPath;
+    }
+
+    @Config("hive.delegate-transactional-managed-table-location-to-metastore")
+    @ConfigDescription("When transactional, managed table is created via Trino the location will not be set in request sent to HMS and location will be determined by metastore; if this value is set to true, CREATE TABLE AS queries are not supported.")
+    public HiveConfig setDelegateTransactionalManagedTableLocationToMetastore(boolean delegateTransactionalManagedTableLocationToMetastore)
+    {
+        this.delegateTransactionalManagedTableLocationToMetastore = delegateTransactionalManagedTableLocationToMetastore;
+        return this;
+    }
+
+    public boolean isDelegateTransactionalManagedTableLocationToMetastore()
+    {
+        return delegateTransactionalManagedTableLocationToMetastore;
     }
 
     @Config("hive.transaction-heartbeat-interval")

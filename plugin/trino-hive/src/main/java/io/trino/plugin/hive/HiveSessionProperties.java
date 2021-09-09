@@ -99,6 +99,7 @@ public final class HiveSessionProperties
     private static final String S3_SELECT_PUSHDOWN_ENABLED = "s3_select_pushdown_enabled";
     private static final String TEMPORARY_STAGING_DIRECTORY_ENABLED = "temporary_staging_directory_enabled";
     private static final String TEMPORARY_STAGING_DIRECTORY_PATH = "temporary_staging_directory_path";
+    private static final String DELEGATE_TRANSACTIONAL_MANAGED_TABLE_LOCATION_TO_METASTORE = "delegate_transactional_managed_table_location_to_metastore";
     private static final String IGNORE_ABSENT_PARTITIONS = "ignore_absent_partitions";
     private static final String QUERY_PARTITION_FILTER_REQUIRED = "query_partition_filter_required";
     private static final String QUERY_PARTITION_FILTER_REQUIRED_SCHEMAS = "query_partition_filter_required_schemas";
@@ -389,6 +390,11 @@ public final class HiveSessionProperties
                         "Temporary staging directory location",
                         hiveConfig.getTemporaryStagingDirectoryPath(),
                         false),
+                booleanProperty(
+                        DELEGATE_TRANSACTIONAL_MANAGED_TABLE_LOCATION_TO_METASTORE,
+                        "When transactional managed table is created via Trino the location will not be set in request sent to HMS and location will be determined by metastore; if this property is set to true CREATE TABLE AS queries are not supported.",
+                        hiveConfig.isDelegateTransactionalManagedTableLocationToMetastore(),
+                        true),
                 booleanProperty(
                         IGNORE_ABSENT_PARTITIONS,
                         "Ignore partitions when the file system location does not exist rather than failing the query.",
@@ -694,6 +700,11 @@ public final class HiveSessionProperties
     public static String getTemporaryStagingDirectoryPath(ConnectorSession session)
     {
         return session.getProperty(TEMPORARY_STAGING_DIRECTORY_PATH, String.class);
+    }
+
+    public static boolean isDelegateTransactionalManagedTableLocationToMetastore(ConnectorSession session)
+    {
+        return session.getProperty(DELEGATE_TRANSACTIONAL_MANAGED_TABLE_LOCATION_TO_METASTORE, Boolean.class);
     }
 
     public static boolean isIgnoreAbsentPartitions(ConnectorSession session)

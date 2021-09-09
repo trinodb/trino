@@ -703,7 +703,7 @@ public final class ThriftMetastoreUtil
         serdeInfo.setParameters(storage.getSerdeParameters());
 
         StorageDescriptor sd = new StorageDescriptor();
-        sd.setLocation(emptyToNull(storage.getLocation()));
+        sd.setLocation(emptyToNull(storage.getOptionalLocation().orElse(null)));
         sd.setCols(columns.stream()
                 .map(ThriftMetastoreUtil::toMetastoreApiFieldSchema)
                 .collect(toImmutableList()));
