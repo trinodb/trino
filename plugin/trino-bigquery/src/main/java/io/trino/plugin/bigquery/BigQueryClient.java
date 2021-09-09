@@ -190,13 +190,13 @@ class BigQueryClient
         return bigQuery.getTable(remoteTableId);
     }
 
-    TableInfo getCachedTable(ReadSessionCreatorConfig config, TableId tableId, List<String> requiredColumns)
+    TableInfo getCachedTable(ReadSessionCreatorConfig config, TableInfo remoteTableId, List<String> requiredColumns)
     {
-        String query = selectSql(tableId, requiredColumns);
+        String query = selectSql(remoteTableId, requiredColumns);
         log.debug("query is %s", query);
         try {
             return destinationTableCache.get(query,
-                    new DestinationTableBuilder(this, config, query, tableId));
+                    new DestinationTableBuilder(this, config, query, remoteTableId.getTableId()));
         }
         catch (ExecutionException e) {
             throw new TrinoException(BIGQUERY_VIEW_DESTINATION_TABLE_CREATION_FAILED, "Error creating destination table", e);
@@ -222,15 +222,14 @@ class BigQueryClient
                 .collect(toImmutableList());
     }
 
-    TableId createDestinationTable(TableId tableId)
+    TableId createDestinationTable(TableId remoteTableId)
     {
-        String project = viewMaterializationProject.orElse(tableId.getProject());
-        String dataset = viewMaterializationDataset.orElse(tableId.getDataset());
+        String project = viewMaterializationProject.orElse(remoteTableId.getProject());
+        String dataset = viewMaterializationDataset.orElse(remoteTableId.getDataset());
 
         String remoteDatasetName = toRemoteDataset(project, dataset)
                 .map(RemoteDatabaseObject::getOnlyRemoteName)
                 .orElse(dataset);
-
         DatasetId datasetId = DatasetId.of(project, remoteDatasetName);
         String name = format("_pbc_%s", randomUUID().toString().toLowerCase(ENGLISH).replace("-", ""));
         return TableId.of(datasetId.getProject(), datasetId.getDataset(), name);
@@ -277,12 +276,12 @@ class BigQueryClient
         }
     }
 
-    String selectSql(TableId table, List<String> requiredColumns)
+    String selectSql(TableInfo remoteTable, List<String> requiredColumns)
     {
         String columns = requiredColumns.isEmpty() ? "*" :
                 requiredColumns.stream().map(column -> format("`%s`", column)).collect(joining(","));
 
-        return selectSql(table, columns);
+        return selectSql(remoteTable.getTableId(), columns);
     }
 
     // assuming the SELECT part is properly formatted, can be used to call functions such as COUNT and SUM
@@ -292,16 +291,16 @@ class BigQueryClient
         return format("SELECT %s FROM `%s`", formattedColumns, tableName);
     }
 
-    private String fullTableName(TableId tableId)
+    private String fullTableName(TableId remoteTableId)
     {
-        String remoteSchemaName = toRemoteDataset(tableId.getProject(), tableId.getDataset())
+        String remoteSchemaName = toRemoteDataset(remoteTableId.getProject(), remoteTableId.getDataset())
                 .map(RemoteDatabaseObject::getOnlyRemoteName)
-                .orElse(tableId.getDataset());
-        String remoteTableName = toRemoteTable(tableId.getProject(), remoteSchemaName, tableId.getTable())
+                .orElse(remoteTableId.getDataset());
+        String remoteTableName = toRemoteTable(remoteTableId.getProject(), remoteSchemaName, remoteTableId.getTable())
                 .map(RemoteDatabaseObject::getOnlyRemoteName)
-                .orElse(tableId.getTable());
-        tableId = TableId.of(tableId.getProject(), remoteSchemaName, remoteTableName);
-        return format("%s.%s.%s", tableId.getProject(), tableId.getDataset(), tableId.getTable());
+                .orElse(remoteTableId.getTable());
+        remoteTableId = TableId.of(remoteTableId.getProject(), remoteSchemaName, remoteTableName);
+        return format("%s.%s.%s", remoteTableId.getProject(), remoteTableId.getDataset(), remoteTableId.getTable());
     }
 
     List<BigQueryColumnHandle> getColumns(BigQueryTableHandle tableHandle)
@@ -373,14 +372,14 @@ class BigQueryClient
         private final BigQueryClient bigQueryClient;
         private final ReadSessionCreatorConfig config;
         private final String query;
-        private final TableId table;
+        private final TableId remoteTable;
 
-        DestinationTableBuilder(BigQueryClient bigQueryClient, ReadSessionCreatorConfig config, String query, TableId table)
+        DestinationTableBuilder(BigQueryClient bigQueryClient, ReadSessionCreatorConfig config, String query, TableId remoteTable)
         {
             this.bigQueryClient = requireNonNull(bigQueryClient, "bigQueryClient is null");
             this.config = requireNonNull(config, "config is null");
             this.query = requireNonNull(query, "query is null");
-            this.table = requireNonNull(table, "table is null");
+            this.remoteTable = requireNonNull(remoteTable, "remoteTable is null");
         }
 
         @Override
@@ -391,7 +390,7 @@ class BigQueryClient
 
         TableInfo createTableFromQuery()
         {
-            TableId destinationTable = bigQueryClient.createDestinationTable(table);
+            TableId destinationTable = bigQueryClient.createDestinationTable(remoteTable);
             log.debug("destinationTable is %s", destinationTable);
             JobInfo jobInfo = JobInfo.of(
                     QueryJobConfiguration

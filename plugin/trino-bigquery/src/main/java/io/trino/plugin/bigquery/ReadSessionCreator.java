@@ -46,9 +46,9 @@ public class ReadSessionCreator
         this.bigQueryStorageClientFactory = bigQueryStorageClientFactory;
     }
 
-    public Storage.ReadSession create(TableId table, List<String> selectedFields, Optional<String> filter, int parallelism)
+    public Storage.ReadSession create(TableId remoteTable, List<String> selectedFields, Optional<String> filter, int parallelism)
     {
-        TableInfo tableDetails = bigQueryClient.getTable(table);
+        TableInfo tableDetails = bigQueryClient.getTable(remoteTable);
 
         TableInfo actualTable = getActualTable(tableDetails, selectedFields);
 
@@ -89,13 +89,13 @@ public class ReadSessionCreator
     }
 
     private TableInfo getActualTable(
-            TableInfo table,
+            TableInfo remoteTable,
             List<String> requiredColumns)
     {
-        TableDefinition tableDefinition = table.getDefinition();
+        TableDefinition tableDefinition = remoteTable.getDefinition();
         TableDefinition.Type tableType = tableDefinition.getType();
         if (TableDefinition.Type.TABLE == tableType) {
-            return table;
+            return remoteTable;
         }
         if (TableDefinition.Type.VIEW == tableType) {
             if (!config.viewsEnabled) {
@@ -104,12 +104,12 @@ public class ReadSessionCreator
                         BigQueryConfig.VIEWS_ENABLED));
             }
             // get it from the view
-            return bigQueryClient.getCachedTable(config, table.getTableId(), requiredColumns);
+            return bigQueryClient.getCachedTable(config, remoteTable, requiredColumns);
         }
         else {
             // not regular table or a view
             throw new TrinoException(NOT_SUPPORTED, format("Table type '%s' of table '%s.%s' is not supported",
-                    tableType, table.getTableId().getDataset(), table.getTableId().getTable()));
+                    tableType, remoteTable.getTableId().getDataset(), remoteTable.getTableId().getTable()));
         }
     }
 }
