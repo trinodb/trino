@@ -624,6 +624,6 @@ public class TestPostgreSqlConnectorTest
     protected TestView createSleepingView(Duration minimalQueryDuration)
     {
         long secondsToSleep = round(minimalQueryDuration.convertTo(SECONDS).getValue() + 1);
-        return new TestView(onRemoteDatabase(), format("SELECT 1 FROM pg_sleep(%d)", secondsToSleep));
+        return new TestView(onRemoteDatabase(), "test_sleeping_view", format("SELECT 1 FROM pg_sleep(%d)", secondsToSleep));
     }
 }

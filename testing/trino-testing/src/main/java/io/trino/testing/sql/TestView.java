@@ -22,10 +22,10 @@ public class TestView
     private final SqlExecutor sqlExecutor;
     private final String name;
 
-    public TestView(SqlExecutor sqlExecutor, String viewBody)
+    public TestView(SqlExecutor sqlExecutor, String namePrefix, String viewBody)
     {
         this.sqlExecutor = sqlExecutor;
-        this.name = "test_view_" + randomTableSuffix();
+        this.name = namePrefix + "_" + randomTableSuffix();
         sqlExecutor.execute(format("CREATE VIEW %s AS %s", name, viewBody));
     }
 
