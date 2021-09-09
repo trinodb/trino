@@ -97,7 +97,7 @@ public class TestPinotIntegrationSmokeTest
                             Arrays.asList(false, true, true),
                             Arrays.asList(54, -10001, 1000),
                             Arrays.asList(-7.33F + i, Float.POSITIVE_INFINITY, 17.034F + i),
-                            Arrays.asList(-17.33D + i, .00014D - i, 10596.034D + i),
+                            Arrays.asList(-17.33D + i, Double.POSITIVE_INFINITY, 10596.034D + i),
                             Arrays.asList(-3147483647L + i, 12L - i, 4147483647L + i),
                             Instant.parse("2021-05-10T00:00:00.00Z").plusMillis(offset).toEpochMilli())));
         }
@@ -1301,5 +1301,31 @@ public class TestPinotIntegrationSmokeTest
                 "  FROM " + ALL_TYPES_TABLE +
                 "  WHERE string_col = 'string_0'\""))
                 .matches("VALUES (CAST(POWER(0, -1) AS REAL))");
+    }
+
+    @Test
+    public void testDoubleWithInfinity()
+    {
+        assertThat(query("SELECT element_at(double_array_col, 1)" +
+                "  FROM " + ALL_TYPES_TABLE +
+                "  WHERE bytes_col = X''"))
+                .matches("VALUES  (-POWER(0, -1))," +
+                        "  (-POWER(0, -1))");
+
+        assertThat(query("SELECT element_at(double_array_col, 1) FROM \"SELECT double_array_col" +
+                "  FROM " + ALL_TYPES_TABLE +
+                "  WHERE bytes_col = '' \""))
+                .matches("VALUES  (-POWER(0, -1))," +
+                        "  (-POWER(0, -1))");
+
+        assertThat(query("SELECT element_at(double_array_col, 2)" +
+                "  FROM " + ALL_TYPES_TABLE +
+                "  WHERE string_col = 'string_0'"))
+                .matches("VALUES (POWER(0, -1))");
+
+        assertThat(query("SELECT element_at(double_array_col, 2) FROM \"SELECT double_array_col" +
+                "  FROM " + ALL_TYPES_TABLE +
+                "  WHERE string_col = 'string_0'\""))
+                .matches("VALUES (POWER(0, -1))");
     }
 }
