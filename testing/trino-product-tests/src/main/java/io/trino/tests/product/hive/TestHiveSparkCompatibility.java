@@ -35,8 +35,8 @@ public class TestHiveSparkCompatibility
     // see spark-defaults.conf
     private static final String TRINO_CATALOG = "hive";
 
-    @Test(groups = {HIVE_SPARK_BUCKETING, PROFILE_SPECIFIC_TESTS})
-    public void testTrinoReadingTableCreatedByNativeSpark()
+    @Test(groups = {HIVE_SPARK, PROFILE_SPECIFIC_TESTS})
+    public void testReadSparkBucketedTable()
     {
         // Spark tables can be created using native Spark code or by going through Hive code
         // This tests the native Spark path.

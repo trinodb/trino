@@ -39,7 +39,7 @@ public final class TestGroups
     public static final String HDFS_IMPERSONATION = "hdfs_impersonation";
     public static final String HDFS_NO_IMPERSONATION = "hdfs_no_impersonation";
     public static final String HIVE_PARTITIONING = "hive_partitioning";
-    public static final String HIVE_SPARK_BUCKETING = "hive_spark_bucketing";
+    public static final String HIVE_SPARK = "hive_spark";
     public static final String HIVE_COMPRESSION = "hive_compression";
     public static final String HIVE_TRANSACTIONAL = "hive_transactional";
     public static final String HIVE_VIEWS = "hive_views";
