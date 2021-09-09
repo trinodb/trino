@@ -125,13 +125,13 @@ public class TestWindowFrameRange
                                 project(// coerce sort key to compare sort key values with frame end values
                                         ImmutableMap.of("key_for_frame_end_comparison", expression("CAST(key AS decimal(12, 1))")),
                                         project(// calculate frame end value (sort key + frame offset)
-                                                ImmutableMap.of("frame_end_value", expression(new FunctionCall(QualifiedName.of("$operator$add"), ImmutableList.of(new SymbolReference("key"), new SymbolReference("offset"))))),
+                                                ImmutableMap.of("frame_end_value", expression(new FunctionCall(QualifiedName.of("$operator$add"), ImmutableList.of(new SymbolReference("key"), new SymbolReference("offset_value"))))),
                                                 filter(// validate offset values
-                                                        "IF((offset >= CAST(0 AS DECIMAL(10, 0))), " +
+                                                        "IF((offset_value >= CAST(0 AS DECIMAL(10, 0))), " +
                                                                 "true, " +
                                                                 "CAST(fail(CAST('Window frame offset value must not be negative or null' AS varchar)) AS boolean))",
                                                         project(// coerce offset value to calculate frame end values
-                                                                ImmutableMap.of("offset", expression("CAST(x AS decimal(10, 0))")),
+                                                                ImmutableMap.of("offset_value", expression("CAST(x AS decimal(10, 0))")),
                                                                 anyTree(
                                                                         values(
                                                                                 ImmutableList.of("key", "x"),

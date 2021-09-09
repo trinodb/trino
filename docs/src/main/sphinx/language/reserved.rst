@@ -43,11 +43,13 @@ Keyword                        SQL:2016      SQL-92
 ``EXISTS``                     reserved      reserved
 ``EXTRACT``                    reserved      reserved
 ``FALSE``                      reserved      reserved
+``FETCH``                      reserved      reserved
 ``FOR``                        reserved      reserved
 ``FROM``                       reserved      reserved
 ``FULL``                       reserved      reserved
 ``GROUP``                      reserved      reserved
 ``GROUPING``                   reserved
+``GROUPS``                     reserved
 ``HAVING``                     reserved      reserved
 ``IN``                         reserved      reserved
 ``INITIAL``                    reserved
@@ -69,6 +71,7 @@ Keyword                        SQL:2016      SQL-92
 ``NORMALIZE``                  reserved
 ``NOT``                        reserved      reserved
 ``NULL``                       reserved      reserved
+``OFFSET``                     reserved
 ``OMIT``                       reserved
 ``ON``                         reserved      reserved
 ``ONE``                        reserved
