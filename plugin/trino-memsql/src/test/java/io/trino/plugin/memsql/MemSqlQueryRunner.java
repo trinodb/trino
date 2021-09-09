@@ -14,6 +14,8 @@
 package io.trino.plugin.memsql;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.log.Logger;
+import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
@@ -72,5 +74,22 @@ public class MemSqlQueryRunner
                 .setCatalog("memsql")
                 .setSchema(TPCH_SCHEMA)
                 .build();
+    }
+
+    public static void main(String[] args)
+            throws Exception
+    {
+        Logging.initialize();
+
+        // You need to set 'memsql.license' to VM options
+        DistributedQueryRunner queryRunner = createMemSqlQueryRunner(
+                new TestingMemSqlServer(),
+                ImmutableMap.of("http-server.http.port", "8080"),
+                ImmutableMap.of(),
+                TpchTable.getTables());
+
+        Logger log = Logger.get(MemSqlQueryRunner.class);
+        log.info("======== SERVER STARTED ========");
+        log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
     }
 }
