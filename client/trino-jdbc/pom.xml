@@ -79,6 +79,12 @@
             <groupId>io.trino</groupId>
             <artifactId>trino-hive-hadoop2</artifactId>
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>commons-logging</groupId>
+                    <artifactId>commons-logging</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
