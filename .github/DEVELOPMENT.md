@@ -177,4 +177,4 @@ To iterate quickly, simply re-build the project in IntelliJ after packaging is c
 ## Writing and Building Documentation
 
 More information about the documentation process can be found in the
-[docs module](./docs/README.md).
+[docs module](../docs).
