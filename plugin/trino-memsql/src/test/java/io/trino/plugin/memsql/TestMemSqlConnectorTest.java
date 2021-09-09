@@ -53,7 +53,7 @@ public class TestMemSqlConnectorTest
             throws Exception
     {
         memSqlServer = new TestingMemSqlServer();
-        return createMemSqlQueryRunner(memSqlServer, ImmutableMap.of(), REQUIRED_TPCH_TABLES);
+        return createMemSqlQueryRunner(memSqlServer, ImmutableMap.of(), ImmutableMap.of(), REQUIRED_TPCH_TABLES);
     }
 
     @AfterClass(alwaysRun = true)
