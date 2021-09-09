@@ -71,6 +71,12 @@ public class DictionaryBlockEncoding
         long leastSignificantBits = sliceInput.readLong();
         long sequenceId = sliceInput.readLong();
 
+        if (dictionaryBlock.getPositionCount() == positionCount) {
+            // Dictionary was a masking dictionary before sending (unique ids match position count).
+            // We can just return dictionaryBlock directly because ids are sequential after compaction.
+            return dictionaryBlock;
+        }
+
         // We always compact the dictionary before we send it. However, dictionaryBlock comes from sliceInput, which may over-retain memory.
         // As a result, setting dictionaryIsCompacted to true is not appropriate here.
         // TODO: fix DictionaryBlock so that dictionaryIsCompacted can be set to true when the underlying block over-retains memory.

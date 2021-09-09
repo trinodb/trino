@@ -30,13 +30,7 @@ public class TestDictionaryBlockEncoding
     {
         int positionCount = 40;
 
-        // build dictionary
-        BlockBuilder dictionaryBuilder = VARCHAR.createBlockBuilder(null, 4);
-        VARCHAR.writeString(dictionaryBuilder, "alice");
-        VARCHAR.writeString(dictionaryBuilder, "bob");
-        VARCHAR.writeString(dictionaryBuilder, "charlie");
-        VARCHAR.writeString(dictionaryBuilder, "dave");
-        Block dictionary = dictionaryBuilder.build();
+        Block dictionary = buildTestDictionary();
 
         // build ids
         int[] ids = new int[positionCount];
@@ -57,5 +51,38 @@ public class TestDictionaryBlockEncoding
             assertEquals(actualDictionaryBlock.getId(position), ids[position]);
         }
         assertEquals(actualDictionaryBlock.getDictionarySourceId(), dictionaryBlock.getDictionarySourceId());
+    }
+
+    @Test
+    public void testUnnest()
+    {
+        // build dictionary
+        BlockBuilder dictionaryBuilder = VARCHAR.createBlockBuilder(null, 4);
+        VARCHAR.writeString(dictionaryBuilder, "alice");
+        VARCHAR.writeString(dictionaryBuilder, "bob");
+        VARCHAR.writeString(dictionaryBuilder, "charlie");
+        VARCHAR.writeString(dictionaryBuilder, "dave");
+        Block dictionary = dictionaryBuilder.build();
+
+        int[] ids = new int[] {0, 2};
+        DictionaryBlock dictionaryBlock = new DictionaryBlock(dictionary, ids);
+
+        DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
+        blockEncodingSerde.writeBlock(sliceOutput, dictionaryBlock);
+        Block actualBlock = blockEncodingSerde.readBlock(sliceOutput.slice().getInput());
+
+        assertTrue(actualBlock instanceof VariableWidthBlock);
+        assertBlockEquals(VARCHAR, actualBlock, dictionary.getPositions(ids, 0, 2));
+    }
+
+    private Block buildTestDictionary()
+    {
+        // build dictionary
+        BlockBuilder dictionaryBuilder = VARCHAR.createBlockBuilder(null, 4);
+        VARCHAR.writeString(dictionaryBuilder, "alice");
+        VARCHAR.writeString(dictionaryBuilder, "bob");
+        VARCHAR.writeString(dictionaryBuilder, "charlie");
+        VARCHAR.writeString(dictionaryBuilder, "dave");
+        return dictionaryBuilder.build();
     }
 }
