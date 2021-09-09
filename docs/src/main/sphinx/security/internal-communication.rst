@@ -58,7 +58,8 @@ configuration identical on all cluster nodes.
 
    Note that using hostnames or fully qualified domain names for the URI is
    not supported. The automatic certificate creation for internal TLS only
-   supports IP addresses.
+   supports IP addresses. Java 17 is known to be incompatible with this feature
+   and can not be used as a runtime for Trino with this feature enabled.
 
 4. Enable the HTTPS endpoint on all workers.
 
