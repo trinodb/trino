@@ -8,7 +8,7 @@ The RPM builds by default in Maven, and can be found under the directory `core/t
 
 To install Trino using an RPM, run:
 
-    rpm -i trino-server-rpm-<version>-x86_64.rpm
+    rpm -i trino-server-rpm-<version>-noarch.rpm
 
 This will install Trino in single node mode, where both coordinator and workers are co-located on localhost.
 This will deploy the necessary default configurations along with a service script to control the Trino server process.
