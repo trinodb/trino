@@ -13,12 +13,10 @@
  */
 package io.trino.plugin.memsql;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
-import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 
 import java.util.HashMap;
@@ -35,16 +33,14 @@ public class MemSqlQueryRunner
 
     private static final String TPCH_SCHEMA = "tpch";
 
-    public static QueryRunner createMemSqlQueryRunner(TestingMemSqlServer server, TpchTable<?>... tables)
+    public static DistributedQueryRunner createMemSqlQueryRunner(
+            TestingMemSqlServer server,
+            Map<String, String> extraProperties,
+            Map<String, String> connectorProperties,
+            Iterable<TpchTable<?>> tables)
             throws Exception
     {
-        return createMemSqlQueryRunner(server, ImmutableMap.of(), ImmutableList.copyOf(tables));
-    }
-
-    public static QueryRunner createMemSqlQueryRunner(TestingMemSqlServer server, Map<String, String> connectorProperties, Iterable<TpchTable<?>> tables)
-            throws Exception
-    {
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createSession()).build();
+        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createSession()).setExtraProperties(extraProperties).build();
         try {
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
