@@ -204,17 +204,17 @@ public abstract class AbstractTestBlock
     {
         // Asserting on `block` is not very effective because most blocks passed to this method is compact.
         // Therefore, we split the `block` into two and assert again.
-        long expectedBlockSize = copyBlockViaBlockSerde(block).getSizeInBytes();
+        long expectedBlockSize = copyBlockViaCopyRegion(block).getSizeInBytes();
         assertEquals(block.getSizeInBytes(), expectedBlockSize);
         assertEquals(block.getRegionSizeInBytes(0, block.getPositionCount()), expectedBlockSize);
 
         List<Block> splitBlock = splitBlock(block, 2);
         Block firstHalf = splitBlock.get(0);
-        long expectedFirstHalfSize = copyBlockViaBlockSerde(firstHalf).getSizeInBytes();
+        long expectedFirstHalfSize = copyBlockViaCopyRegion(firstHalf).getSizeInBytes();
         assertEquals(firstHalf.getSizeInBytes(), expectedFirstHalfSize);
         assertEquals(block.getRegionSizeInBytes(0, firstHalf.getPositionCount()), expectedFirstHalfSize);
         Block secondHalf = splitBlock.get(1);
-        long expectedSecondHalfSize = copyBlockViaBlockSerde(secondHalf).getSizeInBytes();
+        long expectedSecondHalfSize = copyBlockViaCopyRegion(secondHalf).getSizeInBytes();
         assertEquals(secondHalf.getSizeInBytes(), expectedSecondHalfSize);
         assertEquals(block.getRegionSizeInBytes(firstHalf.getPositionCount(), secondHalf.getPositionCount()), expectedSecondHalfSize);
 
@@ -399,6 +399,11 @@ public abstract class AbstractTestBlock
     // with the expected bytes
     protected void assertPositionEquals(Block block, int position, Slice expectedBytes)
     {
+    }
+
+    private static Block copyBlockViaCopyRegion(Block block)
+    {
+        return block.copyRegion(0, block.getPositionCount());
     }
 
     private static Block copyBlockViaBlockSerde(Block block)
