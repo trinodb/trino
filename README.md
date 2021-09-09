@@ -21,10 +21,15 @@
 
 ## Development
 
-See [DEVELOPMENT](DEVELOPMENT.md) for information about code style,
+See [DEVELOPMENT](.github/DEVELOPMENT.md) for information about code style,
 development process, and guidelines.
 
-See [CONTRIBUTING](CONTRIBUTING.md) for contribution requirements.
+See [CONTRIBUTING](.github/CONTRIBUTING.md) for contribution requirements.
+
+## Security
+
+See the project [security policy](.github/SECURITY.md) for
+information about reporting vulnerabilities.
 
 ## Build requirements
 
