@@ -45,7 +45,7 @@ public class TestMemSqlCaseInsensitiveMapping
             throws Exception
     {
         memSqlServer = new TestingMemSqlServer();
-        return createMemSqlQueryRunner(memSqlServer, ImmutableMap.of("case-insensitive-name-matching", "true"), ImmutableList.of());
+        return createMemSqlQueryRunner(memSqlServer, ImmutableMap.of(), ImmutableMap.of("case-insensitive-name-matching", "true"), ImmutableList.of());
     }
 
     @AfterClass(alwaysRun = true)
