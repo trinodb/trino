@@ -14,6 +14,7 @@
 package io.trino.plugin.memsql;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.plugin.jdbc.UnsupportedTypeHandling;
 import io.trino.spi.type.TimeZoneKey;
@@ -92,7 +93,7 @@ public class TestMemSqlTypeMapping
             throws Exception
     {
         memSqlServer = new TestingMemSqlServer();
-        return createMemSqlQueryRunner(memSqlServer);
+        return createMemSqlQueryRunner(memSqlServer, ImmutableMap.of(), ImmutableMap.of(), ImmutableList.of());
     }
 
     @AfterClass(alwaysRun = true)

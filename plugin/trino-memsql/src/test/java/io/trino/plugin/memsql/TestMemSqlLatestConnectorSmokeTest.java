@@ -28,7 +28,7 @@ public class TestMemSqlLatestConnectorSmokeTest
             throws Exception
     {
         TestingMemSqlServer memSqlServer = closeAfterClass(new TestingMemSqlServer(TestingMemSqlServer.LATEST_TESTED_TAG));
-        return createMemSqlQueryRunner(memSqlServer, ImmutableMap.of(), REQUIRED_TPCH_TABLES);
+        return createMemSqlQueryRunner(memSqlServer, ImmutableMap.of(), ImmutableMap.of(), REQUIRED_TPCH_TABLES);
     }
 
     @Override
