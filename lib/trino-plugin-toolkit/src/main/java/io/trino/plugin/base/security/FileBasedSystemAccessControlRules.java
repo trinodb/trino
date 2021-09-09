@@ -51,8 +51,8 @@ public class FileBasedSystemAccessControlRules
         this.systemInformationRules = systemInformationRules.map(ImmutableList::copyOf);
         this.schemaRules = schemaAccessControlRules.map(ImmutableList::copyOf);
         this.tableRules = tableAccessControlRules.map(ImmutableList::copyOf);
-        this.sessionPropertyRules = sessionPropertyRules;
-        this.catalogSessionPropertyRules = catalogSessionPropertyRules;
+        this.sessionPropertyRules = sessionPropertyRules.map(ImmutableList::copyOf);
+        this.catalogSessionPropertyRules = catalogSessionPropertyRules.map(ImmutableList::copyOf);
     }
 
     public Optional<List<CatalogAccessControlRule>> getCatalogRules()
