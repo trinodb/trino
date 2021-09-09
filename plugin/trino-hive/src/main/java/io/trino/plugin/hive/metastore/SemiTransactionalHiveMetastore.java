@@ -1569,45 +1569,48 @@ public class SemiTransactionalHiveMetastore
 
             Table table = tableAndMore.getTable();
             if (table.getTableType().equals(MANAGED_TABLE.name())) {
-                String targetLocation = table.getStorage().getLocation();
-                checkArgument(!targetLocation.isEmpty(), "target location is empty");
-                Optional<Path> currentPath = tableAndMore.getCurrentLocation();
-                Path targetPath = new Path(targetLocation);
-                if (table.getPartitionColumns().isEmpty() && currentPath.isPresent()) {
-                    // CREATE TABLE AS SELECT unpartitioned table
-                    if (targetPath.equals(currentPath.get())) {
-                        // Target path and current path are the same. Therefore, directory move is not needed.
-                    }
-                    else {
-                        renameDirectory(
-                                context,
-                                hdfsEnvironment,
-                                currentPath.get(),
-                                targetPath,
-                                () -> cleanUpTasksForAbort.add(new DirectoryCleanUpTask(context, targetPath, true)));
-                    }
-                }
-                else {
-                    // CREATE TABLE AS SELECT partitioned table, or
-                    // CREATE TABLE partitioned/unpartitioned table (without data)
-                    if (pathExists(context, hdfsEnvironment, targetPath)) {
-                        if (currentPath.isPresent() && currentPath.get().equals(targetPath)) {
-                            // It is okay to skip directory creation when currentPath is equal to targetPath
-                            // because the directory may have been created when creating partition directories.
-                            // However, it is important to note that the two being equal does not guarantee
-                            // a directory had been created.
+                Optional<String> targetLocation = table.getStorage().getOptionalLocation();
+                if (targetLocation.isPresent()) {
+                    checkArgument(!targetLocation.get().isEmpty(), "target location is empty");
+                    Optional<Path> currentPath = tableAndMore.getCurrentLocation();
+                    Path targetPath = new Path(targetLocation.get());
+                    if (table.getPartitionColumns().isEmpty() && currentPath.isPresent()) {
+                        // CREATE TABLE AS SELECT unpartitioned table
+                        if (targetPath.equals(currentPath.get())) {
+                            // Target path and current path are the same. Therefore, directory move is not needed.
                         }
                         else {
-                            throw new TrinoException(
-                                    HIVE_PATH_ALREADY_EXISTS,
-                                    format("Unable to create directory %s: target directory already exists", targetPath));
+                            renameDirectory(
+                                    context,
+                                    hdfsEnvironment,
+                                    currentPath.get(),
+                                    targetPath,
+                                    () -> cleanUpTasksForAbort.add(new DirectoryCleanUpTask(context, targetPath, true)));
                         }
                     }
                     else {
-                        cleanUpTasksForAbort.add(new DirectoryCleanUpTask(context, targetPath, true));
-                        createDirectory(context, hdfsEnvironment, targetPath);
+                        // CREATE TABLE AS SELECT partitioned table, or
+                        // CREATE TABLE partitioned/unpartitioned table (without data)
+                        if (pathExists(context, hdfsEnvironment, targetPath)) {
+                            if (currentPath.isPresent() && currentPath.get().equals(targetPath)) {
+                                // It is okay to skip directory creation when currentPath is equal to targetPath
+                                // because the directory may have been created when creating partition directories.
+                                // However, it is important to note that the two being equal does not guarantee
+                                // a directory had been created.
+                            }
+                            else {
+                                throw new TrinoException(
+                                        HIVE_PATH_ALREADY_EXISTS,
+                                        format("Unable to create directory %s: target directory already exists", targetPath));
+                            }
+                        }
+                        else {
+                            cleanUpTasksForAbort.add(new DirectoryCleanUpTask(context, targetPath, true));
+                            createDirectory(context, hdfsEnvironment, targetPath);
+                        }
                     }
                 }
+                // if targetLocation is not set in table we assume table directory is created by HMS
             }
             addTableOperations.add(new CreateTableOperation(tableAndMore.getIdentity(), table, tableAndMore.getPrincipalPrivileges(), tableAndMore.isIgnoreExisting()));
             if (!isPrestoView(table)) {
@@ -2692,7 +2695,7 @@ public class SemiTransactionalHiveMetastore
             this.statistics = requireNonNull(statistics, "statistics is null");
             this.statisticsUpdate = requireNonNull(statisticsUpdate, "statisticsUpdate is null");
 
-            checkArgument(!table.getStorage().getLocation().isEmpty() || currentLocation.isEmpty(), "currentLocation cannot be supplied for table without location");
+            checkArgument(!table.getStorage().getOptionalLocation().orElse("").isEmpty() || currentLocation.isEmpty(), "currentLocation cannot be supplied for table without location");
             checkArgument(fileNames.isEmpty() || currentLocation.isPresent(), "fileNames can be supplied only when currentLocation is supplied");
         }
 
