@@ -97,7 +97,7 @@ public class TestJdbcConnectorTest
         return new TestTable(
                 onRemoteDatabase(),
                 "tpch.test_unsupported_column_present",
-                "(one bigint, two geometry, three varchar(10))");
+                "(column_one bigint, column_two geometry, column_three varchar(10))");
     }
 
     @Override

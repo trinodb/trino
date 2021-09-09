@@ -2049,7 +2049,7 @@ public class TestSqlParser
                         new PathElement(Optional.of(new Identifier("schemas,with")), new Identifier("grammar.in")),
                         new PathElement(Optional.empty(), new Identifier("their!names"))))));
 
-        assertThatThrownBy(() -> assertStatement("SET PATH one.too.many, qualifiers",
+        assertThatThrownBy(() -> assertStatement("SET PATH has.too.many, qualifiers",
                 new SetPath(new PathSpecification(Optional.empty(), ImmutableList.of(
                         new PathElement(Optional.empty(), new Identifier("dummyValue")))))))
                 .isInstanceOf(ParsingException.class)

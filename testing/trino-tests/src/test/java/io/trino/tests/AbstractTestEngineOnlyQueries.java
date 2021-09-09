@@ -5114,12 +5114,12 @@ public abstract class AbstractTestEngineOnlyQueries
     {
         // test a pattern which potential of exponential backtracking
         assertQueryReturnsEmptyResult(
-                "SELECT match " +
+                "SELECT match_no " +
                         "          FROM (SELECT * FROM lineitem " +
                         "                UNION ALL " +
                         "                SELECT * FROM lineitem) big_input " +
                         "                 MATCH_RECOGNIZE ( " +
-                        "                   MEASURES MATCH_NUMBER() AS match " +
+                        "                   MEASURES MATCH_NUMBER() AS match_no " +
                         "                   ONE ROW PER MATCH " +
                         "                   PATTERN (^(A+)+B$) " +
                         "                   DEFINE " +

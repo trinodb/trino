@@ -41,7 +41,7 @@ public class TestRowPatternMatching
     @Test
     public void testSimpleQuery()
     {
-        assertThat(assertions.query("SELECT m.id, m.match, m.val, m.label " +
+        assertThat(assertions.query("SELECT m.id, m.match_no, m.val, m.label " +
                 "          FROM (VALUES " +
                 "                   (1, 90), " +
                 "                   (2, 80), " +
@@ -55,7 +55,7 @@ public class TestRowPatternMatching
                 "                 MATCH_RECOGNIZE ( " +
                 "                   ORDER BY id " +
                 "                   MEASURES " +
-                "                            MATCH_NUMBER() AS match, " +
+                "                            MATCH_NUMBER() AS match_no, " +
                 "                            RUNNING LAST(value) AS val, " +
                 "                            CLASSIFIER() AS label " +
                 "                   ALL ROWS PER MATCH " +
@@ -79,7 +79,7 @@ public class TestRowPatternMatching
     @Test
     public void testRowPattern()
     {
-        String query = "SELECT m.id AS row_id, m.match, m.val, m.label " +
+        String query = "SELECT m.id AS row_id, m.match_no, m.val, m.label " +
                 "          FROM (VALUES " +
                 "                   (1, 90), " +
                 "                   (2, 80), " +
@@ -89,7 +89,7 @@ public class TestRowPatternMatching
                 "                 MATCH_RECOGNIZE ( " +
                 "                   ORDER BY id " +
                 "                   MEASURES " +
-                "                            match_number() AS match, " +
+                "                            match_number() AS match_no, " +
                 "                            RUNNING LAST(value) AS val, " +
                 "                            classifier() AS label " +
                 "                   ALL ROWS PER MATCH " +
@@ -172,7 +172,7 @@ public class TestRowPatternMatching
     @Test
     public void testPatternQuantifiers()
     {
-        String query = "SELECT m.id AS row_id, m.match, m.val, m.label " +
+        String query = "SELECT m.id AS row_id, m.match_no, m.val, m.label " +
                 "          FROM (VALUES " +
                 "                   (1, 90), " +
                 "                   (2, 80), " +
@@ -182,7 +182,7 @@ public class TestRowPatternMatching
                 "                 MATCH_RECOGNIZE ( " +
                 "                   ORDER BY id " +
                 "                   MEASURES " +
-                "                            match_number() AS match, " +
+                "                            match_number() AS match_no, " +
                 "                            RUNNING LAST(value) AS val, " +
                 "                            classifier() AS label " +
                 "                   ALL ROWS PER MATCH " +
@@ -378,7 +378,7 @@ public class TestRowPatternMatching
     @Test
     public void testExclusionSyntax()
     {
-        String query = "SELECT m.id AS row_id, m.match, m.val, m.label " +
+        String query = "SELECT m.id AS row_id, m.match_no, m.val, m.label " +
                 "          FROM (VALUES " +
                 "                   (1, 90), " +
                 "                   (2, 80), " +
@@ -392,7 +392,7 @@ public class TestRowPatternMatching
                 "                 MATCH_RECOGNIZE ( " +
                 "                   ORDER BY id " +
                 "                   MEASURES " +
-                "                            match_number() AS match, " +
+                "                            match_number() AS match_no, " +
                 "                            RUNNING LAST(value) AS val, " +
                 "                            classifier() AS label " +
                 "                   ALL ROWS PER MATCH " +
@@ -476,7 +476,7 @@ public class TestRowPatternMatching
     @Test
     public void testEmptyCycle()
     {
-        String query = "SELECT m.id AS row_id, m.match, m.val, m.label " +
+        String query = "SELECT m.id AS row_id, m.match_no, m.val, m.label " +
                 "          FROM (VALUES " +
                 "                   (1, 90), " +
                 "                   (2, 80), " +
@@ -486,7 +486,7 @@ public class TestRowPatternMatching
                 "                 MATCH_RECOGNIZE ( " +
                 "                   ORDER BY id " +
                 "                   MEASURES " +
-                "                            match_number() AS match, " +
+                "                            match_number() AS match_no, " +
                 "                            RUNNING LAST(value) AS val, " +
                 "                            classifier() AS label " +
                 "                   ALL ROWS PER MATCH " +
@@ -577,7 +577,7 @@ public class TestRowPatternMatching
     @Test
     public void testOutputModes()
     {
-        String query = "SELECT m.match, m.val, m.label " +
+        String query = "SELECT m.match_no, m.val, m.label " +
                 "          FROM (VALUES " +
                 "                   (1, 90), " +
                 "                   (2, 80), " +
@@ -587,7 +587,7 @@ public class TestRowPatternMatching
                 "                 MATCH_RECOGNIZE ( " +
                 "                   ORDER BY id " +
                 "                   MEASURES " +
-                "                            match_number() AS match, " +
+                "                            match_number() AS match_no, " +
                 "                            RUNNING LAST(value) AS val, " +
                 "                            classifier() AS label " +
                 "                   %s " + // ROWS PER MATCH
@@ -657,7 +657,7 @@ public class TestRowPatternMatching
     @Test
     public void testAfterMatchSkip()
     {
-        String query = "SELECT m.id, m.match, m.val, m.label " +
+        String query = "SELECT m.id, m.match_no, m.val, m.label " +
                 "          FROM (VALUES " +
                 "                   (1, 90), " +
                 "                   (2, 80), " +
@@ -669,7 +669,7 @@ public class TestRowPatternMatching
                 "                 MATCH_RECOGNIZE ( " +
                 "                   ORDER BY id " +
                 "                   MEASURES " +
-                "                            match_number() AS match, " +
+                "                            match_number() AS match_no, " +
                 "                            RUNNING LAST(value) AS val, " +
                 "                            classifier() AS label " +
                 "                   ALL ROWS PER MATCH " +
@@ -767,7 +767,7 @@ public class TestRowPatternMatching
         // Because AFTER MATCH SKIP TO NEX ROW is specified, rows 4 and 5 are examined. No match is found for them,
         //   but output is not produced, because they were formerly matched by a non-empty match
         // row 6 is unmatched and output row is produced
-        assertThat(assertions.query("SELECT m.id, m.match, m.value, m.label " +
+        assertThat(assertions.query("SELECT m.id, m.match_no, m.value, m.label " +
                 "          FROM (VALUES " +
                 "                   (1, 100), " +
                 "                   (2, 100), " +
@@ -779,7 +779,7 @@ public class TestRowPatternMatching
                 "                 MATCH_RECOGNIZE ( " +
                 "                   ORDER BY id " +
                 "                   MEASURES " +
-                "                            match_number() AS match, " +
+                "                            match_number() AS match_no, " +
                 "                            classifier() AS label " +
                 "                   ALL ROWS PER MATCH WITH UNMATCHED ROWS " +
                 "                   AFTER MATCH SKIP TO NEXT ROW " +
@@ -802,7 +802,7 @@ public class TestRowPatternMatching
     {
         // union variable U refers to rows matched with L and to rows matched with H
         // union variable W refers to all rows (it is a union of all available labels)
-        assertThat(assertions.query("SELECT m.id, m.match, m.val, m.lower_or_higher, m.label " +
+        assertThat(assertions.query("SELECT m.id, m.match_no, m.val, m.lower_or_higher, m.label " +
                 "          FROM (VALUES " +
                 "                   (1, 90), " +
                 "                   (2, 80), " +
@@ -812,7 +812,7 @@ public class TestRowPatternMatching
                 "                 MATCH_RECOGNIZE ( " +
                 "                   ORDER BY id " +
                 "                   MEASURES " +
-                "                            match_number() AS match, " +
+                "                            match_number() AS match_no, " +
                 "                            RUNNING LAST(value) AS val, " +
                 "                            classifier(U) AS lower_or_higher, " +
                 "                            classifier(W) AS label " +
@@ -1143,7 +1143,7 @@ public class TestRowPatternMatching
     public void testPartitioningAndOrdering()
     {
         // multiple partitions, unordered input
-        assertThat(assertions.query("SELECT m.part as partition, m.id AS row_id, m.match, m.val, m.label " +
+        assertThat(assertions.query("SELECT m.part as partition, m.id AS row_id, m.match_no, m.val, m.label " +
                 "          FROM (VALUES " +
                 "                   (1, 'p1', 90), " +
                 "                   (2, 'p1', 80), " +
@@ -1162,7 +1162,7 @@ public class TestRowPatternMatching
                 "                   PARTITION BY part " +
                 "                   ORDER BY id " +
                 "                   MEASURES " +
-                "                            match_number() AS match, " +
+                "                            match_number() AS match_no, " +
                 "                            PREV(RUNNING LAST(value)) AS val, " +
                 "                            classifier() AS label " +
                 "                   ALL ROWS PER MATCH " +
@@ -1177,13 +1177,13 @@ public class TestRowPatternMatching
                         "     ('p2', 3, 1, 20, 'B') ");
 
         // empty input
-        assertThat(assertions.query("SELECT m.part as partition, m.id AS row_id, m.match, m.val, m.label " +
+        assertThat(assertions.query("SELECT m.part as partition, m.id AS row_id, m.match_no, m.val, m.label " +
                 "          FROM (SELECT * FROM (VALUES (1, 'p1', 90)) WHERE false) t(id, part, value) " +
                 "                 MATCH_RECOGNIZE ( " +
                 "                   PARTITION BY part " +
                 "                   ORDER BY id " +
                 "                   MEASURES " +
-                "                            match_number() AS match, " +
+                "                            match_number() AS match_no, " +
                 "                            PREV(RUNNING LAST(value)) AS val, " +
                 "                            classifier() AS label " +
                 "                   ALL ROWS PER MATCH " +
@@ -1194,7 +1194,7 @@ public class TestRowPatternMatching
                 .returnsEmptyResult();
 
         // no partitioning, unordered input
-        assertThat(assertions.query("SELECT m.id AS row_id, m.match, m.val, m.label " +
+        assertThat(assertions.query("SELECT m.id AS row_id, m.match_no, m.val, m.label " +
                 "          FROM (VALUES " +
                 "                   (5, 10), " +
                 "                   (2, 90), " +
@@ -1205,7 +1205,7 @@ public class TestRowPatternMatching
                 "                 MATCH_RECOGNIZE ( " +
                 "                   ORDER BY id " +
                 "                   MEASURES " +
-                "                            match_number() AS match, " +
+                "                            match_number() AS match_no, " +
                 "                            RUNNING LAST(value) AS val, " +
                 "                            classifier() AS label " +
                 "                   ALL ROWS PER MATCH " +

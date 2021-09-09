@@ -1,3 +1,3 @@
--- database: presto; tables: empty; groups: empty;
-SELECT count(*) from empty
+-- database: presto; tables: empty_table; groups: empty;
+SELECT count(*) from empty_table
 

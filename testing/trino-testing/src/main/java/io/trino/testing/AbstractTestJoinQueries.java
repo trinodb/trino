@@ -1194,9 +1194,9 @@ public abstract class AbstractTestJoinQueries
     @Test
     public void testOuterJoinWithCommonExpression()
     {
-        MaterializedResult actual = computeActual("SELECT count(1), count(one) " +
+        MaterializedResult actual = computeActual("SELECT count(1), count(value) " +
                 "FROM (values (1, 'a'), (2, 'a')) AS l(k, a) " +
-                "LEFT JOIN (SELECT k, 1 one FROM (values 1) AS r(k)) r " +
+                "LEFT JOIN (SELECT k, 1 value FROM (values 1) AS r(k)) r " +
                 "ON l.k = r.k GROUP BY a");
 
         MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT)
@@ -1822,12 +1822,12 @@ public abstract class AbstractTestJoinQueries
     @Test
     public void testAntiJoinNullHandling()
     {
-        assertQuery("WITH empty AS (SELECT 1 WHERE FALSE) " +
-                        "SELECT 3 FROM (VALUES 1) WHERE NULL NOT IN (SELECT * FROM empty)",
+        assertQuery("WITH empty_table AS (SELECT 1 WHERE FALSE) " +
+                        "SELECT 3 FROM (VALUES 1) WHERE NULL NOT IN (SELECT * FROM empty_table)",
                 "VALUES 3");
 
-        assertQuery("WITH empty AS (SELECT 1 WHERE FALSE) " +
-                        "SELECT x FROM (VALUES NULL) t(x) WHERE x NOT IN (SELECT * FROM empty)",
+        assertQuery("WITH empty_table AS (SELECT 1 WHERE FALSE) " +
+                        "SELECT x FROM (VALUES NULL) t(x) WHERE x NOT IN (SELECT * FROM empty_table)",
                 "VALUES NULL");
     }
 
@@ -1849,8 +1849,8 @@ public abstract class AbstractTestJoinQueries
     @Test
     public void testSemiJoinNullHandling()
     {
-        assertQuery("WITH empty AS (SELECT 1 WHERE FALSE) " +
-                        "SELECT 3 FROM (VALUES 1) WHERE NULL IN (SELECT * FROM empty)",
+        assertQuery("WITH empty_table AS (SELECT 1 WHERE FALSE) " +
+                        "SELECT 3 FROM (VALUES 1) WHERE NULL IN (SELECT * FROM empty_table)",
                 "SELECT 0 WHERE FALSE");
 
         assertQuery("" +

@@ -58,7 +58,7 @@ public class TestPruneSemiJoinColumns
     public void testKeysNotNeeded()
     {
         tester().assertThat(new PruneSemiJoinColumns())
-                .on(p -> buildProjectedSemiJoin(p, symbol -> (symbol.getName().equals("leftValue") || symbol.getName().equals("match"))))
+                .on(p -> buildProjectedSemiJoin(p, symbol -> (symbol.getName().equals("leftValue") || symbol.getName().equals("matched"))))
                 .doesNotFire();
     }
 
@@ -66,11 +66,11 @@ public class TestPruneSemiJoinColumns
     public void testValueNotNeeded()
     {
         tester().assertThat(new PruneSemiJoinColumns())
-                .on(p -> buildProjectedSemiJoin(p, symbol -> symbol.getName().equals("match")))
+                .on(p -> buildProjectedSemiJoin(p, symbol -> symbol.getName().equals("matched")))
                 .matches(
                         strictProject(
-                                ImmutableMap.of("match", expression("match")),
-                                semiJoin("leftKey", "rightKey", "match",
+                                ImmutableMap.of("matched", expression("matched")),
+                                semiJoin("leftKey", "rightKey", "matched",
                                         strictProject(
                                                 ImmutableMap.of(
                                                         "leftKey", expression("leftKey"),
@@ -81,12 +81,12 @@ public class TestPruneSemiJoinColumns
 
     private static PlanNode buildProjectedSemiJoin(PlanBuilder p, Predicate<Symbol> projectionFilter)
     {
-        Symbol match = p.symbol("match");
+        Symbol matched = p.symbol("matched");
         Symbol leftKey = p.symbol("leftKey");
         Symbol leftKeyHash = p.symbol("leftKeyHash");
         Symbol leftValue = p.symbol("leftValue");
         Symbol rightKey = p.symbol("rightKey");
-        List<Symbol> outputs = ImmutableList.of(match, leftKey, leftKeyHash, leftValue);
+        List<Symbol> outputs = ImmutableList.of(matched, leftKey, leftKeyHash, leftValue);
         return p.project(
                 Assignments.identity(
                         outputs.stream()
@@ -95,7 +95,7 @@ public class TestPruneSemiJoinColumns
                 p.semiJoin(
                         leftKey,
                         rightKey,
-                        match,
+                        matched,
                         Optional.of(leftKeyHash),
                         Optional.empty(),
                         p.values(leftKey, leftKeyHash, leftValue),

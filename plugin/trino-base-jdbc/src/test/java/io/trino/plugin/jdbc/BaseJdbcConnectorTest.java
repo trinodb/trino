@@ -123,9 +123,9 @@ public abstract class BaseJdbcConnectorTest
         try (TestTable testTable = createTableWithUnsupportedColumn()) {
             String unqualifiedTableName = testTable.getName().replaceAll("^\\w+\\.", "");
             // Check that column 'two' is not supported.
-            assertQuery("SELECT column_name FROM information_schema.columns WHERE table_name = '" + unqualifiedTableName + "'", "VALUES 'one', 'three'");
-            assertUpdate("INSERT INTO " + testTable.getName() + " (one, three) VALUES (123, 'test')", 1);
-            assertQuery("SELECT one, three FROM " + testTable.getName(), "SELECT 123, 'test'");
+            assertQuery("SELECT column_name FROM information_schema.columns WHERE table_name = '" + unqualifiedTableName + "'", "VALUES 'column_one', 'column_three'");
+            assertUpdate("INSERT INTO " + testTable.getName() + " (column_one, column_three) VALUES (123, 'test')", 1);
+            assertQuery("SELECT column_one, column_three FROM " + testTable.getName(), "SELECT 123, 'test'");
         }
     }
 

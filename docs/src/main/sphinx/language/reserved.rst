@@ -29,11 +29,13 @@ Keyword                        SQL:2016      SQL-92
 ``CURRENT_TIMESTAMP``          reserved      reserved
 ``CURRENT_USER``               reserved
 ``DEALLOCATE``                 reserved      reserved
+``DEFINE``                     reserved
 ``DELETE``                     reserved      reserved
 ``DESCRIBE``                   reserved      reserved
 ``DISTINCT``                   reserved      reserved
 ``DROP``                       reserved      reserved
 ``ELSE``                       reserved      reserved
+``EMPTY``                      reserved
 ``END``                        reserved      reserved
 ``ESCAPE``                     reserved      reserved
 ``EXCEPT``                     reserved      reserved
@@ -48,6 +50,7 @@ Keyword                        SQL:2016      SQL-92
 ``GROUPING``                   reserved
 ``HAVING``                     reserved      reserved
 ``IN``                         reserved      reserved
+``INITIAL``                    reserved
 ``INNER``                      reserved      reserved
 ``INSERT``                     reserved      reserved
 ``INTERSECT``                  reserved      reserved
@@ -59,20 +62,30 @@ Keyword                        SQL:2016      SQL-92
 ``LISTAGG``                    reserved
 ``LOCALTIME``                  reserved
 ``LOCALTIMESTAMP``             reserved
+``MATCH``                      reserved      reserved
+``MATCHES``                    reserved
+``MATCH_RECOGNIZE``            reserved
 ``NATURAL``                    reserved      reserved
 ``NORMALIZE``                  reserved
 ``NOT``                        reserved      reserved
 ``NULL``                       reserved      reserved
+``OMIT``                       reserved
 ``ON``                         reserved      reserved
+``ONE``                        reserved
 ``OR``                         reserved      reserved
 ``ORDER``                      reserved      reserved
 ``OUTER``                      reserved      reserved
+``PATTERN``                    reserved
+``PER``                        reserved
 ``PREPARE``                    reserved      reserved
 ``RECURSIVE``                  reserved
 ``RIGHT``                      reserved      reserved
 ``ROLLUP``                     reserved
+``RUNNING``                    reserved
+``SEEK``                       reserved
 ``SELECT``                     reserved      reserved
 ``SKIP``                       reserved
+``SUBSET``                     reserved
 ``TABLE``                      reserved      reserved
 ``THEN``                       reserved      reserved
 ``TRUE``                       reserved      reserved
