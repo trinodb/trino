@@ -54,8 +54,9 @@ public class TestHiveSparkCompatibility
                         "USING ORC\n" +
                         "CLUSTERED BY (a_string)\n" +
                         "INTO 4 BUCKETS\n" +
-                        // Hive requires "original" files of transactional tables to conform to the bucketed tables naming pattern
-                        // We can disable transactions or add another pattern to BackgroundHiveSplitLoader
+                        // By default Spark creates table as "transactional=true", but doesn't conform to Hive transactional format,
+                        // nor file naming convention, so such table cannot be read. As a workaround, force table to be marked
+                        // non-transactional.
                         "TBLPROPERTIES ('transactional'='false')",
                 sparkTableName));
 
