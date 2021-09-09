@@ -241,8 +241,6 @@ public class TestHiveStorageFormats
         return Stream.of(storageFormats())
                 // nanoseconds are not supported with Avro
                 .filter(format -> !"AVRO".equals(format.getName()))
-                // TODO (https://github.com/trinodb/trino/issues/5357) Implement variable precision timestamp handling for optimized Parquet writer
-                .filter(format -> !("PARQUET".equals(format.getName()) && "true".equals(format.getSessionProperties().get("hive.experimental_parquet_optimized_writer_enabled"))))
                 .iterator();
     }
 
