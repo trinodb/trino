@@ -175,6 +175,7 @@ import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
 import static io.trino.plugin.hive.HiveSessionProperties.isBucketExecutionEnabled;
 import static io.trino.plugin.hive.HiveSessionProperties.isCollectColumnStatisticsOnWrite;
 import static io.trino.plugin.hive.HiveSessionProperties.isCreateEmptyBucketFiles;
+import static io.trino.plugin.hive.HiveSessionProperties.isDelegateTransactionalManagedTableLocationToMetastore;
 import static io.trino.plugin.hive.HiveSessionProperties.isOptimizedMismatchedBucketCount;
 import static io.trino.plugin.hive.HiveSessionProperties.isParallelPartitionedBucketedWrites;
 import static io.trino.plugin.hive.HiveSessionProperties.isProjectionPushdownEnabled;
@@ -810,7 +811,7 @@ public class HiveMetadata
                 .collect(toList());
         checkPartitionTypesSupported(partitionColumns);
 
-        Path targetPath;
+        Optional<Path> targetPath;
         boolean external;
         String externalLocation = getExternalLocation(tableMetadata.getProperties());
         if (externalLocation != null) {
@@ -819,13 +820,19 @@ public class HiveMetadata
             }
 
             external = true;
-            targetPath = getExternalLocationAsPath(externalLocation);
-            checkExternalPath(new HdfsContext(session), targetPath);
+            targetPath = Optional.of(getExternalLocationAsPath(externalLocation));
+            checkExternalPath(new HdfsContext(session), targetPath.get());
         }
         else {
             external = false;
-            LocationHandle locationHandle = locationService.forNewTable(metastore, session, schemaName, tableName, Optional.empty());
-            targetPath = locationService.getQueryWriteInfo(locationHandle).getTargetPath();
+            boolean isTransactional = isTransactional(tableMetadata.getProperties()).orElse(false);
+            if (isTransactional && isDelegateTransactionalManagedTableLocationToMetastore(session)) {
+                targetPath = Optional.empty();
+            }
+            else {
+                LocationHandle locationHandle = locationService.forNewTable(metastore, session, schemaName, tableName, Optional.empty());
+                targetPath = Optional.of(locationService.getQueryWriteInfo(locationHandle).getTargetPath());
+            }
         }
 
         Table table = buildTableObject(
@@ -1039,7 +1046,7 @@ public class HiveMetadata
             List<String> partitionedBy,
             Optional<HiveBucketProperty> bucketProperty,
             Map<String, String> additionalTableParameters,
-            Path targetPath,
+            Optional<Path> targetPath,
             boolean external,
             String prestoVersion)
     {
@@ -1085,7 +1092,7 @@ public class HiveMetadata
         tableBuilder.getStorageBuilder()
                 .setStorageFormat(fromHiveStorageFormat(hiveStorageFormat))
                 .setBucketProperty(bucketProperty)
-                .setLocation(targetPath.toString());
+                .setLocation(targetPath.map(Object::toString));
 
         return tableBuilder.build();
     }
@@ -1250,6 +1257,11 @@ public class HiveMetadata
             throw new TrinoException(NOT_SUPPORTED, "Writes to non-managed Hive tables is disabled");
         }
 
+        boolean isTransactional = isTransactional(tableMetadata.getProperties()).orElse(false);
+        if (isTransactional && externalLocation.isEmpty() && isDelegateTransactionalManagedTableLocationToMetastore(session)) {
+            throw new TrinoException(NOT_SUPPORTED, "CREATE TABLE AS is not supported for transactional tables without explicit location if location determining is delegated to metastore");
+        }
+
         if (getAvroSchemaUrl(tableMetadata.getProperties()) != null) {
             throw new TrinoException(NOT_SUPPORTED, "CREATE TABLE AS not supported when Avro schema url is set");
         }
@@ -1337,7 +1349,7 @@ public class HiveMetadata
                 handle.getPartitionedBy(),
                 handle.getBucketProperty(),
                 handle.getAdditionalTableParameters(),
-                writeInfo.getTargetPath(),
+                Optional.of(writeInfo.getTargetPath()),
                 handle.isExternal(),
                 prestoVersion);
         PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(handle.getTableOwner());

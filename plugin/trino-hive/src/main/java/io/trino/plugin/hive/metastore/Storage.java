@@ -31,7 +31,7 @@ import static java.util.Objects.requireNonNull;
 public class Storage
 {
     private final StorageFormat storageFormat;
-    private final String location;
+    private final Optional<String> location;
     private final Optional<HiveBucketProperty> bucketProperty;
     private final boolean skewed;
     private final Map<String, String> serdeParameters;
@@ -39,7 +39,7 @@ public class Storage
     @JsonCreator
     public Storage(
             @JsonProperty("storageFormat") StorageFormat storageFormat,
-            @JsonProperty("location") String location,
+            @JsonProperty("location") Optional<String> location,
             @JsonProperty("bucketProperty") Optional<HiveBucketProperty> bucketProperty,
             @JsonProperty("skewed") boolean skewed,
             @JsonProperty("serdeParameters") Map<String, String> serdeParameters)
@@ -57,10 +57,17 @@ public class Storage
         return storageFormat;
     }
 
-    @JsonProperty
-    public String getLocation()
+    @JsonProperty("location")
+    public Optional<String> getOptionalLocation()
     {
         return location;
+    }
+
+    public String getLocation()
+    {
+        // Default getter requires location to be set. Location is not set only in rare case when in CREATE TABLE flow in Hive connector when
+        // delegate-transactional-managed-table-location-to-metastore is set to true and location is determined by HMS.
+        return location.orElseThrow();
     }
 
     @JsonProperty
@@ -130,7 +137,7 @@ public class Storage
     public static class Builder
     {
         private StorageFormat storageFormat;
-        private String location;
+        private Optional<String> location = Optional.empty();
         private Optional<HiveBucketProperty> bucketProperty = Optional.empty();
         private boolean skewed;
         private Map<String, String> serdeParameters = ImmutableMap.of();
@@ -154,9 +161,15 @@ public class Storage
             return this;
         }
 
-        public Builder setLocation(String location)
+        public Builder setLocation(Optional<String> location)
         {
             this.location = location;
+            return this;
+        }
+
+        public Builder setLocation(String location)
+        {
+            this.location = Optional.of(location);
             return this;
         }
 
