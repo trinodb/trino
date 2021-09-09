@@ -155,31 +155,26 @@ public class FileBasedSystemAccessControl
         ImmutableSet.Builder<AnyCatalogPermissionsRule> anyCatalogPermissionsRules = ImmutableSet.builder();
         schemaRules.stream()
                 .map(CatalogSchemaAccessControlRule::toAnyCatalogPermissionsRule)
-                .filter(Optional::isPresent)
-                .map(Optional::get)
+                .flatMap(Optional::stream)
                 .forEach(anyCatalogPermissionsRules::add);
         tableRules.stream()
                 .map(CatalogTableAccessControlRule::toAnyCatalogPermissionsRule)
-                .filter(Optional::isPresent)
-                .map(Optional::get)
+                .flatMap(Optional::stream)
                 .forEach(anyCatalogPermissionsRules::add);
         catalogSessionPropertyRules.stream()
                 .map(CatalogSessionPropertyAccessControlRule::toAnyCatalogPermissionsRule)
-                .filter(Optional::isPresent)
-                .map(Optional::get)
+                .flatMap(Optional::stream)
                 .forEach(anyCatalogPermissionsRules::add);
         this.anyCatalogPermissionsRules = anyCatalogPermissionsRules.build();
 
         ImmutableSet.Builder<AnyCatalogSchemaPermissionsRule> anyCatalogSchemaPermissionsRules = ImmutableSet.builder();
         schemaRules.stream()
                 .map(CatalogSchemaAccessControlRule::toAnyCatalogSchemaPermissionsRule)
-                .filter(Optional::isPresent)
-                .map(Optional::get)
+                .flatMap(Optional::stream)
                 .forEach(anyCatalogSchemaPermissionsRules::add);
         tableRules.stream()
                 .map(CatalogTableAccessControlRule::toAnyCatalogSchemaPermissionsRule)
-                .filter(Optional::isPresent)
-                .map(Optional::get)
+                .flatMap(Optional::stream)
                 .forEach(anyCatalogSchemaPermissionsRules::add);
         this.anyCatalogSchemaPermissionsRules = anyCatalogSchemaPermissionsRules.build();
     }
@@ -410,8 +405,7 @@ public class FileBasedSystemAccessControl
         Identity identity = context.getIdentity();
         boolean allowed = sessionPropertyRules.stream()
                 .map(rule -> rule.match(identity.getUser(), identity.getEnabledRoles(), identity.getGroups(), propertyName))
-                .filter(Optional::isPresent)
-                .map(Optional::get)
+                .flatMap(Optional::stream)
                 .findFirst()
                 .orElse(false);
         if (!allowed) {
@@ -773,8 +767,7 @@ public class FileBasedSystemAccessControl
         Identity identity = context.getIdentity();
         boolean allowed = canAccessCatalog(context, catalogName, READ_ONLY) && catalogSessionPropertyRules.stream()
                 .map(rule -> rule.match(identity.getUser(), identity.getEnabledRoles(), identity.getGroups(), catalogName, propertyName))
-                .filter(Optional::isPresent)
-                .map(Optional::get)
+                .flatMap(Optional::stream)
                 .findFirst()
                 .orElse(false);
         if (!allowed) {
