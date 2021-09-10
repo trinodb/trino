@@ -3,6 +3,14 @@
 Developers should read [the development section of the website](https://trino.io/development),
 which covers thing like development philosophy and contribution process.
 
+More information about the writing and building the documentation can
+be found in the [docs module](../docs).
+
+* [Commits and pull requests](#commits-and-pull-requests)
+* [Code style](#code-style)
+* [Additional IDE configuration](#additional-ide-configuration)
+* [Building the Web UI](#building-the-web-ui)
+
 ## Commits and pull requests
 
 ### Format Git commit messages
@@ -176,8 +184,3 @@ To simplify iteration, you can also run in `watch` mode, which automatically re-
     yarn --cwd core/trino-main/src/main/resources/webapp/src run watch
 
 To iterate quickly, simply re-build the project in IntelliJ after packaging is complete. Project resources will be hot-reloaded and changes are reflected on browser refresh.
-
-## Writing and Building Documentation
-
-More information about the documentation process can be found in the
-[docs module](../docs).
