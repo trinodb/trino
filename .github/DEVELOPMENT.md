@@ -3,6 +3,34 @@
 Developers should read [the development section of the website](https://trino.io/development),
 which covers thing like development philosophy and contribution process.
 
+## Commits and pull requests
+
+### Format Git commit messages
+
+When writing a Git commit message, follow these [guidelines](https://chris.beams.io/posts/git-commit/).
+
+### Git merge strategy
+
+Pull requests are usually merged into `master` using the  [`rebase and merge`](https://docs.github.com/en/github/collaborating-with-pull-requests/incorporating-changes-from-a-pull-request/about-pull-request-merges#rebase-and-merge-your-pull-request-commits) strategy.
+
+A typical pull request should strive to contain a single logical change.
+Unrelated changes should generally be extracted into their own PRs.
+
+If a pull request does consist of multiple commits, it is expected that every prefix of it is correct. That is,
+there might be preparatory commits at the bottom of the stack that don't bring any value by themselves,
+but none of the commits should introduce an error that is fixed by some future commit.
+Every commit should build and pass all tests.
+
+It is important to keep commits on feature branches neat, squashing the feature branch as necessary.
+
+Commit messages and history are also important, as they are used by other developers to keep track of
+the motivation behind changes. Keep logical diffs grouped together in separate commits, and order commits
+in a way that explains the progress of the changes. Rewriting and reordering commits may be a
+necessary part of the PR review process as the code changes. Mechanical changes (like refactoring and renaming)
+should be separated from logical and functional changes. E.g. deduplicating code or extracting helper methods should happen
+in a separate commit from the commit where new features or behavior is introduced. This makes reviewing the code
+much easier and reduces the chance of introducing unintended changes in behavior.
+
 ## Code Style
 
 We recommend you use IntelliJ as your IDE. The code style template for the
@@ -83,32 +111,6 @@ JDK. The main motivation behind this is deterministic iteration.
 
 Maintain the same quality for production and test code.
 
-### Format Git commit messages
-
-When writing a Git commit message, follow these [guidelines](https://chris.beams.io/posts/git-commit/).
-
-### Git merge strategy
-
-Pull requests are usually merged into `master` using the  [`rebase and merge`](https://docs.github.com/en/github/collaborating-with-pull-requests/incorporating-changes-from-a-pull-request/about-pull-request-merges#rebase-and-merge-your-pull-request-commits) strategy.
-
-A typical pull request should strive to contain a single logical change.
-Unrelated changes should generally be extracted into their own PRs.
-
-If a pull request does consist of multiple commits, it is expected that every prefix of it is correct. That is,
-there might be preparatory commits at the bottom of the stack that don't bring any value by themselves,
-but none of the commits should introduce an error that is fixed by some future commit.
-Every commit should build and pass all tests.
-
-It is important to keep commits on feature branches neat, squashing the feature branch as necessary.
-
-Commit messages and history are also important, as they are used by other developers to keep track of
-the motivation behind changes. Keep logical diffs grouped together in separate commits, and order commits
-in a way that explains the progress of the changes. Rewriting and reordering commits may be a
-necessary part of the PR review process as the code changes. Mechanical changes (like refactoring and renaming) 
-should be separated from logical and functional changes. E.g. deduplicating code or extracting helper methods should happen
-in a separate commit from the commit where new features or behavior is introduced. This makes reviewing the code
-much easier and reduces the chance of introducing unintended changes in behavior.
-
 ### Avoid abbreviations
 
 Please avoid abbreviations, slang or inside jokes as this makes harder for
@@ -116,7 +118,7 @@ non-native english speaker to understand the code. Very well known
 abbreviations like `max` or `min` and ones already very commonly used across
 the code base like `ttl` are allowed and encouraged.
 
-## Avoid default clause in exhaustive enum-based switch statements
+### Avoid default clause in exhaustive enum-based switch statements
 
 Avoid using the `default` clause when the switch statement is meant to cover all the
 enum values. Handling the unknown option case after the switch statement allows static code
