@@ -32,41 +32,11 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - default
+          - hive3
         suite:
           - suite-1
-        exclude:
-          - config: cdh5
-            ignore exclusion if: >-
-              ${{ github.event_name != 'pull_request'
-               || contains(github.event.pull_request.labels.*.name, 'tests:all')
-               || contains(github.event.pull_request.labels.*.name, 'tests:hive')
-               }}
-
-          - config: default
-            ignore exclusion if: >-
-              ${{ github.event_name != 'pull_request'
-               || contains(github.event.pull_request.labels.*.name, 'tests:all')
-               || contains(github.event.pull_request.labels.*.name, 'tests:hive')
-               }}
-
-        ignore exclusion if:
-          # Do not use this property outside of the matrix configuration.
-          #
-          # This is added to all matrix entries so they may be conditionally
-          # excluded by adding them to the excludes list with a GHA expression
-          # for this property.
-          # - If the expression evaluates to true, it will never match the a
-          #   actual value of the property, and will therefore not be excluded.
-          # - If the expression evaluates to false, it will match the actual
-          #   value of the property, and the exclusion will apply normally.
-          - false
-        include:
-          # this suite is not meant to be run with different configs
-          - config: hive3
-            suite: suite-2-without-kerberos
-          - config: hive3
-            suite: suite-1
+          - suite-2-without-kerberos
+        i: [0,1,2,3,4,5]
     # PT Launcher's timeout defaults to 2h, account for preparation steps (compilation) and add some margin
     timeout-minutes: 140
     steps:
