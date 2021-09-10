@@ -203,6 +203,14 @@ jobs:
         run: |
           source plugin/trino-hive-hadoop2/conf/hive-tests-${{ matrix.config }}.sh &&
             plugin/trino-hive-hadoop2/bin/run_hive_alluxio_tests.sh
+      - name: Upload test results
+        uses: actions/upload-artifact@v2
+        if: failure()
+        with:
+          name: result hive-tests
+          path: |
+            **/target/surefire-reports
+            **/target/checkstyle-*
 
   test-other-modules:
     runs-on: ubuntu-latest
@@ -236,6 +244,14 @@ jobs:
             !:trino-docs,!:trino-server,!:trino-server-rpm,
             !:trino-test-jdbc-compatibility-old-server,
             !:trino-bigquery'
+      - name: Upload test results
+        uses: actions/upload-artifact@v2
+        if: failure()
+        with:
+          name: result test-other-modules
+          path: |
+            **/target/surefire-reports
+            **/target/checkstyle-*
 
   test:
     runs-on: ubuntu-latest
@@ -271,6 +287,14 @@ jobs:
           $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -am -pl $(echo '${{ matrix.modules }}' | cut -d' ' -f1)
       - name: Maven Tests
         run: $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }}
+      - name: Upload test results
+        uses: actions/upload-artifact@v2
+        if: failure()
+        with:
+          name: result ${{ matrix.modules }}
+          path: |
+            **/target/surefire-reports
+            **/target/checkstyle-*
 
   test-memsql:
     runs-on: ubuntu-latest
@@ -295,6 +319,14 @@ jobs:
           if [ "${MEMSQL_LICENSE}" != "" ]; then
             $MAVEN test ${MAVEN_TEST} -pl :trino-memsql -Dmemsql.license=${MEMSQL_LICENSE}
           fi
+      - name: Upload test results
+        uses: actions/upload-artifact@v2
+        if: failure()
+        with:
+          name: result test-memsql
+          path: |
+            **/target/surefire-reports
+            **/target/checkstyle-*
 
   test-bigquery:
     runs-on: ubuntu-latest
@@ -325,6 +357,14 @@ jobs:
           if [ "${BIGQUERY_CREDENTIALS_KEY}" != "" ]; then
             $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests-case-insensitive-mapping -Dbigquery.credentials-key="${BIGQUERY_CREDENTIALS_KEY}"
           fi
+      - name: Upload test results
+        uses: actions/upload-artifact@v2
+        if: failure()
+        with:
+          name: result test-bigquery
+          path: |
+            **/target/surefire-reports
+            **/target/checkstyle-*
 
   pt:
     runs-on: ubuntu-latest
@@ -407,3 +447,11 @@ jobs:
         run: |
           bin/ptl suite run \
             --suite ${{ matrix.suite }} --config config-${{ matrix.config }} --bind=off --logs-dir logs/ --timeout 2h
+      - name: Upload test results
+        uses: actions/upload-artifact@v2
+        if: failure()
+        with:
+          name: result pt (${{ matrix.config }}, ${{ matrix.suite }})
+          path: |
+            presto-product-tests/target/*
+            logs/*
