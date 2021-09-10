@@ -5,7 +5,7 @@ Optimizer properties
 ``optimizer.dictionary-aggregation``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``boolean``
+* **Type:** :ref:`prop-type-boolean`
 * **Default value:** ``false``
 
 Enables optimization for aggregations on dictionaries. This can also be specified
@@ -14,7 +14,7 @@ on a per-query basis using the ``dictionary_aggregation`` session property.
 ``optimizer.optimize-hash-generation``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``boolean``
+* **Type:** :ref:`prop-type-boolean`
 * **Default value:** ``true``
 
 Compute hash codes for distribution, joins, and aggregations early during execution,
@@ -30,7 +30,7 @@ to make the query plan easier to read.
 ``optimizer.optimize-metadata-queries``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``boolean``
+* **Type:** :ref:`prop-type-boolean`
 * **Default value:** ``false``
 
 Enable optimization of some aggregations by using values that are stored as metadata.
@@ -47,7 +47,7 @@ create them.
 ``optimizer.push-aggregation-through-outer-join``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``boolean``
+* **Type:** :ref:`prop-type-boolean`
 * **Default value:** ``true``
 
 When an aggregation is above an outer join and all columns from the outer side of the join
@@ -68,7 +68,7 @@ the ``push_aggregation_through_join`` session property.
 ``optimizer.push-table-write-through-union``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``boolean``
+* **Type:** :ref:`prop-type-boolean`
 * **Default value:** ``true``
 
 Parallelize writes when using ``UNION ALL`` in queries that write data. This improves the
@@ -82,7 +82,7 @@ using the ``push_table_write_through_union`` session property.
 ``optimizer.join-reordering-strategy``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``string``
+* **Type:** :ref:`prop-type-string`
 * **Allowed values:** ``AUTOMATIC``, ``ELIMINATE_CROSS_JOINS``, ``NONE``
 * **Default value:** ``AUTOMATIC``
 
@@ -97,7 +97,7 @@ be specified on a per-query basis using the ``join_reordering_strategy`` session
 ``optimizer.max-reordered-joins``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``integer``
+* **Type:** :ref:`prop-type-integer`
 * **Default value:** ``9``
 
 When optimizer.join-reordering-strategy is set to cost-based, this property determines
@@ -111,7 +111,7 @@ the maximum number of joins that can be reordered at once.
 ``optimizer.optimize-duplicate-insensitive-joins``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``boolean``
+* **Type:** :ref:`prop-type-boolean`
 * **Default value:** ``true``
 
 Reduces number of rows produced by joins when optimizer detects that duplicated
@@ -120,7 +120,7 @@ join output rows can be skipped.
 ``optimizer.use-table-scan-node-partitioning``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``boolean``
+* **Type:** :ref:`prop-type-boolean`
 * **Default value:** ``true``
 
 Use connector provided table node partitioning when reading tables.
@@ -139,7 +139,7 @@ low compared to number of workers.
 ``optimizer.table-scan-node-partitioning-min-bucket-to-task-ratio``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``double``
+* **Type:** :ref:`prop-type-double`
 * **Default value:** ``0.5``
 
 Specifies minimal bucket to task ratio that has to be matched or exceeded in order
