@@ -40,6 +40,7 @@ import org.testcontainers.shaded.org.bouncycastle.util.encoders.Hex;
 import org.testng.annotations.Test;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -54,7 +55,9 @@ import static io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig.SCHE
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static java.lang.String.format;
+import static java.time.temporal.ChronoUnit.SECONDS;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 import static org.apache.kafka.clients.producer.ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG;
 import static org.apache.kafka.clients.producer.ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -75,6 +78,9 @@ public class TestPinotIntegrationSmokeTest
     private static final String TOO_MANY_ROWS_TABLE = "too_many_rows";
     private static final String TOO_MANY_BROKER_ROWS_TABLE = "too_many_broker_rows";
     private static final String JSON_TABLE = "my_table";
+
+    // Use a recent value for updated_at to ensure Pinot doesn't clean up records older than retentionTimeValue as defined in the table specs
+    private static final Instant initialUpdatedAt = Instant.now().minus(Duration.ofDays(1)).truncatedTo(SECONDS);
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -99,7 +105,7 @@ public class TestPinotIntegrationSmokeTest
                             Arrays.asList(-7.33F + i, Float.POSITIVE_INFINITY, 17.034F + i),
                             Arrays.asList(-17.33D + i, Double.POSITIVE_INFINITY, 10596.034D + i),
                             Arrays.asList(-3147483647L + i, 12L - i, 4147483647L + i),
-                            Instant.parse("2021-05-10T00:00:00.00Z").plusMillis(offset).toEpochMilli())));
+                            initialUpdatedAt.plusMillis(offset).toEpochMilli())));
         }
 
         allTypesRecordsBuilder.add(new ProducerRecord<>(ALL_TYPES_TABLE, null, createNullRecord()));
@@ -121,22 +127,22 @@ public class TestPinotIntegrationSmokeTest
                 .add(new ProducerRecord<>(MIXED_CASE_COLUMN_NAMES_TABLE, "key0", new GenericRecordBuilder(mixedCaseAvroSchema)
                         .set("stringCol", "string_0")
                         .set("longCol", 0L)
-                        .set("updatedAt", Instant.parse("2021-05-10T00:00:00.00Z").toEpochMilli())
+                        .set("updatedAt", initialUpdatedAt.toEpochMilli())
                         .build()))
                 .add(new ProducerRecord<>(MIXED_CASE_COLUMN_NAMES_TABLE, "key1", new GenericRecordBuilder(mixedCaseAvroSchema)
                         .set("stringCol", "string_1")
                         .set("longCol", 1L)
-                        .set("updatedAt", Instant.parse("2021-05-10T00:00:00.00Z").plusMillis(1000).toEpochMilli())
+                        .set("updatedAt", initialUpdatedAt.plusMillis(1000).toEpochMilli())
                         .build()))
                 .add(new ProducerRecord<>(MIXED_CASE_COLUMN_NAMES_TABLE, "key2", new GenericRecordBuilder(mixedCaseAvroSchema)
                         .set("stringCol", "string_2")
                         .set("longCol", 2L)
-                        .set("updatedAt", Instant.parse("2021-05-10T00:00:00.00Z").plusMillis(2000).toEpochMilli())
+                        .set("updatedAt", initialUpdatedAt.plusMillis(2000).toEpochMilli())
                         .build()))
                 .add(new ProducerRecord<>(MIXED_CASE_COLUMN_NAMES_TABLE, "key3", new GenericRecordBuilder(mixedCaseAvroSchema)
                         .set("stringCol", "string_3")
                         .set("longCol", 3L)
-                        .set("updatedAt", Instant.parse("2021-05-10T00:00:00.00Z").plusMillis(3000).toEpochMilli())
+                        .set("updatedAt", initialUpdatedAt.plusMillis(3000).toEpochMilli())
                         .build()))
                 .build();
 
@@ -154,19 +160,19 @@ public class TestPinotIntegrationSmokeTest
         List<ProducerRecord<String, GenericRecord>> mixedCaseDistinctProducerRecords = ImmutableList.<ProducerRecord<String, GenericRecord>>builder()
                 .add(new ProducerRecord<>(MIXED_CASE_DISTINCT_TABLE, "key0", new GenericRecordBuilder(mixedCaseDistinctAvroSchema)
                         .set("string_col", "A")
-                        .set("updated_at", Instant.parse("2021-05-10T00:00:00.00Z").toEpochMilli())
+                        .set("updated_at", initialUpdatedAt.toEpochMilli())
                         .build()))
                 .add(new ProducerRecord<>(MIXED_CASE_DISTINCT_TABLE, "key1", new GenericRecordBuilder(mixedCaseDistinctAvroSchema)
                         .set("string_col", "a")
-                        .set("updated_at", Instant.parse("2021-05-10T00:00:00.00Z").plusMillis(1000).toEpochMilli())
+                        .set("updated_at", initialUpdatedAt.plusMillis(1000).toEpochMilli())
                         .build()))
                 .add(new ProducerRecord<>(MIXED_CASE_DISTINCT_TABLE, "key2", new GenericRecordBuilder(mixedCaseDistinctAvroSchema)
                         .set("string_col", "B")
-                        .set("updated_at", Instant.parse("2021-05-10T00:00:00.00Z").plusMillis(2000).toEpochMilli())
+                        .set("updated_at", initialUpdatedAt.plusMillis(2000).toEpochMilli())
                         .build()))
                 .add(new ProducerRecord<>(MIXED_CASE_DISTINCT_TABLE, "key3", new GenericRecordBuilder(mixedCaseDistinctAvroSchema)
                         .set("string_col", "b")
-                        .set("updated_at", Instant.parse("2021-05-10T00:00:00.00Z").plusMillis(3000).toEpochMilli())
+                        .set("updated_at", initialUpdatedAt.plusMillis(3000).toEpochMilli())
                         .build()))
                 .build();
 
@@ -185,7 +191,7 @@ public class TestPinotIntegrationSmokeTest
         for (int i = 0; i < MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES + 1; i++) {
             tooManyRowsRecordsBuilder.add(new ProducerRecord<>(TOO_MANY_ROWS_TABLE, "key" + i, new GenericRecordBuilder(tooManyRowsAvroSchema)
                     .set("string_col", "string_" + i)
-                    .set("updatedAt", Instant.parse("2021-05-10T00:00:00.00Z").plusMillis(i * 1000).toEpochMilli())
+                    .set("updatedAt", initialUpdatedAt.plusMillis(i * 1000).toEpochMilli())
                     .build()));
         }
         // Add a null row, verify it was not ingested as pinot does not accept null time column values.
@@ -206,7 +212,7 @@ public class TestPinotIntegrationSmokeTest
         for (int i = 0; i < MAX_ROWS_PER_SPLIT_FOR_BROKER_QUERIES + 1; i++) {
             tooManyBrokerRowsRecordsBuilder.add(new ProducerRecord<>(TOO_MANY_BROKER_ROWS_TABLE, "key" + i, new GenericRecordBuilder(tooManyBrokerRowsAvroSchema)
                     .set("string_col", "string_" + i)
-                    .set("updatedAt", Instant.parse("2021-05-10T00:00:00.00Z").plusMillis(i * 1000).toEpochMilli())
+                    .set("updatedAt", initialUpdatedAt.plusMillis(i * 1000).toEpochMilli())
                     .build()));
         }
         kafka.sendMessages(tooManyBrokerRowsRecordsBuilder.build().stream(), schemaRegistryAwareProducer(kafka));
@@ -285,7 +291,7 @@ public class TestPinotIntegrationSmokeTest
         Schema schema = getAllTypesAvroSchema();
         // Pinot does not transform the time column value to default null value
         return new GenericRecordBuilder(schema)
-                .set("updated_at", 0L)
+                .set("updated_at", initialUpdatedAt.toEpochMilli())
                 .build();
     }
 
@@ -311,7 +317,7 @@ public class TestPinotIntegrationSmokeTest
                 .set("float_array_col", floatList)
                 .set("double_array_col", doubleList)
                 .set("long_array_col", new ArrayList<>())
-                .set("updated_at", 0L)
+                .set("updated_at", initialUpdatedAt.toEpochMilli())
                 .build();
     }
 
@@ -563,10 +569,12 @@ public class TestPinotIntegrationSmokeTest
     @Test
     public void testNonLowerCaseColumnNames()
     {
-        String mixedCaseColumnNamesTableValues = "VALUES ('string_0', '0', '1620604800')," +
-                "  ('string_1', '1', '1620604801')," +
-                "  ('string_2', '2', '1620604802')," +
-                "  ('string_3', '3', '1620604803')";
+        long rowCount = (long) computeScalar("SELECT COUNT(*) FROM " + MIXED_CASE_COLUMN_NAMES_TABLE);
+        List<String> rows = new ArrayList<>();
+        for (int i = 0; i < rowCount; i++) {
+            rows.add(format("('string_%s', '%s', '%s')", i, i, initialUpdatedAt.plusMillis(i * 1000).getEpochSecond()));
+        }
+        String mixedCaseColumnNamesTableValues = rows.stream().collect(joining(",", "VALUES ", ""));
 
         // Test segment query all rows
         assertQuery("SELECT stringcol, longcol, updatedatseconds" +
@@ -578,7 +586,7 @@ public class TestPinotIntegrationSmokeTest
                         "  FROM  \"SELECT updatedatseconds, longcol, stringcol FROM " + MIXED_CASE_COLUMN_NAMES_TABLE + "\"",
                 mixedCaseColumnNamesTableValues);
 
-        String singleRowValues = "VALUES (VARCHAR 'string_3', BIGINT '3', BIGINT '1620604803')";
+        String singleRowValues = "VALUES (VARCHAR 'string_3', BIGINT '3', BIGINT '" + initialUpdatedAt.plusMillis(3 * 1000).getEpochSecond() + "')";
 
         // Test segment query single row
         assertThat(query("SELECT stringcol, longcol, updatedatseconds" +
@@ -614,25 +622,17 @@ public class TestPinotIntegrationSmokeTest
         // This data does not include the null row inserted in createQueryRunner().
         // This verifies that if the time column has a null value, pinot does not
         // ingest the row from kafka.
-        String tooManyRowsTableValues = "VALUES ('string_0', '1620604800')," +
-                "  ('string_1', '1620604801')," +
-                "  ('string_2', '1620604802')," +
-                "  ('string_3', '1620604803')," +
-                "  ('string_4', '1620604804')," +
-                "  ('string_5', '1620604805')," +
-                "  ('string_6', '1620604806')," +
-                "  ('string_7', '1620604807')," +
-                "  ('string_8', '1620604808')," +
-                "  ('string_9', '1620604809')," +
-                "  ('string_10', '1620604810')," +
-                "  ('string_11', '1620604811')";
+        List<String> tooManyRowsTableValues = new ArrayList<>();
+        for (int i = 0; i < MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES + 1; i++) {
+            tooManyRowsTableValues.add(format("('string_%s', '%s')", i, initialUpdatedAt.plusMillis(i * 1000).getEpochSecond()));
+        }
 
         // Explicit limit is necessary otherwise pinot returns 10 rows.
         // The limit is greater than the result size returned.
         assertQuery("SELECT string_col, updated_at_seconds" +
                         "  FROM  \"SELECT updated_at_seconds, string_col FROM " + TOO_MANY_ROWS_TABLE +
                         "  LIMIT " + (MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES + 2) + "\"",
-                tooManyRowsTableValues);
+                tooManyRowsTableValues.stream().collect(joining(",", "VALUES ", "")));
     }
 
     @Test
@@ -653,25 +653,17 @@ public class TestPinotIntegrationSmokeTest
         assertQueryFails("SELECT * FROM \"SELECT string_col, long_col FROM " + ALL_TYPES_TABLE + " LIMIT " + ((long) Integer.MAX_VALUE + 1) + "\"",
                 "Query select string_col, long_col from alltypes limit -2147483648 encountered exception org.apache.pinot.common.response.broker.QueryProcessingException@\\w+ with query \"select string_col, long_col from alltypes limit -2147483648\"");
 
-        String tooManyBrokerRowsTableValues = "VALUES ('string_0', '1620604800')," +
-                "  ('string_1', '1620604801')," +
-                "  ('string_2', '1620604802')," +
-                "  ('string_3', '1620604803')," +
-                "  ('string_4', '1620604804')," +
-                "  ('string_5', '1620604805')," +
-                "  ('string_6', '1620604806')," +
-                "  ('string_7', '1620604807')," +
-                "  ('string_8', '1620604808')," +
-                "  ('string_9', '1620604809')," +
-                "  ('string_10', '1620604810')," +
-                "  ('string_11', '1620604811')";
+        List<String> tooManyBrokerRowsTableValues = new ArrayList<>();
+        for (int i = 0; i < MAX_ROWS_PER_SPLIT_FOR_BROKER_QUERIES; i++) {
+            tooManyBrokerRowsTableValues.add(format("('string_%s', '%s')", i, initialUpdatedAt.plusMillis(i * 1000).getEpochSecond()));
+        }
 
         // Explicit limit is necessary otherwise pinot returns 10 rows.
         assertQuery("SELECT string_col, updated_at_seconds" +
                         "  FROM  \"SELECT updated_at_seconds, string_col FROM " + TOO_MANY_BROKER_ROWS_TABLE +
                         "  WHERE string_col != 'string_12'" +
                         "  LIMIT " + MAX_ROWS_PER_SPLIT_FOR_BROKER_QUERIES + "\"",
-                tooManyBrokerRowsTableValues);
+                tooManyBrokerRowsTableValues.stream().collect(joining(",", "VALUES ", "")));
     }
 
     @Test
