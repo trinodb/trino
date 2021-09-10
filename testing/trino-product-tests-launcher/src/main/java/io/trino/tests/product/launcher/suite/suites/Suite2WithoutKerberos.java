@@ -31,7 +31,7 @@ public class Suite2WithoutKerberos
     {
         return ImmutableList.of(
                 testOnEnvironment(EnvSinglenode.class)
-                        .withGroups("hdfs_no_impersonation", "hive_compression", "storage_formats", "cli", "hive_file_header", "hive_with_external_writes")
+                        .withGroups("hdfs_no_impersonation", "hive_compression", "storage_formats", "hive_file_header", "hive_with_external_writes")
                         .build());
     }
 }
