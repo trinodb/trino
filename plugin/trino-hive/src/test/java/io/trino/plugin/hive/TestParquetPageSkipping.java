@@ -48,39 +48,37 @@ public class TestParquetPageSkipping
     private void buildSortedTables(String tableName, String sortByColumnName, String sortByColumnType)
     {
         String createTableTemplate =
-                "CREATE TABLE %s.%s.%s (\n" +
-                        "   orderkey bigint,\n" +
-                        "   custkey bigint,\n" +
-                        "   orderstatus varchar(1),\n" +
-                        "   totalprice double,\n" +
-                        "   orderdate date,\n" +
-                        "   orderpriority varchar(15),\n" +
-                        "   clerk varchar(15),\n" +
-                        "   shippriority integer,\n" +
-                        "   comment varchar(79),\n" +
-                        "   rvalues double array\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   format = 'PARQUET',\n" +
-                        "   bucketed_by = array['orderstatus'],\n" +
-                        "   bucket_count = 1,\n" +
-                        "   sorted_by = array['%s']\n" +
+                "CREATE TABLE %s ( " +
+                        "   orderkey bigint, " +
+                        "   custkey bigint, " +
+                        "   orderstatus varchar(1), " +
+                        "   totalprice double, " +
+                        "   orderdate date, " +
+                        "   orderpriority varchar(15), " +
+                        "   clerk varchar(15), " +
+                        "   shippriority integer, " +
+                        "   comment varchar(79), " +
+                        "   rvalues double array " +
+                        ") " +
+                        "WITH ( " +
+                        "   format = 'PARQUET', " +
+                        "   bucketed_by = array['orderstatus'], " +
+                        "   bucket_count = 1, " +
+                        "   sorted_by = array['%s'] " +
                         ")";
         createTableTemplate = createTableTemplate.replaceFirst(sortByColumnName + "[ ]+([^,]*)", sortByColumnName + " " + sortByColumnType);
-        String createTableSql = format(
-                createTableTemplate,
-                getSession().getCatalog().get(),
-                getSession().getSchema().get(),
-                tableName,
-                sortByColumnName);
 
-        assertUpdate(createTableSql);
+        assertUpdate(format(
+                createTableTemplate,
+                tableName,
+                sortByColumnName));
+        String catalog = getSession().getCatalog().orElseThrow();
         assertUpdate(
                 Session.builder(getSession())
-                        .setCatalogSessionProperty(getSession().getCatalog().get(), "parquet_writer_page_size", "10000B")
-                        .setCatalogSessionProperty(getSession().getCatalog().get(), "parquet_writer_block_size", "100GB")
+                        .setCatalogSessionProperty(catalog, "parquet_writer_page_size", "10000B")
+                        .setCatalogSessionProperty(catalog, "parquet_writer_block_size", "100GB")
                         .build(),
-                format("INSERT INTO %s SELECT *,ARRAY[rand(),rand(),rand()] FROM orders", tableName),
+                format("INSERT INTO %s SELECT *, ARRAY[rand(), rand(), rand()] FROM orders", tableName),
                 15000);
     }
 
@@ -88,42 +86,33 @@ public class TestParquetPageSkipping
     public void testAndPredicates()
     {
         String tableName = "test_and_predicate_" + randomTableSuffix();
-        try {
-            buildSortedTables(tableName, "totalprice", "double");
-            String query = "SELECT * FROM " + tableName + " WHERE totalprice BETWEEN 100000 AND 131280 AND clerk = 'Clerk#000000624'";
-            int rowCount = assertSameResults(query);
-            assertTrue(rowCount > 0);
-        }
-        finally {
-            assertUpdate(format("DROP TABLE IF EXISTS %s", tableName));
-        }
+        buildSortedTables(tableName, "totalprice", "double");
+        int rowCount = assertSameResults("SELECT * FROM " + tableName + " WHERE totalprice BETWEEN 100000 AND 131280 AND clerk = 'Clerk#000000624'");
+        assertTrue(rowCount > 0);
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test(dataProvider = "dataType")
     public void testPageSkipping(String sortByColumn, String sortByColumnType, Object[][] valuesArray)
     {
         String tableName = "test_page_skipping_" + randomTableSuffix();
-        try {
-            buildSortedTables(tableName, sortByColumn, sortByColumnType);
-            for (Object[] values : valuesArray) {
-                Object lowValue = values[0];
-                Object middleLowValue = values[1];
-                Object middleHighValue = values[2];
-                Object highValue = values[3];
-                assertSameResults(format("SELECT %s FROM %s WHERE %s = %s", sortByColumn, tableName, sortByColumn, middleLowValue));
-                assertTrue(assertSameResults(format("SELECT %s FROM %s WHERE %s < %s ORDER BY %s", sortByColumn, tableName, sortByColumn, lowValue, sortByColumn)) > 0);
-                assertTrue(assertSameResults(format("SELECT %s FROM %s WHERE %s > %s ORDER BY %s", sortByColumn, tableName, sortByColumn, highValue, sortByColumn)) > 0);
-                assertTrue(assertSameResults(format("SELECT %s FROM %s WHERE %s BETWEEN %s AND %s ORDER BY %s", sortByColumn, tableName, sortByColumn, middleLowValue, middleHighValue, sortByColumn)) > 0);
-                // Tests synchronization of reading values across columns
-                assertSameResults(format("SELECT * FROM %s WHERE %s = %s ORDER BY orderkey", tableName, sortByColumn, middleLowValue));
-                assertTrue(assertSameResults(format("SELECT * FROM %s WHERE %s < %s ORDER BY orderkey", tableName, sortByColumn, lowValue)) > 0);
-                assertTrue(assertSameResults(format("SELECT * FROM %s WHERE %s > %s ORDER BY orderkey", tableName, sortByColumn, highValue)) > 0);
-                assertTrue(assertSameResults(format("SELECT * FROM %s WHERE %s BETWEEN %s AND %s ORDER BY orderkey", tableName, sortByColumn, middleLowValue, middleHighValue)) > 0);
-            }
+        buildSortedTables(tableName, sortByColumn, sortByColumnType);
+        for (Object[] values : valuesArray) {
+            Object lowValue = values[0];
+            Object middleLowValue = values[1];
+            Object middleHighValue = values[2];
+            Object highValue = values[3];
+            assertSameResults(format("SELECT %s FROM %s WHERE %s = %s", sortByColumn, tableName, sortByColumn, middleLowValue));
+            assertTrue(assertSameResults(format("SELECT %s FROM %s WHERE %s < %s ORDER BY %s", sortByColumn, tableName, sortByColumn, lowValue, sortByColumn)) > 0);
+            assertTrue(assertSameResults(format("SELECT %s FROM %s WHERE %s > %s ORDER BY %s", sortByColumn, tableName, sortByColumn, highValue, sortByColumn)) > 0);
+            assertTrue(assertSameResults(format("SELECT %s FROM %s WHERE %s BETWEEN %s AND %s ORDER BY %s", sortByColumn, tableName, sortByColumn, middleLowValue, middleHighValue, sortByColumn)) > 0);
+            // Tests synchronization of reading values across columns
+            assertSameResults(format("SELECT * FROM %s WHERE %s = %s ORDER BY orderkey", tableName, sortByColumn, middleLowValue));
+            assertTrue(assertSameResults(format("SELECT * FROM %s WHERE %s < %s ORDER BY orderkey", tableName, sortByColumn, lowValue)) > 0);
+            assertTrue(assertSameResults(format("SELECT * FROM %s WHERE %s > %s ORDER BY orderkey", tableName, sortByColumn, highValue)) > 0);
+            assertTrue(assertSameResults(format("SELECT * FROM %s WHERE %s BETWEEN %s AND %s ORDER BY orderkey", tableName, sortByColumn, middleLowValue, middleHighValue)) > 0);
         }
-        finally {
-            assertUpdate(format("DROP TABLE IF EXISTS %s", tableName));
-        }
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     private int assertSameResults(String query)
