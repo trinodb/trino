@@ -54,7 +54,7 @@ public class TestHiveViews
         String withNoFilter = "SELECT table_name FROM information_schema.views";
         if (getHiveVersionMajor() == 3) {
             assertThat(query(withSchemaFilter)).containsOnly(row("correct_view"));
-            assertThat(query(withSchemaFilter)).contains(row("correct_view"));
+            assertThat(query(withNoFilter)).contains(row("correct_view"));
         }
         else {
             assertThat(query(withSchemaFilter)).hasNoRows();
