@@ -37,6 +37,7 @@ public class TestIcebergConfig
                 .setFileFormat(ORC)
                 .setCompressionCodec(GZIP)
                 .setUseFileSizeFromMetadata(true)
+                .setFetchSplitLocations(false)
                 .setMaxPartitionsPerWriter(100)
                 .setUniqueTableLocation(false)
                 .setCatalogType(HIVE));
@@ -49,6 +50,7 @@ public class TestIcebergConfig
                 .put("iceberg.file-format", "Parquet")
                 .put("iceberg.compression-codec", "NONE")
                 .put("iceberg.use-file-size-from-metadata", "false")
+                .put("iceberg.fetch-split-locations", "true")
                 .put("iceberg.max-partitions-per-writer", "222")
                 .put("iceberg.unique-table-location", "true")
                 .put("iceberg.catalog.type", "UNKNOWN")
@@ -58,6 +60,7 @@ public class TestIcebergConfig
                 .setFileFormat(PARQUET)
                 .setCompressionCodec(HiveCompressionCodec.NONE)
                 .setUseFileSizeFromMetadata(false)
+                .setFetchSplitLocations(true)
                 .setMaxPartitionsPerWriter(222)
                 .setUniqueTableLocation(true)
                 .setCatalogType(UNKNOWN);

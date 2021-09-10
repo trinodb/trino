@@ -33,6 +33,7 @@ public class IcebergConfig
     private int maxPartitionsPerWriter = 100;
     private boolean uniqueTableLocation;
     private CatalogType catalogType = HIVE;
+    private boolean fetchSplitLocations;
 
     public CatalogType getCatalogType()
     {
@@ -43,6 +44,19 @@ public class IcebergConfig
     public IcebergConfig setCatalogType(CatalogType catalogType)
     {
         this.catalogType = catalogType;
+        return this;
+    }
+
+    public boolean isFetchSplitLocations()
+    {
+        return fetchSplitLocations;
+    }
+
+    @ConfigDescription("When true, we will get block locations for every datafile")
+    @Config("iceberg.fetch-split-locations")
+    public IcebergConfig setFetchSplitLocations(boolean fetchSplitLocations)
+    {
+        this.fetchSplitLocations = fetchSplitLocations;
         return this;
     }
 
