@@ -26,7 +26,7 @@ import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static io.trino.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestParquetPageSkipping
         extends AbstractTestQueryFramework
@@ -88,7 +88,7 @@ public class TestParquetPageSkipping
         String tableName = "test_and_predicate_" + randomTableSuffix();
         buildSortedTables(tableName, "totalprice", "double");
         int rowCount = assertSameResults("SELECT * FROM " + tableName + " WHERE totalprice BETWEEN 100000 AND 131280 AND clerk = 'Clerk#000000624'");
-        assertTrue(rowCount > 0);
+        assertThat(rowCount).isGreaterThan(0);
         assertUpdate("DROP TABLE " + tableName);
     }
 
@@ -103,14 +103,14 @@ public class TestParquetPageSkipping
             Object middleHighValue = values[2];
             Object highValue = values[3];
             assertSameResults(format("SELECT %s FROM %s WHERE %s = %s", sortByColumn, tableName, sortByColumn, middleLowValue));
-            assertTrue(assertSameResults(format("SELECT %s FROM %s WHERE %s < %s ORDER BY %s", sortByColumn, tableName, sortByColumn, lowValue, sortByColumn)) > 0);
-            assertTrue(assertSameResults(format("SELECT %s FROM %s WHERE %s > %s ORDER BY %s", sortByColumn, tableName, sortByColumn, highValue, sortByColumn)) > 0);
-            assertTrue(assertSameResults(format("SELECT %s FROM %s WHERE %s BETWEEN %s AND %s ORDER BY %s", sortByColumn, tableName, sortByColumn, middleLowValue, middleHighValue, sortByColumn)) > 0);
+            assertThat(assertSameResults(format("SELECT %s FROM %s WHERE %s < %s ORDER BY %s", sortByColumn, tableName, sortByColumn, lowValue, sortByColumn))).isGreaterThan(0);
+            assertThat(assertSameResults(format("SELECT %s FROM %s WHERE %s > %s ORDER BY %s", sortByColumn, tableName, sortByColumn, highValue, sortByColumn))).isGreaterThan(0);
+            assertThat(assertSameResults(format("SELECT %s FROM %s WHERE %s BETWEEN %s AND %s ORDER BY %s", sortByColumn, tableName, sortByColumn, middleLowValue, middleHighValue, sortByColumn))).isGreaterThan(0);
             // Tests synchronization of reading values across columns
             assertSameResults(format("SELECT * FROM %s WHERE %s = %s ORDER BY orderkey", tableName, sortByColumn, middleLowValue));
-            assertTrue(assertSameResults(format("SELECT * FROM %s WHERE %s < %s ORDER BY orderkey", tableName, sortByColumn, lowValue)) > 0);
-            assertTrue(assertSameResults(format("SELECT * FROM %s WHERE %s > %s ORDER BY orderkey", tableName, sortByColumn, highValue)) > 0);
-            assertTrue(assertSameResults(format("SELECT * FROM %s WHERE %s BETWEEN %s AND %s ORDER BY orderkey", tableName, sortByColumn, middleLowValue, middleHighValue)) > 0);
+            assertThat(assertSameResults(format("SELECT * FROM %s WHERE %s < %s ORDER BY orderkey", tableName, sortByColumn, lowValue))).isGreaterThan(0);
+            assertThat(assertSameResults(format("SELECT * FROM %s WHERE %s > %s ORDER BY orderkey", tableName, sortByColumn, highValue))).isGreaterThan(0);
+            assertThat(assertSameResults(format("SELECT * FROM %s WHERE %s BETWEEN %s AND %s ORDER BY orderkey", tableName, sortByColumn, middleLowValue, middleHighValue))).isGreaterThan(0);
         }
         assertUpdate("DROP TABLE " + tableName);
     }
