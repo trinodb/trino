@@ -392,6 +392,14 @@ public class LogicalPlanner
 
         RelationPlan plan = createRelationPlan(analysis, query);
 
+        ImmutableList.Builder<Symbol> builder = ImmutableList.builder();
+        for (int i = 0; i < plan.getFieldMappings().size(); i++) {
+            if (!plan.getDescriptor().getFieldByIndex(i).isHidden()) {
+                builder.add(plan.getFieldMappings().get(i));
+            }
+        }
+        List<Symbol> visibleFieldMappings = builder.build();
+
         Map<String, ColumnHandle> columns = metadata.getColumnHandles(session, tableHandle);
         Assignments.Builder assignments = Assignments.builder();
         boolean supportsMissingColumnsOnInsert = metadata.supportsMissingColumnsOnInsert(session, tableHandle);
@@ -412,7 +420,7 @@ public class LogicalPlanner
                 insertedColumnsBuilder.add(column);
             }
             else {
-                Symbol input = plan.getSymbol(index);
+                Symbol input = visibleFieldMappings.get(index);
                 Type tableType = column.getType();
                 Type queryType = symbolAllocator.getTypes().get(input);
 
