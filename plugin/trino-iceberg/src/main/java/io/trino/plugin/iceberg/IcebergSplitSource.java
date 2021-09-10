@@ -150,7 +150,8 @@ public class IcebergSplitSource
         return new ArrayList<>(locations);
     }
 
-    private static List<HostAddress> getHostAddresses(BlockLocation blockLocation) throws IOException {
+    private static List<HostAddress> getHostAddresses(BlockLocation blockLocation) throws IOException
+    {
         // Hadoop FileSystem returns "localhost" as a default
         return Arrays.stream(blockLocation.getHosts())
                 .map(HostAddress::fromString)
