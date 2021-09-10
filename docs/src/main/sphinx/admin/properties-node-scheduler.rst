@@ -8,7 +8,7 @@ Splits
 ``node-scheduler.max-splits-per-node``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``integer``
+* **Type:** :ref:`prop-type-integer`
 * **Default value:** ``100``
 
 The target value for the total number of splits that can be running for
@@ -28,7 +28,7 @@ not higher.
 ``node-scheduler.max-pending-splits-per-task``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``integer``
+* **Type:** :ref:`prop-type-integer`
 * **Default value:** ``10``
 
 The number of outstanding splits that can be queued for each worker node
@@ -43,7 +43,7 @@ if set too high.
 ``node-scheduler.min-candidates``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``integer``
+* **Type:** :ref:`prop-type-integer`
 * **Minimum value:** ``1``
 * **Default value:** ``10``
 
@@ -56,7 +56,7 @@ latency and increase CPU usage on the coordinator.
 ``node-scheduler.policy``
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``string``
+* **Type:** :ref:`prop-type-string`
 * **Allowed values:** ``uniform``, ``topology``
 * **Default value:** ``uniform``
 
@@ -72,7 +72,7 @@ Network topology
 ``node-scheduler.network-topology.segments``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``string``
+* **Type:** :ref:`prop-type-string`
 * **Default value:** ``machine``
 
 A comma-separated string describing the meaning of each segment of a network location.
@@ -81,7 +81,7 @@ For example, setting ``region,rack,machine`` means a network location contains t
 ``node-scheduler.network-topology.type``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``string``
+* **Type:** :ref:`prop-type-string`
 * **Allowed values:** ``flat``, ``file``, ``subnet``
 * **Default value:** ``flat``
 
@@ -104,7 +104,7 @@ File based network topology
 ``node-scheduler.network-topology.file``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``string``
+* **Type:** :ref:`prop-type-string`
 
 Load the network topology from a file. To use this option, ``node-scheduler.network-topology.type``
 must be set to ``file``. Each line contains a mapping between a host name and a
@@ -120,7 +120,7 @@ network location, separated by whitespace. Network location must begin with a le
 ``node-scheduler.network-topology.refresh-period``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``duration``
+* **Type:** :ref:`prop-type-duration`
 * **Minimum value:** ``1ms``
 * **Default value:** ``5m``
 
@@ -133,7 +133,7 @@ Subnet based network topology
 ``node-scheduler.network-topology.subnet.ip-address-protocol``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``string``
+* **Type:** :ref:`prop-type-string`
 * **Allowed values:** ``IPv4``, ``IPv6``
 * **Default value:** ``IPv4``
 
@@ -144,10 +144,11 @@ be set to ``subnet``.
 ``node-scheduler.network-topology.subnet.cidr-prefix-lengths``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-A comma-separated list of integers defining CIDR prefix lengths for
-subnet masks. The prefix lengths must be in increasing order. The maximum prefix
-length values for IPv4 and IPv6 protocols are 32 and 128 respectively. To use
-this option, ``node-scheduler.network-topology.type`` must be set to ``subnet``.
+A comma-separated list of :ref:`prop-type-integer` values defining CIDR prefix
+lengths for subnet masks. The prefix lengths must be in increasing order. The
+maximum prefix length values for IPv4 and IPv6 protocols are 32 and 128
+respectively. To use this option, ``node-scheduler.network-topology.type`` must
+be set to ``subnet``.
 
 For example, the value ``24,25,27`` for this property with IPv4 protocol means
 that masks applied on the IP address to compute location segments are

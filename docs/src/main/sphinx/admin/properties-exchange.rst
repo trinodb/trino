@@ -9,7 +9,7 @@ communication issues or improve network utilization.
 ``exchange.client-threads``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``integer``
+* **Type:** :ref:`prop-type-integer`
 * **Minimum value:** ``1``
 * **Default value:** ``25``
 
@@ -21,7 +21,7 @@ in performance due to context switches and additional memory usage.
 ``exchange.concurrent-request-multiplier``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``integer``
+* **Type:** :ref:`prop-type-integer`
 * **Minimum value:** ``1``
 * **Default value:** ``3``
 
@@ -39,7 +39,7 @@ network utilization.
 ``exchange.data-integrity-verification``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``string``
+* **Type:** :ref:`prop-type-string`
 * **Allowed values:** ``NONE``, ``ABORT``, ``RETRY``
 * **Default value:** ``ABORT``
 
@@ -52,7 +52,7 @@ repeated when integrity issues are detected.
 ``exchange.max-buffer-size``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``data size``
+* **Type:** :ref:`prop-type-data-size`
 * **Default value:** ``32MB``
 
 Size of buffer in the exchange client that holds data fetched from other
@@ -63,7 +63,7 @@ but reduces the amount of memory available for other usages.
 ``exchange.max-response-size``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``data size``
+* **Type:** :ref:`prop-type-data-size`
 * **Minimum value:** ``1MB``
 * **Default value:** ``16MB``
 
@@ -79,7 +79,7 @@ responses for more tasks, rather than hold more data from fewer tasks.
 ``sink.max-buffer-size``
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``data size``
+* **Type:** :ref:`prop-type-data-size`
 * **Default value:** ``32MB``
 
 Output buffer size for task data that is waiting to be pulled by upstream
