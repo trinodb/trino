@@ -19,4 +19,10 @@ import io.trino.spi.QueryId;
 public interface SessionSupplier
 {
     Session createSession(QueryId queryId, SessionContext context);
+
+    /**
+     * Rescue a session creation failure.
+     * Must create a session without any errors when this method is called.
+     */
+    Session createFailedSession(QueryId queryId, SessionContext context);
 }

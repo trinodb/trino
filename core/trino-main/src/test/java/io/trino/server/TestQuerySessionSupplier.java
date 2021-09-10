@@ -235,6 +235,20 @@ public class TestQuerySessionSupplier
         assertThat(session.getSchema()).isEmpty();
     }
 
+    @Test
+    public void testCreateFailedSession()
+    {
+        MultivaluedMap<String, String> headers = new GuavaMultivaluedMap<>(ImmutableListMultimap.<String, String>builder()
+                .put(TRINO_HEADERS.requestUser(), "testUser")
+                .put(TRINO_HEADERS.requestSource(), "testSource")
+                .build());
+        SessionContext context = SESSION_CONTEXT_FACTORY.createSessionContext(headers, Optional.empty(), Optional.of("remoteAddress"), Optional.empty());
+        QuerySessionSupplier sessionSupplier = createSessionSupplier(new SqlEnvironmentConfig());
+        Session session = sessionSupplier.createFailedSession(new QueryId("test_query_id"), context);
+        assertEquals(session.getIdentity().getUser(), "testUser");
+        assertEquals(session.getSource(), Optional.of("testSource"));
+    }
+
     private static Session createSession(ListMultimap<String, String> headers, SqlEnvironmentConfig config)
     {
         MultivaluedMap<String, String> headerMap = new GuavaMultivaluedMap<>(headers);

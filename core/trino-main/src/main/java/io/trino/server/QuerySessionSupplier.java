@@ -156,4 +156,14 @@ public class QuerySessionSupplier
 
         return session;
     }
+
+    @Override
+    public Session createFailedSession(QueryId queryId, SessionContext context)
+    {
+        return Session.builder(sessionPropertyManager)
+                .setQueryId(queryId)
+                .setIdentity(context.getIdentity())
+                .setSource(context.getSource().orElse(null))
+                .build();
+    }
 }

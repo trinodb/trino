@@ -27,4 +27,10 @@ public class NoOpSessionSupplier
     {
         throw new UnsupportedOperationException();
     }
+
+    @Override
+    public Session createFailedSession(QueryId queryId, SessionContext context)
+    {
+        throw new UnsupportedOperationException();
+    }
 }
