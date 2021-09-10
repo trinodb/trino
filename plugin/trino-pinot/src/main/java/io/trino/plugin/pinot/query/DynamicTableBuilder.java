@@ -14,7 +14,6 @@
 package io.trino.plugin.pinot.query;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.pinot.PinotColumnHandle;
 import io.trino.plugin.pinot.PinotException;
 import io.trino.plugin.pinot.PinotMetadata;
@@ -23,7 +22,6 @@ import io.trino.spi.connector.ColumnNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
-import org.apache.pinot.common.request.AggregationInfo;
 import org.apache.pinot.common.request.BrokerRequest;
 import org.apache.pinot.common.request.SelectionSort;
 import org.apache.pinot.common.utils.DataSchema;
@@ -36,7 +34,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
-import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.pinot.PinotErrorCode.PINOT_UNSUPPORTED_COLUMN_TYPE;
@@ -47,7 +44,6 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -55,7 +51,6 @@ public final class DynamicTableBuilder
 {
     private static final CalciteSqlCompiler REQUEST_COMPILER = new CalciteSqlCompiler();
     private static final String WILDCARD = "*";
-    public static final Set<Type> SUPPORTED_INPUT_TYPES = ImmutableSet.of(INTEGER, BIGINT, REAL, DOUBLE);
     public static final String OFFLINE_SUFFIX = "_OFFLINE";
     public static final String REALTIME_SUFFIX = "_REALTIME";
 
@@ -109,8 +104,6 @@ public final class DynamicTableBuilder
         ImmutableList.Builder<PinotColumnHandle> aggregateColumnsBuilder = ImmutableList.builder();
         if (request.getAggregationsInfo() != null) {
             for (AggregationFunction aggregationFunction : queryContext.getAggregationFunctions()) {
-                aggregationFunction.getResultColumnName();
-                aggregationFunction.getType().getName();
                 aggregateColumnsBuilder.add(new PinotColumnHandle(
                         aggregationFunction.getResultColumnName(),
                         toTrinoType(aggregationFunction.getFinalResultColumnType())));
@@ -165,11 +158,6 @@ public final class DynamicTableBuilder
             }
         }
         return pinotColumnNamesBuilder.build();
-    }
-
-    private static String getOutputColumnName(AggregationInfo aggregationInfo, String pinotColumnName)
-    {
-        return format("%s(%s)", aggregationInfo.getAggregationType(), pinotColumnName).toLowerCase(ENGLISH);
     }
 
     private static OptionalLong getTopNOrLimit(BrokerRequest request)
