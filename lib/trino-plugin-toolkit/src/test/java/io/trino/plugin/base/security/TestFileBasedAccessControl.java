@@ -40,12 +40,12 @@ import static org.testng.Assert.assertEquals;
 
 public class TestFileBasedAccessControl
 {
-    private static final ConnectorSecurityContext ADMIN = user("admin", ImmutableSet.of("admin", "staff"));
-    private static final ConnectorSecurityContext ALICE = user("alice", ImmutableSet.of("staff"));
-    private static final ConnectorSecurityContext BOB = user("bob", ImmutableSet.of("staff"));
-    private static final ConnectorSecurityContext CHARLIE = user("charlie", ImmutableSet.of("guests"));
-    private static final ConnectorSecurityContext JOE = user("joe", ImmutableSet.of());
-    private static final ConnectorSecurityContext UNKNOWN = user("unknown", ImmutableSet.of());
+    private static final ConnectorSecurityContext ADMIN = user("admin", ImmutableSet.of("admin", "staff"), ImmutableSet.of("admin"));
+    private static final ConnectorSecurityContext ALICE = user("alice", ImmutableSet.of("staff"), ImmutableSet.of());
+    private static final ConnectorSecurityContext BOB = user("bob", ImmutableSet.of("staff"), ImmutableSet.of());
+    private static final ConnectorSecurityContext CHARLIE = user("charlie", ImmutableSet.of("guests"), ImmutableSet.of());
+    private static final ConnectorSecurityContext JOE = user("joe", ImmutableSet.of(), ImmutableSet.of());
+    private static final ConnectorSecurityContext UNKNOWN = user("unknown", ImmutableSet.of(), ImmutableSet.of());
 
     @Test
     public void testEmptyFile()
@@ -290,17 +290,20 @@ public class TestFileBasedAccessControl
         assertDenied(() -> accessControl.checkCanRenameView(BOB, new SchemaTableName("bobschema", "bobview"), new SchemaTableName("bobschema", "newbobview")));
         assertDenied(() -> accessControl.checkCanRenameView(ALICE, aliceTable, new SchemaTableName("bobschema", "newalicetable")));
 
-        accessControl.checkCanSetTableAuthorization(ADMIN, testTable, new TrinoPrincipal(PrincipalType.ROLE, "some_role"));
-        accessControl.checkCanSetTableAuthorization(ADMIN, testTable, new TrinoPrincipal(PrincipalType.USER, "some_user"));
-        accessControl.checkCanSetTableAuthorization(ALICE, aliceTable, new TrinoPrincipal(PrincipalType.ROLE, "some_role"));
-        accessControl.checkCanSetTableAuthorization(ALICE, aliceTable, new TrinoPrincipal(PrincipalType.USER, "some_user"));
+        // we can't support proper access rules here, so this is prohibited in all cases:
+        assertDenied(() -> accessControl.checkCanSetTableAuthorization(ADMIN, testTable, new TrinoPrincipal(PrincipalType.ROLE, "admin")));
+        assertDenied(() -> accessControl.checkCanSetTableAuthorization(ADMIN, testTable, new TrinoPrincipal(PrincipalType.ROLE, "some_role")));
+        assertDenied(() -> accessControl.checkCanSetTableAuthorization(ADMIN, testTable, new TrinoPrincipal(PrincipalType.USER, "some_user")));
+        assertDenied(() -> accessControl.checkCanSetTableAuthorization(ALICE, aliceTable, new TrinoPrincipal(PrincipalType.ROLE, "some_role")));
+        assertDenied(() -> accessControl.checkCanSetTableAuthorization(ALICE, aliceTable, new TrinoPrincipal(PrincipalType.USER, "some_user")));
         assertDenied(() -> accessControl.checkCanSetTableAuthorization(ALICE, bobTable, new TrinoPrincipal(PrincipalType.ROLE, "some_role")));
         assertDenied(() -> accessControl.checkCanSetTableAuthorization(ALICE, bobTable, new TrinoPrincipal(PrincipalType.USER, "some_user")));
 
-        accessControl.checkCanSetViewAuthorization(ADMIN, testTable, new TrinoPrincipal(PrincipalType.ROLE, "some_role"));
-        accessControl.checkCanSetViewAuthorization(ADMIN, testTable, new TrinoPrincipal(PrincipalType.USER, "some_user"));
-        accessControl.checkCanSetViewAuthorization(ALICE, aliceTable, new TrinoPrincipal(PrincipalType.ROLE, "some_role"));
-        accessControl.checkCanSetViewAuthorization(ALICE, aliceTable, new TrinoPrincipal(PrincipalType.USER, "some_user"));
+        assertDenied(() -> accessControl.checkCanSetViewAuthorization(ADMIN, testTable, new TrinoPrincipal(PrincipalType.ROLE, "admin")));
+        assertDenied(() -> accessControl.checkCanSetViewAuthorization(ADMIN, testTable, new TrinoPrincipal(PrincipalType.ROLE, "some_role")));
+        assertDenied(() -> accessControl.checkCanSetViewAuthorization(ADMIN, testTable, new TrinoPrincipal(PrincipalType.USER, "some_user")));
+        assertDenied(() -> accessControl.checkCanSetViewAuthorization(ALICE, aliceTable, new TrinoPrincipal(PrincipalType.ROLE, "some_role")));
+        assertDenied(() -> accessControl.checkCanSetViewAuthorization(ALICE, aliceTable, new TrinoPrincipal(PrincipalType.USER, "some_user")));
         assertDenied(() -> accessControl.checkCanSetViewAuthorization(ALICE, bobTable, new TrinoPrincipal(PrincipalType.ROLE, "some_role")));
         assertDenied(() -> accessControl.checkCanSetViewAuthorization(ALICE, bobTable, new TrinoPrincipal(PrincipalType.USER, "some_user")));
     }
@@ -423,11 +426,11 @@ public class TestFileBasedAccessControl
         assertAllMethodsOverridden(ConnectorAccessControl.class, FileBasedAccessControl.class);
     }
 
-    private static ConnectorSecurityContext user(String name, Set<String> groups)
+    private static ConnectorSecurityContext user(String name, Set<String> groups, Set<String> roles)
     {
         return new ConnectorSecurityContext(
                 new ConnectorTransactionHandle() {},
-                ConnectorIdentity.forUser(name).withGroups(groups).build(),
+                ConnectorIdentity.forUser(name).withGroups(groups).withEnabledSystemRoles(roles).build(),
                 new QueryId("query_id"));
     }
 

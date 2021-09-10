@@ -296,9 +296,12 @@ public class FileBasedAccessControl
     @Override
     public void checkCanSetTableAuthorization(ConnectorSecurityContext context, SchemaTableName tableName, TrinoPrincipal principal)
     {
-        if (!checkTablePermission(context, tableName, OWNERSHIP)) {
-            denySetTableAuthorization(tableName.toString(), principal);
-        }
+        /*
+         * The rule is to grant access only when the principal is a role which
+         * can create views, and we're a member of that role, but we don't
+         * support role rules, so can't do it here.
+         */
+        denySetTableAuthorization(tableName.toString(), principal);
     }
 
     @Override
@@ -364,9 +367,12 @@ public class FileBasedAccessControl
     @Override
     public void checkCanSetViewAuthorization(ConnectorSecurityContext context, SchemaTableName viewName, TrinoPrincipal principal)
     {
-        if (!checkTablePermission(context, viewName, OWNERSHIP)) {
-            denySetViewAuthorization(viewName.toString(), principal);
-        }
+        /*
+         * The rule is to grant access only when the principal is a role which
+         * can create views, and we're a member of that role, but we don't
+         * support role rules, so can't do it here.
+         */
+        denySetViewAuthorization(viewName.toString(), principal);
     }
 
     @Override
