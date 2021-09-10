@@ -277,6 +277,34 @@ public class TestDistributedEngineOnlyQueries
     }
 
     @Test
+    public void testInsertTableIntoTable()
+    {
+        // Ensure INSERT works when the source table exposes hidden fields
+        // First, verify that the table 'nation' contains the expected hidden column 'row_number'
+        assertThat(query("SELECT count(*) FROM information_schema.columns " +
+                "WHERE table_catalog = 'tpch' and table_schema = 'tiny' and table_name = 'nation' and column_name = 'row_number'"))
+                .matches("VALUES BIGINT '0'");
+        assertThat(query("SELECT min(row_number) FROM tpch.tiny.nation"))
+                .matches("VALUES BIGINT '0'");
+
+        // Create empty target table for INSERT
+        assertUpdate(getSession(), "CREATE TABLE n AS TABLE tpch.tiny.nation WITH NO DATA", 0);
+        assertThat(query("SELECT * FROM n"))
+                .matches("SELECT * FROM tpch.tiny.nation LIMIT 0");
+
+        // Verify that the hidden column is not present in the created table
+        assertThatThrownBy(() -> query("SELECT row_number FROM n"))
+                .hasMessage("line 1:8: Column 'row_number' cannot be resolved");
+
+        // Insert values from the original table into the created table
+        assertUpdate(getSession(), "INSERT INTO n TABLE tpch.tiny.nation", 25);
+        assertThat(query("SELECT * FROM n"))
+                .matches("SELECT * FROM tpch.tiny.nation");
+
+        assertUpdate(getSession(), "DROP TABLE n");
+    }
+
+    @Test
     public void testImplicitCastToRowWithFieldsRequiringDelimitation()
     {
         // source table uses char(4) as ROW fields
