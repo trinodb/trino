@@ -23,6 +23,7 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import static io.trino.testing.assertions.Assert.assertEquals;
+import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static io.trino.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
 import static org.testng.Assert.assertTrue;
@@ -30,8 +31,6 @@ import static org.testng.Assert.assertTrue;
 public class TestParquetPageSkipping
         extends AbstractTestQueryFramework
 {
-    private static final String PAGE_SKIPPING_TABLE = "orders_bucketed_and_sorted";
-
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
@@ -46,7 +45,7 @@ public class TestParquetPageSkipping
                 .build();
     }
 
-    private void buildSortedTables(String sortByColumnName, String sortByColumnType)
+    private void buildSortedTables(String tableName, String sortByColumnName, String sortByColumnType)
     {
         String createTableTemplate =
                 "CREATE TABLE %s.%s.%s (\n" +
@@ -72,7 +71,7 @@ public class TestParquetPageSkipping
                 createTableTemplate,
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),
-                PAGE_SKIPPING_TABLE,
+                tableName,
                 sortByColumnName);
 
         assertUpdate(createTableSql);
@@ -81,47 +80,49 @@ public class TestParquetPageSkipping
                         .setCatalogSessionProperty(getSession().getCatalog().get(), "parquet_writer_page_size", "10000B")
                         .setCatalogSessionProperty(getSession().getCatalog().get(), "parquet_writer_block_size", "100GB")
                         .build(),
-                format("INSERT INTO %s SELECT *,ARRAY[rand(),rand(),rand()] FROM orders", PAGE_SKIPPING_TABLE),
+                format("INSERT INTO %s SELECT *,ARRAY[rand(),rand(),rand()] FROM orders", tableName),
                 15000);
     }
 
     @Test
     public void testAndPredicates()
     {
+        String tableName = "test_and_predicate_" + randomTableSuffix();
         try {
-            buildSortedTables("totalprice", "double");
-            String query = "SELECT * FROM " + PAGE_SKIPPING_TABLE + " WHERE totalprice BETWEEN 100000 AND 131280 AND clerk = 'Clerk#000000624'";
+            buildSortedTables(tableName, "totalprice", "double");
+            String query = "SELECT * FROM " + tableName + " WHERE totalprice BETWEEN 100000 AND 131280 AND clerk = 'Clerk#000000624'";
             int rowCount = assertSameResults(query);
             assertTrue(rowCount > 0);
         }
         finally {
-            assertUpdate(format("DROP TABLE IF EXISTS %s", PAGE_SKIPPING_TABLE));
+            assertUpdate(format("DROP TABLE IF EXISTS %s", tableName));
         }
     }
 
     @Test(dataProvider = "dataType")
     public void testPageSkipping(String sortByColumn, String sortByColumnType, Object[][] valuesArray)
     {
+        String tableName = "test_page_skipping_" + randomTableSuffix();
         try {
-            buildSortedTables(sortByColumn, sortByColumnType);
+            buildSortedTables(tableName, sortByColumn, sortByColumnType);
             for (Object[] values : valuesArray) {
                 Object lowValue = values[0];
                 Object middleLowValue = values[1];
                 Object middleHighValue = values[2];
                 Object highValue = values[3];
-                assertSameResults(format("SELECT %s FROM %s WHERE %s = %s", sortByColumn, PAGE_SKIPPING_TABLE, sortByColumn, middleLowValue));
-                assertTrue(assertSameResults(format("SELECT %s FROM %s WHERE %s < %s ORDER BY %s", sortByColumn, PAGE_SKIPPING_TABLE, sortByColumn, lowValue, sortByColumn)) > 0);
-                assertTrue(assertSameResults(format("SELECT %s FROM %s WHERE %s > %s ORDER BY %s", sortByColumn, PAGE_SKIPPING_TABLE, sortByColumn, highValue, sortByColumn)) > 0);
-                assertTrue(assertSameResults(format("SELECT %s FROM %s WHERE %s BETWEEN %s AND %s ORDER BY %s", sortByColumn, PAGE_SKIPPING_TABLE, sortByColumn, middleLowValue, middleHighValue, sortByColumn)) > 0);
+                assertSameResults(format("SELECT %s FROM %s WHERE %s = %s", sortByColumn, tableName, sortByColumn, middleLowValue));
+                assertTrue(assertSameResults(format("SELECT %s FROM %s WHERE %s < %s ORDER BY %s", sortByColumn, tableName, sortByColumn, lowValue, sortByColumn)) > 0);
+                assertTrue(assertSameResults(format("SELECT %s FROM %s WHERE %s > %s ORDER BY %s", sortByColumn, tableName, sortByColumn, highValue, sortByColumn)) > 0);
+                assertTrue(assertSameResults(format("SELECT %s FROM %s WHERE %s BETWEEN %s AND %s ORDER BY %s", sortByColumn, tableName, sortByColumn, middleLowValue, middleHighValue, sortByColumn)) > 0);
                 // Tests synchronization of reading values across columns
-                assertSameResults(format("SELECT * FROM %s WHERE %s = %s ORDER BY orderkey", PAGE_SKIPPING_TABLE, sortByColumn, middleLowValue));
-                assertTrue(assertSameResults(format("SELECT * FROM %s WHERE %s < %s ORDER BY orderkey", PAGE_SKIPPING_TABLE, sortByColumn, lowValue)) > 0);
-                assertTrue(assertSameResults(format("SELECT * FROM %s WHERE %s > %s ORDER BY orderkey", PAGE_SKIPPING_TABLE, sortByColumn, highValue)) > 0);
-                assertTrue(assertSameResults(format("SELECT * FROM %s WHERE %s BETWEEN %s AND %s ORDER BY orderkey", PAGE_SKIPPING_TABLE, sortByColumn, middleLowValue, middleHighValue)) > 0);
+                assertSameResults(format("SELECT * FROM %s WHERE %s = %s ORDER BY orderkey", tableName, sortByColumn, middleLowValue));
+                assertTrue(assertSameResults(format("SELECT * FROM %s WHERE %s < %s ORDER BY orderkey", tableName, sortByColumn, lowValue)) > 0);
+                assertTrue(assertSameResults(format("SELECT * FROM %s WHERE %s > %s ORDER BY orderkey", tableName, sortByColumn, highValue)) > 0);
+                assertTrue(assertSameResults(format("SELECT * FROM %s WHERE %s BETWEEN %s AND %s ORDER BY orderkey", tableName, sortByColumn, middleLowValue, middleHighValue)) > 0);
             }
         }
         finally {
-            assertUpdate(format("DROP TABLE IF EXISTS %s", PAGE_SKIPPING_TABLE));
+            assertUpdate(format("DROP TABLE IF EXISTS %s", tableName));
         }
     }
 
