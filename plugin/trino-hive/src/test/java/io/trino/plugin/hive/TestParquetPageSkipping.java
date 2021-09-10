@@ -49,23 +49,23 @@ public class TestParquetPageSkipping
     {
         String createTableTemplate =
                 "CREATE TABLE %s.%s.%s (\n" +
-                "   orderkey bigint,\n" +
-                "   custkey bigint,\n" +
-                "   orderstatus varchar(1),\n" +
-                "   totalprice double,\n" +
-                "   orderdate date,\n" +
-                "   orderpriority varchar(15),\n" +
-                "   clerk varchar(15),\n" +
-                "   shippriority integer,\n" +
-                "   comment varchar(79),\n" +
-                "   rvalues double array\n" +
-                ")\n" +
-                "WITH (\n" +
-                "   format = 'PARQUET',\n" +
-                "   bucketed_by = array['orderstatus'],\n" +
-                "   bucket_count = 1,\n" +
-                "   sorted_by = array['%s']\n" +
-                ")";
+                        "   orderkey bigint,\n" +
+                        "   custkey bigint,\n" +
+                        "   orderstatus varchar(1),\n" +
+                        "   totalprice double,\n" +
+                        "   orderdate date,\n" +
+                        "   orderpriority varchar(15),\n" +
+                        "   clerk varchar(15),\n" +
+                        "   shippriority integer,\n" +
+                        "   comment varchar(79),\n" +
+                        "   rvalues double array\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   format = 'PARQUET',\n" +
+                        "   bucketed_by = array['orderstatus'],\n" +
+                        "   bucket_count = 1,\n" +
+                        "   sorted_by = array['%s']\n" +
+                        ")";
         createTableTemplate = createTableTemplate.replaceFirst(sortByColumnName + "[ ]+([^,]*)", sortByColumnName + " " + sortByColumnType);
         String createTableSql = format(
                 createTableTemplate,
@@ -141,24 +141,24 @@ public class TestParquetPageSkipping
     public Object[][] dataType()
     {
         return new Object[][] {
-                {"orderkey", "bigint", new Object[][]{{2, 7520, 7523, 14950}}},
-                {"totalprice", "double", new Object[][]{{974.04, 131094.34, 131279.97, 406938.36}}},
-                {"totalprice", "real", new Object[][]{{974.04, 131094.34, 131279.97, 406938.36}}},
-                {"totalprice", "decimal(12,2)", new Object[][]{
+                {"orderkey", "bigint", new Object[][] {{2, 7520, 7523, 14950}}},
+                {"totalprice", "double", new Object[][] {{974.04, 131094.34, 131279.97, 406938.36}}},
+                {"totalprice", "real", new Object[][] {{974.04, 131094.34, 131279.97, 406938.36}}},
+                {"totalprice", "decimal(12,2)", new Object[][] {
                         {974.04, 131094.34, 131279.97, 406938.36},
                         {973, 131095, 131280, 406950},
                         {974.04123, 131094.34123, 131279.97012, 406938.36555}}},
-                {"totalprice", "decimal(12,0)", new Object[][]{
+                {"totalprice", "decimal(12,0)", new Object[][] {
                         {973, 131095, 131280, 406950}}},
-                {"totalprice", "decimal(35,2)", new Object[][]{
+                {"totalprice", "decimal(35,2)", new Object[][] {
                         {974.04, 131094.34, 131279.97, 406938.36},
                         {973, 131095, 131280, 406950},
                         {974.04123, 131094.34123, 131279.97012, 406938.36555}}},
-                {"orderdate", "date", new Object[][]{{"DATE '1992-01-05'", "DATE '1995-10-13'", "DATE '1995-10-13'", "DATE '1998-07-29'"}}},
-                {"orderdate", "timestamp", new Object[][]{{"TIMESTAMP '1992-01-05'", "TIMESTAMP '1995-10-13'", "TIMESTAMP '1995-10-14'", "TIMESTAMP '1998-07-29'"}}},
-                {"clerk", "varchar(15)", new Object[][]{{"'Clerk#000000006'", "'Clerk#000000508'", "'Clerk#000000513'", "'Clerk#000000996'"}}},
-                {"custkey", "integer", new Object[][]{{4, 634, 640, 1493}}},
-                {"custkey", "smallint", new Object[][]{{4, 634, 640, 1493}}}
+                {"orderdate", "date", new Object[][] {{"DATE '1992-01-05'", "DATE '1995-10-13'", "DATE '1995-10-13'", "DATE '1998-07-29'"}}},
+                {"orderdate", "timestamp", new Object[][] {{"TIMESTAMP '1992-01-05'", "TIMESTAMP '1995-10-13'", "TIMESTAMP '1995-10-14'", "TIMESTAMP '1998-07-29'"}}},
+                {"clerk", "varchar(15)", new Object[][] {{"'Clerk#000000006'", "'Clerk#000000508'", "'Clerk#000000513'", "'Clerk#000000996'"}}},
+                {"custkey", "integer", new Object[][] {{4, 634, 640, 1493}}},
+                {"custkey", "smallint", new Object[][] {{4, 634, 640, 1493}}}
         };
     }
 }
