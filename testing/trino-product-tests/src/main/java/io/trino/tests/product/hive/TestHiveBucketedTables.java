@@ -21,14 +21,18 @@ import io.trino.tempto.RequirementsProvider;
 import io.trino.tempto.configuration.Configuration;
 import io.trino.tempto.fulfillment.table.MutableTableRequirement;
 import io.trino.tempto.fulfillment.table.hive.HiveTableDefinition;
+import io.trino.tempto.query.QueryResult;
 import io.trino.testng.services.Flaky;
 import io.trino.tests.product.hive.util.TemporaryHiveTable;
+import org.assertj.core.api.Assertions;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Lists.cartesianProduct;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.anyOf;
@@ -330,9 +334,11 @@ public class TestHiveBucketedTables
                     columnToBeBucketed,
                     hiveTableProperties(bucketingType)));
 
-            assertThat(onTrino().executeQuery("SHOW CREATE TABLE " + tableName))
-                    .containsOnly(row(format(
-                            "CREATE TABLE hive.default.%s (\n" +
+            QueryResult showCreateTableResult = onTrino().executeQuery("SHOW CREATE TABLE " + tableName);
+            assertThat(showCreateTableResult)
+                    .hasRowsCount(1);
+            Assertions.assertThat((String) getOnlyElement(getOnlyElement(showCreateTableResult.rows())))
+                    .matches(Pattern.compile(format("\\QCREATE TABLE hive.default.%s (\n" +
                                     "   n_integer integer,\n" +
                                     "   n_decimal decimal(9, 2),\n" +
                                     "   n_timestamp timestamp(3),\n" +
@@ -341,15 +347,12 @@ public class TestHiveBucketedTables
                                     "   n_union ROW(tag tinyint, field0 integer, field1 varchar),\n" +
                                     "   n_struct ROW(field1 integer, field2 varchar)\n" +
                                     ")\n" +
-                                    "WITH (\n" +
-                                    "   bucket_count = 2,\n" +
-                                    "   bucketed_by = ARRAY['%s'],\n" +
-                                    "   bucketing_version = %s,\n" +
-                                    "   format = 'ORC',\n" +
-                                    "   sorted_by = ARRAY[]\n" +
-                                    ")",
+                                    "WITH (\\E(?s:.*)" +
+                                    "bucket_count = 2,\n(?s:.*)" +
+                                    "bucketed_by = ARRAY\\['%s'\\],\n(?s:.*)" +
+                                    "bucketing_version = %s,(?s:.*)",
                             tableName,
-                            columnToBeBucketed,
+                            Pattern.quote(columnToBeBucketed),
                             getExpectedBucketVersion(bucketingType))));
 
             populateRowToHiveTable(
