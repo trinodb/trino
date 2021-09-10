@@ -36,11 +36,6 @@ jobs:
           - 16
     timeout-minutes: 45
     steps:
-      - name: Free Disk Space
-        run: |
-          df -h
-          sudo apt-get clean
-          df -h
       - uses: actions/checkout@v2
       - uses: actions/setup-java@v2
         with:
