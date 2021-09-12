@@ -46,7 +46,6 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.PruneTableScanColumns;
 import io.trino.sql.planner.iterative.rule.PushPredicateIntoTableScan;
 import io.trino.sql.planner.iterative.rule.PushProjectionIntoTableScan;
@@ -280,7 +279,7 @@ public class TestConnectorPushdownRulesWithHive
                 })
                 .matches(
                         strictProject(
-                                ImmutableMap.of("expr", PlanMatchPattern.expression("COLA")),
+                                ImmutableMap.of("expr", expression("COLA")),
                                 tableScan(
                                         hiveTable.withProjectedColumns(ImmutableSet.of(columnA))::equals,
                                         TupleDomain.all(),
