@@ -27,6 +27,8 @@ import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.AggregateFunction;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -100,6 +102,13 @@ public class MemSqlClient
         super(config, "`", connectionFactory, identifierMapping);
         requireNonNull(typeManager, "typeManager is null");
         this.jsonType = typeManager.getType(new TypeSignature(StandardTypes.JSON));
+    }
+
+    @Override
+    public boolean supportsAggregationPushdown(ConnectorSession session, JdbcTableHandle table, List<AggregateFunction> aggregates, Map<String, ColumnHandle> assignments, List<List<ColumnHandle>> groupingSets)
+    {
+        // Remote database can be case insensitive.
+        return preventTextualTypeAggregationPushdown(groupingSets);
     }
 
     @Override
