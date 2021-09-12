@@ -155,6 +155,7 @@ import io.trino.operator.scalar.VarbinaryFunctions;
 import io.trino.operator.scalar.VersionFunction;
 import io.trino.operator.scalar.WilsonInterval;
 import io.trino.operator.scalar.WordStemFunction;
+import io.trino.operator.scalar.XPathFunctions;
 import io.trino.operator.scalar.time.LocalTimeFunction;
 import io.trino.operator.scalar.time.TimeFunctions;
 import io.trino.operator.scalar.time.TimeOperators;
@@ -470,6 +471,7 @@ public class FunctionRegistry
                 .scalar(SplitToMultimapFunction.class)
                 .scalars(VarbinaryFunctions.class)
                 .scalars(UrlFunctions.class)
+                .scalars(XPathFunctions.class)
                 .scalars(MathFunctions.class)
                 .scalar(MathFunctions.Abs.class)
                 .scalar(MathFunctions.Sign.class)
