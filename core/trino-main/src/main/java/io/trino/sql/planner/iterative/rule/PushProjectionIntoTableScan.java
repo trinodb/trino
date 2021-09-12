@@ -98,28 +98,20 @@ public class PushProjectionIntoTableScan
     {
         TableScanNode tableScan = captures.get(TABLE_SCAN);
 
-        Map<Symbol, Expression> inputExpressions = project.getAssignments().getMap();
-
-        ImmutableList.Builder<NodeRef<Expression>> nodeReferencesBuilder = ImmutableList.builder();
-        ImmutableList.Builder<ConnectorExpression> partialProjectionsBuilder = ImmutableList.builder();
-
         // Extract translatable components from projection expressions. Prepare a mapping from these internal
         // expression nodes to corresponding ConnectorExpression translations.
-        for (Map.Entry<Symbol, Expression> expression : inputExpressions.entrySet()) {
-            Map<NodeRef<Expression>, ConnectorExpression> partialTranslations = extractPartialTranslations(
-                    expression.getValue(),
-                    context.getSession(),
-                    typeAnalyzer,
-                    context.getSymbolAllocator().getTypes());
+        Map<NodeRef<Expression>, ConnectorExpression> partialTranslations = project.getAssignments().getMap().entrySet().stream()
+                .flatMap(expression ->
+                        extractPartialTranslations(
+                                expression.getValue(),
+                                context.getSession(),
+                                typeAnalyzer,
+                                context.getSymbolAllocator().getTypes()).entrySet().stream())
+                // Avoid duplicates
+                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue, (first, ignore) -> first));
 
-            partialTranslations.forEach((nodeRef, expr) -> {
-                nodeReferencesBuilder.add(nodeRef);
-                partialProjectionsBuilder.add(expr);
-            });
-        }
-
-        List<NodeRef<Expression>> nodesForPartialProjections = nodeReferencesBuilder.build();
-        List<ConnectorExpression> connectorPartialProjections = partialProjectionsBuilder.build();
+        List<NodeRef<Expression>> nodesForPartialProjections = ImmutableList.copyOf(partialTranslations.keySet());
+        List<ConnectorExpression> connectorPartialProjections = ImmutableList.copyOf(partialTranslations.values());
 
         Map<String, Symbol> inputVariableMappings = tableScan.getAssignments().keySet().stream()
                 .collect(toImmutableMap(Symbol::getName, identity()));
