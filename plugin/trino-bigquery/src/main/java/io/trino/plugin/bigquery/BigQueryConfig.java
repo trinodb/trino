@@ -228,7 +228,7 @@ public class BigQueryConfig
     }
 
     @Config("bigquery.views-cache-ttl")
-    @ConfigDescription("Duration for which the results of querying a view will be cached")
+    @ConfigDescription("Duration for which the materialization of a view will be cached and reused")
     public BigQueryConfig setViewsCacheTtl(Duration viewsCacheTtl)
     {
         this.viewsCacheTtl = viewsCacheTtl;
