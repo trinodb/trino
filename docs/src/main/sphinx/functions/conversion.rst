@@ -62,7 +62,7 @@ Formatting
 Data size
 ---------
 
-The ``parse_presto_data_size`` function supports the following units:
+The ``parse_data_size`` function supports the following units:
 
 ======= ============= ==============
 Unit    Description   Value
@@ -78,15 +78,15 @@ Unit    Description   Value
 ``YB``  Yottabytes    1024\ :sup:`8`
 ======= ============= ==============
 
-.. function:: parse_presto_data_size(string) -> decimal(38)
+.. function:: parse_data_size(string) -> decimal(38)
 
     Parses ``string`` of format ``value unit`` into a number, where
     ``value`` is the fractional number of ``unit`` values::
 
-        SELECT parse_presto_data_size('1B'); -- 1
-        SELECT parse_presto_data_size('1kB'); -- 1024
-        SELECT parse_presto_data_size('1MB'); -- 1048576
-        SELECT parse_presto_data_size('2.3MB'); -- 2411724
+        SELECT parse_data_size('1B'); -- 1
+        SELECT parse_data_size('1kB'); -- 1024
+        SELECT parse_data_size('1MB'); -- 1048576
+        SELECT parse_data_size('2.3MB'); -- 2411724
 
 Miscellaneous
 -------------
