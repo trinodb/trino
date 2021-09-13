@@ -125,7 +125,7 @@ public final class PagesHash
         expectedHashCollisions = estimateNumberOfHashCollisions(addresses.size(), hashSize);
     }
 
-    public final int getChannelCount()
+    public int getChannelCount()
     {
         return channelCount;
     }
