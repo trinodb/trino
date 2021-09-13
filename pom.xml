@@ -533,6 +533,12 @@
 
             <!-- Trino external -->
             <dependency>
+                <groupId>io.trino.benchto</groupId>
+                <artifactId>benchto-driver</artifactId>
+                <version>0.14</version>
+            </dependency>
+
+            <dependency>
                 <groupId>io.trino.cassandra</groupId>
                 <artifactId>cassandra-driver</artifactId>
                 <version>3.1.4-3</version>
