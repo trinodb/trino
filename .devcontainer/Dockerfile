@@ -51,11 +51,15 @@ RUN mkdir -p /usr/local/share/m2 \
     && chown -R ${USER_UID}:${USER_GID} /usr/local/share/m2 \
     && ln -s /usr/local/share/m2 /home/${USERNAME}/.m2
 
-# [Option] Install Maven
-ARG INSTALL_MAVEN="false"
 ARG MAVEN_VERSION=""
-RUN if [ "${INSTALL_MAVEN}" = "true" ]; then su vscode -c "umask 0002 && . /usr/local/sdkman/bin/sdkman-init.sh && sdk install maven \"${MAVEN_VERSION}\""; fi \
+ARG TRINO_VERSION="359"
+# Install Maven
+RUN su vscode -c "umask 0002 && . /usr/local/sdkman/bin/sdkman-init.sh && sdk install maven \"${MAVEN_VERSION}\"" \
     # Install additional OS packages.
     && apt-get update && export DEBIAN_FRONTEND=noninteractive \
     && apt-get -y install --no-install-recommends bash-completion vim \
-    && apt-get autoremove -y && apt-get clean -y && rm -rf /var/lib/apt/lists/*
+    && apt-get autoremove -y && apt-get clean -y && rm -rf /var/lib/apt/lists/* \
+    # Install Trino CLI
+    && wget https://repo1.maven.org/maven2/io/trino/trino-cli/${TRINO_VERSION}/trino-cli-${TRINO_VERSION}-executable.jar -P /usr/local/bin \
+    && chmod +x /usr/local/bin/trino-cli-${TRINO_VERSION}-executable.jar \
+    && ln -s /usr/local/bin/trino-cli-${TRINO_VERSION}-executable.jar /usr/local/bin/trino

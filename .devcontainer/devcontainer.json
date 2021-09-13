@@ -12,7 +12,8 @@
 			"UPGRADE_PACKAGES": "false",
 			"ENABLE_NONROOT_DOCKER": "true",
 			"USE_MOBY": "true",
-			"INSTALL_MAVEN": "true"
+			// Version of the Trino CLI to install
+			"TRINO_VERSION": "359"
 		}
 	},
 	"runArgs": [
