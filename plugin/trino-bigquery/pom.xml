@@ -325,7 +325,7 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <excludes>
-                                <!-- If you are adding entry here also add an entry to cloud-tests profile below -->
+                                <!-- If you are adding entry here also add an entry to cloud-tests or cloud-tests-case-insensitive-mapping profile below -->
                                 <exclude>**/TestBigQueryIntegrationSmokeTest.java</exclude>
                                 <exclude>**/TestBigQueryTypeMapping.java</exclude>
                                 <exclude>**/TestBigQueryCaseInsensitiveMapping.java</exclude>
