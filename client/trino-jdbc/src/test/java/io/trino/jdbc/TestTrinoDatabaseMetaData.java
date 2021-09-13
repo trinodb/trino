@@ -1225,6 +1225,17 @@ public class TestTrinoDatabaseMetaData
                         .withListTablesCount(2)
                         .withGetColumnsCount(3000));
 
+        // Equality predicate on catalog name and schema name
+        assertMetadataCalls(
+                connection,
+                readMetaData(
+                        databaseMetaData -> databaseMetaData.getColumns(COUNTING_CATALOG, "test\\_schema1", null, null),
+                        list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
+                new MetadataCallsCount()
+                        .withListSchemasCount(1)
+                        .withListTablesCount(1001)
+                        .withGetColumnsCount(1000));
+
         // Equality predicate on catalog name, schema name and table name
         assertMetadataCalls(
                 connection,
