@@ -55,12 +55,6 @@ public final class JoinHash
     }
 
     @Override
-    public int getChannelCount()
-    {
-        return pagesHash.getChannelCount();
-    }
-
-    @Override
     public long getJoinPositionCount()
     {
         return pagesHash.getPositionCount();

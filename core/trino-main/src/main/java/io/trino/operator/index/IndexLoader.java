@@ -132,18 +132,13 @@ public class IndexLoader
                 .collect(toImmutableList());
 
         // start with an empty source
-        this.indexSnapshotReference = new AtomicReference<>(new IndexSnapshot(new EmptyLookupSource(outputTypes.size()), new EmptyLookupSource(keyOutputChannels.size())));
+        this.indexSnapshotReference = new AtomicReference<>(new IndexSnapshot(new EmptyLookupSource(), new EmptyLookupSource()));
     }
 
     // This is a ghetto way to acquire a TaskContext at runtime (unavailable at planning)
     public void setContext(TaskContext taskContext)
     {
         taskContextReference.compareAndSet(null, taskContext);
-    }
-
-    public int getChannelCount()
-    {
-        return outputTypes.size();
     }
 
     public List<Type> getOutputTypes()
@@ -283,7 +278,6 @@ public class IndexLoader
         private final PipelineContext pipelineContext;
         private final Set<Integer> lookupSourceInputChannels;
         private final Set<Integer> allInputChannels;
-        private final List<Type> outputTypes;
         private final List<Type> indexTypes;
         private final AtomicReference<IndexSnapshot> indexSnapshotReference;
         private final JoinCompiler joinCompiler;
@@ -308,11 +302,11 @@ public class IndexLoader
             this.pipelineContext = pipelineContext;
             this.indexSnapshotReference = indexSnapshotReference;
             this.lookupSourceInputChannels = lookupSourceInputChannels;
-            this.outputTypes = indexBuildDriverFactoryProvider.getOutputTypes();
             this.indexTypes = indexTypes;
             this.joinCompiler = joinCompiler;
             this.blockTypeOperators = blockTypeOperators;
 
+            List<Type> outputTypes = indexBuildDriverFactoryProvider.getOutputTypes();
             this.indexSnapshotBuilder = new IndexSnapshotBuilder(
                     outputTypes,
                     keyOutputChannels,
@@ -377,7 +371,7 @@ public class IndexLoader
 
         private void clearCachedData()
         {
-            indexSnapshotReference.set(new IndexSnapshot(new EmptyLookupSource(outputTypes.size()), new EmptyLookupSource(indexTypes.size())));
+            indexSnapshotReference.set(new IndexSnapshot(new EmptyLookupSource(), new EmptyLookupSource()));
             indexSnapshotBuilder.reset();
         }
     }
@@ -385,23 +379,10 @@ public class IndexLoader
     private static class EmptyLookupSource
             implements LookupSource
     {
-        private final int channelCount;
-
-        public EmptyLookupSource(int channelCount)
-        {
-            this.channelCount = channelCount;
-        }
-
         @Override
         public boolean isEmpty()
         {
             return true;
-        }
-
-        @Override
-        public int getChannelCount()
-        {
-            return channelCount;
         }
 
         @Override

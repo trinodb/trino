@@ -20,12 +20,6 @@ final class EmptyLookupSource
         implements LookupSource
 {
     @Override
-    public int getChannelCount()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public long getInMemorySizeInBytes()
     {
         return 0;
