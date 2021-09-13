@@ -34,7 +34,7 @@ public final class DataSizeFunctions
     private DataSizeFunctions() {}
 
     @Description("Converts data size string to bytes")
-    @ScalarFunction("parse_presto_data_size")
+    @ScalarFunction(value = "parse_data_size", alias = "parse_presto_data_size")
     @LiteralParameters("x")
     @SqlType("decimal(38,0)")
     public static Slice parsePrestoDataSize(@SqlType("varchar(x)") Slice input)
