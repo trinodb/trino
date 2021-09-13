@@ -119,7 +119,7 @@ public final class PartitionedLookupSourceFactory
         //noinspection unchecked
         this.partitions = (Supplier<LookupSource>[]) new Supplier<?>[partitionCount];
         this.outer = outer;
-        spilledLookupSource = new SpilledLookupSource(outputTypes.size());
+        spilledLookupSource = new SpilledLookupSource();
         this.blockTypeOperators = blockTypeOperators;
     }
 
@@ -507,23 +507,10 @@ public final class PartitionedLookupSourceFactory
     private static class SpilledLookupSource
             implements LookupSource
     {
-        private final int channelCount;
-
-        public SpilledLookupSource(int channelCount)
-        {
-            this.channelCount = channelCount;
-        }
-
         @Override
         public boolean isEmpty()
         {
             return false;
-        }
-
-        @Override
-        public int getChannelCount()
-        {
-            return channelCount;
         }
 
         @Override

@@ -194,12 +194,6 @@ public class TestLookupJoinPageBuilder
         }
 
         @Override
-        public int getChannelCount()
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
         public long getJoinPositionCount()
         {
             throw new UnsupportedOperationException();
