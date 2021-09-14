@@ -44,8 +44,10 @@ import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
 import org.openjdk.jmh.annotations.Param;
+import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
+import org.openjdk.jmh.annotations.Threads;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.runner.RunnerException;
 import org.testng.annotations.Test;
@@ -78,10 +80,10 @@ import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.openjdk.jmh.annotations.Mode.AverageTime;
-import static org.openjdk.jmh.annotations.Scope.Thread;
 
 @SuppressWarnings("MethodMayBeStatic")
-@State(Thread)
+@State(Scope.Benchmark)
+@Threads(Threads.MAX)
 @OutputTimeUnit(MILLISECONDS)
 @BenchmarkMode(AverageTime)
 @Fork(3)
@@ -94,7 +96,7 @@ public class BenchmarkHashBuildAndJoinOperators
     private static final PlanNodeId TEST_PLAN_NODE_ID = new PlanNodeId("test");
     private static final BlockTypeOperators TYPE_OPERATOR_FACTORY = new BlockTypeOperators(new TypeOperators());
 
-    @State(Thread)
+    @State(Scope.Benchmark)
     public static class BuildContext
     {
         protected static final int ROWS_PER_PAGE = 1024;
@@ -183,7 +185,7 @@ public class BenchmarkHashBuildAndJoinOperators
         }
     }
 
-    @State(Thread)
+    @State(Scope.Benchmark)
     public static class JoinContext
             extends BuildContext
     {
@@ -195,7 +197,7 @@ public class BenchmarkHashBuildAndJoinOperators
         @Param({"bigint", "all"})
         protected String outputColumns = "bigint";
 
-        @Param({"1", "4"})
+        @Param({"1", "16"})
         protected int partitionCount = 1;
 
         protected List<Page> probePages;
