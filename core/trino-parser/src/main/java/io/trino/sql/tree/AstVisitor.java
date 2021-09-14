@@ -662,6 +662,11 @@ public abstract class AstVisitor<R, C>
         return visitStatement(node, context);
     }
 
+    protected R visitTableExecute(TableExecute node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
     protected R visitAnalyze(Analyze node, C context)
     {
         return visitStatement(node, context);

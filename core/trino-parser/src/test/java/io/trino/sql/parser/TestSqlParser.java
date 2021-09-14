@@ -171,6 +171,7 @@ import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SubsetDefinition;
 import io.trino.sql.tree.Table;
+import io.trino.sql.tree.TableExecute;
 import io.trino.sql.tree.TableSubquery;
 import io.trino.sql.tree.TimeLiteral;
 import io.trino.sql.tree.TimestampLiteral;
@@ -1851,6 +1852,29 @@ public class TestSqlParser
         assertStatement(
                 "ALTER VIEW foo.bar.baz SET AUTHORIZATION ROLE qux",
                 new SetViewAuthorization(QualifiedName.of("foo", "bar", "baz"), new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier("qux"))));
+    }
+
+    @Test
+    public void testTableExecute()
+    {
+        Table table = new Table(QualifiedName.of("foo"));
+        Identifier procedure = new Identifier("bar");
+
+        assertStatement("ALTER TABLE foo EXECUTE bar", new TableExecute(table, procedure, ImmutableList.of(), Optional.empty(), Optional.empty()));
+        assertStatement(
+                "ALTER TABLE foo EXECUTE bar WITH(bah=1, wuh='clap') WHERE age > 17 ORDER BY height",
+                new TableExecute(
+                        table,
+                        procedure,
+                        ImmutableList.of(
+                                new Property(new Identifier("bah"), new LongLiteral("1")),
+                                new Property(new Identifier("wuh"), new StringLiteral("clap"))),
+                        Optional.of(
+                                new ComparisonExpression(ComparisonExpression.Operator.GREATER_THAN,
+                                        new Identifier("age"),
+                                        new LongLiteral("17"))),
+                        Optional.of(new OrderBy(ImmutableList.of(
+                                new SortItem(new Identifier(location(1, 42), "height", false), ASCENDING, UNDEFINED))))));
     }
 
     @Test

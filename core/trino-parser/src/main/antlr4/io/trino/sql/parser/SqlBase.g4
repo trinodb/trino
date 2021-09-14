@@ -70,6 +70,11 @@ statement
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         DROP COLUMN (IF EXISTS)? column=qualifiedName                  #dropColumn
     | ALTER TABLE tableName=qualifiedName SET AUTHORIZATION principal  #setTableAuthorization
+    | ALTER TABLE tableName=qualifiedName
+        EXECUTE procedureName=identifier
+        (WITH properties)?
+        (WHERE where=booleanExpression)?
+        (ORDER BY sortItem (',' sortItem)*)?                           #tableExecute
     | ANALYZE qualifiedName (WITH properties)?                         #analyze
     | CREATE (OR REPLACE)? MATERIALIZED VIEW
         (IF NOT EXISTS)? qualifiedName

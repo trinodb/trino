@@ -215,6 +215,8 @@ public class Analysis
     private final Multimap<Field, SourceColumn> originColumnDetails = ArrayListMultimap.create();
     private final Multimap<NodeRef<Expression>, Field> fieldLineage = ArrayListMultimap.create();
 
+    private Map<String, Object> tableExecuteProperties;
+
     public Analysis(@Nullable Statement root, Map<NodeRef<Parameter>, Expression> parameters, QueryType queryType)
     {
         this.root = root;
@@ -1112,6 +1114,18 @@ public class Analysis
     public PredicateCoercions getPredicateCoercions(Expression expression)
     {
         return predicateCoercions.get(NodeRef.of(expression));
+    }
+
+    public void setTableExecuteProperties(Map<String, Object> tableExecuteProperties)
+    {
+        requireNonNull(tableExecuteProperties, "tableExecuteProperties is null");
+        checkState(this.tableExecuteProperties == null, "tableExecuteProperties alredy set");
+        this.tableExecuteProperties = ImmutableMap.copyOf(tableExecuteProperties);
+    }
+
+    public Map<String, Object> getTableExecuteProperties()
+    {
+        return tableExecuteProperties;
     }
 
     @Immutable
