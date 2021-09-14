@@ -40,6 +40,7 @@ import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.PlanFragmenter;
 import io.trino.sql.planner.PlanOptimizers;
+import io.trino.sql.planner.RuleStatsRecorder;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.optimizations.PlanNodeSearcher;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
@@ -438,7 +439,8 @@ public abstract class AbstractTestQueryFramework
                 new CostCalculatorWithEstimatedExchanges(costCalculator, taskCountEstimator),
                 new CostComparator(featuresConfig),
                 taskCountEstimator,
-                queryRunner.getNodePartitioningManager()).get();
+                queryRunner.getNodePartitioningManager(),
+                new RuleStatsRecorder()).get();
         return new QueryExplainer(
                 optimizers,
                 new PlanFragmenter(metadata, queryRunner.getNodePartitioningManager(), new QueryManagerConfig()),
