@@ -25,6 +25,7 @@ import io.trino.testing.datatype.CreateAsSelectDataSetup;
 import io.trino.testing.datatype.DataSetup;
 import io.trino.testing.datatype.DataType;
 import io.trino.testing.datatype.DataTypeTest;
+import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TrinoSqlExecutor;
 import org.testng.annotations.BeforeClass;
@@ -416,8 +417,47 @@ public abstract class BaseSnowflakeTypeMappingTest
     {
         return new Object[][] {
                 {true, timestampDataType()},
-                {false, timestampDataType()},
+                {false, timestampDataType(9)},
         };
+    }
+
+    @Test
+    public void testTimestampMapping()
+    {
+        SqlDataTypeTest.create()
+                // precision 0 ends up as precision 0
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00'", "TIMESTAMP '1970-01-01 00:00:00'")
+
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.1'", "TIMESTAMP '1970-01-01 00:00:00.1'")
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.9'", "TIMESTAMP '1970-01-01 00:00:00.9'")
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.123'", "TIMESTAMP '1970-01-01 00:00:00.123'")
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.123000'", "TIMESTAMP '1970-01-01 00:00:00.123000'")
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.123000000'", "TIMESTAMP '1970-01-01 00:00:00.123000000'")
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.999'", "TIMESTAMP '1970-01-01 00:00:00.999'")
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.999999999'", "TIMESTAMP '1970-01-01 00:00:00.999999999'")
+
+                .addRoundTrip("TIMESTAMP '2020-09-27 12:34:56.1'", "TIMESTAMP '2020-09-27 12:34:56.1'")
+                .addRoundTrip("TIMESTAMP '2020-09-27 12:34:56.9'", "TIMESTAMP '2020-09-27 12:34:56.9'")
+                .addRoundTrip("TIMESTAMP '2020-09-27 12:34:56.123'", "TIMESTAMP '2020-09-27 12:34:56.123'")
+                .addRoundTrip("TIMESTAMP '2020-09-27 12:34:56.123000'", "TIMESTAMP '2020-09-27 12:34:56.123000'")
+                .addRoundTrip("TIMESTAMP '2020-09-27 12:34:56.123000000'", "TIMESTAMP '2020-09-27 12:34:56.123000000'")
+                .addRoundTrip("TIMESTAMP '2020-09-27 12:34:56.999'", "TIMESTAMP '2020-09-27 12:34:56.999'")
+                .addRoundTrip("TIMESTAMP '2020-09-27 12:34:56.999999999'", "TIMESTAMP '2020-09-27 12:34:56.999999999'")
+
+                // before epoch with second fraction
+                .addRoundTrip("TIMESTAMP '1969-12-31 23:59:59.123'", "TIMESTAMP '1969-12-31 23:59:59.123'")
+
+                // round up to next second
+                .addRoundTrip("CAST('1970-01-01 00:00:00.9999999995' AS TIMESTAMP(9))", "TIMESTAMP '1970-01-01 00:00:01.000000000'")
+
+                // round up to next day
+                .addRoundTrip("CAST('1970-01-01 23:59:59.9999999995' AS TIMESTAMP(9))", "TIMESTAMP '1970-01-02 00:00:00.000000000'")
+
+                // negative epoch
+                .addRoundTrip("CAST('1969-12-31 23:59:59.9999999995' AS TIMESTAMP(9))", "TIMESTAMP '1970-01-01 00:00:00.000000000'")
+
+                .execute(getQueryRunner(), prestoCreateAsSelect())
+                .execute(getQueryRunner(), prestoCreateAndInsert());
     }
 
     @Test
@@ -697,7 +737,7 @@ public abstract class BaseSnowflakeTypeMappingTest
         }
     }
 
-    private DataSetup prestoCreateAsSelect()
+    protected DataSetup prestoCreateAsSelect()
     {
         return new CreateAsSelectDataSetup(
                 new TrinoSqlExecutor(getQueryRunner()),
@@ -707,6 +747,11 @@ public abstract class BaseSnowflakeTypeMappingTest
     private DataSetup prestoCreateAsSelect(Session session)
     {
         return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), "test_table_" + randomTableSuffix());
+    }
+
+    protected DataSetup prestoCreateAndInsert()
+    {
+        return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner()), "test_insert_table_" + randomTableSuffix());
     }
 
     private DataSetup snowflakeCreateAsSelect()

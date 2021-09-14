@@ -29,6 +29,8 @@ import io.trino.plugin.jdbc.JdbcSplit;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.LongWriteFunction;
+import io.trino.plugin.jdbc.ObjectReadFunction;
+import io.trino.plugin.jdbc.ObjectWriteFunction;
 import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.SliceReadFunction;
 import io.trino.plugin.jdbc.SliceWriteFunction;
@@ -63,6 +65,7 @@ import io.trino.spi.type.CharType;
 import io.trino.spi.type.Chars;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
@@ -82,9 +85,13 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.TimeZone;
 import java.util.function.BiFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -98,6 +105,7 @@ import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
 import static io.trino.plugin.jdbc.PredicatePushdownController.FULL_PUSHDOWN;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.decimalColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.fromLongTrinoTimestamp;
 import static io.trino.plugin.jdbc.StandardColumnMappings.fromTrinoTime;
 import static io.trino.plugin.jdbc.StandardColumnMappings.fromTrinoTimestamp;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerWriteFunction;
@@ -117,20 +125,28 @@ import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.TIME;
-import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static java.lang.Math.floorDiv;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.sql.Types.BINARY;
 import static java.sql.Types.LONGVARBINARY;
 import static java.sql.Types.VARBINARY;
 import static java.sql.Types.VARCHAR;
 import static java.time.ZoneOffset.UTC;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class SnowflakeClient
@@ -139,6 +155,8 @@ public class SnowflakeClient
     public static final String IDENTIFIER_QUOTE = "\"";
 
     private static final DateTimeFormatter SNOWFLAKE_DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("y-MM-dd'T'HH:mm:ss.SSSSSSSSSXXX");
+    private static final DateTimeFormatter SNOWFLAKE_TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("y-MM-dd'T'HH:mm:ss.SSSSSSSSS");
+    private static final int SNOWFLAKE_MAX_TIMESTAMP_PRECISION = 9;
     public static final int SNOWFLAKE_MAX_LIST_EXPRESSIONS = 1000;
 
     private static final Map<Type, WriteMapping> WRITE_MAPPINGS = ImmutableMap.<Type, WriteMapping>builder()
@@ -148,6 +166,7 @@ public class SnowflakeClient
             .put(TINYINT, WriteMapping.longMapping("number(3)", tinyintWriteFunction()))
             .build();
     private static final UtcTimeZoneCalendar UTC_TZ_PASSING_CALENDAR = UtcTimeZoneCalendar.getUtcTimeZoneCalendarInstance();
+    private static final TimeZone UTC_TIME_ZONE = TimeZone.getTimeZone(ZoneId.of("UTC"));
 
     private final AggregateFunctionRewriter<JdbcExpression> aggregateFunctionRewriter;
     private final boolean statisticsEnabled;
@@ -288,7 +307,12 @@ public class SnowflakeClient
             if (typeName.equals("TIMESTAMPTZ") || typeName.equals("TIMESTAMPLTZ")) {
                 return Optional.of(timestampWithTimezoneColumnMapping());
             }
-            return Optional.of(timestampColumnMapping());
+            if (distributedConnector) {
+                // Coerce to timestamp(3) because the footer of Parquet files generated by Snowflake always have TIMESTAMP_MILLIS for timestamp type
+                // https://community.snowflake.com/s/article/Nano-second-precision-lost-after-Parquet-file-Unload
+                return Optional.of(timestampColumnMapping(3));
+            }
+            return Optional.of(timestampColumnMapping(typeHandle.getRequiredDecimalDigits()));
         }
 
         if (typeHandle.getJdbcType() == VARCHAR && distributedConnector) {
@@ -326,7 +350,12 @@ public class SnowflakeClient
         }
 
         if (type instanceof TimestampType) {
-            return WriteMapping.longMapping("timestamp_ntz", timestampWriteFunction());
+            TimestampType timestampType = (TimestampType) type;
+            checkArgument(timestampType.getPrecision() <= SNOWFLAKE_MAX_TIMESTAMP_PRECISION, "The max timestamp precision in Snowflake is 9");
+            if (timestampType.isShort()) {
+                return WriteMapping.longMapping(format("timestamp_ntz(%d)", timestampType.getPrecision()), timestampWriteFunction());
+            }
+            return WriteMapping.objectMapping(format("timestamp_ntz(%d)", timestampType.getPrecision()), longTimestampWriteFunction(timestampType.getPrecision()));
         }
 
         if (type instanceof TimestampWithTimeZoneType) {
@@ -414,12 +443,52 @@ public class SnowflakeClient
         };
     }
 
-    private static ColumnMapping timestampColumnMapping()
+    private static ColumnMapping timestampColumnMapping(int precision)
     {
-        return ColumnMapping.longMapping(
-                TIMESTAMP_MILLIS,
-                (resultSet, columnIndex) -> toTrinoTimestamp(TIMESTAMP_MILLIS, toLocalDateTime(resultSet, columnIndex)),
-                timestampWriteFunction());
+        checkArgument(precision <= SNOWFLAKE_MAX_TIMESTAMP_PRECISION, "The max timestamp precision in Snowflake is 9");
+
+        if (precision <= TimestampType.MAX_SHORT_PRECISION) {
+            return ColumnMapping.longMapping(
+                    createTimestampType(precision),
+                    (resultSet, columnIndex) -> toTrinoTimestamp(createTimestampType(precision), toLocalDateTime(resultSet, columnIndex)),
+                    timestampWriteFunction());
+        }
+
+        return ColumnMapping.objectMapping(
+                createTimestampType(precision),
+                longTimestampReadFunction(),
+                longTimestampWriteFunction(precision));
+    }
+
+    private static ObjectReadFunction longTimestampReadFunction()
+    {
+        return ObjectReadFunction.of(LongTimestamp.class, (resultSet, columnIndex) -> {
+            Timestamp timestamp = resultSet.getTimestamp(columnIndex, newUtcCalendar());
+
+            long epochMillis = timestamp.getTime();
+            int nanosOfSecond = timestamp.getNanos();
+            int nanosOfMilli = nanosOfSecond % NANOSECONDS_PER_MILLISECOND;
+
+            long epochMicros = epochMillis * MICROSECONDS_PER_MILLISECOND + nanosOfMilli / NANOSECONDS_PER_MICROSECOND;
+            int picosOfMicro = nanosOfMilli % NANOSECONDS_PER_MICROSECOND * PICOSECONDS_PER_NANOSECOND;
+
+            return new LongTimestamp(epochMicros, picosOfMicro);
+        });
+    }
+
+    // Note: allocating a new Calendar per row may turn out to be too expensive.
+    private static Calendar newUtcCalendar()
+    {
+        Calendar calendar = new GregorianCalendar(UTC_TIME_ZONE, ENGLISH);
+        calendar.setTime(new Date(0));
+        return calendar;
+    }
+
+    private static ObjectWriteFunction longTimestampWriteFunction(int precision)
+    {
+        return ObjectWriteFunction.of(
+                LongTimestamp.class,
+                (statement, index, value) -> statement.setString(index, SNOWFLAKE_TIMESTAMP_FORMATTER.format(fromLongTrinoTimestamp(value, precision))));
     }
 
     private static LongWriteFunction timestampWriteFunction()
@@ -444,7 +513,7 @@ public class SnowflakeClient
             throws SQLException
     {
         Timestamp ts = resultSet.getTimestamp(columnIndex, UTC_TZ_PASSING_CALENDAR);
-        return LocalDateTime.ofInstant(Instant.ofEpochMilli(ts.getTime()), UTC);
+        return LocalDateTime.ofEpochSecond(floorDiv(ts.getTime(), MILLISECONDS_PER_SECOND), ts.getNanos(), UTC);
     }
 
     private static long toPrestoTime(Time sqlTime)

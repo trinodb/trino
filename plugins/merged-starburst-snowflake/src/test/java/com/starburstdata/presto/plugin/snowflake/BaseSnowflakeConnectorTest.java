@@ -524,30 +524,30 @@ public abstract class BaseSnowflakeConnectorTest
                         "TIMESTAMP '1901-02-03 04:05:06.123456789'"))) {
             assertThat((String) computeActual("SHOW CREATE TABLE " + testTable.getName()).getOnlyValue())
                     .matches("CREATE TABLE \\w+\\.\\w+\\.\\w+ \\Q(\n" +
-                            "   timestamp0 timestamp(3),\n" +
-                            "   timestamp1 timestamp(3),\n" +
-                            "   timestamp2 timestamp(3),\n" +
+                            "   timestamp0 timestamp(0),\n" +
+                            "   timestamp1 timestamp(1),\n" +
+                            "   timestamp2 timestamp(2),\n" +
                             "   timestamp3 timestamp(3),\n" +
-                            "   timestamp4 timestamp(3),\n" +
-                            "   timestamp5 timestamp(3),\n" +
-                            "   timestamp6 timestamp(3),\n" +
-                            "   timestamp7 timestamp(3),\n" +
-                            "   timestamp8 timestamp(3),\n" +
-                            "   timestamp9 timestamp(3)\n" +
+                            "   timestamp4 timestamp(4),\n" +
+                            "   timestamp5 timestamp(5),\n" +
+                            "   timestamp6 timestamp(6),\n" +
+                            "   timestamp7 timestamp(7),\n" +
+                            "   timestamp8 timestamp(8),\n" +
+                            "   timestamp9 timestamp(9)\n" +
                             ")");
 
             assertThat(query("SELECT * FROM " + testTable.getName()))
                     .matches("VALUES (" +
-                            "TIMESTAMP '1901-02-03 04:05:06.000'," +
-                            "TIMESTAMP '1901-02-03 04:05:06.100'," +
-                            "TIMESTAMP '1901-02-03 04:05:06.120'," +
+                            "TIMESTAMP '1901-02-03 04:05:06'," +
+                            "TIMESTAMP '1901-02-03 04:05:06.1'," +
+                            "TIMESTAMP '1901-02-03 04:05:06.12'," +
                             "TIMESTAMP '1901-02-03 04:05:06.123'," +
-                            "TIMESTAMP '1901-02-03 04:05:06.123'," +
-                            "TIMESTAMP '1901-02-03 04:05:06.123'," +
-                            "TIMESTAMP '1901-02-03 04:05:06.123'," +
-                            "TIMESTAMP '1901-02-03 04:05:06.123'," +
-                            "TIMESTAMP '1901-02-03 04:05:06.123'," +
-                            "TIMESTAMP '1901-02-03 04:05:06.123')");
+                            "TIMESTAMP '1901-02-03 04:05:06.1234'," +
+                            "TIMESTAMP '1901-02-03 04:05:06.12345'," +
+                            "TIMESTAMP '1901-02-03 04:05:06.123456'," +
+                            "TIMESTAMP '1901-02-03 04:05:06.1234567'," +
+                            "TIMESTAMP '1901-02-03 04:05:06.12345678'," +
+                            "TIMESTAMP '1901-02-03 04:05:06.123456789')");
         }
     }
 
@@ -674,11 +674,11 @@ public abstract class BaseSnowflakeConnectorTest
                         "TIMESTAMP '2001-02-03 04:05:06.123900000'"))) {
             assertThat(query("SELECT * FROM " + testTable.getName()))
                     .matches("VALUES " +
-                            "TIMESTAMP '1901-02-03 04:05:06.123'," +
-                            "TIMESTAMP '1901-02-03 04:05:06.123'," + // Snowflake truncates on cast
-                            "TIMESTAMP '1969-12-31 23:59:59.999'," + // Snowflake truncates on cast
-                            "TIMESTAMP '2001-02-03 04:05:06.123'," +
-                            "TIMESTAMP '2001-02-03 04:05:06.123'"); // Snowflake truncates on cast
+                            "TIMESTAMP '1901-02-03 04:05:06.123499999'," +
+                            "TIMESTAMP '1901-02-03 04:05:06.123900000'," +
+                            "TIMESTAMP '1969-12-31 23:59:59.999999999'," +
+                            "TIMESTAMP '2001-02-03 04:05:06.123499999'," +
+                            "TIMESTAMP '2001-02-03 04:05:06.123900000'");
         }
     }
 
