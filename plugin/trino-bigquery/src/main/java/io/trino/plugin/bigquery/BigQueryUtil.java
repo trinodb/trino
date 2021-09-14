@@ -24,7 +24,7 @@ import java.util.Set;
 import static com.google.cloud.http.BaseHttpServiceException.UNKNOWN_CODE;
 import static com.google.common.base.Throwables.getCausalChain;
 
-final class BigQueryUtil
+public final class BigQueryUtil
 {
     private static final Set<String> INTERNAL_ERROR_MESSAGES = ImmutableSet.of(
             "HTTP/2 error code: INTERNAL_ERROR",
@@ -35,12 +35,12 @@ final class BigQueryUtil
 
     private BigQueryUtil() {}
 
-    static boolean isRetryable(Throwable cause)
+    public static boolean isRetryable(Throwable cause)
     {
         return getCausalChain(cause).stream().anyMatch(BigQueryUtil::isRetryableInternalError);
     }
 
-    static boolean isRetryableInternalError(Throwable t)
+    private static boolean isRetryableInternalError(Throwable t)
     {
         if (t instanceof StatusRuntimeException) {
             StatusRuntimeException statusRuntimeException = (StatusRuntimeException) t;
@@ -51,7 +51,7 @@ final class BigQueryUtil
         return false;
     }
 
-    static BigQueryException convertToBigQueryException(BigQueryError error)
+    public static BigQueryException convertToBigQueryException(BigQueryError error)
     {
         return new BigQueryException(UNKNOWN_CODE, error.getMessage(), error);
     }

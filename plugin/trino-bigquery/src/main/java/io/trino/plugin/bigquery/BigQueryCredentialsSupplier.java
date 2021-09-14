@@ -27,7 +27,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-class BigQueryCredentialsSupplier
+public class BigQueryCredentialsSupplier
 {
     private final Supplier<Optional<Credentials>> credentialsCreator;
 

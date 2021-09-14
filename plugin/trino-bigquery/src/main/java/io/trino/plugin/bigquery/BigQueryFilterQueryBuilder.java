@@ -29,7 +29,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 
-class BigQueryFilterQueryBuilder
+public class BigQueryFilterQueryBuilder
 {
     private static final String QUOTE = "`";
     private static final String ESCAPED_QUOTE = "``";
