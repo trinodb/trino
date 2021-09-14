@@ -64,6 +64,7 @@ import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.query.QueryExecutor.defaultQueryExecutor;
 import static io.trino.tempto.query.QueryExecutor.param;
 import static io.trino.tempto.query.QueryExecutor.query;
+import static io.trino.tests.product.TestGroups.HMS_ONLY;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS_DETAILED;
 import static io.trino.tests.product.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
@@ -290,7 +291,7 @@ public class TestHiveStorageFormats
                 .isEqualTo(allFormatsToTest);
     }
 
-    @Test(dataProvider = "storageFormatsWithConfiguration", groups = STORAGE_FORMATS)
+    @Test(dataProvider = "storageFormatsWithConfiguration", groups = {STORAGE_FORMATS, HMS_ONLY})
     @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testInsertIntoTable(StorageFormat storageFormat)
     {
@@ -335,7 +336,7 @@ public class TestHiveStorageFormats
         query(format("DROP TABLE %s", tableName));
     }
 
-    @Test(dataProvider = "storageFormatsWithConfiguration", groups = STORAGE_FORMATS)
+    @Test(dataProvider = "storageFormatsWithConfiguration", groups = {STORAGE_FORMATS, HMS_ONLY})
     @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testCreateTableAs(StorageFormat storageFormat)
     {
@@ -363,7 +364,7 @@ public class TestHiveStorageFormats
         query(format("DROP TABLE %s", tableName));
     }
 
-    @Test(dataProvider = "storageFormatsWithConfiguration", groups = STORAGE_FORMATS)
+    @Test(dataProvider = "storageFormatsWithConfiguration", groups = {STORAGE_FORMATS, HMS_ONLY})
     @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testInsertIntoPartitionedTable(StorageFormat storageFormat)
     {
@@ -408,7 +409,7 @@ public class TestHiveStorageFormats
         query(format("DROP TABLE %s", tableName));
     }
 
-    @Test(dataProvider = "storageFormatsWithNullFormat", groups = STORAGE_FORMATS_DETAILED)
+    @Test(dataProvider = "storageFormatsWithNullFormat", groups = {STORAGE_FORMATS_DETAILED, HMS_ONLY})
     @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testInsertAndSelectWithNullFormat(StorageFormat storageFormat)
     {
@@ -437,7 +438,7 @@ public class TestHiveStorageFormats
 
         assertThat(query(format("SELECT * FROM %s", tableName))).containsOnly(storedValues);
 
-        onHive().executeQuery(format("DROP TABLE %s", tableName));
+        query(format("DROP TABLE %s", tableName));
     }
 
     @Test(dataProvider = "storageFormatsWithNullFormat", groups = STORAGE_FORMATS_DETAILED)
@@ -464,7 +465,7 @@ public class TestHiveStorageFormats
         onHive().executeQuery(format("DROP TABLE %s", tableName));
     }
 
-    @Test(dataProvider = "storageFormatsWithConfiguration", groups = STORAGE_FORMATS)
+    @Test(dataProvider = "storageFormatsWithConfiguration", groups = {STORAGE_FORMATS, HMS_ONLY})
     @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testCreatePartitionedTableAs(StorageFormat storageFormat)
     {
@@ -650,7 +651,7 @@ public class TestHiveStorageFormats
         onTrino().executeQuery("DROP TABLE " + tableName);
     }
 
-    @Test(dataProvider = "storageFormatsWithNanosecondPrecision", groups = STORAGE_FORMATS_DETAILED)
+    @Test(dataProvider = "storageFormatsWithNanosecondPrecision", groups = {STORAGE_FORMATS_DETAILED, HMS_ONLY})
     public void testTimestampCreatedFromTrino(StorageFormat storageFormat)
     {
         String tableName = createSimpleTimestampTable("timestamps_from_trino", storageFormat);
@@ -697,7 +698,7 @@ public class TestHiveStorageFormats
         onTrino().executeQuery(format("DROP TABLE %s", tableName));
     }
 
-    @Test(dataProvider = "storageFormatsWithNanosecondPrecision", groups = STORAGE_FORMATS_DETAILED)
+    @Test(dataProvider = "storageFormatsWithNanosecondPrecision", groups = {STORAGE_FORMATS_DETAILED, HMS_ONLY})
     public void testStructTimestampsFromTrino(StorageFormat format)
     {
         String tableName = createStructTimestampTable("trino_struct_timestamp", format);

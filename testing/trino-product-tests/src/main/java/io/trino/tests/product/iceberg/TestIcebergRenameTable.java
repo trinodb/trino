@@ -18,6 +18,7 @@ import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
+import static io.trino.tests.product.TestGroups.HMS_ONLY;
 import static io.trino.tests.product.TestGroups.ICEBERG;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
 import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
@@ -27,7 +28,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class TestIcebergRenameTable
         extends ProductTest
 {
-    @Test(groups = {ICEBERG, STORAGE_FORMATS})
+    @Test(groups = {ICEBERG, STORAGE_FORMATS, HMS_ONLY})
     public void testRenameTable()
     {
         String tableName = "iceberg.default.test_rename_table_" + randomTableSuffix();
