@@ -23,6 +23,10 @@ import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static java.math.BigDecimal.ONE;
 import static org.assertj.core.api.Assertions.assertThat;
 
+/**
+ * Use TestBigQueryTypeMapping
+ */
+@Deprecated
 public class TestBigQueryType
 {
     @Test
