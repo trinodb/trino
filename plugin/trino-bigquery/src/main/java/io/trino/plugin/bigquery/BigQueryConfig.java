@@ -29,6 +29,7 @@ import java.io.IOException;
 import java.util.Optional;
 import java.util.OptionalInt;
 
+import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class BigQueryConfig
@@ -147,9 +148,9 @@ public class BigQueryConfig
         return this;
     }
 
-    public int getViewExpirationTimeInHours()
+    public Duration getViewExpiration()
     {
-        return 24;
+        return new Duration(24, HOURS);
     }
 
     public Optional<String> getViewMaterializationProject()
@@ -233,15 +234,5 @@ public class BigQueryConfig
     {
         this.viewsCacheTtl = viewsCacheTtl;
         return this;
-    }
-
-    ReadSessionCreatorConfig createReadSessionCreatorConfig()
-    {
-        return new ReadSessionCreatorConfig(
-                isViewsEnabled(),
-                getViewMaterializationProject(),
-                getViewMaterializationProject(),
-                getViewExpirationTimeInHours(),
-                getMaxReadRowsRetries());
     }
 }

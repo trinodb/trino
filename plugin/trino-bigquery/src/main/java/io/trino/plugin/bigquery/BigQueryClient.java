@@ -45,7 +45,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 import static com.google.cloud.bigquery.TableDefinition.Type.TABLE;
@@ -190,13 +189,13 @@ class BigQueryClient
         return bigQuery.getTable(remoteTableId);
     }
 
-    TableInfo getCachedTable(ReadSessionCreatorConfig config, TableInfo remoteTableId, List<String> requiredColumns)
+    TableInfo getCachedTable(Duration viewExpiration, TableInfo remoteTableId, List<String> requiredColumns)
     {
         String query = selectSql(remoteTableId, requiredColumns);
         log.debug("query is %s", query);
         try {
             return destinationTableCache.get(query,
-                    new DestinationTableBuilder(this, config, query, remoteTableId.getTableId()));
+                    new DestinationTableBuilder(this, viewExpiration, query, remoteTableId.getTableId()));
         }
         catch (ExecutionException e) {
             throw new TrinoException(BIGQUERY_VIEW_DESTINATION_TABLE_CREATION_FAILED, "Error creating destination table", e);
@@ -362,14 +361,14 @@ class BigQueryClient
             implements Callable<TableInfo>
     {
         private final BigQueryClient bigQueryClient;
-        private final ReadSessionCreatorConfig config;
+        private final Duration viewExpiration;
         private final String query;
         private final TableId remoteTable;
 
-        DestinationTableBuilder(BigQueryClient bigQueryClient, ReadSessionCreatorConfig config, String query, TableId remoteTable)
+        DestinationTableBuilder(BigQueryClient bigQueryClient, Duration viewExpiration, String query, TableId remoteTable)
         {
             this.bigQueryClient = requireNonNull(bigQueryClient, "bigQueryClient is null");
-            this.config = requireNonNull(config, "config is null");
+            this.viewExpiration = requireNonNull(viewExpiration, "viewExpiration is null");
             this.query = requireNonNull(query, "query is null");
             this.remoteTable = requireNonNull(remoteTable, "remoteTable is null");
         }
@@ -397,10 +396,9 @@ class BigQueryClient
             }
             // add expiration time to the table
             TableInfo createdTable = bigQueryClient.getTable(destinationTable);
-            long expirationTime = createdTable.getCreationTime() +
-                    TimeUnit.HOURS.toMillis(config.viewExpirationTimeInHours);
+            long expirationTimeMillis = createdTable.getCreationTime() + viewExpiration.toMillis();
             Table updatedTable = bigQueryClient.update(createdTable.toBuilder()
-                    .setExpirationTime(expirationTime)
+                    .setExpirationTime(expirationTimeMillis)
                     .build());
             return updatedTable;
         }
