@@ -101,11 +101,9 @@ public interface ConnectorMetadata
             String procedureName,
             Map<String, Object> executeProperties)
     {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not table procedures");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support table procedures");
     }
 
-    // TODO Consider using specific marker interface here instead ConnectorNewTableLayout; name suggest it is used only for getNewTableLayout.
-    //      Same applies to getInsertTableLayout.
     default Optional<ConnectorNewTableLayout> getLayoutForTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle)
     {
         return Optional.empty();
@@ -116,17 +114,17 @@ public interface ConnectorMetadata
      */
     default BeginTableExecuteResult<ConnectorTableExecuteHandle, ConnectorTableHandle> beginTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, ConnectorTableHandle updatedSourceTableHandle)
     {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not table procedures");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support table procedures");
     }
 
     /**
      * Finish table execute
      *
-     * @param fragments all fragments returned by {@link io.trino.spi.connector.UpdatablePageSource#finish()}
+     * @param fragments all fragments returned by {@link ConnectorPageSink#finish()}
      */
     default void finishTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, Collection<Slice> fragments)
     {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not table procedures");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support table procedures");
     }
 
     /**

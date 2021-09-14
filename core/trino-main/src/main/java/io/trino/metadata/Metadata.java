@@ -23,6 +23,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
+import io.trino.spi.connector.BeginTableExecuteResult;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
@@ -96,6 +97,18 @@ public interface Metadata
     Optional<SystemTable> getSystemTable(Session session, QualifiedObjectName tableName);
 
     Optional<TableHandle> getTableHandleForStatisticsCollection(Session session, QualifiedObjectName tableName, Map<String, Object> analyzeProperties);
+
+    Optional<TableExecuteHandle> getTableHandleForExecute(
+            Session session,
+            TableHandle tableHandle,
+            String procedureName,
+            Map<String, Object> executeProperties);
+
+    Optional<NewTableLayout> getLayoutForTableExecute(Session session, TableExecuteHandle tableExecuteHandle);
+
+    BeginTableExecuteResult<TableExecuteHandle, TableHandle> beginTableExecute(Session session, TableExecuteHandle handle, TableHandle updatedSourceTableHandle);
+
+    void finishTableExecute(Session session, TableExecuteHandle handle, Collection<Slice> fragments);
 
     @Deprecated
     Optional<TableLayoutResult> getLayout(Session session, TableHandle tableHandle, Constraint constraint, Optional<Set<ColumnHandle>> desiredColumns);
