@@ -64,7 +64,7 @@ import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.joining;
 
-class BigQueryClient
+public class BigQueryClient
 {
     private static final Logger log = Logger.get(BigQueryClient.class);
 
@@ -76,7 +76,7 @@ class BigQueryClient
     private final Cache<TableId, Optional<RemoteDatabaseObject>> remoteTables;
     private final Cache<String, TableInfo> destinationTableCache;
 
-    BigQueryClient(BigQuery bigQuery, BigQueryConfig config)
+    public BigQueryClient(BigQuery bigQuery, BigQueryConfig config)
     {
         this.bigQuery = bigQuery;
         this.viewMaterializationProject = config.getViewMaterializationProject();
@@ -94,7 +94,7 @@ class BigQueryClient
                 .build();
     }
 
-    Optional<RemoteDatabaseObject> toRemoteDataset(String projectId, String datasetName)
+    public Optional<RemoteDatabaseObject> toRemoteDataset(String projectId, String datasetName)
     {
         requireNonNull(projectId, "projectId is null");
         requireNonNull(datasetName, "datasetName is null");
@@ -126,12 +126,12 @@ class BigQueryClient
         return mapping.get(datasetName);
     }
 
-    Optional<RemoteDatabaseObject> toRemoteTable(String projectId, String remoteDatasetName, String tableName)
+    public Optional<RemoteDatabaseObject> toRemoteTable(String projectId, String remoteDatasetName, String tableName)
     {
         return toRemoteTable(projectId, remoteDatasetName, tableName, () -> listTables(DatasetId.of(projectId, remoteDatasetName), TABLE, VIEW));
     }
 
-    Optional<RemoteDatabaseObject> toRemoteTable(String projectId, String remoteDatasetName, String tableName, Iterable<Table> tables)
+    public Optional<RemoteDatabaseObject> toRemoteTable(String projectId, String remoteDatasetName, String tableName, Iterable<Table> tables)
     {
         return toRemoteTable(projectId, remoteDatasetName, tableName, () -> tables);
     }
@@ -178,18 +178,18 @@ class BigQueryClient
                 tableId.getTable().toLowerCase(ENGLISH));
     }
 
-    DatasetInfo getDataset(DatasetId datasetId)
+    public DatasetInfo getDataset(DatasetId datasetId)
     {
         return bigQuery.getDataset(datasetId);
     }
 
-    TableInfo getTable(TableId remoteTableId)
+    public TableInfo getTable(TableId remoteTableId)
     {
         // TODO: Return Optional and make callers handle missing value
         return bigQuery.getTable(remoteTableId);
     }
 
-    TableInfo getCachedTable(Duration viewExpiration, TableInfo remoteTableId, List<String> requiredColumns)
+    public TableInfo getCachedTable(Duration viewExpiration, TableInfo remoteTableId, List<String> requiredColumns)
     {
         String query = selectSql(remoteTableId, requiredColumns);
         log.debug("query is %s", query);
@@ -202,17 +202,17 @@ class BigQueryClient
         }
     }
 
-    String getProjectId()
+    public String getProjectId()
     {
         return bigQuery.getOptions().getProjectId();
     }
 
-    Iterable<Dataset> listDatasets(String projectId)
+    public Iterable<Dataset> listDatasets(String projectId)
     {
         return bigQuery.listDatasets(projectId).iterateAll();
     }
 
-    Iterable<Table> listTables(DatasetId remoteDatasetId, TableDefinition.Type... types)
+    public Iterable<Table> listTables(DatasetId remoteDatasetId, TableDefinition.Type... types)
     {
         Set<TableDefinition.Type> allowedTypes = ImmutableSet.copyOf(types);
         Iterable<Table> allTables = bigQuery.listTables(remoteDatasetId).iterateAll();
@@ -221,7 +221,7 @@ class BigQueryClient
                 .collect(toImmutableList());
     }
 
-    TableId createDestinationTable(TableId remoteTableId)
+    private TableId createDestinationTable(TableId remoteTableId)
     {
         String project = viewMaterializationProject.orElse(remoteTableId.getProject());
         String dataset = viewMaterializationDataset.orElse(remoteTableId.getDataset());
@@ -230,7 +230,7 @@ class BigQueryClient
         return TableId.of(project, dataset, name);
     }
 
-    Table update(TableInfo table)
+    private Table update(TableInfo table)
     {
         return bigQuery.update(table);
     }
@@ -255,12 +255,12 @@ class BigQueryClient
         bigQuery.delete(tableId);
     }
 
-    Job create(JobInfo jobInfo)
+    private Job create(JobInfo jobInfo)
     {
         return bigQuery.create(jobInfo);
     }
 
-    TableResult query(String sql)
+    public TableResult query(String sql)
     {
         try {
             return bigQuery.query(QueryJobConfiguration.of(sql));
@@ -271,7 +271,7 @@ class BigQueryClient
         }
     }
 
-    String selectSql(TableInfo remoteTable, List<String> requiredColumns)
+    private String selectSql(TableInfo remoteTable, List<String> requiredColumns)
     {
         String columns = requiredColumns.isEmpty() ? "*" :
                 requiredColumns.stream().map(column -> format("`%s`", column)).collect(joining(","));
@@ -280,7 +280,7 @@ class BigQueryClient
     }
 
     // assuming the SELECT part is properly formatted, can be used to call functions such as COUNT and SUM
-    String selectSql(TableId table, String formattedColumns)
+    public String selectSql(TableId table, String formattedColumns)
     {
         String tableName = fullTableName(table);
         return format("SELECT %s FROM `%s`", formattedColumns, tableName);
@@ -294,7 +294,7 @@ class BigQueryClient
         return format("%s.%s.%s", remoteTableId.getProject(), remoteTableId.getDataset(), remoteTableId.getTable());
     }
 
-    List<BigQueryColumnHandle> getColumns(BigQueryTableHandle tableHandle)
+    public List<BigQueryColumnHandle> getColumns(BigQueryTableHandle tableHandle)
     {
         TableInfo tableInfo = getTable(tableHandle.getRemoteTableName().toTableId());
         if (tableInfo == null) {
@@ -357,7 +357,7 @@ class BigQueryClient
         }
     }
 
-    static class DestinationTableBuilder
+    private static class DestinationTableBuilder
             implements Callable<TableInfo>
     {
         private final BigQueryClient bigQueryClient;
@@ -379,7 +379,7 @@ class BigQueryClient
             return createTableFromQuery();
         }
 
-        TableInfo createTableFromQuery()
+        private TableInfo createTableFromQuery()
         {
             TableId destinationTable = bigQueryClient.createDestinationTable(remoteTable);
             log.debug("destinationTable is %s", destinationTable);
@@ -403,7 +403,7 @@ class BigQueryClient
             return updatedTable;
         }
 
-        Job waitForJob(Job job)
+        private Job waitForJob(Job job)
         {
             try {
                 return job.waitFor();
