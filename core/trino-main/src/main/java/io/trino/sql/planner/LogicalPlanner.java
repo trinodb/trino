@@ -29,6 +29,7 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.NewTableLayout;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TableExecuteHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
 import io.trino.spi.TrinoException;
@@ -51,6 +52,7 @@ import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.DeleteNode;
 import io.trino.sql.planner.plan.ExplainAnalyzeNode;
+import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.PlanNode;
@@ -86,6 +88,8 @@ import io.trino.sql.tree.RefreshMaterializedView;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.Statement;
 import io.trino.sql.tree.StringLiteral;
+import io.trino.sql.tree.Table;
+import io.trino.sql.tree.TableExecute;
 import io.trino.sql.tree.Update;
 import io.trino.type.TypeCoercion;
 import io.trino.type.UnknownType;
@@ -108,15 +112,19 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Streams.zip;
 import static io.trino.SystemSessionProperties.isCollectPlanStatisticsForAllQueries;
+import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
+import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.statistics.TableStatisticType.ROW_COUNT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
+import static io.trino.sql.planner.PlanBuilder.newPlanBuilder;
 import static io.trino.sql.planner.QueryPlanner.visibleFields;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
@@ -279,6 +287,9 @@ public class LogicalPlanner
         }
         if (statement instanceof ExplainAnalyze) {
             return createExplainAnalyzePlan(analysis, (ExplainAnalyze) statement);
+        }
+        if (statement instanceof TableExecute) {
+            return createTableExecutePlan(analysis, (TableExecute) statement);
         }
         throw new TrinoException(NOT_SUPPORTED, "Unsupported statement type " + statement.getClass().getSimpleName());
     }
@@ -718,8 +729,17 @@ public class LogicalPlanner
 
     private RelationPlan createRelationPlan(Analysis analysis, Query query)
     {
-        return new RelationPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), metadata, Optional.empty(), session, ImmutableMap.of())
-                .process(query, null);
+        return getRelationPlanner(analysis).process(query, null);
+    }
+
+    private RelationPlan createRelationPlan(Analysis analysis, Table table)
+    {
+        return getRelationPlanner(analysis).process(table, null);
+    }
+
+    private RelationPlanner getRelationPlanner(Analysis analysis)
+    {
+        return new RelationPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), metadata, Optional.empty(), session, ImmutableMap.of());
     }
 
     private static Map<NodeRef<LambdaArgumentDeclaration>, Symbol> buildLambdaDeclarationToSymbolMap(Analysis analysis, SymbolAllocator symbolAllocator)
@@ -748,6 +768,51 @@ public class LogicalPlanner
         }
 
         return result;
+    }
+
+    private RelationPlan createTableExecutePlan(Analysis analysis, TableExecute statement)
+    {
+        Table table = statement.getTable();
+        TableHandle tableHandle = analysis.getTableHandle(table);
+        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, table.getName());
+        String procedureName = statement.getProcedureName().getCanonicalValue();
+
+        RelationPlan tableScanPlan = createRelationPlan(analysis, table);
+        PlanBuilder sourcePlanBuilder = newPlanBuilder(tableScanPlan, analysis, ImmutableMap.of(), ImmutableMap.of());
+        if (statement.getWhere().isPresent()) {
+            SubqueryPlanner subqueryPlanner = new SubqueryPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), metadata, typeCoercion, Optional.empty(), session, ImmutableMap.of());
+            Expression whereExpression = statement.getWhere().get();
+            sourcePlanBuilder = subqueryPlanner.handleSubqueries(sourcePlanBuilder, whereExpression, analysis.getSubqueries(statement));
+            sourcePlanBuilder = sourcePlanBuilder.withNewRoot(new FilterNode(idAllocator.getNextId(), sourcePlanBuilder.getRoot(), sourcePlanBuilder.rewrite(whereExpression)));
+        }
+
+        PlanNode sourcePlanRoot = sourcePlanBuilder.getRoot();
+        TableExecuteHandle executeHandle =
+                metadata.getTableHandleForExecute(
+                                session,
+                                tableHandle,
+                                procedureName,
+                                analysis.getTableExecuteProperties())
+                        .orElseThrow(() -> semanticException(NOT_FOUND, statement, "Table '%s' does not exist", tableName));
+
+        TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
+        List<String> columnNames = tableMetadata.getColumns().stream()
+                .filter(column -> !column.isHidden()) // todo this filter is redundant
+                .map(ColumnMetadata::getName)
+                .collect(toImmutableList());
+
+        TableWriterNode.TableExecuteTarget tableExecuteTarget = new TableWriterNode.TableExecuteTarget(executeHandle, Optional.empty(), tableName.asSchemaTableName());
+        Optional<NewTableLayout> layout = metadata.getLayoutForTableExecute(session, executeHandle);
+
+        return createTableWriterPlan(
+                analysis,
+                sourcePlanRoot,
+                visibleFields(tableScanPlan),
+                tableExecuteTarget,
+                columnNames,
+                tableMetadata.getColumns(),
+                layout,
+                TableStatisticsMetadata.empty());
     }
 
     private static class Key
