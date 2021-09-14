@@ -1214,7 +1214,7 @@ public abstract class BaseJdbcConnectorTest
         }
     }
 
-    private QueryAssert assertConditionallyPushedDown(
+    protected QueryAssert assertConditionallyPushedDown(
             Session session,
             @Language("SQL") String query,
             boolean condition,
@@ -1229,7 +1229,7 @@ public abstract class BaseJdbcConnectorTest
         }
     }
 
-    private void assertConditionallyOrderedPushedDown(
+    protected void assertConditionallyOrderedPushedDown(
             Session session,
             @Language("SQL") String query,
             boolean condition,
