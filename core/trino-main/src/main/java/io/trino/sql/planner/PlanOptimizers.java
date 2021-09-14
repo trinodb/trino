@@ -252,12 +252,13 @@ import java.util.Map;
 import java.util.Set;
 
 import static io.trino.SystemSessionProperties.isIterativeRuleBasedColumnPruning;
+import static java.util.Objects.requireNonNull;
 
 public class PlanOptimizers
         implements PlanOptimizersFactory
 {
     private final List<PlanOptimizer> optimizers;
-    private final RuleStatsRecorder ruleStats = new RuleStatsRecorder();
+    private final RuleStatsRecorder ruleStats;
     private final OptimizerStatsRecorder optimizerStats = new OptimizerStatsRecorder();
 
     @Inject
@@ -274,7 +275,8 @@ public class PlanOptimizers
             @EstimatedExchanges CostCalculator estimatedExchangesCostCalculator,
             CostComparator costComparator,
             TaskCountEstimator taskCountEstimator,
-            NodePartitioningManager nodePartitioningManager)
+            NodePartitioningManager nodePartitioningManager,
+            RuleStatsRecorder ruleStats)
     {
         this(metadata,
                 typeOperators,
@@ -289,7 +291,8 @@ public class PlanOptimizers
                 estimatedExchangesCostCalculator,
                 costComparator,
                 taskCountEstimator,
-                nodePartitioningManager);
+                nodePartitioningManager,
+                ruleStats);
     }
 
     public PlanOptimizers(
@@ -306,8 +309,10 @@ public class PlanOptimizers
             CostCalculator estimatedExchangesCostCalculator,
             CostComparator costComparator,
             TaskCountEstimator taskCountEstimator,
-            NodePartitioningManager nodePartitioningManager)
+            NodePartitioningManager nodePartitioningManager,
+            RuleStatsRecorder ruleStats)
     {
+        this.ruleStats = requireNonNull(ruleStats, "ruleStats is null");
         ImmutableList.Builder<PlanOptimizer> builder = ImmutableList.builder();
 
         Set<Rule<?>> columnPruningRules = ImmutableSet.of(

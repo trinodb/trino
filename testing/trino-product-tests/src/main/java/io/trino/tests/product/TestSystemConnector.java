@@ -38,6 +38,14 @@ public class TestSystemConnector
     }
 
     @Test(groups = {SYSTEM_CONNECTOR, JDBC})
+    public void testRuleStats()
+    {
+        assertThat(query("SELECT rule_name, invocations, matches, failures FROM system.runtime.optimizer_rule_stats"))
+                .hasColumns(VARCHAR, BIGINT, BIGINT, BIGINT)
+                .hasAnyRows();
+    }
+
+    @Test(groups = {SYSTEM_CONNECTOR, JDBC})
     public void selectRuntimeQueries()
     {
         String sql = "SELECT" +
