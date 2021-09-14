@@ -11,14 +11,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.tests.product.launcher.env;
+package io.trino.tests.product.launcher.env.configs;
 
-public final class EnvironmentDefaults
+public class ConfigApacheHive3
+        extends ConfigDefault
 {
-    public static final String DOCKER_IMAGES_VERSION = "43";
-    public static final String HADOOP_BASE_IMAGE = "ghcr.io/trinodb/testing/hdp2.6-hive";
-    public static final String HADOOP_IMAGES_VERSION = DOCKER_IMAGES_VERSION;
-    public static final String TEMPTO_ENVIRONMENT_CONFIG = "/dev/null";
+    @Override
+    public String getHadoopBaseImage()
+    {
+        return "ghcr.io/trinodb/testing/hive3.1-hive";
+    }
 
-    private EnvironmentDefaults() {}
+    @Override
+    public String getTemptoEnvironmentConfigFile()
+    {
+        return "/docker/presto-product-tests/conf/tempto/tempto-configuration-for-hive3.yaml,/docker/presto-product-tests/conf/tempto/tempto-configuration-for-hms-only.yaml";
+    }
 }
