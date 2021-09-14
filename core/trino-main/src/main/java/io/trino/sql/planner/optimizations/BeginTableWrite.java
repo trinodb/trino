@@ -18,6 +18,7 @@ import io.trino.Session;
 import io.trino.cost.StatsAndCosts;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.TableExecuteHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.SymbolAllocator;
@@ -42,11 +43,13 @@ import io.trino.sql.planner.plan.TableWriterNode.CreateTarget;
 import io.trino.sql.planner.plan.TableWriterNode.DeleteTarget;
 import io.trino.sql.planner.plan.TableWriterNode.InsertReference;
 import io.trino.sql.planner.plan.TableWriterNode.InsertTarget;
+import io.trino.sql.planner.plan.TableWriterNode.TableExecuteTarget;
 import io.trino.sql.planner.plan.TableWriterNode.UpdateTarget;
 import io.trino.sql.planner.plan.TableWriterNode.WriterTarget;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.UpdateNode;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -173,7 +176,7 @@ public class BeginTableWrite
             PlanNode child = node.getSource();
 
             WriterTarget originalTarget = getWriterTarget(child);
-            WriterTarget newTarget = createWriterTarget(originalTarget);
+            WriterTarget newTarget = createWriterTarget(child, originalTarget);
 
             child = context.rewrite(child, Optional.of(newTarget));
 
@@ -195,14 +198,14 @@ public class BeginTableWrite
                 DeleteNode deleteNode = (DeleteNode) node;
                 DeleteTarget delete = deleteNode.getTarget();
                 return new DeleteTarget(
-                        Optional.of(findTableScanHandle(deleteNode.getSource())),
+                        Optional.of(findTableScanHandleForDeleteOrUpdate(deleteNode.getSource())),
                         delete.getSchemaTableName());
             }
             if (node instanceof UpdateNode) {
                 UpdateNode updateNode = (UpdateNode) node;
                 UpdateTarget update = updateNode.getTarget();
                 return new UpdateTarget(
-                        Optional.of(findTableScanHandle(updateNode.getSource())),
+                        Optional.of(findTableScanHandleForDeleteOrUpdate(updateNode.getSource())),
                         update.getSchemaTableName(),
                         update.getUpdatedColumns(),
                         update.getUpdatedColumnHandles());
@@ -216,7 +219,7 @@ public class BeginTableWrite
             throw new IllegalArgumentException("Invalid child for TableCommitNode: " + node.getClass().getSimpleName());
         }
 
-        private WriterTarget createWriterTarget(WriterTarget target)
+        private WriterTarget createWriterTarget(PlanNode planNode, WriterTarget target)
         {
             // TODO: begin these operations in pre-execution step, not here
             // TODO: we shouldn't need to store the schemaTableName in the handles, but there isn't a good way to pass this around with the current architecture
@@ -250,10 +253,16 @@ public class BeginTableWrite
                         metadata.getTableMetadata(session, refreshMV.getStorageTableHandle()).getTable(),
                         refreshMV.getSourceTableHandles());
             }
+            if (target instanceof TableExecuteTarget) {
+                Optional<TableHandle> tableScanHandle = findTableScanHandleForTableExecute(planNode);
+                TableExecuteTarget tableExecute = (TableExecuteTarget) target;
+                TableExecuteHandle newHandle = metadata.beginTableExecute(session, tableExecute.getHandle(), tableScanHandle);
+                return new TableExecuteTarget(newHandle, tableExecute.getSchemaTableName());
+            }
             throw new IllegalArgumentException("Unhandled target type: " + target.getClass().getSimpleName());
         }
 
-        private TableHandle findTableScanHandle(PlanNode node)
+        private TableHandle findTableScanHandleForDeleteOrUpdate(PlanNode node)
         {
             if (node instanceof TableScanNode) {
                 TableScanNode tableScanNode = (TableScanNode) node;
@@ -261,25 +270,40 @@ public class BeginTableWrite
                 return tableScanNode.getTable();
             }
             if (node instanceof FilterNode) {
-                return findTableScanHandle(((FilterNode) node).getSource());
+                return findTableScanHandleForDeleteOrUpdate(((FilterNode) node).getSource());
             }
             if (node instanceof ProjectNode) {
-                return findTableScanHandle(((ProjectNode) node).getSource());
+                return findTableScanHandleForDeleteOrUpdate(((ProjectNode) node).getSource());
             }
             if (node instanceof SemiJoinNode) {
-                return findTableScanHandle(((SemiJoinNode) node).getSource());
+                return findTableScanHandleForDeleteOrUpdate(((SemiJoinNode) node).getSource());
             }
             if (node instanceof JoinNode) {
                 JoinNode joinNode = (JoinNode) node;
-                return findTableScanHandle(joinNode.getLeft());
+                return findTableScanHandleForDeleteOrUpdate(joinNode.getLeft());
             }
             if (node instanceof AssignUniqueId) {
-                return findTableScanHandle(((AssignUniqueId) node).getSource());
+                return findTableScanHandleForDeleteOrUpdate(((AssignUniqueId) node).getSource());
             }
             if (node instanceof MarkDistinctNode) {
-                return findTableScanHandle(((MarkDistinctNode) node).getSource());
+                return findTableScanHandleForDeleteOrUpdate(((MarkDistinctNode) node).getSource());
             }
             throw new IllegalArgumentException("Invalid descendant for DeleteNode or UpdateNode: " + node.getClass().getName());
+        }
+
+        private Optional<TableHandle> findTableScanHandleForTableExecute(PlanNode startNode)
+        {
+            List<PlanNode> tableScanNodes = PlanNodeSearcher.searchFrom(startNode)
+                    .where(node -> node instanceof TableScanNode)
+                    .findAll();
+
+            if (tableScanNodes.isEmpty()) {
+                return Optional.empty();
+            }
+            if (tableScanNodes.size() == 1) {
+                return Optional.of(((TableScanNode) tableScanNodes.get(0)).getTable());
+            }
+            throw new IllegalArgumentException("More than one TableScanNode found in TableExecute plan: " + tableScanNodes);
         }
 
         private PlanNode rewriteModifyTableScan(PlanNode node, TableHandle handle)

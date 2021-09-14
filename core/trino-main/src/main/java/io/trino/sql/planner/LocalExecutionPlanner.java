@@ -198,6 +198,7 @@ import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TableWriterNode.DeleteTarget;
+import io.trino.sql.planner.plan.TableWriterNode.TableExecuteTarget;
 import io.trino.sql.planner.plan.TableWriterNode.UpdateTarget;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.TopNRankingNode;
@@ -3613,6 +3614,10 @@ public class LocalExecutionPlanner
             }
             else if (target instanceof UpdateTarget) {
                 metadata.finishUpdate(session, ((UpdateTarget) target).getHandleOrElseThrow(), fragments);
+                return Optional.empty();
+            }
+            else if (target instanceof TableExecuteTarget) {
+                metadata.finishTableExecute(session, ((TableExecuteTarget) target).getHandle(), fragments);
                 return Optional.empty();
             }
             else {

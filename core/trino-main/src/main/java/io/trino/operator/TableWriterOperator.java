@@ -98,8 +98,12 @@ public class TableWriterOperator
             this.columnChannels = requireNonNull(columnChannels, "columnChannels is null");
             this.notNullChannelColumnNames = requireNonNull(notNullChannelColumnNames, "notNullChannelColumnNames is null");
             this.pageSinkManager = requireNonNull(pageSinkManager, "pageSinkManager is null");
-            checkArgument(writerTarget instanceof CreateTarget || writerTarget instanceof InsertTarget || writerTarget instanceof TableWriterNode.RefreshMaterializedViewTarget,
-                    "writerTarget must be CreateTarget, InsertTarget or RefreshMaterializedViewTarget");
+            checkArgument(
+                    writerTarget instanceof CreateTarget
+                            || writerTarget instanceof InsertTarget
+                            || writerTarget instanceof TableWriterNode.RefreshMaterializedViewTarget
+                            || writerTarget instanceof TableWriterNode.TableExecuteTarget,
+                    "writerTarget must be CreateTarget, InsertTarget, RefreshMaterializedViewTarget or TableExecuteTarget");
             this.target = requireNonNull(writerTarget, "writerTarget is null");
             this.session = session;
             this.statisticsAggregationOperatorFactory = requireNonNull(statisticsAggregationOperatorFactory, "statisticsAggregationOperatorFactory is null");
@@ -126,6 +130,9 @@ public class TableWriterOperator
             }
             if (target instanceof TableWriterNode.RefreshMaterializedViewTarget) {
                 return pageSinkManager.createPageSink(session, ((TableWriterNode.RefreshMaterializedViewTarget) target).getInsertHandle());
+            }
+            if (target instanceof TableWriterNode.TableExecuteTarget) {
+                return pageSinkManager.createPageSink(session, ((TableWriterNode.TableExecuteTarget) target).getHandle());
             }
             throw new UnsupportedOperationException("Unhandled target type: " + target.getClass().getName());
         }
