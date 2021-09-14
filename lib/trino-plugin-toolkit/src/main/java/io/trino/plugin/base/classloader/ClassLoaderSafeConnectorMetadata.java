@@ -67,7 +67,6 @@ import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.statistics.TableStatisticsMetadata;
 
-import javax.annotation.Nullable;
 import javax.inject.Inject;
 
 import java.util.Collection;
