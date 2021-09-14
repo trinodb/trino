@@ -67,7 +67,6 @@ import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.statistics.TableStatisticsMetadata;
 
-import javax.annotation.Nullable;
 import javax.inject.Inject;
 
 import java.util.Collection;
@@ -218,7 +217,6 @@ public class ClassLoaderSafeConnectorMetadata
         }
     }
 
-    @Nullable
     @Override
     public Optional<ConnectorTableExecuteHandle> getTableHandleForExecute(ConnectorSession session, ConnectorTableHandle tableHandle, String procedureName, Map<String, Object> executeProperties)
     {

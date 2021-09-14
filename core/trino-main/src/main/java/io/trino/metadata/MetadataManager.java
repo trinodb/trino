@@ -71,6 +71,7 @@ import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorResolvedIndex;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableExecuteHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableLayoutHandle;
@@ -433,6 +434,62 @@ public final class MetadataManager
             }
         }
         return Optional.empty();
+    }
+
+    @Override
+    public Optional<TableExecuteHandle> getTableHandleForExecute(Session session, TableHandle tableHandle, String procedure, Map<String, Object> executeProperties)
+    {
+        requireNonNull(session, "session is null");
+        requireNonNull(tableHandle, "tableHandle is null");
+        requireNonNull(procedure, "procedure is null");
+        requireNonNull(executeProperties, "executeProperties is null");
+
+        CatalogName catalogName = tableHandle.getCatalogName();
+        CatalogMetadata catalogMetadata = getCatalogMetadata(session, catalogName);
+        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
+
+        Optional<ConnectorTableExecuteHandle> executeHandle = metadata.getTableHandleForExecute(
+                session.toConnectorSession(catalogName),
+                tableHandle.getConnectorHandle(),
+                procedure,
+                executeProperties);
+
+        return executeHandle.map(handle -> new TableExecuteHandle(
+                catalogName,
+                tableHandle.getTransaction(),
+                handle));
+    }
+
+    @Override
+    public Optional<NewTableLayout> getLayoutForTableExecute(Session session, TableExecuteHandle tableExecuteHandle)
+    {
+        CatalogName catalogName = tableExecuteHandle.getCatalogName();
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
+        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+
+        return metadata.getLayoutForTableExecute(session.toConnectorSession(catalogName), tableExecuteHandle.getConnectorHandle())
+                .map(layout -> new NewTableLayout(catalogName, catalogMetadata.getTransactionHandleFor(catalogName), layout));
+    }
+
+    @Override
+    public TableExecuteHandle beginTableExecute(Session session, TableExecuteHandle tableExecuteHandle, Optional<TableHandle> updatedSourceTableHandle)
+    {
+        CatalogName catalogName = tableExecuteHandle.getCatalogName();
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
+        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        Optional<ConnectorTableHandle> updatedSourceConnectorTableHandle = updatedSourceTableHandle.map(TableHandle::getConnectorHandle);
+        ConnectorTableExecuteHandle newConnectorExecuteHandle = metadata.beginTableExecute(session.toConnectorSession(), tableExecuteHandle.getConnectorHandle(), updatedSourceConnectorTableHandle);
+        checkState(newConnectorExecuteHandle.getSourceTableHandle().equals(updatedSourceConnectorTableHandle), "source table handle not updated in newExecuteConnectorHandle");
+
+        return tableExecuteHandle.withConnectorHandle(newConnectorExecuteHandle);
+    }
+
+    @Override
+    public void finishTableExecute(Session session, TableExecuteHandle tableExecuteHandle, Collection<Slice> fragments)
+    {
+        CatalogName catalogName = tableExecuteHandle.getCatalogName();
+        ConnectorMetadata metadata = getMetadata(session, catalogName);
+        metadata.finishTableExecute(session.toConnectorSession(catalogName), tableExecuteHandle.getConnectorHandle(), fragments);
     }
 
     @Override
