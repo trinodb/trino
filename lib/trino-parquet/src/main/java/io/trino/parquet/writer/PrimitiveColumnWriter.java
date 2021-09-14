@@ -315,6 +315,9 @@ public class PrimitiveColumnWriter
     @Override
     public void reset()
     {
+        definitionLevelEncoder.reset();
+        repetitionLevelEncoder.reset();
+        primitiveValueWriter.reset();
         pageBuffer.clear();
         closed = false;
 
