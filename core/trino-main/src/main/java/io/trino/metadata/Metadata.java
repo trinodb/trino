@@ -638,6 +638,8 @@ public interface Metadata
 
     ProcedureRegistry getProcedureRegistry();
 
+    TableProceduresRegistry getTableProcedureRegistry();
+
     //
     // Blocks
     //
