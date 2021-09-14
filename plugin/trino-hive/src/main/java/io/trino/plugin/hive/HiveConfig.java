@@ -138,6 +138,7 @@ public class HiveConfig
     private Optional<Duration> hiveTransactionHeartbeatInterval = Optional.empty();
     private int hiveTransactionHeartbeatThreads = 5;
 
+    private boolean allowAlterTableLocation;
     private boolean allowRegisterPartition;
     private boolean queryPartitionFilterRequired;
     private Set<String> queryPartitionFilterRequiredSchemas = ImmutableSet.of();
@@ -979,6 +980,18 @@ public class HiveConfig
     public HiveConfig setHiveTransactionHeartbeatThreads(int hiveTransactionHeartbeatThreads)
     {
         this.hiveTransactionHeartbeatThreads = hiveTransactionHeartbeatThreads;
+        return this;
+    }
+
+    public boolean isAllowAlterTableLocation()
+    {
+        return allowAlterTableLocation;
+    }
+
+    @Config("hive.allow-alter-table-location-procedure")
+    public HiveConfig setAllowAlterTableLocation(boolean allowAlterTableLocation)
+    {
+        this.allowAlterTableLocation = allowAlterTableLocation;
         return this;
     }
 

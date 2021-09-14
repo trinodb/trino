@@ -15,6 +15,7 @@ package io.trino.plugin.hive.procedure;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.hive.HdfsEnvironment;
+import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.TransactionalMetadataFactory;
 import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
@@ -39,6 +40,7 @@ import static io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import static io.trino.plugin.hive.util.HiveWriteUtils.isS3FileSystem;
 import static io.trino.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
+import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
 import static io.trino.spi.block.MethodHandleUtil.methodHandle;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
@@ -56,14 +58,17 @@ public class AlterTableLocationProcedure
             String.class,
             String.class);
 
+    private final boolean allowAlterTableLocation;
     private final TransactionalMetadataFactory hiveMetadataFactory;
     private final HdfsEnvironment hdfsEnvironment;
 
     @Inject
     public AlterTableLocationProcedure(
+            HiveConfig hiveConfig,
             TransactionalMetadataFactory hiveMetadataFactory,
             HdfsEnvironment hdfsEnvironment)
     {
+        this.allowAlterTableLocation = requireNonNull(hiveConfig, "hiveConfig is null").isAllowAlterTableLocation();
         this.hiveMetadataFactory = requireNonNull(hiveMetadataFactory, "hiveMetadataFactory is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
     }
@@ -90,6 +95,10 @@ public class AlterTableLocationProcedure
 
     private void doAlterTableLocation(ConnectorSession session, ConnectorAccessControl accessControl, String schemaName, String tableName, String location)
     {
+        if (!allowAlterTableLocation) {
+            throw new TrinoException(PERMISSION_DENIED, "alter_table_location procedure is disabled");
+        }
+
         HdfsContext hdfsContext = new HdfsContext(session);
         HiveIdentity identity = new HiveIdentity(session);
         SemiTransactionalHiveMetastore metastore = hiveMetadataFactory.create().getMetastore();

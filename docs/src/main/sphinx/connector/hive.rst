@@ -872,6 +872,15 @@ The following operations are not supported when ``avro_schema_url`` is set:
 Procedures
 ----------
 
+.. _alter_table_location:
+
+* ``system.alter_table_location(schema_name, table_name, location)``
+
+  Alter a location in the specified external table.
+
+  Due to security reasons, the procedure is enabled only when ``hive.allow-alter-table-location-procedure``
+  is set to ``true``.
+
 * ``system.create_empty_partition(schema_name, table_name, partition_columns, partition_values)``
 
   Create an empty partition in the specified table.
@@ -914,10 +923,6 @@ Procedures
 
   Unregisters given, existing partition in the metastore for the specified table.
   The partition data is not deleted.
-
-* ``system.alter_table_location(schema_name, table_name, location)``
-
-  Alter a location in the specified external table.
 
 Special columns
 ---------------
