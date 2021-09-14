@@ -118,6 +118,7 @@ import io.trino.sql.tree.ShowTables;
 import io.trino.sql.tree.SingleColumn;
 import io.trino.sql.tree.StartTransaction;
 import io.trino.sql.tree.Table;
+import io.trino.sql.tree.TableExecute;
 import io.trino.sql.tree.TableSubquery;
 import io.trino.sql.tree.TransactionAccessMode;
 import io.trino.sql.tree.TransactionMode;
@@ -1394,6 +1395,21 @@ public final class SqlFormatter
             }
             builder.append(formatExpression(node.getColumn()));
 
+            return null;
+        }
+
+        @Override
+        protected Void visitTableExecute(TableExecute node, Integer indent)
+        {
+            builder.append("ALTER TABLE ");
+            builder.append(formatName(node.getTable().getName()));
+            builder.append(" EXECUTE ");
+            builder.append(formatExpression(node.getProcedureName()));
+            builder.append(formatPropertiesMultiLine(node.getProperties()));
+            node.getWhere().ifPresent(where ->
+                    builder.append("\n")
+                            .append(indentString(indent))
+                            .append("WHERE ").append(formatExpression(where)));
             return null;
         }
 
