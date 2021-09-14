@@ -48,6 +48,7 @@ import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.SystemTable;
+import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.session.PropertyMetadata;
@@ -299,6 +300,7 @@ public class ConnectorManager
                 .ifPresent(partitioningProvider -> nodePartitioningManager.addPartitioningProvider(catalogName, partitioningProvider));
 
         metadataManager.getProcedureRegistry().addProcedures(catalogName, connector.getProcedures());
+        metadataManager.getTableProcedureRegistry().addTableProcedures(catalogName, connector.getTableProcedures());
 
         connector.getAccessControl()
                 .ifPresent(accessControl -> accessControlManager.addCatalogAccessControl(catalogName, accessControl));
@@ -401,6 +403,7 @@ public class ConnectorManager
         private final Connector connector;
         private final Set<SystemTable> systemTables;
         private final Set<Procedure> procedures;
+        private final Set<TableProcedureMetadata> tableProcedures;
         private final Optional<ConnectorSplitManager> splitManager;
         private final Optional<ConnectorPageSourceProvider> pageSourceProvider;
         private final Optional<ConnectorPageSinkProvider> pageSinkProvider;
@@ -427,6 +430,10 @@ public class ConnectorManager
             Set<Procedure> procedures = connector.getProcedures();
             requireNonNull(procedures, format("Connector '%s' returned a null procedures set", catalogName));
             this.procedures = ImmutableSet.copyOf(procedures);
+
+            Set<TableProcedureMetadata> tableProcedures = connector.getTableProcedures();
+            requireNonNull(procedures, format("Connector '%s' returned a null table procedures set", catalogName));
+            this.tableProcedures = ImmutableSet.copyOf(tableProcedures);
 
             ConnectorSplitManager splitManager = null;
             try {
@@ -536,6 +543,11 @@ public class ConnectorManager
         public Set<Procedure> getProcedures()
         {
             return procedures;
+        }
+
+        public Set<TableProcedureMetadata> getTableProcedures()
+        {
+            return tableProcedures;
         }
 
         public Optional<ConnectorSplitManager> getSplitManager()

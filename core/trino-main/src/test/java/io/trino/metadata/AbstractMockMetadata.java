@@ -816,6 +816,12 @@ public abstract class AbstractMockMetadata
         throw new UnsupportedOperationException();
     }
 
+    @Override
+    public TableProceduresRegistry getTableProcedureRegistry()
+    {
+        throw new UnsupportedOperationException();
+    }
+
     //
     // Blocks
     //
