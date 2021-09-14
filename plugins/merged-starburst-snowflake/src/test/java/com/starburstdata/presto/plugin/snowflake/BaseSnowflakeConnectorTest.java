@@ -662,7 +662,7 @@ public abstract class BaseSnowflakeConnectorTest
     }
 
     @Test
-    public void testSnowflakeTemporalRounding()
+    public void testSnowflakeTimestampRounding()
     {
         try (TestTable testTable = new TestTable(snowflakeExecutor::execute, getSession().getSchema().orElseThrow() + ".test_timestamp_rounding",
                 "(t timestamp(9))",
@@ -680,7 +680,11 @@ public abstract class BaseSnowflakeConnectorTest
                             "TIMESTAMP '2001-02-03 04:05:06.123'," +
                             "TIMESTAMP '2001-02-03 04:05:06.123'"); // Snowflake truncates on cast
         }
+    }
 
+    @Test
+    public void testSnowflakeTimestampWithTimeZoneRounding()
+    {
         try (TestTable testTable = new TestTable(snowflakeExecutor::execute, getSession().getSchema().orElseThrow() + ".test_timestamptz_rounding",
                 "(t timestamp_tz(9))",
                 ImmutableList.of(
@@ -695,7 +699,11 @@ public abstract class BaseSnowflakeConnectorTest
                             "TIMESTAMP '2001-02-03 04:05:06.123 +02:00'," +
                             "TIMESTAMP '2001-02-03 04:05:06.123 +02:00'"); // Snowflake truncates on cast
         }
+    }
 
+    @Test
+    public void testSnowflakeTimeRounding()
+    {
         try (TestTable testTable = new TestTable(snowflakeExecutor::execute, getSession().getSchema().orElseThrow() + ".test_time_rounding",
                 "(t time(9))",
                 ImmutableList.of(
