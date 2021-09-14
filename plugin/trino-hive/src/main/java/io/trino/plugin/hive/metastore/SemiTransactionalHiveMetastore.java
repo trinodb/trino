@@ -100,6 +100,7 @@ import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilege
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.NUM_ROWS;
 import static io.trino.plugin.hive.util.HiveUtil.toPartitionValues;
 import static io.trino.plugin.hive.util.HiveWriteUtils.createDirectory;
+import static io.trino.plugin.hive.util.HiveWriteUtils.isFileCreatedByQuery;
 import static io.trino.plugin.hive.util.HiveWriteUtils.pathExists;
 import static io.trino.plugin.hive.util.Statistics.ReduceOperator.SUBTRACT;
 import static io.trino.plugin.hive.util.Statistics.merge;
@@ -2452,7 +2453,7 @@ public class SemiTransactionalHiveMetastore
                 boolean eligible = false;
                 // don't delete hidden Trino directories use by FileHiveMetastore
                 if (!fileName.startsWith(".trino")) {
-                    eligible = queryIds.stream().anyMatch(id -> fileName.startsWith(id) || fileName.endsWith(id));
+                    eligible = queryIds.stream().anyMatch(id -> isFileCreatedByQuery(fileName, id));
                 }
                 if (eligible) {
                     if (!deleteIfExists(fileSystem, filePath, false)) {
