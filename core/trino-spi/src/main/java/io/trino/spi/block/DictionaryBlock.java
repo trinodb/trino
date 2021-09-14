@@ -212,7 +212,7 @@ public class DictionaryBlock
     @Override
     public long getSizeInBytes()
     {
-        if (sizeInBytes < 0) {
+        if (sizeInBytes == -1) {
             calculateCompactSize();
         }
         return sizeInBytes;
@@ -271,7 +271,7 @@ public class DictionaryBlock
      */
     private long getCompactedDictionarySizeInBytes()
     {
-        if (sizeInBytes < 0) {
+        if (sizeInBytes == -1) {
             calculateCompactSize();
         }
 
@@ -504,7 +504,7 @@ public class DictionaryBlock
 
     boolean isSequentialIds()
     {
-        if (uniqueIds < 0) {
+        if (uniqueIds == -1) {
             calculateCompactSize();
         }
 
@@ -513,7 +513,7 @@ public class DictionaryBlock
 
     int getUniqueIds()
     {
-        if (uniqueIds < 0) {
+        if (uniqueIds == -1) {
             calculateCompactSize();
         }
 
@@ -537,7 +537,7 @@ public class DictionaryBlock
             return false;
         }
 
-        if (uniqueIds < 0) {
+        if (uniqueIds == -1) {
             calculateCompactSize();
         }
         return uniqueIds == dictionary.getPositionCount();
