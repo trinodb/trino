@@ -528,6 +528,11 @@ public final class HiveWriteUtils
         }
     }
 
+    public static boolean isFileCreatedByQuery(String fileName, String queryId)
+    {
+        return fileName.startsWith(queryId) || fileName.endsWith(queryId);
+    }
+
     public static Path createTemporaryPath(ConnectorSession session, HdfsContext context, HdfsEnvironment hdfsEnvironment, Path targetPath)
     {
         // use a per-user temporary directory to avoid permission problems
