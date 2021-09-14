@@ -382,21 +382,21 @@ public abstract class BaseSnowflakeTypeMappingTest
         }
     }
 
-    @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
-    public void testTimestamp(boolean insertWithPresto)
+    @Test(dataProvider = "testTimestampDataProvider")
+    public void testTimestamp(boolean insertWithPresto, DataType<LocalDateTime> dataType)
     {
         // using two non-JVM zones so that we don't need to worry what Postgres system zone is
         for (ZoneId sessionZone : ImmutableList.of(UTC, jvmZone, vilnius, kathmandu, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId()))) {
             DataTypeTest tests = DataTypeTest.create()
-                    .addRoundTrip(timestampDataType(), dateTimeBeforeEpoch)
-                    .addRoundTrip(timestampDataType(), dateTimeAfterEpoch)
-                    .addRoundTrip(timestampDataType(), dateTimeDoubledInJvmZone)
-                    .addRoundTrip(timestampDataType(), dateTimeDoubledInVilnius)
-                    .addRoundTrip(timestampDataType(), dateTimeEpoch) // epoch also is a gap in JVM zone
-                    .addRoundTrip(timestampDataType(), dateTimeGapInJvmZone1)
-                    .addRoundTrip(timestampDataType(), dateTimeGapInJvmZone2)
-                    .addRoundTrip(timestampDataType(), dateTimeGapInVilnius)
-                    .addRoundTrip(timestampDataType(), dateTimeGapInKathmandu);
+                    .addRoundTrip(dataType, dateTimeBeforeEpoch)
+                    .addRoundTrip(dataType, dateTimeAfterEpoch)
+                    .addRoundTrip(dataType, dateTimeDoubledInJvmZone)
+                    .addRoundTrip(dataType, dateTimeDoubledInVilnius)
+                    .addRoundTrip(dataType, dateTimeEpoch) // epoch also is a gap in JVM zone
+                    .addRoundTrip(dataType, dateTimeGapInJvmZone1)
+                    .addRoundTrip(dataType, dateTimeGapInJvmZone2)
+                    .addRoundTrip(dataType, dateTimeGapInVilnius)
+                    .addRoundTrip(dataType, dateTimeGapInKathmandu);
 
             Session session = Session.builder(getQueryRunner().getDefaultSession())
                     .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
@@ -409,6 +409,15 @@ public abstract class BaseSnowflakeTypeMappingTest
                 tests.execute(getQueryRunner(), session, snowflakeCreateAndInsert());
             }
         }
+    }
+
+    @DataProvider
+    public Object[][] testTimestampDataProvider()
+    {
+        return new Object[][] {
+                {true, timestampDataType()},
+                {false, timestampDataType()},
+        };
     }
 
     @Test
