@@ -210,6 +210,7 @@ public final class MetadataManager
     private final TypeOperators typeOperators;
     private final FunctionResolver functionResolver;
     private final ProcedureRegistry procedures;
+    private final TableProceduresRegistry tableProcedures;
     private final SessionPropertyManager sessionPropertyManager;
     private final SchemaPropertyManager schemaPropertyManager;
     private final TablePropertyManager tablePropertyManager;
@@ -249,6 +250,7 @@ public final class MetadataManager
         functionResolver = new FunctionResolver(this);
 
         this.procedures = new ProcedureRegistry();
+        this.tableProcedures = new TableProceduresRegistry();
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.schemaPropertyManager = requireNonNull(schemaPropertyManager, "schemaPropertyManager is null");
         this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
@@ -2538,6 +2540,12 @@ public final class MetadataManager
     public ProcedureRegistry getProcedureRegistry()
     {
         return procedures;
+    }
+
+    @Override
+    public TableProceduresRegistry getTableProcedureRegistry()
+    {
+        return tableProcedures;
     }
 
     //
