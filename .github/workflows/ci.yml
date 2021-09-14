@@ -117,6 +117,7 @@ jobs:
           - config-empty
           - config-hdp3
           # TODO: config-cdh5
+          # TODO: config-apache-hive3
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v2
@@ -385,6 +386,7 @@ jobs:
           - default
           - hdp3
           - cdh5
+          # TODO: config-apache-hive3
         suite:
           - suite-1
           - suite-2
@@ -436,6 +438,9 @@ jobs:
           # this suite is not meant to be run with different configs
           - config: default
             suite: suite-compatibility
+          # this suite is designed specifically for apache-hive3. TODO remove the suite once we can run all regular tests on apache-hive3.
+          - config: apache-hive3
+            suite: suite-hms-only
     # PT Launcher's timeout defaults to 2h, account for preparation steps (compilation) and add some margin
     timeout-minutes: 140
     steps:
