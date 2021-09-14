@@ -16,6 +16,7 @@ package io.trino.plugin.bigquery;
 import com.google.cloud.bigquery.Field;
 import com.google.cloud.bigquery.FieldList;
 import com.google.cloud.bigquery.StandardSQLTypeName;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
@@ -119,13 +120,14 @@ public enum BigQueryType
         return toRawTypeField(entry.getKey(), entry.getValue());
     }
 
-    static RowType.Field toRawTypeField(String name, BigQueryType.Adaptor typeAdaptor)
+    private static RowType.Field toRawTypeField(String name, BigQueryType.Adaptor typeAdaptor)
     {
         Type trinoType = typeAdaptor.getTrinoType();
         return RowType.field(name, trinoType);
     }
 
-    static LocalDateTime toLocalDateTime(String datetime)
+    @VisibleForTesting
+    public static LocalDateTime toLocalDateTime(String datetime)
     {
         int dotPosition = datetime.indexOf('.');
         if (dotPosition == -1) {
@@ -139,7 +141,7 @@ public enum BigQueryType
         return result.withNano(nanoOfSecond);
     }
 
-    static long toTrinoTimestamp(String datetime)
+    public static long toTrinoTimestamp(String datetime)
     {
         Instant instant = toLocalDateTime(datetime).toInstant(UTC);
         return (instant.getEpochSecond() * MICROSECONDS_PER_SECOND) + (instant.getNano() / NANOSECONDS_PER_MICROSECOND);
@@ -150,18 +152,19 @@ public enum BigQueryType
         return format("CAST('%s' AS float64)", value);
     }
 
-    static String simpleToStringConverter(Object value)
+    private static String simpleToStringConverter(Object value)
     {
         return String.valueOf(value);
     }
 
-    static String dateToStringConverter(Object value)
+    @VisibleForTesting
+    public static String dateToStringConverter(Object value)
     {
         LocalDate date = LocalDate.ofEpochDay(((Long) value).longValue());
         return quote(date.toString());
     }
 
-    static String datetimeToStringConverter(Object value)
+    private static String datetimeToStringConverter(Object value)
     {
         long epochMicros = (long) value;
         long epochSeconds = floorDiv(epochMicros, MICROSECONDS_PER_SECOND);
@@ -169,7 +172,8 @@ public enum BigQueryType
         return formatTimestamp(epochSeconds, nanoAdjustment, UTC);
     }
 
-    static String timeToStringConverter(Object value)
+    @VisibleForTesting
+    public static String timeToStringConverter(Object value)
     {
         long time = (long) value;
         verify(0 <= time, "Invalid time value: %s", time);
@@ -178,7 +182,8 @@ public enum BigQueryType
         return TIME_FORMATTER.format(toZonedDateTime(epochSeconds, nanoAdjustment, UTC));
     }
 
-    static String timestampToStringConverter(Object value)
+    @VisibleForTesting
+    public static String timestampToStringConverter(Object value)
     {
         LongTimestampWithTimeZone timestamp = (LongTimestampWithTimeZone) value;
         long epochMillis = timestamp.getEpochMillis();
