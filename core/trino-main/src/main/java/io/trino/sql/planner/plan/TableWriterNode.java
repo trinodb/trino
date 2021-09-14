@@ -25,6 +25,7 @@ import io.trino.metadata.InsertTableHandle;
 import io.trino.metadata.NewTableLayout;
 import io.trino.metadata.OutputTableHandle;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.TableExecuteHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -199,7 +200,9 @@ public class TableWriterNode
             @JsonSubTypes.Type(value = InsertTarget.class, name = "InsertTarget"),
             @JsonSubTypes.Type(value = DeleteTarget.class, name = "DeleteTarget"),
             @JsonSubTypes.Type(value = UpdateTarget.class, name = "UpdateTarget"),
-            @JsonSubTypes.Type(value = RefreshMaterializedViewTarget.class, name = "RefreshMaterializedViewTarget")})
+            @JsonSubTypes.Type(value = RefreshMaterializedViewTarget.class, name = "RefreshMaterializedViewTarget"),
+            @JsonSubTypes.Type(value = TableExecuteTarget.class, name = "TableExecuteTarget")
+    })
     @SuppressWarnings({"EmptyClass", "ClassMayBeInterface"})
     public abstract static class WriterTarget
     {
@@ -526,6 +529,40 @@ public class TableWriterNode
         public String toString()
         {
             return handle.map(Object::toString).orElse("[]");
+        }
+    }
+
+    public static class TableExecuteTarget
+            extends WriterTarget
+    {
+        private final TableExecuteHandle handle;
+        private final SchemaTableName schemaTableName;
+
+        @JsonCreator
+        public TableExecuteTarget(
+                @JsonProperty("handle") TableExecuteHandle handle,
+                @JsonProperty("schemaTableName") SchemaTableName schemaTableName)
+        {
+            this.handle = requireNonNull(handle, "handle is null");
+            this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
+        }
+
+        @JsonProperty
+        public TableExecuteHandle getHandle()
+        {
+            return handle;
+        }
+
+        @JsonProperty
+        public SchemaTableName getSchemaTableName()
+        {
+            return schemaTableName;
+        }
+
+        @Override
+        public String toString()
+        {
+            return handle.toString();
         }
     }
 }

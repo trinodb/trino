@@ -18,6 +18,7 @@ import io.trino.Session;
 import io.trino.cost.StatsAndCosts;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.TableExecuteHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.SymbolAllocator;
@@ -42,6 +43,7 @@ import io.trino.sql.planner.plan.TableWriterNode.CreateTarget;
 import io.trino.sql.planner.plan.TableWriterNode.DeleteTarget;
 import io.trino.sql.planner.plan.TableWriterNode.InsertReference;
 import io.trino.sql.planner.plan.TableWriterNode.InsertTarget;
+import io.trino.sql.planner.plan.TableWriterNode.TableExecuteTarget;
 import io.trino.sql.planner.plan.TableWriterNode.UpdateTarget;
 import io.trino.sql.planner.plan.TableWriterNode.WriterTarget;
 import io.trino.sql.planner.plan.UnionNode;
@@ -249,6 +251,11 @@ public class BeginTableWrite
                         metadata.beginRefreshMaterializedView(session, refreshMV.getStorageTableHandle(), refreshMV.getSourceTableHandles()),
                         metadata.getTableMetadata(session, refreshMV.getStorageTableHandle()).getTable(),
                         refreshMV.getSourceTableHandles());
+            }
+            if (target instanceof TableExecuteTarget) {
+                TableExecuteTarget tableExecute = (TableExecuteTarget) target;
+                TableExecuteHandle newHandle = metadata.beginTableExecute(session, tableExecute.getHandle());
+                return new TableExecuteTarget(newHandle, tableExecute.getSchemaTableName());
             }
             throw new IllegalArgumentException("Unhandled target type: " + target.getClass().getSimpleName());
         }

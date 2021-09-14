@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.Session;
+import io.trino.connector.CatalogName;
 import io.trino.cost.CachingCostProvider;
 import io.trino.cost.CachingStatsProvider;
 import io.trino.cost.CostCalculator;
@@ -29,12 +30,14 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.NewTableLayout;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TableExecuteHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.Constraint;
 import io.trino.spi.statistics.TableStatisticsMetadata;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.Type;
@@ -86,6 +89,8 @@ import io.trino.sql.tree.RefreshMaterializedView;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.Statement;
 import io.trino.sql.tree.StringLiteral;
+import io.trino.sql.tree.Table;
+import io.trino.sql.tree.TableExecute;
 import io.trino.sql.tree.Update;
 import io.trino.type.TypeCoercion;
 import io.trino.type.UnknownType;
@@ -108,11 +113,16 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Streams.zip;
 import static io.trino.SystemSessionProperties.isCollectPlanStatisticsForAllQueries;
+import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
+import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.spi.statistics.TableStatisticType.ROW_COUNT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.ExpressionUtils.filterNonDeterministicConjuncts;
+import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED;
@@ -124,6 +134,7 @@ import static io.trino.sql.planner.plan.TableWriterNode.CreateReference;
 import static io.trino.sql.planner.plan.TableWriterNode.InsertReference;
 import static io.trino.sql.planner.plan.TableWriterNode.WriterTarget;
 import static io.trino.sql.planner.sanity.PlanSanityChecker.DISTRIBUTED_PLAN_SANITY_CHECKER;
+import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -279,6 +290,9 @@ public class LogicalPlanner
         }
         if (statement instanceof ExplainAnalyze) {
             return createExplainAnalyzePlan(analysis, (ExplainAnalyze) statement);
+        }
+        if (statement instanceof TableExecute) {
+            return createTableExecutePlan(analysis, (TableExecute) statement);
         }
         throw new TrinoException(NOT_SUPPORTED, "Unsupported statement type " + statement.getClass().getSimpleName());
     }
@@ -748,6 +762,133 @@ public class LogicalPlanner
         }
 
         return result;
+    }
+
+    private RelationPlan createTableExecutePlan(Analysis analysis, TableExecute statement)
+    {
+        Table table = statement.getTable();
+        TableHandle tableHandle = analysis.getTableHandle(table);
+        CatalogName catalogName = tableHandle.getCatalogName();
+        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, table.getName());
+        String procedureName = statement.getProcedureName().getValue();
+
+        Optional<Constraint> constraint = getConstraintForTableExecute(analysis, statement);
+
+        TableExecuteHandle executeHandle =
+                metadata.getTableHandleForExecute(
+                        session,
+                        tableHandle,
+                        procedureName,
+                        analysis.getTableExecuteProperties(),
+                        constraint.orElse(alwaysTrue()))
+                        .orElseThrow(() -> semanticException(NOT_FOUND, statement, "Table '%s' does not exist", tableName));
+
+        Scope scope = analysis.getScope(table);
+        ImmutableList.Builder<Symbol> outputSymbolsBuilder = ImmutableList.builder();
+        ImmutableMap.Builder<Symbol, ColumnHandle> assignments = ImmutableMap.builder();
+        for (Field field : scope.getRelationType().getAllFields()) {
+            Symbol symbol = symbolAllocator.newSymbol(field);
+
+            outputSymbolsBuilder.add(symbol);
+            assignments.put(symbol, analysis.getColumn(field));
+        }
+
+        List<Symbol> outputSymbols = outputSymbolsBuilder.build();
+        PlanNode tableScanNode = TableScanNode.newInstance(
+                idAllocator.getNextId(),
+                executeHandle.getSourceTableHandle(),
+                outputSymbols,
+                assignments.build(),
+                false,
+                Optional.empty());
+        RelationPlan tableScanPlan = new RelationPlan(
+                tableScanNode,
+                scope,
+                outputSymbols,
+                Optional.empty());
+
+        TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
+        List<String> columnNames = tableMetadata.getColumns().stream()
+                .filter(column -> !column.isHidden()) // todo this filter is redundant
+                .map(ColumnMetadata::getName)
+                .collect(toImmutableList());
+
+        Optional<NewTableLayout> layout = metadata.getLayoutForTableExecute(session, executeHandle);
+
+        RelationPlan tableWriterPlan = createTableWriterPlan(
+                analysis,
+                tableScanPlan.getRoot(),
+                visibleFields(tableScanPlan),
+                new TableWriterNode.TableExecuteTarget(executeHandle, tableName.asSchemaTableName()),
+                columnNames,
+                tableMetadata.getColumns(),
+                layout,
+                TableStatisticsMetadata.empty());
+
+        // todo do we need that?
+//        List<Type> types = analysis.getRelationCoercion(node);
+//        if (types != null) {
+//            // apply required coercion and prune invisible fields from child outputs
+//            NodeAndMappings coerced = coerce(plan, types, symbolAllocator, idAllocator);
+//            plan = new RelationPlan(coerced.getNode(), scope, coerced.getFields(), outerContext);
+//        }
+
+//        plan = addRowFilters(node, plan);
+//        plan = addColumnMasks(node, plan);
+
+        return tableWriterPlan;
+    }
+
+    private Optional<Constraint> getConstraintForTableExecute(Analysis analysis, TableExecute statement)
+    {
+        Table table = statement.getTable();
+        TableHandle tableHandle = analysis.getTableHandle(table);
+        Scope scope = analysis.getScope(table);
+
+        // prepare a temporary plan with just table scan for sake of rewriting filter expression to use Symbols
+        // TODO: find a simpler way
+        Map<Symbol, ColumnHandle> assignments = new HashMap<>();
+        List<Symbol> outputs = new ArrayList<>();
+        for (Field field : scope.getRelationType().getAllFields()) {
+            Symbol symbol = symbolAllocator.newSymbol(field);
+            assignments.put(symbol, analysis.getColumn(field));
+            outputs.add(symbol);
+        }
+        RelationPlan temporaryPlan = new RelationPlan(
+                TableScanNode.newInstance(
+                        idAllocator.getNextId(),
+                        tableHandle,
+                        outputs,
+                        assignments,
+                        false,
+                        Optional.empty()),
+                scope,
+                outputs,
+                Optional.empty());
+        PlanBuilder planBuilder = PlanBuilder.newPlanBuilder(temporaryPlan, analysis, ImmutableMap.of(), ImmutableMap.of());
+
+        return statement.getWhere().map(predicate -> {
+            // don't include non-deterministic predicates
+            if (!TRUE_LITERAL.equals(filterNonDeterministicConjuncts(metadata, predicate))) {
+                throw new TrinoException(NOT_SUPPORTED, "cannot use non-deterministic predicate with ALTER TABLE ... EXECUTE");
+            }
+
+            Expression rewrittenPredicate = planBuilder.rewrite(predicate);
+
+            DomainTranslator.ExtractionResult decomposedPredicate = DomainTranslator.fromPredicate(
+                    metadata,
+                    typeOperators,
+                    session,
+                    rewrittenPredicate,
+                    symbolAllocator.getTypes());
+
+            if (!TRUE_LITERAL.equals(decomposedPredicate.getRemainingExpression())) {
+                // TODO support broader range.
+                throw new TrinoException(NOT_SUPPORTED, "only predicates expressible as TupleDomain can be used with ALTER TABLE ... EXECUTE");
+            }
+
+            return new Constraint(decomposedPredicate.getTupleDomain().transformKeys(assignments::get));
+        });
     }
 
     private static class Key
