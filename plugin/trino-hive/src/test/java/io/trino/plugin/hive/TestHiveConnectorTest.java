@@ -1346,6 +1346,30 @@ public class TestHiveConnectorTest
     }
 
     @Test
+    public void testOptimizerWithOr()
+    {
+        Session admin = Session.builder(getSession())
+                .setIdentity(Identity.forUser("hive")
+                        .withConnectorRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .build())
+                .build();
+
+        assertUpdate(
+                admin,
+                "CREATE TABLE my_table(\n"
+                        + "a VARCHAR,\n"
+                        + "ds VARCHAR)"
+                        + "WITH (format='PARQUET', partitioned_by = ARRAY['ds'])");
+        assertUpdate(admin, "INSERT INTO my_table(a,ds) VALUES('a','2021-08-01')", 1);
+        assertQuery(
+                admin,
+                "SELECT 'foo' \n"
+                        + "FROM my_table\n"
+                        + "WHERE a IS NULL or a = ''\n"
+                        + "AND ds='2021-08-01'");
+    }
+
+    @Test
     public void testReadNoColumns()
     {
         testWithAllStorageFormats(this::testReadNoColumns);
