@@ -20,8 +20,8 @@ Configuration
 -------------
 
 To configure the SingleStore connector, create a catalog properties file
-in ``etc/catalog`` named, for example, ``memsql.properties``, to
-mount the SingleStore connector as the ``memsql`` catalog.
+in ``etc/catalog`` named, for example, ``singlestore.properties``, to
+mount the SingleStore connector as the ``singlestore`` catalog.
 Create the file with the following contents, replacing the
 connection properties as appropriate for your setup:
 
@@ -32,10 +32,6 @@ connection properties as appropriate for your setup:
     connection-user=root
     connection-password=secret
 
-.. include:: jdbc-common-configurations.fragment
-
-.. include:: non-transactional-insert.fragment
-
 Multiple SingleStore servers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -44,6 +40,10 @@ SingleStore servers, simply add another properties file to ``etc/catalog``
 with a different name (making sure it ends in ``.properties``). For
 example, if you name the property file ``sales.properties``, Trino
 will create a catalog named ``sales`` using the configured connector.
+
+.. include:: jdbc-common-configurations.fragment
+
+.. include:: non-transactional-insert.fragment
 
 Querying SingleStore
 --------------------
