@@ -50,10 +50,6 @@ determine the user credentials for the connection, often a service user. You can
 use :doc:`secrets </security/secrets>` to avoid actual values in the catalog
 properties files.
 
-.. include:: jdbc-common-configurations.fragment
-
-.. include:: non-transactional-insert.fragment
-
 Multiple MySQL servers
 ^^^^^^^^^^^^^^^^^^^^^^
 
@@ -62,6 +58,10 @@ MySQL servers, simply add another properties file to ``etc/catalog``
 with a different name, making sure it ends in ``.properties``. For
 example, if you name the property file ``sales.properties``, Trino
 creates a catalog named ``sales`` using the configured connector.
+
+.. include:: jdbc-common-configurations.fragment
+
+.. include:: non-transactional-insert.fragment
 
 .. _mysql-type-mapping:
 

@@ -23,8 +23,8 @@ The connector can query a ClickHouse server. Create a catalog properties file
 that specifies the ClickHouse connector by setting the ``connector.name`` to
 ``clickhouse``.
 
-For example, to access a server as ``myclickhouse``, create the file
-``etc/catalog/myclickhouse.properties``. Replace the connection properties as
+For example, to access a server as ``clickhouse``, create the file
+``etc/catalog/clickhouse.properties``. Replace the connection properties as
 appropriate for your setup:
 
 .. code-block:: none
@@ -33,10 +33,6 @@ appropriate for your setup:
     connection-url=jdbc:clickhouse://host1:8123/
     connection-user=exampleuser
     connection-password=examplepassword
-
-.. include:: jdbc-common-configurations.fragment
-
-.. include:: non-transactional-insert.fragment
 
 Multiple ClickHouse servers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -49,6 +45,10 @@ catalog for each server. To add another catalog:
 
 For example, if you name the property file ``sales.properties``, Trino uses the
 configured connector to create a catalog named ``sales``.
+
+.. include:: jdbc-common-configurations.fragment
+
+.. include:: non-transactional-insert.fragment
 
 Querying ClickHouse
 -------------------

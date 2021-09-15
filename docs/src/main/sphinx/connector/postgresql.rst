@@ -23,8 +23,8 @@ The connector can query a database on a PostgreSQL server. Create a catalog
 properties file that specifies the PostgreSQL connector by setting the
 ``connector.name`` to ``postgresql``.
 
-For example, to access a database as the ``postgresqlsdb`` catalog, create the
-file ``etc/catalog/postgresqlsdb.properties``. Replace the connection properties
+For example, to access a database as the ``postgresql`` catalog, create the
+file ``etc/catalog/postgresql.properties``. Replace the connection properties
 as appropriate for your setup:
 
 .. code-block:: text
@@ -46,10 +46,6 @@ determine the user credentials for the connection, often a service user. You can
 use :doc:`secrets </security/secrets>` to avoid actual values in the catalog
 properties files.
 
-.. include:: jdbc-common-configurations.fragment
-
-.. include:: non-transactional-insert.fragment
-
 Multiple PostgreSQL databases or servers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -62,6 +58,10 @@ To add another catalog, simply add another properties file to ``etc/catalog``
 with a different name, making sure it ends in ``.properties``. For example,
 if you name the property file ``sales.properties``, Trino creates a
 catalog named ``sales`` using the configured connector.
+
+.. include:: jdbc-common-configurations.fragment
+
+.. include:: non-transactional-insert.fragment
 
 .. _postgresql-type-mapping:
 

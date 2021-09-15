@@ -65,10 +65,6 @@ To disable connection pooling, update properties to include the following:
 
     oracle.connection-pool.enabled=false
 
-.. include:: jdbc-common-configurations.fragment
-
-.. include:: non-transactional-insert.fragment
-
 Multiple Oracle servers
 ^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -77,7 +73,11 @@ the Oracle connector as a separate catalog.
 
 To add another Oracle catalog, create a new properties file. For example, if
 you name the property file ``sales.properties``, Trino creates a catalog named
-sales.
+``sales``.
+
+.. include:: jdbc-common-configurations.fragment
+
+.. include:: non-transactional-insert.fragment
 
 Querying Oracle
 ---------------

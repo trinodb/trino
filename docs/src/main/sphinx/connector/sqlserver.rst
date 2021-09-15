@@ -23,8 +23,8 @@ The connector can query a single database on an SQL server instance. Create a
 catalog properties file that specifies the SQL server connector by setting the
 ``connector.name`` to ``sqlserver``.
 
-For example, to access a database as ``sqlserverdb``, create the file
-``etc/catalog/sqlserverdb.properties``. Replace the connection properties as
+For example, to access a database as ``sqlserver``, create the file
+``etc/catalog/sqlserver.properties``. Replace the connection properties as
 appropriate for your setup:
 
 .. code-block:: properties
@@ -44,26 +44,22 @@ determine the user credentials for the connection, often a service user. You can
 use :doc:`secrets </security/secrets>` to avoid actual values in the catalog
 properties files.
 
-.. include:: jdbc-common-configurations.fragment
-
-.. include:: non-transactional-insert.fragment
-
 Multiple SQL Server databases or servers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The SQL Server connector can't access more than one database using a single
-catalog.
+The SQL Server connector can only access a single SQL Server database
+within a single catalog. Thus, if you have multiple SQL Server databases,
+or want to connect to multiple SQL Server instances, you must configure
+multiple instances of the SQL Server connector.
 
-If you have multiple databases, or want to access multiple instances
-of SQL Server, you need to configure one catalog for each instance.
+To add another catalog, simply add another properties file to ``etc/catalog``
+with a different name, making sure it ends in ``.properties``. For example,
+if you name the property file ``sales.properties``, Trino creates a
+catalog named ``sales`` using the configured connector.
 
-To add another catalog:
+.. include:: jdbc-common-configurations.fragment
 
-- Add another properties file to ``etc/catalog``
-- Save it with a different name that ends in ``.properties``
-
-For example, if you name the property file ``sales.properties``, Trino uses the
-configured connector to create a catalog named ``sales``.
+.. include:: non-transactional-insert.fragment
 
 Querying SQL Server
 -------------------
