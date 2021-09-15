@@ -9,6 +9,9 @@
  */
 package com.starburstdata.presto.plugin.snowflake;
 
+import io.trino.Session;
+import io.trino.spi.type.TimeZoneKey;
+import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.VarcharType;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.datatype.DataTypeTest;
@@ -17,9 +20,13 @@ import org.apache.hadoop.hive.common.type.HiveVarchar;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.time.ZoneId;
+
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.distributedBuilder;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.impersonationDisabled;
 import static io.trino.spi.type.TimestampType.createTimestampType;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.datatype.DataType.stringDataType;
 import static io.trino.testing.datatype.DataType.timestampDataType;
@@ -116,5 +123,71 @@ public class TestDistributedSnowflakeTypeMapping
 
                 .execute(getQueryRunner(), prestoCreateAsSelect())
                 .execute(getQueryRunner(), prestoCreateAndInsert());
+    }
+
+    @Test(dataProvider = "sessionZonesDataProvider")
+    @Override
+    public void testTimestampWithTimeZoneMapping(ZoneId sessionZone)
+    {
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
+                .build();
+
+        SqlDataTypeTest.create()
+                // time doubled in JVM zone
+                .addRoundTrip("TIMESTAMP '2018-10-28 01:33:17.456 UTC'", "TIMESTAMP '2018-10-28 01:33:17.456 UTC'")
+                // time double in Vilnius
+                .addRoundTrip("TIMESTAMP '2018-10-28 03:33:33.333 UTC'", "TIMESTAMP '2018-10-28 03:33:33.333 UTC'")
+                // time gap in Vilnius
+                .addRoundTrip("TIMESTAMP '2018-03-25 03:17:17.123 UTC'", "TIMESTAMP '2018-03-25 03:17:17.123 UTC'")
+                // time gap in Kathmandu
+                .addRoundTrip("TIMESTAMP '1986-01-01 00:13:07.123 UTC'", "TIMESTAMP '1986-01-01 00:13:07.123 UTC'")
+
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00 UTC'", "TIMESTAMP '1970-01-01 00:00:00.000 UTC'")
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.1 UTC'", "TIMESTAMP '1970-01-01 00:00:00.100 UTC'")
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.9 UTC'", "TIMESTAMP '1970-01-01 00:00:00.900 UTC'")
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.123 UTC'", "TIMESTAMP '1970-01-01 00:00:00.123 UTC'")
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.123000 UTC'", "TIMESTAMP '1970-01-01 00:00:00.123 UTC'")
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.999 UTC'", "TIMESTAMP '1970-01-01 00:00:00.999 UTC'")
+                // max supported precision
+                .addRoundTrip("TIMESTAMP WITH TIME ZONE", "TIMESTAMP '1970-01-01 00:00:00.123456 UTC'", createTimestampWithTimeZoneType(3), "TIMESTAMP '1970-01-01 00:00:00.123 UTC'")
+
+                .addRoundTrip("TIMESTAMP '2020-09-27 12:34:56.1 UTC'", "TIMESTAMP '2020-09-27 12:34:56.100 UTC'")
+                .addRoundTrip("TIMESTAMP '2020-09-27 12:34:56.9 UTC'", "TIMESTAMP '2020-09-27 12:34:56.900 UTC'")
+                .addRoundTrip("TIMESTAMP '2020-09-27 12:34:56.123 UTC'", "TIMESTAMP '2020-09-27 12:34:56.123 UTC'")
+                .addRoundTrip("TIMESTAMP '2020-09-27 12:34:56.123000 UTC'", "TIMESTAMP '2020-09-27 12:34:56.123 UTC'")
+                .addRoundTrip("TIMESTAMP '2020-09-27 12:34:56.999 UTC'", "TIMESTAMP '2020-09-27 12:34:56.999 UTC'")
+                // max supported precision
+                .addRoundTrip("TIMESTAMP WITH TIME ZONE", "TIMESTAMP '2020-09-27 12:34:56.123456 UTC'", createTimestampWithTimeZoneType(3), "TIMESTAMP '2020-09-27 12:34:56.123 UTC'")
+
+                // round down
+                .addRoundTrip("TIMESTAMP WITH TIME ZONE", "TIMESTAMP '1970-01-01 00:00:00.12341 UTC'", createTimestampWithTimeZoneType(3), "TIMESTAMP '1970-01-01 00:00:00.123 UTC'")
+
+                // micro round up, end result rounds down
+                .addRoundTrip("TIMESTAMP WITH TIME ZONE", "TIMESTAMP '1970-01-01 00:00:00.123499 UTC'", createTimestampWithTimeZoneType(3), "TIMESTAMP '1970-01-01 00:00:00.123 UTC'")
+
+                // round up
+                .addRoundTrip("TIMESTAMP WITH TIME ZONE", "TIMESTAMP '1970-01-01 00:00:00.1235 UTC'", createTimestampWithTimeZoneType(3), "TIMESTAMP '1970-01-01 00:00:00.124 UTC'")
+
+                // max precision
+                .addRoundTrip("TIMESTAMP WITH TIME ZONE", "TIMESTAMP '1970-01-01 00:00:00.111 UTC'", createTimestampWithTimeZoneType(3), "TIMESTAMP '1970-01-01 00:00:00.111 UTC'")
+
+                // round up to next second
+                .addRoundTrip("TIMESTAMP WITH TIME ZONE", "TIMESTAMP '1970-01-01 00:00:00.9995 UTC'", createTimestampWithTimeZoneType(3), "TIMESTAMP '1970-01-01 00:00:01.000 UTC'")
+
+                // round up to next day
+                .addRoundTrip("TIMESTAMP WITH TIME ZONE", "TIMESTAMP '1970-01-01 23:59:59.9995 UTC'", createTimestampWithTimeZoneType(3), "TIMESTAMP '1970-01-02 00:00:00.000 UTC'")
+
+                // negative epoch
+                .addRoundTrip("TIMESTAMP WITH TIME ZONE", "TIMESTAMP '1969-12-31 23:59:59.999 UTC'", createTimestampWithTimeZoneType(3), "TIMESTAMP '1969-12-31 23:59:59.999 UTC'")
+
+                .execute(getQueryRunner(), session, prestoCreateAsSelect())
+                .execute(getQueryRunner(), session, prestoCreateAndInsert());
+    }
+
+    @Override
+    protected TimestampWithTimeZoneType defaultTimestampWithTimeZoneType()
+    {
+        return TIMESTAMP_TZ_MILLIS;
     }
 }

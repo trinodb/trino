@@ -580,30 +580,30 @@ public abstract class BaseSnowflakeConnectorTest
                         "'1901-02-03 04:05:06.123456789 +02:00'"))) {
             assertThat((String) computeActual("SHOW CREATE TABLE " + testTable.getName()).getOnlyValue())
                     .matches("CREATE TABLE \\w+\\.\\w+\\.\\w+ \\Q(\n" +
-                            "   timestamptz0 timestamp(3) with time zone,\n" +
-                            "   timestamptz1 timestamp(3) with time zone,\n" +
-                            "   timestamptz2 timestamp(3) with time zone,\n" +
+                            "   timestamptz0 timestamp(0) with time zone,\n" +
+                            "   timestamptz1 timestamp(1) with time zone,\n" +
+                            "   timestamptz2 timestamp(2) with time zone,\n" +
                             "   timestamptz3 timestamp(3) with time zone,\n" +
-                            "   timestamptz4 timestamp(3) with time zone,\n" +
-                            "   timestamptz5 timestamp(3) with time zone,\n" +
-                            "   timestamptz6 timestamp(3) with time zone,\n" +
-                            "   timestamptz7 timestamp(3) with time zone,\n" +
-                            "   timestamptz8 timestamp(3) with time zone,\n" +
-                            "   timestamptz9 timestamp(3) with time zone\n" +
+                            "   timestamptz4 timestamp(4) with time zone,\n" +
+                            "   timestamptz5 timestamp(5) with time zone,\n" +
+                            "   timestamptz6 timestamp(6) with time zone,\n" +
+                            "   timestamptz7 timestamp(7) with time zone,\n" +
+                            "   timestamptz8 timestamp(8) with time zone,\n" +
+                            "   timestamptz9 timestamp(9) with time zone\n" +
                             ")");
 
             assertThat(query("SELECT * FROM " + testTable.getName()))
                     .matches("VALUES (" +
-                            "TIMESTAMP '1901-02-03 04:05:06.000 +02:00'," +
-                            "TIMESTAMP '1901-02-03 04:05:06.100 +02:00'," +
-                            "TIMESTAMP '1901-02-03 04:05:06.120 +02:00'," +
+                            "TIMESTAMP '1901-02-03 04:05:06 +02:00'," +
+                            "TIMESTAMP '1901-02-03 04:05:06.1 +02:00'," +
+                            "TIMESTAMP '1901-02-03 04:05:06.12 +02:00'," +
                             "TIMESTAMP '1901-02-03 04:05:06.123 +02:00'," +
-                            "TIMESTAMP '1901-02-03 04:05:06.123 +02:00'," +
-                            "TIMESTAMP '1901-02-03 04:05:06.123 +02:00'," +
-                            "TIMESTAMP '1901-02-03 04:05:06.123 +02:00'," +
-                            "TIMESTAMP '1901-02-03 04:05:06.123 +02:00'," +
-                            "TIMESTAMP '1901-02-03 04:05:06.123 +02:00'," +
-                            "TIMESTAMP '1901-02-03 04:05:06.123 +02:00')");
+                            "TIMESTAMP '1901-02-03 04:05:06.1234 +02:00'," +
+                            "TIMESTAMP '1901-02-03 04:05:06.12345 +02:00'," +
+                            "TIMESTAMP '1901-02-03 04:05:06.123456 +02:00'," +
+                            "TIMESTAMP '1901-02-03 04:05:06.1234567 +02:00'," +
+                            "TIMESTAMP '1901-02-03 04:05:06.12345678 +02:00'," +
+                            "TIMESTAMP '1901-02-03 04:05:06.123456789 +02:00')");
         }
     }
 
@@ -695,10 +695,10 @@ public abstract class BaseSnowflakeConnectorTest
                         "'2001-02-03 04:05:06.123900000 +02:00'"))) {
             assertThat(query("SELECT * FROM " + testTable.getName()))
                     .matches("VALUES " +
-                            "TIMESTAMP '1901-02-03 04:05:06.123 +02:00'," +
-                            "TIMESTAMP '1901-02-03 04:05:06.123 +02:00'," + // Snowflake truncates on cast
-                            "TIMESTAMP '2001-02-03 04:05:06.123 +02:00'," +
-                            "TIMESTAMP '2001-02-03 04:05:06.123 +02:00'"); // Snowflake truncates on cast
+                            "TIMESTAMP '1901-02-03 04:05:06.123499999 +02:00'," +
+                            "TIMESTAMP '1901-02-03 04:05:06.123900000 +02:00'," +
+                            "TIMESTAMP '2001-02-03 04:05:06.123499999 +02:00'," +
+                            "TIMESTAMP '2001-02-03 04:05:06.123900000 +02:00'");
         }
     }
 
