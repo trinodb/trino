@@ -25,3 +25,8 @@ connector:
     - Cache the fact that metadata, including table and column statistics, is
       not available
     - False
+  * - ``write.batch-size``
+    - Maximum number of statements in a batched execution.
+      Do not change this setting from the default. Non-default values may
+      negatively impact performance.
+    - 1000
