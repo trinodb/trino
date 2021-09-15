@@ -20,6 +20,7 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.type.BooleanType;
 import org.apache.commons.math3.util.Precision;
 
 import java.util.Collections;
@@ -148,7 +149,25 @@ public final class AggregationTestUtils
 
         assertEquals(aggregationWithDupes, aggregation, "Inconsistent results with mask");
 
+        // Re-run the duplicated inputs with RLE masks
+        System.arraycopy(maskPagesWithRle(true, pages), 0, dupedPages, 0, pages.length);
+        System.arraycopy(maskPagesWithRle(false, pages), 0, dupedPages, pages.length, pages.length);
+        Object aggregationWithRleMasks = aggregation(function, createArgs(function), maskChannel, dupedPages);
+
+        assertEquals(aggregationWithRleMasks, aggregation, "Inconsistent results with RLE mask");
+
         return aggregation;
+    }
+
+    // Adds the mask as the last channel
+    private static Page[] maskPagesWithRle(boolean maskValue, Page... pages)
+    {
+        Page[] maskedPages = new Page[pages.length];
+        for (int i = 0; i < pages.length; i++) {
+            Page page = pages[i];
+            maskedPages[i] = page.appendColumn(new RunLengthEncodedBlock(BooleanType.createBlockForSingleNonNullValue(maskValue), page.getPositionCount()));
+        }
+        return maskedPages;
     }
 
     // Adds the mask as the last channel
