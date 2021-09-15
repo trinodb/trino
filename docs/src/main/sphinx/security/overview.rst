@@ -88,7 +88,7 @@ provider.
 * :doc:`Salesforce authentication <salesforce>`
 * :doc:`OAuth 2.0 authentication <oauth2>`
 * :doc:`Certificate authentication <certificate>`
-* :doc:`Java Web Token (JWT) authentication <jwt>`
+* :doc:`JSON Web Token (JWT) authentication <jwt>`
 * :doc:`Kerberos authentication <kerberos>`
 
 .. _user-name-management:
