@@ -89,6 +89,7 @@ public abstract class BaseSnowflakeConnectorTest
                 .matches("CREATE TABLE \\w+\\.\\w+\\.\\w+ \\Q(\n" +
                         "   a_char varchar(21)\n" +
                         ")");
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Override
