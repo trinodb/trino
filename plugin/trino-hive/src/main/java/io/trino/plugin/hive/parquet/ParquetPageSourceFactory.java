@@ -359,7 +359,7 @@ public class ParquetPageSourceFactory
         org.apache.parquet.schema.Type type = subfieldTypes.get(subfieldTypes.size() - 1);
         for (int i = subfieldTypes.size() - 2; i >= 0; --i) {
             GroupType groupType = subfieldTypes.get(i).asGroupType();
-            type = new GroupType(type.getRepetition(), groupType.getName(), ImmutableList.of(type));
+            type = new GroupType(groupType.getRepetition(), groupType.getName(), ImmutableList.of(type));
         }
         return Optional.of(new GroupType(baseType.getRepetition(), baseType.getName(), ImmutableList.of(type)));
     }
