@@ -565,7 +565,7 @@ public class AddExchanges
                         (TableScanNode) node.getSource(),
                         true,
                         session,
-                        types,
+                        symbolAllocator,
                         metadata,
                         typeOperators,
                         typeAnalyzer,

@@ -897,7 +897,7 @@ public class PlanOptimizers
                 costCalculator,
                 ImmutableSet.<Rule<?>>builder()
                         .addAll(simplifyOptimizerRules) // Should be always run after PredicatePushDown
-                        .add(new RemoveRedundantTableScanPredicate(metadata, typeOperators))
+                        .add(new RemoveRedundantTableScanPredicate(metadata, typeOperators, typeAnalyzer))
                         .build()));
         builder.add(pushProjectionIntoTableScanOptimizer);
         // Projection pushdown rules may push reducing projections (e.g. dereferences) below filters for potential
