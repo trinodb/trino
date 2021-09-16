@@ -92,6 +92,9 @@ development. Use the following options to create a run configuration:
 The working directory should be the `trino-server-dev` subdirectory. In
 IntelliJ, using `$MODULE_DIR$` accomplishes this automatically.
 
+If `VM options` doesn't exist in the dialog, you need to select `Modify options`
+and enable `Add VM options`.
+
 ### Running the CLI
 
 Start the CLI to connect to the server and run SQL queries:
