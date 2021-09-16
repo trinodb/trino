@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.units.Duration;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
@@ -22,12 +23,19 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
+import io.trino.spi.type.TypeManager;
+import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
 
 import javax.inject.Inject;
 
-import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
+import java.util.Set;
+
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.getDynamicFilteringWaitTimeout;
+import static io.trino.plugin.iceberg.IcebergUtil.getColumns;
+import static io.trino.plugin.iceberg.IcebergUtil.getIdentityPartitions;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergSplitManager
@@ -36,11 +44,13 @@ public class IcebergSplitManager
     public static final int ICEBERG_DOMAIN_COMPACTION_THRESHOLD = 1000;
 
     private final IcebergTransactionManager transactionManager;
+    private final TypeManager typeManager;
 
     @Inject
-    public IcebergSplitManager(IcebergTransactionManager transactionManager)
+    public IcebergSplitManager(IcebergTransactionManager transactionManager, TypeManager typeManager)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
     @Override
@@ -58,17 +68,24 @@ public class IcebergSplitManager
         }
 
         Table icebergTable = transactionManager.get(transaction).getIcebergTable(session, table.getSchemaTableName());
+        Duration dynamicFilteringWaitTimeout = getDynamicFilteringWaitTimeout(session);
+
+        Set<Integer> identityPartitionFieldIds = getIdentityPartitions(icebergTable.spec()).keySet().stream()
+                .map(PartitionField::sourceId)
+                .collect(toImmutableSet());
+        Set<IcebergColumnHandle> identityPartitionColumns = getColumns(icebergTable.schema(), typeManager).stream()
+                .filter(column -> identityPartitionFieldIds.contains(column.getId()))
+                .collect(toImmutableSet());
 
         TableScan tableScan = icebergTable.newScan()
-                .filter(toIcebergExpression(
-                        table.getEnforcedPredicate()
-                                // TODO: Remove TupleDomain#simplify once Iceberg supports IN expression. Currently this
-                                // is required for IN predicates on non-partition columns with large value list. Such
-                                // predicates on partition columns are not supported.
-                                // (See AbstractTestIcebergSmoke#testLargeInFailureOnPartitionedColumns)
-                                .intersect(table.getUnenforcedPredicate().simplify(ICEBERG_DOMAIN_COMPACTION_THRESHOLD))))
                 .useSnapshot(table.getSnapshotId().get());
-        IcebergSplitSource splitSource = new IcebergSplitSource(table.getSchemaTableName(), tableScan.planTasks());
+        IcebergSplitSource splitSource = new IcebergSplitSource(
+                table,
+                identityPartitionColumns,
+                tableScan,
+                dynamicFilter,
+                session.getTimeZoneKey(),
+                dynamicFilteringWaitTimeout);
 
         return new ClassLoaderSafeConnectorSplitSource(splitSource, Thread.currentThread().getContextClassLoader());
     }

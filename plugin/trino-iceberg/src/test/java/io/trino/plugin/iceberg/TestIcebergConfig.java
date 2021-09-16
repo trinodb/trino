@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.Duration;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import org.testng.annotations.Test;
 
@@ -27,6 +28,7 @@ import static io.trino.plugin.iceberg.CatalogType.GLUE;
 import static io.trino.plugin.iceberg.CatalogType.HIVE_METASTORE;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class TestIcebergConfig
 {
@@ -39,7 +41,8 @@ public class TestIcebergConfig
                 .setUseFileSizeFromMetadata(true)
                 .setMaxPartitionsPerWriter(100)
                 .setUniqueTableLocation(false)
-                .setCatalogType(HIVE_METASTORE));
+                .setCatalogType(HIVE_METASTORE)
+                .setDynamicFilteringWaitTimeout(new Duration(0, MINUTES)));
     }
 
     @Test
@@ -52,6 +55,7 @@ public class TestIcebergConfig
                 .put("iceberg.max-partitions-per-writer", "222")
                 .put("iceberg.unique-table-location", "true")
                 .put("iceberg.catalog.type", "GLUE")
+                .put("iceberg.dynamic-filtering.wait-timeout", "1h")
                 .build();
 
         IcebergConfig expected = new IcebergConfig()
@@ -60,7 +64,8 @@ public class TestIcebergConfig
                 .setUseFileSizeFromMetadata(false)
                 .setMaxPartitionsPerWriter(222)
                 .setUniqueTableLocation(true)
-                .setCatalogType(GLUE);
+                .setCatalogType(GLUE)
+                .setDynamicFilteringWaitTimeout(Duration.valueOf("1h"));
 
         assertFullMapping(properties, expected);
     }
