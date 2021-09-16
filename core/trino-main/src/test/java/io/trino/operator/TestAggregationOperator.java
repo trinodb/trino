@@ -17,13 +17,19 @@ import com.google.common.collect.ImmutableList;
 import io.trino.block.BlockAssertions;
 import io.trino.metadata.Metadata;
 import io.trino.operator.AggregationOperator.AggregationOperatorFactory;
+import io.trino.operator.aggregation.AccumulatorFactory;
 import io.trino.operator.aggregation.InternalAggregationFunction;
 import io.trino.spi.Page;
+import io.trino.spi.block.Block;
 import io.trino.spi.block.ByteArrayBlock;
+import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.type.TypeOperators;
+import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.planner.plan.AggregationNode.Step;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.testing.MaterializedResult;
+import io.trino.type.BlockTypeOperators;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -41,6 +47,7 @@ import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.operator.OperatorAssertion.assertOperatorEquals;
 import static io.trino.operator.OperatorAssertion.toPages;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -114,6 +121,53 @@ public class TestAggregationOperator
                 .build();
 
         assertOperatorEquals(operatorFactory, driverContext, input, expected);
+    }
+
+    @Test
+    public void testDistinctMaskWithNulls()
+    {
+        TypeOperators typeOperators = new TypeOperators();
+
+        AccumulatorFactory distinctFactory = COUNT.bind(
+                ImmutableList.of(0),
+                Optional.of(1),
+                ImmutableList.of(BIGINT, BOOLEAN),
+                ImmutableList.of(),
+                ImmutableList.of(),
+                null,
+                true, // distinct
+                new JoinCompiler(typeOperators),
+                new BlockTypeOperators(typeOperators),
+                ImmutableList.of(),
+                TEST_SESSION);
+
+        DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)
+                .addPipelineContext(0, true, true, false)
+                .addDriverContext();
+
+        OperatorFactory operatorFactory = new AggregationOperatorFactory(
+                0,
+                new PlanNodeId("test"),
+                Step.SINGLE,
+                ImmutableList.of(distinctFactory),
+                false);
+
+        ByteArrayBlock trueMaskAllNull = new ByteArrayBlock(
+                4,
+                Optional.of(new boolean[] {true, true, true, true}), /* all positions are null */
+                new byte[] {1, 1, 1, 1}); /* non-zero value is true, all masks are true */
+
+        Block trueNullRleMask = new RunLengthEncodedBlock(trueMaskAllNull.getSingleValueBlock(0), 4);
+
+        List<Page> nullTrueMaskInput = ImmutableList.of(
+                new Page(4, BlockAssertions.createLongsBlock(1, 2, 3, 4), trueMaskAllNull),
+                new Page(4, BlockAssertions.createLongsBlock(5, 6, 7, 8), trueNullRleMask));
+
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
+                .row(0L) // all rows should be filtered by nulls
+                .build();
+
+        assertOperatorEquals(operatorFactory, driverContext, nullTrueMaskInput, expected);
     }
 
     @Test
