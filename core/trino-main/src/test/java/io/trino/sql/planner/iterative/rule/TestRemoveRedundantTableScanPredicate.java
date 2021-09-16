@@ -60,7 +60,7 @@ public class TestRemoveRedundantTableScanPredicate
     @BeforeClass
     public void setUpBeforeClass()
     {
-        removeRedundantTableScanPredicate = new RemoveRedundantTableScanPredicate(tester().getMetadata(), new TypeOperators());
+        removeRedundantTableScanPredicate = new RemoveRedundantTableScanPredicate(tester().getMetadata(), new TypeOperators(), tester().getTypeAnalyzer());
         CatalogName catalogName = tester().getCurrentConnectorId();
         TpchTableHandle nation = new TpchTableHandle("nation", 1.0);
         nationTableHandle = new TableHandle(

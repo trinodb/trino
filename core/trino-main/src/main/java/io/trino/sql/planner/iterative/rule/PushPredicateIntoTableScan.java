@@ -34,8 +34,10 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.ExpressionInterpreter;
+import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.LookupSymbolResolver;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.SymbolsExtractor;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
@@ -115,7 +117,7 @@ public class PushPredicateIntoTableScan
                 tableScan,
                 false,
                 context.getSession(),
-                context.getSymbolAllocator().getTypes(),
+                context.getSymbolAllocator(),
                 metadata,
                 typeOperators,
                 typeAnalyzer,
@@ -155,7 +157,7 @@ public class PushPredicateIntoTableScan
             TableScanNode node,
             boolean pruneWithPredicateExpression,
             Session session,
-            TypeProvider types,
+            SymbolAllocator symbolAllocator,
             Metadata metadata,
             TypeOperators typeOperators,
             TypeAnalyzer typeAnalyzer,
@@ -177,7 +179,7 @@ public class PushPredicateIntoTableScan
                 typeOperators,
                 session,
                 deterministicPredicate,
-                types);
+                symbolAllocator.getTypes());
 
         TupleDomain<ColumnHandle> newDomain = decomposedPredicate.getTupleDomain()
                 .transformKeys(node.getAssignments()::get)
@@ -192,7 +194,7 @@ public class PushPredicateIntoTableScan
                     metadata,
                     typeAnalyzer,
                     session,
-                    types,
+                    symbolAllocator.getTypes(),
                     node.getAssignments(),
                     combineConjuncts(
                             metadata,
@@ -217,6 +219,9 @@ public class PushPredicateIntoTableScan
             if (constraint.predicate().isEmpty() && newDomain.contains(node.getEnforcedConstraint())) {
                 Expression resultingPredicate = createResultingPredicate(
                         metadata,
+                        session,
+                        symbolAllocator,
+                        typeAnalyzer,
                         TRUE_LITERAL,
                         nonDeterministicPredicate,
                         decomposedPredicate.getRemainingExpression());
@@ -286,6 +291,9 @@ public class PushPredicateIntoTableScan
 
         Expression resultingPredicate = createResultingPredicate(
                 metadata,
+                session,
+                symbolAllocator,
+                typeAnalyzer,
                 domainTranslator.toPredicate(remainingFilter.transformKeys(assignments::get)),
                 nonDeterministicPredicate,
                 decomposedPredicate.getRemainingExpression());
@@ -317,6 +325,9 @@ public class PushPredicateIntoTableScan
 
     static Expression createResultingPredicate(
             Metadata metadata,
+            Session session,
+            SymbolAllocator symbolAllocator,
+            TypeAnalyzer typeAnalyzer,
             Expression unenforcedConstraints,
             Expression nonDeterministicPredicate,
             Expression remainingDecomposedPredicate)
@@ -329,7 +340,13 @@ public class PushPredicateIntoTableScan
         // * Short of implementing the previous bullet point, the current order of non-deterministic expressions
         //   and non-TupleDomain-expressible expressions should be retained. Changing the order can lead
         //   to failures of previously successful queries.
-        return combineConjuncts(metadata, unenforcedConstraints, nonDeterministicPredicate, remainingDecomposedPredicate);
+        Expression expression = combineConjuncts(metadata, unenforcedConstraints, nonDeterministicPredicate, remainingDecomposedPredicate);
+
+        // Make sure we produce an expression whose terms are consistent with the canonical form used in other optimizations
+        // Otherwise, we'll end up ping-ponging among rules
+        expression = SimplifyExpressions.rewrite(expression, session, symbolAllocator, metadata, new LiteralEncoder(metadata), typeAnalyzer);
+
+        return expression;
     }
 
     private static class LayoutConstraintEvaluator
