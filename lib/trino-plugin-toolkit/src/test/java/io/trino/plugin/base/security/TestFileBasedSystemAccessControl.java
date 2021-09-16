@@ -48,6 +48,7 @@ import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static java.lang.Thread.sleep;
+import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.util.Files.newTemporaryFile;
 import static org.testng.Assert.assertEquals;
@@ -1177,6 +1178,7 @@ public class TestFileBasedSystemAccessControl
     {
         File configFile = newTemporaryFile();
         configFile.deleteOnExit();
+        //noinspection UnstableApiUsage
         copy(new File(getResourcePath("catalog.json")), configFile);
 
         SystemAccessControl accessControl = newFileBasedSystemAccessControl(ImmutableMap.of(
@@ -1188,6 +1190,7 @@ public class TestFileBasedSystemAccessControl
         accessControl.checkCanCreateView(alice, aliceView);
         accessControl.checkCanCreateView(alice, aliceView);
 
+        //noinspection UnstableApiUsage
         copy(new File(getResourcePath("security-config-file-with-unknown-rules.json")), configFile);
         sleep(2);
 
@@ -1200,6 +1203,7 @@ public class TestFileBasedSystemAccessControl
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageStartingWith("Invalid JSON file");
 
+        //noinspection UnstableApiUsage
         copy(new File(getResourcePath("catalog.json")), configFile);
         sleep(2);
 
@@ -1225,7 +1229,7 @@ public class TestFileBasedSystemAccessControl
 
     private String getResourcePath(String resourceName)
     {
-        return this.getClass().getClassLoader().getResource(resourceName).getPath();
+        return requireNonNull(this.getClass().getClassLoader().getResource(resourceName), "Resource does not exist: " + resourceName).getPath();
     }
 
     private static void assertAccessDenied(ThrowingCallable callable, String expectedMessage)
