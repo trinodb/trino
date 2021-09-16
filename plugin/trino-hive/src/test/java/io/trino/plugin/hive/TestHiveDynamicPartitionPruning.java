@@ -30,7 +30,6 @@ import org.testng.annotations.Test;
 import java.util.List;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.SystemSessionProperties.ENABLE_LARGE_DYNAMIC_FILTERS;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
@@ -43,6 +42,7 @@ import static io.trino.spi.predicate.Range.range;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
 import static io.trino.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
+import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.tpch.TpchTable.getTables;
 import static io.trino.util.DynamicFiltersTestUtil.getSimplifiedDomainString;
 import static java.lang.String.format;
@@ -100,10 +100,12 @@ public class TestHiveDynamicPartitionPruning
     @Test(timeOut = 30_000)
     public void testJoinWithEmptyBuildSide()
     {
+        @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem JOIN supplier ON partitioned_lineitem.suppkey = supplier.suppkey AND supplier.name = 'abc'";
         ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
                 getSession(),
-                "SELECT * FROM partitioned_lineitem JOIN supplier ON partitioned_lineitem.suppkey = supplier.suppkey AND supplier.name = 'abc'");
-        assertEquals(result.getResult().getRowCount(), 0);
+                selectQuery);
+        MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
+        assertEqualsIgnoreOrder(result.getResult(), expected);
 
         // TODO bring back OperatorStats assertions from https://github.com/trinodb/trino/commit/1feaa0f928a02f577c8ac9ef6cc0c8ec2008a46d
         // after https://github.com/trinodb/trino/issues/5120 is fixed
@@ -122,11 +124,13 @@ public class TestHiveDynamicPartitionPruning
     @Test(timeOut = 30_000)
     public void testJoinWithSelectiveBuildSide()
     {
+        @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem JOIN supplier ON partitioned_lineitem.suppkey = supplier.suppkey " +
+                "AND supplier.name = 'Supplier#000000001'";
         ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
                 getSession(),
-                "SELECT * FROM partitioned_lineitem JOIN supplier ON partitioned_lineitem.suppkey = supplier.suppkey " +
-                        "AND supplier.name = 'Supplier#000000001'");
-        assertGreaterThan(result.getResult().getRowCount(), 0);
+                selectQuery);
+        MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
+        assertEqualsIgnoreOrder(result.getResult(), expected);
 
         // TODO bring back OperatorStats assertions from https://github.com/trinodb/trino/commit/1feaa0f928a02f577c8ac9ef6cc0c8ec2008a46d
         // after https://github.com/trinodb/trino/issues/5120 is fixed
@@ -144,10 +148,12 @@ public class TestHiveDynamicPartitionPruning
     @Test(timeOut = 30_000)
     public void testJoinWithNonSelectiveBuildSide()
     {
+        @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem JOIN supplier ON partitioned_lineitem.suppkey = supplier.suppkey";
         ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
                 getSession(),
-                "SELECT * FROM partitioned_lineitem JOIN supplier ON partitioned_lineitem.suppkey = supplier.suppkey");
-        assertEquals(result.getResult().getRowCount(), LINEITEM_COUNT);
+                selectQuery);
+        MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
+        assertEqualsIgnoreOrder(result.getResult(), expected);
 
         // TODO bring back OperatorStats assertions from https://github.com/trinodb/trino/commit/1feaa0f928a02f577c8ac9ef6cc0c8ec2008a46d
         // after https://github.com/trinodb/trino/issues/5120 is fixed
@@ -166,10 +172,12 @@ public class TestHiveDynamicPartitionPruning
     @Test(timeOut = 30_000)
     public void testJoinLargeBuildSideRangeDynamicFiltering()
     {
+        @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem JOIN orders ON partitioned_lineitem.orderkey = orders.orderkey";
         ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
                 getSession(),
-                "SELECT * FROM partitioned_lineitem JOIN orders ON partitioned_lineitem.orderkey = orders.orderkey");
-        assertEquals(result.getResult().getRowCount(), LINEITEM_COUNT);
+                selectQuery);
+        MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
+        assertEqualsIgnoreOrder(result.getResult(), expected);
 
         // TODO bring back OperatorStats assertions from https://github.com/trinodb/trino/commit/1feaa0f928a02f577c8ac9ef6cc0c8ec2008a46d
         // after https://github.com/trinodb/trino/issues/5120 is fixed
@@ -192,13 +200,15 @@ public class TestHiveDynamicPartitionPruning
     public void testJoinWithMultipleDynamicFiltersOnProbe()
     {
         // supplier names Supplier#000000001 and Supplier#000000002 match suppkey 1 and 2
+        @Language("SQL") String selectQuery = "SELECT * FROM (" +
+                "SELECT supplier.suppkey FROM " +
+                "partitioned_lineitem JOIN tpch.tiny.supplier ON partitioned_lineitem.suppkey = supplier.suppkey AND supplier.name IN ('Supplier#000000001', 'Supplier#000000002')" +
+                ") t JOIN supplier ON t.suppkey = supplier.suppkey AND supplier.suppkey IN (2, 3)";
         ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
                 getSession(),
-                "SELECT * FROM (" +
-                        "SELECT supplier.suppkey FROM " +
-                        "partitioned_lineitem JOIN tpch.tiny.supplier ON partitioned_lineitem.suppkey = supplier.suppkey AND supplier.name IN ('Supplier#000000001', 'Supplier#000000002')" +
-                        ") t JOIN supplier ON t.suppkey = supplier.suppkey AND supplier.suppkey IN (2, 3)");
-        assertGreaterThan(result.getResult().getRowCount(), 0);
+                selectQuery);
+        MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
+        assertEqualsIgnoreOrder(result.getResult(), expected);
 
         // TODO bring back OperatorStats assertions from https://github.com/trinodb/trino/commit/1feaa0f928a02f577c8ac9ef6cc0c8ec2008a46d
         // after https://github.com/trinodb/trino/issues/5120 is fixed
@@ -226,10 +236,12 @@ public class TestHiveDynamicPartitionPruning
                         "SELECT orderkey, CAST(suppkey as int) suppkey_int FROM tpch.tiny.lineitem",
                 LINEITEM_COUNT);
 
+        @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem_int l JOIN supplier s ON l.suppkey_int = s.suppkey AND s.name = 'Supplier#000000001'";
         ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
                 getSession(),
-                "SELECT * FROM partitioned_lineitem_int l JOIN supplier s ON l.suppkey_int = s.suppkey AND s.name = 'Supplier#000000001'");
-        assertGreaterThan(result.getResult().getRowCount(), 0);
+                selectQuery);
+        MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
+        assertEqualsIgnoreOrder(result.getResult(), expected);
 
         DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
         assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
@@ -243,10 +255,12 @@ public class TestHiveDynamicPartitionPruning
     @Test(timeOut = 30_000)
     public void testSemiJoinWithEmptyBuildSide()
     {
+        @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem WHERE suppkey IN (SELECT suppkey FROM supplier WHERE name = 'abc')";
         ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
                 getSession(),
-                "SELECT * FROM partitioned_lineitem WHERE suppkey IN (SELECT suppkey FROM supplier WHERE name = 'abc')");
-        assertEquals(result.getResult().getRowCount(), 0);
+                selectQuery);
+        MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
+        assertEqualsIgnoreOrder(result.getResult(), expected);
 
         // TODO bring back OperatorStats assertions from https://github.com/trinodb/trino/commit/0fb16ab9d9c990e58fad63d4dab3dbbe482a077d
         // after https://github.com/trinodb/trino/issues/5120 is fixed
@@ -264,10 +278,12 @@ public class TestHiveDynamicPartitionPruning
     @Test(timeOut = 30_000)
     public void testSemiJoinWithSelectiveBuildSide()
     {
+        @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem WHERE suppkey IN (SELECT suppkey FROM supplier WHERE name = 'Supplier#000000001')";
         ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
                 getSession(),
-                "SELECT * FROM partitioned_lineitem WHERE suppkey IN (SELECT suppkey FROM supplier WHERE name = 'Supplier#000000001')");
-        assertGreaterThan(result.getResult().getRowCount(), 0);
+                selectQuery);
+        MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
+        assertEqualsIgnoreOrder(result.getResult(), expected);
 
         // TODO bring back OperatorStats assertions from https://github.com/trinodb/trino/commit/0fb16ab9d9c990e58fad63d4dab3dbbe482a077d
         // after https://github.com/trinodb/trino/issues/5120 is fixed
@@ -285,10 +301,12 @@ public class TestHiveDynamicPartitionPruning
     @Test(timeOut = 30_000)
     public void testSemiJoinWithNonSelectiveBuildSide()
     {
+        @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem WHERE suppkey IN (SELECT suppkey FROM supplier)";
         ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
                 getSession(),
-                "SELECT * FROM partitioned_lineitem WHERE suppkey IN (SELECT suppkey FROM supplier)");
-        assertGreaterThan(result.getResult().getRowCount(), 0);
+                selectQuery);
+        MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
+        assertEqualsIgnoreOrder(result.getResult(), expected);
 
         // TODO bring back OperatorStats assertions from https://github.com/trinodb/trino/commit/0fb16ab9d9c990e58fad63d4dab3dbbe482a077d
         // after https://github.com/trinodb/trino/issues/5120 is fixed
@@ -307,10 +325,12 @@ public class TestHiveDynamicPartitionPruning
     @Test(timeOut = 30_000)
     public void testSemiJoinLargeBuildSideRangeDynamicFiltering()
     {
+        @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem WHERE orderkey IN (SELECT orderkey FROM orders)";
         ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
                 getSession(),
-                "SELECT * FROM partitioned_lineitem WHERE orderkey IN (SELECT orderkey FROM orders)");
-        assertEquals(result.getResult().getRowCount(), LINEITEM_COUNT);
+                selectQuery);
+        MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
+        assertEqualsIgnoreOrder(result.getResult(), expected);
 
         // TODO bring back OperatorStats assertions from https://github.com/trinodb/trino/commit/0fb16ab9d9c990e58fad63d4dab3dbbe482a077d
         // after https://github.com/trinodb/trino/issues/5120 is fixed
@@ -332,10 +352,12 @@ public class TestHiveDynamicPartitionPruning
     @Test(timeOut = 30_000)
     public void testRightJoinWithEmptyBuildSide()
     {
+        @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem l RIGHT JOIN supplier s ON l.suppkey = s.suppkey WHERE name = 'abc'";
         ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
                 getSession(),
-                "SELECT * FROM partitioned_lineitem l RIGHT JOIN supplier s ON l.suppkey = s.suppkey WHERE name = 'abc'");
-        assertEquals(result.getResult().getRowCount(), 0);
+                selectQuery);
+        MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
+        assertEqualsIgnoreOrder(result.getResult(), expected);
 
         // TODO bring back OperatorStats assertions from https://github.com/trinodb/trino/commit/0fb16ab9d9c990e58fad63d4dab3dbbe482a077d
         // after https://github.com/trinodb/trino/issues/5120 is fixed
@@ -353,10 +375,12 @@ public class TestHiveDynamicPartitionPruning
     @Test(timeOut = 30_000)
     public void testRightJoinWithSelectiveBuildSide()
     {
+        @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem l RIGHT JOIN supplier s ON l.suppkey = s.suppkey WHERE name = 'Supplier#000000001'";
         ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
                 getSession(),
-                "SELECT * FROM partitioned_lineitem l RIGHT JOIN supplier s ON l.suppkey = s.suppkey WHERE name = 'Supplier#000000001'");
-        assertGreaterThan(result.getResult().getRowCount(), 0);
+                selectQuery);
+        MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
+        assertEqualsIgnoreOrder(result.getResult(), expected);
 
         // TODO bring back OperatorStats assertions from https://github.com/trinodb/trino/commit/0fb16ab9d9c990e58fad63d4dab3dbbe482a077d
         // after https://github.com/trinodb/trino/issues/5120 is fixed
@@ -374,10 +398,12 @@ public class TestHiveDynamicPartitionPruning
     @Test(timeOut = 30_000)
     public void testRightJoinWithNonSelectiveBuildSide()
     {
+        @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem l RIGHT JOIN supplier s ON l.suppkey = s.suppkey";
         ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
                 getSession(),
-                "SELECT * FROM partitioned_lineitem l RIGHT JOIN supplier s ON l.suppkey = s.suppkey");
-        assertGreaterThan(result.getResult().getRowCount(), 0);
+                selectQuery);
+        MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
+        assertEqualsIgnoreOrder(result.getResult(), expected);
 
         // TODO bring back OperatorStats assertions from https://github.com/trinodb/trino/commit/0fb16ab9d9c990e58fad63d4dab3dbbe482a077d
         // after https://github.com/trinodb/trino/issues/5120 is fixed
@@ -400,5 +426,12 @@ public class TestHiveDynamicPartitionPruning
                 .getFullQueryInfo(queryId)
                 .getQueryStats()
                 .getDynamicFiltersStats();
+    }
+
+    private Session withDynamicFilteringDisabled()
+    {
+        return Session.builder(getSession())
+                .setSystemProperty("enable_dynamic_filtering", "false")
+                .build();
     }
 }
