@@ -363,9 +363,9 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot rename view from %s to %s%s", viewName, newViewName, formatExtraInfo(extraInfo)));
     }
 
-    public static void denySetViewAuthorization(String tableName, TrinoPrincipal principal)
+    public static void denySetViewAuthorization(String viewName, TrinoPrincipal principal)
     {
-        throw new AccessDeniedException(format("Cannot set authorization for view %s to %s", tableName, principal));
+        throw new AccessDeniedException(format("Cannot set authorization for view %s to %s", viewName, principal));
     }
 
     public static void denyDropView(String viewName)
