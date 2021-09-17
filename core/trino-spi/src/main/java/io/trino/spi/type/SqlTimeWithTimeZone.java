@@ -19,11 +19,13 @@ import java.util.Objects;
 
 import static io.trino.spi.type.TimeType.MAX_PRECISION;
 import static io.trino.spi.type.Timestamps.MINUTES_PER_HOUR;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_HOUR;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MINUTE;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.POWERS_OF_TEN;
 import static io.trino.spi.type.Timestamps.SECONDS_PER_MINUTE;
+import static io.trino.spi.type.Timestamps.rescale;
 import static java.lang.Math.abs;
 import static java.lang.String.format;
 
@@ -35,6 +37,20 @@ public final class SqlTimeWithTimeZone
 
     public static SqlTimeWithTimeZone newInstance(int precision, long picoseconds, int offsetMinutes)
     {
+        if (precision < 0 || precision > 12) {
+            throw new IllegalArgumentException("Invalid precision: " + precision);
+        }
+        if (rescale(rescale(picoseconds, 12, precision), precision, 12) != picoseconds) {
+            throw new IllegalArgumentException(format("picoseconds contains data beyond specified precision (%s): %s", precision, picoseconds));
+        }
+        if (picoseconds < 0 || picoseconds >= PICOSECONDS_PER_DAY) {
+            throw new IllegalArgumentException("picoseconds is out of range: " + picoseconds);
+        }
+        // TIME WITH TIME ZONE's valid offsets are [-14:00, 14:00]
+        if (offsetMinutes < -14 * 60 || offsetMinutes > 14 * 60) {
+            throw new IllegalArgumentException("offsetMinutes is out of range: " + offsetMinutes);
+        }
+
         return new SqlTimeWithTimeZone(precision, picoseconds, offsetMinutes);
     }
 
