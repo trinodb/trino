@@ -116,7 +116,8 @@ public class TestFeaturesConfig
                 .setLegacyCatalogRoles(false)
                 .setDisableSetPropertiesSecurityCheckForCreateDdl(false)
                 .setIncrementalHashArrayLoadFactorEnabled(true)
-                .setHideInaccesibleColumns(false));
+                .setHideInaccesibleColumns(false)
+                .setAllowSetViewAuthorization(false));
     }
 
     @Test
@@ -197,6 +198,7 @@ public class TestFeaturesConfig
                 .put("deprecated.disable-set-properties-security-check-for-create-ddl", "true")
                 .put("incremental-hash-array-load-factor.enabled", "false")
                 .put("hide-inaccessible-columns", "true")
+                .put("legacy.allow-set-view-authorization", "true")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -273,7 +275,8 @@ public class TestFeaturesConfig
                 .setLegacyCatalogRoles(true)
                 .setDisableSetPropertiesSecurityCheckForCreateDdl(true)
                 .setIncrementalHashArrayLoadFactorEnabled(false)
-                .setHideInaccesibleColumns(true);
+                .setHideInaccesibleColumns(true)
+                .setAllowSetViewAuthorization(true);
         assertFullMapping(properties, expected);
     }
 }

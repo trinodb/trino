@@ -22,6 +22,8 @@ import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
 import io.trino.plugin.blackhole.BlackHolePlugin;
 import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.spi.connector.ConnectorViewDefinition;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.SelectedRole;
@@ -37,6 +39,7 @@ import java.util.Optional;
 import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.spi.security.SelectedRole.Type.ROLE;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.ADD_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_MATERIALIZED_VIEW;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_TABLE;
@@ -84,6 +87,27 @@ public class TestAccessControl
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
         queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
+                .withGetViews((connectorSession, prefix) -> {
+                    ConnectorViewDefinition definitionRunAsDefiner = new ConnectorViewDefinition(
+                            "select 1",
+                            Optional.of("mock"),
+                            Optional.of("default"),
+                            ImmutableList.of(new ConnectorViewDefinition.ViewColumn("test", BIGINT.getTypeId())),
+                            Optional.of("comment"),
+                            Optional.of("admin"),
+                            false);
+                    ConnectorViewDefinition definitionRunAsInvoker = new ConnectorViewDefinition(
+                            "select 1",
+                            Optional.of("mock"),
+                            Optional.of("default"),
+                            ImmutableList.of(new ConnectorViewDefinition.ViewColumn("test", BIGINT.getTypeId())),
+                            Optional.of("comment"),
+                            Optional.empty(),
+                            true);
+                    return ImmutableMap.of(
+                            new SchemaTableName("default", "test_view_definer"), definitionRunAsDefiner,
+                            new SchemaTableName("default", "test_view_invoker"), definitionRunAsInvoker);
+                })
                 .withListRoleGrants((connectorSession, roles, grantees, limit) -> ImmutableSet.of(new RoleGrant(new TrinoPrincipal(USER, "alice"), "alice_role", false)))
                 .build()));
         queryRunner.createCatalog("mock", "mock");
@@ -454,5 +478,19 @@ public class TestAccessControl
         assertQueryReturnsEmptyResult("SHOW ROLE GRANTS");
         assertQueryReturnsEmptyResult("SHOW CURRENT ROLES");
         assertQueryReturnsEmptyResult("SELECT * FROM information_schema.applicable_roles");
+    }
+
+    @Test
+    public void testSetViewAuthorizationWithSecurityDefiner()
+    {
+        assertQueryFails(
+                "ALTER VIEW mock.default.test_view_definer SET AUTHORIZATION some_other_user",
+                "Cannot set authorization for view mock.default.test_view_definer to USER some_other_user: this feature is disabled");
+    }
+
+    @Test
+    public void testSetViewAuthorizationWithSecurityInvoker()
+    {
+        assertQuerySucceeds("ALTER VIEW mock.default.test_view_invoker SET AUTHORIZATION some_other_user");
     }
 }
