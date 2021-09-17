@@ -596,6 +596,7 @@ public class HashBuilderOperator
         localUserMemoryContext.setBytes(index.getEstimatedSize().toBytes());
 
         close();
+        spilledLookupSourceHandle.setDisposeCompleted();
     }
 
     private LookupSourceSupplier buildLookupSource()
