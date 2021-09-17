@@ -316,7 +316,6 @@ public class SnowflakeClient
         }
 
         if (typeHandle.getJdbcType() == VARCHAR && distributedConnector) {
-            // TODO test varchar values exceeding HiveVarchar.MAX_VARCHAR_LENGTH (65535)
             return Optional.of(updatePushdownCotroller(varcharColumnMapping(createVarcharType(min(typeHandle.getRequiredColumnSize(), HiveVarchar.MAX_VARCHAR_LENGTH)), true)));
         }
 

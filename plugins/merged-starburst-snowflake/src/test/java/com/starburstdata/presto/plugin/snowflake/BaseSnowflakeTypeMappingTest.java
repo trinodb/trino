@@ -10,11 +10,10 @@
 package com.starburstdata.presto.plugin.snowflake;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.starburstdata.presto.testing.DataProviders;
 import io.trino.Session;
+import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
@@ -25,7 +24,6 @@ import io.trino.testing.datatype.CreateAndInsertDataSetup;
 import io.trino.testing.datatype.CreateAsSelectDataSetup;
 import io.trino.testing.datatype.DataSetup;
 import io.trino.testing.datatype.DataType;
-import io.trino.testing.datatype.DataTypeTest;
 import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TrinoSqlExecutor;
@@ -33,36 +31,25 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import java.math.BigDecimal;
 import java.sql.SQLException;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.List;
-import java.util.Map;
 import java.util.function.BiFunction;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.Verify.verify;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.TEST_SCHEMA;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.TimeType.TIME;
+import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
-import static io.trino.testing.datatype.DataType.booleanDataType;
-import static io.trino.testing.datatype.DataType.dateDataType;
-import static io.trino.testing.datatype.DataType.stringDataType;
-import static io.trino.testing.datatype.DataType.timestampDataType;
-import static io.trino.testing.datatype.DataType.varcharDataType;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
-import static java.math.RoundingMode.UNNECESSARY;
 import static java.time.ZoneOffset.UTC;
-import static java.util.function.Function.identity;
 
 public abstract class BaseSnowflakeTypeMappingTest
         extends AbstractTestQueryFramework
@@ -74,18 +61,18 @@ public abstract class BaseSnowflakeTypeMappingTest
     private LocalDateTime dateTimeBeforeEpoch;
     private LocalDateTime dateTimeEpoch;
     private LocalDateTime dateTimeAfterEpoch;
-    private ZoneId jvmZone;
+    protected ZoneId jvmZone;
     private LocalDateTime dateTimeGapInJvmZone1;
     private LocalDateTime dateTimeGapInJvmZone2;
     private LocalDateTime dateTimeDoubledInJvmZone;
 
     // no DST in 1970, but has DST in later years (e.g. 2018)
-    private ZoneId vilnius;
+    protected ZoneId vilnius;
     private LocalDateTime dateTimeGapInVilnius;
     private LocalDateTime dateTimeDoubledInVilnius;
 
     // minutes offset change since 1970-01-01, no DST
-    private ZoneId kathmandu;
+    protected ZoneId kathmandu;
     private LocalDateTime dateTimeGapInKathmandu;
 
     @BeforeClass
@@ -120,196 +107,194 @@ public abstract class BaseSnowflakeTypeMappingTest
     @Test
     public void booleanMappings()
     {
-        testTypeMapping(DataTypeTest.create()
-                .addRoundTrip(booleanDataType(), true)
-                .addRoundTrip(booleanDataType(), false));
+        SqlDataTypeTest.create()
+                .addRoundTrip("boolean", "true", BOOLEAN)
+                .addRoundTrip("boolean", "false", BOOLEAN)
+                .execute(getQueryRunner(), prestoCreateAsSelect());
     }
 
     @Test
     public void floatingPointMappings()
     {
-        DataType<Double> dataType = doubleDataType();
-        testTypeMapping(DataTypeTest.create()
-                .addRoundTrip(dataType, 1.0e100d)
-                .addRoundTrip(dataType, Double.NaN)
-                .addRoundTrip(dataType, Double.POSITIVE_INFINITY)
-                .addRoundTrip(dataType, Double.NEGATIVE_INFINITY)
-                .addRoundTrip(dataType, null));
+        SqlDataTypeTest.create()
+                .addRoundTrip("double", "1.0E100", DOUBLE)
+                .addRoundTrip("double", "123.456E10", DOUBLE)
+                .addRoundTrip("double", "nan()", DOUBLE)
+                .addRoundTrip("double", "+infinity()", DOUBLE)
+                .addRoundTrip("double", "-infinity()", DOUBLE)
+                .addRoundTrip("double", "CAST(NULL AS double)", DOUBLE)
+                .execute(getQueryRunner(), prestoCreateAsSelect());
     }
 
     @Test
     public void snowflakeFloatingPointMappings()
     {
-        testTypeReadMapping(
-                DataTypeTest.create()
-                        .addRoundTrip(dataType("double precision", DoubleType.DOUBLE), 1.0e100d)
-                        .addRoundTrip(dataType("double", DoubleType.DOUBLE), 1.0)
-                        .addRoundTrip(dataType("real", DoubleType.DOUBLE), 123456.123456)
-                        .addRoundTrip(dataType("float", DoubleType.DOUBLE), null)
-                        .addRoundTrip(dataType("float8", DoubleType.DOUBLE), 1.0e15d)
-                        .addRoundTrip(dataType("float4", DoubleType.DOUBLE), 1.0)
-                        .addRoundTrip(dataType("float8", DoubleType.DOUBLE), 1234567890.01234)
-                        .addRoundTrip(dataType("real", DoubleType.DOUBLE), null)
-                        .addRoundTrip(dataType("double", DoubleType.DOUBLE), 100000.0)
-                        .addRoundTrip(dataType("double precision", DoubleType.DOUBLE), 123000.0));
+        SqlDataTypeTest.create()
+                .addRoundTrip("double precision", "1.0E100", DOUBLE, "double '1.0E100'")
+                .addRoundTrip("double", "1.0", DOUBLE, "double '1.0'")
+                .addRoundTrip("real", "123456.123456", DOUBLE, "double '123456.123456'")
+                .addRoundTrip("float", "NULL", DOUBLE, "CAST(NULL AS double)")
+                .addRoundTrip("float8", "1.0E15", DOUBLE, "double '1.0E15'")
+                .addRoundTrip("float4", "1.0", DOUBLE, "double '1.0'")
+                .addRoundTrip("float8", "1.23456789001234E9", DOUBLE, "double '1.23456789001234E9'")
+                .addRoundTrip("real", "NULL", DOUBLE, "CAST(NULL AS double)")
+                .addRoundTrip("double", "100000.0", DOUBLE, "double '100000.0'")
+                .addRoundTrip("double precision", "123000.0", DOUBLE, "double '123000.0'")
+                .execute(getQueryRunner(), snowflakeCreateAsSelect());
     }
 
     @Test
     public void varcharMapping()
     {
-        testTypeMapping(
-                DataTypeTest.create()
-                        .addRoundTrip(varcharDataType(10), "string 010")
-                        .addRoundTrip(varcharDataType(20), "string 020")
-                        .addRoundTrip(varcharDataType(MAX_VARCHAR), "string max size")
-                        .addRoundTrip(varcharDataType(5), null)
-                        .addRoundTrip(varcharDataType(213), "攻殻機動隊")
-                        .addRoundTrip(varcharDataType(42), null));
+        SqlDataTypeTest.create()
+                .addRoundTrip("varchar(10)", "'string 010'", VarcharType.createVarcharType(10), "'string 010'")
+                .addRoundTrip("varchar(20)", "'string 020'", VarcharType.createVarcharType(20), "CAST('string 020' AS VARCHAR(20))")
+                .addRoundTrip("varchar(16777216)", "'string max size'", VarcharType.createVarcharType(MAX_VARCHAR), "CAST('string max size' AS VARCHAR(16777216))")
+                .addRoundTrip("varchar(5)", "null", VarcharType.createVarcharType(5), "CAST(null AS VARCHAR(5))")
+                .addRoundTrip("varchar(213)", "'攻殻機動隊'", VarcharType.createVarcharType(213), "CAST('攻殻機動隊' AS VARCHAR(213))")
+                .addRoundTrip("varchar(42)", "null", VarcharType.createVarcharType(42), "CAST(null AS VARCHAR(42))")
+                .execute(getQueryRunner(), prestoCreateAsSelect());
     }
 
     @Test
     public void varcharReadMapping()
     {
-        testTypeReadMapping(
-                DataTypeTest.create()
-                        .addRoundTrip(stringDataType("varchar(10)", VarcharType.createVarcharType(10)), "string 010")
-                        .addRoundTrip(stringDataType("varchar(20)", VarcharType.createVarcharType(20)), "string 020")
-                        .addRoundTrip(stringDataType(format("varchar(%s)", MAX_VARCHAR), VarcharType.createVarcharType(MAX_VARCHAR)), "string max size")
-                        .addRoundTrip(stringDataType("character(10)", VarcharType.createVarcharType(10)), null)
-                        .addRoundTrip(stringDataType("char(100)", VarcharType.createVarcharType(100)), "攻殻機動隊")
-                        .addRoundTrip(stringDataType("text", VarcharType.createVarcharType(MAX_VARCHAR)), "攻殻機動隊")
-                        .addRoundTrip(stringDataType("string", VarcharType.createVarcharType(MAX_VARCHAR)), "攻殻機動隊"));
+        SqlDataTypeTest.create()
+                .addRoundTrip("varchar(10)", "'string 010'", VarcharType.createVarcharType(10), "'string 010'")
+                .addRoundTrip("varchar(20)", "'string 020'", VarcharType.createVarcharType(20), "CAST('string 020' AS VARCHAR(20))")
+                .addRoundTrip("varchar(16777216)", "'string max size'", VarcharType.createVarcharType(MAX_VARCHAR), "CAST('string max size' AS VARCHAR(16777216))")
+                .addRoundTrip("character(10)", "null", VarcharType.createVarcharType(10), "CAST(null AS VARCHAR(10))")
+                .addRoundTrip("char(100)", "'攻殻機動隊'", VarcharType.createVarcharType(100), "CAST('攻殻機動隊' AS VARCHAR(100))")
+                .addRoundTrip("text", "'攻殻機動隊'", VarcharType.createVarcharType(MAX_VARCHAR), "CAST('攻殻機動隊' AS VARCHAR(16777216))")
+                .addRoundTrip("string", "'攻殻機動隊'", VarcharType.createVarcharType(MAX_VARCHAR), "CAST('攻殻機動隊' AS VARCHAR(16777216))")
+                .execute(getQueryRunner(), snowflakeCreateAsSelect());
     }
 
     @Test
     public void charMapping()
     {
-        testTypeMapping(
-                DataTypeTest.create()
-                        .addRoundTrip(stringDataType("char(10)", VarcharType.createVarcharType(10)), "string 010")
-                        .addRoundTrip(stringDataType("char(20)", VarcharType.createVarcharType(20)), "string 020          ")
-                        .addRoundTrip(stringDataType("char(10)", VarcharType.createVarcharType(10)), null));
+        SqlDataTypeTest.create()
+                .addRoundTrip("char(10)", "'string 010'", VarcharType.createVarcharType(10), "'string 010'")
+                .addRoundTrip("char(20)", "'string 020          '", VarcharType.createVarcharType(20), "'string 020          '")
+                .addRoundTrip("char(10)", "null", VarcharType.createVarcharType(10), "CAST(null AS VARCHAR(10))")
+                .execute(getQueryRunner(), prestoCreateAsSelect());
     }
 
     @Test
     public void charReadMapping()
     {
-        testTypeReadMapping(
-                DataTypeTest.create()
-                        .addRoundTrip(stringDataType("char(10)", VarcharType.createVarcharType(10)), "string 010")
-                        .addRoundTrip(stringDataType("char(20)", VarcharType.createVarcharType(20)), "string 020")
-                        .addRoundTrip(stringDataType("char(5)", VarcharType.createVarcharType(5)), null));
+        SqlDataTypeTest.create()
+                .addRoundTrip("char(10)", "'string 010'", VarcharType.createVarcharType(10), "'string 010'")
+                .addRoundTrip("char(20)", "'string 020'", VarcharType.createVarcharType(20), "CAST('string 020' AS VARCHAR(20))")
+                .addRoundTrip("char(5)", "null", VarcharType.createVarcharType(5), "CAST(null AS VARCHAR(5))")
+                .execute(getQueryRunner(), snowflakeCreateAsSelect());
     }
 
     @Test
     public void decimalMapping()
     {
-        testTypeMapping(numericTests((precision, scale) -> decimalDataType("decimal", precision, scale)));
+        numericTests("decimal", DecimalType::createDecimalType)
+                .execute(getQueryRunner(), prestoCreateAsSelect());
     }
 
     @Test
     public void decimalReadMapping()
     {
-        testTypeReadMapping(numericTests((precision, scale) -> decimalDataType("decimal", precision, scale)));
-        testTypeReadMapping(numericTests((precision, scale) -> decimalDataType("numeric", precision, scale)));
-        testTypeReadMapping(numericTests((precision, scale) -> decimalDataType("number", precision, scale)));
+        numericTests("decimal", DecimalType::createDecimalType).execute(getQueryRunner(), snowflakeCreateAsSelect());
+        numericTests("numeric", DecimalType::createDecimalType).execute(getQueryRunner(), snowflakeCreateAsSelect());
+        numericTests("number", DecimalType::createDecimalType).execute(getQueryRunner(), snowflakeCreateAsSelect());
     }
 
     @Test
     public void integerMappings()
     {
-        testTypeMapping(
-                DataTypeTest.create()
-                        .addRoundTrip(integerDataType("TINYINT", 3), new BigDecimal(0))
-                        .addRoundTrip(integerDataType("TINYINT", 3), null)
-                        .addRoundTrip(integerDataType("SMALLINT", 5), new BigDecimal(0))
-                        .addRoundTrip(integerDataType("SMALLINT", 5), new BigDecimal(-32768))
-                        .addRoundTrip(integerDataType("SMALLINT", 5), new BigDecimal(32767))
-                        .addRoundTrip(integerDataType("SMALLINT", 5), null)
-                        .addRoundTrip(integerDataType("INTEGER", 10), new BigDecimal(0))
-                        .addRoundTrip(integerDataType("INTEGER", 10), new BigDecimal(0x80000000))
-                        .addRoundTrip(integerDataType("INTEGER", 10), new BigDecimal(0x7fffffff))
-                        .addRoundTrip(integerDataType("INTEGER", 10), null)
-                        .addRoundTrip(integerDataType("BIGINT", 19), new BigDecimal(0L))
-                        .addRoundTrip(integerDataType("BIGINT", 19), new BigDecimal(0x8000000000000000L + 1))
-                        .addRoundTrip(integerDataType("BIGINT", 19), new BigDecimal(0x7fffffffffffffffL))
-                        .addRoundTrip(integerDataType("BIGINT", 19), null));
+        SqlDataTypeTest.create()
+                .addRoundTrip("TINYINT", "0", createDecimalType(3), "CAST(0 AS DECIMAL(3))")
+                .addRoundTrip("TINYINT", "null", createDecimalType(3), "CAST(null AS DECIMAL(3))")
+                .addRoundTrip("SMALLINT", "0", createDecimalType(5), "CAST(0 AS DECIMAL(5))")
+                .addRoundTrip("SMALLINT", "-32768", createDecimalType(5), "CAST(-32768 AS DECIMAL(5))")
+                .addRoundTrip("SMALLINT", "32767", createDecimalType(5), "CAST(32767 AS DECIMAL(5))")
+                .addRoundTrip("SMALLINT", "null", createDecimalType(5), "CAST(null AS DECIMAL(5))")
+                .addRoundTrip("INTEGER", "0", createDecimalType(10), "CAST(0 AS DECIMAL(10))")
+                .addRoundTrip("INTEGER", "-2147483648", createDecimalType(10), "CAST(-2147483648 AS DECIMAL(10))")
+                .addRoundTrip("INTEGER", "2147483647", createDecimalType(10), "CAST(2147483647 AS DECIMAL(10))")
+                .addRoundTrip("INTEGER", "null", createDecimalType(10), "CAST(null AS DECIMAL(10))")
+                .addRoundTrip("BIGINT", "0", createDecimalType(19), "CAST(0 AS DECIMAL(19))")
+                .addRoundTrip("BIGINT", "-9223372036854775807", createDecimalType(19), "CAST(-9223372036854775807 AS DECIMAL(19))")
+                .addRoundTrip("BIGINT", "9223372036854775807", createDecimalType(19), "CAST(9223372036854775807 AS DECIMAL(19))")
+                .addRoundTrip("BIGINT", "null", createDecimalType(19), "CAST(null AS DECIMAL(19))")
+                .execute(getQueryRunner(), prestoCreateAsSelect());
     }
 
-    private static DataTypeTest numericTests(BiFunction<Integer, Integer, DataType<BigDecimal>> decimalType)
+    private static SqlDataTypeTest numericTests(String typeName, BiFunction<Integer, Integer, Type> decimalType)
     {
-        return DataTypeTest.create()
-                .addRoundTrip(decimalType.apply(3, 0), new BigDecimal("193")) // full p
-                .addRoundTrip(decimalType.apply(3, 0), new BigDecimal("19")) // partial p
-                .addRoundTrip(decimalType.apply(3, 0), new BigDecimal("-193")) // negative full p
-                .addRoundTrip(decimalType.apply(3, 1), new BigDecimal("10.0")) // 0 decimal
-                .addRoundTrip(decimalType.apply(3, 1), new BigDecimal("10.1")) // full ps
-                .addRoundTrip(decimalType.apply(3, 1), new BigDecimal("-10.1")) // negative ps
-                .addRoundTrip(decimalType.apply(4, 2), new BigDecimal("2")) //
-                .addRoundTrip(decimalType.apply(4, 2), new BigDecimal("2.3"))
-                .addRoundTrip(decimalType.apply(24, 2), new BigDecimal("2"))
-                .addRoundTrip(decimalType.apply(24, 2), new BigDecimal("2.3"))
-                .addRoundTrip(decimalType.apply(24, 2), new BigDecimal("123456789.3"))
-                .addRoundTrip(decimalType.apply(24, 4), new BigDecimal("12345678901234567890.31"))
-                .addRoundTrip(decimalType.apply(30, 5), new BigDecimal("3141592653589793238462643.38327"))
-                .addRoundTrip(decimalType.apply(30, 5), new BigDecimal("-3141592653589793238462643.38327"))
-                .addRoundTrip(decimalType.apply(38, 0), new BigDecimal("27182818284590452353602874713526624977"))
-                .addRoundTrip(decimalType.apply(38, 0), new BigDecimal("-27182818284590452353602874713526624977"))
-                .addRoundTrip(decimalType.apply(38, 37), new BigDecimal(".1000020000300004000050000600007000088"))
-                .addRoundTrip(decimalType.apply(38, 37), new BigDecimal("-.2718281828459045235360287471352662497"))
-                .addRoundTrip(decimalType.apply(10, 3), null);
+        return SqlDataTypeTest.create()
+                .addRoundTrip(typeName + "(3, 0)", "193", decimalType.apply(3, 0), "CAST(193 AS DECIMAL(3, 0))") // full p
+                .addRoundTrip(typeName + "(3, 0)", "19", decimalType.apply(3, 0), "CAST(19 AS DECIMAL(3, 0))") // partial p
+                .addRoundTrip(typeName + "(3, 0)", "-193", decimalType.apply(3, 0), "CAST(-193 AS DECIMAL(3, 0))") // negative full p
+                .addRoundTrip(typeName + "(3, 1)", "10.0", decimalType.apply(3, 1), "CAST(10.0 AS DECIMAL(3, 1))") // 0 decimal
+                .addRoundTrip(typeName + "(3, 1)", "10.1", decimalType.apply(3, 1), "CAST(10.1 AS DECIMAL(3, 1))") // full ps
+                .addRoundTrip(typeName + "(3, 1)", "-10.1", decimalType.apply(3, 1), "CAST(-10.1 AS DECIMAL(3, 1))") // negative ps
+                .addRoundTrip(typeName + "(4, 2)", "2", decimalType.apply(4, 2), "CAST(2 AS DECIMAL(4, 2))")
+                .addRoundTrip(typeName + "(4, 2)", "2.3", decimalType.apply(4, 2), "CAST(2.3 AS DECIMAL(4, 2))")
+                .addRoundTrip(typeName + "(24, 2)", "2", decimalType.apply(24, 2), "CAST(2 AS DECIMAL(24, 2))")
+                .addRoundTrip(typeName + "(24, 2)", "2.3", decimalType.apply(24, 2), "CAST(2.3 AS DECIMAL(24, 2))")
+                .addRoundTrip(typeName + "(24, 2)", "123456789.3", decimalType.apply(24, 2), "CAST(123456789.3 AS DECIMAL(24, 2))")
+                .addRoundTrip(typeName + "(24, 4)", "12345678901234567890.31", decimalType.apply(24, 4), "CAST(12345678901234567890.31 AS DECIMAL(24, 4))")
+                .addRoundTrip(typeName + "(30, 5)", "3141592653589793238462643.38327", decimalType.apply(30, 5), "CAST(3141592653589793238462643.38327 AS DECIMAL(30, 5))")
+                .addRoundTrip(typeName + "(30, 5)", "-3141592653589793238462643.38327", decimalType.apply(30, 5), "CAST(-3141592653589793238462643.38327 AS DECIMAL(30, 5))")
+                .addRoundTrip(typeName + "(38, 0)", "CAST('27182818284590452353602874713526624977' AS DECIMAL(38, 0))", decimalType.apply(38, 0), "CAST('27182818284590452353602874713526624977' AS DECIMAL(38, 0))")
+                .addRoundTrip(typeName + "(38, 0)", "CAST('-27182818284590452353602874713526624977' AS DECIMAL(38, 0))", decimalType.apply(38, 0), "CAST('-27182818284590452353602874713526624977' AS DECIMAL(38, 0))")
+                .addRoundTrip(typeName + "(38, 37)", ".1000020000300004000050000600007000088", decimalType.apply(38, 37), "CAST(.1000020000300004000050000600007000088 AS DECIMAL(38, 37))")
+                .addRoundTrip(typeName + "(38, 37)", "-.2718281828459045235360287471352662497", decimalType.apply(38, 37), "CAST(-.2718281828459045235360287471352662497 AS DECIMAL(38, 37))")
+                .addRoundTrip(typeName + "(10, 3)", "null", decimalType.apply(10, 3), "CAST(null AS DECIMAL(10, 3))")
+                .addRoundTrip(typeName + "(30, 5)", "null", decimalType.apply(30, 5), "CAST(null AS DECIMAL(30, 5))");
     }
 
     @Test
     public void testDateMapping()
     {
-        testTypeMapping(dateTests());
-    }
-
-    @Test
-    public void testDateReadMapping()
-    {
-        testTypeReadMapping(dateTests());
-    }
-
-    private static DataTypeTest dateTests()
-    {
-        return DataTypeTest.create()
-                .addRoundTrip(dateDataType(), null)
-                .addRoundTrip(dateDataType(), LocalDate.of(1952, 4, 3))
-                .addRoundTrip(dateDataType(), LocalDate.of(1970, 1, 1))
-                .addRoundTrip(dateDataType(), LocalDate.of(1970, 2, 3))
-                .addRoundTrip(dateDataType(), LocalDate.of(1983, 4, 1))
-                .addRoundTrip(dateDataType(), LocalDate.of(1983, 10, 1))
-                .addRoundTrip(dateDataType(), LocalDate.of(2017, 1, 1))
-                .addRoundTrip(dateDataType(), LocalDate.of(2017, 7, 1))
-                .addRoundTrip(dateDataType(), LocalDate.of(2017, 1, 1))
-                .addRoundTrip(dateDataType(), LocalDate.of(1970, 1, 1));
+        SqlDataTypeTest.create()
+                .addRoundTrip("date", "'1952-04-03'", DateType.DATE, "date '1952-04-03'")
+                .addRoundTrip("date", "'1970-01-01'", DateType.DATE, "date '1970-01-01'")
+                .addRoundTrip("date", "'1970-02-03'", DateType.DATE, "date '1970-02-03'")
+                .addRoundTrip("date", "'1983-04-01'", DateType.DATE, "date '1983-04-01'")
+                .addRoundTrip("date", "'1983-10-01'", DateType.DATE, "date '1983-10-01'")
+                .addRoundTrip("date", "'2017-01-01'", DateType.DATE, "date '2017-01-01'")
+                .addRoundTrip("date", "'2017-07-01'", DateType.DATE, "date '2017-07-01'")
+                .addRoundTrip("date", "'2017-01-01'", DateType.DATE, "date '2017-01-01'")
+                .addRoundTrip("date", "'1970-01-01'", DateType.DATE, "date '1970-01-01'")
+                .execute(getQueryRunner(), prestoCreateAsSelect())
+                .execute(getQueryRunner(), snowflakeCreateAsSelect());
     }
 
     @Test
     public void testVariantReadMapping()
     {
-        testTypeReadMapping(DataTypeTest.create()
-                .addRoundTrip(variantDataType("hello world"), "'hello world'")
-                .addRoundTrip(variantDataType("42"), 42)
-                .addRoundTrip(variantDataType("{\"key1\":42,\"key2\":54}"), "OBJECT_CONSTRUCT('key1', 42, 'key2', 54)"));
+        SqlDataTypeTest.create()
+                .addRoundTrip("VARIANT", "to_variant('hello world')", VarcharType.createUnboundedVarcharType(), "VARCHAR 'hello world'")
+                .addRoundTrip("VARIANT", "to_variant(42)", VarcharType.createUnboundedVarcharType(), "VARCHAR '42'")
+                .addRoundTrip("VARIANT", "to_variant(OBJECT_CONSTRUCT('key1', 42, 'key2', 54))", VarcharType.createUnboundedVarcharType(), "VARCHAR '{\"key1\":42,\"key2\":54}'")
+                .execute(getQueryRunner(), snowflakeCreateAsSelect());
     }
 
     @Test
     public void testObjectReadMapping()
     {
-        testTypeReadMapping(DataTypeTest.create()
-                .addRoundTrip(objectDataType("{\"key1\":42,\"key2\":54}"), ImmutableMap.of("key1", 42, "key2", 54))
-                .addRoundTrip(objectDataType("{\"key1\":\"foo\",\"key2\":\"bar\"}"), ImmutableMap.of("key1", "'foo'", "key2", "'bar'")));
+        SqlDataTypeTest.create()
+                .addRoundTrip("VARIANT", "OBJECT_CONSTRUCT('key1',42,'key2',54)", VarcharType.createUnboundedVarcharType(), "VARCHAR '{\"key1\":42,\"key2\":54}'")
+                .addRoundTrip("VARIANT", "OBJECT_CONSTRUCT('key1','foo','key2','bar')", VarcharType.createUnboundedVarcharType(), "VARCHAR '{\"key1\":\"foo\",\"key2\":\"bar\"}'")
+                .execute(getQueryRunner(), snowflakeCreateAsSelect());
     }
 
     @Test
     public void testArrayReadMapping()
     {
-        testTypeReadMapping(DataTypeTest.create()
-                .addRoundTrip(arrayDataType("[42,54]"), ImmutableList.of(42, 54))
-                .addRoundTrip(arrayDataType("[\"foo\",\"bar\"]"), ImmutableList.of("'foo'", "'bar'")));
+        SqlDataTypeTest.create()
+                .addRoundTrip("ARRAY", "'hello world'", VarcharType.createUnboundedVarcharType(), "VARCHAR '[\"hello world\"]'")
+                .addRoundTrip("ARRAY", "42", VarcharType.createUnboundedVarcharType(), "VARCHAR '[42]'")
+                .addRoundTrip("ARRAY", "OBJECT_CONSTRUCT('key1', 42, 'key2', 54)", VarcharType.createUnboundedVarcharType(), "VARCHAR '[{\"key1\":42,\"key2\":54}]'")
+                .execute(getQueryRunner(), snowflakeCreateAsSelect());
     }
 
     @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
@@ -317,21 +302,21 @@ public abstract class BaseSnowflakeTypeMappingTest
     {
         // using two non-JVM zones so that we don't need to worry what Postgres system zone is
         for (ZoneId sessionZone : ImmutableList.of(UTC, jvmZone, vilnius, kathmandu, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId()))) {
-            DataTypeTest tests = DataTypeTest.create()
-                    .addRoundTrip(timeDataType(), LocalTime.of(0, 0, 0)) // gap in JVM zone on Epoch day
-                    .addRoundTrip(timeDataType(), LocalTime.of(0, 13, 42)) // gap in JVM
-                    .addRoundTrip(timeDataType(), LocalTime.of(13, 18, 3, 123_000_000))
-                    .addRoundTrip(timeDataType(), LocalTime.of(14, 18, 3, 423_000_000))
-                    .addRoundTrip(timeDataType(), LocalTime.of(15, 18, 3, 523_000_000))
-                    .addRoundTrip(timeDataType(), LocalTime.of(16, 18, 3, 623_000_000))
-                    .addRoundTrip(timeDataType(), LocalTime.of(10, 1, 17, 987_000_000))
-                    .addRoundTrip(timeDataType(), LocalTime.of(19, 1, 17, 987_000_000))
-                    .addRoundTrip(timeDataType(), LocalTime.of(20, 1, 17, 987_000_000))
-                    .addRoundTrip(timeDataType(), LocalTime.of(21, 1, 17, 987_000_000))
-                    .addRoundTrip(timeDataType(), LocalTime.of(1, 33, 17, 456_000_000))
-                    .addRoundTrip(timeDataType(), LocalTime.of(3, 17, 17))
-                    .addRoundTrip(timeDataType(), LocalTime.of(22, 59, 59, 0))
-                    .addRoundTrip(timeDataType(), LocalTime.of(22, 59, 59, 999_000_000));
+            SqlDataTypeTest tests = SqlDataTypeTest.create()
+                    .addRoundTrip("TIME", "'00:00:00'", TIME, "TIME '00:00:00.000'") // gap in JVM zone on Epoch day
+                    .addRoundTrip("TIME", "'00:13:42'", TIME, "TIME '00:13:42.000'") // gap in JVM
+                    .addRoundTrip("TIME", "'13:18:03.123'", TIME, "TIME '13:18:03.123'")
+                    .addRoundTrip("TIME", "'14:18:03.423'", TIME, "TIME '14:18:03.423'")
+                    .addRoundTrip("TIME", "'15:18:03.523'", TIME, "TIME '15:18:03.523'")
+                    .addRoundTrip("TIME", "'16:18:03.623'", TIME, "TIME '16:18:03.623'")
+                    .addRoundTrip("TIME", "'10:01:17.987'", TIME, "TIME '10:01:17.987'")
+                    .addRoundTrip("TIME", "'19:01:17.987'", TIME, "TIME '19:01:17.987'")
+                    .addRoundTrip("TIME", "'20:01:17.987'", TIME, "TIME '20:01:17.987'")
+                    .addRoundTrip("TIME", "'21:01:17.987'", TIME, "TIME '21:01:17.987'")
+                    .addRoundTrip("TIME", "'01:33:17.456'", TIME, "TIME '01:33:17.456'")
+                    .addRoundTrip("TIME", "'03:17:17.000'", TIME, "TIME '03:17:17.000'")
+                    .addRoundTrip("TIME", "'22:59:59.000'", TIME, "TIME '22:59:59.000'")
+                    .addRoundTrip("TIME", "'22:59:59.999'", TIME, "TIME '22:59:59.999'");
 
             Session session = Session.builder(getQueryRunner().getDefaultSession())
                     .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
@@ -351,8 +336,23 @@ public abstract class BaseSnowflakeTypeMappingTest
     {
         // using two non-JVM zones so that we don't need to worry what Snowflake system zone is
         for (ZoneId sessionZone : ImmutableList.of(UTC, jvmZone, vilnius, kathmandu, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId()))) {
-            DataTypeTest tests = DataTypeTest.create()
-                    .addRoundTrip(timeArrayDataType("[" +
+            SqlDataTypeTest tests = SqlDataTypeTest.create()
+                    .addRoundTrip(
+                            "ARRAY",
+                            "ARRAY_CONSTRUCT(" +
+                                    "TIME '13:18:03.123'," +
+                                    "TIME '14:18:03.423'," +
+                                    "TIME '15:18:03.523'," +
+                                    "TIME '16:18:03.623'," +
+                                    "TIME '10:01:17.987'," +
+                                    "TIME '19:01:17.987'," +
+                                    "TIME '20:01:17.987'," +
+                                    "TIME '21:01:17.987'," +
+                                    "TIME '01:33:17.456'," +
+                                    "TIME '03:17:17.000'," +
+                                    "TIME '22:59:59.999')",
+                            VarcharType.createUnboundedVarcharType(),
+                            "VARCHAR '[" +
                                     "\"13:18:03.123000000\"," +
                                     "\"14:18:03.423000000\"," +
                                     "\"15:18:03.523000000\"," +
@@ -363,19 +363,7 @@ public abstract class BaseSnowflakeTypeMappingTest
                                     "\"21:01:17.987000000\"," +
                                     "\"01:33:17.456000000\"," +
                                     "\"03:17:17.000000000\"," +
-                                    "\"22:59:59.999000000\"]"),
-                            ImmutableList.of(
-                                    LocalTime.of(13, 18, 3, 123_000_000),
-                                    LocalTime.of(14, 18, 3, 423_000_000),
-                                    LocalTime.of(15, 18, 3, 523_000_000),
-                                    LocalTime.of(16, 18, 3, 623_000_000),
-                                    LocalTime.of(10, 1, 17, 987_000_000),
-                                    LocalTime.of(19, 1, 17, 987_000_000),
-                                    LocalTime.of(20, 1, 17, 987_000_000),
-                                    LocalTime.of(21, 1, 17, 987_000_000),
-                                    LocalTime.of(1, 33, 17, 456_000_000),
-                                    LocalTime.of(3, 17, 17),
-                                    LocalTime.of(22, 59, 59, 999_000_000)));
+                                    "\"22:59:59.999000000\"]'");
 
             Session session = Session.builder(getQueryRunner().getDefaultSession())
                     .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
@@ -385,42 +373,28 @@ public abstract class BaseSnowflakeTypeMappingTest
         }
     }
 
-    @Test(dataProvider = "testTimestampDataProvider")
-    public void testTimestamp(boolean insertWithPresto, DataType<LocalDateTime> dataType)
+    @Test
+    public void testTimestamp()
     {
         // using two non-JVM zones so that we don't need to worry what Postgres system zone is
         for (ZoneId sessionZone : ImmutableList.of(UTC, jvmZone, vilnius, kathmandu, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId()))) {
-            DataTypeTest tests = DataTypeTest.create()
-                    .addRoundTrip(dataType, dateTimeBeforeEpoch)
-                    .addRoundTrip(dataType, dateTimeAfterEpoch)
-                    .addRoundTrip(dataType, dateTimeDoubledInJvmZone)
-                    .addRoundTrip(dataType, dateTimeDoubledInVilnius)
-                    .addRoundTrip(dataType, dateTimeEpoch) // epoch also is a gap in JVM zone
-                    .addRoundTrip(dataType, dateTimeGapInJvmZone1)
-                    .addRoundTrip(dataType, dateTimeGapInJvmZone2)
-                    .addRoundTrip(dataType, dateTimeGapInVilnius)
-                    .addRoundTrip(dataType, dateTimeGapInKathmandu);
-
             Session session = Session.builder(getQueryRunner().getDefaultSession())
                     .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
                     .build();
 
-            if (insertWithPresto) {
-                tests.execute(getQueryRunner(), session, prestoCreateAsSelect(session));
-            }
-            else {
-                tests.execute(getQueryRunner(), session, snowflakeCreateAndInsert());
-            }
+            SqlDataTypeTest.create()
+                    .addRoundTrip("timestamp(9)", "TIMESTAMP '1958-01-01 13:18:03.123000000'", createTimestampType(9), "TIMESTAMP '1958-01-01 13:18:03.123000000'") // dateTimeBeforeEpoch
+                    .addRoundTrip("timestamp(9)", "TIMESTAMP '2019-03-18 10:01:17.987000000'", createTimestampType(9), "TIMESTAMP '2019-03-18 10:01:17.987000000'") // dateTimeAfterEpoch
+                    .addRoundTrip("timestamp(9)", "TIMESTAMP '2018-10-28 01:33:17.456000000'", createTimestampType(9), "TIMESTAMP '2018-10-28 01:33:17.456000000'") // dateTimeDoubledInJvmZone
+                    .addRoundTrip("timestamp(9)", "TIMESTAMP '2018-10-28 03:33:33.333000000'", createTimestampType(9), "TIMESTAMP '2018-10-28 03:33:33.333000000'") // dateTimeDoubledInVilnius
+                    .addRoundTrip("timestamp(9)", "TIMESTAMP '1970-01-01 00:00:00.000000000'", createTimestampType(9), "TIMESTAMP '1970-01-01 00:00:00.000000000'") // dateTimeEpoch, epoch also is a gap in JVM zone
+                    .addRoundTrip("timestamp(9)", "TIMESTAMP '1970-01-01 00:13:42.000000000'", createTimestampType(9), "TIMESTAMP '1970-01-01 00:13:42.000000000'") // dateTimeGapInJvmZone1
+                    .addRoundTrip("timestamp(9)", "TIMESTAMP '2018-04-01 02:13:55.123000000'", createTimestampType(9), "TIMESTAMP '2018-04-01 02:13:55.123000000'") // dateTimeGapInJvmZone2
+                    .addRoundTrip("timestamp(9)", "TIMESTAMP '2018-03-25 03:17:17.000000000'", createTimestampType(9), "TIMESTAMP '2018-03-25 03:17:17.000000000'") // dateTimeGapInVilnius
+                    .addRoundTrip("timestamp(9)", "TIMESTAMP '1986-01-01 00:13:07.000000000'", createTimestampType(9), "TIMESTAMP '1986-01-01 00:13:07.000000000'") // dateTimeGapInKathmandu
+                    .execute(getQueryRunner(), session, prestoCreateAsSelect(session))
+                    .execute(getQueryRunner(), session, snowflakeCreateAndInsert());
         }
-    }
-
-    @DataProvider
-    public Object[][] testTimestampDataProvider()
-    {
-        return new Object[][] {
-                {true, timestampDataType()},
-                {false, timestampDataType(9)},
-        };
     }
 
     @Test
@@ -467,8 +441,20 @@ public abstract class BaseSnowflakeTypeMappingTest
     {
         // using two non-JVM zones so that we don't need to worry what Postgres system zone is
         for (ZoneId sessionZone : ImmutableList.of(UTC, jvmZone, vilnius, kathmandu, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId()))) {
-            DataTypeTest tests = DataTypeTest.create()
-                    .addRoundTrip(timestampArrayDataType("[" +
+            SqlDataTypeTest tests = SqlDataTypeTest.create()
+                    .addRoundTrip("ARRAY",
+                            "ARRAY_CONSTRUCT(" +
+                                    "TIMESTAMP '1958-01-01 13:18:03.123'," +
+                                    "TIMESTAMP '1970-01-01 00:00:00.000'," +
+                                    "TIMESTAMP '2019-03-18 10:01:17.987'," +
+                                    "TIMESTAMP '1970-01-01 00:13:42.000'," +
+                                    "TIMESTAMP '2018-04-01 02:13:55.123'," +
+                                    "TIMESTAMP '2018-10-28 01:33:17.456'," +
+                                    "TIMESTAMP '2018-03-25 03:17:17.000'," +
+                                    "TIMESTAMP '1986-01-01 00:13:07.000'," +
+                                    "TIMESTAMP '2018-10-28 03:33:33.333')",
+                            VarcharType.createUnboundedVarcharType(),
+                            "VARCHAR '[" +
                                     "\"1958-01-01T13:18:03.123000000Z\"," +
                                     "\"1970-01-01T00:00:00.000000000Z\"," +
                                     "\"2019-03-18T10:01:17.987000000Z\"," +
@@ -477,17 +463,7 @@ public abstract class BaseSnowflakeTypeMappingTest
                                     "\"2018-10-28T01:33:17.456000000Z\"," +
                                     "\"2018-03-25T03:17:17.000000000Z\"," +
                                     "\"1986-01-01T00:13:07.000000000Z\"," +
-                                    "\"2018-10-28T03:33:33.333000000Z\"]"),
-                            ImmutableList.of(
-                                    dateTimeBeforeEpoch,
-                                    dateTimeEpoch,
-                                    dateTimeAfterEpoch,
-                                    dateTimeGapInJvmZone1,
-                                    dateTimeGapInJvmZone2,
-                                    dateTimeDoubledInJvmZone,
-                                    dateTimeGapInVilnius,
-                                    dateTimeGapInKathmandu,
-                                    dateTimeDoubledInVilnius));
+                                    "\"2018-10-28T03:33:33.333000000Z\"]'");
 
             Session session = Session.builder(getQueryRunner().getDefaultSession())
                     .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
@@ -500,14 +476,13 @@ public abstract class BaseSnowflakeTypeMappingTest
     @Test(dataProvider = "testTimestampWithTimeZoneDataProvider")
     public void testTimestampWithTimeZone(boolean insertWithPresto, String timestampType, ZoneId resultZone)
     {
-        // TODO: Migrate to SqlDataTypeTest from DataTypeTest
         DataType<ZonedDateTime> dataType;
         DataSetup dataSetup;
 
         LocalDateTime minSnowflakeDate = LocalDateTime.of(1, 1, 1, 0, 0, 0);
         LocalDateTime maxSnowflakeDate = LocalDateTime.of(9999, 12, 31, 23, 59, 59, 999000000);
         if (insertWithPresto) {
-            dataType = prestoTimestampWithTimeZoneDataType();
+            dataType = prestoTimestampWithTimeZoneDataType(resultZone);
             dataSetup = prestoCreateAsSelect();
         }
         else {
@@ -515,42 +490,58 @@ public abstract class BaseSnowflakeTypeMappingTest
             dataSetup = snowflakeCreateAsSelect();
         }
 
-        DataTypeTest tests;
         if (timestampType.equals("TIMESTAMP_LTZ") && !insertWithPresto) {
             // TODO: improve tests for TIMESTAMP_LTZ
-            tests = DataTypeTest.create()
-                    .addRoundTrip(dataType, dateTimeEpoch.atZone(UTC))
-                    .addRoundTrip(dataType, dateTimeEpoch.atZone(kathmandu))
-                    .addRoundTrip(dataType, dateTimeBeforeEpoch.atZone(UTC))
-                    .addRoundTrip(dataType, dateTimeBeforeEpoch.atZone(kathmandu));
+            SqlDataTypeTest.create()
+                    .addRoundTrip("TIMESTAMP_LTZ", dataType.toLiteral(dateTimeEpoch.atZone(UTC)), dataType.getTrinoResultType(), dataType.toTrinoLiteral(toZone(dateTimeEpoch.atZone(UTC), resultZone)))
+                    .addRoundTrip("TIMESTAMP_LTZ", dataType.toLiteral(dateTimeEpoch.atZone(kathmandu)), dataType.getTrinoResultType(), dataType.toTrinoLiteral(toZone(dateTimeEpoch.atZone(kathmandu), resultZone)))
+                    .addRoundTrip("TIMESTAMP_LTZ", dataType.toLiteral(dateTimeBeforeEpoch.atZone(UTC)), dataType.getTrinoResultType(), dataType.toTrinoLiteral(toZone(dateTimeBeforeEpoch.atZone(UTC), resultZone)))
+                    .addRoundTrip("TIMESTAMP_LTZ", dataType.toLiteral(dateTimeBeforeEpoch.atZone(kathmandu)), dataType.getTrinoResultType(), dataType.toTrinoLiteral(toZone(dateTimeBeforeEpoch.atZone(kathmandu), resultZone)))
+                    .execute(getQueryRunner(), dataSetup);
         }
         else {
-            tests = DataTypeTest.create()
-                    .addRoundTrip(dataType, dateTimeEpoch.atZone(UTC))
-                    .addRoundTrip(dataType, dateTimeEpoch.atZone(kathmandu))
-                    .addRoundTrip(dataType, dateTimeBeforeEpoch.atZone(UTC))
-                    .addRoundTrip(dataType, dateTimeBeforeEpoch.atZone(kathmandu))
-                    .addRoundTrip(dataType, dateTimeAfterEpoch.atZone(UTC))
-                    .addRoundTrip(dataType, dateTimeAfterEpoch.atZone(kathmandu))
-                    .addRoundTrip(dataType, dateTimeDoubledInJvmZone.atZone(UTC))
-                    .addRoundTrip(dataType, dateTimeDoubledInJvmZone.atZone(jvmZone))
-                    .addRoundTrip(dataType, dateTimeDoubledInJvmZone.atZone(kathmandu))
-                    .addRoundTrip(dataType, dateTimeDoubledInVilnius.atZone(UTC))
-                    .addRoundTrip(dataType, dateTimeDoubledInVilnius.atZone(vilnius))
-                    .addRoundTrip(dataType, dateTimeDoubledInVilnius.atZone(kathmandu))
-                    .addRoundTrip(dataType, dateTimeGapInJvmZone1.atZone(UTC))
-                    .addRoundTrip(dataType, dateTimeGapInJvmZone1.atZone(kathmandu))
-                    .addRoundTrip(dataType, dateTimeGapInJvmZone2.atZone(UTC))
-                    .addRoundTrip(dataType, dateTimeGapInJvmZone2.atZone(kathmandu))
-                    .addRoundTrip(dataType, dateTimeGapInVilnius.atZone(kathmandu))
-                    .addRoundTrip(dataType, dateTimeGapInKathmandu.atZone(vilnius))
-                    .addRoundTrip(dataType, maxSnowflakeDate.atZone(UTC))
-                    .addRoundTrip(dataType, maxSnowflakeDate.atZone(kathmandu))
-                    .addRoundTrip(dataType, maxSnowflakeDate.atZone(vilnius))
-                    .addRoundTrip(dataType, minSnowflakeDate.atZone(UTC));
+            String inputType = dataType.getInsertType();
+            Type resultType = dataType.getTrinoResultType();
+
+            SqlDataTypeTest.create()
+                    .addRoundTrip(inputType, dataType.toLiteral(dateTimeEpoch.atZone(UTC)), resultType, dataType.toTrinoLiteral(toZone(dateTimeEpoch.atZone(UTC), UTC)))
+                    .addRoundTrip(inputType, dataType.toLiteral(dateTimeEpoch.atZone(kathmandu)), resultType, dataType.toTrinoLiteral(toZone(dateTimeEpoch.atZone(kathmandu), resultZone)))
+                    .addRoundTrip(inputType, dataType.toLiteral(dateTimeBeforeEpoch.atZone(UTC)), resultType, dataType.toTrinoLiteral(toZone(dateTimeBeforeEpoch.atZone(UTC), resultZone)))
+                    .addRoundTrip(inputType, dataType.toLiteral(dateTimeBeforeEpoch.atZone(kathmandu)), resultType, dataType.toTrinoLiteral(toZone(dateTimeBeforeEpoch.atZone(kathmandu), resultZone)))
+                    .addRoundTrip(inputType, dataType.toLiteral(dateTimeAfterEpoch.atZone(UTC)), resultType, dataType.toTrinoLiteral(toZone(dateTimeAfterEpoch.atZone(UTC), resultZone)))
+                    .addRoundTrip(inputType, dataType.toLiteral(dateTimeAfterEpoch.atZone(kathmandu)), resultType, dataType.toTrinoLiteral(toZone(dateTimeAfterEpoch.atZone(kathmandu), resultZone)))
+                    .addRoundTrip(inputType, dataType.toLiteral(dateTimeDoubledInJvmZone.atZone(UTC)), resultType, dataType.toTrinoLiteral(toZone(dateTimeDoubledInJvmZone.atZone(UTC), resultZone)))
+                    .addRoundTrip(inputType, dataType.toLiteral(dateTimeDoubledInJvmZone.atZone(jvmZone)), resultType, dataType.toTrinoLiteral(toZone(dateTimeDoubledInJvmZone.atZone(jvmZone), resultZone)))
+                    .addRoundTrip(inputType, dataType.toLiteral(dateTimeDoubledInJvmZone.atZone(kathmandu)), resultType, dataType.toTrinoLiteral(toZone(dateTimeDoubledInJvmZone.atZone(kathmandu), resultZone)))
+                    .addRoundTrip(inputType, dataType.toLiteral(dateTimeDoubledInVilnius.atZone(UTC)), resultType, dataType.toTrinoLiteral(toZone(dateTimeDoubledInVilnius.atZone(UTC), resultZone)))
+                    .addRoundTrip(inputType, dataType.toLiteral(dateTimeDoubledInVilnius.atZone(vilnius)), resultType, dataType.toTrinoLiteral(toZone(dateTimeDoubledInVilnius.atZone(vilnius), resultZone)))
+                    .addRoundTrip(inputType, dataType.toLiteral(dateTimeDoubledInVilnius.atZone(kathmandu)), resultType, dataType.toTrinoLiteral(toZone(dateTimeDoubledInVilnius.atZone(kathmandu), resultZone)))
+                    .addRoundTrip(inputType, dataType.toLiteral(dateTimeGapInJvmZone1.atZone(UTC)), resultType, dataType.toTrinoLiteral(toZone(dateTimeGapInJvmZone1.atZone(UTC), resultZone)))
+                    .addRoundTrip(inputType, dataType.toLiteral(dateTimeGapInJvmZone1.atZone(kathmandu)), resultType, dataType.toTrinoLiteral(toZone(dateTimeGapInJvmZone1.atZone(kathmandu), resultZone)))
+                    .addRoundTrip(inputType, dataType.toLiteral(dateTimeGapInJvmZone2.atZone(UTC)), resultType, dataType.toTrinoLiteral(toZone(dateTimeGapInJvmZone2.atZone(UTC), resultZone)))
+                    .addRoundTrip(inputType, dataType.toLiteral(dateTimeGapInJvmZone2.atZone(kathmandu)), resultType, dataType.toTrinoLiteral(toZone(dateTimeGapInJvmZone2.atZone(kathmandu), resultZone)))
+                    .addRoundTrip(inputType, dataType.toLiteral(dateTimeGapInVilnius.atZone(kathmandu)), resultType, dataType.toTrinoLiteral(toZone(dateTimeGapInVilnius.atZone(kathmandu), resultZone)))
+                    .addRoundTrip(inputType, dataType.toLiteral(dateTimeGapInKathmandu.atZone(vilnius)), resultType, dataType.toTrinoLiteral(toZone(dateTimeGapInKathmandu.atZone(vilnius), resultZone)))
+                    .addRoundTrip(inputType, dataType.toLiteral(maxSnowflakeDate.atZone(UTC)), resultType, dataType.toTrinoLiteral(toZone(maxSnowflakeDate.atZone(UTC), resultZone)))
+                    .addRoundTrip(inputType, dataType.toLiteral(maxSnowflakeDate.atZone(kathmandu)), resultType, dataType.toTrinoLiteral(toZone(maxSnowflakeDate.atZone(kathmandu), resultZone)))
+                    .addRoundTrip(inputType, dataType.toLiteral(maxSnowflakeDate.atZone(vilnius)), resultType, dataType.toTrinoLiteral(toZone(maxSnowflakeDate.atZone(vilnius), resultZone)))
+                    .addRoundTrip(inputType, dataType.toLiteral(minSnowflakeDate.atZone(UTC)), resultType, dataType.toTrinoLiteral(toZone(minSnowflakeDate.atZone(UTC), resultZone)))
+                    .execute(getQueryRunner(), dataSetup);
+        }
+    }
+
+    private static ZonedDateTime toZone(ZonedDateTime zonedDateTime, ZoneId resultZone)
+    {
+        if (!resultZone.getId().equals("UTC")) {
+            return zonedDateTime.withZoneSameInstant(resultZone).withFixedOffsetZone();
         }
 
-        tests.execute(getQueryRunner(), dataSetup);
+        if (zonedDateTime.getOffset().getTotalSeconds() == 0) {
+            // convert to UTC for testing purposes
+            return zonedDateTime.withZoneSameInstant(ZoneId.of("UTC"));
+        }
+
+        return zonedDateTime.withFixedOffsetZone();
     }
 
     @DataProvider
@@ -637,13 +628,17 @@ public abstract class BaseSnowflakeTypeMappingTest
         };
     }
 
-    private static DataType<ZonedDateTime> prestoTimestampWithTimeZoneDataType()
+    private static DataType<ZonedDateTime> prestoTimestampWithTimeZoneDataType(ZoneId resultZone)
     {
         return DataType.dataType(
                 "timestamp with time zone",
                 TIMESTAMP_WITH_TIME_ZONE,
                 DateTimeFormatter.ofPattern("'TIMESTAMP '''yyyy-MM-dd HH:mm:ss.SSS VV''")::format,
                 zonedDateTime -> {
+                    if (!resultZone.getId().equals("UTC")) {
+                        return zonedDateTime.withZoneSameInstant(resultZone).withFixedOffsetZone();
+                    }
+
                     if (zonedDateTime.getOffset().getTotalSeconds() == 0) {
                         // convert to UTC for testing purposes
                         return zonedDateTime.withZoneSameInstant(ZoneId.of("UTC"));
@@ -659,6 +654,7 @@ public abstract class BaseSnowflakeTypeMappingTest
                 timestampType,
                 defaultTimestampWithTimeZoneType(),
                 zonedDateTime -> DateTimeFormatter.ofPattern(format("'TO_%s('''yyyy-MM-dd'T'HH:mm:ss.SSSSSSSSSXXX''')'", timestampType)).format(zonedDateTime),
+                zonedDateTime -> DateTimeFormatter.ofPattern(format("'TIMESTAMP '''yyyy-MM-dd HH:mm:ss.%s VV''", "S".repeat(defaultTimestampWithTimeZoneType().getPrecision()))).format(zonedDateTime),
                 zonedDateTime -> {
                     if (!resultZone.getId().equals("UTC")) {
                         return zonedDateTime.withZoneSameInstant(resultZone).withFixedOffsetZone();
@@ -678,114 +674,6 @@ public abstract class BaseSnowflakeTypeMappingTest
         return TIMESTAMP_TZ_NANOS;
     }
 
-    private static DataType<LocalTime> timeDataType()
-    {
-        return DataType.dataType(
-                "TIME",
-                TIME,
-                DateTimeFormatter.ofPattern("'TIME '''HH:mm:ss.SSS''")::format,
-                identity());
-    }
-
-    private static DataType<List<LocalTime>> timeArrayDataType(String expectedResult)
-    {
-        return DataType.dataType(
-                "ARRAY",
-                VarcharType.createUnboundedVarcharType(),
-                value -> value.stream()
-                        .map(DateTimeFormatter.ofPattern("'TIME '''HH:mm:ss.SSS''")::format)
-                        .collect(Collectors.joining(",", "ARRAY_CONSTRUCT(", ")")),
-                value -> expectedResult);
-    }
-
-    private static DataType<List<LocalDateTime>> timestampArrayDataType(String expectedResult)
-    {
-        return DataType.dataType(
-                "ARRAY",
-                VarcharType.createUnboundedVarcharType(),
-                value -> value.stream()
-                        .map(DateTimeFormatter.ofPattern("'TIMESTAMP '''yyyy-MM-dd HH:mm:ss.SSS''")::format)
-                        .collect(Collectors.joining(",", "ARRAY_CONSTRUCT(", ")")),
-                value -> expectedResult);
-    }
-
-    private static DataType<BigDecimal> integerDataType(String insertType, int precision)
-    {
-        return decimalDataType(insertType, createDecimalType(precision, 0));
-    }
-
-    private static DataType<BigDecimal> decimalDataType(String typeName, int precision, int scale)
-    {
-        return decimalDataType(format("%s(%s, %s)", typeName, precision, scale), createDecimalType(precision, scale));
-    }
-
-    private static DataType<BigDecimal> decimalDataType(String insertType, DecimalType decimalType)
-    {
-        return DataType.dataType(
-                insertType,
-                decimalType,
-                bigDecimal -> format("CAST('%s' AS %s)", bigDecimal, insertType),
-                bigDecimal -> bigDecimal.setScale(decimalType.getScale(), UNNECESSARY));
-    }
-
-    private static DataType<Double> doubleDataType()
-    {
-        return dataType("double", DoubleType.DOUBLE,
-                d -> {
-                    if (Double.isFinite(d)) {
-                        return d.toString();
-                    }
-                    else if (Double.isNaN(d)) {
-                        return "nan()";
-                    }
-                    else {
-                        return format("%sinfinity()", d > 0 ? "+" : "-");
-                    }
-                });
-    }
-
-    private static <T> DataType<T> variantDataType(String expectedResult)
-    {
-        return DataType.dataType(
-                "VARIANT",
-                VarcharType.createUnboundedVarcharType(),
-                value -> "to_variant(" + value + ")",
-                // snowflake will wrap value in double quota
-                value -> expectedResult);
-    }
-
-    private static <T> DataType<Map<String, T>> objectDataType(String expectedResult)
-    {
-        return DataType.dataType(
-                "OBJECT",
-                VarcharType.createUnboundedVarcharType(),
-                value -> "OBJECT_CONSTRUCT(" + value.entrySet().stream()
-                        .map(entry -> "'" + entry.getKey() + "'," + entry.getValue())
-                        .collect(Collectors.joining(",")) + ")",
-                value -> expectedResult);
-    }
-
-    private static <T> DataType<List<T>> arrayDataType(String expectedResult)
-    {
-        return DataType.dataType(
-                "ARRAY",
-                VarcharType.createUnboundedVarcharType(),
-                value -> "ARRAY_CONSTRUCT(" + value.stream()
-                        .map(Object::toString)
-                        .collect(Collectors.joining(",")) + ")",
-                value -> expectedResult);
-    }
-
-    private static <T> DataType<T> dataType(String insertType, Type prestoResultType)
-    {
-        return dataType(insertType, prestoResultType, Object::toString);
-    }
-
-    private static <T> DataType<T> dataType(String insertType, Type prestoResultType, Function<T, String> toLiteral)
-    {
-        return DataType.dataType(insertType, prestoResultType, toLiteral, identity());
-    }
-
     private static void checkIsGap(ZoneId zone, LocalDateTime dateTime)
     {
         verify(isGap(zone, dateTime), "Expected %s to be a gap in %s", dateTime, zone);
@@ -801,23 +689,6 @@ public abstract class BaseSnowflakeTypeMappingTest
         verify(zone.getRules().getValidOffsets(dateTime).size() == 2, "Expected %s to be doubled in %s", dateTime, zone);
     }
 
-    protected void testTypeMapping(DataTypeTest... tests)
-    {
-        runTestsWithSetup(prestoCreateAsSelect(), tests);
-    }
-
-    protected void testTypeReadMapping(DataTypeTest... tests)
-    {
-        runTestsWithSetup(snowflakeCreateAsSelect(), tests);
-    }
-
-    private void runTestsWithSetup(DataSetup dataSetup, DataTypeTest... tests)
-    {
-        for (DataTypeTest test : tests) {
-            test.execute(getQueryRunner(), dataSetup);
-        }
-    }
-
     protected DataSetup prestoCreateAsSelect()
     {
         return new CreateAsSelectDataSetup(
@@ -825,7 +696,7 @@ public abstract class BaseSnowflakeTypeMappingTest
                 "test_table_" + randomTableSuffix());
     }
 
-    private DataSetup prestoCreateAsSelect(Session session)
+    protected DataSetup prestoCreateAsSelect(Session session)
     {
         return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), "test_table_" + randomTableSuffix());
     }
@@ -835,14 +706,14 @@ public abstract class BaseSnowflakeTypeMappingTest
         return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner()), "test_insert_table_" + randomTableSuffix());
     }
 
-    private DataSetup snowflakeCreateAsSelect()
+    protected DataSetup snowflakeCreateAsSelect()
     {
         return new CreateAsSelectDataSetup(
                 getSqlExecutor(),
                 "test_table_" + randomTableSuffix());
     }
 
-    private DataSetup snowflakeCreateAndInsert()
+    protected DataSetup snowflakeCreateAndInsert()
     {
         return new CreateAndInsertDataSetup(
                 getSqlExecutor(),

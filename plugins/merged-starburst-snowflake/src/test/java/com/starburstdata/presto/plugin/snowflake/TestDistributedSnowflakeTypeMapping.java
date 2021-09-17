@@ -9,15 +9,14 @@
  */
 package com.starburstdata.presto.plugin.snowflake;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.TimestampWithTimeZoneType;
-import io.trino.spi.type.VarcharType;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.datatype.DataTypeTest;
+import io.trino.testing.TestingSession;
 import io.trino.testing.datatype.SqlDataTypeTest;
 import org.apache.hadoop.hive.common.type.HiveVarchar;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.time.ZoneId;
@@ -28,10 +27,8 @@ import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.testing.datatype.DataType.stringDataType;
-import static io.trino.testing.datatype.DataType.timestampDataType;
-import static io.trino.testing.datatype.DataType.varcharDataType;
-import static java.lang.String.format;
+import static java.time.ZoneOffset.UTC;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestDistributedSnowflakeTypeMapping
         extends BaseSnowflakeTypeMappingTest
@@ -50,39 +47,71 @@ public class TestDistributedSnowflakeTypeMapping
     @Override
     public void varcharMapping()
     {
-        testTypeMapping(
-                DataTypeTest.create()
-                        .addRoundTrip(varcharDataType(10), "string 010")
-                        .addRoundTrip(varcharDataType(20), "string 020")
-                        .addRoundTrip(stringDataType("varchar(" + MAX_VARCHAR + ")", createVarcharType(HiveVarchar.MAX_VARCHAR_LENGTH)), "string max size")
-                        .addRoundTrip(varcharDataType(5), null)
-                        .addRoundTrip(varcharDataType(213), "攻殻機動隊")
-                        .addRoundTrip(varcharDataType(42), null));
+        // Override because the max varchar length is different from JDBC client
+        assertThatThrownBy(super::varcharMapping)
+                .hasMessageContaining(
+                        "Expecting:\n" +
+                        " <varchar(65535)>\n" +
+                        "to be equal to:\n" +
+                        " <varchar(16777216)>");
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("varchar(10)", "'string 010'", createVarcharType(10), "'string 010'")
+                .addRoundTrip("varchar(20)", "'string 020'", createVarcharType(20), "CAST('string 020' AS VARCHAR(20))")
+                .addRoundTrip("varchar(65535)", "'string max size'", createVarcharType(HiveVarchar.MAX_VARCHAR_LENGTH), "CAST('string max size' AS VARCHAR(65535))")
+                .addRoundTrip("varchar(5)", "null", createVarcharType(5), "CAST(null AS VARCHAR(5))")
+                .addRoundTrip("varchar(213)", "'攻殻機動隊'", createVarcharType(213), "CAST('攻殻機動隊' AS VARCHAR(213))")
+                .addRoundTrip("varchar(42)", "null", createVarcharType(42), "CAST(null AS VARCHAR(42))")
+                .execute(getQueryRunner(), prestoCreateAsSelect());
     }
 
     @Test
     @Override
     public void varcharReadMapping()
     {
-        testTypeReadMapping(
-                DataTypeTest.create()
-                        .addRoundTrip(stringDataType("varchar(10)", VarcharType.createVarcharType(10)), "string 010")
-                        .addRoundTrip(stringDataType("varchar(20)", VarcharType.createVarcharType(20)), "string 020")
-                        .addRoundTrip(stringDataType(format("varchar(%s)", MAX_VARCHAR), VarcharType.createVarcharType(HiveVarchar.MAX_VARCHAR_LENGTH)), "string max size")
-                        .addRoundTrip(stringDataType("character(10)", VarcharType.createVarcharType(10)), null)
-                        .addRoundTrip(stringDataType("char(100)", VarcharType.createVarcharType(100)), "攻殻機動隊")
-                        .addRoundTrip(stringDataType("text", VarcharType.createVarcharType(HiveVarchar.MAX_VARCHAR_LENGTH)), "攻殻機動隊")
-                        .addRoundTrip(stringDataType("string", VarcharType.createVarcharType(HiveVarchar.MAX_VARCHAR_LENGTH)), "攻殻機動隊"));
+        // Override because the max varchar length is different from JDBC client
+        assertThatThrownBy(super::varcharReadMapping)
+                .hasMessageContaining(
+                        "Expecting:\n" +
+                                " <varchar(65535)>\n" +
+                                "to be equal to:\n" +
+                                " <varchar(16777216)>");
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("varchar(10)", "'string 010'", createVarcharType(10), "'string 010'")
+                .addRoundTrip("varchar(20)", "'string 020'", createVarcharType(20), "CAST('string 020' AS VARCHAR(20))")
+                .addRoundTrip("varchar(65535)", "'string max size'", createVarcharType(HiveVarchar.MAX_VARCHAR_LENGTH), "CAST('string max size' AS VARCHAR(65535))")
+                .addRoundTrip("character(10)", "null", createVarcharType(10), "CAST(null AS VARCHAR(10))")
+                .addRoundTrip("char(100)", "'攻殻機動隊'", createVarcharType(100), "CAST('攻殻機動隊' AS VARCHAR(100))")
+                .addRoundTrip("text", "'攻殻機動隊'", createVarcharType(HiveVarchar.MAX_VARCHAR_LENGTH), "CAST('攻殻機動隊' AS VARCHAR(65535))")
+                .addRoundTrip("string", "'攻殻機動隊'", createVarcharType(HiveVarchar.MAX_VARCHAR_LENGTH), "CAST('攻殻機動隊' AS VARCHAR(65535))")
+                .execute(getQueryRunner(), snowflakeCreateAsSelect());
     }
 
-    @DataProvider
+    @Test
     @Override
-    public Object[][] testTimestampDataProvider()
+    public void testTimestamp()
     {
-        return new Object[][] {
-                {true, timestampDataType()},
-                {false, timestampDataType(3)},
-        };
+        // Override because the timestamp precision of result literal is different from JDBC client
+        // using two non-JVM zones so that we don't need to worry what Postgres system zone is
+        for (ZoneId sessionZone : ImmutableList.of(UTC, jvmZone, vilnius, kathmandu, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId()))) {
+            Session session = Session.builder(getQueryRunner().getDefaultSession())
+                    .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
+                    .build();
+
+            SqlDataTypeTest.create()
+                    .addRoundTrip("timestamp(9)", "TIMESTAMP '1958-01-01 13:18:03.123000000'", createTimestampType(3), "TIMESTAMP '1958-01-01 13:18:03.123'") // dateTimeBeforeEpoch
+                    .addRoundTrip("timestamp(9)", "TIMESTAMP '2019-03-18 10:01:17.987000000'", createTimestampType(3), "TIMESTAMP '2019-03-18 10:01:17.987'") // dateTimeAfterEpoch
+                    .addRoundTrip("timestamp(9)", "TIMESTAMP '2018-10-28 01:33:17.456000000'", createTimestampType(3), "TIMESTAMP '2018-10-28 01:33:17.456'") // dateTimeDoubledInJvmZone
+                    .addRoundTrip("timestamp(9)", "TIMESTAMP '2018-10-28 03:33:33.333000000'", createTimestampType(3), "TIMESTAMP '2018-10-28 03:33:33.333'") // dateTimeDoubledInVilnius
+                    .addRoundTrip("timestamp(9)", "TIMESTAMP '1970-01-01 00:00:00.000000000'", createTimestampType(3), "TIMESTAMP '1970-01-01 00:00:00.000'") // dateTimeEpoch, epoch also is a gap in JVM zone
+                    .addRoundTrip("timestamp(9)", "TIMESTAMP '1970-01-01 00:13:42.000000000'", createTimestampType(3), "TIMESTAMP '1970-01-01 00:13:42.000'") // dateTimeGapInJvmZone1
+                    .addRoundTrip("timestamp(9)", "TIMESTAMP '2018-04-01 02:13:55.123000000'", createTimestampType(3), "TIMESTAMP '2018-04-01 02:13:55.123'") // dateTimeGapInJvmZone2
+                    .addRoundTrip("timestamp(9)", "TIMESTAMP '2018-03-25 03:17:17.000000000'", createTimestampType(3), "TIMESTAMP '2018-03-25 03:17:17.000'") // dateTimeGapInVilnius
+                    .addRoundTrip("timestamp(9)", "TIMESTAMP '1986-01-01 00:13:07.000000000'", createTimestampType(3), "TIMESTAMP '1986-01-01 00:13:07.000'") // dateTimeGapInKathmandu
+                    .execute(getQueryRunner(), session, prestoCreateAsSelect(session))
+                    .execute(getQueryRunner(), session, snowflakeCreateAndInsert());
+        }
     }
 
     @Test
