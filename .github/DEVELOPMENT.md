@@ -149,7 +149,8 @@ Enable the following inspections:
 Disable the following inspections:
 
 - ``Java | Performance | Call to 'Arrays.asList()' with too few arguments``,
-- ``Java | Abstraction issues | 'Optional' used as field or parameter type``.
+- ``Java | Abstraction issues | 'Optional' used as field or parameter type``,
+- ``Java | Data flow | Boolean method is always inverted``.
 
 Enable errorprone ([Error Prone Installation#IDEA](https://errorprone.info/docs/installation#intellij-idea)):
 - Install ``Error Prone Compiler`` plugin from marketplace,
