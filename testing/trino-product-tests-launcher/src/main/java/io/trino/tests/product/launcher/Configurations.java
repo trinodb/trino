@@ -15,7 +15,6 @@ package io.trino.tests.product.launcher;
 
 import com.google.common.base.CaseFormat;
 import com.google.common.reflect.ClassPath;
-import io.airlift.log.Logger;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
 import io.trino.tests.product.launcher.env.Environments;
@@ -32,8 +31,6 @@ import static java.lang.reflect.Modifier.isAbstract;
 public final class Configurations
 {
     private Configurations() {}
-
-    private static final Logger log = Logger.get(Configurations.class);
 
     public static List<Class<? extends EnvironmentProvider>> findEnvironmentsByBasePackage(String packageName)
     {
@@ -82,10 +79,7 @@ public final class Configurations
     public static String nameForEnvironmentClass(Class<? extends EnvironmentProvider> clazz)
     {
         String className = clazz.getSimpleName();
-        // TODO checkArgument(className.matches("^Env[A-Z].*"), "Name of %s should start with 'Env'", clazz);
-        if (!className.matches("^Env[A-Z].*")) {
-            log.warn("Name of %s should start with 'Env'", clazz);
-        }
+        checkArgument(className.matches("^Env[A-Z].*"), "Name of %s should start with 'Env'", clazz);
         return canonicalEnvironmentName(className);
     }
 
