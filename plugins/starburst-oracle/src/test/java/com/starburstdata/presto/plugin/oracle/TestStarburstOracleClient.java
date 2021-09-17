@@ -113,7 +113,7 @@ public class TestStarburstOracleClient
         testImplementAggregation(
                 new AggregateFunction("count", BIGINT, List.of(decimalVariable), List.of(), true, Optional.empty()),
                 Map.of(decimalVariable.getName(), DECIMAL_COLUMN),
-                Optional.empty());
+                Optional.of("count(DISTINCT \"c_decimal\")"));
 
         // count() FILTER (WHERE ...)
         testImplementAggregation(

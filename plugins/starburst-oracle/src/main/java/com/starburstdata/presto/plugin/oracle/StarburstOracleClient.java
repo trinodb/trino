@@ -38,6 +38,7 @@ import io.trino.plugin.jdbc.expression.ImplementAvgDecimal;
 import io.trino.plugin.jdbc.expression.ImplementAvgFloatingPoint;
 import io.trino.plugin.jdbc.expression.ImplementCount;
 import io.trino.plugin.jdbc.expression.ImplementCountAll;
+import io.trino.plugin.jdbc.expression.ImplementCountDistinct;
 import io.trino.plugin.jdbc.expression.ImplementMinMax;
 import io.trino.plugin.jdbc.expression.ImplementStddevPop;
 import io.trino.plugin.jdbc.expression.ImplementStddevSamp;
@@ -126,6 +127,7 @@ public class StarburstOracleClient
                 ImmutableSet.<AggregateFunctionRule<JdbcExpression>>builder()
                         .add(new ImplementCountAll(bigintTypeHandle))
                         .add(new ImplementCount(bigintTypeHandle))
+                        .add(new ImplementCountDistinct(bigintTypeHandle, true))
                         .add(new ImplementMinMax(true))
                         .add(new ImplementSum(StarburstOracleClient::toTypeHandle))
                         .add(new ImplementAvgFloatingPoint())
