@@ -195,6 +195,7 @@ public class TestHiveConnectorTest
                         "hive.writer-sort-buffer-size", "1MB",
                         // Make weighted split scheduling more conservative to avoid OOMs in test
                         "hive.minimum-assigned-split-weight", "0.5"))
+                .addExtraProperty("legacy.allow-set-view-authorization", "true")
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
 
