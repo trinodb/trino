@@ -56,6 +56,7 @@ public class TestSapHanaConnectorTest
         switch (connectorBehavior) {
             case SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV:
             case SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE:
+            case SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT:
             case SUPPORTS_JOIN_PUSHDOWN:
                 return true;
             case SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM:
