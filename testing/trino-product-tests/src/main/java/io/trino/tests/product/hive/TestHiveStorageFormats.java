@@ -65,6 +65,7 @@ import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.Comparator.comparingInt;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -254,7 +255,7 @@ public class TestHiveStorageFormats
         setAdminRole();
         setSessionProperties(storageFormat);
 
-        String tableName = "storage_formats_test_insert_into_" + storageFormat.getName().toLowerCase(Locale.ENGLISH);
+        String tableName = "storage_formats_test_insert_into_" + storageFormat.getName().toLowerCase(ENGLISH);
 
         query(format("DROP TABLE IF EXISTS %s", tableName));
 
@@ -299,7 +300,7 @@ public class TestHiveStorageFormats
         setAdminRole();
         setSessionProperties(storageFormat);
 
-        String tableName = "storage_formats_test_create_table_as_select_" + storageFormat.getName().toLowerCase(Locale.ENGLISH);
+        String tableName = "storage_formats_test_create_table_as_select_" + storageFormat.getName().toLowerCase(ENGLISH);
 
         query(format("DROP TABLE IF EXISTS %s", tableName));
 
@@ -327,7 +328,7 @@ public class TestHiveStorageFormats
         setAdminRole();
         setSessionProperties(storageFormat);
 
-        String tableName = "storage_formats_test_insert_into_partitioned_" + storageFormat.getName().toLowerCase(Locale.ENGLISH);
+        String tableName = "storage_formats_test_insert_into_partitioned_" + storageFormat.getName().toLowerCase(ENGLISH);
 
         query(format("DROP TABLE IF EXISTS %s", tableName));
 
@@ -428,7 +429,7 @@ public class TestHiveStorageFormats
         setAdminRole();
         setSessionProperties(storageFormat);
 
-        String tableName = "storage_formats_test_create_table_as_select_partitioned_" + storageFormat.getName().toLowerCase(Locale.ENGLISH);
+        String tableName = "storage_formats_test_create_table_as_select_partitioned_" + storageFormat.getName().toLowerCase(ENGLISH);
 
         query(format("DROP TABLE IF EXISTS %s", tableName));
 
@@ -754,7 +755,7 @@ public class TestHiveStorageFormats
         setAdminRole(onTrino().getConnection());
         setSessionProperties(onTrino().getConnection(), format);
 
-        String formatName = format.getName().toLowerCase(Locale.ENGLISH);
+        String formatName = format.getName().toLowerCase(ENGLISH);
         String tableName = format("%s_%s_%s", tableNamePrefix, formatName, randomTableSuffix());
         onTrino().executeQuery(
                 format("CREATE TABLE %s %s WITH (%s)", tableName, sql, format.getStoragePropertiesAsSql()));
