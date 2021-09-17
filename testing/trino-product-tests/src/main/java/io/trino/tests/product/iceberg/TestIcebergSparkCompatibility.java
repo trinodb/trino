@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.query.QueryResult;
-import org.assertj.core.api.Assertions;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -583,9 +582,8 @@ public class TestIcebergSparkCompatibility
                         row("a_struct", "row(renamed bigint, keep bigint, CaseSensitive bigint, drop_and_add bigint, added bigint)"),
                         row("a_partition", "bigint"));
 
-        // TODO support Row (JAVA_OBJECT) in Tempto and switch to QueryAssert
-        Assertions.assertThat(onTrino().executeQuery(format("SELECT quite_renamed_col, keep_col, drop_and_add_col, add_col, casesensitivecol, a_struct, a_partition FROM %s", trinoTableName)).rows())
-                .containsOnly(asList(
+        assertThat(onTrino().executeQuery(format("SELECT quite_renamed_col, keep_col, drop_and_add_col, add_col, casesensitivecol, a_struct, a_partition FROM %s", trinoTableName)))
+                .containsOnly(row(
                         2L, // quite_renamed_col
                         3L, // keep_col
                         null, // drop_and_add_col; dropping and re-adding changes id
