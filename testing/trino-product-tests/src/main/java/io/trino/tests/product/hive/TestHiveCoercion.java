@@ -37,7 +37,6 @@ import java.sql.JDBCType;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -71,6 +70,7 @@ import static java.sql.JDBCType.REAL;
 import static java.sql.JDBCType.SMALLINT;
 import static java.sql.JDBCType.STRUCT;
 import static java.sql.JDBCType.VARCHAR;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
@@ -104,8 +104,8 @@ public class TestHiveCoercion
 
     private static HiveTableDefinition.HiveTableDefinitionBuilder tableDefinitionBuilder(String fileFormat, Optional<String> recommendTableName, Optional<String> rowFormat)
     {
-        String tableName = format("%s_hive_coercion", recommendTableName.orElse(fileFormat).toLowerCase(Locale.ENGLISH));
-        String floatType = fileFormat.toLowerCase(Locale.ENGLISH).contains("parquet") ? "DOUBLE" : "FLOAT";
+        String tableName = format("%s_hive_coercion", recommendTableName.orElse(fileFormat).toLowerCase(ENGLISH));
+        String floatType = fileFormat.toLowerCase(ENGLISH).contains("parquet") ? "DOUBLE" : "FLOAT";
         return HiveTableDefinition.builder(tableName)
                 .setCreateTableDDLTemplate("" +
                         "CREATE TABLE %NAME%(" +
@@ -278,8 +278,8 @@ public class TestHiveCoercion
     {
         String tableName = mutableTableInstanceOf(tableDefinition).getNameInDatabase();
 
-        String floatToDoubleType = tableName.toLowerCase(Locale.ENGLISH).contains("parquet") ? "DOUBLE" : "REAL";
-        String decimalToFloatVal = tableName.toLowerCase(Locale.ENGLISH).contains("parquet") ? "12345.12345" : "12345.124";
+        String floatToDoubleType = tableName.toLowerCase(ENGLISH).contains("parquet") ? "DOUBLE" : "REAL";
+        String decimalToFloatVal = tableName.toLowerCase(ENGLISH).contains("parquet") ? "12345.12345" : "12345.124";
 
         insertTableRows(tableName, floatToDoubleType);
 
@@ -616,7 +616,7 @@ public class TestHiveCoercion
 
     private void assertProperAlteredTableSchema(String tableName)
     {
-        String floatType = tableName.toLowerCase(Locale.ENGLISH).contains("parquet") ? "double" : "real";
+        String floatType = tableName.toLowerCase(ENGLISH).contains("parquet") ? "double" : "real";
 
         assertThat(query("SHOW COLUMNS FROM " + tableName).project(1, 2)).containsExactlyInOrder(
                 row("row_to_row", "row(keep varchar, ti2si smallint, si2int integer, int2bi bigint, bi2vc varchar)"),
@@ -652,10 +652,10 @@ public class TestHiveCoercion
     {
         JDBCType floatType;
         if (engine == Engine.PRESTO) {
-            floatType = tableName.toLowerCase(Locale.ENGLISH).contains("parquet") ? DOUBLE : REAL;
+            floatType = tableName.toLowerCase(ENGLISH).contains("parquet") ? DOUBLE : REAL;
         }
         else {
-            floatType = tableName.toLowerCase(Locale.ENGLISH).contains("parquet") ? DOUBLE : FLOAT;
+            floatType = tableName.toLowerCase(ENGLISH).contains("parquet") ? DOUBLE : FLOAT;
         }
 
         Map<String, JDBCType> expectedTypes = ImmutableMap.<String, JDBCType>builder()
@@ -690,7 +690,7 @@ public class TestHiveCoercion
 
     private static void alterTableColumnTypes(String tableName)
     {
-        String floatType = tableName.toLowerCase(Locale.ENGLISH).contains("parquet") ? "double" : "float";
+        String floatType = tableName.toLowerCase(ENGLISH).contains("parquet") ? "double" : "float";
 
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN row_to_row row_to_row struct<keep:string, ti2si:smallint, si2int:int, int2bi:bigint, bi2vc:string>", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN list_to_list list_to_list array<struct<ti2int:int, si2bi:bigint, bi2vc:string>>", tableName));
