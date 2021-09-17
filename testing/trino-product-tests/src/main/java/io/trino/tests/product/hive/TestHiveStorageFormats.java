@@ -212,7 +212,7 @@ public class TestHiveStorageFormats
                     "2021-01-01 00:00:00.000000000"));
 
     @DataProvider
-    public static StorageFormat[] storageFormats()
+    public static StorageFormat[] storageFormatsWithConfiguration()
     {
         return new StorageFormat[] {
                 storageFormat("ORC", ImmutableMap.of("hive.orc_optimized_writer_validate", "true")),
@@ -240,13 +240,13 @@ public class TestHiveStorageFormats
     @DataProvider
     public static Iterator<StorageFormat> storageFormatsWithNanosecondPrecision()
     {
-        return Stream.of(storageFormats())
+        return Stream.of(storageFormatsWithConfiguration())
                 // nanoseconds are not supported with Avro
                 .filter(format -> !"AVRO".equals(format.getName()))
                 .iterator();
     }
 
-    @Test(dataProvider = "storageFormats", groups = STORAGE_FORMATS)
+    @Test(dataProvider = "storageFormatsWithConfiguration", groups = STORAGE_FORMATS)
     @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testInsertIntoTable(StorageFormat storageFormat)
     {
@@ -291,7 +291,7 @@ public class TestHiveStorageFormats
         query(format("DROP TABLE %s", tableName));
     }
 
-    @Test(dataProvider = "storageFormats", groups = STORAGE_FORMATS)
+    @Test(dataProvider = "storageFormatsWithConfiguration", groups = STORAGE_FORMATS)
     @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testCreateTableAs(StorageFormat storageFormat)
     {
@@ -319,7 +319,7 @@ public class TestHiveStorageFormats
         query(format("DROP TABLE %s", tableName));
     }
 
-    @Test(dataProvider = "storageFormats", groups = STORAGE_FORMATS)
+    @Test(dataProvider = "storageFormatsWithConfiguration", groups = STORAGE_FORMATS)
     @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testInsertIntoPartitionedTable(StorageFormat storageFormat)
     {
@@ -420,7 +420,7 @@ public class TestHiveStorageFormats
         onHive().executeQuery(format("DROP TABLE %s", tableName));
     }
 
-    @Test(dataProvider = "storageFormats", groups = STORAGE_FORMATS)
+    @Test(dataProvider = "storageFormatsWithConfiguration", groups = STORAGE_FORMATS)
     @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testCreatePartitionedTableAs(StorageFormat storageFormat)
     {
