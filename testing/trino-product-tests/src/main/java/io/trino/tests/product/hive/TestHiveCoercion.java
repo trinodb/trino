@@ -313,10 +313,10 @@ public class TestHiveCoercion
 
         Function<Engine, Map<String, List<Object>>> expected = engine -> expectedValuesForEngineProvider(engine, tableName, decimalToFloatVal);
 
-        Map<String, List<Object>> expectedPrestoResults = expected.apply(Engine.PRESTO);
+        Map<String, List<Object>> expectedPrestoResults = expected.apply(Engine.TRINO);
         assertEquals(ImmutableSet.copyOf(prestoReadColumns), expectedPrestoResults.keySet());
         String prestoSelectQuery = format("SELECT %s FROM %s", String.join(", ", prestoReadColumns), tableName);
-        assertQueryResults(Engine.PRESTO, prestoSelectQuery, expectedPrestoResults, prestoReadColumns, 2, tableName);
+        assertQueryResults(Engine.TRINO, prestoSelectQuery, expectedPrestoResults, prestoReadColumns, 2, tableName);
 
         // For Hive, remove unsupported columns for the current file format and hive version
         List<String> hiveReadColumns = removeUnsupportedColumnsForHive(prestoReadColumns, tableName);
@@ -385,7 +385,7 @@ public class TestHiveCoercion
     {
         return ImmutableMap.<String, List<Object>>builder()
                 .put("row_to_row", Arrays.asList(
-                        engine == Engine.PRESTO ?
+                        engine == Engine.TRINO ?
                                 rowBuilder()
                                         .addField("keep", "as is")
                                         .addField("ti2si", (short) -1)
@@ -395,7 +395,7 @@ public class TestHiveCoercion
                                         .build() :
                                 // TODO: Compare structures for hive executor instead of serialized representation
                                 "{\"keep\":\"as is\",\"ti2si\":-1,\"si2int\":100,\"int2bi\":2323,\"bi2vc\":\"12345\"}",
-                        engine == Engine.PRESTO ?
+                        engine == Engine.TRINO ?
                                 rowBuilder()
                                         .addField("keep", null)
                                         .addField("ti2si", (short) 1)
@@ -405,14 +405,14 @@ public class TestHiveCoercion
                                         .build() :
                                 "{\"keep\":null,\"ti2si\":1,\"si2int\":-100,\"int2bi\":-2323,\"bi2vc\":\"-12345\"}"))
                 .put("list_to_list", Arrays.asList(
-                        engine == Engine.PRESTO ?
+                        engine == Engine.TRINO ?
                                 ImmutableList.of(rowBuilder()
                                         .addField("ti2int", 2)
                                         .addField("si2bi", -101L)
                                         .addField("bi2vc", "12345")
                                         .build()) :
                                 "[{\"ti2int\":2,\"si2bi\":-101,\"bi2vc\":\"12345\"}]",
-                        engine == Engine.PRESTO ?
+                        engine == Engine.TRINO ?
                                 ImmutableList.of(rowBuilder()
                                         .addField("ti2int", -2)
                                         .addField("si2bi", 101L)
@@ -420,7 +420,7 @@ public class TestHiveCoercion
                                         .build()) :
                                 "[{\"ti2int\":-2,\"si2bi\":101,\"bi2vc\":\"-12345\"}]"))
                 .put("map_to_map", Arrays.asList(
-                        engine == Engine.PRESTO ?
+                        engine == Engine.TRINO ?
                                 ImmutableMap.of(2, rowBuilder()
                                         .addField("ti2bi", -3L)
                                         .addField("int2bi", 2323L)
@@ -428,7 +428,7 @@ public class TestHiveCoercion
                                         .addField("add", null)
                                         .build()) :
                                 "{2:{\"ti2bi\":-3,\"int2bi\":2323,\"float2double\":0.5,\"add\":null}}",
-                        engine == Engine.PRESTO ?
+                        engine == Engine.TRINO ?
                                 ImmutableMap.of(-2, rowBuilder()
                                         .addField("ti2bi", null)
                                         .addField("int2bi", -2323L)
@@ -603,7 +603,7 @@ public class TestHiveCoercion
 
             if (column.equals("list_to_list")) {
                 assertEqualsIgnoreOrder(
-                        engine == Engine.PRESTO ? extract(actual.column(sqlIndex)) : actual.column(sqlIndex),
+                        engine == Engine.TRINO ? extract(actual.column(sqlIndex)) : actual.column(sqlIndex),
                         column(expectedRows, sqlIndex),
                         "list_to_list field is not equal");
                 continue;
@@ -651,7 +651,7 @@ public class TestHiveCoercion
             List<String> columns)
     {
         JDBCType floatType;
-        if (engine == Engine.PRESTO) {
+        if (engine == Engine.TRINO) {
             floatType = tableName.toLowerCase(ENGLISH).contains("parquet") ? DOUBLE : REAL;
         }
         else {
@@ -659,7 +659,7 @@ public class TestHiveCoercion
         }
 
         Map<String, JDBCType> expectedTypes = ImmutableMap.<String, JDBCType>builder()
-                .put("row_to_row", engine == Engine.PRESTO ? JAVA_OBJECT : STRUCT)   // row
+                .put("row_to_row", engine == Engine.TRINO ? JAVA_OBJECT : STRUCT)   // row
                 .put("list_to_list", ARRAY) // list
                 .put("map_to_map", JAVA_OBJECT) // map
                 .put("tinyint_to_smallint", SMALLINT)
@@ -836,7 +836,7 @@ public class TestHiveCoercion
     public enum Engine
     {
         HIVE,
-        PRESTO
+        TRINO
     }
 
     private static QueryResult execute(Engine engine, String sql, QueryExecutor.QueryParam... params)
@@ -849,7 +849,7 @@ public class TestHiveCoercion
         switch (engine) {
             case HIVE:
                 return onHive();
-            case PRESTO:
+            case TRINO:
                 return onTrino();
         }
         throw new IllegalStateException("Unknown enum value " + engine);
