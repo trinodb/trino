@@ -651,6 +651,8 @@ connector.
         also have more overhead and increase load on the system.
       - ``64 MB``
 
+.. _hive-sql-support:
+
 SQL support
 -----------
 
