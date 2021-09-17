@@ -36,6 +36,9 @@ public final class SqlTime
 
     public static SqlTime newInstance(int precision, long picos)
     {
+        if (precision < 0 || precision > 12) {
+            throw new IllegalArgumentException("Invalid precision: " + precision);
+        }
         if (rescale(rescale(picos, 12, precision), precision, 12) != picos) {
             throw new IllegalArgumentException(format("picos contains data beyond specified precision (%s): %s", precision, picos));
         }
