@@ -19,6 +19,7 @@ import com.google.common.collect.Lists;
 import com.google.inject.Inject;
 import io.airlift.units.DataSize;
 import io.trino.plugin.hive.HiveTimestampPrecision;
+import io.trino.tempto.BeforeTestWithContext;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.assertions.QueryAssert.Row;
 import io.trino.tempto.query.QueryExecutor.QueryParam;
@@ -259,6 +260,18 @@ public class TestHiveStorageFormats
                 // nanoseconds are not supported with Avro
                 .filter(format -> !"AVRO".equals(format.getName()))
                 .iterator();
+    }
+
+    /**
+     * Ensures that a view named "dummy" with exactly one row exists in the default schema.
+     */
+    // These tests run on versions of Hive (1.1.0 on CDH 5) that don't fully support SELECT without FROM
+    @BeforeTestWithContext
+    public void ensureDummyExists()
+    {
+        onHive().executeQuery("DROP TABLE IF EXISTS dummy");
+        onHive().executeQuery("CREATE TABLE dummy (dummy varchar(1))");
+        onHive().executeQuery("INSERT INTO dummy VALUES ('x')");
     }
 
     @Test
@@ -507,9 +520,7 @@ public class TestHiveStorageFormats
     {
         String tableName = "orc_structs_with_non_lowercase";
 
-        ensureDummyExists();
         onHive().executeQuery("DROP TABLE IF EXISTS " + tableName);
-
         onHive().executeQuery(format(
                 "CREATE TABLE %s (" +
                         "   c_bigint BIGINT," +
@@ -575,7 +586,6 @@ public class TestHiveStorageFormats
     {
         String tableName = createStructTimestampTable("hive_struct_timestamp", format);
         setAdminRole(onTrino().getConnection());
-        ensureDummyExists();
 
         // Insert one at a time because inserting with UNION ALL sometimes makes
         // data invisible to Trino (see https://github.com/trinodb/trino/issues/6485)
@@ -834,17 +844,6 @@ public class TestHiveStorageFormats
             // The test environments do not properly setup or manage
             // roles, so try to set the role, but ignore any errors
         }
-    }
-
-    /**
-     * Ensures that a view named "dummy" with exactly one row exists in the default schema.
-     */
-    // These tests run on versions of Hive (1.1.0 on CDH 5) that don't fully support SELECT without FROM
-    private void ensureDummyExists()
-    {
-        onHive().executeQuery("DROP TABLE IF EXISTS dummy");
-        onHive().executeQuery("CREATE TABLE dummy (dummy varchar(1))");
-        onHive().executeQuery("INSERT INTO dummy VALUES ('x')");
     }
 
     /**
