@@ -37,7 +37,7 @@ public final class SqlTime
     public static SqlTime newInstance(int precision, long picos)
     {
         if (rescale(rescale(picos, 12, precision), precision, 12) != picos) {
-            throw new IllegalArgumentException("picos contains data beyond specified precision: " + precision);
+            throw new IllegalArgumentException(format("picos contains data beyond specified precision (%s): %s", precision, picos));
         }
         if (picos < 0 || picos >= PICOSECONDS_PER_DAY) {
             throw new IllegalArgumentException("picos is out of range: " + picos);
