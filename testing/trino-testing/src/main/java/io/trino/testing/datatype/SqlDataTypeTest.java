@@ -99,7 +99,7 @@ public final class SqlDataTypeTest
                 Type expectedType = testCase.getExpectedType().get();
                 assertion.outputHasType(column, expectedType);
                 assertThat(expected.getTypes())
-                        .as("Expected literal type (check consistency of expected type and expected literal)")
+                        .as(format("Expected literal type at column %d (check consistency of expected type and expected literal)", column + 1))
                         .element(column).isEqualTo(expectedType);
             }
         }
