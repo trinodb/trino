@@ -35,6 +35,7 @@ import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.SliceWriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
+import io.trino.plugin.jdbc.expression.ImplementCountDistinct;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
@@ -174,10 +175,12 @@ public class StargateClient
         this.supportedAggregateFunctions = CacheBuilder.newBuilder()
                 .expireAfterWrite(30, MINUTES)
                 .build();
+        JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(this::quoted, Set.of(
                 new StargateAggregateFunctionRewriteRule(
                         this::getSupportedAggregateFunctions,
-                        this::toTypeHandle)));
+                        this::toTypeHandle),
+                new ImplementCountDistinct(bigintTypeHandle, false)));
         this.statisticsEnabled = requireNonNull(statisticsConfig, "statisticsConfig is null").isEnabled();
         this.tableScanRedirection = requireNonNull(tableScanRedirection, "tableScanRedirection is null");
     }
