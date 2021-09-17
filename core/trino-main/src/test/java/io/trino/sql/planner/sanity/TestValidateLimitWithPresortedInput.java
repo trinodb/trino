@@ -157,7 +157,7 @@ public class TestValidateLimitWithPresortedInput
                                                 ImmutableList.of(new LongLiteral("1")))))));
     }
 
-    @Test(expectedExceptions = VerifyException.class, expectedExceptionsMessageRegExp = "Expected Limit input to be sorted by: \\[col_b], but was \\[col_a]")
+    @Test(expectedExceptions = VerifyException.class, expectedExceptionsMessageRegExp = "\\QExpected Limit input to be sorted by: [col_b], but was [S↑←(col_a)]\\E")
     public void testValidateFailed()
     {
         validatePlan(
