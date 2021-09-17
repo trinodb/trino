@@ -33,17 +33,17 @@ public class TestTimeWithTimeZoneType
     public static Block createTestBlock()
     {
         BlockBuilder blockBuilder = TIME_WITH_TIME_ZONE.createBlockBuilder(null, 15);
-        TIME_WITH_TIME_ZONE.writeLong(blockBuilder, packTimeWithTimeZone(1111, 0));
-        TIME_WITH_TIME_ZONE.writeLong(blockBuilder, packTimeWithTimeZone(1111, 1));
-        TIME_WITH_TIME_ZONE.writeLong(blockBuilder, packTimeWithTimeZone(1111, 2));
-        TIME_WITH_TIME_ZONE.writeLong(blockBuilder, packTimeWithTimeZone(2222, 3));
-        TIME_WITH_TIME_ZONE.writeLong(blockBuilder, packTimeWithTimeZone(2222, 4));
-        TIME_WITH_TIME_ZONE.writeLong(blockBuilder, packTimeWithTimeZone(2222, 5));
-        TIME_WITH_TIME_ZONE.writeLong(blockBuilder, packTimeWithTimeZone(2222, 6));
-        TIME_WITH_TIME_ZONE.writeLong(blockBuilder, packTimeWithTimeZone(2222, 7));
-        TIME_WITH_TIME_ZONE.writeLong(blockBuilder, packTimeWithTimeZone(3333, 8));
-        TIME_WITH_TIME_ZONE.writeLong(blockBuilder, packTimeWithTimeZone(3333, 9));
-        TIME_WITH_TIME_ZONE.writeLong(blockBuilder, packTimeWithTimeZone(4444, 10));
+        TIME_WITH_TIME_ZONE.writeLong(blockBuilder, packTimeWithTimeZone(1_111_000_000L, 0));
+        TIME_WITH_TIME_ZONE.writeLong(blockBuilder, packTimeWithTimeZone(1_111_000_000L, 1));
+        TIME_WITH_TIME_ZONE.writeLong(blockBuilder, packTimeWithTimeZone(1_111_000_000L, 2));
+        TIME_WITH_TIME_ZONE.writeLong(blockBuilder, packTimeWithTimeZone(2_222_000_000L, 3));
+        TIME_WITH_TIME_ZONE.writeLong(blockBuilder, packTimeWithTimeZone(2_222_000_000L, 4));
+        TIME_WITH_TIME_ZONE.writeLong(blockBuilder, packTimeWithTimeZone(2_222_000_000L, 5));
+        TIME_WITH_TIME_ZONE.writeLong(blockBuilder, packTimeWithTimeZone(2_222_000_000L, 6));
+        TIME_WITH_TIME_ZONE.writeLong(blockBuilder, packTimeWithTimeZone(2_222_000_000L, 7));
+        TIME_WITH_TIME_ZONE.writeLong(blockBuilder, packTimeWithTimeZone(3_333_000_000L, 8));
+        TIME_WITH_TIME_ZONE.writeLong(blockBuilder, packTimeWithTimeZone(3_333_000_000L, 9));
+        TIME_WITH_TIME_ZONE.writeLong(blockBuilder, packTimeWithTimeZone(4_444_000_000L, 10));
         return blockBuilder.build();
     }
 
