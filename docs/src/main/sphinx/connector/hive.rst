@@ -413,7 +413,7 @@ with ORC files performed by the Hive connector.
       - Sets the default time zone for legacy ORC files that did not declare a
         time zone.
       - JVM default
-    * - ``hive.orc.use-columns-names``
+    * - ``hive.orc.use-column-names``
       - Access ORC columns by name. By default, columns in ORC files are
         accessed by their ordinal position in the Hive table definition. The
         equivalent catalog session property is ``orc_use_column_names``.
