@@ -629,7 +629,7 @@ public class TestHiveTransactionalTable
     }
 
     @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
-    public void testTransactionalUnpartitionedDelete(HiveOrTrino inserter, HiveOrTrino deleter)
+    public void testTransactionalUnpartitionedDelete(Engine inserter, Engine deleter)
     {
         withTemporaryTable("unpartitioned_delete", true, false, NONE, tableName -> {
             onTrino().executeQuery(format("CREATE TABLE %s (column1 INTEGER, column2 BIGINT) WITH (format = 'ORC', transactional = true)", tableName));
@@ -647,7 +647,7 @@ public class TestHiveTransactionalTable
     }
 
     @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
-    public void testMultiDelete(HiveOrTrino inserter, HiveOrTrino deleter)
+    public void testMultiDelete(Engine inserter, Engine deleter)
     {
         withTemporaryTable("unpartitioned_multi_delete", true, false, NONE, tableName -> {
             onTrino().executeQuery(format("CREATE TABLE %s (column1 INT, column2 BIGINT) WITH (transactional = true)", tableName));
@@ -690,7 +690,7 @@ public class TestHiveTransactionalTable
     }
 
     @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
-    public void testTransactionalMetadataDelete(HiveOrTrino inserter, HiveOrTrino deleter)
+    public void testTransactionalMetadataDelete(Engine inserter, Engine deleter)
     {
         withTemporaryTable("metadata_delete", true, true, NONE, tableName -> {
             onTrino().executeQuery(format("CREATE TABLE %s (column1 INT, column2 BIGINT) WITH (transactional = true, partitioned_by = ARRAY['column2'])", tableName));
@@ -710,23 +710,23 @@ public class TestHiveTransactionalTable
         withTemporaryTable("non_transactional_metadata_delete", false, true, NONE, tableName -> {
             onTrino().executeQuery(format("CREATE TABLE %s (column2 BIGINT, column1 INT) WITH (partitioned_by = ARRAY['column1'])", tableName));
 
-            execute(HiveOrTrino.TRINO, format("INSERT INTO %s (column1, column2) VALUES %s, %s",
+            execute(Engine.TRINO, format("INSERT INTO %s (column1, column2) VALUES %s, %s",
                     tableName,
                     makeInsertValues(1, 1, 10),
                     makeInsertValues(2, 1, 10)));
 
-            execute(HiveOrTrino.TRINO, format("INSERT INTO %s (column1, column2) VALUES %s, %s",
+            execute(Engine.TRINO, format("INSERT INTO %s (column1, column2) VALUES %s, %s",
                     tableName,
                     makeInsertValues(1, 11, 20),
                     makeInsertValues(2, 11, 20)));
 
-            execute(HiveOrTrino.TRINO, format("DELETE FROM %s WHERE column1 = 1", tableName));
+            execute(Engine.TRINO, format("DELETE FROM %s WHERE column1 = 1", tableName));
             verifySelectForTrinoAndHive("SELECT COUNT(*) FROM " + tableName, "column1 = 1", row(0));
         });
     }
 
     @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
-    public void testUnpartitionedDeleteAll(HiveOrTrino inserter, HiveOrTrino deleter)
+    public void testUnpartitionedDeleteAll(Engine inserter, Engine deleter)
     {
         withTemporaryTable("unpartitioned_delete_all", true, false, NONE, tableName -> {
             onTrino().executeQuery(format("CREATE TABLE %s (column1 INT, column2 BIGINT) WITH (transactional = true)", tableName));
@@ -737,7 +737,7 @@ public class TestHiveTransactionalTable
     }
 
     @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
-    public void testMultiColumnDelete(HiveOrTrino inserter, HiveOrTrino deleter)
+    public void testMultiColumnDelete(Engine inserter, Engine deleter)
     {
         withTemporaryTable("multi_column_delete", true, false, NONE, tableName -> {
             onTrino().executeQuery(format("CREATE TABLE %s (column1 INT, column2 BIGINT) WITH (transactional = true)", tableName));
@@ -749,7 +749,7 @@ public class TestHiveTransactionalTable
     }
 
     @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
-    public void testPartitionAndRowsDelete(HiveOrTrino inserter, HiveOrTrino deleter)
+    public void testPartitionAndRowsDelete(Engine inserter, Engine deleter)
     {
         withTemporaryTable("partition_and_rows_delete", true, true, NONE, tableName -> {
             onTrino().executeQuery("CREATE TABLE " + tableName +
@@ -762,7 +762,7 @@ public class TestHiveTransactionalTable
     }
 
     @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
-    public void testPartitionedInsertAndRowLevelDelete(HiveOrTrino inserter, HiveOrTrino deleter)
+    public void testPartitionedInsertAndRowLevelDelete(Engine inserter, Engine deleter)
     {
         withTemporaryTable("partitioned_row_level_delete", true, true, NONE, tableName -> {
             onTrino().executeQuery(format("CREATE TABLE %s (column2 INT, column1 BIGINT) WITH (transactional = true, partitioned_by = ARRAY['column1'])", tableName));
@@ -786,7 +786,7 @@ public class TestHiveTransactionalTable
 
     @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
     @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
-    public void testBucketedPartitionedDelete(HiveOrTrino inserter, HiveOrTrino deleter)
+    public void testBucketedPartitionedDelete(Engine inserter, Engine deleter)
     {
         withTemporaryTable("bucketed_partitioned_delete", true, true, NONE, tableName -> {
             onHive().executeQuery(format("CREATE TABLE %s (purchase STRING) PARTITIONED BY (customer STRING) CLUSTERED BY (purchase) INTO 3 BUCKETS STORED AS ORC TBLPROPERTIES ('transactional' = 'true')", tableName));
@@ -833,7 +833,7 @@ public class TestHiveTransactionalTable
     }
 
     @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
-    public void testBucketedUnpartitionedDelete(HiveOrTrino inserter, HiveOrTrino deleter)
+    public void testBucketedUnpartitionedDelete(Engine inserter, Engine deleter)
     {
         withTemporaryTable("bucketed_unpartitioned_delete", true, true, NONE, tableName -> {
             onHive().executeQuery(format("CREATE TABLE %s (customer STRING, purchase STRING) CLUSTERED BY (purchase) INTO 3 BUCKETS STORED AS ORC TBLPROPERTIES ('transactional' = 'true')", tableName));
@@ -863,7 +863,7 @@ public class TestHiveTransactionalTable
     }
 
     @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
-    public void testCorrectSelectCountStar(HiveOrTrino inserter, HiveOrTrino deleter)
+    public void testCorrectSelectCountStar(Engine inserter, Engine deleter)
     {
         withTemporaryTable("select_count_star_delete", true, true, NONE, tableName -> {
             onHive().executeQuery(format("CREATE TABLE %s (col1 INT, col2 BIGINT) PARTITIONED BY (col3 STRING) STORED AS ORC TBLPROPERTIES ('transactional'='true')", tableName));
@@ -875,7 +875,7 @@ public class TestHiveTransactionalTable
     }
 
     @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "insertersProvider", timeOut = TEST_TIMEOUT)
-    public void testInsertOnlyMultipleWriters(boolean bucketed, HiveOrTrino inserter1, HiveOrTrino inserter2)
+    public void testInsertOnlyMultipleWriters(boolean bucketed, Engine inserter1, Engine inserter2)
     {
         log.info("testInsertOnlyMultipleWriters bucketed %s, inserter1 %s, inserter2 %s", bucketed, inserter1, inserter2);
         withTemporaryTable("insert_only_partitioned", true, true, NONE, tableName -> {
@@ -1582,42 +1582,25 @@ public class TestHiveTransactionalTable
     public Object[][] insertersProvider()
     {
         return new Object[][] {
-                {false, HiveOrTrino.HIVE, HiveOrTrino.TRINO},
-                {false, HiveOrTrino.TRINO, HiveOrTrino.TRINO},
-                {true, HiveOrTrino.HIVE, HiveOrTrino.TRINO},
-                {true, HiveOrTrino.TRINO, HiveOrTrino.TRINO},
+                {false, Engine.HIVE, Engine.TRINO},
+                {false, Engine.TRINO, Engine.TRINO},
+                {true, Engine.HIVE, Engine.TRINO},
+                {true, Engine.TRINO, Engine.TRINO},
         };
     }
 
-    private enum HiveOrTrino
+    private static QueryResult execute(Engine engine, String sql, QueryExecutor.QueryParam... params)
     {
-        HIVE,
-        TRINO
-    }
-
-    private static QueryResult execute(HiveOrTrino hiveOrTrino, String sql, QueryExecutor.QueryParam... params)
-    {
-        return executorFor(hiveOrTrino).executeQuery(sql, params);
-    }
-
-    private static QueryExecutor executorFor(HiveOrTrino hiveOrTrino)
-    {
-        switch (hiveOrTrino) {
-            case HIVE:
-                return onHive();
-            case TRINO:
-                return onTrino();
-        }
-        throw new IllegalStateException("Unknown enum value " + hiveOrTrino);
+        return engine.queryExecutor().executeQuery(sql, params);
     }
 
     @DataProvider
     public Object[][] inserterAndDeleterProvider()
     {
         return new Object[][] {
-                {HiveOrTrino.HIVE, HiveOrTrino.TRINO},
-                {HiveOrTrino.TRINO, HiveOrTrino.TRINO},
-                {HiveOrTrino.TRINO, HiveOrTrino.HIVE}
+                {Engine.HIVE, Engine.TRINO},
+                {Engine.TRINO, Engine.TRINO},
+                {Engine.TRINO, Engine.HIVE}
         };
     }
 
