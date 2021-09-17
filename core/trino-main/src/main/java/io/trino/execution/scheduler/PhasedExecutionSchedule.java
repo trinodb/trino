@@ -16,8 +16,6 @@ package io.trino.execution.scheduler;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.trino.execution.SqlStageExecution;
-import io.trino.execution.StageState;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.IndexJoinNode;
@@ -50,9 +48,9 @@ import java.util.stream.Collectors;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.trino.execution.StageState.FLUSHING;
-import static io.trino.execution.StageState.RUNNING;
-import static io.trino.execution.StageState.SCHEDULED;
+import static io.trino.execution.scheduler.StreamingStageExecution.State.FLUSHING;
+import static io.trino.execution.scheduler.StreamingStageExecution.State.RUNNING;
+import static io.trino.execution.scheduler.StreamingStageExecution.State.SCHEDULED;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static java.util.function.Function.identity;
 
@@ -60,14 +58,14 @@ import static java.util.function.Function.identity;
 public class PhasedExecutionSchedule
         implements ExecutionSchedule
 {
-    private final List<Set<SqlStageExecution>> schedulePhases;
-    private final Set<SqlStageExecution> activeSources = new HashSet<>();
+    private final List<Set<StreamingStageExecution>> schedulePhases;
+    private final Set<StreamingStageExecution> activeSources = new HashSet<>();
 
-    public PhasedExecutionSchedule(Collection<SqlStageExecution> stages)
+    public PhasedExecutionSchedule(Collection<StreamingStageExecution> stages)
     {
-        List<Set<PlanFragmentId>> phases = extractPhases(stages.stream().map(SqlStageExecution::getFragment).collect(toImmutableList()));
+        List<Set<PlanFragmentId>> phases = extractPhases(stages.stream().map(StreamingStageExecution::getFragment).collect(toImmutableList()));
 
-        Map<PlanFragmentId, SqlStageExecution> stagesByFragmentId = stages.stream().collect(toImmutableMap(stage -> stage.getFragment().getId(), identity()));
+        Map<PlanFragmentId, StreamingStageExecution> stagesByFragmentId = stages.stream().collect(toImmutableMap(stage -> stage.getFragment().getId(), identity()));
 
         // create a mutable list of mutable sets of stages, so we can remove completed stages
         schedulePhases = new ArrayList<>();
@@ -79,7 +77,7 @@ public class PhasedExecutionSchedule
     }
 
     @Override
-    public Set<SqlStageExecution> getStagesToSchedule()
+    public Set<StreamingStageExecution> getStagesToSchedule()
     {
         removeCompletedStages();
         addPhasesIfNecessary();
@@ -91,8 +89,8 @@ public class PhasedExecutionSchedule
 
     private void removeCompletedStages()
     {
-        for (Iterator<SqlStageExecution> stageIterator = activeSources.iterator(); stageIterator.hasNext(); ) {
-            StageState state = stageIterator.next().getState();
+        for (Iterator<StreamingStageExecution> stageIterator = activeSources.iterator(); stageIterator.hasNext(); ) {
+            StreamingStageExecution.State state = stageIterator.next().getState();
             if (state == SCHEDULED || state == RUNNING || state == FLUSHING || state.isDone()) {
                 stageIterator.remove();
             }
@@ -107,7 +105,7 @@ public class PhasedExecutionSchedule
         }
 
         while (!schedulePhases.isEmpty()) {
-            Set<SqlStageExecution> phase = schedulePhases.remove(0);
+            Set<StreamingStageExecution> phase = schedulePhases.remove(0);
             activeSources.addAll(phase);
             if (hasSourceDistributedStage(phase)) {
                 return;
@@ -115,7 +113,7 @@ public class PhasedExecutionSchedule
         }
     }
 
-    private static boolean hasSourceDistributedStage(Set<SqlStageExecution> phase)
+    private static boolean hasSourceDistributedStage(Set<StreamingStageExecution> phase)
     {
         return phase.stream().anyMatch(stage -> !stage.getFragment().getPartitionedSources().isEmpty());
     }

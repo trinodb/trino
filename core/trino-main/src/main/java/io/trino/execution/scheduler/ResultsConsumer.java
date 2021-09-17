@@ -13,14 +13,12 @@
  */
 package io.trino.execution.scheduler;
 
-import java.util.Collection;
+import io.trino.execution.RemoteTask;
+import io.trino.sql.planner.plan.PlanFragmentId;
 
-public class AllAtOnceExecutionPolicy
-        implements ExecutionPolicy
+public interface ResultsConsumer
 {
-    @Override
-    public ExecutionSchedule createExecutionSchedule(Collection<StreamingStageExecution> stages)
-    {
-        return new AllAtOnceExecutionSchedule(stages);
-    }
+    void addSourceTask(PlanFragmentId fragmentId, RemoteTask sourceTask);
+
+    void noMoreSourceTasks(PlanFragmentId fragmentId);
 }

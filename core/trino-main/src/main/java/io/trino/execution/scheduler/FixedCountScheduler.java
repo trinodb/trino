@@ -14,8 +14,8 @@
 package io.trino.execution.scheduler;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableMultimap;
 import io.trino.execution.RemoteTask;
-import io.trino.execution.SqlStageExecution;
 import io.trino.metadata.InternalNode;
 
 import java.util.List;
@@ -36,10 +36,10 @@ public class FixedCountScheduler
     private final TaskScheduler taskScheduler;
     private final List<InternalNode> partitionToNode;
 
-    public FixedCountScheduler(SqlStageExecution stage, List<InternalNode> partitionToNode)
+    public FixedCountScheduler(StreamingStageExecution stageExecution, List<InternalNode> partitionToNode)
     {
-        requireNonNull(stage, "stage is null");
-        this.taskScheduler = stage::scheduleTask;
+        requireNonNull(stageExecution, "stage is null");
+        this.taskScheduler = (node, partition) -> stageExecution.scheduleTask(node, partition, ImmutableMultimap.of(), ImmutableMultimap.of());
         this.partitionToNode = requireNonNull(partitionToNode, "partitionToNode is null");
     }
 

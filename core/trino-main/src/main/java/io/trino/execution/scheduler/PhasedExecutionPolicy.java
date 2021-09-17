@@ -13,15 +13,13 @@
  */
 package io.trino.execution.scheduler;
 
-import io.trino.execution.SqlStageExecution;
-
 import java.util.Collection;
 
 public class PhasedExecutionPolicy
         implements ExecutionPolicy
 {
     @Override
-    public ExecutionSchedule createExecutionSchedule(Collection<SqlStageExecution> stages)
+    public ExecutionSchedule createExecutionSchedule(Collection<StreamingStageExecution> stages)
     {
         return new PhasedExecutionSchedule(stages);
     }

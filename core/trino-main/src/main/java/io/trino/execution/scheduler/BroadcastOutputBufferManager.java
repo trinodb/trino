@@ -19,57 +19,46 @@ import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
-import java.util.List;
-import java.util.function.Consumer;
-
 import static io.trino.execution.buffer.OutputBuffers.BROADCAST_PARTITION_ID;
 import static io.trino.execution.buffer.OutputBuffers.BufferType.BROADCAST;
 import static io.trino.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
-import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 class BroadcastOutputBufferManager
         implements OutputBufferManager
 {
-    private final Consumer<OutputBuffers> outputBufferTarget;
-
     @GuardedBy("this")
     private OutputBuffers outputBuffers = createInitialEmptyOutputBuffers(BROADCAST);
 
-    public BroadcastOutputBufferManager(Consumer<OutputBuffers> outputBufferTarget)
+    @Override
+    public synchronized void addOutputBuffer(OutputBufferId newBuffer)
     {
-        this.outputBufferTarget = requireNonNull(outputBufferTarget, "outputBufferTarget is null");
-        outputBufferTarget.accept(outputBuffers);
+        if (outputBuffers.isNoMoreBufferIds()) {
+            // a stage can move to a final state (e.g., failed) while scheduling, so ignore
+            // the new buffers
+            return;
+        }
+
+        // Note: it does not matter which partition id the task is using, in broadcast all tasks read from the same partition
+        OutputBuffers newOutputBuffers = outputBuffers.withBuffer(newBuffer, BROADCAST_PARTITION_ID);
+
+        // don't update if nothing changed
+        if (newOutputBuffers != outputBuffers) {
+            this.outputBuffers = newOutputBuffers;
+        }
     }
 
     @Override
-    public void addOutputBuffers(List<OutputBufferId> newBuffers, boolean noMoreBuffers)
+    public synchronized void noMoreBuffers()
     {
-        OutputBuffers newOutputBuffers;
-        synchronized (this) {
-            if (outputBuffers.isNoMoreBufferIds()) {
-                // a stage can move to a final state (e.g., failed) while scheduling, so ignore
-                // the new buffers
-                return;
-            }
-
-            OutputBuffers originalOutputBuffers = outputBuffers;
-
-            // Note: it does not matter which partition id the task is using, in broadcast all tasks read from the same partition
-            for (OutputBufferId newBuffer : newBuffers) {
-                outputBuffers = outputBuffers.withBuffer(newBuffer, BROADCAST_PARTITION_ID);
-            }
-
-            if (noMoreBuffers) {
-                outputBuffers = outputBuffers.withNoMoreBufferIds();
-            }
-
-            // don't update if nothing changed
-            if (outputBuffers == originalOutputBuffers) {
-                return;
-            }
-            newOutputBuffers = this.outputBuffers;
+        if (!outputBuffers.isNoMoreBufferIds()) {
+            outputBuffers = outputBuffers.withNoMoreBufferIds();
         }
-        outputBufferTarget.accept(newOutputBuffers);
+    }
+
+    @Override
+    public synchronized OutputBuffers getOutputBuffers()
+    {
+        return outputBuffers;
     }
 }

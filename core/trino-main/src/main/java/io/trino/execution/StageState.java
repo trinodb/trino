@@ -32,35 +32,17 @@ public enum StageState
      */
     SCHEDULING(false, false),
     /**
-     * All stage tasks have been scheduled, but splits are still being scheduled.
-     */
-    SCHEDULING_SPLITS(false, false),
-    /**
-     * Stage has been scheduled on nodes and ready to execute, but all tasks are still queued.
-     */
-    SCHEDULED(false, false),
-    /**
      * Stage is running.
      */
     RUNNING(false, false),
     /**
-     * Stage has finished executing and output being consumed.
-     * In this state, at-least one of the tasks is flushing and the non-flushing tasks are finished
+     * Stage is finished running existing tasks but more tasks could be scheduled in the future.
      */
-    FLUSHING(false, false),
+    PENDING(false, false),
     /**
      * Stage has finished executing and all output has been consumed.
      */
     FINISHED(true, false),
-    /**
-     * Stage was canceled by a user.
-     */
-    CANCELED(true, false),
-    /**
-     * Stage was aborted due to a failure in the query.  The failure
-     * was not in this stage.
-     */
-    ABORTED(true, true),
     /**
      * Stage execution failed.
      */
@@ -92,30 +74,5 @@ public enum StageState
     public boolean isFailure()
     {
         return failureState;
-    }
-
-    public boolean canScheduleMoreTasks()
-    {
-        switch (this) {
-            case PLANNED:
-            case SCHEDULING:
-                // workers are still being added to the query
-                return true;
-            case SCHEDULING_SPLITS:
-            case SCHEDULED:
-            case RUNNING:
-            case FLUSHING:
-            case FINISHED:
-            case CANCELED:
-                // no more workers will be added to the query
-                return false;
-            case ABORTED:
-            case FAILED:
-                // DO NOT complete a FAILED or ABORTED stage.  This will cause the
-                // stage above to finish normally, which will result in a query
-                // completing successfully when it should fail..
-                return true;
-        }
-        throw new IllegalStateException("Unhandled state: " + this);
     }
 }

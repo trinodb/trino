@@ -13,11 +13,9 @@
  */
 package io.trino.execution.scheduler;
 
-import io.trino.execution.SqlStageExecution;
-
 import java.util.Collection;
 
 public interface ExecutionPolicy
 {
-    ExecutionSchedule createExecutionSchedule(Collection<SqlStageExecution> stages);
+    ExecutionSchedule createExecutionSchedule(Collection<StreamingStageExecution> stages);
 }

@@ -13,13 +13,11 @@
  */
 package io.trino.execution.scheduler;
 
-import io.trino.execution.SqlStageExecution;
-
 import java.util.Set;
 
 public interface ExecutionSchedule
 {
-    Set<SqlStageExecution> getStagesToSchedule();
+    Set<StreamingStageExecution> getStagesToSchedule();
 
     boolean isFinished();
 }

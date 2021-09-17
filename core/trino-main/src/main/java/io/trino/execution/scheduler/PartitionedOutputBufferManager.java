@@ -20,10 +20,6 @@ import io.trino.sql.planner.PartitioningHandle;
 
 import javax.annotation.concurrent.ThreadSafe;
 
-import java.util.List;
-import java.util.Map;
-import java.util.function.Consumer;
-
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static java.util.Objects.requireNonNull;
@@ -32,9 +28,9 @@ import static java.util.Objects.requireNonNull;
 public class PartitionedOutputBufferManager
         implements OutputBufferManager
 {
-    private final Map<OutputBufferId, Integer> outputBuffers;
+    private final OutputBuffers outputBuffers;
 
-    public PartitionedOutputBufferManager(PartitioningHandle partitioningHandle, int partitionCount, Consumer<OutputBuffers> outputBufferTarget)
+    public PartitionedOutputBufferManager(PartitioningHandle partitioningHandle, int partitionCount)
     {
         checkArgument(partitionCount >= 1, "partitionCount must be at least 1");
 
@@ -43,27 +39,33 @@ public class PartitionedOutputBufferManager
             partitions.put(new OutputBufferId(partition), partition);
         }
 
-        OutputBuffers outputBuffers = createInitialEmptyOutputBuffers(requireNonNull(partitioningHandle, "partitioningHandle is null"))
+        outputBuffers = createInitialEmptyOutputBuffers(requireNonNull(partitioningHandle, "partitioningHandle is null"))
                 .withBuffers(partitions.build())
                 .withNoMoreBufferIds();
-        outputBufferTarget.accept(outputBuffers);
-
-        this.outputBuffers = outputBuffers.getBuffers();
     }
 
     @Override
-    public void addOutputBuffers(List<OutputBufferId> newBuffers, boolean noMoreBuffers)
+    public void addOutputBuffer(OutputBufferId newBuffer)
     {
         // All buffers are created in the constructor, so just validate that this isn't
         // a request to add a new buffer
-        for (OutputBufferId newBuffer : newBuffers) {
-            Integer existingBufferId = outputBuffers.get(newBuffer);
-            if (existingBufferId == null) {
-                throw new IllegalStateException("Unexpected new output buffer " + newBuffer);
-            }
-            if (newBuffer.getId() != existingBufferId) {
-                throw new IllegalStateException("newOutputBuffers has changed the assignment for task " + newBuffer);
-            }
+        Integer existingBufferId = outputBuffers.getBuffers().get(newBuffer);
+        if (existingBufferId == null) {
+            throw new IllegalStateException("Unexpected new output buffer " + newBuffer);
         }
+        if (newBuffer.getId() != existingBufferId) {
+            throw new IllegalStateException("newOutputBuffers has changed the assignment for task " + newBuffer);
+        }
+    }
+
+    @Override
+    public void noMoreBuffers()
+    {
+    }
+
+    @Override
+    public OutputBuffers getOutputBuffers()
+    {
+        return outputBuffers;
     }
 }

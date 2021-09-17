@@ -25,8 +25,6 @@ import io.trino.cost.CostCalculator;
 import io.trino.cost.StatsCalculator;
 import io.trino.execution.QueryPreparer.PreparedQuery;
 import io.trino.execution.StateMachine.StateChangeListener;
-import io.trino.execution.buffer.OutputBuffers;
-import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
 import io.trino.execution.scheduler.ExecutionPolicy;
 import io.trino.execution.scheduler.NodeScheduler;
 import io.trino.execution.scheduler.SplitSchedulerStats;
@@ -55,7 +53,6 @@ import io.trino.sql.planner.DistributedExecutionPlanner;
 import io.trino.sql.planner.InputExtractor;
 import io.trino.sql.planner.LogicalPlanner;
 import io.trino.sql.planner.NodePartitioningManager;
-import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.PlanFragmenter;
 import io.trino.sql.planner.PlanNodeIdAllocator;
@@ -89,8 +86,6 @@ import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.SystemSessionProperties.isEnableDynamicFiltering;
 import static io.trino.execution.QueryState.FAILED;
 import static io.trino.execution.QueryState.PLANNING;
-import static io.trino.execution.buffer.OutputBuffers.BROADCAST_PARTITION_ID;
-import static io.trino.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static io.trino.execution.scheduler.SqlQueryScheduler.createSqlQueryScheduler;
 import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -104,8 +99,6 @@ public class SqlQueryExecution
         implements QueryExecution
 {
     private static final Logger log = Logger.get(SqlQueryExecution.class);
-
-    private static final OutputBufferId OUTPUT_BUFFER_ID = new OutputBufferId(0);
 
     private final QueryStateMachine stateMachine;
     private final Slug slug;
@@ -522,11 +515,6 @@ public class SqlQueryExecution
         // record output field
         stateMachine.setColumns(outputStageExecutionPlan.getFieldNames(), outputStageExecutionPlan.getFragment().getTypes());
 
-        PartitioningHandle partitioningHandle = plan.getRoot().getFragment().getPartitioningScheme().getPartitioning().getHandle();
-        OutputBuffers rootOutputBuffers = createInitialEmptyOutputBuffers(partitioningHandle)
-                .withBuffer(OUTPUT_BUFFER_ID, BROADCAST_PARTITION_ID)
-                .withNoMoreBufferIds();
-
         // build the stage execution objects (this doesn't schedule execution)
         SqlQueryScheduler scheduler = createSqlQueryScheduler(
                 stateMachine,
@@ -534,13 +522,11 @@ public class SqlQueryExecution
                 nodePartitioningManager,
                 nodeScheduler,
                 remoteTaskFactory,
-                stateMachine.getSession(),
                 plan.isSummarizeTaskInfos(),
                 scheduleSplitBatchSize,
                 queryExecutor,
                 schedulerExecutor,
                 failureDetector,
-                rootOutputBuffers,
                 nodeTaskMap,
                 executionPolicy,
                 schedulerStats,
