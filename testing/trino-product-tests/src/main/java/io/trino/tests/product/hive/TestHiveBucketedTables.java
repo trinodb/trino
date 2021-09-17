@@ -310,6 +310,7 @@ public class TestHiveBucketedTables
     }
 
     @Test(dataProvider = "testBucketingWithUnsupportedDataTypesDataProvider")
+    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testBucketingWithUnsupportedDataTypes(BucketingType bucketingType, String columnToBeBucketed)
     {
         try (TemporaryHiveTable table = temporaryHiveTable("table_with_unsupported_bucketing_types_" + randomTableSuffix())) {
