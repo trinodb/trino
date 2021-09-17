@@ -13,11 +13,14 @@
  */
 package io.trino.sql.planner.planprinter;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonRawValue;
 import io.airlift.json.JsonCodec;
 import io.trino.sql.planner.plan.PlanFragmentId;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -27,11 +30,18 @@ public class JsonRenderer
         implements Renderer<String>
 {
     private static final JsonCodec<JsonRenderedNode> CODEC = JsonCodec.jsonCodec(JsonRenderedNode.class);
+    private static final JsonCodec<Map<PlanFragmentId, JsonPlanFragment>> PLAN_MAP_CODEC
+            = JsonCodec.mapJsonCodec(PlanFragmentId.class, JsonPlanFragment.class);
 
     @Override
     public String render(PlanRepresentation plan)
     {
         return CODEC.toJson(renderJson(plan, plan.getRoot()));
+    }
+
+    public String render(Map<PlanFragmentId, JsonPlanFragment> fragmentJsonMap)
+    {
+        return PLAN_MAP_CODEC.toJson(fragmentJsonMap);
     }
 
     private JsonRenderedNode renderJson(PlanRepresentation plan, NodeRepresentation node)
@@ -107,6 +117,24 @@ public class JsonRenderer
         public List<String> getRemoteSources()
         {
             return remoteSources;
+        }
+    }
+
+    public static class JsonPlanFragment
+    {
+        @JsonRawValue
+        private final String plan;
+
+        @JsonCreator
+        public JsonPlanFragment(String plan)
+        {
+            this.plan = plan;
+        }
+
+        @JsonProperty
+        public String getPlan()
+        {
+            return this.plan;
         }
     }
 }

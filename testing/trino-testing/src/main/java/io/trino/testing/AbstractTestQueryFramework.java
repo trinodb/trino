@@ -416,6 +416,16 @@ public abstract class AbstractTestQueryFramework
                 });
     }
 
+    protected String getJsonExplainPlan(String query, ExplainType.Type planType)
+    {
+        QueryExplainer explainer = getQueryExplainer();
+        return transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
+                .singleStatement()
+                .execute(queryRunner.getDefaultSession(), session -> {
+                    return explainer.getJsonPlan(session, sqlParser.createStatement(query, createParsingOptions(session)), planType, emptyList(), WarningCollector.NOOP);
+                });
+    }
+
     private QueryExplainer getQueryExplainer()
     {
         Metadata metadata = queryRunner.getMetadata();

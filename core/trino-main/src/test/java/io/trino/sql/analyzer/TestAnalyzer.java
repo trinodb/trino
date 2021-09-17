@@ -22,6 +22,12 @@ import io.trino.SystemSessionProperties;
 import io.trino.connector.CatalogName;
 import io.trino.connector.informationschema.InformationSchemaConnector;
 import io.trino.connector.system.SystemConnector;
+import io.trino.cost.CostCalculator;
+import io.trino.cost.CostCalculatorUsingExchanges;
+import io.trino.cost.CostCalculatorWithEstimatedExchanges;
+import io.trino.cost.CostComparator;
+import io.trino.cost.ScalarStatsCalculator;
+import io.trino.cost.TaskCountEstimator;
 import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.TaskManagerConfig;
@@ -59,9 +65,16 @@ import io.trino.spi.transaction.IsolationLevel;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
 import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
+import io.trino.sql.planner.PlanFragmenter;
+import io.trino.sql.planner.PlanOptimizers;
+import io.trino.sql.planner.RuleStatsRecorder;
+import io.trino.sql.planner.TypeAnalyzer;
+import io.trino.sql.planner.optimizations.PlanOptimizer;
 import io.trino.sql.tree.Statement;
+import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.TestingAccessControlManager;
 import io.trino.testing.TestingMetadata;
 import io.trino.testing.TestingMetadata.TestingTableHandle;
@@ -2035,6 +2048,21 @@ public class TestAnalyzer
     {
         analyze("ROLLBACK");
         analyze("ROLLBACK WORK");
+    }
+
+    @Test
+    public void testExplain()
+    {
+        analyze("EXPLAIN (FORMAT TEXT, TYPE LOGICAL) SELECT * FROM t1");
+        analyze("EXPLAIN (FORMAT TEXT, TYPE DISTRIBUTED) SELECT * FROM t1");
+        analyze("EXPLAIN (FORMAT TEXT, TYPE IO) SELECT * FROM t1");
+
+        analyze("EXPLAIN (FORMAT JSON, TYPE LOGICAL) SELECT * FROM t1");
+        analyze("EXPLAIN (FORMAT JSON, TYPE DISTRIBUTED) SELECT * FROM t1");
+        analyze("EXPLAIN (FORMAT JSON, TYPE IO) SELECT * FROM t1");
+
+        analyze("EXPLAIN (FORMAT GRAPHVIZ, TYPE LOGICAL) SELECT * FROM t1");
+        analyze("EXPLAIN (FORMAT GRAPHVIZ, TYPE DISTRIBUTED) SELECT * FROM t1");
     }
 
     @Test
@@ -5262,11 +5290,49 @@ public class TestAnalyzer
                 SQL_PARSER,
                 user -> ImmutableSet.of(),
                 accessControl,
-                Optional.empty(),
+                Optional.of(getQueryExplainer(metadata, accessControl)),
                 emptyList(),
                 emptyMap(),
                 WarningCollector.NOOP,
                 noopStatsCalculator());
+    }
+
+    private static QueryExplainer getQueryExplainer(Metadata metadata, AccessControl accessControl)
+    {
+        LocalQueryRunner queryRunner = LocalQueryRunner.create(SETUP_SESSION);
+        FeaturesConfig featuresConfig = new FeaturesConfig().setOptimizeHashGeneration(true);
+        boolean forceSingleNode = queryRunner.getNodeCount() == 1;
+        TypeOperators typeOperators = new TypeOperators();
+        TypeAnalyzer typeAnalyzer = new TypeAnalyzer(SQL_PARSER, metadata);
+        TaskCountEstimator taskCountEstimator = new TaskCountEstimator(queryRunner::getNodeCount);
+        CostCalculator costCalculator = new CostCalculatorUsingExchanges(taskCountEstimator);
+        List<PlanOptimizer> optimizers = new PlanOptimizers(
+                metadata,
+                typeOperators,
+                typeAnalyzer,
+                new TaskManagerConfig(),
+                forceSingleNode,
+                queryRunner.getSplitManager(),
+                queryRunner.getPageSourceManager(),
+                queryRunner.getStatsCalculator(),
+                new ScalarStatsCalculator(metadata, typeAnalyzer),
+                costCalculator,
+                new CostCalculatorWithEstimatedExchanges(costCalculator, taskCountEstimator),
+                new CostComparator(featuresConfig),
+                taskCountEstimator,
+                queryRunner.getNodePartitioningManager(),
+                new RuleStatsRecorder()).get();
+        return new QueryExplainer(
+                optimizers,
+                new PlanFragmenter(metadata, queryRunner.getNodePartitioningManager(), new QueryManagerConfig()),
+                metadata,
+                typeOperators,
+                queryRunner.getGroupProvider(),
+                accessControl,
+                SQL_PARSER,
+                queryRunner.getStatsCalculator(),
+                costCalculator,
+                ImmutableMap.of());
     }
 
     private Analysis analyze(@Language("SQL") String query)
