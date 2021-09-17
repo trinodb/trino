@@ -13,6 +13,7 @@
  */
 package io.trino.tests.product.hive;
 
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.inject.Inject;
@@ -25,6 +26,7 @@ import io.trino.tempto.query.QueryResult;
 import io.trino.testng.services.Flaky;
 import io.trino.tests.product.utils.JdbcDriverUtils;
 import org.apache.parquet.hadoop.ParquetWriter;
+import org.assertj.core.api.Assertions;
 import org.assertj.core.api.SoftAssertions;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -39,13 +41,18 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Maps.immutableEntry;
 import static io.trino.plugin.hive.HiveTimestampPrecision.MICROSECONDS;
 import static io.trino.plugin.hive.HiveTimestampPrecision.MILLISECONDS;
@@ -212,6 +219,13 @@ public class TestHiveStorageFormats
                     "2021-01-01 00:00:00.000000",
                     "2021-01-01 00:00:00.000000000"));
 
+    private static Set<String> storageFormats()
+    {
+        return Stream.of(storageFormatsWithConfiguration())
+                .map(StorageFormat::getName)
+                .collect(toImmutableSet());
+    }
+
     @DataProvider
     public static StorageFormat[] storageFormatsWithConfiguration()
     {
@@ -245,6 +259,30 @@ public class TestHiveStorageFormats
                 // nanoseconds are not supported with Avro
                 .filter(format -> !"AVRO".equals(format.getName()))
                 .iterator();
+    }
+
+    @Test
+    public void verifyDataProviderCompleteness()
+    {
+        String formatsDescription = (String) getOnlyElement(getOnlyElement(
+                onTrino().executeQuery("SELECT description FROM system.metadata.table_properties WHERE catalog_name = CURRENT_CATALOG AND property_name = 'format'").rows()));
+        Pattern pattern = Pattern.compile("Hive storage format for the table. Possible values: \\[([A-Z]+(, [A-z]+)+)]");
+        Assertions.assertThat(formatsDescription).matches(pattern);
+        Matcher matcher = pattern.matcher(formatsDescription);
+        verify(matcher.matches());
+
+        // HiveStorageFormat.values
+        List<String> allFormats = Splitter.on(",").trimResults().splitToList(matcher.group(1));
+
+        Set<String> allFormatsToTest = allFormats.stream()
+                // Hive CSV storage format only supports VARCHAR, so needs to be excluded from any generic tests
+                .filter(format -> !"CSV".equals(format))
+                // TODO when using JSON serde Hive fails with ClassNotFoundException: org.apache.hive.hcatalog.data.JsonSerDe
+                .filter(format -> !"JSON".equals(format))
+                .collect(toImmutableSet());
+
+        Assertions.assertThat(storageFormats())
+                .isEqualTo(allFormatsToTest);
     }
 
     @Test(dataProvider = "storageFormatsWithConfiguration", groups = STORAGE_FORMATS)
