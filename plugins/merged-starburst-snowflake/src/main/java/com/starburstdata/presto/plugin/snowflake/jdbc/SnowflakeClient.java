@@ -40,6 +40,7 @@ import io.trino.plugin.jdbc.expression.ImplementAvgFloatingPoint;
 import io.trino.plugin.jdbc.expression.ImplementCorr;
 import io.trino.plugin.jdbc.expression.ImplementCount;
 import io.trino.plugin.jdbc.expression.ImplementCountAll;
+import io.trino.plugin.jdbc.expression.ImplementCountDistinct;
 import io.trino.plugin.jdbc.expression.ImplementCovariancePop;
 import io.trino.plugin.jdbc.expression.ImplementCovarianceSamp;
 import io.trino.plugin.jdbc.expression.ImplementMinMax;
@@ -196,6 +197,7 @@ public class SnowflakeClient
                 ImmutableSet.<AggregateFunctionRule<JdbcExpression>>builder()
                         .add(new ImplementCountAll(bigintTypeHandle))
                         .add(new ImplementCount(bigintTypeHandle))
+                        .add(new ImplementCountDistinct(bigintTypeHandle, true))
                         .add(new ImplementMinMax(true))
                         .add(new ImplementSum(SnowflakeClient::decimalTypeHandle))
                         .add(new ImplementAvgDecimal())
