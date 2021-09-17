@@ -13,6 +13,16 @@
  */
 package io.trino.plugin.hive.parquet;
 
+import io.trino.plugin.hive.HiveColumnHandle;
+import io.trino.plugin.hive.HiveType;
+import io.trino.spi.type.RowType;
+import org.apache.parquet.schema.GroupType;
+import org.apache.parquet.schema.MessageType;
+import org.apache.parquet.schema.PrimitiveType;
+import org.testng.annotations.Test;
+
+import java.util.Optional;
+
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -22,29 +32,20 @@ import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
 import static org.apache.parquet.schema.Type.Repetition.REQUIRED;
 import static org.testng.Assert.assertEquals;
 
-import io.trino.plugin.hive.HiveColumnHandle;
-import io.trino.plugin.hive.HiveType;
-import io.trino.spi.type.RowType;
-import java.util.Optional;
-import org.apache.parquet.schema.GroupType;
-import org.apache.parquet.schema.MessageType;
-import org.apache.parquet.schema.PrimitiveType;
-import org.testng.annotations.Test;
-
 public class TestParquetPageSourceFactory
 {
     @Test
     public void testGetNestedMixedRepetitionColumnType()
     {
         RowType rowType = rowType(
-            RowType.field("optional_level2", rowType(
-                RowType.field("required_level3", INTEGER))));
+                RowType.field("optional_level2", rowType(
+                        RowType.field("required_level3", INTEGER))));
         HiveColumnHandle columnHandle = createBaseColumn("optional_level1", 0,
-            HiveType.valueOf("struct<optional_level2:struct<required_level3:int>>"), rowType, REGULAR, Optional.empty());
+                HiveType.valueOf("struct<optional_level2:struct<required_level3:int>>"), rowType, REGULAR, Optional.empty());
         MessageType fileSchema = new MessageType("hive_schema",
-                new GroupType(OPTIONAL, "optional_level1",
-                    new GroupType(OPTIONAL, "optionnal_level2",
-                        new PrimitiveType(REQUIRED, INT32, "required_level3"))));
+                    new GroupType(OPTIONAL, "optional_level1",
+                            new GroupType(OPTIONAL, "optionnal_level2",
+                                    new PrimitiveType(REQUIRED, INT32, "required_level3"))));
         assertEquals(ParquetPageSourceFactory.getColumnType(columnHandle, fileSchema, true).get(), fileSchema.getType("optional_level1"));
     }
 }
