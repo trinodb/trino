@@ -560,7 +560,7 @@ public class HashBuilderOperator
     {
         checkState(state == State.INPUT_UNSPILLING);
         if (!unspillInProgress.get().isDone()) {
-            // Pages have not be unspilled yet.
+            // Pages have not been unspilled yet.
             return;
         }
 
