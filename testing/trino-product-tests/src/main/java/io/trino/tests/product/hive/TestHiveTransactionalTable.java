@@ -34,6 +34,7 @@ import org.testng.annotations.Test;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.sql.Date;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Collections;
@@ -1429,6 +1430,67 @@ public class TestHiveTransactionalTable
             assertQueryFailure(() -> onTrino().executeQuery(format("UPDATE %s SET column2 = (SELECT name FROM tpch.tiny.region WHERE column1 = regionkey)", tableName)))
                     // TODO (https://github.com/trinodb/trino/issues/3325) support correlated UPDATE
                     .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Invalid descendant for DeleteNode or UpdateNode: io.trino.sql.planner.plan.MarkDistinctNode");
+        });
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
+    public void testAcidUpdateDuplicateUpdateValue()
+    {
+        withTemporaryTable("test_update_bug", true, false, NONE, tableName -> {
+            onTrino().executeQuery(
+                    format("CREATE TABLE %s (", tableName) +
+                            " yyyy integer," +
+                            " week_number integer," +
+                            " week_start_date date," +
+                            " week_end_date date," +
+                            " genre_summary_status smallint," +
+                            " shop_summary_status smallint)" +
+                            " WITH (transactional = true)");
+
+            onTrino().executeQuery(format("INSERT INTO %s", tableName) +
+                    "(yyyy, week_number, week_start_date, week_end_date, genre_summary_status, shop_summary_status) VALUES" +
+                    "  (2021, 20,  DATE '2021-09-10', DATE '2021-09-10', 20, 20)" +
+                    ", (2021, 30,  DATE '2021-09-09', DATE '2021-09-09', 30, 30)" +
+                    ", (2021, 999, DATE '2018-12-24', DATE '2018-12-24', 999, 999)" +
+                    ", (2021, 30,  DATE '2021-09-09', DATE '2021-09-10', 30, 30)");
+
+            onTrino().executeQuery(format("UPDATE %s", tableName) +
+                    " SET genre_summary_status = 1, shop_summary_status = 1" +
+                    " WHERE week_start_date = DATE '2021-09-19' - (INTERVAL '08' DAY)" +
+                    "    OR week_start_date = DATE '2021-09-19' - (INTERVAL '09' DAY)");
+
+            assertThat(onTrino().executeQuery("SELECT * FROM " + tableName))
+                    .contains(
+                            row(2021, 20, Date.valueOf("2021-09-10"), Date.valueOf("2021-09-10"), 1, 1),
+                            row(2021, 30, Date.valueOf("2021-09-09"), Date.valueOf("2021-09-09"), 30, 30),
+                            row(2021, 999, Date.valueOf("2018-12-24"), Date.valueOf("2018-12-24"), 999, 999),
+                            row(2021, 30, Date.valueOf("2021-09-09"), Date.valueOf("2021-09-10"), 30, 30));
+        });
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
+    public void testAcidUpdateMultipleDuplicateValues()
+    {
+        withTemporaryTable("test_update_multiple", true, false, NONE, tableName -> {
+            onTrino().executeQuery(
+                    format("CREATE TABLE %s (c1 int, c2 int, c3 int, c4 int, c5 int, c6 int) WITH (transactional = true)", tableName));
+
+            log.info("Inserting into table");
+            onTrino().executeQuery(format("INSERT INTO %s (c1, c2, c3, c4, c5, c6) VALUES (1, 2, 3, 4, 5, 6)", tableName));
+
+            log.info("Performing first update");
+            onTrino().executeQuery(format("UPDATE %s SET c1 = 2, c2 = 4, c3 = 2, c4 = 4, c5 = 4, c6 = 2", tableName));
+
+            log.info("Checking first results");
+            assertThat(onTrino().executeQuery("SELECT * FROM " + tableName)).contains(row(2, 4, 2, 4, 4, 2));
+
+            log.info("Performing second update");
+            onTrino().executeQuery(format("UPDATE %s SET c1 = c1 + c2, c2 = c3 + c4, c3 = c1 + c2, c4 = c4 + c3, c5 = c3 + c4, c6 = c4 + c3", tableName));
+
+            log.info("Checking second results");
+            assertThat(onTrino().executeQuery("SELECT * FROM " + tableName)).contains(row(6, 6, 6, 6, 6, 6));
+
+            log.info("Finished");
         });
     }
 

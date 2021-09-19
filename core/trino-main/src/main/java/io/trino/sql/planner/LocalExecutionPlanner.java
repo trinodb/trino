@@ -3049,16 +3049,12 @@ public class LocalExecutionPlanner
         {
             Integer[] columnValueAndRowIdChannels = new Integer[columnValueAndRowIdSymbols.size()];
             int symbolCounter = 0;
-            // This depends on the outputSymbols being ordered as the blocks of the
-            // resulting page are ordered.
-            for (Symbol symbol : outputSymbols) {
-                int index = columnValueAndRowIdSymbols.indexOf(symbol);
-                if (index >= 0) {
-                    columnValueAndRowIdChannels[index] = symbolCounter;
-                }
+            for (Symbol symbol : columnValueAndRowIdSymbols) {
+                int index = outputSymbols.indexOf(symbol);
+                verify(index >= 0, "Could not find symbol %s in the outputSymbols %s", symbol, outputSymbols);
+                columnValueAndRowIdChannels[symbolCounter] = index;
                 symbolCounter++;
             }
-            checkArgument(symbolCounter == columnValueAndRowIdSymbols.size(), "symbolCounter %s should be columnValueAndRowIdChannels.size() %s", symbolCounter);
             return Arrays.asList(columnValueAndRowIdChannels);
         }
 
