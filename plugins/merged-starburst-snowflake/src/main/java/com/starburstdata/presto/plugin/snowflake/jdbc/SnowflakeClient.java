@@ -117,6 +117,7 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.toTrinoTimestamp;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.varcharReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -300,7 +301,7 @@ public class SnowflakeClient
 
         if (typeName.equals("OBJECT") || typeName.equals("ARRAY")) {
             // TODO: better support for OBJECT (Presto MAP/ROW) and ARRAY (Presto ARRAY)
-            return Optional.of(updatePushdownCotroller(varcharColumnMapping(createUnboundedVarcharType(), true)));
+            return Optional.of(ColumnMapping.sliceMapping(createUnboundedVarcharType(), varcharReadFunction(createUnboundedVarcharType()), varcharWriteFunction(), DISABLE_PUSHDOWN));
         }
 
         if (typeHandle.getJdbcType() == Types.TIME) {
