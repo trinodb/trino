@@ -64,6 +64,7 @@ import static io.trino.tempto.query.QueryExecutor.defaultQueryExecutor;
 import static io.trino.tempto.query.QueryExecutor.param;
 import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
+import static io.trino.tests.product.TestGroups.STORAGE_FORMATS_DETAILED;
 import static io.trino.tests.product.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
 import static io.trino.tests.product.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
 import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
@@ -416,7 +417,7 @@ public class TestHiveStorageFormats
         query(format("DROP TABLE %s", tableName));
     }
 
-    @Test(dataProvider = "storageFormatsWithNullFormat", groups = STORAGE_FORMATS)
+    @Test(dataProvider = "storageFormatsWithNullFormat", groups = STORAGE_FORMATS_DETAILED)
     @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testInsertAndSelectWithNullFormat(StorageFormat storageFormat)
     {
@@ -448,7 +449,7 @@ public class TestHiveStorageFormats
         onHive().executeQuery(format("DROP TABLE %s", tableName));
     }
 
-    @Test(dataProvider = "storageFormatsWithNullFormat", groups = STORAGE_FORMATS)
+    @Test(dataProvider = "storageFormatsWithNullFormat", groups = STORAGE_FORMATS_DETAILED)
     public void testSelectWithNullFormat(StorageFormat storageFormat)
     {
         String nullFormat = "null_value";
@@ -514,7 +515,7 @@ public class TestHiveStorageFormats
         onTrino().executeQuery("DROP TABLE orc_table_created_in_trino");
     }
 
-    @Test
+    @Test(groups = STORAGE_FORMATS_DETAILED)
     public void testOrcStructsWithNonLowercaseFields()
             throws SQLException
     {
@@ -548,7 +549,7 @@ public class TestHiveStorageFormats
         assertThat(onTrino().executeQuery("SELECT c_struct.requestDate FROM " + tableName)).containsOnly(row("some day"));
     }
 
-    @Test(dataProvider = "storageFormatsWithNanosecondPrecision")
+    @Test(dataProvider = "storageFormatsWithNanosecondPrecision", groups = STORAGE_FORMATS_DETAILED)
     public void testTimestampCreatedFromHive(StorageFormat storageFormat)
     {
         String tableName = createSimpleTimestampTable("timestamps_from_hive", storageFormat);
@@ -564,7 +565,7 @@ public class TestHiveStorageFormats
         onTrino().executeQuery("DROP TABLE " + tableName);
     }
 
-    @Test(dataProvider = "storageFormatsWithNanosecondPrecision")
+    @Test(dataProvider = "storageFormatsWithNanosecondPrecision", groups = STORAGE_FORMATS_DETAILED)
     public void testTimestampCreatedFromTrino(StorageFormat storageFormat)
     {
         String tableName = createSimpleTimestampTable("timestamps_from_trino", storageFormat);
@@ -581,7 +582,7 @@ public class TestHiveStorageFormats
         onTrino().executeQuery("DROP TABLE " + tableName);
     }
 
-    @Test(dataProvider = "storageFormatsWithNanosecondPrecision")
+    @Test(dataProvider = "storageFormatsWithNanosecondPrecision", groups = STORAGE_FORMATS_DETAILED)
     public void testStructTimestampsFromHive(StorageFormat format)
     {
         String tableName = createStructTimestampTable("hive_struct_timestamp", format);
@@ -610,7 +611,7 @@ public class TestHiveStorageFormats
         onTrino().executeQuery(format("DROP TABLE %s", tableName));
     }
 
-    @Test(dataProvider = "storageFormatsWithNanosecondPrecision")
+    @Test(dataProvider = "storageFormatsWithNanosecondPrecision", groups = STORAGE_FORMATS_DETAILED)
     public void testStructTimestampsFromTrino(StorageFormat format)
     {
         String tableName = createStructTimestampTable("trino_struct_timestamp", format);
@@ -642,7 +643,7 @@ public class TestHiveStorageFormats
     // These are regression tests for issue: https://github.com/trinodb/trino/issues/5518
     // The Parquet session properties are set to ensure that the correct situations in the Parquet writer are met to replicate the bug.
     // Not included in the STORAGE_FORMATS group since they require a large insert, which takes some time.
-    @Test
+    @Test(groups = STORAGE_FORMATS_DETAILED)
     public void testLargeParquetInsert()
     {
         DataSize reducedRowGroupSize = DataSize.ofBytes(ParquetWriter.DEFAULT_PAGE_SIZE / 4);
@@ -653,7 +654,7 @@ public class TestHiveStorageFormats
                         "task_writer_count", "1")));
     }
 
-    @Test
+    @Test(groups = STORAGE_FORMATS_DETAILED)
     public void testLargeParquetInsertWithNativeWriter()
     {
         DataSize reducedRowGroupSize = DataSize.ofBytes(ParquetWriter.DEFAULT_PAGE_SIZE / 4);
@@ -665,7 +666,7 @@ public class TestHiveStorageFormats
                         "task_writer_count", "1")));
     }
 
-    @Test
+    @Test(groups = STORAGE_FORMATS_DETAILED)
     public void testLargeOrcInsert()
     {
         runLargeInsert(storageFormat("ORC", ImmutableMap.of("hive.orc_optimized_writer_validate", "true")));
