@@ -24,6 +24,7 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.ResultWithQueryId;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
+import io.trino.testing.sql.TestView;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -364,7 +365,7 @@ public abstract class BaseOracleConnectorTest
     @Test
     public void testViews()
     {
-        try (TestView view = new TestView(onRemoteDatabase(), getUser() + ".test_view", "AS SELECT 'O' as status FROM dual")) {
+        try (TestView view = new TestView(onRemoteDatabase(), getUser() + ".test_view", "SELECT 'O' as status FROM dual")) {
             assertQuery("SELECT status FROM " + view.getName(), "SELECT 'O'");
         }
     }
