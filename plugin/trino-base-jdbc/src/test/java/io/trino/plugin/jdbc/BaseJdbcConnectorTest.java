@@ -84,7 +84,6 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ROW_LEVEL_DELET
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TOPN_PUSHDOWN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR;
 import static io.trino.testing.assertions.Assert.assertEventually;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -459,9 +458,8 @@ public abstract class BaseJdbcConnectorTest
         List<String> rows = Stream.of("a", "b", "A", "B", " a ", "a", "b", " b ", "ą")
                 .map(value -> format("'%1$s', '%1$s'", value))
                 .collect(toImmutableList());
-        String tableName = "distinct_strings" + randomTableSuffix();
 
-        try (TestTable testTable = new TestTable(getQueryRunner()::execute, tableName, "(t_char CHAR(5), t_varchar VARCHAR(5))", rows)) {
+        try (TestTable testTable = new TestTable(getQueryRunner()::execute, "distinct_strings", "(t_char CHAR(5), t_varchar VARCHAR(5))", rows)) {
             if (!(hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN) && hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY))) {
                 // disabling hash generation to prevent extra projections in the plan which make it hard to write matchers for isNotFullyPushedDown
                 Session optimizeHashGenerationDisabled = Session.builder(getSession())
