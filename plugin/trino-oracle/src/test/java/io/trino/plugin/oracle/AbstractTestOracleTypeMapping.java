@@ -63,7 +63,6 @@ import static java.lang.String.format;
 import static java.math.RoundingMode.HALF_EVEN;
 import static java.math.RoundingMode.HALF_UP;
 import static java.math.RoundingMode.UNNECESSARY;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.ZoneOffset.UTC;
 
 public abstract class AbstractTestOracleTypeMapping
@@ -885,40 +884,7 @@ public abstract class AbstractTestOracleTypeMapping
         return new CreateAndInsertDataSetup(getOracleSqlExecutor(), tableNamePrefix);
     }
 
-    /**
-     * Run {@link DataTypeTest}s, creating tables from Trino.
-     */
-    private void testTypeMapping(String tableNamePrefix, DataTypeTest... tests)
-    {
-        runTestsWithSetup(trinoCreateAsSelect(tableNamePrefix), tests);
-    }
-
-    /**
-     * Run {@link DataTypeTest}s, creating tables with the JDBC.
-     */
-    private void testTypeReadMapping(String tableNamePrefix, DataTypeTest... tests)
-    {
-        runTestsWithSetup(oracleCreateAndInsert(tableNamePrefix), tests);
-    }
-
-    private void runTestsWithSetup(DataSetup dataSetup, DataTypeTest... tests)
-    {
-        for (DataTypeTest test : tests) {
-            test.execute(getQueryRunner(), dataSetup);
-        }
-    }
-
     protected abstract SqlExecutor getOracleSqlExecutor();
-
-    private static ToIntFunction<String> codePoints()
-    {
-        return s -> s.codePointCount(0, s.length());
-    }
-
-    private static ToIntFunction<String> utf8Bytes()
-    {
-        return s -> s.getBytes(UTF_8).length;
-    }
 
     private static void checkIsGap(ZoneId zone, LocalDateTime dateTime)
     {
