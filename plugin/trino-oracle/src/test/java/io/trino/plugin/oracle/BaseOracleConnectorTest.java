@@ -110,7 +110,7 @@ public abstract class BaseOracleConnectorTest
     {
         return new TestTable(
                 onRemoteDatabase(),
-                "test_default_columns",
+                "test_default_cols",
                 "(col_required decimal(20,0) NOT NULL," +
                         "col_nullable decimal(20,0)," +
                         "col_default decimal(20,0) DEFAULT 43," +
@@ -462,7 +462,8 @@ public abstract class BaseOracleConnectorTest
 
     private void predicatePushdownTest(String oracleType, String oracleLiteral, String operator, String filterLiteral)
     {
-        String tableName = "test_pdown_" + oracleType.replaceAll("[^a-zA-Z0-9]", "");
+        String tableName = ("test_pdown_" + oracleType.replaceAll("[^a-zA-Z0-9]", ""))
+                .replaceFirst("^(.{18}).*", "$1__");
         try (TestTable table = new TestTable(onRemoteDatabase(), getUser() + "." + tableName, format("(c %s)", oracleType))) {
             onRemoteDatabase().execute(format("INSERT INTO %s VALUES (%s)", table.getName(), oracleLiteral));
 

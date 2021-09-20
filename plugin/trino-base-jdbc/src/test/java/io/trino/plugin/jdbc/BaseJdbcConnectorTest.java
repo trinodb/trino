@@ -572,7 +572,7 @@ public abstract class BaseJdbcConnectorTest
                 throw new SkipException("Unable to CREATE TABLE to test aggregation pushdown");
             }
 
-            try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_variance_pushdown", ImmutableList.of())) {
+            try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_var_pushdown", ImmutableList.of())) {
                 assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isNotFullyPushedDown(AggregationNode.class);
                 assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isNotFullyPushedDown(AggregationNode.class);
                 assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isNotFullyPushedDown(AggregationNode.class);
@@ -580,7 +580,7 @@ public abstract class BaseJdbcConnectorTest
             }
         }
 
-        try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_variance_pushdown", ImmutableList.of())) {
+        try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_var_pushdown", ImmutableList.of())) {
             assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
@@ -598,7 +598,7 @@ public abstract class BaseJdbcConnectorTest
             assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
         }
 
-        try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_variance_pushdown",
+        try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_var_pushdown",
                 ImmutableList.of("1, 1, 1, 1", "2, 2, 2, 2", "4, 4, 4, 4", "5, 5, 5, 5"))) {
             // Test non-whole number results
             assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
@@ -616,7 +616,7 @@ public abstract class BaseJdbcConnectorTest
                 throw new SkipException("Unable to CREATE TABLE to test aggregation pushdown");
             }
 
-            try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_covariance_pushdown", ImmutableList.of())) {
+            try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_covar_pushdown", ImmutableList.of())) {
                 assertThat(query("SELECT covar_pop(t_double, u_double), covar_pop(v_real, w_real) FROM " + testTable.getName())).isNotFullyPushedDown(AggregationNode.class);
                 assertThat(query("SELECT covar_samp(t_double, u_double), covar_samp(v_real, w_real) FROM " + testTable.getName())).isNotFullyPushedDown(AggregationNode.class);
                 return;
@@ -1483,7 +1483,7 @@ public abstract class BaseJdbcConnectorTest
 
         try (TestTable table = new TestTable(
                 getQueryRunner()::execute,
-                "test_write_batch_size",
+                "write_batch_size",
                 "(a varchar(36), b bigint)")) {
             String values = String.join(",", buildRowsForInsert(numberOfRows));
             assertUpdate(session, "INSERT INTO " + table.getName() + " (a, b) VALUES " + values, numberOfRows);
