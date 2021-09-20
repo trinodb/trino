@@ -25,6 +25,9 @@ connector:
     - Cache the fact that metadata, including table and column statistics, is
       not available
     - False
+  * - ``metadata.cache-maximum-size``
+    - Maximum number of objects stored in the metadata cache
+    - 10000
   * - ``write.batch-size``
     - Maximum number of statements in a batched execution.
       Do not change this setting from the default. Non-default values may
