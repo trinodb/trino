@@ -15,6 +15,7 @@ package io.trino.operator.join;
 
 import io.airlift.units.DataSize;
 import io.trino.operator.PagesHashStrategy;
+import io.trino.operator.project.SelectedPositions;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import it.unimi.dsi.fastutil.HashCommon;
@@ -148,12 +149,143 @@ public final class PagesHash
         return getAddressIndex(position, hashChannelsPage, pagesHashStrategy.hashRow(position, hashChannelsPage));
     }
 
+    /**
+     * return array passed as an argument for performance reasons
+     */
+    public long[] getAddressIndex(int[] positions, Page hashChannelsPage)
+    {
+        long[] hashes = new long[positions.length];
+        for (int i = 0; i < positions.length; i++) {
+            hashes[i] = pagesHashStrategy.hashRow(positions[i], hashChannelsPage);
+        }
+        return getAddressIndex(positions, hashChannelsPage, hashes);
+    }
+
     public int getAddressIndex(int rightPosition, Page hashChannelsPage, long rawHash)
     {
         int pos = getHashPosition(rawHash, mask);
 
+        return getAddressIndex(rightPosition, hashChannelsPage, (byte) rawHash, pos);
+    }
+
+    public long[] getAddressIndex(int[] rightPositions, Page hashChannelsPage, long[] rawHashes)
+    {
+        //verify(rightPositions.length == rawHashes.length, "Number of positions must match number of hashes");
+        long[] result = new long[rightPositions.length];
+
+        /*
+         * Instead of looking for a match on a per-position basis, we execute every step in a "vectorized" way,
+         * so that all cpu mechanisms (caching, out-of-order execution, etc.) are fully utilized.
+         */
+        int[] pos = new int[rightPositions.length];
+        /*
+         * First loop preforms a simple hashing of existing hashed values to determine
+         * the hash bucket that the value belongs to.
+         */
+        for (int i = 0; i < rightPositions.length; i++) {
+            pos[i] = getHashPosition(rawHashes[i], mask);
+        }
+
+        /*
+         * This is the easiest, yet most expensive step, as it will trigger a lot of cache misses.
+         * By doing this in a single loop the latencies of cpu memory prefetch for consecutive entries
+         * will overlap with each other.
+         */
+        for (int i = 0; i < rightPositions.length; i++) {
+            result[i] = key[pos[i]];
+        }
+
+        /*
+         * Here the actual logic happens. If the bucket is empty or filled with the proper value
+         * then the value in result array is valid and pos[i] is set to -1 to indicate that this
+         * position has been taken care of. Otherwise we continue with the standard open-addressing
+         * logic incrementing the position.
+         */
+        for (int i = 0; i < rightPositions.length; i++) {
+            if (result[i] == -1) {
+                pos[i] = -1;
+            }
+            else if (positionEqualsCurrentRowIgnoreNulls((int) result[i], (byte) rawHashes[i], rightPositions[i], hashChannelsPage)) {
+                pos[i] = -1;
+            }
+            else {
+                pos[i] = (pos[i] + 1) & mask;
+            }
+        }
+
+        /*
+         * Finally we look for remaining matches in a traditional way.
+         */
+        for (int i = 0; i < rightPositions.length; i++) {
+            if (pos[i] != -1) {
+                result[i] = getAddressIndex(rightPositions[i], hashChannelsPage, (byte) rawHashes[i], pos[i]);
+            }
+        }
+
+        return result;
+    }
+
+    public long[] getAddressIndex(SelectedPositions rightPositions, Page hashChannelsPage, long[] rawHashes)
+    {
+        //verify(rightPositions.length == rawHashes.length, "Number of positions must match number of hashes");
+        long[] result = new long[rightPositions.size()];
+
+        /*
+         * Instead of looking for a match on a per-position basis, we execute every step in a "vectorized" way,
+         * so that all cpu mechanisms (caching, out-of-order execution, etc.) are fully utilized.
+         */
+        int[] pos = new int[rightPositions.size()];
+        /*
+         * First loop preforms a simple hashing of existing hashed values to determine
+         * the hash bucket that the value belongs to.
+         */
+        for (int i = 0; i < rightPositions.size(); i++) {
+            pos[i] = getHashPosition(rawHashes[i], mask);
+        }
+
+        /*
+         * This is the easiest, yet most expensive step, as it will trigger a lot of cache misses.
+         * By doing this in a single loop the latencies of cpu memory prefetch for consecutive entries
+         * will overlap with each other.
+         */
+        for (int i = 0; i < rightPositions.size(); i++) {
+            result[i] = key[pos[i]];
+        }
+
+        /*
+         * Here the actual logic happens. If the bucket is empty or filled with the proper value
+         * then the value in result array is valid and pos[i] is set to -1 to indicate that this
+         * position has been taken care of. Otherwise we continue with the standard open-addressing
+         * logic incrementing the position.
+         */
+        for (int i = 0; i < rightPositions.size(); i++) {
+            if (result[i] == -1) {
+                pos[i] = -1;
+            }
+            else if (positionEqualsCurrentRowIgnoreNulls((int) result[i], (byte) rawHashes[i], rightPositions.getOffset() + i, hashChannelsPage)) {
+                pos[i] = -1;
+            }
+            else {
+                pos[i] = (pos[i] + 1) & mask;
+            }
+        }
+
+        /*
+         * Finally we look for remaining matches in a traditional way.
+         */
+        for (int i = 0; i < rightPositions.size(); i++) {
+            if (pos[i] != -1) {
+                result[i] = getAddressIndex(rightPositions.getOffset() + i, hashChannelsPage, (byte) rawHashes[i], pos[i]);
+            }
+        }
+
+        return result;
+    }
+
+    private int getAddressIndex(int rightPosition, Page hashChannelsPage, byte rawHash, int pos)
+    {
         while (key[pos] != -1) {
-            if (positionEqualsCurrentRowIgnoreNulls(key[pos], (byte) rawHash, rightPosition, hashChannelsPage)) {
+            if (positionEqualsCurrentRowIgnoreNulls(key[pos], rawHash, rightPosition, hashChannelsPage)) {
                 return key[pos];
             }
             // increment position and mask to handler wrap around

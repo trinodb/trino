@@ -14,6 +14,7 @@
 package io.trino.operator;
 
 import io.airlift.units.DataSize;
+import io.trino.Session;
 import io.trino.execution.buffer.OutputBuffer;
 import io.trino.operator.join.JoinBridgeManager;
 import io.trino.operator.join.LookupSourceFactory;
@@ -30,6 +31,7 @@ import java.util.OptionalInt;
 public interface OperatorFactories
 {
     OperatorFactory innerJoin(
+            Session session,
             int operatorId,
             PlanNodeId planNodeId,
             JoinBridgeManager<? extends LookupSourceFactory> lookupSourceFactory,
@@ -45,6 +47,7 @@ public interface OperatorFactories
             BlockTypeOperators blockTypeOperators);
 
     OperatorFactory probeOuterJoin(
+            Session session,
             int operatorId,
             PlanNodeId planNodeId,
             JoinBridgeManager<? extends LookupSourceFactory> lookupSourceFactory,
@@ -59,6 +62,7 @@ public interface OperatorFactories
             BlockTypeOperators blockTypeOperators);
 
     OperatorFactory lookupOuterJoin(
+            Session session,
             int operatorId,
             PlanNodeId planNodeId,
             JoinBridgeManager<? extends LookupSourceFactory> lookupSourceFactory,
@@ -73,6 +77,7 @@ public interface OperatorFactories
             BlockTypeOperators blockTypeOperators);
 
     OperatorFactory fullOuterJoin(
+            Session session,
             int operatorId,
             PlanNodeId planNodeId,
             JoinBridgeManager<? extends LookupSourceFactory> lookupSourceFactory,

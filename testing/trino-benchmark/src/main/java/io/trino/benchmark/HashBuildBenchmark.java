@@ -43,6 +43,7 @@ import static io.trino.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static io.trino.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spiller.PartitioningSpillerFactory.unsupportedPartitioningSpillerFactory;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Objects.requireNonNull;
 
 public class HashBuildBenchmark
@@ -99,6 +100,7 @@ public class HashBuildBenchmark
         ImmutableList.Builder<OperatorFactory> joinDriversBuilder = ImmutableList.builder();
         joinDriversBuilder.add(new ValuesOperatorFactory(0, new PlanNodeId("values"), ImmutableList.of()));
         OperatorFactory joinOperator = operatorFactories.innerJoin(
+                testSessionBuilder().build(),
                 2,
                 new PlanNodeId("test"),
                 lookupSourceFactoryManager,

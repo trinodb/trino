@@ -13,6 +13,7 @@
  */
 package io.trino.operator.join;
 
+import io.trino.operator.project.SelectedPositions;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import org.openjdk.jol.info.ClassLayout;
@@ -86,6 +87,60 @@ public final class JoinHash
         return startJoinPosition(addressIndex, position, allChannelsPage);
     }
 
+    @Override
+    public long[] getJoinPositions(int[] positions, Page hashChannelsPage, Page allChannelsPage, long[] rawHashes)
+    {
+        long[] result = pagesHash.getAddressIndex(positions, hashChannelsPage, rawHashes);
+        startJoinPositions(positions, allChannelsPage, result);
+
+        return result;
+    }
+
+    @Override
+    public long[] getJoinPositions(SelectedPositions positions, Page hashChannelsPage, Page allChannelsPage, long[] rawHashes)
+    {
+        long[] result = pagesHash.getAddressIndex(positions, hashChannelsPage, rawHashes);
+        startJoinPositions(positions, allChannelsPage, result);
+
+        return result;
+    }
+
+    @Override
+    public long[] getJoinPositions(int[] positions, Page hashChannelsPage, Page allChannelsPage)
+    {
+        long[] result = pagesHash.getAddressIndex(positions, hashChannelsPage);
+        startJoinPositions(positions, allChannelsPage, result);
+
+        return result;
+    }
+
+    /**
+     * modify join positions array in-place for performance reasons
+     */
+    private void startJoinPositions(int[] probePositions, Page hashChannelsPage, long[] joinPositions)
+    {
+        if (positionLinks == null) {
+            return;
+        }
+        for (int i = 0; i < probePositions.length; i++) {
+            if (joinPositions[i] != -1) {
+                joinPositions[i] = positionLinks.start((int) joinPositions[i], probePositions[i], hashChannelsPage);
+            }
+        }
+    }
+
+    private void startJoinPositions(SelectedPositions probePositions, Page hashChannelsPage, long[] joinPositions)
+    {
+        if (positionLinks == null) {
+            return;
+        }
+        for (int i = 0; i < probePositions.size(); i++) {
+            if (joinPositions[i] != -1) {
+                joinPositions[i] = positionLinks.start((int) joinPositions[i], probePositions.getOffset() + i, hashChannelsPage);
+            }
+        }
+    }
+
     private long startJoinPosition(int currentJoinPosition, int probePosition, Page allProbeChannelsPage)
     {
         if (currentJoinPosition == -1) {
@@ -116,6 +171,12 @@ public final class JoinHash
     public void appendTo(long position, PageBuilder pageBuilder, int outputChannelOffset)
     {
         pagesHash.appendTo(toIntExact(position), pageBuilder, outputChannelOffset);
+    }
+
+    @Override
+    public boolean supportsCaching()
+    {
+        return true;
     }
 
     @Override

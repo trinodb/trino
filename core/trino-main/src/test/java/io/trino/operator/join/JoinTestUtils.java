@@ -63,6 +63,7 @@ import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
@@ -94,6 +95,7 @@ public final class JoinTestUtils
             boolean hasFilter)
     {
         return operatorFactories.innerJoin(
+                TEST_SESSION,
                 0,
                 new PlanNodeId("test"),
                 lookupSourceFactoryManager,

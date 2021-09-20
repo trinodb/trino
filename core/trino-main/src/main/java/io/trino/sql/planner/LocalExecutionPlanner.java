@@ -2080,6 +2080,7 @@ public class LocalExecutionPlanner
             switch (node.getType()) {
                 case INNER:
                     lookupJoinOperatorFactory = operatorFactories.innerJoin(
+                            session,
                             context.getNextOperatorId(),
                             node.getId(),
                             lookupSourceFactoryManager,
@@ -2096,6 +2097,7 @@ public class LocalExecutionPlanner
                     break;
                 case SOURCE_OUTER:
                     lookupJoinOperatorFactory = operatorFactories.probeOuterJoin(
+                            session,
                             context.getNextOperatorId(),
                             node.getId(),
                             lookupSourceFactoryManager,
@@ -2712,6 +2714,7 @@ public class LocalExecutionPlanner
             switch (node.getType()) {
                 case INNER:
                     return operatorFactories.innerJoin(
+                            session,
                             context.getNextOperatorId(),
                             node.getId(),
                             lookupSourceFactoryManager,
@@ -2727,6 +2730,7 @@ public class LocalExecutionPlanner
                             blockTypeOperators);
                 case LEFT:
                     return operatorFactories.probeOuterJoin(
+                            session,
                             context.getNextOperatorId(),
                             node.getId(),
                             lookupSourceFactoryManager,
@@ -2741,6 +2745,7 @@ public class LocalExecutionPlanner
                             blockTypeOperators);
                 case RIGHT:
                     return operatorFactories.lookupOuterJoin(
+                            session,
                             context.getNextOperatorId(),
                             node.getId(),
                             lookupSourceFactoryManager,
@@ -2755,6 +2760,7 @@ public class LocalExecutionPlanner
                             blockTypeOperators);
                 case FULL:
                     return operatorFactories.fullOuterJoin(
+                            session,
                             context.getNextOperatorId(),
                             node.getId(),
                             lookupSourceFactoryManager,

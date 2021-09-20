@@ -140,6 +140,7 @@ public class HashBuildAndJoinBenchmark
         }
 
         OperatorFactory joinOperator = operatorFactories.innerJoin(
+                testSessionBuilder().build(),
                 2,
                 new PlanNodeId("test"),
                 lookupSourceFactoryManager,

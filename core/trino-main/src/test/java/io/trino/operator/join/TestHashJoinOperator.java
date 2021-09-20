@@ -289,6 +289,7 @@ public class TestHashJoinOperator
                 .collect(toImmutableList());
 
         OperatorFactory joinOperatorFactory = operatorFactories.innerJoin(
+                TEST_SESSION,
                 0,
                 new PlanNodeId("test"),
                 lookupSourceFactory,
@@ -343,6 +344,7 @@ public class TestHashJoinOperator
         RowPagesBuilder probePages = rowPagesBuilder(false, Ints.asList(0), ImmutableList.of(BIGINT));
         List<Page> probeInput = probePages.addSequencePage(100, 0).build();
         OperatorFactory joinOperatorFactory = operatorFactories.innerJoin(
+                TEST_SESSION,
                 0,
                 new PlanNodeId("test"),
                 lookupSourceFactory,
@@ -1231,6 +1233,7 @@ public class TestHashJoinOperator
         List<Type> probeTypes = ImmutableList.of(VARCHAR);
         RowPagesBuilder probePages = rowPagesBuilder(probeHashEnabled, Ints.asList(0), probeTypes);
         OperatorFactory joinOperatorFactory = operatorFactories.innerJoin(
+                TEST_SESSION,
                 0,
                 new PlanNodeId("test"),
                 lookupSourceFactoryManager,
@@ -1271,6 +1274,7 @@ public class TestHashJoinOperator
         List<Type> probeTypes = ImmutableList.of(VARCHAR);
         RowPagesBuilder probePages = rowPagesBuilder(probeHashEnabled, Ints.asList(0), probeTypes);
         OperatorFactory joinOperatorFactory = operatorFactories.lookupOuterJoin(
+                TEST_SESSION,
                 0,
                 new PlanNodeId("test"),
                 lookupSourceFactoryManager,
@@ -1316,6 +1320,7 @@ public class TestHashJoinOperator
                 .row("c")
                 .build();
         OperatorFactory joinOperatorFactory = operatorFactories.probeOuterJoin(
+                TEST_SESSION,
                 0,
                 new PlanNodeId("test"),
                 lookupSourceFactoryManager,
@@ -1364,6 +1369,7 @@ public class TestHashJoinOperator
                 .row("c")
                 .build();
         OperatorFactory joinOperatorFactory = operatorFactories.fullOuterJoin(
+                TEST_SESSION,
                 0,
                 new PlanNodeId("test"),
                 lookupSourceFactoryManager,
@@ -1410,6 +1416,7 @@ public class TestHashJoinOperator
         RowPagesBuilder probePages = rowPagesBuilder(probeHashEnabled, Ints.asList(0), probeTypes);
         List<Page> probeInput = probePages.build();
         OperatorFactory joinOperatorFactory = operatorFactories.innerJoin(
+                TEST_SESSION,
                 0,
                 new PlanNodeId("test"),
                 lookupSourceFactoryManager,
@@ -1603,6 +1610,7 @@ public class TestHashJoinOperator
         List<Type> probeTypes = ImmutableList.of(VARCHAR);
         RowPagesBuilder probePages = rowPagesBuilder(probeHashEnabled, Ints.asList(0), probeTypes);
         OperatorFactory joinOperatorFactory = operatorFactories.innerJoin(
+                TEST_SESSION,
                 0,
                 new PlanNodeId("test"),
                 lookupSourceFactoryManager,
@@ -1656,6 +1664,7 @@ public class TestHashJoinOperator
             boolean hasFilter)
     {
         return operatorFactories.probeOuterJoin(
+                TEST_SESSION,
                 0,
                 new PlanNodeId("test"),
                 lookupSourceFactoryManager,

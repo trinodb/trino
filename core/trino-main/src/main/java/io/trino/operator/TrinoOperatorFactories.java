@@ -14,6 +14,7 @@
 package io.trino.operator;
 
 import io.airlift.units.DataSize;
+import io.trino.Session;
 import io.trino.execution.buffer.OutputBuffer;
 import io.trino.operator.join.JoinBridgeManager;
 import io.trino.operator.join.JoinProbe.JoinProbeFactory;
@@ -32,6 +33,7 @@ import java.util.OptionalInt;
 import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.SystemSessionProperties.isVectorizedJoinProbeEnabled;
 import static io.trino.operator.join.LookupJoinOperatorFactory.JoinType.FULL_OUTER;
 import static io.trino.operator.join.LookupJoinOperatorFactory.JoinType.INNER;
 import static io.trino.operator.join.LookupJoinOperatorFactory.JoinType.LOOKUP_OUTER;
@@ -43,6 +45,7 @@ public class TrinoOperatorFactories
 {
     @Override
     public OperatorFactory innerJoin(
+            Session session,
             int operatorId,
             PlanNodeId planNodeId,
             JoinBridgeManager<? extends LookupSourceFactory> lookupSourceFactory,
@@ -58,6 +61,7 @@ public class TrinoOperatorFactories
             BlockTypeOperators blockTypeOperators)
     {
         return createJoinOperatorFactory(
+                session,
                 operatorId,
                 planNodeId,
                 lookupSourceFactory,
@@ -75,6 +79,7 @@ public class TrinoOperatorFactories
 
     @Override
     public OperatorFactory probeOuterJoin(
+            Session session,
             int operatorId,
             PlanNodeId planNodeId,
             JoinBridgeManager<? extends LookupSourceFactory> lookupSourceFactory,
@@ -89,6 +94,7 @@ public class TrinoOperatorFactories
             BlockTypeOperators blockTypeOperators)
     {
         return createJoinOperatorFactory(
+                session,
                 operatorId,
                 planNodeId,
                 lookupSourceFactory,
@@ -106,6 +112,7 @@ public class TrinoOperatorFactories
 
     @Override
     public OperatorFactory lookupOuterJoin(
+            Session session,
             int operatorId,
             PlanNodeId planNodeId,
             JoinBridgeManager<? extends LookupSourceFactory> lookupSourceFactory,
@@ -120,6 +127,7 @@ public class TrinoOperatorFactories
             BlockTypeOperators blockTypeOperators)
     {
         return createJoinOperatorFactory(
+                session,
                 operatorId,
                 planNodeId,
                 lookupSourceFactory,
@@ -137,6 +145,7 @@ public class TrinoOperatorFactories
 
     @Override
     public OperatorFactory fullOuterJoin(
+            Session session,
             int operatorId,
             PlanNodeId planNodeId,
             JoinBridgeManager<? extends LookupSourceFactory> lookupSourceFactory,
@@ -150,6 +159,7 @@ public class TrinoOperatorFactories
             BlockTypeOperators blockTypeOperators)
     {
         return createJoinOperatorFactory(
+                session,
                 operatorId,
                 planNodeId,
                 lookupSourceFactory,
@@ -194,6 +204,7 @@ public class TrinoOperatorFactories
     }
 
     private OperatorFactory createJoinOperatorFactory(
+            Session session,
             int operatorId,
             PlanNodeId planNodeId,
             JoinBridgeManager<? extends LookupSourceFactory> lookupSourceFactoryManager,
@@ -222,7 +233,7 @@ public class TrinoOperatorFactories
                 joinType,
                 outputSingleMatch,
                 waitForBuild,
-                new JoinProbeFactory(probeOutputChannels.stream().mapToInt(i -> i).toArray(), probeJoinChannel, probeHashChannel),
+                new JoinProbeFactory(probeOutputChannels.stream().mapToInt(i -> i).toArray(), probeJoinChannel, probeHashChannel, isVectorizedJoinProbeEnabled(session)),
                 blockTypeOperators,
                 totalOperatorsCount,
                 probeJoinChannel,

@@ -18,6 +18,7 @@ import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.trino.RowPagesBuilder;
+import io.trino.Session;
 import io.trino.execution.Lifespan;
 import io.trino.operator.DriverContext;
 import io.trino.operator.InterpretedHashGenerator;
@@ -69,11 +70,13 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.SystemSessionProperties.VECTORIZED_JOIN_PROBE_ENABLED;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.operator.join.JoinBridgeManager.lookupAllAtOnce;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spiller.PartitioningSpillerFactory.unsupportedPartitioningSpillerFactory;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -100,15 +103,15 @@ public class BenchmarkHashBuildAndJoinOperators
     public static class BuildContext
     {
         protected static final int ROWS_PER_PAGE = 1024;
-        protected static final int BUILD_ROWS_NUMBER = 8_000_000;
+        protected static final int BUILD_ROWS_NUMBER = 20_000_000;
 
-        @Param({"varchar", "bigint", "all"})
+        @Param("bigint")
         protected String hashColumns = "bigint";
 
-        @Param({"false", "true"})
-        protected boolean buildHashEnabled;
+        @Param("true")
+        protected boolean buildHashEnabled = true;
 
-        @Param({"1", "5"})
+        @Param("1")
         protected int buildRowsRepetition = 1;
 
         protected ExecutorService executor;
@@ -142,7 +145,12 @@ public class BenchmarkHashBuildAndJoinOperators
 
         public TaskContext createTaskContext()
         {
-            return TestingTaskContext.createTaskContext(executor, scheduledExecutor, TEST_SESSION, DataSize.of(2, GIGABYTE));
+            return TestingTaskContext.createTaskContext(executor, scheduledExecutor, getSession(), DataSize.of(2, GIGABYTE));
+        }
+
+        public Session getSession()
+        {
+            return TEST_SESSION;
         }
 
         public OptionalInt getHashChannel()
@@ -191,14 +199,17 @@ public class BenchmarkHashBuildAndJoinOperators
     {
         protected static final int PROBE_ROWS_NUMBER = 1_400_000;
 
-        @Param({"0.1", "1", "2"})
-        protected double matchRate = 1;
+        @Param({"0.5", "1", "5"})
+        protected double matchRate = 5;
 
         @Param({"bigint", "all"})
         protected String outputColumns = "bigint";
 
         @Param({"1", "16"})
         protected int partitionCount = 1;
+
+        @Param({"true", "false"})
+        protected boolean vectorizationEnabled = true;
 
         protected List<Page> probePages;
         protected List<Integer> outputChannels;
@@ -232,6 +243,7 @@ public class BenchmarkHashBuildAndJoinOperators
 
             JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory = getLookupSourceFactoryManager(this, outputChannels, partitionCount);
             joinOperatorFactory = operatorFactories.innerJoin(
+                    testSessionBuilder().setSystemProperty(VECTORIZED_JOIN_PROBE_ENABLED, Boolean.toString(vectorizationEnabled)).build(),
                     HASH_JOIN_OPERATOR_ID,
                     TEST_PLAN_NODE_ID,
                     lookupSourceFactory,
@@ -307,7 +319,7 @@ public class BenchmarkHashBuildAndJoinOperators
         }
     }
 
-    @Benchmark
+    @Test
     public JoinBridgeManager<PartitionedLookupSourceFactory> benchmarkBuildHash(BuildContext buildContext)
     {
         List<Integer> outputChannels = ImmutableList.of(0, 1, 2);
@@ -478,6 +490,7 @@ public class BenchmarkHashBuildAndJoinOperators
     public static void main(String[] args)
             throws RunnerException
     {
-        benchmark(BenchmarkHashBuildAndJoinOperators.class).run();
+        benchmark(BenchmarkHashBuildAndJoinOperators.class)
+                .run();
     }
 }
