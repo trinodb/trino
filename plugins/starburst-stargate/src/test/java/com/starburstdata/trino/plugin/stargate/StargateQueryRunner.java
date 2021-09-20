@@ -17,7 +17,6 @@ import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.plugin.jmx.JmxPlugin;
-import io.trino.plugin.memory.MemoryPlugin;
 import io.trino.plugin.postgresql.TestingPostgreSqlServer;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.security.SystemAccessControl;
@@ -76,7 +75,7 @@ public final class StargateQueryRunner
             throws Exception
     {
         try {
-            queryRunner.installPlugin(new MemoryPlugin());
+            queryRunner.installPlugin(new TestingMemoryPlugin());
             queryRunner.createCatalog("memory", "memory");
 
             queryRunner.execute("CREATE SCHEMA memory.tiny");
