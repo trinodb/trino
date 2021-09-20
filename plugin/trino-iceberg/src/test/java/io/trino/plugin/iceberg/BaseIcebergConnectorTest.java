@@ -16,11 +16,14 @@ package io.trino.plugin.iceberg;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
+import io.trino.operator.OperatorStats;
 import io.trino.plugin.hive.HdfsEnvironment;
+import io.trino.spi.QueryId;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
@@ -34,8 +37,10 @@ import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.ResultWithQueryId;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
+import io.trino.testng.services.Flaky;
 import org.apache.avro.Schema;
 import org.apache.avro.file.DataFileReader;
 import org.apache.avro.file.DataFileWriter;
@@ -54,7 +59,9 @@ import java.io.File;
 import java.io.OutputStream;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.regex.Matcher;
@@ -66,6 +73,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
@@ -77,6 +85,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.assertions.Assert.assertEquals;
+import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -2028,6 +2037,78 @@ public abstract class BaseIcebergConnectorTest
         assertQueryFails("SELECT * FROM test_iceberg_file_size", format("Error reading tail from .* with length %d", alteredValue));
 
         dropTable("test_iceberg_file_size");
+    }
+
+    @Test
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/5172", match = "Couldn't find operator summary, probably due to query statistic collection error")
+    public void testSplitPruningForFilterOnPartitionColumn()
+    {
+        String tableName = "nation_partitioned_pruning";
+
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+
+        // disable writes redistribution to have predictable number of files written per partition (one).
+        Session noRedistributeWrites = Session.builder(getSession())
+                .setSystemProperty("redistribute_writes", "false")
+                .build();
+
+        assertUpdate(noRedistributeWrites, "CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['regionkey']) AS SELECT * FROM nation", 25);
+
+        // sanity check that table contains exactly 5 files
+        assertThat(query("SELECT count(*) FROM \"" + tableName + "$files\"")).matches("VALUES CAST(5 AS BIGINT)");
+
+        verifySplitCount("SELECT * FROM " + tableName, 5);
+        verifySplitCount("SELECT * FROM " + tableName + " WHERE regionkey = 3", 1);
+        verifySplitCount("SELECT * FROM " + tableName + " WHERE regionkey < 2", 2);
+        verifySplitCount("SELECT * FROM " + tableName + " WHERE regionkey < 0", 0);
+        verifySplitCount("SELECT * FROM " + tableName + " WHERE regionkey > 1 AND regionkey < 4", 2);
+
+        // TODO(https://github.com/trinodb/trino/issues/9309) should be 1
+        verifySplitCount("SELECT * FROM " + tableName + " WHERE regionkey % 5 = 3", 5);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    private void verifySplitCount(String query, int expectedSplitCount)
+    {
+        // using assertEventually here as the operator stats mechanism is known to be best-effort and some late-stage stats are sometimes not recorded
+        // (see https://github.com/trinodb/trino/issues/5172)
+        assertEventually(new Duration(10, TimeUnit.SECONDS), () -> {
+            ResultWithQueryId<MaterializedResult> selectAllPartitionsResult = getDistributedQueryRunner().executeWithQueryId(getSession(), query);
+            verifySplitCount(selectAllPartitionsResult.getQueryId(), expectedSplitCount);
+        });
+    }
+
+    private void verifySplitCount(QueryId queryId, long expectedSplitCount)
+    {
+        checkArgument(expectedSplitCount >= 0);
+        try {
+            OperatorStats operatorStats = getOperatorStats(queryId);
+            if (expectedSplitCount > 0) {
+                assertThat(operatorStats.getTotalDrivers()).isEqualTo(expectedSplitCount);
+                assertThat(operatorStats.getAddInputCalls()).isGreaterThan(0);
+            }
+            else {
+                // expectedSplitCount == 0
+                assertThat(operatorStats.getTotalDrivers()).isEqualTo(1);
+                assertThat(operatorStats.getAddInputCalls()).isEqualTo(0);
+            }
+        }
+        catch (NoSuchElementException e) {
+            throw new RuntimeException("Couldn't find operator summary, probably due to query statistic collection error", e);
+        }
+    }
+
+    private OperatorStats getOperatorStats(QueryId queryId)
+    {
+        return getDistributedQueryRunner().getCoordinator()
+                .getQueryManager()
+                .getFullQueryInfo(queryId)
+                .getQueryStats()
+                .getOperatorSummaries()
+                .stream()
+                .filter(summary -> summary.getOperatorType().startsWith("TableScan") || summary.getOperatorType().startsWith("Scan"))
+                .collect(onlyElement());
     }
 
     @Override
