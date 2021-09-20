@@ -100,7 +100,7 @@ public abstract class AbstractTestQueryFramework
             throws Exception;
 
     @AfterClass(alwaysRun = true)
-    public void close()
+    public final void close()
             throws Exception
     {
         afterClassCloser.close();
