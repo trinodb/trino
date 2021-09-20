@@ -156,7 +156,7 @@ public class TestSapHanaTypeMapping
                 .addRoundTrip(realDataType(), 123.45f);
 
         dataTypeTest.execute(getQueryRunner(), sapHanaCreateAndInsert("tpch.test_basic_types"));
-        dataTypeTest.execute(getQueryRunner(), prestoCreateAsSelect("test_basic_types"));
+        dataTypeTest.execute(getQueryRunner(), trinoCreateAsSelect("test_basic_types"));
     }
 
     @Test
@@ -169,7 +169,7 @@ public class TestSapHanaTypeMapping
                 .addRoundTrip(dataType, null);
 
         dataTypeTest.execute(getQueryRunner(), sapHanaCreateAndInsert("tpch.test_real"));
-        dataTypeTest.execute(getQueryRunner(), prestoCreateAsSelect("test_real"));
+        dataTypeTest.execute(getQueryRunner(), trinoCreateAsSelect("test_real"));
 
         testSapHanaUnsupportedValue(dataType, Float.NaN, "com.sap.db.jdbc.exceptions.SQLDataExceptionSapDB: Invalid number: NaN");
         testSapHanaUnsupportedValue(dataType, Float.NEGATIVE_INFINITY, "com.sap.db.jdbc.exceptions.SQLDataExceptionSapDB: Invalid number: -Infinity");
@@ -185,7 +185,7 @@ public class TestSapHanaTypeMapping
                 .addRoundTrip(dataType, null);
 
         dataTypeTest.execute(getQueryRunner(), sapHanaCreateAndInsert("tpch.test_double"));
-        dataTypeTest.execute(getQueryRunner(), prestoCreateAsSelect("test_double"));
+        dataTypeTest.execute(getQueryRunner(), trinoCreateAsSelect("test_double"));
 
         testSapHanaUnsupportedValue(dataType, Double.NaN, "com.sap.db.jdbc.exceptions.SQLDataExceptionSapDB: Invalid number: NaN");
         testSapHanaUnsupportedValue(dataType, Double.NEGATIVE_INFINITY, "com.sap.db.jdbc.exceptions.SQLDataExceptionSapDB: Invalid number: -Infinity");
@@ -195,7 +195,7 @@ public class TestSapHanaTypeMapping
     private <T> void testSapHanaUnsupportedValue(DataType<T> dataType, T value, String expectedMessage)
     {
         assertThatThrownBy(() ->
-                prestoCreateAsSelect("test_unsupported")
+                trinoCreateAsSelect("test_unsupported")
                         .setupTestTable(List.of(new DataTypeTest.Input<>(dataType, value, false)))
                         .close())
                 .hasStackTraceContaining(expectedMessage);
@@ -237,7 +237,7 @@ public class TestSapHanaTypeMapping
                 .addRoundTrip(decimalDataType(38, 0), new BigDecimal("-27182818284590452353602874713526624977"));
 
         dataTypeTest.execute(getQueryRunner(), sapHanaCreateAndInsert("tpch.test_decimal"));
-        dataTypeTest.execute(getQueryRunner(), prestoCreateAsSelect("test_decimal"));
+        dataTypeTest.execute(getQueryRunner(), trinoCreateAsSelect("test_decimal"));
     }
 
     @Test
@@ -324,7 +324,7 @@ public class TestSapHanaTypeMapping
                 .addRoundTrip(charDataType(77), SAMPLE_OTHER_UNICODE_TEXT)
                 .addRoundTrip(charDataType(sapHanaTextLength(SAMPLE_LENGTHY_CHARACTER)), SAMPLE_LENGTHY_CHARACTER) // Connector does not extend char type to accommodate for different counting semantics
                 .addRoundTrip(charDataType(sapHanaTextLength(SAMPLE_LENGTHY_CHARACTER.repeat(100))), SAMPLE_LENGTHY_CHARACTER.repeat(100)) // Connector does not extend char type to accommodate for different counting semantics
-                .execute(getQueryRunner(), prestoCreateAsSelect("test_char"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_char"));
 
         // too long for a char in SAP HANA
         int length = 2001;
@@ -339,7 +339,7 @@ public class TestSapHanaTypeMapping
                 .addRoundTrip(longChar, "text_f")
                 .addRoundTrip(longChar, "a".repeat(length))
                 .addRoundTrip(longChar, SAMPLE_LENGTHY_CHARACTER.repeat(length))
-                .execute(getQueryRunner(), prestoCreateAsSelect("test_char"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_char"));
     }
 
     @Test
@@ -357,7 +357,7 @@ public class TestSapHanaTypeMapping
                 .execute(getQueryRunner(), sapHanaCreateAndInsert("tpch.test_varchar"));
 
         characterDataTypeTest(SapHanaDataTypes::prestoVarcharForSapHanaDataType, string -> prestoVarcharForSapHanaDataType(sapHanaTextLength(string)), prestoVarcharForSapHanaDataType(5000))
-                .execute(getQueryRunner(), prestoCreateAsSelect("test_varchar"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_varchar"));
 
         // varchar
         DataTypeTest.create()
@@ -366,7 +366,7 @@ public class TestSapHanaTypeMapping
 
         DataType<String> varcharDataType = varcharDataType();
         longVarcharDataTypeTest(length -> varcharDataType, string -> varcharDataType, varcharDataType)
-                .execute(getQueryRunner(), prestoCreateAsSelect("test_varchar"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_varchar"));
     }
 
     @Test
@@ -471,7 +471,7 @@ public class TestSapHanaTypeMapping
                 .execute(getQueryRunner(), sapHanaCreateAndInsert("tpch.test_varbinary"));
 
         varbinaryTestCases(varbinaryDataType())
-                .execute(getQueryRunner(), prestoCreateAsSelect("test_varbinary"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_varbinary"));
     }
 
     private DataTypeTest varbinaryTestCases(DataType<byte[]> varbinaryDataType)
@@ -514,7 +514,7 @@ public class TestSapHanaTypeMapping
                     .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(timeZoneId))
                     .build();
             testCases.execute(getQueryRunner(), session, sapHanaCreateAndInsert("tpch.test_date"));
-            testCases.execute(getQueryRunner(), session, prestoCreateAsSelect(session, "test_date"));
+            testCases.execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"));
         }
     }
 
@@ -583,8 +583,8 @@ public class TestSapHanaTypeMapping
                 .addRoundTrip(prestoTimeForSapHanaDataType(9), timeGapInJvmZone.withNano(567_123_456))
                 .addRoundTrip(prestoTimeForSapHanaDataType(12), timeGapInJvmZone.withNano(567_123_456));
 
-        dataTypeTest.execute(getQueryRunner(), session, prestoCreateAsSelect(session, "test_time"));
-        dataTypeTest.execute(getQueryRunner(), session, prestoCreateAndInsert(session, "test_time"));
+        dataTypeTest.execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_time"));
+        dataTypeTest.execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_time"));
     }
 
     /**
@@ -805,8 +805,8 @@ public class TestSapHanaTypeMapping
                 .addRoundTrip("TIMESTAMP '1969-12-31 23:59:59.999999949999'", "TIMESTAMP '1969-12-31 23:59:59.9999999'")
                 .addRoundTrip("TIMESTAMP '1969-12-31 23:59:59.99999994'", "TIMESTAMP '1969-12-31 23:59:59.9999999'")
 
-                .execute(getQueryRunner(), session, prestoCreateAsSelect(session, "test_timestamp"))
-                .execute(getQueryRunner(), session, prestoCreateAndInsert(session, "test_timestamp"));
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_timestamp"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_timestamp"));
     }
 
     @DataProvider
@@ -856,18 +856,18 @@ public class TestSapHanaTypeMapping
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    private DataSetup prestoCreateAsSelect(String tableNamePrefix)
+    private DataSetup trinoCreateAsSelect(String tableNamePrefix)
     {
-        return prestoCreateAsSelect(getSession(), tableNamePrefix);
+        return trinoCreateAsSelect(getSession(), tableNamePrefix);
     }
 
-    private DataSetup prestoCreateAsSelect(Session session, String tableNamePrefix)
+    private DataSetup trinoCreateAsSelect(Session session, String tableNamePrefix)
     {
         return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
     }
 
     // TODO use in time, timestamp tests
-    private DataSetup prestoCreateAndInsert(Session session, String tableNamePrefix)
+    private DataSetup trinoCreateAndInsert(Session session, String tableNamePrefix)
     {
         return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
     }
