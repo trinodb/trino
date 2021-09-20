@@ -9,8 +9,6 @@
  */
 package com.starburstdata.presto.plugin.snowflake;
 
-import com.google.common.collect.ImmutableList;
-import com.starburstdata.presto.testing.DataProviders;
 import io.trino.Session;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
@@ -298,104 +296,89 @@ public abstract class BaseSnowflakeTypeMappingTest
                 .execute(getQueryRunner(), snowflakeCreateAsSelect());
     }
 
-    @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
-    public void testTime(boolean insertWithTrino)
+    @Test(dataProvider = "sessionZonesDataProvider")
+    public void testTime(ZoneId sessionZone)
     {
-        // using two non-JVM zones so that we don't need to worry what Postgres system zone is
-        for (ZoneId sessionZone : ImmutableList.of(UTC, jvmZone, vilnius, kathmandu, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId()))) {
-            SqlDataTypeTest tests = SqlDataTypeTest.create()
-                    .addRoundTrip("TIME", "'00:00:00'", TIME, "TIME '00:00:00.000'") // gap in JVM zone on Epoch day
-                    .addRoundTrip("TIME", "'00:13:42'", TIME, "TIME '00:13:42.000'") // gap in JVM
-                    .addRoundTrip("TIME", "'13:18:03.123'", TIME, "TIME '13:18:03.123'")
-                    .addRoundTrip("TIME", "'14:18:03.423'", TIME, "TIME '14:18:03.423'")
-                    .addRoundTrip("TIME", "'15:18:03.523'", TIME, "TIME '15:18:03.523'")
-                    .addRoundTrip("TIME", "'16:18:03.623'", TIME, "TIME '16:18:03.623'")
-                    .addRoundTrip("TIME", "'10:01:17.987'", TIME, "TIME '10:01:17.987'")
-                    .addRoundTrip("TIME", "'19:01:17.987'", TIME, "TIME '19:01:17.987'")
-                    .addRoundTrip("TIME", "'20:01:17.987'", TIME, "TIME '20:01:17.987'")
-                    .addRoundTrip("TIME", "'21:01:17.987'", TIME, "TIME '21:01:17.987'")
-                    .addRoundTrip("TIME", "'01:33:17.456'", TIME, "TIME '01:33:17.456'")
-                    .addRoundTrip("TIME", "'03:17:17.000'", TIME, "TIME '03:17:17.000'")
-                    .addRoundTrip("TIME", "'22:59:59.000'", TIME, "TIME '22:59:59.000'")
-                    .addRoundTrip("TIME", "'22:59:59.999'", TIME, "TIME '22:59:59.999'");
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
+                .build();
 
-            Session session = Session.builder(getQueryRunner().getDefaultSession())
-                    .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
-                    .build();
-
-            if (insertWithTrino) {
-                tests.execute(getQueryRunner(), session, trinoCreateAsSelect(session));
-            }
-            else {
-                tests.execute(getQueryRunner(), session, snowflakeCreateAndInsert());
-            }
-        }
+        SqlDataTypeTest.create()
+                .addRoundTrip("TIME", "'00:00:00'", TIME, "TIME '00:00:00.000'") // gap in JVM zone on Epoch day
+                .addRoundTrip("TIME", "'00:13:42'", TIME, "TIME '00:13:42.000'") // gap in JVM
+                .addRoundTrip("TIME", "'13:18:03.123'", TIME, "TIME '13:18:03.123'")
+                .addRoundTrip("TIME", "'14:18:03.423'", TIME, "TIME '14:18:03.423'")
+                .addRoundTrip("TIME", "'15:18:03.523'", TIME, "TIME '15:18:03.523'")
+                .addRoundTrip("TIME", "'16:18:03.623'", TIME, "TIME '16:18:03.623'")
+                .addRoundTrip("TIME", "'10:01:17.987'", TIME, "TIME '10:01:17.987'")
+                .addRoundTrip("TIME", "'19:01:17.987'", TIME, "TIME '19:01:17.987'")
+                .addRoundTrip("TIME", "'20:01:17.987'", TIME, "TIME '20:01:17.987'")
+                .addRoundTrip("TIME", "'21:01:17.987'", TIME, "TIME '21:01:17.987'")
+                .addRoundTrip("TIME", "'01:33:17.456'", TIME, "TIME '01:33:17.456'")
+                .addRoundTrip("TIME", "'03:17:17.000'", TIME, "TIME '03:17:17.000'")
+                .addRoundTrip("TIME", "'22:59:59.000'", TIME, "TIME '22:59:59.000'")
+                .addRoundTrip("TIME", "'22:59:59.999'", TIME, "TIME '22:59:59.999'")
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session))
+                .execute(getQueryRunner(), session, snowflakeCreateAndInsert());
     }
 
-    @Test
-    public void testTimeArray()
+    @Test(dataProvider = "sessionZonesDataProvider")
+    public void testTimeArray(ZoneId sessionZone)
     {
-        // using two non-JVM zones so that we don't need to worry what Snowflake system zone is
-        for (ZoneId sessionZone : ImmutableList.of(UTC, jvmZone, vilnius, kathmandu, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId()))) {
-            SqlDataTypeTest tests = SqlDataTypeTest.create()
-                    .addRoundTrip(
-                            "ARRAY",
-                            "ARRAY_CONSTRUCT(" +
-                                    "TIME '13:18:03.123'," +
-                                    "TIME '14:18:03.423'," +
-                                    "TIME '15:18:03.523'," +
-                                    "TIME '16:18:03.623'," +
-                                    "TIME '10:01:17.987'," +
-                                    "TIME '19:01:17.987'," +
-                                    "TIME '20:01:17.987'," +
-                                    "TIME '21:01:17.987'," +
-                                    "TIME '01:33:17.456'," +
-                                    "TIME '03:17:17.000'," +
-                                    "TIME '22:59:59.999')",
-                            VarcharType.createUnboundedVarcharType(),
-                            "VARCHAR '[" +
-                                    "\"13:18:03.123000000\"," +
-                                    "\"14:18:03.423000000\"," +
-                                    "\"15:18:03.523000000\"," +
-                                    "\"16:18:03.623000000\"," +
-                                    "\"10:01:17.987000000\"," +
-                                    "\"19:01:17.987000000\"," +
-                                    "\"20:01:17.987000000\"," +
-                                    "\"21:01:17.987000000\"," +
-                                    "\"01:33:17.456000000\"," +
-                                    "\"03:17:17.000000000\"," +
-                                    "\"22:59:59.999000000\"]'");
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
+                .build();
 
-            Session session = Session.builder(getQueryRunner().getDefaultSession())
-                    .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
-                    .build();
-
-            tests.execute(getQueryRunner(), session, snowflakeCreateAsSelect());
-        }
+        SqlDataTypeTest.create()
+                .addRoundTrip(
+                        "ARRAY",
+                        "ARRAY_CONSTRUCT(" +
+                                "TIME '13:18:03.123'," +
+                                "TIME '14:18:03.423'," +
+                                "TIME '15:18:03.523'," +
+                                "TIME '16:18:03.623'," +
+                                "TIME '10:01:17.987'," +
+                                "TIME '19:01:17.987'," +
+                                "TIME '20:01:17.987'," +
+                                "TIME '21:01:17.987'," +
+                                "TIME '01:33:17.456'," +
+                                "TIME '03:17:17.000'," +
+                                "TIME '22:59:59.999')",
+                        VarcharType.createUnboundedVarcharType(),
+                        "VARCHAR '[" +
+                                "\"13:18:03.123000000\"," +
+                                "\"14:18:03.423000000\"," +
+                                "\"15:18:03.523000000\"," +
+                                "\"16:18:03.623000000\"," +
+                                "\"10:01:17.987000000\"," +
+                                "\"19:01:17.987000000\"," +
+                                "\"20:01:17.987000000\"," +
+                                "\"21:01:17.987000000\"," +
+                                "\"01:33:17.456000000\"," +
+                                "\"03:17:17.000000000\"," +
+                                "\"22:59:59.999000000\"]'")
+                .execute(getQueryRunner(), session, snowflakeCreateAsSelect());
     }
 
-    @Test
-    public void testTimestamp()
+    @Test(dataProvider = "sessionZonesDataProvider")
+    public void testTimestamp(ZoneId sessionZone)
     {
-        // using two non-JVM zones so that we don't need to worry what Postgres system zone is
-        for (ZoneId sessionZone : ImmutableList.of(UTC, jvmZone, vilnius, kathmandu, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId()))) {
-            Session session = Session.builder(getQueryRunner().getDefaultSession())
-                    .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
-                    .build();
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
+                .build();
 
-            SqlDataTypeTest.create()
-                    .addRoundTrip("timestamp(9)", "TIMESTAMP '1958-01-01 13:18:03.123000000'", createTimestampType(9), "TIMESTAMP '1958-01-01 13:18:03.123000000'") // dateTimeBeforeEpoch
-                    .addRoundTrip("timestamp(9)", "TIMESTAMP '2019-03-18 10:01:17.987000000'", createTimestampType(9), "TIMESTAMP '2019-03-18 10:01:17.987000000'") // dateTimeAfterEpoch
-                    .addRoundTrip("timestamp(9)", "TIMESTAMP '2018-10-28 01:33:17.456000000'", createTimestampType(9), "TIMESTAMP '2018-10-28 01:33:17.456000000'") // dateTimeDoubledInJvmZone
-                    .addRoundTrip("timestamp(9)", "TIMESTAMP '2018-10-28 03:33:33.333000000'", createTimestampType(9), "TIMESTAMP '2018-10-28 03:33:33.333000000'") // dateTimeDoubledInVilnius
-                    .addRoundTrip("timestamp(9)", "TIMESTAMP '1970-01-01 00:00:00.000000000'", createTimestampType(9), "TIMESTAMP '1970-01-01 00:00:00.000000000'") // dateTimeEpoch, epoch also is a gap in JVM zone
-                    .addRoundTrip("timestamp(9)", "TIMESTAMP '1970-01-01 00:13:42.000000000'", createTimestampType(9), "TIMESTAMP '1970-01-01 00:13:42.000000000'") // dateTimeGapInJvmZone1
-                    .addRoundTrip("timestamp(9)", "TIMESTAMP '2018-04-01 02:13:55.123000000'", createTimestampType(9), "TIMESTAMP '2018-04-01 02:13:55.123000000'") // dateTimeGapInJvmZone2
-                    .addRoundTrip("timestamp(9)", "TIMESTAMP '2018-03-25 03:17:17.000000000'", createTimestampType(9), "TIMESTAMP '2018-03-25 03:17:17.000000000'") // dateTimeGapInVilnius
-                    .addRoundTrip("timestamp(9)", "TIMESTAMP '1986-01-01 00:13:07.000000000'", createTimestampType(9), "TIMESTAMP '1986-01-01 00:13:07.000000000'") // dateTimeGapInKathmandu
-                    .execute(getQueryRunner(), session, trinoCreateAsSelect(session))
-                    .execute(getQueryRunner(), session, snowflakeCreateAndInsert());
-        }
+        SqlDataTypeTest.create()
+                .addRoundTrip("timestamp(9)", "TIMESTAMP '1958-01-01 13:18:03.123000000'", createTimestampType(9), "TIMESTAMP '1958-01-01 13:18:03.123000000'") // dateTimeBeforeEpoch
+                .addRoundTrip("timestamp(9)", "TIMESTAMP '2019-03-18 10:01:17.987000000'", createTimestampType(9), "TIMESTAMP '2019-03-18 10:01:17.987000000'") // dateTimeAfterEpoch
+                .addRoundTrip("timestamp(9)", "TIMESTAMP '2018-10-28 01:33:17.456000000'", createTimestampType(9), "TIMESTAMP '2018-10-28 01:33:17.456000000'") // dateTimeDoubledInJvmZone
+                .addRoundTrip("timestamp(9)", "TIMESTAMP '2018-10-28 03:33:33.333000000'", createTimestampType(9), "TIMESTAMP '2018-10-28 03:33:33.333000000'") // dateTimeDoubledInVilnius
+                .addRoundTrip("timestamp(9)", "TIMESTAMP '1970-01-01 00:00:00.000000000'", createTimestampType(9), "TIMESTAMP '1970-01-01 00:00:00.000000000'") // dateTimeEpoch, epoch also is a gap in JVM zone
+                .addRoundTrip("timestamp(9)", "TIMESTAMP '1970-01-01 00:13:42.000000000'", createTimestampType(9), "TIMESTAMP '1970-01-01 00:13:42.000000000'") // dateTimeGapInJvmZone1
+                .addRoundTrip("timestamp(9)", "TIMESTAMP '2018-04-01 02:13:55.123000000'", createTimestampType(9), "TIMESTAMP '2018-04-01 02:13:55.123000000'") // dateTimeGapInJvmZone2
+                .addRoundTrip("timestamp(9)", "TIMESTAMP '2018-03-25 03:17:17.000000000'", createTimestampType(9), "TIMESTAMP '2018-03-25 03:17:17.000000000'") // dateTimeGapInVilnius
+                .addRoundTrip("timestamp(9)", "TIMESTAMP '1986-01-01 00:13:07.000000000'", createTimestampType(9), "TIMESTAMP '1986-01-01 00:13:07.000000000'") // dateTimeGapInKathmandu
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session))
+                .execute(getQueryRunner(), session, snowflakeCreateAndInsert());
     }
 
     @Test
@@ -437,41 +420,37 @@ public abstract class BaseSnowflakeTypeMappingTest
                 .execute(getQueryRunner(), trinoCreateAndInsert());
     }
 
-    @Test
-    public void testTimestampArray()
+    @Test(dataProvider = "sessionZonesDataProvider")
+    public void testTimestampArray(ZoneId sessionZone)
     {
-        // using two non-JVM zones so that we don't need to worry what Postgres system zone is
-        for (ZoneId sessionZone : ImmutableList.of(UTC, jvmZone, vilnius, kathmandu, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId()))) {
-            SqlDataTypeTest tests = SqlDataTypeTest.create()
-                    .addRoundTrip("ARRAY",
-                            "ARRAY_CONSTRUCT(" +
-                                    "TIMESTAMP '1958-01-01 13:18:03.123'," +
-                                    "TIMESTAMP '1970-01-01 00:00:00.000'," +
-                                    "TIMESTAMP '2019-03-18 10:01:17.987'," +
-                                    "TIMESTAMP '1970-01-01 00:13:42.000'," +
-                                    "TIMESTAMP '2018-04-01 02:13:55.123'," +
-                                    "TIMESTAMP '2018-10-28 01:33:17.456'," +
-                                    "TIMESTAMP '2018-03-25 03:17:17.000'," +
-                                    "TIMESTAMP '1986-01-01 00:13:07.000'," +
-                                    "TIMESTAMP '2018-10-28 03:33:33.333')",
-                            VarcharType.createUnboundedVarcharType(),
-                            "VARCHAR '[" +
-                                    "\"1958-01-01T13:18:03.123000000Z\"," +
-                                    "\"1970-01-01T00:00:00.000000000Z\"," +
-                                    "\"2019-03-18T10:01:17.987000000Z\"," +
-                                    "\"1970-01-01T00:13:42.000000000Z\"," +
-                                    "\"2018-04-01T02:13:55.123000000Z\"," +
-                                    "\"2018-10-28T01:33:17.456000000Z\"," +
-                                    "\"2018-03-25T03:17:17.000000000Z\"," +
-                                    "\"1986-01-01T00:13:07.000000000Z\"," +
-                                    "\"2018-10-28T03:33:33.333000000Z\"]'");
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
+                .build();
 
-            Session session = Session.builder(getQueryRunner().getDefaultSession())
-                    .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
-                    .build();
-
-            tests.execute(getQueryRunner(), session, snowflakeCreateAsSelect());
-        }
+        SqlDataTypeTest.create()
+                .addRoundTrip("ARRAY",
+                        "ARRAY_CONSTRUCT(" +
+                                "TIMESTAMP '1958-01-01 13:18:03.123'," +
+                                "TIMESTAMP '1970-01-01 00:00:00.000'," +
+                                "TIMESTAMP '2019-03-18 10:01:17.987'," +
+                                "TIMESTAMP '1970-01-01 00:13:42.000'," +
+                                "TIMESTAMP '2018-04-01 02:13:55.123'," +
+                                "TIMESTAMP '2018-10-28 01:33:17.456'," +
+                                "TIMESTAMP '2018-03-25 03:17:17.000'," +
+                                "TIMESTAMP '1986-01-01 00:13:07.000'," +
+                                "TIMESTAMP '2018-10-28 03:33:33.333')",
+                        VarcharType.createUnboundedVarcharType(),
+                        "VARCHAR '[" +
+                                "\"1958-01-01T13:18:03.123000000Z\"," +
+                                "\"1970-01-01T00:00:00.000000000Z\"," +
+                                "\"2019-03-18T10:01:17.987000000Z\"," +
+                                "\"1970-01-01T00:13:42.000000000Z\"," +
+                                "\"2018-04-01T02:13:55.123000000Z\"," +
+                                "\"2018-10-28T01:33:17.456000000Z\"," +
+                                "\"2018-03-25T03:17:17.000000000Z\"," +
+                                "\"1986-01-01T00:13:07.000000000Z\"," +
+                                "\"2018-10-28T03:33:33.333000000Z\"]'")
+                .execute(getQueryRunner(), session, snowflakeCreateAsSelect());
     }
 
     @Test(dataProvider = "testTimestampWithTimeZoneDataProvider")
@@ -620,7 +599,8 @@ public abstract class BaseSnowflakeTypeMappingTest
     {
         return new Object[][] {
                 {UTC},
-                {ZoneId.systemDefault()},
+                {jvmZone},
+                // using two non-JVM zones so that we don't need to worry what Snowflake system zone is
                 // no DST in 1970, but has DST in later years (e.g. 2018)
                 {ZoneId.of("Europe/Vilnius")},
                 // minutes offset change since 1970-01-01, no DST

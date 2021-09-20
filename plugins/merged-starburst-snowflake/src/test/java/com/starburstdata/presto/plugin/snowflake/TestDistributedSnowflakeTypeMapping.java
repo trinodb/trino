@@ -9,12 +9,10 @@
  */
 package com.starburstdata.presto.plugin.snowflake;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.TestingSession;
 import io.trino.testing.datatype.SqlDataTypeTest;
 import org.apache.hadoop.hive.common.type.HiveVarchar;
 import org.testng.annotations.Test;
@@ -27,7 +25,6 @@ import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestDistributedSnowflakeTypeMapping
@@ -88,30 +85,27 @@ public class TestDistributedSnowflakeTypeMapping
                 .execute(getQueryRunner(), snowflakeCreateAsSelect());
     }
 
-    @Test
+    @Test(dataProvider = "sessionZonesDataProvider")
     @Override
-    public void testTimestamp()
+    public void testTimestamp(ZoneId sessionZone)
     {
         // Override because the timestamp precision of result literal is different from JDBC client
-        // using two non-JVM zones so that we don't need to worry what Postgres system zone is
-        for (ZoneId sessionZone : ImmutableList.of(UTC, jvmZone, vilnius, kathmandu, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId()))) {
-            Session session = Session.builder(getQueryRunner().getDefaultSession())
-                    .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
-                    .build();
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
+                .build();
 
-            SqlDataTypeTest.create()
-                    .addRoundTrip("timestamp(9)", "TIMESTAMP '1958-01-01 13:18:03.123000000'", createTimestampType(3), "TIMESTAMP '1958-01-01 13:18:03.123'") // dateTimeBeforeEpoch
-                    .addRoundTrip("timestamp(9)", "TIMESTAMP '2019-03-18 10:01:17.987000000'", createTimestampType(3), "TIMESTAMP '2019-03-18 10:01:17.987'") // dateTimeAfterEpoch
-                    .addRoundTrip("timestamp(9)", "TIMESTAMP '2018-10-28 01:33:17.456000000'", createTimestampType(3), "TIMESTAMP '2018-10-28 01:33:17.456'") // dateTimeDoubledInJvmZone
-                    .addRoundTrip("timestamp(9)", "TIMESTAMP '2018-10-28 03:33:33.333000000'", createTimestampType(3), "TIMESTAMP '2018-10-28 03:33:33.333'") // dateTimeDoubledInVilnius
-                    .addRoundTrip("timestamp(9)", "TIMESTAMP '1970-01-01 00:00:00.000000000'", createTimestampType(3), "TIMESTAMP '1970-01-01 00:00:00.000'") // dateTimeEpoch, epoch also is a gap in JVM zone
-                    .addRoundTrip("timestamp(9)", "TIMESTAMP '1970-01-01 00:13:42.000000000'", createTimestampType(3), "TIMESTAMP '1970-01-01 00:13:42.000'") // dateTimeGapInJvmZone1
-                    .addRoundTrip("timestamp(9)", "TIMESTAMP '2018-04-01 02:13:55.123000000'", createTimestampType(3), "TIMESTAMP '2018-04-01 02:13:55.123'") // dateTimeGapInJvmZone2
-                    .addRoundTrip("timestamp(9)", "TIMESTAMP '2018-03-25 03:17:17.000000000'", createTimestampType(3), "TIMESTAMP '2018-03-25 03:17:17.000'") // dateTimeGapInVilnius
-                    .addRoundTrip("timestamp(9)", "TIMESTAMP '1986-01-01 00:13:07.000000000'", createTimestampType(3), "TIMESTAMP '1986-01-01 00:13:07.000'") // dateTimeGapInKathmandu
-                    .execute(getQueryRunner(), session, trinoCreateAsSelect(session))
-                    .execute(getQueryRunner(), session, snowflakeCreateAndInsert());
-        }
+        SqlDataTypeTest.create()
+                .addRoundTrip("timestamp(9)", "TIMESTAMP '1958-01-01 13:18:03.123000000'", createTimestampType(3), "TIMESTAMP '1958-01-01 13:18:03.123'") // dateTimeBeforeEpoch
+                .addRoundTrip("timestamp(9)", "TIMESTAMP '2019-03-18 10:01:17.987000000'", createTimestampType(3), "TIMESTAMP '2019-03-18 10:01:17.987'") // dateTimeAfterEpoch
+                .addRoundTrip("timestamp(9)", "TIMESTAMP '2018-10-28 01:33:17.456000000'", createTimestampType(3), "TIMESTAMP '2018-10-28 01:33:17.456'") // dateTimeDoubledInJvmZone
+                .addRoundTrip("timestamp(9)", "TIMESTAMP '2018-10-28 03:33:33.333000000'", createTimestampType(3), "TIMESTAMP '2018-10-28 03:33:33.333'") // dateTimeDoubledInVilnius
+                .addRoundTrip("timestamp(9)", "TIMESTAMP '1970-01-01 00:00:00.000000000'", createTimestampType(3), "TIMESTAMP '1970-01-01 00:00:00.000'") // dateTimeEpoch, epoch also is a gap in JVM zone
+                .addRoundTrip("timestamp(9)", "TIMESTAMP '1970-01-01 00:13:42.000000000'", createTimestampType(3), "TIMESTAMP '1970-01-01 00:13:42.000'") // dateTimeGapInJvmZone1
+                .addRoundTrip("timestamp(9)", "TIMESTAMP '2018-04-01 02:13:55.123000000'", createTimestampType(3), "TIMESTAMP '2018-04-01 02:13:55.123'") // dateTimeGapInJvmZone2
+                .addRoundTrip("timestamp(9)", "TIMESTAMP '2018-03-25 03:17:17.000000000'", createTimestampType(3), "TIMESTAMP '2018-03-25 03:17:17.000'") // dateTimeGapInVilnius
+                .addRoundTrip("timestamp(9)", "TIMESTAMP '1986-01-01 00:13:07.000000000'", createTimestampType(3), "TIMESTAMP '1986-01-01 00:13:07.000'") // dateTimeGapInKathmandu
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session))
+                .execute(getQueryRunner(), session, snowflakeCreateAndInsert());
     }
 
     @Test
