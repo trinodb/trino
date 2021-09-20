@@ -47,9 +47,7 @@ class TestingMemoryConnectorFactory
             public boolean isSingleStatementWritesOnly()
             {
                 // This fakes support for transactions. This is required to make enableWrites Stargate's test mode work.
-                // TODO: note that the check is currently reversed, and will change when we upgrade to https://github.com/trinodb/trino/commit/905f0334c4f1e8d70d95b1fa4eb572e80d0d8197
-                //  verify(super.isSingleStatementWritesOnly(), "super.isSingleStatementWritesOnly no longer returns true");
-                verify(!super.isSingleStatementWritesOnly(), "once super.isSingleStatementWritesOnly starts returning true, the code here should be updated");
+                verify(super.isSingleStatementWritesOnly(), "super.isSingleStatementWritesOnly no longer returns true");
                 return false;
             }
         };
