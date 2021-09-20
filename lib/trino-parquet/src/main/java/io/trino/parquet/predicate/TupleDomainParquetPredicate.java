@@ -161,7 +161,7 @@ public class TupleDomainParquetPredicate
             }
 
             Domain domain = getDomain(effectivePredicateDomain.getType(), numberOfRows, columnIndex, id, column);
-            if (effectivePredicateDomain.intersect(domain).isNone()) {
+            if (!effectivePredicateDomain.overlaps(domain)) {
                 return false;
             }
         }
@@ -536,7 +536,7 @@ public class TupleDomainParquetPredicate
             }
 
             Domain domain = getDomain(columnDomain.getType(), ImmutableList.of(statistic.getMin()), ImmutableList.of(statistic.getMax()), true, timeZone);
-            return columnDomain.intersect(domain).isNone();
+            return !columnDomain.overlaps(domain);
         }
 
         @Override
