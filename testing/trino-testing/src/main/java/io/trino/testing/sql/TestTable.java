@@ -31,7 +31,8 @@ public class TestTable
         implements AutoCloseable
 {
     private static final SecureRandom random = new SecureRandom();
-    private static final int RANDOM_SUFFIX_LENGTH = 5;
+    // The suffix needs to be long enough to "prevent" collisions in practice. The length of 5 was proven not to be long enough
+    private static final int RANDOM_SUFFIX_LENGTH = 10;
 
     private final SqlExecutor sqlExecutor;
     private final String name;
