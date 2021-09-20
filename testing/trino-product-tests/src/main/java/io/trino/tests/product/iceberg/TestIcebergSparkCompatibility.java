@@ -79,6 +79,8 @@ public class TestIcebergSparkCompatibility
         String trinoTableName = trinoTableName(baseTableName);
         String sparkTableName = sparkTableName(baseTableName);
 
+        onSpark().executeQuery("DROP TABLE IF EXISTS " + sparkTableName);
+
         onSpark().executeQuery(format(
                 "CREATE TABLE %s (" +
                         "  _string STRING" +
@@ -91,6 +93,7 @@ public class TestIcebergSparkCompatibility
                         ", _boolean BOOLEAN" +
                         ", _timestamp TIMESTAMP" +
                         ", _date DATE" +
+                        ", _binary BINARY" +
                         ") USING ICEBERG " +
                         "TBLPROPERTIES ('write.format.default'='%s')",
                 sparkTableName,
@@ -112,6 +115,7 @@ public class TestIcebergSparkCompatibility
                         ", true" +
                         ", TIMESTAMP '2020-06-28 14:16:00.456'" +
                         ", DATE '1950-06-28'" +
+                        ", X'000102f0feff'" +
                         ")",
                 sparkTableName));
 
@@ -125,7 +129,8 @@ public class TestIcebergSparkCompatibility
                 new BigDecimal("1234567890123456789.0123456789012345678"),
                 true,
                 Timestamp.valueOf("2020-06-28 14:16:00.456"),
-                Date.valueOf("1950-06-28"));
+                Date.valueOf("1950-06-28"),
+                new byte[]{00, 01, 02, -16, -2, -1});
 
         assertThat(onSpark().executeQuery(
                 "SELECT " +
@@ -139,6 +144,7 @@ public class TestIcebergSparkCompatibility
                         ", _boolean" +
                         ", _timestamp" +
                         ", _date" +
+                        ", _binary" +
                         " FROM " + sparkTableName))
                 .containsOnly(row);
 
@@ -154,6 +160,7 @@ public class TestIcebergSparkCompatibility
                         ", _boolean" +
                         ", CAST(_timestamp AS TIMESTAMP)" + // TODO test the value without a CAST from timestamp with time zone to timestamp
                         ", _date" +
+                        ", _binary" +
                         " FROM " + trinoTableName))
                 .containsOnly(row);
 
@@ -179,6 +186,7 @@ public class TestIcebergSparkCompatibility
                 //", TIMESTAMP '2020-06-28 14:16:00.456' _timestamp " +
                 ", TIMESTAMP '2021-08-03 08:32:21.123456 Europe/Warsaw' _timestamptz " +
                 ", DATE '1950-06-28' _date " +
+                ", X'000102f0feff' _binary " +
                 //", TIME '01:23:45.123456' _time " +
                 "";
 
@@ -197,6 +205,7 @@ public class TestIcebergSparkCompatibility
                                 //", _timestamp TIMESTAMP" -- per https://iceberg.apache.org/spark-writes/ Iceberg's timestamp is currently not supported with Spark
                                 ", _timestamptz timestamp(6) with time zone" +
                                 ", _date DATE" +
+                                ", _binary VARBINARY" +
                                 //", _time time(6)" + -- per https://iceberg.apache.org/spark-writes/ Iceberg's time is currently not supported with Spark
                                 ") WITH (format = '%s')",
                         trinoTableName,
@@ -229,7 +238,8 @@ public class TestIcebergSparkCompatibility
                 true,
                 //"2020-06-28 14:16:00.456",
                 "2021-08-03 06:32:21.123456 UTC", // Iceberg's timestamptz stores point in time, without zone
-                "1950-06-28"
+                "1950-06-28",
+                new byte[]{00, 01, 02, -16, -2, -1}
                 // "01:23:45.123456"
                 /**/);
         assertThat(onTrino().executeQuery(
@@ -245,6 +255,7 @@ public class TestIcebergSparkCompatibility
                         // _timestamp OR CAST(_timestamp AS varchar)
                         ", CAST(_timestamptz AS varchar)" +
                         ", CAST(_date AS varchar)" +
+                        ", _binary" +
                         //", CAST(_time AS varchar)" +
                         " FROM " + trinoTableName))
                 .containsOnly(row);
@@ -262,6 +273,7 @@ public class TestIcebergSparkCompatibility
                         // _timestamp OR CAST(_timestamp AS string)
                         ", CAST(_timestamptz AS string) || ' UTC'" + // Iceberg timestamptz is mapped to Spark timestamp and gets represented without time zone
                         ", CAST(_date AS string)" +
+                        ", _binary" +
                         // ", CAST(_time AS string)" +
                         " FROM " + sparkTableName))
                 .containsOnly(row);
