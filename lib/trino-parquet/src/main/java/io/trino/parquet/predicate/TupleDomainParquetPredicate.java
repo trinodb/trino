@@ -159,11 +159,10 @@ public class TupleDomainParquetPredicate
             if (columnIndex == null || isEmptyColumnIndex(columnIndex)) {
                 continue;
             }
-            else {
-                Domain domain = getDomain(effectivePredicateDomain.getType(), numberOfRows, columnIndex, id, column);
-                if (effectivePredicateDomain.intersect(domain).isNone()) {
-                    return false;
-                }
+
+            Domain domain = getDomain(effectivePredicateDomain.getType(), numberOfRows, columnIndex, id, column);
+            if (effectivePredicateDomain.intersect(domain).isNone()) {
+                return false;
             }
         }
 
