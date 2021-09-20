@@ -47,6 +47,7 @@ import static io.trino.spi.type.TimeType.TIME;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
@@ -147,12 +148,12 @@ public abstract class BaseSnowflakeTypeMappingTest
     public void varcharMapping()
     {
         SqlDataTypeTest.create()
-                .addRoundTrip("varchar(10)", "'string 010'", VarcharType.createVarcharType(10), "'string 010'")
-                .addRoundTrip("varchar(20)", "'string 020'", VarcharType.createVarcharType(20), "CAST('string 020' AS VARCHAR(20))")
-                .addRoundTrip("varchar(16777216)", "'string max size'", VarcharType.createVarcharType(MAX_VARCHAR), "CAST('string max size' AS VARCHAR(16777216))")
-                .addRoundTrip("varchar(5)", "null", VarcharType.createVarcharType(5), "CAST(null AS VARCHAR(5))")
-                .addRoundTrip("varchar(213)", "'攻殻機動隊'", VarcharType.createVarcharType(213), "CAST('攻殻機動隊' AS VARCHAR(213))")
-                .addRoundTrip("varchar(42)", "null", VarcharType.createVarcharType(42), "CAST(null AS VARCHAR(42))")
+                .addRoundTrip("varchar(10)", "'string 010'", createVarcharType(10), "'string 010'")
+                .addRoundTrip("varchar(20)", "'string 020'", createVarcharType(20), "CAST('string 020' AS VARCHAR(20))")
+                .addRoundTrip("varchar(16777216)", "'string max size'", createVarcharType(MAX_VARCHAR), "CAST('string max size' AS VARCHAR(16777216))")
+                .addRoundTrip("varchar(5)", "null", createVarcharType(5), "CAST(null AS VARCHAR(5))")
+                .addRoundTrip("varchar(213)", "'攻殻機動隊'", createVarcharType(213), "CAST('攻殻機動隊' AS VARCHAR(213))")
+                .addRoundTrip("varchar(42)", "null", createVarcharType(42), "CAST(null AS VARCHAR(42))")
                 .execute(getQueryRunner(), prestoCreateAsSelect());
     }
 
@@ -160,13 +161,13 @@ public abstract class BaseSnowflakeTypeMappingTest
     public void varcharReadMapping()
     {
         SqlDataTypeTest.create()
-                .addRoundTrip("varchar(10)", "'string 010'", VarcharType.createVarcharType(10), "'string 010'")
-                .addRoundTrip("varchar(20)", "'string 020'", VarcharType.createVarcharType(20), "CAST('string 020' AS VARCHAR(20))")
-                .addRoundTrip("varchar(16777216)", "'string max size'", VarcharType.createVarcharType(MAX_VARCHAR), "CAST('string max size' AS VARCHAR(16777216))")
-                .addRoundTrip("character(10)", "null", VarcharType.createVarcharType(10), "CAST(null AS VARCHAR(10))")
-                .addRoundTrip("char(100)", "'攻殻機動隊'", VarcharType.createVarcharType(100), "CAST('攻殻機動隊' AS VARCHAR(100))")
-                .addRoundTrip("text", "'攻殻機動隊'", VarcharType.createVarcharType(MAX_VARCHAR), "CAST('攻殻機動隊' AS VARCHAR(16777216))")
-                .addRoundTrip("string", "'攻殻機動隊'", VarcharType.createVarcharType(MAX_VARCHAR), "CAST('攻殻機動隊' AS VARCHAR(16777216))")
+                .addRoundTrip("varchar(10)", "'string 010'", createVarcharType(10), "'string 010'")
+                .addRoundTrip("varchar(20)", "'string 020'", createVarcharType(20), "CAST('string 020' AS VARCHAR(20))")
+                .addRoundTrip("varchar(16777216)", "'string max size'", createVarcharType(MAX_VARCHAR), "CAST('string max size' AS VARCHAR(16777216))")
+                .addRoundTrip("character(10)", "null", createVarcharType(10), "CAST(null AS VARCHAR(10))")
+                .addRoundTrip("char(100)", "'攻殻機動隊'", createVarcharType(100), "CAST('攻殻機動隊' AS VARCHAR(100))")
+                .addRoundTrip("text", "'攻殻機動隊'", createVarcharType(MAX_VARCHAR), "CAST('攻殻機動隊' AS VARCHAR(16777216))")
+                .addRoundTrip("string", "'攻殻機動隊'", createVarcharType(MAX_VARCHAR), "CAST('攻殻機動隊' AS VARCHAR(16777216))")
                 .execute(getQueryRunner(), snowflakeCreateAsSelect());
     }
 
@@ -174,9 +175,9 @@ public abstract class BaseSnowflakeTypeMappingTest
     public void charMapping()
     {
         SqlDataTypeTest.create()
-                .addRoundTrip("char(10)", "'string 010'", VarcharType.createVarcharType(10), "'string 010'")
-                .addRoundTrip("char(20)", "'string 020          '", VarcharType.createVarcharType(20), "'string 020          '")
-                .addRoundTrip("char(10)", "null", VarcharType.createVarcharType(10), "CAST(null AS VARCHAR(10))")
+                .addRoundTrip("char(10)", "'string 010'", createVarcharType(10), "'string 010'")
+                .addRoundTrip("char(20)", "'string 020          '", createVarcharType(20), "'string 020          '")
+                .addRoundTrip("char(10)", "null", createVarcharType(10), "CAST(null AS VARCHAR(10))")
                 .execute(getQueryRunner(), prestoCreateAsSelect());
     }
 
@@ -184,9 +185,9 @@ public abstract class BaseSnowflakeTypeMappingTest
     public void charReadMapping()
     {
         SqlDataTypeTest.create()
-                .addRoundTrip("char(10)", "'string 010'", VarcharType.createVarcharType(10), "'string 010'")
-                .addRoundTrip("char(20)", "'string 020'", VarcharType.createVarcharType(20), "CAST('string 020' AS VARCHAR(20))")
-                .addRoundTrip("char(5)", "null", VarcharType.createVarcharType(5), "CAST(null AS VARCHAR(5))")
+                .addRoundTrip("char(10)", "'string 010'", createVarcharType(10), "'string 010'")
+                .addRoundTrip("char(20)", "'string 020'", createVarcharType(20), "CAST('string 020' AS VARCHAR(20))")
+                .addRoundTrip("char(5)", "null", createVarcharType(5), "CAST(null AS VARCHAR(5))")
                 .execute(getQueryRunner(), snowflakeCreateAsSelect());
     }
 
