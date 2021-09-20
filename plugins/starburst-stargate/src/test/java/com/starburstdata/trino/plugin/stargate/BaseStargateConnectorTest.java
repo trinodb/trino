@@ -12,9 +12,6 @@ package com.starburstdata.trino.plugin.stargate;
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
-import io.trino.sql.planner.plan.ExchangeNode;
-import io.trino.sql.planner.plan.MarkDistinctNode;
-import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
@@ -52,6 +49,7 @@ public abstract class BaseStargateConnectorTest
             case SUPPORTS_AGGREGATION_PUSHDOWN_COVARIANCE:
             case SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION:
             case SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION:
+            case SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT:
                 return true;
 
             case SUPPORTS_JOIN_PUSHDOWN:
@@ -108,12 +106,10 @@ public abstract class BaseStargateConnectorTest
         assertThat(query(withMarkDistinct, "SELECT count(DISTINCT nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
         // distinct aggregation with varchar
         assertThat(query(withMarkDistinct, "SELECT count(DISTINCT comment) FROM nation")).isFullyPushedDown();
-        // two distinct aggregations - should be pushed down. TODO https://starburstdata.atlassian.net/browse/SEP-6353
-        assertThat(query(withMarkDistinct, "SELECT count(DISTINCT regionkey), count(DISTINCT nationkey) FROM nation"))
-                .isNotFullyPushedDown(MarkDistinctNode.class, ExchangeNode.class, ExchangeNode.class, ProjectNode.class);
-        // distinct aggregation and a non-distinct aggregation - should be pushed down. TODO https://starburstdata.atlassian.net/browse/SEP-6353
-        assertThat(query(withMarkDistinct, "SELECT count(DISTINCT regionkey), sum(nationkey) FROM nation"))
-                .isNotFullyPushedDown(MarkDistinctNode.class, ExchangeNode.class, ExchangeNode.class, ProjectNode.class);
+        // two distinct aggregations
+        assertThat(query(withMarkDistinct, "SELECT count(DISTINCT regionkey), count(DISTINCT nationkey) FROM nation")).isFullyPushedDown();
+        // distinct aggregation and a non-distinct aggregation
+        assertThat(query(withMarkDistinct, "SELECT count(DISTINCT regionkey), sum(nationkey) FROM nation")).isFullyPushedDown();
 
         Session withoutMarkDistinct = Session.builder(getSession())
                 .setSystemProperty(USE_MARK_DISTINCT, "false")
