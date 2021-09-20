@@ -378,16 +378,6 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot drop view %s%s", viewName, formatExtraInfo(extraInfo)));
     }
 
-    public static void denySelectView(String viewName)
-    {
-        denySelectView(viewName, null);
-    }
-
-    public static void denySelectView(String viewName, String extraInfo)
-    {
-        throw new AccessDeniedException(format("Cannot select from view %s%s", viewName, formatExtraInfo(extraInfo)));
-    }
-
     public static void denyCreateMaterializedView(String materializedViewName)
     {
         denyCreateMaterializedView(materializedViewName, null);
