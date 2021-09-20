@@ -596,11 +596,12 @@ public interface SystemAccessControl
     /**
      * Check if identity is allowed to show roles.
      *
+     * @param catalogName if present, the role catalog; otherwise the role is a system role
      * @throws AccessDeniedException if not allowed
      */
-    default void checkCanShowRoles(SystemSecurityContext context)
+    default void checkCanShowRoles(SystemSecurityContext context, Optional<String> catalogName)
     {
-        denyShowRoles();
+        denyShowRoles(catalogName);
     }
 
     /**

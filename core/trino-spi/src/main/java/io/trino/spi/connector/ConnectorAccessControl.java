@@ -493,7 +493,7 @@ public interface ConnectorAccessControl
      */
     default void checkCanShowRoles(ConnectorSecurityContext context)
     {
-        denyShowRoles();
+        denyShowRoles(Optional.empty());
     }
 
     /**

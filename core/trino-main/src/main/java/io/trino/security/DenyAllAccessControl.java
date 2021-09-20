@@ -418,7 +418,7 @@ public class DenyAllAccessControl
     @Override
     public void checkCanShowRoles(SecurityContext context, Optional<String> catalogName)
     {
-        denyShowRoles();
+        denyShowRoles(catalogName);
     }
 
     @Override

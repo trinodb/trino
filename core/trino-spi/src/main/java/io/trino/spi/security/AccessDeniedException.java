@@ -448,8 +448,11 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot revoke privilege %s on table %s%s", privilege, tableName, formatExtraInfo(extraInfo)));
     }
 
-    public static void denyShowRoles()
+    public static void denyShowRoles(Optional<String> catalogName)
     {
+        if (catalogName.isPresent()) {
+            throw new AccessDeniedException(format("Cannot show roles from catalog %s", catalogName.get()));
+        }
         throw new AccessDeniedException("Cannot show roles");
     }
 

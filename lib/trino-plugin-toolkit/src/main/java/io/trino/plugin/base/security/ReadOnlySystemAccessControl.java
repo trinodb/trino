@@ -145,7 +145,7 @@ public class ReadOnlySystemAccessControl
     }
 
     @Override
-    public void checkCanShowRoles(SystemSecurityContext context)
+    public void checkCanShowRoles(SystemSecurityContext context, Optional<String> catalogName)
     {
     }
 

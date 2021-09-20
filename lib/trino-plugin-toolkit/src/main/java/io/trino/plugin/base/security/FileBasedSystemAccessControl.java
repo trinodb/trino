@@ -872,7 +872,7 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public void checkCanShowRoles(SystemSecurityContext context)
+    public void checkCanShowRoles(SystemSecurityContext context, Optional<String> catalogName)
     {
         // allow, no roles are supported so show will always be empty
     }

@@ -491,7 +491,7 @@ public class SqlStandardAccessControl
     public void checkCanShowRoles(ConnectorSecurityContext context)
     {
         if (!isAdmin(context)) {
-            denyShowRoles();
+            denyShowRoles(Optional.of(catalogName));
         }
     }
 

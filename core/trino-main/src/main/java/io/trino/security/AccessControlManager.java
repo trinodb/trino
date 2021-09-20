@@ -976,7 +976,7 @@ public class AccessControlManager
             catalogAuthorizationCheck(catalogName.get(), securityContext, ConnectorAccessControl::checkCanShowRoles);
         }
         else {
-            systemAuthorizationCheck(control -> control.checkCanShowRoles(securityContext.toSystemSecurityContext()));
+            systemAuthorizationCheck(control -> control.checkCanShowRoles(securityContext.toSystemSecurityContext(), catalogName));
         }
     }
 

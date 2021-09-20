@@ -351,9 +351,9 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
-    public void checkCanShowRoles(SystemSecurityContext context)
+    public void checkCanShowRoles(SystemSecurityContext context, Optional<String> catalogName)
     {
-        delegate().checkCanShowRoles(context);
+        delegate().checkCanShowRoles(context, catalogName);
     }
 
     @Override
