@@ -480,7 +480,7 @@ public abstract class AbstractTestOracleTypeMapping
                 .addRoundTrip("number", "99", createDecimalType(38, 9), "CAST(99 AS DECIMAL(38, 9))")
                 .addRoundTrip("number", "9999999999999999999999999999.999999999", createDecimalType(38, 9), "CAST('9999999999999999999999999999.999999999' AS DECIMAL(38, 9))") // max
                 .addRoundTrip("number", "-9999999999999999999999999999.999999999", createDecimalType(38, 9), "CAST('-9999999999999999999999999999.999999999' AS DECIMAL(38, 9))") // min
-                .execute(getQueryRunner(), number(9), oracleCreateAndInsert("number_wo_prec_and_scale"));
+                .execute(getQueryRunner(), number(9), oracleCreateAndInsert("no_prec_and_scale"));
     }
 
     @Test
@@ -555,7 +555,7 @@ public abstract class AbstractTestOracleTypeMapping
     @Test
     public void testNumberWithHiveNegativeScaleReadMapping()
     {
-        try (TestTable table = oracleTable("highNegativeNumberScale", "col NUMBER(38, -60)", "(1234567890123456789012345678901234567000000000000000000000000000000000000000000000000000000000000)")) {
+        try (TestTable table = oracleTable("highNegativeScale", "col NUMBER(38, -60)", "(1234567890123456789012345678901234567000000000000000000000000000000000000000000000000000000000000)")) {
             assertQuery(numberConvertToVarchar(), "SELECT * FROM " + table.getName(), "VALUES '1.234567890123456789012345678901234567E96'");
         }
 

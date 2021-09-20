@@ -44,7 +44,7 @@ public class TestTable
     public TestTable(SqlExecutor sqlExecutor, String namePrefix, String tableDefinition, List<String> rowsToInsert)
     {
         this.sqlExecutor = sqlExecutor;
-        this.name = namePrefix + "_" + randomTableSuffix();
+        this.name = namePrefix + randomTableSuffix();
         sqlExecutor.execute(format("CREATE TABLE %s %s", name, tableDefinition));
         try {
             for (String row : rowsToInsert) {
