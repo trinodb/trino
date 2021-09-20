@@ -111,7 +111,7 @@ public abstract class BaseSnowflakeTypeMappingTest
         SqlDataTypeTest.create()
                 .addRoundTrip("boolean", "true", BOOLEAN)
                 .addRoundTrip("boolean", "false", BOOLEAN)
-                .execute(getQueryRunner(), prestoCreateAsSelect());
+                .execute(getQueryRunner(), trinoCreateAsSelect());
     }
 
     @Test
@@ -124,7 +124,7 @@ public abstract class BaseSnowflakeTypeMappingTest
                 .addRoundTrip("double", "+infinity()", DOUBLE)
                 .addRoundTrip("double", "-infinity()", DOUBLE)
                 .addRoundTrip("double", "CAST(NULL AS double)", DOUBLE)
-                .execute(getQueryRunner(), prestoCreateAsSelect());
+                .execute(getQueryRunner(), trinoCreateAsSelect());
     }
 
     @Test
@@ -154,7 +154,7 @@ public abstract class BaseSnowflakeTypeMappingTest
                 .addRoundTrip("varchar(5)", "null", createVarcharType(5), "CAST(null AS VARCHAR(5))")
                 .addRoundTrip("varchar(213)", "'攻殻機動隊'", createVarcharType(213), "CAST('攻殻機動隊' AS VARCHAR(213))")
                 .addRoundTrip("varchar(42)", "null", createVarcharType(42), "CAST(null AS VARCHAR(42))")
-                .execute(getQueryRunner(), prestoCreateAsSelect());
+                .execute(getQueryRunner(), trinoCreateAsSelect());
     }
 
     @Test
@@ -178,7 +178,7 @@ public abstract class BaseSnowflakeTypeMappingTest
                 .addRoundTrip("char(10)", "'string 010'", createVarcharType(10), "'string 010'")
                 .addRoundTrip("char(20)", "'string 020          '", createVarcharType(20), "'string 020          '")
                 .addRoundTrip("char(10)", "null", createVarcharType(10), "CAST(null AS VARCHAR(10))")
-                .execute(getQueryRunner(), prestoCreateAsSelect());
+                .execute(getQueryRunner(), trinoCreateAsSelect());
     }
 
     @Test
@@ -195,7 +195,7 @@ public abstract class BaseSnowflakeTypeMappingTest
     public void decimalMapping()
     {
         numericTests("decimal", DecimalType::createDecimalType)
-                .execute(getQueryRunner(), prestoCreateAsSelect());
+                .execute(getQueryRunner(), trinoCreateAsSelect());
     }
 
     @Test
@@ -224,7 +224,7 @@ public abstract class BaseSnowflakeTypeMappingTest
                 .addRoundTrip("BIGINT", "-9223372036854775807", createDecimalType(19), "CAST(-9223372036854775807 AS DECIMAL(19))")
                 .addRoundTrip("BIGINT", "9223372036854775807", createDecimalType(19), "CAST(9223372036854775807 AS DECIMAL(19))")
                 .addRoundTrip("BIGINT", "null", createDecimalType(19), "CAST(null AS DECIMAL(19))")
-                .execute(getQueryRunner(), prestoCreateAsSelect());
+                .execute(getQueryRunner(), trinoCreateAsSelect());
     }
 
     private static SqlDataTypeTest numericTests(String typeName, BiFunction<Integer, Integer, Type> decimalType)
@@ -265,7 +265,7 @@ public abstract class BaseSnowflakeTypeMappingTest
                 .addRoundTrip("date", "'2017-07-01'", DateType.DATE, "date '2017-07-01'")
                 .addRoundTrip("date", "'2017-01-01'", DateType.DATE, "date '2017-01-01'")
                 .addRoundTrip("date", "'1970-01-01'", DateType.DATE, "date '1970-01-01'")
-                .execute(getQueryRunner(), prestoCreateAsSelect())
+                .execute(getQueryRunner(), trinoCreateAsSelect())
                 .execute(getQueryRunner(), snowflakeCreateAsSelect());
     }
 
@@ -299,7 +299,7 @@ public abstract class BaseSnowflakeTypeMappingTest
     }
 
     @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
-    public void testTime(boolean insertWithPresto)
+    public void testTime(boolean insertWithTrino)
     {
         // using two non-JVM zones so that we don't need to worry what Postgres system zone is
         for (ZoneId sessionZone : ImmutableList.of(UTC, jvmZone, vilnius, kathmandu, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId()))) {
@@ -323,8 +323,8 @@ public abstract class BaseSnowflakeTypeMappingTest
                     .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
                     .build();
 
-            if (insertWithPresto) {
-                tests.execute(getQueryRunner(), session, prestoCreateAsSelect(session));
+            if (insertWithTrino) {
+                tests.execute(getQueryRunner(), session, trinoCreateAsSelect(session));
             }
             else {
                 tests.execute(getQueryRunner(), session, snowflakeCreateAndInsert());
@@ -393,7 +393,7 @@ public abstract class BaseSnowflakeTypeMappingTest
                     .addRoundTrip("timestamp(9)", "TIMESTAMP '2018-04-01 02:13:55.123000000'", createTimestampType(9), "TIMESTAMP '2018-04-01 02:13:55.123000000'") // dateTimeGapInJvmZone2
                     .addRoundTrip("timestamp(9)", "TIMESTAMP '2018-03-25 03:17:17.000000000'", createTimestampType(9), "TIMESTAMP '2018-03-25 03:17:17.000000000'") // dateTimeGapInVilnius
                     .addRoundTrip("timestamp(9)", "TIMESTAMP '1986-01-01 00:13:07.000000000'", createTimestampType(9), "TIMESTAMP '1986-01-01 00:13:07.000000000'") // dateTimeGapInKathmandu
-                    .execute(getQueryRunner(), session, prestoCreateAsSelect(session))
+                    .execute(getQueryRunner(), session, trinoCreateAsSelect(session))
                     .execute(getQueryRunner(), session, snowflakeCreateAndInsert());
         }
     }
@@ -433,8 +433,8 @@ public abstract class BaseSnowflakeTypeMappingTest
                 // negative epoch
                 .addRoundTrip("CAST('1969-12-31 23:59:59.9999999995' AS TIMESTAMP(9))", "TIMESTAMP '1970-01-01 00:00:00.000000000'")
 
-                .execute(getQueryRunner(), prestoCreateAsSelect())
-                .execute(getQueryRunner(), prestoCreateAndInsert());
+                .execute(getQueryRunner(), trinoCreateAsSelect())
+                .execute(getQueryRunner(), trinoCreateAndInsert());
     }
 
     @Test
@@ -475,23 +475,23 @@ public abstract class BaseSnowflakeTypeMappingTest
     }
 
     @Test(dataProvider = "testTimestampWithTimeZoneDataProvider")
-    public void testTimestampWithTimeZone(boolean insertWithPresto, String timestampType, ZoneId resultZone)
+    public void testTimestampWithTimeZone(boolean insertWithTrino, String timestampType, ZoneId resultZone)
     {
         DataType<ZonedDateTime> dataType;
         DataSetup dataSetup;
 
         LocalDateTime minSnowflakeDate = LocalDateTime.of(1, 1, 1, 0, 0, 0);
         LocalDateTime maxSnowflakeDate = LocalDateTime.of(9999, 12, 31, 23, 59, 59, 999000000);
-        if (insertWithPresto) {
-            dataType = prestoTimestampWithTimeZoneDataType(resultZone);
-            dataSetup = prestoCreateAsSelect();
+        if (insertWithTrino) {
+            dataType = trinoTimestampWithTimeZoneDataType(resultZone);
+            dataSetup = trinoCreateAsSelect();
         }
         else {
             dataType = snowflakeSqlTimestampWithTimeZoneDataType(timestampType, resultZone);
             dataSetup = snowflakeCreateAsSelect();
         }
 
-        if (timestampType.equals("TIMESTAMP_LTZ") && !insertWithPresto) {
+        if (timestampType.equals("TIMESTAMP_LTZ") && !insertWithTrino) {
             // TODO: improve tests for TIMESTAMP_LTZ
             SqlDataTypeTest.create()
                     .addRoundTrip("TIMESTAMP_LTZ", dataType.toLiteral(dateTimeEpoch.atZone(UTC)), dataType.getTrinoResultType(), dataType.toTrinoLiteral(toZone(dateTimeEpoch.atZone(UTC), resultZone)))
@@ -611,8 +611,8 @@ public abstract class BaseSnowflakeTypeMappingTest
                 // negative epoch
                 .addRoundTrip("TIMESTAMP '1969-12-31 23:59:59.999999999 UTC'", "TIMESTAMP '1969-12-31 23:59:59.999999999 UTC'")
 
-                .execute(getQueryRunner(), session, prestoCreateAsSelect())
-                .execute(getQueryRunner(), session, prestoCreateAndInsert());
+                .execute(getQueryRunner(), session, trinoCreateAsSelect())
+                .execute(getQueryRunner(), session, trinoCreateAndInsert());
     }
 
     @DataProvider
@@ -629,7 +629,7 @@ public abstract class BaseSnowflakeTypeMappingTest
         };
     }
 
-    private static DataType<ZonedDateTime> prestoTimestampWithTimeZoneDataType(ZoneId resultZone)
+    private static DataType<ZonedDateTime> trinoTimestampWithTimeZoneDataType(ZoneId resultZone)
     {
         return DataType.dataType(
                 "timestamp with time zone",
@@ -690,19 +690,19 @@ public abstract class BaseSnowflakeTypeMappingTest
         verify(zone.getRules().getValidOffsets(dateTime).size() == 2, "Expected %s to be doubled in %s", dateTime, zone);
     }
 
-    protected DataSetup prestoCreateAsSelect()
+    protected DataSetup trinoCreateAsSelect()
     {
         return new CreateAsSelectDataSetup(
                 new TrinoSqlExecutor(getQueryRunner()),
                 "test_table_" + randomTableSuffix());
     }
 
-    protected DataSetup prestoCreateAsSelect(Session session)
+    protected DataSetup trinoCreateAsSelect(Session session)
     {
         return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), "test_table_" + randomTableSuffix());
     }
 
-    protected DataSetup prestoCreateAndInsert()
+    protected DataSetup trinoCreateAndInsert()
     {
         return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner()), "test_insert_table_" + randomTableSuffix());
     }

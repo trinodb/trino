@@ -62,7 +62,7 @@ public class TestDistributedSnowflakeTypeMapping
                 .addRoundTrip("varchar(5)", "null", createVarcharType(5), "CAST(null AS VARCHAR(5))")
                 .addRoundTrip("varchar(213)", "'攻殻機動隊'", createVarcharType(213), "CAST('攻殻機動隊' AS VARCHAR(213))")
                 .addRoundTrip("varchar(42)", "null", createVarcharType(42), "CAST(null AS VARCHAR(42))")
-                .execute(getQueryRunner(), prestoCreateAsSelect());
+                .execute(getQueryRunner(), trinoCreateAsSelect());
     }
 
     @Test
@@ -109,7 +109,7 @@ public class TestDistributedSnowflakeTypeMapping
                     .addRoundTrip("timestamp(9)", "TIMESTAMP '2018-04-01 02:13:55.123000000'", createTimestampType(3), "TIMESTAMP '2018-04-01 02:13:55.123'") // dateTimeGapInJvmZone2
                     .addRoundTrip("timestamp(9)", "TIMESTAMP '2018-03-25 03:17:17.000000000'", createTimestampType(3), "TIMESTAMP '2018-03-25 03:17:17.000'") // dateTimeGapInVilnius
                     .addRoundTrip("timestamp(9)", "TIMESTAMP '1986-01-01 00:13:07.000000000'", createTimestampType(3), "TIMESTAMP '1986-01-01 00:13:07.000'") // dateTimeGapInKathmandu
-                    .execute(getQueryRunner(), session, prestoCreateAsSelect(session))
+                    .execute(getQueryRunner(), session, trinoCreateAsSelect(session))
                     .execute(getQueryRunner(), session, snowflakeCreateAndInsert());
         }
     }
@@ -150,8 +150,8 @@ public class TestDistributedSnowflakeTypeMapping
                 // negative epoch
                 .addRoundTrip("TIMESTAMP", "CAST('1969-12-31 23:59:59.9999999995' AS TIMESTAMP(9))", createTimestampType(3), "TIMESTAMP '1970-01-01 00:00:00.000'")
 
-                .execute(getQueryRunner(), prestoCreateAsSelect())
-                .execute(getQueryRunner(), prestoCreateAndInsert());
+                .execute(getQueryRunner(), trinoCreateAsSelect())
+                .execute(getQueryRunner(), trinoCreateAndInsert());
     }
 
     @Test(dataProvider = "sessionZonesDataProvider")
@@ -210,8 +210,8 @@ public class TestDistributedSnowflakeTypeMapping
                 // negative epoch
                 .addRoundTrip("TIMESTAMP WITH TIME ZONE", "TIMESTAMP '1969-12-31 23:59:59.999 UTC'", createTimestampWithTimeZoneType(3), "TIMESTAMP '1969-12-31 23:59:59.999 UTC'")
 
-                .execute(getQueryRunner(), session, prestoCreateAsSelect())
-                .execute(getQueryRunner(), session, prestoCreateAndInsert());
+                .execute(getQueryRunner(), session, trinoCreateAsSelect())
+                .execute(getQueryRunner(), session, trinoCreateAndInsert());
     }
 
     @Override
