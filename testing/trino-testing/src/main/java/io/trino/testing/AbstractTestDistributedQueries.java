@@ -153,7 +153,7 @@ public abstract class AbstractTestDistributedQueries
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
 
         // TODO (https://github.com/trinodb/trino/issues/5901) revert to longer name when Oracle version is updated
-        tableName = "test_cr_tab_not_exists_" + randomTableSuffix();
+        tableName = "test_cr_not_exists_" + randomTableSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (a bigint, b varchar(50), c double)");
         assertTrue(getQueryRunner().tableExists(getSession(), tableName));
         assertTableColumnNames(tableName, "a", "b", "c");
@@ -166,7 +166,7 @@ public abstract class AbstractTestDistributedQueries
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
 
         // Test CREATE TABLE LIKE
-        tableName = "test_create_original_" + randomTableSuffix();
+        tableName = "test_create_orig_" + randomTableSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (a bigint, b double, c varchar(50))");
         assertTrue(getQueryRunner().tableExists(getSession(), tableName));
         assertTableColumnNames(tableName, "a", "b", "c");
@@ -294,7 +294,7 @@ public abstract class AbstractTestDistributedQueries
         assertUpdate("ALTER TABLE " + tableName + " RENAME TO " + renamedTable);
         assertQuery("SELECT x FROM " + renamedTable, "VALUES 123");
 
-        String testExistsTableName = "test_rename_new_exists_" + randomTableSuffix();
+        String testExistsTableName = "test_rename_exists_" + randomTableSuffix();
         assertUpdate("ALTER TABLE IF EXISTS " + renamedTable + " RENAME TO " + testExistsTableName);
         assertQuery("SELECT x FROM " + testExistsTableName, "VALUES 123");
 
@@ -1021,7 +1021,7 @@ public abstract class AbstractTestDistributedQueries
             DispatchManager dispatchManager = ((DistributedQueryRunner) getQueryRunner()).getCoordinator().getDispatchManager();
             long beforeCompletedQueriesCount = waitUntilStable(() -> dispatchManager.getStats().getCompletedQueries().getTotalCount(), new Duration(5, SECONDS));
             long beforeSubmittedQueriesCount = dispatchManager.getStats().getSubmittedQueries().getTotalCount();
-            String tableName = "test_query_logging_count" + randomTableSuffix();
+            String tableName = "test_logging_count" + randomTableSuffix();
             assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 foo_1, 2 foo_2_4", 1);
             assertQuery("SELECT foo_1, foo_2_4 FROM " + tableName, "SELECT 1, 2");
             assertUpdate("DROP TABLE " + tableName);
@@ -1184,7 +1184,7 @@ public abstract class AbstractTestDistributedQueries
         if (delimited) {
             nameInSql = "\"" + columnName.replace("\"", "\"\"") + "\"";
         }
-        String tableName = "tcn_" + nameInSql.toLowerCase(ENGLISH).replaceAll("[^a-z0-9]", "_") + "_" + randomTableSuffix();
+        String tableName = "tcn_" + nameInSql.toLowerCase(ENGLISH).replaceAll("[^a-z0-9]", "") + randomTableSuffix();
 
         try {
             // TODO test with both CTAS *and* CREATE TABLE + INSERT, since they use different connector API methods.
