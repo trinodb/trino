@@ -50,6 +50,41 @@ uses the properties as input parameters for the materialized view refresh
 operation. The supported properties are different for each connector and
 detailed in the SQL support section of the specific connector's documentation.
 
+After successful creation, all metadata about the materialized view is available
+in the table ``system.metadata.materialized_views`` in the following columns:
+
+.. list-table:: Metadata for materialized views
+  :widths: 50, 50
+  :header-rows: 1
+
+  * - Column
+    - Description
+  * - ``catalog_name``
+    - Name of the catalog containing the materialized view.
+  * - ``schema_name``
+    - Name of the schema in ``catalog_name`` containing the materialized view.
+  * - ``name``
+    - Name of the materialized view.
+  * - ``storage_catalog``
+    - Name of the catalog used for the storage table backing the materialized
+      view.
+  * - ``storage_schema``
+    - Name of the schema in ``storage_catalog`` used for the storage table
+      backing the materialized view.
+  * - ``storage_table``
+    - Name of the storage table backing the materialized view.
+  * - ``is_fresh``
+    - Flag to signal if data in the storage table is up to date. Queries on the
+      materialized view access the storage table if ``true``, otherwise
+      the ``definition`` is used to access the underlying data in the source
+      tables.
+  * - ``owner``
+    - Username of the creator and owner of the materialized view.
+  * - ``comment``
+    - User supplied text about the materialized view.
+  * - ``definition``
+    - SQL query that defines the data provided by the materialized view.
+
 Examples
 --------
 
@@ -92,6 +127,10 @@ Set multiple properties::
 Show defined materialized view properties for all catalogs::
 
     SELECT * FROM system.metadata.materialized_view_properties;
+
+Show metadata about the materialized views in all catalogs::
+
+    SELECT * FROM system.metadata.materialized_views;
 
 See also
 --------
