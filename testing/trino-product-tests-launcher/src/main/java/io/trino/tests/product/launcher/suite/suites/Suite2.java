@@ -36,7 +36,6 @@ public class Suite2
                 testOnEnvironment(EnvSinglenode.class).withGroups("hdfs_no_impersonation", "hive_compression").build(),
                 testOnEnvironment(EnvSinglenodeKerberosHdfsNoImpersonation.class).withGroups("storage_formats", "hdfs_no_impersonation").build(),
                 testOnEnvironment(EnvSinglenodeHdfsImpersonation.class).withGroups("storage_formats", "cli", "hdfs_impersonation").build(),
-                testOnEnvironment(EnvSinglenodeKerberosHdfsImpersonation.class).withGroups("storage_formats", "cli", "hdfs_impersonation", "authorization", "hive_file_header").build(),
-                testOnEnvironment(EnvSinglenode.class).withGroups("hive_with_external_writes").build());
+                testOnEnvironment(EnvSinglenodeKerberosHdfsImpersonation.class).withGroups("storage_formats", "cli", "hdfs_impersonation", "authorization", "hive_file_header").build());
     }
 }
