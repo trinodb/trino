@@ -6,7 +6,6 @@ on:
 
 jobs:
   set-milestone:
-    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
