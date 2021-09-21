@@ -86,6 +86,7 @@ public final class HiveSessionProperties
     private static final String PARQUET_MAX_READ_BLOCK_SIZE = "parquet_max_read_block_size";
     private static final String PARQUET_WRITER_BLOCK_SIZE = "parquet_writer_block_size";
     private static final String PARQUET_WRITER_PAGE_SIZE = "parquet_writer_page_size";
+    private static final String PARQUET_WRITER_BATCH_SIZE = "parquet_writer_batch_size";
     private static final String MAX_SPLIT_SIZE = "max_split_size";
     private static final String MAX_INITIAL_SPLIT_SIZE = "max_initial_split_size";
     private static final String RCFILE_OPTIMIZED_WRITER_VALIDATE = "rcfile_optimized_writer_validate";
@@ -324,6 +325,11 @@ public final class HiveSessionProperties
                         PARQUET_WRITER_PAGE_SIZE,
                         "Parquet: Writer page size",
                         parquetWriterConfig.getPageSize(),
+                        false),
+                integerProperty(
+                        PARQUET_WRITER_BATCH_SIZE,
+                        "Parquet: Maximum number of rows passed to the writer in each batch",
+                        parquetWriterConfig.getBatchSize(),
                         false),
                 dataSizeProperty(
                         MAX_SPLIT_SIZE,
@@ -631,6 +637,11 @@ public final class HiveSessionProperties
     public static DataSize getParquetWriterPageSize(ConnectorSession session)
     {
         return session.getProperty(PARQUET_WRITER_PAGE_SIZE, DataSize.class);
+    }
+
+    public static int getParquetBatchSize(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_WRITER_BATCH_SIZE, Integer.class);
     }
 
     public static DataSize getMaxSplitSize(ConnectorSession session)
