@@ -62,6 +62,7 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcWriterMaxSt
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcWriterMaxStripeSize;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcWriterMinStripeSize;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcWriterValidateMode;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetWriterBatchSize;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetWriterBlockSize;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetWriterPageSize;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isOrcWriterValidate;
@@ -146,6 +147,7 @@ public class IcebergFileWriterFactory
             ParquetWriterOptions parquetWriterOptions = ParquetWriterOptions.builder()
                     .setMaxPageSize(getParquetWriterPageSize(session))
                     .setMaxBlockSize(getParquetWriterBlockSize(session))
+                    .setBatchSize(getParquetWriterBatchSize(session))
                     .build();
 
             return new IcebergParquetFileWriter(
