@@ -48,6 +48,7 @@ public class DictionaryBlock
     // isSequentialIds is only valid when uniqueIds is computed
     private volatile boolean isSequentialIds;
     private final DictionaryId dictionarySourceId;
+    private final boolean mayHaveNull;
 
     public DictionaryBlock(Block dictionary, int[] ids)
     {
@@ -98,6 +99,8 @@ public class DictionaryBlock
         this.ids = ids;
         this.dictionarySourceId = requireNonNull(dictionarySourceId, "dictionarySourceId is null");
         this.retainedSizeInBytes = INSTANCE_SIZE + sizeOf(ids);
+        // avoid eager loading of lazy dictionaries
+        this.mayHaveNull = positionCount > 0 && (!dictionary.isLoaded() || dictionary.mayHaveNull());
 
         if (dictionaryIsCompacted) {
             if (dictionary instanceof DictionaryBlock) {
@@ -434,7 +437,8 @@ public class DictionaryBlock
     @Override
     public boolean isNull(int position)
     {
-        return dictionary.isNull(getId(position));
+        checkValidPosition(position, positionCount);
+        return mayHaveNull && dictionary.isNull(getIdUnchecked(position));
     }
 
     @Override
@@ -523,6 +527,11 @@ public class DictionaryBlock
     public int getId(int position)
     {
         checkValidPosition(position, positionCount);
+        return getIdUnchecked(position);
+    }
+
+    private int getIdUnchecked(int position)
+    {
         return ids[position + idsOffset];
     }
 
