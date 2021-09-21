@@ -46,7 +46,6 @@ public final class TestGroups
     public static final String HIVE_VIEWS = "hive_views";
     public static final String HIVE_VIEW_COMPATIBILITY = "hive_view_compatibility";
     public static final String HIVE_CACHING = "hive_caching";
-    public static final String HIVE_WITH_EXTERNAL_WRITES = "hive_with_external_writes";
     public static final String AUTHORIZATION = "authorization";
     public static final String HIVE_COERCION = "hive_coercion";
     public static final String CASSANDRA = "cassandra";
