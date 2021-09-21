@@ -63,6 +63,7 @@ public final class IcebergSessionProperties
     private static final String PARQUET_MAX_READ_BLOCK_SIZE = "parquet_max_read_block_size";
     private static final String PARQUET_WRITER_BLOCK_SIZE = "parquet_writer_block_size";
     private static final String PARQUET_WRITER_PAGE_SIZE = "parquet_writer_page_size";
+    private static final String PARQUET_WRITER_BATCH_SIZE = "parquet_writer_batch_size";
     private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
@@ -184,6 +185,11 @@ public final class IcebergSessionProperties
                         "Parquet: Writer page size",
                         parquetWriterConfig.getPageSize(),
                         false))
+                .add(integerProperty(
+                        PARQUET_WRITER_BATCH_SIZE,
+                        "Parquet: Maximum number of rows passed to the writer in each batch",
+                        parquetWriterConfig.getBatchSize(),
+                        false))
                 .build();
     }
 
@@ -298,5 +304,10 @@ public final class IcebergSessionProperties
     public static DataSize getParquetWriterBlockSize(ConnectorSession session)
     {
         return session.getProperty(PARQUET_WRITER_BLOCK_SIZE, DataSize.class);
+    }
+
+    public static int getParquetWriterBatchSize(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_WRITER_BATCH_SIZE, Integer.class);
     }
 }
