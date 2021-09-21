@@ -300,7 +300,8 @@ public class ConnectorManager
                 .ifPresent(partitioningProvider -> nodePartitioningManager.addPartitioningProvider(catalogName, partitioningProvider));
 
         metadataManager.getProcedureRegistry().addProcedures(catalogName, connector.getProcedures());
-        metadataManager.getTableProcedureRegistry().addTableProcedures(catalogName, connector.getTableProcedures());
+        Set<TableProcedureMetadata> tableProcedures = connector.getTableProcedures();
+        metadataManager.getTableProcedureRegistry().addTableProcedures(catalogName, tableProcedures);
 
         connector.getAccessControl()
                 .ifPresent(accessControl -> accessControlManager.addCatalogAccessControl(catalogName, accessControl));
@@ -310,6 +311,9 @@ public class ConnectorManager
         metadataManager.getColumnPropertyManager().addProperties(catalogName, connector.getColumnProperties());
         metadataManager.getSchemaPropertyManager().addProperties(catalogName, connector.getSchemaProperties());
         metadataManager.getAnalyzePropertyManager().addProperties(catalogName, connector.getAnalyzeProperties());
+        for (TableProcedureMetadata tableProcedure : tableProcedures) {
+            metadataManager.getTableProceduresPropertyManager().addProperties(catalogName, tableProcedure.getName(), tableProcedure.getProperties());
+        }
         metadataManager.getSessionPropertyManager().addConnectorSessionProperties(catalogName, connector.getSessionProperties());
     }
 
@@ -334,12 +338,14 @@ public class ConnectorManager
         indexManager.removeIndexProvider(catalogName);
         nodePartitioningManager.removePartitioningProvider(catalogName);
         metadataManager.getProcedureRegistry().removeProcedures(catalogName);
+        metadataManager.getTableProcedureRegistry().removeProcedures(catalogName);
         accessControlManager.removeCatalogAccessControl(catalogName);
         metadataManager.getTablePropertyManager().removeProperties(catalogName);
         metadataManager.getMaterializedViewPropertyManager().removeProperties(catalogName);
         metadataManager.getColumnPropertyManager().removeProperties(catalogName);
         metadataManager.getSchemaPropertyManager().removeProperties(catalogName);
         metadataManager.getAnalyzePropertyManager().removeProperties(catalogName);
+        metadataManager.getTableProceduresPropertyManager().removeProperties(catalogName);
         metadataManager.getSessionPropertyManager().removeConnectorSessionProperties(catalogName);
 
         MaterializedConnector materializedConnector = connectors.remove(catalogName);
