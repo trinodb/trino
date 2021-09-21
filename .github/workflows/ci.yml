@@ -77,7 +77,7 @@ jobs:
       - uses: actions/setup-java@v2
         with:
           distribution: 'zulu'
-          java-version: 11
+          java-version: 17
           cache: 'maven'
       - name: Configure Problem Matchers
         run: |
@@ -113,7 +113,7 @@ jobs:
       - uses: actions/setup-java@v2
         with:
           distribution: 'zulu'
-          java-version: 11
+          java-version: 17
           cache: 'maven'
       - name: Configure Problem Matchers
         run: |
@@ -164,7 +164,7 @@ jobs:
       - uses: actions/setup-java@v2
         with:
           distribution: 'zulu'
-          java-version: 11
+          java-version: 17
           cache: 'maven'
       - name: Configure Problem Matchers
         run: |
@@ -277,7 +277,7 @@ jobs:
       - uses: actions/setup-java@v2
         with:
           distribution: 'zulu'
-          java-version: 11
+          java-version: 17
           cache: 'maven'
       - name: Configure Problem Matchers
         run: |
@@ -356,7 +356,7 @@ jobs:
       - uses: actions/setup-java@v2
         with:
           distribution: 'zulu'
-          java-version: 11
+          java-version: 17
           cache: 'maven'
       - name: Configure Problem Matchers
         run: |
@@ -404,7 +404,7 @@ jobs:
       - uses: actions/setup-java@v2
         with:
           distribution: 'zulu'
-          java-version: 11
+          java-version: 17
           cache: 'maven'
       - name: Configure Problem Matchers
         run: |
@@ -452,7 +452,7 @@ jobs:
       - uses: actions/setup-java@v2
         with:
           distribution: 'zulu'
-          java-version: 11
+          java-version: 17
           cache: 'maven'
       - name: Configure Problem Matchers
         run: |
@@ -517,7 +517,7 @@ jobs:
           # suite-4 does not exist
           - suite-5
         jdk:
-          - 11
+          - 17
         exclude:
           - config: cdh5
             ignore exclusion if: >-
@@ -548,23 +548,23 @@ jobs:
           # this suite is not meant to be run with different configs
           - config: default
             suite: suite-6-non-generic
-            jdk: 11
+            jdk: 17
           # this suite is not meant to be run with different configs
           - config: default
             suite: suite-7-non-generic
-            jdk: 11
+            jdk: 17
           # this suite is not meant to be run with different configs
           - config: default
             suite: suite-8-non-generic
-            jdk: 11
+            jdk: 17
           # this suite is not meant to be run with different configs
           - config: default
             suite: suite-tpcds
-            jdk: 11
+            jdk: 17
           # this suite is not meant to be run with different configs
           - config: default
             suite: suite-oauth2
-            jdk: 11
+            jdk: 17
           # this suite is not meant to be run with different configs
           - config: default
             suite: suite-ldap
@@ -572,11 +572,11 @@ jobs:
           # this suite is not meant to be run with different configs
           - config: default
             suite: suite-compatibility
-            jdk: 11
+            jdk: 17
           # this suite is designed specifically for apache-hive3. TODO remove the suite once we can run all regular tests on apache-hive3.
           - config: apache-hive3
             suite: suite-hms-only
-            jdk: 11
+            jdk: 17
           # suite-1 does not contain Kerberos/encrypted Hive environments
           - config: hdp3
             suite: suite-1
@@ -592,7 +592,7 @@ jobs:
       - uses: actions/setup-java@v2
         with:
           distribution: 'zulu'
-          java-version: 11
+          java-version: 17
           cache: 'maven'
       - name: Maven Install
         run: |
