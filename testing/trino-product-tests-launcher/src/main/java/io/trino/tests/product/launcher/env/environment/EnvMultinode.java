@@ -26,6 +26,7 @@ import javax.inject.Inject;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.WORKER;
 import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_PRESTO_HIVE_PROPERTIES;
+import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_PRESTO_HIVE_TIMESTAMP_NANOS;
 import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_PRESTO_HIVE_WITH_EXTERNAL_WRITES_PROPERTIES;
 import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_PRESTO_ICEBERG_PROPERTIES;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_JVM_CONFIG;
@@ -57,6 +58,7 @@ public final class EnvMultinode
                 .withCopyFileToContainer(forHostPath(configDir.getPath("multinode-worker-jvm.config")), CONTAINER_PRESTO_JVM_CONFIG)
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/hive.properties")), CONTAINER_PRESTO_HIVE_PROPERTIES)
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/hive_with_external_writes.properties")), CONTAINER_PRESTO_HIVE_WITH_EXTERNAL_WRITES_PROPERTIES)
+                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/hive_timestamp_nanos.properties")), CONTAINER_PRESTO_HIVE_TIMESTAMP_NANOS)
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/iceberg.properties")), CONTAINER_PRESTO_ICEBERG_PROPERTIES));
     }
 }
