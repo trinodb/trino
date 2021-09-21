@@ -17,6 +17,7 @@ import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
@@ -75,8 +76,10 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.LongStream;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -102,6 +105,7 @@ import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
+import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
@@ -2163,18 +2167,101 @@ public abstract class BaseIcebergConnectorTest
                                 .build());
     }
 
+    @Test(dataProvider = "testDataMappingSmokeTestDataProvider")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/5172", match = "Couldn't find operator summary, probably due to query statistic collection error")
+    public void testSplitPruningForFilterOnNonPartitionColumn(DataMappingTestSetup testSetup)
+    {
+        if (testSetup.isUnsupportedType()) {
+            return;
+        }
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_split_pruning_non_partitioned", "(row_id int, col " + testSetup.getTrinoTypeName() + ")")) {
+            String tableName = table.getName();
+            String sampleValue = testSetup.getSampleValueLiteral();
+            String highValue = testSetup.getHighValueLiteral();
+            // Insert separately to ensure two files with one value each
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, " + sampleValue + ")", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (2, " + highValue + ")", 1);
+            assertQuery("select count(distinct file_path) from \"" + tableName + "$files\"", "VALUES 2");
+
+            int expectedSplitCount = supportsIcebergFileStatistics(testSetup.getTrinoTypeName()) ? 1 : 2;
+            verifySplitCount("SELECT row_id FROM " + tableName, 2);
+            verifySplitCount("SELECT row_id FROM " + tableName + " WHERE col = " + sampleValue, expectedSplitCount);
+            verifySplitCount("SELECT row_id FROM " + tableName + " WHERE col = " + highValue, expectedSplitCount);
+            verifySplitCount("SELECT row_id FROM " + tableName + " WHERE col > " + sampleValue, expectedSplitCount);
+            verifySplitCount("SELECT row_id FROM " + tableName + " WHERE col < " + highValue, expectedSplitCount);
+        }
+    }
+
+    protected abstract boolean supportsIcebergFileStatistics(String typeName);
+
+    @Test(dataProvider = "testDataMappingSmokeTestDataProvider")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/5172", match = "Couldn't find operator summary, probably due to query statistic collection error")
+    public void testSplitPruningFromDataFileStatistics(DataMappingTestSetup testSetup)
+    {
+        if (testSetup.isUnsupportedType()) {
+            return;
+        }
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_split_pruning_data_file_statistics",
+                // Random double is needed to make sure rows are different. Otherwise compression may deduplicate rows, resulting in only one row group
+                "(col " + testSetup.getTrinoTypeName() + ", r double)")) {
+            String tableName = table.getName();
+            String values =
+                    Stream.concat(
+                            nCopies(100, testSetup.getSampleValueLiteral()).stream(),
+                            nCopies(100, testSetup.getHighValueLiteral()).stream())
+                            .map(value -> "(" + value + ", rand())")
+                            .collect(Collectors.joining(", "));
+            assertUpdate(withSmallRowGroups(getSession()), "INSERT INTO " + tableName + " VALUES " + values, 200);
+
+            String query = "SELECT * FROM " + tableName + " WHERE col = " + testSetup.getSampleValueLiteral();
+            verifyPredicatePushdownDataRead(query, supportsRowGroupStatistics(testSetup.getTrinoTypeName()));
+        }
+    }
+
+    protected abstract Session withSmallRowGroups(Session session);
+
+    protected abstract boolean supportsRowGroupStatistics(String typeName);
+
     private void verifySplitCount(String query, int expectedSplitCount)
     {
         // using assertEventually here as the operator stats mechanism is known to be best-effort and some late-stage stats are sometimes not recorded
         // (see https://github.com/trinodb/trino/issues/5172)
         assertEventually(new Duration(10, TimeUnit.SECONDS), () -> {
-            Session sessionWithoutPushdown = Session.builder(getSession())
-                    .setSystemProperty("allow_pushdown_into_connectors", "false")
-                    .build();
             ResultWithQueryId<MaterializedResult> selectAllPartitionsResult = getDistributedQueryRunner().executeWithQueryId(getSession(), query);
-            assertEqualsIgnoreOrder(selectAllPartitionsResult.getResult().getMaterializedRows(), computeActual(sessionWithoutPushdown, query).getMaterializedRows());
+            assertEqualsIgnoreOrder(selectAllPartitionsResult.getResult().getMaterializedRows(), computeActual(withoutPredicatePushdown(getSession()), query).getMaterializedRows());
             verifySplitCount(selectAllPartitionsResult.getQueryId(), expectedSplitCount);
         });
+    }
+
+    private void verifyPredicatePushdownDataRead(@Language("SQL") String query, boolean supportsPushdown)
+    {
+        try {
+            ResultWithQueryId<MaterializedResult> resultWithPredicatePushdown = getDistributedQueryRunner().executeWithQueryId(getSession(), query);
+            ResultWithQueryId<MaterializedResult> resultWithoutPredicatePushdown = getDistributedQueryRunner().executeWithQueryId(
+                    withoutPredicatePushdown(getSession()),
+                    query);
+
+            DataSize withPushdownDataSize = getOperatorStats(resultWithPredicatePushdown.getQueryId()).getInputDataSize();
+            DataSize withoutPushdownDataSize = getOperatorStats(resultWithoutPredicatePushdown.getQueryId()).getInputDataSize();
+            if (supportsPushdown) {
+                assertThat(withPushdownDataSize).isLessThan(withoutPushdownDataSize);
+            }
+            else {
+                assertThat(withPushdownDataSize).isEqualTo(withoutPushdownDataSize);
+            }
+        }
+        catch (NoSuchElementException e) {
+            throw new RuntimeException("Couldn't find operator summary, probably due to query statistic collection error", e);
+        }
+    }
+
+    private Session withoutPredicatePushdown(Session session)
+    {
+        return Session.builder(session)
+                .setSystemProperty("allow_pushdown_into_connectors", "false")
+                .build();
     }
 
     private void verifySplitCount(QueryId queryId, long expectedSplitCount)
