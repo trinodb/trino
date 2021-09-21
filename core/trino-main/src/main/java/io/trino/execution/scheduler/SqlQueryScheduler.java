@@ -724,7 +724,7 @@ public class SqlQueryScheduler
             if (!childOutputBufferManagers.isEmpty()) {
                 // Add an output buffer to the child stages for each new task
                 List<OutputBufferId> newOutputBuffers = newTasks.stream()
-                        .map(task -> new OutputBufferId(task.getTaskId().getId()))
+                        .map(task -> new OutputBufferId(task.getTaskId().getPartitionId()))
                         .collect(toImmutableList());
                 for (OutputBufferManager child : childOutputBufferManagers) {
                     child.addOutputBuffers(newOutputBuffers, noMoreTasks);

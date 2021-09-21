@@ -66,7 +66,7 @@ import static org.testng.Assert.assertTrue;
 
 public class TestSqlTaskManager
 {
-    private static final TaskId TASK_ID = new TaskId("query", 0, 1);
+    private static final TaskId TASK_ID = new TaskId(new StageId("query", 0), 1, 0);
     public static final OutputBufferId OUT = new OutputBufferId(0);
 
     private final TaskExecutor taskExecutor;
@@ -242,8 +242,8 @@ public class TestSqlTaskManager
                 .setMaxQueryTotalMemoryPerNode(DataSize.ofBytes(4));
 
         try (SqlTaskManager sqlTaskManager = createSqlTaskManager(new TaskManagerConfig(), memoryConfig)) {
-            TaskId reduceLimitsId = new TaskId("q1", 0, 1);
-            TaskId increaseLimitsId = new TaskId("q2", 0, 1);
+            TaskId reduceLimitsId = new TaskId(new StageId("q1", 0), 1, 0);
+            TaskId increaseLimitsId = new TaskId(new StageId("q2", 0), 1, 0);
 
             QueryContext reducesLimitsContext = sqlTaskManager.getQueryContext(reduceLimitsId.getQueryId());
             QueryContext attemptsIncreaseContext = sqlTaskManager.getQueryContext(increaseLimitsId.getQueryId());
