@@ -317,10 +317,6 @@ final class ShowQueriesRewrite
         @Override
         protected Node visitShowRoleGrants(ShowRoleGrants node, Void context)
         {
-            if (node.getCatalog().isEmpty() && session.getCatalog().isEmpty()) {
-                throw semanticException(MISSING_CATALOG_NAME, node, "Catalog must be specified when session catalog is not set");
-            }
-
             Optional<String> catalog = node.getCatalog().map(c -> c.getValue().toLowerCase(ENGLISH));
             TrinoPrincipal principal = new TrinoPrincipal(PrincipalType.USER, session.getUser());
 
