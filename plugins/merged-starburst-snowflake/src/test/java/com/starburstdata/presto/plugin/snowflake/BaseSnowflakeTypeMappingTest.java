@@ -45,6 +45,7 @@ import static io.trino.spi.type.TimeType.TIME;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
@@ -148,6 +149,7 @@ public abstract class BaseSnowflakeTypeMappingTest
         SqlDataTypeTest.create()
                 .addRoundTrip("varchar(10)", "'string 010'", createVarcharType(10), "'string 010'")
                 .addRoundTrip("varchar(20)", "'string 020'", createVarcharType(20), "CAST('string 020' AS VARCHAR(20))")
+                .addRoundTrip("varchar(30)", "'Upper Case'", createVarcharType(30), "CAST('Upper Case' AS VARCHAR(30))")
                 .addRoundTrip("varchar(16777216)", "'string max size'", createVarcharType(MAX_VARCHAR), "CAST('string max size' AS VARCHAR(16777216))")
                 .addRoundTrip("varchar(5)", "null", createVarcharType(5), "CAST(null AS VARCHAR(5))")
                 .addRoundTrip("varchar(213)", "'攻殻機動隊'", createVarcharType(213), "CAST('攻殻機動隊' AS VARCHAR(213))")
@@ -161,6 +163,7 @@ public abstract class BaseSnowflakeTypeMappingTest
         SqlDataTypeTest.create()
                 .addRoundTrip("varchar(10)", "'string 010'", createVarcharType(10), "'string 010'")
                 .addRoundTrip("varchar(20)", "'string 020'", createVarcharType(20), "CAST('string 020' AS VARCHAR(20))")
+                .addRoundTrip("varchar(30)", "'Upper Case'", createVarcharType(30), "CAST('Upper Case' AS VARCHAR(30))")
                 .addRoundTrip("varchar(16777216)", "'string max size'", createVarcharType(MAX_VARCHAR), "CAST('string max size' AS VARCHAR(16777216))")
                 .addRoundTrip("character(10)", "null", createVarcharType(10), "CAST(null AS VARCHAR(10))")
                 .addRoundTrip("char(100)", "'攻殻機動隊'", createVarcharType(100), "CAST('攻殻機動隊' AS VARCHAR(100))")
@@ -175,6 +178,7 @@ public abstract class BaseSnowflakeTypeMappingTest
         SqlDataTypeTest.create()
                 .addRoundTrip("char(10)", "'string 010'", createVarcharType(10), "'string 010'")
                 .addRoundTrip("char(20)", "'string 020          '", createVarcharType(20), "'string 020          '")
+                .addRoundTrip("char(10)", "'Upper Case'", createVarcharType(10), "'Upper Case'")
                 .addRoundTrip("char(10)", "null", createVarcharType(10), "CAST(null AS VARCHAR(10))")
                 .execute(getQueryRunner(), trinoCreateAsSelect());
     }
@@ -185,7 +189,39 @@ public abstract class BaseSnowflakeTypeMappingTest
         SqlDataTypeTest.create()
                 .addRoundTrip("char(10)", "'string 010'", createVarcharType(10), "'string 010'")
                 .addRoundTrip("char(20)", "'string 020'", createVarcharType(20), "CAST('string 020' AS VARCHAR(20))")
+                .addRoundTrip("char(10)", "'Upper Case'", createVarcharType(10), "CAST('Upper Case' AS VARCHAR(10))")
                 .addRoundTrip("char(5)", "null", createVarcharType(5), "CAST(null AS VARCHAR(5))")
+                .execute(getQueryRunner(), snowflakeCreateAsSelect());
+    }
+
+    @Test
+    public void testVarbinary()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("varbinary", "NULL", VARBINARY, "CAST(NULL AS VARBINARY)")
+                .addRoundTrip("varbinary", "X''", VARBINARY, "X''")
+                .addRoundTrip("varbinary", "X'000000000000'", VARBINARY, "X'000000000000'")
+                .addRoundTrip("varbinary", "X'68656C6C6F'", VARBINARY, "to_utf8('hello')")
+                .addRoundTrip("varbinary", "X'5069C4996B6E6120C582C4856B61207720E69DB1E4BAACE983BD'", VARBINARY, "to_utf8('Piękna łąka w 東京都')")
+                .addRoundTrip("varbinary", "X'4261672066756C6C206F6620F09F92B0'", VARBINARY, "to_utf8('Bag full of 💰')")
+                .addRoundTrip("varbinary", "X'0001020304050607080DF9367AA7000000'", VARBINARY, "X'0001020304050607080DF9367AA7000000'")
+                .execute(getQueryRunner(), snowflakeCreateAsSelect())
+                .execute(getQueryRunner(), trinoCreateAsSelect());
+    }
+
+    @Test
+    public void testBinary()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("binary", "NULL", VARBINARY, "CAST(NULL AS VARBINARY)")
+                .addRoundTrip("binary", "X''", VARBINARY, "X''")
+                .addRoundTrip("binary", "X'000000000000'", VARBINARY, "X'000000000000'")
+                .addRoundTrip("binary", "X'68656C6C6F'", VARBINARY, "to_utf8('hello')")
+                .addRoundTrip("binary(100)", "X'68656C6C6F'", VARBINARY, "to_utf8('hello')")
+                .addRoundTrip("binary(8388608)", "X'68656C6C6F'", VARBINARY, "to_utf8('hello')")
+                .addRoundTrip("binary", "X'5069C4996B6E6120C582C4856B61207720E69DB1E4BAACE983BD'", VARBINARY, "to_utf8('Piękna łąka w 東京都')")
+                .addRoundTrip("binary", "X'4261672066756C6C206F6620F09F92B0'", VARBINARY, "to_utf8('Bag full of 💰')")
+                .addRoundTrip("binary", "X'0001020304050607080DF9367AA7000000'", VARBINARY, "X'0001020304050607080DF9367AA7000000'")
                 .execute(getQueryRunner(), snowflakeCreateAsSelect());
     }
 

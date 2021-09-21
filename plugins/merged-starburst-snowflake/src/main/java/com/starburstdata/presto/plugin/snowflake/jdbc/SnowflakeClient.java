@@ -106,14 +106,23 @@ import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_NON_TRANSIENT_ERROR;
 import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
 import static io.trino.plugin.jdbc.PredicatePushdownController.FULL_PUSHDOWN;
+import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.booleanColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.dateColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.decimalColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.defaultCharColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.defaultVarcharColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.doubleColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.fromLongTrinoTimestamp;
 import static io.trino.plugin.jdbc.StandardColumnMappings.fromTrinoTime;
 import static io.trino.plugin.jdbc.StandardColumnMappings.fromTrinoTimestamp;
+import static io.trino.plugin.jdbc.StandardColumnMappings.integerColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.legacyDefaultColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.realColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.toTrinoTimestamp;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryColumnMapping;
@@ -148,8 +157,12 @@ import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.sql.Types.BINARY;
-import static java.sql.Types.LONGVARBINARY;
-import static java.sql.Types.VARBINARY;
+import static java.sql.Types.BOOLEAN;
+import static java.sql.Types.CHAR;
+import static java.sql.Types.DATE;
+import static java.sql.Types.DOUBLE;
+import static java.sql.Types.FLOAT;
+import static java.sql.Types.REAL;
 import static java.sql.Types.VARCHAR;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Locale.ENGLISH;
@@ -288,6 +301,34 @@ public class SnowflakeClient
         String typeName = typeHandle.getJdbcTypeName()
                 .orElseThrow(() -> new TrinoException(JDBC_ERROR, "Type name is missing: " + typeHandle));
 
+        if (typeHandle.getJdbcType() == BOOLEAN) {
+            return Optional.of(booleanColumnMapping());
+        }
+
+        if (typeHandle.getJdbcType() == Types.TINYINT) {
+            return Optional.of(tinyintColumnMapping());
+        }
+
+        if (typeHandle.getJdbcType() == Types.SMALLINT) {
+            return Optional.of(smallintColumnMapping());
+        }
+
+        if (typeHandle.getJdbcType() == Types.INTEGER) {
+            return Optional.of(integerColumnMapping());
+        }
+
+        if (typeHandle.getJdbcType() == Types.BIGINT) {
+            return Optional.of(bigintColumnMapping());
+        }
+
+        if (typeHandle.getJdbcType() == REAL) {
+            return Optional.of(realColumnMapping());
+        }
+
+        if (typeHandle.getJdbcType() == FLOAT || typeHandle.getJdbcType() == DOUBLE) {
+            return Optional.of(doubleColumnMapping());
+        }
+
         if (typeName.equals("NUMBER")) {
             int decimalDigits = typeHandle.getRequiredDecimalDigits();
             int precision = typeHandle.getRequiredColumnSize() + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
@@ -306,6 +347,10 @@ public class SnowflakeClient
             return Optional.of(ColumnMapping.sliceMapping(createUnboundedVarcharType(), varcharReadFunction(createUnboundedVarcharType()), varcharWriteFunction(), DISABLE_PUSHDOWN));
         }
 
+        if (typeHandle.getJdbcType() == DATE) {
+            return Optional.of(dateColumnMapping());
+        }
+
         if (typeHandle.getJdbcType() == Types.TIME) {
             return Optional.of(updatePushdownCotroller(timeColumnMapping()));
         }
@@ -317,15 +362,22 @@ public class SnowflakeClient
             return Optional.of(timestampColumnMapping(getSupportedTimestampPrecision(typeHandle.getRequiredDecimalDigits())));
         }
 
-        if (typeHandle.getJdbcType() == VARCHAR && distributedConnector) {
-            return Optional.of(updatePushdownCotroller(varcharColumnMapping(createVarcharType(min(typeHandle.getRequiredColumnSize(), HiveVarchar.MAX_VARCHAR_LENGTH)), true)));
+        if (typeHandle.getJdbcType() == CHAR) {
+            return Optional.of(defaultCharColumnMapping(typeHandle.getRequiredColumnSize(), true));
         }
 
-        if (typeHandle.getJdbcType() == VARBINARY || typeHandle.getJdbcType() == BINARY || typeHandle.getJdbcType() == LONGVARBINARY) {
+        if (typeHandle.getJdbcType() == VARCHAR) {
+            if (distributedConnector) {
+                return Optional.of(updatePushdownCotroller(varcharColumnMapping(createVarcharType(min(typeHandle.getRequiredColumnSize(), HiveVarchar.MAX_VARCHAR_LENGTH)), true)));
+            }
+            return Optional.of(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize(), true));
+        }
+
+        if (typeHandle.getJdbcType() == BINARY) {
             return Optional.of(varbinaryColumnMapping());
         }
 
-        return legacyDefaultColumnMapping(typeHandle).map(this::updatePushdownCotroller);
+        return Optional.empty();
     }
 
     private int getSupportedTimestampPrecision(int precision)
