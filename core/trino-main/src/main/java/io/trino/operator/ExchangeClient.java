@@ -282,7 +282,7 @@ public class ExchangeClient
         notifyBlockedCallers();
     }
 
-    public synchronized void scheduleRequestIfNecessary()
+    private synchronized void scheduleRequestIfNecessary()
     {
         if (isFinished() || isFailed()) {
             return;

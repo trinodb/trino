@@ -240,8 +240,6 @@ public class TestExchangeClient
 
         long start = System.nanoTime();
 
-        // start fetching pages
-        exchangeClient.scheduleRequestIfNecessary();
         // wait for a page to be fetched
         do {
             // there is no thread coordination here, so sleep is the best we can do
