@@ -23,6 +23,8 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.FeaturesConfig.DataIntegrityVerification;
 import io.trino.execution.Lifespan;
+import io.trino.execution.StageId;
+import io.trino.execution.TaskId;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.execution.buffer.TestingPagesSerdeFactory;
 import io.trino.metadata.Split;
@@ -64,11 +66,11 @@ public class TestExchangeOperator
     private static final List<Type> TYPES = ImmutableList.of(VARCHAR);
     private static final PagesSerdeFactory SERDE_FACTORY = new TestingPagesSerdeFactory();
 
-    private static final String TASK_1_ID = "task1";
-    private static final String TASK_2_ID = "task2";
-    private static final String TASK_3_ID = "task3";
+    private static final TaskId TASK_1_ID = new TaskId(new StageId("query", 0), 0, 0);
+    private static final TaskId TASK_2_ID = new TaskId(new StageId("query", 0), 1, 0);
+    private static final TaskId TASK_3_ID = new TaskId(new StageId("query", 0), 2, 0);
 
-    private final LoadingCache<String, TestingTaskBuffer> taskBuffers = CacheBuilder.newBuilder().build(CacheLoader.from(TestingTaskBuffer::new));
+    private final LoadingCache<TaskId, TestingTaskBuffer> taskBuffers = CacheBuilder.newBuilder().build(CacheLoader.from(TestingTaskBuffer::new));
 
     private ScheduledExecutorService scheduler;
     private ScheduledExecutorService scheduledExecutor;
@@ -144,9 +146,9 @@ public class TestExchangeOperator
         waitForFinished(operator);
     }
 
-    private static Split newRemoteSplit(String taskId)
+    private static Split newRemoteSplit(TaskId taskId)
     {
-        return new Split(REMOTE_CONNECTOR_ID, new RemoteSplit(URI.create("http://localhost/" + taskId)), Lifespan.taskWide());
+        return new Split(REMOTE_CONNECTOR_ID, new RemoteSplit(taskId, URI.create("http://localhost/" + taskId)), Lifespan.taskWide());
     }
 
     @Test
