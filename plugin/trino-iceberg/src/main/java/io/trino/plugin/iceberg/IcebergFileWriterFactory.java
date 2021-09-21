@@ -145,7 +145,7 @@ public class IcebergFileWriterFactory
 
             ParquetWriterOptions parquetWriterOptions = ParquetWriterOptions.builder()
                     .setMaxPageSize(getParquetWriterPageSize(session))
-                    .setMaxPageSize(getParquetWriterBlockSize(session))
+                    .setMaxBlockSize(getParquetWriterBlockSize(session))
                     .build();
 
             return new IcebergParquetFileWriter(
