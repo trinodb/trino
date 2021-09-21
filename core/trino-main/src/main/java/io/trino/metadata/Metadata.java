@@ -667,6 +667,8 @@ public interface Metadata
 
     AnalyzePropertyManager getAnalyzePropertyManager();
 
+    TableProceduresPropertyManager getTableProceduresPropertyManager();
+
     /**
      * Creates the specified materialized view with the specified view definition.
      */

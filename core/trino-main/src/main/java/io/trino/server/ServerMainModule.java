@@ -77,6 +77,7 @@ import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.StaticCatalogStore;
 import io.trino.metadata.StaticCatalogStoreConfig;
 import io.trino.metadata.SystemSecurityMetadata;
+import io.trino.metadata.TableProceduresPropertyManager;
 import io.trino.metadata.TablePropertyManager;
 import io.trino.operator.ExchangeClientConfig;
 import io.trino.operator.ExchangeClientFactory;
@@ -232,6 +233,9 @@ public class ServerMainModule
 
         // analyze properties
         binder.bind(AnalyzePropertyManager.class).in(Scopes.SINGLETON);
+
+        // table procedures properties
+        binder.bind(TableProceduresPropertyManager.class).in(Scopes.SINGLETON);
 
         // node manager
         discoveryBinder(binder).bindSelector("trino");
