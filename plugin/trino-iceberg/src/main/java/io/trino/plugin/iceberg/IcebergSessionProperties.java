@@ -297,6 +297,6 @@ public final class IcebergSessionProperties
 
     public static DataSize getParquetWriterBlockSize(ConnectorSession session)
     {
-        return session.getProperty(PARQUET_WRITER_PAGE_SIZE, DataSize.class);
+        return session.getProperty(PARQUET_WRITER_BLOCK_SIZE, DataSize.class);
     }
 }
