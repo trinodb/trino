@@ -18,16 +18,25 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.testing.Assertions;
 import io.trino.Session;
+import io.trino.connector.MockConnectorFactory;
+import io.trino.connector.MockConnectorPlugin;
 import io.trino.plugin.blackhole.BlackHolePlugin;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.security.Identity;
+import io.trino.spi.security.RoleGrant;
+import io.trino.spi.security.SelectedRole;
+import io.trino.spi.security.TrinoPrincipal;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingSession;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
 import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY;
+import static io.trino.spi.security.PrincipalType.USER;
+import static io.trino.spi.security.SelectedRole.Type.ROLE;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.ADD_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_MATERIALIZED_VIEW;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_TABLE;
@@ -72,6 +81,10 @@ public class TestAccessControl
         queryRunner.createCatalog("blackhole", "blackhole");
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
+        queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
+                .withListRoleGrants((connectorSession, roles, grantees, limit) -> ImmutableSet.of(new RoleGrant(new TrinoPrincipal(USER, "alice"), "alice_role", false)))
+                .build()));
+        queryRunner.createCatalog("mock", "mock");
         for (String tableName : ImmutableList.of("orders", "nation", "region", "lineitem")) {
             queryRunner.execute(format("CREATE TABLE %1$s AS SELECT * FROM tpch.tiny.%1$s WITH NO DATA", tableName));
         }
@@ -383,5 +396,19 @@ public class TestAccessControl
             }
         });
         assertUpdate("DROP VIEW " + viewName);
+    }
+
+    @Test
+    public void testNoCatalogIsNeededInSessionForShowRoles()
+    {
+        Session session = testSessionBuilder()
+                .setIdentity(Identity.forUser("alice")
+                        .withConnectorRoles(ImmutableMap.of("mock", new SelectedRole(ROLE, Optional.of("alice_role"))))
+                        .build())
+                .build();
+        assertQuery(session, "SHOW ROLES IN mock", "VALUES 'alice_role'");
+        assertQuery(session, "SHOW ROLE GRANTS IN mock", "VALUES 'alice_role'");
+        assertQuery(session, "SHOW CURRENT ROLES FROM mock", "VALUES 'alice_role'");
+        assertQuery(session, "SELECT * FROM mock.information_schema.applicable_roles", "SELECT 'alice', 'USER', 'alice_role', 'NO'");
     }
 }
