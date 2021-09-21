@@ -312,7 +312,7 @@ public class TestHttpRemoteTask
         // make sure initial dynamic filter is collected
         CompletableFuture<?> future = dynamicFilter.isBlocked();
         dynamicFilterService.addTaskDynamicFilters(
-                new TaskId(queryId.getId(), 1, 1),
+                new TaskId(new StageId(queryId.getId(), 1), 1, 0),
                 ImmutableMap.of(filterId1, Domain.singleValue(BIGINT, 1L)));
         future.get();
         assertEquals(
@@ -342,7 +342,7 @@ public class TestHttpRemoteTask
 
         future = dynamicFilter.isBlocked();
         dynamicFilterService.addTaskDynamicFilters(
-                new TaskId(queryId.getId(), 1, 1),
+                new TaskId(new StageId(queryId.getId(), 1), 1, 0),
                 ImmutableMap.of(filterId2, Domain.singleValue(BIGINT, 2L)));
         future.get();
         assertEquals(
@@ -412,7 +412,7 @@ public class TestHttpRemoteTask
     {
         return httpRemoteTaskFactory.createRemoteTask(
                 TEST_SESSION,
-                new TaskId("test", 1, 2),
+                new TaskId(new StageId("test", 1), 2, 0),
                 new InternalNode("node-id", URI.create("http://fake.invalid/"), new NodeVersion("version"), false),
                 TaskTestUtils.PLAN_FRAGMENT,
                 ImmutableMultimap.of(),

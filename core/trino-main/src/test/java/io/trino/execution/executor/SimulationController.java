@@ -16,6 +16,7 @@ package io.trino.execution.executor;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimaps;
+import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.execution.executor.SimulationTask.IntermediateTask;
 import io.trino.execution.executor.SimulationTask.LeafTask;
@@ -182,13 +183,13 @@ class SimulationController
             runningTasks.put(specification, new LeafTask(
                     taskExecutor,
                     specification,
-                    new TaskId(specification.getName(), 0, runningTasks.get(specification).size() + completedTasks.get(specification).size())));
+                    new TaskId(new StageId(specification.getName(), 0), runningTasks.get(specification).size() + completedTasks.get(specification).size(), 0)));
         }
         else {
             runningTasks.put(specification, new IntermediateTask(
                     taskExecutor,
                     specification,
-                    new TaskId(specification.getName(), 0, runningTasks.get(specification).size() + completedTasks.get(specification).size())));
+                    new TaskId(new StageId(specification.getName(), 0), runningTasks.get(specification).size() + completedTasks.get(specification).size(), 0)));
         }
     }
 

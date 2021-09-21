@@ -21,7 +21,9 @@ import java.util.List;
 import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.spi.QueryId.parseDottedId;
 import static java.lang.Integer.parseInt;
+import static java.util.Objects.requireNonNull;
 
 public class TaskId
 {
@@ -33,37 +35,38 @@ public class TaskId
 
     private final String fullId;
 
-    public TaskId(String queryId, int stageId, int id)
+    public TaskId(StageId stageId, int partitionId, int attemptId)
     {
-        checkArgument(id >= 0, "id is negative");
-        this.fullId = queryId + "." + stageId + "." + id;
+        requireNonNull(stageId, "stageId is null");
+        checkArgument(partitionId >= 0, "partitionId is negative");
+        checkArgument(attemptId >= 0, "attemptId is negative");
+        this.fullId = stageId + "." + partitionId + "." + attemptId;
     }
 
-    public TaskId(StageId stageId, int id)
+    private TaskId(String fullId)
     {
-        checkArgument(id >= 0, "id is negative");
-        this.fullId = stageId.getQueryId().getId() + "." + stageId.getId() + "." + id;
-    }
-
-    public TaskId(String fullId)
-    {
-        this.fullId = fullId;
+        this.fullId = requireNonNull(fullId, "fullId is null");
     }
 
     public QueryId getQueryId()
     {
-        return new QueryId(QueryId.parseDottedId(fullId, 3, "taskId").get(0));
+        return new QueryId(parseDottedId(fullId, 4, "taskId").get(0));
     }
 
     public StageId getStageId()
     {
-        List<String> ids = QueryId.parseDottedId(fullId, 3, "taskId");
+        List<String> ids = parseDottedId(fullId, 4, "taskId");
         return StageId.valueOf(ids.subList(0, 2));
     }
 
-    public int getId()
+    public int getPartitionId()
     {
-        return parseInt(QueryId.parseDottedId(fullId, 3, "taskId").get(2));
+        return parseInt(parseDottedId(fullId, 4, "taskId").get(2));
+    }
+
+    public int getAttemptId()
+    {
+        return parseInt(parseDottedId(fullId, 4, "taskId").get(3));
     }
 
     @Override
