@@ -78,7 +78,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertContains;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_AGGREGATION_PUSHDOWN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ARRAY;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_COLUMN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_TABLE;
@@ -89,8 +88,6 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DELETE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_INSERT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_JOIN_PUSHDOWN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_LIMIT_PUSHDOWN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TOPN_PUSHDOWN;
@@ -2518,8 +2515,6 @@ public class TestSalesforceConnectorTest
             return;
         }
 
-        // topN over varchar/char columns should only be pushed down if the remote systems's sort order matches Trino
-        boolean expectTopNPushdown = hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY);
         PlanMatchPattern topNOverTableScan = node(TopNNode.class, anyTree(node(TableScanNode.class)));
 
         try (TestTable testTable = new TestTable(
@@ -2531,38 +2526,14 @@ public class TestSalesforceConnectorTest
                         "'B', 'B', 2",
                         "'a', 'a', 3",
                         "'b', 'b', 4"))) {
-            assertConditionallyOrderedPushedDown(
-                    getSession(),
-                    "SELECT a_bigint FROM " + testTable.getName() + " ORDER BY a_string ASC LIMIT 2",
-                    expectTopNPushdown,
-                    topNOverTableScan);
-            assertConditionallyOrderedPushedDown(
-                    getSession(),
-                    "SELECT a_bigint FROM " + testTable.getName() + " ORDER BY a_string DESC LIMIT 2",
-                    expectTopNPushdown,
-                    topNOverTableScan);
-            assertConditionallyOrderedPushedDown(
-                    getSession(),
-                    "SELECT a_bigint FROM " + testTable.getName() + " ORDER BY a_char ASC LIMIT 2",
-                    expectTopNPushdown,
-                    topNOverTableScan);
-            assertConditionallyOrderedPushedDown(
-                    getSession(),
-                    "SELECT a_bigint FROM " + testTable.getName() + " ORDER BY a_char DESC LIMIT 2",
-                    expectTopNPushdown,
-                    topNOverTableScan);
+            assertThat(query(getSession(), "SELECT a_bigint FROM " + testTable.getName() + " ORDER BY a_string ASC LIMIT 2")).isNotFullyPushedDown(topNOverTableScan);
+            assertThat(query(getSession(), "SELECT a_bigint FROM " + testTable.getName() + " ORDER BY a_string DESC LIMIT 2")).isNotFullyPushedDown(topNOverTableScan);
+            assertThat(query(getSession(), "SELECT a_bigint FROM " + testTable.getName() + " ORDER BY a_char ASC LIMIT 2")).isNotFullyPushedDown(topNOverTableScan);
+            assertThat(query(getSession(), "SELECT a_bigint FROM " + testTable.getName() + " ORDER BY a_char DESC LIMIT 2")).isNotFullyPushedDown(topNOverTableScan);
 
             // multiple sort columns with at-least one case-sensitive column
-            assertConditionallyOrderedPushedDown(
-                    getSession(),
-                    "SELECT a_bigint FROM " + testTable.getName() + " ORDER BY a_bigint, a_char LIMIT 2",
-                    expectTopNPushdown,
-                    topNOverTableScan);
-            assertConditionallyOrderedPushedDown(
-                    getSession(),
-                    "SELECT a_bigint FROM " + testTable.getName() + " ORDER BY a_bigint, a_string DESC LIMIT 2",
-                    expectTopNPushdown,
-                    topNOverTableScan);
+            assertThat(query(getSession(), "SELECT a_bigint FROM " + testTable.getName() + " ORDER BY a_bigint, a_char LIMIT 2")).isNotFullyPushedDown(topNOverTableScan);
+            assertThat(query(getSession(), "SELECT a_bigint FROM " + testTable.getName() + " ORDER BY a_bigint, a_string DESC LIMIT 2")).isNotFullyPushedDown(topNOverTableScan);
         }
     }
 
@@ -2657,16 +2628,9 @@ public class TestSalesforceConnectorTest
             assertThat(query(session, "SELECT r.name__c, n.name__c FROM nation__c n JOIN region__c r USING(regionkey__c)")).isFullyPushedDown();
 
             // varchar equality predicate
-            assertConditionallyPushedDown(
-                    session,
-                    "SELECT n.name__c, n2.regionkey__c FROM nation__c n JOIN nation__c n2 ON n.name__c = n2.name__c",
-                    hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY),
-                    joinOverTableScans);
-            assertConditionallyPushedDown(
-                    session,
-                    format("SELECT n.name__c, nl.regionkey__c FROM nation__c n JOIN %s nl ON n.name__c = nl.name__c", nationLowercaseTable.getName()),
-                    hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY),
-                    joinOverTableScans);
+            assertThat(query(session, "SELECT n.name__c, n2.regionkey__c FROM nation__c n JOIN nation__c n2 ON n.name__c = n2.name__c")).isFullyPushedDown();
+            assertThat(query(session, format("SELECT n.name__c, nl.regionkey__c FROM nation__c n JOIN %s nl ON n.name__c = nl.name__c", nationLowercaseTable.getName())))
+                    .isFullyPushedDown();
 
             // multiple bigint predicates
             assertThat(query(session, "SELECT n.name__c, c.name__c FROM nation__c n JOIN customer__c c ON n.nationkey__c = c.nationkey__c and n.regionkey__c = c.custkey__c"))
@@ -2712,11 +2676,8 @@ public class TestSalesforceConnectorTest
             assertThat(query(session, "SELECT r.name__c, n.name__c FROM region__c r RIGHT JOIN nation__c n ON n.nationkey__c = r.regionkey__c")).isFullyPushedDown();
 
             // FULL JOIN
-            assertConditionallyPushedDown(
-                    session,
-                    "SELECT r.name__c, n.name__c FROM nation__c n FULL JOIN region__c r ON n.nationkey__c = r.regionkey__c",
-                    hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN),
-                    joinOverTableScans);
+            assertThat(query(session, "SELECT r.name__c, n.name__c FROM nation__c n FULL JOIN region__c r ON n.nationkey__c = r.regionkey__c"))
+                    .isNotFullyPushedDown(joinOverTableScans);
 
             // Join over a (double) predicate
             assertThat(query(session, "" +
@@ -2726,44 +2687,34 @@ public class TestSalesforceConnectorTest
                     .isFullyPushedDown();
 
             // Join over a varchar equality predicate
-            assertConditionallyPushedDown(
-                    session,
+            assertThat(query(session,
                     "SELECT c.name__c, n.name__c FROM (SELECT * FROM customer__c WHERE address = 'TcGe5gaZNgVePxU5kRrvXBfkasDTea') c " +
-                            "JOIN nation__c n ON c.custkey__c = n.nationkey__c",
-                    hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY),
-                    joinOverTableScans);
+                            "JOIN nation__c n ON c.custkey__c = n.nationkey__c"))
+                    .isFullyPushedDown();
 
             // Join over a varchar inequality predicate
-            assertConditionallyPushedDown(
-                    session,
+            assertThat(query(session,
                     "SELECT c.name__c, n.name__c FROM (SELECT * FROM customer__c WHERE address < 'TcGe5gaZNgVePxU5kRrvXBfkasDTea') c " +
-                            "JOIN nation__c n ON c.custkey__c = n.nationkey__c",
-                    hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY),
-                    joinOverTableScans);
+                            "JOIN nation__c n ON c.custkey__c = n.nationkey__c"))
+                    .isFullyPushedDown();
 
             // join over aggregation
-            assertConditionallyPushedDown(
-                    session,
+            assertThat(query(session,
                     "SELECT * FROM (SELECT regionkey__c rk, count(nationkey__c) c FROM nation__c GROUP BY regionkey__c) n " +
-                            "JOIN region__c r ON n.rk = r.regionkey__c",
-                    hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN),
-                    joinOverTableScans);
+                            "JOIN region__c r ON n.rk = r.regionkey__c"))
+                    .isNotFullyPushedDown(joinOverTableScans);
 
             // join over LIMIT
-            assertConditionallyPushedDown(
-                    session,
+            assertThat(query(session,
                     "SELECT * FROM (SELECT nationkey__c FROM nation__c LIMIT 30) n " +
-                            "JOIN region__c r ON n.nationkey__c = r.regionkey__c",
-                    hasBehavior(SUPPORTS_LIMIT_PUSHDOWN),
-                    joinOverTableScans);
+                            "JOIN region__c r ON n.nationkey__c = r.regionkey__c"))
+                    .isNotFullyPushedDown(joinOverTableScans);
 
             // join over TopN
-            assertConditionallyPushedDown(
-                    session,
+            assertThat(query(session,
                     "SELECT * FROM (SELECT nationkey__c FROM nation__c ORDER BY regionkey__c LIMIT 5) n " +
-                            "JOIN region__c r ON n.nationkey__c = r.regionkey__c",
-                    hasBehavior(SUPPORTS_TOPN_PUSHDOWN),
-                    joinOverTableScans);
+                            "JOIN region__c r ON n.nationkey__c = r.regionkey__c"))
+                    .isNotFullyPushedDown(joinOverTableScans);
 
             // join over join
             assertThat(query(session, "SELECT * FROM nation__c n, region__c r, customer__c c WHERE n.regionkey__c = r.regionkey__c AND r.regionkey__c = c.custkey__c"))
@@ -2778,21 +2729,6 @@ public class TestSalesforceConnectorTest
             PlanMatchPattern otherwiseExpected)
     {
         QueryAssertions.QueryAssert queryAssert = assertThat(query(session, query));
-        if (condition) {
-            queryAssert.isFullyPushedDown();
-        }
-        else {
-            queryAssert.isNotFullyPushedDown(otherwiseExpected);
-        }
-    }
-
-    private void assertConditionallyOrderedPushedDown(
-            Session session,
-            @Language("SQL") String query,
-            boolean condition,
-            PlanMatchPattern otherwiseExpected)
-    {
-        QueryAssertions.QueryAssert queryAssert = assertThat(query(session, query)).ordered();
         if (condition) {
             queryAssert.isFullyPushedDown();
         }
