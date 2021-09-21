@@ -867,6 +867,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public TableProceduresPropertyManager getTableProceduresPropertyManager()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Optional<ProjectionApplicationResult<TableHandle>> applyProjection(Session session, TableHandle table, List<ConnectorExpression> projections, Map<String, ColumnHandle> assignments)
     {
         return Optional.empty();
