@@ -57,7 +57,6 @@ public class ParquetWriter
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(ParquetWriter.class).instanceSize();
 
     private static final int CHUNK_MAX_BYTES = toIntExact(DataSize.of(128, MEGABYTE).toBytes());
-    private static final int DEFAULT_ROW_GROUP_MAX_ROW_COUNT = 10_000;
 
     private final List<ColumnWriter> columnWriters;
     private final OutputStreamSliceOutput outputStream;
@@ -127,7 +126,7 @@ public class ParquetWriter
         checkArgument(page.getChannelCount() == columnWriters.size());
 
         while (page != null) {
-            int chunkRows = min(page.getPositionCount(), DEFAULT_ROW_GROUP_MAX_ROW_COUNT);
+            int chunkRows = min(page.getPositionCount(), writerOption.getBatchSize());
             Page chunk = page.getRegion(0, chunkRows);
 
             // avoid chunk with huge logical size
