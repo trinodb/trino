@@ -37,6 +37,7 @@ import io.trino.execution.StageId;
 import io.trino.execution.StageInfo;
 import io.trino.execution.StageState;
 import io.trino.execution.TableExecuteContextManager;
+import io.trino.execution.TaskId;
 import io.trino.execution.TaskStatus;
 import io.trino.execution.buffer.OutputBuffers;
 import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
@@ -278,10 +279,8 @@ public class SqlQueryScheduler
 
     private static void updateQueryOutputLocations(QueryStateMachine queryStateMachine, OutputBufferId rootBufferId, Set<RemoteTask> tasks, boolean noMoreExchangeLocations)
     {
-        Set<URI> bufferLocations = tasks.stream()
-                .map(task -> task.getTaskStatus().getSelf())
-                .map(location -> uriBuilderFrom(location).appendPath("results").appendPath(rootBufferId.toString()).build())
-                .collect(toImmutableSet());
+        Map<TaskId, URI> bufferLocations = tasks.stream()
+                .collect(toImmutableMap(RemoteTask::getTaskId, task -> uriBuilderFrom(task.getTaskStatus().getSelf()).appendPath("results").appendPath(rootBufferId.toString()).build()));
         queryStateMachine.updateOutputLocations(bufferLocations, noMoreExchangeLocations);
     }
 

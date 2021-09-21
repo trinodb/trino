@@ -23,6 +23,7 @@ import io.airlift.http.client.Response;
 import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.http.client.testing.TestingResponse;
 import io.airlift.slice.DynamicSliceOutput;
+import io.trino.execution.TaskId;
 import io.trino.execution.buffer.PagesSerde;
 import io.trino.execution.buffer.SerializedPage;
 import io.trino.spi.Page;
@@ -45,9 +46,9 @@ public class TestingExchangeHttpClientHandler
 {
     private static final PagesSerde PAGES_SERDE = testingPagesSerde();
 
-    private final LoadingCache<String, TestingTaskBuffer> taskBuffers;
+    private final LoadingCache<TaskId, TestingTaskBuffer> taskBuffers;
 
-    public TestingExchangeHttpClientHandler(LoadingCache<String, TestingTaskBuffer> taskBuffers)
+    public TestingExchangeHttpClientHandler(LoadingCache<TaskId, TestingTaskBuffer> taskBuffers)
     {
         this.taskBuffers = requireNonNull(taskBuffers, "taskBuffers is null");
     }
@@ -62,7 +63,7 @@ public class TestingExchangeHttpClientHandler
         }
 
         assertEquals(parts.size(), 2);
-        String taskId = parts.get(0);
+        TaskId taskId = TaskId.valueOf(parts.get(0));
         int pageToken = Integer.parseInt(parts.get(1));
 
         ImmutableListMultimap.Builder<String, String> headers = ImmutableListMultimap.builder();
