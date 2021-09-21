@@ -331,7 +331,7 @@ public final class SqlStageExecution
             ImmutableMultimap.Builder<PlanNodeId, Split> newSplits = ImmutableMultimap.builder();
             for (RemoteTask sourceTask : sourceTasks) {
                 URI exchangeLocation = sourceTask.getTaskStatus().getSelf();
-                newSplits.put(remoteSource.getId(), createRemoteSplitFor(task.getTaskId(), exchangeLocation));
+                newSplits.put(remoteSource.getId(), createRemoteSplitFor(task.getTaskId(), sourceTask.getTaskId(), exchangeLocation));
             }
             task.addSplits(newSplits.build());
         }
@@ -446,7 +446,7 @@ public final class SqlStageExecution
         sourceTasks.forEach((planNodeId, task) -> {
             TaskStatus status = task.getTaskStatus();
             if (status.getState() != TaskState.FINISHED) {
-                initialSplits.put(planNodeId, createRemoteSplitFor(taskId, status.getSelf()));
+                initialSplits.put(planNodeId, createRemoteSplitFor(taskId, status.getTaskId(), status.getSelf()));
             }
         });
 
@@ -494,11 +494,11 @@ public final class SqlStageExecution
         stateMachine.recordGetSplitTime(start);
     }
 
-    private static Split createRemoteSplitFor(TaskId taskId, URI taskLocation)
+    private static Split createRemoteSplitFor(TaskId taskId, TaskId sourceTaskId, URI sourceTaskLocation)
     {
         // Fetch the results from the buffer assigned to the task based on id
-        URI splitLocation = uriBuilderFrom(taskLocation).appendPath("results").appendPath(String.valueOf(taskId.getPartitionId())).build();
-        return new Split(REMOTE_CONNECTOR_ID, new RemoteSplit(splitLocation), Lifespan.taskWide());
+        URI splitLocation = uriBuilderFrom(sourceTaskLocation).appendPath("results").appendPath(String.valueOf(taskId.getPartitionId())).build();
+        return new Split(REMOTE_CONNECTOR_ID, new RemoteSplit(sourceTaskId, splitLocation), Lifespan.taskWide());
     }
 
     private synchronized void updateTaskStatus(TaskStatus taskStatus)

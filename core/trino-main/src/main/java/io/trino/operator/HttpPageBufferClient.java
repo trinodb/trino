@@ -32,6 +32,7 @@ import io.airlift.slice.SliceInput;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.FeaturesConfig.DataIntegrityVerification;
+import io.trino.execution.TaskId;
 import io.trino.execution.buffer.SerializedPage;
 import io.trino.server.remotetask.Backoff;
 import io.trino.spi.TrinoException;
@@ -121,6 +122,7 @@ public final class HttpPageBufferClient
     private final DataIntegrityVerification dataIntegrityVerification;
     private final DataSize maxResponseSize;
     private final boolean acknowledgePages;
+    private final TaskId remoteTaskId;
     private final URI location;
     private final ClientCallback clientCallback;
     private final ScheduledExecutorService scheduler;
@@ -160,6 +162,7 @@ public final class HttpPageBufferClient
             DataSize maxResponseSize,
             Duration maxErrorDuration,
             boolean acknowledgePages,
+            TaskId remoteTaskId,
             URI location,
             ClientCallback clientCallback,
             ScheduledExecutorService scheduler,
@@ -172,6 +175,7 @@ public final class HttpPageBufferClient
                 maxResponseSize,
                 maxErrorDuration,
                 acknowledgePages,
+                remoteTaskId,
                 location,
                 clientCallback,
                 scheduler,
@@ -186,6 +190,7 @@ public final class HttpPageBufferClient
             DataSize maxResponseSize,
             Duration maxErrorDuration,
             boolean acknowledgePages,
+            TaskId remoteTaskId,
             URI location,
             ClientCallback clientCallback,
             ScheduledExecutorService scheduler,
@@ -197,6 +202,7 @@ public final class HttpPageBufferClient
         this.dataIntegrityVerification = requireNonNull(dataIntegrityVerification, "dataIntegrityVerification is null");
         this.maxResponseSize = requireNonNull(maxResponseSize, "maxResponseSize is null");
         this.acknowledgePages = acknowledgePages;
+        this.remoteTaskId = requireNonNull(remoteTaskId, "remoteTaskId is null");
         this.location = requireNonNull(location, "location is null");
         this.clientCallback = requireNonNull(clientCallback, "clientCallback is null");
         this.scheduler = requireNonNull(scheduler, "scheduler is null");
@@ -244,6 +250,11 @@ public final class HttpPageBufferClient
                 requestsCompleted.get(),
                 requestsFailed.get(),
                 httpRequestState);
+    }
+
+    public TaskId getRemoteTaskId()
+    {
+        return remoteTaskId;
     }
 
     public synchronized boolean isRunning()
