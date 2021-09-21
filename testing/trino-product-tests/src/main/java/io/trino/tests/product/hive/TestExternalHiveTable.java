@@ -30,8 +30,6 @@ import static io.trino.tempto.fulfillment.table.MutableTablesState.mutableTables
 import static io.trino.tempto.fulfillment.table.TableRequirements.mutableTable;
 import static io.trino.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
 import static io.trino.tempto.query.QueryExecutor.query;
-import static io.trino.tests.product.TestGroups.HIVE_WITH_EXTERNAL_WRITES;
-import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_BIGINT_REGIONKEY;
 import static io.trino.tests.product.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_REGIONKEY_NUMBER_OF_LINES_PER_SPLIT;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
@@ -137,7 +135,7 @@ public class TestExternalHiveTable
         assertThat(onTrino().executeQuery("SELECT * FROM " + EXTERNAL_TABLE_NAME)).hasRowsCount(0);
     }
 
-    @Test(groups = {HIVE_WITH_EXTERNAL_WRITES, PROFILE_SPECIFIC_TESTS})
+    @Test
     public void testCreateExternalTableWithInaccessibleSchemaLocation()
     {
         String schema = "schema_without_location";
