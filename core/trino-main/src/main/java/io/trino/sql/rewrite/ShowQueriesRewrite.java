@@ -515,7 +515,9 @@ final class ShowQueriesRewrite
                 accessControl.checkCanShowCreateTable(session.toSecurityContext(), new QualifiedObjectName(catalogName.getValue(), schemaName.getValue(), tableName.getValue()));
 
                 Map<String, Object> properties = viewDefinition.get().getProperties();
-                Map<String, PropertyMetadata<?>> allMaterializedViewProperties = metadata.getMaterializedViewPropertyManager().getAllProperties().get(new CatalogName(catalogName.getValue()));
+                Map<String, PropertyMetadata<?>> allMaterializedViewProperties = metadata.getMaterializedViewPropertyManager()
+                        .getAllProperties()
+                        .get(new CatalogName(catalogName.getValue()));
                 List<Property> propertyNodes = buildProperties(objectName, Optional.empty(), INVALID_MATERIALIZED_VIEW_PROPERTY, properties, allMaterializedViewProperties);
 
                 String sql = formatSql(new CreateMaterializedView(Optional.empty(), QualifiedName.of(ImmutableList.of(catalogName, schemaName, tableName)),
@@ -548,7 +550,13 @@ final class ShowQueriesRewrite
                 accessControl.checkCanShowCreateTable(session.toSecurityContext(), new QualifiedObjectName(catalogName.getValue(), schemaName.getValue(), tableName.getValue()));
 
                 CreateView.Security security = viewDefinition.get().isRunAsInvoker() ? INVOKER : DEFINER;
-                String sql = formatSql(new CreateView(QualifiedName.of(ImmutableList.of(catalogName, schemaName, tableName)), query, false, viewDefinition.get().getComment(), Optional.of(security))).trim();
+                String sql = formatSql(new CreateView(
+                        QualifiedName.of(ImmutableList.of(catalogName, schemaName, tableName)),
+                        query,
+                        false,
+                        viewDefinition.get().getComment(),
+                        Optional.of(security)))
+                        .trim();
                 return singleValueQuery("Create View", sql);
             }
 
@@ -579,7 +587,12 @@ final class ShowQueriesRewrite
                         .filter(column -> !column.isHidden())
                         .map(column -> {
                             List<Property> propertyNodes = buildProperties(targetTableName, Optional.of(column.getName()), INVALID_COLUMN_PROPERTY, column.getProperties(), allColumnProperties);
-                            return new ColumnDefinition(new Identifier(column.getName()), toSqlType(column.getType()), column.isNullable(), propertyNodes, Optional.ofNullable(column.getComment()));
+                            return new ColumnDefinition(
+                                    new Identifier(column.getName()),
+                                    toSqlType(column.getType()),
+                                    column.isNullable(),
+                                    propertyNodes,
+                                    Optional.ofNullable(column.getComment()));
                         })
                         .collect(toImmutableList());
 
