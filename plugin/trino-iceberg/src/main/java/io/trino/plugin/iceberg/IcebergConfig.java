@@ -15,11 +15,14 @@ package io.trino.plugin.iceberg;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.units.Duration;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import org.apache.iceberg.FileFormat;
 
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
+
+import java.util.concurrent.TimeUnit;
 
 import static io.trino.plugin.hive.HiveCompressionCodec.GZIP;
 import static io.trino.plugin.iceberg.CatalogType.HIVE;
@@ -33,6 +36,10 @@ public class IcebergConfig
     private int maxPartitionsPerWriter = 100;
     private boolean uniqueTableLocation;
     private CatalogType catalogType = HIVE;
+
+    private boolean enableLocalDynamicFiltering;
+    private boolean enableCoordinatorDynamicFiltering;
+    private Duration dynamicFilteringProbeBlockingTimeout = new Duration(0, TimeUnit.MINUTES);
 
     public CatalogType getCatalogType()
     {
@@ -117,6 +124,44 @@ public class IcebergConfig
     public IcebergConfig setUniqueTableLocation(boolean uniqueTableLocation)
     {
         this.uniqueTableLocation = uniqueTableLocation;
+        return this;
+    }
+
+    public boolean isEnableLocalDynamicFiltering()
+    {
+        return enableLocalDynamicFiltering;
+    }
+
+    @Config("iceberg.enable-local-dynamic-filtering")
+    public IcebergConfig setEnableLocalDynamicFiltering(boolean enableLocalDynamicFiltering)
+    {
+        this.enableLocalDynamicFiltering = enableLocalDynamicFiltering;
+        return this;
+    }
+
+    public boolean isEnableCoordinatorDynamicFiltering()
+    {
+        return enableCoordinatorDynamicFiltering;
+    }
+
+    @Config("iceberg.enable-coordinator-dynamic-filtering")
+    public IcebergConfig setEnableCoordinatorDynamicFiltering(boolean enableCoordinatorDynamicFiltering)
+    {
+        this.enableCoordinatorDynamicFiltering = enableCoordinatorDynamicFiltering;
+        return this;
+    }
+
+    @NotNull
+    public Duration getDynamicFilteringProbeBlockingTimeout()
+    {
+        return dynamicFilteringProbeBlockingTimeout;
+    }
+
+    @Config("iceberg.dynamic-filtering-probe-blocking-timeout")
+    @ConfigDescription("Duration to wait for completion of dynamic filters during split generation for probe side table")
+    public IcebergConfig setDynamicFilteringProbeBlockingTimeout(Duration dynamicFilteringProbeBlockingTimeout)
+    {
+        this.dynamicFilteringProbeBlockingTimeout = dynamicFilteringProbeBlockingTimeout;
         return this;
     }
 }

@@ -14,10 +14,12 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.Duration;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import org.testng.annotations.Test;
 
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
@@ -39,7 +41,10 @@ public class TestIcebergConfig
                 .setUseFileSizeFromMetadata(true)
                 .setMaxPartitionsPerWriter(100)
                 .setUniqueTableLocation(false)
-                .setCatalogType(HIVE));
+                .setCatalogType(HIVE)
+                .setDynamicFilteringProbeBlockingTimeout(new Duration(0, TimeUnit.MINUTES))
+                .setEnableCoordinatorDynamicFiltering(false)
+                .setEnableLocalDynamicFiltering(false));
     }
 
     @Test
@@ -52,6 +57,9 @@ public class TestIcebergConfig
                 .put("iceberg.max-partitions-per-writer", "222")
                 .put("iceberg.unique-table-location", "true")
                 .put("iceberg.catalog.type", "UNKNOWN")
+                .put("iceberg.dynamic-filtering-probe-blocking-timeout", "10s")
+                .put("iceberg.enable-coordinator-dynamic-filtering", "true")
+                .put("iceberg.enable-local-dynamic-filtering", "true")
                 .build();
 
         IcebergConfig expected = new IcebergConfig()
@@ -60,7 +68,10 @@ public class TestIcebergConfig
                 .setUseFileSizeFromMetadata(false)
                 .setMaxPartitionsPerWriter(222)
                 .setUniqueTableLocation(true)
-                .setCatalogType(UNKNOWN);
+                .setCatalogType(UNKNOWN)
+                .setDynamicFilteringProbeBlockingTimeout(new Duration(10, TimeUnit.SECONDS))
+                .setEnableCoordinatorDynamicFiltering(true)
+                .setEnableLocalDynamicFiltering(true);
 
         assertFullMapping(properties, expected);
     }

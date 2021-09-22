@@ -104,6 +104,7 @@ import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CANNOT_OPEN_SPLIT
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CURSOR_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_MISSING_DATA;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.getDynamicFilteringProbeBlockingTimeout;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcLazyReadSmallRanges;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcMaxBufferSize;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcMaxMergeDistance;
@@ -111,6 +112,7 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcMaxReadBloc
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcStreamBufferSize;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcTinyStripeThreshold;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetMaxReadBlockSize;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.isLocalDynamicFilterEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isOrcBloomFiltersEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isOrcNestedLazy;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isUseFileSizeFromMetadata;
@@ -166,6 +168,11 @@ public class IcebergPageSourceProvider
                 .map(IcebergColumnHandle.class::cast)
                 .filter(column -> !partitionKeys.containsKey(column.getId()))
                 .collect(toImmutableList());
+        if (isLocalDynamicFilterEnabled(session)) {
+            IcebergDynamicFilterUtil.waitDynamicFilterUntilTimeout(
+                    getDynamicFilteringProbeBlockingTimeout(session).toMillis(),
+                    dynamicFilter);
+        }
 
         HdfsContext hdfsContext = new HdfsContext(session);
         ConnectorPageSource dataPageSource = createDataPageSource(
@@ -177,7 +184,8 @@ public class IcebergPageSourceProvider
                 split.getFileSize(),
                 split.getFileFormat(),
                 regularColumns,
-                table.getUnenforcedPredicate());
+                table.getUnenforcedPredicate().intersect(dynamicFilter.getCurrentPredicate()
+                        .transformKeys(IcebergColumnHandle.class::cast).simplify(100)));
 
         return new IcebergPageSource(icebergColumns, partitionKeys, dataPageSource, session.getTimeZoneKey());
     }

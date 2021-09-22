@@ -28,6 +28,8 @@ import org.apache.iceberg.TableScan;
 import javax.inject.Inject;
 
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.getDynamicFilteringProbeBlockingTimeout;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.isCoordinatorDynamicFilterEnabled;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergSplitManager
@@ -51,6 +53,11 @@ public class IcebergSplitManager
             SplitSchedulingStrategy splitSchedulingStrategy,
             DynamicFilter dynamicFilter)
     {
+        if (isCoordinatorDynamicFilterEnabled(session)) {
+            IcebergDynamicFilterUtil.waitDynamicFilterUntilTimeout(
+                    getDynamicFilteringProbeBlockingTimeout(session).toMillis(),
+                    dynamicFilter);
+        }
         IcebergTableHandle table = (IcebergTableHandle) handle;
 
         if (table.getSnapshotId().isEmpty()) {
@@ -66,7 +73,8 @@ public class IcebergSplitManager
                                 // is required for IN predicates on non-partition columns with large value list. Such
                                 // predicates on partition columns are not supported.
                                 // (See AbstractTestIcebergSmoke#testLargeInFailureOnPartitionedColumns)
-                                .intersect(table.getUnenforcedPredicate().simplify(ICEBERG_DOMAIN_COMPACTION_THRESHOLD))))
+                                .intersect(table.getUnenforcedPredicate().simplify(ICEBERG_DOMAIN_COMPACTION_THRESHOLD))
+                                .intersect(dynamicFilter.getCurrentPredicate().transformKeys(IcebergColumnHandle.class::cast).simplify(100))))
                 .useSnapshot(table.getSnapshotId().get());
         IcebergSplitSource splitSource = new IcebergSplitSource(table.getSchemaTableName(), tableScan.planTasks());
 
