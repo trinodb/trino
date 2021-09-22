@@ -56,6 +56,7 @@ public final class EnvironmentContainers
     {
         builder.configureContainer(TESTS, dockerContainer -> {
             Path path = configDir.getPath("tempto-configuration.yaml");
+            // The suffix uses parent directory to help identity the actual tempto configuration file
             String suffix = getParentDirectoryName(path) + "-" + randomSuffix();
             String temptoConfig = "/docker/presto-product-tests/conf/tempto/tempto-configuration-for-" + suffix + ".yaml";
             dockerContainer
