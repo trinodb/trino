@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multiset;
+import com.google.common.collect.Sets;
 import io.trino.Session;
 import io.trino.plugin.hive.HdfsConfig;
 import io.trino.plugin.hive.HdfsConfiguration;
@@ -33,7 +34,10 @@ import io.trino.testing.DistributedQueryRunner;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.util.List;
+import java.util.stream.Stream;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.iceberg.CountingAccessFileHiveMetastore.Methods.CREATE_TABLE;
 import static io.trino.plugin.iceberg.CountingAccessFileHiveMetastore.Methods.GET_DATABASE;
 import static io.trino.plugin.iceberg.CountingAccessFileHiveMetastore.Methods.GET_TABLE;
@@ -44,7 +48,10 @@ import static io.trino.plugin.iceberg.TableType.MANIFESTS;
 import static io.trino.plugin.iceberg.TableType.PARTITIONS;
 import static io.trino.plugin.iceberg.TableType.SNAPSHOTS;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static java.lang.String.format;
+import static java.lang.String.join;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true) // metastore invocation counters shares mutable state so can't be run from many threads simultaneously
 public class TestIcebergMetastoreAccessOperations
@@ -215,7 +222,27 @@ public class TestIcebergMetastoreAccessOperations
     {
         metastore.resetCounters();
         getQueryRunner().execute(query);
-        assertThat(ImmutableMultiset.<Object>copyOf(metastore.getMethodInvocations()))
-                .containsExactlyInAnyOrderElementsOf(expectedInvocations);
+        Multiset<CountingAccessFileHiveMetastore.Methods> actualInvocations = metastore.getMethodInvocations();
+
+        if (expectedInvocations.equals(actualInvocations)) {
+            return;
+        }
+
+        List<String> mismatchReport = Sets.union(expectedInvocations.elementSet(), actualInvocations.elementSet()).stream()
+                .filter(key -> expectedInvocations.count(key) != actualInvocations.count(key))
+                .flatMap(key -> {
+                    int expectedCount = expectedInvocations.count(key);
+                    int actualCount = actualInvocations.count(key);
+                    if (actualCount < expectedCount) {
+                        return Stream.of(format("%s more occurrences of %s", expectedCount - actualCount, key));
+                    }
+                    if (actualCount > expectedCount) {
+                        return Stream.of(format("%s fewer occurrences of %s", actualCount - expectedCount, key));
+                    }
+                    return Stream.of();
+                })
+                .collect(toImmutableList());
+
+        fail("Expected: \n\t\t" + join(",\n\t\t", mismatchReport));
     }
 }
