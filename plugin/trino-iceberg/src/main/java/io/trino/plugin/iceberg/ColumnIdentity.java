@@ -149,8 +149,12 @@ public class ColumnIdentity
 
     public static ColumnIdentity createColumnIdentity(Types.NestedField column)
     {
+        return createColumnIdentity(column.name(), column);
+    }
+
+    public static ColumnIdentity createColumnIdentity(String name, Types.NestedField column)
+    {
         int id = column.fieldId();
-        String name = column.name();
         org.apache.iceberg.types.Type fieldType = column.type();
 
         if (!fieldType.isNestedType()) {

@@ -351,25 +351,30 @@ public class TestIcebergSparkCompatibility
         String sparkTableName = sparkTableName(baseTableName);
         onTrino().executeQuery("DROP TABLE IF EXISTS " + trinoTableName);
 
-        onTrino().executeQuery(format("CREATE TABLE %s (_string VARCHAR, _varbinary VARBINARY, _bigint BIGINT) WITH (partitioning = ARRAY['_string', '_varbinary'], format = '%s')", trinoTableName, storageFormat));
-        onTrino().executeQuery(format("INSERT INTO %s VALUES ('a', X'0ff102f0feff', 1001), ('b', X'0ff102f0fefe', 1002), ('c', X'0ff102fdfeff', 1003)", trinoTableName));
+        onTrino().executeQuery(format("CREATE TABLE %s (_string VARCHAR, _varbinary VARBINARY, _bigint BIGINT, nested ROW(data BIGINT)) WITH (partitioning = ARRAY['_string', '_varbinary', 'nested.data'], format = '%s')", trinoTableName, storageFormat));
+        onTrino().executeQuery(format("INSERT INTO %s VALUES ('a', X'0ff102f0feff', 1001, ROW(1)), ('b', X'0ff102f0fefe', 1002, ROW(2)), ('c', X'0ff102fdfeff', 1003, ROW(3))", trinoTableName));
 
-        Row row1 = row("b", new byte[]{15, -15, 2, -16, -2, -2}, 1002);
-        String selectByString = "SELECT * FROM %s WHERE _string = 'b'";
+        Row row1 = row("b", new byte[]{15, -15, 2, -16, -2, -2}, 1002, 2);
+        String selectByString = "SELECT _string, _varbinary, _bigint, nested.data FROM %s WHERE _string = 'b'";
         assertThat(onTrino().executeQuery(format(selectByString, trinoTableName)))
                 .containsOnly(row1);
         assertThat(onSpark().executeQuery(format(selectByString, sparkTableName)))
                 .containsOnly(row1);
 
-        Row row2 = row("a", new byte[]{15, -15, 2, -16, -2, -1}, 1001);
-        String selectByVarbinary = "SELECT * FROM %s WHERE _varbinary = X'0ff102f0feff'";
+        Row row2 = row("a", new byte[]{15, -15, 2, -16, -2, -1}, 1001, 1);
+        String selectByVarbinary = "SELECT _string, _varbinary, _bigint, nested.data FROM %s WHERE _varbinary = X'0ff102f0feff'";
         assertThat(onTrino().executeQuery(format(selectByVarbinary, trinoTableName)))
                 .containsOnly(row2);
         // for now this fails on spark see https://github.com/apache/iceberg/issues/2934
         assertQueryFailure(() -> onSpark().executeQuery(format(selectByVarbinary, sparkTableName)))
                 .hasMessageContaining("Cannot convert bytes to SQL literal: java.nio.HeapByteBuffer[pos=0 lim=6 cap=6]");
 
-        onTrino().executeQuery("DROP TABLE " + trinoTableName);
+        Row row3 = row("a", new byte[]{15, -15, 2, -16, -2, -1}, 1001, 1);
+        String selectNested = "SELECT _string, _bigint, nested.data FROM %s WHERE nested.data = 1";
+        assertThat(onTrino().executeQuery(format(selectNested, trinoTableName)))
+                .containsOnly(row3);
+        assertThat(onSpark().executeQuery(format(selectNested, sparkTableName)))
+                .containsOnly(row3);
     }
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormatsWithSpecVersion")

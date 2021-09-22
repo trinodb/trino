@@ -47,11 +47,14 @@ import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.transforms.Transform;
+import org.apache.iceberg.types.Types;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -66,6 +69,7 @@ import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_TOO_MANY_OPEN_PAR
 import static io.trino.plugin.iceberg.PartitionTransforms.getColumnTransform;
 import static io.trino.plugin.iceberg.util.Timestamps.getTimestampTz;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzToMicros;
+import static io.trino.spi.block.ColumnarRow.toColumnarRow;
 import static io.trino.spi.type.Decimals.readBigDecimal;
 import static io.trino.spi.type.TimeType.TIME_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
@@ -129,7 +133,7 @@ public class IcebergPageSink
         this.session = requireNonNull(session, "session is null");
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
         this.maxOpenWriters = maxOpenWriters;
-        this.pagePartitioner = new PagePartitioner(pageIndexerFactory, toPartitionColumns(inputColumns, partitionSpec));
+        this.pagePartitioner = new PagePartitioner(pageIndexerFactory, toPartitionColumns(inputColumns, partitionSpec, outputSchema));
     }
 
     @Override
@@ -326,12 +330,22 @@ public class IcebergPageSink
         Object[] values = new Object[columns.size()];
         for (int i = 0; i < columns.size(); i++) {
             PartitionColumn column = columns.get(i);
-            Block block = page.getBlock(column.getSourceChannel());
+            Block block = getPartitionBlock(column, page);
             Type type = column.getSourceType();
             Object value = getIcebergValue(block, position, type);
             values[i] = applyTransform(column.getField().transform(), value);
         }
         return Optional.of(new PartitionData(values));
+    }
+
+    private static Block getPartitionBlock(PartitionColumn column, Page page)
+    {
+        Iterator<Integer> pos = column.getSourceChannels().listIterator();
+        Block block = page.getBlock(pos.next());
+        while (pos.hasNext()) {
+            block = toColumnarRow(block).getField(pos.next());
+        }
+        return block;
     }
 
     @SuppressWarnings("unchecked")
@@ -384,7 +398,7 @@ public class IcebergPageSink
         throw new UnsupportedOperationException("Type not supported as partition column: " + type.getDisplayName());
     }
 
-    private static List<PartitionColumn> toPartitionColumns(List<IcebergColumnHandle> handles, PartitionSpec partitionSpec)
+    private static List<PartitionColumn> toPartitionColumns(List<IcebergColumnHandle> handles, PartitionSpec partitionSpec, Schema schema)
     {
         Map<Integer, Integer> idChannels = new HashMap<>();
         for (int i = 0; i < handles.size(); i++) {
@@ -392,14 +406,22 @@ public class IcebergPageSink
         }
 
         return partitionSpec.fields().stream()
-                .map(field -> {
-                    Integer channel = idChannels.get(field.sourceId());
-                    checkArgument(channel != null, "partition field not found: %s", field);
-                    Type inputType = handles.get(channel).getType();
-                    ColumnTransform transform = getColumnTransform(field, inputType);
-                    return new PartitionColumn(field, channel, inputType, transform.getType(), transform.getBlockTransform());
-                })
+                .map(field -> getPartitionColumn(field, handles, schema.asStruct(), idChannels))
                 .collect(toImmutableList());
+    }
+
+    private static PartitionColumn getPartitionColumn(PartitionField field, List<IcebergColumnHandle> handles, Types.StructType schema, Map<Integer, Integer> idChannels)
+    {
+        List<Integer> sourceIds = null;
+        try {
+            sourceIds = IcebergUtil.getIndexPathToField(schema, field.sourceId());
+        }
+        catch (Exception e) {
+            checkArgument(sourceIds != null, "partition field not found: %s", field);
+        }
+        Type inputType = handles.get(idChannels.get(field.sourceId())).getType();
+        ColumnTransform transform = getColumnTransform(field, inputType);
+        return new PartitionColumn(field, sourceIds, inputType, transform.getType(), transform.getBlockTransform());
     }
 
     private static class WriteContext
@@ -449,12 +471,24 @@ public class IcebergPageSink
             Block[] blocks = new Block[columns.size()];
             for (int i = 0; i < columns.size(); i++) {
                 PartitionColumn column = columns.get(i);
-                Block block = page.getBlock(column.getSourceChannel());
+                Block block = getPartitionBlock(column, page);
                 blocks[i] = column.getBlockTransform().apply(block);
             }
             Page transformed = new Page(page.getPositionCount(), blocks);
 
             return pageIndexer.indexPage(transformed);
+        }
+
+        private Block getPartitionBlock(PartitionColumn column, Page page)
+        {
+            ListIterator<Integer> iterator = column.getSourceChannels().listIterator();
+            Block block = page.getBlock(iterator.next());
+
+            while (iterator.hasNext()) {
+                block = toColumnarRow(block).getField(iterator.next());
+            }
+
+            return block;
         }
 
         public int getMaxIndex()
@@ -471,15 +505,15 @@ public class IcebergPageSink
     private static class PartitionColumn
     {
         private final PartitionField field;
-        private final int sourceChannel;
+        private final List<Integer> sourceChannels;
         private final Type sourceType;
         private final Type resultType;
         private final Function<Block, Block> blockTransform;
 
-        public PartitionColumn(PartitionField field, int sourceChannel, Type sourceType, Type resultType, Function<Block, Block> blockTransform)
+        public PartitionColumn(PartitionField field, List<Integer> sourceChannels, Type sourceType, Type resultType, Function<Block, Block> blockTransform)
         {
             this.field = requireNonNull(field, "field is null");
-            this.sourceChannel = sourceChannel;
+            this.sourceChannels = sourceChannels;
             this.sourceType = requireNonNull(sourceType, "sourceType is null");
             this.resultType = requireNonNull(resultType, "resultType is null");
             this.blockTransform = requireNonNull(blockTransform, "blockTransform is null");
@@ -492,7 +526,12 @@ public class IcebergPageSink
 
         public int getSourceChannel()
         {
-            return sourceChannel;
+            return sourceChannels.get(0);
+        }
+
+        public List<Integer> getSourceChannels()
+        {
+            return sourceChannels;
         }
 
         public Type getSourceType()

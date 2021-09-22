@@ -109,7 +109,7 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERT
 import static io.trino.plugin.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
 import static io.trino.plugin.iceberg.IcebergUtil.deserializePartitionValue;
-import static io.trino.plugin.iceberg.IcebergUtil.getColumns;
+import static io.trino.plugin.iceberg.IcebergUtil.getAllColumns;
 import static io.trino.plugin.iceberg.IcebergUtil.getFileFormat;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
 import static io.trino.plugin.iceberg.IcebergUtil.getTableComment;
@@ -263,7 +263,7 @@ public class IcebergMetadata
         DiscretePredicates discretePredicates = null;
         if (!partitionSourceIds.isEmpty()) {
             // Extract identity partition columns
-            Map<Integer, IcebergColumnHandle> columns = getColumns(icebergTable.schema(), typeManager).stream()
+            Map<Integer, IcebergColumnHandle> columns = getAllColumns(icebergTable.schema(), typeManager).stream()
                     .filter(column -> partitionSourceIds.contains(column.getId()))
                     .collect(toImmutableMap(IcebergColumnHandle::getId, Function.identity()));
 
@@ -340,7 +340,7 @@ public class IcebergMetadata
     {
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
         Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
-        return getColumns(icebergTable.schema(), typeManager).stream()
+        return getAllColumns(icebergTable.schema(), typeManager).stream()
                 .collect(toImmutableMap(IcebergColumnHandle::getName, identity()));
     }
 
@@ -432,7 +432,7 @@ public class IcebergMetadata
                 tableMetadata.getTable().getTableName(),
                 SchemaParser.toJson(transaction.table().schema()),
                 PartitionSpecParser.toJson(transaction.table().spec()),
-                getColumns(transaction.table().schema(), typeManager),
+                getAllColumns(transaction.table().schema(), typeManager),
                 transaction.table().location(),
                 getFileFormat(transaction.table()),
                 transaction.table().properties());
@@ -458,7 +458,7 @@ public class IcebergMetadata
             return Optional.empty();
         }
 
-        Map<Integer, IcebergColumnHandle> columnById = getColumns(tableSchema, typeManager).stream()
+        Map<Integer, IcebergColumnHandle> columnById = getAllColumns(tableSchema, typeManager).stream()
                 .collect(toImmutableMap(IcebergColumnHandle::getId, identity()));
 
         List<IcebergColumnHandle> partitioningColumns = partitionSpec.fields().stream()
@@ -492,7 +492,7 @@ public class IcebergMetadata
                 table.getTableName(),
                 SchemaParser.toJson(icebergTable.schema()),
                 PartitionSpecParser.toJson(icebergTable.spec()),
-                getColumns(icebergTable.schema(), typeManager),
+                getAllColumns(icebergTable.schema(), typeManager),
                 icebergTable.location(),
                 getFileFormat(icebergTable),
                 icebergTable.properties());
@@ -914,7 +914,7 @@ public class IcebergMetadata
                 table.getTableName(),
                 SchemaParser.toJson(icebergTable.schema()),
                 PartitionSpecParser.toJson(icebergTable.spec()),
-                getColumns(icebergTable.schema(), typeManager),
+                getAllColumns(icebergTable.schema(), typeManager),
                 icebergTable.location(),
                 getFileFormat(icebergTable),
                 icebergTable.properties());

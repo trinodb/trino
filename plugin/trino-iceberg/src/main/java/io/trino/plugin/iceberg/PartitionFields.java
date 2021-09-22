@@ -29,7 +29,8 @@ import static java.lang.String.format;
 
 public final class PartitionFields
 {
-    private static final String NAME = "[a-z_][a-z0-9_]*";
+    private static final String IDENTIFIER = "[a-z_][a-z0-9_]*";
+    private static final String NAME = IDENTIFIER + "(\\." + IDENTIFIER + ")*";
     private static final String FUNCTION_ARGUMENT_NAME = "\\((" + NAME + ")\\)";
     private static final String FUNCTION_ARGUMENT_NAME_AND_INT = "\\((" + NAME + "), *(\\d+)\\)";
 
@@ -65,8 +66,8 @@ public final class PartitionFields
                 tryMatch(field, MONTH_PATTERN, match -> builder.month(match.group(1))) ||
                 tryMatch(field, DAY_PATTERN, match -> builder.day(match.group(1))) ||
                 tryMatch(field, HOUR_PATTERN, match -> builder.hour(match.group(1))) ||
-                tryMatch(field, BUCKET_PATTERN, match -> builder.bucket(match.group(1), parseInt(match.group(2)))) ||
-                tryMatch(field, TRUNCATE_PATTERN, match -> builder.truncate(match.group(1), parseInt(match.group(2)))) ||
+                tryMatch(field, BUCKET_PATTERN, match -> builder.bucket(match.group(1), parseInt(match.group(match.groupCount())))) ||
+                tryMatch(field, TRUNCATE_PATTERN, match -> builder.truncate(match.group(1), parseInt(match.group(match.groupCount())))) ||
                 tryMatch(field, VOID_PATTERN, match -> builder.alwaysNull(match.group(1))) ||
                 false;
         if (!matched) {

@@ -20,11 +20,15 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
+import org.apache.iceberg.types.Types;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import static io.trino.plugin.iceberg.ColumnIdentity.createColumnIdentity;
+import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergColumnHandle
@@ -165,5 +169,25 @@ public class IcebergColumnHandle
     public String toString()
     {
         return getId() + ":" + getName() + ":" + type.getDisplayName();
+    }
+
+    public static IcebergColumnHandle create(Types.NestedField column, TypeManager typeManager)
+    {
+        return new IcebergColumnHandle(
+                createColumnIdentity(column),
+                toTrinoType(column.type(), typeManager),
+                ImmutableList.of(),
+                toTrinoType(column.type(), typeManager),
+                Optional.ofNullable(column.doc()));
+    }
+
+    public static IcebergColumnHandle create(String name, Types.NestedField column, TypeManager typeManager)
+    {
+        return new IcebergColumnHandle(
+                createColumnIdentity(name, column),
+                toTrinoType(column.type(), typeManager),
+                ImmutableList.of(),
+                toTrinoType(column.type(), typeManager),
+                Optional.ofNullable(column.doc()));
     }
 }

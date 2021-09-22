@@ -2369,6 +2369,40 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testCreateWithNestedPartitionedColTable()
+    {
+        // Test INSERT with SELECT values
+        @Language("SQL") String createTable =
+                "CREATE TABLE test_nested_partition_table_1 (int INTEGER, str ROW(id INTEGER , vc VARCHAR)) WITH (partitioning = ARRAY['str.id'])";
+        assertUpdate(createTable);
+        @Language("SQL") String insertSql = "INSERT INTO test_nested_partition_table_1 select 1, (CAST(ROW(1, 'this is a random value') AS ROW(int, varchar)))";
+        assertUpdate(insertSql, 1);
+        assertThat(query("SELECT int, str.id, str.vc FROM test_nested_partition_table_1"))
+                .matches("VALUES (1, 1, CAST('this is a random value' as varchar))");
+
+        // Test INSERT VALUES
+        @Language("SQL") String createTable2 =
+                "CREATE TABLE test_nested_partition_table_2 (int INTEGER, str ROW(id INTEGER , vc VARCHAR)) WITH (partitioning = ARRAY['str.id'])";
+        assertUpdate(createTable2);
+        @Language("SQL") String insertSql2 = "INSERT INTO test_nested_partition_table_2 VALUES (1, ROW(1, 'this is a random value'))";
+        assertUpdate(insertSql2, 1);
+        assertThat(query("SELECT int, str.id, str.vc FROM test_nested_partition_table_2"))
+                .matches("VALUES (1, 1, CAST('this is a random value' as varchar))");
+
+        // Test insert with SELECT FROM TABLE
+        @Language("SQL") String createTable3 = "" +
+                "CREATE TABLE test_nested_partition_table_3 WITH (partitioning = ARRAY['str.id']) AS SELECT * FROM test_nested_partition_table_1";
+        assertUpdate(createTable3, 1);
+        assertThat(query("SELECT int, str.id, str.vc FROM test_nested_partition_table_3"))
+                .matches("VALUES (1, 1, CAST('this is a random value' as varchar))");
+
+        // Clean up
+        dropTable("test_nested_partition_table_1");
+        dropTable("test_nested_partition_table_2");
+        dropTable("test_nested_partition_table_3");
+    }
+
+    @Test
     public void testSerializableReadIsolation()
     {
         assertUpdate("CREATE TABLE test_read_isolation (x int)");

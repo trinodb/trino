@@ -48,6 +48,7 @@ import org.apache.iceberg.Transaction;
 import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.types.Type.PrimitiveType;
 import org.apache.iceberg.types.TypeUtil;
+import org.apache.iceberg.types.Types;
 import org.apache.iceberg.types.Types.NestedField;
 import org.apache.iceberg.types.Types.StructType;
 
@@ -56,6 +57,7 @@ import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -148,6 +150,72 @@ public final class IcebergUtil
                 Optional.empty());
         operations.initializeFromMetadata(tableMetadata);
         return new BaseTable(operations, quotedTableName(table));
+    }
+
+    public static List<IcebergColumnHandle> getAllColumns(Schema schema, TypeManager typeManager)
+    {
+        return TypeUtil
+                .indexByName(schema.asStruct())
+                .keySet()
+                .stream()
+                .map(name -> IcebergColumnHandle.create(name, schema.findField(name), typeManager))
+                .collect(toImmutableList());
+    }
+
+    public static List<String> getNestedColumnNames(Types.StructType schema, Integer sourceId)
+    {
+        Map<Integer, Integer> parentIndex = TypeUtil.indexParents(schema);
+        Map<Integer, Types.NestedField> idIndex = TypeUtil.indexById(schema);
+        LinkedList<String> parentColumns = new LinkedList();
+
+        parentColumns.addFirst(idIndex.get(sourceId).name());
+        Integer current = parentIndex.get(sourceId);
+
+        while (current != null) {
+            parentColumns.addFirst(idIndex.get(current).name());
+            current = parentIndex.get(current);
+        }
+        return parentColumns;
+    }
+
+    private static Integer getFieldPosFromSchema(String name, Types.StructType schema) throws Exception
+    {
+        for (int i = 0; i < schema.fields().size(); i++) {
+            if (schema.fields().get(i).name().contentEquals(name)) {
+                return i;
+            }
+        }
+        throw new IllegalArgumentException("Could not find field " + name + " in schema");
+    }
+
+    public static List<Integer> getIndexPathToField(Types.StructType schema, Integer sourceId) throws Exception
+    {
+        return getIndexPathToField(schema, getNestedColumnNames(schema, sourceId));
+    }
+
+    public static List<Integer> getIndexPathToField(Types.StructType schema, List<String> fieldName) throws Exception
+    {
+        List<Integer> sourceIds = new LinkedList<>();
+        Types.StructType current = schema;
+
+        // Iterate over field names while finding position in schema
+        for (int i = 0; i < fieldName.size(); i++) {
+            String name = fieldName.get(i);
+            sourceIds.add(getFieldPosFromSchema(name, current));
+
+            if (current.field(name).type().isStructType()) {
+                current = current.field(name).type().asStructType();
+            }
+            else if (i + 1 == fieldName.size()) {
+                break;
+            }
+            else {
+                String fullFieldName = String.join(".", fieldName);
+                throw new IllegalArgumentException("Could not find field " + fullFieldName + " in schema");
+            }
+        }
+
+        return sourceIds;
     }
 
     public static long resolveSnapshotId(Table table, long snapshotId)
