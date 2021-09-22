@@ -41,6 +41,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.iceberg.CountingAccessFileHiveMetastore.Methods.CREATE_TABLE;
 import static io.trino.plugin.iceberg.CountingAccessFileHiveMetastore.Methods.GET_DATABASE;
 import static io.trino.plugin.iceberg.CountingAccessFileHiveMetastore.Methods.GET_TABLE;
+import static io.trino.plugin.iceberg.CountingAccessFileHiveMetastore.Methods.REPLACE_TABLE;
 import static io.trino.plugin.iceberg.TableType.DATA;
 import static io.trino.plugin.iceberg.TableType.FILES;
 import static io.trino.plugin.iceberg.TableType.HISTORY;
@@ -130,6 +131,67 @@ public class TestIcebergMetastoreAccessOperations
         assertMetastoreInvocations("SELECT * FROM test_select_from_where WHERE age = 2",
                 ImmutableMultiset.builder()
                         .addCopies(GET_TABLE, 3)
+                        .build());
+    }
+
+    @Test
+    public void testSelectFromView()
+    {
+        assertUpdate("CREATE TABLE test_select_view_table (id VARCHAR, age INT)");
+        assertUpdate("CREATE VIEW test_select_view_view AS SELECT id, age FROM test_select_view_table");
+
+        assertMetastoreInvocations("SELECT * FROM test_select_view_view",
+                ImmutableMultiset.builder()
+                        .addCopies(GET_TABLE, 5)
+                        .build());
+    }
+
+    @Test
+    public void testSelectFromViewWithFilter()
+    {
+        assertUpdate("CREATE TABLE test_select_view_where_table AS SELECT 2 as age", 1);
+        assertUpdate("CREATE VIEW test_select_view_where_view AS SELECT age FROM test_select_view_where_table");
+
+        assertMetastoreInvocations("SELECT * FROM test_select_view_where_view WHERE age = 2",
+                ImmutableMultiset.builder()
+                        .addCopies(GET_TABLE, 5)
+                        .build());
+    }
+
+    @Test
+    public void testSelectFromMaterializedView()
+    {
+        assertUpdate("CREATE TABLE test_select_mview_table (id VARCHAR, age INT)");
+        assertUpdate("CREATE MATERIALIZED VIEW test_select_mview_view AS SELECT id, age FROM test_select_mview_table");
+
+        assertMetastoreInvocations("SELECT * FROM test_select_mview_view",
+                ImmutableMultiset.builder()
+                        .addCopies(GET_TABLE, 6)
+                        .build());
+    }
+
+    @Test
+    public void testSelectFromMaterializedViewWithFilter()
+    {
+        assertUpdate("CREATE TABLE test_select_mview_where_table AS SELECT 2 as age", 1);
+        assertUpdate("CREATE MATERIALIZED VIEW test_select_mview_where_view AS SELECT age FROM test_select_mview_where_table");
+
+        assertMetastoreInvocations("SELECT * FROM test_select_mview_where_view WHERE age = 2",
+                ImmutableMultiset.builder()
+                        .addCopies(GET_TABLE, 6)
+                        .build());
+    }
+
+    @Test
+    public void testRefreshMaterializedView()
+    {
+        assertUpdate("CREATE TABLE test_refresh_mview_table (id VARCHAR, age INT)");
+        assertUpdate("CREATE MATERIALIZED VIEW test_refresh_mview_view AS SELECT id, age FROM test_refresh_mview_table");
+
+        assertMetastoreInvocations("REFRESH MATERIALIZED VIEW test_refresh_mview_view",
+                ImmutableMultiset.builder()
+                        .addCopies(GET_TABLE, 14)
+                        .addCopies(REPLACE_TABLE, 2)
                         .build());
     }
 
