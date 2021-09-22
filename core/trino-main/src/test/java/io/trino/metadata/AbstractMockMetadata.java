@@ -152,7 +152,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public void finishTableExecute(Session session, TableExecuteHandle handle, Collection<Slice> fragments)
+    public void finishTableExecute(Session session, TableExecuteHandle handle, Collection<Slice> fragments, List<Object> tableExecuteState)
     {
         throw new UnsupportedOperationException();
     }

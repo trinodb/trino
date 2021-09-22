@@ -18,6 +18,8 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
 import io.trino.Session;
+import io.trino.execution.TableExecuteContext;
+import io.trino.execution.TableExecuteContextManager;
 import io.trino.operator.OperationTimer.OperationTiming;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
@@ -58,6 +60,7 @@ public class TableFinishOperator
         private final TableFinisher tableFinisher;
         private final OperatorFactory statisticsAggregationOperatorFactory;
         private final StatisticAggregationsDescriptor<Integer> descriptor;
+        private final TableExecuteContextManager tableExecuteContextManager;
         private final boolean outputRowCount;
         private final Session session;
         private boolean closed;
@@ -68,6 +71,7 @@ public class TableFinishOperator
                 TableFinisher tableFinisher,
                 OperatorFactory statisticsAggregationOperatorFactory,
                 StatisticAggregationsDescriptor<Integer> descriptor,
+                TableExecuteContextManager tableExecuteContextManager,
                 boolean outputRowCount,
                 Session session)
         {
@@ -77,6 +81,7 @@ public class TableFinishOperator
             this.statisticsAggregationOperatorFactory = requireNonNull(statisticsAggregationOperatorFactory, "statisticsAggregationOperatorFactory is null");
             this.descriptor = requireNonNull(descriptor, "descriptor is null");
             this.session = requireNonNull(session, "session is null");
+            this.tableExecuteContextManager = requireNonNull(tableExecuteContextManager, "tableExecuteContextManager is null");
             this.outputRowCount = outputRowCount;
         }
 
@@ -88,7 +93,8 @@ public class TableFinishOperator
             Operator statisticsAggregationOperator = statisticsAggregationOperatorFactory.createOperator(driverContext);
             boolean statisticsCpuTimerEnabled = !(statisticsAggregationOperator instanceof DevNullOperator) && isStatisticsCpuTimerEnabled(session);
             QueryId queryId = driverContext.getPipelineContext().getTaskContext().getQueryContext().getQueryId();
-            return new TableFinishOperator(context, tableFinisher, statisticsAggregationOperator, descriptor, statisticsCpuTimerEnabled, outputRowCount);
+            TableExecuteContext tableExecuteContext = tableExecuteContextManager.getTableExecuteContextForQuery(queryId);
+            return new TableFinishOperator(context, tableFinisher, statisticsAggregationOperator, descriptor, statisticsCpuTimerEnabled, tableExecuteContext, outputRowCount);
         }
 
         @Override
@@ -100,7 +106,7 @@ public class TableFinishOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new TableFinishOperatorFactory(operatorId, planNodeId, tableFinisher, statisticsAggregationOperatorFactory, descriptor, outputRowCount, session);
+            return new TableFinishOperatorFactory(operatorId, planNodeId, tableFinisher, statisticsAggregationOperatorFactory, descriptor, tableExecuteContextManager, outputRowCount, session);
         }
     }
 
@@ -123,6 +129,7 @@ public class TableFinishOperator
     private final OperationTiming statisticsTiming = new OperationTiming();
     private final boolean statisticsCpuTimerEnabled;
 
+    private final TableExecuteContext tableExecuteContext;
     private final boolean outputRowCount;
 
     private final Supplier<TableFinishInfo> tableFinishInfoSupplier;
@@ -133,6 +140,7 @@ public class TableFinishOperator
             Operator statisticsAggregationOperator,
             StatisticAggregationsDescriptor<Integer> descriptor,
             boolean statisticsCpuTimerEnabled,
+            TableExecuteContext tableExecuteContext,
             boolean outputRowCount)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
@@ -140,6 +148,7 @@ public class TableFinishOperator
         this.statisticsAggregationOperator = requireNonNull(statisticsAggregationOperator, "statisticsAggregationOperator is null");
         this.descriptor = requireNonNull(descriptor, "descriptor is null");
         this.statisticsCpuTimerEnabled = statisticsCpuTimerEnabled;
+        this.tableExecuteContext = requireNonNull(tableExecuteContext, "tableExecuteContext is null");
         this.tableFinishInfoSupplier = createTableFinishInfoSupplier(outputMetadata, statisticsTiming);
         this.outputRowCount = outputRowCount;
         operatorContext.setInfoSupplier(tableFinishInfoSupplier);
@@ -306,7 +315,7 @@ public class TableFinishOperator
         }
         state = State.FINISHED;
 
-        this.outputMetadata.set(tableFinisher.finishTable(fragmentBuilder.build(), computedStatisticsBuilder.build()));
+        this.outputMetadata.set(tableFinisher.finishTable(fragmentBuilder.build(), computedStatisticsBuilder.build(), tableExecuteContext));
 
         // output page will only be constructed once,
         // so a new PageBuilder is constructed (instead of using PageBuilder.reset)
@@ -358,6 +367,7 @@ public class TableFinishOperator
     {
         Optional<ConnectorOutputMetadata> finishTable(
                 Collection<Slice> fragments,
-                Collection<ComputedStatistics> computedStatistics);
+                Collection<ComputedStatistics> computedStatistics,
+                TableExecuteContext tableExecuteContext);
     }
 }

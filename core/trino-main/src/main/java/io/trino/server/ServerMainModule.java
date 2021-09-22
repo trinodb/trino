@@ -44,6 +44,7 @@ import io.trino.execution.MemoryRevokingScheduler;
 import io.trino.execution.NodeTaskMap;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.SqlTaskManager;
+import io.trino.execution.TableExecuteContextManager;
 import io.trino.execution.TaskManagementExecutor;
 import io.trino.execution.TaskManager;
 import io.trino.execution.TaskManagerConfig;
@@ -275,6 +276,7 @@ public class ServerMainModule
         binder.bind(TaskManagementExecutor.class).in(Scopes.SINGLETON);
         binder.bind(SqlTaskManager.class).in(Scopes.SINGLETON);
         binder.bind(TaskManager.class).to(Key.get(SqlTaskManager.class));
+        binder.bind(TableExecuteContextManager.class).in(Scopes.SINGLETON);
 
         // memory revoking scheduler
         binder.bind(MemoryRevokingScheduler.class).in(Scopes.SINGLETON);

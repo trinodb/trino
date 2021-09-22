@@ -34,6 +34,7 @@ import io.trino.SystemSessionProperties;
 import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.ExplainAnalyzeContext;
 import io.trino.execution.StageId;
+import io.trino.execution.TableExecuteContextManager;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskManagerConfig;
 import io.trino.execution.buffer.OutputBuffer;
@@ -41,6 +42,7 @@ import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.index.IndexManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TableExecuteHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.operator.AggregationOperator.AggregationOperatorFactory;
 import io.trino.operator.AssignUniqueIdOperator;
@@ -364,6 +366,7 @@ public class LocalExecutionPlanner
     private final DynamicFilterConfig dynamicFilterConfig;
     private final TypeOperators typeOperators;
     private final BlockTypeOperators blockTypeOperators;
+    private final TableExecuteContextManager tableExecuteContextManager;
 
     @Inject
     public LocalExecutionPlanner(
@@ -389,7 +392,8 @@ public class LocalExecutionPlanner
             OrderingCompiler orderingCompiler,
             DynamicFilterConfig dynamicFilterConfig,
             TypeOperators typeOperators,
-            BlockTypeOperators blockTypeOperators)
+            BlockTypeOperators blockTypeOperators,
+            TableExecuteContextManager tableExecuteContextManager)
     {
         this.explainAnalyzeContext = requireNonNull(explainAnalyzeContext, "explainAnalyzeContext is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
@@ -417,6 +421,7 @@ public class LocalExecutionPlanner
         this.dynamicFilterConfig = requireNonNull(dynamicFilterConfig, "dynamicFilterConfig is null");
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
+        this.tableExecuteContextManager = requireNonNull(tableExecuteContextManager, "tableExecuteContextManager is null");
     }
 
     public LocalExecutionPlan plan(
@@ -3022,6 +3027,7 @@ public class LocalExecutionPlanner
                     createTableFinisher(session, node, metadata),
                     statisticsAggregation,
                     descriptor,
+                    tableExecuteContextManager,
                     shouldOutputRowCount(node),
                     session);
             Map<Symbol, Integer> layout = ImmutableMap.of(node.getOutputSymbols().get(0), 0);
@@ -3590,7 +3596,7 @@ public class LocalExecutionPlanner
     private static TableFinisher createTableFinisher(Session session, TableFinishNode node, Metadata metadata)
     {
         WriterTarget target = node.getTarget();
-        return (fragments, statistics) -> {
+        return (fragments, statistics, tableExecuteContext) -> {
             if (target instanceof CreateTarget) {
                 return metadata.finishCreateTable(session, ((CreateTarget) target).getHandle(), fragments, statistics);
             }
@@ -3616,7 +3622,8 @@ public class LocalExecutionPlanner
                 return Optional.empty();
             }
             else if (target instanceof TableExecuteTarget) {
-                metadata.finishTableExecute(session, ((TableExecuteTarget) target).getExecuteHandle(), fragments);
+                TableExecuteHandle tableExecuteHandle = ((TableExecuteTarget) target).getExecuteHandle();
+                metadata.finishTableExecute(session, tableExecuteHandle, fragments, tableExecuteContext.getSplitsInfo());
                 return Optional.empty();
             }
             else {

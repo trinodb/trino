@@ -23,6 +23,8 @@ import com.google.common.util.concurrent.SettableFuture;
 import io.trino.execution.Lifespan;
 import io.trino.execution.RemoteTask;
 import io.trino.execution.SqlStageExecution;
+import io.trino.execution.TableExecuteContext;
+import io.trino.execution.TableExecuteContextManager;
 import io.trino.execution.scheduler.FixedSourcePartitionedScheduler.BucketedSplitPlacementPolicy;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
@@ -40,6 +42,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.BooleanSupplier;
@@ -96,6 +99,7 @@ public class SourcePartitionedScheduler
     private final PlanNodeId partitionedNode;
     private final boolean groupedExecution;
     private final DynamicFilterService dynamicFilterService;
+    private final TableExecuteContextManager tableExecuteContextManager;
     private final BooleanSupplier anySourceTaskBlocked;
 
     private final Map<Lifespan, ScheduleGroup> scheduleGroups = new HashMap<>();
@@ -112,6 +116,7 @@ public class SourcePartitionedScheduler
             int splitBatchSize,
             boolean groupedExecution,
             DynamicFilterService dynamicFilterService,
+            TableExecuteContextManager tableExecuteContextManager,
             BooleanSupplier anySourceTaskBlocked)
     {
         this.stage = requireNonNull(stage, "stage is null");
@@ -119,6 +124,7 @@ public class SourcePartitionedScheduler
         this.splitSource = requireNonNull(splitSource, "splitSource is null");
         this.splitPlacementPolicy = requireNonNull(splitPlacementPolicy, "splitPlacementPolicy is null");
         this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
+        this.tableExecuteContextManager = requireNonNull(tableExecuteContextManager, "tableExecuteContextManager is null");
         this.anySourceTaskBlocked = requireNonNull(anySourceTaskBlocked, "anySourceTaskBlocked is null");
 
         checkArgument(splitBatchSize > 0, "splitBatchSize must be at least one");
@@ -146,6 +152,7 @@ public class SourcePartitionedScheduler
             SplitPlacementPolicy splitPlacementPolicy,
             int splitBatchSize,
             DynamicFilterService dynamicFilterService,
+            TableExecuteContextManager tableExecuteContextManager,
             BooleanSupplier anySourceTaskBlocked)
     {
         SourcePartitionedScheduler sourcePartitionedScheduler = new SourcePartitionedScheduler(
@@ -156,6 +163,7 @@ public class SourcePartitionedScheduler
                 splitBatchSize,
                 false,
                 dynamicFilterService,
+                tableExecuteContextManager,
                 anySourceTaskBlocked);
         sourcePartitionedScheduler.startLifespan(Lifespan.taskWide(), NOT_PARTITIONED);
         sourcePartitionedScheduler.noMoreLifespans();
@@ -197,6 +205,7 @@ public class SourcePartitionedScheduler
             int splitBatchSize,
             boolean groupedExecution,
             DynamicFilterService dynamicFilterService,
+            TableExecuteContextManager tableExecuteContextManager,
             BooleanSupplier anySourceTaskBlocked)
     {
         return new SourcePartitionedScheduler(
@@ -207,6 +216,7 @@ public class SourcePartitionedScheduler
                 splitBatchSize,
                 groupedExecution,
                 dynamicFilterService,
+                tableExecuteContextManager,
                 anySourceTaskBlocked);
     }
 
@@ -357,6 +367,16 @@ public class SourcePartitionedScheduler
                     throw new IllegalStateException("At least 1 split should have been scheduled for this plan node");
                 case SPLITS_ADDED:
                     state = State.NO_MORE_SPLITS;
+
+                    Optional<List<Object>> tableExecuteSplitsInfo = splitSource.getTableExecuteSplitsInfo();
+                    // Here we assume that we can get non-empty tableExecuteSplitsInfo only for queries which facilitate single split-source.
+                    // If we had more than one split-source and got multiple tableExecuteSplitsInfos the call to tableExecuteContext.setSplitsInfo will
+                    // throw an error.
+                    tableExecuteSplitsInfo.ifPresent(info -> {
+                        TableExecuteContext tableExecuteContext = tableExecuteContextManager.getTableExecuteContextForQuery(stage.getStageId().getQueryId());
+                        tableExecuteContext.setSplitsInfo(info);
+                    });
+
                     splitSource.close();
                     // fall through
                 case NO_MORE_SPLITS:
