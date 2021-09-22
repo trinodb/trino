@@ -97,6 +97,7 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
+import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.transaction.TransactionBuilder.transaction;
@@ -2167,7 +2168,11 @@ public abstract class BaseIcebergConnectorTest
         // using assertEventually here as the operator stats mechanism is known to be best-effort and some late-stage stats are sometimes not recorded
         // (see https://github.com/trinodb/trino/issues/5172)
         assertEventually(new Duration(10, TimeUnit.SECONDS), () -> {
+            Session sessionWithoutPushdown = Session.builder(getSession())
+                    .setSystemProperty("allow_pushdown_into_connectors", "false")
+                    .build();
             ResultWithQueryId<MaterializedResult> selectAllPartitionsResult = getDistributedQueryRunner().executeWithQueryId(getSession(), query);
+            assertEqualsIgnoreOrder(selectAllPartitionsResult.getResult().getMaterializedRows(), computeActual(sessionWithoutPushdown, query).getMaterializedRows());
             verifySplitCount(selectAllPartitionsResult.getQueryId(), expectedSplitCount);
         });
     }
