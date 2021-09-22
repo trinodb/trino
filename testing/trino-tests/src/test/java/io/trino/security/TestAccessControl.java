@@ -411,4 +411,13 @@ public class TestAccessControl
         assertQuery(session, "SHOW CURRENT ROLES FROM mock", "VALUES 'alice_role'");
         assertQuery(session, "SELECT * FROM mock.information_schema.applicable_roles", "SELECT 'alice', 'USER', 'alice_role', 'NO'");
     }
+
+    @Test
+    public void testEmptyRoles()
+    {
+        assertQueryReturnsEmptyResult("SHOW ROLES");
+        assertQueryReturnsEmptyResult("SHOW ROLE GRANTS");
+        assertQueryReturnsEmptyResult("SHOW CURRENT ROLES");
+        assertQueryReturnsEmptyResult("SELECT * FROM information_schema.applicable_roles");
+    }
 }
