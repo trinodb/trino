@@ -114,6 +114,13 @@ public final class EnvironmentModule
 
     @Provides
     @Singleton
+    public SupportedTrinoJdk provideJavaVersion(EnvironmentOptions options)
+    {
+        return requireNonNull(options.jdkVersion, "JDK version is null");
+    }
+
+    @Provides
+    @Singleton
     @Debug
     public boolean provideDebug(EnvironmentOptions options)
     {
