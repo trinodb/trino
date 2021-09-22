@@ -77,6 +77,7 @@ import io.trino.execution.SetPathTask;
 import io.trino.execution.SetSessionTask;
 import io.trino.execution.SetTimeZoneTask;
 import io.trino.execution.StartTransactionTask;
+import io.trino.execution.TableExecuteContextManager;
 import io.trino.execution.TaskManagerConfig;
 import io.trino.execution.TaskSource;
 import io.trino.execution.resourcegroups.NoOpResourceGroupManager;
@@ -803,6 +804,8 @@ public class LocalQueryRunner
             throw new AssertionError("Expected subplan to have no children");
         }
 
+        TableExecuteContextManager tableExecuteContextManager = new TableExecuteContextManager();
+        tableExecuteContextManager.registerTableExecuteContextForQuery(taskContext.getQueryContext().getQueryId());
         LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(
                 metadata,
                 new TypeAnalyzer(sqlParser, metadata),
@@ -826,7 +829,8 @@ public class LocalQueryRunner
                 new OrderingCompiler(typeOperators),
                 new DynamicFilterConfig(),
                 typeOperators,
-                blockTypeOperators);
+                blockTypeOperators,
+                tableExecuteContextManager);
 
         // plan query
         StageExecutionDescriptor stageExecutionDescriptor = subplan.getFragment().getStageExecutionDescriptor();

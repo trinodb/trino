@@ -18,6 +18,8 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.Session;
+import io.trino.execution.TableExecuteContext;
+import io.trino.execution.TableExecuteContextManager;
 import io.trino.metadata.Metadata;
 import io.trino.operator.TableFinishOperator.TableFinishOperatorFactory;
 import io.trino.operator.TableFinishOperator.TableFinisher;
@@ -95,6 +97,7 @@ public class TestTableFinishOperator
         Session session = testSessionBuilder()
                 .setSystemProperty("statistics_cpu_timer_enabled", "true")
                 .build();
+        TableExecuteContextManager tableExecuteContextManager = new TableExecuteContextManager();
         TableFinishOperatorFactory operatorFactory = new TableFinishOperatorFactory(
                 0,
                 new PlanNodeId("node"),
@@ -106,11 +109,13 @@ public class TestTableFinishOperator
                         ImmutableList.of(LONG_MAX.bind(ImmutableList.of(2), Optional.empty())),
                         true),
                 descriptor,
+                tableExecuteContextManager,
                 true,
                 session);
         DriverContext driverContext = createTaskContext(scheduledExecutor, scheduledExecutor, session)
                 .addPipelineContext(0, true, true, false)
                 .addDriverContext();
+        tableExecuteContextManager.registerTableExecuteContextForQuery(driverContext.getPipelineContext().getTaskContext().getQueryContext().getQueryId());
         TableFinishOperator operator = (TableFinishOperator) operatorFactory.createOperator(driverContext);
 
         List<Type> inputTypes = ImmutableList.of(BIGINT, VARBINARY, BIGINT);
@@ -160,14 +165,16 @@ public class TestTableFinishOperator
         private boolean finished;
         private Collection<Slice> fragments;
         private Collection<ComputedStatistics> computedStatistics;
+        private TableExecuteContext tableExecuteContext;
 
         @Override
-        public Optional<ConnectorOutputMetadata> finishTable(Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+        public Optional<ConnectorOutputMetadata> finishTable(Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics, TableExecuteContext tableExecuteContext)
         {
             checkState(!finished, "already finished");
             finished = true;
             this.fragments = fragments;
             this.computedStatistics = computedStatistics;
+            this.tableExecuteContext = tableExecuteContext;
             return Optional.empty();
         }
 
@@ -179,6 +186,11 @@ public class TestTableFinishOperator
         public Collection<ComputedStatistics> getComputedStatistics()
         {
             return computedStatistics;
+        }
+
+        public TableExecuteContext getTableExecuteContext()
+        {
+            return tableExecuteContext;
         }
     }
 }
