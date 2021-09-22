@@ -151,6 +151,7 @@ public class TestMemoryConnectorTest
     }
 
     @Test
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/8691", match = "ComparisonFailure: expected:<LongCount\\{total=\\[\\d+]}> but was:<LongCount\\{total=\\[\\d+]}>")
     public void testCustomMetricsScanOnly()
     {
         Metrics metrics = collectCustomMetrics("SELECT partkey FROM part");
