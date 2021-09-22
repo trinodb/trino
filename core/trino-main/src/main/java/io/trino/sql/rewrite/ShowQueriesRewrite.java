@@ -120,6 +120,7 @@ import static io.trino.sql.QueryUtil.aliased;
 import static io.trino.sql.QueryUtil.aliasedName;
 import static io.trino.sql.QueryUtil.aliasedNullToEmpty;
 import static io.trino.sql.QueryUtil.ascending;
+import static io.trino.sql.QueryUtil.emptyQuery;
 import static io.trino.sql.QueryUtil.equal;
 import static io.trino.sql.QueryUtil.functionCall;
 import static io.trino.sql.QueryUtil.identifier;
@@ -299,18 +300,14 @@ final class ShowQueriesRewrite
                 List<Expression> rows = enabledRoles.stream()
                         .map(role -> row(new StringLiteral(role)))
                         .collect(toList());
-                return simpleQuery(
-                        selectList(new AllColumns()),
-                        aliased(new Values(rows), "role_name", ImmutableList.of("Role")));
+                return singleColumnValues(rows, "Role");
             }
             else {
                 accessControl.checkCanShowRoles(session.toSecurityContext(), catalog);
                 List<Expression> rows = metadata.listRoles(session, catalog).stream()
                         .map(role -> row(new StringLiteral(role)))
                         .collect(toList());
-                return simpleQuery(
-                        selectList(new AllColumns()),
-                        aliased(new Values(rows), "role_name", ImmutableList.of("Role")));
+                return singleColumnValues(rows, "Role");
             }
         }
 
@@ -325,10 +322,19 @@ final class ShowQueriesRewrite
                     .map(roleGrant -> row(new StringLiteral(roleGrant.getRoleName())))
                     .collect(toList());
 
+            return singleColumnValues(rows, "Role Grants");
+        }
+
+        private Query singleColumnValues(List<Expression> rows, String columnName)
+        {
+            List<String> columns = ImmutableList.of(columnName);
+            if (rows.isEmpty()) {
+                return emptyQuery(columns);
+            }
             return simpleQuery(
                     selectList(new AllColumns()),
-                    aliased(new Values(rows), "role_grants", ImmutableList.of("Role Grants")),
-                    ordering(ascending("Role Grants")));
+                    aliased(new Values(rows), "relation", columns),
+                    ordering(ascending(columnName)));
         }
 
         @Override
