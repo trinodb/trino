@@ -4547,6 +4547,48 @@ public class TestHiveConnectorTest
         return format("TIMESTAMP '%s'", TIMESTAMP_FORMATTER.format(timestamp));
     }
 
+    @Test
+    public void testParquetShortDecimalPredicatePushdown()
+    {
+        assertUpdate("DROP TABLE IF EXISTS test_parquet_decimal_predicate_pushdown");
+        assertUpdate("CREATE TABLE test_parquet_decimal_predicate_pushdown (decimal_t DECIMAL(5, 3)) WITH (format = 'PARQUET')");
+        assertUpdate("INSERT INTO test_parquet_decimal_predicate_pushdown VALUES DECIMAL '12.345'", 1);
+
+        assertQuery("SELECT * FROM test_parquet_decimal_predicate_pushdown", "VALUES 12.345");
+        assertQuery("SELECT count(*) FROM test_parquet_decimal_predicate_pushdown WHERE decimal_t = DECIMAL '12.345'", "VALUES 1");
+
+        assertNoDataRead("SELECT * FROM test_parquet_decimal_predicate_pushdown WHERE decimal_t < DECIMAL '12.345'");
+        assertNoDataRead("SELECT * FROM test_parquet_decimal_predicate_pushdown WHERE decimal_t > DECIMAL '12.345'");
+        assertNoDataRead("SELECT * FROM test_parquet_decimal_predicate_pushdown WHERE decimal_t != DECIMAL '12.345'");
+    }
+
+    @Test
+    public void testParquetLongDecimalPredicatePushdown()
+    {
+        assertUpdate("DROP TABLE IF EXISTS test_parquet_long_decimal_predicate_pushdown");
+        assertUpdate("CREATE TABLE test_parquet_long_decimal_predicate_pushdown (decimal_t DECIMAL(20, 3)) WITH (format = 'PARQUET')");
+        assertUpdate("INSERT INTO test_parquet_long_decimal_predicate_pushdown VALUES DECIMAL '12345678900000000.345'", 1);
+
+        assertQuery("SELECT * FROM test_parquet_long_decimal_predicate_pushdown", "VALUES 12345678900000000.345");
+        assertQuery("SELECT count(*) FROM test_parquet_long_decimal_predicate_pushdown WHERE decimal_t = DECIMAL '12345678900000000.345'", "VALUES 1");
+
+        assertNoDataRead("SELECT * FROM test_parquet_long_decimal_predicate_pushdown WHERE decimal_t < DECIMAL '12345678900000000.345'");
+        assertNoDataRead("SELECT * FROM test_parquet_long_decimal_predicate_pushdown WHERE decimal_t > DECIMAL '12345678900000000.345'");
+        assertNoDataRead("SELECT * FROM test_parquet_long_decimal_predicate_pushdown WHERE decimal_t != DECIMAL '12345678900000000.345'");
+    }
+
+    private void assertNoDataRead(@Language("SQL") String sql)
+    {
+        // TODO: replace this with a simple query stats check once we find a way to wait until all pending updates to query stats have been applied
+        // (might be fixed by https://github.com/trinodb/trino/issues/5172)
+        assertEventually(new Duration(5, SECONDS), () -> {
+            DistributedQueryRunner queryRunner = getDistributedQueryRunner();
+            ResultWithQueryId<MaterializedResult> queryResult = queryRunner.executeWithQueryId(getSession(), sql);
+            assertEquals(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputDataSize().toBytes(), 0);
+            assertThat(queryResult.getResult().getRowCount()).isEqualTo(0);
+        });
+    }
+
     private QueryInfo getQueryInfo(DistributedQueryRunner queryRunner, ResultWithQueryId<MaterializedResult> queryResult)
     {
         return queryRunner.getCoordinator().getQueryManager().getFullQueryInfo(queryResult.getQueryId());
