@@ -485,11 +485,11 @@ public final class MetadataManager
     }
 
     @Override
-    public void finishTableExecute(Session session, TableExecuteHandle tableExecuteHandle, Collection<Slice> fragments)
+    public void finishTableExecute(Session session, TableExecuteHandle tableExecuteHandle, Collection<Slice> fragments, List<Object> tableExecuteState)
     {
         CatalogName catalogName = tableExecuteHandle.getCatalogName();
         ConnectorMetadata metadata = getMetadata(session, catalogName);
-        metadata.finishTableExecute(session.toConnectorSession(catalogName), tableExecuteHandle.getConnectorHandle(), fragments);
+        metadata.finishTableExecute(session.toConnectorSession(catalogName), tableExecuteHandle.getConnectorHandle(), fragments, tableExecuteState);
     }
 
     @Override
