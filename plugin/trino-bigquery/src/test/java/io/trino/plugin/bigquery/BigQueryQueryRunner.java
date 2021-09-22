@@ -47,11 +47,13 @@ import static com.google.cloud.bigquery.BigQuery.DatasetListOption.labelFilter;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public final class BigQueryQueryRunner
 {
     private static final Logger log = Logger.get(BigQueryQueryRunner.class);
 
+    private static final String BIGQUERY_CREDENTIALS_KEY = requireNonNull(System.getProperty("bigquery.credentials-key"), "bigquery.credentials-key is not set");
     private static final String TPCH_SCHEMA = "tpch";
 
     private BigQueryQueryRunner() {}
@@ -154,7 +156,7 @@ public final class BigQueryQueryRunner
         private static BigQuery createBigQueryClient()
         {
             try {
-                InputStream jsonKey = new ByteArrayInputStream(Base64.getDecoder().decode(System.getProperty("bigquery.credentials-key")));
+                InputStream jsonKey = new ByteArrayInputStream(Base64.getDecoder().decode(BIGQUERY_CREDENTIALS_KEY));
                 return BigQueryOptions.newBuilder()
                         .setCredentials(ServiceAccountCredentials.fromStream(jsonKey))
                         .build()
