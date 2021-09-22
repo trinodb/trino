@@ -21,6 +21,7 @@ import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
 import io.trino.tests.product.launcher.env.ServerPackage;
+import io.trino.tests.product.launcher.env.SupportedTrinoJdk;
 import io.trino.tests.product.launcher.env.common.Hadoop;
 import io.trino.tests.product.launcher.env.common.Standard;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
@@ -49,6 +50,7 @@ public final class EnvMultinodeHiveCaching
     private final DockerFiles.ResourceProvider configDir;
 
     private final String imagesVersion;
+    private final SupportedTrinoJdk jdkVersion;
     private final File serverPackage;
     private final boolean debug;
 
@@ -59,12 +61,14 @@ public final class EnvMultinodeHiveCaching
             Hadoop hadoop,
             EnvironmentConfig environmentConfig,
             @ServerPackage File serverPackage,
+            SupportedTrinoJdk jdkVersion,
             @Debug boolean debug)
     {
         super(ImmutableList.of(standard, hadoop));
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         this.configDir = dockerFiles.getDockerFilesHostDirectory("conf/environment");
         this.imagesVersion = requireNonNull(environmentConfig, "environmentConfig is null").getImagesVersion();
+        this.jdkVersion = requireNonNull(jdkVersion, "jdkVersion is null");
         this.serverPackage = requireNonNull(serverPackage, "serverPackage is null");
         this.debug = debug;
     }
@@ -86,7 +90,7 @@ public final class EnvMultinodeHiveCaching
     @SuppressWarnings("resource")
     private void createPrestoWorker(Environment.Builder builder, int workerNumber)
     {
-        builder.addContainer(createPrestoContainer(dockerFiles, serverPackage, debug, "ghcr.io/trinodb/testing/centos7-oj11:" + imagesVersion, worker(workerNumber))
+        builder.addContainer(createPrestoContainer(dockerFiles, serverPackage, jdkVersion, debug, "ghcr.io/trinodb/testing/centos7-oj11:" + imagesVersion, worker(workerNumber))
                 .withCopyFileToContainer(forHostPath(configDir.getPath("multinode/multinode-worker-jvm.config")), CONTAINER_PRESTO_JVM_CONFIG)
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/standard-multinode/multinode-worker-config.properties")), CONTAINER_PRESTO_CONFIG_PROPERTIES)
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/hive.properties")), CONTAINER_PRESTO_HIVE_NON_CACHED_PROPERTIES)
