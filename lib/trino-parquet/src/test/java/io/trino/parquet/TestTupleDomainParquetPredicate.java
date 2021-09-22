@@ -41,7 +41,6 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.ByteArrayOutputStream;
-import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -64,7 +63,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
-import static io.trino.spi.type.Decimals.encodeScaledValue;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
@@ -77,6 +75,7 @@ import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.round;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.Float.NaN;
@@ -205,10 +204,12 @@ public class TestTupleDomainParquetPredicate
             throws Exception
     {
         String column = "ShortDecimalColumn";
-        Type type = createDecimalType(5, 0);
+        Type type = createDecimalType(5, 2);
         assertEquals(getDomain(type, 0, null, ID, column, UTC), all(type));
 
-        assertEquals(getDomain(type, 10, longColumnStats(100L, 100L), ID, column, UTC), singleValue(type, 100L));
+        assertEquals(getDomain(type, 10, longColumnStats(10012L, 10012L), ID, column, UTC), singleValue(type, 10012L));
+        // Test that statistics overflowing the size of the type are not used
+        assertEquals(getDomain(type, 10, longColumnStats(100012L, 100012L), ID, column, UTC), notNull(type));
 
         assertEquals(getDomain(type, 10, longColumnStats(0L, 100L), ID, column, UTC), create(ValueSet.ofRanges(range(type, 0L, true, 100L, true)), false));
         // fail on corrupted statistics
@@ -218,13 +219,56 @@ public class TestTupleDomainParquetPredicate
     }
 
     @Test
+    public void testShortDecimalWithNoScale()
+            throws Exception
+    {
+        String column = "ShortDecimalColumnWithNoScale";
+        Type type = createDecimalType(5, 0);
+        assertEquals(getDomain(type, 0, null, ID, column, UTC), all(type));
+
+        assertEquals(getDomain(type, 10, longColumnStats(100L, 100L), ID, column, UTC), singleValue(type, 100L));
+        // Test that statistics overflowing the size of the type are not used
+        assertEquals(getDomain(type, 10, longColumnStats(123456L, 123456), ID, column, UTC), notNull(type));
+
+        assertEquals(getDomain(type, 10, longColumnStats(0L, 100L), ID, column, UTC), create(ValueSet.ofRanges(range(type, 0L, true, 100L, true)), false));
+        // fail on corrupted statistics
+        assertThatExceptionOfType(ParquetCorruptionException.class)
+                .isThrownBy(() -> getDomain(type, 10, longColumnStats(100L, 10L), ID, column, UTC))
+                .withMessage("Corrupted statistics for column \"ShortDecimalColumnWithNoScale\" in Parquet file \"testFile\": [min: 100, max: 10, num_nulls: 0]");
+    }
+
+    @Test
     public void testLongDecimal()
             throws Exception
     {
         String column = "LongDecimalColumn";
+        DecimalType type = createDecimalType(20, 5);
+        BigInteger maximum = new BigInteger("12345678901234512345");
+
+        Slice zero = unscaledDecimal(BigInteger.valueOf(0L));
+        Slice hundred = unscaledDecimal(BigInteger.valueOf(100L));
+        Slice max = unscaledDecimal(maximum);
+
+        assertEquals(getDomain(type, 0, null, ID, column, UTC), all(type));
+        assertEquals(getDomain(type, 10, binaryColumnStats(maximum, maximum), ID, column, UTC), singleValue(type, max));
+
+        assertEquals(
+                getDomain(type, 10, binaryColumnStats(0L, 100L), ID, column, UTC),
+                create(ValueSet.ofRanges(range(type, zero, true, hundred, true)), false));
+        // fail on corrupted statistics
+        assertThatExceptionOfType(ParquetCorruptionException.class)
+                .isThrownBy(() -> getDomain(type, 10, binaryColumnStats(100L, 10L), ID, column, UTC))
+                .withMessage("Corrupted statistics for column \"LongDecimalColumn\" in Parquet file \"testFile\": [min: 0x64, max: 0x0A, num_nulls: 0]");
+    }
+
+    @Test
+    public void testLongDecimalWithNoScale()
+            throws Exception
+    {
+        String column = "LongDecimalColumnWithNoScale";
         DecimalType type = createDecimalType(20, 0);
-        Slice zero = encodeScaledValue(new BigDecimal("0"), type.getScale());
-        Slice hundred = encodeScaledValue(new BigDecimal("100"), type.getScale());
+        Slice zero = unscaledDecimal(BigInteger.valueOf(0L));
+        Slice hundred = unscaledDecimal(BigInteger.valueOf(100L));
         assertEquals(getDomain(type, 0, null, ID, column, UTC), all(type));
 
         assertEquals(getDomain(type, 10, binaryColumnStats(100L, 100L), ID, column, UTC), singleValue(type, hundred));
@@ -233,7 +277,7 @@ public class TestTupleDomainParquetPredicate
         // fail on corrupted statistics
         assertThatExceptionOfType(ParquetCorruptionException.class)
                 .isThrownBy(() -> getDomain(type, 10, binaryColumnStats(100L, 10L), ID, column, UTC))
-                .withMessage("Corrupted statistics for column \"LongDecimalColumn\" in Parquet file \"testFile\": [min: 0x64, max: 0x0A, num_nulls: 0]");
+                .withMessage("Corrupted statistics for column \"LongDecimalColumnWithNoScale\" in Parquet file \"testFile\": [min: 0x64, max: 0x0A, num_nulls: 0]");
     }
 
     @Test
@@ -513,10 +557,15 @@ public class TestTupleDomainParquetPredicate
 
     private static BinaryStatistics binaryColumnStats(long minimum, long maximum)
     {
+        return binaryColumnStats(BigInteger.valueOf(minimum), BigInteger.valueOf(maximum));
+    }
+
+    private static BinaryStatistics binaryColumnStats(BigInteger minimum, BigInteger maximum)
+    {
         BinaryStatistics statistics = new BinaryStatistics();
         statistics.setMinMax(
-                Binary.fromConstantByteArray(BigInteger.valueOf(minimum).toByteArray()),
-                Binary.fromConstantByteArray(BigInteger.valueOf(maximum).toByteArray()));
+                Binary.fromConstantByteArray(minimum.toByteArray()),
+                Binary.fromConstantByteArray(maximum.toByteArray()));
         return statistics;
     }
 
