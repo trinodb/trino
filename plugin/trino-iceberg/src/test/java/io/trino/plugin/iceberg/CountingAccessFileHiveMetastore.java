@@ -54,6 +54,7 @@ public class CountingAccessFileHiveMetastore
         GET_TABLE,
         GET_TABLE_WITH_PARAMETER,
         GET_TABLE_STATISTICS,
+        REPLACE_TABLE,
     }
 
     private final HiveMetastore delegate;
@@ -155,7 +156,8 @@ public class CountingAccessFileHiveMetastore
     @Override
     public void replaceTable(HiveIdentity identity, String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges)
     {
-        throw new UnsupportedOperationException();
+        methodInvocations.add(Methods.REPLACE_TABLE);
+        delegate.replaceTable(identity, databaseName, tableName, newTable, principalPrivileges);
     }
 
     @Override
