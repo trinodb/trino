@@ -25,6 +25,7 @@ import io.trino.plugin.elasticsearch.client.IndexMetadata;
 import io.trino.plugin.elasticsearch.client.IndexMetadata.DateTimeType;
 import io.trino.plugin.elasticsearch.client.IndexMetadata.ObjectType;
 import io.trino.plugin.elasticsearch.client.IndexMetadata.PrimitiveType;
+import io.trino.plugin.elasticsearch.client.IndexMetadata.ScaledFloatType;
 import io.trino.plugin.elasticsearch.decoders.ArrayDecoder;
 import io.trino.plugin.elasticsearch.decoders.BigintDecoder;
 import io.trino.plugin.elasticsearch.decoders.BooleanDecoder;
@@ -333,6 +334,9 @@ public class ElasticsearchMetadata
                 case "binary":
                     return new TypeAndDecoder(VARBINARY, new VarbinaryDecoder.Descriptor(path));
             }
+        }
+        else if (type instanceof ScaledFloatType) {
+            return new TypeAndDecoder(DOUBLE, new DoubleDecoder.Descriptor(path));
         }
         else if (type instanceof DateTimeType) {
             if (((DateTimeType) type).getFormats().isEmpty()) {
