@@ -18,8 +18,8 @@ import static java.util.Objects.requireNonNull;
 /**
  * Basic input stream based on a given Slice object.
  * It is a final class with no inheritance so it performs better than BasicSliceInput
- * The class is not considered fully safe as the readLongUnsafe method used without manual bound
- * check may result in a JVM crash
+ * The class is not considered fully safe as methods suffixed with 'unsafe' keyword used without
+ * manual bound check may result in a JVM crash
  * <p>
  * Note that methods starting with 'read' modify the underlying offset, while 'get' methods return
  * value without modifying the state
