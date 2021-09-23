@@ -135,7 +135,7 @@ import static java.util.stream.Collectors.joining;
 public class MySqlClient
         extends BaseJdbcClient
 {
-    private static final int MAX_SUPPORTED_TIMESTAMP_PRECISION = 6;
+    private static final int MAX_SUPPORTED_DATE_TIME_PRECISION = 6;
     // MySQL driver returns width of timestamp types instead of precision.
     // 19 characters are used for zero-precision timestamps while others
     // require 19 + precision + 1 characters with the additional character
@@ -344,7 +344,7 @@ public class MySqlClient
             return 0;
         }
         int timestampPrecision = timestampColumnSize - ZERO_PRECISION_TIMESTAMP_COLUMN_SIZE - 1;
-        verify(1 <= timestampPrecision && timestampPrecision <= MAX_SUPPORTED_TIMESTAMP_PRECISION, "Unexpected timestamp precision %s calculated from timestamp column size %s", timestampPrecision, timestampColumnSize);
+        verify(1 <= timestampPrecision && timestampPrecision <= MAX_SUPPORTED_DATE_TIME_PRECISION, "Unexpected timestamp precision %s calculated from timestamp column size %s", timestampPrecision, timestampColumnSize);
         return timestampPrecision;
     }
 
@@ -389,11 +389,11 @@ public class MySqlClient
 
         if (type instanceof TimestampType) {
             TimestampType timestampType = (TimestampType) type;
-            if (timestampType.getPrecision() <= MAX_SUPPORTED_TIMESTAMP_PRECISION) {
+            if (timestampType.getPrecision() <= MAX_SUPPORTED_DATE_TIME_PRECISION) {
                 verify(timestampType.getPrecision() <= TimestampType.MAX_SHORT_PRECISION);
                 return WriteMapping.longMapping(format("datetime(%s)", timestampType.getPrecision()), timestampWriteFunction(timestampType));
             }
-            return WriteMapping.objectMapping(format("datetime(%s)", MAX_SUPPORTED_TIMESTAMP_PRECISION), longTimestampWriteFunction(timestampType, MAX_SUPPORTED_TIMESTAMP_PRECISION));
+            return WriteMapping.objectMapping(format("datetime(%s)", MAX_SUPPORTED_DATE_TIME_PRECISION), longTimestampWriteFunction(timestampType, MAX_SUPPORTED_DATE_TIME_PRECISION));
         }
 
         if (VARBINARY.equals(type)) {
