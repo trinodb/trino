@@ -46,12 +46,11 @@ import io.trino.spi.type.TypeOperators;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingNodeManager;
 import io.trino.type.InternalTypeManager;
+import org.jdbi.v3.core.Handle;
+import org.jdbi.v3.core.Jdbi;
 import org.joda.time.DateTime;
 import org.joda.time.Days;
 import org.joda.time.chrono.ISOChronology;
-import org.skife.jdbi.v2.DBI;
-import org.skife.jdbi.v2.Handle;
-import org.skife.jdbi.v2.IDBI;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -66,7 +65,6 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.hash.Hashing.md5;
@@ -81,6 +79,7 @@ import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.plugin.raptor.legacy.DatabaseTesting.createTestingJdbi;
 import static io.trino.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static io.trino.plugin.raptor.legacy.metadata.TestDatabaseShardManager.createShardManager;
 import static io.trino.plugin.raptor.legacy.storage.OrcTestingUtil.createReader;
@@ -150,7 +149,7 @@ public class TestRaptorStorageManager
         fileBackupStore.start();
         backupStore = Optional.of(fileBackupStore);
 
-        IDBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime() + ThreadLocalRandom.current().nextLong());
+        Jdbi dbi = createTestingJdbi();
         dummyHandle = dbi.open();
         createTablesWithRetry(dbi);
 
@@ -568,12 +567,12 @@ public class TestRaptorStorageManager
         return createRaptorStorageManager(storageService, backupStore, recoveryManager, shardRecorder, maxShardRows, maxFileSize);
     }
 
-    public static RaptorStorageManager createRaptorStorageManager(IDBI dbi, File temporary)
+    public static RaptorStorageManager createRaptorStorageManager(Jdbi dbi, File temporary)
     {
         return createRaptorStorageManager(dbi, temporary, MAX_SHARD_ROWS);
     }
 
-    public static RaptorStorageManager createRaptorStorageManager(IDBI dbi, File temporary, int maxShardRows)
+    public static RaptorStorageManager createRaptorStorageManager(Jdbi dbi, File temporary, int maxShardRows)
     {
         File directory = new File(temporary, "data");
         StorageService storageService = new FileStorageService(directory);

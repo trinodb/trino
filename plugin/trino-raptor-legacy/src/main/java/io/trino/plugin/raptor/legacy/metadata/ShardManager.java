@@ -15,7 +15,7 @@ package io.trino.plugin.raptor.legacy.metadata;
 
 import io.trino.plugin.raptor.legacy.RaptorColumnHandle;
 import io.trino.spi.predicate.TupleDomain;
-import org.skife.jdbi.v2.ResultIterator;
+import org.jdbi.v3.core.result.ResultIterator;
 
 import java.util.Collection;
 import java.util.List;

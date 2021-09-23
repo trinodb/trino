@@ -29,8 +29,8 @@ import io.airlift.dbpool.MySqlDataSourceConfig;
 import io.airlift.discovery.client.ServiceDescriptor;
 import io.airlift.discovery.client.testing.StaticServiceSelector;
 import io.trino.plugin.raptor.legacy.util.DaoSupplier;
-import org.skife.jdbi.v2.IDBI;
-import org.skife.jdbi.v2.tweak.ConnectionFactory;
+import org.jdbi.v3.core.ConnectionFactory;
+import org.jdbi.v3.core.Jdbi;
 
 import javax.inject.Inject;
 import javax.inject.Provider;
@@ -113,7 +113,7 @@ public class DatabaseMetadataModule
         public DaoSupplier<T> get()
         {
             checkState(injector != null, "injector was not set");
-            IDBI dbi = injector.getInstance(Key.get(IDBI.class, ForMetadata.class));
+            Jdbi dbi = injector.getInstance(Key.get(Jdbi.class, ForMetadata.class));
             return new DaoSupplier<>(dbi, type);
         }
     }
