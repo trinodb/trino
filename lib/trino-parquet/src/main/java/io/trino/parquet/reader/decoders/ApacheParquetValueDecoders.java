@@ -22,6 +22,8 @@ import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 
 import static io.trino.parquet.ParquetReaderUtils.castToByte;
+import static java.lang.Double.doubleToLongBits;
+import static java.lang.Float.floatToIntBits;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -68,6 +70,80 @@ public class ApacheParquetValueDecoders
         public void skip(int n)
         {
             delegate.skip(n);
+        }
+    }
+
+    public static final class DoubleApacheParquetValueDecoder
+            implements ValueDecoder<long[]>
+    {
+        private final ValuesReader delegate;
+
+        public DoubleApacheParquetValueDecoder(ValuesReader delegate)
+        {
+            this.delegate = requireNonNull(delegate, "delegate is null");
+        }
+
+        @Override
+        public void init(SimpleSliceInputStream input)
+        {
+            initialize(input, delegate, Double.BYTES);
+        }
+
+        @Override
+        public void read(long[] values, int offset, int length)
+        {
+            for (int i = offset; i < offset + length; i++) {
+                values[i] = doubleToLongBits(delegate.readDouble());
+            }
+        }
+
+        @Override
+        public void skip(int n)
+        {
+            delegate.skip(n);
+        }
+    }
+
+    public static final class FloatApacheParquetValueDecoder
+            implements ValueDecoder<int[]>
+    {
+        private final ValuesReader delegate;
+
+        public FloatApacheParquetValueDecoder(ValuesReader delegate)
+        {
+            this.delegate = requireNonNull(delegate, "delegate is null");
+        }
+
+        @Override
+        public void init(SimpleSliceInputStream input)
+        {
+            initialize(input, delegate, Float.BYTES);
+        }
+
+        @Override
+        public void read(int[] values, int offset, int length)
+        {
+            for (int i = offset; i < offset + length; i++) {
+                values[i] = floatToIntBits(delegate.readFloat());
+            }
+        }
+
+        @Override
+        public void skip(int n)
+        {
+            delegate.skip(n);
+        }
+    }
+
+    private static void initialize(SimpleSliceInputStream input, ValuesReader reader, int elementSizeInBytes)
+    {
+        byte[] buffer = input.readBytes();
+        try {
+            int valueCount = buffer.length / elementSizeInBytes;
+            reader.initFromPage(valueCount, ByteBufferInputStream.wrap(ByteBuffer.wrap(buffer, 0, buffer.length)));
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
         }
     }
 }

@@ -37,6 +37,7 @@ import org.apache.parquet.schema.PrimitiveType;
 import org.joda.time.DateTimeZone;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.parquet.ParquetEncoding.BYTE_STREAM_SPLIT;
 import static io.trino.parquet.ParquetEncoding.DELTA_BYTE_ARRAY;
 import static io.trino.parquet.ParquetEncoding.PLAIN;
 import static io.trino.parquet.ParquetReaderUtils.toByteExact;
@@ -45,6 +46,8 @@ import static io.trino.parquet.ParquetTypeUtils.checkBytesFitInShortDecimal;
 import static io.trino.parquet.ParquetTypeUtils.getShortDecimalValue;
 import static io.trino.parquet.ValuesType.VALUES;
 import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoders.BooleanApacheParquetValueDecoder;
+import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoders.DoubleApacheParquetValueDecoder;
+import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoders.FloatApacheParquetValueDecoder;
 import static io.trino.parquet.reader.decoders.DeltaBinaryPackedDecoders.DeltaBinaryPackedByteDecoder;
 import static io.trino.parquet.reader.decoders.DeltaBinaryPackedDecoders.DeltaBinaryPackedIntDecoder;
 import static io.trino.parquet.reader.decoders.DeltaBinaryPackedDecoders.DeltaBinaryPackedLongDecoder;
@@ -112,6 +115,9 @@ public final class ValueDecoders
         if (PLAIN.equals(encoding)) {
             return new LongPlainValueDecoder();
         }
+        else if (BYTE_STREAM_SPLIT.equals(encoding)) {
+            return new DoubleApacheParquetValueDecoder(getApacheParquetReader(encoding));
+        }
         throw wrongEncoding(encoding);
     }
 
@@ -119,6 +125,9 @@ public final class ValueDecoders
     {
         if (PLAIN.equals(encoding)) {
             return new IntPlainValueDecoder();
+        }
+        else if (BYTE_STREAM_SPLIT.equals(encoding)) {
+            return new FloatApacheParquetValueDecoder(getApacheParquetReader(encoding));
         }
         throw wrongEncoding(encoding);
     }

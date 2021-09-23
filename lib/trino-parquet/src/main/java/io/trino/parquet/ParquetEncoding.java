@@ -23,6 +23,8 @@ import org.apache.parquet.bytes.BytesUtils;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.values.ValuesReader;
 import org.apache.parquet.column.values.bitpacking.ByteBitPackingValuesReader;
+import org.apache.parquet.column.values.bytestreamsplit.ByteStreamSplitValuesReaderForDouble;
+import org.apache.parquet.column.values.bytestreamsplit.ByteStreamSplitValuesReaderForFloat;
 import org.apache.parquet.column.values.delta.DeltaBinaryPackingValuesReader;
 import org.apache.parquet.column.values.deltalengthbytearray.DeltaLengthByteArrayValuesReader;
 import org.apache.parquet.column.values.deltastrings.DeltaByteArrayReader;
@@ -44,7 +46,9 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static org.apache.parquet.column.values.bitpacking.Packer.BIG_ENDIAN;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BOOLEAN;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.DOUBLE;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.FLOAT;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
 
@@ -148,6 +152,20 @@ public enum ParquetEncoding
                 throws IOException
         {
             return PLAIN.initDictionary(descriptor, dictionaryPage);
+        }
+    },
+
+    BYTE_STREAM_SPLIT {
+        @Override
+        public ValuesReader getValuesReader(ColumnDescriptor descriptor, ValuesType valuesType)
+        {
+            PrimitiveTypeName typeName = descriptor.getPrimitiveType().getPrimitiveTypeName();
+            checkArgument(typeName == FLOAT || typeName == DOUBLE, "Encoding BYTE_STREAM_SPLIT is only " +
+                    "supported for type FLOAT and DOUBLE");
+            if (typeName == FLOAT) {
+                return new ByteStreamSplitValuesReaderForFloat();
+            }
+            return new ByteStreamSplitValuesReaderForDouble();
         }
     };
 

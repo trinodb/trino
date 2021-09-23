@@ -162,8 +162,7 @@ public final class ParquetTypeUtils
             case RLE:
                 return ParquetEncoding.RLE;
             case BYTE_STREAM_SPLIT:
-                // TODO: https://github.com/trinodb/trino/issues/8357
-                throw new ParquetDecodingException("Unsupported Parquet encoding: " + encoding);
+                return ParquetEncoding.BYTE_STREAM_SPLIT;
             case BIT_PACKED:
                 return ParquetEncoding.BIT_PACKED;
             case PLAIN_DICTIONARY:
