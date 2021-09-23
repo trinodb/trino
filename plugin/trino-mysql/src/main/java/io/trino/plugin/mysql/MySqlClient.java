@@ -53,6 +53,7 @@ import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
@@ -106,6 +107,8 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.realWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.shortDecimalWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.timeColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.timeWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timestampColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timestampWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintColumnMapping;
@@ -122,6 +125,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimeType.createTimeType;
 import static io.trino.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
@@ -141,6 +145,8 @@ public class MySqlClient
     // require 19 + precision + 1 characters with the additional character
     // required for the decimal separator.
     private static final int ZERO_PRECISION_TIMESTAMP_COLUMN_SIZE = 19;
+    // MySQL driver returns width of time types instead of precision, same as the above timestamp type.
+    private static final int ZERO_PRECISION_TIME_COLUMN_SIZE = 8;
 
     private final Type jsonType;
     private final AggregateFunctionRewriter<JdbcExpression> aggregateFunctionRewriter;
@@ -329,6 +335,10 @@ public class MySqlClient
             case Types.DATE:
                 return Optional.of(dateColumnMapping());
 
+            case Types.TIME:
+                TimeType timeType = createTimeType(getTimePrecision(typeHandle.getRequiredColumnSize()));
+                return Optional.of(timeColumnMapping(timeType));
+
             case Types.TIMESTAMP:
                 TimestampType timestampType = createTimestampType(getTimestampPrecision(typeHandle.getRequiredColumnSize()));
                 return Optional.of(timestampColumnMapping(timestampType));
@@ -346,6 +356,16 @@ public class MySqlClient
         int timestampPrecision = timestampColumnSize - ZERO_PRECISION_TIMESTAMP_COLUMN_SIZE - 1;
         verify(1 <= timestampPrecision && timestampPrecision <= MAX_SUPPORTED_DATE_TIME_PRECISION, "Unexpected timestamp precision %s calculated from timestamp column size %s", timestampPrecision, timestampColumnSize);
         return timestampPrecision;
+    }
+
+    private static int getTimePrecision(int timeColumnSize)
+    {
+        if (timeColumnSize == ZERO_PRECISION_TIME_COLUMN_SIZE) {
+            return 0;
+        }
+        int timePrecision = timeColumnSize - ZERO_PRECISION_TIME_COLUMN_SIZE - 1;
+        verify(1 <= timePrecision && timePrecision <= MAX_SUPPORTED_DATE_TIME_PRECISION, "Unexpected time precision %s calculated from time column size %s", timePrecision, timeColumnSize);
+        return timePrecision;
     }
 
     @Override
@@ -381,6 +401,14 @@ public class MySqlClient
 
         if (type == DATE) {
             return WriteMapping.longMapping("date", dateWriteFunction());
+        }
+
+        if (type instanceof TimeType) {
+            TimeType timeType = (TimeType) type;
+            if (timeType.getPrecision() <= MAX_SUPPORTED_DATE_TIME_PRECISION) {
+                return WriteMapping.longMapping(format("time(%s)", timeType.getPrecision()), timeWriteFunction(timeType.getPrecision()));
+            }
+            return WriteMapping.longMapping(format("time(%s)", MAX_SUPPORTED_DATE_TIME_PRECISION), timeWriteFunction(MAX_SUPPORTED_DATE_TIME_PRECISION));
         }
 
         if (TIME_WITH_TIME_ZONE.equals(type) || TIMESTAMP_TZ_MILLIS.equals(type)) {
