@@ -367,8 +367,9 @@ public class SnowflakeClient
         }
 
         if (typeHandle.getJdbcType() == VARCHAR) {
+            // The max varchar size is different between distributed connector and JDBC connector
             if (distributedConnector) {
-                return Optional.of(updatePushdownCotroller(varcharColumnMapping(createVarcharType(min(typeHandle.getRequiredColumnSize(), HiveVarchar.MAX_VARCHAR_LENGTH)), true)));
+                return Optional.of(varcharColumnMapping(createVarcharType(min(typeHandle.getRequiredColumnSize(), HiveVarchar.MAX_VARCHAR_LENGTH)), true));
             }
             return Optional.of(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize(), true));
         }
