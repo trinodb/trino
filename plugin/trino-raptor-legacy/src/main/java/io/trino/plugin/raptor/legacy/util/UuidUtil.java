@@ -15,15 +15,14 @@ package io.trino.plugin.raptor.legacy.util;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import org.skife.jdbi.v2.ResultSetMapperFactory;
-import org.skife.jdbi.v2.StatementContext;
-import org.skife.jdbi.v2.tweak.Argument;
-import org.skife.jdbi.v2.tweak.ArgumentFactory;
-import org.skife.jdbi.v2.tweak.ResultSetMapper;
-import org.skife.jdbi.v2.util.TypedMapper;
+import org.jdbi.v3.core.argument.AbstractArgumentFactory;
+import org.jdbi.v3.core.argument.Argument;
+import org.jdbi.v3.core.argument.internal.strategies.LoggableBinderArgument;
+import org.jdbi.v3.core.config.ConfigRegistry;
+import org.jdbi.v3.core.mapper.ColumnMapper;
+import org.jdbi.v3.core.statement.StatementContext;
 
 import java.nio.ByteBuffer;
-import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
@@ -34,79 +33,26 @@ public final class UuidUtil
     private UuidUtil() {}
 
     public static final class UuidArgumentFactory
-            implements ArgumentFactory<UUID>
+            extends AbstractArgumentFactory<UUID>
     {
-        @Override
-        public boolean accepts(Class<?> expectedType, Object value, StatementContext ctx)
+        public UuidArgumentFactory()
         {
-            return value instanceof UUID;
+            super(Types.VARBINARY);
         }
 
         @Override
-        public Argument build(Class<?> expectedType, UUID value, StatementContext ctx)
+        protected Argument build(UUID uuid, ConfigRegistry config)
         {
-            return new UuidArgument(value);
+            return new LoggableBinderArgument<>(uuid, (statement, index, value) ->
+                    statement.setBytes(index, uuidToBytes(value)));
         }
     }
 
-    public static final class UuidArgument
-            implements Argument
-    {
-        private final UUID uuid;
-
-        public UuidArgument(UUID uuid)
-        {
-            this.uuid = uuid;
-        }
-
-        @Override
-        public void apply(int position, PreparedStatement statement, StatementContext ctx)
-                throws SQLException
-        {
-            if (uuid == null) {
-                statement.setNull(position, Types.VARBINARY);
-            }
-            else {
-                statement.setBytes(position, uuidToBytes(uuid));
-            }
-        }
-
-        @Override
-        public String toString()
-        {
-            return String.valueOf(uuid);
-        }
-    }
-
-    @SuppressWarnings("rawtypes")
-    public static class UuidMapperFactory
-            implements ResultSetMapperFactory
+    public static final class UuidColumnMapper
+            implements ColumnMapper<UUID>
     {
         @Override
-        public boolean accepts(Class type, StatementContext ctx)
-        {
-            return type == UUID.class;
-        }
-
-        @Override
-        public ResultSetMapper mapperFor(Class type, StatementContext ctx)
-        {
-            return new UuidMapper();
-        }
-    }
-
-    public static final class UuidMapper
-            extends TypedMapper<UUID>
-    {
-        @Override
-        protected UUID extractByName(ResultSet r, String name)
-                throws SQLException
-        {
-            return uuidFromBytes(r.getBytes(name));
-        }
-
-        @Override
-        protected UUID extractByIndex(ResultSet r, int index)
+        public UUID map(ResultSet r, int index, StatementContext ctx)
                 throws SQLException
         {
             return uuidFromBytes(r.getBytes(index));

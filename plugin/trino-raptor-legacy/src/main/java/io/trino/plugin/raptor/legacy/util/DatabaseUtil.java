@@ -15,10 +15,10 @@ package io.trino.plugin.raptor.legacy.util;
 
 import com.google.common.base.Throwables;
 import io.trino.spi.TrinoException;
-import org.skife.jdbi.v2.Handle;
-import org.skife.jdbi.v2.IDBI;
-import org.skife.jdbi.v2.TransactionCallback;
-import org.skife.jdbi.v2.exceptions.DBIException;
+import org.jdbi.v3.core.Handle;
+import org.jdbi.v3.core.HandleCallback;
+import org.jdbi.v3.core.Jdbi;
+import org.jdbi.v3.core.JdbiException;
 
 import java.lang.reflect.InvocationTargetException;
 import java.sql.PreparedStatement;
@@ -42,7 +42,7 @@ public final class DatabaseUtil
 {
     private DatabaseUtil() {}
 
-    public static <T> T onDemandDao(IDBI dbi, Class<T> daoType)
+    public static <T> T onDemandDao(Jdbi dbi, Class<T> daoType)
     {
         requireNonNull(dbi, "dbi is null");
         return newProxy(daoType, (proxy, method, args) -> {
@@ -50,7 +50,7 @@ public final class DatabaseUtil
                 T dao = handle.attach(daoType);
                 return method.invoke(dao, args);
             }
-            catch (DBIException e) {
+            catch (JdbiException e) {
                 throw metadataError(e);
             }
             catch (InvocationTargetException e) {
@@ -59,12 +59,12 @@ public final class DatabaseUtil
         });
     }
 
-    public static <T> T runTransaction(IDBI dbi, TransactionCallback<T> callback)
+    public static <T> T runTransaction(Jdbi dbi, HandleCallback<T, RuntimeException> callback)
     {
         try {
             return dbi.inTransaction(callback);
         }
-        catch (DBIException e) {
+        catch (JdbiException e) {
             if (e.getCause() != null) {
                 throwIfInstanceOf(e.getCause(), TrinoException.class);
             }
@@ -72,9 +72,9 @@ public final class DatabaseUtil
         }
     }
 
-    public static <T> void daoTransaction(IDBI dbi, Class<T> daoType, Consumer<T> callback)
+    public static <T> void daoTransaction(Jdbi dbi, Class<T> daoType, Consumer<T> callback)
     {
-        runTransaction(dbi, (handle, status) -> {
+        runTransaction(dbi, handle -> {
             callback.accept(handle.attach(daoType));
             return null;
         });

@@ -15,7 +15,7 @@ package io.trino.plugin.raptor.legacy;
 
 import io.trino.plugin.raptor.legacy.metadata.ForMetadata;
 import io.trino.plugin.raptor.legacy.metadata.ShardManager;
-import org.skife.jdbi.v2.IDBI;
+import org.jdbi.v3.core.Jdbi;
 
 import javax.inject.Inject;
 
@@ -25,11 +25,11 @@ import static java.util.Objects.requireNonNull;
 
 public class RaptorMetadataFactory
 {
-    private final IDBI dbi;
+    private final Jdbi dbi;
     private final ShardManager shardManager;
 
     @Inject
-    public RaptorMetadataFactory(@ForMetadata IDBI dbi, ShardManager shardManager)
+    public RaptorMetadataFactory(@ForMetadata Jdbi dbi, ShardManager shardManager)
     {
         this.dbi = requireNonNull(dbi, "dbi is null");
         this.shardManager = requireNonNull(shardManager, "shardManager is null");

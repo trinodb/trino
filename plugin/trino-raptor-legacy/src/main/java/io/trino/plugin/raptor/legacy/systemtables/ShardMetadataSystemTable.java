@@ -20,7 +20,7 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.TupleDomain;
-import org.skife.jdbi.v2.IDBI;
+import org.jdbi.v3.core.Jdbi;
 
 import javax.inject.Inject;
 
@@ -31,10 +31,10 @@ import static java.util.Objects.requireNonNull;
 public class ShardMetadataSystemTable
         implements SystemTable
 {
-    private final IDBI dbi;
+    private final Jdbi dbi;
 
     @Inject
-    public ShardMetadataSystemTable(@ForMetadata IDBI dbi)
+    public ShardMetadataSystemTable(@ForMetadata Jdbi dbi)
     {
         this.dbi = requireNonNull(dbi, "dbi is null");
     }

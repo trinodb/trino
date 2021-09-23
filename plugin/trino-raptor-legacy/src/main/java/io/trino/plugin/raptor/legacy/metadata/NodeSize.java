@@ -13,11 +13,8 @@
  */
 package io.trino.plugin.raptor.legacy.metadata;
 
-import org.skife.jdbi.v2.StatementContext;
-import org.skife.jdbi.v2.tweak.ResultSetMapper;
+import org.jdbi.v3.core.mapper.reflect.ColumnName;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -29,7 +26,7 @@ public class NodeSize
     private final String nodeIdentifier;
     private final long sizeInBytes;
 
-    public NodeSize(String nodeIdentifier, long sizeInBytes)
+    public NodeSize(String nodeIdentifier, @ColumnName("bytes") long sizeInBytes)
     {
         this.nodeIdentifier = requireNonNull(nodeIdentifier, "nodeIdentifier is null");
         checkArgument(sizeInBytes >= 0, "sizeInBytes must be >= 0");
@@ -73,18 +70,5 @@ public class NodeSize
                 .add("nodeIdentifier", nodeIdentifier)
                 .add("sizeInBytes", sizeInBytes)
                 .toString();
-    }
-
-    public static class Mapper
-            implements ResultSetMapper<NodeSize>
-    {
-        @Override
-        public NodeSize map(int index, ResultSet rs, StatementContext context)
-                throws SQLException
-        {
-            return new NodeSize(
-                    rs.getString("node_identifier"),
-                    rs.getLong("bytes"));
-        }
     }
 }
