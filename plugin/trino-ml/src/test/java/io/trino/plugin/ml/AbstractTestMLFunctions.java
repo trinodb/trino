@@ -23,7 +23,7 @@ abstract class AbstractTestMLFunctions
         extends AbstractTestFunctions
 {
     @BeforeClass
-    protected void registerFunctions()
+    public void registerFunctions()
     {
         functionAssertions.getMetadata().addFunctions(
                 extractFunctions(new MLPlugin().getFunctions()));
