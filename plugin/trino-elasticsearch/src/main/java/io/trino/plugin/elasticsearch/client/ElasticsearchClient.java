@@ -604,7 +604,6 @@ public class ElasticsearchClient
                     }
                     result.add(new IndexMetadata.Field(asRawJson, isArray, name, new IndexMetadata.DateTimeType(formats)));
                     break;
-
                 case "nested":
                 case "object":
                     if (value.has("properties")) {
