@@ -832,6 +832,43 @@ public class TestHiveTransactionalTable
         });
     }
 
+    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
+    public void testDeleteAfterDelete()
+    {
+        withTemporaryTable("delete_after_delete", true, false, NONE, tableName -> {
+            onTrino().executeQuery(format("CREATE TABLE %s (id INT) WITH (transactional = true)", tableName));
+
+            onTrino().executeQuery(format("INSERT INTO %s VALUES (1), (2), (3)", tableName));
+
+            onTrino().executeQuery(format("DELETE FROM %s WHERE id = 2", tableName));
+
+            verifySelectForTrinoAndHive("SELECT * FROM " + tableName, "true", row(1), row(3));
+
+            onTrino().executeQuery("DELETE FROM " + tableName);
+
+            assertThat(onTrino().executeQuery("SELECT count(*) FROM " + tableName)).containsOnly(row(0));
+        });
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
+    public void testDeleteAfterDeleteWithPredicate()
+    {
+        withTemporaryTable("delete_after_delete_predicate", true, false, NONE, tableName -> {
+            onTrino().executeQuery(format("CREATE TABLE %s (id INT) WITH (transactional = true)", tableName));
+
+            onTrino().executeQuery(format("INSERT INTO %s VALUES (1), (2), (3)", tableName));
+
+            onTrino().executeQuery(format("DELETE FROM %s WHERE id = 2", tableName));
+
+            verifySelectForTrinoAndHive("SELECT * FROM " + tableName, "true", row(1), row(3));
+
+            // A predicate sufficient to fool statistics-based optimization
+            onTrino().executeQuery(format("DELETE FROM %s WHERE id != 2", tableName));
+
+            assertThat(onTrino().executeQuery("SELECT count(*) FROM " + tableName)).containsOnly(row(0));
+        });
+    }
+
     @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
     public void testBucketedUnpartitionedDelete(Engine inserter, Engine deleter)
     {

@@ -311,7 +311,9 @@ public interface Block
     }
 
     /**
-     * Gets the direct child blocks of this block.
+     * Gets the direct child blocks of this block. This method is an internal subroutine
+     * of the {@link Block} API, and should never be called directly.  To take apart
+     * {@link Block} components, see {@link ColumnarRow}
      */
     default List<Block> getChildren()
     {
