@@ -1,4 +1,5 @@
 io.trino.testng.services.ReportOrphanedExecutors
+io.trino.testng.services.ReportPrivateMethods
 io.trino.testng.services.ReportUnannotatedMethods
 io.trino.testng.services.ReportIllNamedTest
 io.trino.testng.services.ReportMultiThreadedBeforeOrAfterMethod
