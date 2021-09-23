@@ -37,6 +37,7 @@ public class SnowflakeDistributedSessionProperties
     private static final String IGNORE_ABSENT_PARTITIONS = "ignore_absent_partitions";
     private static final String PARTITION_USE_COLUMN_NAMES = "partition_use_column_names";
     private static final String PARQUET_MAX_READ_BLOCK_SIZE = "parquet_max_read_block_size";
+    private static final String PARQUET_USE_COLUMN_INDEX = "parquet_use_column_index";
     private static final String DYNAMIC_FILTERING_PROBE_BLOCKING_TIMEOUT = "dynamic_filtering_probe_blocking_timeout";
     private static final String RETRY_CANCELED_QUERIES = "retry_canceled_queries";
     private static final String VALIDATE_BUCKETING = "validate_bucketing";
@@ -69,6 +70,11 @@ public class SnowflakeDistributedSessionProperties
                         PARQUET_MAX_READ_BLOCK_SIZE,
                         "Parquet: Maximum size of a block to read",
                         snowflakeConfig.getParquetMaxReadBlockSize(),
+                        false),
+                booleanProperty(
+                        PARQUET_USE_COLUMN_INDEX,
+                        "Parquet: Use Parquet column index",
+                        snowflakeConfig.isUseColumnIndex(),
                         false),
                 booleanProperty(
                         RETRY_CANCELED_QUERIES,
@@ -122,6 +128,11 @@ public class SnowflakeDistributedSessionProperties
     public static DataSize getParquetMaxReadBlockSize(ConnectorSession session)
     {
         return session.getProperty(PARQUET_MAX_READ_BLOCK_SIZE, DataSize.class);
+    }
+
+    public static boolean isParquetUseColumnIndex(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_USE_COLUMN_INDEX, Boolean.class);
     }
 
     public static boolean retryCanceledQueries(ConnectorSession session)

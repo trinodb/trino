@@ -37,6 +37,7 @@ public class TestSnowflakeDistributedConfig
                 .setMaxInitialSplitSize(DataSize.of(32, MEGABYTE))
                 .setMaxSplitSize(DataSize.of(64, MEGABYTE))
                 .setParquetMaxReadBlockSize(DataSize.of(16, MEGABYTE))
+                .setUseColumnIndex(true)
                 .setExportFileMaxSize(DataSize.of(5, GIGABYTE))
                 .setMaxExportRetries(3)
                 .setRetryCanceledQueries(false));
@@ -50,6 +51,7 @@ public class TestSnowflakeDistributedConfig
                 .put("snowflake.max-initial-split-size", "31MB")
                 .put("snowflake.max-split-size", "222MB")
                 .put("snowflake.parquet.max-read-block-size", "66kB")
+                .put("snowflake.parquet.use-column-index", "false")
                 .put("snowflake.export-file-max-size", "333MB")
                 .put("snowflake.max-export-retries", "42")
                 .put("snowflake.retry-canceled-queries", "true")
@@ -60,6 +62,7 @@ public class TestSnowflakeDistributedConfig
                 .setMaxInitialSplitSize(DataSize.of(31, MEGABYTE))
                 .setMaxSplitSize(DataSize.of(222, MEGABYTE))
                 .setParquetMaxReadBlockSize(DataSize.of(66, KILOBYTE))
+                .setUseColumnIndex(false)
                 .setExportFileMaxSize(DataSize.of(333, MEGABYTE))
                 .setMaxExportRetries(42)
                 .setRetryCanceledQueries(true);

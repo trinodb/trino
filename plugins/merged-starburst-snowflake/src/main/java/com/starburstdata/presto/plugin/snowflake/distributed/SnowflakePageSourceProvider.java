@@ -50,6 +50,7 @@ import static com.starburstdata.presto.plugin.snowflake.distributed.HiveUtils.ge
 import static com.starburstdata.presto.plugin.snowflake.distributed.HiveUtils.getHiveColumnHandles;
 import static com.starburstdata.presto.plugin.snowflake.distributed.HiveUtils.validateStageType;
 import static com.starburstdata.presto.plugin.snowflake.distributed.SnowflakeDistributedSessionProperties.getParquetMaxReadBlockSize;
+import static com.starburstdata.presto.plugin.snowflake.distributed.SnowflakeDistributedSessionProperties.isParquetUseColumnIndex;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static java.lang.String.format;
@@ -68,7 +69,8 @@ class SnowflakePageSourceProvider
     public SnowflakePageSourceProvider(FileFormatDataSourceStats stats, SnowflakeDistributedConfig config)
     {
         this.stats = requireNonNull(stats, "stats is null");
-        this.parquetReaderConfig = new ParquetReaderConfig().setMaxReadBlockSize(config.getParquetMaxReadBlockSize());
+        this.parquetReaderConfig = new ParquetReaderConfig().setMaxReadBlockSize(config.getParquetMaxReadBlockSize())
+                .setUseColumnIndex(config.isUseColumnIndex());
     }
 
     @Override
@@ -146,7 +148,8 @@ class SnowflakePageSourceProvider
                 parquetTimeZone,
                 stats,
                 parquetReaderConfig.toParquetReaderOptions()
-                        .withMaxReadBlockSize(getParquetMaxReadBlockSize(session)));
+                        .withMaxReadBlockSize(getParquetMaxReadBlockSize(session))
+                        .withUseColumnIndex(isParquetUseColumnIndex(session)));
 
         verify(pageSource.getReaderColumns().isEmpty(), "All columns expected to be base columns");
 

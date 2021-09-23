@@ -29,6 +29,7 @@ public class SnowflakeDistributedConfig
     private DataSize maxInitialSplitSize;
     private DataSize maxSplitSize = DataSize.of(64, MEGABYTE);
     private DataSize parquetMaxReadBlockSize = DataSize.of(16, MEGABYTE);
+    private boolean useColumnIndex = true;
     private DataSize exportFileMaxSize = DataSize.of(5, GIGABYTE);
     private int maxExportRetries = 3;
     private boolean retryCanceledQueries;
@@ -86,6 +87,19 @@ public class SnowflakeDistributedConfig
     {
         this.parquetMaxReadBlockSize = parquetMaxReadBlockSize;
         return this;
+    }
+
+    @Config("snowflake.parquet.use-column-index")
+    @ConfigDescription("Enable using Parquet column indexes")
+    public SnowflakeDistributedConfig setUseColumnIndex(boolean useColumnIndex)
+    {
+        this.useColumnIndex = useColumnIndex;
+        return this;
+    }
+
+    public boolean isUseColumnIndex()
+    {
+        return useColumnIndex;
     }
 
     @MinDataSize(value = "1MB", message = "The export file max size must at least 1MB")
