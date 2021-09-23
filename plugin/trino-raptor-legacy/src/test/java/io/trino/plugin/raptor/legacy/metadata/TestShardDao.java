@@ -15,10 +15,9 @@ package io.trino.plugin.raptor.legacy.metadata;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import org.skife.jdbi.v2.DBI;
-import org.skife.jdbi.v2.Handle;
-import org.skife.jdbi.v2.IDBI;
-import org.skife.jdbi.v2.exceptions.UnableToExecuteStatementException;
+import org.jdbi.v3.core.Handle;
+import org.jdbi.v3.core.Jdbi;
+import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -28,9 +27,9 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
 
 import static io.airlift.testing.Assertions.assertInstanceOf;
+import static io.trino.plugin.raptor.legacy.DatabaseTesting.createTestingJdbi;
 import static io.trino.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
@@ -42,13 +41,13 @@ import static org.testng.Assert.assertTrue;
 public class TestShardDao
 {
     private TestingShardDao dao;
-    private IDBI dbi;
+    private Jdbi dbi;
     private Handle dummyHandle;
 
     @BeforeMethod
     public void setup()
     {
-        dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime() + ThreadLocalRandom.current().nextLong());
+        dbi = createTestingJdbi();
         dummyHandle = dbi.open();
         dao = dbi.onDemand(TestingShardDao.class);
         createTablesWithRetry(dbi);

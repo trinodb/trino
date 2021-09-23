@@ -13,12 +13,6 @@
  */
 package io.trino.plugin.raptor.legacy.metadata;
 
-import org.skife.jdbi.v2.StatementContext;
-import org.skife.jdbi.v2.tweak.ResultSetMapper;
-
-import java.sql.ResultSet;
-import java.sql.SQLException;
-
 import static java.util.Objects.requireNonNull;
 
 public class TableStatsRow
@@ -98,25 +92,5 @@ public class TableStatsRow
     public long getUncompressedSize()
     {
         return uncompressedSize;
-    }
-
-    public static class Mapper
-            implements ResultSetMapper<TableStatsRow>
-    {
-        @Override
-        public TableStatsRow map(int index, ResultSet rs, StatementContext context)
-                throws SQLException
-        {
-            return new TableStatsRow(
-                    rs.getString("schema_name"),
-                    rs.getString("table_name"),
-                    rs.getLong("create_time"),
-                    rs.getLong("update_time"),
-                    rs.getLong("table_version"),
-                    rs.getLong("shard_count"),
-                    rs.getLong("row_count"),
-                    rs.getLong("compressed_size"),
-                    rs.getLong("uncompressed_size"));
-        }
     }
 }

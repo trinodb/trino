@@ -14,8 +14,8 @@
 package io.trino.plugin.raptor.legacy.metadata;
 
 import io.airlift.units.DataSize;
-import org.skife.jdbi.v2.StatementContext;
-import org.skife.jdbi.v2.tweak.ResultSetMapper;
+import org.jdbi.v3.core.mapper.RowMapper;
+import org.jdbi.v3.core.statement.StatementContext;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -206,10 +206,10 @@ public class ShardMetadata
     }
 
     public static class Mapper
-            implements ResultSetMapper<ShardMetadata>
+            implements RowMapper<ShardMetadata>
     {
         @Override
-        public ShardMetadata map(int index, ResultSet r, StatementContext ctx)
+        public ShardMetadata map(ResultSet r, StatementContext ctx)
                 throws SQLException
         {
             return new ShardMetadata(
