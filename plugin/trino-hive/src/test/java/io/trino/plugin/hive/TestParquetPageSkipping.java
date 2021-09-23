@@ -14,16 +14,19 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestParquetPageSkipping
@@ -85,6 +88,10 @@ public class TestParquetPageSkipping
         buildSortedTables(tableName, "totalprice", "double");
         int rowCount = assertSameResults("SELECT * FROM " + tableName + " WHERE totalprice BETWEEN 100000 AND 131280 AND clerk = 'Clerk#000000624'");
         assertThat(rowCount).isGreaterThan(0);
+
+        // `totalprice BETWEEN 51890 AND 51900` is chosen to lie between min/max values of row group
+        // but outside page level min/max boundaries to trigger pruning of row group using column index
+        assertRowGroupPruning("SELECT * FROM " + tableName + " WHERE totalprice BETWEEN 51890 AND 51900 AND orderkey > 0");
         assertUpdate("DROP TABLE " + tableName);
     }
 
@@ -114,12 +121,32 @@ public class TestParquetPageSkipping
     private int assertSameResults(String query)
     {
         MaterializedResult withColumnIndexing = computeActual(query);
-        MaterializedResult withoutColumnIndexing = computeActual(Session.builder(getSession())
-                        .setCatalogSessionProperty(getSession().getCatalog().get(), "parquet_use_column_index", "false")
-                        .build(),
-                query);
+        MaterializedResult withoutColumnIndexing = computeActual(noParquetColumnIndexFiltering(getSession()), query);
         assertEquals(withColumnIndexing, withoutColumnIndexing);
         return withoutColumnIndexing.getRowCount();
+    }
+
+    private void assertRowGroupPruning(@Language("SQL") String sql)
+    {
+        assertQueryStats(
+                noParquetColumnIndexFiltering(getSession()),
+                sql,
+                queryStats -> {
+                    assertThat(queryStats.getPhysicalInputPositions()).isGreaterThan(0);
+                    assertThat(queryStats.getProcessedInputPositions()).isEqualTo(queryStats.getPhysicalInputPositions());
+                },
+                results -> assertThat(results.getRowCount()).isEqualTo(0),
+                new Duration(10, SECONDS));
+
+        assertQueryStats(
+                getSession(),
+                sql,
+                queryStats -> {
+                    assertThat(queryStats.getPhysicalInputPositions()).isEqualTo(0);
+                    assertThat(queryStats.getProcessedInputPositions()).isEqualTo(0);
+                },
+                results -> assertThat(results.getRowCount()).isEqualTo(0),
+                new Duration(10, SECONDS));
     }
 
     @DataProvider
@@ -145,5 +172,12 @@ public class TestParquetPageSkipping
                 {"custkey", "integer", new Object[][] {{4, 634, 640, 1493}}},
                 {"custkey", "smallint", new Object[][] {{4, 634, 640, 1493}}}
         };
+    }
+
+    private Session noParquetColumnIndexFiltering(Session session)
+    {
+        return Session.builder(session)
+                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "parquet_use_column_index", "false")
+                .build();
     }
 }
