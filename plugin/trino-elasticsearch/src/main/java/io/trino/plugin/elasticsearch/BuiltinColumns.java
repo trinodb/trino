@@ -13,6 +13,9 @@
  */
 package io.trino.plugin.elasticsearch;
 
+import io.trino.plugin.elasticsearch.decoders.IdColumnDecoder;
+import io.trino.plugin.elasticsearch.decoders.ScoreColumnDecoder;
+import io.trino.plugin.elasticsearch.decoders.SourceColumnDecoder;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.Type;
@@ -21,7 +24,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.trino.plugin.elasticsearch.DecoderDescriptor.primitiveDecoderDescriptor;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Arrays.stream;
@@ -29,21 +31,23 @@ import static java.util.function.Function.identity;
 
 enum BuiltinColumns
 {
-    ID("_id", VARCHAR, true),
-    SOURCE("_source", VARCHAR, false),
-    SCORE("_score", REAL, false);
+    ID("_id", VARCHAR, new IdColumnDecoder.Descriptor(), true),
+    SOURCE("_source", VARCHAR, new SourceColumnDecoder.Descriptor(), false),
+    SCORE("_score", REAL, new ScoreColumnDecoder.Descriptor(), false);
 
     private static final Map<String, BuiltinColumns> COLUMNS_BY_NAME = stream(values())
             .collect(toImmutableMap(BuiltinColumns::getName, identity()));
 
     private final String name;
     private final Type type;
+    private final DecoderDescriptor decoderDescriptor;
     private final boolean supportsPredicates;
 
-    BuiltinColumns(String name, Type type, boolean supportsPredicates)
+    BuiltinColumns(String name, Type type, DecoderDescriptor decoderDescriptor, boolean supportsPredicates)
     {
         this.name = name;
         this.type = type;
+        this.decoderDescriptor = decoderDescriptor;
         this.supportsPredicates = supportsPredicates;
     }
 
@@ -81,7 +85,7 @@ enum BuiltinColumns
         return new ElasticsearchColumnHandle(
                 name,
                 type,
-                primitiveDecoderDescriptor(name, type),
+                decoderDescriptor,
                 supportsPredicates);
     }
 }
