@@ -12,7 +12,7 @@ connector:
     - Description
     - Default value
   * - ``case-insensitive-name-matching``
-    - Support case insensitive database and collection names
+    - Match schema and table names case insensitively
     - False
   * - ``case-insensitive-name-matching.cache-ttl``
     -
