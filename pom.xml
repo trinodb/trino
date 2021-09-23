@@ -112,7 +112,6 @@
         <module>plugin/trino-druid</module>
         <module>plugin/trino-elasticsearch</module>
         <module>plugin/trino-example-http</module>
-        <module>plugin/trino-fission-functions</module>
         <module>plugin/trino-geospatial</module>
         <module>plugin/trino-google-sheets</module>
         <module>plugin/trino-hive</module>
@@ -135,7 +134,6 @@
         <module>plugin/trino-pinot</module>
         <module>plugin/trino-postgresql</module>
         <module>plugin/trino-prometheus</module>
-        <module>plugin/trino-queryeventlistener</module>
         <module>plugin/trino-raptor-legacy</module>
         <module>plugin/trino-redis</module>
         <module>plugin/trino-redshift</module>
