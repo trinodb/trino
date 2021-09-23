@@ -22,6 +22,7 @@ import io.trino.plugin.hive.orc.OrcFileWriterFactory;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.ColumnarRow;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
@@ -43,6 +44,7 @@ import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static io.trino.plugin.hive.PartitionAndStatementId.CODEC;
 import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
+import static io.trino.spi.block.ColumnarRow.toColumnarRow;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.String.format;
@@ -116,28 +118,31 @@ public class HiveUpdatablePageSource
     @Override
     public void deleteRows(Block rowIds)
     {
-        List<Block> blocks = rowIds.getChildren();
-        checkArgument(blocks.size() == 3, "The rowId block for DELETE should have 3 children, but has %s", blocks.size());
         deleteRowsInternal(rowIds);
     }
 
     private void deleteRowsInternal(Block rowIds)
     {
         int positionCount = rowIds.getPositionCount();
-        List<Block> blocks = rowIds.getChildren();
+        ColumnarRow columnarRow = toColumnarRow(rowIds);
+        checkArgument(columnarRow.getFieldCount() == 3, "The rowId block for DELETE should have 3 children, but has %s", columnarRow.getFieldCount());
+        for (int position = 0; position < positionCount; position++) {
+            checkArgument(!columnarRow.isNull(position), "In the delete rowIds, found null row at position %s", position);
+        }
+
+        Block originalTransactionChannel = columnarRow.getField(ORIGINAL_TRANSACTION_CHANNEL);
         Block[] blockArray = {
                 new RunLengthEncodedBlock(DELETE_OPERATION_BLOCK, positionCount),
-                blocks.get(ORIGINAL_TRANSACTION_CHANNEL),
-                blocks.get(BUCKET_CHANNEL),
-                blocks.get(ROW_ID_CHANNEL),
+                originalTransactionChannel,
+                columnarRow.getField(BUCKET_CHANNEL),
+                columnarRow.getField(ROW_ID_CHANNEL),
                 RunLengthEncodedBlock.create(BIGINT, writeId, positionCount),
                 new RunLengthEncodedBlock(hiveRowTypeNullsBlock, positionCount),
         };
         Page deletePage = new Page(blockArray);
 
-        Block block = blocks.get(ORIGINAL_TRANSACTION_CHANNEL);
         for (int index = 0; index < positionCount; index++) {
-            maxWriteId = Math.max(maxWriteId, block.getLong(index, 0));
+            maxWriteId = Math.max(maxWriteId, originalTransactionChannel.getLong(index, 0));
         }
 
         lazyInitializeDeleteFileWriter();
