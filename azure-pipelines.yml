@@ -6,7 +6,7 @@ trigger:
 
 variables:
   containerRegistry: uchimera
-  imageRepository: cccs/trino
+  imageRepository: cccs/trino-base
   buildTimestamp: $[format('{0:yyyyMMddHHmmss}', pipeline.startTime)]
   DOCKER_BUILDKIT: 1
 
