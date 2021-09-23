@@ -42,6 +42,7 @@ import java.util.Map;
 
 import static io.trino.plugin.elasticsearch.ElasticsearchQueryRunner.createElasticsearchQueryRunner;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.assertions.Assert.assertEquals;
@@ -1011,17 +1012,18 @@ public abstract class BaseElasticsearchConnectorTest
         String mappings = "" +
                 "{" +
                 "  \"properties\": { " +
-                "    \"boolean_column\":   { \"type\": \"boolean\" }," +
-                "    \"float_column\":     { \"type\": \"float\" }," +
-                "    \"double_column\":    { \"type\": \"double\" }," +
-                "    \"integer_column\":   { \"type\": \"integer\" }," +
-                "    \"long_column\":      { \"type\": \"long\" }," +
-                "    \"keyword_column\":   { \"type\": \"keyword\" }," +
-                "    \"text_column\":      { \"type\": \"text\" }," +
-                "    \"binary_column\":    { \"type\": \"binary\" }," +
-                "    \"timestamp_column\": { \"type\": \"date\" }," +
-                "    \"ipv4_column\":      { \"type\": \"ip\" }," +
-                "    \"ipv6_column\":      { \"type\": \"ip\" }" +
+                "    \"boolean_column\":      { \"type\": \"boolean\" }," +
+                "    \"float_column\":        { \"type\": \"float\" }," +
+                "    \"double_column\":       { \"type\": \"double\" }," +
+                "    \"integer_column\":      { \"type\": \"integer\" }," +
+                "    \"long_column\":         { \"type\": \"long\" }," +
+                "    \"keyword_column\":      { \"type\": \"keyword\" }," +
+                "    \"text_column\":         { \"type\": \"text\" }," +
+                "    \"binary_column\":       { \"type\": \"binary\" }," +
+                "    \"timestamp_column\":    { \"type\": \"date\" }," +
+                "    \"ipv4_column\":         { \"type\": \"ip\" }," +
+                "    \"ipv6_column\":         { \"type\": \"ip\" }," +
+                "    \"scaled_float_column\": { \"type\": \"scaled_float\", \"scaling_factor\": 100 }" +
                 "  }" +
                 "}";
 
@@ -1039,6 +1041,7 @@ public abstract class BaseElasticsearchConnectorTest
                 .put("timestamp_column", 0)
                 .put("ipv4_column", "1.2.3.4")
                 .put("ipv6_column", "2001:db8:0:0:1:0:0:1")
+                .put("scaled_float_column", 123456.78d)
                 .build());
 
         MaterializedResult rows = computeActual("" +
@@ -1053,12 +1056,24 @@ public abstract class BaseElasticsearchConnectorTest
                 "binary_column, " +
                 "timestamp_column, " +
                 "ipv4_column, " +
-                "ipv6_column " +
+                "ipv6_column, " +
+                "scaled_float_column " +
                 "FROM types");
 
         MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
-                .row(true, 1.0f, 1.0d, 1, 1L, "cool", "some text", new byte[] {(byte) 0xCA, (byte) 0xFE},
-                        LocalDateTime.of(1970, 1, 1, 0, 0), "1.2.3.4", "2001:db8::1:0:0:1")
+                .row(
+                        true,
+                        1.0f,
+                        1.0d,
+                        1,
+                        1L,
+                        "cool",
+                        "some text",
+                        new byte[] {(byte) 0xCA, (byte) 0xFE},
+                        LocalDateTime.of(1970, 1, 1, 0, 0),
+                        "1.2.3.4",
+                        "2001:db8::1:0:0:1",
+                        123456.78d)
                 .build();
 
         assertEquals(rows.getMaterializedRows(), expected.getMaterializedRows());
@@ -1155,6 +1170,50 @@ public abstract class BaseElasticsearchConnectorTest
                 .build();
 
         assertThat(rows.getMaterializedRows()).containsExactlyInAnyOrderElementsOf(expected.getMaterializedRows());
+    }
+
+    @Test
+    public void testScaledFloat()
+            throws Exception
+    {
+        String indexName = "scaled_float_type";
+
+        @Language("JSON")
+        String mappings = "" +
+                "{" +
+                "  \"properties\": { " +
+                "    \"text_column\":         { \"type\": \"text\" }," +
+                "    \"scaled_float_column\": { \"type\": \"scaled_float\", \"scaling_factor\": 100 }" +
+                "  }" +
+                "}";
+
+        createIndex(indexName, mappings);
+
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("text_column", "foo")
+                .put("scaled_float_column", 123.4567d)
+                .build());
+
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("text_column", "bar")
+                .put("scaled_float_column", 123.46d)
+                .build());
+
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("text_column", "random value")
+                .put("scaled_float_column", 9.8d)
+                .build());
+
+        // Trino query filters in the engine, so the rounding (dependent on scaling factor) does not impact results
+        assertEquals(
+                computeActual("" +
+                        "SELECT " +
+                        "text_column, " +
+                        "scaled_float_column " +
+                        "FROM scaled_float_type WHERE scaled_float_column = 123.46"),
+                resultBuilder(getSession(), ImmutableList.of(VARCHAR, DOUBLE))
+                        .row("bar", 123.46d)
+                        .build());
     }
 
     @Test
