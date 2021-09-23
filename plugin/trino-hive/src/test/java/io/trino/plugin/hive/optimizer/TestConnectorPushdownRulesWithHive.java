@@ -370,7 +370,7 @@ public class TestConnectorPushdownRulesWithHive
     }
 
     @AfterClass(alwaysRun = true)
-    protected void cleanup()
+    public void cleanup()
             throws IOException
     {
         if (baseDir != null) {

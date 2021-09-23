@@ -116,7 +116,7 @@ public class TestCachingHiveMetastoreWithQueryRunner
     }
 
     @DataProvider
-    private Object[][] testCacheRefreshOnRoleGrantAndRevokeParams()
+    public Object[][] testCacheRefreshOnRoleGrantAndRevokeParams()
     {
         String grantSelectStatement = "GRANT SELECT ON test TO ROLE test_role";
         String grantRoleStatement = "GRANT test_role TO " + ALICE_NAME + " IN " + CATALOG;

@@ -42,7 +42,7 @@ public class TestSalesforceBasicAuthenticator
     private final String failedResponse = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:sf=\"urn:fault.partner.soap.sforce.com\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"><soapenv:Body><soapenv:Fault><faultcode>sf:INVALID_LOGIN</faultcode><faultstring>INVALID_LOGIN: Invalid username, password, security token; or user locked out.</faultstring><detail><sf:LoginFault xsi:type=\"sf:LoginFault\"><sf:exceptionCode>INVALID_LOGIN</sf:exceptionCode><sf:exceptionMessage>Invalid username, password, security token; or user locked out.</sf:exceptionMessage></sf:LoginFault></detail></soapenv:Fault></soapenv:Body></soapenv:Envelope>";
 
     @BeforeSuite
-    void initOnce()
+    public void initOnce()
     {
         forReal = false;
         String forRealEnvVar = System.getenv("SALESFORCE_TEST_FORREAL");
@@ -165,7 +165,7 @@ public class TestSalesforceBasicAuthenticator
 
     // Test a real login.
     @Test(description = "Test principal name for real, yo!")
-    void createAuthenticatedPrincipalRealSuccess()
+    public void createAuthenticatedPrincipalRealSuccess()
     {
         // Skip this test if SALESFORCE_TEST_FORREAL is not set to TRUE.
         if (!forReal) {
@@ -193,7 +193,7 @@ public class TestSalesforceBasicAuthenticator
 
     // Test a real login for a different org.
     @Test(expectedExceptions = AccessDeniedException.class, description = "Test got wrong org for real, yo!")
-    void createAuthenticatedPrincipalRealWrongOrg()
+    public void createAuthenticatedPrincipalRealWrongOrg()
     {
         // Skip this test if SALESFORCE_TEST_FORREAL is not set to TRUE.
         if (!forReal) {
@@ -217,7 +217,7 @@ public class TestSalesforceBasicAuthenticator
 
     // Test a real login for a different org.
     @Test
-    void createAuthenticatedPrincipalRealAllOrgs()
+    public void createAuthenticatedPrincipalRealAllOrgs()
     {
         // Skip this test if SALESFORCE_TEST_FORREAL is not set to TRUE.
         if (!forReal) {
@@ -242,7 +242,7 @@ public class TestSalesforceBasicAuthenticator
 
     // Test a login with a bad password.
     @Test(expectedExceptions = AccessDeniedException.class, description = "Test bad password for real, yo!")
-    void createAuthenticatedPrincipalRealBadPassword()
+    public void createAuthenticatedPrincipalRealBadPassword()
     {
         // Skip this test if SALESFORCE_TEST_FORREAL is not set to TRUE.
         if (!forReal) {

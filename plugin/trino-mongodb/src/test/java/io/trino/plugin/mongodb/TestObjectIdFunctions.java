@@ -31,7 +31,7 @@ public class TestObjectIdFunctions
         extends AbstractTestFunctions
 {
     @BeforeClass
-    protected void registerFunctions()
+    public void registerFunctions()
     {
         functionAssertions.installPlugin(new MongoPlugin());
     }

@@ -142,7 +142,7 @@ public class TestKafkaAvroReadsSmokeTest
     }
 
     @DataProvider
-    private static Object[][] catalogs()
+    public static Object[][] catalogs()
     {
         return new Object[][] {
                 {

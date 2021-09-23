@@ -40,7 +40,7 @@ public class TestCassandraClusteringPredicatesExtractor
     private static VersionNumber cassandraVersion;
 
     @BeforeTest
-    void setUp()
+    public void setUp()
     {
         col1 = new CassandraColumnHandle("partitionKey1", 1, CassandraType.BIGINT, true, false, false, false);
         col2 = new CassandraColumnHandle("clusteringKey1", 2, CassandraType.BIGINT, false, true, false, false);
