@@ -18,8 +18,8 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeManager;
-import org.skife.jdbi.v2.StatementContext;
-import org.skife.jdbi.v2.tweak.ResultSetMapper;
+import org.jdbi.v3.core.mapper.RowMapper;
+import org.jdbi.v3.core.statement.StatementContext;
 
 import javax.inject.Inject;
 
@@ -116,7 +116,7 @@ public class TableColumn
     }
 
     public static class Mapper
-            implements ResultSetMapper<TableColumn>
+            implements RowMapper<TableColumn>
     {
         private final TypeManager typeManager;
 
@@ -127,7 +127,7 @@ public class TableColumn
         }
 
         @Override
-        public TableColumn map(int index, ResultSet r, StatementContext ctx)
+        public TableColumn map(ResultSet r, StatementContext ctx)
                 throws SQLException
         {
             SchemaTableName table = new SchemaTableName(
