@@ -90,7 +90,7 @@ public class TestGrantRevoke
     }
 
     @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
-    private void cleanupRoles()
+    public void cleanupRoles()
     {
         for (String role : listRoles()) {
             if (!PREDEFINED_ROLES.contains(role)) {

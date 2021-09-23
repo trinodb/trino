@@ -346,7 +346,7 @@ public class TestHiveConnectorTest
     }
 
     @DataProvider
-    private Object[][] queryPartitionFilterRequiredSchemasDataProvider()
+    public Object[][] queryPartitionFilterRequiredSchemasDataProvider()
     {
         return new Object[][]{
                 {"[]"},
