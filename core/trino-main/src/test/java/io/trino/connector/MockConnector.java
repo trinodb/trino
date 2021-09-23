@@ -64,6 +64,7 @@ import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.TopNApplicationResult;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.procedure.Procedure;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.TrinoPrincipal;
@@ -121,6 +122,7 @@ public class MockConnector
     private final MockConnectorFactory.ListRoleGrants roleGrants;
     private final MockConnectorAccessControl accessControl;
     private final Function<SchemaTableName, List<List<?>>> data;
+    private final Set<Procedure> procedures;
 
     MockConnector(
             Function<ConnectorSession, List<String>> listSchemaNames,
@@ -144,7 +146,9 @@ public class MockConnector
             BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableProperties> getTableProperties,
             Supplier<Iterable<EventListener>> eventListeners,
             MockConnectorFactory.ListRoleGrants roleGrants,
-            MockConnectorAccessControl accessControl, Function<SchemaTableName, List<List<?>>> data)
+            MockConnectorAccessControl accessControl,
+            Function<SchemaTableName, List<List<?>>> data,
+            Set<Procedure> procedures)
     {
         this.listSchemaNames = requireNonNull(listSchemaNames, "listSchemaNames is null");
         this.listTables = requireNonNull(listTables, "listTables is null");
@@ -169,6 +173,7 @@ public class MockConnector
         this.roleGrants = requireNonNull(roleGrants, "roleGrants is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.data = requireNonNull(data, "data is null");
+        this.procedures = requireNonNull(procedures, "procedures is null");
     }
 
     @Override
@@ -218,6 +223,12 @@ public class MockConnector
     public ConnectorAccessControl getAccessControl()
     {
         return accessControl;
+    }
+
+    @Override
+    public Set<Procedure> getProcedures()
+    {
+        return procedures;
     }
 
     private class MockConnectorMetadata

@@ -15,10 +15,12 @@ package io.trino.tests;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
 import io.trino.connector.MockConnectorTableHandle;
 import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.procedure.TestProcedure;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
@@ -76,6 +78,7 @@ public class TestMockConnector
                                     }
                                     throw new UnsupportedOperationException();
                                 })
+                                .withProcedures(ImmutableSet.of(new TestProcedure().get()))
                                 .build()));
         queryRunner.createCatalog("mock", "mock");
         return queryRunner;
@@ -168,5 +171,13 @@ public class TestMockConnector
                 .hasMessage("Invalid descendant for DeleteNode or UpdateNode: io.trino.sql.planner.plan.ExchangeNode");
         // Mock connector only pretends support for UPDATE, it does not manipulate any data
         assertQuery("SELECT count(*) FROM mock.default.nation WHERE name = 'ALGERIA'", "SELECT 1");
+    }
+
+    @Test
+    public void testProcedure()
+    {
+        assertUpdate("CALL mock.default.test_procedure()");
+        assertThatThrownBy(() -> assertUpdate("CALL mock.default.non_exist_procedure()"))
+                .hasMessage("Procedure not registered: default.non_exist_procedure");
     }
 }

@@ -46,6 +46,7 @@ import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.TopNApplicationResult;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.procedure.Procedure;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.ViewExpression;
 
@@ -91,6 +92,7 @@ public class MockConnectorFactory
     private final ListRoleGrants roleGrants;
     private final MockConnectorAccessControl accessControl;
     private final Function<SchemaTableName, List<List<?>>> data;
+    private final Set<Procedure> procedures;
 
     private MockConnectorFactory(
             Function<ConnectorSession, List<String>> listSchemaNames,
@@ -114,7 +116,9 @@ public class MockConnectorFactory
             BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableProperties> getTableProperties,
             Supplier<Iterable<EventListener>> eventListeners,
             ListRoleGrants roleGrants,
-            MockConnectorAccessControl accessControl, Function<SchemaTableName, List<List<?>>> data)
+            MockConnectorAccessControl accessControl,
+            Function<SchemaTableName, List<List<?>>> data,
+            Set<Procedure> procedures)
     {
         this.listSchemaNames = requireNonNull(listSchemaNames, "listSchemaNames is null");
         this.listTables = requireNonNull(listTables, "listTables is null");
@@ -139,6 +143,7 @@ public class MockConnectorFactory
         this.roleGrants = requireNonNull(roleGrants, "roleGrants is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.data = requireNonNull(data, "data is null");
+        this.procedures = requireNonNull(procedures, "procedures is null");
     }
 
     @Override
@@ -179,7 +184,8 @@ public class MockConnectorFactory
                 eventListeners,
                 roleGrants,
                 accessControl,
-                data);
+                data,
+                procedures);
     }
 
     public static Builder builder()
@@ -278,6 +284,7 @@ public class MockConnectorFactory
         private BiFunction<SchemaTableName, String, ViewExpression> columnMask = (tableName, columnName) -> null;
         private BiFunction<ConnectorSession, SchemaTableName, Optional<CatalogSchemaTableName>> redirectTable = (session, tableName) -> Optional.empty();
         private Function<SchemaTableName, List<List<?>>> data = schemaTableName -> ImmutableList.of();
+        private Set<Procedure> procedures = ImmutableSet.of();
 
         public Builder withListSchemaNames(Function<ConnectorSession, List<String>> listSchemaNames)
         {
@@ -445,6 +452,12 @@ public class MockConnectorFactory
             return this;
         }
 
+        public Builder withProcedures(Set<Procedure> procedures)
+        {
+            this.procedures = procedures;
+            return this;
+        }
+
         public MockConnectorFactory build()
         {
             return new MockConnectorFactory(
@@ -470,7 +483,8 @@ public class MockConnectorFactory
                     eventListeners,
                     roleGrants,
                     new MockConnectorAccessControl(schemaGrants, tableGrants, rowFilter, columnMask),
-                    data);
+                    data,
+                    procedures);
         }
 
         public static Function<ConnectorSession, List<String>> defaultListSchemaNames()
