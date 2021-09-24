@@ -107,6 +107,7 @@ SQL Server Type                     Trino Type
 ``varchar(n)``                      ``varchar(n)``
 ``date``                            ``date``
 ``datetime2(n)``                    ``timestamp(n)``
+``datetimeoffset(n)``               ``timestamp(n) with time zone``
 ==================================  ===============================
 
 Complete list of `SQL Server data types
