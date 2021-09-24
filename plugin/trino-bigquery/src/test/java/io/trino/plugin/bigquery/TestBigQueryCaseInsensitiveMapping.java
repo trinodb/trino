@@ -218,8 +218,8 @@ public class TestBigQueryCaseInsensitiveMapping
     public void testDropSchema()
             throws Exception
     {
-        String schemaName = "Test_Drop_Case_Sensitive";
-        try (AutoCloseable schema = withSchema(schemaName);) {
+        String schemaName = "Test_Drop_Case_Sensitive_" + randomTableSuffix();
+        try (AutoCloseable schema = withSchema(schemaName)) {
             assertUpdate("DROP SCHEMA " + schemaName.toLowerCase(ENGLISH));
         }
     }
@@ -228,7 +228,7 @@ public class TestBigQueryCaseInsensitiveMapping
     public void testDropSchemaNameClash()
             throws Exception
     {
-        String schemaName = "Test_Drop_Case_Sensitive_Clash";
+        String schemaName = "Test_Drop_Case_Sensitive_Clash_" + randomTableSuffix();
         try (AutoCloseable schema = withSchema(schemaName);
                 AutoCloseable secondSchema = withSchema(schemaName.toLowerCase(ENGLISH))) {
             assertQueryFails("DROP SCHEMA " + schemaName.toLowerCase(ENGLISH), "Found ambiguous names in BigQuery.*");
