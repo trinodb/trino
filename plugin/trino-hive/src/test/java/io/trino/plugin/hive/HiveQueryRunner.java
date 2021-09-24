@@ -184,9 +184,7 @@ public final class HiveQueryRunner
                 queryRunner.createCatalog(HIVE_CATALOG, "hive", hiveProperties);
                 queryRunner.createCatalog(HIVE_BUCKETED_CATALOG, "hive", hiveBucketedProperties);
 
-                if (!initialTables.isEmpty()) {
-                    populateData(queryRunner, metastore);
-                }
+                populateData(queryRunner, metastore);
 
                 return queryRunner;
             }
