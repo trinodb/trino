@@ -16,14 +16,14 @@ package io.trino.sql.analyzer;
 import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.QualifiedName;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
 import static io.trino.spi.type.BigintType.BIGINT;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestScope
 {
@@ -48,32 +48,32 @@ public class TestScope
         assertFalse(root.tryResolveField(c1).isPresent());
 
         assertTrue(outer.tryResolveField(c1).isPresent());
-        assertEquals(outer.tryResolveField(c1).get().getField(), outerColumn1);
-        assertEquals(outer.tryResolveField(c1).get().isLocal(), true);
-        assertEquals(outer.tryResolveField(c1).get().getHierarchyFieldIndex(), 0);
+        assertEquals(outerColumn1, outer.tryResolveField(c1).get().getField());
+        assertTrue(outer.tryResolveField(c1).get().isLocal());
+        assertEquals(0, outer.tryResolveField(c1).get().getHierarchyFieldIndex());
         assertTrue(outer.tryResolveField(c2).isPresent());
-        assertEquals(outer.tryResolveField(c2).get().getField(), outerColumn2);
-        assertEquals(outer.tryResolveField(c2).get().isLocal(), true);
-        assertEquals(outer.tryResolveField(c2).get().getHierarchyFieldIndex(), 1);
+        assertEquals(outerColumn2, outer.tryResolveField(c2).get().getField());
+        assertTrue(outer.tryResolveField(c2).get().isLocal());
+        assertEquals(1, outer.tryResolveField(c2).get().getHierarchyFieldIndex());
         assertFalse(outer.tryResolveField(c3).isPresent());
         assertFalse(outer.tryResolveField(c4).isPresent());
 
         assertTrue(inner.tryResolveField(c1).isPresent());
-        assertEquals(inner.tryResolveField(c1).get().getField(), outerColumn1);
-        assertEquals(inner.tryResolveField(c1).get().isLocal(), false);
-        assertEquals(inner.tryResolveField(c1).get().getHierarchyFieldIndex(), 0);
-        assertEquals(inner.tryResolveField(c1).get().getRelationFieldIndex(), 0);
+        assertEquals(outerColumn1, inner.tryResolveField(c1).get().getField());
+        assertFalse(inner.tryResolveField(c1).get().isLocal());
+        assertEquals(0, inner.tryResolveField(c1).get().getHierarchyFieldIndex());
+        assertEquals(0, inner.tryResolveField(c1).get().getRelationFieldIndex());
         assertTrue(inner.tryResolveField(c2).isPresent());
-        assertEquals(inner.tryResolveField(c2).get().getField(), innerColumn2);
-        assertEquals(inner.tryResolveField(c2).get().isLocal(), true);
-        assertEquals(inner.tryResolveField(c2).get().getHierarchyFieldIndex(), 0);
+        assertEquals(innerColumn2, inner.tryResolveField(c2).get().getField());
+        assertTrue(inner.tryResolveField(c2).get().isLocal());
+        assertEquals(0, inner.tryResolveField(c2).get().getHierarchyFieldIndex());
         assertTrue(inner.tryResolveField(c2).isPresent());
-        assertEquals(inner.tryResolveField(c3).get().getField(), innerColumn3);
-        assertEquals(inner.tryResolveField(c3).get().isLocal(), true);
-        assertEquals(inner.tryResolveField(c3).get().getHierarchyFieldIndex(), 1);
+        assertEquals(innerColumn3, inner.tryResolveField(c3).get().getField());
+        assertTrue(inner.tryResolveField(c3).get().isLocal());
+        assertEquals(1, inner.tryResolveField(c3).get().getHierarchyFieldIndex());
         assertFalse(inner.tryResolveField(c4).isPresent());
 
-        assertEquals(inner.getOuterQueryParent(), Optional.of(outer));
+        assertEquals(Optional.of(outer), inner.getOuterQueryParent());
     }
 
     private static Expression name(String first, String... parts)

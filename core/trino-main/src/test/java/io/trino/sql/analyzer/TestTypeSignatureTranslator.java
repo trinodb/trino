@@ -15,7 +15,7 @@ package io.trino.sql.analyzer;
 
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.Identifier;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Comparator;
 import java.util.Locale;

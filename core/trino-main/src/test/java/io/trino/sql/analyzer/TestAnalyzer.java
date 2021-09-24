@@ -68,8 +68,12 @@ import io.trino.testing.TestingMetadata.TestingTableHandle;
 import io.trino.testing.assertions.TrinoExceptionAssert;
 import io.trino.transaction.TransactionManager;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 
 import java.util.List;
 import java.util.Optional;
@@ -170,8 +174,10 @@ import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.nCopies;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
+@Execution(ExecutionMode.SAME_THREAD)
 public class TestAnalyzer
 {
     private static final String TPCH_CATALOG = "tpch";
@@ -2780,7 +2786,7 @@ public class TestAnalyzer
         analyze("SELECT CAST('1' as CHAR(1)) LIKE '1'");
     }
 
-    @Test(enabled = false) // TODO: need to support widening conversion for numbers
+    @Disabled("TODO: need to support widening conversion for numbers")
     public void testInWithNumericTypes()
     {
         analyze("SELECT * FROM t1 WHERE 1 IN (1, 2, 3.5)");
@@ -4911,7 +4917,7 @@ public class TestAnalyzer
                 .hasMessage("Access Denied: Cannot select from columns [a, b] in table or view tpch.s1.fresh_materialized_view");
     }
 
-    @BeforeClass
+    @BeforeAll
     public void setup()
     {
         CatalogManager catalogManager = new CatalogManager();

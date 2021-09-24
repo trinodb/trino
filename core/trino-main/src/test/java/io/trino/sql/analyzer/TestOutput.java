@@ -19,11 +19,11 @@ import io.airlift.json.JsonCodec;
 import io.trino.execution.Column;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.sql.analyzer.Analysis.SourceColumn;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
-import static org.testng.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TestOutput
 {
@@ -46,6 +46,6 @@ public class TestOutput
         String json = codec.toJson(expected);
         Output actual = codec.fromJson(json);
 
-        assertEquals(actual, expected);
+        assertEquals(expected, actual);
     }
 }

@@ -19,7 +19,7 @@ import io.airlift.units.Duration;
 import io.trino.sql.analyzer.FeaturesConfig.DataIntegrityVerification;
 import io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import io.trino.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
