@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveColumnProjectionInfo;
 import io.trino.plugin.hive.HiveType;
+import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.RowType;
 import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.MessageType;
@@ -27,7 +28,6 @@ import java.util.Optional;
 
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveType.toHiveType;
-import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RowType.rowType;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
 import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
@@ -41,21 +41,21 @@ public class TestParquetPageSourceFactory
     {
         RowType rowType = rowType(
                 RowType.field(
-                        "optional_level2",
-                        rowType(RowType.field(
-                                "required_level3",
-                                IntegerType.INTEGER))));
+                    "optional_level2",
+                    rowType(RowType.field(
+                        "required_level3",
+                        IntegerType.INTEGER))));
         HiveColumnHandle columnHandle = new HiveColumnHandle(
                 "optional_level1",
                 0,
                 HiveType.valueOf("struct<optional_level2:struct<required_level3:int>>"),
                 rowType,
                 Optional.of(
-                        new HiveColumnProjectionInfo(
-                                ImmutableList.of(1, 1),
-                                ImmutableList.of("optional_level2", "required_level3"),
-                                toHiveType(IntegerType.INTEGER),
-                                IntegerType.INTEGER)),
+                    new HiveColumnProjectionInfo(
+                        ImmutableList.of(1, 1),
+                        ImmutableList.of("optional_level2", "required_level3"),
+                        toHiveType(IntegerType.INTEGER),
+                        IntegerType.INTEGER)),
                 REGULAR,
                 Optional.empty());
         MessageType fileSchema = new MessageType(
