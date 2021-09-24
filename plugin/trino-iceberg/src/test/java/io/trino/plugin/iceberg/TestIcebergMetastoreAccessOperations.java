@@ -208,6 +208,19 @@ public class TestIcebergMetastoreAccessOperations
     }
 
     @Test
+    public void testSelfJoin()
+    {
+        assertUpdate("CREATE TABLE test_self_join_table AS SELECT 2 as age, 0 parent, 3 AS id", 1);
+
+        assertMetastoreInvocations("SELECT child.age, parent.age FROM test_self_join_table child JOIN test_self_join_table parent ON child.parent = parent.id",
+                ImmutableMultiset.builder()
+                        // TODO this shouldn't be more than for ordinary "SELECT .. FROM table". More invocations suggests we're prone to read inconsistent state
+                        //  when table is replaced concurrently (e.g. table is swapped and becomes a view).
+                        .addCopies(GET_TABLE, 5)
+                        .build());
+    }
+
+    @Test
     public void testExplainSelect()
     {
         assertUpdate("CREATE TABLE test_explain AS SELECT 2 as age", 1);
