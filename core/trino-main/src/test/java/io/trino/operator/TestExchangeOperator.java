@@ -90,7 +90,7 @@ public class TestExchangeOperator
         exchangeClientSupplier = (systemMemoryUsageListener) -> new ExchangeClient(
                 "localhost",
                 DataIntegrityVerification.ABORT,
-                DataSize.of(32, MEGABYTE),
+                new StreamingExchangeClientBuffer(scheduler, DataSize.of(32, MEGABYTE)),
                 DataSize.of(10, MEGABYTE),
                 3,
                 new Duration(1, TimeUnit.MINUTES),

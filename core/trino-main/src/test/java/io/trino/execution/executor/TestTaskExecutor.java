@@ -150,8 +150,8 @@ public class TestTaskExecutor
         ticker.increment(20, MILLISECONDS);
 
         try {
-            TaskHandle shortQuantaTaskHandle = taskExecutor.addTask(new TaskId(new StageId("shortQuanta", 0), 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
-            TaskHandle longQuantaTaskHandle = taskExecutor.addTask(new TaskId(new StageId("longQuanta", 0), 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+            TaskHandle shortQuantaTaskHandle = taskExecutor.addTask(new TaskId(new StageId("short_quanta", 0), 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+            TaskHandle longQuantaTaskHandle = taskExecutor.addTask(new TaskId(new StageId("long_quanta", 0), 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
 
             Phaser endQuantaPhaser = new Phaser();
 

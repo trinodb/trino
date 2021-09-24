@@ -38,6 +38,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
@@ -73,9 +74,19 @@ public class MockExchangeRequestProcessor
         buffers.getUnchecked(location).addPage(page);
     }
 
+    public void addPage(URI location, SerializedPage page)
+    {
+        buffers.getUnchecked(location).addPage(page);
+    }
+
     public void setComplete(URI location)
     {
         buffers.getUnchecked(location).setCompleted();
+    }
+
+    public void setFailed(URI location, RuntimeException failure)
+    {
+        buffers.getUnchecked(location).setFailed(failure);
     }
 
     @Override
@@ -151,6 +162,7 @@ public class MockExchangeRequestProcessor
         private final AtomicBoolean completed = new AtomicBoolean();
         private final AtomicLong token = new AtomicLong();
         private final BlockingQueue<SerializedPage> serializedPages = new LinkedBlockingQueue<>();
+        private final AtomicReference<RuntimeException> failure = new AtomicReference<>();
 
         private MockBuffer(URI location)
         {
@@ -162,6 +174,12 @@ public class MockExchangeRequestProcessor
             completed.set(true);
         }
 
+        public synchronized void addPage(SerializedPage page)
+        {
+            checkState(completed.get() != Boolean.TRUE, "Location %s is complete", location);
+            serializedPages.add(page);
+        }
+
         public synchronized void addPage(Page page)
         {
             checkState(completed.get() != Boolean.TRUE, "Location %s is complete", location);
@@ -170,11 +188,21 @@ public class MockExchangeRequestProcessor
             }
         }
 
+        public void setFailed(RuntimeException t)
+        {
+            failure.set(t);
+        }
+
         public BufferResult getPages(long sequenceId, DataSize maxSize)
         {
             // if location is complete return GONE
             if (completed.get() && serializedPages.isEmpty()) {
                 return BufferResult.emptyResults(TASK_INSTANCE_ID, token.get(), true);
+            }
+
+            RuntimeException failure = this.failure.get();
+            if (failure != null) {
+                throw failure;
             }
 
             assertEquals(sequenceId, token.get(), "token");
