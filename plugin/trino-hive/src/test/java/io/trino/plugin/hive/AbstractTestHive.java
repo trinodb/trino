@@ -317,6 +317,8 @@ import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
+// staging directory is shared mutable state
+@Test(singleThreaded = true)
 public abstract class AbstractTestHive
 {
     private static final Logger log = Logger.get(AbstractTestHive.class);
