@@ -26,6 +26,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
+import io.airlift.units.DataSize;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.trino.plugin.hive.HiveApplyProjectionUtil.ProjectedColumnRepresentation;
@@ -45,6 +46,7 @@ import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.metastore.SortingColumn;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
+import io.trino.plugin.hive.procedure.OptimizeTableProcedure;
 import io.trino.plugin.hive.security.AccessControlMetadata;
 import io.trino.plugin.hive.statistics.HiveStatisticsProvider;
 import io.trino.plugin.hive.util.HiveBucketing;
@@ -65,6 +67,7 @@ import io.trino.spi.connector.ConnectorOutputMetadata;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableExecuteHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTablePartitioning;
@@ -219,6 +222,7 @@ import static io.trino.plugin.hive.HiveTableProperties.getOrcBloomFilterFpp;
 import static io.trino.plugin.hive.HiveTableProperties.getPartitionedBy;
 import static io.trino.plugin.hive.HiveTableProperties.getSingleCharacterProperty;
 import static io.trino.plugin.hive.HiveTableProperties.isTransactional;
+import static io.trino.plugin.hive.HiveTimestampPrecision.NANOSECONDS;
 import static io.trino.plugin.hive.HiveType.HIVE_STRING;
 import static io.trino.plugin.hive.HiveType.toHiveType;
 import static io.trino.plugin.hive.HiveWriterFactory.computeBucketedFileName;
@@ -1894,6 +1898,208 @@ public class HiveMetadata
     }
 
     @Override
+    public Optional<ConnectorTableExecuteHandle> getTableHandleForExecute(ConnectorSession session, ConnectorTableHandle tableHandle, String procedureName, Map<String, Object> executeProperties, Constraint constraint)
+    {
+        if (procedureName.equals(OptimizeTableProcedure.NAME)) {
+            return getTableHandleForOptimize(session, tableHandle, executeProperties, constraint);
+        }
+        throw new IllegalArgumentException("Unknown procedure '" + procedureName + "'");
+    }
+
+    private Optional<ConnectorTableExecuteHandle> getTableHandleForOptimize(ConnectorSession session, ConnectorTableHandle tableHandle, Map<String, Object> executeProperties, Constraint constraint)
+    {
+        // TODO lots of that is copied from beginInsert; rafactoring opportunity
+
+        HiveIdentity identity = new HiveIdentity(session);
+        HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle;
+        SchemaTableName tableName = hiveTableHandle.getSchemaTableName();
+
+        if (constraint.getSummary().isNone()) {
+            throw new TrinoException(NOT_SUPPORTED, format("Optimizing Hive table %s with predicate filtering out all data is not supported", tableName));
+        }
+
+        if (constraint.predicate().isPresent() || !isOnPartitionColumnsOnly(constraint.getSummary(), hiveTableHandle.getPartitionColumns())) {
+            throw new TrinoException(NOT_SUPPORTED, "Predicate used for optimize must match whole partitions");
+        }
+
+        Table table = metastore.getTable(identity, tableName.getSchemaName(), tableName.getTableName())
+                .orElseThrow(() -> new TableNotFoundException(tableName));
+
+        checkTableIsWritable(table, writesToNonManagedTablesEnabled);
+
+        for (Column column : table.getDataColumns()) {
+            if (!isWritableType(column.getType())) {
+                throw new TrinoException(NOT_SUPPORTED, format("Optimizing Hive table %s with column type %s not supported", tableName, column.getType()));
+            }
+        }
+
+        if (isTransactionalTable(table.getParameters())) {
+            throw new TrinoException(NOT_SUPPORTED, format("Optimizing transactional Hive table %s is not supported", tableName));
+        }
+
+        if (table.getStorage().getBucketProperty().isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, format("Optimizing bucketed Hive table %s is not supported", tableName));
+        }
+
+        // TODO forcing NANOSECONDS precision here so we do not loose data. In future we may be smarter; options:
+        //    - respect timestamp_precision but recognize situation when rounding occurs, and fail query
+        //    - detect data's precision and maintain it
+        List<HiveColumnHandle> columns = hiveColumnHandles(table, typeManager, NANOSECONDS).stream()
+                .filter(columnHandle -> !columnHandle.isHidden())
+                .collect(toImmutableList());
+
+        HiveStorageFormat tableStorageFormat = extractHiveStorageFormat(table);
+        Optional.ofNullable(table.getParameters().get(SKIP_HEADER_COUNT_KEY)).map(Integer::parseInt).ifPresent(headerSkipCount -> {
+            if (headerSkipCount > 1) {
+                throw new TrinoException(NOT_SUPPORTED, format("Optimizing Hive table %s with value of %s property greater than 1 is not supported", tableName, SKIP_HEADER_COUNT_KEY));
+            }
+        });
+
+        if (table.getParameters().containsKey(SKIP_FOOTER_COUNT_KEY)) {
+            throw new TrinoException(NOT_SUPPORTED, format("Optimizing Hive table %s with %s property not supported", tableName, SKIP_FOOTER_COUNT_KEY));
+        }
+        LocationHandle locationHandle = locationService.forExistingTable(metastore, session, table);
+
+        DataSize fileSizeThreshold = (DataSize) executeProperties.get("file_size_threshold");
+        hiveTableHandle = hiveTableHandle
+                .withRecordScannedFiles(true)
+                .withMaxScannedFileSize(Optional.of(fileSizeThreshold.toBytes()));
+
+        if (!constraint.getSummary().isAll()) {
+            HivePartitionResult partitionResult = partitionManager.getPartitions(metastore, new HiveIdentity(session), hiveTableHandle, constraint);
+            checkArgument(partitionResult.getUnenforcedConstraint().isAll(), "expected whole predicate to be consumed; remaining: " + partitionResult.getUnenforcedConstraint());
+            hiveTableHandle = partitionManager.applyPartitionResult(hiveTableHandle, partitionResult, constraint.getPredicateColumns());
+        }
+
+        return Optional.of(new HiveTableExecuteHandle(
+                OptimizeTableProcedure.NAME,
+                hiveTableHandle,
+                tableName.getSchemaName(),
+                tableName.getTableName(),
+                columns,
+                metastore.generatePageSinkMetadata(identity, tableName),
+                locationHandle,
+                table.getStorage().getBucketProperty(),
+                tableStorageFormat,
+                // TODO: test with multiple partitions using different storage format
+                tableStorageFormat,
+                NO_ACID_TRANSACTION));
+    }
+
+    private boolean isOnPartitionColumnsOnly(TupleDomain<ColumnHandle> summary, List<HiveColumnHandle> partitionColumns)
+    {
+        if (summary.isAll() || summary.isNone()) {
+            return true;
+        }
+
+        Set<ColumnHandle> partitionColumnsSet = ImmutableSet.copyOf(partitionColumns);
+        for (ColumnHandle columnHandle : summary.getDomains().get().keySet()) {
+            if (!partitionColumnsSet.contains(columnHandle)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    @Override
+    public ConnectorTableExecuteHandle beginTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle)
+    {
+        String procedureName = ((HiveTableExecuteHandle) tableExecuteHandle).getProcedureName();
+
+        if (procedureName.equals(OptimizeTableProcedure.NAME)) {
+            return beginOptimize(session, tableExecuteHandle);
+        }
+        throw new IllegalArgumentException("Unknown procedure '" + procedureName + "'");
+    }
+
+    private ConnectorTableExecuteHandle beginOptimize(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle)
+    {
+        HiveTableExecuteHandle hiveExecuteHandle = (HiveTableExecuteHandle) tableExecuteHandle;
+        WriteInfo writeInfo = locationService.getQueryWriteInfo(hiveExecuteHandle.getLocationHandle());
+        metastore.declareIntentionToWrite(session, writeInfo.getWriteMode(), writeInfo.getWritePath(), hiveExecuteHandle.getSchemaTableName());
+        return tableExecuteHandle;
+    }
+
+    @Override
+    public void finishTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, Collection<Slice> fragments, List<Object> tableExecuteState)
+    {
+        String procedureName = ((HiveTableExecuteHandle) tableExecuteHandle).getProcedureName();
+
+        if (procedureName.equals(OptimizeTableProcedure.NAME)) {
+            finishOptimize(session, tableExecuteHandle, fragments, tableExecuteState);
+            return;
+        }
+        throw new IllegalArgumentException("Unknown procedure '" + procedureName + "'");
+    }
+
+    private void finishOptimize(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, Collection<Slice> fragments, List<Object> tableExecuteState)
+    {
+        // TODO lots of that is copied from finishInsert; rafactoring opportunity
+
+        HiveTableExecuteHandle handle = (HiveTableExecuteHandle) tableExecuteHandle;
+
+        List<PartitionUpdate> partitionUpdates = fragments.stream()
+                .map(Slice::getBytes)
+                .map(partitionUpdateCodec::fromJson)
+                .collect(toImmutableList());
+
+        HiveStorageFormat tableStorageFormat = handle.getTableStorageFormat();
+        partitionUpdates = PartitionUpdate.mergePartitionUpdates(partitionUpdates);
+
+        Table table = metastore.getTable(new HiveIdentity(session), handle.getSchemaName(), handle.getTableName())
+                .orElseThrow(() -> new TableNotFoundException(handle.getSchemaTableName()));
+        if (!table.getStorage().getStorageFormat().getInputFormat().equals(tableStorageFormat.getInputFormat()) && isRespectTableFormat(session)) {
+            throw new TrinoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, "Table format changed during optimize");
+        }
+
+        // Support for bucketed tables disabled mostly so we do not need to think about grouped execution in intial version. Possibly no change apart from testing required.
+        verify(handle.getBucketProperty().isEmpty(), "bucketed table not supported");
+
+        for (PartitionUpdate partitionUpdate : partitionUpdates) {
+            verify(partitionUpdate.getUpdateMode() == APPEND, "Expected partionUpdate mode to be APPEND but got %s", partitionUpdate.getUpdateMode());
+
+            if (partitionUpdate.getName().isEmpty()) {
+                // operating on an unpartitioned table
+                if (!table.getStorage().getStorageFormat().getInputFormat().equals(handle.getPartitionStorageFormat().getInputFormat()) && isRespectTableFormat(session)) {
+                    throw new TrinoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, "Table format changed during optimize");
+                }
+
+                metastore.finishInsertIntoExistingTable(
+                        session,
+                        handle.getSchemaName(),
+                        handle.getTableName(),
+                        partitionUpdate.getWritePath(),
+                        partitionUpdate.getFileNames(),
+                        PartitionStatistics.empty());
+            }
+            else {
+                // operating on a partition
+                List<String> partitionValues = toPartitionValues(partitionUpdate.getName());
+                metastore.finishInsertIntoExistingPartition(
+                        session,
+                        handle.getSchemaName(),
+                        handle.getTableName(),
+                        partitionValues,
+                        partitionUpdate.getWritePath(),
+                        partitionUpdate.getFileNames(),
+                        PartitionStatistics.empty());
+            }
+        }
+
+        try {
+            // TODO; this is not safe; we can delete old files. And then if there is error new files will be deleted too.
+            FileSystem fs = hdfsEnvironment.getFileSystem(new HdfsContext(session), new Path(table.getStorage().getLocation()));
+            for (Object scannedPathObject : tableExecuteState) {
+                Path scannedPath = new Path((String) scannedPathObject);
+                fs.delete(scannedPath, false);
+            }
+        }
+        catch (IOException e) {
+            throw new TrinoException(HIVE_FILESYSTEM_ERROR, "Error while deleting ", e);
+        }
+    }
+
+    @Override
     public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, boolean replace)
     {
         HiveIdentity identity = new HiveIdentity(session);
@@ -2497,7 +2703,9 @@ public class HiveMetadata
                 hiveTable.getAnalyzeColumnNames(),
                 Optional.empty(),
                 Optional.empty(), // Projected columns is used only during optimization phase of planning
-                hiveTable.getTransaction());
+                hiveTable.getTransaction(),
+                hiveTable.isRecordScannedFiles(),
+                hiveTable.getMaxScannedFileSize());
     }
 
     @VisibleForTesting

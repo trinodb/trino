@@ -26,6 +26,7 @@ import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
+import io.trino.sql.planner.plan.ValuesNode;
 
 import java.util.Optional;
 
@@ -59,6 +60,7 @@ public class TableExecuteStructureValidator
     private boolean isAllowedNode(PlanNode node)
     {
         return node instanceof TableScanNode
+                || node instanceof ValuesNode
                 || node instanceof ProjectNode
                 || node instanceof TableWriterNode
                 || node instanceof OutputNode
