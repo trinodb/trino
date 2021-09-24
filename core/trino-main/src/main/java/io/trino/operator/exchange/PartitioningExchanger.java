@@ -106,8 +106,9 @@ class PartitioningExchanger
     // This is safe to call without synchronizing because the partition buffers are themselves threadsafe
     private void sendPageToPartition(Consumer<PageReference> buffer, Page pageSplit)
     {
-        memoryManager.updateMemoryUsage(pageSplit.getRetainedSizeInBytes());
-        buffer.accept(new PageReference(pageSplit, 1, onPageReleased));
+        PageReference pageReference = new PageReference(pageSplit, 1, onPageReleased);
+        memoryManager.updateMemoryUsage(pageReference.getRetainedSizeInBytes());
+        buffer.accept(pageReference);
     }
 
     @Override

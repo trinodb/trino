@@ -31,6 +31,7 @@ final class PageReference
     private volatile int referenceCount;
     private final Page page;
     private final PageReleasedListener onPageReleased;
+    private final long retainedSizeInBytes;
 
     public PageReference(Page page, int referenceCount, PageReleasedListener onPageReleased)
     {
@@ -38,11 +39,14 @@ final class PageReference
         this.onPageReleased = requireNonNull(onPageReleased, "onPageReleased is null");
         checkArgument(referenceCount >= 1, "referenceCount must be at least 1");
         this.referenceCount = referenceCount;
+        // retained size will be accessed at least once (typically more) so storing the value into this
+        // field eagerly avoids repeated volatile reads after this point
+        this.retainedSizeInBytes = page.getRetainedSizeInBytes();
     }
 
     public long getRetainedSizeInBytes()
     {
-        return page.getRetainedSizeInBytes();
+        return retainedSizeInBytes;
     }
 
     public Page removePage()
@@ -50,7 +54,7 @@ final class PageReference
         int referenceCount = REFERENCE_COUNT_UPDATER.decrementAndGet(this);
         checkArgument(referenceCount >= 0, "Page reference count is negative");
         if (referenceCount == 0) {
-            onPageReleased.onPageReleased(page.getRetainedSizeInBytes());
+            onPageReleased.onPageReleased(retainedSizeInBytes);
         }
         return page;
     }
@@ -59,7 +63,7 @@ final class PageReference
     public String toString()
     {
         return toStringHelper(this)
-                .add("size", getRetainedSizeInBytes())
+                .add("size", retainedSizeInBytes)
                 .add("referenceCount", referenceCount)
                 .toString();
     }
