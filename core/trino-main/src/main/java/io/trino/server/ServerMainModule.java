@@ -349,7 +349,10 @@ public class ServerMainModule
         configBinder(binder).bindConfig(StaticCatalogStoreConfig.class);
         binder.bind(MetadataManager.class).in(Scopes.SINGLETON);
         binder.bind(Metadata.class).to(MetadataManager.class).in(Scopes.SINGLETON);
-        binder.bind(SystemSecurityMetadata.class).to(DisabledSystemSecurityMetadata.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, SystemSecurityMetadata.class)
+                .setDefault()
+                .to(DisabledSystemSecurityMetadata.class)
+                .in(Scopes.SINGLETON);
         binder.bind(TypeOperatorsCache.class).in(Scopes.SINGLETON);
         newExporter(binder).export(TypeOperatorsCache.class).as(factory -> factory.generatedNameOf(TypeOperators.class));
         binder.bind(BlockTypeOperators.class).in(Scopes.SINGLETON);
