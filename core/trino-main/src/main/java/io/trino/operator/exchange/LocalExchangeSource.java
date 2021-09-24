@@ -132,7 +132,7 @@ public class LocalExchangeSource
 
         // dereference the page outside of lock, since may trigger a callback
         Page page = pageReference.removePage();
-        bufferedBytes.addAndGet(-page.getRetainedSizeInBytes());
+        bufferedBytes.addAndGet(-pageReference.getRetainedSizeInBytes());
 
         checkFinished();
 
