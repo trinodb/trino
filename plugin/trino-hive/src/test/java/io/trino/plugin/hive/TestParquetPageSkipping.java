@@ -37,7 +37,6 @@ public class TestParquetPageSkipping
     {
         return HiveQueryRunner.builder()
                 .setHiveProperties(ImmutableMap.of(
-                        "hive.allow-register-partition-procedure", "true",
                         // Reduce writer sort buffer size to ensure SortingFileWriter gets used
                         "hive.writer-sort-buffer-size", "1MB",
                         "parquet.use-column-index", "true"))
