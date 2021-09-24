@@ -32,6 +32,7 @@ import java.util.Optional;
 import java.util.Properties;
 
 import static com.google.common.base.Verify.verify;
+import static com.starburstdata.presto.plugin.oracle.OracleAuthenticationType.PASSWORD;
 import static com.starburstdata.presto.plugin.oracle.OracleAuthenticationType.PASSWORD_PASS_THROUGH;
 import static com.starburstdata.presto.plugin.toolkit.PasswordPassThroughs.PASSWORD_PASSTHROUGH_CREDENTIAL;
 import static com.starburstdata.presto.plugin.toolkit.PasswordPassThroughs.USERNAME_PASSTHROUGH_CREDENTIAL;
@@ -52,6 +53,7 @@ public class OraclePoolingConnectionFactory
     private final UniversalConnectionPoolManager poolManager;
     private final PoolDataSource dataSource;
     private final OracleAuthenticationType authenticationType;
+    private final Optional<CredentialProvider> credentialProvider;
 
     public OraclePoolingConnectionFactory(
             CatalogName catalogName,
@@ -62,6 +64,7 @@ public class OraclePoolingConnectionFactory
             OracleAuthenticationType authenticationType)
     {
         this.authenticationType = requireNonNull(authenticationType, "authenticationType is null");
+        this.credentialProvider = requireNonNull(credentialProvider, "credentialProvider is null");
         String poolUuid = randomUuidValue();
 
         try {
@@ -86,8 +89,8 @@ public class OraclePoolingConnectionFactory
                     .ifPresent(pwd -> attempt(() -> dataSource.setPassword(pwd)));
             dataSource.setValidateConnectionOnBorrow(true);
 
-            if (authenticationType == PASSWORD_PASS_THROUGH) {
-                verifyPassThroughDataSourceConfiguration(dataSource);
+            if (authenticationType == PASSWORD_PASS_THROUGH || authenticationType == PASSWORD) {
+                verifyCredentialsArePresent(dataSource);
             }
 
             log.debug("Opening Oracle UCP %s", dataSource.getConnectionPoolName());
@@ -98,14 +101,14 @@ public class OraclePoolingConnectionFactory
         }
     }
 
-    private static void verifyPassThroughDataSourceConfiguration(PoolDataSource dataSource)
+    private static void verifyCredentialsArePresent(PoolDataSource dataSource)
     {
         if (dataSource.getUser() == null || dataSource.getUser().isEmpty()) {
-            throw new TrinoException(CONFIGURATION_INVALID, "Password pass-through mode requires connection-user to discover cluster topology");
+            throw new TrinoException(CONFIGURATION_INVALID, "Password and password pass-through modes require connection-user to discover cluster topology");
         }
 
         if (dataSource.getPassword() == null || dataSource.getPassword().isEmpty()) {
-            throw new TrinoException(CONFIGURATION_INVALID, "Password pass-through mode requires connection-password to discover cluster topology");
+            throw new TrinoException(CONFIGURATION_INVALID, "Password and password pass-through modes require connection-password to discover cluster topology");
         }
     }
 
@@ -124,8 +127,8 @@ public class OraclePoolingConnectionFactory
     {
         Connection connection;
 
-        if (authenticationType == PASSWORD_PASS_THROUGH) {
-            connection = getPassThroughConnection(session);
+        if (authenticationType == PASSWORD_PASS_THROUGH || authenticationType == PASSWORD) {
+            connection = getConnectionWithCredentials(session);
         }
         else {
             connection = dataSource.getConnection();
@@ -136,15 +139,26 @@ public class OraclePoolingConnectionFactory
         return connection;
     }
 
-    private Connection getPassThroughConnection(ConnectorSession session)
+    private Connection getConnectionWithCredentials(ConnectorSession session)
             throws SQLException
     {
-        ConnectorIdentity identity = session.getIdentity();
-        String username = identity.getExtraCredentials().getOrDefault(USERNAME_PASSTHROUGH_CREDENTIAL, "");
-        String password = identity.getExtraCredentials().getOrDefault(PASSWORD_PASSTHROUGH_CREDENTIAL, "");
+        String username = "";
+        String password = "";
+
+        if (authenticationType == PASSWORD_PASS_THROUGH) {
+            username = session.getIdentity().getExtraCredentials().getOrDefault(USERNAME_PASSTHROUGH_CREDENTIAL, "");
+            password = session.getIdentity().getExtraCredentials().getOrDefault(PASSWORD_PASSTHROUGH_CREDENTIAL, "");
+        }
+
+        if (authenticationType == PASSWORD) {
+            verify(credentialProvider.isPresent(), "Credential provider is missing");
+            Optional<ConnectorIdentity> identity = Optional.of(session.getIdentity());
+            username = credentialProvider.get().getConnectionUser(identity).orElse("");
+            password = credentialProvider.get().getConnectionPassword(identity).orElse("");
+        }
 
         if (username.isEmpty() || password.isEmpty()) {
-            throw new TrinoException(GENERIC_USER_ERROR, "Password pass-through authentication requires user credentials");
+            throw new TrinoException(GENERIC_USER_ERROR, "Password and password pass-through authentication modes require user credentials");
         }
 
         return dataSource.getConnection(username, password);

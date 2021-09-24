@@ -29,7 +29,11 @@ public class TestStarburstOraclePlugin
     {
         Plugin plugin = new StarburstOraclePlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        factory.create("test", ImmutableMap.of("connection-url", "jdbc:oracle:thin:@test"), new TestingConnectorContext());
+        factory.create("test", ImmutableMap.of(
+                "connection-url", "jdbc:oracle:thin:@test",
+                "connection-user", "test",
+                "connection-password", "password"
+        ), new TestingConnectorContext());
     }
 
     @Test
@@ -62,6 +66,8 @@ public class TestStarburstOraclePlugin
                 "test",
                 ImmutableMap.of(
                         "connection-url", "jdbc:oracle:thin:@test",
+                        "connection-user", "test",
+                        "connection-password", "password",
                         "oracle.impersonation.enabled", "true"),
                 new TestingConnectorContext()))
                 .isInstanceOf(RuntimeException.class)
@@ -98,6 +104,8 @@ public class TestStarburstOraclePlugin
                 "test",
                 ImmutableMap.<String, String>builder()
                         .put("connection-url", "jdbc:oracle:thin:@test")
+                        .put("connection-user", "test")
+                        .put("connection-password", "password")
                         .put("aggregation-pushdown.enabled", "true")
                         .build(),
                 new TestingConnectorContext()))
@@ -116,6 +124,8 @@ public class TestStarburstOraclePlugin
                 "test",
                 ImmutableMap.<String, String>builder()
                         .put("connection-url", "jdbc:oracle:thin:@test")
+                        .put("connection-user", "test")
+                        .put("connection-password", "password")
                         .build(),
                 new TestingConnectorContext())
                 .shutdown();
@@ -125,6 +135,8 @@ public class TestStarburstOraclePlugin
                 "test",
                 ImmutableMap.<String, String>builder()
                         .put("connection-url", "jdbc:oracle:thin:@test")
+                        .put("connection-user", "test")
+                        .put("connection-password", "password")
                         .put("oracle.parallelism-type", "no_parallelism")
                         .build(),
                 new TestingConnectorContext())
@@ -136,6 +148,8 @@ public class TestStarburstOraclePlugin
                         "test",
                         ImmutableMap.<String, String>builder()
                                 .put("connection-url", "jdbc:oracle:thin:@test")
+                                .put("connection-user", "test")
+                                .put("connection-password", "password")
                                 .put("oracle.parallelism-type", "partitions")
                                 .build(),
                         new TestingConnectorContext())
@@ -151,7 +165,9 @@ public class TestStarburstOraclePlugin
         assertThatThrownBy(() -> factory.create(
                 "test",
                 ImmutableMap.<String, String>builder()
-                        .put("connection-url", "jdbc:greenplum:test")
+                        .put("connection-url", "jdbc:oracle:test")
+                        .put("connection-user", "test")
+                        .put("connection-password", "password")
                         .put("oracle.impersonation.enabled", "true")
                         .put("oracle.authentication.type", PASSWORD_PASS_THROUGH.name())
                         .build(),
