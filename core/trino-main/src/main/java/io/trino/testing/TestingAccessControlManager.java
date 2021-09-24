@@ -24,6 +24,8 @@ import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.Identity;
+import io.trino.spi.security.SelectedRole;
+import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.Type;
 import io.trino.transaction.TransactionManager;
@@ -74,14 +76,17 @@ import static io.trino.spi.security.AccessDeniedException.denyRenameTable;
 import static io.trino.spi.security.AccessDeniedException.denyRenameView;
 import static io.trino.spi.security.AccessDeniedException.denySelectColumns;
 import static io.trino.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
+import static io.trino.spi.security.AccessDeniedException.denySetRole;
 import static io.trino.spi.security.AccessDeniedException.denySetSystemSessionProperty;
 import static io.trino.spi.security.AccessDeniedException.denySetTableProperties;
 import static io.trino.spi.security.AccessDeniedException.denySetUser;
+import static io.trino.spi.security.AccessDeniedException.denySetViewAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denyShowColumns;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateTable;
 import static io.trino.spi.security.AccessDeniedException.denyTruncateTable;
 import static io.trino.spi.security.AccessDeniedException.denyUpdateTableColumns;
 import static io.trino.spi.security.AccessDeniedException.denyViewQuery;
+import static io.trino.spi.security.SelectedRole.Type.ROLE;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.ADD_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.COMMENT_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.COMMENT_TABLE;
@@ -109,9 +114,11 @@ import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.RENAME_TABLE;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.RENAME_VIEW;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
+import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SET_ROLE;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SET_SESSION;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SET_TABLE_PROPERTIES;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SET_USER;
+import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SET_VIEW_AUTHORIZATION;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SHOW_COLUMNS;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SHOW_CREATE_TABLE;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.TRUNCATE_TABLE;
@@ -489,6 +496,21 @@ public class TestingAccessControlManager
         if (shouldDenyPrivilege(context.getIdentity().getUser(), viewName.getObjectName(), CREATE_VIEW)) {
             denyCreateView(viewName.toString());
         }
+        Optional.ofNullable(context.getIdentity().getCatalogRoles().get(viewName.getCatalogName()))
+                .filter(role -> role.getType() == ROLE)
+                .flatMap(SelectedRole::getRole)
+                .filter(role -> shouldDenyPrivilege(role, viewName.getObjectName(), CREATE_VIEW))
+                .ifPresent(role -> {
+                    if (shouldDenyPrivilege(role, viewName.getObjectName(), CREATE_VIEW)) {
+                        denyCreateView(viewName.toString());
+                    }
+                });
+        context.getIdentity().getEnabledRoles()
+                .forEach(role -> {
+                    if (shouldDenyPrivilege(role, viewName.getObjectName(), CREATE_VIEW)) {
+                        denyCreateView(viewName.toString());
+                    }
+                });
         if (denyPrivileges.isEmpty()) {
             super.checkCanCreateView(context, viewName);
         }
@@ -661,6 +683,28 @@ public class TestingAccessControlManager
     }
 
     @Override
+    public void checkCanSetCatalogRole(SecurityContext context, String role, String catalogName)
+    {
+        if (shouldDenyPrivilege(context.getIdentity().getUser(), catalogName, SET_ROLE)) {
+            denySetRole(role);
+        }
+        if (denyPrivileges.isEmpty()) {
+            super.checkCanSetCatalogRole(context, role, catalogName);
+        }
+    }
+
+    @Override
+    public void checkCanSetViewAuthorization(SecurityContext context, QualifiedObjectName viewName, TrinoPrincipal principal)
+    {
+        if (shouldDenyPrivilege(context.getIdentity().getUser(), viewName.toString(), SET_VIEW_AUTHORIZATION)) {
+            denySetViewAuthorization(viewName.toString(), principal);
+        }
+        if (denyPrivileges.isEmpty()) {
+            super.checkCanSetViewAuthorization(context, viewName, principal);
+        }
+    }
+
+    @Override
     public List<ViewExpression> getRowFilters(SecurityContext context, QualifiedObjectName tableName)
     {
         List<ViewExpression> viewExpressions = rowFilters.get(new RowFilterKey(context.getIdentity().getUser(), tableName));
@@ -698,12 +742,13 @@ public class TestingAccessControlManager
     public enum TestingPrivilegeType
     {
         SET_USER, IMPERSONATE_USER,
+        SET_ROLE,
         EXECUTE_QUERY, VIEW_QUERY, KILL_QUERY,
         EXECUTE_FUNCTION,
         CREATE_SCHEMA, DROP_SCHEMA, RENAME_SCHEMA,
         SHOW_CREATE_TABLE, CREATE_TABLE, DROP_TABLE, RENAME_TABLE, COMMENT_TABLE, COMMENT_COLUMN, INSERT_TABLE, DELETE_TABLE, UPDATE_TABLE, TRUNCATE_TABLE, SET_TABLE_PROPERTIES, SHOW_COLUMNS,
         ADD_COLUMN, DROP_COLUMN, RENAME_COLUMN, SELECT_COLUMN,
-        CREATE_VIEW, RENAME_VIEW, DROP_VIEW, CREATE_VIEW_WITH_SELECT_COLUMNS,
+        CREATE_VIEW, RENAME_VIEW, DROP_VIEW, CREATE_VIEW_WITH_SELECT_COLUMNS, SET_VIEW_AUTHORIZATION,
         CREATE_MATERIALIZED_VIEW, REFRESH_MATERIALIZED_VIEW, DROP_MATERIALIZED_VIEW, RENAME_MATERIALIZED_VIEW,
         GRANT_EXECUTE_FUNCTION,
         SET_SESSION

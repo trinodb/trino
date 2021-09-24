@@ -48,7 +48,8 @@ public class TestSqlStandardAccessControlChecks
         aliceExecutor.executeQuery(format("CREATE TABLE %s(month bigint, day bigint) WITH (partitioned_by = ARRAY['day'])", tableName));
 
         aliceExecutor.executeQuery(format("DROP VIEW IF EXISTS %s", viewName));
-        aliceExecutor.executeQuery(format("CREATE VIEW %s AS SELECT month, day FROM %s", viewName, tableName));
+        // TODO: switch back to SECURITY DEFINER when SET AUTHORIZATION USER is allowed again
+        aliceExecutor.executeQuery(format("CREATE VIEW %s SECURITY INVOKER AS SELECT month, day FROM %s", viewName, tableName));
     }
 
     @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
@@ -249,7 +250,7 @@ public class TestSqlStandardAccessControlChecks
         bobExecutor.executeQuery(format("DROP VIEW %s", viewName));
     }
 
-    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS}, enabled = false) // TODO: disabled until SET AUTHORIZATION to USER is re-enabled for views with SECURITY DEFINER
     public void testAccessControlSetHiveViewAuthorization()
     {
         onHive().executeQuery("CREATE TABLE test_hive_table (col1 int)");

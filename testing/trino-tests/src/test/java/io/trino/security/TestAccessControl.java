@@ -25,6 +25,7 @@ import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.Identity;
+import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.SelectedRole;
 import io.trino.spi.security.TrinoPrincipal;
@@ -33,13 +34,14 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingAccessControlManager.TestingPrivilege;
 import io.trino.testing.TestingSession;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
 import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY;
+import static io.trino.spi.security.PrincipalType.ROLE;
 import static io.trino.spi.security.PrincipalType.USER;
-import static io.trino.spi.security.SelectedRole.Type.ROLE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.ADD_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_MATERIALIZED_VIEW;
@@ -56,9 +58,11 @@ import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.RENAME_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.RENAME_TABLE;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
+import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SET_ROLE;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SET_SESSION;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SET_TABLE_PROPERTIES;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SET_USER;
+import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SET_VIEW_AUTHORIZATION;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SHOW_COLUMNS;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SHOW_CREATE_TABLE;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.TRUNCATE_TABLE;
@@ -90,7 +94,7 @@ public class TestAccessControl
         queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
                 .withGetViews((connectorSession, prefix) -> {
                     ConnectorViewDefinition definitionRunAsDefiner = new ConnectorViewDefinition(
-                            "select 1",
+                            "SELECT nationkey, random() r FROM tpch.tiny.nation",
                             Optional.of("mock"),
                             Optional.of("default"),
                             ImmutableList.of(new ConnectorViewDefinition.ViewColumn("test", BIGINT.getTypeId())),
@@ -98,7 +102,7 @@ public class TestAccessControl
                             Optional.of("admin"),
                             false);
                     ConnectorViewDefinition definitionRunAsInvoker = new ConnectorViewDefinition(
-                            "select 1",
+                            "SELECT nationkey, random() r FROM tpch.tiny.nation",
                             Optional.of("mock"),
                             Optional.of("default"),
                             ImmutableList.of(new ConnectorViewDefinition.ViewColumn("test", BIGINT.getTypeId())),
@@ -460,7 +464,7 @@ public class TestAccessControl
     {
         Session session = testSessionBuilder()
                 .setIdentity(Identity.forUser("alice")
-                        .withConnectorRoles(ImmutableMap.of("mock", new SelectedRole(ROLE, Optional.of("alice_role"))))
+                        .withConnectorRoles(ImmutableMap.of("mock", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("alice_role"))))
                         .build())
                 .build();
         assertQuery(session, "SHOW ROLES IN mock", "VALUES 'alice_role'");
@@ -475,7 +479,7 @@ public class TestAccessControl
         Session session = testSessionBuilder()
                 .setCatalog("mock")
                 .setIdentity(Identity.forUser("alice")
-                        .withConnectorRoles(ImmutableMap.of("mock", new SelectedRole(ROLE, Optional.of("alice_role"))))
+                        .withConnectorRoles(ImmutableMap.of("mock", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("alice_role"))))
                         .build())
                 .setSystemProperty("legacy_catalog_roles", "true")
                 .build();
@@ -494,17 +498,146 @@ public class TestAccessControl
         assertQueryReturnsEmptyResult("SELECT * FROM information_schema.applicable_roles");
     }
 
-    @Test
-    public void testSetViewAuthorizationWithSecurityDefiner()
+    @Test(dataProvider = "testSetViewAuthorizationDataProvider")
+    public void testSetViewAuthorization(String view, PrincipalType principalType, String principal, Optional<TestingPrivilege> deniedPrivilege, Optional<String> accessDeniedMessage)
     {
-        assertQueryFails(
-                "ALTER VIEW mock.default.test_view_definer SET AUTHORIZATION some_other_user",
-                "Cannot set authorization for view mock.default.test_view_definer to USER some_other_user: this feature is disabled");
+        String statement = format("ALTER VIEW mock.default.%s SET AUTHORIZATION %s %s", view, principalType, principal);
+        TestingPrivilege[] deniedPrivileges = deniedPrivilege.stream().toArray(TestingPrivilege[]::new);
+        if (accessDeniedMessage.isPresent()) {
+            assertAccessDenied(statement, accessDeniedMessage.get(), deniedPrivileges);
+        }
+        else {
+            assertQuerySucceeds(statement, deniedPrivileges);
+        }
     }
 
-    @Test
-    public void testSetViewAuthorizationWithSecurityInvoker()
+    @DataProvider
+    public static Object[][] testSetViewAuthorizationDataProvider()
     {
-        assertQuerySucceeds("ALTER VIEW mock.default.test_view_invoker SET AUTHORIZATION some_other_user");
+        return new Object[][] {
+                {
+                        "test_view_definer", ROLE, "alice_role",
+                        Optional.empty(),
+                        Optional.empty()
+                },
+                {
+                        "test_view_definer", ROLE, "alice_role",
+                        Optional.of(privilege("mock.default.test_view_definer", SET_VIEW_AUTHORIZATION)),
+                        Optional.of("Cannot set authorization for view mock.default.test_view_definer to ROLE alice_role")
+                },
+                {
+                        "test_view_definer", ROLE, "alice_role",
+                        Optional.of(privilege("mock", SET_ROLE)),
+                        Optional.of("Cannot set authorization for view mock.default.test_view_definer to ROLE alice_role: Cannot set role alice_role")
+                },
+                {
+                        "test_view_definer", ROLE, "alice_role",
+                        Optional.of(privilege("nation.nationkey", SELECT_COLUMN)),
+                        Optional.of("Cannot set authorization for view mock.default.test_view_definer to ROLE alice_role: Cannot select from columns \\[nationkey] in table or view tpch.tiny.nation")
+                },
+                {
+                        "test_view_definer", ROLE, "alice_role",
+                        Optional.of(privilege("random", EXECUTE_FUNCTION)),
+                        Optional.of("Cannot set authorization for view mock.default.test_view_definer to ROLE alice_role: Cannot execute function random")
+                },
+                {
+                        "test_view_definer", ROLE, "alice_role",
+                        Optional.of(privilege("alice_role", "test_view_definer", CREATE_VIEW)),
+                        Optional.of("Cannot set authorization for view mock.default.test_view_definer to ROLE alice_role: Cannot create view mock.default.test_view_definer")
+                },
+
+                {
+                        "test_view_definer", USER, "some_other_user",
+                        Optional.empty(),
+                        Optional.of("Cannot set authorization for view mock.default.test_view_definer to USER some_other_user")
+                },
+                {
+                        "test_view_definer", USER, "some_other_user",
+                        Optional.of(privilege("mock.default.test_view_definer", SET_VIEW_AUTHORIZATION)),
+                        Optional.of("Cannot set authorization for view mock.default.test_view_definer to USER some_other_user")
+                },
+                {
+                        "test_view_definer", USER, "some_other_user",
+                        Optional.of(privilege("mock", SET_ROLE)),
+                        Optional.of("Cannot set authorization for view mock.default.test_view_definer to USER some_other_user")
+                },
+                {
+                        "test_view_definer", USER, "some_other_user",
+                        Optional.of(privilege("nation.nationkey", SELECT_COLUMN)),
+                        Optional.of("Cannot set authorization for view mock.default.test_view_definer to USER some_other_user")
+                },
+                {
+                        "test_view_definer", USER, "some_other_user",
+                        Optional.of(privilege("random", EXECUTE_FUNCTION)),
+                        Optional.of("Cannot set authorization for view mock.default.test_view_definer to USER some_other_user")
+                },
+                {
+                        "test_view_definer", USER, "some_other_user",
+                        Optional.of(privilege("alice_role", "test_view_definer", CREATE_VIEW)),
+                        Optional.of("Cannot set authorization for view mock.default.test_view_definer to USER some_other_user")
+                },
+
+                {
+                        "test_view_invoker", ROLE, "alice_role",
+                        Optional.empty(),
+                        Optional.empty()
+                },
+                {
+                        "test_view_invoker", ROLE, "alice_role",
+                        Optional.of(privilege("mock.default.test_view_invoker", SET_VIEW_AUTHORIZATION)),
+                        Optional.of("Cannot set authorization for view mock.default.test_view_invoker to ROLE alice_role")
+                },
+                {
+                        "test_view_invoker", ROLE, "alice_role",
+                        Optional.of(privilege("mock", SET_ROLE)),
+                        Optional.empty()
+                },
+                {
+                        "test_view_invoker", ROLE, "alice_role",
+                        Optional.of(privilege("nation.nationkey", SELECT_COLUMN)),
+                        Optional.empty()
+                },
+                {
+                        "test_view_invoker", ROLE, "alice_role",
+                        Optional.of(privilege("random", EXECUTE_FUNCTION)),
+                        Optional.empty()
+                },
+                {
+                        "test_view_invoker", ROLE, "alice_role",
+                        Optional.of(privilege("alice_role", "test_view_definer", CREATE_VIEW)),
+                        Optional.empty()
+                },
+
+                {
+                        "test_view_invoker", USER, "some_other_user",
+                        Optional.empty(),
+                        Optional.empty()
+                },
+                {
+                        "test_view_invoker", USER, "some_other_user",
+                        Optional.of(privilege("mock.default.test_view_invoker", SET_VIEW_AUTHORIZATION)),
+                        Optional.of("Cannot set authorization for view mock.default.test_view_invoker to USER some_other_user")
+                },
+                {
+                        "test_view_invoker", USER, "some_other_user",
+                        Optional.of(privilege("mock", SET_ROLE)),
+                        Optional.empty()
+                },
+                {
+                        "test_view_invoker", USER, "some_other_user",
+                        Optional.of(privilege("nation.nationkey", SELECT_COLUMN)),
+                        Optional.empty()
+                },
+                {
+                        "test_view_invoker", USER, "some_other_user",
+                        Optional.of(privilege("random", EXECUTE_FUNCTION)),
+                        Optional.empty()
+                },
+                {
+                        "test_view_invoker", USER, "some_other_user",
+                        Optional.of(privilege("alice_role", "test_view_definer", CREATE_VIEW)),
+                        Optional.empty()
+                },
+        };
     }
 }

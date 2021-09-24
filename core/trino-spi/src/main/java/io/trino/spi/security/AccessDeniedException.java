@@ -385,7 +385,12 @@ public class AccessDeniedException
 
     public static void denySetViewAuthorization(String viewName, TrinoPrincipal principal)
     {
-        throw new AccessDeniedException(format("Cannot set authorization for view %s to %s", viewName, principal));
+        denySetViewAuthorization(viewName, principal, null);
+    }
+
+    public static void denySetViewAuthorization(String viewName, TrinoPrincipal principal, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot set authorization for view %s to %s%s", viewName, principal, formatExtraInfo(extraInfo)));
     }
 
     public static void denyDropView(String viewName)

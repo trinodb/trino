@@ -250,14 +250,27 @@ public abstract class AbstractTestQueryFramework
         QueryAssertions.assertUpdate(queryRunner, session, sql, OptionalLong.of(count), Optional.of(planAssertion));
     }
 
-    protected void assertQuerySucceeds(@Language("SQL") String sql)
+    protected void assertQuerySucceeds(@Language("SQL") String sql, TestingPrivilege... deniedPrivileges)
     {
-        assertQuerySucceeds(getSession(), sql);
+        assertQuerySucceeds(getSession(), sql, deniedPrivileges);
     }
 
-    protected void assertQuerySucceeds(Session session, @Language("SQL") String sql)
+    protected void assertQuerySucceeds(Session session, @Language("SQL") String sql, TestingPrivilege... deniedPrivileges)
     {
-        QueryAssertions.assertQuerySucceeds(queryRunner, session, sql);
+        if (deniedPrivileges.length == 0) {
+            QueryAssertions.assertQuerySucceeds(queryRunner, session, sql);
+        }
+        else {
+            executeExclusively(() -> {
+                try {
+                    queryRunner.getAccessControl().deny(deniedPrivileges);
+                    QueryAssertions.assertQuerySucceeds(queryRunner, session, sql);
+                }
+                finally {
+                    queryRunner.getAccessControl().reset();
+                }
+            });
+        }
     }
 
     protected void assertQueryFailsEventually(@Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp, Duration timeout)

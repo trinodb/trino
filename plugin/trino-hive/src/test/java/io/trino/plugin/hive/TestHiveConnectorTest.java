@@ -195,7 +195,6 @@ public class TestHiveConnectorTest
                         "hive.writer-sort-buffer-size", "1MB",
                         // Make weighted split scheduling more conservative to avoid OOMs in test
                         "hive.minimum-assigned-split-weight", "0.5"))
-                .addExtraProperty("legacy.allow-set-view-authorization", "true")
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
 
@@ -822,7 +821,8 @@ public class TestHiveConnectorTest
         String schema = "test_view_authorization" + TestTable.randomTableSuffix();
 
         assertUpdate(admin, "CREATE SCHEMA " + schema);
-        assertUpdate(admin, "CREATE VIEW " + schema + ".test_view AS SELECT current_user AS user");
+        // TODO: switch back to SECURITY DEFINER when SET AUTHORIZATION USER is allowed again
+        assertUpdate(admin, "CREATE VIEW " + schema + ".test_view SECURITY INVOKER AS SELECT current_user AS user");
 
         assertAccessDenied(
                 alice,
@@ -835,7 +835,7 @@ public class TestHiveConnectorTest
         assertUpdate(admin, "DROP SCHEMA " + schema);
     }
 
-    @Test
+    @Test(enabled = false) // TODO: disabled until SET AUTHORIZATION to USER is re-enabled for views with SECURITY DEFINER
     public void testViewAuthorizationSecurityDefiner()
     {
         Session admin = Session.builder(getSession())
@@ -920,10 +920,9 @@ public class TestHiveConnectorTest
         assertAccessDenied(
                 alice,
                 "ALTER VIEW " + schema + ".test_view SET AUTHORIZATION ROLE admin",
-                "Cannot set authorization for view " + schema + ".test_view to ROLE admin");
-        assertUpdate(admin, "ALTER VIEW " + schema + ".test_view SET AUTHORIZATION alice");
+                "Cannot set authorization for view hive." + schema + ".test_view to ROLE admin: Cannot set role admin");
         assertQueryFails(
-                alice,
+                admin,
                 "ALTER VIEW " + schema + ".test_view SET AUTHORIZATION ROLE admin",
                 "Setting table owner type as a role is not supported");
 

@@ -1131,8 +1131,8 @@ public class FeaturesConfig
     }
 
     @Config("legacy.allow-set-view-authorization")
-    @ConfigDescription("For security reasons ALTER VIEW SET AUTHORIZATION is disabled for SECURITY DEFINER; " +
-            "setting this option to true will re-enable this functionality")
+    @ConfigDescription("For security reasons ALTER VIEW SET AUTHORIZATION is restricted for SECURITY DEFINER; " +
+            "setting this option to true will remove these restrictions")
     public FeaturesConfig setAllowSetViewAuthorization(boolean allowSetViewAuthorization)
     {
         this.allowSetViewAuthorization = allowSetViewAuthorization;
