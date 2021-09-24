@@ -33,6 +33,7 @@ import io.trino.spi.connector.ConnectorSplitSource;
 import java.io.FileNotFoundException;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -89,6 +90,9 @@ class HiveSplitSource
     private final CounterStat highMemorySplitSourceCounter;
     private final AtomicBoolean loggedHighMemoryWarning = new AtomicBoolean();
 
+    private final boolean recordScannedFiles;
+    private final ImmutableList.Builder<Object> scannedFilePaths = ImmutableList.builder();
+
     private HiveSplitSource(
             ConnectorSession session,
             String databaseName,
@@ -98,7 +102,8 @@ class HiveSplitSource
             DataSize maxOutstandingSplitsSize,
             HiveSplitLoader splitLoader,
             AtomicReference<State> stateReference,
-            CounterStat highMemorySplitSourceCounter)
+            CounterStat highMemorySplitSourceCounter,
+            boolean recordScannedFiles)
     {
         requireNonNull(session, "session is null");
         this.queryId = session.getQueryId();
@@ -114,6 +119,7 @@ class HiveSplitSource
         this.maxInitialSplitSize = getMaxInitialSplitSize(session);
         this.remainingInitialSplits = new AtomicInteger(maxInitialSplits);
         this.numberOfProcessedSplits = new AtomicLong(0);
+        this.recordScannedFiles = recordScannedFiles;
     }
 
     public static HiveSplitSource allAtOnce(
@@ -126,7 +132,8 @@ class HiveSplitSource
             int maxSplitsPerSecond,
             HiveSplitLoader splitLoader,
             Executor executor,
-            CounterStat highMemorySplitSourceCounter)
+            CounterStat highMemorySplitSourceCounter,
+            boolean recordScannedFiles)
     {
         AtomicReference<State> stateReference = new AtomicReference<>(State.initial());
         return new HiveSplitSource(
@@ -168,7 +175,8 @@ class HiveSplitSource
                 maxOutstandingSplitsSize,
                 splitLoader,
                 stateReference,
-                highMemorySplitSourceCounter);
+                highMemorySplitSourceCounter,
+                recordScannedFiles);
     }
 
     public static HiveSplitSource bucketed(
@@ -181,7 +189,8 @@ class HiveSplitSource
             int maxSplitsPerSecond,
             HiveSplitLoader splitLoader,
             Executor executor,
-            CounterStat highMemorySplitSourceCounter)
+            CounterStat highMemorySplitSourceCounter,
+            boolean recordScannedFiles)
     {
         AtomicReference<State> stateReference = new AtomicReference<>(State.initial());
         return new HiveSplitSource(
@@ -243,7 +252,8 @@ class HiveSplitSource
                 maxOutstandingSplitsSize,
                 splitLoader,
                 stateReference,
-                highMemorySplitSourceCounter);
+                highMemorySplitSourceCounter,
+                recordScannedFiles);
     }
 
     /**
@@ -406,6 +416,9 @@ class HiveSplitSource
 
         ListenableFuture<ConnectorSplitBatch> transform = Futures.transform(future, splits -> {
             requireNonNull(splits, "splits is null");
+            if (recordScannedFiles) {
+                splits.forEach(split -> scannedFilePaths.add(((HiveSplit) split).getPath()));
+            }
             if (noMoreSplits) {
                 // Checking splits.isEmpty() here is required for thread safety.
                 // Let's say there are 10 splits left, and max number of splits per batch is 5.
@@ -444,6 +457,16 @@ class HiveSplitSource
             default:
                 throw new UnsupportedOperationException();
         }
+    }
+
+    @Override
+    public Optional<List<Object>> getTableExecuteSplitsInfo()
+    {
+        checkState(isFinished(), "HiveSplitSource must be finished before TableExecuteSplitsInfo is read");
+        if (!recordScannedFiles) {
+            return Optional.empty();
+        }
+        return Optional.of(scannedFilePaths.build());
     }
 
     @Override

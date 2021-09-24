@@ -29,6 +29,7 @@ import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.SystemTable;
+import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.session.PropertyMetadata;
@@ -40,6 +41,9 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.hive.HiveTableProcedures.COMPACT_SMALL_FILES;
+import static io.trino.spi.connector.TableProcedureExecutionMode.distributedWithFilteringAndRepartitioning;
+import static io.trino.spi.session.PropertyMetadata.longProperty;
 import static io.trino.spi.transaction.IsolationLevel.READ_UNCOMMITTED;
 import static io.trino.spi.transaction.IsolationLevel.checkConnectorSupports;
 import static java.util.Objects.requireNonNull;
@@ -240,5 +244,20 @@ public class HiveConnector
     public final void shutdown()
     {
         lifeCycleManager.stop();
+    }
+
+    @Override
+    public Set<TableProcedureMetadata> getTableProcedures()
+    {
+        return ImmutableSet.of(new TableProcedureMetadata(
+                COMPACT_SMALL_FILES,
+                distributedWithFilteringAndRepartitioning(),
+                ImmutableList.of(
+                        longProperty(
+                                "file_size_threshold",
+                                "Only compact files smaller than given threshold in bytes",
+                                100L * 1024 * 1024,
+                                v -> checkArgument(v > 0, "file_size_threshold must be greater than zero"),
+                                false))));
     }
 }

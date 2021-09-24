@@ -87,6 +87,7 @@ import java.util.StringJoiner;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
@@ -7721,6 +7722,40 @@ public class TestHiveConnectorTest
                 session,
                 "CREATE TABLE test_invalid_precision_timestamp (ts TIMESTAMP(3))",
                 "\\QIncorrect timestamp precision for timestamp(3); the configured precision is " + HiveTimestampPrecision.MICROSECONDS);
+    }
+
+    @Test(invocationCount = 1000)
+    public void testCompactSmallFiles()
+    {
+        String tableName = "test_compact_small_files_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation WITH NO DATA", 0);
+
+        for (int i = 0; i < 10; i++) {
+            assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.sf1.nation", 25);
+        }
+        assertQuery("SELECT COUNT(*) FROM " + tableName, "VALUES 250");
+
+        List<String> initialFiles = getTableFiles(tableName);
+        assertThat(initialFiles).hasSize(10);
+
+        assertUpdate("ALTER TABLE " + tableName + " EXECUTE compact_small_files WITH (file_size_threshold = 10000)");
+        assertQuery("SELECT COUNT(*) FROM " + tableName, "VALUES 250");
+
+        List<String> compactedFiles = getTableFiles(tableName);
+        // we expect 3 files as that is write parallelism
+        assertThat(compactedFiles).hasSize(3);
+        assertThat(initialFiles).doesNotContain(compactedFiles.get(0));
+
+        // compact with low threshold; nothing should change
+        assertUpdate("ALTER TABLE " + tableName + " EXECUTE compact_small_files WITH (file_size_threshold = 10)");
+        assertThat(getTableFiles(tableName)).hasSameElementsAs(compactedFiles);
+    }
+
+    private List<String> getTableFiles(String tableName)
+    {
+        return computeActual("SELECT DISTINCT \"$path\" FROM " + tableName).getMaterializedRows().stream()
+                .map(row -> (String) row.getField(0))
+                .collect(Collectors.toList());
     }
 
     @Test
