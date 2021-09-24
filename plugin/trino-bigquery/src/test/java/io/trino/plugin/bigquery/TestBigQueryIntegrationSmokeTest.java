@@ -59,34 +59,27 @@ public class TestBigQueryIntegrationSmokeTest
     @Test
     public void testCreateSchema()
     {
-        String schemaName = "test_create_schema_" + randomTableSuffix();
-
-        assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
-
+        String schemaName = "test_schema_create_" + randomTableSuffix();
+        assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).doesNotContain(schemaName);
         assertUpdate("CREATE SCHEMA " + schemaName);
         assertUpdate("CREATE SCHEMA IF NOT EXISTS " + schemaName);
 
-        assertQueryFails(
-                "CREATE SCHEMA " + schemaName,
-                format("\\Qline 1:1: Schema 'bigquery.%s' already exists\\E", schemaName));
+        // verify listing of new schema
+        assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).contains(schemaName);
 
+        // verify SHOW CREATE SCHEMA works
+        assertThat((String) computeScalar("SHOW CREATE SCHEMA " + schemaName))
+                .startsWith(format("CREATE SCHEMA %s.%s", getSession().getCatalog().orElseThrow(), schemaName));
+
+        // try to create duplicate schema
+        assertQueryFails("CREATE SCHEMA " + schemaName, format("line 1:1: Schema '.*\\.%s' already exists", schemaName));
+
+        // cleanup
         assertUpdate("DROP SCHEMA " + schemaName);
-    }
 
-    @Test
-    public void testDropSchema()
-    {
-        String schemaName = "test_drop_schema_" + randomTableSuffix();
-
+        // verify DROP SCHEMA for non-existing schema
+        assertQueryFails("DROP SCHEMA " + schemaName, format("line 1:1: Schema '.*\\.%s' does not exist", schemaName));
         assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
-        assertUpdate("CREATE SCHEMA " + schemaName);
-
-        assertUpdate("DROP SCHEMA " + schemaName);
-        assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
-
-        assertQueryFails(
-                "DROP SCHEMA " + schemaName,
-                format("\\Qline 1:1: Schema 'bigquery.%s' does not exist\\E", schemaName));
     }
 
     @Override
