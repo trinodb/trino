@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -24,7 +23,6 @@ import org.testng.annotations.Test;
 
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
-import static io.trino.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -40,7 +38,6 @@ public class TestParquetPageSkipping
                         // Reduce writer sort buffer size to ensure SortingFileWriter gets used
                         "hive.writer-sort-buffer-size", "1MB",
                         "parquet.use-column-index", "true"))
-                .setInitialTables(ImmutableList.of(ORDERS))
                 .build();
     }
 
@@ -77,7 +74,7 @@ public class TestParquetPageSkipping
                         .setCatalogSessionProperty(catalog, "parquet_writer_page_size", "10000B")
                         .setCatalogSessionProperty(catalog, "parquet_writer_block_size", "100GB")
                         .build(),
-                format("INSERT INTO %s SELECT *, ARRAY[rand(), rand(), rand()] FROM orders", tableName),
+                format("INSERT INTO %s SELECT *, ARRAY[rand(), rand(), rand()] FROM tpch.tiny.orders", tableName),
                 15000);
     }
 
