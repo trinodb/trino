@@ -13,6 +13,7 @@
  */
 package io.trino.operator;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.util.concurrent.Futures;
@@ -29,21 +30,25 @@ import io.trino.FeaturesConfig.DataIntegrityVerification;
 import io.trino.block.BlockAssertions;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
+import io.trino.execution.buffer.PageCodecMarker;
 import io.trino.execution.buffer.PagesSerde;
 import io.trino.execution.buffer.SerializedPage;
 import io.trino.memory.context.SimpleLocalMemoryContext;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
+import io.trino.spi.TrinoTransportException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -54,12 +59,17 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.testing.Assertions.assertLessThan;
 import static io.trino.execution.buffer.TestingPagesSerdeFactory.testingPagesSerde;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -97,6 +107,71 @@ public class TestExchangeClient
 
     @Test
     public void testHappyPath()
+            throws Exception
+    {
+        DataSize maxResponseSize = DataSize.of(10, Unit.MEGABYTE);
+        MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(maxResponseSize);
+
+        List<SerializedPage> pages = ImmutableList.of(createSerializedPage("val1"), createSerializedPage("value2"), createSerializedPage("valllue3"));
+
+        URI location = URI.create("http://localhost:8080");
+        pages.forEach(page -> processor.addPage(location, page));
+        processor.setComplete(location);
+
+        TestingExchangeClientBuffer buffer = new TestingExchangeClientBuffer(DataSize.of(1, Unit.MEGABYTE));
+
+        @SuppressWarnings("resource")
+        ExchangeClient exchangeClient = new ExchangeClient(
+                "localhost",
+                DataIntegrityVerification.ABORT,
+                buffer,
+                maxResponseSize,
+                1,
+                new Duration(1, TimeUnit.MINUTES),
+                true,
+                new TestingHttpClient(processor, scheduler),
+                scheduler,
+                new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
+                pageBufferClientCallbackExecutor);
+
+        assertThat(buffer.getAllTasks()).isEmpty();
+        assertThat(buffer.getPages().asMap()).isEmpty();
+        assertThat(buffer.getFinishedTasks()).isEmpty();
+        assertThat(buffer.getFailedTasks().asMap()).isEmpty();
+        assertFalse(buffer.isNoMoreTasks());
+
+        TaskId taskId = new TaskId(new StageId("query", 1), 0, 0);
+        exchangeClient.addLocation(taskId, location);
+        assertThat(buffer.getAllTasks()).containsExactly(taskId);
+        exchangeClient.noMoreLocations();
+        assertTrue(buffer.isNoMoreTasks());
+
+        buffer.whenTaskFinished(taskId).get(10, SECONDS);
+        assertThat(buffer.getFinishedTasks()).containsExactly(taskId);
+        assertThat(buffer.getPages().get(taskId)).hasSize(3);
+        assertThat(buffer.getFailedTasks().asMap()).isEmpty();
+
+        assertFalse(exchangeClient.isFinished());
+        buffer.setFinished(true);
+        assertTrue(exchangeClient.isFinished());
+
+        ExchangeClientStatus status = exchangeClient.getStatus();
+        assertEquals(status.getBufferedPages(), 0);
+
+        // client should have sent only 3 requests: one to get all pages, one to acknowledge and one to get the done signal
+        assertStatus(status.getPageBufferClientStatuses().get(0), location, "closed", 3, 3, 3, "not scheduled");
+
+        exchangeClient.close();
+
+        assertEventually(() -> assertEquals(exchangeClient.getStatus().getPageBufferClientStatuses().get(0).getHttpRequestState(), "not scheduled", "httpRequestState"));
+
+        assertThat(buffer.getFinishedTasks()).containsExactly(taskId);
+        assertThat(buffer.getFailedTasks().asMap()).isEmpty();
+        assertThat(buffer.getPages().size()).isEqualTo(3);
+    }
+
+    @Test
+    public void testStreamingHappyPath()
     {
         DataSize maxResponseSize = DataSize.of(10, Unit.MEGABYTE);
         MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(maxResponseSize);
@@ -111,7 +186,7 @@ public class TestExchangeClient
         ExchangeClient exchangeClient = new ExchangeClient(
                 "localhost",
                 DataIntegrityVerification.ABORT,
-                DataSize.of(32, Unit.MEGABYTE),
+                new StreamingExchangeClientBuffer(scheduler, DataSize.of(32, Unit.MEGABYTE)),
                 maxResponseSize,
                 1,
                 new Duration(1, TimeUnit.MINUTES),
@@ -124,25 +199,106 @@ public class TestExchangeClient
         exchangeClient.addLocation(new TaskId(new StageId("query", 1), 0, 0), location);
         exchangeClient.noMoreLocations();
 
-        assertEquals(exchangeClient.isClosed(), false);
+        assertFalse(exchangeClient.isFinished());
         assertPageEquals(getNextPage(exchangeClient), createPage(1));
-        assertEquals(exchangeClient.isClosed(), false);
+        assertFalse(exchangeClient.isFinished());
         assertPageEquals(getNextPage(exchangeClient), createPage(2));
-        assertEquals(exchangeClient.isClosed(), false);
+        assertFalse(exchangeClient.isFinished());
         assertPageEquals(getNextPage(exchangeClient), createPage(3));
         assertNull(getNextPage(exchangeClient));
-        assertEquals(exchangeClient.isClosed(), true);
+        assertTrue(exchangeClient.isFinished());
 
         ExchangeClientStatus status = exchangeClient.getStatus();
         assertEquals(status.getBufferedPages(), 0);
-        assertEquals(status.getBufferedBytes(), 0);
 
-        // client should have sent only 2 requests: one to get all pages and once to get the done signal
+        // client should have sent only 3 requests: one to get all pages, one to acknowledge and one to get the done signal
         assertStatus(status.getPageBufferClientStatuses().get(0), location, "closed", 3, 3, 3, "not scheduled");
+
+        exchangeClient.close();
+    }
+
+    @Test
+    public void testAddLocation()
+            throws Exception
+    {
+        DataSize maxResponseSize = DataSize.of(10, Unit.MEGABYTE);
+        MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(maxResponseSize);
+
+        TaskId task1 = new TaskId(new StageId("query", 1), 0, 0);
+        TaskId task2 = new TaskId(new StageId("query", 1), 1, 0);
+        TaskId task3 = new TaskId(new StageId("query", 1), 2, 0);
+
+        URI location1 = URI.create("http://localhost:8080/1");
+        URI location2 = URI.create("http://localhost:8080/2");
+        URI location3 = URI.create("http://localhost:8080/3");
+
+        processor.addPage(location1, createSerializedPage("location-1-page-1"));
+        processor.addPage(location1, createSerializedPage("location-1-page-2"));
+
+        TestingExchangeClientBuffer buffer = new TestingExchangeClientBuffer(DataSize.of(1, Unit.MEGABYTE));
+
+        @SuppressWarnings("resource")
+        ExchangeClient exchangeClient = new ExchangeClient(
+                "localhost",
+                DataIntegrityVerification.ABORT,
+                buffer,
+                maxResponseSize,
+                1,
+                new Duration(1, TimeUnit.MINUTES),
+                true,
+                new TestingHttpClient(processor, scheduler),
+                scheduler,
+                new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
+                pageBufferClientCallbackExecutor);
+
+        assertThat(buffer.getAllTasks()).isEmpty();
+        assertThat(buffer.getPages().asMap()).isEmpty();
+        assertThat(buffer.getFinishedTasks()).isEmpty();
+        assertThat(buffer.getFailedTasks().asMap()).isEmpty();
+        assertFalse(buffer.isNoMoreTasks());
+
+        exchangeClient.addLocation(task1, location1);
+        assertThat(buffer.getAllTasks()).containsExactly(task1);
+        assertTaskIsNotFinished(buffer, task1);
+
+        processor.setComplete(location1);
+        buffer.whenTaskFinished(task1).get(10, SECONDS);
+        assertThat(buffer.getPages().get(task1)).hasSize(2);
+        assertThat(buffer.getFinishedTasks()).containsExactly(task1);
+
+        exchangeClient.addLocation(task2, location2);
+        assertThat(buffer.getAllTasks()).containsExactlyInAnyOrder(task1, task2);
+        assertTaskIsNotFinished(buffer, task2);
+
+        processor.setComplete(location2);
+        buffer.whenTaskFinished(task2).get(10, SECONDS);
+        assertThat(buffer.getFinishedTasks()).containsExactlyInAnyOrder(task1, task2);
+        assertThat(buffer.getPages().get(task2)).hasSize(0);
+
+        exchangeClient.addLocation(task3, location3);
+        assertThat(buffer.getAllTasks()).containsExactlyInAnyOrder(task1, task2, task3);
+        assertTaskIsNotFinished(buffer, task3);
+
+        exchangeClient.noMoreLocations();
+        assertTrue(buffer.isNoMoreTasks());
+
+        assertThat(buffer.getAllTasks()).containsExactlyInAnyOrder(task1, task2, task3);
+        assertTaskIsNotFinished(buffer, task3);
+
+        exchangeClient.close();
+
+        assertEventually(() -> assertEquals(exchangeClient.getStatus().getPageBufferClientStatuses().get(0).getHttpRequestState(), "not scheduled", "httpRequestState"));
+        assertEventually(() -> assertEquals(exchangeClient.getStatus().getPageBufferClientStatuses().get(1).getHttpRequestState(), "not scheduled", "httpRequestState"));
+        assertEventually(() -> assertEquals(exchangeClient.getStatus().getPageBufferClientStatuses().get(2).getHttpRequestState(), "not scheduled", "httpRequestState"));
+
+        assertThat(buffer.getFinishedTasks()).containsExactlyInAnyOrder(task1, task2, task3);
+        assertThat(buffer.getFailedTasks().asMap()).isEmpty();
+
+        assertTrue(exchangeClient.isFinished());
     }
 
     @Test(timeOut = 10000)
-    public void testAddLocation()
+    public void testStreamingAddLocation()
             throws Exception
     {
         DataSize maxResponseSize = DataSize.of(10, Unit.MEGABYTE);
@@ -152,7 +308,7 @@ public class TestExchangeClient
         ExchangeClient exchangeClient = new ExchangeClient(
                 "localhost",
                 DataIntegrityVerification.ABORT,
-                DataSize.of(32, Unit.MEGABYTE),
+                new StreamingExchangeClientBuffer(scheduler, DataSize.of(32, Unit.MEGABYTE)),
                 maxResponseSize,
                 1,
                 new Duration(1, TimeUnit.MINUTES),
@@ -169,15 +325,36 @@ public class TestExchangeClient
         processor.setComplete(location1);
         exchangeClient.addLocation(new TaskId(new StageId("query", 1), 0, 0), location1);
 
-        assertEquals(exchangeClient.isClosed(), false);
+        assertFalse(exchangeClient.isFinished());
         assertPageEquals(getNextPage(exchangeClient), createPage(1));
-        assertEquals(exchangeClient.isClosed(), false);
+        assertFalse(exchangeClient.isFinished());
         assertPageEquals(getNextPage(exchangeClient), createPage(2));
-        assertEquals(exchangeClient.isClosed(), false);
+        assertFalse(exchangeClient.isFinished());
         assertPageEquals(getNextPage(exchangeClient), createPage(3));
 
-        assertFalse(tryGetFutureValue(exchangeClient.isBlocked(), 10, MILLISECONDS).isPresent());
-        assertEquals(exchangeClient.isClosed(), false);
+        assertNull(exchangeClient.pollPage());
+        ListenableFuture<Void> firstBlocked = exchangeClient.isBlocked();
+        assertFalse(tryGetFutureValue(firstBlocked, 10, MILLISECONDS).isPresent());
+        assertFalse(firstBlocked.isDone());
+
+        assertNull(exchangeClient.pollPage());
+        ListenableFuture<Void> secondBlocked = exchangeClient.isBlocked();
+        assertFalse(tryGetFutureValue(secondBlocked, 10, MILLISECONDS).isPresent());
+        assertFalse(secondBlocked.isDone());
+
+        assertNull(exchangeClient.pollPage());
+        ListenableFuture<Void> thirdBlocked = exchangeClient.isBlocked();
+        assertFalse(tryGetFutureValue(thirdBlocked, 10, MILLISECONDS).isPresent());
+        assertFalse(thirdBlocked.isDone());
+
+        thirdBlocked.cancel(true);
+        assertTrue(thirdBlocked.isDone());
+        assertFalse(tryGetFutureValue(firstBlocked, 10, MILLISECONDS).isPresent());
+        assertFalse(firstBlocked.isDone());
+        assertFalse(tryGetFutureValue(secondBlocked, 10, MILLISECONDS).isPresent());
+        assertFalse(secondBlocked.isDone());
+
+        assertFalse(exchangeClient.isFinished());
 
         URI location2 = URI.create("http://localhost:8082/bar");
         processor.addPage(location2, createPage(4));
@@ -186,22 +363,28 @@ public class TestExchangeClient
         processor.setComplete(location2);
         exchangeClient.addLocation(new TaskId(new StageId("query", 1), 1, 0), location2);
 
-        assertEquals(exchangeClient.isClosed(), false);
+        tryGetFutureValue(firstBlocked, 5, SECONDS);
+        assertTrue(firstBlocked.isDone());
+        tryGetFutureValue(secondBlocked, 5, SECONDS);
+        assertTrue(secondBlocked.isDone());
+
+        assertFalse(exchangeClient.isFinished());
         assertPageEquals(getNextPage(exchangeClient), createPage(4));
-        assertEquals(exchangeClient.isClosed(), false);
+        assertFalse(exchangeClient.isFinished());
         assertPageEquals(getNextPage(exchangeClient), createPage(5));
-        assertEquals(exchangeClient.isClosed(), false);
+        assertFalse(exchangeClient.isFinished());
         assertPageEquals(getNextPage(exchangeClient), createPage(6));
 
         assertFalse(tryGetFutureValue(exchangeClient.isBlocked(), 10, MILLISECONDS).isPresent());
-        assertEquals(exchangeClient.isClosed(), false);
+        assertFalse(exchangeClient.isFinished());
 
         exchangeClient.noMoreLocations();
         // The transition to closed may happen asynchronously, since it requires that all the HTTP clients
         // receive a final GONE response, so just spin until it's closed or the test times out.
-        while (!exchangeClient.isClosed()) {
+        while (!exchangeClient.isFinished()) {
             Thread.sleep(1);
         }
+        exchangeClient.close();
 
         ImmutableMap<URI, PageBufferClientStatus> statuses = uniqueIndex(exchangeClient.getStatus().getPageBufferClientStatuses(), PageBufferClientStatus::getUri);
         assertStatus(statuses.get(location1), location1, "closed", 3, 3, 3, "not scheduled");
@@ -209,7 +392,121 @@ public class TestExchangeClient
     }
 
     @Test
-    public void testBufferLimit()
+    public void testTaskFailure()
+            throws Exception
+    {
+        DataSize maxResponseSize = DataSize.of(10, Unit.MEGABYTE);
+        MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(maxResponseSize);
+
+        TaskId task1 = new TaskId(new StageId("query", 1), 0, 0);
+        TaskId task2 = new TaskId(new StageId("query", 1), 1, 0);
+        TaskId task3 = new TaskId(new StageId("query", 1), 2, 0);
+        TaskId task4 = new TaskId(new StageId("query", 1), 3, 0);
+
+        URI location1 = URI.create("http://localhost:8080/1");
+        URI location2 = URI.create("http://localhost:8080/2");
+        URI location3 = URI.create("http://localhost:8080/3");
+        URI location4 = URI.create("http://localhost:8080/4");
+
+        processor.addPage(location1, createSerializedPage("location-1-page-1"));
+        processor.addPage(location4, createSerializedPage("location-4-page-1"));
+        processor.addPage(location4, createSerializedPage("location-4-page-2"));
+
+        TestingExchangeClientBuffer buffer = new TestingExchangeClientBuffer(DataSize.of(1, Unit.MEGABYTE));
+
+        @SuppressWarnings("resource")
+        ExchangeClient exchangeClient = new ExchangeClient(
+                "localhost",
+                DataIntegrityVerification.ABORT,
+                buffer,
+                maxResponseSize,
+                1,
+                new Duration(1, SECONDS),
+                true,
+                new TestingHttpClient(processor, scheduler),
+                scheduler,
+                new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
+                pageBufferClientCallbackExecutor);
+
+        assertThat(buffer.getAllTasks()).isEmpty();
+        assertThat(buffer.getPages().asMap()).isEmpty();
+        assertThat(buffer.getFinishedTasks()).isEmpty();
+        assertThat(buffer.getFailedTasks().asMap()).isEmpty();
+        assertFalse(buffer.isNoMoreTasks());
+
+        exchangeClient.addLocation(task1, location1);
+        assertThat(buffer.getAllTasks()).containsExactly(task1);
+        assertTaskIsNotFinished(buffer, task1);
+
+        processor.setComplete(location1);
+        buffer.whenTaskFinished(task1).get(10, SECONDS);
+        assertThat(buffer.getPages().get(task1)).hasSize(1);
+        assertThat(buffer.getFinishedTasks()).containsExactly(task1);
+
+        exchangeClient.addLocation(task2, location2);
+        assertThat(buffer.getAllTasks()).containsExactlyInAnyOrder(task1, task2);
+        assertTaskIsNotFinished(buffer, task2);
+
+        RuntimeException randomException = new RuntimeException("randomfailure");
+        processor.setFailed(location2, randomException);
+        buffer.whenTaskFailed(task2).get(10, SECONDS);
+
+        assertThat(buffer.getFinishedTasks()).containsExactly(task1);
+        assertThat(buffer.getFailedTasks().keySet()).containsExactly(task2);
+        assertThat(buffer.getPages().get(task2)).hasSize(0);
+
+        exchangeClient.addLocation(task3, location3);
+        assertThat(buffer.getAllTasks()).containsExactlyInAnyOrder(task1, task2, task3);
+        assertTaskIsNotFinished(buffer, task2);
+        assertTaskIsNotFinished(buffer, task3);
+
+        TrinoException trinoException = new TrinoException(GENERIC_INTERNAL_ERROR, "generic internal error");
+        processor.setFailed(location3, trinoException);
+        buffer.whenTaskFailed(task3).get(10, SECONDS);
+
+        assertThat(buffer.getFinishedTasks()).containsExactly(task1);
+        assertThat(buffer.getFailedTasks().keySet()).containsExactlyInAnyOrder(task2, task3);
+        assertThat(buffer.getPages().get(task2)).hasSize(0);
+        assertThat(buffer.getPages().get(task3)).hasSize(0);
+
+        exchangeClient.addLocation(task4, location4);
+        assertThat(buffer.getAllTasks()).containsExactlyInAnyOrder(task1, task2, task3, task4);
+        assertTaskIsNotFinished(buffer, task4);
+
+        processor.setComplete(location4);
+        buffer.whenTaskFinished(task4).get(10, SECONDS);
+        assertThat(buffer.getPages().get(task4)).hasSize(2);
+        assertThat(buffer.getFinishedTasks()).containsExactlyInAnyOrder(task1, task4);
+
+        assertFalse(exchangeClient.isFinished());
+        buffer.setFinished(true);
+        assertTrue(exchangeClient.isFinished());
+
+        exchangeClient.close();
+
+        assertEventually(() -> assertEquals(exchangeClient.getStatus().getPageBufferClientStatuses().get(0).getHttpRequestState(), "not scheduled", "httpRequestState"));
+        assertEventually(() -> assertEquals(exchangeClient.getStatus().getPageBufferClientStatuses().get(1).getHttpRequestState(), "not scheduled", "httpRequestState"));
+        assertEventually(() -> assertEquals(exchangeClient.getStatus().getPageBufferClientStatuses().get(2).getHttpRequestState(), "not scheduled", "httpRequestState"));
+        assertEventually(() -> assertEquals(exchangeClient.getStatus().getPageBufferClientStatuses().get(3).getHttpRequestState(), "not scheduled", "httpRequestState"));
+
+        assertThat(buffer.getFinishedTasks()).containsExactlyInAnyOrder(task1, task4);
+        assertThat(buffer.getFailedTasks().keySet()).containsExactlyInAnyOrder(task2, task3);
+        assertThat(buffer.getFailedTasks().asMap().get(task2)).hasSize(1);
+        assertThat(buffer.getFailedTasks().asMap().get(task2).iterator().next()).isInstanceOf(TrinoTransportException.class);
+        assertThat(buffer.getFailedTasks().asMap().get(task3)).hasSize(1);
+        assertThat(buffer.getFailedTasks().asMap().get(task3).iterator().next()).isEqualTo(trinoException);
+
+        assertTrue(exchangeClient.isFinished());
+    }
+
+    private static void assertTaskIsNotFinished(TestingExchangeClientBuffer buffer, TaskId task)
+    {
+        assertThatThrownBy(() -> buffer.whenTaskFinished(task).get(50, MILLISECONDS))
+                .isInstanceOf(TimeoutException.class);
+    }
+
+    @Test
+    public void testStreamingBufferLimit()
     {
         DataSize maxResponseSize = DataSize.ofBytes(1);
         MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(maxResponseSize);
@@ -226,7 +523,7 @@ public class TestExchangeClient
         ExchangeClient exchangeClient = new ExchangeClient(
                 "localhost",
                 DataIntegrityVerification.ABORT,
-                DataSize.ofBytes(1),
+                new StreamingExchangeClientBuffer(scheduler, DataSize.ofBytes(1)),
                 maxResponseSize,
                 1,
                 new Duration(1, TimeUnit.MINUTES),
@@ -238,7 +535,7 @@ public class TestExchangeClient
 
         exchangeClient.addLocation(new TaskId(new StageId("query", 1), 0, 0), location);
         exchangeClient.noMoreLocations();
-        assertEquals(exchangeClient.isClosed(), false);
+        assertFalse(exchangeClient.isFinished());
 
         long start = System.nanoTime();
 
@@ -288,22 +585,18 @@ public class TestExchangeClient
         assertNull(getNextPage(exchangeClient));
         assertEquals(exchangeClient.getStatus().getBufferedPages(), 0);
         assertTrue(exchangeClient.getStatus().getBufferedBytes() == 0);
-        assertEquals(exchangeClient.isClosed(), true);
+        assertEquals(exchangeClient.isFinished(), true);
+        exchangeClient.close();
         assertStatus(exchangeClient.getStatus().getPageBufferClientStatuses().get(0), location, "closed", 3, 5, 5, "not scheduled");
     }
 
     @Test
-    public void testAbortOnDataCorruption()
+    public void testStreamingAbortOnDataCorruption()
     {
         URI location = URI.create("http://localhost:8080");
         ExchangeClient exchangeClient = setUpDataCorruption(DataIntegrityVerification.ABORT, location);
 
-        assertFalse(exchangeClient.isClosed());
         assertThatThrownBy(() -> getNextPage(exchangeClient))
-                .isInstanceOf(TrinoException.class)
-                .hasMessageMatching("Checksum verification failure on localhost when reading from http://localhost:8080/0: Data corruption, read checksum: 0xf91cfe5d2bc6e1c2, calculated checksum: 0x3c51297c7b78052f");
-
-        assertThatThrownBy(exchangeClient::isFinished)
                 .isInstanceOf(TrinoException.class)
                 .hasMessageMatching("Checksum verification failure on localhost when reading from http://localhost:8080/0: Data corruption, read checksum: 0xf91cfe5d2bc6e1c2, calculated checksum: 0x3c51297c7b78052f");
 
@@ -311,17 +604,18 @@ public class TestExchangeClient
     }
 
     @Test
-    public void testRetryDataCorruption()
+    public void testStreamingRetryDataCorruption()
     {
         URI location = URI.create("http://localhost:8080");
         ExchangeClient exchangeClient = setUpDataCorruption(DataIntegrityVerification.RETRY, location);
 
-        assertFalse(exchangeClient.isClosed());
+        assertFalse(exchangeClient.isFinished());
         assertPageEquals(getNextPage(exchangeClient), createPage(1));
-        assertFalse(exchangeClient.isClosed());
+        assertFalse(exchangeClient.isFinished());
         assertPageEquals(getNextPage(exchangeClient), createPage(2));
         assertNull(getNextPage(exchangeClient));
-        assertTrue(exchangeClient.isClosed());
+        assertTrue(exchangeClient.isFinished());
+        exchangeClient.close();
 
         ExchangeClientStatus status = exchangeClient.getStatus();
         assertEquals(status.getBufferedPages(), 0);
@@ -379,7 +673,7 @@ public class TestExchangeClient
         ExchangeClient exchangeClient = new ExchangeClient(
                 "localhost",
                 dataIntegrityVerification,
-                DataSize.of(32, Unit.MEGABYTE),
+                new StreamingExchangeClientBuffer(scheduler, DataSize.of(32, Unit.MEGABYTE)),
                 maxResponseSize,
                 1,
                 new Duration(1, TimeUnit.MINUTES),
@@ -396,7 +690,7 @@ public class TestExchangeClient
     }
 
     @Test
-    public void testClose()
+    public void testStreamingClose()
             throws Exception
     {
         DataSize maxResponseSize = DataSize.ofBytes(1);
@@ -411,7 +705,7 @@ public class TestExchangeClient
         ExchangeClient exchangeClient = new ExchangeClient(
                 "localhost",
                 DataIntegrityVerification.ABORT,
-                DataSize.ofBytes(1),
+                new StreamingExchangeClientBuffer(scheduler, DataSize.ofBytes(1)),
                 maxResponseSize,
                 1,
                 new Duration(1, TimeUnit.MINUTES),
@@ -424,7 +718,7 @@ public class TestExchangeClient
         exchangeClient.noMoreLocations();
 
         // fetch a page
-        assertEquals(exchangeClient.isClosed(), false);
+        assertFalse(exchangeClient.isFinished());
         assertPageEquals(getNextPage(exchangeClient), createPage(1));
 
         // close client while pages are still available
@@ -432,12 +726,10 @@ public class TestExchangeClient
         while (!exchangeClient.isFinished()) {
             MILLISECONDS.sleep(10);
         }
-        assertEquals(exchangeClient.isClosed(), true);
+        assertTrue(exchangeClient.isFinished());
         assertNull(exchangeClient.pollPage());
         assertEquals(exchangeClient.getStatus().getBufferedPages(), 0);
-        assertEquals(exchangeClient.getStatus().getBufferedBytes(), 0);
 
-        // client should have sent only 2 requests: one to get all pages and once to get the done signal
         PageBufferClientStatus clientStatus = exchangeClient.getStatus().getPageBufferClientStatuses().get(0);
         assertEquals(clientStatus.getUri(), location);
         assertEquals(clientStatus.getState(), "closed", "status");
@@ -447,6 +739,11 @@ public class TestExchangeClient
     private static Page createPage(int size)
     {
         return new Page(BlockAssertions.createLongSequenceBlock(0, size));
+    }
+
+    private static SerializedPage createSerializedPage(String value)
+    {
+        return new SerializedPage(utf8Slice(value), PageCodecMarker.MarkerSet.empty(), 1, value.length());
     }
 
     private static SerializedPage getNextPage(ExchangeClient exchangeClient)

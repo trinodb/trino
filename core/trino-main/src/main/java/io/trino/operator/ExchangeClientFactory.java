@@ -127,7 +127,7 @@ public class ExchangeClientFactory
         return new ExchangeClient(
                 nodeInfo.getExternalAddress(),
                 dataIntegrityVerification,
-                maxBufferedBytes,
+                new StreamingExchangeClientBuffer(scheduler, maxBufferedBytes),
                 maxResponseSize,
                 concurrentRequestMultiplier,
                 maxErrorDuration,

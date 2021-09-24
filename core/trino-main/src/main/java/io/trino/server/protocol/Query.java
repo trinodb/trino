@@ -354,7 +354,7 @@ class Query
     private synchronized ListenableFuture<Void> getFutureStateChange()
     {
         // if the exchange client is open, wait for data
-        if (!exchangeClient.isClosed()) {
+        if (!exchangeClient.isFinished()) {
             return exchangeClient.isBlocked();
         }
 
@@ -433,7 +433,7 @@ class Query
         // (1) the query is not done AND the query state is not FAILED
         //   OR
         // (2)there is more data to send (due to buffering)
-        if (queryInfo.getState() != FAILED && (!queryInfo.isFinalQueryInfo() || !exchangeClient.isClosed() || (lastResult != null && lastResult.getData() != null))) {
+        if (queryInfo.getState() != FAILED && (!queryInfo.isFinalQueryInfo() || !exchangeClient.isFinished() || (lastResult != null && lastResult.getData() != null))) {
             nextToken = OptionalLong.of(token + 1);
         }
         else {
