@@ -57,10 +57,12 @@ import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.DECIMAL_ROUND
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.TimeType.createTimeType;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampType.createTimestampType;
+import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -111,6 +113,27 @@ public class TestMySqlTypeMapping
                 .addRoundTrip(doubleDataType(), 123.45d)
                 .addRoundTrip(realDataType(), 123.45f)
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_basic_types"));
+    }
+
+    @Test
+    public void testBit()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("bit", "b'1'", BOOLEAN, "true")
+                .addRoundTrip("bit", "b'0'", BOOLEAN, "false")
+                .addRoundTrip("bit", "NULL", BOOLEAN, "CAST(NULL AS BOOLEAN)")
+                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.test_bit"));
+    }
+
+    @Test
+    public void testBoolean()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("boolean", "true", TINYINT, "TINYINT '1'")
+                .addRoundTrip("boolean", "false", TINYINT, "TINYINT '0'")
+                .addRoundTrip("boolean", "NULL", TINYINT, "CAST(NULL AS TINYINT)")
+                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.test_boolean"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("tpch.test_boolean"));
     }
 
     @Test
