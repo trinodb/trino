@@ -90,6 +90,7 @@ import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
 import static io.trino.plugin.jdbc.PredicatePushdownController.FULL_PUSHDOWN;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.booleanColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.charWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.dateColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.dateWriteFunction;
@@ -116,6 +117,8 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
+import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
+import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -285,6 +288,9 @@ public class MySqlClient
         }
 
         switch (typeHandle.getJdbcType()) {
+            case Types.BIT:
+                return Optional.of(booleanColumnMapping());
+
             case Types.TINYINT:
                 return Optional.of(tinyintColumnMapping());
 
@@ -303,6 +309,7 @@ public class MySqlClient
             case Types.DOUBLE:
                 return Optional.of(doubleColumnMapping());
 
+            case Types.NUMERIC:
             case Types.DECIMAL:
                 int decimalDigits = typeHandle.getDecimalDigits().orElseThrow(() -> new IllegalStateException("decimal digits not present"));
                 int precision = typeHandle.getRequiredColumnSize();
@@ -344,8 +351,10 @@ public class MySqlClient
                 return Optional.of(timestampColumnMapping(timestampType));
         }
 
-        // TODO add explicit mappings
-        return legacyColumnMapping(session, connection, typeHandle);
+        if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
+            return mapToUnboundedVarchar(typeHandle);
+        }
+        return Optional.empty();
     }
 
     private static int getTimestampPrecision(int timestampColumnSize)
