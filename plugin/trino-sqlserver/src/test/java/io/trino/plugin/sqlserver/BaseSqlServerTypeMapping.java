@@ -121,6 +121,25 @@ public abstract class BaseSqlServerTypeMapping
     }
 
     @Test
+    public void testFloat()
+    {
+        // SQL Server treats n as one of two possible values. If 1<=n<=24, n is treated as 24. If 25<=n<=53, n is treated as 53
+        SqlDataTypeTest.create()
+                .addRoundTrip("float", "1E100", DOUBLE, "double '1E100'")
+                .addRoundTrip("float", "1.0", DOUBLE, "double '1.0'")
+                .addRoundTrip("float", "123456.123456", DOUBLE, "double '123456.123456'")
+                .addRoundTrip("float", "NULL", DOUBLE, "CAST(NULL AS double)")
+                .addRoundTrip("float(1)", "100000.0", REAL, "REAL '100000.0'")
+                .addRoundTrip("float(24)", "123000.0", REAL, "REAL '123000.0'")
+                .addRoundTrip("float(24)", "NULL", REAL, "CAST(NULL AS real)")
+                .addRoundTrip("float(25)", "1E100", DOUBLE, "double '1E100'")
+                .addRoundTrip("float(53)", "1.0", DOUBLE, "double '1.0'")
+                .addRoundTrip("float(53)", "1234567890123456789.0123456789", DOUBLE, "double '1234567890123456789.0123456789'")
+                .addRoundTrip("float(53)", "NULL", DOUBLE, "CAST(NULL AS double)")
+                .execute(getQueryRunner(), sqlServerCreateAndInsert("test_float"));
+    }
+
+    @Test
     public void testDouble()
     {
         // we are not testing Nan/-Infinity/+Infinity as those are not supported by SQL Server
