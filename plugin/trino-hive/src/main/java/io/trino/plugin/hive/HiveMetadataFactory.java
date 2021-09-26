@@ -23,6 +23,7 @@ import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.security.AccessControlMetadataFactory;
 import io.trino.plugin.hive.statistics.MetastoreHiveStatisticsProvider;
 import io.trino.spi.connector.MetadataProvider;
+import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;
 
 import javax.inject.Inject;
@@ -188,7 +189,7 @@ public class HiveMetadataFactory
     }
 
     @Override
-    public TransactionalMetadata create(boolean autoCommit)
+    public TransactionalMetadata create(ConnectorIdentity identity, boolean autoCommit)
     {
         HiveMetastoreClosure hiveMetastoreClosure = new HiveMetastoreClosure(
                 memoizeMetastore(metastore, perTransactionCacheMaximumSize)); // per-transaction cache

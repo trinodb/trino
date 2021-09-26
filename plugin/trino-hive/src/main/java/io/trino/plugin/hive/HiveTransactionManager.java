@@ -15,6 +15,7 @@ package io.trino.plugin.hive;
 
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.security.ConnectorIdentity;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
@@ -44,9 +45,9 @@ public class HiveTransactionManager
         checkState(previousValue == null);
     }
 
-    public TransactionalMetadata get(ConnectorTransactionHandle transactionHandle)
+    public TransactionalMetadata get(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity)
     {
-        return transactions.get(transactionHandle).get(((HiveTransactionHandle) transactionHandle).isAutoCommit());
+        return transactions.get(transactionHandle).get(identity, ((HiveTransactionHandle) transactionHandle).isAutoCommit());
     }
 
     public void commit(ConnectorTransactionHandle transaction)
@@ -81,11 +82,11 @@ public class HiveTransactionManager
             return Optional.ofNullable(metadata);
         }
 
-        public synchronized TransactionalMetadata get(boolean autoCommit)
+        public synchronized TransactionalMetadata get(ConnectorIdentity identity, boolean autoCommit)
         {
             if (metadata == null) {
                 try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
-                    metadata = metadataFactory.create(autoCommit);
+                    metadata = metadataFactory.create(identity, autoCommit);
                 }
             }
             return metadata;

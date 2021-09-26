@@ -988,13 +988,13 @@ public abstract class AbstractTestHive
         @Override
         public ConnectorMetadata getMetadata()
         {
-            return transactionManager.get(transactionHandle);
+            return transactionManager.get(transactionHandle, SESSION.getIdentity());
         }
 
         @Override
         public SemiTransactionalHiveMetastore getMetastore()
         {
-            return transactionManager.get(transactionHandle).getMetastore();
+            return transactionManager.get(transactionHandle, SESSION.getIdentity()).getMetastore();
         }
 
         @Override
