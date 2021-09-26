@@ -127,8 +127,8 @@ class FilteredOffsetIndex
                 }
                 else {
                     ranges.add(new OffsetRange(currentOffset, currentLength));
-                    currentOffset = -1;
-                    currentLength = 0;
+                    currentOffset = offset;
+                    currentLength = length;
                 }
             }
 
