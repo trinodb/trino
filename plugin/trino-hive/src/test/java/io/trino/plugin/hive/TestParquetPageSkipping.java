@@ -95,6 +95,29 @@ public class TestParquetPageSkipping
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @Test
+    public void testPageSkippingWithNonSequentialOffsets()
+    {
+        String tableName = "test_random_" + randomTableSuffix();
+        int updateCount = 8192;
+        assertUpdate(
+                "CREATE TABLE " + tableName + " (col) WITH (format = 'PARQUET') AS " +
+                        "SELECT * FROM unnest(transform(repeat(1, 8192), x -> rand()))",
+                updateCount);
+        for (int i = 0; i < 8; i++) {
+            assertUpdate(
+                    "INSERT INTO " + tableName + " SELECT rand() FROM " + tableName,
+                    updateCount);
+            updateCount += updateCount;
+        }
+        // These queries select a subset of pages which are stored at non-sequential offsets
+        // This reproduces the issue identified in https://github.com/trinodb/trino/issues/9097
+        for (double i = 0; i < 1; i += 0.1) {
+            assertColumnIndexResults(format("SELECT * FROM %s WHERE col BETWEEN %f AND %f", tableName, i - 0.00001, i + 0.00001));
+        }
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
     @Test(dataProvider = "dataType")
     public void testPageSkipping(String sortByColumn, String sortByColumnType, Object[][] valuesArray)
     {
