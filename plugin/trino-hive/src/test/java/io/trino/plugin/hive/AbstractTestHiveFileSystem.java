@@ -220,9 +220,9 @@ public abstract class AbstractTestHiveFileSystem
                 new DefaultHiveMaterializedViewMetadataFactory(),
                 SqlStandardAccessControlMetadata::new,
                 NO_REDIRECTIONS);
-        transactionManager = new HiveTransactionManager();
+        transactionManager = new HiveTransactionManager(metadataFactory);
         splitManager = new HiveSplitManager(
-                transactionHandle -> transactionManager.get(transactionHandle).getMetastore(),
+                transactionManager,
                 hivePartitionManager,
                 new NamenodeStats(),
                 hdfsEnvironment,
@@ -273,7 +273,7 @@ public abstract class AbstractTestHiveFileSystem
 
     protected Transaction newTransaction()
     {
-        return new HiveTransaction(transactionManager, (HiveMetadata) metadataFactory.create(false));
+        return new HiveTransaction(transactionManager);
     }
 
     @Test

@@ -86,7 +86,7 @@ public class TestNodeLocalDynamicSplitPruning
             throws IOException
     {
         HiveConfig config = new HiveConfig();
-        HiveTransactionHandle transaction = new HiveTransactionHandle();
+        HiveTransactionHandle transaction = new HiveTransactionHandle(false);
         try (TempFile tempFile = new TempFile()) {
             ConnectorPageSource emptyPageSource = createTestingPageSource(transaction, config, tempFile.file(), getDynamicFilter(getTupleDomainForBucketSplitPruning()));
             assertEquals(emptyPageSource.getClass(), EmptyPageSource.class);
@@ -101,7 +101,7 @@ public class TestNodeLocalDynamicSplitPruning
             throws IOException
     {
         HiveConfig config = new HiveConfig();
-        HiveTransactionHandle transaction = new HiveTransactionHandle();
+        HiveTransactionHandle transaction = new HiveTransactionHandle(false);
         try (TempFile tempFile = new TempFile()) {
             ConnectorPageSource emptyPageSource = createTestingPageSource(transaction, config, tempFile.file(), getDynamicFilter(getTupleDomainForPartitionSplitPruning()));
             assertEquals(emptyPageSource.getClass(), EmptyPageSource.class);
