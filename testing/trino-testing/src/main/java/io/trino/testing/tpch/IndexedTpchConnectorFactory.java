@@ -27,6 +27,7 @@ import io.trino.spi.connector.ConnectorIndexProvider;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.SystemTable;
@@ -72,7 +73,7 @@ public class IndexedTpchConnectorFactory
             }
 
             @Override
-            public ConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle)
+            public ConnectorMetadata getMetadata(ConnectorSession session, ConnectorTransactionHandle transactionHandle)
             {
                 return new TpchIndexMetadata(indexedData);
             }

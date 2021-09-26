@@ -189,7 +189,7 @@ public class TestBeginQuery
         }
 
         @Override
-        public ConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle)
+        public ConnectorMetadata getMetadata(ConnectorSession session, ConnectorTransactionHandle transactionHandle)
         {
             return metadata;
         }
