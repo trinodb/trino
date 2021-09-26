@@ -109,7 +109,7 @@ public class HiveConnector
     @Override
     public ConnectorMetadata getMetadata(ConnectorSession session, ConnectorTransactionHandle transaction)
     {
-        ConnectorMetadata metadata = transactionManager.get(transaction);
+        ConnectorMetadata metadata = transactionManager.get(transaction, session.getIdentity());
         checkArgument(metadata != null, "no such transaction: %s", transaction);
         return new ClassLoaderSafeConnectorMetadata(metadata, classLoader);
     }

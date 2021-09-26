@@ -107,7 +107,7 @@ public class UnregisterPartitionProcedure
         Partition partition = metastore.getPartition(new HiveIdentity(session), schemaName, tableName, partitionValues)
                 .orElseThrow(() -> new TrinoException(NOT_FOUND, format("Partition '%s' does not exist", partitionName)));
 
-        SemiTransactionalHiveMetastore metastore = hiveMetadataFactory.create(true).getMetastore();
+        SemiTransactionalHiveMetastore metastore = hiveMetadataFactory.create(session.getIdentity(), true).getMetastore();
 
         metastore.dropPartition(
                 session,

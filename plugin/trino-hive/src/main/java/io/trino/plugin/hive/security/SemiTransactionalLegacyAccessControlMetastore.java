@@ -39,7 +39,7 @@ public class SemiTransactionalLegacyAccessControlMetastore
     @Override
     public Optional<Table> getTable(ConnectorSecurityContext context, HiveIdentity identity, String databaseName, String tableName)
     {
-        SemiTransactionalHiveMetastore metastore = transactionManager.get(context.getTransactionHandle()).getMetastore();
+        SemiTransactionalHiveMetastore metastore = transactionManager.get(context.getTransactionHandle(), context.getIdentity()).getMetastore();
         return metastore.getTable(new HiveIdentity(context.getIdentity()), databaseName, tableName);
     }
 }
