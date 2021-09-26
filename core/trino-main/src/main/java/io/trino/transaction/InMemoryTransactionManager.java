@@ -185,10 +185,16 @@ public class InMemoryTransactionManager
     }
 
     @Override
+    public Optional<CatalogName> getCatalogName(TransactionId transactionId, String catalogName)
+    {
+        return getTransactionMetadata(transactionId).getCalogName(catalogName);
+    }
+
+    @Override
     public Optional<CatalogMetadata> getOptionalCatalogMetadata(TransactionId transactionId, String catalogName)
     {
         TransactionMetadata transactionMetadata = getTransactionMetadata(transactionId);
-        return transactionMetadata.getConnectorId(catalogName)
+        return transactionMetadata.getCalogName(catalogName)
                 .map(transactionMetadata::getTransactionCatalogMetadata);
     }
 
@@ -212,7 +218,7 @@ public class InMemoryTransactionManager
         TransactionMetadata transactionMetadata = getTransactionMetadata(transactionId);
 
         // there is no need to ask for a connector specific id since the overlay connectors are read only
-        CatalogName catalog = transactionMetadata.getConnectorId(catalogName)
+        CatalogName catalog = transactionMetadata.getCalogName(catalogName)
                 .orElseThrow(() -> new TrinoException(NOT_FOUND, "Catalog does not exist: " + catalogName));
 
         return getCatalogMetadataForWrite(transactionId, catalog);
@@ -381,7 +387,7 @@ public class InMemoryTransactionManager
             return ImmutableMap.copyOf(catalogs);
         }
 
-        private synchronized Optional<CatalogName> getConnectorId(String catalogName)
+        private synchronized Optional<CatalogName> getCalogName(String catalogName)
         {
             Optional<Catalog> catalog = catalogByName.get(catalogName);
             if (catalog == null) {
