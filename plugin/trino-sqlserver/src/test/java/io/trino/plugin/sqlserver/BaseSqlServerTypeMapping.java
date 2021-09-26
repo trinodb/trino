@@ -264,6 +264,15 @@ public abstract class BaseSqlServerTypeMapping
     }
 
     @Test
+    public void testSqlServerLongVarchar()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("text", "'text_a'", createUnboundedVarcharType(), "VARCHAR 'text_a'")
+                .addRoundTrip("ntext", "'text_a'", createVarcharType(1073741823), "CAST('text_a' as VARCHAR(1073741823))")
+                .execute(getQueryRunner(), sqlServerCreateAndInsert("test_long_n_varchar"));
+    }
+
+    @Test
     public void testTrinoUnboundedVarchar()
     {
         SqlDataTypeTest.create()
