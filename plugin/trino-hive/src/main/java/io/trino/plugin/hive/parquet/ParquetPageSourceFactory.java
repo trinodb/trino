@@ -49,6 +49,8 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.BlockMissingException;
 import org.apache.parquet.column.ColumnDescriptor;
+import org.apache.parquet.crypto.FileDecryptionProperties;
+import org.apache.parquet.crypto.InternalFileDecryptor;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 import org.apache.parquet.hadoop.metadata.ColumnPath;
@@ -209,7 +211,13 @@ public class ParquetPageSourceFactory
             FSDataInputStream inputStream = hdfsEnvironment.doAs(identity, () -> fileSystem.open(path));
             dataSource = new HdfsParquetDataSource(new ParquetDataSourceId(path.toString()), estimatedFileSize, inputStream, stats, options);
 
-            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource);
+            FileDecryptionProperties fileDecryptionProperties = MetadataReader.createDecryptionProperties(path, configuration);
+            InternalFileDecryptor fileDecryptor = null;
+            if (fileDecryptionProperties != null) {
+                fileDecryptor = new InternalFileDecryptor(fileDecryptionProperties);
+            }
+
+            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, fileDecryptor);
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
             fileSchema = fileMetaData.getSchema();
 
@@ -240,16 +248,20 @@ public class ParquetPageSourceFactory
             ImmutableList.Builder<Long> blockStarts = ImmutableList.builder();
             ImmutableList.Builder<Optional<ColumnIndexStore>> columnIndexes = ImmutableList.builder();
             for (BlockMetaData block : parquetMetadata.getBlocks()) {
-                long firstDataPage = block.getColumns().get(0).getFirstDataPageOffset();
-                Optional<ColumnIndexStore> columnIndex = getColumnIndexStore(dataSource, block, descriptorsByPath, options);
-                if (start <= firstDataPage && firstDataPage < start + length
-                        && predicateMatches(parquetPredicate, block, dataSource, descriptorsByPath, parquetTupleDomain, columnIndex)) {
-                    blocks.add(block);
-                    blockStarts.add(nextStart);
-                    columnIndexes.add(columnIndex);
+                Integer firstIndex = MetadataReader.findFirstNonHiddenColumnId(block);
+                if (firstIndex != null) {
+                    long firstDataPage = block.getColumns().get(0).getFirstDataPageOffset();
+                    Optional<ColumnIndexStore> columnIndex = getColumnIndexStore(dataSource, block, descriptorsByPath, options);
+                    if (start <= firstDataPage && firstDataPage < start + length
+                            && predicateMatches(parquetPredicate, block, dataSource, descriptorsByPath, parquetTupleDomain, columnIndex)) {
+                        blocks.add(block);
+                        blockStarts.add(nextStart);
+                        columnIndexes.add(columnIndex);
+                    }
                 }
                 nextStart += block.getRowCount();
             }
+
             parquetReader = new ParquetReader(
                     Optional.ofNullable(fileMetaData.getCreatedBy()),
                     messageColumn,
@@ -259,6 +271,7 @@ public class ParquetPageSourceFactory
                     timeZone,
                     newSimpleAggregatedMemoryContext(),
                     options,
+                    fileDecryptor,
                     parquetPredicate,
                     columnIndexes.build());
         }

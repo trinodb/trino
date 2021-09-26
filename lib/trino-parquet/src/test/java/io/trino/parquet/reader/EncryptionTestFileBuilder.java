@@ -34,7 +34,6 @@ import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
@@ -64,6 +63,12 @@ public class EncryptionTestFileBuilder
     public EncryptionTestFileBuilder withNumRecord(int numRecord)
     {
         this.numRecord = numRecord;
+        return this;
+    }
+
+    public EncryptionTestFileBuilder withEncrytionAlgorithm(ParquetCipher cipher)
+    {
+        this.cipher = cipher;
         return this;
     }
 
@@ -164,7 +169,7 @@ public class EncryptionTestFileBuilder
 
     private static long getInt()
     {
-        return ThreadLocalRandom.current().nextInt(1000);
+        return ThreadLocalRandom.current().nextInt(10000);
     }
 
     private static long getLong()
@@ -174,11 +179,10 @@ public class EncryptionTestFileBuilder
 
     private static String getString()
     {
-        Random rnd = new Random(5);
         char[] chars = {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'x', 'z', 'y'};
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < 100; i++) {
-            sb.append(chars[rnd.nextInt(10)]);
+            sb.append(chars[ThreadLocalRandom.current().nextInt(10)]);
         }
         return sb.toString();
     }
