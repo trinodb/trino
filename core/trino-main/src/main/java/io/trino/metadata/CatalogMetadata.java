@@ -24,6 +24,7 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 
 import java.util.List;
 import java.util.Set;
+import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.Sets.immutableEnumSet;
@@ -34,28 +35,28 @@ public class CatalogMetadata
     private static final String INFORMATION_SCHEMA_NAME = "information_schema";
 
     private final CatalogName catalogName;
-    private final ConnectorMetadata metadata;
+    private final Function<Session, ConnectorMetadata> metadata;
     private final ConnectorTransactionHandle transactionHandle;
 
     private final CatalogName informationSchemaId;
-    private final ConnectorMetadata informationSchema;
+    private final Function<Session, ConnectorMetadata> informationSchema;
     private final ConnectorTransactionHandle informationSchemaTransactionHandle;
 
     private final CatalogName systemTablesId;
-    private final ConnectorMetadata systemTables;
+    private final Function<Session, ConnectorMetadata> systemTables;
     private final ConnectorTransactionHandle systemTablesTransactionHandle;
     private final SecurityManagement securityManagement;
     private final Set<ConnectorCapabilities> connectorCapabilities;
 
     public CatalogMetadata(
             CatalogName catalogName,
-            ConnectorMetadata metadata,
+            Function<Session, ConnectorMetadata> metadata,
             ConnectorTransactionHandle transactionHandle,
             CatalogName informationSchemaId,
-            ConnectorMetadata informationSchema,
+            Function<Session, ConnectorMetadata> informationSchema,
             ConnectorTransactionHandle informationSchemaTransactionHandle,
             CatalogName systemTablesId,
-            ConnectorMetadata systemTables,
+            Function<Session, ConnectorMetadata> systemTables,
             ConnectorTransactionHandle systemTablesTransactionHandle,
             SecurityManagement securityManagement,
             Set<ConnectorCapabilities> connectorCapabilities)
@@ -78,21 +79,21 @@ public class CatalogMetadata
         return catalogName;
     }
 
-    public ConnectorMetadata getMetadata()
+    public ConnectorMetadata getMetadata(Session session)
     {
-        return metadata;
+        return metadata.apply(session);
     }
 
-    public ConnectorMetadata getMetadataFor(CatalogName catalogName)
+    public ConnectorMetadata getMetadataFor(Session session, CatalogName catalogName)
     {
         if (catalogName.equals(this.catalogName)) {
-            return metadata;
+            return metadata.apply(session);
         }
         if (catalogName.equals(informationSchemaId)) {
-            return informationSchema;
+            return informationSchema.apply(session);
         }
         if (catalogName.equals(systemTablesId)) {
-            return systemTables;
+            return systemTables.apply(session);
         }
         throw new IllegalArgumentException("Unknown connector id: " + catalogName);
     }
@@ -125,7 +126,7 @@ public class CatalogMetadata
             return informationSchemaId;
         }
 
-        if (systemTables.getTableHandle(session.toConnectorSession(systemTablesId), table.asSchemaTableName()) != null) {
+        if (systemTables.apply(session).getTableHandle(session.toConnectorSession(systemTablesId), table.asSchemaTableName()) != null) {
             return systemTablesId;
         }
 
