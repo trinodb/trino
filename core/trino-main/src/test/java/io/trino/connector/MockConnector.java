@@ -216,7 +216,7 @@ public class MockConnector
     }
 
     @Override
-    public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
+    public ConnectorMetadata getMetadata(ConnectorSession session, ConnectorTransactionHandle transaction)
     {
         return new MockConnectorMetadata();
     }

@@ -27,6 +27,7 @@ import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.SystemTable;
@@ -105,7 +106,7 @@ public class IcebergConnector
     }
 
     @Override
-    public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
+    public ConnectorMetadata getMetadata(ConnectorSession session, ConnectorTransactionHandle transaction)
     {
         ConnectorMetadata metadata = transactionManager.get(transaction);
         return new ClassLoaderSafeConnectorMetadata(metadata, getClass().getClassLoader());

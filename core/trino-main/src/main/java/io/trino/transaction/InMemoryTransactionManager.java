@@ -30,6 +30,7 @@ import io.trino.metadata.CatalogMetadata;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorMetadata;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.transaction.IsolationLevel;
 import org.joda.time.DateTime;
@@ -604,7 +605,8 @@ public class InMemoryTransactionManager
             {
                 checkState(!finished.get(), "Already finished");
                 if (connectorMetadata == null) {
-                    connectorMetadata = connector.getMetadata(transactionHandle);
+                    ConnectorSession connectorSession = session.toConnectorSession(catalogName);
+                    connectorMetadata = connector.getMetadata(connectorSession, transactionHandle);
                 }
                 return connectorMetadata;
             }

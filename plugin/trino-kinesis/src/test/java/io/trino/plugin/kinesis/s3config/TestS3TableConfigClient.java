@@ -108,7 +108,7 @@ public class TestS3TableConfigClient
             log.error("interrupted ...");
         }
 
-        KinesisMetadata metadata = (KinesisMetadata) kinesisConnector.getMetadata(new ConnectorTransactionHandle() {});
+        KinesisMetadata metadata = (KinesisMetadata) kinesisConnector.getMetadata(SESSION, new ConnectorTransactionHandle() {});
         SchemaTableName tblName = new SchemaTableName("default", "test123");
         KinesisTableHandle tableHandle = metadata.getTableHandle(SESSION, tblName);
         assertNotNull(metadata);

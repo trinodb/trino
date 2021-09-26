@@ -15,6 +15,7 @@ package io.trino.connector.system;
 
 import com.google.common.collect.ImmutableSet;
 import io.trino.spi.connector.ConnectorMetadata;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.procedure.Procedure;
@@ -47,7 +48,7 @@ public class GlobalSystemConnector
     }
 
     @Override
-    public ConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle)
+    public ConnectorMetadata getMetadata(ConnectorSession session, ConnectorTransactionHandle transactionHandle)
     {
         return new ConnectorMetadata() {};
     }

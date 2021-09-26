@@ -59,7 +59,21 @@ public interface Connector
      * Guaranteed to be called at most once per transaction. The returned metadata will only be accessed
      * in a single threaded context.
      */
-    ConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle);
+    default ConnectorMetadata getMetadata(ConnectorSession session, ConnectorTransactionHandle transactionHandle)
+    {
+        return getMetadata(transactionHandle);
+    }
+
+    /**
+     * Guaranteed to be called at most once per transaction. The returned metadata will only be accessed
+     * in a single threaded context.
+     * @deprecated use {@link #getMetadata(ConnectorSession, ConnectorTransactionHandle)}
+     */
+    @Deprecated
+    default ConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle)
+    {
+        throw new UnsupportedOperationException();
+    }
 
     /**
      * @throws UnsupportedOperationException if this connector does not support tables with splits

@@ -24,6 +24,7 @@ import org.testng.annotations.Test;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.spi.transaction.IsolationLevel.READ_COMMITTED;
+import static io.trino.testing.TestingConnectorSession.SESSION;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
@@ -54,7 +55,7 @@ public class TestKinesisPlugin
         // Verify that the key objects have been created on the connector
         assertNotNull(c.getRecordSetProvider());
         assertNotNull(c.getSplitManager());
-        ConnectorMetadata md = c.getMetadata(KinesisTransactionHandle.INSTANCE);
+        ConnectorMetadata md = c.getMetadata(SESSION, KinesisTransactionHandle.INSTANCE);
         assertNotNull(md);
 
         ConnectorTransactionHandle handle = c.beginTransaction(READ_COMMITTED, true, true);
