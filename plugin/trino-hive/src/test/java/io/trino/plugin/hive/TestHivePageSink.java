@@ -139,7 +139,7 @@ public class TestHivePageSink
 
     private static long writeTestFile(HiveConfig config, HiveMetastore metastore, String outputPath)
     {
-        HiveTransactionHandle transaction = new HiveTransactionHandle();
+        HiveTransactionHandle transaction = new HiveTransactionHandle(false);
         HiveWriterStats stats = new HiveWriterStats();
         ConnectorPageSink pageSink = createPageSink(transaction, config, metastore, new Path("file:///" + outputPath), stats);
         List<LineItemColumn> columns = getTestColumns();

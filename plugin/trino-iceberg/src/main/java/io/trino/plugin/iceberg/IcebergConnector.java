@@ -19,7 +19,6 @@ import io.airlift.bootstrap.LifeCycleManager;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorMetadata;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.hive.HiveTransactionHandle;
-import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorCapabilities;
@@ -52,7 +51,6 @@ public class IcebergConnector
 {
     private final LifeCycleManager lifeCycleManager;
     private final IcebergTransactionManager transactionManager;
-    private final IcebergMetadataFactory metadataFactory;
     private final ConnectorSplitManager splitManager;
     private final ConnectorPageSourceProvider pageSourceProvider;
     private final ConnectorPageSinkProvider pageSinkProvider;
@@ -68,7 +66,6 @@ public class IcebergConnector
     public IcebergConnector(
             LifeCycleManager lifeCycleManager,
             IcebergTransactionManager transactionManager,
-            IcebergMetadataFactory metadataFactory,
             ConnectorSplitManager splitManager,
             ConnectorPageSourceProvider pageSourceProvider,
             ConnectorPageSinkProvider pageSinkProvider,
@@ -83,7 +80,6 @@ public class IcebergConnector
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
-        this.metadataFactory = requireNonNull(metadataFactory, "metadataFactory is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
@@ -188,26 +184,21 @@ public class IcebergConnector
     public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
     {
         checkConnectorSupports(SERIALIZABLE, isolationLevel);
-        ConnectorTransactionHandle transaction = new HiveTransactionHandle();
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
-            transactionManager.put(transaction, metadataFactory.create());
-        }
+        ConnectorTransactionHandle transaction = new HiveTransactionHandle(autoCommit);
+        transactionManager.begin(transaction);
         return transaction;
     }
 
     @Override
     public void commit(ConnectorTransactionHandle transaction)
     {
-        transactionManager.remove(transaction);
+        transactionManager.commit(transaction);
     }
 
     @Override
     public void rollback(ConnectorTransactionHandle transaction)
     {
-        IcebergMetadata metadata = transactionManager.remove(transaction);
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
-            metadata.rollback();
-        }
+        transactionManager.rollback(transaction);
     }
 
     @Override

@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorMetadata;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
-import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorMetadata;
@@ -48,7 +47,6 @@ public class HiveConnector
         implements Connector
 {
     private final LifeCycleManager lifeCycleManager;
-    private final TransactionalMetadataFactory metadataFactory;
     private final ConnectorSplitManager splitManager;
     private final ConnectorPageSourceProvider pageSourceProvider;
     private final ConnectorPageSinkProvider pageSinkProvider;
@@ -70,7 +68,6 @@ public class HiveConnector
 
     public HiveConnector(
             LifeCycleManager lifeCycleManager,
-            TransactionalMetadataFactory metadataFactory,
             HiveTransactionManager transactionManager,
             ConnectorSplitManager splitManager,
             ConnectorPageSourceProvider pageSourceProvider,
@@ -89,7 +86,6 @@ public class HiveConnector
             ClassLoader classLoader)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
-        this.metadataFactory = requireNonNull(metadataFactory, "metadataFactory is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
@@ -200,31 +196,21 @@ public class HiveConnector
     public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
     {
         checkConnectorSupports(READ_UNCOMMITTED, isolationLevel);
-        ConnectorTransactionHandle transaction = new HiveTransactionHandle();
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            transactionManager.put(transaction, metadataFactory.create(autoCommit));
-        }
+        ConnectorTransactionHandle transaction = new HiveTransactionHandle(autoCommit);
+        transactionManager.begin(transaction);
         return transaction;
     }
 
     @Override
     public void commit(ConnectorTransactionHandle transaction)
     {
-        TransactionalMetadata metadata = transactionManager.remove(transaction);
-        checkArgument(metadata != null, "no such transaction: %s", transaction);
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            metadata.commit();
-        }
+        transactionManager.commit(transaction);
     }
 
     @Override
     public void rollback(ConnectorTransactionHandle transaction)
     {
-        TransactionalMetadata metadata = transactionManager.remove(transaction);
-        checkArgument(metadata != null, "no such transaction: %s", transaction);
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            metadata.rollback();
-        }
+        transactionManager.rollback(transaction);
     }
 
     @Override

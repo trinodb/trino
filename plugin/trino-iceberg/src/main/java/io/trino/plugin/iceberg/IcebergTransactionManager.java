@@ -13,36 +13,84 @@
  */
 package io.trino.plugin.iceberg;
 
-import io.trino.spi.connector.ConnectorMetadata;
+import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 
-import java.util.Map;
+import javax.annotation.concurrent.GuardedBy;
+import javax.inject.Inject;
+
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class IcebergTransactionManager
 {
-    private final Map<ConnectorTransactionHandle, IcebergMetadata> transactions = new ConcurrentHashMap<>();
+    private final IcebergMetadataFactory metadataFactory;
+    private final ClassLoader classLoader;
+    private final ConcurrentMap<ConnectorTransactionHandle, MemoizedMetadata> transactions = new ConcurrentHashMap<>();
 
-    public IcebergMetadata get(ConnectorTransactionHandle transaction)
+    @Inject
+    public IcebergTransactionManager(IcebergMetadataFactory metadataFactory)
     {
-        IcebergMetadata metadata = transactions.get(transaction);
-        checkArgument(metadata != null, "no such transaction: %s", transaction);
-        return metadata;
+        this(metadataFactory, Thread.currentThread().getContextClassLoader());
     }
 
-    public IcebergMetadata remove(ConnectorTransactionHandle transaction)
+    public IcebergTransactionManager(IcebergMetadataFactory metadataFactory, ClassLoader classLoader)
     {
-        IcebergMetadata metadata = transactions.remove(transaction);
-        checkArgument(metadata != null, "no such transaction: %s", transaction);
-        return metadata;
+        this.metadataFactory = requireNonNull(metadataFactory, "metadataFactory is null");
+        this.classLoader = requireNonNull(classLoader, "classLoader is null");
     }
 
-    public void put(ConnectorTransactionHandle transaction, IcebergMetadata metadata)
+    public void begin(ConnectorTransactionHandle transactionHandle)
     {
-        ConnectorMetadata existing = transactions.putIfAbsent(transaction, metadata);
-        checkState(existing == null, "transaction already exists: %s", existing);
+        MemoizedMetadata previousValue = transactions.putIfAbsent(transactionHandle, new MemoizedMetadata());
+        checkState(previousValue == null);
+    }
+
+    public IcebergMetadata get(ConnectorTransactionHandle transactionHandle)
+    {
+        return transactions.get(transactionHandle).get();
+    }
+
+    public void commit(ConnectorTransactionHandle transaction)
+    {
+        MemoizedMetadata transactionalMetadata = transactions.remove(transaction);
+        checkArgument(transactionalMetadata != null, "no such transaction: %s", transaction);
+    }
+
+    public void rollback(ConnectorTransactionHandle transaction)
+    {
+        MemoizedMetadata transactionalMetadata = transactions.remove(transaction);
+        checkArgument(transactionalMetadata != null, "no such transaction: %s", transaction);
+        transactionalMetadata.optionalGet().ifPresent(metadata -> {
+            try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+                metadata.rollback();
+            }
+        });
+    }
+
+    private class MemoizedMetadata
+    {
+        @GuardedBy("this")
+        private IcebergMetadata metadata;
+
+        public synchronized Optional<IcebergMetadata> optionalGet()
+        {
+            return Optional.ofNullable(metadata);
+        }
+
+        public synchronized IcebergMetadata get()
+        {
+            if (metadata == null) {
+                try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+                    metadata = metadataFactory.create();
+                }
+            }
+            return metadata;
+        }
     }
 }

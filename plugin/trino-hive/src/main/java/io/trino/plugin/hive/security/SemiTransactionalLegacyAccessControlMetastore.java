@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.hive.security;
 
-import io.trino.plugin.hive.HiveTransactionHandle;
+import io.trino.plugin.hive.HiveTransactionManager;
 import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.metastore.Table;
@@ -22,24 +22,24 @@ import io.trino.spi.connector.ConnectorSecurityContext;
 import javax.inject.Inject;
 
 import java.util.Optional;
-import java.util.function.Function;
 
 import static java.util.Objects.requireNonNull;
 
 public class SemiTransactionalLegacyAccessControlMetastore
         implements LegacyAccessControlMetastore
 {
-    private final Function<HiveTransactionHandle, SemiTransactionalHiveMetastore> metastoreProvider;
+    private final HiveTransactionManager transactionManager;
 
     @Inject
-    public SemiTransactionalLegacyAccessControlMetastore(Function<HiveTransactionHandle, SemiTransactionalHiveMetastore> metastoreProvider)
+    public SemiTransactionalLegacyAccessControlMetastore(HiveTransactionManager transactionManager)
     {
-        this.metastoreProvider = requireNonNull(metastoreProvider, "metastoreProvider is null");
+        this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
     }
 
     @Override
     public Optional<Table> getTable(ConnectorSecurityContext context, HiveIdentity identity, String databaseName, String tableName)
     {
-        return metastoreProvider.apply(((HiveTransactionHandle) context.getTransactionHandle())).getTable(new HiveIdentity(context.getIdentity()), databaseName, tableName);
+        SemiTransactionalHiveMetastore metastore = transactionManager.get(context.getTransactionHandle()).getMetastore();
+        return metastore.getTable(new HiveIdentity(context.getIdentity()), databaseName, tableName);
     }
 }
