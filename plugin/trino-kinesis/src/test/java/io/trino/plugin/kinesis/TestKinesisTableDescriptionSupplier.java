@@ -60,7 +60,7 @@ public class TestKinesisTableDescriptionSupplier
     @Test
     public void testTableDefinition()
     {
-        KinesisMetadata metadata = (KinesisMetadata) connector.getMetadata(new ConnectorTransactionHandle() {});
+        KinesisMetadata metadata = (KinesisMetadata) connector.getMetadata(SESSION, new ConnectorTransactionHandle() {});
         SchemaTableName tblName = new SchemaTableName("prod", "test_table");
         KinesisTableHandle tableHandle = metadata.getTableHandle(SESSION, tblName);
         assertNotNull(metadata);
@@ -77,7 +77,7 @@ public class TestKinesisTableDescriptionSupplier
     @Test
     public void testRelatedObjects()
     {
-        KinesisMetadata metadata = (KinesisMetadata) connector.getMetadata(new ConnectorTransactionHandle() {});
+        KinesisMetadata metadata = (KinesisMetadata) connector.getMetadata(SESSION, new ConnectorTransactionHandle() {});
         assertNotNull(metadata);
 
         SchemaTableName tblName = new SchemaTableName("prod", "test_table");

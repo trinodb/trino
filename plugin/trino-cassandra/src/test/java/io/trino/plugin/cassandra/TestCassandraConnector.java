@@ -123,7 +123,7 @@ public class TestCassandraConnector
                 "cassandra.native-protocol-port", Integer.toString(server.getPort())),
                 new TestingConnectorContext());
 
-        metadata = connector.getMetadata(CassandraTransactionHandle.INSTANCE);
+        metadata = connector.getMetadata(SESSION, CassandraTransactionHandle.INSTANCE);
         assertInstanceOf(metadata, CassandraMetadata.class);
 
         splitManager = connector.getSplitManager();
