@@ -143,7 +143,7 @@ public class RegisterPartitionProcedure
             throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, "Partition location does not exist: " + partitionLocation);
         }
 
-        SemiTransactionalHiveMetastore metastore = hiveMetadataFactory.create(true).getMetastore();
+        SemiTransactionalHiveMetastore metastore = hiveMetadataFactory.create(session.getIdentity(), true).getMetastore();
 
         metastore.addPartition(
                 session,

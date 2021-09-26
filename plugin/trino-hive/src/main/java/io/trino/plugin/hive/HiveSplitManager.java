@@ -191,7 +191,7 @@ public class HiveSplitManager
         SchemaTableName tableName = hiveTable.getSchemaTableName();
 
         // get table metadata
-        SemiTransactionalHiveMetastore metastore = transactionManager.get(transaction).getMetastore();
+        SemiTransactionalHiveMetastore metastore = transactionManager.get(transaction, session.getIdentity()).getMetastore();
         Table table = metastore.getTable(new HiveIdentity(session), tableName.getSchemaName(), tableName.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(tableName));
 

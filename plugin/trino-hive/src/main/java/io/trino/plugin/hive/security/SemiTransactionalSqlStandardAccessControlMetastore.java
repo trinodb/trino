@@ -43,21 +43,21 @@ public class SemiTransactionalSqlStandardAccessControlMetastore
     @Override
     public Set<RoleGrant> listRoleGrants(ConnectorSecurityContext context, HivePrincipal principal)
     {
-        SemiTransactionalHiveMetastore metastore = transactionManager.get(context.getTransactionHandle()).getMetastore();
+        SemiTransactionalHiveMetastore metastore = transactionManager.get(context.getTransactionHandle(), context.getIdentity()).getMetastore();
         return metastore.listRoleGrants(principal);
     }
 
     @Override
     public Set<HivePrivilegeInfo> listTablePrivileges(ConnectorSecurityContext context, HiveIdentity identity, String databaseName, String tableName, Optional<HivePrincipal> principal)
     {
-        SemiTransactionalHiveMetastore metastore = transactionManager.get(context.getTransactionHandle()).getMetastore();
+        SemiTransactionalHiveMetastore metastore = transactionManager.get(context.getTransactionHandle(), context.getIdentity()).getMetastore();
         return metastore.listTablePrivileges(identity, databaseName, tableName, principal);
     }
 
     @Override
     public Optional<Database> getDatabase(ConnectorSecurityContext context, String databaseName)
     {
-        SemiTransactionalHiveMetastore metastore = transactionManager.get(context.getTransactionHandle()).getMetastore();
+        SemiTransactionalHiveMetastore metastore = transactionManager.get(context.getTransactionHandle(), context.getIdentity()).getMetastore();
         return metastore.getDatabase(databaseName);
     }
 }
