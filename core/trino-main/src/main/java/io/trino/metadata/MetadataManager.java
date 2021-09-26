@@ -267,7 +267,7 @@ public final class MetadataManager
         CatalogMetadata catalogMetadata = catalog.get();
         ConnectorSession connectorSession = session.toConnectorSession(catalogMetadata.getCatalogName());
         return catalogMetadata.listConnectorIds().stream()
-                .map(catalogMetadata::getMetadataFor)
+                .map(catalogName -> catalogMetadata.getMetadataFor(session, catalogName))
                 .anyMatch(metadata -> metadata.schemaExists(connectorSession, schema.getSchemaName()));
     }
 
@@ -281,7 +281,7 @@ public final class MetadataManager
             CatalogMetadata catalogMetadata = catalog.get();
             ConnectorSession connectorSession = session.toConnectorSession(catalogMetadata.getCatalogName());
             for (CatalogName connectorId : catalogMetadata.listConnectorIds()) {
-                ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
+                ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, connectorId);
                 metadata.listSchemaNames(connectorSession).stream()
                         .map(schema -> schema.toLowerCase(Locale.ENGLISH))
                         .forEach(schemaNames::add);
@@ -308,7 +308,7 @@ public final class MetadataManager
 
         return getOptionalCatalogMetadata(session, table.getCatalogName()).flatMap(catalogMetadata -> {
             CatalogName catalogName = catalogMetadata.getConnectorId(session, table);
-            ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
+            ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogName);
 
             ConnectorSession connectorSession = session.toConnectorSession(catalogName);
 
@@ -343,7 +343,7 @@ public final class MetadataManager
         if (catalog.isPresent()) {
             CatalogMetadata catalogMetadata = catalog.get();
             CatalogName catalogName = catalogMetadata.getConnectorId(session, table);
-            ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
+            ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogName);
 
             ConnectorTableHandle tableHandle = metadata.getTableHandleForStatisticsCollection(session.toConnectorSession(catalogName), table.asSchemaTableName(), analyzeProperties);
             if (tableHandle != null) {
@@ -366,7 +366,7 @@ public final class MetadataManager
 
         CatalogName catalogName = tableHandle.getCatalogName();
         CatalogMetadata catalogMetadata = getCatalogMetadata(session, catalogName);
-        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
+        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogName);
 
         Optional<ConnectorTableExecuteHandle> executeHandle = metadata.getTableHandleForExecute(
                 session.toConnectorSession(catalogName),
@@ -386,7 +386,7 @@ public final class MetadataManager
     {
         CatalogName catalogName = tableExecuteHandle.getCatalogName();
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
-        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
 
         return metadata.getLayoutForTableExecute(session.toConnectorSession(catalogName), tableExecuteHandle.getConnectorHandle())
                 .map(layout -> new TableLayout(catalogName, catalogMetadata.getTransactionHandleFor(catalogName), layout));
@@ -397,7 +397,7 @@ public final class MetadataManager
     {
         CatalogName catalogName = tableExecuteHandle.getCatalogName();
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
-        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
         BeginTableExecuteResult<ConnectorTableExecuteHandle, ConnectorTableHandle> connectorBeginResult = metadata.beginTableExecute(session.toConnectorSession(), tableExecuteHandle.getConnectorHandle(), sourceHandle.getConnectorHandle());
 
         return new BeginTableExecuteResult<>(
@@ -425,7 +425,7 @@ public final class MetadataManager
 
             // we query only main connector for runtime system tables
             CatalogName catalogName = catalogMetadata.getCatalogName();
-            ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
+            ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogName);
 
             return metadata.getSystemTable(session.toConnectorSession(catalogName), tableName.asSchemaTableName());
         }
@@ -437,7 +437,7 @@ public final class MetadataManager
     {
         CatalogName catalogName = handle.getCatalogName();
         CatalogMetadata catalogMetadata = getCatalogMetadata(session, catalogName);
-        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
+        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogName);
         ConnectorSession connectorSession = session.toConnectorSession(catalogName);
 
         return new TableProperties(catalogName, handle.getTransaction(), metadata.getTableProperties(connectorSession, handle.getConnectorHandle()));
@@ -450,7 +450,7 @@ public final class MetadataManager
         CatalogName catalogName = partitioningHandle.getConnectorId().get();
         checkArgument(catalogName.equals(tableHandle.getCatalogName()), "ConnectorId of tableHandle and partitioningHandle does not match");
         CatalogMetadata catalogMetadata = getCatalogMetadata(session, catalogName);
-        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
+        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogName);
         ConnectorTransactionHandle transaction = catalogMetadata.getTransactionHandleFor(catalogName);
 
         ConnectorTableHandle newTableHandle = metadata.makeCompatiblePartitioning(
@@ -473,7 +473,7 @@ public final class MetadataManager
         }
         CatalogName catalogName = leftConnectorId.get();
         CatalogMetadata catalogMetadata = getCatalogMetadata(session, catalogName);
-        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
+        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogName);
         Optional<ConnectorPartitioningHandle> commonHandle = metadata.getCommonPartitioningHandle(session.toConnectorSession(catalogName), left.getConnectorHandle(), right.getConnectorHandle());
         return commonHandle.map(handle -> new PartitioningHandle(Optional.of(catalogName), left.getTransactionHandle(), handle));
     }
@@ -561,7 +561,7 @@ public final class MetadataManager
             CatalogMetadata catalogMetadata = catalog.get();
 
             for (CatalogName catalogName : catalogMetadata.listConnectorIds()) {
-                ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
+                ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogName);
                 ConnectorSession connectorSession = session.toConnectorSession(catalogName);
                 metadata.listTables(connectorSession, prefix.getSchemaName()).stream()
                         .map(convertFromSchemaTableName(prefix.getCatalogName()))
@@ -602,7 +602,7 @@ public final class MetadataManager
 
             SchemaTablePrefix tablePrefix = prefix.asSchemaTablePrefix();
             for (CatalogName catalogName : catalogMetadata.listConnectorIds()) {
-                ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
+                ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogName);
 
                 ConnectorSession connectorSession = session.toConnectorSession(catalogName);
 
@@ -649,7 +649,7 @@ public final class MetadataManager
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, schema.getCatalogName());
         CatalogName catalogName = catalogMetadata.getCatalogName();
-        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
         metadata.createSchema(session.toConnectorSession(catalogName), schema.getSchemaName(), properties, principal);
         if (catalogMetadata.getSecurityManagement() == SecurityManagement.SYSTEM) {
             systemSecurityMetadata.schemaCreated(session, schema);
@@ -661,7 +661,7 @@ public final class MetadataManager
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, schema.getCatalogName());
         CatalogName catalogName = catalogMetadata.getCatalogName();
-        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
         metadata.dropSchema(session.toConnectorSession(catalogName), schema.getSchemaName());
         if (catalogMetadata.getSecurityManagement() == SecurityManagement.SYSTEM) {
             systemSecurityMetadata.schemaDropped(session, schema);
@@ -673,7 +673,7 @@ public final class MetadataManager
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, source.getCatalogName());
         CatalogName catalogName = catalogMetadata.getCatalogName();
-        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
         metadata.renameSchema(session.toConnectorSession(catalogName), source.getSchemaName(), target);
         if (catalogMetadata.getSecurityManagement() == SecurityManagement.SYSTEM) {
             systemSecurityMetadata.schemaRenamed(session, source, new CatalogSchemaName(source.getCatalogName(), target));
@@ -685,7 +685,7 @@ public final class MetadataManager
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, source.getCatalogName());
         CatalogName catalogName = catalogMetadata.getCatalogName();
-        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
         if (catalogMetadata.getSecurityManagement() == SecurityManagement.SYSTEM) {
             systemSecurityMetadata.setSchemaOwner(session, source, principal);
         }
@@ -699,7 +699,7 @@ public final class MetadataManager
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
         CatalogName catalog = catalogMetadata.getCatalogName();
-        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
         metadata.createTable(session.toConnectorSession(catalog), tableMetadata, ignoreExisting);
         if (catalogMetadata.getSecurityManagement() == SecurityManagement.SYSTEM) {
             systemSecurityMetadata.tableCreated(session, new CatalogSchemaTableName(catalogName, tableMetadata.getTable()));
@@ -717,7 +717,7 @@ public final class MetadataManager
         }
         Optional<CatalogSchemaTableName> sourceTableName = getTableNameIfSystemSecurity(session, catalogMetadata, tableHandle);
 
-        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
         metadata.renameTable(session.toConnectorSession(catalog), tableHandle.getConnectorHandle(), newTableName.asSchemaTableName());
         sourceTableName.ifPresent(name -> systemSecurityMetadata.tableRenamed(session, name, newTableName.asCatalogSchemaTableName()));
     }
@@ -775,7 +775,7 @@ public final class MetadataManager
     {
         CatalogName catalogName = new CatalogName(table.getCatalogName());
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
-        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
         if (catalogMetadata.getSecurityManagement() == SecurityManagement.SYSTEM) {
             systemSecurityMetadata.setTableOwner(session, table, principal);
         }
@@ -789,7 +789,7 @@ public final class MetadataManager
     {
         CatalogName catalogName = tableHandle.getCatalogName();
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
-        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
         Optional<CatalogSchemaTableName> tableName = getTableNameIfSystemSecurity(session, catalogMetadata, tableHandle);
         metadata.dropTable(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle());
         tableName.ifPresent(name -> systemSecurityMetadata.tableDropped(session, name));
@@ -808,7 +808,7 @@ public final class MetadataManager
     {
         CatalogName catalogName = table.getCatalogName();
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
-        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
 
         return metadata.getInsertLayout(session.toConnectorSession(catalogName), table.getConnectorHandle())
                 .map(layout -> new TableLayout(catalogName, catalogMetadata.getTransactionHandleFor(catalogName), layout));
@@ -818,7 +818,7 @@ public final class MetadataManager
     public TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(Session session, String catalogName, ConnectorTableMetadata tableMetadata)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
-        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
         CatalogName catalog = catalogMetadata.getCatalogName();
         return metadata.getStatisticsCollectionMetadataForWrite(session.toConnectorSession(catalog), tableMetadata);
     }
@@ -827,7 +827,7 @@ public final class MetadataManager
     public TableStatisticsMetadata getStatisticsCollectionMetadata(Session session, String catalogName, ConnectorTableMetadata tableMetadata)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
-        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
         CatalogName catalog = catalogMetadata.getCatalogName();
         return metadata.getStatisticsCollectionMetadata(session.toConnectorSession(catalog), tableMetadata);
     }
@@ -837,7 +837,7 @@ public final class MetadataManager
     {
         CatalogName catalogName = tableHandle.getCatalogName();
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
-        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
 
         ConnectorTransactionHandle transactionHandle = catalogMetadata.getTransactionHandleFor(catalogName);
         ConnectorTableHandle connectorTableHandle = metadata.beginStatisticsCollection(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle());
@@ -849,7 +849,7 @@ public final class MetadataManager
     {
         CatalogName catalogName = tableHandle.getCatalogName();
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
-        catalogMetadata.getMetadata().finishStatisticsCollection(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle(), computedStatistics);
+        catalogMetadata.getMetadata(session).finishStatisticsCollection(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle(), computedStatistics);
     }
 
     @Override
@@ -857,7 +857,7 @@ public final class MetadataManager
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
         CatalogName catalog = catalogMetadata.getCatalogName();
-        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
 
         ConnectorTransactionHandle transactionHandle = catalogMetadata.getTransactionHandleFor(catalog);
         ConnectorSession connectorSession = session.toConnectorSession(catalog);
@@ -879,7 +879,7 @@ public final class MetadataManager
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
         CatalogName catalog = catalogMetadata.getCatalogName();
-        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
 
         ConnectorTransactionHandle transactionHandle = catalogMetadata.getTransactionHandleFor(catalog);
         ConnectorSession connectorSession = session.toConnectorSession(catalog);
@@ -904,7 +904,7 @@ public final class MetadataManager
     {
         CatalogName catalogName = tableHandle.getCatalogName();
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
-        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
         ConnectorTransactionHandle transactionHandle = catalogMetadata.getTransactionHandleFor(catalogName);
         ConnectorInsertTableHandle handle = metadata.beginInsert(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle(), columns, getRetryPolicy(session).getRetryMode());
         return new InsertTableHandle(tableHandle.getCatalogName(), transactionHandle, handle);
@@ -915,7 +915,7 @@ public final class MetadataManager
     {
         CatalogName catalogName = tableHandle.getCatalogName();
         CatalogMetadata catalogMetadata = getCatalogMetadata(session, catalogName);
-        return catalogMetadata.getMetadata().supportsMissingColumnsOnInsert();
+        return catalogMetadata.getMetadata(session).supportsMissingColumnsOnInsert();
     }
 
     @Override
@@ -952,7 +952,7 @@ public final class MetadataManager
     {
         CatalogName catalogName = tableHandle.getCatalogName();
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
-        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
         ConnectorTransactionHandle transactionHandle = catalogMetadata.getTransactionHandleFor(catalogName);
 
         List<ConnectorTableHandle> sourceConnectorHandles = sourceTableHandles.stream()
@@ -1093,7 +1093,7 @@ public final class MetadataManager
             CatalogMetadata catalogMetadata = catalog.get();
 
             for (CatalogName catalogName : catalogMetadata.listConnectorIds()) {
-                ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
+                ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogName);
                 ConnectorSession connectorSession = session.toConnectorSession(catalogName);
                 metadata.listViews(connectorSession, prefix.getSchemaName()).stream()
                         .map(convertFromSchemaTableName(prefix.getCatalogName()))
@@ -1117,7 +1117,7 @@ public final class MetadataManager
 
             SchemaTablePrefix tablePrefix = prefix.asSchemaTablePrefix();
             for (CatalogName catalogName : catalogMetadata.listConnectorIds()) {
-                ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
+                ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogName);
                 ConnectorSession connectorSession = session.toConnectorSession(catalogName);
 
                 Map<SchemaTableName, ConnectorViewDefinition> viewMap;
@@ -1150,7 +1150,7 @@ public final class MetadataManager
         }
         CatalogMetadata catalogMetadata = getCatalogMetadata(session, new CatalogName(schemaName.getCatalogName()));
         CatalogName catalogName = catalogMetadata.getConnectorIdForSchema(schemaName);
-        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
+        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogName);
 
         ConnectorSession connectorSession = session.toConnectorSession(catalogName);
         return metadata.getSchemaProperties(connectorSession, schemaName);
@@ -1167,7 +1167,7 @@ public final class MetadataManager
             return systemSecurityMetadata.getSchemaOwner(session, schemaName);
         }
         CatalogName catalogName = catalogMetadata.getConnectorIdForSchema(schemaName);
-        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
+        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogName);
         ConnectorSession connectorSession = session.toConnectorSession(catalogName);
         return metadata.getSchemaOwner(connectorSession, schemaName);
     }
@@ -1203,7 +1203,7 @@ public final class MetadataManager
         if (catalog.isPresent()) {
             CatalogMetadata catalogMetadata = catalog.get();
             CatalogName catalogName = catalogMetadata.getConnectorId(session, viewName);
-            ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
+            ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogName);
 
             ConnectorSession connectorSession = session.toConnectorSession(catalogName);
             return metadata.getView(connectorSession, viewName.asSchemaTableName());
@@ -1216,7 +1216,7 @@ public final class MetadataManager
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, viewName.getCatalogName());
         CatalogName catalogName = catalogMetadata.getCatalogName();
-        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
 
         metadata.createView(session.toConnectorSession(catalogName), viewName.asSchemaTableName(), definition.toConnectorViewDefinition(), replace);
         if (catalogMetadata.getSecurityManagement() == SecurityManagement.SYSTEM) {
@@ -1229,7 +1229,7 @@ public final class MetadataManager
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, target.getCatalogName());
         CatalogName catalogName = catalogMetadata.getCatalogName();
-        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
         if (!source.getCatalogName().equals(catalogName.getCatalogName())) {
             throw new TrinoException(SYNTAX_ERROR, "Cannot rename views across catalogs");
         }
@@ -1245,7 +1245,7 @@ public final class MetadataManager
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, view.getCatalogName());
         CatalogName catalogName = catalogMetadata.getCatalogName();
-        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
 
         if (catalogMetadata.getSecurityManagement() == SecurityManagement.SYSTEM) {
             systemSecurityMetadata.setViewOwner(session, view, principal);
@@ -1260,7 +1260,7 @@ public final class MetadataManager
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, viewName.getCatalogName());
         CatalogName catalogName = catalogMetadata.getCatalogName();
-        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
 
         metadata.dropView(session.toConnectorSession(catalogName), viewName.asSchemaTableName());
         if (catalogMetadata.getSecurityManagement() == SecurityManagement.SYSTEM) {
@@ -1273,7 +1273,7 @@ public final class MetadataManager
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, viewName.getCatalogName());
         CatalogName catalogName = catalogMetadata.getCatalogName();
-        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
 
         metadata.createMaterializedView(
                 session.toConnectorSession(catalogName),
@@ -1291,7 +1291,7 @@ public final class MetadataManager
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, viewName.getCatalogName());
         CatalogName catalogName = catalogMetadata.getCatalogName();
-        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
 
         metadata.dropMaterializedView(session.toConnectorSession(catalogName), viewName.asSchemaTableName());
         if (catalogMetadata.getSecurityManagement() == SecurityManagement.SYSTEM) {
@@ -1316,7 +1316,7 @@ public final class MetadataManager
             CatalogMetadata catalogMetadata = catalog.get();
 
             for (CatalogName catalogName : catalogMetadata.listConnectorIds()) {
-                ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
+                ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogName);
                 ConnectorSession connectorSession = session.toConnectorSession(catalogName);
                 metadata.listMaterializedViews(connectorSession, prefix.getSchemaName()).stream()
                         .map(convertFromSchemaTableName(prefix.getCatalogName()))
@@ -1340,7 +1340,7 @@ public final class MetadataManager
 
             SchemaTablePrefix tablePrefix = prefix.asSchemaTablePrefix();
             for (CatalogName catalogName : catalogMetadata.listConnectorIds()) {
-                ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
+                ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogName);
                 ConnectorSession connectorSession = session.toConnectorSession(catalogName);
 
                 Map<SchemaTableName, ConnectorMaterializedViewDefinition> materializedViewMap;
@@ -1399,7 +1399,7 @@ public final class MetadataManager
         if (catalog.isPresent()) {
             CatalogMetadata catalogMetadata = catalog.get();
             CatalogName catalogName = catalogMetadata.getConnectorId(session, viewName);
-            ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
+            ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogName);
 
             ConnectorSession connectorSession = session.toConnectorSession(catalogName);
             return metadata.getMaterializedView(connectorSession, viewName.asSchemaTableName());
@@ -1414,7 +1414,7 @@ public final class MetadataManager
         if (catalog.isPresent()) {
             CatalogMetadata catalogMetadata = catalog.get();
             CatalogName catalogName = catalogMetadata.getConnectorId(session, viewName);
-            ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
+            ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogName);
 
             ConnectorSession connectorSession = session.toConnectorSession(catalogName);
             return metadata.getMaterializedViewFreshness(connectorSession, viewName.asSchemaTableName());
@@ -1427,7 +1427,7 @@ public final class MetadataManager
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, target.getCatalogName());
         CatalogName catalogName = catalogMetadata.getCatalogName();
-        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
         if (!source.getCatalogName().equals(catalogName.getCatalogName())) {
             throw new TrinoException(SYNTAX_ERROR, "Cannot rename materialized views across catalogs");
         }
@@ -1443,7 +1443,7 @@ public final class MetadataManager
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, viewName.getCatalogName());
         CatalogName catalogName = catalogMetadata.getCatalogName();
-        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
 
         metadata.setMaterializedViewProperties(session.toConnectorSession(catalogName), viewName.asSchemaTableName(), properties);
     }
@@ -1453,7 +1453,7 @@ public final class MetadataManager
     {
         CatalogName catalogName = tableHandle.getCatalogName();
         CatalogMetadata catalogMetadata = getCatalogMetadata(session, catalogName);
-        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
+        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogName);
         ConnectorSession connectorSession = session.toConnectorSession(catalogName);
         return metadata.applyTableScanRedirect(connectorSession, tableHandle.getConnectorHandle());
     }
@@ -1482,7 +1482,7 @@ public final class MetadataManager
 
             CatalogMetadata catalogMetadata = catalog.get();
             CatalogName catalogName = catalogMetadata.getConnectorId(session, tableName);
-            ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
+            ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogName);
 
             Optional<QualifiedObjectName> redirectedTableName = metadata.redirectTable(session.toConnectorSession(catalogName), tableName.asSchemaTableName())
                     .map(name -> convertFromSchemaTableName(name.getCatalogName()).apply(name.getSchemaTableName()));
@@ -1539,7 +1539,7 @@ public final class MetadataManager
     {
         CatalogName catalogName = tableHandle.getCatalogName();
         CatalogMetadata catalogMetadata = getCatalogMetadata(session, catalogName);
-        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
+        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogName);
         ConnectorTransactionHandle transaction = catalogMetadata.getTransactionHandleFor(catalogName);
         ConnectorSession connectorSession = session.toConnectorSession(catalogName);
         Optional<ConnectorResolvedIndex> resolvedIndex = metadata.resolveIndex(connectorSession, tableHandle.getConnectorHandle(), indexableColumns, outputColumns, tupleDomain);
@@ -1767,7 +1767,7 @@ public final class MetadataManager
 
         CatalogMetadata catalogMetadata = getCatalogMetadata(session, new CatalogName(catalog.get()));
         CatalogName catalogName = catalogMetadata.getCatalogName();
-        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
         return metadata.roleExists(session.toConnectorSession(catalogName), role);
     }
 
@@ -1781,7 +1781,7 @@ public final class MetadataManager
 
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalog.get());
         CatalogName catalogName = catalogMetadata.getCatalogName();
-        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
         metadata.createRole(session.toConnectorSession(catalogName), role, grantor);
     }
 
@@ -1795,7 +1795,7 @@ public final class MetadataManager
 
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalog.get());
         CatalogName catalogName = catalogMetadata.getCatalogName();
-        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
         metadata.dropRole(session.toConnectorSession(catalogName), role);
     }
 
@@ -1812,7 +1812,7 @@ public final class MetadataManager
             if (catalogMetadata.get().getSecurityManagement() == SecurityManagement.CONNECTOR) {
                 CatalogName catalogName = catalogMetadata.get().getCatalogName();
                 ConnectorSession connectorSession = session.toConnectorSession(catalogName);
-                ConnectorMetadata metadata = catalogMetadata.get().getMetadataFor(catalogName);
+                ConnectorMetadata metadata = catalogMetadata.get().getMetadataFor(session, catalogName);
                 return metadata.listRoles(connectorSession).stream()
                         .map(role -> role.toLowerCase(ENGLISH))
                         .collect(toImmutableSet());
@@ -1835,7 +1835,7 @@ public final class MetadataManager
             if (catalogMetadata.get().getSecurityManagement() == SecurityManagement.CONNECTOR) {
                 CatalogName catalogName = catalogMetadata.get().getCatalogName();
                 ConnectorSession connectorSession = session.toConnectorSession(catalogName);
-                ConnectorMetadata metadata = catalogMetadata.get().getMetadataFor(catalogName);
+                ConnectorMetadata metadata = catalogMetadata.get().getMetadataFor(session, catalogName);
                 return metadata.listAllRoleGrants(connectorSession, roles, grantees, limit);
             }
         }
@@ -1856,7 +1856,7 @@ public final class MetadataManager
             if (catalogMetadata.get().getSecurityManagement() == SecurityManagement.CONNECTOR) {
                 CatalogName catalogName = catalogMetadata.get().getCatalogName();
                 ConnectorSession connectorSession = session.toConnectorSession(catalogName);
-                ConnectorMetadata metadata = catalogMetadata.get().getMetadataFor(catalogName);
+                ConnectorMetadata metadata = catalogMetadata.get().getMetadataFor(session, catalogName);
                 return metadata.listRoleGrants(connectorSession, principal);
             }
         }
@@ -1874,7 +1874,7 @@ public final class MetadataManager
 
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalog.get());
         CatalogName catalogName = catalogMetadata.getCatalogName();
-        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
         metadata.grantRoles(session.toConnectorSession(catalogName), roles, grantees, adminOption, grantor);
     }
 
@@ -1888,7 +1888,7 @@ public final class MetadataManager
 
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalog.get());
         CatalogName catalogName = catalogMetadata.getCatalogName();
-        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
         metadata.revokeRoles(session.toConnectorSession(catalogName), roles, grantees, adminOption, grantor);
     }
 
@@ -1905,7 +1905,7 @@ public final class MetadataManager
             if (catalogMetadata.get().getSecurityManagement() == SecurityManagement.CONNECTOR) {
                 CatalogName catalogName = catalogMetadata.get().getCatalogName();
                 ConnectorSession connectorSession = session.toConnectorSession(catalogName);
-                ConnectorMetadata metadata = catalogMetadata.get().getMetadataFor(catalogName);
+                ConnectorMetadata metadata = catalogMetadata.get().getMetadataFor(session, catalogName);
                 return ImmutableSet.copyOf(metadata.listApplicableRoles(connectorSession, principal));
             }
         }
@@ -1934,7 +1934,7 @@ public final class MetadataManager
 
         CatalogName catalogName = catalogMetadata.get().getCatalogName();
         ConnectorSession connectorSession = session.toConnectorSession(catalogName);
-        ConnectorMetadata metadata = catalogMetadata.get().getMetadataFor(catalogName);
+        ConnectorMetadata metadata = catalogMetadata.get().getMetadataFor(session, catalogName);
         return ImmutableSet.copyOf(metadata.listEnabledRoles(connectorSession));
     }
 
@@ -1947,7 +1947,7 @@ public final class MetadataManager
             return;
         }
         CatalogName catalogName = catalogMetadata.getCatalogName();
-        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
 
         metadata.grantTablePrivileges(session.toConnectorSession(catalogName), tableName.asSchemaTableName(), privileges, grantee, grantOption);
     }
@@ -1961,7 +1961,7 @@ public final class MetadataManager
             return;
         }
         CatalogName catalogName = catalogMetadata.getCatalogName();
-        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
 
         metadata.denyTablePrivileges(session.toConnectorSession(catalogName), tableName.asSchemaTableName(), privileges, grantee);
     }
@@ -1975,7 +1975,7 @@ public final class MetadataManager
             return;
         }
         CatalogName catalogName = catalogMetadata.getCatalogName();
-        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
 
         metadata.revokeTablePrivileges(session.toConnectorSession(catalogName), tableName.asSchemaTableName(), privileges, grantee, grantOption);
     }
@@ -1989,7 +1989,7 @@ public final class MetadataManager
             return;
         }
         CatalogName catalogName = catalogMetadata.getCatalogName();
-        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
 
         metadata.grantSchemaPrivileges(session.toConnectorSession(catalogName), schemaName.getSchemaName(), privileges, grantee, grantOption);
     }
@@ -2003,7 +2003,7 @@ public final class MetadataManager
             return;
         }
         CatalogName catalogName = catalogMetadata.getCatalogName();
-        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
 
         metadata.denySchemaPrivileges(session.toConnectorSession(catalogName), schemaName.getSchemaName(), privileges, grantee);
     }
@@ -2017,7 +2017,7 @@ public final class MetadataManager
             return;
         }
         CatalogName catalogName = catalogMetadata.getCatalogName();
-        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
 
         metadata.revokeSchemaPrivileges(session.toConnectorSession(catalogName), schemaName.getSchemaName(), privileges, grantee, grantOption);
     }
@@ -2039,7 +2039,7 @@ public final class MetadataManager
                     .map(qualifiedTableName -> singletonList(catalogMetadata.getConnectorId(session, qualifiedTableName)))
                     .orElseGet(catalogMetadata::listConnectorIds);
             for (CatalogName catalogName : connectorIds) {
-                ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
+                ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogName);
                 if (catalogMetadata.getSecurityManagement() == SecurityManagement.SYSTEM) {
                     grantInfos.addAll(systemSecurityMetadata.listTablePrivileges(session, prefix));
                 }
@@ -2420,7 +2420,7 @@ public final class MetadataManager
         if (catalogMetadata.getSecurityManagement() == SecurityManagement.CONNECTOR) {
             return Optional.empty();
         }
-        ConnectorTableSchema tableSchema = catalogMetadata.getMetadata().getTableSchema(session.toConnectorSession(tableHandle.getCatalogName()), tableHandle.getConnectorHandle());
+        ConnectorTableSchema tableSchema = catalogMetadata.getMetadata(session).getTableSchema(session.toConnectorSession(tableHandle.getCatalogName()), tableHandle.getConnectorHandle());
         return Optional.of(new CatalogSchemaTableName(tableHandle.getCatalogName().getCatalogName(), tableSchema.getTable()));
     }
 
@@ -2454,12 +2454,12 @@ public final class MetadataManager
 
     private ConnectorMetadata getMetadata(Session session, CatalogName catalogName)
     {
-        return getCatalogMetadata(session, catalogName).getMetadataFor(catalogName);
+        return getCatalogMetadata(session, catalogName).getMetadataFor(session, catalogName);
     }
 
     private ConnectorMetadata getMetadataForWrite(Session session, CatalogName catalogName)
     {
-        return getCatalogMetadataForWrite(session, catalogName).getMetadata();
+        return getCatalogMetadataForWrite(session, catalogName).getMetadata(session);
     }
 
     private void registerCatalogForQuery(Session session, CatalogMetadata catalogMetadata)
@@ -2492,7 +2492,7 @@ public final class MetadataManager
             checkState(!finished, "Query is already finished");
             if (catalogs.putIfAbsent(catalogMetadata.getCatalogName(), catalogMetadata) == null) {
                 ConnectorSession connectorSession = session.toConnectorSession(catalogMetadata.getCatalogName());
-                catalogMetadata.getMetadata().beginQuery(connectorSession);
+                catalogMetadata.getMetadata(session).beginQuery(connectorSession);
             }
         }
 
@@ -2507,7 +2507,7 @@ public final class MetadataManager
 
             for (CatalogMetadata catalogMetadata : catalogs) {
                 ConnectorSession connectorSession = session.toConnectorSession(catalogMetadata.getCatalogName());
-                catalogMetadata.getMetadata().cleanupQuery(connectorSession);
+                catalogMetadata.getMetadata(session).cleanupQuery(connectorSession);
             }
         }
     }
@@ -2524,7 +2524,7 @@ public final class MetadataManager
 
         CatalogMetadata catalogMetadata = catalog.get();
         CatalogName connectorId = catalogMetadata.getConnectorId(session, tableName);
-        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
+        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, connectorId);
         return metadata.isSupportedVersionType(session.toConnectorSession(), tableName.asSchemaTableName(), version.getPointerType(), version.getObjectType());
     }
 

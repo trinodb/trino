@@ -21,6 +21,7 @@ import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.NotInTransactionException;
+import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.metadata.Catalog;
 import io.trino.metadata.Catalog.SecurityManagement;
@@ -423,13 +424,13 @@ public class InMemoryTransactionManager
 
                 catalogMetadata = new CatalogMetadata(
                         metadata.getCatalogName(),
-                        metadata.getConnectorMetadata(),
+                        metadata::getConnectorMetadata,
                         metadata.getTransactionHandle(),
                         informationSchema.getCatalogName(),
-                        informationSchema.getConnectorMetadata(),
+                        informationSchema::getConnectorMetadata,
                         informationSchema.getTransactionHandle(),
                         systemTables.getCatalogName(),
-                        systemTables.getConnectorMetadata(),
+                        systemTables::getConnectorMetadata,
                         systemTables.getTransactionHandle(),
                         metadata.getSecurityManagement(),
                         connector.getCapabilities());
@@ -568,7 +569,8 @@ public class InMemoryTransactionManager
             private final Connector connector;
             private final ConnectorTransactionHandle transactionHandle;
             private final SecurityManagement securityManagement;
-            private final ConnectorMetadata connectorMetadata;
+            @GuardedBy("this")
+            private ConnectorMetadata connectorMetadata;
             private final AtomicBoolean finished = new AtomicBoolean();
 
             public ConnectorTransactionMetadata(
@@ -581,7 +583,6 @@ public class InMemoryTransactionManager
                 this.connector = requireNonNull(connector, "connector is null");
                 this.transactionHandle = requireNonNull(transactionHandle, "transactionHandle is null");
                 this.securityManagement = requireNonNull(securityManagement, "securityManagement is null");
-                this.connectorMetadata = connector.getMetadata(transactionHandle);
             }
 
             public CatalogName getCatalogName()
@@ -599,9 +600,12 @@ public class InMemoryTransactionManager
                 return securityManagement;
             }
 
-            public synchronized ConnectorMetadata getConnectorMetadata()
+            public synchronized ConnectorMetadata getConnectorMetadata(Session session)
             {
                 checkState(!finished.get(), "Already finished");
+                if (connectorMetadata == null) {
+                    connectorMetadata = connector.getMetadata(transactionHandle);
+                }
                 return connectorMetadata;
             }
 
