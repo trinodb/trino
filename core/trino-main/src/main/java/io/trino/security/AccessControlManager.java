@@ -34,7 +34,6 @@ import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSecurityContext;
-import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.PrincipalType;
@@ -1200,8 +1199,8 @@ public class AccessControlManager
 
     private CatalogAccessControlEntry getConnectorAccessControl(TransactionId transactionId, String catalogName)
     {
-        return transactionManager.getOptionalCatalogMetadata(transactionId, catalogName)
-                .map(metadata -> connectorAccessControl.get(metadata.getCatalogName()))
+        return transactionManager.getCatalogName(transactionId, catalogName)
+                .map(connectorAccessControl::get)
                 .orElse(null);
     }
 
@@ -1297,11 +1296,6 @@ public class AccessControlManager
         public ConnectorAccessControl getAccessControl()
         {
             return accessControl;
-        }
-
-        public ConnectorTransactionHandle getTransactionHandle(TransactionId transactionId)
-        {
-            return transactionManager.getConnectorTransaction(transactionId, catalogName);
         }
 
         public ConnectorSecurityContext toConnectorSecurityContext(SecurityContext securityContext)
