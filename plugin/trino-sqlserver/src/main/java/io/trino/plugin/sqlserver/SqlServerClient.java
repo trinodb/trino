@@ -117,6 +117,7 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.timestampColumnMapping
 import static io.trino.plugin.jdbc.StandardColumnMappings.timestampWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.varcharReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.trino.plugin.sqlserver.SqlServerTableProperties.DATA_COMPRESSION;
 import static io.trino.plugin.sqlserver.SqlServerTableProperties.getDataCompression;
@@ -144,6 +145,8 @@ import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.round;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.max;
@@ -298,6 +301,10 @@ public class SqlServerClient
             case Types.VARCHAR:
             case Types.NVARCHAR:
                 return Optional.of(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize(), false));
+
+            case Types.LONGVARCHAR:
+            case Types.LONGNVARCHAR:
+                return Optional.of(longVarcharColumnMapping(typeHandle.getRequiredColumnSize()));
 
             case Types.BINARY:
             case Types.VARBINARY:
@@ -722,6 +729,20 @@ public class SqlServerClient
                 statement.setBytes(index, null);
             }
         };
+    }
+
+    private static ColumnMapping longVarcharColumnMapping(int columnSize)
+    {
+        // Disable pushdown to avoid "The data types ntext and nvarchar are incompatible in the equal to operator." error
+        if (columnSize > VarcharType.MAX_LENGTH) {
+            return ColumnMapping.sliceMapping(createUnboundedVarcharType(), varcharReadFunction(createUnboundedVarcharType()), nvarcharWriteFunction(), DISABLE_PUSHDOWN);
+        }
+        return ColumnMapping.sliceMapping(createVarcharType(columnSize), varcharReadFunction(createVarcharType(columnSize)), nvarcharWriteFunction(), DISABLE_PUSHDOWN);
+    }
+
+    private static SliceWriteFunction nvarcharWriteFunction()
+    {
+        return (statement, index, value) -> statement.setNString(index, value.toStringUtf8());
     }
 
     private static Optional<DataCompression> getTableDataCompression(Handle handle, JdbcTableHandle table)
