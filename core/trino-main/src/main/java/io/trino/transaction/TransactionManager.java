@@ -46,6 +46,8 @@ public interface TransactionManager
 
     Map<String, Catalog> getCatalogs(TransactionId transactionId);
 
+    Optional<CatalogName> getCatalogName(TransactionId transactionId, String catalogName);
+
     Optional<CatalogMetadata> getOptionalCatalogMetadata(TransactionId transactionId, String catalogName);
 
     CatalogMetadata getCatalogMetadata(TransactionId transactionId, CatalogName catalogName);

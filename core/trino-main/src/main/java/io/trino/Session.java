@@ -300,9 +300,8 @@ public final class Session
             if (catalogProperties.isEmpty()) {
                 continue;
             }
-            CatalogName catalog = transactionManager.getOptionalCatalogMetadata(transactionId, catalogName)
-                    .orElseThrow(() -> new TrinoException(NOT_FOUND, "Session property catalog does not exist: " + catalogName))
-                    .getCatalogName();
+            CatalogName catalog = transactionManager.getCatalogName(transactionId, catalogName)
+                    .orElseThrow(() -> new TrinoException(NOT_FOUND, "Session property catalog does not exist: " + catalogName));
 
             validateCatalogProperties(Optional.of(transactionId), accessControl, catalog, catalogProperties);
             connectorProperties.put(catalogName, catalogProperties);
@@ -312,7 +311,7 @@ public final class Session
         for (Entry<String, SelectedRole> entry : identity.getCatalogRoles().entrySet()) {
             String catalogName = entry.getKey();
             SelectedRole role = entry.getValue();
-            if (transactionManager.getOptionalCatalogMetadata(transactionId, catalogName).isEmpty()) {
+            if (transactionManager.getCatalogName(transactionId, catalogName).isEmpty()) {
                 throw new TrinoException(NOT_FOUND, "Catalog for role does not exist: " + catalogName);
             }
             if (role.getType() == SelectedRole.Type.ROLE) {
