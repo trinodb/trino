@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
 
+import static com.google.common.base.Verify.verify;
 import static io.trino.parquet.ParquetTypeUtils.getParquetEncoding;
 import static java.util.Objects.requireNonNull;
 
@@ -73,6 +74,7 @@ public class ParquetColumnChunk
     protected PageHeader readPageHeader()
             throws IOException
     {
+        verify(input.available() > 0, "Reached end of input unexpectedly");
         PageHeader pageHeader = Util.readPageHeader(input);
         advanceIfNecessary();
         return pageHeader;
