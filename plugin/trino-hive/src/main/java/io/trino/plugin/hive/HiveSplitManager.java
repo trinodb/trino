@@ -54,7 +54,6 @@ import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
-import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -95,7 +94,7 @@ public class HiveSplitManager
     public static final String PRESTO_OFFLINE = "presto_offline";
     public static final String OBJECT_NOT_READABLE = "object_not_readable";
 
-    private final Function<HiveTransactionHandle, SemiTransactionalHiveMetastore> metastoreProvider;
+    private final HiveTransactionManager transactionManager;
     private final HivePartitionManager partitionManager;
     private final NamenodeStats namenodeStats;
     private final HdfsEnvironment hdfsEnvironment;
@@ -115,7 +114,7 @@ public class HiveSplitManager
     @Inject
     public HiveSplitManager(
             HiveConfig hiveConfig,
-            Function<HiveTransactionHandle, SemiTransactionalHiveMetastore> metastoreProvider,
+            HiveTransactionManager transactionManager,
             HivePartitionManager partitionManager,
             NamenodeStats namenodeStats,
             HdfsEnvironment hdfsEnvironment,
@@ -125,7 +124,7 @@ public class HiveSplitManager
             TypeManager typeManager)
     {
         this(
-                metastoreProvider,
+                transactionManager,
                 partitionManager,
                 namenodeStats,
                 hdfsEnvironment,
@@ -144,7 +143,7 @@ public class HiveSplitManager
     }
 
     public HiveSplitManager(
-            Function<HiveTransactionHandle, SemiTransactionalHiveMetastore> metastoreProvider,
+            HiveTransactionManager transactionManager,
             HivePartitionManager partitionManager,
             NamenodeStats namenodeStats,
             HdfsEnvironment hdfsEnvironment,
@@ -161,7 +160,7 @@ public class HiveSplitManager
             boolean recursiveDfsWalkerEnabled,
             TypeManager typeManager)
     {
-        this.metastoreProvider = requireNonNull(metastoreProvider, "metastoreProvider is null");
+        this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.partitionManager = requireNonNull(partitionManager, "partitionManager is null");
         this.namenodeStats = requireNonNull(namenodeStats, "namenodeStats is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
@@ -192,7 +191,7 @@ public class HiveSplitManager
         SchemaTableName tableName = hiveTable.getSchemaTableName();
 
         // get table metadata
-        SemiTransactionalHiveMetastore metastore = metastoreProvider.apply((HiveTransactionHandle) transaction);
+        SemiTransactionalHiveMetastore metastore = transactionManager.get(transaction).getMetastore();
         Table table = metastore.getTable(new HiveIdentity(session), tableName.getSchemaName(), tableName.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(tableName));
 

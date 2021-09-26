@@ -105,7 +105,6 @@ public final class InternalIcebergConnectorFactory
 
             LifeCycleManager lifeCycleManager = injector.getInstance(LifeCycleManager.class);
             IcebergTransactionManager transactionManager = injector.getInstance(IcebergTransactionManager.class);
-            IcebergMetadataFactory metadataFactory = injector.getInstance(IcebergMetadataFactory.class);
             ConnectorSplitManager splitManager = injector.getInstance(ConnectorSplitManager.class);
             ConnectorPageSourceProvider connectorPageSource = injector.getInstance(ConnectorPageSourceProvider.class);
             ConnectorPageSinkProvider pageSinkProvider = injector.getInstance(ConnectorPageSinkProvider.class);
@@ -119,7 +118,6 @@ public final class InternalIcebergConnectorFactory
             return new IcebergConnector(
                     lifeCycleManager,
                     transactionManager,
-                    metadataFactory,
                     new ClassLoaderSafeConnectorSplitManager(splitManager, classLoader),
                     new ClassLoaderSafeConnectorPageSourceProvider(connectorPageSource, classLoader),
                     new ClassLoaderSafeConnectorPageSinkProvider(pageSinkProvider, classLoader),
