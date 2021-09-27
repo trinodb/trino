@@ -151,6 +151,9 @@ public class Identity
         if (!catalogRoles.isEmpty()) {
             sb.append(", catalogRoles=").append(catalogRoles);
         }
+        if (!enabledRoles.isEmpty()) {
+            sb.append(", enabledRoles=").append(enabledRoles);
+        }
         // Do not print any internal credential keys
         List<String> filteredCredentials = extraCredentials.keySet().stream()
                 .filter(key -> !key.contains("$internal"))
