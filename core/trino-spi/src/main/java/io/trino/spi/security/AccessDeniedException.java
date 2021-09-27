@@ -525,12 +525,12 @@ public class AccessDeniedException
 
     public static void denyGrantRoles(Set<String> roles, Set<TrinoPrincipal> grantees)
     {
-        throw new AccessDeniedException(format("Cannot grant roles %s to %s ", roles, grantees));
+        throw new AccessDeniedException(format("Cannot grant roles %s to %s", roles, grantees));
     }
 
     public static void denyRevokeRoles(Set<String> roles, Set<TrinoPrincipal> grantees)
     {
-        throw new AccessDeniedException(format("Cannot revoke roles %s from %s ", roles, grantees));
+        throw new AccessDeniedException(format("Cannot revoke roles %s from %s", roles, grantees));
     }
 
     public static void denySetRole(String role)
