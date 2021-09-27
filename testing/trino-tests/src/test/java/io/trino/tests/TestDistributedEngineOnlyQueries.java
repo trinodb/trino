@@ -216,6 +216,10 @@ public class TestDistributedEngineOnlyQueries
         assertExplainAnalyze(
                 "EXPLAIN ANALYZE SELECT nationkey FROM nation GROUP BY nationkey",
                 "Collisions avg\\.: .* \\(.* est\\.\\), Collisions std\\.dev\\.: .*");
+
+        assertExplainAnalyze(
+                "EXPLAIN ANALYZE SELECT * FROM nation a, nation b WHERE a.nationkey = b.nationkey",
+                "Estimates: \\{rows: .* \\(.*\\), cpu: .*, memory: .*, network: .*}");
     }
 
     @Test
