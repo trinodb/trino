@@ -144,9 +144,13 @@ public class Identity
     {
         StringBuilder sb = new StringBuilder("Identity{");
         sb.append("user='").append(user).append('\'');
-        sb.append(", groups=").append(groups);
+        if (!groups.isEmpty()) {
+            sb.append(", groups=").append(groups);
+        }
         principal.ifPresent(principal -> sb.append(", principal=").append(principal));
-        sb.append(", catalogRoles=").append(catalogRoles);
+        if (!catalogRoles.isEmpty()) {
+            sb.append(", catalogRoles=").append(catalogRoles);
+        }
         // Do not print any internal credential keys
         List<String> filteredCredentials = extraCredentials.keySet().stream()
                 .filter(key -> !key.contains("$internal"))
@@ -154,7 +158,9 @@ public class Identity
         if (filteredCredentials.size() != extraCredentials.size()) {
             filteredCredentials.add("...");
         }
-        sb.append(", extraCredentials=").append(filteredCredentials);
+        if (!extraCredentials.isEmpty()) {
+            sb.append(", extraCredentials=").append(filteredCredentials);
+        }
         sb.append('}');
         return sb.toString();
     }
