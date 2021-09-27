@@ -1178,7 +1178,6 @@ public class TestFileBasedSystemAccessControl
     {
         File configFile = newTemporaryFile();
         configFile.deleteOnExit();
-        //noinspection UnstableApiUsage
         copy(new File(getResourcePath("catalog.json")), configFile);
 
         SystemAccessControl accessControl = newFileBasedSystemAccessControl(ImmutableMap.of(
@@ -1190,7 +1189,6 @@ public class TestFileBasedSystemAccessControl
         accessControl.checkCanCreateView(alice, aliceView);
         accessControl.checkCanCreateView(alice, aliceView);
 
-        //noinspection UnstableApiUsage
         copy(new File(getResourcePath("security-config-file-with-unknown-rules.json")), configFile);
         sleep(2);
 
@@ -1203,7 +1201,6 @@ public class TestFileBasedSystemAccessControl
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageStartingWith("Invalid JSON file");
 
-        //noinspection UnstableApiUsage
         copy(new File(getResourcePath("catalog.json")), configFile);
         sleep(2);
 
