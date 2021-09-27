@@ -22,6 +22,7 @@ import com.google.cloud.bigquery.DatasetId;
 import com.google.cloud.bigquery.DatasetInfo;
 import com.google.cloud.bigquery.QueryJobConfiguration;
 import com.google.cloud.bigquery.Table;
+import com.google.cloud.bigquery.TableResult;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -54,7 +55,8 @@ public final class BigQueryQueryRunner
     private static final Logger log = Logger.get(BigQueryQueryRunner.class);
 
     private static final String BIGQUERY_CREDENTIALS_KEY = requireNonNull(System.getProperty("bigquery.credentials-key"), "bigquery.credentials-key is not set");
-    private static final String TPCH_SCHEMA = "tpch";
+    public static final String TPCH_SCHEMA = "tpch";
+    public static final String TEST_SCHEMA = "test";
 
     private BigQueryQueryRunner() {}
 
@@ -110,8 +112,13 @@ public final class BigQueryQueryRunner
         @Override
         public void execute(String sql)
         {
+            executeQuery(sql);
+        }
+
+        public TableResult executeQuery(String sql)
+        {
             try {
-                bigQuery.query(QueryJobConfiguration.of(sql));
+                return bigQuery.query(QueryJobConfiguration.of(sql));
             }
             catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
