@@ -175,8 +175,8 @@ public class TestIcebergV2
 
     private Table updateTableToV2(String tableName)
     {
-        HiveTableOperationsProvider tableOperationsProvider = new HiveTableOperationsProvider(new HdfsFileIoProvider(hdfsEnvironment), metastore);
-        BaseTable table = (BaseTable) loadIcebergTable(tableOperationsProvider, SESSION, new SchemaTableName("tpch", tableName));
+        HiveTableOperationsProvider tableOperationsProvider = new HiveTableOperationsProvider(new HdfsFileIoProvider(hdfsEnvironment));
+        BaseTable table = (BaseTable) loadIcebergTable(metastore, tableOperationsProvider, SESSION, new SchemaTableName("tpch", tableName));
 
         TableOperations operations = table.operations();
         TableMetadata currentMetadata = operations.current();
