@@ -38,7 +38,6 @@ public class TestBigQueryTypeMapping
     public void initBigQueryExecutor()
     {
         bigQuerySqlExecutor = new BigQueryQueryRunner.BigQuerySqlExecutor();
-        bigQuerySqlExecutor.deleteSelfCreatedDatasets();
     }
 
     @Override

@@ -60,6 +60,35 @@ public class TestBigQueryInstanceCleaner
         this.bigQuerySqlExecutor = new BigQuerySqlExecutor();
     }
 
+    @Test
+    public void cleanUpDatasets()
+    {
+        LOG.info("Identifying datasets to drop...");
+        // Drop all datasets with our label created more than 24 hours ago
+        List<String> selfCreatedDatasets = bigQuerySqlExecutor.getSelfCreatedDatasets();
+        TableResult result = bigQuerySqlExecutor.executeQuery(format("" +
+                        "SELECT schema_name " +
+                        "FROM INFORMATION_SCHEMA.SCHEMATA " +
+                        "WHERE datetime_diff(current_datetime(), datetime(creation_time), HOUR) > 24 " +
+                        "AND schema_name IN (%s)",
+                selfCreatedDatasets.stream().collect(joining("','", "'", "'"))));
+        List<String> datasetsToDrop = Streams.stream(result.getValues())
+                .map(fieldValues -> fieldValues.get("schema_name").getStringValue())
+                .collect(toImmutableList());
+
+        if (datasetsToDrop.isEmpty()) {
+            LOG.info("Did not find any datasets to drop.");
+            return;
+        }
+
+        LOG.info("Dropping %s datasets.", datasetsToDrop.size());
+        LOG.info("Dropping: %s", datasetsToDrop);
+        datasetsToDrop.forEach(dataset -> {
+            LOG.info("Dropping dataset '%s' that contains tables: %s", dataset, bigQuerySqlExecutor.getTableNames(dataset));
+            bigQuerySqlExecutor.dropDatasetIfExists(dataset);
+        });
+    }
+
     @Test(dataProvider = "cleanUpSchemasDataProvider")
     public void cleanUpTables(String schemaName)
     {
