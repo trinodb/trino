@@ -13,7 +13,11 @@
  */
 package io.trino.plugin.bigquery;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.RowType;
+import io.trino.spi.type.RowType.Field;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.datatype.CreateAndInsertDataSetup;
@@ -23,11 +27,16 @@ import io.trino.testing.sql.SqlExecutor;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.TimeType.createTimeType;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 
 public class TestBigQueryTypeMapping
         extends AbstractTestQueryFramework
@@ -192,6 +201,55 @@ public class TestBigQueryTypeMapping
                 .addRoundTrip("TIMESTAMP", "TIMESTAMP '2021-09-07 23:59:59.999999-00:00'",
                         TIMESTAMP_TZ_MICROS, "TIMESTAMP '2021-09-07 23:59:59.999999 UTC'")
                 .execute(getQueryRunner(), bigqueryCreateAndInsert("test.timestamp_tz"));
+    }
+
+    @Test
+    public void testGeography()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("GEOGRAPHY", "ST_GeogPoint(0, 0)", VARCHAR, "VARCHAR 'POINT(0 0)'")
+                .addRoundTrip("GEOGRAPHY", "ST_GeogPoint(90, -90)", VARCHAR, "VARCHAR 'POINT(90 -90)'")
+                .addRoundTrip("GEOGRAPHY", "NULL", VARCHAR, "CAST(NULL AS VARCHAR)")
+                .execute(getQueryRunner(), bigqueryCreateAndInsert("test.geography"));
+    }
+
+    @Test
+    public void testArray()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("ARRAY<BOOLEAN>", "[true]", new ArrayType(BOOLEAN), "ARRAY[true]")
+                .addRoundTrip("ARRAY<INT64>", "[1]", new ArrayType(BIGINT), "ARRAY[BIGINT '1']")
+                .addRoundTrip("ARRAY<STRING>", "['string']", new ArrayType(VARCHAR), "ARRAY[VARCHAR 'string']")
+                .addRoundTrip("ARRAY<STRUCT<x INT64, y STRING>>",
+                        "[(1, 'string')]",
+                        new ArrayType(RowType.from(ImmutableList.of(new Field(Optional.of("x"), BIGINT), new Field(Optional.of("y"), VARCHAR)))),
+                        "ARRAY[CAST(ROW(1, 'string') AS ROW(x BIGINT, y VARCHAR))]")
+                .addRoundTrip("ARRAY<BOOLEAN>", "[]", new ArrayType(BOOLEAN), "CAST(ARRAY[] AS ARRAY<BOOLEAN>)")
+                .addRoundTrip("ARRAY<BOOLEAN>", "NULL", new ArrayType(BOOLEAN), "CAST(ARRAY[] AS ARRAY<BOOLEAN>)")
+                .execute(getQueryRunner(), bigqueryCreateAndInsert("test.array"));
+    }
+
+    @Test
+    public void testStruct()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("STRUCT<x INT64>",
+                        "STRUCT(1)",
+                        RowType.from(ImmutableList.of(new Field(Optional.of("x"), BIGINT))),
+                        "CAST(ROW(1) AS ROW(x BIGINT))")
+                .addRoundTrip("STRUCT<x INT64, y STRING>",
+                        "(1, 'string')",
+                        RowType.from(ImmutableList.of(new Field(Optional.of("x"), BIGINT), new Field(Optional.of("y"), VARCHAR))),
+                        "CAST(ROW(1, 'string') AS ROW(x BIGINT, y VARCHAR))")
+                .addRoundTrip("STRUCT<x STRUCT<y STRING>>",
+                        "STRUCT(STRUCT('nested' AS y) AS x)",
+                        RowType.from(ImmutableList.of(new Field(Optional.of("x"), RowType.from(ImmutableList.of(new Field(Optional.of("y"), VARCHAR)))))),
+                        "CAST(ROW(ROW('nested')) AS ROW(X ROW(Y VARCHAR)))")
+                .addRoundTrip("STRUCT<x INT64>",
+                        "NULL",
+                        RowType.from(ImmutableList.of(new Field(Optional.of("x"), BIGINT))),
+                        "CAST(NULL AS ROW(x BIGINT))")
+                .execute(getQueryRunner(), bigqueryCreateAndInsert("test.struct"));
     }
 
     private DataSetup bigqueryCreateAndInsert(String tableNamePrefix)
