@@ -71,7 +71,6 @@ import io.trino.sql.tree.CoalesceExpression;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.CreateTableAsSelect;
 import io.trino.sql.tree.Delete;
-import io.trino.sql.tree.Explain;
 import io.trino.sql.tree.ExplainAnalyze;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
@@ -200,7 +199,7 @@ public class LogicalPlanner
 
     public Plan plan(Analysis analysis, Stage stage)
     {
-        return plan(analysis, stage, analysis.getStatement() instanceof Explain || isCollectPlanStatisticsForAllQueries(session));
+        return plan(analysis, stage, analysis.getStatement() instanceof ExplainAnalyze || isCollectPlanStatisticsForAllQueries(session));
     }
 
     public Plan plan(Analysis analysis, Stage stage, boolean collectPlanStatistics)
