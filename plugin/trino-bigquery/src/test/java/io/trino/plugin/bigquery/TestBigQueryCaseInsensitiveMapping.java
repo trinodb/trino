@@ -45,7 +45,6 @@ public class TestBigQueryCaseInsensitiveMapping
     public void initBigQueryExecutor()
     {
         this.bigQuerySqlExecutor = new BigQuerySqlExecutor();
-        bigQuerySqlExecutor.deleteSelfCreatedDatasets();
     }
 
     @Override
