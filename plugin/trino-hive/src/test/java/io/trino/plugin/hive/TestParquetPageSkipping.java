@@ -23,7 +23,7 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import static io.trino.testing.assertions.Assert.assertEquals;
+import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -122,7 +122,7 @@ public class TestParquetPageSkipping
     {
         MaterializedResult withColumnIndexing = computeActual(query);
         MaterializedResult withoutColumnIndexing = computeActual(noParquetColumnIndexFiltering(getSession()), query);
-        assertEquals(withColumnIndexing, withoutColumnIndexing);
+        assertEqualsIgnoreOrder(withColumnIndexing, withoutColumnIndexing);
         return withoutColumnIndexing.getRowCount();
     }
 
