@@ -94,7 +94,7 @@ public class MockConnectorFactory
 
     // access control
     private final ListRoleGrants roleGrants;
-    private final MockConnectorAccessControl accessControl;
+    private final Optional<MockConnectorAccessControl> accessControl;
 
     private MockConnectorFactory(
             Function<ConnectorSession, List<String>> listSchemaNames,
@@ -120,7 +120,7 @@ public class MockConnectorFactory
             Function<SchemaTableName, List<List<?>>> data,
             Set<Procedure> procedures,
             ListRoleGrants roleGrants,
-            MockConnectorAccessControl accessControl)
+            Optional<MockConnectorAccessControl> accessControl)
     {
         this.listSchemaNames = requireNonNull(listSchemaNames, "listSchemaNames is null");
         this.listTables = requireNonNull(listTables, "listTables is null");
@@ -284,6 +284,7 @@ public class MockConnectorFactory
         private Set<Procedure> procedures = ImmutableSet.of();
 
         // access control
+        private boolean provideAccessControl;
         private ListRoleGrants roleGrants = defaultRoleAuthorizations();
         private Grants<String> schemaGrants = new AllowAllGrants<>();
         private Grants<SchemaTableName> tableGrants = new AllowAllGrants<>();
@@ -428,42 +429,52 @@ public class MockConnectorFactory
 
         public Builder withProcedures(Set<Procedure> procedures)
         {
+            provideAccessControl = true;
             this.procedures = procedures;
             return this;
         }
 
         public Builder withListRoleGrants(ListRoleGrants roleGrants)
         {
+            provideAccessControl = true;
             this.roleGrants = requireNonNull(roleGrants, "roleGrants is null");
             return this;
         }
 
         public Builder withSchemaGrants(Grants<String> schemaGrants)
         {
+            provideAccessControl = true;
             this.schemaGrants = schemaGrants;
             return this;
         }
 
         public Builder withTableGrants(Grants<SchemaTableName> tableGrants)
         {
+            provideAccessControl = true;
             this.tableGrants = tableGrants;
             return this;
         }
 
         public Builder withRowFilter(Function<SchemaTableName, ViewExpression> rowFilter)
         {
+            provideAccessControl = true;
             this.rowFilter = rowFilter;
             return this;
         }
 
         public Builder withColumnMask(BiFunction<SchemaTableName, String, ViewExpression> columnMask)
         {
+            provideAccessControl = true;
             this.columnMask = columnMask;
             return this;
         }
 
         public MockConnectorFactory build()
         {
+            Optional<MockConnectorAccessControl> accessControl = Optional.empty();
+            if (provideAccessControl) {
+                accessControl = Optional.of(new MockConnectorAccessControl(schemaGrants, tableGrants, rowFilter, columnMask));
+            }
             return new MockConnectorFactory(
                     listSchemaNames,
                     listTables,
@@ -488,7 +499,7 @@ public class MockConnectorFactory
                     data,
                     procedures,
                     roleGrants,
-                    new MockConnectorAccessControl(schemaGrants, tableGrants, rowFilter, columnMask));
+                    accessControl);
         }
 
         public static Function<ConnectorSession, List<String>> defaultListSchemaNames()
