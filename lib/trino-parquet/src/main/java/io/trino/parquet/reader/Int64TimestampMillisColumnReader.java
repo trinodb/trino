@@ -39,12 +39,12 @@ public class Int64TimestampMillisColumnReader
     protected void readValue(BlockBuilder blockBuilder, Type type)
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            long utcMillis = valuesReader.readLong();
+            long epochMillis = valuesReader.readLong();
             if (type instanceof TimestampWithTimeZoneType) {
-                type.writeLong(blockBuilder, packDateTimeWithZone(utcMillis, UTC_KEY));
+                type.writeLong(blockBuilder, packDateTimeWithZone(epochMillis, UTC_KEY));
             }
             else if (type instanceof TimestampType) {
-                long epochMicros = utcMillis * MICROSECONDS_PER_MILLISECOND;
+                long epochMicros = epochMillis * MICROSECONDS_PER_MILLISECOND;
                 if (((TimestampType) type).isShort()) {
                     type.writeLong(blockBuilder, epochMicros);
                 }
