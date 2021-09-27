@@ -152,6 +152,10 @@ Disable the following inspections:
 - ``Java | Abstraction issues | 'Optional' used as field or parameter type``,
 - ``Java | Data flow | Boolean method is always inverted``.
 
+Update the following inspections:
+
+- Remove ``com.google.common.annotations.Beta`` from ``JVM languages | Unstable API usage``.
+
 Enable errorprone ([Error Prone Installation#IDEA](https://errorprone.info/docs/installation#intellij-idea)):
 - Install ``Error Prone Compiler`` plugin from marketplace,
 - In ``Java Compiler`` tab, select ``Javac with error-prone`` as the compiler,
