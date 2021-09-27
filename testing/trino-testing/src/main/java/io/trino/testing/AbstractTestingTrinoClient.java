@@ -176,7 +176,7 @@ public abstract class AbstractTestingTrinoClient<T>
     {
         ImmutableMap.Builder<String, ClientSelectedRole> builder = ImmutableMap.builder();
         session.getIdentity().getEnabledRoles().forEach(role -> builder.put("system", toClientSelectedRole(new SelectedRole(ROLE, Optional.of(role)))));
-        session.getIdentity().getConnectorRoles().forEach((key, value) -> builder.put(key, toClientSelectedRole(value)));
+        session.getIdentity().getCatalogRoles().forEach((key, value) -> builder.put(key, toClientSelectedRole(value)));
         return builder.build();
     }
 
