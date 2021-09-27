@@ -338,7 +338,7 @@ public final class Session
         }
 
         ImmutableMap.Builder<String, SelectedRole> connectorRoles = ImmutableMap.builder();
-        for (Entry<String, SelectedRole> entry : identity.getConnectorRoles().entrySet()) {
+        for (Entry<String, SelectedRole> entry : identity.getCatalogRoles().entrySet()) {
             String catalogName = entry.getKey();
             SelectedRole role = entry.getValue();
             CatalogName catalog = transactionManager.getOptionalCatalogMetadata(transactionId, catalogName)
@@ -491,7 +491,7 @@ public final class Session
                 systemProperties,
                 connectorProperties,
                 unprocessedCatalogProperties,
-                identity.getConnectorRoles(),
+                identity.getCatalogRoles(),
                 preparedStatements,
                 protocolHeaders.getProtocolName());
     }

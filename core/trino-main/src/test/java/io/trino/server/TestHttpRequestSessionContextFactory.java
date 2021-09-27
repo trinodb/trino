@@ -92,7 +92,7 @@ public class TestHttpRequestSessionContextFactory
                 "some_session_property", "some value with , comma"));
         assertEquals(context.getPreparedStatements(), ImmutableMap.of("query1", "select * from foo", "query2", "select * from bar"));
         assertEquals(context.getSelectedRole(), new SelectedRole(SelectedRole.Type.ROLE, Optional.of("system-role")));
-        assertEquals(context.getIdentity().getConnectorRoles(), ImmutableMap.of(
+        assertEquals(context.getIdentity().getCatalogRoles(), ImmutableMap.of(
                 "foo_connector", new SelectedRole(SelectedRole.Type.ALL, Optional.empty()),
                 "bar_connector", new SelectedRole(SelectedRole.Type.NONE, Optional.empty()),
                 "foobar_connector", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("catalog-role"))));
