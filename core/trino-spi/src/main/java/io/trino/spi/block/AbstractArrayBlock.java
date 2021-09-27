@@ -40,6 +40,9 @@ public abstract class AbstractArrayBlock
 
     protected abstract int getOffsetBase();
 
+    /**
+     * @return the underlying valueIsNull array, or null when all values are guaranteed to be non-null
+     */
     @Nullable
     protected abstract boolean[] getValueIsNull();
 
@@ -60,28 +63,27 @@ public abstract class AbstractArrayBlock
         checkArrayRange(positions, offset, length);
 
         int[] newOffsets = new int[length + 1];
-        boolean[] newValueIsNull = new boolean[length];
+        newOffsets[0] = 0;
+        boolean[] newValueIsNull = getValueIsNull() == null ? null : new boolean[length];
 
         IntArrayList valuesPositions = new IntArrayList();
-        int newPosition = 0;
-        for (int i = offset; i < offset + length; ++i) {
-            int position = positions[i];
-            if (isNull(position)) {
-                newValueIsNull[newPosition] = true;
-                newOffsets[newPosition + 1] = newOffsets[newPosition];
+        for (int i = 0; i < length; i++) {
+            int position = positions[offset + i];
+            if (newValueIsNull != null && isNull(position)) {
+                newValueIsNull[i] = true;
+                newOffsets[i + 1] = newOffsets[i];
             }
             else {
                 int valuesStartOffset = getOffset(position);
                 int valuesEndOffset = getOffset(position + 1);
                 int valuesLength = valuesEndOffset - valuesStartOffset;
 
-                newOffsets[newPosition + 1] = newOffsets[newPosition] + valuesLength;
+                newOffsets[i + 1] = newOffsets[i] + valuesLength;
 
                 for (int elementIndex = valuesStartOffset; elementIndex < valuesEndOffset; elementIndex++) {
                     valuesPositions.add(elementIndex);
                 }
             }
-            newPosition++;
         }
         Block newValues = getRawElementBlock().copyPositions(valuesPositions.elements(), 0, valuesPositions.size());
         return createArrayBlockInternal(0, length, newValueIsNull, newOffsets, newValues);
@@ -184,7 +186,7 @@ public abstract class AbstractArrayBlock
         return createArrayBlockInternal(
                 0,
                 1,
-                new boolean[] {isNull(position)},
+                isNull(position) ? new boolean[] {true} : null,
                 new int[] {0, valueLength},
                 newValues);
     }
@@ -214,7 +216,7 @@ public abstract class AbstractArrayBlock
     {
         checkReadablePosition(position);
         boolean[] valueIsNull = getValueIsNull();
-        return valueIsNull == null ? false : valueIsNull[position + getOffsetBase()];
+        return valueIsNull != null && valueIsNull[position + getOffsetBase()];
     }
 
     public <T> T apply(ArrayBlockFunction<T> function, int position)
