@@ -169,7 +169,7 @@ public class TestSapHanaColumnViews
         Session session = Session.builder(getSession())
                 .addPreparedStatement("test_query", testQuery)
                 .build();
-        MaterializedResult expected = MaterializedResult.resultBuilder(session, createVarcharType(9), createVarcharType(7), createVarcharType(8), createVarcharType(21), createVarcharType(6), INTEGER, BOOLEAN)
+        MaterializedResult expected = MaterializedResult.resultBuilder(session, createVarcharType(9), createVarcharType(7), createVarcharType(8), createVarcharType(26), createVarcharType(6), INTEGER, BOOLEAN)
                 .row("nationkey", "saphana", "_sys_bic", viewName, "bigint", 8, false)
                 .build();
         assertThat(query(session, "DESCRIBE OUTPUT test_query")).containsAll(expected);
@@ -218,7 +218,7 @@ public class TestSapHanaColumnViews
         Session session = Session.builder(getSession())
                 .addPreparedStatement("test_query", testQuery)
                 .build();
-        MaterializedResult expected = MaterializedResult.resultBuilder(session, createVarcharType(10), createVarcharType(7), createVarcharType(8), createVarcharType(31), createVarcharType(6), INTEGER, BOOLEAN)
+        MaterializedResult expected = MaterializedResult.resultBuilder(session, createVarcharType(10), createVarcharType(7), createVarcharType(8), createVarcharType(36), createVarcharType(6), INTEGER, BOOLEAN)
                 .row("nationkey", "saphana", "_sys_bic", viewName, "bigint", 8, false)
                 .build();
         assertThat(query(session, "DESCRIBE OUTPUT test_query")).containsAll(expected);
@@ -278,7 +278,7 @@ public class TestSapHanaColumnViews
         Session session = Session.builder(getSession())
                 .addPreparedStatement("test_query", testQuery)
                 .build();
-        MaterializedResult expected = MaterializedResult.resultBuilder(session, createVarcharType(10), createVarcharType(7), createVarcharType(8), createVarcharType(31), createVarcharType(13), INTEGER, BOOLEAN)
+        MaterializedResult expected = MaterializedResult.resultBuilder(session, createVarcharType(10), createVarcharType(7), createVarcharType(8), createVarcharType(36), createVarcharType(13), INTEGER, BOOLEAN)
                 .row("regionkey", "saphana", "_sys_bic", viewName, "bigint", 8, false)
                 .row("nationkey2", "", "", "", "decimal(38,0)", 16, true)
                 .build();
