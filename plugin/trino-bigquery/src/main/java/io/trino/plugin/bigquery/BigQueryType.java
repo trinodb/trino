@@ -49,6 +49,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.cloud.bigquery.Field.Mode.REPEATED;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -304,15 +305,15 @@ public enum BigQueryType
         return "'" + value + "'";
     }
 
-    String convertToString(Type type, Object value)
+    public Optional<String> convertToString(Type type, Object value)
     {
         if (type instanceof DecimalType) {
             if (isShortDecimal(type)) {
-                return "NUMERIC " + quote(Decimals.toString((long) value, ((DecimalType) type).getScale()));
+                return Optional.of("NUMERIC " + quote(Decimals.toString((long) value, ((DecimalType) type).getScale())));
             }
-            return "NUMERIC " + quote(Decimals.toString((Slice) value, ((DecimalType) type).getScale()));
+            return Optional.of("NUMERIC " + quote(Decimals.toString((Slice) value, ((DecimalType) type).getScale())));
         }
-        return toStringConverter.convertToString(value);
+        return Optional.of(toStringConverter.convertToString(value));
     }
 
     public Type getNativeType(BigQueryType.Adaptor typeAdaptor)
