@@ -260,6 +260,7 @@ class TrinoHiveCatalog
     {
         TableMetadata metadata = newTableMetadata(schema, partitionSpec, location, properties);
         TableOperations ops = tableOperationsProvider.createTableOperations(
+                metastore,
                 new HdfsContext(session),
                 session.getQueryId(),
                 new HiveIdentity(session),
@@ -316,9 +317,9 @@ class TrinoHiveCatalog
     {
         TableMetadata metadata = tableMetadataCache.computeIfAbsent(
                 schemaTableName,
-                ignore -> ((BaseTable) loadIcebergTable(tableOperationsProvider, session, schemaTableName)).operations().current());
+                ignore -> ((BaseTable) loadIcebergTable(metastore, tableOperationsProvider, session, schemaTableName)).operations().current());
 
-        return getIcebergTableWithMetadata(tableOperationsProvider, session, schemaTableName, metadata);
+        return getIcebergTableWithMetadata(metastore, tableOperationsProvider, session, schemaTableName, metadata);
     }
 
     @Override
