@@ -36,6 +36,7 @@ import io.trino.spi.type.TypeManager;
 
 import javax.inject.Inject;
 
+import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeMetastore;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
 
@@ -75,7 +76,7 @@ public class TrinoCatalogFactory
     {
         switch (catalogType) {
             case HIVE:
-                return new TrinoHiveCatalog(catalogName, metastore, hdfsEnvironment, typeManager, tableOperationsProvider, trinoVersion, isUniqueTableLocation);
+                return new TrinoHiveCatalog(catalogName, memoizeMetastore(metastore, 1000), hdfsEnvironment, typeManager, tableOperationsProvider, trinoVersion, isUniqueTableLocation);
             case UNKNOWN:
                 throw new TrinoException(NOT_SUPPORTED, "Unknown Trino Iceberg catalog type");
         }

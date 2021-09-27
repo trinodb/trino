@@ -301,7 +301,8 @@ public class CountingAccessFileHiveMetastore
     @Override
     public boolean isImpersonationEnabled()
     {
-        throw new UnsupportedOperationException();
+        // Local operation, doesn't need to be included in methodInvocations
+        return delegate.isImpersonationEnabled();
     }
 
     @Override
