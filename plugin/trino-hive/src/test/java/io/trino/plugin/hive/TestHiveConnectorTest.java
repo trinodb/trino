@@ -148,7 +148,6 @@ import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.
 import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.Assert.assertEquals;
-import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
@@ -4497,13 +4496,15 @@ public class TestHiveConnectorTest
         // TODO: replace this with a simple query stats check once we find a way to wait until all pending updates to query stats have been applied
         // (might be fixed by https://github.com/trinodb/trino/issues/5172)
         ExponentialSleeper sleeper = new ExponentialSleeper();
-        assertEventually(new Duration(30, SECONDS), () -> {
-            ResultWithQueryId<MaterializedResult> result = queryRunner.executeWithQueryId(
-                    session,
-                    format("SELECT * FROM test_parquet_timestamp_predicate_pushdown WHERE t = %s", formatTimestamp(value)));
-            sleeper.sleep();
-            assertThat(getQueryInfo(queryRunner, result).getQueryStats().getProcessedInputDataSize().toBytes()).isGreaterThan(0);
-        });
+        assertQueryStats(
+                session,
+                format("SELECT * FROM test_parquet_timestamp_predicate_pushdown WHERE t = %s", formatTimestamp(value)),
+                queryStats -> {
+                    sleeper.sleep();
+                    assertThat(queryStats.getProcessedInputDataSize().toBytes()).isGreaterThan(0);
+                },
+                results -> {},
+                new Duration(30, SECONDS));
     }
 
     @Test(dataProvider = "timestampPrecisionAndValues")
@@ -4533,13 +4534,15 @@ public class TestHiveConnectorTest
         // TODO: replace this with a simple query stats check once we find a way to wait until all pending updates to query stats have been applied
         // (might be fixed by https://github.com/trinodb/trino/issues/5172)
         ExponentialSleeper sleeper = new ExponentialSleeper();
-        assertEventually(new Duration(30, SECONDS), () -> {
-            ResultWithQueryId<MaterializedResult> result = queryRunner.executeWithQueryId(
-                    session,
-                    format("SELECT * FROM test_orc_timestamp_predicate_pushdown WHERE t = %s", formatTimestamp(value)));
-            sleeper.sleep();
-            assertThat(getQueryInfo(queryRunner, result).getQueryStats().getProcessedInputDataSize().toBytes()).isGreaterThan(0);
-        });
+        assertQueryStats(
+                session,
+                format("SELECT * FROM test_orc_timestamp_predicate_pushdown WHERE t = %s", formatTimestamp(value)),
+                queryStats -> {
+                    sleeper.sleep();
+                    assertThat(queryStats.getProcessedInputDataSize().toBytes()).isGreaterThan(0);
+                },
+                results -> {},
+                new Duration(30, SECONDS));
     }
 
     private static String formatTimestamp(LocalDateTime timestamp)
@@ -4579,14 +4582,12 @@ public class TestHiveConnectorTest
 
     private void assertNoDataRead(@Language("SQL") String sql)
     {
-        // TODO: replace this with a simple query stats check once we find a way to wait until all pending updates to query stats have been applied
-        // (might be fixed by https://github.com/trinodb/trino/issues/5172)
-        assertEventually(new Duration(5, SECONDS), () -> {
-            DistributedQueryRunner queryRunner = getDistributedQueryRunner();
-            ResultWithQueryId<MaterializedResult> queryResult = queryRunner.executeWithQueryId(getSession(), sql);
-            assertEquals(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputDataSize().toBytes(), 0);
-            assertThat(queryResult.getResult().getRowCount()).isEqualTo(0);
-        });
+        assertQueryStats(
+                getSession(),
+                sql,
+                queryStats -> assertThat(queryStats.getProcessedInputDataSize().toBytes()).isEqualTo(0),
+                results -> assertThat(results.getRowCount()).isEqualTo(0),
+                new Duration(5, SECONDS));
     }
 
     private QueryInfo getQueryInfo(DistributedQueryRunner queryRunner, ResultWithQueryId<MaterializedResult> queryResult)
