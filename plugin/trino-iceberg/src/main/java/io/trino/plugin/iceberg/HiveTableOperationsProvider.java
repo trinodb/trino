@@ -27,16 +27,15 @@ import static java.util.Objects.requireNonNull;
 public class HiveTableOperationsProvider
 {
     private final FileIoProvider fileIoProvider;
-    private final HiveMetastore hiveMetastore;
 
     @Inject
-    public HiveTableOperationsProvider(FileIoProvider fileIoProvider, HiveMetastore hiveMetastore)
+    public HiveTableOperationsProvider(FileIoProvider fileIoProvider)
     {
         this.fileIoProvider = requireNonNull(fileIoProvider, "fileIoProvider is null");
-        this.hiveMetastore = requireNonNull(hiveMetastore, "hiveMetastore is null");
     }
 
     public TableOperations createTableOperations(
+            HiveMetastore hiveMetastore,
             HdfsContext hdfsContext,
             String queryId,
             HiveIdentity identity,

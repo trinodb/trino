@@ -18,6 +18,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceUtf8;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.trino.plugin.hive.authentication.HiveIdentity;
+import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
@@ -118,9 +119,10 @@ final class IcebergUtil
         return ICEBERG_TABLE_TYPE_VALUE.equalsIgnoreCase(table.getParameters().get(TABLE_TYPE_PROP));
     }
 
-    public static Table loadIcebergTable(HiveTableOperationsProvider tableOperationsProvider, ConnectorSession session, SchemaTableName table)
+    public static Table loadIcebergTable(HiveMetastore metastore, HiveTableOperationsProvider tableOperationsProvider, ConnectorSession session, SchemaTableName table)
     {
         TableOperations operations = tableOperationsProvider.createTableOperations(
+                metastore,
                 new HdfsContext(session),
                 session.getQueryId(),
                 new HiveIdentity(session),
@@ -132,12 +134,14 @@ final class IcebergUtil
     }
 
     public static Table getIcebergTableWithMetadata(
+            HiveMetastore metastore,
             HiveTableOperationsProvider tableOperationsProvider,
             ConnectorSession session,
             SchemaTableName table,
             TableMetadata tableMetadata)
     {
         HiveTableOperations operations = (HiveTableOperations) tableOperationsProvider.createTableOperations(
+                metastore,
                 new HdfsContext(session),
                 session.getQueryId(),
                 new HiveIdentity(session),
