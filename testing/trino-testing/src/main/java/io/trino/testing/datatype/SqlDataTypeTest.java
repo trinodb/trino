@@ -90,7 +90,7 @@ public final class SqlDataTypeTest
         QueryAssert assertion = assertThat(queryAssertions.query(session, "SELECT * FROM " + testTable.getName()));
         MaterializedResult expected = queryRunner.execute(session, testCases.stream()
                 .map(TestCase::getExpectedLiteral)
-                .collect(joining(",", "VALUES (", ")")));
+                .collect(joining(",", "VALUES ROW(", ")")));
 
         // Verify types if specified
         for (int column = 0; column < testCases.size(); column++) {
