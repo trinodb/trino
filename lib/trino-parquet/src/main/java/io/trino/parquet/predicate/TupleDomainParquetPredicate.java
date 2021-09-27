@@ -110,7 +110,13 @@ public class TupleDomainParquetPredicate
                 continue;
             }
 
-            Domain domain = getDomain(effectivePredicateDomain.getType(), numberOfRows, columnStatistics, id, column.toString(), timeZone);
+            Domain domain = getDomain(
+                    column,
+                    effectivePredicateDomain.getType(),
+                    numberOfRows,
+                    columnStatistics,
+                    id,
+                    timeZone);
             if (!effectivePredicateDomain.overlaps(domain)) {
                 return false;
             }
@@ -183,11 +189,11 @@ public class TupleDomainParquetPredicate
 
     @VisibleForTesting
     public static Domain getDomain(
+            ColumnDescriptor column,
             Type type,
             long rowCount,
             Statistics<?> statistics,
             ParquetDataSourceId id,
-            String column,
             DateTimeZone timeZone)
             throws ParquetCorruptionException
     {
@@ -206,10 +212,16 @@ public class TupleDomainParquetPredicate
         }
 
         try {
-            return getDomain(type, ImmutableList.of(statistics.genericGetMin()), ImmutableList.of(statistics.genericGetMax()), hasNullValue, timeZone);
+            return getDomain(
+                    column,
+                    type,
+                    ImmutableList.of(statistics.genericGetMin()),
+                    ImmutableList.of(statistics.genericGetMax()),
+                    hasNullValue,
+                    timeZone);
         }
         catch (Exception e) {
-            throw corruptionException(column, id, statistics, e);
+            throw corruptionException(column.toString(), id, statistics, e);
         }
     }
 
@@ -218,6 +230,7 @@ public class TupleDomainParquetPredicate
      * Both arrays must have the same length.
      */
     private static Domain getDomain(
+            ColumnDescriptor column,
             Type type,
             List<Object> minimums,
             List<Object> maximums,
@@ -390,7 +403,7 @@ public class TupleDomainParquetPredicate
                 max.add(converterFunction.apply(maxValues.get(i)));
             }
 
-            return getDomain(type, min, max, hasNullValue, timeZone);
+            return getDomain(descriptor, type, min, max, hasNullValue, timeZone);
         }
         catch (Exception e) {
             throw corruptionException(columnName, id, columnIndex, e);
@@ -434,7 +447,7 @@ public class TupleDomainParquetPredicate
         }
 
         // TODO: when min == max (i.e., singleton ranges, the construction of Domains can be done more efficiently
-        return getDomain(type, values, values, true, timeZone);
+        return getDomain(columnDescriptor, type, values, values, true, timeZone);
     }
 
     private static ParquetCorruptionException corruptionException(String column, ParquetDataSourceId id, Statistics<?> statistics, Exception cause)
@@ -487,7 +500,7 @@ public class TupleDomainParquetPredicate
 
             FilterPredicate columnFilter = FilterApi.userDefined(
                     new TrinoIntColumn(ColumnPath.get(column.getPath())),
-                    new DomainUserDefinedPredicate(domain, timeZone));
+                    new DomainUserDefinedPredicate(column, domain, timeZone));
             if (filter == null) {
                 filter = columnFilter;
             }
@@ -506,11 +519,13 @@ public class TupleDomainParquetPredicate
             extends UserDefinedPredicate<T>
             implements Serializable // Required by argument of FilterApi.userDefined call
     {
+        private final ColumnDescriptor columnDescriptor;
         private final Domain columnDomain;
         private final DateTimeZone timeZone;
 
-        public DomainUserDefinedPredicate(Domain domain, DateTimeZone timeZone)
+        public DomainUserDefinedPredicate(ColumnDescriptor columnDescriptor, Domain domain, DateTimeZone timeZone)
         {
+            this.columnDescriptor = requireNonNull(columnDescriptor, "columnDescriptor is null");
             this.columnDomain = domain;
             this.timeZone = timeZone;
         }
@@ -532,7 +547,13 @@ public class TupleDomainParquetPredicate
                 return false;
             }
 
-            Domain domain = getDomain(columnDomain.getType(), ImmutableList.of(statistic.getMin()), ImmutableList.of(statistic.getMax()), true, timeZone);
+            Domain domain = getDomain(
+                    columnDescriptor,
+                    columnDomain.getType(),
+                    ImmutableList.of(statistic.getMin()),
+                    ImmutableList.of(statistic.getMax()),
+                    true,
+                    timeZone);
             return !columnDomain.overlaps(domain);
         }
 
