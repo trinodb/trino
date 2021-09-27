@@ -75,6 +75,7 @@ import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 public enum BigQueryType
@@ -84,10 +85,10 @@ public enum BigQueryType
     DATE(DateType.DATE, BigQueryType::dateToStringConverter),
     DATETIME(TimestampType.TIMESTAMP_MICROS, BigQueryType::datetimeToStringConverter),
     FLOAT(DoubleType.DOUBLE, BigQueryType::floatToStringConverter),
-    GEOGRAPHY(VarcharType.VARCHAR, BigQueryType::stringToStringConverter),
+    GEOGRAPHY(VarcharType.VARCHAR, unsupportedToStringConverter()),
     INTEGER(BigintType.BIGINT, BigQueryType::simpleToStringConverter),
     NUMERIC(null, BigQueryType::numericToStringConverter),
-    RECORD(null, BigQueryType::simpleToStringConverter),
+    RECORD(null, unsupportedToStringConverter()),
     STRING(createUnboundedVarcharType(), BigQueryType::stringToStringConverter),
     TIME(TimeType.TIME_MICROS, BigQueryType::timeToStringConverter),
     TIMESTAMP(TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS, BigQueryType::timestampToStringConverter);
@@ -108,9 +109,15 @@ public enum BigQueryType
     private static final DateTimeFormatter DATETIME_FORMATTER = DateTimeFormatter.ofPattern("''yyyy-MM-dd HH:mm:ss.SSSSSS''");
 
     private final Type nativeType;
-    private final ToStringConverter toStringConverter;
+    private final OptionalToStringConverter toStringConverter;
 
     BigQueryType(Type nativeType, ToStringConverter toStringConverter)
+    {
+        this(nativeType, (OptionalToStringConverter) value -> Optional.of(toStringConverter.convertToString(value)));
+        requireNonNull(toStringConverter, "toStringConverter is null");
+    }
+
+    BigQueryType(Type nativeType, OptionalToStringConverter toStringConverter)
     {
         this.nativeType = nativeType;
         this.toStringConverter = toStringConverter;
@@ -156,6 +163,11 @@ public enum BigQueryType
     private static String simpleToStringConverter(Object value)
     {
         return String.valueOf(value);
+    }
+
+    private static OptionalToStringConverter unsupportedToStringConverter()
+    {
+        return value -> Optional.empty();
     }
 
     @VisibleForTesting
@@ -307,13 +319,16 @@ public enum BigQueryType
 
     public Optional<String> convertToString(Type type, Object value)
     {
+        if (type instanceof ArrayType) {
+            return Optional.empty();
+        }
         if (type instanceof DecimalType) {
             if (isShortDecimal(type)) {
                 return Optional.of("NUMERIC " + quote(Decimals.toString((long) value, ((DecimalType) type).getScale())));
             }
             return Optional.of("NUMERIC " + quote(Decimals.toString((Slice) value, ((DecimalType) type).getScale())));
         }
-        return Optional.of(toStringConverter.convertToString(value));
+        return toStringConverter.convertToString(value);
     }
 
     public Type getNativeType(BigQueryType.Adaptor typeAdaptor)
@@ -363,5 +378,11 @@ public enum BigQueryType
     interface ToStringConverter
     {
         String convertToString(Object value);
+    }
+
+    @FunctionalInterface
+    interface OptionalToStringConverter
+    {
+        Optional<String> convertToString(Object value);
     }
 }
