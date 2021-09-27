@@ -38,7 +38,6 @@ import static io.trino.spi.security.SelectedRole.Type.ROLE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-@SuppressWarnings("UnstableApiUsage")
 @Test(singleThreaded = true)
 public class TestCachingHiveMetastoreWithQueryRunner
 {

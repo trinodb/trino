@@ -69,7 +69,7 @@ import static io.trino.tpch.TpchTable.ORDERS;
 @Measurement(iterations = 50)
 @Warmup(iterations = 20)
 @Fork(3)
-@SuppressWarnings({"UseOfSystemOutOrSystemErr", "UnstableApiUsage", "ResultOfMethodCallIgnored"})
+@SuppressWarnings({"UseOfSystemOutOrSystemErr", "ResultOfMethodCallIgnored"})
 public class BenchmarkHiveFileFormat
 {
     static {
