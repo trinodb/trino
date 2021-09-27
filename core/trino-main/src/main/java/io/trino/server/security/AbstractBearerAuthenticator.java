@@ -21,7 +21,10 @@ import io.trino.spi.security.Identity;
 
 import javax.ws.rs.container.ContainerRequestContext;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
 import static java.lang.String.format;
@@ -52,12 +55,14 @@ public abstract class AbstractBearerAuthenticator
         try {
             Jws<Claims> claimsJws = parseClaimsJws(token);
             String principal = claimsJws.getBody().get(principalField, String.class);
+            Set groups = Set.copyOf(Optional.of(claimsJws.getBody()).map(v -> v.get("groups", List.class)).orElse(Collections.emptyList()));
             if (principal == null) {
                 throw needAuthentication(request, "Invalid credentials");
             }
             String authenticatedUser = userMapping.mapUser(principal);
             return Identity.forUser(authenticatedUser)
                     .withPrincipal(new BasicPrincipal(principal))
+                    .withGroups(groups)
                     .build();
         }
         catch (JwtException | UserMappingException e) {
