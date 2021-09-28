@@ -20,6 +20,7 @@ import io.trino.FeaturesConfig;
 import io.trino.FeaturesConfig.DataIntegrityVerification;
 import io.trino.FeaturesConfig.JoinDistributionType;
 import io.trino.FeaturesConfig.JoinReorderingStrategy;
+import io.trino.operator.RetryPolicy;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -115,7 +116,8 @@ public class TestFeaturesConfig
                 .setMergeProjectWithValues(true)
                 .setLegacyCatalogRoles(false)
                 .setDisableSetPropertiesSecurityCheckForCreateDdl(false)
-                .setIncrementalHashArrayLoadFactorEnabled(true));
+                .setIncrementalHashArrayLoadFactorEnabled(true)
+                .setRetryPolicy(RetryPolicy.NONE));
     }
 
     @Test
@@ -195,6 +197,7 @@ public class TestFeaturesConfig
                 .put("deprecated.legacy-catalog-roles", "true")
                 .put("deprecated.disable-set-properties-security-check-for-create-ddl", "true")
                 .put("incremental-hash-array-load-factor.enabled", "false")
+                .put("retry-policy", "QUERY")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -270,7 +273,8 @@ public class TestFeaturesConfig
                 .setMergeProjectWithValues(false)
                 .setLegacyCatalogRoles(true)
                 .setDisableSetPropertiesSecurityCheckForCreateDdl(true)
-                .setIncrementalHashArrayLoadFactorEnabled(false);
+                .setIncrementalHashArrayLoadFactorEnabled(false)
+                .setRetryPolicy(RetryPolicy.QUERY);
         assertFullMapping(properties, expected);
     }
 }

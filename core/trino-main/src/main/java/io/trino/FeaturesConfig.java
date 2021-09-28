@@ -23,6 +23,7 @@ import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
+import io.trino.operator.RetryPolicy;
 import io.trino.sql.analyzer.RegexLibrary;
 
 import javax.validation.constraints.DecimalMax;
@@ -144,6 +145,8 @@ public class FeaturesConfig
     private boolean legacyCatalogRoles;
     private boolean disableSetPropertiesSecurityCheckForCreateDdl;
     private boolean incrementalHashArrayLoadFactorEnabled = true;
+
+    private RetryPolicy retryPolicy = RetryPolicy.NONE;
 
     public enum JoinReorderingStrategy
     {
@@ -1106,6 +1109,19 @@ public class FeaturesConfig
     public FeaturesConfig setIncrementalHashArrayLoadFactorEnabled(boolean incrementalHashArrayLoadFactorEnabled)
     {
         this.incrementalHashArrayLoadFactorEnabled = incrementalHashArrayLoadFactorEnabled;
+        return this;
+    }
+
+    @NotNull
+    public RetryPolicy getRetryPolicy()
+    {
+        return retryPolicy;
+    }
+
+    @Config("retry-policy")
+    public FeaturesConfig setRetryPolicy(RetryPolicy retryPolicy)
+    {
+        this.retryPolicy = retryPolicy;
         return this;
     }
 }

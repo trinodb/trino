@@ -87,7 +87,7 @@ public class TestExchangeOperator
         pageBufferClientCallbackExecutor = Executors.newSingleThreadExecutor();
         httpClient = new TestingHttpClient(new TestingExchangeHttpClientHandler(taskBuffers), scheduler);
 
-        exchangeClientSupplier = (systemMemoryUsageListener, taskFailureListener) -> new ExchangeClient(
+        exchangeClientSupplier = (systemMemoryUsageListener, taskFailureListener, retryPolicy) -> new ExchangeClient(
                 "localhost",
                 DataIntegrityVerification.ABORT,
                 new StreamingExchangeClientBuffer(scheduler, DataSize.of(32, MEGABYTE)),
@@ -254,7 +254,7 @@ public class TestExchangeOperator
 
     private SourceOperator createExchangeOperator()
     {
-        ExchangeOperatorFactory operatorFactory = new ExchangeOperatorFactory(0, new PlanNodeId("test"), exchangeClientSupplier, SERDE_FACTORY);
+        ExchangeOperatorFactory operatorFactory = new ExchangeOperatorFactory(0, new PlanNodeId("test"), exchangeClientSupplier, SERDE_FACTORY, RetryPolicy.NONE);
 
         DriverContext driverContext = createTaskContext(scheduler, scheduledExecutor, TEST_SESSION)
                 .addPipelineContext(0, true, true, false)

@@ -25,6 +25,7 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableProperties.TablePartitioning;
+import io.trino.operator.RetryPolicy;
 import io.trino.spi.TrinoException;
 import io.trino.spi.TrinoWarning;
 import io.trino.spi.connector.ConnectorPartitionHandle;
@@ -68,6 +69,7 @@ import static com.google.common.base.Predicates.in;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SystemSessionProperties.getQueryMaxStageCount;
+import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.isDynamicScheduleForGroupedExecution;
 import static io.trino.SystemSessionProperties.isForceSingleNodeOutput;
 import static io.trino.operator.StageExecutionDescriptor.ungroupedExecution;
@@ -356,13 +358,15 @@ public class PlanFragmenter
                 context.get().setDistribution(partitioningScheme.getPartitioning().getHandle(), metadata, session);
             }
 
-            ImmutableList.Builder<SubPlan> builder = ImmutableList.builder();
+            ImmutableList.Builder<FragmentProperties> childrenProperties = ImmutableList.builder();
+            ImmutableList.Builder<SubPlan> childrenBuilder = ImmutableList.builder();
             for (int sourceIndex = 0; sourceIndex < exchange.getSources().size(); sourceIndex++) {
                 FragmentProperties childProperties = new FragmentProperties(partitioningScheme.translateOutputLayout(exchange.getInputs().get(sourceIndex)));
-                builder.add(buildSubPlan(exchange.getSources().get(sourceIndex), childProperties, context));
+                childrenProperties.add(childProperties);
+                childrenBuilder.add(buildSubPlan(exchange.getSources().get(sourceIndex), childProperties, context));
             }
 
-            List<SubPlan> children = builder.build();
+            List<SubPlan> children = childrenBuilder.build();
             context.get().addChildren(children);
 
             List<PlanFragmentId> childrenIds = children.stream()
@@ -370,7 +374,13 @@ public class PlanFragmenter
                     .map(PlanFragment::getId)
                     .collect(toImmutableList());
 
-            return new RemoteSourceNode(exchange.getId(), childrenIds, exchange.getOutputSymbols(), exchange.getOrderingScheme(), exchange.getType());
+            return new RemoteSourceNode(
+                    exchange.getId(),
+                    childrenIds,
+                    exchange.getOutputSymbols(),
+                    exchange.getOrderingScheme(),
+                    exchange.getType(),
+                    isWorkerCoordinatorBoundary(context.get(), childrenProperties.build()) ? getRetryPolicy(session) : RetryPolicy.NONE);
         }
 
         private SubPlan buildSubPlan(PlanNode node, FragmentProperties properties, RewriteContext<FragmentProperties> context)
@@ -378,6 +388,22 @@ public class PlanFragmenter
             PlanFragmentId planFragmentId = nextFragmentId();
             PlanNode child = context.rewrite(node, properties);
             return buildFragment(child, properties, planFragmentId);
+        }
+
+        private static boolean isWorkerCoordinatorBoundary(FragmentProperties fragmentProperties, List<FragmentProperties> childFragmentsProperties)
+        {
+            if (!fragmentProperties.getPartitioningHandle().isCoordinatorOnly()) {
+                // receiver stage is not a coordinator stage
+                return false;
+            }
+            if (childFragmentsProperties.stream().allMatch(properties -> properties.getPartitioningHandle().isCoordinatorOnly())) {
+                // coordinator to coordinator exchange
+                return false;
+            }
+            checkArgument(
+                    childFragmentsProperties.stream().noneMatch(properties -> properties.getPartitioningHandle().isCoordinatorOnly()),
+                    "Plans are not expected to have a mix of coordinator only fragments and distributed fragments as siblings");
+            return true;
         }
     }
 

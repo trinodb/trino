@@ -123,12 +123,25 @@ public class ExchangeClientFactory
     }
 
     @Override
-    public ExchangeClient get(LocalMemoryContext systemMemoryContext, TaskFailureListener taskFailureListener)
+    public ExchangeClient get(LocalMemoryContext systemMemoryContext, TaskFailureListener taskFailureListener, RetryPolicy retryPolicy)
     {
+        ExchangeClientBuffer buffer;
+        switch (retryPolicy) {
+            case TASK:
+            case QUERY:
+                buffer = new DeduplicationExchangeClientBuffer(scheduler, maxBufferedBytes, retryPolicy);
+                break;
+            case NONE:
+                buffer = new StreamingExchangeClientBuffer(scheduler, maxBufferedBytes);
+                break;
+            default:
+                throw new IllegalArgumentException("unexpected retry policy: " + retryPolicy);
+        }
+
         return new ExchangeClient(
                 nodeInfo.getExternalAddress(),
                 dataIntegrityVerification,
-                new StreamingExchangeClientBuffer(scheduler, maxBufferedBytes),
+                buffer,
                 maxResponseSize,
                 concurrentRequestMultiplier,
                 maxErrorDuration,
