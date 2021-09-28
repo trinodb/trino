@@ -125,11 +125,10 @@ public class EqualityInference
             Set<Expression> scopeStraddlingExpressions = new LinkedHashSet<>();
 
             // Try to push each non-derived expression into one side of the scope
-            List<Expression> candidates = equalitySet.stream()
-                    .filter(candidate -> !derivedExpressions.contains(candidate))
-                    .collect(Collectors.toList());
+            Stream<Expression> candidates = equalitySet.stream()
+                    .filter(candidate -> !derivedExpressions.contains(candidate));
 
-            for (Expression candidate : candidates) {
+            candidates.forEach(candidate -> {
                 Expression scopeRewritten = rewrite(candidate, scope::contains, false);
                 if (scopeRewritten != null) {
                     scopeExpressions.add(scopeRewritten);
@@ -141,7 +140,7 @@ public class EqualityInference
                 if (scopeRewritten == null && scopeComplementRewritten == null) {
                     scopeStraddlingExpressions.add(candidate);
                 }
-            }
+            });
             // Compile the equality expressions on each side of the scope
             Expression matchingCanonical = getCanonical(scopeExpressions);
             if (scopeExpressions.size() >= 2) {
@@ -203,18 +202,17 @@ public class EqualityInference
     public static EqualityInference newInstance(Metadata metadata, Collection<Expression> expressions)
     {
         DisjointSet<Expression> equalities = new DisjointSet<>();
-        List<Expression> candidates = expressions.stream()
+        Stream<Expression> candidates = expressions.stream()
                 .flatMap(expression -> extractConjuncts(expression).stream())
-                .filter(expression -> isInferenceCandidate(metadata, expression))
-                .collect(Collectors.toList());
+                .filter(expression -> isInferenceCandidate(metadata, expression));
 
-        for (Expression expression : candidates) {
+        candidates.forEach(expression -> {
             ComparisonExpression comparison = (ComparisonExpression) expression;
             Expression expression1 = comparison.getLeft();
             Expression expression2 = comparison.getRight();
 
             equalities.findAndUnion(expression1, expression2);
-        }
+        });
 
         Collection<Set<Expression>> equivalentClasses = equalities.getEquivalentClasses();
 
@@ -232,22 +230,20 @@ public class EqualityInference
                 continue;
             }
 
-            List<Expression> subExpressions = SubExpressionExtractor.extract(expression)
+            Stream<Expression> subExpressions = SubExpressionExtractor.extract(expression)
                     .filter(e -> !e.equals(expression))
-                    .distinct()
-                    .collect(Collectors.toList());
+                    .distinct();
 
-            for (Expression subExpression : subExpressions) {
-                Set<Expression> equivalences = byExpression.getOrDefault(subExpression, ImmutableSet.of()).stream()
-                        .filter(e -> !e.equals(subExpression))
-                        .collect(Collectors.toSet());
+            subExpressions.forEach(subExpression -> {
+                Stream<Expression> equivalences = byExpression.getOrDefault(subExpression, ImmutableSet.of()).stream()
+                        .filter(e -> !e.equals(subExpression));
 
-                for (Expression equivalentSubExpression : equivalences) {
+                equivalences.distinct().forEach(equivalentSubExpression -> {
                     Expression rewritten = replaceExpression(expression, ImmutableMap.of(subExpression, equivalentSubExpression));
                     equalities.findAndUnion(expression, rewritten);
                     derivedExpressions.add(rewritten);
-                }
-            }
+                });
+            });
         }
 
         Multimap<Expression, Expression> equalitySets = makeEqualitySets(equalities);
