@@ -26,6 +26,7 @@ public class CoalesceExpression
         extends Expression
 {
     private final List<Expression> operands;
+    int hash;
 
     public CoalesceExpression(Expression first, Expression second, Expression... additional)
     {
@@ -88,7 +89,10 @@ public class CoalesceExpression
     @Override
     public int hashCode()
     {
-        return operands.hashCode();
+        if (hash == 0) {
+            hash = operands.hashCode();
+        }
+        return hash;
     }
 
     @Override

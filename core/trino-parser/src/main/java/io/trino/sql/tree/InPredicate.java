@@ -24,6 +24,7 @@ public class InPredicate
 {
     private final Expression value;
     private final Expression valueList;
+    private int hash;
 
     public InPredicate(Expression value, Expression valueList)
     {
@@ -82,7 +83,10 @@ public class InPredicate
     @Override
     public int hashCode()
     {
-        return Objects.hash(value, valueList);
+        if (hash == 0) {
+            hash = Objects.hash(value, valueList);
+        }
+        return hash;
     }
 
     @Override

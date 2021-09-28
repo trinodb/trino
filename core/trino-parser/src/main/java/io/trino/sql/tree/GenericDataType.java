@@ -26,6 +26,7 @@ public class GenericDataType
 {
     private final Identifier name;
     private final List<DataTypeParameter> arguments;
+    private int hash;
 
     public GenericDataType(NodeLocation location, Identifier name, List<DataTypeParameter> arguments)
     {
@@ -83,7 +84,10 @@ public class GenericDataType
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, arguments);
+        if (hash == 0) {
+            hash = Objects.hash(name, arguments);
+        }
+        return hash;
     }
 
     @Override

@@ -32,6 +32,7 @@ public class ArithmeticUnaryExpression
 
     private final Expression value;
     private final Sign sign;
+    private int hash;
 
     public ArithmeticUnaryExpression(Sign sign, Expression value)
     {
@@ -113,7 +114,10 @@ public class ArithmeticUnaryExpression
     @Override
     public int hashCode()
     {
-        return Objects.hash(value, sign);
+        if (hash == 0) {
+            hash = Objects.hash(value, sign);
+        }
+        return hash;
     }
 
     @Override

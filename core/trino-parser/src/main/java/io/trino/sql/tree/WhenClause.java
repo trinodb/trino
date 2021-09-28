@@ -24,6 +24,7 @@ public class WhenClause
 {
     private final Expression operand;
     private final Expression result;
+    int hash;
 
     public WhenClause(Expression operand, Expression result)
     {
@@ -82,7 +83,10 @@ public class WhenClause
     @Override
     public int hashCode()
     {
-        return Objects.hash(operand, result);
+        if (hash == 0) {
+            hash = Objects.hash(operand, result);
+        }
+        return hash;
     }
 
     @Override

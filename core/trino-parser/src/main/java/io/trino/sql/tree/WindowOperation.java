@@ -39,6 +39,7 @@ public class WindowOperation
 {
     private final Identifier name;
     private final Window window;
+    int hash;
 
     public WindowOperation(Identifier name, Window window)
     {
@@ -100,7 +101,10 @@ public class WindowOperation
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, window);
+        if (hash == 0) {
+            hash = Objects.hash(name, window);
+        }
+        return hash;
     }
 
     @Override

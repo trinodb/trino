@@ -25,6 +25,7 @@ public class TryExpression
         extends Expression
 {
     private final Expression innerExpression;
+    private int hash;
 
     public TryExpression(Expression innerExpression)
     {
@@ -75,7 +76,10 @@ public class TryExpression
     @Override
     public int hashCode()
     {
-        return Objects.hash(innerExpression);
+        if (hash == 0) {
+            hash = innerExpression.hashCode();
+        }
+        return hash;
     }
 
     @Override

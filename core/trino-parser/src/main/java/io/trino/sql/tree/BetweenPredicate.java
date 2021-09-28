@@ -27,6 +27,7 @@ public class BetweenPredicate
     private final Expression value;
     private final Expression min;
     private final Expression max;
+    private int hash;
 
     public BetweenPredicate(Expression value, Expression min, Expression max)
     {
@@ -96,7 +97,10 @@ public class BetweenPredicate
     @Override
     public int hashCode()
     {
-        return Objects.hash(value, min, max);
+        if (hash == 0) {
+            hash = Objects.hash(value, min, max);
+        }
+        return hash;
     }
 
     @Override

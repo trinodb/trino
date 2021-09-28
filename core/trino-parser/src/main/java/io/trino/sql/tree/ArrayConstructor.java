@@ -26,6 +26,7 @@ public class ArrayConstructor
 {
     public static final String ARRAY_CONSTRUCTOR = "ARRAY_CONSTRUCTOR";
     private final List<Expression> values;
+    private int hash;
 
     public ArrayConstructor(List<Expression> values)
     {
@@ -78,7 +79,10 @@ public class ArrayConstructor
     @Override
     public int hashCode()
     {
-        return values.hashCode();
+        if (hash == 0) {
+            hash = values.hashCode();
+        }
+        return hash;
     }
 
     @Override

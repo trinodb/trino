@@ -26,6 +26,7 @@ public class Format
         extends Expression
 {
     private final List<Expression> arguments;
+    int hash;
 
     public Format(List<Expression> arguments)
     {
@@ -79,7 +80,10 @@ public class Format
     @Override
     public int hashCode()
     {
-        return Objects.hash(arguments);
+        if (hash == 0) {
+            hash = Objects.hash(arguments);
+        }
+        return hash;
     }
 
     @Override

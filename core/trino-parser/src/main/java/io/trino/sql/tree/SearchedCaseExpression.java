@@ -26,6 +26,7 @@ public class SearchedCaseExpression
 {
     private final List<WhenClause> whenClauses;
     private final Optional<Expression> defaultValue;
+    private int hash;
 
     public SearchedCaseExpression(List<WhenClause> whenClauses, Optional<Expression> defaultValue)
     {
@@ -89,7 +90,10 @@ public class SearchedCaseExpression
     @Override
     public int hashCode()
     {
-        return Objects.hash(whenClauses, defaultValue);
+        if (hash == 0) {
+            hash = Objects.hash(whenClauses, defaultValue);
+        }
+        return hash;
     }
 
     @Override

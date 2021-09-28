@@ -25,6 +25,7 @@ public final class Row
         extends Expression
 {
     private final List<Expression> items;
+    private int hash;
 
     public Row(List<Expression> items)
     {
@@ -63,7 +64,10 @@ public final class Row
     @Override
     public int hashCode()
     {
-        return Objects.hash(items);
+        if (hash == 0) {
+            hash = items.hashCode();
+        }
+        return hash;
     }
 
     @Override

@@ -27,6 +27,7 @@ public class LikePredicate
     private final Expression value;
     private final Expression pattern;
     private final Optional<Expression> escape;
+    private int hash;
 
     public LikePredicate(Expression value, Expression pattern, Expression escape)
     {
@@ -107,7 +108,10 @@ public class LikePredicate
     @Override
     public int hashCode()
     {
-        return Objects.hash(value, pattern, escape);
+        if (hash == 0) {
+            hash = Objects.hash(value, pattern, escape);
+        }
+        return hash;
     }
 
     @Override

@@ -26,6 +26,7 @@ public class LambdaExpression
 {
     private final List<LambdaArgumentDeclaration> arguments;
     private final Expression body;
+    int hash;
 
     public LambdaExpression(List<LambdaArgumentDeclaration> arguments, Expression body)
     {
@@ -86,7 +87,10 @@ public class LambdaExpression
     @Override
     public int hashCode()
     {
-        return Objects.hash(arguments, body);
+        if (hash == 0) {
+            hash = Objects.hash(arguments, body);
+        }
+        return hash;
     }
 
     @Override

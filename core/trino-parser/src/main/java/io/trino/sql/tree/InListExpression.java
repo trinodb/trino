@@ -26,6 +26,7 @@ public class InListExpression
         extends Expression
 {
     private final List<Expression> values;
+    private int hash;
 
     public InListExpression(List<Expression> values)
     {
@@ -79,7 +80,10 @@ public class InListExpression
     @Override
     public int hashCode()
     {
-        return values.hashCode();
+        if (hash == 0) {
+            hash = values.hashCode();
+        }
+        return hash;
     }
 
     @Override

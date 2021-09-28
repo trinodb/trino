@@ -27,6 +27,7 @@ public class NullIfExpression
 {
     private final Expression first;
     private final Expression second;
+    private int hash;
 
     public NullIfExpression(Expression first, Expression second)
     {
@@ -85,7 +86,10 @@ public class NullIfExpression
     @Override
     public int hashCode()
     {
-        return Objects.hash(first, second);
+        if (hash == 0) {
+            hash = Objects.hash(first, second);
+        }
+        return hash;
     }
 
     @Override

@@ -35,6 +35,7 @@ public class QuantifiedComparisonExpression
     private final Quantifier quantifier;
     private final Expression value;
     private final Expression subquery;
+    private int hash;
 
     public QuantifiedComparisonExpression(ComparisonExpression.Operator operator, Quantifier quantifier, Expression value, Expression subquery)
     {
@@ -107,7 +108,10 @@ public class QuantifiedComparisonExpression
     @Override
     public int hashCode()
     {
-        return Objects.hash(operator, quantifier, value, subquery);
+        if (hash == 0) {
+            hash = Objects.hash(operator, quantifier, value, subquery);
+        }
+        return hash;
     }
 
     @Override

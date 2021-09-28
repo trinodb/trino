@@ -27,6 +27,7 @@ public class SimpleCaseExpression
     private final Expression operand;
     private final List<WhenClause> whenClauses;
     private final Optional<Expression> defaultValue;
+    private int hash;
 
     public SimpleCaseExpression(Expression operand, List<WhenClause> whenClauses, Optional<Expression> defaultValue)
     {
@@ -99,7 +100,10 @@ public class SimpleCaseExpression
     @Override
     public int hashCode()
     {
-        return Objects.hash(operand, whenClauses, defaultValue);
+        if (hash == 0) {
+            hash = Objects.hash(operand, whenClauses, defaultValue);
+        }
+        return hash;
     }
 
     @Override

@@ -33,6 +33,7 @@ public class FunctionCall
     private final Optional<NullTreatment> nullTreatment;
     private final Optional<ProcessingMode> processingMode;
     private final List<Expression> arguments;
+    private int hash;
 
     public FunctionCall(QualifiedName name, List<Expression> arguments)
     {
@@ -155,7 +156,10 @@ public class FunctionCall
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, distinct, nullTreatment, processingMode, window, filter, orderBy, arguments);
+        if (hash == 0) {
+            hash = Objects.hash(name, distinct, nullTreatment, processingMode, window, filter, orderBy, arguments);
+        }
+        return hash;
     }
 
     // TODO: make this a proper Tree node so that we can report error

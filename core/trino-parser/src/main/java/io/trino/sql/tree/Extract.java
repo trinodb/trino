@@ -29,6 +29,7 @@ public class Extract
 {
     private final Expression expression;
     private final Field field;
+    private int hash;
 
     public enum Field
     {
@@ -111,7 +112,10 @@ public class Extract
     @Override
     public int hashCode()
     {
-        return Objects.hash(expression, field);
+        if (hash == 0) {
+            hash = Objects.hash(expression, field);
+        }
+        return hash;
     }
 
     @Override

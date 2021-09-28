@@ -25,6 +25,7 @@ public class IsNullPredicate
         extends Expression
 {
     private final Expression value;
+    private int hash;
 
     public IsNullPredicate(Expression value)
     {
@@ -77,7 +78,10 @@ public class IsNullPredicate
     @Override
     public int hashCode()
     {
-        return value.hashCode();
+        if (hash == 0) {
+            hash = value.hashCode();
+        }
+        return hash;
     }
 
     @Override

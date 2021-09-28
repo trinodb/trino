@@ -99,6 +99,11 @@ public class ParserAssert
         return ignoringFieldsMatchingRegexes("(.*\\.)?location");
     }
 
+    public ParserAssert ignoringHash()
+    {
+        return ignoringFieldsMatchingRegexes("(.*\\.)?hash");
+    }
+
     private static <T extends Node> AssertProvider<ParserAssert> createAssertion(Function<String, T> parser, String sql)
     {
         return () -> new ParserAssert(parser.apply(sql), newRecursiveComparisonConfig())

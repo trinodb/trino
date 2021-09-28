@@ -25,6 +25,7 @@ public class GroupingOperation
         extends Expression
 {
     private final List<Expression> groupingColumns;
+    private int hash;
 
     public GroupingOperation(Optional<NodeLocation> location, List<QualifiedName> groupingColumns)
     {
@@ -69,7 +70,10 @@ public class GroupingOperation
     @Override
     public int hashCode()
     {
-        return Objects.hash(groupingColumns);
+        if (hash == 0) {
+            hash = groupingColumns.hashCode();
+        }
+        return hash;
     }
 
     @Override

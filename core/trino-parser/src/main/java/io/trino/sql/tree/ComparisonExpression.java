@@ -27,6 +27,7 @@ public class ComparisonExpression
     private final Operator operator;
     private final Expression left;
     private final Expression right;
+    int hash;
 
     public ComparisonExpression(Operator operator, Expression left, Expression right)
     {
@@ -96,7 +97,10 @@ public class ComparisonExpression
     @Override
     public int hashCode()
     {
-        return Objects.hash(operator, left, right);
+        if (hash == 0) {
+            hash = Objects.hash(operator, left, right);
+        }
+        return hash;
     }
 
     public enum Operator

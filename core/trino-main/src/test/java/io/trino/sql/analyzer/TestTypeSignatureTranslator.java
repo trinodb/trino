@@ -33,6 +33,7 @@ public class TestTypeSignatureTranslator
     {
         assertThat(type(expression))
                 .ignoringLocation()
+                .ignoringHash()
                 .withComparatorForType(Comparator.comparing(identifier -> identifier.getValue().toLowerCase(Locale.ENGLISH)), Identifier.class)
                 .isEqualTo(toDataType(toTypeSignature(SQL_PARSER.createType(expression))));
     }

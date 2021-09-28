@@ -25,6 +25,7 @@ public class RowDataType
         extends DataType
 {
     private final List<Field> fields;
+    private int hash;
 
     public RowDataType(NodeLocation location, List<Field> fields)
     {
@@ -71,7 +72,10 @@ public class RowDataType
     @Override
     public int hashCode()
     {
-        return Objects.hash(fields);
+        if (hash == 0) {
+            hash = fields.hashCode();
+        }
+        return hash;
     }
 
     public static class Field

@@ -45,6 +45,7 @@ public class ArithmeticBinaryExpression
     private final Operator operator;
     private final Expression left;
     private final Expression right;
+    private int hash;
 
     public ArithmeticBinaryExpression(Operator operator, Expression left, Expression right)
     {
@@ -110,7 +111,10 @@ public class ArithmeticBinaryExpression
     @Override
     public int hashCode()
     {
-        return Objects.hash(operator, left, right);
+        if (hash == 0) {
+            hash = Objects.hash(operator, left, right);
+        }
+        return hash;
     }
 
     @Override

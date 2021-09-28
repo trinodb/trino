@@ -26,6 +26,7 @@ public class SubscriptExpression
 {
     private final Expression base;
     private final Expression index;
+    private int hash;
 
     public SubscriptExpression(Expression base, Expression index)
     {
@@ -84,7 +85,10 @@ public class SubscriptExpression
     @Override
     public int hashCode()
     {
-        return Objects.hash(base, index);
+        if (hash == 0) {
+            hash = Objects.hash(base, index);
+        }
+        return hash;
     }
 
     @Override

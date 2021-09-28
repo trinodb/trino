@@ -27,6 +27,7 @@ public class AtTimeZone
 {
     private final Expression value;
     private final Expression timeZone;
+    private int hash;
 
     public AtTimeZone(Expression value, Expression timeZone)
     {
@@ -71,7 +72,10 @@ public class AtTimeZone
     @Override
     public int hashCode()
     {
-        return Objects.hash(value, timeZone);
+        if (hash == 0) {
+            hash = Objects.hash(value, timeZone);
+        }
+        return hash;
     }
 
     @Override

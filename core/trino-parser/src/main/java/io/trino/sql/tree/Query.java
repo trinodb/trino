@@ -31,6 +31,7 @@ public class Query
     private final Optional<OrderBy> orderBy;
     private final Optional<Offset> offset;
     private final Optional<Node> limit;
+    private int hash;
 
     public Query(
             Optional<With> with,
@@ -152,7 +153,10 @@ public class Query
     @Override
     public int hashCode()
     {
-        return Objects.hash(with, queryBody, orderBy, offset, limit);
+        if (hash == 0) {
+            hash = Objects.hash(with, queryBody, orderBy, offset, limit);
+        }
+        return hash;
     }
 
     @Override

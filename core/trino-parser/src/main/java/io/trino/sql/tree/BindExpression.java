@@ -51,6 +51,7 @@ public class BindExpression
     // Function expression must be of function type.
     // It is not necessarily a lambda. For example, it can be another bind expression.
     private final Expression function;
+    private int hash;
 
     public BindExpression(List<Expression> values, Expression function)
     {
@@ -111,7 +112,10 @@ public class BindExpression
     @Override
     public int hashCode()
     {
-        return Objects.hash(values, function);
+        if (hash == 0) {
+            hash = Objects.hash(values, function);
+        }
+        return hash;
     }
 
     @Override

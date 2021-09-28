@@ -26,6 +26,7 @@ public class DereferenceExpression
 {
     private final Expression base;
     private final Identifier field;
+    int hash;
 
     public DereferenceExpression(Expression base, Identifier field)
     {
@@ -124,7 +125,10 @@ public class DereferenceExpression
     @Override
     public int hashCode()
     {
-        return Objects.hash(base, field);
+        if (hash == 0) {
+            hash = Objects.hash(base, field);
+        }
+        return hash;
     }
 
     @Override

@@ -28,6 +28,7 @@ public final class Cast
     private final DataType type;
     private final boolean safe;
     private final boolean typeOnly;
+    private int hash;
 
     public Cast(Expression expression, DataType type)
     {
@@ -116,7 +117,10 @@ public final class Cast
     @Override
     public int hashCode()
     {
-        return Objects.hash(expression, type, safe, typeOnly);
+        if (hash == 0) {
+            hash = Objects.hash(expression, type, safe, typeOnly);
+        }
+        return hash;
     }
 
     @Override

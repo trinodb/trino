@@ -30,6 +30,7 @@ public class IfExpression
     private final Expression condition;
     private final Expression trueValue;
     private final Optional<Expression> falseValue;
+    private int hash;
 
     public IfExpression(Expression condition, Expression trueValue, Expression falseValue)
     {
@@ -98,7 +99,10 @@ public class IfExpression
     @Override
     public int hashCode()
     {
-        return Objects.hash(condition, trueValue, falseValue);
+        if (hash == 0) {
+            hash = Objects.hash(condition, trueValue, falseValue);
+        }
+        return hash;
     }
 
     @Override
