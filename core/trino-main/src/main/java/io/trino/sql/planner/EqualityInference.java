@@ -14,13 +14,11 @@
 package io.trino.sql.planner;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimap;
-import com.google.common.collect.Ordering;
 import io.trino.metadata.Metadata;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
@@ -30,6 +28,7 @@ import io.trino.util.DisjointSet;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -37,6 +36,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Predicate;
+import java.util.function.ToIntFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -52,18 +52,15 @@ import static java.util.Objects.requireNonNull;
 public class EqualityInference
 {
     // Ordering used to determine Expression preference when determining canonicals
-    private static final Ordering<Expression> CANONICAL_ORDERING = Ordering.from((expression1, expression2) -> {
-        // Current cost heuristic:
-        // 1) Prefer fewer input symbols
-        // 2) Prefer smaller expression trees
-        // 3) Sort the expressions by hash - creates a stable consistent ordering (extremely useful for unit testing)
-        // TODO: be more precise in determining the cost of an expression
-        return ComparisonChain.start()
-                .compare(SymbolsExtractor.extractAll(expression1).size(), SymbolsExtractor.extractAll(expression2).size())
-                .compare(SubExpressionExtractor.extract(expression1).count(), SubExpressionExtractor.extract(expression2).count())
-                .compare(expression1.hashCode(), expression2.hashCode())
-                .result();
-    });
+    private static final Comparator<Expression> CANONICAL_ORDERING = Comparator
+            // Current cost heuristic:
+            // 1) Prefer fewer input symbols
+            // 2) Prefer smaller expression trees
+            // 3) Sort the expressions by hash - creates a stable consistent ordering (extremely useful for unit testing)
+            // TODO: be more precise in determining the cost of an expression
+            .comparingInt((ToIntFunction<Expression>) (expression -> SymbolsExtractor.extractAll(expression).size()))
+            .thenComparingLong(expression -> SubExpressionExtractor.extract(expression).count())
+            .thenComparingInt(Expression::hashCode);
 
     private final Multimap<Expression, Expression> equalitySets; // Indexed by canonical expression
     private final Map<Expression, Expression> canonicalMap; // Map each known expression to canonical expression
@@ -343,7 +340,7 @@ public class EqualityInference
         ImmutableSetMultimap.Builder<Expression, Expression> builder = ImmutableSetMultimap.builder();
         for (Set<Expression> equalityGroup : equalities.getEquivalentClasses()) {
             if (!equalityGroup.isEmpty()) {
-                builder.putAll(CANONICAL_ORDERING.min(equalityGroup), equalityGroup);
+                builder.putAll(equalityGroup.stream().min(CANONICAL_ORDERING).get(), equalityGroup);
             }
         }
         return builder.build();
