@@ -11,12 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator;
+package io.trino.execution;
 
-import io.trino.execution.TaskFailureListener;
-import io.trino.memory.context.LocalMemoryContext;
-
-public interface ExchangeClientSupplier
+public interface TaskFailureListener
 {
-    ExchangeClient get(LocalMemoryContext systemMemoryContext, TaskFailureListener taskFailureListener);
+    void onTaskFailed(TaskId taskId, Throwable failure);
 }

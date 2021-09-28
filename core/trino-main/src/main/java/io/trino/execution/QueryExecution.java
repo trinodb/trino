@@ -46,6 +46,8 @@ public interface QueryExecution
 
     void addOutputInfoListener(Consumer<QueryOutputInfo> listener);
 
+    void outputTaskFailed(TaskId taskId, Throwable failure);
+
     Plan getQueryPlan();
 
     BasicQueryInfo getBasicQueryInfo();
