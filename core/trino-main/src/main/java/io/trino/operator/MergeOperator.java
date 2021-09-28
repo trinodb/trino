@@ -157,7 +157,8 @@ public class MergeOperator
         checkArgument(split.getConnectorSplit() instanceof RemoteSplit, "split is not a remote split");
         checkState(!blockedOnSplits.isDone(), "noMoreSplits has been called already");
 
-        ExchangeClient exchangeClient = closer.register(exchangeClientSupplier.get(operatorContext.localSystemMemoryContext()));
+        TaskContext taskContext = operatorContext.getDriverContext().getPipelineContext().getTaskContext();
+        ExchangeClient exchangeClient = closer.register(exchangeClientSupplier.get(operatorContext.localSystemMemoryContext(), taskContext::sourceTaskFailed));
         RemoteSplit remoteSplit = (RemoteSplit) split.getConnectorSplit();
         exchangeClient.addLocation(remoteSplit.getTaskId(), remoteSplit.getLocation());
         exchangeClient.noMoreLocations();

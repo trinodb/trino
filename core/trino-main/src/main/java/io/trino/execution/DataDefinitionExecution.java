@@ -184,6 +184,12 @@ public class DataDefinitionExecution<T extends Statement>
     }
 
     @Override
+    public void outputTaskFailed(TaskId taskId, Throwable failure)
+    {
+        // DDL does not have an output
+    }
+
+    @Override
     public ListenableFuture<QueryState> getStateChange(QueryState currentState)
     {
         return stateMachine.getStateChange(currentState);

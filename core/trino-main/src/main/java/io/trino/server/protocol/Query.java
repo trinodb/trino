@@ -48,7 +48,9 @@ import io.trino.execution.TaskInfo;
 import io.trino.execution.buffer.PagesSerde;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.execution.buffer.SerializedPage;
+import io.trino.memory.context.SimpleLocalMemoryContext;
 import io.trino.operator.ExchangeClient;
+import io.trino.operator.ExchangeClientSupplier;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.Page;
 import io.trino.spi.QueryId;
@@ -99,6 +101,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addTimeout;
 import static io.trino.SystemSessionProperties.isExchangeCompressionEnabled;
 import static io.trino.execution.QueryState.FAILED;
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.server.protocol.QueryInfoUrlFactory.getQueryInfoUri;
 import static io.trino.server.protocol.QueryResultRows.queryResultRowsBuilder;
 import static io.trino.server.protocol.Slug.Context.EXECUTING_QUERY;
@@ -190,11 +193,15 @@ class Query
             Slug slug,
             QueryManager queryManager,
             Optional<URI> queryInfoUrl,
-            ExchangeClient exchangeClient,
+            ExchangeClientSupplier exchangeClientSupplier,
             Executor dataProcessorExecutor,
             ScheduledExecutorService timeoutExecutor,
             BlockEncodingSerde blockEncodingSerde)
     {
+        ExchangeClient exchangeClient = exchangeClientSupplier.get(
+                new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), Query.class.getSimpleName()),
+                queryManager::outputTaskFailed);
+
         Query result = new Query(session, slug, queryManager, queryInfoUrl, exchangeClient, dataProcessorExecutor, timeoutExecutor, blockEncodingSerde);
 
         result.queryManager.addOutputInfoListener(result.getQueryId(), result::setQueryOutputInfo);

@@ -605,6 +605,12 @@ public class SqlQueryExecution
     }
 
     @Override
+    public void outputTaskFailed(TaskId taskId, Throwable failure)
+    {
+        stateMachine.outputTaskFailed(taskId, failure);
+    }
+
+    @Override
     public ListenableFuture<QueryState> getStateChange(QueryState currentState)
     {
         return stateMachine.getStateChange(currentState);

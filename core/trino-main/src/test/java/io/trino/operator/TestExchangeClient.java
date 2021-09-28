@@ -15,6 +15,7 @@ package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -45,6 +46,8 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -55,6 +58,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableListMultimap.toImmutableListMultimap;
 import static com.google.common.collect.Maps.uniqueIndex;
+import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static com.google.common.io.ByteStreams.toByteArray;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
@@ -133,7 +137,8 @@ public class TestExchangeClient
                 new TestingHttpClient(processor, scheduler),
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
-                pageBufferClientCallbackExecutor);
+                pageBufferClientCallbackExecutor,
+                (taskId, failure) -> {});
 
         assertThat(buffer.getAllTasks()).isEmpty();
         assertThat(buffer.getPages().asMap()).isEmpty();
@@ -195,7 +200,8 @@ public class TestExchangeClient
                 new TestingHttpClient(processor, scheduler),
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
-                pageBufferClientCallbackExecutor);
+                pageBufferClientCallbackExecutor,
+                (taskId, failure) -> {});
 
         exchangeClient.addLocation(new TaskId(new StageId("query", 1), 0, 0), location);
         exchangeClient.noMoreLocations();
@@ -250,7 +256,8 @@ public class TestExchangeClient
                 new TestingHttpClient(processor, scheduler),
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
-                pageBufferClientCallbackExecutor);
+                pageBufferClientCallbackExecutor,
+                (taskId, failure) -> {});
 
         assertThat(buffer.getAllTasks()).isEmpty();
         assertThat(buffer.getPages().asMap()).isEmpty();
@@ -317,7 +324,8 @@ public class TestExchangeClient
                 new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-testAddLocation-%s"))),
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
-                pageBufferClientCallbackExecutor);
+                pageBufferClientCallbackExecutor,
+                (taskId, failure) -> {});
 
         URI location1 = URI.create("http://localhost:8081/foo");
         processor.addPage(location1, createPage(1));
@@ -423,7 +431,8 @@ public class TestExchangeClient
                 new TestingHttpClient(processor, scheduler),
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
-                pageBufferClientCallbackExecutor);
+                pageBufferClientCallbackExecutor,
+                (taskId, failure) -> {});
 
         exchangeClient.addLocation(taskP0A0, locationP0A0);
         exchangeClient.addLocation(taskP1A0, locationP1A0);
@@ -485,6 +494,9 @@ public class TestExchangeClient
 
         TestingExchangeClientBuffer buffer = new TestingExchangeClientBuffer(DataSize.of(1, Unit.MEGABYTE));
 
+        Set<TaskId> failedTasks = newConcurrentHashSet();
+        CountDownLatch latch = new CountDownLatch(2);
+
         @SuppressWarnings("resource")
         ExchangeClient exchangeClient = new ExchangeClient(
                 "localhost",
@@ -497,7 +509,11 @@ public class TestExchangeClient
                 new TestingHttpClient(processor, scheduler),
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
-                pageBufferClientCallbackExecutor);
+                pageBufferClientCallbackExecutor,
+                (taskId, failure) -> {
+                    failedTasks.add(taskId);
+                    latch.countDown();
+                });
 
         assertThat(buffer.getAllTasks()).isEmpty();
         assertThat(buffer.getPages().asMap()).isEmpty();
@@ -539,6 +555,9 @@ public class TestExchangeClient
         assertThat(buffer.getFailedTasks().keySet()).containsExactlyInAnyOrder(task2, task3);
         assertThat(buffer.getPages().get(task2)).hasSize(0);
         assertThat(buffer.getPages().get(task3)).hasSize(0);
+
+        assertTrue(latch.await(10, SECONDS));
+        assertEquals(failedTasks, ImmutableSet.of(task2, task3));
 
         exchangeClient.addLocation(task4, location4);
         assertThat(buffer.getAllTasks()).containsExactlyInAnyOrder(task1, task2, task3, task4);
@@ -602,7 +621,8 @@ public class TestExchangeClient
                 new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-testBufferLimit-%s"))),
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
-                pageBufferClientCallbackExecutor);
+                pageBufferClientCallbackExecutor,
+                (taskId, failure) -> {});
 
         exchangeClient.addLocation(new TaskId(new StageId("query", 1), 0, 0), location);
         exchangeClient.noMoreLocations();
@@ -752,7 +772,8 @@ public class TestExchangeClient
                 new TestingHttpClient(processor, scheduler),
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
-                pageBufferClientCallbackExecutor);
+                pageBufferClientCallbackExecutor,
+                (taskId, failure) -> {});
 
         exchangeClient.addLocation(new TaskId(new StageId("query", 1), 0, 0), location);
         exchangeClient.noMoreLocations();
@@ -784,7 +805,8 @@ public class TestExchangeClient
                 new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-testClose-%s"))),
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
-                pageBufferClientCallbackExecutor);
+                pageBufferClientCallbackExecutor,
+                (taskId, failure) -> {});
         exchangeClient.addLocation(new TaskId(new StageId("query", 1), 0, 0), location);
         exchangeClient.noMoreLocations();
 

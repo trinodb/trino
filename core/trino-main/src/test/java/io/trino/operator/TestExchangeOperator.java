@@ -87,7 +87,7 @@ public class TestExchangeOperator
         pageBufferClientCallbackExecutor = Executors.newSingleThreadExecutor();
         httpClient = new TestingHttpClient(new TestingExchangeHttpClientHandler(taskBuffers), scheduler);
 
-        exchangeClientSupplier = (systemMemoryUsageListener) -> new ExchangeClient(
+        exchangeClientSupplier = (systemMemoryUsageListener, taskFailureListener) -> new ExchangeClient(
                 "localhost",
                 DataIntegrityVerification.ABORT,
                 new StreamingExchangeClientBuffer(scheduler, DataSize.of(32, MEGABYTE)),
@@ -98,7 +98,8 @@ public class TestExchangeOperator
                 httpClient,
                 scheduler,
                 systemMemoryUsageListener,
-                pageBufferClientCallbackExecutor);
+                pageBufferClientCallbackExecutor,
+                taskFailureListener);
     }
 
     @AfterClass(alwaysRun = true)

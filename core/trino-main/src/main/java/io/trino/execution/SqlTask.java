@@ -589,6 +589,11 @@ public class SqlTask
         taskStateMachine.addStateChangeListener(stateChangeListener);
     }
 
+    public void addSourceTaskFailureListener(TaskFailureListener listener)
+    {
+        taskStateMachine.addSourceTaskFailureListener(listener);
+    }
+
     public QueryContext getQueryContext()
     {
         return queryContext;

@@ -613,4 +613,9 @@ public class TaskContext
     {
         localDynamicFiltersCollector.collectDynamicFilterDomains(dynamicFilterDomains);
     }
+
+    public void sourceTaskFailed(TaskId taskId, Throwable failure)
+    {
+        taskStateMachine.sourceTaskFailed(taskId, failure);
+    }
 }

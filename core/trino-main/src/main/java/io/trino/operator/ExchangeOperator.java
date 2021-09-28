@@ -68,9 +68,10 @@ public class ExchangeOperator
         public SourceOperator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
+            TaskContext taskContext = driverContext.getPipelineContext().getTaskContext();
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, sourceId, ExchangeOperator.class.getSimpleName());
             if (exchangeClient == null) {
-                exchangeClient = exchangeClientSupplier.get(driverContext.getPipelineContext().localSystemMemoryContext());
+                exchangeClient = exchangeClientSupplier.get(driverContext.getPipelineContext().localSystemMemoryContext(), taskContext::sourceTaskFailed);
             }
 
             return new ExchangeOperator(
