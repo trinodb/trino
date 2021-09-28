@@ -1265,7 +1265,7 @@ public class TestEffectivePredicateExtractor
             Expression identityNormalizedExpression = expressionCache.get(expression);
             if (identityNormalizedExpression == null) {
                 // Make sure all sub-expressions are normalized first
-                SubExpressionExtractor.extract(expression).stream()
+                SubExpressionExtractor.extract(expression)
                         .filter(e -> !e.equals(expression))
                         .forEach(this::normalize);
 

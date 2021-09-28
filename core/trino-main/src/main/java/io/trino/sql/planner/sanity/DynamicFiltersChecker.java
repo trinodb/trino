@@ -161,7 +161,8 @@ public class DynamicFiltersChecker
 
     private static List<DynamicFilters.Descriptor> extractDynamicPredicates(Expression expression)
     {
-        return SubExpressionExtractor.extract(expression).stream()
+        return SubExpressionExtractor.extract(expression)
+                .distinct()
                 .map(DynamicFilters::getDescriptor)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
