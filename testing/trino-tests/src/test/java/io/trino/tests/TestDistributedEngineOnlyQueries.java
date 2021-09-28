@@ -184,7 +184,8 @@ public class TestDistributedEngineOnlyQueries
     {
         assertExplain(
                 "explain select name from nation where abs(nationkey) = 22",
-                Pattern.quote("abs(\"nationkey\")"));
+                Pattern.quote("abs(\"nationkey\")"),
+                "Estimates: \\{rows: .* \\(.*\\), cpu: .*, memory: .*, network: .*}");
     }
 
     // explain analyze can only run on coordinator
