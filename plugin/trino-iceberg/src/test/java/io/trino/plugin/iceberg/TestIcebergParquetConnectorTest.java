@@ -35,7 +35,8 @@ public class TestIcebergParquetConnectorTest
     protected boolean supportsRowGroupStatistics(String typeName)
     {
         return !(typeName.equalsIgnoreCase("varbinary") ||
-                typeName.contains("time"));
+                typeName.equalsIgnoreCase("time(6)") ||
+                typeName.equalsIgnoreCase("timestamp(6) with time zone"));
     }
 
     @Override

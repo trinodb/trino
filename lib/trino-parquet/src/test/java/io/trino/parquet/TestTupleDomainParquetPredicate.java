@@ -14,6 +14,7 @@
 package io.trino.parquet;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.math.LongMath;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.parquet.predicate.DictionaryDescriptor;
@@ -36,12 +37,17 @@ import org.apache.parquet.column.statistics.IntStatistics;
 import org.apache.parquet.column.statistics.LongStatistics;
 import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.io.api.Binary;
+import org.apache.parquet.schema.LogicalTypeAnnotation;
+import org.apache.parquet.schema.LogicalTypeAnnotation.TimeUnit;
 import org.apache.parquet.schema.PrimitiveType;
+import org.apache.parquet.schema.Types;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.ByteArrayOutputStream;
 import java.math.BigInteger;
+import java.math.RoundingMode;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Map;
@@ -402,7 +408,7 @@ public class TestTupleDomainParquetPredicate
     }
 
     @Test(dataProvider = "timestampPrecision")
-    public void testTimestamp(int precision, LocalDateTime baseTime, Object baseDomainValue)
+    public void testTimestampInt96(int precision, LocalDateTime baseTime, Object baseDomainValue)
             throws ParquetCorruptionException
     {
         ColumnDescriptor columnDescriptor = createColumnDescriptor(INT96, "TimestampColumn");
@@ -413,6 +419,88 @@ public class TestTupleDomainParquetPredicate
         assertEquals(
                 getDomain(columnDescriptor, timestampType, 10, timestampColumnStats(baseTime.minusSeconds(10), baseTime), ID, UTC),
                 create(ValueSet.all(timestampType), false));
+    }
+
+    @Test(dataProvider = "testTimestampInt64DataProvider")
+    public void testTimestampInt64(TimeUnit timeUnit, int precision, LocalDateTime baseTime, Object baseDomainValue)
+            throws ParquetCorruptionException
+    {
+        int parquetPrecision;
+        switch (timeUnit) {
+            case MILLIS:
+                parquetPrecision = 3;
+                break;
+            case MICROS:
+                parquetPrecision = 6;
+                break;
+            case NANOS:
+                parquetPrecision = 9;
+                break;
+            default:
+                throw new IllegalArgumentException("Unknown Parquet TimeUnit " + timeUnit);
+        }
+
+        PrimitiveType type = Types.required(INT64)
+                .as(LogicalTypeAnnotation.timestampType(false, timeUnit))
+                .named("TimestampColumn");
+
+        ColumnDescriptor columnDescriptor = new ColumnDescriptor(new String[]{}, type, 0, 0);
+        TimestampType timestampType = createTimestampType(precision);
+        assertEquals(getDomain(columnDescriptor, timestampType, 0, null, ID, UTC), all(timestampType));
+        LocalDateTime maxTime = baseTime.plus(Duration.ofMillis(50));
+
+        Object maxDomainValue;
+        if (baseDomainValue instanceof Long) {
+            maxDomainValue = (long) baseDomainValue + 50 * MICROSECONDS_PER_MILLISECOND;
+        }
+        else if (baseDomainValue instanceof LongTimestamp) {
+            LongTimestamp longTimestamp = ((LongTimestamp) baseDomainValue);
+            maxDomainValue = new LongTimestamp(longTimestamp.getEpochMicros() + 50 * MICROSECONDS_PER_MILLISECOND, longTimestamp.getPicosOfMicro());
+        }
+        else {
+            throw new IllegalArgumentException("Unknown Timestamp domain type " + baseDomainValue);
+        }
+
+        long minValue = toEpochWithPrecision(baseTime, parquetPrecision);
+        long maxValue = toEpochWithPrecision(maxTime, parquetPrecision);
+        assertEquals(getDomain(columnDescriptor, timestampType, 10, longColumnStats(minValue, minValue), ID, UTC), singleValue(timestampType, baseDomainValue));
+        assertEquals(getDomain(columnDescriptor, timestampType, 10, longColumnStats(minValue, maxValue), ID, UTC),
+                Domain.create(ValueSet.ofRanges(range(timestampType, baseDomainValue, true, maxDomainValue, true)), false));
+    }
+
+    @DataProvider
+    public Object[][] testTimestampInt64DataProvider()
+    {
+        LocalDateTime baseTime = LocalDateTime.of(1970, 1, 19, 10, 28, 52, 123456789);
+        Object millisExpectedValue = baseTime.atZone(ZoneOffset.UTC).toInstant().toEpochMilli() * MICROSECONDS_PER_MILLISECOND;
+        // note the rounding of micros
+        Object microsExpectedValue = baseTime.atZone(ZoneOffset.UTC).toInstant().getEpochSecond() * MICROSECONDS_PER_SECOND + 123457;
+        Object nanosExpectedValue = longTimestamp(9, baseTime);
+
+        Object nanosTruncatedToMillisExpectedValue = longTimestamp(
+                9,
+                LocalDateTime.of(1970, 1, 19, 10, 28, 52, 123000000));
+        Object nanosTruncatedToMicrosExpectedValue = longTimestamp(
+                9,
+                LocalDateTime.of(1970, 1, 19, 10, 28, 52, 123457000));
+        return new Object[][] {
+                {TimeUnit.MILLIS, 3, baseTime, millisExpectedValue},
+                {TimeUnit.MICROS, 3, baseTime, millisExpectedValue},
+                {TimeUnit.NANOS, 3, baseTime, millisExpectedValue},
+                {TimeUnit.MILLIS, 6, baseTime, millisExpectedValue},
+                {TimeUnit.MICROS, 6, baseTime, microsExpectedValue},
+                {TimeUnit.NANOS, 6, baseTime, microsExpectedValue},
+                {TimeUnit.MILLIS, 9, baseTime, nanosTruncatedToMillisExpectedValue},
+                {TimeUnit.MICROS, 9, baseTime, nanosTruncatedToMicrosExpectedValue},
+                {TimeUnit.NANOS, 9, baseTime, nanosExpectedValue},
+        };
+    }
+
+    private static long toEpochWithPrecision(LocalDateTime time, int precision)
+    {
+        long scaledEpochSeconds = time.toEpochSecond(ZoneOffset.UTC) * (long) Math.pow(10, precision);
+        long fractionOfSecond = LongMath.divide(time.getNano(), (long) Math.pow(10, 9 - precision), RoundingMode.HALF_UP);
+        return scaledEpochSeconds + fractionOfSecond;
     }
 
     private static BinaryStatistics timestampColumnStats(LocalDateTime minimum, LocalDateTime maximum)
