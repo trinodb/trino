@@ -68,20 +68,31 @@ import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRou
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.booleanColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.dateColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.decimalColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.defaultCharColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.defaultVarcharColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.doubleColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.realColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.realWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.timeColumnMappingUsingSqlTime;
+import static io.trino.plugin.jdbc.StandardColumnMappings.timestampColumnMappingUsingSqlTimestampWithRounding;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timestampWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
+import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
+import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -160,10 +171,26 @@ public class MemSqlClient
         }
 
         switch (typeHandle.getJdbcType()) {
+            case Types.BIT:
+            case Types.BOOLEAN:
+                return Optional.of(booleanColumnMapping());
+            case Types.TINYINT:
+                return Optional.of(tinyintColumnMapping());
+            case Types.SMALLINT:
+                return Optional.of(smallintColumnMapping());
+            case Types.INTEGER:
+                return Optional.of(integerColumnMapping());
+            case Types.BIGINT:
+                return Optional.of(bigintColumnMapping());
+            case Types.REAL:
+                return Optional.of(realColumnMapping());
+            case Types.DOUBLE:
+                return Optional.of(doubleColumnMapping());
             case Types.CHAR:
             case Types.NCHAR: // TODO it it is dummy copied from StandardColumnMappings, verify if it is proper mapping
                 return Optional.of(defaultCharColumnMapping(typeHandle.getRequiredColumnSize(), false));
             case Types.VARCHAR:
+            case Types.LONGVARCHAR:
                 return Optional.of(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize(), false));
             case Types.DECIMAL:
                 int precision = typeHandle.getRequiredColumnSize();
@@ -172,10 +199,28 @@ public class MemSqlClient
                     int scale = min(decimalDigits, getDecimalDefaultScale(session));
                     return Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, scale), getDecimalRoundingMode(session)));
                 }
+                if (precision > Decimals.MAX_PRECISION) {
+                    break;
+                }
+                return Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0))));
+            case Types.BINARY:
+            case Types.VARBINARY:
+            case Types.LONGVARBINARY:
+                return Optional.of(varbinaryColumnMapping());
+            case Types.DATE:
+                return Optional.of(dateColumnMapping());
+            case Types.TIME:
+                // TODO (https://github.com/trinodb/trino/issues/5450) Fix TIME type mapping
+                return Optional.of(timeColumnMappingUsingSqlTime());
+            case Types.TIMESTAMP:
+                // TODO (https://github.com/trinodb/trino/issues/5450) Fix Timestamp type mapping
+                return Optional.of(timestampColumnMappingUsingSqlTimestampWithRounding(TIMESTAMP_MILLIS));
         }
 
-        // TODO add explicit mappings
-        return legacyColumnMapping(session, connection, typeHandle);
+        if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
+            return mapToUnboundedVarchar(typeHandle);
+        }
+        return Optional.empty();
     }
 
     @Override
