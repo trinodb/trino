@@ -18,5 +18,5 @@ import io.trino.memory.context.LocalMemoryContext;
 
 public interface ExchangeClientSupplier
 {
-    ExchangeClient get(LocalMemoryContext systemMemoryContext, TaskFailureListener taskFailureListener);
+    ExchangeClient get(LocalMemoryContext systemMemoryContext, TaskFailureListener taskFailureListener, RetryPolicy retryPolicy);
 }

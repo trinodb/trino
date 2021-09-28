@@ -464,7 +464,8 @@ public class UnaliasSymbolReferences
                             node.getSourceFragmentIds(),
                             newOutputs,
                             newOrderingScheme,
-                            node.getExchangeType()),
+                            node.getExchangeType(),
+                            node.getRetryPolicy()),
                     mapping);
         }
 

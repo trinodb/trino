@@ -43,6 +43,7 @@ public class ExchangeOperator
         private final PlanNodeId sourceId;
         private final ExchangeClientSupplier exchangeClientSupplier;
         private final PagesSerdeFactory serdeFactory;
+        private final RetryPolicy retryPolicy;
         private ExchangeClient exchangeClient;
         private boolean closed;
 
@@ -50,12 +51,14 @@ public class ExchangeOperator
                 int operatorId,
                 PlanNodeId sourceId,
                 ExchangeClientSupplier exchangeClientSupplier,
-                PagesSerdeFactory serdeFactory)
+                PagesSerdeFactory serdeFactory,
+                RetryPolicy retryPolicy)
         {
             this.operatorId = operatorId;
             this.sourceId = sourceId;
             this.exchangeClientSupplier = exchangeClientSupplier;
             this.serdeFactory = serdeFactory;
+            this.retryPolicy = requireNonNull(retryPolicy, "retryPolicy is null");
         }
 
         @Override
@@ -71,7 +74,7 @@ public class ExchangeOperator
             TaskContext taskContext = driverContext.getPipelineContext().getTaskContext();
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, sourceId, ExchangeOperator.class.getSimpleName());
             if (exchangeClient == null) {
-                exchangeClient = exchangeClientSupplier.get(driverContext.getPipelineContext().localSystemMemoryContext(), taskContext::sourceTaskFailed);
+                exchangeClient = exchangeClientSupplier.get(driverContext.getPipelineContext().localSystemMemoryContext(), taskContext::sourceTaskFailed, retryPolicy);
             }
 
             return new ExchangeOperator(

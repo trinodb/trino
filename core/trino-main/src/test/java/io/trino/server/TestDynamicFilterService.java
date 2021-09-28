@@ -21,6 +21,7 @@ import io.trino.cost.StatsAndCosts;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.metadata.Metadata;
+import io.trino.operator.RetryPolicy;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.DynamicFilter;
@@ -813,7 +814,7 @@ public class TestDynamicFilterService
                 tableScan,
                 createDynamicFilterExpression(session, createTestMetadataManager(), consumedDynamicFilterId, VARCHAR, symbol.toSymbolReference()));
 
-        RemoteSourceNode remote = new RemoteSourceNode(new PlanNodeId("remote_id"), new PlanFragmentId("plan_fragment_id"), ImmutableList.of(buildSymbol), Optional.empty(), exchangeType);
+        RemoteSourceNode remote = new RemoteSourceNode(new PlanNodeId("remote_id"), new PlanFragmentId("plan_fragment_id"), ImmutableList.of(buildSymbol), Optional.empty(), exchangeType, RetryPolicy.NONE);
         return new PlanFragment(
                 new PlanFragmentId("plan_id"),
                 new JoinNode(new PlanNodeId("join_id"),
