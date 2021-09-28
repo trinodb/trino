@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalLong;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
@@ -74,6 +75,12 @@ public class IcebergPageSource
     public long getCompletedBytes()
     {
         return delegate.getCompletedBytes();
+    }
+
+    @Override
+    public OptionalLong getCompletedPositions()
+    {
+        return delegate.getCompletedPositions();
     }
 
     @Override
