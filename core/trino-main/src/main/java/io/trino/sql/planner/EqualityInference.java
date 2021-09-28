@@ -55,12 +55,12 @@ public class EqualityInference
         // Current cost heuristic:
         // 1) Prefer fewer input symbols
         // 2) Prefer smaller expression trees
-        // 3) Sort the expressions alphabetically - creates a stable consistent ordering (extremely useful for unit testing)
+        // 3) Sort the expressions by hash - creates a stable consistent ordering (extremely useful for unit testing)
         // TODO: be more precise in determining the cost of an expression
         return ComparisonChain.start()
                 .compare(SymbolsExtractor.extractAll(expression1).size(), SymbolsExtractor.extractAll(expression2).size())
                 .compare(SubExpressionExtractor.extract(expression1).size(), SubExpressionExtractor.extract(expression2).size())
-                .compare(expression1.toString(), expression2.toString())
+                .compare(expression1.hashCode(), expression2.hashCode())
                 .result();
     });
 
