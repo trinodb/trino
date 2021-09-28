@@ -142,14 +142,14 @@ public class EqualityInference
                 }
             });
             // Compile the equality expressions on each side of the scope
-            Expression matchingCanonical = getCanonical(scopeExpressions);
+            Expression matchingCanonical = getCanonical(scopeExpressions.stream());
             if (scopeExpressions.size() >= 2) {
                 scopeExpressions.stream()
                         .filter(expression -> !expression.equals(matchingCanonical))
                         .map(expression -> new ComparisonExpression(ComparisonExpression.Operator.EQUAL, matchingCanonical, expression))
                         .forEach(scopeEqualities::add);
             }
-            Expression complementCanonical = getCanonical(scopeComplementExpressions);
+            Expression complementCanonical = getCanonical(scopeComplementExpressions.stream());
             if (scopeComplementExpressions.size() >= 2) {
                 scopeComplementExpressions.stream()
                         .filter(expression -> !expression.equals(complementCanonical))
@@ -165,7 +165,7 @@ public class EqualityInference
             connectingExpressions = connectingExpressions.stream()
                     .filter(Objects::nonNull)
                     .collect(Collectors.toList());
-            Expression connectingCanonical = getCanonical(connectingExpressions);
+            Expression connectingCanonical = getCanonical(connectingExpressions.stream());
             if (connectingCanonical != null) {
                 connectingExpressions.stream()
                         .filter(expression -> !expression.equals(connectingCanonical))
@@ -298,12 +298,9 @@ public class EqualityInference
     /**
      * Returns the most preferrable expression to be used as the canonical expression
      */
-    private static Expression getCanonical(Collection<Expression> expressions)
+    private static Expression getCanonical(Stream<Expression> expressions)
     {
-        if (expressions.isEmpty()) {
-            return null;
-        }
-        return CANONICAL_ORDERING.min(expressions);
+        return expressions.min(CANONICAL_ORDERING).orElse(null);
     }
 
     /**
@@ -330,9 +327,8 @@ public class EqualityInference
             }
         }
 
-        Set<Expression> candidates = equivalences.stream()
-                .filter(e -> isScoped(e, symbolScope))
-                .collect(Collectors.toSet());
+        Stream<Expression> candidates = equivalences.stream()
+                .filter(e -> isScoped(e, symbolScope));
 
         return getCanonical(candidates);
     }
