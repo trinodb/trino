@@ -43,9 +43,7 @@ as an example:
     http-event-listener.log-created=true
     http-event-listener.connect-ingest-uri=<your ingest URI>
 
-If you have other event listeners implemented but wish to use this one make sure the
-name is set to ``http``. If you want to use multiple event listeners refer to
-:ref:`multiple_listeners`.
+If you want to use multiple event listeners refer to :ref:`multiple_listeners`.
 
 Configuration properties
 ^^^^^^^^^^^^^^^^^^^^^^^^
