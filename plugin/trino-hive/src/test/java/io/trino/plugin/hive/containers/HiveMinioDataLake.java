@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.util.AutoCloseableCloser;
 import org.testcontainers.containers.Network;
 
-import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -99,12 +98,10 @@ public class HiveMinioDataLake
     }
 
     public void stop()
+            throws Exception
     {
         try {
             closer.close();
-        }
-        catch (Exception e) {
-            throw new RuntimeException("Failed to stop HiveMinioDataLake", e);
         }
         finally {
             isStarted.set(false);
@@ -123,7 +120,7 @@ public class HiveMinioDataLake
 
     @Override
     public void close()
-            throws IOException
+            throws Exception
     {
         stop();
     }
