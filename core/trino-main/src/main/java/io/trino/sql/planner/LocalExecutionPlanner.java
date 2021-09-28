@@ -2596,19 +2596,31 @@ public class LocalExecutionPlanner
                     })
                     .collect(Collectors.toList());
             boolean isReplicatedJoin = isBuildSideReplicated(node);
+            boolean isBuildSideSingle = context.getDriverInstanceCount().orElse(1) == 1;
+            int taskConcurrency = getTaskConcurrency(session);
             return new PhysicalOperation(
                     new DynamicFilterSourceOperatorFactory(
                             operatorId,
                             node.getId(),
                             dynamicFilter.getTupleDomainConsumer(),
                             filterBuildChannels,
-                            getDynamicFilteringMaxDistinctValuesPerDriver(session, isReplicatedJoin),
-                            getDynamicFilteringMaxSizePerDriver(session, isReplicatedJoin),
-                            getDynamicFilteringRangeRowLimitPerDriver(session, isReplicatedJoin),
+                            multipleIf(getDynamicFilteringMaxDistinctValuesPerDriver(session, isReplicatedJoin), taskConcurrency, isBuildSideSingle),
+                            multipleIf(getDynamicFilteringMaxSizePerDriver(session, isReplicatedJoin), taskConcurrency, isBuildSideSingle),
+                            multipleIf(getDynamicFilteringRangeRowLimitPerDriver(session, isReplicatedJoin), taskConcurrency, isBuildSideSingle),
                             blockTypeOperators),
                     buildSource.getLayout(),
                     context,
                     buildSource);
+        }
+
+        private int multipleIf(int value, int multiplier, boolean shouldMultiply)
+        {
+            return shouldMultiply ? value * multiplier : value;
+        }
+
+        private DataSize multipleIf(DataSize value, int multiplier, boolean shouldMultiply)
+        {
+            return shouldMultiply ? DataSize.ofBytes(value.toBytes() * multiplier) : value;
         }
 
         private Optional<LocalDynamicFilterConsumer> createDynamicFilter(
