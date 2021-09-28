@@ -4521,21 +4521,36 @@ public class TestHiveConnectorTest
     @Test(dataProvider = "timestampPrecisionAndValues")
     public void testParquetTimestampPredicatePushdown(HiveTimestampPrecision timestampPrecision, LocalDateTime value)
     {
-        Session session = withTimestampPrecision(getSession(), timestampPrecision);
-        assertUpdate("DROP TABLE IF EXISTS test_parquet_timestamp_predicate_pushdown");
-        assertUpdate("CREATE TABLE test_parquet_timestamp_predicate_pushdown (t TIMESTAMP) WITH (format = 'PARQUET')");
-        assertUpdate(session, format("INSERT INTO test_parquet_timestamp_predicate_pushdown VALUES (%s)", formatTimestamp(value)), 1);
-        assertQuery(session, "SELECT * FROM test_parquet_timestamp_predicate_pushdown", format("VALUES (%s)", formatTimestamp(value)));
+        doTestParquetTimestampPredicatePushdown(getSession(), timestampPrecision, value);
+    }
+
+    @Test(dataProvider = "timestampPrecisionAndValues")
+    public void testParquetTimestampPredicatePushdownOptimizedWriter(HiveTimestampPrecision timestampPrecision, LocalDateTime value)
+    {
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty("hive", "experimental_parquet_optimized_writer_enabled", "true")
+                .build();
+        doTestParquetTimestampPredicatePushdown(session, timestampPrecision, value);
+    }
+
+    private void doTestParquetTimestampPredicatePushdown(Session baseSession, HiveTimestampPrecision timestampPrecision, LocalDateTime value)
+    {
+        Session session = withTimestampPrecision(baseSession, timestampPrecision);
+        String tableName = "test_parquet_timestamp_predicate_pushdown_" + randomTableSuffix();
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        assertUpdate("CREATE TABLE " + tableName + " (t TIMESTAMP) WITH (format = 'PARQUET')");
+        assertUpdate(session, format("INSERT INTO %s VALUES (%s)", tableName, formatTimestamp(value)), 1);
+        assertQuery(session, "SELECT * FROM " + tableName, format("VALUES (%s)", formatTimestamp(value)));
 
         DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
         ResultWithQueryId<MaterializedResult> queryResult = queryRunner.executeWithQueryId(
                 session,
-                format("SELECT * FROM test_parquet_timestamp_predicate_pushdown WHERE t < %s", formatTimestamp(value)));
+                format("SELECT * FROM %s WHERE t < %s", tableName, formatTimestamp(value)));
         assertEquals(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputDataSize().toBytes(), 0);
 
         queryResult = queryRunner.executeWithQueryId(
                 session,
-                format("SELECT * FROM test_parquet_timestamp_predicate_pushdown WHERE t > %s", formatTimestamp(value)));
+                format("SELECT * FROM %s WHERE t > %s", tableName, formatTimestamp(value)));
         assertEquals(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputDataSize().toBytes(), 0);
 
         // TODO: replace this with a simple query stats check once we find a way to wait until all pending updates to query stats have been applied
@@ -4543,7 +4558,7 @@ public class TestHiveConnectorTest
         ExponentialSleeper sleeper = new ExponentialSleeper();
         assertQueryStats(
                 session,
-                format("SELECT * FROM test_parquet_timestamp_predicate_pushdown WHERE t = %s", formatTimestamp(value)),
+                format("SELECT * FROM %s WHERE t = %s", tableName, formatTimestamp(value)),
                 queryStats -> {
                     sleeper.sleep();
                     assertThat(queryStats.getProcessedInputDataSize().toBytes()).isGreaterThan(0);
