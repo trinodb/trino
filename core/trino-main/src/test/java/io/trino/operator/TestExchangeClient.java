@@ -42,6 +42,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -389,6 +390,76 @@ public class TestExchangeClient
         ImmutableMap<URI, PageBufferClientStatus> statuses = uniqueIndex(exchangeClient.getStatus().getPageBufferClientStatuses(), PageBufferClientStatus::getUri);
         assertStatus(statuses.get(location1), location1, "closed", 3, 3, 3, "not scheduled");
         assertStatus(statuses.get(location2), location2, "closed", 3, 3, 3, "not scheduled");
+    }
+
+    @Test
+    public void testDeduplication()
+            throws Exception
+    {
+        DataSize maxResponseSize = DataSize.of(10, Unit.MEGABYTE);
+        MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(maxResponseSize);
+
+        TaskId taskP0A0 = new TaskId(new StageId("query", 1), 0, 0);
+        TaskId taskP1A0 = new TaskId(new StageId("query", 1), 1, 0);
+        TaskId taskP0A1 = new TaskId(new StageId("query", 1), 0, 1);
+
+        URI locationP0A0 = URI.create("http://localhost:8080/1");
+        URI locationP1A0 = URI.create("http://localhost:8080/2");
+        URI locationP0A1 = URI.create("http://localhost:8080/3");
+
+        processor.addPage(locationP1A0, createSerializedPage("location-1-page-1"));
+        processor.addPage(locationP0A1, createSerializedPage("location-2-page-1"));
+        processor.addPage(locationP0A1, createSerializedPage("location-2-page-2"));
+
+        @SuppressWarnings("resource")
+        ExchangeClient exchangeClient = new ExchangeClient(
+                "localhost",
+                DataIntegrityVerification.ABORT,
+                new DeduplicationExchangeClientBuffer(scheduler, DataSize.of(1, Unit.KILOBYTE), RetryPolicy.QUERY),
+                maxResponseSize,
+                1,
+                new Duration(1, SECONDS),
+                true,
+                new TestingHttpClient(processor, scheduler),
+                scheduler,
+                new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
+                pageBufferClientCallbackExecutor);
+
+        exchangeClient.addLocation(taskP0A0, locationP0A0);
+        exchangeClient.addLocation(taskP1A0, locationP1A0);
+        exchangeClient.addLocation(taskP0A1, locationP0A1);
+
+        processor.setComplete(locationP0A0);
+        // Failing attempt 0. Results from all tasks for attempt 0 must be discarded.
+        processor.setFailed(locationP1A0, new RuntimeException("failure"));
+        processor.setComplete(locationP0A1);
+
+        assertFalse(exchangeClient.isFinished());
+        assertThatThrownBy(() -> exchangeClient.isBlocked().get(50, MILLISECONDS))
+                .isInstanceOf(TimeoutException.class);
+
+        exchangeClient.noMoreLocations();
+        exchangeClient.isBlocked().get(10, SECONDS);
+
+        List<String> pageValues = new ArrayList<>();
+        while (!exchangeClient.isFinished()) {
+            SerializedPage page = exchangeClient.pollPage();
+            if (page == null) {
+                break;
+            }
+            pageValues.add(page.getSlice().toStringUtf8());
+        }
+
+        assertThat(pageValues).containsExactlyInAnyOrder("location-2-page-1", "location-2-page-2");
+        assertEventually(() -> assertTrue(exchangeClient.isFinished()));
+
+        assertEventually(() -> {
+            assertEquals(exchangeClient.getStatus().getPageBufferClientStatuses().get(0).getHttpRequestState(), "not scheduled", "httpRequestState");
+            assertEquals(exchangeClient.getStatus().getPageBufferClientStatuses().get(1).getHttpRequestState(), "not scheduled", "httpRequestState");
+            assertEquals(exchangeClient.getStatus().getPageBufferClientStatuses().get(2).getHttpRequestState(), "not scheduled", "httpRequestState");
+        });
+
+        exchangeClient.close();
     }
 
     @Test
