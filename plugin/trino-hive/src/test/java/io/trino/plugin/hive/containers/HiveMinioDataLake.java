@@ -23,7 +23,6 @@ import io.trino.util.AutoCloseableCloser;
 import org.testcontainers.containers.Network;
 
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -39,8 +38,9 @@ public class HiveMinioDataLake
     private final Minio minio;
     private final HiveHadoop hiveHadoop;
 
-    private final AtomicBoolean isStarted = new AtomicBoolean(false);
     private final AutoCloseableCloser closer = AutoCloseableCloser.create();
+
+    private State state = State.INITIAL;
 
     public HiveMinioDataLake(String bucketName, Map<String, String> hiveHadoopFilesToMount)
     {
@@ -72,40 +72,28 @@ public class HiveMinioDataLake
 
     public void start()
     {
-        checkState(!isStarted(), "Already started");
-        try {
-            this.minio.start();
-            this.hiveHadoop.start();
-            AmazonS3 s3Client = AmazonS3ClientBuilder
-                    .standard()
-                    .withEndpointConfiguration(new AwsClientBuilder.EndpointConfiguration(
-                            "http://localhost:" + minio.getMinioApiEndpoint().getPort(),
-                            "us-east-1"))
-                    .withPathStyleAccessEnabled(true)
-                    .withCredentials(new AWSStaticCredentialsProvider(
-                            new BasicAWSCredentials(ACCESS_KEY, SECRET_KEY)))
-                    .build();
-            s3Client.createBucket(this.bucketName);
-        }
-        finally {
-            isStarted.set(true);
-        }
-    }
-
-    public boolean isStarted()
-    {
-        return isStarted.get();
+        checkState(state == State.INITIAL, "Already started: %s", state);
+        state = State.STARTING;
+        minio.start();
+        hiveHadoop.start();
+        AmazonS3 s3Client = AmazonS3ClientBuilder
+                .standard()
+                .withEndpointConfiguration(new AwsClientBuilder.EndpointConfiguration(
+                        "http://localhost:" + minio.getMinioApiEndpoint().getPort(),
+                        "us-east-1"))
+                .withPathStyleAccessEnabled(true)
+                .withCredentials(new AWSStaticCredentialsProvider(
+                        new BasicAWSCredentials(ACCESS_KEY, SECRET_KEY)))
+                .build();
+        s3Client.createBucket(this.bucketName);
+        state = State.STARTED;
     }
 
     public void stop()
             throws Exception
     {
-        try {
-            closer.close();
-        }
-        finally {
-            isStarted.set(false);
-        }
+        closer.close();
+        state = State.STOPPED;
     }
 
     public Minio getMinio()
@@ -123,5 +111,13 @@ public class HiveMinioDataLake
             throws Exception
     {
         stop();
+    }
+
+    private enum State
+    {
+        INITIAL,
+        STARTING,
+        STARTED,
+        STOPPED,
     }
 }
