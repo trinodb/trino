@@ -1549,11 +1549,31 @@ public class TestHiveTransactionalTable
     @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
     public void testDeleteWholePartition()
     {
-        withTemporaryTable("delete_partitioned", true, true, NONE, tableName -> {
-            onTrino().executeQuery(format("CREATE TABLE %s WITH (transactional = true, partitioned_by = ARRAY['regionkey'])" +
-                    " AS SELECT nationkey, name, regionkey FROM tpch.tiny.nation", tableName));
+        testDeleteWholePartition(false);
+    }
 
-            verifyOriginalFiles(tableName, "WHERE regionkey = 4");
+    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
+    public void testDeleteWholePartitionWithOriginalFiles()
+    {
+        testDeleteWholePartition(true);
+    }
+
+    private void testDeleteWholePartition(boolean withOriginalFiles)
+    {
+        withTemporaryTable("delete_partitioned", true, true, NONE, tableName -> {
+            if (withOriginalFiles) {
+                onTrino().executeQuery(format("CREATE TABLE %s WITH (transactional = true, partitioned_by = ARRAY['regionkey'])" +
+                        " AS SELECT nationkey, name, regionkey FROM tpch.tiny.nation", tableName));
+                verifyOriginalFiles(tableName, "WHERE regionkey = 4");
+            }
+            else {
+                onTrino().executeQuery(format("CREATE TABLE %s (" +
+                        "    nationkey bigint," +
+                        "    name varchar(25)," +
+                        "    regionkey bigint)" +
+                        " WITH (transactional = true, partitioned_by = ARRAY['regionkey'])", tableName));
+                onTrino().executeQuery(format("INSERT INTO %s SELECT nationkey, name, regionkey FROM tpch.tiny.nation", tableName));
+            }
 
             verifySelectForTrinoAndHive("SELECT count(*) FROM " + tableName, "true", row(25));
 
