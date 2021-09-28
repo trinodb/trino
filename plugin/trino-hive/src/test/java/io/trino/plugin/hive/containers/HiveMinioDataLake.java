@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.Network.newNetwork;
 
@@ -72,9 +73,7 @@ public class HiveMinioDataLake
 
     public void start()
     {
-        if (isStarted()) {
-            return;
-        }
+        checkState(!isStarted(), "Already started");
         try {
             this.minio.start();
             this.hiveHadoop.start();
