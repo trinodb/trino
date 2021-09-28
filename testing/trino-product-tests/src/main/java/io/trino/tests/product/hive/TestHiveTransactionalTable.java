@@ -1427,7 +1427,8 @@ public class TestHiveTransactionalTable
             verifySelectForTrinoAndHive("SELECT * FROM " + tableName, "true", row(1, "row updated"), row(2, "y"));
 
             withTemporaryTable("second_table", true, false, NONE, secondTable -> {
-                onTrino().executeQuery(format("CREATE TABLE %s WITH (transactional = true) AS TABLE tpch.tiny.region", secondTable));
+                onTrino().executeQuery(format("CREATE TABLE %s (regionkey bigint, name varchar(25), comment varchar(152)) WITH (transactional = true)", secondTable));
+                onTrino().executeQuery(format("INSERT INTO %s SELECT * FROM tpch.tiny.region", secondTable));
 
                 // UPDATE while reading from another transactional table. Multiple transactional could interfere with ConnectorMetadata.beginQuery
                 onTrino().executeQuery(format("UPDATE %s SET column2 = 'another row updated' WHERE column1 = (SELECT min(regionkey) + 2 FROM %s)", tableName, secondTable));
@@ -1455,7 +1456,8 @@ public class TestHiveTransactionalTable
             verifySelectForTrinoAndHive("SELECT * FROM " + tableName, "true", row(1, "MIDDLE EAST"), row(2, "MIDDLE EAST"));
 
             withTemporaryTable("second_table", true, false, NONE, secondTable -> {
-                onTrino().executeQuery(format("CREATE TABLE %s WITH (transactional = true) AS TABLE tpch.tiny.region", secondTable));
+                onTrino().executeQuery(format("CREATE TABLE %s (regionkey bigint, name varchar(25), comment varchar(152)) WITH (transactional = true)", secondTable));
+                onTrino().executeQuery(format("INSERT INTO %s SELECT * FROM tpch.tiny.region", secondTable));
 
                 // UPDATE while reading from another transactional table. Multiple transactional could interfere with ConnectorMetadata.beginQuery
                 onTrino().executeQuery(format("UPDATE %s SET column2 = (SELECT min(name) FROM %s)", tableName, secondTable));
@@ -1663,12 +1665,15 @@ public class TestHiveTransactionalTable
             // being split into pages, this test won't detect issues arising
             // from row numbering across pages, which is its original purpose.
             onTrino().executeQuery(format(
-                    "CREATE TABLE %s\n"
-                            + "WITH (transactional = true)\n"
-                            + "AS SELECT *\n"
-                            + "FROM tpch.tiny.supplier\n"
-                            + "WITH NO DATA",
-                    tableName));
+                    "CREATE TABLE %s (" +
+                            "  suppkey bigint," +
+                            "  name varchar(25)," +
+                            "  address varchar(40)," +
+                            "  nationkey bigint," +
+                            "  phone varchar(15)," +
+                            "  acctbal double," +
+                            "  comment varchar(101))" +
+                            "WITH (transactional = true)", tableName));
             onTrino().executeQuery(format("INSERT INTO %s select * from tpch.tiny.supplier", tableName));
 
             int supplierRows = 100;
