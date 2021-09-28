@@ -22,6 +22,7 @@ import io.trino.execution.MockRemoteTaskFactory.MockRemoteTask;
 import io.trino.execution.scheduler.SplitSchedulerStats;
 import io.trino.failuredetector.NoOpFailureDetector;
 import io.trino.metadata.InternalNode;
+import io.trino.operator.RetryPolicy;
 import io.trino.server.DynamicFilterService;
 import io.trino.spi.QueryId;
 import io.trino.spi.type.Type;
@@ -203,7 +204,8 @@ public class TestSqlStageExecution
                 ImmutableList.of(new PlanFragmentId("source")),
                 ImmutableList.of(new Symbol("column")),
                 Optional.empty(),
-                REPARTITION);
+                REPARTITION,
+                RetryPolicy.NONE);
 
         ImmutableMap.Builder<Symbol, Type> types = ImmutableMap.builder();
         for (Symbol symbol : planNode.getOutputSymbols()) {
