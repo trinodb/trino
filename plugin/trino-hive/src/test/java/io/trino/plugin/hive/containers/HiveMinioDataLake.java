@@ -100,9 +100,6 @@ public class HiveMinioDataLake
 
     public void stop()
     {
-        if (!isStarted()) {
-            return;
-        }
         try {
             closer.close();
         }
