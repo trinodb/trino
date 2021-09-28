@@ -59,6 +59,11 @@ public class RowBlock
             for (int position = 0; position < positionCount; position++) {
                 fieldBlockOffsets[position + 1] = fieldBlockOffsets[position] + (rowIsNull[position] ? 0 : 1);
             }
+            // fieldBlockOffsets is positionCount + 1 in length
+            if (fieldBlockOffsets[positionCount] == positionCount) {
+                // No nulls encountered, discard the null mask
+                rowIsNull = null;
+            }
         }
 
         validateConstructorArguments(0, positionCount, rowIsNull, fieldBlockOffsets, fieldBlocks);
