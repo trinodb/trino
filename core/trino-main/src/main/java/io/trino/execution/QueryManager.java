@@ -37,6 +37,11 @@ public interface QueryManager
             throws NoSuchElementException;
 
     /**
+     * Notify that one of the output tasks failed for a given query
+     */
+    void outputTaskFailed(TaskId taskId, Throwable failure);
+
+    /**
      * Add a listener that fires each time the query state changes.
      * Listener is always notified asynchronously using a dedicated notification thread pool so, care should
      * be taken to avoid leaking {@code this} when adding a listener in a constructor. Additionally, it is

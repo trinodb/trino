@@ -19,6 +19,7 @@ import io.airlift.http.client.HttpClient;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.FeaturesConfig.DataIntegrityVerification;
+import io.trino.execution.TaskFailureListener;
 import io.trino.execution.TaskId;
 import io.trino.execution.buffer.SerializedPage;
 import io.trino.memory.context.LocalMemoryContext;
@@ -78,6 +79,7 @@ public class ExchangeClient
 
     private final LocalMemoryContext systemMemoryContext;
     private final Executor pageBufferClientCallbackExecutor;
+    private final TaskFailureListener taskFailureListener;
 
     // ExchangeClientStatus.mergeWith assumes all clients have the same bufferCapacity.
     // Please change that method accordingly when this assumption becomes not true.
@@ -92,7 +94,8 @@ public class ExchangeClient
             HttpClient httpClient,
             ScheduledExecutorService scheduler,
             LocalMemoryContext systemMemoryContext,
-            Executor pageBufferClientCallbackExecutor)
+            Executor pageBufferClientCallbackExecutor,
+            TaskFailureListener taskFailureListener)
     {
         this.selfAddress = requireNonNull(selfAddress, "selfAddress is null");
         this.dataIntegrityVerification = requireNonNull(dataIntegrityVerification, "dataIntegrityVerification is null");
@@ -105,6 +108,7 @@ public class ExchangeClient
         this.scheduler = scheduler;
         this.systemMemoryContext = systemMemoryContext;
         this.pageBufferClientCallbackExecutor = requireNonNull(pageBufferClientCallbackExecutor, "pageBufferClientCallbackExecutor is null");
+        this.taskFailureListener = requireNonNull(taskFailureListener, "taskFailureListener is null");
     }
 
     public ExchangeClientStatus getStatus()
@@ -320,6 +324,7 @@ public class ExchangeClient
         requireNonNull(client, "client is null");
         if (completedClients.add(client)) {
             buffer.taskFailed(client.getRemoteTaskId(), cause);
+            scheduler.execute(() -> taskFailureListener.onTaskFailed(client.getRemoteTaskId(), cause));
             closeQuietly(client);
         }
         scheduleRequestIfNecessary();

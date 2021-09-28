@@ -24,8 +24,6 @@ import io.trino.Session;
 import io.trino.client.ProtocolHeaders;
 import io.trino.client.QueryResults;
 import io.trino.execution.QueryManager;
-import io.trino.memory.context.SimpleLocalMemoryContext;
-import io.trino.operator.ExchangeClient;
 import io.trino.operator.ExchangeClientSupplier;
 import io.trino.server.ForStatementResource;
 import io.trino.server.ServerConfig;
@@ -61,7 +59,6 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.jaxrs.AsyncResponseHandler.bindAsyncResponse;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.server.protocol.Slug.Context.EXECUTING_QUERY;
 import static io.trino.server.security.ResourceSecurity.AccessType.PUBLIC;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -181,18 +178,15 @@ public class ExecutingStatementResource
             throw queryNotFound();
         }
 
-        query = queries.computeIfAbsent(queryId, id -> {
-            ExchangeClient exchangeClient = exchangeClientSupplier.get(new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), ExecutingStatementResource.class.getSimpleName()));
-            return Query.create(
-                    session,
-                    querySlug,
-                    queryManager,
-                    queryInfoUrlFactory.getQueryInfoUrl(queryId),
-                    exchangeClient,
-                    responseExecutor,
-                    timeoutExecutor,
-                    blockEncodingSerde);
-        });
+        query = queries.computeIfAbsent(queryId, id -> Query.create(
+                session,
+                querySlug,
+                queryManager,
+                queryInfoUrlFactory.getQueryInfoUrl(queryId),
+                exchangeClientSupplier,
+                responseExecutor,
+                timeoutExecutor,
+                blockEncodingSerde));
         return query;
     }
 
