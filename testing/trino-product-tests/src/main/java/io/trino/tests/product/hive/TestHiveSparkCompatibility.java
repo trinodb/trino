@@ -187,6 +187,50 @@ public class TestHiveSparkCompatibility
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
 
+    @Test(groups = {HIVE_SPARK, PROFILE_SPECIFIC_TESTS}, dataProvider = "sparkParquetTimestampFormats")
+    public void testSparkParquetTimestampCompatibility(String sparkTimestampFormat, String sparkTimestamp, String[] expectedValues)
+    {
+        String sparkTableName = "test_spark_parquet_timestamp_compatibility_" + sparkTimestampFormat.toLowerCase(ENGLISH) + "_" + randomTableSuffix();
+        String trinoTableName = format("%s.default.%s", TRINO_CATALOG, sparkTableName);
+
+        onSpark().executeQuery("SET spark.sql.parquet.outputTimestampType = " + sparkTimestampFormat);
+        onSpark().executeQuery(
+                "CREATE TABLE default." + sparkTableName + "(a_timestamp timestamp) " +
+                        "USING PARQUET " +
+                        "TBLPROPERTIES ('transactional'='false')");
+
+        onSpark().executeQuery("INSERT INTO " + sparkTableName + " VALUES (TIMESTAMP '" + sparkTimestamp + "')");
+
+        for (int i = 0; i < HIVE_TIMESTAMP_PRECISIONS.length; i++) {
+            String trinoTimestampPrecision = HIVE_TIMESTAMP_PRECISIONS[i];
+            String expected = expectedValues[i];
+            onTrino().executeQuery("SET SESSION hive.timestamp_precision = '" + trinoTimestampPrecision + "'");
+            assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).containsOnly(row(java.sql.Timestamp.valueOf(expected)));
+            assertThat(onTrino().executeQuery("SELECT count(*) FROM " + trinoTableName + " WHERE a_timestamp = TIMESTAMP '" + expected + "'")).containsOnly(row(1));
+            assertThat(onTrino().executeQuery("SELECT count(*) FROM " + trinoTableName + " WHERE a_timestamp != TIMESTAMP '" + expected + "'")).containsOnly(row(0));
+        }
+
+        onSpark().executeQuery("DROP TABLE " + sparkTableName);
+    }
+
+    private static final String[] HIVE_TIMESTAMP_PRECISIONS = new String[]{"MILLISECONDS", "MICROSECONDS", "NANOSECONDS"};
+
+    @DataProvider
+    public static Object[][] sparkParquetTimestampFormats()
+    {
+        String millisTimestamp = "2005-09-10 13:00:00.123";
+        String microsTimestamp = "2005-09-10 13:00:00.123456";
+        String nanosTimestamp = "2005-09-10 13:00:00.123456789";
+
+        // Ordering of expected values matches the ordering in HIVE_TIMESTAMP_PRECISIONS
+        return new Object[][] {
+                {"TIMESTAMP_MILLIS", millisTimestamp, new String[]{millisTimestamp, millisTimestamp, millisTimestamp}},
+                {"TIMESTAMP_MICROS", microsTimestamp, new String[]{millisTimestamp, microsTimestamp, microsTimestamp}},
+                // note that Spark timestamp has microsecond precision
+                {"INT96", nanosTimestamp, new String[]{millisTimestamp, microsTimestamp, microsTimestamp}},
+        };
+    }
+
     @DataProvider
     public static Object[][] testReadSparkCreatedTableDataProvider()
     {
