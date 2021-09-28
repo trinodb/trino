@@ -26,6 +26,7 @@ import io.trino.testing.datatype.CreateAsSelectDataSetup;
 import io.trino.testing.datatype.DataSetup;
 import io.trino.testing.datatype.DataType;
 import io.trino.testing.datatype.DataTypeTest;
+import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
@@ -53,6 +54,7 @@ import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.plugin.memsql.MemSqlClient.MEMSQL_VARCHAR_MAX_LENGTH;
 import static io.trino.plugin.memsql.MemSqlQueryRunner.createMemSqlQueryRunner;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -60,6 +62,8 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
+import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.datatype.DataType.bigintDataType;
@@ -113,6 +117,27 @@ public class TestMemSqlTypeMapping
                 .addRoundTrip(doubleDataType(), 123.45d)
                 .addRoundTrip(realDataType(), 123.45f)
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_basic_types"));
+    }
+
+    @Test
+    public void testBit()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("bit", "b'1'", BOOLEAN, "true")
+                .addRoundTrip("bit", "b'0'", BOOLEAN, "false")
+                .addRoundTrip("bit", "NULL", BOOLEAN, "CAST(NULL AS BOOLEAN)")
+                .execute(getQueryRunner(), memSqlCreateAndInsert("tpch.test_bit"));
+    }
+
+    @Test
+    public void testBoolean()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("boolean", "true", TINYINT, "TINYINT '1'")
+                .addRoundTrip("boolean", "false", TINYINT, "TINYINT '0'")
+                .addRoundTrip("boolean", "NULL", TINYINT, "CAST(NULL AS TINYINT)")
+                .execute(getQueryRunner(), memSqlCreateAndInsert("tpch.test_boolean"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("tpch.test_boolean"));
     }
 
     @Test
@@ -455,6 +480,54 @@ public class TestMemSqlTypeMapping
                 .addRoundTrip(varcharDataType(32, CHARACTER_SET_UTF8), sampleUnicodeText)
                 .addRoundTrip(varcharDataType(20000, CHARACTER_SET_UTF8), sampleUnicodeText)
                 .execute(getQueryRunner(), memSqlCreateAndInsert("tpch.memsql_test_parameterized_varchar_unicode"));
+    }
+
+    @Test
+    public void testVarbinary()
+    {
+        varbinaryTestCases("varbinary(50)")
+                .execute(getQueryRunner(), memSqlCreateAndInsert("tpch.test_varbinary"));
+
+        varbinaryTestCases("tinyblob")
+                .execute(getQueryRunner(), memSqlCreateAndInsert("tpch.test_varbinary"));
+
+        varbinaryTestCases("blob")
+                .execute(getQueryRunner(), memSqlCreateAndInsert("tpch.test_varbinary"));
+
+        varbinaryTestCases("mediumblob")
+                .execute(getQueryRunner(), memSqlCreateAndInsert("tpch.test_varbinary"));
+
+        varbinaryTestCases("longblob")
+                .execute(getQueryRunner(), memSqlCreateAndInsert("tpch.test_varbinary"));
+
+        varbinaryTestCases("varbinary")
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_varbinary"));
+    }
+
+    private SqlDataTypeTest varbinaryTestCases(String insertType)
+    {
+        return SqlDataTypeTest.create()
+                .addRoundTrip(insertType, "NULL", VARBINARY, "CAST(NULL AS varbinary)")
+                .addRoundTrip(insertType, "X''", VARBINARY, "X''")
+                .addRoundTrip(insertType, "X'68656C6C6F'", VARBINARY, "to_utf8('hello')")
+                .addRoundTrip(insertType, "X'5069C4996B6E6120C582C4856B61207720E69DB1E4BAACE983BD'", VARBINARY, "to_utf8('Piękna łąka w 東京都')")
+                .addRoundTrip(insertType, "X'4261672066756C6C206F6620F09F92B0'", VARBINARY, "to_utf8('Bag full of 💰')")
+                .addRoundTrip(insertType, "X'0001020304050607080DF9367AA7000000'", VARBINARY, "X'0001020304050607080DF9367AA7000000'") // non-text
+                .addRoundTrip(insertType, "X'000000000000'", VARBINARY, "X'000000000000'");
+    }
+
+    @Test
+    public void testBinary()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("binary(18)", "NULL", VARBINARY, "CAST(NULL AS varbinary)")
+                .addRoundTrip("binary(18)", "X''", VARBINARY, "X'000000000000000000000000000000000000'")
+                .addRoundTrip("binary(18)", "X'68656C6C6F'", VARBINARY, "to_utf8('hello') || X'00000000000000000000000000'")
+                .addRoundTrip("binary(18)", "X'C582C4856B61207720E69DB1E4BAACE983BD'", VARBINARY, "to_utf8('łąka w 東京都')") // no trailing zeros
+                .addRoundTrip("binary(18)", "X'4261672066756C6C206F6620F09F92B0'", VARBINARY, "to_utf8('Bag full of 💰') || X'0000'")
+                .addRoundTrip("binary(18)", "X'0001020304050607080DF9367AA7000000'", VARBINARY, "X'0001020304050607080DF9367AA700000000'") // non-text prefix
+                .addRoundTrip("binary(18)", "X'000000000000'", VARBINARY, "X'000000000000000000000000000000000000'")
+                .execute(getQueryRunner(), memSqlCreateAndInsert("tpch.test_binary"));
     }
 
     @Test
