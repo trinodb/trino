@@ -23,6 +23,7 @@ import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.RichColumnDescriptor;
 import io.trino.parquet.dictionary.Dictionary;
+import io.trino.plugin.base.type.TrinoTimestampEncoder;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
@@ -41,6 +42,8 @@ import org.apache.parquet.hadoop.metadata.ColumnPath;
 import org.apache.parquet.internal.column.columnindex.ColumnIndex;
 import org.apache.parquet.internal.filter2.columnindex.ColumnIndexStore;
 import org.apache.parquet.io.api.Binary;
+import org.apache.parquet.schema.LogicalTypeAnnotation;
+import org.apache.parquet.schema.LogicalTypeAnnotation.TimestampLogicalTypeAnnotation;
 import org.apache.parquet.schema.PrimitiveType;
 import org.joda.time.DateTimeZone;
 
@@ -53,7 +56,8 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.parquet.ParquetTimestampUtils.decode;
+import static io.trino.parquet.ParquetTimestampUtils.decodeInt64Timestamp;
+import static io.trino.parquet.ParquetTimestampUtils.decodeInt96Timestamp;
 import static io.trino.parquet.ParquetTypeUtils.getLongDecimalValue;
 import static io.trino.parquet.ParquetTypeUtils.getShortDecimalValue;
 import static io.trino.parquet.predicate.PredicateUtils.isStatisticsOverflow;
@@ -70,6 +74,8 @@ import static java.lang.Float.floatToRawIntBits;
 import static java.lang.String.format;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static java.util.Objects.requireNonNull;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT96;
 
 public class TupleDomainParquetPredicate
         implements Predicate
@@ -341,22 +347,53 @@ public class TupleDomainParquetPredicate
         }
 
         if (type instanceof TimestampType) {
-            List<Object> values = new ArrayList<>();
-            for (int i = 0; i < minimums.size(); i++) {
-                Object min = minimums.get(i);
-                Object max = maximums.get(i);
+            if (column.getPrimitiveType().getPrimitiveTypeName().equals(INT96)) {
+                TrinoTimestampEncoder<?> timestampEncoder = createTimestampEncoder((TimestampType) type, timeZone);
+                List<Object> values = new ArrayList<>();
+                for (int i = 0; i < minimums.size(); i++) {
+                    Object min = minimums.get(i);
+                    Object max = maximums.get(i);
 
-                // Parquet INT96 timestamp values were compared incorrectly for the purposes of producing statistics by older parquet writers, so
-                // PARQUET-1065 deprecated them. The result is that any writer that produced stats was producing unusable incorrect values, except
-                // the special case where min == max and an incorrect ordering would not be material to the result. PARQUET-1026 made binary stats
-                // available and valid in that special case
-                if (!(min instanceof Binary) || !(max instanceof Binary) || !min.equals(max)) {
+                    // Parquet INT96 timestamp values were compared incorrectly for the purposes of producing statistics by older parquet writers, so
+                    // PARQUET-1065 deprecated them. The result is that any writer that produced stats was producing unusable incorrect values, except
+                    // the special case where min == max and an incorrect ordering would not be material to the result. PARQUET-1026 made binary stats
+                    // available and valid in that special case
+                    if (!(min instanceof Binary) || !(max instanceof Binary) || !min.equals(max)) {
+                        return Domain.create(ValueSet.all(type), hasNullValue);
+                    }
+
+                    values.add(timestampEncoder.getTimestamp(decodeInt96Timestamp((Binary) min)));
+                }
+                return Domain.multipleValues(type, values, hasNullValue);
+            }
+            if (column.getPrimitiveType().getPrimitiveTypeName().equals(INT64)) {
+                LogicalTypeAnnotation logicalTypeAnnotation = column.getPrimitiveType().getLogicalTypeAnnotation();
+                if (!(logicalTypeAnnotation instanceof TimestampLogicalTypeAnnotation)) {
+                    // Invalid statistics. Unit and UTC adjustment are not known
                     return Domain.create(ValueSet.all(type), hasNullValue);
                 }
 
-                values.add(createTimestampEncoder((TimestampType) type, timeZone).getTimestamp(decode((Binary) min)));
+                TimestampLogicalTypeAnnotation timestampTypeAnnotation = (TimestampLogicalTypeAnnotation) logicalTypeAnnotation;
+                // Bail out if the precision is not known
+                if (timestampTypeAnnotation.getUnit() == null) {
+                    return Domain.create(ValueSet.all(type), hasNullValue);
+                }
+                TrinoTimestampEncoder<?> timestampEncoder = createTimestampEncoder((TimestampType) type, DateTimeZone.UTC);
+
+                List<Range> ranges = new ArrayList<>();
+                for (int i = 0; i < minimums.size(); i++) {
+                    long min = (long) minimums.get(i);
+                    long max = (long) maximums.get(i);
+
+                    ranges.add(Range.range(
+                            type,
+                            timestampEncoder.getTimestamp(decodeInt64Timestamp(min, timestampTypeAnnotation.getUnit())),
+                            true,
+                            timestampEncoder.getTimestamp(decodeInt64Timestamp(max, timestampTypeAnnotation.getUnit())),
+                            true));
+                }
+                return Domain.create(ValueSet.ofRanges(ranges), hasNullValue);
             }
-            return Domain.multipleValues(type, values, hasNullValue);
         }
 
         return Domain.create(ValueSet.all(type), hasNullValue);
