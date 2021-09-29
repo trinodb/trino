@@ -571,9 +571,9 @@ public abstract class AbstractTestDistributedQueries
         String tableName = "test_insert_unicode_" + randomTableSuffix();
 
         assertUpdate("CREATE TABLE " + tableName + "(test varchar(50))");
-        assertUpdate("INSERT INTO " + tableName + "(test) VALUES 'Hello', U&'hello\\6d4B\\8Bd5\\+10FFFFworld\\7F16\\7801' ", 2);
+        assertUpdate("INSERT INTO " + tableName + "(test) VALUES 'Hello', U&'hello\\6d4B\\8Bd5world\\7F16\\7801' ", 2);
         assertThat(computeActual("SELECT test FROM " + tableName).getOnlyColumnAsSet())
-                .containsExactlyInAnyOrder("Hello", "hello测试􏿿world编码");
+                .containsExactlyInAnyOrder("Hello", "hello测试world编码");
         assertUpdate("DROP TABLE " + tableName);
 
         assertUpdate("CREATE TABLE " + tableName + "(test varchar(50))");
@@ -592,6 +592,20 @@ public abstract class AbstractTestDistributedQueries
         assertQuery("SELECT test FROM " + tableName + " WHERE test > 'b'", "VALUES 'é'");
         assertQuery("SELECT test FROM " + tableName + " WHERE test < 'b'", "VALUES 'a'");
         assertQueryReturnsEmptyResult("SELECT test FROM " + tableName + " WHERE test = 'b'");
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testInsertHighestUnicode()
+    {
+        skipTestUnless(supportsInsert());
+
+        String tableName = "test_insert_unicode_" + randomTableSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + "(test varchar(50))");
+        assertUpdate("INSERT INTO " + tableName + "(test) VALUES 'Hello', U&'hello\\6d4B\\8Bd5\\+10FFFFworld\\7F16\\7801' ", 2);
+        assertThat(computeActual("SELECT test FROM " + tableName).getOnlyColumnAsSet())
+                .containsExactlyInAnyOrder("Hello", "hello测试􏿿world编码");
         assertUpdate("DROP TABLE " + tableName);
     }
 
