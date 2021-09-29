@@ -25,6 +25,7 @@ import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Type;
 
 import javax.inject.Inject;
@@ -32,10 +33,30 @@ import javax.inject.Inject;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.sql.Types;
 import java.util.Optional;
 import java.util.function.BiFunction;
 
+import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.booleanColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.dateColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.decimalColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.defaultCharColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.defaultVarcharColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.doubleColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.integerColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.realColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.timeColumnMappingUsingSqlTime;
+import static io.trino.plugin.jdbc.StandardColumnMappings.timestampColumnMappingUsingSqlTimestampWithRounding;
+import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryColumnMapping;
+import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
+import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static java.lang.Math.max;
 import static java.lang.String.format;
 
 public class RedshiftClient
@@ -77,8 +98,18 @@ public class RedshiftClient
     @Override
     public Optional<ColumnMapping> toColumnMapping(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
-        // TODO implement proper type mapping
-        return legacyColumnMapping(session, connection, typeHandle);
+        Optional<ColumnMapping> mapping = getForcedMappingToVarchar(typeHandle);
+        if (mapping.isPresent()) {
+            return mapping;
+        }
+        Optional<ColumnMapping> connectorMapping = legacyDefaultColumnMapping(typeHandle);
+        if (connectorMapping.isPresent()) {
+            return connectorMapping;
+        }
+        if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
+            return mapToUnboundedVarchar(typeHandle);
+        }
+        return Optional.empty();
     }
 
     @Override
@@ -109,5 +140,71 @@ public class RedshiftClient
                 quoted(column.getColumnName()),
                 comment.isPresent() ? format("'%s'", comment.get()) : "NULL");
         execute(session, sql);
+    }
+
+    private static Optional<ColumnMapping> legacyDefaultColumnMapping(JdbcTypeHandle typeHandle)
+    {
+        // TODO (https://github.com/trinodb/trino/issues/497) Implement proper type mapping and add test
+        // This method is copied from deprecated StandardColumnMappings.legacyDefaultColumnMapping()
+        switch (typeHandle.getJdbcType()) {
+            case Types.BIT:
+            case Types.BOOLEAN:
+                return Optional.of(booleanColumnMapping());
+
+            case Types.TINYINT:
+                return Optional.of(tinyintColumnMapping());
+
+            case Types.SMALLINT:
+                return Optional.of(smallintColumnMapping());
+
+            case Types.INTEGER:
+                return Optional.of(integerColumnMapping());
+
+            case Types.BIGINT:
+                return Optional.of(bigintColumnMapping());
+
+            case Types.REAL:
+                return Optional.of(realColumnMapping());
+
+            case Types.FLOAT:
+            case Types.DOUBLE:
+                return Optional.of(doubleColumnMapping());
+
+            case Types.NUMERIC:
+            case Types.DECIMAL:
+                int decimalDigits = typeHandle.getRequiredDecimalDigits();
+                int precision = typeHandle.getRequiredColumnSize() + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
+                if (precision > Decimals.MAX_PRECISION) {
+                    return Optional.empty();
+                }
+                return Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0))));
+
+            case Types.CHAR:
+            case Types.NCHAR:
+                return Optional.of(defaultCharColumnMapping(typeHandle.getRequiredColumnSize(), false));
+
+            case Types.VARCHAR:
+            case Types.NVARCHAR:
+            case Types.LONGVARCHAR:
+            case Types.LONGNVARCHAR:
+                return Optional.of(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize(), false));
+
+            case Types.BINARY:
+            case Types.VARBINARY:
+            case Types.LONGVARBINARY:
+                return Optional.of(varbinaryColumnMapping());
+
+            case Types.DATE:
+                return Optional.of(dateColumnMapping());
+
+            case Types.TIME:
+                // TODO default to `timeColumnMapping`
+                return Optional.of(timeColumnMappingUsingSqlTime());
+
+            case Types.TIMESTAMP:
+                // TODO default to `timestampColumnMapping`
+                return Optional.of(timestampColumnMappingUsingSqlTimestampWithRounding(TIMESTAMP_MILLIS));
+        }
+        return Optional.empty();
     }
 }
