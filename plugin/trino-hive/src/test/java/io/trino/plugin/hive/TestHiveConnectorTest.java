@@ -2987,6 +2987,13 @@ public class TestHiveConnectorTest
 
     @Test
     @Override
+    public void testInsertHighestUnicodeCharacter()
+    {
+        throw new SkipException("Covered by testInsertUnicode");
+    }
+
+    @Test
+    @Override
     public void testInsertUnicode()
     {
         testWithAllStorageFormats(this::testInsertUnicode);
@@ -2997,6 +3004,7 @@ public class TestHiveConnectorTest
         assertUpdate(session, "DROP TABLE IF EXISTS test_insert_unicode");
         assertUpdate(session, "CREATE TABLE test_insert_unicode(test varchar) WITH (format = '" + storageFormat + "')");
 
+        // Test with U+10FFF to cover testInsertHighestUnicodeCharacter
         assertUpdate("INSERT INTO test_insert_unicode(test) VALUES 'Hello', U&'hello\\6d4B\\8Bd5\\+10FFFFworld\\7F16\\7801' ", 2);
         assertThat(computeActual("SELECT test FROM test_insert_unicode").getOnlyColumnAsSet())
                 .containsExactlyInAnyOrder("Hello", "hello测试􏿿world编码");
