@@ -61,6 +61,6 @@ public class LocalPartitionGenerator
     private static int processRawHash(long rawHash)
     {
         // mix the bits so we don't use the same hash used to distribute between stages
-        return (int) XxHash64.hash(Long.reverse(rawHash));
+        return (int) XxHash64.hash(rawHash);
     }
 }
