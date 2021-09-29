@@ -1021,7 +1021,7 @@ public abstract class BaseJdbcConnectorTest
         PlanMatchPattern partitionedJoinOverTableScans = node(JoinNode.class,
                 exchange(ExchangeNode.Scope.REMOTE, ExchangeNode.Type.REPARTITION,
                         node(TableScanNode.class)),
-                exchange(ExchangeNode.Scope.LOCAL, ExchangeNode.Type.REPARTITION,
+                exchange(ExchangeNode.Scope.LOCAL,
                         exchange(ExchangeNode.Scope.REMOTE, ExchangeNode.Type.REPARTITION,
                                 node(TableScanNode.class))));
 
@@ -1058,7 +1058,7 @@ public abstract class BaseJdbcConnectorTest
         PlanMatchPattern broadcastJoinOverTableScans =
                 node(JoinNode.class,
                         node(TableScanNode.class),
-                        exchange(ExchangeNode.Scope.LOCAL, ExchangeNode.Type.GATHER,
+                        exchange(ExchangeNode.Scope.LOCAL,
                                 exchange(ExchangeNode.Scope.REMOTE, ExchangeNode.Type.REPLICATE,
                                         node(TableScanNode.class))));
 
