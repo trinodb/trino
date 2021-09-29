@@ -3046,12 +3046,6 @@ public class TestHiveConnectorTest
     @Test
     public void testPartitionPerScanLimit()
     {
-        TestingHiveStorageFormat storageFormat = new TestingHiveStorageFormat(getSession(), HiveStorageFormat.ORC);
-        testWithStorageFormat(storageFormat, this::testPartitionPerScanLimit);
-    }
-
-    private void testPartitionPerScanLimit(Session session, HiveStorageFormat storageFormat)
-    {
         String tableName = "test_partition_per_scan_limit";
         String partitionsTable = "\"" + tableName + "$partitions\"";
 
@@ -3062,14 +3056,12 @@ public class TestHiveConnectorTest
                 "  part BIGINT" +
                 ") " +
                 "WITH (" +
-                "format = '" + storageFormat + "', " +
                 "partitioned_by = ARRAY[ 'part' ]" +
                 ") ";
 
-        assertUpdate(session, createTable);
+        assertUpdate(createTable);
 
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, tableName);
-        assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
         assertEquals(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY), ImmutableList.of("part"));
 
         // insert 1200 partitions
@@ -3082,22 +3074,19 @@ public class TestHiveConnectorTest
                     "SELECT 'bar' foo, part " +
                     "FROM UNNEST(SEQUENCE(" + partStart + ", " + partEnd + ")) AS TMP(part)";
 
-            assertUpdate(session, insertPartitions, 100);
+            assertUpdate(insertPartitions, 100);
         }
 
         // we are not constrained by hive.max-partitions-per-scan when listing partitions
         assertQuery(
-                session,
                 "SELECT * FROM " + partitionsTable + " WHERE part > 490 AND part <= 500",
                 "VALUES 491, 492, 493, 494, 495, 496, 497, 498, 499, 500");
 
         assertQuery(
-                session,
                 "SELECT * FROM " + partitionsTable + " WHERE part < 0",
                 "SELECT null WHERE false");
 
         assertQuery(
-                session,
                 "SELECT * FROM " + partitionsTable,
                 "VALUES " + LongStream.range(0, 1200)
                         .mapToObj(String::valueOf)
@@ -3105,31 +3094,25 @@ public class TestHiveConnectorTest
 
         // verify can query 1000 partitions
         assertQuery(
-                session,
                 "SELECT count(foo) FROM " + tableName + " WHERE part < 1000",
                 "SELECT 1000");
 
         // verify the rest 200 partitions are successfully inserted
         assertQuery(
-                session,
                 "SELECT count(foo) FROM " + tableName + " WHERE part >= 1000 AND part < 1200",
                 "SELECT 200");
 
         // verify cannot query more than 1000 partitions
         assertQueryFails(
-                session,
                 "SELECT * FROM " + tableName + " WHERE part < 1001",
                 format("Query over table 'tpch.%s' can potentially read more than 1000 partitions", tableName));
 
         // verify cannot query all partitions
         assertQueryFails(
-                session,
                 "SELECT * FROM " + tableName,
                 format("Query over table 'tpch.%s' can potentially read more than 1000 partitions", tableName));
 
-        assertUpdate(session, "DROP TABLE " + tableName);
-
-        assertFalse(getQueryRunner().tableExists(session, tableName));
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
