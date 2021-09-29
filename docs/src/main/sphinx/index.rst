@@ -12,7 +12,6 @@ Trino documentation
     admin
     optimizer
     connector
-    eventlistener
     functions
     language
     sql

@@ -15,3 +15,4 @@ Administration
     admin/dist-sort
     admin/dynamic-filtering
     admin/graceful-shutdown
+    admin/event-listeners
