@@ -119,6 +119,13 @@ public class TestKuduDistributedQueries
     }
 
     @Override
+    public void testInsertHighestUnicodeCharacter()
+    {
+        // TODO Support these test once kudu connector can create tables with default partitions
+        throw new SkipException("TODO");
+    }
+
+    @Override
     public void testDropNonEmptySchema()
     {
         // TODO Support these test once kudu connector can create tables with default partitions
