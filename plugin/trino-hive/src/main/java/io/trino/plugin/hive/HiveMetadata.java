@@ -2520,6 +2520,16 @@ public class HiveMetadata
         HiveTableHandle handle = (HiveTableHandle) tableHandle;
         checkArgument(handle.getAnalyzePartitionValues().isEmpty() || constraint.getSummary().isAll(), "Analyze should not have a constraint");
 
+        if (!canPredicateFilterPartitions(constraint) && !constraint.getSummary().isNone() && handle.getPartitions().isEmpty()) {
+            // Find a partition column that is constraint more strictly than with `IS NOT NULL` predicate
+            if (constraint.getSummary().getDomains().orElseThrow().entrySet().stream()
+                    .noneMatch(entry -> ((HiveColumnHandle) entry.getKey()).isPartitionKey() && !entry.getValue().getValues().isAll())) {
+                // No partition column is constrained more strictly than with `IS NOT NULL` predicate, so the filter won't filter out much.
+                // The partitions are not loaded yet. Defer loading partitions until more strict constraint is determined.
+                return Optional.empty();
+            }
+        }
+
         HivePartitionResult partitionResult = partitionManager.getPartitions(metastore, new HiveIdentity(session), handle, constraint);
         HiveTableHandle newHandle = partitionManager.applyPartitionResult(handle, partitionResult, constraint.getPredicateColumns());
 
@@ -2531,6 +2541,21 @@ public class HiveMetadata
         }
 
         return Optional.of(new ConstraintApplicationResult<>(newHandle, partitionResult.getUnenforcedConstraint(), false));
+    }
+
+    private static boolean canPredicateFilterPartitions(Constraint constraint)
+    {
+        if (constraint.predicate().isEmpty()) {
+            // No predicate
+            return false;
+        }
+        if (constraint.getPredicateColumns().isEmpty()) {
+            // No column information, so maybe
+            return true;
+        }
+        return constraint.getPredicateColumns().orElseThrow().stream()
+                .map(HiveColumnHandle.class::cast)
+                .anyMatch(HiveColumnHandle::isPartitionKey);
     }
 
     @Override

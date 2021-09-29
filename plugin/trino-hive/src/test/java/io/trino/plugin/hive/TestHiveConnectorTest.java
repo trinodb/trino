@@ -3102,6 +3102,9 @@ public class TestHiveConnectorTest
         assertQuery(
                 "SELECT * FROM " + tableName + " WHERE part % 400 = 3", // may be translated to Domain.all
                 "VALUES ('bar', 3), ('bar', 403), ('bar', 803)");
+        assertQuery(
+                "SELECT * FROM " + tableName + " WHERE part % 400 = 3 AND part IS NOT NULL",  // may be translated to Domain.all except nulls
+                "VALUES ('bar', 3), ('bar', 403), ('bar', 803)");
 
         // verify cannot query all partitions
         assertQueryFails(
@@ -3150,6 +3153,10 @@ public class TestHiveConnectorTest
                 .matches("VALUES (VARCHAR 'bar', BIGINT '3', BIGINT '3')");
         assertThat(query("SELECT * FROM " + tableName + " WHERE part1 % 400 = 3 AND part1 IS NOT NULL"))  // may be translated to Domain.all except nulls
                 .matches("VALUES (VARCHAR 'bar', BIGINT '3', BIGINT '3')");
+
+        // verify we can query with a predicate that is just NOT NULL
+        assertThat(query("SELECT count(*) FROM " + tableName + " WHERE part1 IS NOT NULL"))
+                .matches("VALUES BIGINT '10'");
 
         // we are not constrained by hive.max-partitions-per-scan (=1000) when listing partitions
         assertThat(query("SELECT * FROM " + partitionsTable))

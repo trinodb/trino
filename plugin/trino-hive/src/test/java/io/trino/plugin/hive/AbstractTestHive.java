@@ -4828,7 +4828,7 @@ public abstract class AbstractTestHive
     {
         return metadata.applyFilter(newSession(), tableHandle, constraint)
                 .map(ConstraintApplicationResult::getHandle)
-                .orElseThrow(AssertionError::new);
+                .orElse(tableHandle);
     }
 
     protected MaterializedResult readTable(
