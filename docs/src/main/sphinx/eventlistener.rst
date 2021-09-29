@@ -1,5 +1,5 @@
 ***************
-Event Listeners
+Event listeners
 ***************
 
 .. toctree::
