@@ -89,10 +89,12 @@ public class MockConnectorFactory
     private final BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorNewTableLayout>> getNewTableLayout;
     private final BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableProperties> getTableProperties;
     private final Supplier<Iterable<EventListener>> eventListeners;
-    private final ListRoleGrants roleGrants;
-    private final MockConnectorAccessControl accessControl;
     private final Function<SchemaTableName, List<List<?>>> data;
     private final Set<Procedure> procedures;
+
+    // access control
+    private final ListRoleGrants roleGrants;
+    private final MockConnectorAccessControl accessControl;
 
     private MockConnectorFactory(
             Function<ConnectorSession, List<String>> listSchemaNames,
@@ -115,10 +117,10 @@ public class MockConnectorFactory
             BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorNewTableLayout>> getNewTableLayout,
             BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableProperties> getTableProperties,
             Supplier<Iterable<EventListener>> eventListeners,
-            ListRoleGrants roleGrants,
-            MockConnectorAccessControl accessControl,
             Function<SchemaTableName, List<List<?>>> data,
-            Set<Procedure> procedures)
+            Set<Procedure> procedures,
+            ListRoleGrants roleGrants,
+            MockConnectorAccessControl accessControl)
     {
         this.listSchemaNames = requireNonNull(listSchemaNames, "listSchemaNames is null");
         this.listTables = requireNonNull(listTables, "listTables is null");
@@ -274,27 +276,23 @@ public class MockConnectorFactory
         private BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorNewTableLayout>> getNewTableLayout = defaultGetNewTableLayout();
         private BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableProperties> getTableProperties = defaultGetTableProperties();
         private Supplier<Iterable<EventListener>> eventListeners = ImmutableList::of;
-        private ListRoleGrants roleGrants = defaultRoleAuthorizations();
         private ApplyTopN applyTopN = (session, handle, topNCount, sortItems, assignments) -> Optional.empty();
-        private Grants<String> schemaGrants = new AllowAllGrants<>();
-        private Grants<SchemaTableName> tableGrants = new AllowAllGrants<>();
         private ApplyFilter applyFilter = (session, handle, constraint) -> Optional.empty();
         private ApplyTableScanRedirect applyTableScanRedirect = (session, handle) -> Optional.empty();
-        private Function<SchemaTableName, ViewExpression> rowFilter = (tableName) -> null;
-        private BiFunction<SchemaTableName, String, ViewExpression> columnMask = (tableName, columnName) -> null;
         private BiFunction<ConnectorSession, SchemaTableName, Optional<CatalogSchemaTableName>> redirectTable = (session, tableName) -> Optional.empty();
         private Function<SchemaTableName, List<List<?>>> data = schemaTableName -> ImmutableList.of();
         private Set<Procedure> procedures = ImmutableSet.of();
 
+        // access control
+        private ListRoleGrants roleGrants = defaultRoleAuthorizations();
+        private Grants<String> schemaGrants = new AllowAllGrants<>();
+        private Grants<SchemaTableName> tableGrants = new AllowAllGrants<>();
+        private Function<SchemaTableName, ViewExpression> rowFilter = (tableName) -> null;
+        private BiFunction<SchemaTableName, String, ViewExpression> columnMask = (tableName, columnName) -> null;
+
         public Builder withListSchemaNames(Function<ConnectorSession, List<String>> listSchemaNames)
         {
             this.listSchemaNames = requireNonNull(listSchemaNames, "listSchemaNames is null");
-            return this;
-        }
-
-        public Builder withListRoleGrants(ListRoleGrants roleGrants)
-        {
-            this.roleGrants = requireNonNull(roleGrants, "roleGrants is null");
             return this;
         }
 
@@ -422,6 +420,24 @@ public class MockConnectorFactory
             return this;
         }
 
+        public Builder withData(Function<SchemaTableName, List<List<?>>> data)
+        {
+            this.data = requireNonNull(data, "data is null");
+            return this;
+        }
+
+        public Builder withProcedures(Set<Procedure> procedures)
+        {
+            this.procedures = procedures;
+            return this;
+        }
+
+        public Builder withListRoleGrants(ListRoleGrants roleGrants)
+        {
+            this.roleGrants = requireNonNull(roleGrants, "roleGrants is null");
+            return this;
+        }
+
         public Builder withSchemaGrants(Grants<String> schemaGrants)
         {
             this.schemaGrants = schemaGrants;
@@ -443,18 +459,6 @@ public class MockConnectorFactory
         public Builder withColumnMask(BiFunction<SchemaTableName, String, ViewExpression> columnMask)
         {
             this.columnMask = columnMask;
-            return this;
-        }
-
-        public Builder withData(Function<SchemaTableName, List<List<?>>> data)
-        {
-            this.data = requireNonNull(data, "data is null");
-            return this;
-        }
-
-        public Builder withProcedures(Set<Procedure> procedures)
-        {
-            this.procedures = procedures;
             return this;
         }
 
@@ -481,10 +485,10 @@ public class MockConnectorFactory
                     getNewTableLayout,
                     getTableProperties,
                     eventListeners,
-                    roleGrants,
-                    new MockConnectorAccessControl(schemaGrants, tableGrants, rowFilter, columnMask),
                     data,
-                    procedures);
+                    procedures,
+                    roleGrants,
+                    new MockConnectorAccessControl(schemaGrants, tableGrants, rowFilter, columnMask));
         }
 
         public static Function<ConnectorSession, List<String>> defaultListSchemaNames()
