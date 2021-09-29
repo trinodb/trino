@@ -661,7 +661,8 @@ public abstract class AbstractTestDistributedQueries
     {
         skipTestUnlessSupportsDeletes();
 
-        String tableName = "test_delete_" + randomTableSuffix();
+        // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
+        String tableName = "test_delete_complex_" + randomTableSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders", "SELECT count(*) FROM orders");
 
         // delete half the table, then delete the rest
@@ -681,7 +682,8 @@ public abstract class AbstractTestDistributedQueries
     {
         skipTestUnlessSupportsDeletes();
 
-        String tableName = "test_delete_" + randomTableSuffix();
+        // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
+        String tableName = "test_delete_subquery" + randomTableSuffix();
 
         // delete using a subquery
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM nation", 25);
@@ -707,7 +709,8 @@ public abstract class AbstractTestDistributedQueries
     {
         skipTestUnlessSupportsDeletes();
 
-        String tableName = "test_delete_" + randomTableSuffix();
+        // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
+        String tableName = "test_delete_semijoin" + randomTableSuffix();
 
         // delete with multiple SemiJoin
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM nation", 25);
@@ -746,7 +749,7 @@ public abstract class AbstractTestDistributedQueries
     {
         skipTestUnlessSupportsDeletes();
 
-        String tableName = "test_delete_" + randomTableSuffix();
+        String tableName = "test_delete_with_varchar_predicate_" + randomTableSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders", "SELECT count(*) FROM orders");
 
         assertUpdate("DELETE FROM " + tableName + " WHERE orderstatus = 'O'", "SELECT count(*) FROM orders WHERE orderstatus = 'O'");
@@ -758,7 +761,7 @@ public abstract class AbstractTestDistributedQueries
     protected void skipTestUnlessSupportsDeletes()
     {
         skipTestUnless(supportsCreateTable());
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete", "(col varchar(1))", ImmutableList.of("'a'", "'A'"))) {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_supports_delete", "(col varchar(1))", ImmutableList.of("'a'", "'A'"))) {
             if (!supportsDelete()) {
                 assertQueryFails("DELETE FROM " + table.getName(), "This connector does not support deletes");
                 throw new SkipException("This connector does not support deletes");
