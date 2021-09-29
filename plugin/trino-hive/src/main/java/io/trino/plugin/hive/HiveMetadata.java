@@ -2461,12 +2461,13 @@ public class HiveMetadata
         HiveTableHandle hiveTable = (HiveTableHandle) table;
 
         List<ColumnHandle> partitionColumns = ImmutableList.copyOf(hiveTable.getPartitionColumns());
-        List<HivePartition> partitions = partitionManager.getOrLoadPartitions(metastore, new HiveIdentity(session), hiveTable);
 
-        TupleDomain<ColumnHandle> predicate = createPredicate(partitionColumns, partitions);
-
+        TupleDomain<ColumnHandle> predicate = TupleDomain.all();
         Optional<DiscretePredicates> discretePredicates = Optional.empty();
-        if (!partitionColumns.isEmpty()) {
+        if (!partitionColumns.isEmpty() && hiveTable.getPartitions().isPresent()) {
+            List<HivePartition> partitions = hiveTable.getPartitions().get();
+            predicate = createPredicate(partitionColumns, partitions);
+
             // Do not create tuple domains for every partition at the same time!
             // There can be a huge number of partitions so use an iterable so
             // all domains do not need to be in memory at the same time.

@@ -1238,16 +1238,7 @@ public class TestHiveConnectorTest
                         ImmutableSet.of(
                                 new TableColumnInfo(
                                         new CatalogSchemaTableName(catalog, "tpch", "io_explain_test_no_filter"),
-                                        ImmutableSet.of(
-                                                new ColumnConstraint(
-                                                        "ds",
-                                                        VARCHAR,
-                                                        new FormattedDomain(
-                                                                false,
-                                                                ImmutableSet.of(
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("a"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("a"), EXACTLY)))))),
+                                        ImmutableSet.of(),
                                         estimate)),
                         Optional.empty(),
                         finalEstimate));
@@ -1338,7 +1329,7 @@ public class TestHiveConnectorTest
 
             assertUpdate(query, 1);
             assertEquals(
-                    getIoPlanCodec().fromJson((String) getOnlyElement(computeActual("EXPLAIN (TYPE IO, FORMAT JSON) SELECT * FROM test_types_table").getOnlyColumnAsSet())),
+                    getIoPlanCodec().fromJson((String) getOnlyElement(computeActual("EXPLAIN (TYPE IO, FORMAT JSON) SELECT * FROM test_types_table WHERE my_col IS NOT NULL").getOnlyColumnAsSet())),
                     new IoPlan(
                             ImmutableSet.of(new TableColumnInfo(
                                     new CatalogSchemaTableName(catalog, "tpch", "test_types_table"),
@@ -3107,6 +3098,11 @@ public class TestHiveConnectorTest
                 "SELECT * FROM " + tableName + " WHERE part < 1001",
                 format("Query over table 'tpch.%s' can potentially read more than 1000 partitions", tableName));
 
+        // verify we can query with a predicate that is not representable as a TupleDomain
+        assertQuery(
+                "SELECT * FROM " + tableName + " WHERE part % 400 = 3", // may be translated to Domain.all
+                "VALUES ('bar', 3), ('bar', 403), ('bar', 803)");
+
         // verify cannot query all partitions
         assertQueryFails(
                 "SELECT * FROM " + tableName,
@@ -3150,9 +3146,8 @@ public class TestHiveConnectorTest
                 .hasMessage(format("Query over table 'tpch.%s' can potentially read more than 1000 partitions", tableName));
 
         // verify we can query with a predicate that is not representable as a TupleDomain
-        // TODO this shouldn't fail
-        assertThatThrownBy(() -> query("SELECT * FROM " + tableName + " WHERE part1 % 400 = 3")) // may be translated to Domain.all
-                .hasMessage(format("Query over table 'tpch.%s' can potentially read more than 1000 partitions", tableName));
+        assertThat(query("SELECT * FROM " + tableName + " WHERE part1 % 400 = 3")) // may be translated to Domain.all
+                .matches("VALUES (VARCHAR 'bar', BIGINT '3', BIGINT '3')");
         assertThat(query("SELECT * FROM " + tableName + " WHERE part1 % 400 = 3 AND part1 IS NOT NULL"))  // may be translated to Domain.all except nulls
                 .matches("VALUES (VARCHAR 'bar', BIGINT '3', BIGINT '3')");
 
