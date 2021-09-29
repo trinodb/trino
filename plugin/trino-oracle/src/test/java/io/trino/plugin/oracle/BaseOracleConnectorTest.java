@@ -15,13 +15,11 @@ package io.trino.plugin.oracle;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
-import io.trino.execution.QueryInfo;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.testing.MaterializedResult;
-import io.trino.testing.ResultWithQueryId;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TestView;
@@ -79,13 +77,6 @@ public abstract class BaseOracleConnectorTest
     }
 
     @Override
-    public void testCreateSchema()
-    {
-        // schema creation is not supported
-        assertQueryFails("CREATE SCHEMA test_schema_create", "This connector does not support creating schemas");
-    }
-
-    @Override
     protected String dataMappingTableName(String trinoTypeName)
     {
         return "tmp_trino_" + System.nanoTime();
@@ -126,42 +117,6 @@ public abstract class BaseOracleConnectorTest
                 onRemoteDatabase(),
                 "test_unsupported_col",
                 "(one NUMBER(19), two NUMBER, three VARCHAR2(10 CHAR))");
-    }
-
-    @Test
-    @Override
-    public void testSymbolAliasing()
-    {
-        // Replace tablename to less than 30chars, max size naming on oracle
-        String tableName = "symbol_aliasing" + System.currentTimeMillis();
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 foo_1, 2 foo_2_4", 1);
-        assertQuery("SELECT foo_1, foo_2_4 FROM " + tableName, "SELECT 1, 2");
-        assertUpdate("DROP TABLE " + tableName);
-    }
-
-    @Test
-    @Override
-    public void testWrittenStats()
-    {
-        // Replace tablename to fetch max size naming on oracle
-        String tableName = "written_stats_" + System.currentTimeMillis();
-        String sql = "CREATE TABLE " + tableName + " AS SELECT * FROM nation";
-        ResultWithQueryId<MaterializedResult> resultResultWithQueryId = getDistributedQueryRunner().executeWithQueryId(getSession(), sql);
-        QueryInfo queryInfo = getDistributedQueryRunner().getCoordinator().getQueryManager().getFullQueryInfo(resultResultWithQueryId.getQueryId());
-
-        assertEquals(queryInfo.getQueryStats().getOutputPositions(), 1L);
-        assertEquals(queryInfo.getQueryStats().getWrittenPositions(), 25L);
-        assertTrue(queryInfo.getQueryStats().getLogicalWrittenDataSize().toBytes() > 0L);
-
-        sql = "INSERT INTO " + tableName + " SELECT * FROM nation LIMIT 10";
-        resultResultWithQueryId = getDistributedQueryRunner().executeWithQueryId(getSession(), sql);
-        queryInfo = getDistributedQueryRunner().getCoordinator().getQueryManager().getFullQueryInfo(resultResultWithQueryId.getQueryId());
-
-        assertEquals(queryInfo.getQueryStats().getOutputPositions(), 1L);
-        assertEquals(queryInfo.getQueryStats().getWrittenPositions(), 10L);
-        assertTrue(queryInfo.getQueryStats().getLogicalWrittenDataSize().toBytes() > 0L);
-
-        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
