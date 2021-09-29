@@ -23,6 +23,7 @@ import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.concurrent.SetThreadName;
+import io.airlift.log.Logger;
 import io.airlift.stats.TimeStat;
 import io.airlift.units.Duration;
 import io.trino.Session;
@@ -38,10 +39,14 @@ import io.trino.execution.SqlStageExecution;
 import io.trino.execution.StageId;
 import io.trino.execution.StageInfo;
 import io.trino.execution.TableExecuteContextManager;
+import io.trino.execution.TableInfo;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskStatus;
 import io.trino.failuredetector.FailureDetector;
 import io.trino.metadata.InternalNode;
+import io.trino.metadata.Metadata;
+import io.trino.metadata.TableProperties;
+import io.trino.metadata.TableSchema;
 import io.trino.server.DynamicFilterService;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
@@ -51,7 +56,8 @@ import io.trino.sql.planner.NodePartitionMap;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.PlanFragment;
-import io.trino.sql.planner.StageExecutionPlan;
+import io.trino.sql.planner.SplitSourceFactory;
+import io.trino.sql.planner.SubPlan;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -122,8 +128,10 @@ import static java.util.stream.Collectors.toCollection;
 
 public class SqlQueryScheduler
 {
+    private static final Logger log = Logger.get(SqlQueryScheduler.class);
+
     private final QueryStateMachine queryStateMachine;
-    private final StageExecutionPlan plan;
+    private final SubPlan plan;
     private final NodePartitioningManager nodePartitioningManager;
     private final NodeScheduler nodeScheduler;
     private final int splitBatchSize;
@@ -134,6 +142,7 @@ public class SqlQueryScheduler
     private final SplitSchedulerStats schedulerStats;
     private final DynamicFilterService dynamicFilterService;
     private final TableExecuteContextManager tableExecuteContextManager;
+    private final SplitSourceFactory splitSourceFactory;
 
     private final Map<PlanFragmentId, SqlStageExecution> stages;
     private final StageId rootStageId;
@@ -147,7 +156,7 @@ public class SqlQueryScheduler
 
     public static SqlQueryScheduler createSqlQueryScheduler(
             QueryStateMachine queryStateMachine,
-            StageExecutionPlan plan,
+            SubPlan plan,
             NodePartitioningManager nodePartitioningManager,
             NodeScheduler nodeScheduler,
             RemoteTaskFactory remoteTaskFactory,
@@ -160,7 +169,9 @@ public class SqlQueryScheduler
             ExecutionPolicy executionPolicy,
             SplitSchedulerStats schedulerStats,
             DynamicFilterService dynamicFilterService,
-            TableExecuteContextManager tableExecuteContextManager)
+            TableExecuteContextManager tableExecuteContextManager,
+            Metadata metadata,
+            SplitSourceFactory splitSourceFactory)
     {
         SqlQueryScheduler sqlQueryScheduler = new SqlQueryScheduler(
                 queryStateMachine,
@@ -177,14 +188,16 @@ public class SqlQueryScheduler
                 executionPolicy,
                 schedulerStats,
                 dynamicFilterService,
-                tableExecuteContextManager);
+                tableExecuteContextManager,
+                metadata,
+                splitSourceFactory);
         sqlQueryScheduler.initialize();
         return sqlQueryScheduler;
     }
 
     private SqlQueryScheduler(
             QueryStateMachine queryStateMachine,
-            StageExecutionPlan plan,
+            SubPlan plan,
             NodePartitioningManager nodePartitioningManager,
             NodeScheduler nodeScheduler,
             RemoteTaskFactory remoteTaskFactory,
@@ -197,7 +210,9 @@ public class SqlQueryScheduler
             ExecutionPolicy executionPolicy,
             SplitSchedulerStats schedulerStats,
             DynamicFilterService dynamicFilterService,
-            TableExecuteContextManager tableExecuteContextManager)
+            TableExecuteContextManager tableExecuteContextManager,
+            Metadata metadata,
+            SplitSourceFactory splitSourceFactory)
     {
         this.queryStateMachine = requireNonNull(queryStateMachine, "queryStateMachine is null");
         this.plan = requireNonNull(plan, "plan is null");
@@ -211,9 +226,11 @@ public class SqlQueryScheduler
         this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
         this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
         this.tableExecuteContextManager = requireNonNull(tableExecuteContextManager, "tableExecuteContextManager is null");
+        this.splitSourceFactory = requireNonNull(splitSourceFactory, "splitSourceFactory is null");
 
         stages = createStages(
                 queryStateMachine.getSession(),
+                metadata,
                 remoteTaskFactory,
                 nodeTaskMap,
                 queryExecutor,
@@ -245,20 +262,21 @@ public class SqlQueryScheduler
 
     private static Map<PlanFragmentId, SqlStageExecution> createStages(
             Session session,
+            Metadata metadata,
             RemoteTaskFactory taskFactory,
             NodeTaskMap nodeTaskMap,
             ExecutorService executor,
             SplitSchedulerStats schedulerStats,
-            StageExecutionPlan planTree,
+            SubPlan planTree,
             boolean summarizeTaskInfo)
     {
         ImmutableMap.Builder<PlanFragmentId, SqlStageExecution> result = ImmutableMap.builder();
-        for (StageExecutionPlan planNode : Traverser.forTree(StageExecutionPlan::getSubStages).breadthFirst(planTree)) {
+        for (SubPlan planNode : Traverser.forTree(SubPlan::getChildren).breadthFirst(planTree)) {
             PlanFragment fragment = planNode.getFragment();
             SqlStageExecution stageExecution = createSqlStageExecution(
                     getStageId(session.getQueryId(), fragment.getId()),
                     fragment,
-                    planNode.getTables(),
+                    extractTableInfo(session, metadata, fragment),
                     taskFactory,
                     session,
                     summarizeTaskInfo,
@@ -270,13 +288,30 @@ public class SqlQueryScheduler
         return result.build();
     }
 
-    private static Map<StageId, Set<StageId>> getStageLineage(QueryId queryId, StageExecutionPlan planTree)
+    private static Map<PlanNodeId, TableInfo> extractTableInfo(Session session, Metadata metadata, PlanFragment fragment)
+    {
+        return searchFrom(fragment.getRoot())
+                .where(TableScanNode.class::isInstance)
+                .findAll()
+                .stream()
+                .map(TableScanNode.class::cast)
+                .collect(toImmutableMap(PlanNode::getId, node -> getTableInfo(session, metadata, node)));
+    }
+
+    private static TableInfo getTableInfo(Session session, Metadata metadata, TableScanNode node)
+    {
+        TableSchema tableSchema = metadata.getTableSchema(session, node.getTable());
+        TableProperties tableProperties = metadata.getTableProperties(session, node.getTable());
+        return new TableInfo(tableSchema.getQualifiedName(), tableProperties.getPredicate());
+    }
+
+    private static Map<StageId, Set<StageId>> getStageLineage(QueryId queryId, SubPlan planTree)
     {
         ImmutableMap.Builder<StageId, Set<StageId>> result = ImmutableMap.builder();
-        for (StageExecutionPlan planNode : Traverser.forTree(StageExecutionPlan::getSubStages).breadthFirst(planTree)) {
+        for (SubPlan planNode : Traverser.forTree(SubPlan::getChildren).breadthFirst(planTree)) {
             result.put(
                     getStageId(queryId, planNode.getFragment().getId()),
-                    planNode.getSubStages().stream()
+                    planNode.getChildren().stream()
                             .map(stage -> getStageId(queryId, stage.getFragment().getId()))
                             .collect(toImmutableSet()));
         }
@@ -483,7 +518,7 @@ public class SqlQueryScheduler
     }
 
     private PipelinedStageExecution createPipelinedExecution(
-            StageExecutionPlan plan,
+            SubPlan plan,
             Map<PlanFragmentId, OutputBufferManager> outputBufferManagers,
             Map<PlanFragmentId, Optional<int[]>> bucketToPartitionMap,
             Function<PartitioningHandle, NodePartitionMap> partitioningCache,
@@ -500,8 +535,17 @@ public class SqlQueryScheduler
                 executor,
                 bucketToPartitionMap.get(fragment.getId()));
         executions.add(execution);
+
+        Map<PlanNodeId, SplitSource> splitSources = splitSourceFactory.createSplitSources(queryStateMachine.getSession(), fragment);
+        // ensure split sources are always closed
+        execution.addStateChangeListener(state -> {
+            if (state.isDone()) {
+                closeSplitSources(splitSources.values());
+            }
+        });
+
         ImmutableList.Builder<PipelinedStageExecution> childExecutionsBuilder = ImmutableList.builder();
-        for (StageExecutionPlan child : plan.getSubStages()) {
+        for (SubPlan child : plan.getChildren()) {
             childExecutionsBuilder.add(createPipelinedExecution(
                     child,
                     outputBufferManagers,
@@ -514,7 +558,7 @@ public class SqlQueryScheduler
         ImmutableList<PipelinedStageExecution> childExecutions = childExecutionsBuilder.build();
         StageScheduler scheduler = createStageScheduler(
                 execution,
-                plan.getSplitSources(),
+                splitSources,
                 childExecutions,
                 partitioningCache);
         schedulers.put(execution.getStageId(), scheduler);
@@ -526,6 +570,18 @@ public class SqlQueryScheduler
         });
 
         return execution;
+    }
+
+    private static void closeSplitSources(Collection<SplitSource> splitSources)
+    {
+        for (SplitSource source : splitSources) {
+            try {
+                source.close();
+            }
+            catch (Throwable t) {
+                log.warn(t, "Error closing split source");
+            }
+        }
     }
 
     private StageScheduler createStageScheduler(
@@ -691,19 +747,19 @@ public class SqlQueryScheduler
     }
 
     private static Map<PlanFragmentId, Optional<int[]>> createBucketToPartitionMap(
-            StageExecutionPlan plan,
+            SubPlan plan,
             Function<PartitioningHandle, NodePartitionMap> partitioningCache)
     {
         ImmutableMap.Builder<PlanFragmentId, Optional<int[]>> result = ImmutableMap.builder();
         // root fragment always has a single consumer
         result.put(plan.getFragment().getId(), Optional.of(new int[] {0}));
-        Queue<StageExecutionPlan> queue = new ArrayDeque<>();
+        Queue<SubPlan> queue = new ArrayDeque<>();
         queue.add(plan);
         while (!queue.isEmpty()) {
-            StageExecutionPlan executionPlan = queue.poll();
+            SubPlan executionPlan = queue.poll();
             PlanFragment fragment = executionPlan.getFragment();
             Optional<int[]> bucketToPartition = getBucketToPartition(fragment.getPartitioning(), partitioningCache, fragment.getRoot(), fragment.getRemoteSourceNodes());
-            for (StageExecutionPlan child : executionPlan.getSubStages()) {
+            for (SubPlan child : executionPlan.getChildren()) {
                 result.put(child.getFragment().getId(), bucketToPartition);
                 queue.add(child);
             }

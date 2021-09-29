@@ -17,10 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.Session;
-import io.trino.execution.TableInfo;
 import io.trino.metadata.Metadata;
-import io.trino.metadata.TableProperties;
-import io.trino.metadata.TableSchema;
 import io.trino.operator.StageExecutionDescriptor;
 import io.trino.server.DynamicFilterService;
 import io.trino.spi.connector.Constraint;
@@ -77,42 +74,43 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
 import static io.trino.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.spi.connector.DynamicFilter.EMPTY;
 import static io.trino.sql.ExpressionUtils.filterConjuncts;
-import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static java.util.Objects.requireNonNull;
 
-public class DistributedExecutionPlanner
+public class SplitSourceFactory
 {
-    private static final Logger log = Logger.get(DistributedExecutionPlanner.class);
+    private static final Logger log = Logger.get(SplitSourceFactory.class);
 
     private final SplitManager splitManager;
-    private final Metadata metadata;
     private final DynamicFilterService dynamicFilterService;
+    private final Metadata metadata;
     private final TypeAnalyzer typeAnalyzer;
 
     @Inject
-    public DistributedExecutionPlanner(SplitManager splitManager, Metadata metadata, DynamicFilterService dynamicFilterService, TypeAnalyzer typeAnalyzer)
+    public SplitSourceFactory(SplitManager splitManager, DynamicFilterService dynamicFilterService, Metadata metadata, TypeAnalyzer typeAnalyzer)
     {
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
-        this.metadata = requireNonNull(metadata, "metadata is null");
         this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
     }
 
-    public StageExecutionPlan plan(SubPlan root, Session session)
+    public Map<PlanNodeId, SplitSource> createSplitSources(Session session, PlanFragment fragment)
     {
         ImmutableList.Builder<SplitSource> allSplitSources = ImmutableList.builder();
         try {
-            return doPlan(root, session, allSplitSources);
+            // get splits for this fragment, this is lazy so split assignments aren't actually calculated here
+            return fragment.getRoot().accept(
+                    new Visitor(session, fragment.getStageExecutionDescriptor(), TypeProvider.copyOf(fragment.getSymbols()), allSplitSources),
+                    null);
         }
         catch (Throwable t) {
-            allSplitSources.build().forEach(DistributedExecutionPlanner::closeSplitSource);
+            allSplitSources.build().forEach(SplitSourceFactory::closeSplitSource);
             throw t;
         }
     }
@@ -125,43 +123,6 @@ public class DistributedExecutionPlanner
         catch (Throwable t) {
             log.warn(t, "Error closing split source");
         }
-    }
-
-    private StageExecutionPlan doPlan(SubPlan root, Session session, ImmutableList.Builder<SplitSource> allSplitSources)
-    {
-        PlanFragment currentFragment = root.getFragment();
-
-        // get splits for this fragment, this is lazy so split assignments aren't actually calculated here
-        Map<PlanNodeId, SplitSource> splitSources = currentFragment.getRoot().accept(
-                new Visitor(session, currentFragment.getStageExecutionDescriptor(), TypeProvider.copyOf(currentFragment.getSymbols()), allSplitSources),
-                null);
-
-        // create child stages
-        ImmutableList.Builder<StageExecutionPlan> dependencies = ImmutableList.builder();
-        for (SubPlan childPlan : root.getChildren()) {
-            dependencies.add(doPlan(childPlan, session, allSplitSources));
-        }
-
-        // extract TableInfo
-        Map<PlanNodeId, TableInfo> tables = searchFrom(root.getFragment().getRoot())
-                .where(TableScanNode.class::isInstance)
-                .findAll()
-                .stream()
-                .map(TableScanNode.class::cast)
-                .collect(toImmutableMap(PlanNode::getId, node -> getTableInfo(node, session)));
-
-        return new StageExecutionPlan(
-                currentFragment,
-                splitSources,
-                dependencies.build(),
-                tables);
-    }
-
-    private TableInfo getTableInfo(TableScanNode node, Session session)
-    {
-        TableSchema tableSchema = metadata.getTableSchema(session, node.getTable());
-        TableProperties tableProperties = metadata.getTableProperties(session, node.getTable());
-        return new TableInfo(tableSchema.getQualifiedName(), tableProperties.getPredicate());
     }
 
     private final class Visitor
