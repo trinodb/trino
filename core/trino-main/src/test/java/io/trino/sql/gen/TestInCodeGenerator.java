@@ -18,7 +18,7 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.MetadataManager;
 import io.trino.sql.relational.CallExpression;
 import io.trino.sql.relational.RowExpression;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -34,7 +34,7 @@ import static io.trino.sql.gen.InCodeGenerator.SwitchGenerationCase.HASH_SWITCH;
 import static io.trino.sql.gen.InCodeGenerator.SwitchGenerationCase.SET_CONTAINS;
 import static io.trino.sql.gen.InCodeGenerator.checkSwitchGenerationCase;
 import static io.trino.sql.relational.Expressions.constant;
-import static org.testng.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TestInCodeGenerator
 {
@@ -47,21 +47,21 @@ public class TestInCodeGenerator
         values.add(constant(Integer.MIN_VALUE, INTEGER));
         values.add(constant(Integer.MAX_VALUE, INTEGER));
         values.add(constant(3, INTEGER));
-        assertEquals(checkSwitchGenerationCase(INTEGER, values), DIRECT_SWITCH);
+        assertEquals(DIRECT_SWITCH, checkSwitchGenerationCase(INTEGER, values));
 
         values.add(constant(null, INTEGER));
-        assertEquals(checkSwitchGenerationCase(INTEGER, values), DIRECT_SWITCH);
+        assertEquals(DIRECT_SWITCH, checkSwitchGenerationCase(INTEGER, values));
         values.add(new CallExpression(
                 metadata.getCoercion(DOUBLE, INTEGER),
                 Collections.singletonList(constant(12345678901234.0, DOUBLE))));
-        assertEquals(checkSwitchGenerationCase(INTEGER, values), DIRECT_SWITCH);
+        assertEquals(DIRECT_SWITCH, checkSwitchGenerationCase(INTEGER, values));
 
         values.add(constant(6, BIGINT));
         values.add(constant(7, BIGINT));
-        assertEquals(checkSwitchGenerationCase(INTEGER, values), DIRECT_SWITCH);
+        assertEquals(DIRECT_SWITCH, checkSwitchGenerationCase(INTEGER, values));
 
         values.add(constant(8, INTEGER));
-        assertEquals(checkSwitchGenerationCase(INTEGER, values), SET_CONTAINS);
+        assertEquals(SET_CONTAINS, checkSwitchGenerationCase(INTEGER, values));
     }
 
     @Test
@@ -71,21 +71,21 @@ public class TestInCodeGenerator
         values.add(constant(Integer.MAX_VALUE + 1L, BIGINT));
         values.add(constant(Integer.MIN_VALUE - 1L, BIGINT));
         values.add(constant(3L, BIGINT));
-        assertEquals(checkSwitchGenerationCase(BIGINT, values), HASH_SWITCH);
+        assertEquals(HASH_SWITCH, checkSwitchGenerationCase(BIGINT, values));
 
         values.add(constant(null, BIGINT));
-        assertEquals(checkSwitchGenerationCase(BIGINT, values), HASH_SWITCH);
+        assertEquals(HASH_SWITCH, checkSwitchGenerationCase(BIGINT, values));
         values.add(new CallExpression(
                 metadata.getCoercion(DOUBLE, BIGINT),
                 Collections.singletonList(constant(12345678901234.0, DOUBLE))));
-        assertEquals(checkSwitchGenerationCase(BIGINT, values), HASH_SWITCH);
+        assertEquals(HASH_SWITCH, checkSwitchGenerationCase(BIGINT, values));
 
         values.add(constant(6L, BIGINT));
         values.add(constant(7L, BIGINT));
-        assertEquals(checkSwitchGenerationCase(BIGINT, values), HASH_SWITCH);
+        assertEquals(HASH_SWITCH, checkSwitchGenerationCase(BIGINT, values));
 
         values.add(constant(8L, BIGINT));
-        assertEquals(checkSwitchGenerationCase(BIGINT, values), SET_CONTAINS);
+        assertEquals(SET_CONTAINS, checkSwitchGenerationCase(BIGINT, values));
     }
 
     @Test
@@ -95,15 +95,15 @@ public class TestInCodeGenerator
         values.add(constant(1L, DATE));
         values.add(constant(2L, DATE));
         values.add(constant(3L, DATE));
-        assertEquals(checkSwitchGenerationCase(DATE, values), DIRECT_SWITCH);
+        assertEquals(DIRECT_SWITCH, checkSwitchGenerationCase(DATE, values));
 
         for (long i = 4; i <= 7; ++i) {
             values.add(constant(i, DATE));
         }
-        assertEquals(checkSwitchGenerationCase(DATE, values), DIRECT_SWITCH);
+        assertEquals(DIRECT_SWITCH, checkSwitchGenerationCase(DATE, values));
 
         values.add(constant(33L, DATE));
-        assertEquals(checkSwitchGenerationCase(DATE, values), SET_CONTAINS);
+        assertEquals(SET_CONTAINS, checkSwitchGenerationCase(DATE, values));
     }
 
     @Test
@@ -113,18 +113,18 @@ public class TestInCodeGenerator
         values.add(constant(1.5, DOUBLE));
         values.add(constant(2.5, DOUBLE));
         values.add(constant(3.5, DOUBLE));
-        assertEquals(checkSwitchGenerationCase(DOUBLE, values), HASH_SWITCH);
+        assertEquals(HASH_SWITCH, checkSwitchGenerationCase(DOUBLE, values));
 
         values.add(constant(null, DOUBLE));
-        assertEquals(checkSwitchGenerationCase(DOUBLE, values), HASH_SWITCH);
+        assertEquals(HASH_SWITCH, checkSwitchGenerationCase(DOUBLE, values));
 
         for (int i = 5; i <= 7; ++i) {
             values.add(constant(i + 0.5, DOUBLE));
         }
-        assertEquals(checkSwitchGenerationCase(DOUBLE, values), HASH_SWITCH);
+        assertEquals(HASH_SWITCH, checkSwitchGenerationCase(DOUBLE, values));
 
         values.add(constant(8.5, DOUBLE));
-        assertEquals(checkSwitchGenerationCase(DOUBLE, values), SET_CONTAINS);
+        assertEquals(SET_CONTAINS, checkSwitchGenerationCase(DOUBLE, values));
     }
 
     @Test
@@ -134,17 +134,17 @@ public class TestInCodeGenerator
         values.add(constant(Slices.utf8Slice("1"), DOUBLE));
         values.add(constant(Slices.utf8Slice("2"), DOUBLE));
         values.add(constant(Slices.utf8Slice("3"), DOUBLE));
-        assertEquals(checkSwitchGenerationCase(VARCHAR, values), HASH_SWITCH);
+        assertEquals(HASH_SWITCH, checkSwitchGenerationCase(VARCHAR, values));
 
         values.add(constant(null, VARCHAR));
-        assertEquals(checkSwitchGenerationCase(VARCHAR, values), HASH_SWITCH);
+        assertEquals(HASH_SWITCH, checkSwitchGenerationCase(VARCHAR, values));
 
         for (int i = 5; i <= 7; ++i) {
             values.add(constant(Slices.utf8Slice(String.valueOf(i)), VARCHAR));
         }
-        assertEquals(checkSwitchGenerationCase(VARCHAR, values), HASH_SWITCH);
+        assertEquals(HASH_SWITCH, checkSwitchGenerationCase(VARCHAR, values));
 
         values.add(constant(Slices.utf8Slice("8"), VARCHAR));
-        assertEquals(checkSwitchGenerationCase(VARCHAR, values), SET_CONTAINS);
+        assertEquals(SET_CONTAINS, checkSwitchGenerationCase(VARCHAR, values));
     }
 }

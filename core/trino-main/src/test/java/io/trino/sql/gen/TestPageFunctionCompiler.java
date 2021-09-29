@@ -23,7 +23,7 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.sql.relational.CallExpression;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 import java.util.function.Supplier;
@@ -37,10 +37,10 @@ import static io.trino.sql.relational.Expressions.constant;
 import static io.trino.sql.relational.Expressions.field;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotSame;
-import static org.testng.Assert.assertSame;
-import static org.testng.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestPageFunctionCompiler
 {
@@ -61,7 +61,7 @@ public class TestPageFunctionCompiler
         // process good page and verify we got the expected number of result rows
         Page goodPage = createLongBlockPage(0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
         Block goodResult = project(projection, goodPage, SelectedPositions.positionsRange(0, goodPage.getPositionCount()));
-        assertEquals(goodPage.getPositionCount(), goodResult.getPositionCount());
+        assertEquals(goodResult.getPositionCount(), goodPage.getPositionCount());
 
         // addition will throw due to integer overflow
         Page badPage = createLongBlockPage(0, 1, 2, 3, 4, Long.MAX_VALUE);
@@ -71,7 +71,7 @@ public class TestPageFunctionCompiler
         // running the good page should still work
         // if block builder in generated code was not reset properly, we could get junk results after the failure
         goodResult = project(projection, goodPage, SelectedPositions.positionsRange(0, goodPage.getPositionCount()));
-        assertEquals(goodPage.getPositionCount(), goodResult.getPositionCount());
+        assertEquals(goodResult.getPositionCount(), goodPage.getPositionCount());
     }
 
     @Test
