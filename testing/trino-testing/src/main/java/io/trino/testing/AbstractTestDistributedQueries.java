@@ -638,32 +638,29 @@ public abstract class AbstractTestDistributedQueries
     {
         skipTestUnlessSupportsDeletes();
 
-        String tableName = "test_delete_" + randomTableSuffix();
-
         // delete successive parts of the table
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders", "SELECT count(*) FROM orders");
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_", "AS SELECT * FROM orders")) {
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE custkey <= 100", "SELECT count(*) FROM orders WHERE custkey <= 100");
+            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM orders WHERE custkey > 100");
 
-        assertUpdate("DELETE FROM " + tableName + " WHERE custkey <= 100", "SELECT count(*) FROM orders WHERE custkey <= 100");
-        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM orders WHERE custkey > 100");
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE custkey <= 300", "SELECT count(*) FROM orders WHERE custkey > 100 AND custkey <= 300");
+            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM orders WHERE custkey > 300");
 
-        assertUpdate("DELETE FROM " + tableName + " WHERE custkey <= 300", "SELECT count(*) FROM orders WHERE custkey > 100 AND custkey <= 300");
-        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM orders WHERE custkey > 300");
-
-        assertUpdate("DELETE FROM " + tableName + " WHERE custkey <= 500", "SELECT count(*) FROM orders WHERE custkey > 300 AND custkey <= 500");
-        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM orders WHERE custkey > 500");
-
-        assertUpdate("DROP TABLE " + tableName);
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE custkey <= 500", "SELECT count(*) FROM orders WHERE custkey > 300 AND custkey <= 500");
+            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM orders WHERE custkey > 500");
+        }
 
         // delete without matching any rows
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders", "SELECT count(*) FROM orders");
-        assertUpdate("DELETE FROM " + tableName + " WHERE orderkey < 0", 0);
-        assertUpdate("DROP TABLE " + tableName);
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_", "AS SELECT * FROM orders")) {
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE orderkey < 0", 0);
+        }
 
         // delete with a predicate that optimizes to false
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders", "SELECT count(*) FROM orders");
-        assertUpdate("DELETE FROM " + tableName + " WHERE orderkey > 5 AND orderkey < 4", 0);
-        assertUpdate("DROP TABLE " + tableName);
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_", "AS SELECT * FROM orders")) {
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE orderkey > 5 AND orderkey < 4", 0);
+        }
 
+        String tableName = "test_delete_" + randomTableSuffix();
         // test EXPLAIN ANALYZE with CTAS
         assertExplainAnalyze("EXPLAIN ANALYZE CREATE TABLE " + tableName + " AS SELECT CAST(orderstatus AS VARCHAR(15)) orderstatus FROM orders");
         assertQuery("SELECT * from " + tableName, "SELECT orderstatus FROM orders");
@@ -682,19 +679,16 @@ public abstract class AbstractTestDistributedQueries
         skipTestUnlessSupportsDeletes();
 
         // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
-        String tableName = "test_delete_complex_" + randomTableSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders", "SELECT count(*) FROM orders");
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_complex_", "AS SELECT * FROM orders")) {
+            // delete half the table, then delete the rest
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE orderkey % 2 = 0", "SELECT count(*) FROM orders WHERE orderkey % 2 = 0");
+            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM orders WHERE orderkey % 2 <> 0");
 
-        // delete half the table, then delete the rest
-        assertUpdate("DELETE FROM " + tableName + " WHERE orderkey % 2 = 0", "SELECT count(*) FROM orders WHERE orderkey % 2 = 0");
-        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM orders WHERE orderkey % 2 <> 0");
+            assertUpdate("DELETE FROM " + table.getName(), "SELECT count(*) FROM orders WHERE orderkey % 2 <> 0");
+            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM orders LIMIT 0");
 
-        assertUpdate("DELETE FROM " + tableName, "SELECT count(*) FROM orders WHERE orderkey % 2 <> 0");
-        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM orders LIMIT 0");
-
-        assertUpdate("DELETE FROM " + tableName + " WHERE rand() < 0", 0);
-
-        assertUpdate("DROP TABLE " + tableName);
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE rand() < 0", 0);
+        }
     }
 
     @Test
@@ -703,25 +697,22 @@ public abstract class AbstractTestDistributedQueries
         skipTestUnlessSupportsDeletes();
 
         // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
-        String tableName = "test_delete_subquery" + randomTableSuffix();
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_subquery", "AS SELECT * FROM nation")) {
+            // delete using a subquery
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE regionkey IN (SELECT regionkey FROM region WHERE name LIKE 'A%')", 15);
+            assertQuery(
+                    "SELECT * FROM " + table.getName(),
+                    "SELECT * FROM nation WHERE regionkey IN (SELECT regionkey FROM region WHERE name NOT LIKE 'A%')");
+        }
 
-        // delete using a subquery
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM nation", 25);
-
-        assertUpdate("DELETE FROM " + tableName + " WHERE regionkey IN (SELECT regionkey FROM region WHERE name LIKE 'A%')", 15);
-        assertQuery(
-                "SELECT * FROM " + tableName,
-                "SELECT * FROM nation WHERE regionkey IN (SELECT regionkey FROM region WHERE name NOT LIKE 'A%')");
-
-        assertUpdate("DROP TABLE " + tableName);
-
-        // delete using a scalar and EXISTS subquery
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders", "SELECT count(*) FROM orders");
-        assertUpdate("DELETE FROM " + tableName + " WHERE orderkey = (SELECT orderkey FROM orders ORDER BY orderkey LIMIT 1)", 1);
-        assertUpdate("DELETE FROM " + tableName + " WHERE orderkey = (SELECT orderkey FROM orders WHERE false)", 0);
-        assertUpdate("DELETE FROM " + tableName + " WHERE EXISTS(SELECT 1 WHERE false)", 0);
-        assertUpdate("DELETE FROM " + tableName + " WHERE EXISTS(SELECT 1)", "SELECT count(*) - 1 FROM orders");
-        assertUpdate("DROP TABLE " + tableName);
+        // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_subquery", "AS SELECT * FROM orders")) {
+            // delete using a scalar and EXISTS subquery
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE orderkey = (SELECT orderkey FROM orders ORDER BY orderkey LIMIT 1)", 1);
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE orderkey = (SELECT orderkey FROM orders WHERE false)", 0);
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE EXISTS(SELECT 1 WHERE false)", 0);
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE EXISTS(SELECT 1)", "SELECT count(*) - 1 FROM orders");
+        }
     }
 
     @Test
@@ -744,38 +735,33 @@ public abstract class AbstractTestDistributedQueries
         skipTestUnlessSupportsDeletes();
 
         // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
-        String tableName = "test_delete_semijoin" + randomTableSuffix();
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_semijoin", "AS SELECT * FROM nation")) {
+            // delete with multiple SemiJoin
+            assertUpdate(
+                    "DELETE FROM " + table.getName() + " " +
+                            "WHERE regionkey IN (SELECT regionkey FROM region WHERE name LIKE 'A%') " +
+                            "  AND regionkey IN (SELECT regionkey FROM region WHERE length(comment) < 50)",
+                    10);
+            assertQuery(
+                    "SELECT * FROM " + table.getName(),
+                    "SELECT * FROM nation " +
+                            "WHERE regionkey IN (SELECT regionkey FROM region WHERE name NOT LIKE 'A%') " +
+                            "  OR regionkey IN (SELECT regionkey FROM region WHERE length(comment) >= 50)");
+        }
 
-        // delete with multiple SemiJoin
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM nation", 25);
-
-        assertUpdate(
-                "DELETE FROM " + tableName + " " +
-                        "WHERE regionkey IN (SELECT regionkey FROM region WHERE name LIKE 'A%') " +
-                        "  AND regionkey IN (SELECT regionkey FROM region WHERE length(comment) < 50)",
-                10);
-        assertQuery(
-                "SELECT * FROM " + tableName,
-                "SELECT * FROM nation " +
-                        "WHERE regionkey IN (SELECT regionkey FROM region WHERE name NOT LIKE 'A%') " +
-                        "  OR regionkey IN (SELECT regionkey FROM region WHERE length(comment) >= 50)");
-
-        assertUpdate("DROP TABLE " + tableName);
-
-        // delete with SemiJoin null handling
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders", "SELECT count(*) FROM orders");
-
-        assertUpdate(
-                "DELETE FROM " + tableName + "\n" +
-                        "WHERE (orderkey IN (SELECT CASE WHEN orderkey % 3 = 0 THEN NULL ELSE orderkey END FROM tpch.tiny.lineitem)) IS NULL\n",
-                "SELECT count(*) FROM orders\n" +
-                        "WHERE (orderkey IN (SELECT CASE WHEN orderkey % 3 = 0 THEN NULL ELSE orderkey END FROM lineitem)) IS NULL\n");
-        assertQuery(
-                "SELECT * FROM " + tableName,
-                "SELECT * FROM orders\n" +
-                        "WHERE (orderkey IN (SELECT CASE WHEN orderkey % 3 = 0 THEN NULL ELSE orderkey END FROM lineitem)) IS NOT NULL\n");
-
-        assertUpdate("DROP TABLE " + tableName);
+        // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_semijoin", "AS SELECT * FROM orders")) {
+            // delete with SemiJoin null handling
+            assertUpdate(
+                    "DELETE FROM " + table.getName() + "\n" +
+                            "WHERE (orderkey IN (SELECT CASE WHEN orderkey % 3 = 0 THEN NULL ELSE orderkey END FROM tpch.tiny.lineitem)) IS NULL\n",
+                    "SELECT count(*) FROM orders\n" +
+                            "WHERE (orderkey IN (SELECT CASE WHEN orderkey % 3 = 0 THEN NULL ELSE orderkey END FROM lineitem)) IS NULL\n");
+            assertQuery(
+                    "SELECT * FROM " + table.getName(),
+                    "SELECT * FROM orders\n" +
+                            "WHERE (orderkey IN (SELECT CASE WHEN orderkey % 3 = 0 THEN NULL ELSE orderkey END FROM lineitem)) IS NOT NULL\n");
+        }
     }
 
     @Test
@@ -783,13 +769,10 @@ public abstract class AbstractTestDistributedQueries
     {
         skipTestUnlessSupportsDeletes();
 
-        String tableName = "test_delete_with_varchar_predicate_" + randomTableSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders", "SELECT count(*) FROM orders");
-
-        assertUpdate("DELETE FROM " + tableName + " WHERE orderstatus = 'O'", "SELECT count(*) FROM orders WHERE orderstatus = 'O'");
-        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM orders WHERE orderstatus <> 'O'");
-
-        assertUpdate("DROP TABLE " + tableName);
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_with_varchar_predicate_", "AS SELECT * FROM orders")) {
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE orderstatus = 'O'", "SELECT count(*) FROM orders WHERE orderstatus = 'O'");
+            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM orders WHERE orderstatus <> 'O'");
+        }
     }
 
     protected void skipTestUnlessSupportsDeletes()
