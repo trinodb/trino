@@ -900,6 +900,19 @@ public class TestHiveTransactionalTable
         });
     }
 
+    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
+    public void testDeleteOverManySplits()
+    {
+        withTemporaryTable("delete_select", true, false, NONE, tableName -> {
+            onTrino().executeQuery(format("CREATE TABLE %s WITH (transactional = true) AS SELECT * FROM tpch.sf10.orders", tableName));
+
+            log.info("About to delete selected rows");
+            onTrino().executeQuery(format("DELETE FROM %s WHERE clerk = 'Clerk#000004942'", tableName));
+
+            verifySelectForTrinoAndHive("SELECT COUNT(*) FROM " + tableName, "clerk = 'Clerk#000004942'", row(0));
+        });
+    }
+
     @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
     public void testCorrectSelectCountStar(Engine inserter, Engine deleter)
     {
