@@ -216,10 +216,6 @@ public abstract class AbstractTestDistributedQueries
                 "SELECT 10");
 
         assertCreateTableAsSelect(
-                "SELECT '\u2603' unicode",
-                "SELECT 1");
-
-        assertCreateTableAsSelect(
                 "SELECT * FROM customer WITH DATA",
                 "SELECT * FROM customer",
                 "SELECT count(*) FROM customer");
@@ -258,6 +254,14 @@ public abstract class AbstractTestDistributedQueries
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @Test
+    public void testCreateTableAsSelectWithUnicode()
+    {
+        assertCreateTableAsSelect(
+                "SELECT '\u2603' unicode",
+                "SELECT 1");
+    }
+
     protected void assertCreateTableAsSelect(@Language("SQL") String query, @Language("SQL") String rowCountQuery)
     {
         assertCreateTableAsSelect(getSession(), query, query, rowCountQuery);
@@ -270,7 +274,7 @@ public abstract class AbstractTestDistributedQueries
 
     protected void assertCreateTableAsSelect(Session session, @Language("SQL") String query, @Language("SQL") String expectedQuery, @Language("SQL") String rowCountQuery)
     {
-        String table = "test_table_" + randomTableSuffix();
+        String table = "test_ctas_" + randomTableSuffix();
         assertUpdate(session, "CREATE TABLE " + table + " AS " + query, rowCountQuery);
         assertQuery(session, "SELECT * FROM " + table, expectedQuery);
         assertUpdate(session, "DROP TABLE " + table);
