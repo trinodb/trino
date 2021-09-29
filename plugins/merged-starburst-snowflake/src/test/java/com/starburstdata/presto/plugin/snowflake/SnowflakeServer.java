@@ -104,7 +104,7 @@ class SnowflakeServer
         }
     }
 
-    private Connection getConnection()
+    protected Connection getConnection()
             throws SQLException
     {
         return DriverManager.getConnection(JDBC_URL, USER, PASSWORD);
