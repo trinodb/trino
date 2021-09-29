@@ -141,28 +141,6 @@ public abstract class BaseOracleConnectorTest
 
     @Test
     @Override
-    public void testRenameColumn()
-    {
-        // Replace tablename to less than 30chars, max size naming on oracle
-        String tableName = "test_renamecol_" + System.currentTimeMillis();
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 'some value' x", 1);
-
-        assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN x TO y");
-        assertQuery("SELECT y FROM " + tableName, "VALUES 'some value'");
-
-        assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN y TO Z"); // 'Z' is upper-case, not delimited
-        assertQuery(
-                "SELECT z FROM " + tableName, // 'z' is lower-case, not delimited
-                "VALUES 'some value'");
-
-        // There should be exactly one column
-        assertQuery("SELECT * FROM " + tableName, "VALUES 'some value'");
-
-        assertUpdate("DROP TABLE " + tableName);
-    }
-
-    @Test
-    @Override
     public void testWrittenStats()
     {
         // Replace tablename to fetch max size naming on oracle
