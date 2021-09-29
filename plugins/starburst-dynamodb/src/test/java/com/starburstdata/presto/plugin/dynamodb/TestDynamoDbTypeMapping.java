@@ -53,6 +53,8 @@ import static java.lang.String.format;
 import static java.time.format.DateTimeFormatter.ISO_DATE;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+// DynamoDB may miss new tables when running in multi threads
+@Test(singleThreaded = true)
 public class TestDynamoDbTypeMapping
         extends AbstractTestQueryFramework
 {
