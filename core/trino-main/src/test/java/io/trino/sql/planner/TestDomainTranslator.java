@@ -58,6 +58,7 @@ import org.testng.annotations.Test;
 import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
@@ -471,6 +472,13 @@ public class TestDomainTranslator
         result = fromPredicate(originalPredicate);
         assertEquals(result.getRemainingExpression(), originalPredicate);
         assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 1L), Range.equal(BIGINT, 2L)), false))));
+
+        originalPredicate = or(
+                and(lessThan(C_BIGINT, bigintLiteral(20L)), unprocessableExpression1(C_BIGINT)),
+                and(greaterThan(C_BIGINT, bigintLiteral(10L)), unprocessableExpression2(C_BIGINT)));
+        result = fromPredicate(originalPredicate);
+        assertEquals(result.getRemainingExpression(), originalPredicate);
+        assertEquals(result.getTupleDomain(), TupleDomain.withColumnDomains(Map.of(C_BIGINT, Domain.create(ValueSet.all(BIGINT), false))));
 
         // Same unprocessableExpression means that we can do more extraction
         // If both sides are operating on the same single symbol
