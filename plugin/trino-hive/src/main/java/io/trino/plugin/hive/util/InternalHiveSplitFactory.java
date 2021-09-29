@@ -71,7 +71,6 @@ public class InternalHiveSplitFactory
     private final long minimumTargetSplitSizeInBytes;
     private final boolean forceLocalScheduling;
     private final boolean s3SelectPushdownEnabled;
-    private final AcidTransaction transaction;
     private final Map<Integer, AtomicInteger> bucketStatementCounters = new ConcurrentHashMap<>();
 
     public InternalHiveSplitFactory(
@@ -102,7 +101,6 @@ public class InternalHiveSplitFactory
         this.bucketValidation = requireNonNull(bucketValidation, "bucketValidation is null");
         this.forceLocalScheduling = forceLocalScheduling;
         this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
-        this.transaction = requireNonNull(transaction, "transaction is null");
         this.minimumTargetSplitSizeInBytes = requireNonNull(minimumTargetSplitSize, "minimumTargetSplitSize is null").toBytes();
         checkArgument(minimumTargetSplitSizeInBytes > 0, "minimumTargetSplitSize must be > 0, found: %s", minimumTargetSplitSize);
     }
@@ -201,13 +199,7 @@ public class InternalHiveSplitFactory
             blocks = ImmutableList.of(new InternalHiveBlock(start, start + length, blocks.get(0).getAddresses()));
         }
 
-        int statementId = 0;
-
-        if (transaction.isDelete() || transaction.isUpdate()) {
-            int bucketNumberIndex = bucketNumber.orElse(0);
-            statementId = bucketStatementCounters.computeIfAbsent(bucketNumberIndex, index -> new AtomicInteger()).getAndIncrement();
-        }
-
+        int bucketNumberIndex = bucketNumber.orElse(0);
         return Optional.of(new InternalHiveSplit(
                 partitionName,
                 pathString,
@@ -219,7 +211,7 @@ public class InternalHiveSplitFactory
                 partitionKeys,
                 blocks,
                 bucketNumber,
-                statementId,
+                () -> bucketStatementCounters.computeIfAbsent(bucketNumberIndex, index -> new AtomicInteger()).getAndIncrement(),
                 splittable,
                 forceLocalScheduling && allBlocksHaveAddress(blocks),
                 tableToPartitionMapping,
