@@ -198,16 +198,6 @@ public abstract class BaseMySqlConnectorTest
         onRemoteDatabase().execute("DROP VIEW IF EXISTS tpch.test_view");
     }
 
-    @Override
-    @Test
-    public void testInsert()
-    {
-        onRemoteDatabase().execute("CREATE TABLE tpch.test_insert (x bigint, y varchar(100))");
-        assertUpdate("INSERT INTO test_insert VALUES (123, 'test')", 1);
-        assertQuery("SELECT * FROM test_insert", "SELECT 123 x, 'test' y");
-        assertUpdate("DROP TABLE test_insert");
-    }
-
     @Test
     public void testNameEscaping()
     {
