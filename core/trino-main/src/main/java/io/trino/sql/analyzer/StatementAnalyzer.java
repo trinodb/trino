@@ -1904,7 +1904,7 @@ class StatementAnalyzer
                     ImmutableList.of(samplePercentage),
                     analysis.getParameters(),
                     WarningCollector.NOOP,
-                    analysis.isDescribe())
+                    analysis.getQueryType())
                     .getExpressionTypes();
 
             Type samplePercentageType = expressionTypes.get(NodeRef.of(samplePercentage));
