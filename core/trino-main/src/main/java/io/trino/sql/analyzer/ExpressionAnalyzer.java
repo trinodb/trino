@@ -2552,9 +2552,9 @@ public class ExpressionAnalyzer
             Iterable<Expression> expressions,
             Map<NodeRef<Parameter>, Expression> parameters,
             WarningCollector warningCollector,
-            boolean isDescribe)
+            QueryType queryType)
     {
-        Analysis analysis = new Analysis(null, parameters, isDescribe);
+        Analysis analysis = new Analysis(null, parameters, queryType);
         ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, groupProvider, accessControl, types, warningCollector);
         for (Expression expression : expressions) {
             analyzer.analyze(
