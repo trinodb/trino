@@ -328,40 +328,42 @@ public abstract class AbstractTestDistributedQueries
 
         String catalogName = getSession().getCatalog().orElseThrow();
         String schemaName = getSession().getSchema().orElseThrow();
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_comment_", "(a integer)")) {
+            // comment set
+            assertUpdate("COMMENT ON TABLE " + table.getName() + " IS 'new comment'");
+            assertThat((String) computeActual("SHOW CREATE TABLE " + table.getName()).getOnlyValue()).contains("COMMENT 'new comment'");
+            assertThat(getTableComment(table.getName())).isEqualTo("new comment");
+            assertThat(query(
+                    "SELECT table_name, comment FROM system.metadata.table_comments " +
+                            "WHERE catalog_name = '" + catalogName + "' AND " +
+                            "schema_name = '" + schemaName + "'"))
+                    .skippingTypesCheck()
+                    .containsAll("VALUES ('" + table.getName() + "', 'new comment')");
+
+            // comment updated
+            assertUpdate("COMMENT ON TABLE " + table.getName() + " IS 'updated comment'");
+            assertThat(getTableComment(table.getName())).isEqualTo("updated comment");
+
+            // comment set to empty or deleted
+            assertUpdate("COMMENT ON TABLE " + table.getName() + " IS ''");
+            assertThat(getTableComment(table.getName())).isIn("", null); // Some storages do not preserve empty comment
+
+            // comment deleted
+            assertUpdate("COMMENT ON TABLE " + table.getName() + " IS 'a comment'");
+            assertThat(getTableComment(table.getName())).isEqualTo("a comment");
+            assertUpdate("COMMENT ON TABLE " + table.getName() + " IS NULL");
+            assertThat(getTableComment(table.getName())).isEqualTo(null);
+        }
+
         String tableName = "test_comment_" + randomTableSuffix();
-        assertUpdate("CREATE TABLE " + tableName + "(a integer)");
-
-        // comment set
-        assertUpdate("COMMENT ON TABLE " + tableName + " IS 'new comment'");
-        assertThat((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue()).contains("COMMENT 'new comment'");
-        assertThat(getTableComment(tableName)).isEqualTo("new comment");
-        assertThat(query(
-                "SELECT table_name, comment FROM system.metadata.table_comments " +
-                        "WHERE catalog_name = '" + catalogName + "' AND " +
-                        "schema_name = '" + schemaName + "'"))
-                .skippingTypesCheck()
-                .containsAll("VALUES ('" + tableName + "', 'new comment')");
-
-        // comment updated
-        assertUpdate("COMMENT ON TABLE " + tableName + " IS 'updated comment'");
-        assertThat(getTableComment(tableName)).isEqualTo("updated comment");
-
-        // comment set to empty or deleted
-        assertUpdate("COMMENT ON TABLE " + tableName + " IS ''");
-        assertThat(getTableComment(tableName)).isIn("", null); // Some storages do not preserve empty comment
-
-        // comment deleted
-        assertUpdate("COMMENT ON TABLE " + tableName + " IS 'a comment'");
-        assertThat(getTableComment(tableName)).isEqualTo("a comment");
-        assertUpdate("COMMENT ON TABLE " + tableName + " IS NULL");
-        assertThat(getTableComment(tableName)).isEqualTo(null);
-
-        assertUpdate("DROP TABLE " + tableName);
-
-        // comment set when creating a table
-        assertUpdate("CREATE TABLE " + tableName + "(key integer) COMMENT 'new table comment'");
-        assertThat(getTableComment(tableName)).isEqualTo("new table comment");
-        assertUpdate("DROP TABLE " + tableName);
+        try {
+            // comment set when creating a table
+            assertUpdate("CREATE TABLE " + tableName + "(key integer) COMMENT 'new table comment'");
+            assertThat(getTableComment(tableName)).isEqualTo("new table comment");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
     }
 
     private String getTableComment(String tableName)
@@ -383,29 +385,26 @@ public abstract class AbstractTestDistributedQueries
             return;
         }
 
-        String tableName = "test_comment_column_" + randomTableSuffix();
-        assertUpdate("CREATE TABLE " + tableName + "(a integer)");
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_comment_column_", "(a integer)")) {
+            // comment set
+            assertUpdate("COMMENT ON COLUMN " + table.getName() + ".a IS 'new comment'");
+            assertThat((String) computeActual("SHOW CREATE TABLE " + table.getName()).getOnlyValue()).contains("COMMENT 'new comment'");
+            assertThat(getColumnComment(table.getName(), "a")).isEqualTo("new comment");
 
-        // comment set
-        assertUpdate("COMMENT ON COLUMN " + tableName + ".a IS 'new comment'");
-        assertThat((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue()).contains("COMMENT 'new comment'");
-        assertThat(getColumnComment(tableName, "a")).isEqualTo("new comment");
+            // comment updated
+            assertUpdate("COMMENT ON COLUMN " + table.getName() + ".a IS 'updated comment'");
+            assertThat(getColumnComment(table.getName(), "a")).isEqualTo("updated comment");
 
-        // comment updated
-        assertUpdate("COMMENT ON COLUMN " + tableName + ".a IS 'updated comment'");
-        assertThat(getColumnComment(tableName, "a")).isEqualTo("updated comment");
+            // comment set to empty or deleted
+            assertUpdate("COMMENT ON COLUMN " + table.getName() + ".a IS ''");
+            assertThat(getColumnComment(table.getName(), "a")).isIn("", null); // Some storages do not preserve empty comment
 
-        // comment set to empty or deleted
-        assertUpdate("COMMENT ON COLUMN " + tableName + ".a IS ''");
-        assertThat(getColumnComment(tableName, "a")).isIn("", null); // Some storages do not preserve empty comment
-
-        // comment deleted
-        assertUpdate("COMMENT ON COLUMN " + tableName + ".a IS 'a comment'");
-        assertThat(getColumnComment(tableName, "a")).isEqualTo("a comment");
-        assertUpdate("COMMENT ON COLUMN " + tableName + ".a IS NULL");
-        assertThat(getColumnComment(tableName, "a")).isEqualTo(null);
-
-        assertUpdate("DROP TABLE " + tableName);
+            // comment deleted
+            assertUpdate("COMMENT ON COLUMN " + table.getName() + ".a IS 'a comment'");
+            assertThat(getColumnComment(table.getName(), "a")).isEqualTo("a comment");
+            assertUpdate("COMMENT ON COLUMN " + table.getName() + ".a IS NULL");
+            assertThat(getColumnComment(table.getName(), "a")).isEqualTo(null);
+        }
 
         // TODO: comment set when creating a table
 //        assertUpdate("CREATE TABLE " + tableName + "(a integer COMMENT 'new column comment')");
@@ -428,28 +427,28 @@ public abstract class AbstractTestDistributedQueries
     {
         skipTestUnless(supportsCreateTable());
 
-        String tableName = "test_rename_column_" + randomTableSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 'some value' x", 1);
+        String tableName;
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_rename_column_", "AS SELECT 'some value' x")) {
+            tableName = table.getName();
+            assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN x TO before_y");
+            assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN IF EXISTS before_y TO y");
+            assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN IF EXISTS columnNotExists TO y");
+            assertQuery("SELECT y FROM " + tableName, "VALUES 'some value'");
 
-        assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN x TO before_y");
-        assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN IF EXISTS before_y TO y");
-        assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN IF EXISTS columnNotExists TO y");
-        assertQuery("SELECT y FROM " + tableName, "VALUES 'some value'");
+            assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN y TO Z"); // 'Z' is upper-case, not delimited
+            assertQuery(
+                    "SELECT z FROM " + tableName, // 'z' is lower-case, not delimited
+                    "VALUES 'some value'");
 
-        assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN y TO Z"); // 'Z' is upper-case, not delimited
-        assertQuery(
-                "SELECT z FROM " + tableName, // 'z' is lower-case, not delimited
-                "VALUES 'some value'");
+            assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN IF EXISTS z TO a");
+            assertQuery(
+                    "SELECT a FROM " + tableName,
+                    "VALUES 'some value'");
 
-        assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN IF EXISTS z TO a");
-        assertQuery(
-                "SELECT a FROM " + tableName,
-                "VALUES 'some value'");
+            // There should be exactly one column
+            assertQuery("SELECT * FROM " + tableName, "VALUES 'some value'");
+        }
 
-        // There should be exactly one column
-        assertQuery("SELECT * FROM " + tableName, "VALUES 'some value'");
-
-        assertUpdate("DROP TABLE " + tableName);
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
         assertUpdate("ALTER TABLE IF EXISTS " + tableName + " RENAME COLUMN columnNotExists TO y");
         assertUpdate("ALTER TABLE IF EXISTS " + tableName + " RENAME COLUMN IF EXISTS columnNotExists TO y");
@@ -461,18 +460,17 @@ public abstract class AbstractTestDistributedQueries
     {
         skipTestUnless(supportsCreateTable());
 
-        String tableName = "test_drop_column_" + randomTableSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 123 x, 456 y, 111 a", 1);
+        String tableName;
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_drop_column_", "AS SELECT 123 x, 456 y, 111 a")) {
+            tableName = table.getName();
+            assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN x");
+            assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN IF EXISTS y");
+            assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN IF EXISTS notExistColumn");
+            assertQueryFails("SELECT x FROM " + tableName, ".* Column 'x' cannot be resolved");
+            assertQueryFails("SELECT y FROM " + tableName, ".* Column 'y' cannot be resolved");
 
-        assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN x");
-        assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN IF EXISTS y");
-        assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN IF EXISTS notExistColumn");
-        assertQueryFails("SELECT x FROM " + tableName, ".* Column 'x' cannot be resolved");
-        assertQueryFails("SELECT y FROM " + tableName, ".* Column 'y' cannot be resolved");
-
-        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN a", ".* Cannot drop the only column in a table");
-
-        assertUpdate("DROP TABLE " + tableName);
+            assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN a", ".* Cannot drop the only column in a table");
+        }
 
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
         assertUpdate("ALTER TABLE IF EXISTS " + tableName + " DROP COLUMN notExistColumn");
@@ -485,32 +483,32 @@ public abstract class AbstractTestDistributedQueries
     {
         skipTestUnless(supportsCreateTable());
 
-        String tableName = "test_add_column_" + randomTableSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT VARCHAR 'first' x", 1);
+        String tableName;
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_column_", "AS SELECT VARCHAR 'first' x")) {
+            tableName = table.getName();
+            assertQueryFails("ALTER TABLE " + table.getName() + " ADD COLUMN x bigint", ".* Column 'x' already exists");
+            assertQueryFails("ALTER TABLE " + table.getName() + " ADD COLUMN X bigint", ".* Column 'X' already exists");
+            assertQueryFails("ALTER TABLE " + table.getName() + " ADD COLUMN q bad_type", ".* Unknown type 'bad_type' for column 'q'");
 
-        assertQueryFails("ALTER TABLE " + tableName + " ADD COLUMN x bigint", ".* Column 'x' already exists");
-        assertQueryFails("ALTER TABLE " + tableName + " ADD COLUMN X bigint", ".* Column 'X' already exists");
-        assertQueryFails("ALTER TABLE " + tableName + " ADD COLUMN q bad_type", ".* Unknown type 'bad_type' for column 'q'");
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN a varchar(50)");
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT 'second', 'xxx'", 1);
+            assertQuery(
+                    "SELECT x, a FROM " + table.getName(),
+                    "VALUES ('first', NULL), ('second', 'xxx')");
 
-        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN a varchar(50)");
-        assertUpdate("INSERT INTO " + tableName + " SELECT 'second', 'xxx'", 1);
-        assertQuery(
-                "SELECT x, a FROM " + tableName,
-                "VALUES ('first', NULL), ('second', 'xxx')");
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN b double");
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT 'third', 'yyy', 33.3E0", 1);
+            assertQuery(
+                    "SELECT x, a, b FROM " + table.getName(),
+                    "VALUES ('first', NULL, NULL), ('second', 'xxx', NULL), ('third', 'yyy', 33.3)");
 
-        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN b double");
-        assertUpdate("INSERT INTO " + tableName + " SELECT 'third', 'yyy', 33.3E0", 1);
-        assertQuery(
-                "SELECT x, a, b FROM " + tableName,
-                "VALUES ('first', NULL, NULL), ('second', 'xxx', NULL), ('third', 'yyy', 33.3)");
-
-        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN IF NOT EXISTS c varchar(50)");
-        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN IF NOT EXISTS c varchar(50)");
-        assertUpdate("INSERT INTO " + tableName + " SELECT 'fourth', 'zzz', 55.3E0, 'newColumn'", 1);
-        assertQuery(
-                "SELECT x, a, b, c FROM " + tableName,
-                "VALUES ('first', NULL, NULL, NULL), ('second', 'xxx', NULL, NULL), ('third', 'yyy', 33.3, NULL), ('fourth', 'zzz', 55.3, 'newColumn')");
-        assertUpdate("DROP TABLE " + tableName);
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN IF NOT EXISTS c varchar(50)");
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN IF NOT EXISTS c varchar(50)");
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT 'fourth', 'zzz', 55.3E0, 'newColumn'", 1);
+            assertQuery(
+                    "SELECT x, a, b, c FROM " + table.getName(),
+                    "VALUES ('first', NULL, NULL, NULL), ('second', 'xxx', NULL, NULL), ('third', 'yyy', 33.3, NULL), ('fourth', 'zzz', 55.3, 'newColumn')");
+        }
 
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
         assertUpdate("ALTER TABLE IF EXISTS " + tableName + " ADD COLUMN x bigint");
@@ -528,39 +526,37 @@ public abstract class AbstractTestDistributedQueries
 
         String query = "SELECT phone, custkey, acctbal FROM customer";
 
-        String tableName = "test_insert_" + randomTableSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " AS " + query + " WITH NO DATA", 0);
-        assertQuery("SELECT count(*) FROM " + tableName + "", "SELECT 0");
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_", "AS " + query + " WITH NO DATA")) {
+            assertQuery("SELECT count(*) FROM " + table.getName() + "", "SELECT 0");
 
-        assertUpdate("INSERT INTO " + tableName + " " + query, "SELECT count(*) FROM customer");
+            assertUpdate("INSERT INTO " + table.getName() + " " + query, "SELECT count(*) FROM customer");
 
-        assertQuery("SELECT * FROM " + tableName + "", query);
+            assertQuery("SELECT * FROM " + table.getName() + "", query);
 
-        assertUpdate("INSERT INTO " + tableName + " (custkey) VALUES (-1)", 1);
-        assertUpdate("INSERT INTO " + tableName + " (custkey) VALUES (null)", 1);
-        assertUpdate("INSERT INTO " + tableName + " (phone) VALUES ('3283-2001-01-01')", 1);
-        assertUpdate("INSERT INTO " + tableName + " (custkey, phone) VALUES (-2, '3283-2001-01-02')", 1);
-        assertUpdate("INSERT INTO " + tableName + " (phone, custkey) VALUES ('3283-2001-01-03', -3)", 1);
-        assertUpdate("INSERT INTO " + tableName + " (acctbal) VALUES (1234)", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " (custkey) VALUES (-1)", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " (custkey) VALUES (null)", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " (phone) VALUES ('3283-2001-01-01')", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " (custkey, phone) VALUES (-2, '3283-2001-01-02')", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " (phone, custkey) VALUES ('3283-2001-01-03', -3)", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " (acctbal) VALUES (1234)", 1);
 
-        assertQuery("SELECT * FROM " + tableName + "", query
-                + " UNION ALL SELECT null, -1, null"
-                + " UNION ALL SELECT null, null, null"
-                + " UNION ALL SELECT '3283-2001-01-01', null, null"
-                + " UNION ALL SELECT '3283-2001-01-02', -2, null"
-                + " UNION ALL SELECT '3283-2001-01-03', -3, null"
-                + " UNION ALL SELECT null, null, 1234");
+            assertQuery("SELECT * FROM " + table.getName() + "", query
+                    + " UNION ALL SELECT null, -1, null"
+                    + " UNION ALL SELECT null, null, null"
+                    + " UNION ALL SELECT '3283-2001-01-01', null, null"
+                    + " UNION ALL SELECT '3283-2001-01-02', -2, null"
+                    + " UNION ALL SELECT '3283-2001-01-03', -3, null"
+                    + " UNION ALL SELECT null, null, 1234");
 
-        // UNION query produces columns in the opposite order
-        // of how they are declared in the table schema
-        assertUpdate(
-                "INSERT INTO " + tableName + " (custkey, phone, acctbal) " +
-                        "SELECT custkey, phone, acctbal FROM customer " +
-                        "UNION ALL " +
-                        "SELECT custkey, phone, acctbal FROM customer",
-                "SELECT 2 * count(*) FROM customer");
-
-        assertUpdate("DROP TABLE " + tableName);
+            // UNION query produces columns in the opposite order
+            // of how they are declared in the table schema
+            assertUpdate(
+                    "INSERT INTO " + table.getName() + " (custkey, phone, acctbal) " +
+                            "SELECT custkey, phone, acctbal FROM customer " +
+                            "UNION ALL " +
+                            "SELECT custkey, phone, acctbal FROM customer",
+                    "SELECT 2 * count(*) FROM customer");
+        }
     }
 
     @Test
@@ -568,31 +564,29 @@ public abstract class AbstractTestDistributedQueries
     {
         skipTestUnless(supportsInsert());
 
-        String tableName = "test_insert_unicode_" + randomTableSuffix();
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_unicode_", "(test varchar(50))")) {
+            assertUpdate("INSERT INTO " + table.getName() + "(test) VALUES 'Hello', U&'hello\\6d4B\\8Bd5world\\7F16\\7801' ", 2);
+            assertThat(computeActual("SELECT test FROM " + table.getName()).getOnlyColumnAsSet())
+                    .containsExactlyInAnyOrder("Hello", "hello测试world编码");
+        }
 
-        assertUpdate("CREATE TABLE " + tableName + "(test varchar(50))");
-        assertUpdate("INSERT INTO " + tableName + "(test) VALUES 'Hello', U&'hello\\6d4B\\8Bd5world\\7F16\\7801' ", 2);
-        assertThat(computeActual("SELECT test FROM " + tableName).getOnlyColumnAsSet())
-                .containsExactlyInAnyOrder("Hello", "hello测试world编码");
-        assertUpdate("DROP TABLE " + tableName);
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_unicode_", "(test varchar(50))")) {
+            assertUpdate("INSERT INTO " + table.getName() + "(test) VALUES 'aa', 'bé'", 2);
+            assertQuery("SELECT test FROM " + table.getName(), "VALUES 'aa', 'bé'");
+            assertQuery("SELECT test FROM " + table.getName() + " WHERE test = 'aa'", "VALUES 'aa'");
+            assertQuery("SELECT test FROM " + table.getName() + " WHERE test > 'ba'", "VALUES 'bé'");
+            assertQuery("SELECT test FROM " + table.getName() + " WHERE test < 'ba'", "VALUES 'aa'");
+            assertQueryReturnsEmptyResult("SELECT test FROM " + table.getName() + " WHERE test = 'ba'");
+        }
 
-        assertUpdate("CREATE TABLE " + tableName + "(test varchar(50))");
-        assertUpdate("INSERT INTO " + tableName + "(test) VALUES 'aa', 'bé'", 2);
-        assertQuery("SELECT test FROM " + tableName, "VALUES 'aa', 'bé'");
-        assertQuery("SELECT test FROM " + tableName + " WHERE test = 'aa'", "VALUES 'aa'");
-        assertQuery("SELECT test FROM " + tableName + " WHERE test > 'ba'", "VALUES 'bé'");
-        assertQuery("SELECT test FROM " + tableName + " WHERE test < 'ba'", "VALUES 'aa'");
-        assertQueryReturnsEmptyResult("SELECT test FROM " + tableName + " WHERE test = 'ba'");
-        assertUpdate("DROP TABLE " + tableName);
-
-        assertUpdate("CREATE TABLE " + tableName + "(test varchar(50))");
-        assertUpdate("INSERT INTO " + tableName + "(test) VALUES 'a', 'é'", 2);
-        assertQuery("SELECT test FROM " + tableName, "VALUES 'a', 'é'");
-        assertQuery("SELECT test FROM " + tableName + " WHERE test = 'a'", "VALUES 'a'");
-        assertQuery("SELECT test FROM " + tableName + " WHERE test > 'b'", "VALUES 'é'");
-        assertQuery("SELECT test FROM " + tableName + " WHERE test < 'b'", "VALUES 'a'");
-        assertQueryReturnsEmptyResult("SELECT test FROM " + tableName + " WHERE test = 'b'");
-        assertUpdate("DROP TABLE " + tableName);
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_unicode_", "(test varchar(50))")) {
+            assertUpdate("INSERT INTO " + table.getName() + "(test) VALUES 'a', 'é'", 2);
+            assertQuery("SELECT test FROM " + table.getName(), "VALUES 'a', 'é'");
+            assertQuery("SELECT test FROM " + table.getName() + " WHERE test = 'a'", "VALUES 'a'");
+            assertQuery("SELECT test FROM " + table.getName() + " WHERE test > 'b'", "VALUES 'é'");
+            assertQuery("SELECT test FROM " + table.getName() + " WHERE test < 'b'", "VALUES 'a'");
+            assertQueryReturnsEmptyResult("SELECT test FROM " + table.getName() + " WHERE test = 'b'");
+        }
     }
 
     @Test
@@ -600,13 +594,11 @@ public abstract class AbstractTestDistributedQueries
     {
         skipTestUnless(supportsInsert());
 
-        String tableName = "test_insert_unicode_" + randomTableSuffix();
-
-        assertUpdate("CREATE TABLE " + tableName + "(test varchar(50))");
-        assertUpdate("INSERT INTO " + tableName + "(test) VALUES 'Hello', U&'hello\\6d4B\\8Bd5\\+10FFFFworld\\7F16\\7801' ", 2);
-        assertThat(computeActual("SELECT test FROM " + tableName).getOnlyColumnAsSet())
-                .containsExactlyInAnyOrder("Hello", "hello测试􏿿world编码");
-        assertUpdate("DROP TABLE " + tableName);
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_unicode_", "(test varchar(50))")) {
+            assertUpdate("INSERT INTO " + table.getName() + "(test) VALUES 'Hello', U&'hello\\6d4B\\8Bd5\\+10FFFFworld\\7F16\\7801' ", 2);
+            assertThat(computeActual("SELECT test FROM " + table.getName()).getOnlyColumnAsSet())
+                    .containsExactlyInAnyOrder("Hello", "hello测试􏿿world编码");
+        }
     }
 
     @Test
@@ -622,13 +614,11 @@ public abstract class AbstractTestDistributedQueries
             throw new SkipException("not supported");
         }
 
-        assertUpdate("CREATE TABLE " + tableName + " (a ARRAY<DOUBLE>, b ARRAY<BIGINT>)");
-
-        assertUpdate("INSERT INTO " + tableName + " (a) VALUES (ARRAY[null])", 1);
-        assertUpdate("INSERT INTO " + tableName + " (a, b) VALUES (ARRAY[1.23E1], ARRAY[1.23E1])", 1);
-        assertQuery("SELECT a[1], b[1] FROM " + tableName, "VALUES (null, null), (12.3, 12)");
-
-        assertUpdate("DROP TABLE " + tableName);
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_array_", "(a ARRAY<DOUBLE>, b ARRAY<BIGINT>)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " (a) VALUES (ARRAY[null])", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " (a, b) VALUES (ARRAY[1.23E1], ARRAY[1.23E1])", 1);
+            assertQuery("SELECT a[1], b[1] FROM " + table.getName(), "VALUES (null, null), (12.3, 12)");
+        }
     }
 
     @Test
@@ -659,16 +649,20 @@ public abstract class AbstractTestDistributedQueries
         }
 
         String tableName = "test_delete_" + randomTableSuffix();
-        // test EXPLAIN ANALYZE with CTAS
-        assertExplainAnalyze("EXPLAIN ANALYZE CREATE TABLE " + tableName + " AS SELECT CAST(orderstatus AS VARCHAR(15)) orderstatus FROM orders");
-        assertQuery("SELECT * from " + tableName, "SELECT orderstatus FROM orders");
-        // check that INSERT works also
-        assertExplainAnalyze("EXPLAIN ANALYZE INSERT INTO " + tableName + " SELECT clerk FROM orders");
-        assertQuery("SELECT * from " + tableName, "SELECT orderstatus FROM orders UNION ALL SELECT clerk FROM orders");
-        // check DELETE works with EXPLAIN ANALYZE
-        assertExplainAnalyze("EXPLAIN ANALYZE DELETE FROM " + tableName + " WHERE TRUE");
-        assertQuery("SELECT COUNT(*) from " + tableName, "SELECT 0");
-        assertUpdate("DROP TABLE " + tableName);
+        try {
+            // test EXPLAIN ANALYZE with CTAS
+            assertExplainAnalyze("EXPLAIN ANALYZE CREATE TABLE " + tableName + " AS SELECT CAST(orderstatus AS VARCHAR(15)) orderstatus FROM orders");
+            assertQuery("SELECT * from " + tableName, "SELECT orderstatus FROM orders");
+            // check that INSERT works also
+            assertExplainAnalyze("EXPLAIN ANALYZE INSERT INTO " + tableName + " SELECT clerk FROM orders");
+            assertQuery("SELECT * from " + tableName, "SELECT orderstatus FROM orders UNION ALL SELECT clerk FROM orders");
+            // check DELETE works with EXPLAIN ANALYZE
+            assertExplainAnalyze("EXPLAIN ANALYZE DELETE FROM " + tableName + " WHERE TRUE");
+            assertQuery("SELECT COUNT(*) from " + tableName, "SELECT 0");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
     }
 
     @Test
@@ -1081,23 +1075,26 @@ public abstract class AbstractTestDistributedQueries
         skipTestUnless(supportsInsert());
 
         String tableName = "test_written_stats_" + randomTableSuffix();
-        String sql = "CREATE TABLE " + tableName + " AS SELECT * FROM nation";
-        ResultWithQueryId<MaterializedResult> resultResultWithQueryId = getDistributedQueryRunner().executeWithQueryId(getSession(), sql);
-        QueryInfo queryInfo = getDistributedQueryRunner().getCoordinator().getQueryManager().getFullQueryInfo(resultResultWithQueryId.getQueryId());
+        try {
+            String sql = "CREATE TABLE " + tableName + " AS SELECT * FROM nation";
+            ResultWithQueryId<MaterializedResult> resultResultWithQueryId = getDistributedQueryRunner().executeWithQueryId(getSession(), sql);
+            QueryInfo queryInfo = getDistributedQueryRunner().getCoordinator().getQueryManager().getFullQueryInfo(resultResultWithQueryId.getQueryId());
 
-        assertEquals(queryInfo.getQueryStats().getOutputPositions(), 1L);
-        assertEquals(queryInfo.getQueryStats().getWrittenPositions(), 25L);
-        assertTrue(queryInfo.getQueryStats().getLogicalWrittenDataSize().toBytes() > 0L);
+            assertEquals(queryInfo.getQueryStats().getOutputPositions(), 1L);
+            assertEquals(queryInfo.getQueryStats().getWrittenPositions(), 25L);
+            assertTrue(queryInfo.getQueryStats().getLogicalWrittenDataSize().toBytes() > 0L);
 
-        sql = "INSERT INTO " + tableName + " SELECT * FROM nation LIMIT 10";
-        resultResultWithQueryId = getDistributedQueryRunner().executeWithQueryId(getSession(), sql);
-        queryInfo = getDistributedQueryRunner().getCoordinator().getQueryManager().getFullQueryInfo(resultResultWithQueryId.getQueryId());
+            sql = "INSERT INTO " + tableName + " SELECT * FROM nation LIMIT 10";
+            resultResultWithQueryId = getDistributedQueryRunner().executeWithQueryId(getSession(), sql);
+            queryInfo = getDistributedQueryRunner().getCoordinator().getQueryManager().getFullQueryInfo(resultResultWithQueryId.getQueryId());
 
-        assertEquals(queryInfo.getQueryStats().getOutputPositions(), 1L);
-        assertEquals(queryInfo.getQueryStats().getWrittenPositions(), 10L);
-        assertTrue(queryInfo.getQueryStats().getLogicalWrittenDataSize().toBytes() > 0L);
-
-        assertUpdate("DROP TABLE " + tableName);
+            assertEquals(queryInfo.getQueryStats().getOutputPositions(), 1L);
+            assertEquals(queryInfo.getQueryStats().getWrittenPositions(), 10L);
+            assertTrue(queryInfo.getQueryStats().getLogicalWrittenDataSize().toBytes() > 0L);
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
     }
 
     @Test
@@ -1144,11 +1141,15 @@ public abstract class AbstractTestDistributedQueries
             return;
         }
 
-        assertUpdate("CREATE SCHEMA " + schemaName);
-        assertUpdate("CREATE TABLE " + schemaName + ".t(x int)");
-        assertQueryFails("DROP SCHEMA " + schemaName, ".*Cannot drop non-empty schema '\\Q" + schemaName + "\\E'");
-        assertUpdate("DROP TABLE " + schemaName + ".t");
-        assertUpdate("DROP SCHEMA " + schemaName);
+        try {
+            assertUpdate("CREATE SCHEMA " + schemaName);
+            assertUpdate("CREATE TABLE " + schemaName + ".t(x int)");
+            assertQueryFails("DROP SCHEMA " + schemaName, ".*Cannot drop non-empty schema '\\Q" + schemaName + "\\E'");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + schemaName + ".t");
+            assertUpdate("DROP SCHEMA " + schemaName);
+        }
     }
 
     @Test
@@ -1201,19 +1202,22 @@ public abstract class AbstractTestDistributedQueries
             }
             throw e;
         }
-        assertUpdate("INSERT INTO " + tableName + " VALUES ('null value', NULL), ('sample value', 'abc'), ('other value', 'xyz')", 3);
+        try {
+            assertUpdate("INSERT INTO " + tableName + " VALUES ('null value', NULL), ('sample value', 'abc'), ('other value', 'xyz')", 3);
 
-        // SELECT *
-        assertQuery("SELECT * FROM " + tableName, "VALUES ('null value', NULL), ('sample value', 'abc'), ('other value', 'xyz')");
+            // SELECT *
+            assertQuery("SELECT * FROM " + tableName, "VALUES ('null value', NULL), ('sample value', 'abc'), ('other value', 'xyz')");
 
-        // projection
-        assertQuery("SELECT " + nameInSql + " FROM " + tableName, "VALUES (NULL), ('abc'), ('xyz')");
+            // projection
+            assertQuery("SELECT " + nameInSql + " FROM " + tableName, "VALUES (NULL), ('abc'), ('xyz')");
 
-        // predicate
-        assertQuery("SELECT key FROM " + tableName + " WHERE " + nameInSql + " IS NULL", "VALUES ('null value')");
-        assertQuery("SELECT key FROM " + tableName + " WHERE " + nameInSql + " = 'abc'", "VALUES ('sample value')");
-
-        assertUpdate("DROP TABLE " + tableName);
+            // predicate
+            assertQuery("SELECT key FROM " + tableName + " WHERE " + nameInSql + " IS NULL", "VALUES ('null value')");
+            assertQuery("SELECT key FROM " + tableName + " WHERE " + nameInSql + " = 'abc'", "VALUES ('sample value')");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
     }
 
     protected boolean isColumnNameRejected(Exception exception, String columnName, boolean delimited)
