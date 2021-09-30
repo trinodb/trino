@@ -41,6 +41,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.sql.analyzer.RegexLibrary.JONI;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 @DefunctConfig({
         "analyzer.experimental-syntax-enabled",
@@ -147,6 +148,9 @@ public class FeaturesConfig
     private boolean incrementalHashArrayLoadFactorEnabled = true;
 
     private RetryPolicy retryPolicy = RetryPolicy.NONE;
+    private int retryAttempts = 4;
+    private Duration retryInitialDelay = new Duration(10, SECONDS);
+    private Duration retryMaxDelay = new Duration(1, MINUTES);
 
     public enum JoinReorderingStrategy
     {
@@ -1122,6 +1126,47 @@ public class FeaturesConfig
     public FeaturesConfig setRetryPolicy(RetryPolicy retryPolicy)
     {
         this.retryPolicy = retryPolicy;
+        return this;
+    }
+
+    @Min(0)
+    public int getRetryAttempts()
+    {
+        return retryAttempts;
+    }
+
+    @Config("retry-attempts")
+    public FeaturesConfig setRetryAttempts(int retryAttempts)
+    {
+        this.retryAttempts = retryAttempts;
+        return this;
+    }
+
+    @NotNull
+    public Duration getRetryInitialDelay()
+    {
+        return retryInitialDelay;
+    }
+
+    @Config("retry-initial-delay")
+    @ConfigDescription("Initial delay before initiating a retry attempt. Delay increases exponentially for each subsequent attempt up to 'retry_max_delay'")
+    public FeaturesConfig setRetryInitialDelay(Duration retryInitialDelay)
+    {
+        this.retryInitialDelay = retryInitialDelay;
+        return this;
+    }
+
+    @NotNull
+    public Duration getRetryMaxDelay()
+    {
+        return retryMaxDelay;
+    }
+
+    @Config("retry-max-delay")
+    @ConfigDescription("Maximum delay before initiating a retry attempt. Delay increases exponentially for each subsequent attempt starting from 'retry_initial_delay'")
+    public FeaturesConfig setRetryMaxDelay(Duration retryMaxDelay)
+    {
+        this.retryMaxDelay = retryMaxDelay;
         return this;
     }
 }

@@ -44,6 +44,11 @@ public enum StageState
      */
     FINISHED(true, false),
     /**
+     * Stage was aborted due to a failure in the query.  The failure
+     * was not in this stage.
+     */
+    ABORTED(true, true),
+    /**
      * Stage execution failed.
      */
     FAILED(true, true);

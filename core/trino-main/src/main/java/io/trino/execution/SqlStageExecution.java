@@ -126,26 +126,23 @@ public final class SqlStageExecution
         return stateMachine.getStageId();
     }
 
-    public synchronized boolean transitionToFinished()
+    public synchronized void finish()
     {
-        abortRunningTasks();
-        return stateMachine.transitionToFinished();
+        stateMachine.transitionToFinished();
+        tasks.values().forEach(RemoteTask::cancel);
     }
 
-    public synchronized boolean transitionToFailed(Throwable throwable)
+    public synchronized void abort()
+    {
+        stateMachine.transitionToAborted();
+        tasks.values().forEach(RemoteTask::abort);
+    }
+
+    public synchronized void fail(Throwable throwable)
     {
         requireNonNull(throwable, "throwable is null");
-        abortRunningTasks();
-        return stateMachine.transitionToFailed(throwable);
-    }
-
-    private synchronized void abortRunningTasks()
-    {
-        for (RemoteTask task : tasks.values()) {
-            if (!task.getTaskStatus().getState().isDone()) {
-                task.abort();
-            }
-        }
+        stateMachine.transitionToFailed(throwable);
+        tasks.values().forEach(RemoteTask::abort);
     }
 
     /**
@@ -202,6 +199,7 @@ public final class SqlStageExecution
     public synchronized Optional<RemoteTask> createTask(
             InternalNode node,
             int partition,
+            int attempt,
             Optional<int[]> bucketToPartition,
             OutputBuffers outputBuffers,
             Multimap<PlanNodeId, Split> splits,
@@ -211,7 +209,7 @@ public final class SqlStageExecution
         if (stateMachine.getState().isDone()) {
             return Optional.empty();
         }
-        TaskId taskId = new TaskId(stateMachine.getStageId(), partition, 0);
+        TaskId taskId = new TaskId(stateMachine.getStageId(), partition, attempt);
         checkArgument(!tasks.containsKey(taskId), "A task with id %s already exists", taskId);
 
         stateMachine.transitionToScheduling();

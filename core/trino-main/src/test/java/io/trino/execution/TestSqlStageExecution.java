@@ -131,6 +131,7 @@ public class TestSqlStageExecution
                     stage.createTask(
                             node,
                             i,
+                            0,
                             Optional.empty(),
                             createInitialEmptyOutputBuffers(ARBITRARY),
                             ImmutableMultimap.of(),
@@ -149,7 +150,7 @@ public class TestSqlStageExecution
         // wait for some tasks to be created, and then abort the query
         latch.await(1, MINUTES);
         assertFalse(stage.getStageInfo().getTasks().isEmpty());
-        stage.transitionToFinished();
+        stage.finish();
 
         // once the final stage info is available, verify that it is complete
         StageInfo stageInfo = finalStageInfo.get(1, MINUTES);
