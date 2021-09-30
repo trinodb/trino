@@ -587,6 +587,11 @@ public abstract class BaseIcebergConnectorTest
                 "SHOW COLUMNS FROM test_column_comments",
                 "VALUES ('_bigint', 'bigint', '', 'test column comment')");
 
+        assertUpdate("ALTER TABLE test_column_comments ADD COLUMN _varchar VARCHAR COMMENT 'test new column comment'");
+        assertQuery(
+                "SHOW COLUMNS FROM test_column_comments",
+                "VALUES ('_bigint', 'bigint', '', 'test column comment'), ('_varchar', 'varchar', '', 'test new column comment')");
+
         dropTable("test_column_comments");
     }
 
