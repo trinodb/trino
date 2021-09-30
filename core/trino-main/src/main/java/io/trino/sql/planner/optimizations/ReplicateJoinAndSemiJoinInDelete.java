@@ -21,14 +21,17 @@ import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.DeleteNode;
+import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.JoinNode.Type;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.SimplePlanRewriter;
 
-import static io.trino.sql.planner.plan.SemiJoinNode.DistributionType.REPLICATED;
+import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.JoinNode.Type.LEFT;
 import static java.util.Objects.requireNonNull;
 
-public class ReplicateSemiJoinInDelete
+public class ReplicateJoinAndSemiJoinInDelete
         implements PlanOptimizer
 {
     @Override
@@ -44,6 +47,21 @@ public class ReplicateSemiJoinInDelete
         private boolean isDeleteQuery;
 
         @Override
+        public PlanNode visitJoin(JoinNode node, RewriteContext<Void> context)
+        {
+            PlanNode leftSourceRewritten = context.rewrite(node.getLeft(), context.get());
+
+            // This should be applied to Joins directly between TableScan and DeleteNode, not to all Joins in the plan
+            JoinNode rewrittenNode = (JoinNode) node.replaceChildren(ImmutableList.of(leftSourceRewritten, node.getRight()));
+            Type joinType = rewrittenNode.getType();
+            if (isDeleteQuery && (joinType == INNER || joinType == LEFT)) {
+                return rewrittenNode.withDistributionType(JoinNode.DistributionType.REPLICATED);
+            }
+
+            return rewrittenNode;
+        }
+
+        @Override
         public PlanNode visitSemiJoin(SemiJoinNode node, RewriteContext<Void> context)
         {
             PlanNode sourceRewritten = context.rewrite(node.getSource(), context.get());
@@ -52,7 +70,7 @@ public class ReplicateSemiJoinInDelete
             SemiJoinNode rewrittenNode = (SemiJoinNode) node.replaceChildren(ImmutableList.of(sourceRewritten, filteringSourceRewritten));
 
             if (isDeleteQuery) {
-                return rewrittenNode.withDistributionType(REPLICATED);
+                return rewrittenNode.withDistributionType(SemiJoinNode.DistributionType.REPLICATED);
             }
 
             return rewrittenNode;
