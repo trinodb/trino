@@ -200,9 +200,13 @@ public class TestHttpQueryListener
 
     @AfterMethod(alwaysRun = true)
     public void teardown()
-            throws IOException
     {
-        server.close();
+        try {
+            server.close();
+        }
+        catch (IOException ignored) {
+            // MockWebServer.close() method sometimes throws 'Gave up waiting for executor to shut down'
+        }
     }
 
     /**
