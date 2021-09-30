@@ -47,6 +47,7 @@ import java.util.Optional;
 
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.sql.ParameterUtils.parameterExtractor;
+import static io.trino.sql.analyzer.QueryType.EXPLAIN;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.sql.planner.planprinter.IoPlanPrinter.textIoPlan;
 import static java.lang.String.format;
@@ -118,7 +119,7 @@ public class QueryExplainer
     public Analysis analyze(Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector)
     {
         Analyzer analyzer = new Analyzer(session, metadata, sqlParser, groupProvider, accessControl, Optional.of(this), parameters, parameterExtractor(statement, parameters), warningCollector, statsCalculator);
-        return analyzer.analyze(statement);
+        return analyzer.analyze(statement, EXPLAIN);
     }
 
     public String getPlan(Session session, Statement statement, Type planType, List<Expression> parameters, WarningCollector warningCollector)

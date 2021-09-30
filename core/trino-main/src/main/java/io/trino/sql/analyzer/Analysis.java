@@ -97,6 +97,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.sql.analyzer.QueryType.DESCRIBE;
+import static io.trino.sql.analyzer.QueryType.EXPLAIN;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.unmodifiableMap;
@@ -240,14 +241,10 @@ public class Analysis
 
     public void setUpdateType(String updateType, QualifiedObjectName targetName, Optional<Table> targetTable, Optional<List<OutputColumn>> targetColumns)
     {
-        this.updateType = updateType;
-        this.target = Optional.of(new UpdateTarget(targetName, targetTable, targetColumns));
-    }
-
-    public void resetUpdateType()
-    {
-        this.updateType = null;
-        this.target = Optional.empty();
+        if (queryType != EXPLAIN) {
+            this.updateType = updateType;
+            this.target = Optional.of(new UpdateTarget(targetName, targetTable, targetColumns));
+        }
     }
 
     public boolean isUpdateTarget(Table table)
