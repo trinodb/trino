@@ -63,6 +63,8 @@ public interface RemoteTask
 
     PartitionedSplitsInfo getPartitionedSplitsInfo();
 
+    void fail(Throwable cause);
+
     PartitionedSplitsInfo getQueuedPartitionedSplitsInfo();
 
     int getUnacknowledgedPartitionedSplitCount();

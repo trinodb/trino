@@ -140,4 +140,9 @@ public interface TaskManager
      * possible notifications are observed out of order due to the asynchronous execution.
      */
     void addStateChangeListener(TaskId taskId, StateChangeListener<TaskState> stateChangeListener);
+
+    /**
+     * Add a listener that notifies about failures of any source tasks for a given task
+     */
+    void addSourceTaskFailureListener(TaskId taskId, TaskFailureListener listener);
 }

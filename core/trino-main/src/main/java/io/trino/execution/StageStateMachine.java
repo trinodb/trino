@@ -51,6 +51,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.succinctDuration;
+import static io.trino.execution.StageState.ABORTED;
 import static io.trino.execution.StageState.FAILED;
 import static io.trino.execution.StageState.FINISHED;
 import static io.trino.execution.StageState.PENDING;
@@ -150,6 +151,11 @@ public class StageStateMachine
     public boolean transitionToFinished()
     {
         return stageState.setIf(FINISHED, currentState -> !currentState.isDone());
+    }
+
+    public boolean transitionToAborted()
+    {
+        return stageState.setIf(ABORTED, currentState -> !currentState.isDone());
     }
 
     public boolean transitionToFailed(Throwable throwable)
