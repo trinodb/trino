@@ -96,6 +96,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.sql.analyzer.QueryType.DESCRIBE;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.unmodifiableMap;
@@ -202,8 +203,7 @@ public class Analysis
     private Optional<TableHandle> analyzeTarget = Optional.empty();
     private Optional<List<ColumnMetadata>> updatedColumns = Optional.empty();
 
-    // for describe input and describe output
-    private final boolean isDescribe;
+    private final QueryType queryType;
 
     // for recursive view detection
     private final Deque<Table> tablesForView = new ArrayDeque<>();
@@ -213,11 +213,11 @@ public class Analysis
     private final Multimap<Field, SourceColumn> originColumnDetails = ArrayListMultimap.create();
     private final Multimap<NodeRef<Expression>, Field> fieldLineage = ArrayListMultimap.create();
 
-    public Analysis(@Nullable Statement root, Map<NodeRef<Parameter>, Expression> parameters, boolean isDescribe)
+    public Analysis(@Nullable Statement root, Map<NodeRef<Parameter>, Expression> parameters, QueryType queryType)
     {
         this.root = root;
         this.parameters = ImmutableMap.copyOf(requireNonNull(parameters, "parameters is null"));
-        this.isDescribe = isDescribe;
+        this.queryType = requireNonNull(queryType, "queryType is null");
     }
 
     public Statement getStatement()
@@ -840,9 +840,14 @@ public class Analysis
         return parameters;
     }
 
+    public QueryType getQueryType()
+    {
+        return queryType;
+    }
+
     public boolean isDescribe()
     {
-        return isDescribe;
+        return queryType == DESCRIBE;
     }
 
     public void setJoinUsing(Join node, JoinUsingAnalysis analysis)

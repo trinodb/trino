@@ -53,6 +53,7 @@ import static io.trino.sql.QueryUtil.row;
 import static io.trino.sql.QueryUtil.selectList;
 import static io.trino.sql.QueryUtil.simpleQuery;
 import static io.trino.sql.QueryUtil.values;
+import static io.trino.sql.analyzer.QueryType.DESCRIBE;
 import static io.trino.type.TypeUtils.getDisplayLabel;
 import static java.util.Objects.requireNonNull;
 
@@ -121,7 +122,7 @@ final class DescribeOutputRewrite
             Statement statement = parser.createStatement(sqlString, createParsingOptions(session));
 
             Analyzer analyzer = new Analyzer(session, metadata, parser, groupProvider, accessControl, queryExplainer, parameters, parameterLookup, warningCollector, statsCalculator);
-            Analysis analysis = analyzer.analyze(statement, true);
+            Analysis analysis = analyzer.analyze(statement, DESCRIBE);
 
             Optional<Node> limit = Optional.empty();
             Row[] rows = analysis.getRootScope().getRelationType().getVisibleFields().stream().map(field -> createDescribeOutputRow(field, analysis)).toArray(Row[]::new);
