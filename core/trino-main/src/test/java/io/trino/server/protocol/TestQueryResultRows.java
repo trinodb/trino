@@ -90,7 +90,6 @@ public class TestQueryResultRows
         assertThat((Iterable<? extends List<Object>>) rows).as("rows").isNotEmpty();
         assertThat(getAllValues(rows)).hasSize(1).containsOnly(ImmutableList.of(true));
         assertThat(rows.getColumns().orElseThrow()).containsOnly(column);
-        assertThat(rows.iterator().hasNext()).isFalse();
     }
 
     @Test
@@ -110,7 +109,6 @@ public class TestQueryResultRows
 
         assertThat(getAllValues(rows)).containsExactly(ImmutableList.of(value));
         assertThat(rows.getColumns().orElseThrow()).containsOnly(column);
-        assertThat(rows.iterator()).isExhausted();
     }
 
     @Test
