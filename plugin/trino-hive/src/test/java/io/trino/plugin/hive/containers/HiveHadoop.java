@@ -16,6 +16,7 @@ package io.trino.plugin.hive.containers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
+import io.airlift.log.Logger;
 import io.trino.testing.TestingProperties;
 import io.trino.testing.containers.BaseTestContainer;
 import org.testcontainers.containers.Network;
@@ -27,6 +28,8 @@ import java.util.Set;
 public class HiveHadoop
         extends BaseTestContainer
 {
+    private static final Logger log = Logger.get(HiveHadoop.class);
+
     public static final String DEFAULT_IMAGE = "ghcr.io/trinodb/testing/hdp2.6-hive:" + TestingProperties.getDockerImagesVersion();
     public static final String HIVE3_IMAGE = "ghcr.io/trinodb/testing/hdp3.1-hive:" + TestingProperties.getDockerImagesVersion();
 
@@ -68,6 +71,13 @@ public class HiveHadoop
                 ImmutableList.of(
                         "/bin/bash",
                         runCmd));
+    }
+
+    @Override
+    public void start()
+    {
+        super.start();
+        log.info("Hive container started with addresses for metastore: %s", getHiveMetastoreEndpoint());
     }
 
     public HostAndPort getHiveMetastoreEndpoint()
