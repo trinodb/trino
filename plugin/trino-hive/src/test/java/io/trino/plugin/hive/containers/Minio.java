@@ -74,9 +74,9 @@ public class Minio
     }
 
     @Override
-    protected void startContainer()
+    public void start()
     {
-        super.startContainer();
+        super.start();
         log.info(format(
                 "MinIO container started with address for api: http://%s and console: http://%s",
                 getMinioApiEndpoint().toString(),
