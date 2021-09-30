@@ -84,13 +84,15 @@ public abstract class BaseSnowflakeConnectorTest
                 .isInstanceOf(AssertionError.class);
 
         // Also assert that CHAR columns end up as VARCHAR in Snowflake
-        String tableName = "test_char_is_varchar_" + randomTableSuffix();
-        assertUpdate(format("CREATE TABLE %s AS SELECT CHAR 'is_actually_a_varchar' AS a_char", tableName), 1);
-        assertThat((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue())
-                .matches("CREATE TABLE \\w+\\.\\w+\\.\\w+ \\Q(\n" +
-                        "   a_char varchar(21)\n" +
-                        ")");
-        assertUpdate("DROP TABLE " + tableName);
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_char_is_varchar_",
+                "AS SELECT CHAR 'is_actually_a_varchar' AS a_char")) {
+            assertThat((String) computeActual("SHOW CREATE TABLE " + table.getName()).getOnlyValue())
+                    .matches("CREATE TABLE \\w+\\.\\w+\\.\\w+ \\Q(\n" +
+                            "   a_char varchar(21)\n" +
+                            ")");
+        }
     }
 
     @Override
