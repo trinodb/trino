@@ -38,7 +38,7 @@ public final class SingletonIdentityCacheMapping
         @Override
         public boolean equals(Object obj)
         {
-            return obj instanceof SingletonIdentityCacheMapping;
+            return obj instanceof SingletonIdentityCacheKey;
         }
     }
 }
