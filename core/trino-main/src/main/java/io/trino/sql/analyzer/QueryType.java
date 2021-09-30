@@ -16,6 +16,7 @@ package io.trino.sql.analyzer;
 public enum QueryType
 {
     DESCRIBE,
+    EXPLAIN,
     OTHERS,
     /**/;
 }

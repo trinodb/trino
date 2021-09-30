@@ -1157,7 +1157,6 @@ class StatementAnalyzer
         protected Scope visitExplain(Explain node, Optional<Scope> scope)
         {
             process(node.getStatement(), scope);
-            analysis.resetUpdateType();
             return createAndAssignScope(node, scope, Field.newUnqualified("Query Plan", VARCHAR));
         }
 
@@ -1165,7 +1164,6 @@ class StatementAnalyzer
         protected Scope visitExplainAnalyze(ExplainAnalyze node, Optional<Scope> scope)
         {
             process(node.getStatement(), scope);
-            analysis.resetUpdateType();
             return createAndAssignScope(node, scope, Field.newUnqualified("Query Plan", VARCHAR));
         }
 
