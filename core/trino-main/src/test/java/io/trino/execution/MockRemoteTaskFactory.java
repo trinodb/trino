@@ -449,6 +449,13 @@ public class MockRemoteTaskFactory
         }
 
         @Override
+        public void fail(Throwable cause)
+        {
+            taskStateMachine.failed(cause);
+            clearSplits();
+        }
+
+        @Override
         public PartitionedSplitsInfo getPartitionedSplitsInfo()
         {
             if (taskStateMachine.getState().isDone()) {

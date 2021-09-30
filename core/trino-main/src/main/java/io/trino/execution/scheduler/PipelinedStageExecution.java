@@ -93,6 +93,7 @@ public class PipelinedStageExecution
     private final Executor executor;
     private final Optional<int[]> bucketToPartition;
     private final Map<PlanFragmentId, RemoteSourceNode> exchangeSources;
+    private final int attempt;
 
     private final Map<Integer, RemoteTask> tasks = new ConcurrentHashMap<>();
 
@@ -122,7 +123,8 @@ public class PipelinedStageExecution
             TaskLifecycleListener taskLifecycleListener,
             FailureDetector failureDetector,
             Executor executor,
-            Optional<int[]> bucketToPartition)
+            Optional<int[]> bucketToPartition,
+            int attempt)
     {
         PipelinedStageStateMachine stateMachine = new PipelinedStageStateMachine(stageExecution.getStageId(), executor);
         ImmutableMap.Builder<PlanFragmentId, RemoteSourceNode> exchangeSources = ImmutableMap.builder();
@@ -139,7 +141,8 @@ public class PipelinedStageExecution
                 failureDetector,
                 executor,
                 bucketToPartition,
-                exchangeSources.build());
+                exchangeSources.build(),
+                attempt);
         execution.initialize();
         return execution;
     }
@@ -152,7 +155,8 @@ public class PipelinedStageExecution
             FailureDetector failureDetector,
             Executor executor,
             Optional<int[]> bucketToPartition,
-            Map<PlanFragmentId, RemoteSourceNode> exchangeSources)
+            Map<PlanFragmentId, RemoteSourceNode> exchangeSources,
+            int attempt)
     {
         this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
         this.stageExecution = requireNonNull(stageExecution, "stageExecution is null");
@@ -162,6 +166,7 @@ public class PipelinedStageExecution
         this.executor = requireNonNull(executor, "executor is null");
         this.bucketToPartition = requireNonNull(bucketToPartition, "bucketToPartition is null");
         this.exchangeSources = ImmutableMap.copyOf(requireNonNull(exchangeSources, "exchangeSources is null"));
+        this.attempt = attempt;
     }
 
     private void initialize()
@@ -256,6 +261,19 @@ public class PipelinedStageExecution
         getAllTasks().forEach(RemoteTask::abort);
     }
 
+    public synchronized void fail(Throwable failureCause)
+    {
+        stateMachine.transitionToFailed(failureCause);
+        tasks.values().forEach(RemoteTask::abort);
+    }
+
+    public synchronized void failTask(TaskId taskId, Throwable failureCause)
+    {
+        RemoteTask task = requireNonNull(tasks.get(taskId.getPartitionId()), () -> "task not found: " + taskId);
+        task.fail(failureCause);
+        fail(failureCause);
+    }
+
     public synchronized Optional<RemoteTask> scheduleTask(
             InternalNode node,
             int partition,
@@ -273,6 +291,7 @@ public class PipelinedStageExecution
         Optional<RemoteTask> optionalTask = stageExecution.createTask(
                 node,
                 partition,
+                attempt,
                 bucketToPartition,
                 outputBuffers,
                 initialSplits,
@@ -338,11 +357,15 @@ public class PipelinedStageExecution
                         .map(this::rewriteTransportFailure)
                         .map(ExecutionFailureInfo::toException)
                         .orElse(new TrinoException(GENERIC_INTERNAL_ERROR, "A task failed for an unknown reason"));
-                stateMachine.transitionToFailed(failure);
+                fail(failure);
+                break;
+            case CANCELED:
+                // A task should only be in the canceled state if the STAGE is cancelled
+                fail(new TrinoException(GENERIC_INTERNAL_ERROR, "A task is in the CANCELED state but stage is " + stageState));
                 break;
             case ABORTED:
                 // A task should only be in the aborted state if the STAGE is done (ABORTED or FAILED)
-                stateMachine.transitionToFailed(new TrinoException(GENERIC_INTERNAL_ERROR, "A task is in the ABORTED state but stage is " + stageState));
+                fail(new TrinoException(GENERIC_INTERNAL_ERROR, "A task is in the ABORTED state but stage is " + stageState));
                 break;
             case FLUSHING:
                 flushingTasks.add(taskStatus.getTaskId());

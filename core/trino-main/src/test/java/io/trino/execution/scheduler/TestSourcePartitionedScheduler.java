@@ -674,7 +674,8 @@ public class TestSourcePartitionedScheduler
                 TaskLifecycleListener.NO_OP,
                 new NoOpFailureDetector(),
                 queryExecutor,
-                Optional.of(new int[] {0}));
+                Optional.of(new int[] {0}),
+                0);
     }
 
     private static class QueuedSplitSource

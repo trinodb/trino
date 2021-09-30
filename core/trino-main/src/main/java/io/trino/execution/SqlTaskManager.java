@@ -533,6 +533,12 @@ public class SqlTaskManager
         tasks.getUnchecked(taskId).addStateChangeListener(stateChangeListener);
     }
 
+    @Override
+    public void addSourceTaskFailureListener(TaskId taskId, TaskFailureListener listener)
+    {
+        tasks.getUnchecked(taskId).addSourceTaskFailureListener(listener);
+    }
+
     @VisibleForTesting
     public QueryContext getQueryContext(QueryId queryId)
 

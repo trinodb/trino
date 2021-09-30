@@ -255,7 +255,7 @@ public final class HttpRemoteTask
             TaskInfo initialTask = createInitialTask(taskId, location, nodeId, bufferStates, new TaskStats(DateTime.now(), null));
 
             this.dynamicFiltersFetcher = new DynamicFiltersFetcher(
-                    this::failTask,
+                    this::fail,
                     taskId,
                     location,
                     taskStatusRefreshMaxWait,
@@ -268,7 +268,7 @@ public final class HttpRemoteTask
                     dynamicFilterService);
 
             this.taskStatusFetcher = new ContinuousTaskStatusFetcher(
-                    this::failTask,
+                    this::fail,
                     initialTask.getTaskStatus(),
                     taskStatusRefreshMaxWait,
                     taskStatusCodec,
@@ -280,7 +280,7 @@ public final class HttpRemoteTask
                     stats);
 
             this.taskInfoFetcher = new TaskInfoFetcher(
-                    this::failTask,
+                    this::fail,
                     taskStatusFetcher,
                     initialTask,
                     httpClient,
@@ -795,7 +795,8 @@ public final class HttpRemoteTask
     /**
      * Move the task directly to the failed state if there was a failure in this task
      */
-    private void failTask(Throwable cause)
+    @Override
+    public synchronized void fail(Throwable cause)
     {
         TaskStatus taskStatus = getTaskStatus();
         if (!taskStatus.getState().isDone()) {
@@ -913,11 +914,11 @@ public final class HttpRemoteTask
                     }
                 }
                 catch (Error e) {
-                    failTask(e);
+                    fail(e);
                     throw e;
                 }
                 catch (RuntimeException e) {
-                    failTask(e);
+                    fail(e);
                 }
                 finally {
                     sendUpdate();
@@ -929,7 +930,7 @@ public final class HttpRemoteTask
         public void fatal(Throwable cause)
         {
             try (SetThreadName ignored = new SetThreadName("UpdateResponseHandler-%s", taskId)) {
-                failTask(cause);
+                fail(cause);
             }
         }
 

@@ -40,7 +40,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.execution.scheduler.PipelinedStageExecution.State.FLUSHING;
 import static io.trino.execution.scheduler.PipelinedStageExecution.State.RUNNING;
 import static io.trino.execution.scheduler.PipelinedStageExecution.State.SCHEDULED;
@@ -97,10 +96,9 @@ public class AllAtOnceExecutionSchedule
         Set<PlanFragment> rootFragments = fragments.stream()
                 .filter(fragment -> !remoteSources.contains(fragment.getId()))
                 .collect(toImmutableSet());
-        checkArgument(rootFragments.size() == 1, "Expected one root fragment, but found: %s", rootFragments);
 
         Visitor visitor = new Visitor(fragments);
-        visitor.processFragment(getOnlyElement(rootFragments).getId());
+        rootFragments.forEach(fragment -> visitor.processFragment(fragment.getId()));
 
         return visitor.getSchedulerOrder();
     }
