@@ -82,8 +82,8 @@ final class TrinoSystemRequirements
             }
         }
         else if ("Mac OS X".equals(osName)) {
-            if (!"x86_64".equals(osArch)) {
-                failRequirement("Trino requires x86_64 on Mac OS X (found %s)", osArch);
+            if (!"x86_64".equals(osArch) && !"aarch64".equals(osArch)) {
+                failRequirement("Trino requires x86_64 or aarch64 on Mac OS X (found %s)", osArch);
             }
         }
         else {
