@@ -21,9 +21,9 @@ import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
-import io.trino.plugin.jdbc.JdbcMetadataConfig;
 import io.trino.plugin.jdbc.JdbcRecordSetProvider;
 import io.trino.plugin.jdbc.JdbcSplitManager;
+import io.trino.plugin.jdbc.JdbcWriteConfig;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.credential.CredentialProviderModule;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
@@ -61,7 +61,7 @@ public class SalesforceModule
         // Writes are currently only enabled for tests, so the code that users this property won't be exercised
         // If we do enable writes some day, users would get an odd error if they set this property by false
         // We may want to override begin/finish insert table rather than using this property
-        configBinder(binder).bindConfigDefaults(JdbcMetadataConfig.class, config -> config.setNonTransactionalInsert(true));
+        configBinder(binder).bindConfigDefaults(JdbcWriteConfig.class, config -> config.setNonTransactionalInsert(true));
     }
 
     @Provides
