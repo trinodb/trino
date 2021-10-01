@@ -634,7 +634,7 @@ class Query
                     return TIME;
                 }
                 if (dataTimeType.getType() == DateTimeDataType.Type.TIME && dataTimeType.isWithTimeZone()) {
-                    return TIMESTAMP_WITH_TIME_ZONE;
+                    return TIME_WITH_TIME_ZONE;
                 }
             }
 
