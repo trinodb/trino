@@ -14,6 +14,7 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.log.Logger;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.plugin.hive.s3.S3HiveQueryRunner;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -21,6 +22,7 @@ import io.trino.testing.QueryRunner;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.List;
 
@@ -40,8 +42,11 @@ public abstract class BaseTestHiveInsertOverwrite
 
     private final String hiveHadoopImage;
 
+    private static Logger log;
+
     public BaseTestHiveInsertOverwrite(String hiveHadoopImage)
     {
+        this.log = Logger.get(this.getClass());
         this.hiveHadoopImage = requireNonNull(hiveHadoopImage, "hiveHadoopImage is null");
     }
 
@@ -69,15 +74,29 @@ public abstract class BaseTestHiveInsertOverwrite
     @BeforeClass
     public void setUp()
     {
+        logTestCall("setUp");
         computeActual(format(
                 "CREATE SCHEMA hive.%1$s WITH (location='s3a://%2$s/%1$s')",
                 HIVE_TEST_SCHEMA,
                 bucketName));
     }
 
-    @Test
-    public void testInsertOverwriteNonPartitionedTable()
+    private void logTestCall(String methodName)
     {
+        log.warn(format(
+                ">>>> Running method: %s by thread: %s with Hive dockerId: %s, Hive Endpoint: %s, MinIO dockerId: %s, MinIO endpoint: %s",
+                methodName,
+                Thread.currentThread().getName(),
+                this.dockerizedS3DataLake.getHiveHadoop().getContainerId(),
+                this.dockerizedS3DataLake.getHiveHadoop().getHiveMetastoreEndpoint(),
+                this.dockerizedS3DataLake.getMinio().getContainerId(),
+                this.dockerizedS3DataLake.getMinio().getMinioApiEndpoint()));
+    }
+
+    @Test
+    public void testInsertOverwriteNonPartitionedTable(final Method testContext)
+    {
+        logTestCall(testContext.getName());
         String testTable = getTestTableName();
         computeActual(getCreateTableStatement(testTable));
         assertInsertFailure(
@@ -87,8 +106,9 @@ public abstract class BaseTestHiveInsertOverwrite
     }
 
     @Test
-    public void testInsertOverwriteNonPartitionedBucketedTable()
+    public void testInsertOverwriteNonPartitionedBucketedTable(final Method testContext)
     {
+        logTestCall(testContext.getName());
         String testTable = getTestTableName();
         computeActual(getCreateTableStatement(
                 testTable,
@@ -101,8 +121,9 @@ public abstract class BaseTestHiveInsertOverwrite
     }
 
     @Test
-    public void testInsertOverwritePartitionedTable()
+    public void testInsertOverwritePartitionedTable(final Method testContext)
     {
+        logTestCall(testContext.getName());
         String testTable = getTestTableName();
         computeActual(getCreateTableStatement(
                 testTable,
@@ -112,8 +133,9 @@ public abstract class BaseTestHiveInsertOverwrite
     }
 
     @Test
-    public void testInsertOverwritePartitionedAndBucketedTable()
+    public void testInsertOverwritePartitionedAndBucketedTable(final Method testContext)
     {
+        logTestCall(testContext.getName());
         String testTable = getTestTableName();
         computeActual(getCreateTableStatement(
                 testTable,
@@ -125,8 +147,9 @@ public abstract class BaseTestHiveInsertOverwrite
     }
 
     @Test
-    public void testInsertOverwritePartitionedAndBucketedExternalTable()
+    public void testInsertOverwritePartitionedAndBucketedExternalTable(final Method testContext)
     {
+        logTestCall(testContext.getName());
         String testTable = getTestTableName();
         // Store table data in data lake bucket
         computeActual(getCreateTableStatement(

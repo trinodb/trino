@@ -125,6 +125,11 @@ public abstract class BaseTestContainer
         startContainer();
     }
 
+    public String getContainerId()
+    {
+        return container.getContainerId();
+    }
+
     public void stop()
     {
         container.stop();
