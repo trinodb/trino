@@ -29,6 +29,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.operator.WorkProcessor.TransformationState.finished;
 import static io.trino.operator.WorkProcessor.TransformationState.needsMoreData;
 import static io.trino.operator.WorkProcessor.TransformationState.ofResult;
+import static io.trino.operator.project.PageProcessor.MAX_BATCH_SIZE;
 import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static java.util.Objects.requireNonNull;
 
@@ -75,12 +76,59 @@ public final class MergePages
             WorkProcessor<Page> pages,
             AggregatedMemoryContext memoryContext)
     {
-        return pages.transform(new MergePagesTransformation(
-                types,
-                minPageSizeInBytes,
-                minRowCount,
-                maxPageSizeInBytes,
-                memoryContext.newLocalMemoryContext(MergePages.class.getSimpleName())));
+        List<Type> typeList = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+        WorkProcessor.Transformation<Page, Page> mergingTransform;
+        if (typeList.isEmpty()) {
+            // position count only mode
+            mergingTransform = new MergePositionCountPagesTransformation(minRowCount);
+        }
+        else {
+            mergingTransform = new MergePagesTransformation(
+                    typeList,
+                    minPageSizeInBytes,
+                    minRowCount,
+                    maxPageSizeInBytes,
+                    memoryContext.newLocalMemoryContext(MergePages.class.getSimpleName()));
+        }
+        return pages.transform(mergingTransform);
+    }
+
+    private static class MergePositionCountPagesTransformation
+            implements WorkProcessor.Transformation<Page, Page>
+    {
+        private final int minRowCount;
+        private int currentRowCount;
+
+        private MergePositionCountPagesTransformation(int minRowCount)
+        {
+            checkArgument(minRowCount >= 0, "minRowCount must be greater or equal than zero");
+            this.minRowCount = minRowCount;
+        }
+
+        @Override
+        public TransformationState<Page> process(Page inputPage)
+        {
+            if (inputPage == null) {
+                if (currentRowCount == 0) {
+                    return finished();
+                }
+                Page result = new Page(currentRowCount);
+                currentRowCount = 0;
+                return ofResult(result, false);
+            }
+            int inputPositions = inputPage.getPositionCount();
+            // Prefer to reuse input page instances directly if they're not too small
+            if (inputPositions >= minRowCount) {
+                return ofResult(inputPage);
+            }
+            // Accumulate small pages until we can emit the target output size
+            currentRowCount += inputPositions;
+            if (currentRowCount >= MAX_BATCH_SIZE) {
+                currentRowCount -= MAX_BATCH_SIZE;
+                return ofResult(new Page(MAX_BATCH_SIZE));
+            }
+            return needsMoreData();
+        }
     }
 
     private static class MergePagesTransformation
@@ -94,7 +142,7 @@ public final class MergePages
 
         private Page queuedPage;
 
-        private MergePagesTransformation(Iterable<? extends Type> types, long minPageSizeInBytes, int minRowCount, int maxPageSizeInBytes, LocalMemoryContext memoryContext)
+        private MergePagesTransformation(List<Type> types, long minPageSizeInBytes, int minRowCount, int maxPageSizeInBytes, LocalMemoryContext memoryContext)
         {
             this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
             checkArgument(minPageSizeInBytes >= 0, "minPageSizeInBytes must be greater or equal than zero");
