@@ -33,7 +33,6 @@ public class MongoServer
     public MongoServer(String mongoVersion)
     {
         this.dockerContainer = new MongoDBContainer("mongo:" + mongoVersion)
-                .withStartupAttempts(3)
                 .withEnv("MONGO_INITDB_DATABASE", "tpch")
                 .withCommand("--bind_ip 0.0.0.0");
         this.dockerContainer.start();
