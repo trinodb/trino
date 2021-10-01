@@ -222,6 +222,7 @@ import static io.trino.plugin.hive.HiveTableProperties.CSV_ESCAPE;
 import static io.trino.plugin.hive.HiveTableProperties.CSV_QUOTE;
 import static io.trino.plugin.hive.HiveTableProperties.CSV_SEPARATOR;
 import static io.trino.plugin.hive.HiveTableProperties.EXTERNAL_LOCATION_PROPERTY;
+import static io.trino.plugin.hive.HiveTableProperties.EXTRA_PROPERTIES;
 import static io.trino.plugin.hive.HiveTableProperties.NULL_FORMAT_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.ORC_BLOOM_FILTER_COLUMNS;
 import static io.trino.plugin.hive.HiveTableProperties.ORC_BLOOM_FILTER_FPP;
@@ -238,6 +239,7 @@ import static io.trino.plugin.hive.HiveTableProperties.getAvroSchemaLiteral;
 import static io.trino.plugin.hive.HiveTableProperties.getAvroSchemaUrl;
 import static io.trino.plugin.hive.HiveTableProperties.getBucketProperty;
 import static io.trino.plugin.hive.HiveTableProperties.getExternalLocation;
+import static io.trino.plugin.hive.HiveTableProperties.getExtraProperties;
 import static io.trino.plugin.hive.HiveTableProperties.getFooterSkipCount;
 import static io.trino.plugin.hive.HiveTableProperties.getHeaderSkipCount;
 import static io.trino.plugin.hive.HiveTableProperties.getHiveStorageFormat;
@@ -374,6 +376,22 @@ public class HiveMetadata
     private static final String AUTO_PURGE_KEY = "auto.purge";
 
     public static final String MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE = "Modifying Hive table rows is only supported for transactional tables";
+
+    private static final Set<String> TABLE_PROPERTIES_TO_SKIP = ImmutableSet.of(
+            PRESTO_VERSION_NAME,
+            PRESTO_QUERY_ID_NAME,
+            BUCKETING_VERSION,
+            "EXTERNAL",
+            "numFiles",
+            "totalSize",
+            "last_modified_time",
+            "transient_lastDdlTime",
+            "last_modified_by",
+            "STATS_GENERATED_VIA_STATS_TASK",
+            "COLUMN_STATS_ACCURATE",
+            "numRows",
+            "rawDataSize",
+            "numFilesErasureCoded");
 
     private final CatalogName catalogName;
     private final SemiTransactionalHiveMetastore metastore;
@@ -655,84 +673,91 @@ public class HiveMetadata
             properties.put(SORTED_BY_PROPERTY, property.getSortedBy());
         });
 
+        TableParameterProvider tableParameterProvider = new TableParameterProvider(table);
+
         // Transactional properties
-        String transactionalProperty = table.getParameters().get(HiveMetadata.TRANSACTIONAL);
+        String transactionalProperty = tableParameterProvider.getParameter(HiveMetadata.TRANSACTIONAL);
         if (parseBoolean(transactionalProperty)) {
             properties.put(HiveTableProperties.TRANSACTIONAL, true);
         }
 
         // ORC format specific properties
-        String orcBloomFilterColumns = table.getParameters().get(ORC_BLOOM_FILTER_COLUMNS_KEY);
+        String orcBloomFilterColumns = tableParameterProvider.getParameter(ORC_BLOOM_FILTER_COLUMNS_KEY);
         if (orcBloomFilterColumns != null) {
             properties.put(ORC_BLOOM_FILTER_COLUMNS, Splitter.on(',').trimResults().omitEmptyStrings().splitToList(orcBloomFilterColumns));
         }
-        String orcBloomFilterFfp = table.getParameters().get(ORC_BLOOM_FILTER_FPP_KEY);
+        String orcBloomFilterFfp = tableParameterProvider.getParameter(ORC_BLOOM_FILTER_FPP_KEY);
         if (orcBloomFilterFfp != null) {
             properties.put(ORC_BLOOM_FILTER_FPP, Double.parseDouble(orcBloomFilterFfp));
         }
 
         // Avro specific property
-        String avroSchemaUrl = table.getParameters().get(AVRO_SCHEMA_URL_KEY);
+        String avroSchemaUrl = tableParameterProvider.getParameter(AVRO_SCHEMA_URL_KEY);
         if (avroSchemaUrl != null) {
             properties.put(AVRO_SCHEMA_URL, avroSchemaUrl);
         }
-        String avroSchemaLiteral = table.getParameters().get(AVRO_SCHEMA_LITERAL_KEY);
+        String avroSchemaLiteral = tableParameterProvider.getParameter(AVRO_SCHEMA_LITERAL_KEY);
         if (avroSchemaLiteral != null) {
             properties.put(AVRO_SCHEMA_LITERAL, avroSchemaLiteral);
         }
 
         // Textfile and CSV specific properties
-        getSerdeProperty(table, SKIP_HEADER_COUNT_KEY)
+        getSerdeProperty(tableParameterProvider, SKIP_HEADER_COUNT_KEY)
                 .ifPresent(skipHeaderCount -> properties.put(SKIP_HEADER_LINE_COUNT, Integer.valueOf(skipHeaderCount)));
-        getSerdeProperty(table, SKIP_FOOTER_COUNT_KEY)
+        getSerdeProperty(tableParameterProvider, SKIP_FOOTER_COUNT_KEY)
                 .ifPresent(skipFooterCount -> properties.put(SKIP_FOOTER_LINE_COUNT, Integer.valueOf(skipFooterCount)));
 
         // Multi-format property
-        getSerdeProperty(table, NULL_FORMAT_KEY)
+        getSerdeProperty(tableParameterProvider, NULL_FORMAT_KEY)
                 .ifPresent(nullFormat -> properties.put(NULL_FORMAT_PROPERTY, nullFormat));
 
         // Textfile specific properties
-        getSerdeProperty(table, TEXT_FIELD_SEPARATOR_KEY)
+        getSerdeProperty(tableParameterProvider, TEXT_FIELD_SEPARATOR_KEY)
                 .ifPresent(fieldSeparator -> properties.put(TEXTFILE_FIELD_SEPARATOR, fieldSeparator));
-        getSerdeProperty(table, TEXT_FIELD_SEPARATOR_ESCAPE_KEY)
+        getSerdeProperty(tableParameterProvider, TEXT_FIELD_SEPARATOR_ESCAPE_KEY)
                 .ifPresent(fieldEscape -> properties.put(TEXTFILE_FIELD_SEPARATOR_ESCAPE, fieldEscape));
 
         // CSV specific properties
-        getCsvSerdeProperty(table, CSV_SEPARATOR_KEY)
+        getCsvSerdeProperty(tableParameterProvider, CSV_SEPARATOR_KEY)
                 .ifPresent(csvSeparator -> properties.put(CSV_SEPARATOR, csvSeparator));
-        getCsvSerdeProperty(table, CSV_QUOTE_KEY)
+        getCsvSerdeProperty(tableParameterProvider, CSV_QUOTE_KEY)
                 .ifPresent(csvQuote -> properties.put(CSV_QUOTE, csvQuote));
-        getCsvSerdeProperty(table, CSV_ESCAPE_KEY)
+        getCsvSerdeProperty(tableParameterProvider, CSV_ESCAPE_KEY)
                 .ifPresent(csvEscape -> properties.put(CSV_ESCAPE, csvEscape));
 
         // REGEX specific properties
-        getSerdeProperty(table, REGEX_KEY)
+        getSerdeProperty(tableParameterProvider, REGEX_KEY)
                 .ifPresent(regex -> properties.put(REGEX_PATTERN, regex));
-        getSerdeProperty(table, REGEX_CASE_SENSITIVE_KEY)
+        getSerdeProperty(tableParameterProvider, REGEX_CASE_SENSITIVE_KEY)
                 .ifPresent(regexCaseInsensitive -> properties.put(REGEX_CASE_INSENSITIVE, parseBoolean(regexCaseInsensitive)));
 
-        Optional<String> comment = Optional.ofNullable(table.getParameters().get(TABLE_COMMENT));
+        Optional<String> comment = Optional.ofNullable(tableParameterProvider.getParameter(TABLE_COMMENT));
 
-        String autoPurgeProperty = table.getParameters().get(AUTO_PURGE_KEY);
+        String autoPurgeProperty = tableParameterProvider.getParameter(AUTO_PURGE_KEY);
         if (parseBoolean(autoPurgeProperty)) {
             properties.put(AUTO_PURGE, true);
         }
 
         // Partition Projection specific properties
-        properties.putAll(partitionProjectionService.getPartitionProjectionTrinoTableProperties(table));
+        properties.putAll(partitionProjectionService.getPartitionProjectionTrinoTableProperties(tableParameterProvider));
+
+        Map<String, String> remainingProperties = tableParameterProvider.getUnconsumedProperties();
+        if (!remainingProperties.isEmpty()) {
+            properties.put(EXTRA_PROPERTIES, remainingProperties);
+        }
 
         return new ConnectorTableMetadata(tableName, columns.build(), properties.buildOrThrow(), comment);
     }
 
-    private static Optional<String> getCsvSerdeProperty(Table table, String key)
+    private static Optional<String> getCsvSerdeProperty(TableParameterProvider tableParameterProvider, String key)
     {
-        return getSerdeProperty(table, key).map(csvSerdeProperty -> csvSerdeProperty.substring(0, 1));
+        return getSerdeProperty(tableParameterProvider, key).map(csvSerdeProperty -> csvSerdeProperty.substring(0, 1));
     }
 
-    private static Optional<String> getSerdeProperty(Table table, String key)
+    private static Optional<String> getSerdeProperty(TableParameterProvider tableParameterProvider, String key)
     {
-        String serdePropertyValue = table.getStorage().getSerdeParameters().get(key);
-        String tablePropertyValue = table.getParameters().get(key);
+        String serdePropertyValue = tableParameterProvider.getTable().getStorage().getSerdeParameters().get(key);
+        String tablePropertyValue = tableParameterProvider.getParameter(key);
         if (serdePropertyValue != null && tablePropertyValue != null && !tablePropertyValue.equals(serdePropertyValue)) {
             // in Hive one can set conflicting values for the same property, in such case it looks like table properties are used
             throw new TrinoException(
@@ -1156,6 +1181,27 @@ public class HiveMetadata
         // external table over large data set.
         tableProperties.put("numFiles", "-1");
         tableProperties.put("totalSize", "-1");
+
+        // Extra properties
+        getExtraProperties(tableMetadata.getProperties())
+                .ifPresent(extraProperties -> {
+                    Set<String> invalidProperties = ImmutableSet.<String>builder()
+                            .addAll(TABLE_PROPERTIES_TO_SKIP)
+                            .addAll(tableProperties.buildOrThrow().keySet())
+                            .build();
+
+                    if (invalidProperties.stream().anyMatch(extraProperties::containsKey)) {
+                        throw new TrinoException(
+                                INVALID_TABLE_PROPERTY,
+                                "Invalid keys in extra_properties: %s".formatted(
+                                        extraProperties.keySet().stream()
+                                                .filter(invalidProperties::contains)
+                                                .collect(joining(" ,"))));
+                    }
+                    for (Map.Entry<String, String> extraProperty : extraProperties.entrySet()) {
+                        tableProperties.put(extraProperty.getKey(), extraProperty.getValue());
+                    }
+                });
 
         // Table comment property
         tableMetadata.getComment().ifPresent(value -> tableProperties.put(TABLE_COMMENT, value));
@@ -3845,5 +3891,34 @@ public class HiveMetadata
     public boolean supportsReportingWrittenBytes(ConnectorSession session, SchemaTableName schemaTableName, Map<String, Object> tableProperties)
     {
         return true;
+    }
+
+    public static class TableParameterProvider
+    {
+        private final Table table;
+        private final Set<String> consumedParameters = new HashSet<>(TABLE_PROPERTIES_TO_SKIP);
+
+        public TableParameterProvider(Table table)
+        {
+            this.table = requireNonNull(table, "table is null");
+        }
+
+        public String getParameter(String key)
+        {
+            consumedParameters.add(key);
+            return table.getParameters().get(key);
+        }
+
+        public Table getTable()
+        {
+            return table;
+        }
+
+        public Map<String, String> getUnconsumedProperties()
+        {
+            return table.getParameters().entrySet().stream()
+                    .filter(entry -> !consumedParameters.contains(entry.getKey()))
+                    .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+        }
     }
 }

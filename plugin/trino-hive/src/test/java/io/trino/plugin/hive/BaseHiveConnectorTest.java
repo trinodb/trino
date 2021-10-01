@@ -29,6 +29,7 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
+import io.trino.spi.QueryId;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -54,6 +55,7 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.MaterializedRow;
+import io.trino.testing.QueryFailedException;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
@@ -8508,6 +8510,128 @@ public abstract class BaseHiveConnectorTest
     {
         assertQueryFails("CREATE TABLE acid_unsupported (x int) WITH (transactional = true)", "FileHiveMetastore does not support ACID tables");
         assertQueryFails("CREATE TABLE acid_unsupported WITH (transactional = true) AS SELECT 123 x", "FileHiveMetastore does not support ACID tables");
+    }
+
+    @Test
+    public void testExtraProperties()
+    {
+        String tableName = format("%s.%s.test_extra_properties", getSession().getCatalog().get(), getSession().getSchema().get());
+        @Language("SQL") String createTableSql = format("""
+                        CREATE TABLE %s (
+                          c1 integer)
+                        WITH (
+                          extra_properties = MAP(ARRAY['extra.property'], ARRAY['true']),
+                          format = 'ORC'
+                        )""",
+                tableName);
+        MaterializedResultWithQueryId result = getDistributedQueryRunner().executeWithQueryId(getSession(), createTableSql);
+        QueryId queryId = result.getQueryId();
+        String nodeVersion = (String) computeScalar("SELECT node_version FROM system.runtime.nodes WHERE coordinator");
+        assertQuery(
+                "SELECT * FROM \"test_extra_properties$properties\"",
+                "SELECT 'workaround for potential lack of HIVE-12730', 'false', 'true', '0', '0', '" + queryId + "', '" + nodeVersion + "', '0', '0', 'false'");
+        MaterializedResult actualResult = computeActual("SHOW CREATE TABLE " + tableName);
+        String expectedShowCreateTableSql = "CREATE TABLE hive.tpch.test_extra_properties (\n" +
+                "   c1 integer\n" +
+                ")\n" +
+                "WITH (\n" +
+                "   extra_properties = map_from_entries(ARRAY[ROW('extra.property', 'true')]),\n" +
+                "   format = 'ORC'\n" +
+                ")";
+        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), expectedShowCreateTableSql);
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testMultipleExtraProperties()
+    {
+        String tableName = format("%s.%s.test_multiple_extra_properties", getSession().getCatalog().get(), getSession().getSchema().get());
+        @Language("SQL") String createTableSql = format("""
+                        CREATE TABLE %s (
+                          c1 integer)
+                        WITH (
+                          extra_properties = MAP(ARRAY['extra.property.one', 'extra.property.two'], ARRAY['one', 'two']),
+                          format = 'ORC'
+                        )""",
+                tableName);
+        MaterializedResultWithQueryId result = getDistributedQueryRunner().executeWithQueryId(getSession(), createTableSql);
+        QueryId queryId = result.getQueryId();
+        String nodeVersion = (String) computeScalar("SELECT node_version FROM system.runtime.nodes WHERE coordinator");
+        assertQuery(
+                "SELECT * FROM \"test_multiple_extra_properties$properties\"",
+                "SELECT 'workaround for potential lack of HIVE-12730', 'false', 'one', 'two', '0', '0', '" + queryId + "', '" + nodeVersion + "', '0', '0', 'false'");
+        MaterializedResult actualResult = computeActual("SHOW CREATE TABLE " + tableName);
+        String expectedShowCreateTableSql = "CREATE TABLE hive.tpch.test_multiple_extra_properties (\n" +
+                "   c1 integer\n" +
+                ")\n" +
+                "WITH (\n" +
+                "   extra_properties = map_from_entries(ARRAY[ROW('extra.property.one', 'one'),ROW('extra.property.two', 'two')]),\n" +
+                "   format = 'ORC'\n" +
+                ")";
+        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), expectedShowCreateTableSql);
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testDuplicateExtraProperties()
+    {
+        String tableName = format("%s.%s.test_duplicate_extra_properties", getSession().getCatalog().get(), getSession().getSchema().get());
+        @Language("SQL") String createTableSql = format("""
+                        CREATE TABLE %s (
+                          c1 integer)
+                        WITH (
+                          extra_properties = MAP(ARRAY['extra.property', 'extra.property'], ARRAY['true', 'false']),
+                          format = 'ORC'
+                        )""",
+                tableName);
+        assertQueryFails(createTableSql, "Invalid value for catalog 'hive' table property 'extra_properties': Cannot convert.*");
+    }
+
+    @Test
+    public void testOverwriteExistingPropertyWithExtraProperties()
+    {
+        String tableName = format("%s.%s.test_overwrite_extra_properties", getSession().getCatalog().get(), getSession().getSchema().get());
+        @Language("SQL") String createTableSql = format("""
+                        CREATE TABLE %s (
+                          c1 integer)
+                        WITH (
+                          extra_properties = MAP(ARRAY['transactional'], ARRAY['true']),
+                          format = 'ORC'
+                        )""",
+                tableName);
+        assertThatThrownBy(() -> assertUpdate(createTableSql))
+                .isInstanceOf(QueryFailedException.class)
+                .hasMessage("Invalid keys in extra_properties: transactional");
+    }
+
+    @Test
+    public void testAddingNullProperty()
+    {
+        String tableName = format("%s.%s.test_duplicate_extra_properties", getSession().getCatalog().get(), getSession().getSchema().get());
+        @Language("SQL") String createTableSql = format("""
+                        CREATE TABLE %s (
+                          c1 integer)
+                        WITH (
+                          extra_properties = MAP(ARRAY['null.property'], ARRAY[null]),
+                          format = 'ORC'
+                        )""",
+                tableName);
+        assertQueryFails(createTableSql, ".*Extra table property value cannot be null '\\{null.property=null}'.*");
+    }
+
+    @Test
+    public void testAddingEmptyProperty()
+    {
+        String tableName = format("%s.%s.test_duplicate_extra_properties", getSession().getCatalog().get(), getSession().getSchema().get());
+        @Language("SQL") String createTableSql = format("""
+                        CREATE TABLE %s (
+                          c1 integer)
+                        WITH (
+                          extra_properties = MAP(),
+                          format = 'ORC'
+                        )""",
+                tableName);
+        assertQueryFails(createTableSql, ".*Extra table properties cannot be empty.*");
     }
 
     private static final Set<HiveStorageFormat> NAMED_COLUMN_ONLY_FORMATS = ImmutableSet.of(HiveStorageFormat.AVRO, HiveStorageFormat.JSON);

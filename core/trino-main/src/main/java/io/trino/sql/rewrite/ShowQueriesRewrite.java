@@ -64,6 +64,7 @@ import io.trino.sql.tree.DoubleLiteral;
 import io.trino.sql.tree.Explain;
 import io.trino.sql.tree.ExplainAnalyze;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.LikePredicate;
 import io.trino.sql.tree.LongLiteral;
@@ -75,6 +76,7 @@ import io.trino.sql.tree.Property;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Query;
 import io.trino.sql.tree.Relation;
+import io.trino.sql.tree.Row;
 import io.trino.sql.tree.ShowCatalogs;
 import io.trino.sql.tree.ShowColumns;
 import io.trino.sql.tree.ShowCreate;
@@ -561,6 +563,12 @@ public final class ShowQueriesRewrite
                 return new Array(list.stream()
                         .map(Visitor::toExpression)
                         .collect(toList()));
+            }
+
+            if (value instanceof Map<?, ?> map) {
+                return new FunctionCall(QualifiedName.of("map_from_entries"), ImmutableList.of(new Array(map.entrySet().stream()
+                        .map(entry -> new Row(ImmutableList.of(toExpression(entry.getKey()), toExpression(entry.getValue()))))
+                        .collect(toImmutableList()))));
             }
 
             throw new TrinoException(INVALID_TABLE_PROPERTY, format("Failed to convert object of type %s to expression: %s", value.getClass().getName(), value));
