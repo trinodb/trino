@@ -20,6 +20,7 @@ import io.trino.spi.predicate.TupleDomain;
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.pinot.query.PinotQueryBuilder.getFilterClause;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -37,10 +38,12 @@ public final class DynamicTablePqlExtractor
         builder.append("select ");
         if (!table.getSelections().isEmpty()) {
             builder.append(table.getSelections().stream()
+                    .map(DynamicTablePqlExtractor::quoteIdentifier)
                     .collect(joining(", ")));
         }
         if (!table.getGroupingColumns().isEmpty()) {
             builder.append(table.getGroupingColumns().stream()
+                    .map(DynamicTablePqlExtractor::quoteIdentifier)
                     .collect(joining(", ")));
             if (!table.getAggregateColumns().isEmpty()) {
                 builder.append(", ");
@@ -61,6 +64,7 @@ public final class DynamicTablePqlExtractor
         if (!table.getGroupingColumns().isEmpty()) {
             builder.append(" group by ");
             builder.append(table.getGroupingColumns().stream()
+                    .map(DynamicTablePqlExtractor::quoteIdentifier)
                     .collect(joining(", ")));
         }
         if (!table.getOrderBy().isEmpty()) {
@@ -102,7 +106,7 @@ public final class DynamicTablePqlExtractor
     {
         requireNonNull(orderByExpression, "orderByExpression is null");
         StringBuilder builder = new StringBuilder()
-                .append(orderByExpression.getColumn());
+                .append(quoteIdentifier(orderByExpression.getColumn()));
         if (!orderByExpression.isAsc()) {
             builder.append(" desc");
         }
@@ -112,5 +116,11 @@ public final class DynamicTablePqlExtractor
     public static String encloseInParentheses(String value)
     {
         return format("(%s)", value);
+    }
+
+    private static String quoteIdentifier(String identifier)
+    {
+        checkArgument(!identifier.contains("\""), "Identifier contains double quotes: '%s'", identifier);
+        return format("\"%s\"", identifier);
     }
 }
