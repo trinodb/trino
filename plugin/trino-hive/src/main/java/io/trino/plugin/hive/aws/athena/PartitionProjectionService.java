@@ -18,6 +18,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.hive.HiveConfig;
+import io.trino.plugin.hive.HiveMetadata;
 import io.trino.plugin.hive.aws.athena.projection.Projection;
 import io.trino.plugin.hive.aws.athena.projection.ProjectionFactory;
 import io.trino.plugin.hive.aws.athena.projection.ProjectionType;
@@ -90,13 +91,12 @@ public final class PartitionProjectionService
         this.projectionFactories = ImmutableMap.copyOf(requireNonNull(projectionFactories, "projectionFactories is null"));
     }
 
-    public Map<String, Object> getPartitionProjectionTrinoTableProperties(Table table)
+    public Map<String, Object> getPartitionProjectionTrinoTableProperties(HiveMetadata.TableParameterProvider tableParameterProvider)
     {
-        Map<String, String> metastoreTableProperties = table.getParameters();
         ImmutableMap.Builder<String, Object> trinoTablePropertiesBuilder = ImmutableMap.builder();
-        rewriteProperty(metastoreTableProperties, trinoTablePropertiesBuilder, METASTORE_PROPERTY_PROJECTION_IGNORE, PARTITION_PROJECTION_IGNORE, Boolean::valueOf);
-        rewriteProperty(metastoreTableProperties, trinoTablePropertiesBuilder, METASTORE_PROPERTY_PROJECTION_ENABLED, PARTITION_PROJECTION_ENABLED, Boolean::valueOf);
-        rewriteProperty(metastoreTableProperties, trinoTablePropertiesBuilder, METASTORE_PROPERTY_PROJECTION_LOCATION_TEMPLATE, PARTITION_PROJECTION_LOCATION_TEMPLATE, String::valueOf);
+        rewriteProperty(tableParameterProvider::getParameter, trinoTablePropertiesBuilder, METASTORE_PROPERTY_PROJECTION_IGNORE, PARTITION_PROJECTION_IGNORE, Boolean::valueOf);
+        rewriteProperty(tableParameterProvider::getParameter, trinoTablePropertiesBuilder, METASTORE_PROPERTY_PROJECTION_ENABLED, PARTITION_PROJECTION_ENABLED, Boolean::valueOf);
+        rewriteProperty(tableParameterProvider::getParameter, trinoTablePropertiesBuilder, METASTORE_PROPERTY_PROJECTION_LOCATION_TEMPLATE, PARTITION_PROJECTION_LOCATION_TEMPLATE, String::valueOf);
         return trinoTablePropertiesBuilder.buildOrThrow();
     }
 

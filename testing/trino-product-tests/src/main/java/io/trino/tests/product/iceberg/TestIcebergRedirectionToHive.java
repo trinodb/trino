@@ -278,17 +278,19 @@ public class TestIcebergRedirectionToHive
 
         createHiveTable(hiveTableName, true);
 
-        assertThat(onTrino().executeQuery("SHOW CREATE TABLE " + icebergTableName))
-                .containsOnly(row("CREATE TABLE " + hiveTableName + " (\n" +
-                        "   nationkey bigint,\n" +
-                        "   name varchar(25),\n" +
-                        "   comment varchar(152),\n" +
-                        "   regionkey bigint\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   format = 'ORC',\n" +
-                        "   partitioned_by = ARRAY['regionkey']\n" + // 'partitioned_by' comes from Hive
-                        ")"));
+        Assertions.assertThat((String) onTrino().executeQuery("SHOW CREATE TABLE " + icebergTableName).getOnlyValue())
+                .matches("""
+                                   CREATE TABLE hive\\.default\\.%s \\(
+                                      nationkey bigint,
+                                      name varchar\\(25\\),
+                                      comment varchar\\(152\\),
+                                      regionkey bigint
+                                   \\)
+                                   WITH \\(
+                                      extra_properties = map_from_entries\\(ARRAY.*\\),
+                                      format = 'ORC',
+                                      partitioned_by = ARRAY\\['regionkey'\\]
+                                   \\)""".formatted(tableName));
 
         onTrino().executeQuery("DROP TABLE " + hiveTableName);
     }

@@ -86,14 +86,15 @@ public class TestHiveConnectorSmokeTest
     public void testShowCreateTable()
     {
         assertThat((String) computeScalar("SHOW CREATE TABLE region"))
-                .isEqualTo("" +
-                        "CREATE TABLE hive.tpch.region (\n" +
-                        "   regionkey bigint,\n" +
-                        "   name varchar(25),\n" +
-                        "   comment varchar(152)\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   format = 'ORC'\n" +
-                        ")");
+                .matches("""
+                                CREATE TABLE hive\\.tpch\\.region \\(
+                                   regionkey bigint,
+                                   name varchar\\(25\\),
+                                   comment varchar\\(152\\)
+                                \\)
+                                WITH \\(
+                                   extra_properties = map_from_entries\\(ARRAY.*\\),
+                                   format = 'ORC'
+                                \\)""");
     }
 }

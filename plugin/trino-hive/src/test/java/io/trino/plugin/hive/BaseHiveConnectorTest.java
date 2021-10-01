@@ -29,6 +29,7 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
+import io.trino.spi.QueryId;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -54,6 +55,7 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.MaterializedRow;
+import io.trino.testing.QueryFailedException;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
@@ -4198,21 +4200,24 @@ public abstract class BaseHiveConnectorTest
     @Override
     public void testShowCreateTable()
     {
-        assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
-                .isEqualTo("CREATE TABLE hive.tpch.orders (\n" +
-                        "   orderkey bigint,\n" +
-                        "   custkey bigint,\n" +
-                        "   orderstatus varchar(1),\n" +
-                        "   totalprice double,\n" +
-                        "   orderdate date,\n" +
-                        "   orderpriority varchar(15),\n" +
-                        "   clerk varchar(15),\n" +
-                        "   shippriority integer,\n" +
-                        "   comment varchar(79)\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   format = 'ORC'\n" +
-                        ")");
+        assertThat((String) computeActual("SHOW CREATE TABLE orders").getOnlyValue())
+                .matches(
+                        """
+                                CREATE TABLE hive\\.tpch\\.orders \\(
+                                   orderkey bigint,
+                                   custkey bigint,
+                                   orderstatus varchar\\(1\\),
+                                   totalprice double,
+                                   orderdate date,
+                                   orderpriority varchar\\(15\\),
+                                   clerk varchar\\(15\\),
+                                   shippriority integer,
+                                   comment varchar\\(79\\)
+                                \\)
+                                WITH \\(
+                                   extra_properties = map_from_entries\\(ARRAY.*\\),
+                                   format = 'ORC'
+                                \\)""");
 
         String createTableSql = format("" +
                         "CREATE TABLE %s.%s.%s (\n" +
@@ -4231,7 +4236,23 @@ public abstract class BaseHiveConnectorTest
 
         assertUpdate(createTableSql);
         MaterializedResult actualResult = computeActual("SHOW CREATE TABLE test_show_create_table");
-        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
+        assertThat((String) getOnlyElement(actualResult.getOnlyColumnAsSet()))
+                .matches(
+                         """
+                         CREATE TABLE %s.%s.%s \\(
+                            c1 bigint,
+                            c2 double,
+                            "c 3" varchar,
+                            "c'4" array\\(bigint\\),
+                            c5 map\\(bigint, varchar\\)
+                         \\)
+                         WITH \\(
+                            extra_properties = map_from_entries\\(ARRAY.*\\),
+                            format = 'RCBINARY'
+                         \\)""".formatted(
+                                 getSession().getCatalog().get(),
+                                 getSession().getSchema().get(),
+                                 "test_show_create_table"));
 
         createTableSql = format("" +
                         "CREATE TABLE %s.%s.%s (\n" +
@@ -4256,7 +4277,30 @@ public abstract class BaseHiveConnectorTest
                 "\"test_show_create_table'2\"");
         assertUpdate(createTableSql);
         actualResult = computeActual("SHOW CREATE TABLE \"test_show_create_table'2\"");
-        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
+        assertEquals(
+                getOnlyElement(actualResult.getOnlyColumnAsSet()),
+                format("" +
+                                "CREATE TABLE %s.%s.%s (\n" +
+                                "   c1 bigint,\n" +
+                                "   \"c 2\" varchar,\n" +
+                                "   \"c'3\" array(bigint),\n" +
+                                "   c4 map(bigint, varchar) COMMENT 'comment test4',\n" +
+                                "   c5 double COMMENT ''\n)\n" +
+                                "COMMENT 'test'\n" +
+                                "WITH (\n" +
+                                "   bucket_count = 5,\n" +
+                                "   bucketed_by = ARRAY['c1','c 2'],\n" +
+                                "   bucketing_version = 1,\n" +
+                                "   extra_properties = map_from_entries(ARRAY[ROW('STATS_GENERATED_VIA_STATS_TASK', 'workaround for potential lack of HIVE-12730')]),\n" +
+                                "   format = 'ORC',\n" +
+                                "   orc_bloom_filter_columns = ARRAY['c1','c 2'],\n" +
+                                "   orc_bloom_filter_fpp = 7E-1,\n" +
+                                "   partitioned_by = ARRAY['c5'],\n" +
+                                "   sorted_by = ARRAY['c1','c 2 DESC']\n" +
+                                ")",
+                        getSession().getCatalog().get(),
+                        getSession().getSchema().get(),
+                        "\"test_show_create_table'2\""));
 
         createTableSql = format("" +
                         "CREATE TABLE %s.%s.%s (\n" +
@@ -4269,7 +4313,17 @@ public abstract class BaseHiveConnectorTest
                 "test_show_create_table_with_special_characters");
         assertUpdate(createTableSql);
         actualResult = computeActual("SHOW CREATE TABLE test_show_create_table_with_special_characters");
-        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
+        assertEquals(
+                getOnlyElement(actualResult.getOnlyColumnAsSet()),
+                format("CREATE TABLE %s.%s.%s (\n" +
+                                "   c1 ROW(\"$a\" bigint, \"$b\" varchar)\n)\n" +
+                                "WITH (\n" +
+                                "   extra_properties = map_from_entries(ARRAY[ROW('numFiles', '0'),ROW('numRows', '0'),ROW('rawDataSize', '0'),ROW('totalSize', '0'),ROW('STATS_GENERATED_VIA_STATS_TASK', 'workaround for potential lack of HIVE-12730')]),\n" +
+                                "   format = 'ORC'\n" +
+                                ")",
+                        getSession().getCatalog().get(),
+                        getSession().getSchema().get(),
+                        "test_show_create_table_with_special_characters"));
     }
 
     private void testCreateExternalTable(
@@ -4287,7 +4341,9 @@ public abstract class BaseHiveConnectorTest
         StringJoiner propertiesSql = new StringJoiner(",\n   ");
         propertiesSql.add(
                 format("external_location = '%s'", new Path(tempDir.toUri().toASCIIString())));
-        propertiesSql.add("format = 'TEXTFILE'");
+        propertiesSql
+                .add("extra_properties = map_from_entries(ARRAY[ROW('STATS_GENERATED_VIA_STATS_TASK', 'workaround for potential lack of HIVE-12730')])")
+                .add("format = 'TEXTFILE'");
         tableProperties.forEach(propertiesSql::add);
 
         @Language("SQL") String createTableSql = format("" +
@@ -4405,7 +4461,18 @@ public abstract class BaseHiveConnectorTest
         assertUpdate(createTableSql);
 
         MaterializedResult actual = computeActual(format("SHOW CREATE TABLE %s_table_skip_header", format));
-        assertEquals(actual.getOnlyValue(), createTableSql);
+        assertEquals(
+                actual.getOnlyValue(),
+                format("" +
+                                "CREATE TABLE %s.%s.%s_table_skip_header (\n" +
+                                "   name varchar\n" +
+                                ")\n" +
+                                "WITH (\n" +
+                                "   extra_properties = map_from_entries(ARRAY[ROW('numFiles', '0'),ROW('numRows', '0'),ROW('rawDataSize', '0'),ROW('totalSize', '0'),ROW('STATS_GENERATED_VIA_STATS_TASK', 'workaround for potential lack of HIVE-12730')]),\n" +
+                                "   format = '%s',\n" +
+                                "   skip_header_line_count = 1\n" +
+                                ")",
+                        catalog, schema, name, format));
         assertUpdate(format("DROP TABLE %s_table_skip_header", format));
 
         createTableSql = format("" +
@@ -4421,7 +4488,18 @@ public abstract class BaseHiveConnectorTest
         assertUpdate(createTableSql);
 
         actual = computeActual(format("SHOW CREATE TABLE %s_table_skip_footer", format));
-        assertEquals(actual.getOnlyValue(), createTableSql);
+        assertEquals(
+                actual.getOnlyValue(),
+                format("" +
+                                "CREATE TABLE %s.%s.%s_table_skip_footer (\n" +
+                                "   name varchar\n" +
+                                ")\n" +
+                                "WITH (\n" +
+                                "   extra_properties = map_from_entries(ARRAY[ROW('numFiles', '0'),ROW('numRows', '0'),ROW('rawDataSize', '0'),ROW('totalSize', '0'),ROW('STATS_GENERATED_VIA_STATS_TASK', 'workaround for potential lack of HIVE-12730')]),\n" +
+                                "   format = '%s',\n" +
+                                "   skip_footer_line_count = 1\n" +
+                                ")",
+                        catalog, schema, name, format));
         assertUpdate(format("DROP TABLE %s_table_skip_footer", format));
 
         createTableSql = format("" +
@@ -4438,7 +4516,20 @@ public abstract class BaseHiveConnectorTest
         assertUpdate(createTableSql);
 
         actual = computeActual(format("SHOW CREATE TABLE %s_table_skip_header_footer", format));
-        assertEquals(actual.getOnlyValue(), createTableSql);
+        assertEquals(
+                actual.getOnlyValue(),
+                format("" +
+                                "CREATE TABLE %s.%s.%s_table_skip_header_footer (\n" +
+                                "   name varchar\n" +
+                                ")\n" +
+                                "WITH (\n" +
+                                "   extra_properties = map_from_entries(ARRAY[ROW('numFiles', '0'),ROW('numRows', '0'),ROW('rawDataSize', '0'),ROW('totalSize', '0'),ROW('STATS_GENERATED_VIA_STATS_TASK', 'workaround for potential lack of HIVE-12730')]),\n" +
+                                "   format = '%s',\n" +
+                                "   skip_footer_line_count = 1,\n" +
+                                "   skip_header_line_count = 1\n" +
+                                ")",
+                        catalog, schema, name, format));
+
         assertUpdate(format("DROP TABLE %s_table_skip_header_footer", format));
 
         createTableSql = format("" +
@@ -7560,7 +7651,7 @@ public abstract class BaseHiveConnectorTest
         File schemaFile = createAvroSchemaFile();
 
         String createTableSql = getAvroCreateTableSql(tableName, schemaFile.getAbsolutePath());
-        String expectedShowCreateTable = getAvroCreateTableSql(tableName, schemaFile.toURI().toString());
+        String expectedShowCreateTable = getAvroCreateTableSqlWithExtraProperties(tableName, schemaFile.toURI().toString());
 
         assertUpdate(createTableSql);
 
@@ -7614,6 +7705,23 @@ public abstract class BaseHiveConnectorTest
                         ")\n" +
                         "WITH (\n" +
                         "   avro_schema_url = '%s',\n" +
+                        "   format = 'AVRO'\n" +
+                        ")",
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                tableName,
+                schemaFile);
+    }
+
+    private String getAvroCreateTableSqlWithExtraProperties(String tableName, String schemaFile)
+    {
+        return format("CREATE TABLE %s.%s.%s (\n" +
+                        "   dummy_col varchar,\n" +
+                        "   another_dummy_col varchar\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   avro_schema_url = '%s',\n" +
+                        "   extra_properties = map_from_entries(ARRAY[ROW('numFiles', '0'),ROW('numRows', '0'),ROW('rawDataSize', '0'),ROW('totalSize', '0'),ROW('STATS_GENERATED_VIA_STATS_TASK', 'workaround for potential lack of HIVE-12730')]),\n" +
                         "   format = 'AVRO'\n" +
                         ")",
                 getSession().getCatalog().get(),
@@ -8508,6 +8616,113 @@ public abstract class BaseHiveConnectorTest
     {
         assertQueryFails("CREATE TABLE acid_unsupported (x int) WITH (transactional = true)", "FileHiveMetastore does not support ACID tables");
         assertQueryFails("CREATE TABLE acid_unsupported WITH (transactional = true) AS SELECT 123 x", "FileHiveMetastore does not support ACID tables");
+    }
+
+    @Test
+    public void testExtraProperties()
+    {
+        String tableName = format("%s.%s.test_extra_properties", getSession().getCatalog().get(), getSession().getSchema().get());
+        @Language("SQL") String createTableSql = format("""
+                        CREATE TABLE %s (
+                          c1 integer)
+                        WITH (
+                          extra_properties = MAP(ARRAY['extra.property'], ARRAY['true']),
+                          format = 'ORC'
+                        )""",
+                tableName);
+        MaterializedResultWithQueryId result = getDistributedQueryRunner().executeWithQueryId(getSession(), createTableSql);
+        QueryId queryId = result.getQueryId();
+        String nodeVersion = (String) computeScalar("SELECT node_version FROM system.runtime.nodes WHERE coordinator");
+        assertQuery(
+                "SELECT * FROM \"test_extra_properties$properties\"",
+                "SELECT 'workaround for potential lack of HIVE-12730', 'false', 'true', '0', '0', '" + queryId + "', '" + nodeVersion + "', '0', '0', 'false'");
+        MaterializedResult actualResult = computeActual("SHOW CREATE TABLE " + tableName);
+        String expectedShowCreateTableSql = "CREATE TABLE hive.tpch.test_extra_properties (\n" +
+                "   c1 integer\n" +
+                ")\n" +
+                "WITH (\n" +
+                "   extra_properties = map_from_entries(ARRAY[ROW('extra.property', 'true'),ROW('numFiles', '0'),ROW('numRows', '0'),ROW('rawDataSize', '0'),ROW('totalSize', '0'),ROW('STATS_GENERATED_VIA_STATS_TASK', 'workaround for potential lack of HIVE-12730')]),\n" +
+                "   format = 'ORC'\n" +
+                ")";
+        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), expectedShowCreateTableSql);
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testMultipleExtraProperties()
+    {
+        String tableName = format("%s.%s.test_multiple_extra_properties", getSession().getCatalog().get(), getSession().getSchema().get());
+        @Language("SQL") String createTableSql = format("""
+                        CREATE TABLE %s (
+                          c1 integer)
+                        WITH (
+                          extra_properties = MAP(ARRAY['extra.property.one', 'extra.property.two'], ARRAY['one', 'two']),
+                          format = 'ORC'
+                        )""",
+                tableName);
+        MaterializedResultWithQueryId result = getDistributedQueryRunner().executeWithQueryId(getSession(), createTableSql);
+        QueryId queryId = result.getQueryId();
+        String nodeVersion = (String) computeScalar("SELECT node_version FROM system.runtime.nodes WHERE coordinator");
+        assertQuery(
+                "SELECT * FROM \"test_multiple_extra_properties$properties\"",
+                "SELECT 'workaround for potential lack of HIVE-12730', 'false', 'one', 'two', '0', '0', '" + queryId + "', '" + nodeVersion + "', '0', '0', 'false'");
+        MaterializedResult actualResult = computeActual("SHOW CREATE TABLE " + tableName);
+        String expectedShowCreateTableSql = "CREATE TABLE hive.tpch.test_multiple_extra_properties (\n" +
+                "   c1 integer\n" +
+                ")\n" +
+                "WITH (\n" +
+                "   extra_properties = map_from_entries(ARRAY[ROW('extra.property.one', 'one'),ROW('extra.property.two', 'two'),ROW('numFiles', '0'),ROW('numRows', '0'),ROW('rawDataSize', '0'),ROW('totalSize', '0'),ROW('STATS_GENERATED_VIA_STATS_TASK', 'workaround for potential lack of HIVE-12730')]),\n" +
+                "   format = 'ORC'\n" +
+                ")";
+        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), expectedShowCreateTableSql);
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testDuplicateExtraProperties()
+    {
+        String tableName = format("%s.%s.test_duplicate_extra_properties", getSession().getCatalog().get(), getSession().getSchema().get());
+        @Language("SQL") String createTableSql = format("""
+                        CREATE TABLE %s (
+                          c1 integer)
+                        WITH (
+                          extra_properties = MAP(ARRAY['extra.property', 'extra.property'], ARRAY['true', 'false']),
+                          format = 'ORC'
+                        )""",
+                tableName);
+        assertQueryFails(createTableSql, "Invalid value for catalog 'hive' table property 'extra_properties': Cannot convert.*");
+    }
+
+    @Test
+    public void testOverwriteExistingPropertyWithExtraProperties()
+    {
+        String tableName = format("%s.%s.test_overwrite_extra_properties", getSession().getCatalog().get(), getSession().getSchema().get());
+        @Language("SQL") String createTableSql = format("""
+                        CREATE TABLE %s (
+                          c1 integer)
+                        WITH (
+                          extra_properties = MAP(ARRAY['transactional'], ARRAY['true']),
+                          format = 'ORC'
+                        )""",
+                tableName);
+        assertThatThrownBy(() -> assertUpdate(createTableSql))
+                .isInstanceOf(QueryFailedException.class)
+                .hasMessage("Multiple entries with same key: transactional=true and transactional=false");
+    }
+
+    @Test
+    public void testAddingNullProperty()
+    {
+        String tableName = format("%s.%s.test_duplicate_extra_properties", getSession().getCatalog().get(), getSession().getSchema().get());
+        @Language("SQL") String createTableSql = format("""
+                        CREATE TABLE %s (
+                          c1 integer)
+                        WITH (
+                          extra_properties = MAP(ARRAY['null.property'], ARRAY[null]),
+                          format = 'ORC'
+                        )""",
+                tableName);
+        assertQueryFails(createTableSql, "Extra table property value cannot be null '\\{null.property=null}'");
     }
 
     private static final Set<HiveStorageFormat> NAMED_COLUMN_ONLY_FORMATS = ImmutableSet.of(HiveStorageFormat.AVRO, HiveStorageFormat.JSON);
