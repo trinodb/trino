@@ -63,7 +63,6 @@ import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.query.QueryExecutor.defaultQueryExecutor;
 import static io.trino.tempto.query.QueryExecutor.param;
-import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.product.TestGroups.HMS_ONLY;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS_DETAILED;
@@ -301,7 +300,7 @@ public class TestHiveStorageFormats
 
         String tableName = "storage_formats_test_insert_into_" + storageFormat.getName().toLowerCase(ENGLISH);
 
-        query(format("DROP TABLE IF EXISTS %s", tableName));
+        onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
 
         String createTable = format(
                 "CREATE TABLE %s(" +
@@ -321,19 +320,19 @@ public class TestHiveStorageFormats
                         ") WITH (%s)",
                 tableName,
                 storageFormat.getStoragePropertiesAsSql());
-        query(createTable);
+        onTrino().executeQuery(createTable);
 
         String insertInto = format("INSERT INTO %s " +
                 "SELECT " +
                 "orderkey, partkey, suppkey, linenumber, quantity, extendedprice, discount, tax, " +
                 "linestatus, shipinstruct, shipmode, comment, returnflag " +
                 "FROM tpch.%s.lineitem", tableName, TPCH_SCHEMA);
-        query(insertInto);
+        onTrino().executeQuery(insertInto);
 
         assertResultEqualForLineitemTable(
                 "select sum(tax), sum(discount), sum(linenumber) from %s", tableName);
 
-        query(format("DROP TABLE %s", tableName));
+        onTrino().executeQuery(format("DROP TABLE %s", tableName));
     }
 
     @Test(dataProvider = "storageFormatsWithConfiguration", groups = {STORAGE_FORMATS, HMS_ONLY})
@@ -346,7 +345,7 @@ public class TestHiveStorageFormats
 
         String tableName = "storage_formats_test_create_table_as_select_" + storageFormat.getName().toLowerCase(ENGLISH);
 
-        query(format("DROP TABLE IF EXISTS %s", tableName));
+        onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
 
         String createTableAsSelect = format(
                 "CREATE TABLE %s WITH (%s) AS " +
@@ -356,12 +355,12 @@ public class TestHiveStorageFormats
                 tableName,
                 storageFormat.getStoragePropertiesAsSql(),
                 TPCH_SCHEMA);
-        query(createTableAsSelect);
+        onTrino().executeQuery(createTableAsSelect);
 
         assertResultEqualForLineitemTable(
                 "select sum(extendedprice), sum(suppkey), count(partkey) from %s", tableName);
 
-        query(format("DROP TABLE %s", tableName));
+        onTrino().executeQuery(format("DROP TABLE %s", tableName));
     }
 
     @Test(dataProvider = "storageFormatsWithConfiguration", groups = {STORAGE_FORMATS, HMS_ONLY})
@@ -374,7 +373,7 @@ public class TestHiveStorageFormats
 
         String tableName = "storage_formats_test_insert_into_partitioned_" + storageFormat.getName().toLowerCase(ENGLISH);
 
-        query(format("DROP TABLE IF EXISTS %s", tableName));
+        onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
 
         String createTable = format(
                 "CREATE TABLE %s(" +
@@ -394,19 +393,19 @@ public class TestHiveStorageFormats
                         ") WITH (format='%s', partitioned_by = ARRAY['returnflag'])",
                 tableName,
                 storageFormat.getName());
-        query(createTable);
+        onTrino().executeQuery(createTable);
 
         String insertInto = format("INSERT INTO %s " +
                 "SELECT " +
                 "orderkey, partkey, suppkey, linenumber, quantity, extendedprice, discount, tax, " +
                 "linestatus, shipinstruct, shipmode, comment, returnflag " +
                 "FROM tpch.%s.lineitem", tableName, TPCH_SCHEMA);
-        query(insertInto);
+        onTrino().executeQuery(insertInto);
 
         assertResultEqualForLineitemTable(
                 "select sum(tax), sum(discount), sum(length(returnflag)) from %s", tableName);
 
-        query(format("DROP TABLE %s", tableName));
+        onTrino().executeQuery(format("DROP TABLE %s", tableName));
     }
 
     @Test(dataProvider = "storageFormatsWithNullFormat", groups = {STORAGE_FORMATS_DETAILED, HMS_ONLY})
@@ -417,7 +416,7 @@ public class TestHiveStorageFormats
         String tableName = format(
                 "test_storage_format_%s_insert_and_select_with_null_format",
                 storageFormat.getName());
-        query(format(
+        onTrino().executeQuery(format(
                 "CREATE TABLE %s (value VARCHAR) " +
                         "WITH (format = '%s', null_format = '%s')",
                 tableName,
@@ -430,15 +429,15 @@ public class TestHiveStorageFormats
         storedValues[0] = row((Object) null); // if you put in the null format, it saves as null
 
         String placeholders = String.join(", ", nCopies(values.length, "(?)"));
-        query(
+        onTrino().executeQuery(
                 format("INSERT INTO %s VALUES %s", tableName, placeholders),
                 Arrays.stream(values)
                         .map(value -> param(JDBCType.VARCHAR, value))
                         .toArray(QueryParam[]::new));
 
-        assertThat(query(format("SELECT * FROM %s", tableName))).containsOnly(storedValues);
+        assertThat(onTrino().executeQuery(format("SELECT * FROM %s", tableName))).containsOnly(storedValues);
 
-        query(format("DROP TABLE %s", tableName));
+        onTrino().executeQuery(format("DROP TABLE %s", tableName));
     }
 
     @Test(dataProvider = "storageFormatsWithNullFormat", groups = STORAGE_FORMATS_DETAILED)
@@ -448,7 +447,7 @@ public class TestHiveStorageFormats
         String tableName = format(
                 "test_storage_format_%s_select_with_null_format",
                 storageFormat.getName());
-        query(format(
+        onTrino().executeQuery(format(
                 "CREATE TABLE %s (value VARCHAR) " +
                         "WITH (format = '%s', null_format = '%s')",
                 tableName,
@@ -459,7 +458,7 @@ public class TestHiveStorageFormats
         onHive().executeQuery(format("INSERT INTO %s VALUES ('non-null'), (NULL), ('%s')",
                 tableName, nullFormat));
 
-        assertThat(query(format("SELECT * FROM %s", tableName)))
+        assertThat(onTrino().executeQuery(format("SELECT * FROM %s", tableName)))
                 .containsOnly(row("non-null"), row((Object) null), row((Object) null));
 
         onHive().executeQuery(format("DROP TABLE %s", tableName));
@@ -475,7 +474,7 @@ public class TestHiveStorageFormats
 
         String tableName = "storage_formats_test_create_table_as_select_partitioned_" + storageFormat.getName().toLowerCase(ENGLISH);
 
-        query(format("DROP TABLE IF EXISTS %s", tableName));
+        onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
 
         String createTableAsSelect = format(
                 "CREATE TABLE %s WITH (%s, partitioned_by = ARRAY['returnflag']) AS " +
@@ -485,12 +484,12 @@ public class TestHiveStorageFormats
                 tableName,
                 storageFormat.getStoragePropertiesAsSql(),
                 TPCH_SCHEMA);
-        query(createTableAsSelect);
+        onTrino().executeQuery(createTableAsSelect);
 
         assertResultEqualForLineitemTable(
                 "select sum(tax), sum(discount), sum(length(returnflag)) from %s", tableName);
 
-        query(format("DROP TABLE %s", tableName));
+        onTrino().executeQuery(format("DROP TABLE %s", tableName));
     }
 
     @Test(groups = STORAGE_FORMATS)
@@ -763,10 +762,10 @@ public class TestHiveStorageFormats
     {
         String tableName = "test_large_insert_" + storageFormat.getName() + randomTableSuffix();
         setSessionProperties(storageFormat);
-        query("CREATE TABLE " + tableName + " WITH (" + storageFormat.getStoragePropertiesAsSql() + ") AS SELECT * FROM tpch.sf1.lineitem WHERE false");
-        query("INSERT INTO " + tableName + " SELECT * FROM tpch.sf1.lineitem");
+        onTrino().executeQuery("CREATE TABLE " + tableName + " WITH (" + storageFormat.getStoragePropertiesAsSql() + ") AS SELECT * FROM tpch.sf1.lineitem WHERE false");
+        onTrino().executeQuery("INSERT INTO " + tableName + " SELECT * FROM tpch.sf1.lineitem");
 
-        assertThat(query("SELECT count(*) FROM " + tableName)).containsOnly(row(6001215L));
+        assertThat(onTrino().executeQuery("SELECT count(*) FROM " + tableName)).containsOnly(row(6001215L));
         onTrino().executeQuery("DROP TABLE " + tableName);
     }
 
@@ -904,11 +903,11 @@ public class TestHiveStorageFormats
      */
     private static void assertResultEqualForLineitemTable(String query, String tableName)
     {
-        QueryResult expected = query(format(query, "tpch." + TPCH_SCHEMA + ".lineitem"));
+        QueryResult expected = onTrino().executeQuery(format(query, "tpch." + TPCH_SCHEMA + ".lineitem"));
         List<Row> expectedRows = expected.rows().stream()
                 .map((columns) -> row(columns.toArray()))
                 .collect(toImmutableList());
-        QueryResult actual = query(format(query, tableName));
+        QueryResult actual = onTrino().executeQuery(format(query, tableName));
         assertThat(actual)
                 .hasColumns(expected.getColumnTypes())
                 .containsExactlyInOrder(expectedRows);
