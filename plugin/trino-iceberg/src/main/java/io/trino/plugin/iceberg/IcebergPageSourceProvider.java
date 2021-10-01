@@ -70,6 +70,8 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.BlockMissingException;
 import org.apache.iceberg.FileFormat;
 import org.apache.parquet.column.ColumnDescriptor;
+import org.apache.parquet.crypto.FileDecryptionProperties;
+import org.apache.parquet.crypto.InternalFileDecryptor;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.FileMetaData;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
@@ -469,7 +471,12 @@ public class IcebergPageSourceProvider
             FSDataInputStream inputStream = hdfsEnvironment.doAs(identity, () -> fileSystem.open(path));
             dataSource = new HdfsParquetDataSource(new ParquetDataSourceId(path.toString()), fileSize, inputStream, fileFormatDataSourceStats, options);
             ParquetDataSource theDataSource = dataSource; // extra variable required for lambda below
-            ParquetMetadata parquetMetadata = hdfsEnvironment.doAs(identity, () -> MetadataReader.readFooter(theDataSource));
+
+            FileDecryptionProperties fileDecryptionProperties = MetadataReader.createDecryptionProperties(path, configuration);
+            InternalFileDecryptor fileDecryptor = (fileDecryptionProperties == null) ?
+                    null : new InternalFileDecryptor(fileDecryptionProperties);
+
+            ParquetMetadata parquetMetadata = hdfsEnvironment.doAs(identity, () -> MetadataReader.readFooter(theDataSource, fileDecryptor));
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
             MessageType fileSchema = fileMetaData.getSchema();
 
@@ -513,7 +520,8 @@ public class IcebergPageSourceProvider
                     dataSource,
                     UTC,
                     systemMemoryContext,
-                    options);
+                    options,
+                    fileDecryptor);
 
             ImmutableList.Builder<Type> trinoTypes = ImmutableList.builder();
             ImmutableList.Builder<Optional<Field>> internalFields = ImmutableList.builder();

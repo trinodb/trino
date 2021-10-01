@@ -25,6 +25,7 @@ import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetEncoding;
 import io.trino.parquet.RichColumnDescriptor;
+import io.trino.parquet.crypto.HiddenColumnChunkMetaData;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
@@ -148,11 +149,13 @@ public final class PredicateUtils
     {
         ImmutableMap.Builder<ColumnDescriptor, Statistics<?>> statistics = ImmutableMap.builder();
         for (ColumnChunkMetaData columnMetaData : blockMetadata.getColumns()) {
-            Statistics<?> columnStatistics = columnMetaData.getStatistics();
-            if (columnStatistics != null) {
-                RichColumnDescriptor descriptor = descriptorsByPath.get(Arrays.asList(columnMetaData.getPath().toArray()));
-                if (descriptor != null) {
-                    statistics.put(descriptor, columnStatistics);
+            if (!HiddenColumnChunkMetaData.isHiddenColumn(columnMetaData)) {
+                Statistics<?> columnStatistics = columnMetaData.getStatistics();
+                if (columnStatistics != null) {
+                    RichColumnDescriptor descriptor = descriptorsByPath.get(Arrays.asList(columnMetaData.getPath().toArray()));
+                    if (descriptor != null) {
+                        statistics.put(descriptor, columnStatistics);
+                    }
                 }
             }
         }
@@ -162,13 +165,15 @@ public final class PredicateUtils
     private static boolean dictionaryPredicatesMatch(Predicate parquetPredicate, BlockMetaData blockMetadata, ParquetDataSource dataSource, Map<List<String>, RichColumnDescriptor> descriptorsByPath, TupleDomain<ColumnDescriptor> parquetTupleDomain)
     {
         for (ColumnChunkMetaData columnMetaData : blockMetadata.getColumns()) {
-            RichColumnDescriptor descriptor = descriptorsByPath.get(Arrays.asList(columnMetaData.getPath().toArray()));
-            if (descriptor != null) {
-                if (isOnlyDictionaryEncodingPages(columnMetaData) && isColumnPredicate(descriptor, parquetTupleDomain)) {
-                    Slice buffer = dataSource.readFully(columnMetaData.getStartingPos(), toIntExact(columnMetaData.getTotalSize()));
-                    //  Early abort, predicate already filters block so no more dictionaries need be read
-                    if (!parquetPredicate.matches(new DictionaryDescriptor(descriptor, readDictionaryPage(buffer, columnMetaData.getCodec())))) {
-                        return false;
+            if (!HiddenColumnChunkMetaData.isHiddenColumn(columnMetaData)) {
+                RichColumnDescriptor descriptor = descriptorsByPath.get(Arrays.asList(columnMetaData.getPath().toArray()));
+                if (descriptor != null) {
+                    if (isOnlyDictionaryEncodingPages(columnMetaData) && isColumnPredicate(descriptor, parquetTupleDomain)) {
+                        Slice buffer = dataSource.readFully(columnMetaData.getStartingPos(), toIntExact(columnMetaData.getTotalSize()));
+                        //  Early abort, predicate already filters block so no more dictionaries need be read
+                        if (!parquetPredicate.matches(new DictionaryDescriptor(descriptor, readDictionaryPage(buffer, columnMetaData.getCodec())))) {
+                            return false;
+                        }
                     }
                 }
             }

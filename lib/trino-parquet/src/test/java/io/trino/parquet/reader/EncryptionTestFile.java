@@ -11,23 +11,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.parquet;
+package io.trino.parquet.reader;
 
-import io.airlift.slice.Slice;
+import org.apache.parquet.example.data.simple.SimpleGroup;
 
-public abstract class Page
+public class EncryptionTestFile
 {
-    protected final int uncompressedSize;
+    private final String fileName;
+    private final SimpleGroup[] fileContent;
 
-    public Page(int uncompressedSize)
+    public EncryptionTestFile(String fileName, SimpleGroup[] fileContent)
     {
-        this.uncompressedSize = uncompressedSize;
+        this.fileName = fileName;
+        this.fileContent = fileContent;
     }
 
-    public int getUncompressedSize()
+    public String getFileName()
     {
-        return uncompressedSize;
+        return this.fileName;
     }
 
-    public abstract Slice getSlice();
+    public SimpleGroup[] getFileContent()
+    {
+        return this.fileContent;
+    }
 }
