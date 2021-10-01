@@ -50,8 +50,6 @@ import static io.trino.spi.type.StandardTypes.ROW;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static org.apache.parquet.schema.OriginalType.TIMESTAMP_MICROS;
-import static org.apache.parquet.schema.OriginalType.TIMESTAMP_MILLIS;
 import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
 
 public class ParquetSchemaConverter
@@ -135,12 +133,10 @@ public class ParquetSchemaConverter
             TimestampType timestampType = (TimestampType) type;
 
             if (timestampType.getPrecision() <= 3) {
-                // TODO TIMESTAMP_MILLIS corresponds to timestampType(isAdjustedToUTC=true, MILLIS), while isAdjustedToUTC should likely be false
-                return Types.primitive(PrimitiveType.PrimitiveTypeName.INT64, OPTIONAL).as(TIMESTAMP_MILLIS).named(name);
+                return Types.primitive(PrimitiveType.PrimitiveTypeName.INT64, OPTIONAL).as(LogicalTypeAnnotation.timestampType(false, LogicalTypeAnnotation.TimeUnit.MILLIS)).named(name);
             }
             if (timestampType.getPrecision() <= 6) {
-                // TODO TIMESTAMP_MICROS corresponds to timestampType(isAdjustedToUTC=true, MICROS), while isAdjustedToUTC should likely be false
-                return Types.primitive(PrimitiveType.PrimitiveTypeName.INT64, OPTIONAL).as(TIMESTAMP_MICROS).named(name);
+                return Types.primitive(PrimitiveType.PrimitiveTypeName.INT64, OPTIONAL).as(LogicalTypeAnnotation.timestampType(false, LogicalTypeAnnotation.TimeUnit.MICROS)).named(name);
             }
             if (timestampType.getPrecision() <= 9) {
                 // Per https://github.com/apache/parquet-format/blob/master/LogicalTypes.md, nanosecond precision timestamp should be stored as INT64
