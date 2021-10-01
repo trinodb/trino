@@ -11,23 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.parquet;
+package io.trino.parquet.crypto;
 
-import io.airlift.slice.Slice;
+import org.apache.parquet.ParquetRuntimeException;
 
-public abstract class Page
+import java.util.Arrays;
+
+public class HiddenColumnException
+        extends ParquetRuntimeException
 {
-    protected final int uncompressedSize;
+    private static final long serialVersionUID = 1L;
 
-    public Page(int uncompressedSize)
+    public HiddenColumnException(String[] columnPath, String filePath)
     {
-        this.uncompressedSize = uncompressedSize;
+        super("User does not have access to the encryption key for encrypted column = " + Arrays.toString(columnPath) + " for file: " + filePath);
     }
-
-    public int getUncompressedSize()
-    {
-        return uncompressedSize;
-    }
-
-    public abstract Slice getSlice();
 }
