@@ -34,12 +34,12 @@ public class WriteHiveMetastoreRecordingProcedure
             "writeHiveMetastoreRecording");
 
     private final RateLimiter rateLimiter = RateLimiter.create(0.2);
-    private final RecordingHiveMetastore recordingHiveMetastore;
+    private final HiveMetastoreRecording hiveMetastoreRecording;
 
     @Inject
-    public WriteHiveMetastoreRecordingProcedure(RecordingHiveMetastore recordingHiveMetastore)
+    public WriteHiveMetastoreRecordingProcedure(HiveMetastoreRecording hiveMetastoreRecording)
     {
-        this.recordingHiveMetastore = requireNonNull(recordingHiveMetastore, "recordingHiveMetastore is null");
+        this.hiveMetastoreRecording = requireNonNull(hiveMetastoreRecording, "hiveMetastoreRecording is null");
     }
 
     @Override
@@ -57,7 +57,7 @@ public class WriteHiveMetastoreRecordingProcedure
         try {
             // limit rate of recording dumps to prevent IO and Trino saturation
             rateLimiter.acquire();
-            recordingHiveMetastore.writeRecording();
+            hiveMetastoreRecording.writeRecording();
         }
         catch (IOException ex) {
             throw new RuntimeException(ex);
