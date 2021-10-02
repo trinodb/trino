@@ -197,6 +197,15 @@ public class SemiTransactionalHiveMetastore
         return delegate.getAllDatabases();
     }
 
+    /**
+     * Get the underlying metastore closure. Use this method with caution as it bypasses the current transactional state,
+     * so modifications made in the transaction are visible.
+     */
+    public HiveMetastoreClosure unsafeGetRawHiveMetastoreClosure()
+    {
+        return delegate;
+    }
+
     public synchronized Optional<Database> getDatabase(String databaseName)
     {
         checkReadable();

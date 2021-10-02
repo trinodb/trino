@@ -51,6 +51,10 @@ public class HiveMetastoreClosure
 {
     private final HiveMetastore delegate;
 
+    /**
+     * Do not use this directly.  Instead, the closure should be fetched from the current SemiTransactionalHiveMetastore,
+     * which can be fetched from the current HiveMetadata.
+     */
     public HiveMetastoreClosure(HiveMetastore delegate)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");

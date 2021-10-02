@@ -28,7 +28,6 @@ import io.trino.plugin.hive.PartitionUpdate.UpdateMode;
 import io.trino.plugin.hive.TransactionalMetadata;
 import io.trino.plugin.hive.TransactionalMetadataFactory;
 import io.trino.plugin.hive.authentication.HiveIdentity;
-import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.spi.TrinoException;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ConnectorAccessControl;
@@ -70,15 +69,13 @@ public class CreateEmptyPartitionProcedure
             List.class);
 
     private final TransactionalMetadataFactory hiveMetadataFactory;
-    private final HiveMetastoreClosure metastore;
     private final LocationService locationService;
     private final JsonCodec<PartitionUpdate> partitionUpdateJsonCodec;
 
     @Inject
-    public CreateEmptyPartitionProcedure(TransactionalMetadataFactory hiveMetadataFactory, HiveMetastore metastore, LocationService locationService, JsonCodec<PartitionUpdate> partitionUpdateCodec)
+    public CreateEmptyPartitionProcedure(TransactionalMetadataFactory hiveMetadataFactory, LocationService locationService, JsonCodec<PartitionUpdate> partitionUpdateCodec)
     {
         this.hiveMetadataFactory = requireNonNull(hiveMetadataFactory, "hiveMetadataFactory is null");
-        this.metastore = new HiveMetastoreClosure(requireNonNull(metastore, "metastore is null"));
         this.locationService = requireNonNull(locationService, "locationService is null");
         this.partitionUpdateJsonCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
     }
@@ -122,6 +119,7 @@ public class CreateEmptyPartitionProcedure
             throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, "Provided partition column names do not match actual partition column names: " + actualPartitionColumnNames);
         }
 
+        HiveMetastoreClosure metastore = hiveMetadata.getMetastore().unsafeGetRawHiveMetastoreClosure();
         if (metastore.getPartition(new HiveIdentity(session), schemaName, tableName, partitionValues).isPresent()) {
             throw new TrinoException(ALREADY_EXISTS, "Partition already exists");
         }
