@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.metastore;
+package io.trino.plugin.hive.metastore.recording;
 
 import com.google.inject.Binder;
 import com.google.inject.Key;
@@ -20,8 +20,8 @@ import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.hive.ForRecordingHiveMetastore;
 import io.trino.plugin.hive.RecordingMetastoreConfig;
+import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.cache.ForCachingHiveMetastore;
-import io.trino.plugin.hive.metastore.procedure.WriteHiveMetastoreRecordingProcedure;
 import io.trino.plugin.hive.util.BlockJsonSerde;
 import io.trino.plugin.hive.util.HiveBlockEncodingSerde;
 import io.trino.spi.block.Block;

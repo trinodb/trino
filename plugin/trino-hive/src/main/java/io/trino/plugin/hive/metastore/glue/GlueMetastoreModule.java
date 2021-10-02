@@ -28,8 +28,8 @@ import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.ForRecordingHiveMetastore;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.RecordingHiveMetastoreModule;
 import io.trino.plugin.hive.metastore.cache.CachingHiveMetastoreModule;
+import io.trino.plugin.hive.metastore.recording.RecordingHiveMetastoreModule;
 
 import java.util.concurrent.Executor;
 import java.util.function.Predicate;
