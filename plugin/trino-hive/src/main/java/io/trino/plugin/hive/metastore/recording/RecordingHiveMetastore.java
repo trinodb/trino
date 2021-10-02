@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive.metastore.recording;
 
-import io.trino.plugin.hive.ForRecordingHiveMetastore;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.acid.AcidTransaction;
@@ -34,8 +33,6 @@ import io.trino.spi.security.RoleGrant;
 import io.trino.spi.statistics.ColumnStatisticType;
 import io.trino.spi.type.Type;
 
-import javax.inject.Inject;
-
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -54,8 +51,7 @@ public class RecordingHiveMetastore
     private final HiveMetastore delegate;
     private final HiveMetastoreRecording recording;
 
-    @Inject
-    public RecordingHiveMetastore(@ForRecordingHiveMetastore HiveMetastore delegate, HiveMetastoreRecording recording)
+    public RecordingHiveMetastore(HiveMetastore delegate, HiveMetastoreRecording recording)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.recording = requireNonNull(recording, "recording is null");

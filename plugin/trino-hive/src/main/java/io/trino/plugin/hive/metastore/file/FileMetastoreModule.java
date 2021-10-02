@@ -17,8 +17,7 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.cache.CachingHiveMetastoreModule;
-import io.trino.plugin.hive.metastore.cache.ForCachingHiveMetastore;
+import io.trino.plugin.hive.metastore.RawHiveMetastore;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
@@ -29,7 +28,6 @@ public class FileMetastoreModule
     public void configure(Binder binder)
     {
         configBinder(binder).bindConfig(FileHiveMetastoreConfig.class);
-        binder.bind(HiveMetastore.class).annotatedWith(ForCachingHiveMetastore.class).to(FileHiveMetastore.class).in(Scopes.SINGLETON);
-        binder.install(new CachingHiveMetastoreModule());
+        binder.bind(HiveMetastore.class).annotatedWith(RawHiveMetastore.class).to(FileHiveMetastore.class).in(Scopes.SINGLETON);
     }
 }
