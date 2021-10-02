@@ -17,8 +17,6 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.hive.metastore.alluxio.AlluxioMetastoreModule;
-import io.trino.plugin.hive.metastore.cache.CachingHiveMetastoreModule;
-import io.trino.plugin.hive.metastore.cache.ForCachingHiveMetastore;
 import io.trino.plugin.hive.metastore.file.FileMetastoreModule;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreModule;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreModule;
@@ -41,8 +39,7 @@ public class HiveMetastoreModule
     protected void setup(Binder binder)
     {
         if (metastore.isPresent()) {
-            binder.bind(HiveMetastore.class).annotatedWith(ForCachingHiveMetastore.class).toInstance(metastore.get());
-            install(new CachingHiveMetastoreModule());
+            binder.bind(HiveMetastore.class).annotatedWith(RawHiveMetastore.class).toInstance(metastore.get());
         }
         else {
             bindMetastoreModule("thrift", new ThriftMetastoreModule());
@@ -50,6 +47,8 @@ public class HiveMetastoreModule
             bindMetastoreModule("glue", new GlueMetastoreModule());
             bindMetastoreModule("alluxio", new AlluxioMetastoreModule());
         }
+
+        install(new DecoratedHiveMetastoreModule());
     }
 
     private void bindMetastoreModule(String name, Module module)

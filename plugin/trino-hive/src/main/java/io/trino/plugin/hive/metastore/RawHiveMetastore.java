@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.metastore.cache;
+package io.trino.plugin.hive.metastore;
 
 import javax.inject.Qualifier;
 
@@ -26,6 +26,6 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 @Retention(RUNTIME)
 @Target({FIELD, PARAMETER, METHOD})
 @Qualifier
-public @interface ForCachingHiveMetastore
+public @interface RawHiveMetastore
 {
 }

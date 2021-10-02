@@ -14,14 +14,10 @@
 package io.trino.plugin.hive.metastore.recording;
 
 import com.google.inject.Binder;
-import com.google.inject.Key;
-import com.google.inject.Module;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.trino.plugin.hive.ForRecordingHiveMetastore;
 import io.trino.plugin.hive.RecordingMetastoreConfig;
-import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.cache.ForCachingHiveMetastore;
+import io.trino.plugin.hive.metastore.HiveMetastoreDecorator;
 import io.trino.plugin.hive.util.BlockJsonSerde;
 import io.trino.plugin.hive.util.HiveBlockEncodingSerde;
 import io.trino.spi.block.Block;
@@ -32,31 +28,14 @@ import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
-public class RecordingHiveMetastoreModule
+public class RecordingHiveMetastoreDecoratorModule
         extends AbstractConfigurationAwareModule
 {
     @Override
     protected void setup(Binder binder)
     {
         if (buildConfigObject(RecordingMetastoreConfig.class).getRecordingPath() != null) {
-            install(new RecordingModule());
-        }
-        else {
-            install(new NoRecordingModule());
-        }
-    }
-
-    public static class RecordingModule
-            implements Module
-    {
-        @Override
-        public void configure(Binder binder)
-        {
-            binder.bind(HiveMetastore.class)
-                    .annotatedWith(ForCachingHiveMetastore.class)
-                    .to(RecordingHiveMetastore.class)
-                    .in(Scopes.SINGLETON);
-            binder.bind(RecordingHiveMetastore.class).in(Scopes.SINGLETON);
+            newSetBinder(binder, HiveMetastoreDecorator.class).addBinding().to(RecordingHiveMetastoreDecorator.class).in(Scopes.SINGLETON);
             binder.bind(HiveBlockEncodingSerde.class).in(Scopes.SINGLETON);
 
             binder.bind(HiveMetastoreRecording.class).in(Scopes.SINGLETON);
@@ -68,19 +47,6 @@ public class RecordingHiveMetastoreModule
             newExporter(binder).export(HiveMetastoreRecording.class).as(generator -> generator.generatedNameOf(RecordingHiveMetastore.class));
 
             newSetBinder(binder, Procedure.class).addBinding().toProvider(WriteHiveMetastoreRecordingProcedure.class).in(Scopes.SINGLETON);
-        }
-    }
-
-    public static class NoRecordingModule
-            implements Module
-    {
-        @Override
-        public void configure(Binder binder)
-        {
-            binder.bind(HiveMetastore.class)
-                    .annotatedWith(ForCachingHiveMetastore.class)
-                    .to(Key.get(HiveMetastore.class, ForRecordingHiveMetastore.class))
-                    .in(Scopes.SINGLETON);
         }
     }
 }

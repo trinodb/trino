@@ -671,7 +671,9 @@ public class TestCachingHiveMetastore
         return (CachingHiveMetastore) cachingHiveMetastore(
                 new BridgingHiveMetastore(createThriftHiveMetastore()),
                 directExecutor(),
-                config);
+                config.getMetastoreCacheTtl(),
+                config.getMetastoreRefreshInterval(),
+                config.getMetastoreCacheMaximumSize());
     }
 
     private static class MockMetastoreLocator
