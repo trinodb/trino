@@ -14,10 +14,8 @@
 package io.trino.plugin.hive.procedure;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.plugin.hive.HiveMetastoreClosure;
 import io.trino.plugin.hive.TransactionalMetadataFactory;
 import io.trino.plugin.hive.authentication.HiveIdentity;
-import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.metastore.Table;
@@ -59,13 +57,11 @@ public class UnregisterPartitionProcedure
             List.class);
 
     private final TransactionalMetadataFactory hiveMetadataFactory;
-    private final HiveMetastoreClosure metastore;
 
     @Inject
-    public UnregisterPartitionProcedure(TransactionalMetadataFactory hiveMetadataFactory, HiveMetastore metastore)
+    public UnregisterPartitionProcedure(TransactionalMetadataFactory hiveMetadataFactory)
     {
         this.hiveMetadataFactory = requireNonNull(hiveMetadataFactory, "hiveMetadataFactory is null");
-        this.metastore = new HiveMetastoreClosure(requireNonNull(metastore, "metastore is null"));
     }
 
     @Override
@@ -94,6 +90,8 @@ public class UnregisterPartitionProcedure
         HiveIdentity identity = new HiveIdentity(session);
         SchemaTableName schemaTableName = new SchemaTableName(schemaName, tableName);
 
+        SemiTransactionalHiveMetastore metastore = hiveMetadataFactory.create(session.getIdentity(), true).getMetastore();
+
         Table table = metastore.getTable(identity, schemaName, tableName)
                 .orElseThrow(() -> new TableNotFoundException(schemaTableName));
 
@@ -104,10 +102,8 @@ public class UnregisterPartitionProcedure
 
         String partitionName = FileUtils.makePartName(partitionColumn, partitionValues);
 
-        Partition partition = metastore.getPartition(new HiveIdentity(session), schemaName, tableName, partitionValues)
+        Partition partition = metastore.unsafeGetRawHiveMetastoreClosure().getPartition(new HiveIdentity(session), schemaName, tableName, partitionValues)
                 .orElseThrow(() -> new TrinoException(NOT_FOUND, format("Partition '%s' does not exist", partitionName)));
-
-        SemiTransactionalHiveMetastore metastore = hiveMetadataFactory.create(session.getIdentity(), true).getMetastore();
 
         metastore.dropPartition(
                 session,

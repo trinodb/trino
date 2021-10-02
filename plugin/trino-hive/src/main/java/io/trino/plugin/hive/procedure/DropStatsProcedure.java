@@ -21,7 +21,6 @@ import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.TransactionalMetadata;
 import io.trino.plugin.hive.TransactionalMetadataFactory;
 import io.trino.plugin.hive.authentication.HiveIdentity;
-import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.spi.TrinoException;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ColumnHandle;
@@ -67,13 +66,11 @@ public class DropStatsProcedure
             List.class);
 
     private final TransactionalMetadataFactory hiveMetadataFactory;
-    private final HiveMetastoreClosure metastore;
 
     @Inject
-    public DropStatsProcedure(TransactionalMetadataFactory hiveMetadataFactory, HiveMetastore metastore)
+    public DropStatsProcedure(TransactionalMetadataFactory hiveMetadataFactory)
     {
         this.hiveMetadataFactory = requireNonNull(hiveMetadataFactory, "hiveMetadataFactory is null");
-        this.metastore = new HiveMetastoreClosure(requireNonNull(metastore, "metastore is null"));
     }
 
     @Override
@@ -113,6 +110,7 @@ public class DropStatsProcedure
                 .map(HiveColumnHandle::getName)
                 .collect(toImmutableList());
 
+        HiveMetastoreClosure metastore = hiveMetadata.getMetastore().unsafeGetRawHiveMetastoreClosure();
         if (partitionValues != null) {
             // drop stats for specified partitions
             List<List<String>> partitionStringValues = partitionValues.stream()
