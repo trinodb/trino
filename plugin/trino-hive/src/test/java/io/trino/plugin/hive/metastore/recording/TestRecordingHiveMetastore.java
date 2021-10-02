@@ -142,21 +142,23 @@ public class TestRecordingHiveMetastore
         RecordingMetastoreConfig recordingConfig = new RecordingMetastoreConfig()
                 .setRecordingPath(File.createTempFile("recording_test", "json").getAbsolutePath())
                 .setRecordingDuration(new Duration(10, TimeUnit.MINUTES));
-        JsonCodec<RecordingHiveMetastore.Recording> jsonCodec = createJsonCodec();
-        RecordingHiveMetastore recordingHiveMetastore = new RecordingHiveMetastore(new TestingHiveMetastore(), recordingConfig, jsonCodec);
+        JsonCodec<HiveMetastoreRecording.Recording> jsonCodec = createJsonCodec();
+        HiveMetastoreRecording recording = new HiveMetastoreRecording(recordingConfig, jsonCodec);
+        RecordingHiveMetastore recordingHiveMetastore = new RecordingHiveMetastore(new TestingHiveMetastore(), recording);
         validateMetadata(recordingHiveMetastore);
         recordingHiveMetastore.dropDatabase(HIVE_CONTEXT, "other_database", true);
-        recordingHiveMetastore.writeRecording();
+        recording.writeRecording();
 
         RecordingMetastoreConfig replayingConfig = recordingConfig
                 .setReplay(true);
 
-        recordingHiveMetastore = new RecordingHiveMetastore(new UnimplementedHiveMetastore(), replayingConfig, createJsonCodec());
-        recordingHiveMetastore.loadRecording();
+        recording = new HiveMetastoreRecording(replayingConfig, jsonCodec);
+        recordingHiveMetastore = new RecordingHiveMetastore(new UnimplementedHiveMetastore(), recording);
+        recording.loadRecording();
         validateMetadata(recordingHiveMetastore);
     }
 
-    private JsonCodec<RecordingHiveMetastore.Recording> createJsonCodec()
+    private JsonCodec<HiveMetastoreRecording.Recording> createJsonCodec()
     {
         ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
         TypeDeserializer typeDeserializer = new TypeDeserializer(new TestingTypeManager());
@@ -165,7 +167,7 @@ public class TestRecordingHiveMetastore
                         Block.class, new TestingBlockJsonSerde.Deserializer(new HiveBlockEncodingSerde()),
                         Type.class, typeDeserializer));
         objectMapperProvider.setJsonSerializers(ImmutableMap.of(Block.class, new TestingBlockJsonSerde.Serializer(new HiveBlockEncodingSerde())));
-        JsonCodec<RecordingHiveMetastore.Recording> jsonCodec = new JsonCodecFactory(objectMapperProvider).jsonCodec(RecordingHiveMetastore.Recording.class);
+        JsonCodec<HiveMetastoreRecording.Recording> jsonCodec = new JsonCodecFactory(objectMapperProvider).jsonCodec(HiveMetastoreRecording.Recording.class);
         return jsonCodec;
     }
 

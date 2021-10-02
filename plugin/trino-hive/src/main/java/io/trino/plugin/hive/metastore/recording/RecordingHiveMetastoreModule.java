@@ -59,11 +59,13 @@ public class RecordingHiveMetastoreModule
             binder.bind(RecordingHiveMetastore.class).in(Scopes.SINGLETON);
             binder.bind(HiveBlockEncodingSerde.class).in(Scopes.SINGLETON);
 
-            jsonCodecBinder(binder).bindJsonCodec(RecordingHiveMetastore.Recording.class);
+            binder.bind(HiveMetastoreRecording.class).in(Scopes.SINGLETON);
+            jsonCodecBinder(binder).bindJsonCodec(HiveMetastoreRecording.Recording.class);
             jsonBinder(binder).addSerializerBinding(Block.class).to(BlockJsonSerde.Serializer.class);
             jsonBinder(binder).addDeserializerBinding(Block.class).to(BlockJsonSerde.Deserializer.class);
 
-            newExporter(binder).export(RecordingHiveMetastore.class).withGeneratedName();
+            // export under the old name, for backwards compatibility
+            newExporter(binder).export(HiveMetastoreRecording.class).as(generator -> generator.generatedNameOf(RecordingHiveMetastore.class));
 
             newSetBinder(binder, Procedure.class).addBinding().toProvider(WriteHiveMetastoreRecordingProcedure.class).in(Scopes.SINGLETON);
         }
