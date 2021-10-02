@@ -18,11 +18,9 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.trino.plugin.hive.HiveConfig;
-import io.trino.plugin.hive.HiveMetastoreClosure;
 import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.TransactionalMetadataFactory;
 import io.trino.plugin.hive.authentication.HiveIdentity;
-import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.metastore.Table;
@@ -73,15 +71,13 @@ public class RegisterPartitionProcedure
     private final boolean allowRegisterPartition;
     private final TransactionalMetadataFactory hiveMetadataFactory;
     private final HdfsEnvironment hdfsEnvironment;
-    private final HiveMetastoreClosure metastore;
 
     @Inject
-    public RegisterPartitionProcedure(HiveConfig hiveConfig, TransactionalMetadataFactory hiveMetadataFactory, HiveMetastore metastore, HdfsEnvironment hdfsEnvironment)
+    public RegisterPartitionProcedure(HiveConfig hiveConfig, TransactionalMetadataFactory hiveMetadataFactory, HdfsEnvironment hdfsEnvironment)
     {
         this.allowRegisterPartition = requireNonNull(hiveConfig, "hiveConfig is null").isAllowRegisterPartition();
         this.hiveMetadataFactory = requireNonNull(hiveMetadataFactory, "hiveMetadataFactory is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
-        this.metastore = new HiveMetastoreClosure(requireNonNull(metastore, "metastore is null"));
     }
 
     @Override
@@ -112,6 +108,8 @@ public class RegisterPartitionProcedure
             throw new TrinoException(PERMISSION_DENIED, "register_partition procedure is disabled");
         }
 
+        SemiTransactionalHiveMetastore metastore = hiveMetadataFactory.create(session.getIdentity(), true).getMetastore();
+
         HiveIdentity identity = new HiveIdentity(session);
         HdfsContext hdfsContext = new HdfsContext(session);
         SchemaTableName schemaTableName = new SchemaTableName(schemaName, tableName);
@@ -124,7 +122,7 @@ public class RegisterPartitionProcedure
         checkIsPartitionedTable(table);
         checkPartitionColumns(table, partitionColumn);
 
-        Optional<Partition> partition = metastore.getPartition(new HiveIdentity(session), schemaName, tableName, partitionValues);
+        Optional<Partition> partition = metastore.unsafeGetRawHiveMetastoreClosure().getPartition(new HiveIdentity(session), schemaName, tableName, partitionValues);
         if (partition.isPresent()) {
             String partitionName = FileUtils.makePartName(partitionColumn, partitionValues);
             throw new TrinoException(ALREADY_EXISTS, format("Partition [%s] is already registered with location %s", partitionName, partition.get().getStorage().getLocation()));
@@ -142,8 +140,6 @@ public class RegisterPartitionProcedure
         if (!HiveWriteUtils.pathExists(hdfsContext, hdfsEnvironment, partitionLocation)) {
             throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, "Partition location does not exist: " + partitionLocation);
         }
-
-        SemiTransactionalHiveMetastore metastore = hiveMetadataFactory.create(session.getIdentity(), true).getMetastore();
 
         metastore.addPartition(
                 session,
