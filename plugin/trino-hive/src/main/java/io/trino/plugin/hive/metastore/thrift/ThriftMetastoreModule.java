@@ -19,8 +19,8 @@ import com.google.inject.multibindings.OptionalBinder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.hive.ForRecordingHiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.RecordingHiveMetastoreModule;
 import io.trino.plugin.hive.metastore.cache.CachingHiveMetastoreModule;
+import io.trino.plugin.hive.metastore.recording.RecordingHiveMetastoreModule;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;

@@ -11,11 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.metastore.procedure;
+package io.trino.plugin.hive.metastore.recording;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.RateLimiter;
-import io.trino.plugin.hive.metastore.RecordingHiveMetastore;
 import io.trino.spi.procedure.Procedure;
 
 import javax.inject.Inject;
