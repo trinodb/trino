@@ -21,6 +21,7 @@ import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveInsertTableHandle;
 import io.trino.plugin.hive.HiveMetastoreClosure;
 import io.trino.plugin.hive.HiveTableHandle;
+import io.trino.plugin.hive.LocationHandle;
 import io.trino.plugin.hive.LocationService;
 import io.trino.plugin.hive.LocationService.WriteInfo;
 import io.trino.plugin.hive.PartitionUpdate;
@@ -37,6 +38,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.procedure.Procedure.Argument;
 import io.trino.spi.type.ArrayType;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.FileUtils;
 
 import javax.inject.Inject;
@@ -66,7 +68,8 @@ public class CreateEmptyPartitionProcedure
             String.class,
             String.class,
             List.class,
-            List.class);
+            List.class,
+            String.class);
 
     private final TransactionalMetadataFactory hiveMetadataFactory;
     private final HiveMetastoreClosure metastore;
@@ -92,18 +95,19 @@ public class CreateEmptyPartitionProcedure
                         new Argument("schema_name", VARCHAR),
                         new Argument("table_name", VARCHAR),
                         new Argument("partition_columns", new ArrayType(VARCHAR)),
-                        new Argument("partition_values", new ArrayType(VARCHAR))),
+                        new Argument("partition_values", new ArrayType(VARCHAR)),
+                        new Argument("location", VARCHAR, false, null)),
                 CREATE_EMPTY_PARTITION.bindTo(this));
     }
 
-    public void createEmptyPartition(ConnectorSession session, ConnectorAccessControl accessControl, String schema, String table, List<String> partitionColumnNames, List<String> partitionValues)
+    public void createEmptyPartition(ConnectorSession session, ConnectorAccessControl accessControl, String schema, String table, List<String> partitionColumnNames, List<String> partitionValues, String location)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
-            doCreateEmptyPartition(session, accessControl, schema, table, partitionColumnNames, partitionValues);
+            doCreateEmptyPartition(session, accessControl, schema, table, partitionColumnNames, partitionValues, location);
         }
     }
 
-    private void doCreateEmptyPartition(ConnectorSession session, ConnectorAccessControl accessControl, String schemaName, String tableName, List<String> partitionColumnNames, List<String> partitionValues)
+    private void doCreateEmptyPartition(ConnectorSession session, ConnectorAccessControl accessControl, String schemaName, String tableName, List<String> partitionColumnNames, List<String> partitionValues, String location)
     {
         TransactionalMetadata hiveMetadata = hiveMetadataFactory.create();
         HiveTableHandle tableHandle = (HiveTableHandle) hiveMetadata.getTableHandle(session, new SchemaTableName(schemaName, tableName));
@@ -127,7 +131,16 @@ public class CreateEmptyPartitionProcedure
         HiveInsertTableHandle hiveInsertTableHandle = (HiveInsertTableHandle) hiveMetadata.beginInsert(session, tableHandle);
         String partitionName = FileUtils.makePartName(actualPartitionColumnNames, partitionValues);
 
-        WriteInfo writeInfo = locationService.getPartitionWriteInfo(hiveInsertTableHandle.getLocationHandle(), Optional.empty(), partitionName);
+        WriteInfo writeInfo;
+        if (location == null) {
+            writeInfo = locationService.getPartitionWriteInfo(hiveInsertTableHandle.getLocationHandle(), Optional.empty(), partitionName);
+        }
+        else {
+            Path partitionLocation = new Path(location);
+            LocationHandle locationHandle = new LocationHandle(partitionLocation, partitionLocation, hiveInsertTableHandle.getLocationHandle().getJsonSerializableIsExistingTable(), hiveInsertTableHandle.getLocationHandle().getWriteMode());
+            writeInfo = locationService.getPartitionWriteInfo(locationHandle, Optional.empty(), partitionName);
+        }
+
         Slice serializedPartitionUpdate = Slices.wrappedBuffer(
                 partitionUpdateJsonCodec.toJsonBytes(
                         new PartitionUpdate(
