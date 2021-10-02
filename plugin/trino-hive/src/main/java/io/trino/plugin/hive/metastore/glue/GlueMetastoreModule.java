@@ -25,11 +25,9 @@ import com.google.inject.TypeLiteral;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.base.CatalogName;
-import io.trino.plugin.hive.ForRecordingHiveMetastore;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.cache.CachingHiveMetastoreModule;
-import io.trino.plugin.hive.metastore.recording.RecordingHiveMetastoreModule;
+import io.trino.plugin.hive.metastore.RawHiveMetastore;
 
 import java.util.concurrent.Executor;
 import java.util.function.Predicate;
@@ -56,7 +54,7 @@ public class GlueMetastoreModule
                 .setDefault().toProvider(DefaultGlueMetastoreTableFilterProvider.class).in(Scopes.SINGLETON);
 
         binder.bind(HiveMetastore.class)
-                .annotatedWith(ForRecordingHiveMetastore.class)
+                .annotatedWith(RawHiveMetastore.class)
                 .to(GlueHiveMetastore.class)
                 .in(Scopes.SINGLETON);
 
@@ -68,9 +66,6 @@ public class GlueMetastoreModule
                 HiveConfig::isTableStatisticsEnabled,
                 getGlueStatisticsModule(DefaultGlueColumnStatisticsProviderFactory.class),
                 getGlueStatisticsModule(DisabledGlueColumnStatisticsProviderFactory.class)));
-
-        install(new RecordingHiveMetastoreModule());
-        install(new CachingHiveMetastoreModule());
     }
 
     private Module getGlueStatisticsModule(Class<? extends GlueColumnStatisticsProviderFactory> statisticsPrividerFactoryClass)

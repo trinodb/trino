@@ -81,16 +81,4 @@ public class CachingHiveMetastoreConfig
         this.maxMetastoreRefreshThreads = maxMetastoreRefreshThreads;
         return this;
     }
-
-    public boolean isCacheEnabled()
-    {
-        return isCacheEnabled(
-                getMetastoreCacheTtl(),
-                getMetastoreCacheMaximumSize());
-    }
-
-    public static boolean isCacheEnabled(Duration metastoreCacheTtl, long metastoreCacheMaximumSize)
-    {
-        return metastoreCacheTtl.toMillis() != 0 && metastoreCacheMaximumSize != 0;
-    }
 }

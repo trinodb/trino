@@ -99,17 +99,6 @@ public class TestIcebergPlugin
                         "hive.metastore-recording-path", "/tmp"),
                 new TestingConnectorContext())
                 .shutdown();
-
-        // recording with glue
-        assertThatThrownBy(() -> factory.create(
-                "test",
-                Map.of(
-                        "iceberg.catalog.type", "glue",
-                        "hive.metastore.glue.region", "us-east-2",
-                        "hive.metastore-recording-path", "/tmp"),
-                new TestingConnectorContext()))
-                .hasMessageContaining("Configuration property 'hive.metastore-recording-path' was not used")
-                .hasMessageContaining("Configuration property 'hive.metastore.glue.region' was not used");
     }
 
     @Test
