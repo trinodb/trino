@@ -69,7 +69,6 @@ import org.apache.hadoop.hive.metastore.TableType;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
-import javax.inject.Inject;
 
 import java.io.File;
 import java.io.IOException;
@@ -173,7 +172,6 @@ public class FileHiveMetastore
                         .setMetastoreUser("test"));
     }
 
-    @Inject
     public FileHiveMetastore(NodeVersion nodeVersion, HdfsEnvironment hdfsEnvironment, MetastoreConfig metastoreConfig, FileHiveMetastoreConfig config)
     {
         this.currentVersion = requireNonNull(nodeVersion, "nodeVersion is null").toString();

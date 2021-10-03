@@ -41,8 +41,6 @@ import io.trino.spi.type.Type;
 import org.apache.hadoop.hive.metastore.api.DataOperationType;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 
-import javax.inject.Inject;
-
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -72,7 +70,6 @@ public class BridgingHiveMetastore
 {
     private final ThriftMetastore delegate;
 
-    @Inject
     public BridgingHiveMetastore(ThriftMetastore delegate)
     {
         this.delegate = delegate;

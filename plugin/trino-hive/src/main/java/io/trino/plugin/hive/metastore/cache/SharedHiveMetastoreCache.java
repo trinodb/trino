@@ -16,7 +16,10 @@ package io.trino.plugin.hive.metastore.cache;
 import io.airlift.units.Duration;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.spi.NodeManager;
+import org.weakref.jmx.Flatten;
+import org.weakref.jmx.Nested;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -82,14 +85,19 @@ public class SharedHiveMetastoreCache
         }
     }
 
-    public HiveMetastore createSharedHiveMetastoreCache(HiveMetastore hiveMetastore)
+    public boolean isEnabled()
+    {
+        return enabled;
+    }
+
+    public HiveMetastoreFactory createCachingHiveMetastoreFactory(HiveMetastoreFactory metastoreFactory)
     {
         if (!enabled) {
-            return hiveMetastore;
+            return metastoreFactory;
         }
 
-        return cachingHiveMetastore(
-                hiveMetastore,
+        CachingHiveMetastore cachingHiveMetastore = cachingHiveMetastore(
+                metastoreFactory.createMetastore(),
                 // Loading of cache entry in CachingHiveMetastore might trigger loading of another cache entry for different object type
                 // In case there are no empty executor slots, such operation would deadlock. Therefore, a reentrant executor needs to be
                 // used.
@@ -97,5 +105,30 @@ public class SharedHiveMetastoreCache
                 metastoreCacheTtl,
                 metastoreRefreshInterval,
                 metastoreCacheMaximumSize);
+        return new CachingHiveMetastoreFactory(cachingHiveMetastore);
+    }
+
+    public static class CachingHiveMetastoreFactory
+            implements HiveMetastoreFactory
+    {
+        private final CachingHiveMetastore metastore;
+
+        private CachingHiveMetastoreFactory(CachingHiveMetastore metastore)
+        {
+            this.metastore = requireNonNull(metastore, "metastore is null");
+        }
+
+        @Override
+        public HiveMetastore createMetastore()
+        {
+            return metastore;
+        }
+
+        @Nested
+        @Flatten
+        public CachingHiveMetastore getMetastore()
+        {
+            return metastore;
+        }
     }
 }

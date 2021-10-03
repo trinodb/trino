@@ -21,7 +21,6 @@ import alluxio.grpc.table.Constraint;
 import alluxio.grpc.table.TableInfo;
 import alluxio.grpc.table.layout.hive.PartitionInfo;
 import com.google.common.collect.ImmutableMap;
-import com.google.inject.Inject;
 import io.trino.plugin.hive.HiveBasicStatistics;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.PartitionStatistics;
@@ -73,7 +72,6 @@ public class AlluxioHiveMetastore
 {
     private final TableMasterClient client;
 
-    @Inject
     public AlluxioHiveMetastore(TableMasterClient client, MetastoreConfig metastoreConfig)
     {
         this.client = requireNonNull(client, "client is null");

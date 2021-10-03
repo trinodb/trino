@@ -21,6 +21,7 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.hive.metastore.cache.CachingHiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.cache.SharedHiveMetastoreCache;
+import io.trino.plugin.hive.metastore.cache.SharedHiveMetastoreCache.CachingHiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.procedure.FlushHiveMetastoreCacheProcedure;
 import io.trino.plugin.hive.metastore.recording.RecordingHiveMetastoreDecoratorModule;
 import io.trino.spi.procedure.Procedure;
@@ -33,6 +34,7 @@ import java.util.Set;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static java.util.Objects.requireNonNull;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class DecoratedHiveMetastoreModule
@@ -46,7 +48,8 @@ public class DecoratedHiveMetastoreModule
 
         configBinder(binder).bindConfig(CachingHiveMetastoreConfig.class);
         binder.bind(SharedHiveMetastoreCache.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(HiveMetastore.class)
+        // export under the old name, for backwards compatibility
+        newExporter(binder).export(HiveMetastoreFactory.class)
                 .as(generator -> generator.generatedNameOf(CachingHiveMetastore.class));
 
         newSetBinder(binder, Procedure.class).addBinding().toProvider(FlushHiveMetastoreCacheProcedure.class).in(Scopes.SINGLETON);
@@ -54,29 +57,50 @@ public class DecoratedHiveMetastoreModule
 
     @Provides
     @Singleton
-    public static HiveMetastore createHiveMetastore(
-            @RawHiveMetastore HiveMetastore metastore,
+    public static HiveMetastoreFactory createHiveMetastore(
+            @RawHiveMetastoreFactory HiveMetastoreFactory metastoreFactory,
             Set<HiveMetastoreDecorator> decorators,
             SharedHiveMetastoreCache sharedHiveMetastoreCache)
     {
         // wrap the raw metastore with decorators like the RecordingHiveMetastore
-        List<HiveMetastoreDecorator> sortedDecorators = decorators.stream()
-                .sorted(Comparator.comparing(HiveMetastoreDecorator::getPriority))
-                .collect(toImmutableList());
-        for (HiveMetastoreDecorator decorator : sortedDecorators) {
-            metastore = decorator.decorate(metastore);
+        metastoreFactory = new DecoratingHiveMetastoreFactory(metastoreFactory, decorators);
+
+        // cross TX metastore cache is enabled wrapper with caching metastore
+        return sharedHiveMetastoreCache.createCachingHiveMetastoreFactory(metastoreFactory);
+    }
+
+    private static class DecoratingHiveMetastoreFactory
+            implements HiveMetastoreFactory
+    {
+        private final HiveMetastoreFactory delegate;
+        private final List<HiveMetastoreDecorator> sortedDecorators;
+
+        public DecoratingHiveMetastoreFactory(HiveMetastoreFactory delegate, Set<HiveMetastoreDecorator> decorators)
+        {
+            this.delegate = requireNonNull(delegate, "delegate is null");
+
+            this.sortedDecorators = requireNonNull(decorators, "decorators is null").stream()
+                    .sorted(Comparator.comparing(HiveMetastoreDecorator::getPriority))
+                    .collect(toImmutableList());
         }
 
-        // finally, if the shared metastore cache is enabled wrapper with a global cache
-        return sharedHiveMetastoreCache.createSharedHiveMetastoreCache(metastore);
+        @Override
+        public HiveMetastore createMetastore()
+        {
+            HiveMetastore metastore = delegate.createMetastore();
+            for (HiveMetastoreDecorator decorator : sortedDecorators) {
+                metastore = decorator.decorate(metastore);
+            }
+            return metastore;
+        }
     }
 
     @Provides
     @Singleton
-    public static Optional<CachingHiveMetastore> createHiveMetastore(HiveMetastore metastore)
+    public static Optional<CachingHiveMetastore> createHiveMetastore(HiveMetastoreFactory metastoreFactory)
     {
-        if (metastore instanceof CachingHiveMetastore) {
-            return Optional.of((CachingHiveMetastore) metastore);
+        if (metastoreFactory instanceof CachingHiveMetastoreFactory) {
+            return Optional.of((((CachingHiveMetastoreFactory) metastoreFactory).getMetastore()));
         }
         return Optional.empty();
     }

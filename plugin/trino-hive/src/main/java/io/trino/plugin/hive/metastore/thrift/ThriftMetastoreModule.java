@@ -17,8 +17,8 @@ import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.OptionalBinder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.RawHiveMetastore;
+import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
+import io.trino.plugin.hive.metastore.RawHiveMetastoreFactory;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
@@ -39,9 +39,9 @@ public class ThriftMetastoreModule
         newExporter(binder).export(ThriftMetastore.class)
                 .as(generator -> generator.generatedNameOf(ThriftHiveMetastore.class));
 
-        binder.bind(HiveMetastore.class)
-                .annotatedWith(RawHiveMetastore.class)
-                .to(BridgingHiveMetastore.class)
+        binder.bind(HiveMetastoreFactory.class)
+                .annotatedWith(RawHiveMetastoreFactory.class)
+                .to(BridgingHiveMetastoreFactory.class)
                 .in(Scopes.SINGLETON);
 
         install(new ThriftMetastoreAuthenticationModule());

@@ -11,23 +11,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.metastore.file;
+package io.trino.plugin.hive.metastore.thrift;
 
-import com.google.inject.Binder;
-import com.google.inject.Module;
-import com.google.inject.Scopes;
+import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
-import io.trino.plugin.hive.metastore.RawHiveMetastoreFactory;
 
-import static io.airlift.configuration.ConfigBinder.configBinder;
+import javax.inject.Inject;
 
-public class FileMetastoreModule
-        implements Module
+import static java.util.Objects.requireNonNull;
+
+public class BridgingHiveMetastoreFactory
+        implements HiveMetastoreFactory
 {
-    @Override
-    public void configure(Binder binder)
+    private final ThriftMetastore thriftMetastore;
+
+    @Inject
+    public BridgingHiveMetastoreFactory(ThriftMetastore thriftMetastore)
     {
-        configBinder(binder).bindConfig(FileHiveMetastoreConfig.class);
-        binder.bind(HiveMetastoreFactory.class).annotatedWith(RawHiveMetastoreFactory.class).to(FileHiveMetastoreFactory.class).in(Scopes.SINGLETON);
+        this.thriftMetastore = requireNonNull(thriftMetastore, "thriftMetastore is null");
+    }
+
+    @Override
+    public HiveMetastore createMetastore()
+    {
+        return new BridgingHiveMetastore(thriftMetastore);
     }
 }

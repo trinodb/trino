@@ -256,8 +256,13 @@ class TrinoHiveCatalog
     }
 
     @Override
-    public Transaction newCreateTableTransaction(ConnectorSession session, SchemaTableName schemaTableName,
-            Schema schema, PartitionSpec partitionSpec, String location, Map<String, String> properties)
+    public Transaction newCreateTableTransaction(
+            ConnectorSession session,
+            SchemaTableName schemaTableName,
+            Schema schema,
+            PartitionSpec partitionSpec,
+            String location,
+            Map<String, String> properties)
     {
         TableMetadata metadata = newTableMetadata(schema, partitionSpec, location, properties);
         TableOperations ops = tableOperationsProvider.createTableOperations(
