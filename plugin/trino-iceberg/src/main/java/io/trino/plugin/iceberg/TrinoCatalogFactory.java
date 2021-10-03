@@ -20,6 +20,7 @@ import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.spi.TrinoException;
+import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;
 
 import javax.inject.Inject;
@@ -67,7 +68,7 @@ public class TrinoCatalogFactory
         this.deleteSchemaLocationsFallback = requireNonNull(hiveConfig).isDeleteSchemaLocationsFallback();
     }
 
-    public TrinoCatalog create()
+    public TrinoCatalog create(ConnectorIdentity identity)
     {
         switch (catalogType) {
             case TESTING_FILE_METASTORE:
