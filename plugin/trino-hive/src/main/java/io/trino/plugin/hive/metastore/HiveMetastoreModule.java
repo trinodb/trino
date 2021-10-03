@@ -39,7 +39,7 @@ public class HiveMetastoreModule
     protected void setup(Binder binder)
     {
         if (metastore.isPresent()) {
-            binder.bind(HiveMetastore.class).annotatedWith(RawHiveMetastore.class).toInstance(metastore.get());
+            binder.bind(HiveMetastoreFactory.class).annotatedWith(RawHiveMetastoreFactory.class).toInstance(HiveMetastoreFactory.ofInstance(metastore.get()));
         }
         else {
             bindMetastoreModule("thrift", new ThriftMetastoreModule());
