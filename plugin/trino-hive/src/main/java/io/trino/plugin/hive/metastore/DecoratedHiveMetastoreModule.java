@@ -20,6 +20,7 @@ import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.hive.metastore.cache.CachingHiveMetastoreConfig;
+import io.trino.plugin.hive.metastore.cache.ImpersonationCachingConfig;
 import io.trino.plugin.hive.metastore.cache.SharedHiveMetastoreCache;
 import io.trino.plugin.hive.metastore.cache.SharedHiveMetastoreCache.CachingHiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.procedure.FlushHiveMetastoreCacheProcedure;
@@ -48,6 +49,8 @@ public class DecoratedHiveMetastoreModule
         install(new RecordingHiveMetastoreDecoratorModule());
 
         configBinder(binder).bindConfig(CachingHiveMetastoreConfig.class);
+        // TODO this should only be bound when impersonation is actually enabled
+        configBinder(binder).bindConfig(ImpersonationCachingConfig.class);
         binder.bind(SharedHiveMetastoreCache.class).in(Scopes.SINGLETON);
         // export under the old name, for backwards compatibility
         newExporter(binder).export(HiveMetastoreFactory.class)
