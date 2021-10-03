@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
 import io.trino.Session;
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.spi.security.PrincipalType;
@@ -67,7 +66,7 @@ public class TestMetadataQueryOptimization
                 .setOwnerName(Optional.of("public"))
                 .setOwnerType(Optional.of(PrincipalType.ROLE))
                 .build();
-        metastore.createDatabase(new HiveIdentity(session.toConnectorSession()), database);
+        metastore.createDatabase(database);
 
         return queryRunner;
     }

@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive.security;
 
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSecurityContext;
@@ -122,7 +121,7 @@ public class LegacyAccessControl
             denyDropTable(tableName.toString());
         }
 
-        Optional<Table> target = accessControlMetastore.getTable(context, new HiveIdentity(context.getIdentity()), tableName.getSchemaName(), tableName.getTableName());
+        Optional<Table> target = accessControlMetastore.getTable(context, tableName.getSchemaName(), tableName.getTableName());
 
         if (target.isEmpty()) {
             denyDropTable(tableName.toString(), "Table not found");

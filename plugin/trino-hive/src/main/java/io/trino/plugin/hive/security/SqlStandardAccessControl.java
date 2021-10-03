@@ -15,7 +15,6 @@ package io.trino.plugin.hive.security;
 
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.base.CatalogName;
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HivePrincipal;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
@@ -639,7 +638,7 @@ public class SqlStandardAccessControl
             return true;
         }
 
-        Set<HivePrincipal> allowedPrincipals = metastore.listTablePrivileges(context, new HiveIdentity(context.getIdentity()), tableName.getSchemaName(), tableName.getTableName(), Optional.empty()).stream()
+        Set<HivePrincipal> allowedPrincipals = metastore.listTablePrivileges(context, tableName.getSchemaName(), tableName.getTableName(), Optional.empty()).stream()
                 .filter(privilegeInfo -> privilegeInfo.getHivePrivilege() == requiredPrivilege)
                 .filter(privilegeInfo -> !grantOptionRequired || privilegeInfo.isGrantOption())
                 .map(HivePrivilegeInfo::getGrantee)
@@ -676,12 +675,15 @@ public class SqlStandardAccessControl
                 Stream.of(userPrincipal),
                 listApplicableRoles(userPrincipal, hivePrincipal -> metastore.listRoleGrants(context, hivePrincipal))
                         .map(role -> new HivePrincipal(ROLE, role.getRoleName())));
-        return listTablePrivileges(context, new HiveIdentity(identity), databaseName, tableName, principals);
+        return listTablePrivileges(context, databaseName, tableName, principals);
     }
 
-    private Stream<HivePrivilegeInfo> listTablePrivileges(ConnectorSecurityContext context, HiveIdentity identity, String databaseName, String tableName, Stream<HivePrincipal> principals)
+    private Stream<HivePrivilegeInfo> listTablePrivileges(ConnectorSecurityContext context,
+            String databaseName,
+            String tableName,
+            Stream<HivePrincipal> principals)
     {
-        return principals.flatMap(principal -> metastore.listTablePrivileges(context, identity, databaseName, tableName, Optional.of(principal)).stream());
+        return principals.flatMap(principal -> metastore.listTablePrivileges(context, databaseName, tableName, Optional.of(principal)).stream());
     }
 
     private boolean hasAdminOptionForRoles(ConnectorSecurityContext context, Set<String> roles)
@@ -711,7 +713,7 @@ public class SqlStandardAccessControl
             return true;
         }
 
-        Set<HivePrincipal> allowedPrincipals = metastore.listTablePrivileges(context, new HiveIdentity(context.getIdentity()), tableName.getSchemaName(), tableName.getTableName(), Optional.empty()).stream()
+        Set<HivePrincipal> allowedPrincipals = metastore.listTablePrivileges(context, tableName.getSchemaName(), tableName.getTableName(), Optional.empty()).stream()
                 .map(HivePrivilegeInfo::getGrantee)
                 .collect(toImmutableSet());
 

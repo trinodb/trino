@@ -71,7 +71,7 @@ public abstract class AbstractTestHiveLocal
 {
     private static final Logger log = Logger.get(AbstractTestHiveLocal.class);
     private static final String DEFAULT_TEST_DB_NAME = "test";
-    private static final HiveIdentity HIVE_IDENTITY = new HiveIdentity(SESSION);
+    private static final HiveIdentity HIVE_IDENTITY = new HiveIdentity(SESSION.getIdentity());
 
     private File tempDir;
     private final String testDbName;
@@ -95,7 +95,7 @@ public abstract class AbstractTestHiveLocal
 
         HiveMetastore metastore = createMetastore(tempDir, HIVE_IDENTITY);
 
-        metastore.createDatabase(HIVE_IDENTITY,
+        metastore.createDatabase(
                 Database.builder()
                         .setDatabaseName(testDbName)
                         .setOwnerName(Optional.of("public"))
@@ -114,7 +114,7 @@ public abstract class AbstractTestHiveLocal
             throws IOException
     {
         try {
-            getMetastoreClient().dropDatabase(HIVE_IDENTITY, testDbName, true);
+            getMetastoreClient().dropDatabase(testDbName, true);
         }
         finally {
             deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);
@@ -222,9 +222,9 @@ public abstract class AbstractTestHiveLocal
         try (Transaction transaction = newTransaction()) {
             ConnectorSession session = newSession();
             PrincipalPrivileges principalPrivileges = testingPrincipalPrivilege(session);
-            Table oldTable = transaction.getMetastore().getTable(new HiveIdentity(session), tableName.getSchemaName(), tableName.getTableName()).get();
+            Table oldTable = transaction.getMetastore().getTable(tableName.getSchemaName(), tableName.getTableName()).get();
             Table.Builder newTable = Table.builder(oldTable).setParameter(SPARK_TABLE_PROVIDER_KEY, provider);
-            transaction.getMetastore().replaceTable(new HiveIdentity(session), tableName.getSchemaName(), tableName.getTableName(), newTable.build(), principalPrivileges);
+            transaction.getMetastore().replaceTable(tableName.getSchemaName(), tableName.getTableName(), newTable.build(), principalPrivileges);
             transaction.commit();
         }
     }

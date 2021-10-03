@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.iceberg.catalog.file;
 
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
@@ -82,7 +81,6 @@ public class FileMetastoreTableOperations
 
         // todo privileges should not be replaced for an alter
         PrincipalPrivileges privileges = owner.isEmpty() && table.getOwner().isPresent() ? NO_PRIVILEGES : buildInitialPrivilegeSet(table.getOwner().get());
-        HiveIdentity identity = new HiveIdentity(session);
-        metastore.replaceTable(identity, database, tableName, table, privileges);
+        metastore.replaceTable(database, tableName, table, privileges);
     }
 }

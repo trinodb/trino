@@ -264,14 +264,13 @@ public abstract class BaseTestHiveOnDataLake
                 });
 
         // Delete old partition and update metadata to point to location of new copy
-        HiveIdentity hiveIdentity = HiveIdentity.none();
-        Table hiveTable = metastoreClient.getTable(hiveIdentity, HIVE_TEST_SCHEMA, tableName).get();
-        Partition hivePartition = metastoreClient.getPartition(hiveIdentity, hiveTable, List.of(regionKey)).get();
+        Table hiveTable = metastoreClient.getTable(HIVE_TEST_SCHEMA, tableName).get();
+        Partition hivePartition = metastoreClient.getPartition(hiveTable, List.of(regionKey)).get();
         Map<String, PartitionStatistics> partitionStatistics =
-                metastoreClient.getPartitionStatistics(hiveIdentity, hiveTable, List.of(hivePartition));
+                metastoreClient.getPartitionStatistics(hiveTable, List.of(hivePartition));
 
-        metastoreClient.dropPartition(hiveIdentity, HIVE_TEST_SCHEMA, tableName, List.of(regionKey), true);
-        metastoreClient.addPartitions(hiveIdentity, HIVE_TEST_SCHEMA, tableName, List.of(
+        metastoreClient.dropPartition(HIVE_TEST_SCHEMA, tableName, List.of(regionKey), true);
+        metastoreClient.addPartitions(HIVE_TEST_SCHEMA, tableName, List.of(
                 new PartitionWithStatistics(
                         Partition.builder(hivePartition)
                                 .withStorage(builder -> builder.setLocation(

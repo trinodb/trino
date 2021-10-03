@@ -22,7 +22,6 @@ import io.airlift.slice.Slice;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.PartitionOfflineException;
 import io.trino.plugin.hive.TableOfflineException;
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
@@ -300,9 +299,9 @@ public final class MetastoreUtil
         }
     }
 
-    public static void verifyCanDropColumn(HiveMetastore metastore, HiveIdentity identity, String databaseName, String tableName, String columnName)
+    public static void verifyCanDropColumn(HiveMetastore metastore, String databaseName, String tableName, String columnName)
     {
-        Table table = metastore.getTable(identity, databaseName, tableName)
+        Table table = metastore.getTable(databaseName, tableName)
                 .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
 
         if (table.getPartitionColumns().stream().anyMatch(column -> column.getName().equals(columnName))) {
