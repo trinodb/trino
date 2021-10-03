@@ -1040,6 +1040,10 @@ public class CachingHiveMetastore
                 cacheLoader);
     }
 
+    //
+    // Stats used for non-impersonation shared caching
+    //
+
     @Managed
     @Nested
     public CacheStatsMBean getDatabaseStats()
@@ -1143,5 +1147,83 @@ public class CachingHiveMetastore
     public CacheStatsMBean getConfigValuesStats()
     {
         return new CacheStatsMBean(configValuesCache);
+    }
+
+    //
+    // Expose caches with ImpersonationCachingHiveMetastoreFactory so they can be aggregated
+    //
+    LoadingCache<String, Optional<Database>> getDatabaseCache()
+    {
+        return databaseCache;
+    }
+
+    LoadingCache<String, List<String>> getDatabaseNamesCache()
+    {
+        return databaseNamesCache;
+    }
+
+    LoadingCache<HiveTableName, Optional<Table>> getTableCache()
+    {
+        return tableCache;
+    }
+
+    LoadingCache<String, List<String>> getTableNamesCache()
+    {
+        return tableNamesCache;
+    }
+
+    LoadingCache<TablesWithParameterCacheKey, List<String>> getTablesWithParameterCache()
+    {
+        return tablesWithParameterCache;
+    }
+
+    LoadingCache<HiveTableName, PartitionStatistics> getTableStatisticsCache()
+    {
+        return tableStatisticsCache;
+    }
+
+    LoadingCache<HivePartitionName, PartitionStatistics> getPartitionStatisticsCache()
+    {
+        return partitionStatisticsCache;
+    }
+
+    LoadingCache<String, List<String>> getViewNamesCache()
+    {
+        return viewNamesCache;
+    }
+
+    LoadingCache<HivePartitionName, Optional<Partition>> getPartitionCache()
+    {
+        return partitionCache;
+    }
+
+    LoadingCache<PartitionFilter, Optional<List<String>>> getPartitionFilterCache()
+    {
+        return partitionFilterCache;
+    }
+
+    LoadingCache<UserTableKey, Set<HivePrivilegeInfo>> getTablePrivilegesCache()
+    {
+        return tablePrivilegesCache;
+    }
+
+    LoadingCache<String, Set<String>> getRolesCache()
+    {
+        return rolesCache;
+    }
+
+    LoadingCache<HivePrincipal, Set<RoleGrant>> getRoleGrantsCache()
+    {
+        return roleGrantsCache;
+    }
+
+    LoadingCache<String, Set<RoleGrant>> getGrantedPrincipalsCache()
+    {
+        return grantedPrincipalsCache;
+    }
+
+    LoadingCache<String, Optional<String>> getConfigValuesCache()
+    {
+        return configValuesCache;
     }
 }
