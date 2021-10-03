@@ -17,6 +17,7 @@ import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.NodeVersion;
+import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.spi.TrinoException;
@@ -77,7 +78,7 @@ public class TrinoCatalogFactory
             case HIVE_METASTORE:
                 return new TrinoHiveCatalog(
                         catalogName,
-                        memoizeMetastore(metastoreFactory.createMetastore(Optional.of(identity)), 1000),
+                        memoizeMetastore(metastoreFactory.createMetastore(Optional.of(identity)), new HiveIdentity(identity), 1000),
                         hdfsEnvironment,
                         typeManager,
                         tableOperationsProvider,
