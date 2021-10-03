@@ -357,12 +357,6 @@ public abstract class ForwardingHiveMetastore
     }
 
     @Override
-    public boolean isImpersonationEnabled()
-    {
-        return delegate.isImpersonationEnabled();
-    }
-
-    @Override
     public long openTransaction(HiveIdentity identity)
     {
         return delegate.openTransaction(identity);

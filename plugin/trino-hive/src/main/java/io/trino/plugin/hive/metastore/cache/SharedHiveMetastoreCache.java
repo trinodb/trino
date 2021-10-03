@@ -19,6 +19,7 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.units.Duration;
 import io.trino.plugin.base.CatalogName;
+import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.spi.NodeManager;
@@ -126,6 +127,7 @@ public class SharedHiveMetastoreCache
                 // In case there are no empty executor slots, such operation would deadlock. Therefore, a reentrant executor needs to be
                 // used.
                 metastoreFactory.createMetastore(Optional.empty()),
+                HiveIdentity.none(),
                 new ReentrantBoundedExecutor(executorService, maxMetastoreRefreshThreads),
                 metastoreCacheTtl,
                 metastoreRefreshInterval,
@@ -200,8 +202,10 @@ public class SharedHiveMetastoreCache
 
         private HiveMetastore createUserCachingMetastore(String user)
         {
+            ConnectorIdentity identity = ConnectorIdentity.ofUser(user);
             return cachingHiveMetastore(
-                    metastoreFactory.createMetastore(Optional.of(ConnectorIdentity.ofUser(user))),
+                    metastoreFactory.createMetastore(Optional.of(identity)),
+                    new HiveIdentity(identity),
                     new ReentrantBoundedExecutor(executorService, maxMetastoreRefreshThreads),
                     metastoreCacheTtl,
                     metastoreRefreshInterval,

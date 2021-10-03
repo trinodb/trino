@@ -143,8 +143,6 @@ public interface HiveMetastore
      */
     Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, Optional<String> tableOwner, Optional<HivePrincipal> principal);
 
-    boolean isImpersonationEnabled();
-
     default long openTransaction(HiveIdentity identity)
     {
         throw new UnsupportedOperationException();

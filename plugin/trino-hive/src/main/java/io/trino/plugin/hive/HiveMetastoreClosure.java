@@ -301,11 +301,6 @@ public class HiveMetastoreClosure
         return delegate.listTablePrivileges(databaseName, tableName, tableOwner, principal);
     }
 
-    public boolean isImpersonationEnabled()
-    {
-        return delegate.isImpersonationEnabled();
-    }
-
     public long openTransaction(HiveIdentity identity)
     {
         return delegate.openTransaction(identity);

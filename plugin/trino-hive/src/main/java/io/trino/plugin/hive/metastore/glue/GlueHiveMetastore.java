@@ -1128,10 +1128,4 @@ public class GlueHiveMetastore
     {
         return ImmutableSet.of();
     }
-
-    @Override
-    public boolean isImpersonationEnabled()
-    {
-        return false;
-    }
 }

@@ -1146,12 +1146,6 @@ public class FileHiveMetastore
         setTablePrivileges(grantee, databaseName, tableName, Sets.difference(currentPrivileges, privilegesToRemove));
     }
 
-    @Override
-    public boolean isImpersonationEnabled()
-    {
-        return false;
-    }
-
     private synchronized void setTablePrivileges(
             HivePrincipal grantee,
             String databaseName,
