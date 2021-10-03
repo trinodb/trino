@@ -15,7 +15,6 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMap;
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
@@ -59,7 +58,7 @@ public class PropertiesSystemTableProvider
 
         SchemaTableName sourceTableName = PROPERTIES.getSourceTableName(tableName);
         Table table = metadata.getMetastore()
-                .getTable(new HiveIdentity(session), sourceTableName.getSchemaName(), sourceTableName.getTableName())
+                .getTable(sourceTableName.getSchemaName(), sourceTableName.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(tableName));
 
         if (isDeltaLakeTable(table) || isIcebergTable(table)) {

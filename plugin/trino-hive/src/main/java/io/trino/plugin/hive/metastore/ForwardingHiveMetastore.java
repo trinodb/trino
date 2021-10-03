@@ -18,7 +18,6 @@ import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.plugin.hive.acid.AcidTransaction;
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
@@ -59,9 +58,9 @@ public abstract class ForwardingHiveMetastore
     }
 
     @Override
-    public Optional<Table> getTable(HiveIdentity identity, String databaseName, String tableName)
+    public Optional<Table> getTable(String databaseName, String tableName)
     {
-        return delegate.getTable(identity, databaseName, tableName);
+        return delegate.getTable(databaseName, tableName);
     }
 
     @Override
@@ -71,45 +70,42 @@ public abstract class ForwardingHiveMetastore
     }
 
     @Override
-    public PartitionStatistics getTableStatistics(HiveIdentity identity, Table table)
+    public PartitionStatistics getTableStatistics(Table table)
     {
-        return delegate.getTableStatistics(identity, table);
+        return delegate.getTableStatistics(table);
     }
 
     @Override
-    public Map<String, PartitionStatistics> getPartitionStatistics(HiveIdentity identity, Table table, List<Partition> partitions)
+    public Map<String, PartitionStatistics> getPartitionStatistics(Table table, List<Partition> partitions)
     {
-        return delegate.getPartitionStatistics(identity, table, partitions);
+        return delegate.getPartitionStatistics(table, partitions);
     }
 
     @Override
     public void updateTableStatistics(
-            HiveIdentity identity,
             String databaseName,
             String tableName,
             AcidTransaction transaction,
             Function<PartitionStatistics, PartitionStatistics> update)
     {
-        delegate.updateTableStatistics(identity, databaseName, tableName, transaction, update);
+        delegate.updateTableStatistics(databaseName, tableName, transaction, update);
     }
 
     @Override
     public void updatePartitionStatistics(
-            HiveIdentity identity,
             Table table,
             String partitionName,
             Function<PartitionStatistics, PartitionStatistics> update)
     {
-        delegate.updatePartitionStatistics(identity, table, partitionName, update);
+        delegate.updatePartitionStatistics(table, partitionName, update);
     }
 
     @Override
     public void updatePartitionStatistics(
-            HiveIdentity identity,
             Table table,
             Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
     {
-        delegate.updatePartitionStatistics(identity, table, updates);
+        delegate.updatePartitionStatistics(table, updates);
     }
 
     @Override
@@ -131,155 +127,148 @@ public abstract class ForwardingHiveMetastore
     }
 
     @Override
-    public void createDatabase(HiveIdentity identity, Database database)
+    public void createDatabase(Database database)
     {
-        delegate.createDatabase(identity, database);
+        delegate.createDatabase(database);
     }
 
     @Override
-    public void dropDatabase(HiveIdentity identity, String databaseName, boolean deleteData)
+    public void dropDatabase(String databaseName, boolean deleteData)
     {
-        delegate.dropDatabase(identity, databaseName, deleteData);
+        delegate.dropDatabase(databaseName, deleteData);
     }
 
     @Override
-    public void renameDatabase(HiveIdentity identity, String databaseName, String newDatabaseName)
+    public void renameDatabase(String databaseName, String newDatabaseName)
     {
-        delegate.renameDatabase(identity, databaseName, newDatabaseName);
+        delegate.renameDatabase(databaseName, newDatabaseName);
     }
 
     @Override
-    public void setDatabaseOwner(HiveIdentity identity, String databaseName, HivePrincipal principal)
+    public void setDatabaseOwner(String databaseName, HivePrincipal principal)
     {
-        delegate.setDatabaseOwner(identity, databaseName, principal);
+        delegate.setDatabaseOwner(databaseName, principal);
     }
 
     @Override
-    public void createTable(HiveIdentity identity, Table table, PrincipalPrivileges principalPrivileges)
+    public void createTable(Table table, PrincipalPrivileges principalPrivileges)
     {
-        delegate.createTable(identity, table, principalPrivileges);
+        delegate.createTable(table, principalPrivileges);
     }
 
     @Override
-    public void dropTable(HiveIdentity identity, String databaseName, String tableName, boolean deleteData)
+    public void dropTable(String databaseName, String tableName, boolean deleteData)
     {
-        delegate.dropTable(identity, databaseName, tableName, deleteData);
+        delegate.dropTable(databaseName, tableName, deleteData);
     }
 
     @Override
     public void replaceTable(
-            HiveIdentity identity,
             String databaseName,
             String tableName,
             Table newTable,
             PrincipalPrivileges principalPrivileges)
     {
-        delegate.replaceTable(identity, databaseName, tableName, newTable, principalPrivileges);
+        delegate.replaceTable(databaseName, tableName, newTable, principalPrivileges);
     }
 
     @Override
-    public void renameTable(HiveIdentity identity, String databaseName, String tableName, String newDatabaseName, String newTableName)
+    public void renameTable(String databaseName, String tableName, String newDatabaseName, String newTableName)
     {
-        delegate.renameTable(identity, databaseName, tableName, newDatabaseName, newTableName);
+        delegate.renameTable(databaseName, tableName, newDatabaseName, newTableName);
     }
 
     @Override
-    public void commentTable(HiveIdentity identity, String databaseName, String tableName, Optional<String> comment)
+    public void commentTable(String databaseName, String tableName, Optional<String> comment)
     {
-        delegate.commentTable(identity, databaseName, tableName, comment);
+        delegate.commentTable(databaseName, tableName, comment);
     }
 
     @Override
-    public void setTableOwner(HiveIdentity identity, String databaseName, String tableName, HivePrincipal principal)
+    public void setTableOwner(String databaseName, String tableName, HivePrincipal principal)
     {
-        delegate.setTableOwner(identity, databaseName, tableName, principal);
+        delegate.setTableOwner(databaseName, tableName, principal);
     }
 
     @Override
     public void commentColumn(
-            HiveIdentity identity,
             String databaseName,
             String tableName,
             String columnName,
             Optional<String> comment)
     {
-        delegate.commentColumn(identity, databaseName, tableName, columnName, comment);
+        delegate.commentColumn(databaseName, tableName, columnName, comment);
     }
 
     @Override
     public void addColumn(
-            HiveIdentity identity,
             String databaseName,
             String tableName,
             String columnName,
             HiveType columnType,
             String columnComment)
     {
-        delegate.addColumn(identity, databaseName, tableName, columnName, columnType, columnComment);
+        delegate.addColumn(databaseName, tableName, columnName, columnType, columnComment);
     }
 
     @Override
-    public void renameColumn(HiveIdentity identity, String databaseName, String tableName, String oldColumnName, String newColumnName)
+    public void renameColumn(String databaseName, String tableName, String oldColumnName, String newColumnName)
     {
-        delegate.renameColumn(identity, databaseName, tableName, oldColumnName, newColumnName);
+        delegate.renameColumn(databaseName, tableName, oldColumnName, newColumnName);
     }
 
     @Override
-    public void dropColumn(HiveIdentity identity, String databaseName, String tableName, String columnName)
+    public void dropColumn(String databaseName, String tableName, String columnName)
     {
-        delegate.dropColumn(identity, databaseName, tableName, columnName);
+        delegate.dropColumn(databaseName, tableName, columnName);
     }
 
     @Override
-    public Optional<Partition> getPartition(HiveIdentity identity, Table table, List<String> partitionValues)
+    public Optional<Partition> getPartition(Table table, List<String> partitionValues)
     {
-        return delegate.getPartition(identity, table, partitionValues);
+        return delegate.getPartition(table, partitionValues);
     }
 
     @Override
     public Optional<List<String>> getPartitionNamesByFilter(
-            HiveIdentity identity,
             String databaseName,
             String tableName,
             List<String> columnNames,
             TupleDomain<String> partitionKeysFilter)
     {
-        return delegate.getPartitionNamesByFilter(identity, databaseName, tableName, columnNames, partitionKeysFilter);
+        return delegate.getPartitionNamesByFilter(databaseName, tableName, columnNames, partitionKeysFilter);
     }
 
     @Override
     public Map<String, Optional<Partition>> getPartitionsByNames(
-            HiveIdentity identity,
             Table table,
             List<String> partitionNames)
     {
-        return delegate.getPartitionsByNames(identity, table, partitionNames);
+        return delegate.getPartitionsByNames(table, partitionNames);
     }
 
     @Override
     public void addPartitions(
-            HiveIdentity identity,
             String databaseName,
             String tableName,
             List<PartitionWithStatistics> partitions)
     {
-        delegate.addPartitions(identity, databaseName, tableName, partitions);
+        delegate.addPartitions(databaseName, tableName, partitions);
     }
 
     @Override
-    public void dropPartition(HiveIdentity identity, String databaseName, String tableName, List<String> parts, boolean deleteData)
+    public void dropPartition(String databaseName, String tableName, List<String> parts, boolean deleteData)
     {
-        delegate.dropPartition(identity, databaseName, tableName, parts, deleteData);
+        delegate.dropPartition(databaseName, tableName, parts, deleteData);
     }
 
     @Override
     public void alterPartition(
-            HiveIdentity identity,
             String databaseName,
             String tableName,
             PartitionWithStatistics partition)
     {
-        delegate.alterPartition(identity, databaseName, tableName, partition);
+        delegate.alterPartition(databaseName, tableName, partition);
     }
 
     @Override
@@ -357,38 +346,37 @@ public abstract class ForwardingHiveMetastore
     }
 
     @Override
-    public long openTransaction(HiveIdentity identity)
+    public long openTransaction()
     {
-        return delegate.openTransaction(identity);
+        return delegate.openTransaction();
     }
 
     @Override
-    public void commitTransaction(HiveIdentity identity, long transactionId)
+    public void commitTransaction(long transactionId)
     {
-        delegate.commitTransaction(identity, transactionId);
+        delegate.commitTransaction(transactionId);
     }
 
     @Override
-    public void sendTransactionHeartbeat(HiveIdentity identity, long transactionId)
+    public void sendTransactionHeartbeat(long transactionId)
     {
-        delegate.sendTransactionHeartbeat(identity, transactionId);
+        delegate.sendTransactionHeartbeat(transactionId);
     }
 
     @Override
     public void acquireSharedReadLock(
-            HiveIdentity identity,
             String queryId,
             long transactionId,
             List<SchemaTableName> fullTables,
             List<HivePartition> partitions)
     {
-        delegate.acquireSharedReadLock(identity, queryId, transactionId, fullTables, partitions);
+        delegate.acquireSharedReadLock(queryId, transactionId, fullTables, partitions);
     }
 
     @Override
-    public String getValidWriteIds(HiveIdentity identity, List<SchemaTableName> tables, long currentTransactionId)
+    public String getValidWriteIds(List<SchemaTableName> tables, long currentTransactionId)
     {
-        return delegate.getValidWriteIds(identity, tables, currentTransactionId);
+        return delegate.getValidWriteIds(tables, currentTransactionId);
     }
 
     @Override
@@ -398,14 +386,13 @@ public abstract class ForwardingHiveMetastore
     }
 
     @Override
-    public long allocateWriteId(HiveIdentity identity, String dbName, String tableName, long transactionId)
+    public long allocateWriteId(String dbName, String tableName, long transactionId)
     {
-        return delegate.allocateWriteId(identity, dbName, tableName, transactionId);
+        return delegate.allocateWriteId(dbName, tableName, transactionId);
     }
 
     @Override
     public void acquireTableWriteLock(
-            HiveIdentity identity,
             String queryId,
             long transactionId,
             String dbName,
@@ -413,35 +400,32 @@ public abstract class ForwardingHiveMetastore
             DataOperationType operation,
             boolean isDynamicPartitionWrite)
     {
-        delegate.acquireTableWriteLock(identity, queryId, transactionId, dbName, tableName, operation, isDynamicPartitionWrite);
+        delegate.acquireTableWriteLock(queryId, transactionId, dbName, tableName, operation, isDynamicPartitionWrite);
     }
 
     @Override
     public void updateTableWriteId(
-            HiveIdentity identity,
             String dbName,
             String tableName,
             long transactionId,
             long writeId,
             OptionalLong rowCountChange)
     {
-        delegate.updateTableWriteId(identity, dbName, tableName, transactionId, writeId, rowCountChange);
+        delegate.updateTableWriteId(dbName, tableName, transactionId, writeId, rowCountChange);
     }
 
     @Override
     public void alterPartitions(
-            HiveIdentity identity,
             String dbName,
             String tableName,
             List<Partition> partitions,
             long writeId)
     {
-        delegate.alterPartitions(identity, dbName, tableName, partitions, writeId);
+        delegate.alterPartitions(dbName, tableName, partitions, writeId);
     }
 
     @Override
     public void addDynamicPartitions(
-            HiveIdentity identity,
             String dbName,
             String tableName,
             List<String> partitionNames,
@@ -449,17 +433,16 @@ public abstract class ForwardingHiveMetastore
             long writeId,
             AcidOperation operation)
     {
-        delegate.addDynamicPartitions(identity, dbName, tableName, partitionNames, transactionId, writeId, operation);
+        delegate.addDynamicPartitions(dbName, tableName, partitionNames, transactionId, writeId, operation);
     }
 
     @Override
     public void alterTransactionalTable(
-            HiveIdentity identity,
             Table table,
             long transactionId,
             long writeId,
             PrincipalPrivileges principalPrivileges)
     {
-        delegate.alterTransactionalTable(identity, table, transactionId, writeId, principalPrivileges);
+        delegate.alterTransactionalTable(table, transactionId, writeId, principalPrivileges);
     }
 }

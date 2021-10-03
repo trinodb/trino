@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive;
 
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
@@ -81,7 +80,7 @@ public class PartitionsSystemTableProvider
 
         SchemaTableName sourceTableName = PARTITIONS.getSourceTableName(tableName);
         Table sourceTable = metadata.getMetastore()
-                .getTable(new HiveIdentity(session), sourceTableName.getSchemaName(), sourceTableName.getTableName())
+                .getTable(sourceTableName.getSchemaName(), sourceTableName.getTableName())
                 .orElse(null);
         if (sourceTable == null || isDeltaLakeTable(sourceTable) || isIcebergTable(sourceTable)) {
             return Optional.empty();
@@ -123,7 +122,7 @@ public class PartitionsSystemTableProvider
                 constraint -> {
                     Constraint targetConstraint = new Constraint(constraint.transformKeys(fieldIdToColumnHandle::get));
                     Iterable<List<Object>> records = () ->
-                            stream(partitionManager.getPartitions(metadata.getMetastore(), new HiveIdentity(session), sourceTableHandle, targetConstraint).getPartitions())
+                            stream(partitionManager.getPartitions(metadata.getMetastore(), sourceTableHandle, targetConstraint).getPartitions())
                                     .map(hivePartition ->
                                             IntStream.range(0, partitionColumns.size())
                                                     .mapToObj(fieldIdToColumnHandle::get)

@@ -27,7 +27,6 @@ import io.trino.plugin.hive.PartitionUpdate;
 import io.trino.plugin.hive.PartitionUpdate.UpdateMode;
 import io.trino.plugin.hive.TransactionalMetadata;
 import io.trino.plugin.hive.TransactionalMetadataFactory;
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.spi.TrinoException;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ConnectorAccessControl;
@@ -120,7 +119,7 @@ public class CreateEmptyPartitionProcedure
         }
 
         HiveMetastoreClosure metastore = hiveMetadata.getMetastore().unsafeGetRawHiveMetastoreClosure();
-        if (metastore.getPartition(new HiveIdentity(session), schemaName, tableName, partitionValues).isPresent()) {
+        if (metastore.getPartition(schemaName, tableName, partitionValues).isPresent()) {
             throw new TrinoException(ALREADY_EXISTS, "Partition already exists");
         }
         HiveInsertTableHandle hiveInsertTableHandle = (HiveInsertTableHandle) hiveMetadata.beginInsert(session, tableHandle, ImmutableList.of(), NO_RETRIES);

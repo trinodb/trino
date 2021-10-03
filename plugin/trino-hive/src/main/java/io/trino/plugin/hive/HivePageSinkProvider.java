@@ -20,7 +20,6 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.event.client.EventClient;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.HivePageSinkMetadataProvider;
 import io.trino.plugin.hive.metastore.SortingColumn;
@@ -157,8 +156,7 @@ public class HivePageSinkProvider
                 session.getQueryId(),
                 new HivePageSinkMetadataProvider(
                         handle.getPageSinkMetadata(),
-                        new HiveMetastoreClosure(memoizeMetastore(metastoreFactory.createMetastore(Optional.of(session.getIdentity())), new HiveIdentity(session), perTransactionMetastoreCacheMaximumSize)),
-                        new HiveIdentity(session)),
+                        new HiveMetastoreClosure(memoizeMetastore(metastoreFactory.createMetastore(Optional.of(session.getIdentity())), perTransactionMetastoreCacheMaximumSize))),
                 typeManager,
                 hdfsEnvironment,
                 pageSorter,

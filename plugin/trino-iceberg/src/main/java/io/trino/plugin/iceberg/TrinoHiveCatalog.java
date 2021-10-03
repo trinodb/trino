@@ -25,7 +25,6 @@ import io.trino.plugin.hive.HiveViewNotSupportedException;
 import io.trino.plugin.hive.TableAlreadyExistsException;
 import io.trino.plugin.hive.ViewAlreadyExistsException;
 import io.trino.plugin.hive.ViewReaderUtil;
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
@@ -208,7 +207,7 @@ class TrinoHiveCatalog
                 .setOwnerName(isUsingSystemSecurity ? Optional.empty() : Optional.of(owner.getName()))
                 .build();
 
-        metastore.createDatabase(new HiveIdentity(session), database);
+        metastore.createDatabase(database);
     }
 
     @Override
@@ -239,20 +238,20 @@ class TrinoHiveCatalog
             }
         }).orElse(deleteSchemaLocationsFallback);
 
-        metastore.dropDatabase(new HiveIdentity(session), namespace, deleteData);
+        metastore.dropDatabase(namespace, deleteData);
         return true;
     }
 
     @Override
     public void renameNamespace(ConnectorSession session, String source, String target)
     {
-        metastore.renameDatabase(new HiveIdentity(session), source, target);
+        metastore.renameDatabase(source, target);
     }
 
     @Override
     public void setNamespacePrincipal(ConnectorSession session, String namespace, TrinoPrincipal principal)
     {
-        metastore.setDatabaseOwner(new HiveIdentity(session), namespace, HivePrincipal.from(principal));
+        metastore.setDatabaseOwner(namespace, HivePrincipal.from(principal));
     }
 
     @Override
@@ -306,14 +305,14 @@ class TrinoHiveCatalog
                 table.properties().containsKey(WRITE_METADATA_LOCATION)) {
             throw new TrinoException(NOT_SUPPORTED, "Table " + schemaTableName + " contains Iceberg path override properties and cannot be dropped from Trino");
         }
-        metastore.dropTable(new HiveIdentity(session), schemaTableName.getSchemaName(), schemaTableName.getTableName(), purgeData);
+        metastore.dropTable(schemaTableName.getSchemaName(), schemaTableName.getTableName(), purgeData);
         return true;
     }
 
     @Override
     public void renameTable(ConnectorSession session, SchemaTableName from, SchemaTableName to)
     {
-        metastore.renameTable(new HiveIdentity(session), from.getSchemaName(), from.getTableName(), to.getSchemaName(), to.getTableName());
+        metastore.renameTable(from.getSchemaName(), from.getTableName(), to.getSchemaName(), to.getTableName());
     }
 
     @Override
@@ -329,7 +328,7 @@ class TrinoHiveCatalog
     @Override
     public void updateTableComment(ConnectorSession session, SchemaTableName schemaTableName, Optional<String> comment)
     {
-        metastore.commentTable(new HiveIdentity(session), schemaTableName.getSchemaName(), schemaTableName.getTableName(), comment);
+        metastore.commentTable(schemaTableName.getSchemaName(), schemaTableName.getTableName(), comment);
         Table icebergTable = loadTable(session, schemaTableName);
         if (comment.isEmpty()) {
             icebergTable.updateProperties().remove(TABLE_COMMENT).commit();
@@ -365,7 +364,6 @@ class TrinoHiveCatalog
             definition = definition.withoutOwner();
         }
 
-        HiveIdentity identity = new HiveIdentity(session);
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put(PRESTO_VIEW_FLAG, "true")
                 .put(TRINO_CREATED_BY, TRINO_CREATED_BY_VALUE)
@@ -391,18 +389,18 @@ class TrinoHiveCatalog
         io.trino.plugin.hive.metastore.Table table = tableBuilder.build();
         PrincipalPrivileges principalPrivileges = isUsingSystemSecurity ? NO_PRIVILEGES : buildInitialPrivilegeSet(session.getUser());
 
-        Optional<io.trino.plugin.hive.metastore.Table> existing = metastore.getTable(identity, schemaViewName.getSchemaName(), schemaViewName.getTableName());
+        Optional<io.trino.plugin.hive.metastore.Table> existing = metastore.getTable(schemaViewName.getSchemaName(), schemaViewName.getTableName());
         if (existing.isPresent()) {
             if (!replace || !isPrestoView(existing.get())) {
                 throw new ViewAlreadyExistsException(schemaViewName);
             }
 
-            metastore.replaceTable(identity, schemaViewName.getSchemaName(), schemaViewName.getTableName(), table, principalPrivileges);
+            metastore.replaceTable(schemaViewName.getSchemaName(), schemaViewName.getTableName(), table, principalPrivileges);
             return;
         }
 
         try {
-            metastore.createTable(identity, table, principalPrivileges);
+            metastore.createTable(table, principalPrivileges);
         }
         catch (TableAlreadyExistsException e) {
             throw new ViewAlreadyExistsException(e.getTableName());
@@ -413,7 +411,7 @@ class TrinoHiveCatalog
     public void renameView(ConnectorSession session, SchemaTableName source, SchemaTableName target)
     {
         // Not checking if source view exists as this is already done in RenameViewTask
-        metastore.renameTable(new HiveIdentity(session), source.getSchemaName(), source.getTableName(), target.getSchemaName(), target.getTableName());
+        metastore.renameTable(source.getSchemaName(), source.getTableName(), target.getSchemaName(), target.getTableName());
     }
 
     @Override
@@ -431,7 +429,7 @@ class TrinoHiveCatalog
         }
 
         try {
-            metastore.dropTable(new HiveIdentity(session), schemaViewName.getSchemaName(), schemaViewName.getTableName(), true);
+            metastore.dropTable(schemaViewName.getSchemaName(), schemaViewName.getTableName(), true);
         }
         catch (TableNotFoundException e) {
             throw new ViewNotFoundException(e.getTableName());
@@ -475,7 +473,7 @@ class TrinoHiveCatalog
         if (isHiveSystemSchema(viewIdentifier.getSchemaName())) {
             return Optional.empty();
         }
-        return metastore.getTable(new HiveIdentity(session), viewIdentifier.getSchemaName(), viewIdentifier.getTableName())
+        return metastore.getTable(viewIdentifier.getSchemaName(), viewIdentifier.getTableName())
                 .filter(table -> HiveMetadata.PRESTO_VIEW_COMMENT.equals(table.getParameters().get(TABLE_COMMENT))) // filter out materialized views
                 .filter(ViewReaderUtil::canDecodeView)
                 .map(view -> {
@@ -514,8 +512,7 @@ class TrinoHiveCatalog
     public void createMaterializedView(ConnectorSession session, SchemaTableName schemaViewName, ConnectorMaterializedViewDefinition definition,
             boolean replace, boolean ignoreExisting)
     {
-        HiveIdentity identity = new HiveIdentity(session);
-        Optional<io.trino.plugin.hive.metastore.Table> existing = metastore.getTable(identity, schemaViewName.getSchemaName(), schemaViewName.getTableName());
+        Optional<io.trino.plugin.hive.metastore.Table> existing = metastore.getTable(schemaViewName.getSchemaName(), schemaViewName.getTableName());
 
         // It's a create command where the materialized view already exists and 'if not exists' clause is not specified
         if (!replace && existing.isPresent()) {
@@ -571,39 +568,38 @@ class TrinoHiveCatalog
             // drop the current storage table
             String oldStorageTable = existing.get().getParameters().get(STORAGE_TABLE);
             if (oldStorageTable != null) {
-                metastore.dropTable(identity, schemaViewName.getSchemaName(), oldStorageTable, true);
+                metastore.dropTable(schemaViewName.getSchemaName(), oldStorageTable, true);
             }
             // Replace the existing view definition
-            metastore.replaceTable(identity, schemaViewName.getSchemaName(), schemaViewName.getTableName(), table, principalPrivileges);
+            metastore.replaceTable(schemaViewName.getSchemaName(), schemaViewName.getTableName(), table, principalPrivileges);
             return;
         }
         // create the view definition
-        metastore.createTable(identity, table, principalPrivileges);
+        metastore.createTable(table, principalPrivileges);
     }
 
     @Override
     public void dropMaterializedView(ConnectorSession session, SchemaTableName schemaViewName)
     {
-        final HiveIdentity identity = new HiveIdentity(session);
-        io.trino.plugin.hive.metastore.Table view = metastore.getTable(identity, schemaViewName.getSchemaName(), schemaViewName.getTableName())
+        io.trino.plugin.hive.metastore.Table view = metastore.getTable(schemaViewName.getSchemaName(), schemaViewName.getTableName())
                 .orElseThrow(() -> new MaterializedViewNotFoundException(schemaViewName));
 
         String storageTableName = view.getParameters().get(STORAGE_TABLE);
         if (storageTableName != null) {
             try {
-                metastore.dropTable(identity, schemaViewName.getSchemaName(), storageTableName, true);
+                metastore.dropTable(schemaViewName.getSchemaName(), storageTableName, true);
             }
             catch (TrinoException e) {
                 log.warn(e, "Failed to drop storage table '%s' for materialized view '%s'", storageTableName, schemaViewName);
             }
         }
-        metastore.dropTable(identity, schemaViewName.getSchemaName(), schemaViewName.getTableName(), true);
+        metastore.dropTable(schemaViewName.getSchemaName(), schemaViewName.getTableName(), true);
     }
 
     @Override
     public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName schemaViewName)
     {
-        Optional<io.trino.plugin.hive.metastore.Table> tableOptional = metastore.getTable(new HiveIdentity(session), schemaViewName.getSchemaName(), schemaViewName.getTableName());
+        Optional<io.trino.plugin.hive.metastore.Table> tableOptional = metastore.getTable(schemaViewName.getSchemaName(), schemaViewName.getTableName());
         if (tableOptional.isEmpty()) {
             return Optional.empty();
         }
@@ -643,7 +639,7 @@ class TrinoHiveCatalog
     @Override
     public void renameMaterializedView(ConnectorSession session, SchemaTableName source, SchemaTableName target)
     {
-        metastore.renameTable(new HiveIdentity(session), source.getSchemaName(), source.getTableName(), target.getSchemaName(), target.getTableName());
+        metastore.renameTable(source.getSchemaName(), source.getTableName(), target.getSchemaName(), target.getTableName());
     }
 
     private List<String> listNamespaces(ConnectorSession session, Optional<String> namespace)
