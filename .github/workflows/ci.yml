@@ -17,6 +17,7 @@ env:
   MAVEN_FAST_INSTALL: "-B --strict-checksums -V --quiet -T C1 -DskipTests -Dair.check.skip-all"
   MAVEN_TEST: "-B --strict-checksums -Dair.check.skip-all --fail-at-end"
   RETRY: .github/bin/retry
+  GLOBAL_IDLE_LOGGING_THRESHOLD_MINUTES: 10
 
 # Cancel previous PR builds.
 concurrency:

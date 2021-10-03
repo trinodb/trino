@@ -28,6 +28,7 @@ import javax.annotation.concurrent.GuardedBy;
 
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -54,8 +55,11 @@ public class LogTestDurationListener
 
     private static final Duration SINGLE_TEST_LOGGING_THRESHOLD = new Duration(30, SECONDS);
     private static final Duration CLASS_LOGGING_THRESHOLD = new Duration(1, MINUTES);
-    // Must be below Travis "no output" timeout (10m). E.g. TestElasticsearchIntegrationSmokeTest is known to take ~5-6m.
-    private static final Duration GLOBAL_IDLE_LOGGING_THRESHOLD = new Duration(8, MINUTES);
+    private static final Duration GLOBAL_IDLE_LOGGING_THRESHOLD = new Duration(
+            Optional.ofNullable(System.getenv("GLOBAL_IDLE_LOGGING_THRESHOLD_MINUTES"))
+                    .map(value -> Double.valueOf(value))
+                    .orElse(8.0),
+            MINUTES);
 
     private final boolean enabled;
     private final ScheduledExecutorService scheduledExecutorService;
