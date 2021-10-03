@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg;
 
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.security.ConnectorIdentity;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
@@ -51,9 +52,9 @@ public class IcebergTransactionManager
         checkState(previousValue == null);
     }
 
-    public IcebergMetadata get(ConnectorTransactionHandle transactionHandle)
+    public IcebergMetadata get(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity)
     {
-        return transactions.get(transactionHandle).get();
+        return transactions.get(transactionHandle).get(identity);
     }
 
     public void commit(ConnectorTransactionHandle transaction)
@@ -83,11 +84,11 @@ public class IcebergTransactionManager
             return Optional.ofNullable(metadata);
         }
 
-        public synchronized IcebergMetadata get()
+        public synchronized IcebergMetadata get(ConnectorIdentity identity)
         {
             if (metadata == null) {
                 try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-                    metadata = metadataFactory.create();
+                    metadata = metadataFactory.create(identity);
                 }
             }
             return metadata;
