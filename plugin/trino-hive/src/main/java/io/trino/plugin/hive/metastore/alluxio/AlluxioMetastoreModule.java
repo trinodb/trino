@@ -25,7 +25,8 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.RawHiveMetastore;
+import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
+import io.trino.plugin.hive.metastore.RawHiveMetastoreFactory;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
@@ -40,7 +41,7 @@ public class AlluxioMetastoreModule
     {
         configBinder(binder).bindConfig(AlluxioHiveMetastoreConfig.class);
 
-        binder.bind(HiveMetastore.class).annotatedWith(RawHiveMetastore.class).to(AlluxioHiveMetastore.class).in(Scopes.SINGLETON);
+        binder.bind(HiveMetastoreFactory.class).annotatedWith(RawHiveMetastoreFactory.class).to(AlluxioHiveMetastoreFactory.class).in(Scopes.SINGLETON);
     }
 
     @Provides

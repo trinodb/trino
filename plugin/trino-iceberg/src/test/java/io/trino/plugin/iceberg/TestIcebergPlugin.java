@@ -74,7 +74,7 @@ public class TestIcebergPlugin
                 "test",
                 Map.of("iceberg.catalog.type", "glue"),
                 new TestingConnectorContext()))
-                .hasMessageContaining("Explicit bindings are required and HiveMetastore is not explicitly bound");
+                .hasMessageMatching("(?s).*Explicit bindings are required and HiveMetastoreFactory .* is not explicitly bound.*");
 
         assertThatThrownBy(() -> factory.create(
                 "test",

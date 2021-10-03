@@ -19,8 +19,9 @@ import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.hive.metastore.DecoratedHiveMetastoreModule;
 import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.RawHiveMetastore;
-import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
+import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
+import io.trino.plugin.hive.metastore.RawHiveMetastoreFactory;
+import io.trino.plugin.hive.metastore.cache.SharedHiveMetastoreCache;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.file.FileMetastoreTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.file.IcebergFileMetastoreCatalogModule;
@@ -49,7 +50,7 @@ public class IcebergCatalogModule
     protected void setup(Binder binder)
     {
         if (metastore.isPresent()) {
-            binder.bind(HiveMetastore.class).annotatedWith(RawHiveMetastore.class).toInstance(metastore.get());
+            binder.bind(HiveMetastoreFactory.class).annotatedWith(RawHiveMetastoreFactory.class).toInstance(HiveMetastoreFactory.ofInstance(metastore.get()));
             binder.bind(IcebergTableOperationsProvider.class).to(FileMetastoreTableOperationsProvider.class).in(Scopes.SINGLETON);
         }
         else {
@@ -65,9 +66,9 @@ public class IcebergCatalogModule
     public static class MetastoreValidator
     {
         @Inject
-        public MetastoreValidator(HiveMetastore metastore)
+        public MetastoreValidator(SharedHiveMetastoreCache metastoreCache)
         {
-            if (metastore instanceof CachingHiveMetastore) {
+            if (metastoreCache.isEnabled()) {
                 throw new RuntimeException("Hive metastore caching must not be enabled for Iceberg");
             }
         }
