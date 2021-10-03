@@ -35,7 +35,6 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Lists.cartesianProduct;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.trino.plugin.hive.authentication.HiveIdentity.none;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.spi.security.SelectedRole.Type.ROLE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -129,7 +128,7 @@ public class TestCachingHiveMetastoreWithQueryRunner
         getQueryRunner().execute("SELECT initial FROM cached");
 
         // Rename column name in Metastore outside Trino
-        fileHiveMetastore.renameColumn(none(), "test", "cached", "initial", "renamed");
+        fileHiveMetastore.renameColumn("test", "cached", "initial", "renamed");
 
         String renamedColumnQuery = "SELECT renamed FROM cached";
         // Should fail as Trino has old metadata cached

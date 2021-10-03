@@ -14,7 +14,6 @@
 package io.trino.plugin.hive.security;
 
 import io.trino.plugin.hive.HiveTransactionManager;
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.connector.ConnectorSecurityContext;
@@ -37,9 +36,9 @@ public class SemiTransactionalLegacyAccessControlMetastore
     }
 
     @Override
-    public Optional<Table> getTable(ConnectorSecurityContext context, HiveIdentity identity, String databaseName, String tableName)
+    public Optional<Table> getTable(ConnectorSecurityContext context, String databaseName, String tableName)
     {
         SemiTransactionalHiveMetastore metastore = transactionManager.get(context.getTransactionHandle(), context.getIdentity()).getMetastore();
-        return metastore.getTable(new HiveIdentity(context.getIdentity()), databaseName, tableName);
+        return metastore.getTable(databaseName, tableName);
     }
 }

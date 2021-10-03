@@ -559,32 +559,32 @@ public abstract class AbstractTestHiveFileSystem
         }
 
         @Override
-        public void createTable(HiveIdentity identity, Table table, PrincipalPrivileges privileges)
+        public void createTable(Table table, PrincipalPrivileges privileges)
         {
             // hack to work around the metastore not being configured for S3 or other FS
             Table.Builder tableBuilder = Table.builder(table);
             tableBuilder.getStorageBuilder().setLocation("/");
-            super.createTable(identity, tableBuilder.build(), privileges);
+            super.createTable(tableBuilder.build(), privileges);
         }
 
         @Override
-        public void dropTable(HiveIdentity identity, String databaseName, String tableName, boolean deleteData)
+        public void dropTable(String databaseName, String tableName, boolean deleteData)
         {
             try {
-                Optional<Table> table = getTable(identity, databaseName, tableName);
+                Optional<Table> table = getTable(databaseName, tableName);
                 if (table.isEmpty()) {
                     throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
                 }
 
                 // hack to work around the metastore not being configured for S3 or other FS
-                List<String> locations = listAllDataPaths(identity, databaseName, tableName);
+                List<String> locations = listAllDataPaths(databaseName, tableName);
 
                 Table.Builder tableBuilder = Table.builder(table.get());
                 tableBuilder.getStorageBuilder().setLocation("/");
 
                 // drop table
-                replaceTable(identity, databaseName, tableName, tableBuilder.build(), NO_PRIVILEGES);
-                super.dropTable(identity, databaseName, tableName, false);
+                replaceTable(databaseName, tableName, tableBuilder.build(), NO_PRIVILEGES);
+                super.dropTable(databaseName, tableName, false);
 
                 // drop data
                 if (deleteData) {
@@ -601,8 +601,7 @@ public abstract class AbstractTestHiveFileSystem
 
         public void updateTableLocation(String databaseName, String tableName, String location)
         {
-            HiveIdentity identity = new HiveIdentity(TESTING_CONTEXT.getIdentity());
-            Optional<Table> table = getTable(identity, databaseName, tableName);
+            Optional<Table> table = getTable(databaseName, tableName);
             if (table.isEmpty()) {
                 throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
             }
@@ -611,13 +610,13 @@ public abstract class AbstractTestHiveFileSystem
             tableBuilder.getStorageBuilder().setLocation(location);
 
             // NOTE: this clears the permissions
-            replaceTable(identity, databaseName, tableName, tableBuilder.build(), NO_PRIVILEGES);
+            replaceTable(databaseName, tableName, tableBuilder.build(), NO_PRIVILEGES);
         }
 
-        private List<String> listAllDataPaths(HiveIdentity identity, String schemaName, String tableName)
+        private List<String> listAllDataPaths(String schemaName, String tableName)
         {
             ImmutableList.Builder<String> locations = ImmutableList.builder();
-            Table table = getTable(identity, schemaName, tableName).get();
+            Table table = getTable(schemaName, tableName).get();
             List<String> partitionColumnNames = table.getPartitionColumns().stream().map(Column::getName).collect(toImmutableList());
             if (table.getStorage().getLocation() != null) {
                 // For partitioned table, there should be nothing directly under this directory.
@@ -626,9 +625,9 @@ public abstract class AbstractTestHiveFileSystem
                 locations.add(table.getStorage().getLocation());
             }
 
-            Optional<List<String>> partitionNames = getPartitionNamesByFilter(identity, schemaName, tableName, partitionColumnNames, TupleDomain.all());
+            Optional<List<String>> partitionNames = getPartitionNamesByFilter(schemaName, tableName, partitionColumnNames, TupleDomain.all());
             if (partitionNames.isPresent()) {
-                getPartitionsByNames(identity, table, partitionNames.get()).values().stream()
+                getPartitionsByNames(table, partitionNames.get()).values().stream()
                         .map(Optional::get)
                         .map(partition -> partition.getStorage().getLocation())
                         .filter(location -> !location.startsWith(table.getStorage().getLocation()))

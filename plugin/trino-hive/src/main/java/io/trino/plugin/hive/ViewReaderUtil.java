@@ -20,7 +20,6 @@ import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.plugin.base.CatalogName;
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.CoralSemiTransactionalHiveMSCAdapter;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
@@ -88,7 +87,7 @@ public final class ViewReaderUtil
         }
 
         return new HiveViewReader(
-                new CoralSemiTransactionalHiveMSCAdapter(metastore, new HiveIdentity(session), coralTableRedirectionResolver(session, tableRedirectionResolver, metadataProvider)),
+                new CoralSemiTransactionalHiveMSCAdapter(metastore, coralTableRedirectionResolver(session, tableRedirectionResolver, metadataProvider)),
                 typeManager);
     }
 

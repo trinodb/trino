@@ -32,7 +32,6 @@ import io.trino.plugin.hive.HiveTableHandle;
 import io.trino.plugin.hive.HiveTransactionHandle;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.TestingHiveConnectorFactory;
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
@@ -81,7 +80,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
 import static io.trino.sql.tree.ArithmeticUnaryExpression.Sign.MINUS;
-import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
@@ -123,7 +121,7 @@ public class TestConnectorPushdownRulesWithHive
                 .setOwnerType(Optional.of(PrincipalType.ROLE))
                 .build();
 
-        metastore.createDatabase(new HiveIdentity(SESSION), database);
+        metastore.createDatabase(database);
 
         LocalQueryRunner queryRunner = LocalQueryRunner.create(HIVE_SESSION);
         queryRunner.createCatalog(HIVE_CATALOG_NAME, new TestingHiveConnectorFactory(metastore), ImmutableMap.of());
@@ -213,7 +211,7 @@ public class TestConnectorPushdownRulesWithHive
                                 TupleDomain.all(),
                                 ImmutableMap.of("struct_of_int#a", partialColumn::equals))));
 
-        metastore.dropTable(new HiveIdentity(SESSION), SCHEMA_NAME, tableName, true);
+        metastore.dropTable(SCHEMA_NAME, tableName, true);
     }
 
     @Test
@@ -245,7 +243,7 @@ public class TestConnectorPushdownRulesWithHive
                                 TupleDomain.all(),
                                 ImmutableMap.of("a", column::equals))));
 
-        metastore.dropTable(new HiveIdentity(SESSION), SCHEMA_NAME, tableName, true);
+        metastore.dropTable(SCHEMA_NAME, tableName, true);
     }
 
     @Test
@@ -283,7 +281,7 @@ public class TestConnectorPushdownRulesWithHive
                                         TupleDomain.all(),
                                         ImmutableMap.of("COLA", columnA::equals))));
 
-        metastore.dropTable(new HiveIdentity(SESSION), SCHEMA_NAME, tableName, true);
+        metastore.dropTable(SCHEMA_NAME, tableName, true);
     }
 
     @Test
@@ -364,7 +362,7 @@ public class TestConnectorPushdownRulesWithHive
                                 TupleDomain.all(),
                                 ImmutableMap.of("struct_of_bigint#a", partialColumn::equals))));
 
-        metastore.dropTable(new HiveIdentity(SESSION), SCHEMA_NAME, tableName, true);
+        metastore.dropTable(SCHEMA_NAME, tableName, true);
     }
 
     @AfterClass(alwaysRun = true)

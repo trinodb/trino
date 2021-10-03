@@ -25,7 +25,6 @@ import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HiveHdfsConfiguration;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.TestingHiveConnectorFactory;
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
@@ -97,7 +96,7 @@ public class TestHivePlans
                 .setOwnerType(Optional.of(PrincipalType.ROLE))
                 .build();
 
-        metastore.createDatabase(new HiveIdentity(HIVE_SESSION.toConnectorSession()), database);
+        metastore.createDatabase(database);
 
         return createQueryRunner(HIVE_SESSION, metastore);
     }

@@ -25,7 +25,6 @@ import io.trino.plugin.hive.HiveBasicStatistics;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.acid.AcidTransaction;
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
@@ -102,7 +101,7 @@ public class AlluxioHiveMetastore
     }
 
     @Override
-    public Optional<Table> getTable(HiveIdentity identity, String databaseName, String tableName)
+    public Optional<Table> getTable(String databaseName, String tableName)
     {
         try {
             return Optional.of(ProtoUtils.fromProto(client.getTable(databaseName, tableName)));
@@ -128,7 +127,7 @@ public class AlluxioHiveMetastore
     }
 
     @Override
-    public PartitionStatistics getTableStatistics(HiveIdentity identity, Table table)
+    public PartitionStatistics getTableStatistics(Table table)
     {
         try {
             HiveBasicStatistics basicStats = ThriftMetastoreUtil.getHiveBasicStatistics(table.getParameters());
@@ -144,7 +143,7 @@ public class AlluxioHiveMetastore
     }
 
     @Override
-    public Map<String, PartitionStatistics> getPartitionStatistics(HiveIdentity identity, Table table, List<Partition> partitions)
+    public Map<String, PartitionStatistics> getPartitionStatistics(Table table, List<Partition> partitions)
     {
         try {
             List<String> dataColumns = table.getDataColumns().stream()
@@ -183,7 +182,6 @@ public class AlluxioHiveMetastore
 
     @Override
     public void updateTableStatistics(
-            HiveIdentity identity,
             String databaseName,
             String tableName,
             AcidTransaction transaction,
@@ -194,7 +192,6 @@ public class AlluxioHiveMetastore
 
     @Override
     public void updatePartitionStatistics(
-            HiveIdentity identity,
             Table table,
             Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
     {
@@ -252,102 +249,101 @@ public class AlluxioHiveMetastore
     }
 
     @Override
-    public void createDatabase(HiveIdentity identity, Database database)
+    public void createDatabase(Database database)
     {
         throw new TrinoException(NOT_SUPPORTED, "createDatabase");
     }
 
     @Override
-    public void dropDatabase(HiveIdentity identity, String databaseName, boolean deleteData)
+    public void dropDatabase(String databaseName, boolean deleteData)
     {
         throw new TrinoException(NOT_SUPPORTED, "dropDatabase");
     }
 
     @Override
-    public void renameDatabase(HiveIdentity identity, String databaseName, String newDatabaseName)
+    public void renameDatabase(String databaseName, String newDatabaseName)
     {
         throw new TrinoException(NOT_SUPPORTED, "renameDatabase");
     }
 
     @Override
-    public void setDatabaseOwner(HiveIdentity identity, String databaseName, HivePrincipal principal)
+    public void setDatabaseOwner(String databaseName, HivePrincipal principal)
     {
         throw new TrinoException(NOT_SUPPORTED, "setDatabaseOwner");
     }
 
     @Override
-    public void createTable(HiveIdentity identity, Table table, PrincipalPrivileges principalPrivileges)
+    public void createTable(Table table, PrincipalPrivileges principalPrivileges)
     {
         throw new TrinoException(NOT_SUPPORTED, "createTable");
     }
 
     @Override
-    public void dropTable(HiveIdentity identity, String databaseName, String tableName, boolean deleteData)
+    public void dropTable(String databaseName, String tableName, boolean deleteData)
     {
         throw new TrinoException(NOT_SUPPORTED, "dropTable");
     }
 
     @Override
-    public void replaceTable(HiveIdentity identity, String databaseName, String tableName, Table newTable,
+    public void replaceTable(String databaseName, String tableName, Table newTable,
             PrincipalPrivileges principalPrivileges)
     {
         throw new TrinoException(NOT_SUPPORTED, "replaceTable");
     }
 
     @Override
-    public void renameTable(HiveIdentity identity, String databaseName, String tableName, String newDatabaseName,
+    public void renameTable(String databaseName, String tableName, String newDatabaseName,
             String newTableName)
     {
         throw new TrinoException(NOT_SUPPORTED, "renameTable");
     }
 
     @Override
-    public void commentTable(HiveIdentity identity, String databaseName, String tableName, Optional<String> comment)
+    public void commentTable(String databaseName, String tableName, Optional<String> comment)
     {
         throw new TrinoException(NOT_SUPPORTED, "commentTable");
     }
 
     @Override
-    public void setTableOwner(HiveIdentity identity, String databaseName, String tableName, HivePrincipal principal)
+    public void setTableOwner(String databaseName, String tableName, HivePrincipal principal)
     {
         throw new TrinoException(NOT_SUPPORTED, "setTableOwner");
     }
 
     @Override
-    public void commentColumn(HiveIdentity identity, String databaseName, String tableName, String columnName, Optional<String> comment)
+    public void commentColumn(String databaseName, String tableName, String columnName, Optional<String> comment)
     {
         throw new TrinoException(NOT_SUPPORTED, "commentColumn");
     }
 
     @Override
-    public void addColumn(HiveIdentity identity, String databaseName, String tableName, String columnName,
+    public void addColumn(String databaseName, String tableName, String columnName,
             HiveType columnType, String columnComment)
     {
         throw new TrinoException(NOT_SUPPORTED, "addColumn");
     }
 
     @Override
-    public void renameColumn(HiveIdentity identity, String databaseName, String tableName, String oldColumnName,
+    public void renameColumn(String databaseName, String tableName, String oldColumnName,
             String newColumnName)
     {
         throw new TrinoException(NOT_SUPPORTED, "renameColumn");
     }
 
     @Override
-    public void dropColumn(HiveIdentity identity, String databaseName, String tableName, String columnName)
+    public void dropColumn(String databaseName, String tableName, String columnName)
     {
         throw new TrinoException(NOT_SUPPORTED, "dropColumn");
     }
 
     @Override
-    public Optional<Partition> getPartition(HiveIdentity identity, Table table, List<String> partitionValues)
+    public Optional<Partition> getPartition(Table table, List<String> partitionValues)
     {
         throw new TrinoException(NOT_SUPPORTED, "getPartition");
     }
 
     @Override
     public Optional<List<String>> getPartitionNamesByFilter(
-            HiveIdentity identity,
             String databaseName,
             String tableName,
             List<String> columnNames,
@@ -367,7 +363,7 @@ public class AlluxioHiveMetastore
     }
 
     @Override
-    public Map<String, Optional<Partition>> getPartitionsByNames(HiveIdentity identity, Table table, List<String> partitionNames)
+    public Map<String, Optional<Partition>> getPartitionsByNames(Table table, List<String> partitionNames)
     {
         if (partitionNames.isEmpty()) {
             return Collections.emptyMap();
@@ -398,21 +394,21 @@ public class AlluxioHiveMetastore
     }
 
     @Override
-    public void addPartitions(HiveIdentity identity, String databaseName, String tableName,
+    public void addPartitions(String databaseName, String tableName,
             List<PartitionWithStatistics> partitions)
     {
         throw new TrinoException(NOT_SUPPORTED, "addPartitions");
     }
 
     @Override
-    public void dropPartition(HiveIdentity identity, String databaseName, String tableName, List<String> parts,
+    public void dropPartition(String databaseName, String tableName, List<String> parts,
             boolean deleteData)
     {
         throw new TrinoException(NOT_SUPPORTED, "dropPartition");
     }
 
     @Override
-    public void alterPartition(HiveIdentity identity, String databaseName, String tableName,
+    public void alterPartition(String databaseName, String tableName,
             PartitionWithStatistics partition)
     {
         throw new TrinoException(NOT_SUPPORTED, "alterPartition");

@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
 import io.trino.Session;
 import io.trino.benchmark.BenchmarkSuite;
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.tpch.TpchConnectorFactory;
@@ -32,7 +31,6 @@ import java.util.Optional;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
-import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Objects.requireNonNull;
 
@@ -69,8 +67,7 @@ public final class HiveBenchmarkQueryRunner
         File hiveDir = new File(tempDir, "hive_data");
         HiveMetastore metastore = createTestingFileHiveMetastore(hiveDir);
 
-        HiveIdentity identity = new HiveIdentity(SESSION);
-        metastore.createDatabase(identity,
+        metastore.createDatabase(
                 Database.builder()
                         .setDatabaseName("tpch")
                         .setOwnerName(Optional.of("public"))

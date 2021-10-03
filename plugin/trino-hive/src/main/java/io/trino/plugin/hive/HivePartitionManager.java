@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.util.HiveBucketing.HiveBucketFilter;
 import io.trino.spi.TrinoException;
@@ -76,7 +75,7 @@ public class HivePartitionManager
         this.domainCompactionThreshold = domainCompactionThreshold;
     }
 
-    public HivePartitionResult getPartitions(SemiTransactionalHiveMetastore metastore, HiveIdentity identity, ConnectorTableHandle tableHandle, Constraint constraint)
+    public HivePartitionResult getPartitions(SemiTransactionalHiveMetastore metastore, ConnectorTableHandle tableHandle, Constraint constraint)
     {
         HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle;
         TupleDomain<ColumnHandle> effectivePredicate = constraint.getSummary()
@@ -118,7 +117,7 @@ public class HivePartitionManager
                     .collect(toImmutableList());
         }
         else {
-            List<String> partitionNames = getFilteredPartitionNames(metastore, identity, tableName, partitionColumns, compactEffectivePredicate);
+            List<String> partitionNames = getFilteredPartitionNames(metastore, tableName, partitionColumns, compactEffectivePredicate);
             partitionsIterable = () -> partitionNames.stream()
                     // Apply extra filters which could not be done by getFilteredPartitionNames
                     .map(partitionName -> parseValuesAndFilterPartition(tableName, partitionName, partitionColumns, partitionTypes, effectivePredicate, predicate))
@@ -198,10 +197,10 @@ public class HivePartitionManager
                 handle.getMaxScannedFileSize());
     }
 
-    public List<HivePartition> getOrLoadPartitions(SemiTransactionalHiveMetastore metastore, HiveIdentity identity, HiveTableHandle table)
+    public List<HivePartition> getOrLoadPartitions(SemiTransactionalHiveMetastore metastore, HiveTableHandle table)
     {
         return table.getPartitions().orElseGet(() ->
-                getPartitionsAsList(getPartitions(metastore, identity, table, new Constraint(table.getEnforcedConstraint()))));
+                getPartitionsAsList(getPartitions(metastore, table, new Constraint(table.getEnforcedConstraint()))));
     }
 
     private Optional<HivePartition> parseValuesAndFilterPartition(
@@ -241,14 +240,14 @@ public class HivePartitionManager
         return true;
     }
 
-    private List<String> getFilteredPartitionNames(SemiTransactionalHiveMetastore metastore, HiveIdentity identity, SchemaTableName tableName, List<HiveColumnHandle> partitionKeys, TupleDomain<HiveColumnHandle> effectivePredicate)
+    private List<String> getFilteredPartitionNames(SemiTransactionalHiveMetastore metastore, SchemaTableName tableName, List<HiveColumnHandle> partitionKeys, TupleDomain<HiveColumnHandle> effectivePredicate)
     {
         List<String> columnNames = partitionKeys.stream()
                 .map(HiveColumnHandle::getName)
                 .collect(toImmutableList());
         TupleDomain<String> partitionKeysFilter = computePartitionKeyFilter(partitionKeys, effectivePredicate);
         // fetch the partition names
-        return metastore.getPartitionNamesByFilter(identity, tableName.getSchemaName(), tableName.getTableName(), columnNames, partitionKeysFilter)
+        return metastore.getPartitionNamesByFilter(tableName.getSchemaName(), tableName.getTableName(), columnNames, partitionKeysFilter)
                 .orElseThrow(() -> new TableNotFoundException(tableName));
     }
 

@@ -59,7 +59,7 @@ public class HiveMetastoreTableOperations
     protected void commitToExistingTable(TableMetadata base, TableMetadata metadata)
     {
         String newMetadataLocation = writeNewMetadata(metadata, version + 1);
-        HiveIdentity identity = new HiveIdentity(session);
+        HiveIdentity identity = new HiveIdentity(session.getIdentity());
 
         long lockId = thriftMetastore.acquireTableExclusiveLock(
                 identity,
@@ -98,7 +98,7 @@ public class HiveMetastoreTableOperations
 
             // todo privileges should not be replaced for an alter
             PrincipalPrivileges privileges = owner.isEmpty() && table.getOwner().isPresent() ? NO_PRIVILEGES : buildInitialPrivilegeSet(table.getOwner().get());
-            metastore.replaceTable(identity, database, tableName, table, privileges);
+            metastore.replaceTable(database, tableName, table, privileges);
         }
         finally {
             thriftMetastore.releaseTableLock(identity, lockId);

@@ -20,7 +20,6 @@ import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.TransactionalMetadataFactory;
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.metastore.Table;
@@ -110,11 +109,10 @@ public class RegisterPartitionProcedure
 
         SemiTransactionalHiveMetastore metastore = hiveMetadataFactory.create(session.getIdentity(), true).getMetastore();
 
-        HiveIdentity identity = new HiveIdentity(session);
         HdfsContext hdfsContext = new HdfsContext(session);
         SchemaTableName schemaTableName = new SchemaTableName(schemaName, tableName);
 
-        Table table = metastore.getTable(identity, schemaName, tableName)
+        Table table = metastore.getTable(schemaName, tableName)
                 .orElseThrow(() -> new TableNotFoundException(schemaTableName));
 
         accessControl.checkCanInsertIntoTable(null, schemaTableName);
@@ -122,7 +120,7 @@ public class RegisterPartitionProcedure
         checkIsPartitionedTable(table);
         checkPartitionColumns(table, partitionColumn);
 
-        Optional<Partition> partition = metastore.unsafeGetRawHiveMetastoreClosure().getPartition(new HiveIdentity(session), schemaName, tableName, partitionValues);
+        Optional<Partition> partition = metastore.unsafeGetRawHiveMetastoreClosure().getPartition(schemaName, tableName, partitionValues);
         if (partition.isPresent()) {
             String partitionName = FileUtils.makePartName(partitionColumn, partitionValues);
             throw new TrinoException(ALREADY_EXISTS, format("Partition [%s] is already registered with location %s", partitionName, partition.get().getStorage().getLocation()));
