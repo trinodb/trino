@@ -41,6 +41,7 @@ import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 
@@ -156,7 +157,7 @@ public class HivePageSinkProvider
                 session.getQueryId(),
                 new HivePageSinkMetadataProvider(
                         handle.getPageSinkMetadata(),
-                        new HiveMetastoreClosure(memoizeMetastore(metastoreFactory.createMetastore(), perTransactionMetastoreCacheMaximumSize)),
+                        new HiveMetastoreClosure(memoizeMetastore(metastoreFactory.createMetastore(Optional.of(session.getIdentity())), perTransactionMetastoreCacheMaximumSize)),
                         new HiveIdentity(session)),
                 typeManager,
                 hdfsEnvironment,

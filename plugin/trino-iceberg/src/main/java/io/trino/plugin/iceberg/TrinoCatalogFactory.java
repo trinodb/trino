@@ -25,6 +25,8 @@ import io.trino.spi.type.TypeManager;
 
 import javax.inject.Inject;
 
+import java.util.Optional;
+
 import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeMetastore;
 import static io.trino.plugin.iceberg.IcebergSecurityConfig.IcebergSecurity.SYSTEM;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -75,7 +77,7 @@ public class TrinoCatalogFactory
             case HIVE_METASTORE:
                 return new TrinoHiveCatalog(
                         catalogName,
-                        memoizeMetastore(metastoreFactory.createMetastore(), 1000),
+                        memoizeMetastore(metastoreFactory.createMetastore(Optional.of(identity)), 1000),
                         hdfsEnvironment,
                         typeManager,
                         tableOperationsProvider,
