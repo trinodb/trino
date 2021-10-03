@@ -356,12 +356,6 @@ public class RecordingHiveMetastore
                 () -> delegate.listRoleGrants(principal));
     }
 
-    @Override
-    public boolean isImpersonationEnabled()
-    {
-        return delegate.isImpersonationEnabled();
-    }
-
     private void verifyRecordingMode()
     {
         if (recording.isReplay()) {

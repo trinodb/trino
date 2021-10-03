@@ -277,10 +277,4 @@ public class UnimplementedHiveMetastore
     {
         throw new UnsupportedOperationException();
     }
-
-    @Override
-    public boolean isImpersonationEnabled()
-    {
-        throw new UnsupportedOperationException();
-    }
 }

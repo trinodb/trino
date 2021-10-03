@@ -125,6 +125,7 @@ public class TestCachingHiveMetastore
         executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s")));
         metastore = cachingHiveMetastore(
                 new BridgingHiveMetastore(thriftHiveMetastore),
+                IDENTITY,
                 executor,
                 new Duration(5, TimeUnit.MINUTES),
                 Optional.of(new Duration(1, TimeUnit.MINUTES)),
@@ -480,6 +481,7 @@ public class TestCachingHiveMetastore
         ThriftHiveMetastore thriftHiveMetastore = createThriftHiveMetastore();
         metastore = (CachingHiveMetastore) memoizeMetastore(
                 new BridgingHiveMetastore(thriftHiveMetastore),
+                IDENTITY,
                 1000);
 
         assertEquals(mockClient.getAccessCount(), 0);
@@ -566,17 +568,12 @@ public class TestCachingHiveMetastore
 
                 return result;
             }
-
-            @Override
-            public boolean isImpersonationEnabled()
-            {
-                return false;
-            }
         };
 
         // Caching metastore
         metastore = cachingHiveMetastore(
                 mockMetastore,
+                IDENTITY,
                 executor,
                 new Duration(5, TimeUnit.MINUTES),
                 Optional.of(new Duration(1, TimeUnit.MINUTES)),
@@ -670,6 +667,7 @@ public class TestCachingHiveMetastore
     {
         return (CachingHiveMetastore) cachingHiveMetastore(
                 new BridgingHiveMetastore(createThriftHiveMetastore()),
+                IDENTITY,
                 directExecutor(),
                 config.getMetastoreCacheTtl(),
                 config.getMetastoreRefreshInterval(),

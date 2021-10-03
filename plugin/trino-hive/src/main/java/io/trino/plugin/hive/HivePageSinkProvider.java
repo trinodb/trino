@@ -157,7 +157,7 @@ public class HivePageSinkProvider
                 session.getQueryId(),
                 new HivePageSinkMetadataProvider(
                         handle.getPageSinkMetadata(),
-                        new HiveMetastoreClosure(memoizeMetastore(metastoreFactory.createMetastore(Optional.of(session.getIdentity())), perTransactionMetastoreCacheMaximumSize)),
+                        new HiveMetastoreClosure(memoizeMetastore(metastoreFactory.createMetastore(Optional.of(session.getIdentity())), new HiveIdentity(session), perTransactionMetastoreCacheMaximumSize)),
                         new HiveIdentity(session)),
                 typeManager,
                 hdfsEnvironment,

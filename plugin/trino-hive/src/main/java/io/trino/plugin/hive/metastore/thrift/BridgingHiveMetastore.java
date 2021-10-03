@@ -464,12 +464,6 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public boolean isImpersonationEnabled()
-    {
-        return delegate.isImpersonationEnabled();
-    }
-
-    @Override
     public Optional<String> getConfigValue(String name)
     {
         return delegate.getConfigValue(name);

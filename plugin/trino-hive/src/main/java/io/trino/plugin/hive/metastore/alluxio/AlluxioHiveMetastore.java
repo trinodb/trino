@@ -479,10 +479,4 @@ public class AlluxioHiveMetastore
     {
         throw new TrinoException(NOT_SUPPORTED, "listTablePrivileges");
     }
-
-    @Override
-    public boolean isImpersonationEnabled()
-    {
-        return false;
-    }
 }

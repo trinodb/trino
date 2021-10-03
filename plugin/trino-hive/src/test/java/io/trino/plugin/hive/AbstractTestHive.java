@@ -791,6 +791,7 @@ public abstract class AbstractTestHive
                         new ThriftMetastoreConfig(),
                         hdfsEnvironment,
                         false)),
+                HiveIdentity.none(),
                 executor,
                 new Duration(1, MINUTES),
                 Optional.of(new Duration(15, SECONDS)),
