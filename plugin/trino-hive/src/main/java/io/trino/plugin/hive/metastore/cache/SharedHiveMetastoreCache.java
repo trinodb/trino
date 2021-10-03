@@ -13,9 +13,12 @@
  */
 package io.trino.plugin.hive.metastore.cache;
 
+import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
+import com.google.common.cache.CacheStats;
 import com.google.common.cache.LoadingCache;
+import com.google.common.math.LongMath;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.units.Duration;
 import io.trino.plugin.base.CatalogName;
@@ -26,6 +29,7 @@ import io.trino.spi.NodeManager;
 import io.trino.spi.TrinoException;
 import io.trino.spi.security.ConnectorIdentity;
 import org.weakref.jmx.Flatten;
+import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
 import javax.annotation.PostConstruct;
@@ -34,6 +38,7 @@ import javax.inject.Inject;
 
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
@@ -169,7 +174,7 @@ public class SharedHiveMetastoreCache
             implements HiveMetastoreFactory
     {
         private final HiveMetastoreFactory metastoreFactory;
-        private final LoadingCache<String, HiveMetastore> cache;
+        private final LoadingCache<String, CachingHiveMetastore> cache;
 
         public ImpersonationCachingHiveMetastoreFactory(HiveMetastoreFactory metastoreFactory)
         {
@@ -200,7 +205,7 @@ public class SharedHiveMetastoreCache
             }
         }
 
-        private HiveMetastore createUserCachingMetastore(String user)
+        private CachingHiveMetastore createUserCachingMetastore(String user)
         {
             ConnectorIdentity identity = ConnectorIdentity.ofUser(user);
             return cachingHiveMetastore(
@@ -212,6 +217,200 @@ public class SharedHiveMetastoreCache
                     metastoreCacheMaximumSize);
         }
 
-        // todo aggregate and export stats
+        @Managed
+        public void flushCache()
+        {
+            cache.asMap().values().forEach(CachingHiveMetastore::flushCache);
+        }
+
+        @Managed
+        @Nested
+        public AggregateCacheStatsMBean getDatabaseStats()
+        {
+            return new AggregateCacheStatsMBean(CachingHiveMetastore::getDatabaseCache);
+        }
+
+        @Managed
+        @Nested
+        public AggregateCacheStatsMBean getDatabaseNamesStats()
+        {
+            return new AggregateCacheStatsMBean(CachingHiveMetastore::getDatabaseNamesCache);
+        }
+
+        @Managed
+        @Nested
+        public AggregateCacheStatsMBean getTableStats()
+        {
+            return new AggregateCacheStatsMBean(CachingHiveMetastore::getTableCache);
+        }
+
+        @Managed
+        @Nested
+        public AggregateCacheStatsMBean getTableNamesStats()
+        {
+            return new AggregateCacheStatsMBean(CachingHiveMetastore::getTableNamesCache);
+        }
+
+        @Managed
+        @Nested
+        public AggregateCacheStatsMBean getTableWithParameterStats()
+        {
+            return new AggregateCacheStatsMBean(CachingHiveMetastore::getTablesWithParameterCache);
+        }
+
+        @Managed
+        @Nested
+        public AggregateCacheStatsMBean getTableStatisticsStats()
+        {
+            return new AggregateCacheStatsMBean(CachingHiveMetastore::getTableStatisticsCache);
+        }
+
+        @Managed
+        @Nested
+        public AggregateCacheStatsMBean getPartitionStatisticsStats()
+        {
+            return new AggregateCacheStatsMBean(CachingHiveMetastore::getPartitionStatisticsCache);
+        }
+
+        @Managed
+        @Nested
+        public AggregateCacheStatsMBean getViewNamesStats()
+        {
+            return new AggregateCacheStatsMBean(CachingHiveMetastore::getViewNamesCache);
+        }
+
+        @Managed
+        @Nested
+        public AggregateCacheStatsMBean getPartitionStats()
+        {
+            return new AggregateCacheStatsMBean(CachingHiveMetastore::getPartitionCache);
+        }
+
+        @Managed
+        @Nested
+        public AggregateCacheStatsMBean getPartitionFilterStats()
+        {
+            return new AggregateCacheStatsMBean(CachingHiveMetastore::getPartitionFilterCache);
+        }
+
+        @Managed
+        @Nested
+        public AggregateCacheStatsMBean getTablePrivilegesStats()
+        {
+            return new AggregateCacheStatsMBean(CachingHiveMetastore::getTablePrivilegesCache);
+        }
+
+        @Managed
+        @Nested
+        public AggregateCacheStatsMBean getRolesStats()
+        {
+            return new AggregateCacheStatsMBean(CachingHiveMetastore::getRolesCache);
+        }
+
+        @Managed
+        @Nested
+        public AggregateCacheStatsMBean getRoleGrantsStats()
+        {
+            return new AggregateCacheStatsMBean(CachingHiveMetastore::getRoleGrantsCache);
+        }
+
+        @Managed
+        @Nested
+        public AggregateCacheStatsMBean getGrantedPrincipalsStats()
+        {
+            return new AggregateCacheStatsMBean(CachingHiveMetastore::getGrantedPrincipalsCache);
+        }
+
+        @Managed
+        @Nested
+        public AggregateCacheStatsMBean getConfigValuesStats()
+        {
+            return new AggregateCacheStatsMBean(CachingHiveMetastore::getConfigValuesCache);
+        }
+
+        public class AggregateCacheStatsMBean
+        {
+            private final Function<CachingHiveMetastore, Cache<?, ?>> cacheExtractor;
+
+            public AggregateCacheStatsMBean(Function<CachingHiveMetastore, Cache<?, ?>> cacheExtractor)
+            {
+                this.cacheExtractor = requireNonNull(cacheExtractor, "cacheExtractor is null");
+            }
+
+            @Managed
+            public long size()
+            {
+                return cache.asMap().values().stream()
+                        .map(cacheExtractor)
+                        .mapToLong(Cache::size)
+                        .reduce(0, LongMath::saturatedAdd);
+            }
+
+            @Managed
+            public Double getHitRate()
+            {
+                return aggregateStats().getHitRate();
+            }
+
+            @Managed
+            public Double getMissRate()
+            {
+                return aggregateStats().getMissRate();
+            }
+
+            @Managed
+            public long getRequestCount()
+            {
+                return aggregateStats().getRequestCount();
+            }
+
+            private CacheStatsAggregator aggregateStats()
+            {
+                CacheStatsAggregator aggregator = new CacheStatsAggregator();
+                for (CachingHiveMetastore metastore : cache.asMap().values()) {
+                    aggregator.add(cacheExtractor.apply(metastore).stats());
+                }
+                return aggregator;
+            }
+        }
+    }
+
+    private static final class CacheStatsAggregator
+    {
+        private long requestCount;
+        private long hitCount;
+        private long missCount;
+
+        void add(CacheStats stats)
+        {
+            requestCount += stats.requestCount();
+            hitCount += stats.hitCount();
+            missCount += stats.missCount();
+        }
+
+        public long getRequestCount()
+        {
+            return requestCount;
+        }
+
+        public long getHitCount()
+        {
+            return hitCount;
+        }
+
+        public long getMissCount()
+        {
+            return missCount;
+        }
+
+        public double getHitRate()
+        {
+            return (requestCount == 0) ? 1.0 : (double) hitCount / requestCount;
+        }
+
+        public double getMissRate()
+        {
+            return (requestCount == 0) ? 0.0 : (double) missCount / requestCount;
+        }
     }
 }

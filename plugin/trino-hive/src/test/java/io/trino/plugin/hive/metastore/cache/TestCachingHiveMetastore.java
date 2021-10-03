@@ -665,7 +665,7 @@ public class TestCachingHiveMetastore
 
     private CachingHiveMetastore createMetastoreWithDirectExecutor(CachingHiveMetastoreConfig config)
     {
-        return (CachingHiveMetastore) cachingHiveMetastore(
+        return cachingHiveMetastore(
                 new BridgingHiveMetastore(createThriftHiveMetastore()),
                 IDENTITY,
                 directExecutor(),
