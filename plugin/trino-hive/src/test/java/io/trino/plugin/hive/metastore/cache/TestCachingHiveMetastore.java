@@ -124,7 +124,7 @@ public class TestCachingHiveMetastore
         ThriftHiveMetastore thriftHiveMetastore = createThriftHiveMetastore();
         executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s")));
         metastore = cachingHiveMetastore(
-                new BridgingHiveMetastore(thriftHiveMetastore),
+                new BridgingHiveMetastore(thriftHiveMetastore, IDENTITY),
                 IDENTITY,
                 executor,
                 new Duration(5, TimeUnit.MINUTES),
@@ -479,8 +479,8 @@ public class TestCachingHiveMetastore
     public void testCachingHiveMetastoreCreationViaMemoize()
     {
         ThriftHiveMetastore thriftHiveMetastore = createThriftHiveMetastore();
-        metastore = (CachingHiveMetastore) memoizeMetastore(
-                new BridgingHiveMetastore(thriftHiveMetastore),
+        metastore = memoizeMetastore(
+                new BridgingHiveMetastore(thriftHiveMetastore, IDENTITY),
                 IDENTITY,
                 1000);
 
@@ -666,7 +666,7 @@ public class TestCachingHiveMetastore
     private CachingHiveMetastore createMetastoreWithDirectExecutor(CachingHiveMetastoreConfig config)
     {
         return cachingHiveMetastore(
-                new BridgingHiveMetastore(createThriftHiveMetastore()),
+                new BridgingHiveMetastore(createThriftHiveMetastore(), IDENTITY),
                 IDENTITY,
                 directExecutor(),
                 config.getMetastoreCacheTtl(),

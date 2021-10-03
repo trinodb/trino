@@ -86,14 +86,14 @@ public abstract class AbstractTestHiveLocal
         this.testDbName = requireNonNull(testDbName, "testDbName is null");
     }
 
-    protected abstract HiveMetastore createMetastore(File tempDir);
+    protected abstract HiveMetastore createMetastore(File tempDir, HiveIdentity identity);
 
     @BeforeClass(alwaysRun = true)
     public void initialize()
     {
         tempDir = Files.createTempDir();
 
-        HiveMetastore metastore = createMetastore(tempDir);
+        HiveMetastore metastore = createMetastore(tempDir, HIVE_IDENTITY);
 
         metastore.createDatabase(HIVE_IDENTITY,
                 Database.builder()

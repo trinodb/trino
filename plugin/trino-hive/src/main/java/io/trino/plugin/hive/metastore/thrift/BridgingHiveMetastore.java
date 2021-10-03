@@ -69,10 +69,12 @@ public class BridgingHiveMetastore
         implements HiveMetastore
 {
     private final ThriftMetastore delegate;
+    private final HiveIdentity identity;
 
-    public BridgingHiveMetastore(ThriftMetastore delegate)
+    public BridgingHiveMetastore(ThriftMetastore delegate, HiveIdentity identity)
     {
-        this.delegate = delegate;
+        this.delegate = requireNonNull(delegate, "delegate is null");
+        this.identity = requireNonNull(identity, "identity is null");
     }
 
     @Override

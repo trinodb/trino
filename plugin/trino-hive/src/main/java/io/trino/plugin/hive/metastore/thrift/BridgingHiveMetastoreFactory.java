@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive.metastore.thrift;
 
+import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.spi.security.ConnectorIdentity;
@@ -43,6 +44,6 @@ public class BridgingHiveMetastoreFactory
     @Override
     public HiveMetastore createMetastore(Optional<ConnectorIdentity> identity)
     {
-        return new BridgingHiveMetastore(thriftMetastore);
+        return new BridgingHiveMetastore(thriftMetastore, identity.map(HiveIdentity::new).orElse(HiveIdentity.none()));
     }
 }
