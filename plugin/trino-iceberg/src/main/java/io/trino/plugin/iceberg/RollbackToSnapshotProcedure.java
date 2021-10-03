@@ -64,7 +64,7 @@ public class RollbackToSnapshotProcedure
     public void rollbackToSnapshot(ConnectorSession clientSession, String schema, String table, Long snapshotId)
     {
         SchemaTableName schemaTableName = new SchemaTableName(schema, table);
-        Table icebergTable = catalogFactory.create().loadTable(clientSession, schemaTableName);
+        Table icebergTable = catalogFactory.create(clientSession.getIdentity()).loadTable(clientSession, schemaTableName);
         icebergTable.rollback().toSnapshotId(snapshotId).commit();
     }
 }
