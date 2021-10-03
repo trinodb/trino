@@ -15,8 +15,11 @@ package io.trino.plugin.hive.metastore.thrift;
 
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
+import io.trino.spi.security.ConnectorIdentity;
 
 import javax.inject.Inject;
+
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -32,7 +35,13 @@ public class BridgingHiveMetastoreFactory
     }
 
     @Override
-    public HiveMetastore createMetastore()
+    public boolean isImpersonationEnabled()
+    {
+        return thriftMetastore.isImpersonationEnabled();
+    }
+
+    @Override
+    public HiveMetastore createMetastore(Optional<ConnectorIdentity> identity)
     {
         return new BridgingHiveMetastore(thriftMetastore);
     }

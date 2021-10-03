@@ -192,7 +192,7 @@ public class HiveMetadataFactory
     public TransactionalMetadata create(ConnectorIdentity identity, boolean autoCommit)
     {
         HiveMetastoreClosure hiveMetastoreClosure = new HiveMetastoreClosure(
-                memoizeMetastore(metastoreFactory.createMetastore(), perTransactionCacheMaximumSize)); // per-transaction cache
+                memoizeMetastore(metastoreFactory.createMetastore(Optional.of(identity)), perTransactionCacheMaximumSize)); // per-transaction cache
 
         SemiTransactionalHiveMetastore metastore = new SemiTransactionalHiveMetastore(
                 hdfsEnvironment,

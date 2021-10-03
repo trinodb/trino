@@ -13,11 +13,22 @@
  */
 package io.trino.plugin.hive.metastore;
 
+import io.trino.spi.security.ConnectorIdentity;
+
+import java.util.Optional;
+
 import static java.util.Objects.requireNonNull;
 
 public interface HiveMetastoreFactory
 {
-    HiveMetastore createMetastore();
+    boolean isImpersonationEnabled();
+
+    /**
+     * Create a metastore instance for the identity. An empty identity will
+     * only be provided when impersonation is disabled, and global caching is
+     * enabled.
+     */
+    HiveMetastore createMetastore(Optional<ConnectorIdentity> identity);
 
     static HiveMetastoreFactory ofInstance(HiveMetastore metastore)
     {
@@ -35,7 +46,13 @@ public interface HiveMetastoreFactory
         }
 
         @Override
-        public HiveMetastore createMetastore()
+        public boolean isImpersonationEnabled()
+        {
+            return false;
+        }
+
+        @Override
+        public HiveMetastore createMetastore(Optional<ConnectorIdentity> identity)
         {
             return metastore;
         }

@@ -18,6 +18,7 @@ import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.spi.NodeManager;
+import io.trino.spi.security.ConnectorIdentity;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Nested;
 
@@ -96,11 +97,12 @@ public class SharedHiveMetastoreCache
             return metastoreFactory;
         }
 
+        // caching hive metastore currently handles caching for multiple users internally
         CachingHiveMetastore cachingHiveMetastore = cachingHiveMetastore(
-                metastoreFactory.createMetastore(),
                 // Loading of cache entry in CachingHiveMetastore might trigger loading of another cache entry for different object type
                 // In case there are no empty executor slots, such operation would deadlock. Therefore, a reentrant executor needs to be
                 // used.
+                metastoreFactory.createMetastore(Optional.empty()),
                 new ReentrantBoundedExecutor(executorService, maxMetastoreRefreshThreads),
                 metastoreCacheTtl,
                 metastoreRefreshInterval,
@@ -119,7 +121,13 @@ public class SharedHiveMetastoreCache
         }
 
         @Override
-        public HiveMetastore createMetastore()
+        public boolean isImpersonationEnabled()
+        {
+            return metastore.isImpersonationEnabled();
+        }
+
+        @Override
+        public HiveMetastore createMetastore(Optional<ConnectorIdentity> identity)
         {
             return metastore;
         }

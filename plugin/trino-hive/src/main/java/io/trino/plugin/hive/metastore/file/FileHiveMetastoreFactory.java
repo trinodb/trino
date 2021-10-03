@@ -18,8 +18,11 @@ import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.MetastoreConfig;
+import io.trino.spi.security.ConnectorIdentity;
 
 import javax.inject.Inject;
+
+import java.util.Optional;
 
 public class FileHiveMetastoreFactory
         implements HiveMetastoreFactory
@@ -34,7 +37,13 @@ public class FileHiveMetastoreFactory
     }
 
     @Override
-    public HiveMetastore createMetastore()
+    public boolean isImpersonationEnabled()
+    {
+        return false;
+    }
+
+    @Override
+    public HiveMetastore createMetastore(Optional<ConnectorIdentity> identity)
     {
         return metastore;
     }

@@ -15,10 +15,13 @@ package io.trino.plugin.hive.metastore.glue;
 
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
+import io.trino.spi.security.ConnectorIdentity;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 
 import javax.inject.Inject;
+
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -42,7 +45,13 @@ public class GlueHiveMetastoreFactory
     }
 
     @Override
-    public HiveMetastore createMetastore()
+    public boolean isImpersonationEnabled()
+    {
+        return false;
+    }
+
+    @Override
+    public HiveMetastore createMetastore(Optional<ConnectorIdentity> identity)
     {
         return metastore;
     }
