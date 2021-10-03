@@ -25,6 +25,7 @@ import io.trino.plugin.hive.metastore.cache.SharedHiveMetastoreCache.CachingHive
 import io.trino.plugin.hive.metastore.procedure.FlushHiveMetastoreCacheProcedure;
 import io.trino.plugin.hive.metastore.recording.RecordingHiveMetastoreDecoratorModule;
 import io.trino.spi.procedure.Procedure;
+import io.trino.spi.security.ConnectorIdentity;
 
 import java.util.Comparator;
 import java.util.List;
@@ -85,9 +86,15 @@ public class DecoratedHiveMetastoreModule
         }
 
         @Override
-        public HiveMetastore createMetastore()
+        public boolean isImpersonationEnabled()
         {
-            HiveMetastore metastore = delegate.createMetastore();
+            return delegate.isImpersonationEnabled();
+        }
+
+        @Override
+        public HiveMetastore createMetastore(Optional<ConnectorIdentity> identity)
+        {
+            HiveMetastore metastore = delegate.createMetastore(identity);
             for (HiveMetastoreDecorator decorator : sortedDecorators) {
                 metastore = decorator.decorate(metastore);
             }
