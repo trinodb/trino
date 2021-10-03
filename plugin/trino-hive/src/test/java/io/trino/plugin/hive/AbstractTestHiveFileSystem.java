@@ -29,11 +29,11 @@ import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Database;
+import io.trino.plugin.hive.metastore.ForwardingHiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.MetastoreConfig;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
-import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.MetastoreLocator;
 import io.trino.plugin.hive.metastore.thrift.TestingMetastoreLocator;
@@ -78,7 +78,6 @@ import java.io.UncheckedIOException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalLong;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.IntStream;
@@ -182,7 +181,6 @@ public abstract class AbstractTestHiveFileSystem
 
         MetastoreLocator metastoreLocator = new TestingMetastoreLocator(proxy, HostAndPort.fromParts(host, port));
 
-        ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("AbstractTestHiveFileSystem-%s"));
         HivePartitionManager hivePartitionManager = new HivePartitionManager(config);
 
         hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, new HdfsConfig(), new NoHdfsAuthentication());
@@ -536,14 +534,14 @@ public abstract class AbstractTestHiveFileSystem
     }
 
     protected static class TestingHiveMetastore
-            extends CachingHiveMetastore
+            extends ForwardingHiveMetastore
     {
         private final Path basePath;
         private final HdfsEnvironment hdfsEnvironment;
 
         public TestingHiveMetastore(HiveMetastore delegate, Path basePath, HdfsEnvironment hdfsEnvironment)
         {
-            super(delegate, OptionalLong.empty(), OptionalLong.empty(), Optional.empty(), 0, StatsRecording.ENABLED);
+            super(delegate);
             this.basePath = basePath;
             this.hdfsEnvironment = hdfsEnvironment;
         }
@@ -583,7 +581,7 @@ public abstract class AbstractTestHiveFileSystem
 
                 // drop table
                 replaceTable(identity, databaseName, tableName, tableBuilder.build(), NO_PRIVILEGES);
-                delegate.dropTable(identity, databaseName, tableName, false);
+                super.dropTable(identity, databaseName, tableName, false);
 
                 // drop data
                 if (deleteData) {
@@ -595,9 +593,6 @@ public abstract class AbstractTestHiveFileSystem
             }
             catch (IOException e) {
                 throw new UncheckedIOException(e);
-            }
-            finally {
-                invalidateTable(databaseName, tableName);
             }
         }
 
