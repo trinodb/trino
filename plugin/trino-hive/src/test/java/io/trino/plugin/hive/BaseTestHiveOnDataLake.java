@@ -85,7 +85,8 @@ public abstract class BaseTestHiveOnDataLake
                         ImmutableSet.of()),
                         new HdfsConfig(),
                         new NoHdfsAuthentication()),
-                false));
+                false),
+                HiveIdentity.none());
         return S3HiveQueryRunner.create(
                 dockerizedS3DataLake,
                 ImmutableMap.<String, String>builder()

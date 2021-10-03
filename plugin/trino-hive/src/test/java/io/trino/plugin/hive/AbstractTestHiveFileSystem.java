@@ -187,13 +187,15 @@ public abstract class AbstractTestHiveFileSystem
         hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, new HdfsConfig(), new NoHdfsAuthentication());
         MetastoreConfig metastoreConfig = new MetastoreConfig();
         metastoreClient = new TestingHiveMetastore(
-                new BridgingHiveMetastore(new ThriftHiveMetastore(
-                        metastoreLocator,
-                        new HiveConfig(),
-                        metastoreConfig,
-                        new ThriftMetastoreConfig(),
-                        hdfsEnvironment,
-                        false)),
+                new BridgingHiveMetastore(
+                        new ThriftHiveMetastore(
+                                metastoreLocator,
+                                new HiveConfig(),
+                                metastoreConfig,
+                                new ThriftMetastoreConfig(),
+                                hdfsEnvironment,
+                                false),
+                        new HiveIdentity(getHiveSession(config).getIdentity())),
                 getBasePath(),
                 hdfsEnvironment);
         locationService = new HiveLocationService(hdfsEnvironment);

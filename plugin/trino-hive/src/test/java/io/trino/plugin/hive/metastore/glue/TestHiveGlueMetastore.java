@@ -201,7 +201,7 @@ public class TestHiveGlueMetastore
     }
 
     @Override
-    protected HiveMetastore createMetastore(File tempDir)
+    protected HiveMetastore createMetastore(File tempDir, HiveIdentity identity)
     {
         GlueHiveMetastoreConfig glueConfig = new GlueHiveMetastoreConfig();
         glueConfig.setDefaultWarehouseDir(tempDir.toURI().toString());
