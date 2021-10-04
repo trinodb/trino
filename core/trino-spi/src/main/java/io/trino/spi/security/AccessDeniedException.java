@@ -418,6 +418,16 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot drop materialized view %s%s", materializedViewName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denyRenameMaterializedView(String materializedViewName, String newMaterializedViewName)
+    {
+        denyRenameMaterializedView(materializedViewName, newMaterializedViewName, null);
+    }
+
+    public static void denyRenameMaterializedView(String materializedViewName, String newMaterializedViewName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot rename materialized view from %s to %s%s", materializedViewName, newMaterializedViewName, formatExtraInfo(extraInfo)));
+    }
+
     public static void denyGrantSchemaPrivilege(String privilege, String schemaName)
     {
         denyGrantSchemaPrivilege(privilege, schemaName, null);

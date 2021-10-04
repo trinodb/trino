@@ -44,6 +44,7 @@ import io.trino.sql.tree.ExplainAnalyze;
 import io.trino.sql.tree.Insert;
 import io.trino.sql.tree.RefreshMaterializedView;
 import io.trino.sql.tree.RenameColumn;
+import io.trino.sql.tree.RenameMaterializedView;
 import io.trino.sql.tree.RenameTable;
 import io.trino.sql.tree.RenameView;
 import io.trino.sql.tree.ShowCatalogs;
@@ -413,6 +414,9 @@ public class VerifyCommand
             return MODIFY;
         }
         if (statement instanceof DropColumn) {
+            return MODIFY;
+        }
+        if (statement instanceof RenameMaterializedView) {
             return MODIFY;
         }
         if (statement instanceof RenameTable) {

@@ -1404,6 +1404,19 @@ public final class MetadataManager
     }
 
     @Override
+    public void renameMaterializedView(Session session, QualifiedObjectName source, QualifiedObjectName target)
+    {
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, target.getCatalogName());
+        CatalogName catalogName = catalogMetadata.getCatalogName();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        if (!source.getCatalogName().equals(catalogName.getCatalogName())) {
+            throw new TrinoException(SYNTAX_ERROR, "Cannot rename materialized views across catalogs");
+        }
+
+        metadata.renameMaterializedView(session.toConnectorSession(catalogName), source.asSchemaTableName(), target.asSchemaTableName());
+    }
+
+    @Override
     public Optional<TableScanRedirectApplicationResult> applyTableScanRedirect(Session session, TableHandle tableHandle)
     {
         CatalogName catalogName = tableHandle.getCatalogName();

@@ -83,6 +83,7 @@ import io.trino.sql.tree.QuerySpecification;
 import io.trino.sql.tree.RefreshMaterializedView;
 import io.trino.sql.tree.Relation;
 import io.trino.sql.tree.RenameColumn;
+import io.trino.sql.tree.RenameMaterializedView;
 import io.trino.sql.tree.RenameSchema;
 import io.trino.sql.tree.RenameTable;
 import io.trino.sql.tree.RenameView;
@@ -814,6 +815,20 @@ public final class SqlFormatter
         {
             builder.append("ALTER VIEW ")
                     .append(node.getSource())
+                    .append(" RENAME TO ")
+                    .append(node.getTarget());
+
+            return null;
+        }
+
+        @Override
+        protected Void visitRenameMaterializedView(RenameMaterializedView node, Integer context)
+        {
+            builder.append("ALTER MATERIALIZED VIEW ");
+            if (node.isExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(node.getSource())
                     .append(" RENAME TO ")
                     .append(node.getTarget());
 

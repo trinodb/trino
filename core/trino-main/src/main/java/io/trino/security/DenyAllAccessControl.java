@@ -55,6 +55,7 @@ import static io.trino.spi.security.AccessDeniedException.denyKillQuery;
 import static io.trino.spi.security.AccessDeniedException.denyReadSystemInformationAccess;
 import static io.trino.spi.security.AccessDeniedException.denyRefreshMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyRenameColumn;
+import static io.trino.spi.security.AccessDeniedException.denyRenameMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyRenameSchema;
 import static io.trino.spi.security.AccessDeniedException.denyRenameTable;
 import static io.trino.spi.security.AccessDeniedException.denyRenameView;
@@ -329,6 +330,12 @@ public class DenyAllAccessControl
     public void checkCanDropMaterializedView(SecurityContext context, QualifiedObjectName materializedViewName)
     {
         denyDropMaterializedView(materializedViewName.toString());
+    }
+
+    @Override
+    public void checkCanRenameMaterializedView(SecurityContext context, QualifiedObjectName viewName, QualifiedObjectName newViewName)
+    {
+        denyRenameMaterializedView(viewName.toString(), newViewName.toString());
     }
 
     @Override
