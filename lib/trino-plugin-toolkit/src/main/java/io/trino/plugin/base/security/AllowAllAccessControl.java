@@ -285,6 +285,11 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanExecuteTableProcedure(ConnectorSecurityContext context, SchemaRoutineName procedure, SchemaTableName tableName)
+    {
+    }
+
+    @Override
     public Optional<ViewExpression> getRowFilter(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         return Optional.empty();

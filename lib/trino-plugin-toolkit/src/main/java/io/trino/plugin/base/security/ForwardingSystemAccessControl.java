@@ -417,6 +417,12 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public void checkCanExecuteTableProcedure(SystemSecurityContext systemSecurityContext, CatalogSchemaRoutineName procedure, CatalogSchemaTableName table)
+    {
+        delegate().checkCanExecuteTableProcedure(systemSecurityContext, procedure, table);
+    }
+
+    @Override
     public Iterable<EventListener> getEventListeners()
     {
         return delegate().getEventListeners();

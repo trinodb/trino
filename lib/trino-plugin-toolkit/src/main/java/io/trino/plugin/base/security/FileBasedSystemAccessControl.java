@@ -891,6 +891,11 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
+    public void checkCanExecuteTableProcedure(SystemSecurityContext systemSecurityContext, CatalogSchemaRoutineName procedure, CatalogSchemaTableName table)
+    {
+    }
+
+    @Override
     public Iterable<EventListener> getEventListeners()
     {
         return ImmutableSet.of();

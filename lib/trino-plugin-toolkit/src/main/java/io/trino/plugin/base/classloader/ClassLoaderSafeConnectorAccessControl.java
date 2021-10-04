@@ -444,6 +444,14 @@ public class ClassLoaderSafeConnectorAccessControl
     }
 
     @Override
+    public void checkCanExecuteTableProcedure(ConnectorSecurityContext context, SchemaRoutineName procedure, SchemaTableName tableName)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.checkCanExecuteTableProcedure(context, procedure, tableName);
+        }
+    }
+
+    @Override
     public Optional<ViewExpression> getRowFilter(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {

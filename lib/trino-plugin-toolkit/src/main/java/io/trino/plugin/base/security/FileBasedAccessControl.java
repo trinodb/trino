@@ -541,6 +541,11 @@ public class FileBasedAccessControl
     }
 
     @Override
+    public void checkCanExecuteTableProcedure(ConnectorSecurityContext context, SchemaRoutineName procedure, SchemaTableName tableName)
+    {
+    }
+
+    @Override
     public Optional<ViewExpression> getRowFilter(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         if (INFORMATION_SCHEMA_NAME.equals(tableName.getSchemaName())) {

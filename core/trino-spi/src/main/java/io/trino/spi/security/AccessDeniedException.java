@@ -558,6 +558,11 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot execute function %s", functionName));
     }
 
+    public static void denyExecuteTableProcedure(String procedureName, String tableName)
+    {
+        throw new AccessDeniedException(format("Cannot execute table procedure %s on %s", procedureName, tableName));
+    }
+
     private static Object formatExtraInfo(String extraInfo)
     {
         if (extraInfo == null || extraInfo.isEmpty()) {

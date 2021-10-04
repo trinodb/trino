@@ -381,6 +381,11 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
+    public void checkCanExecuteTableProcedure(SystemSecurityContext systemSecurityContext, CatalogSchemaRoutineName procedure, CatalogSchemaTableName table)
+    {
+    }
+
+    @Override
     public Iterable<EventListener> getEventListeners()
     {
         return ImmutableSet.of();

@@ -997,8 +997,10 @@ class StatementAnalyzer
             TableHandle tableHandle = redirection.getTableHandle()
                     .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, table, "Table '%s' does not exist", tableName));
 
-            // TODO add access check
-            // accessControl.check...(session.toSecurityContext(), tableName);
+            accessControl.checkCanExecuteTableProcedure(
+                    session.toSecurityContext(),
+                    tableName,
+                    createQualifiedObjectName(session, node.getProcedureName(), QualifiedName.of(procedureName)));
 
             if (!accessControl.getRowFilters(session.toSecurityContext(), tableName).isEmpty()) {
                 throw semanticException(NOT_SUPPORTED, node, "ALTER TABLE EXECUTE is not supported for table with row filter");
