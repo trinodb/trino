@@ -821,6 +821,12 @@ public class IcebergMetadata
         return catalog.getMaterializedView(session, viewName);
     }
 
+    @Override
+    public void renameMaterializedView(ConnectorSession session, SchemaTableName source, SchemaTableName target)
+    {
+        catalog.renameMaterializedView(session, source, target);
+    }
+
     public Optional<TableToken> getTableToken(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
