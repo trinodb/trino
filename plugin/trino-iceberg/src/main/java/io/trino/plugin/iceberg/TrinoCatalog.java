@@ -113,4 +113,6 @@ public interface TrinoCatalog
     void dropMaterializedView(ConnectorSession session, SchemaTableName schemaViewName);
 
     Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName schemaViewName);
+
+    void renameMaterializedView(ConnectorSession session, SchemaTableName source, SchemaTableName target);
 }
