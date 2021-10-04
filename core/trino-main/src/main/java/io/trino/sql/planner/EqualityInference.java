@@ -38,6 +38,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static io.trino.sql.ExpressionUtils.extractConjuncts;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
@@ -59,7 +60,7 @@ public class EqualityInference
         // TODO: be more precise in determining the cost of an expression
         return ComparisonChain.start()
                 .compare(SymbolsExtractor.extractAll(expression1).size(), SymbolsExtractor.extractAll(expression2).size())
-                .compare(SubExpressionExtractor.extract(expression1).size(), SubExpressionExtractor.extract(expression2).size())
+                .compare(SubExpressionExtractor.extract(expression1).count(), SubExpressionExtractor.extract(expression2).count())
                 .compare(expression1.toString(), expression2.toString())
                 .result();
     });
