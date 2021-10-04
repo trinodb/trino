@@ -335,6 +335,13 @@ public interface AccessControl
     void checkCanDropMaterializedView(SecurityContext context, QualifiedObjectName materializedViewName);
 
     /**
+     * Check if identity is allowed to rename the specified materialized view.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanRenameMaterializedView(SecurityContext context, QualifiedObjectName viewName, QualifiedObjectName newViewName);
+
+    /**
      * Check if identity is allowed to create a view that executes the function.
      *
      * @throws AccessDeniedException if not allowed

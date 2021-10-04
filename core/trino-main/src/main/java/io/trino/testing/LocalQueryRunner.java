@@ -67,6 +67,7 @@ import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.QueryPreparer;
 import io.trino.execution.QueryPreparer.PreparedQuery;
 import io.trino.execution.RenameColumnTask;
+import io.trino.execution.RenameMaterializedViewTask;
 import io.trino.execution.RenameTableTask;
 import io.trino.execution.RenameViewTask;
 import io.trino.execution.ResetSessionTask;
@@ -177,6 +178,7 @@ import io.trino.sql.tree.DropTable;
 import io.trino.sql.tree.DropView;
 import io.trino.sql.tree.Prepare;
 import io.trino.sql.tree.RenameColumn;
+import io.trino.sql.tree.RenameMaterializedView;
 import io.trino.sql.tree.RenameTable;
 import io.trino.sql.tree.RenameView;
 import io.trino.sql.tree.ResetSession;
@@ -452,6 +454,7 @@ public class LocalQueryRunner
                 .put(DropTable.class, new DropTableTask())
                 .put(DropView.class, new DropViewTask())
                 .put(RenameColumn.class, new RenameColumnTask())
+                .put(RenameMaterializedView.class, new RenameMaterializedViewTask())
                 .put(RenameTable.class, new RenameTableTask())
                 .put(RenameView.class, new RenameViewTask())
                 .put(Comment.class, new CommentTask())

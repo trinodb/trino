@@ -63,7 +63,7 @@ public class RenameViewTask
             throw semanticException(
                     TABLE_NOT_FOUND,
                     statement,
-                    "View '%s' does not exist, but a materialized view with that name exists.", viewName);
+                    "View '%s' does not exist, but a materialized view with that name exists. Did you mean ALTER MATERIALIZED VIEW %s RENAME ...?", viewName, viewName);
         }
 
         Optional<ConnectorViewDefinition> viewDefinition = metadata.getView(session, viewName);

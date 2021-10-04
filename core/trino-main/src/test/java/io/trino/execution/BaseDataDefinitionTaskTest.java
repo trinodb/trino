@@ -319,5 +319,13 @@ public abstract class BaseDataDefinitionTaskTest
             views.put(target.asSchemaTableName(), verifyNotNull(views.get(oldViewName), "View not found %s", oldViewName));
             views.remove(oldViewName);
         }
+
+        @Override
+        public void renameMaterializedView(Session session, QualifiedObjectName source, QualifiedObjectName target)
+        {
+            SchemaTableName oldViewName = source.asSchemaTableName();
+            materializedViews.put(target.asSchemaTableName(), verifyNotNull(materializedViews.get(oldViewName), "Materialized View not found %s", oldViewName));
+            materializedViews.remove(oldViewName);
+        }
     }
 }

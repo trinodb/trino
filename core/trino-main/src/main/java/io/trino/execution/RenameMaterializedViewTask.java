@@ -23,7 +23,7 @@ import io.trino.security.AccessControl;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.RenameTable;
+import io.trino.sql.tree.RenameMaterializedView;
 import io.trino.transaction.TransactionManager;
 
 import java.util.List;
@@ -37,18 +37,18 @@ import static io.trino.spi.StandardErrorCode.TABLE_ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 
-public class RenameTableTask
-        implements DataDefinitionTask<RenameTable>
+public class RenameMaterializedViewTask
+        implements DataDefinitionTask<RenameMaterializedView>
 {
     @Override
     public String getName()
     {
-        return "RENAME TABLE";
+        return "RENAME MATERIALIZED VIEW";
     }
 
     @Override
     public ListenableFuture<Void> execute(
-            RenameTable statement,
+            RenameMaterializedView statement,
             TransactionManager transactionManager,
             Metadata metadata,
             AccessControl accessControl,
@@ -57,51 +57,51 @@ public class RenameTableTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
-        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getSource());
-
-        Optional<ConnectorMaterializedViewDefinition> materializedView = metadata.getMaterializedView(session, tableName);
-        if (materializedView.isPresent()) {
-            if (!statement.isExists()) {
+        QualifiedObjectName materializedViewName = createQualifiedObjectName(session, statement, statement.getSource());
+        Optional<ConnectorMaterializedViewDefinition> materializedView = metadata.getMaterializedView(session, materializedViewName);
+        if (materializedView.isEmpty()) {
+            Optional<ConnectorViewDefinition> view = metadata.getView(session, materializedViewName);
+            if (view.isPresent()) {
                 throw semanticException(
                         TABLE_NOT_FOUND,
                         statement,
-                        "Table '%s' does not exist, but a materialized view with that name exists. Did you mean ALTER MATERIALIZED VIEW %s RENAME ...?", tableName, tableName);
+                        "Materialized View '%s' does not exist, but a view with that name exists. Did you mean ALTER VIEW %s RENAME ...?", materializedViewName, materializedViewName);
             }
-            return immediateVoidFuture();
-        }
 
-        Optional<ConnectorViewDefinition> view = metadata.getView(session, tableName);
-        if (view.isPresent()) {
-            if (!statement.isExists()) {
+            Optional<TableHandle> table = metadata.getTableHandle(session, materializedViewName);
+            if (table.isPresent()) {
                 throw semanticException(
                         TABLE_NOT_FOUND,
                         statement,
-                        "Table '%s' does not exist, but a view with that name exists. Did you mean ALTER VIEW %s RENAME ...?", tableName, tableName);
+                        "Materialized View '%s' does not exist, but a table with that name exists. Did you mean ALTER TABLE %s RENAME ...?", materializedViewName, materializedViewName);
             }
-            return immediateVoidFuture();
-        }
 
-        Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
-        if (tableHandle.isEmpty()) {
-            if (!statement.isExists()) {
-                throw semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", tableName);
+            if (statement.isExists()) {
+                return immediateVoidFuture();
             }
-            return immediateVoidFuture();
+            throw semanticException(TABLE_NOT_FOUND, statement, "Materialized View '%s' does not exist", materializedViewName);
         }
 
         QualifiedObjectName target = createQualifiedObjectName(session, statement, statement.getTarget());
         if (metadata.getCatalogHandle(session, target.getCatalogName()).isEmpty()) {
             throw semanticException(CATALOG_NOT_FOUND, statement, "Target catalog '%s' does not exist", target.getCatalogName());
         }
+        if (metadata.getMaterializedView(session, target).isPresent()) {
+            throw semanticException(TABLE_ALREADY_EXISTS, statement, "Target materialized view '%s' already exists", target);
+        }
+        if (metadata.getView(session, target).isPresent()) {
+            throw semanticException(TABLE_ALREADY_EXISTS, statement, "Target materialized view '%s' does not exist, but a view with that name exists.", target);
+        }
         if (metadata.getTableHandle(session, target).isPresent()) {
-            throw semanticException(TABLE_ALREADY_EXISTS, statement, "Target table '%s' already exists", target);
+            throw semanticException(TABLE_ALREADY_EXISTS, statement, "Target materialized view '%s' does not exist, but a table with that name exists.", target);
         }
-        if (!tableName.getCatalogName().equals(target.getCatalogName())) {
-            throw semanticException(NOT_SUPPORTED, statement, "Table rename across catalogs is not supported");
+        if (!materializedViewName.getCatalogName().equals(target.getCatalogName())) {
+            throw semanticException(NOT_SUPPORTED, statement, "Materialized View rename across catalogs is not supported");
         }
-        accessControl.checkCanRenameTable(session.toSecurityContext(), tableName, target);
 
-        metadata.renameTable(session, tableHandle.get(), target);
+        accessControl.checkCanRenameMaterializedView(session.toSecurityContext(), materializedViewName, target);
+
+        metadata.renameMaterializedView(session, materializedViewName, target);
 
         return immediateVoidFuture();
     }

@@ -73,6 +73,7 @@ import static io.trino.spi.security.AccessDeniedException.denyGrantTablePrivileg
 import static io.trino.spi.security.AccessDeniedException.denyInsertTable;
 import static io.trino.spi.security.AccessDeniedException.denyRefreshMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyRenameColumn;
+import static io.trino.spi.security.AccessDeniedException.denyRenameMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyRenameSchema;
 import static io.trino.spi.security.AccessDeniedException.denyRenameTable;
 import static io.trino.spi.security.AccessDeniedException.denyRenameView;
@@ -372,6 +373,14 @@ public class SqlStandardAccessControl
     {
         if (!isTableOwner(context, materializedViewName)) {
             denyDropMaterializedView(materializedViewName.toString());
+        }
+    }
+
+    @Override
+    public void checkCanRenameMaterializedView(ConnectorSecurityContext context, SchemaTableName viewName, SchemaTableName newViewName)
+    {
+        if (!isTableOwner(context, viewName)) {
+            denyRenameMaterializedView(viewName.toString(), newViewName.toString());
         }
     }
 

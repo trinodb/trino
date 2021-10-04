@@ -50,6 +50,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DROP_COLUMN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_INSERT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_MULTI_STATEMENT_WRITES;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_COLUMN;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_MATERIALIZED_VIEW;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_SCHEMA;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_TABLE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS;
@@ -677,7 +678,68 @@ public abstract class BaseConnectorTest
 
         assertQueryReturnsEmptyResult(listMaterializedViewsSql("name = '" + view.getObjectName() + "'"));
         assertQueryReturnsEmptyResult(listMaterializedViewsSql("name = '" + otherView.getObjectName() + "'"));
-        assertQueryReturnsEmptyResult(listMaterializedViewsSql("name = '" + viewWithComment.getSchemaName() + "'"));
+        assertQueryReturnsEmptyResult(listMaterializedViewsSql("name = '" + viewWithComment.getObjectName() + "'"));
+    }
+
+    @Test
+    public void testRenameMaterializedView()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_MATERIALIZED_VIEW));
+
+        String schema = "rename_mv_test";
+        Session session = Session.builder(getSession())
+                .setSchema(schema)
+                .build();
+
+        QualifiedObjectName originalMaterializedView = new QualifiedObjectName(
+                session.getCatalog().orElseThrow(),
+                session.getSchema().orElseThrow(),
+                "test_materialized_view_rename_" + randomTableSuffix());
+
+        createTestingMaterializedView(originalMaterializedView, Optional.empty());
+
+        String renamedMaterializedView = "test_materialized_view_rename_new_" + randomTableSuffix();
+        if (!hasBehavior(SUPPORTS_RENAME_MATERIALIZED_VIEW)) {
+            assertQueryFails(session, "ALTER MATERIALIZED VIEW " + originalMaterializedView + " RENAME TO " + renamedMaterializedView, "This connector does not support renaming materialized views");
+            assertUpdate(session, "DROP MATERIALIZED VIEW " + originalMaterializedView);
+            return;
+        }
+
+        // simple rename
+        assertUpdate(session, "ALTER MATERIALIZED VIEW " + originalMaterializedView + " RENAME TO " + renamedMaterializedView);
+        assertTestingMaterializedViewQuery(schema, renamedMaterializedView);
+        // verify new name in the system.metadata.materialized_views
+        assertQuery(session, "SELECT catalog_name, schema_name FROM system.metadata.materialized_views WHERE name = '" + renamedMaterializedView + "'",
+                format("VALUES ('%s', '%s')", originalMaterializedView.getCatalogName(), originalMaterializedView.getSchemaName()));
+        assertQueryReturnsEmptyResult(session, listMaterializedViewsSql("name = '" + originalMaterializedView.getObjectName() + "'"));
+
+        // rename with IF EXISTS on existing materialized view
+        String testExistsMaterializedViewName = "test_materialized_view_rename_exists_" + randomTableSuffix();
+        assertUpdate(session, "ALTER MATERIALIZED VIEW IF EXISTS " + renamedMaterializedView + " RENAME TO " + testExistsMaterializedViewName);
+        assertTestingMaterializedViewQuery(schema, testExistsMaterializedViewName);
+
+        // rename with upper-case, not delimited identifier
+        String uppercaseName = "TEST_MATERIALIZED_VIEW_RENAME_UPPERCASE_" + randomTableSuffix();
+        assertUpdate(session, "ALTER MATERIALIZED VIEW " + testExistsMaterializedViewName + " RENAME TO " + uppercaseName);
+        assertTestingMaterializedViewQuery(schema, uppercaseName.toLowerCase(ENGLISH)); // Ensure select allows for lower-case, not delimited identifier
+
+        assertUpdate(session, "DROP MATERIALIZED VIEW " + uppercaseName);
+
+        assertFalse(getQueryRunner().tableExists(session, originalMaterializedView.toString()));
+        assertFalse(getQueryRunner().tableExists(session, renamedMaterializedView));
+        assertFalse(getQueryRunner().tableExists(session, testExistsMaterializedViewName));
+
+        // rename with IF EXISTS on NOT existing materialized view
+        assertUpdate(session, "ALTER TABLE IF EXISTS " + originalMaterializedView + " RENAME TO " + renamedMaterializedView);
+        assertQueryReturnsEmptyResult(session, listMaterializedViewsSql("name = '" + originalMaterializedView.getObjectName() + "'"));
+        assertQueryReturnsEmptyResult(session, listMaterializedViewsSql("name = '" + renamedMaterializedView + "'"));
+    }
+
+    private void assertTestingMaterializedViewQuery(String schema, String materializedViewName)
+    {
+        assertThat(query("SELECT * FROM " + schema + "." + materializedViewName))
+                .skippingTypesCheck()
+                .matches("SELECT * FROM nation");
     }
 
     private void createTestingMaterializedView(QualifiedObjectName view, Optional<String> comment)
