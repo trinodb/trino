@@ -143,6 +143,7 @@ public final class SystemSessionProperties
     public static final String MAX_UNACKNOWLEDGED_SPLITS_PER_TASK = "max_unacknowledged_splits_per_task";
     public static final String MERGE_PROJECT_WITH_VALUES = "merge_project_with_values";
     public static final String TIME_ZONE_ID = "time_zone_id";
+    public static final String LEGACY_CATALOG_ROLES = "legacy_catalog_roles";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -660,6 +661,11 @@ public final class SystemSessionProperties
                                 getTimeZoneKey(value);
                             }
                         },
+                        true),
+                booleanProperty(
+                        LEGACY_CATALOG_ROLES,
+                        "Enable legacy role management syntax that assumed all roles are catalog scoped",
+                        featuresConfig.isLegacyCatalogRoles(),
                         true));
     }
 
@@ -1172,5 +1178,10 @@ public final class SystemSessionProperties
     public static Optional<String> getTimeZoneId(Session session)
     {
         return Optional.ofNullable(session.getSystemProperty(TIME_ZONE_ID, String.class));
+    }
+
+    public static boolean isLegacyCatalogRoles(Session session)
+    {
+        return session.getSystemProperty(LEGACY_CATALOG_ROLES, Boolean.class);
     }
 }

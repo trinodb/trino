@@ -22,13 +22,10 @@ import io.trino.security.SecurityContext;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.SelectedRole;
 import io.trino.spi.security.TrinoPrincipal;
-import io.trino.sql.analyzer.FeaturesConfig;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.SetRole;
 import io.trino.transaction.TransactionManager;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;
@@ -45,14 +42,6 @@ import static java.util.Locale.ENGLISH;
 public class SetRoleTask
         implements DataDefinitionTask<SetRole>
 {
-    private final boolean legacyCatalogRoles;
-
-    @Inject
-    public SetRoleTask(FeaturesConfig featuresConfig)
-    {
-        legacyCatalogRoles = featuresConfig.isLegacyCatalogRoles();
-    }
-
     @Override
     public String getName()
     {
@@ -70,7 +59,7 @@ public class SetRoleTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
-        Optional<String> catalog = processRoleCommandCatalog(metadata, session, statement, statement.getCatalog().map(Identifier::getValue), legacyCatalogRoles);
+        Optional<String> catalog = processRoleCommandCatalog(metadata, session, statement, statement.getCatalog().map(Identifier::getValue));
         if (statement.getType() == SetRole.Type.ROLE) {
             String role = statement.getRole().map(c -> c.getValue().toLowerCase(ENGLISH)).orElseThrow();
             if (!metadata.roleExists(session, role, catalog)) {
