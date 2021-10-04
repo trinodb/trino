@@ -255,13 +255,12 @@ public class EqualityInference
     }
 
     /**
-     * Provides a convenience Iterable of Expression conjuncts which have not been added to the inference
+     * Provides a convenience Stream of Expression conjuncts which have not been added to the inference
      */
-    public static List<Expression> nonInferrableConjuncts(Metadata metadata, Expression expression)
+    public static Stream<Expression> nonInferrableConjuncts(Metadata metadata, Expression expression)
     {
         return extractConjuncts(expression).stream()
-                .filter(e -> !isInferenceCandidate(metadata, e))
-                .collect(Collectors.toList());
+                .filter(e -> !isInferenceCandidate(metadata, e));
     }
 
     private Expression rewrite(Expression expression, Predicate<Symbol> symbolScope, boolean allowFullReplacement)
