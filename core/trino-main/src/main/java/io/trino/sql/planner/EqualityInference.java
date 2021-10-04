@@ -125,23 +125,21 @@ public class EqualityInference
             Set<Expression> scopeStraddlingExpressions = new LinkedHashSet<>();
 
             // Try to push each non-derived expression into one side of the scope
-            List<Expression> candidates = equalitySet.stream()
+            equalitySet.stream()
                     .filter(candidate -> !derivedExpressions.contains(candidate))
-                    .collect(Collectors.toList());
-
-            for (Expression candidate : candidates) {
-                Expression scopeRewritten = rewrite(candidate, scope::contains, false);
-                if (scopeRewritten != null) {
-                    scopeExpressions.add(scopeRewritten);
-                }
-                Expression scopeComplementRewritten = rewrite(candidate, expression -> !scope.contains(expression), false);
-                if (scopeComplementRewritten != null) {
-                    scopeComplementExpressions.add(scopeComplementRewritten);
-                }
-                if (scopeRewritten == null && scopeComplementRewritten == null) {
-                    scopeStraddlingExpressions.add(candidate);
-                }
-            }
+                    .forEach(candidate -> {
+                        Expression scopeRewritten = rewrite(candidate, scope::contains, false);
+                        if (scopeRewritten != null) {
+                            scopeExpressions.add(scopeRewritten);
+                        }
+                        Expression scopeComplementRewritten = rewrite(candidate, expression -> !scope.contains(expression), false);
+                        if (scopeComplementRewritten != null) {
+                            scopeComplementExpressions.add(scopeComplementRewritten);
+                        }
+                        if (scopeRewritten == null && scopeComplementRewritten == null) {
+                            scopeStraddlingExpressions.add(candidate);
+                        }
+                    });
             // Compile the equality expressions on each side of the scope
             Expression matchingCanonical = getCanonical(scopeExpressions);
             if (scopeExpressions.size() >= 2) {
@@ -203,18 +201,16 @@ public class EqualityInference
     public static EqualityInference newInstance(Metadata metadata, Collection<Expression> expressions)
     {
         DisjointSet<Expression> equalities = new DisjointSet<>();
-        List<Expression> candidates = expressions.stream()
+        expressions.stream()
                 .flatMap(expression -> extractConjuncts(expression).stream())
                 .filter(expression -> isInferenceCandidate(metadata, expression))
-                .collect(Collectors.toList());
+                .forEach(expression -> {
+                    ComparisonExpression comparison = (ComparisonExpression) expression;
+                    Expression expression1 = comparison.getLeft();
+                    Expression expression2 = comparison.getRight();
 
-        for (Expression expression : candidates) {
-            ComparisonExpression comparison = (ComparisonExpression) expression;
-            Expression expression1 = comparison.getLeft();
-            Expression expression2 = comparison.getRight();
-
-            equalities.findAndUnion(expression1, expression2);
-        }
+                    equalities.findAndUnion(expression1, expression2);
+                });
 
         Collection<Set<Expression>> equivalentClasses = equalities.getEquivalentClasses();
 
@@ -232,21 +228,18 @@ public class EqualityInference
                 continue;
             }
 
-            List<Expression> subExpressions = SubExpressionExtractor.extract(expression).stream()
+            SubExpressionExtractor.extract(expression)
                     .filter(e -> !e.equals(expression))
-                    .collect(Collectors.toList());
-
-            for (Expression subExpression : subExpressions) {
-                Set<Expression> equivalences = byExpression.getOrDefault(subExpression, ImmutableSet.of()).stream()
-                        .filter(e -> !e.equals(subExpression))
-                        .collect(Collectors.toSet());
-
-                for (Expression equivalentSubExpression : equivalences) {
-                    Expression rewritten = replaceExpression(expression, ImmutableMap.of(subExpression, equivalentSubExpression));
-                    equalities.findAndUnion(expression, rewritten);
-                    derivedExpressions.add(rewritten);
-                }
-            }
+                    .forEach(subExpression -> {
+                        byExpression.getOrDefault(subExpression, ImmutableSet.of())
+                                .stream()
+                                .filter(e -> !e.equals(subExpression))
+                                .forEach(equivalentSubExpression -> {
+                                    Expression rewritten = replaceExpression(expression, ImmutableMap.of(subExpression, equivalentSubExpression));
+                                    equalities.findAndUnion(expression, rewritten);
+                                    derivedExpressions.add(rewritten);
+                                });
+                    });
         }
 
         Multimap<Expression, Expression> equalitySets = makeEqualitySets(equalities);
@@ -273,25 +266,22 @@ public class EqualityInference
 
     private Expression rewrite(Expression expression, Predicate<Symbol> symbolScope, boolean allowFullReplacement)
     {
-        Set<Expression> subExpressions = SubExpressionExtractor.extract(expression);
-        if (!allowFullReplacement) {
-            subExpressions = subExpressions.stream()
-                    .filter(e -> !e.equals(expression))
-                    .collect(Collectors.toSet());
-        }
-
-        ImmutableMap.Builder<Expression, Expression> expressionRemap = ImmutableMap.builder();
-        for (Expression subExpression : subExpressions) {
-            Expression canonical = getScopedCanonical(subExpression, symbolScope);
-            if (canonical != null) {
-                expressionRemap.put(subExpression, canonical);
-            }
-        }
+        Map<Expression, Expression> expressionRemap = new HashMap<>();
+        SubExpressionExtractor.extract(expression)
+                .filter(allowFullReplacement
+                        ? subExpression -> true
+                        : subExpression -> !subExpression.equals(expression))
+                .forEach(subExpression -> {
+                    Expression canonical = getScopedCanonical(subExpression, symbolScope);
+                    if (canonical != null) {
+                        expressionRemap.putIfAbsent(subExpression, canonical);
+                    }
+                });
 
         // Perform a naive single-pass traversal to try to rewrite non-compliant portions of the tree. Prefers to replace
         // larger subtrees over smaller subtrees
         // TODO: this rewrite can probably be made more sophisticated
-        Expression rewritten = replaceExpression(expression, expressionRemap.build());
+        Expression rewritten = replaceExpression(expression, expressionRemap);
         if (!isScoped(rewritten, symbolScope)) {
             // If the rewritten is still not compliant with the symbol scope, just give up
             return null;
