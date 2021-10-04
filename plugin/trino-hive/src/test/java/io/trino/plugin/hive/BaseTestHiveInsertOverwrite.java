@@ -42,7 +42,7 @@ public abstract class BaseTestHiveInsertOverwrite
 
     private final String hiveHadoopImage;
 
-    private static Logger log;
+    private Logger log;
 
     public BaseTestHiveInsertOverwrite(String hiveHadoopImage)
     {
