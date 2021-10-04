@@ -14,6 +14,7 @@
 package io.trino.plugin.hive;
 
 import io.trino.plugin.hive.containers.HiveHadoop;
+import org.testng.annotations.Test;
 
 public class TestHive2InsertOverwrite
         extends BaseTestHiveInsertOverwrite
@@ -21,5 +22,11 @@ public class TestHive2InsertOverwrite
     public TestHive2InsertOverwrite()
     {
         super(HiveHadoop.DEFAULT_IMAGE);
+    }
+
+    @Test
+    public void forceTestNgToThreadItAsSeparateThread()
+    {
+        System.out.println("Empty Test");
     }
 }
