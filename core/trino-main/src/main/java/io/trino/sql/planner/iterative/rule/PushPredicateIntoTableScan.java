@@ -345,6 +345,7 @@ public class PushPredicateIntoTableScan
         // Make sure we produce an expression whose terms are consistent with the canonical form used in other optimizations
         // Otherwise, we'll end up ping-ponging among rules
         expression = SimplifyExpressions.rewrite(expression, session, symbolAllocator, metadata, new LiteralEncoder(metadata), typeAnalyzer);
+        expression = ReorderLogicalExpressionTerms.rewrite(expression, session, symbolAllocator, metadata, typeAnalyzer);
 
         return expression;
     }
