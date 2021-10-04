@@ -65,7 +65,7 @@ jobs:
             **/target/checkstyle-*
       - name: Annotate with TestNG Report
         uses: ScaCap/action-surefire-report@v1.0.13
-        if: always() && steps.job-should-run.outputs.run-job
+        if: always()
         with:
           fail_if_empty: false
           update_existing_check: false
