@@ -59,7 +59,7 @@ The materialized views table contains the following information about all
 :ref:`materialized views <sql-materialized-views-management>`:
 
 .. list-table:: Metadata for materialized views
-  :widths: 50, 50
+  :widths: 30, 70
   :header-rows: 1
 
   * - Column
