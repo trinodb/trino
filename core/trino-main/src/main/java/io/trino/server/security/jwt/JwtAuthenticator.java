@@ -34,7 +34,7 @@ public class JwtAuthenticator
     @Inject
     public JwtAuthenticator(JwtAuthenticatorConfig config, SigningKeyResolver signingKeyResolver)
     {
-        super(config.getPrincipalField(), createUserMapping(config.getUserMappingPattern(), config.getUserMappingFile()));
+        super(config.getPrincipalField(), config.getGroupsField(), createUserMapping(config.getUserMappingPattern(), config.getUserMappingFile()));
 
         JwtParser jwtParser = Jwts.parser()
                 .setSigningKeyResolver(signingKeyResolver);
@@ -45,6 +45,7 @@ public class JwtAuthenticator
         if (config.getRequiredAudience() != null) {
             jwtParser.requireAudience(config.getRequiredAudience());
         }
+
         this.jwtParser = jwtParser;
     }
 

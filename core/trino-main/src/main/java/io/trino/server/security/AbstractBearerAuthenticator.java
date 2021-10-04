@@ -34,10 +34,17 @@ public abstract class AbstractBearerAuthenticator
         implements Authenticator
 {
     private final String principalField;
+    private final String groupField;
     private final UserMapping userMapping;
 
     protected AbstractBearerAuthenticator(String principalField, UserMapping userMapping)
     {
+        this(principalField, "", userMapping);
+    }
+
+    protected AbstractBearerAuthenticator(String principalField, String groupField, UserMapping userMapping)
+    {
+        this.groupField = requireNonNull(groupField, "groupField is null");
         this.principalField = requireNonNull(principalField, "principalField is null");
         this.userMapping = requireNonNull(userMapping, "userMapping is null");
     }
@@ -49,13 +56,14 @@ public abstract class AbstractBearerAuthenticator
         return authenticate(request, extractToken(request));
     }
 
+    @SuppressWarnings("unchecked")
     public Identity authenticate(ContainerRequestContext request, String token)
             throws AuthenticationException
     {
         try {
             Jws<Claims> claimsJws = parseClaimsJws(token);
             String principal = claimsJws.getBody().get(principalField, String.class);
-            Set groups = Set.copyOf(Optional.of(claimsJws.getBody()).map(v -> v.get("groups", List.class)).orElse(Collections.emptyList()));
+            Set<String> groups = Set.copyOf(Optional.of(claimsJws.getBody()).map(v -> v.get(groupField, List.class)).orElse(Collections.emptyList()));
             if (principal == null) {
                 throw needAuthentication(request, "Invalid credentials");
             }

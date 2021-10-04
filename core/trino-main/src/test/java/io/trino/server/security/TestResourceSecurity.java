@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
 import com.google.common.io.Resources;
 import com.google.inject.Key;
 import io.airlift.http.server.HttpServerConfig;
@@ -65,6 +66,7 @@ import java.nio.file.Paths;
 import java.security.Principal;
 import java.security.PrivateKey;
 import java.time.ZonedDateTime;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
@@ -444,11 +446,11 @@ public class TestResourceSecurity
     public void testJwtAuthenticator()
             throws Exception
     {
-        verifyJwtAuthenticator(Optional.empty());
-        verifyJwtAuthenticator(Optional.of("custom-principal"));
+        verifyJwtAuthenticator(Optional.empty(), Optional.empty());
+        verifyJwtAuthenticator(Optional.of("custom-principal"), Optional.empty());
     }
 
-    private void verifyJwtAuthenticator(Optional<String> principalField)
+    private void verifyJwtAuthenticator(Optional<String> principalField, Optional<String> groupField)
             throws Exception
     {
         try (TestingTrinoServer server = TestingTrinoServer.builder()
@@ -474,6 +476,8 @@ public class TestResourceSecurity
             else {
                 tokenBuilder.setSubject("test-user");
             }
+
+            tokenBuilder.claim(groupField.orElse("groups"), Lists.newArrayList("test-group-1", "test-group-2"));
             String token = tokenBuilder.compact();
 
             OkHttpClient clientWithJwt = client.newBuilder()
