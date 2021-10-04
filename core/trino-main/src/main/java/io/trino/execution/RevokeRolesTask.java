@@ -20,13 +20,10 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.MetadataUtil;
 import io.trino.security.AccessControl;
 import io.trino.spi.security.TrinoPrincipal;
-import io.trino.sql.analyzer.FeaturesConfig;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.RevokeRoles;
 import io.trino.transaction.TransactionManager;
-
-import javax.inject.Inject;
 
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -44,14 +41,6 @@ import static io.trino.spi.security.PrincipalType.ROLE;
 public class RevokeRolesTask
         implements DataDefinitionTask<RevokeRoles>
 {
-    private final boolean legacyCatalogRoles;
-
-    @Inject
-    public RevokeRolesTask(FeaturesConfig featuresConfig)
-    {
-        legacyCatalogRoles = featuresConfig.isLegacyCatalogRoles();
-    }
-
     @Override
     public String getName()
     {
@@ -76,7 +65,7 @@ public class RevokeRolesTask
                 .collect(toImmutableSet());
         boolean adminOption = statement.isAdminOption();
         Optional<TrinoPrincipal> grantor = statement.getGrantor().map(specification -> createPrincipal(session, specification));
-        Optional<String> catalog = processRoleCommandCatalog(metadata, session, statement, statement.getCatalog().map(Identifier::getValue), legacyCatalogRoles);
+        Optional<String> catalog = processRoleCommandCatalog(metadata, session, statement, statement.getCatalog().map(Identifier::getValue));
 
         Set<String> specifiedRoles = new LinkedHashSet<>();
         specifiedRoles.addAll(roles);
