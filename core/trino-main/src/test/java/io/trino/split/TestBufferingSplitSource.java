@@ -71,7 +71,7 @@ public class TestBufferingSplitSource
                     .assertSize(11)
                     .assertNoMoreSplits(true);
             assertTrue(source.isFinished());
-            assertEquals(mockSource.getNextBatchInvocationCount(), 2);
+            assertEquals(mockSource.getNextBatchInvocationCount(), 20);
         }
     }
 
