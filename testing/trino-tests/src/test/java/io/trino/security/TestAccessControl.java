@@ -413,6 +413,22 @@ public class TestAccessControl
     }
 
     @Test
+    public void testShowRolesWithLegacyCatalogRoles()
+    {
+        Session session = testSessionBuilder()
+                .setCatalog("mock")
+                .setIdentity(Identity.forUser("alice")
+                        .withConnectorRoles(ImmutableMap.of("mock", new SelectedRole(ROLE, Optional.of("alice_role"))))
+                        .build())
+                .setSystemProperty("legacy_catalog_roles", "true")
+                .build();
+        assertQuery(session, "SHOW ROLES", "VALUES 'alice_role'");
+        assertQuery(session, "SHOW ROLE GRANTS", "VALUES 'alice_role'");
+        assertQuery(session, "SHOW CURRENT ROLES", "VALUES 'alice_role'");
+        assertQuery(session, "SELECT * FROM mock.information_schema.applicable_roles", "SELECT 'alice', 'USER', 'alice_role', 'NO'");
+    }
+
+    @Test
     public void testEmptyRoles()
     {
         assertQueryReturnsEmptyResult("SHOW ROLES");
