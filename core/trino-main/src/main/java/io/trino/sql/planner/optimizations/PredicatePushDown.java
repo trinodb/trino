@@ -75,6 +75,7 @@ import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -904,7 +905,7 @@ public class PredicatePushDown
             postJoinConjuncts.addAll(equalityPartition.getScopeStraddlingEqualities());
 
             // See if we can push inherited predicates down
-            for (Expression conjunct : EqualityInference.nonInferrableConjuncts(metadata, inheritedPredicate)) {
+            EqualityInference.nonInferrableConjuncts(metadata, inheritedPredicate).forEach(conjunct -> {
                 Expression outerRewritten = outerInference.rewrite(conjunct, outerScope);
                 if (outerRewritten != null) {
                     outerPushdownConjuncts.add(outerRewritten);
@@ -918,18 +919,16 @@ public class PredicatePushDown
                 else {
                     postJoinConjuncts.add(conjunct);
                 }
-            }
+            });
 
             // See if we can push down any outer effective predicates to the inner side
-            for (Expression conjunct : EqualityInference.nonInferrableConjuncts(metadata, outerEffectivePredicate)) {
-                Expression rewritten = potentialNullSymbolInference.rewrite(conjunct, innerScope);
-                if (rewritten != null) {
-                    innerPushdownConjuncts.add(rewritten);
-                }
-            }
+            EqualityInference.nonInferrableConjuncts(metadata, outerEffectivePredicate)
+                    .map(conjunct -> potentialNullSymbolInference.rewrite(conjunct, innerScope))
+                    .filter(Objects::nonNull)
+                    .forEach(innerPushdownConjuncts::add);
 
             // See if we can push down join predicates to the inner side
-            for (Expression conjunct : EqualityInference.nonInferrableConjuncts(metadata, joinPredicate)) {
+            EqualityInference.nonInferrableConjuncts(metadata, joinPredicate).forEach(conjunct -> {
                 Expression innerRewritten = potentialNullSymbolInference.rewrite(conjunct, innerScope);
                 if (innerRewritten != null) {
                     innerPushdownConjuncts.add(innerRewritten);
@@ -937,7 +936,7 @@ public class PredicatePushDown
                 else {
                     joinConjuncts.add(conjunct);
                 }
-            }
+            });
 
             return new OuterJoinPushDownResult(combineConjuncts(metadata, outerPushdownConjuncts.build()),
                     combineConjuncts(metadata, innerPushdownConjuncts.build()),
@@ -1034,7 +1033,7 @@ public class PredicatePushDown
             joinConjuncts.addAll(allInference.generateEqualitiesPartitionedBy(leftScope).getScopeStraddlingEqualities()); // scope straddling equalities get dropped in as part of the join predicate
 
             // Sort through conjuncts in inheritedPredicate that were not used for inference
-            for (Expression conjunct : EqualityInference.nonInferrableConjuncts(metadata, inheritedPredicate)) {
+            EqualityInference.nonInferrableConjuncts(metadata, inheritedPredicate).forEach(conjunct -> {
                 Expression leftRewrittenConjunct = allInference.rewrite(conjunct, leftScope);
                 if (leftRewrittenConjunct != null) {
                     leftPushDownConjuncts.add(leftRewrittenConjunct);
@@ -1049,26 +1048,22 @@ public class PredicatePushDown
                 if (leftRewrittenConjunct == null && rightRewrittenConjunct == null) {
                     joinConjuncts.add(conjunct);
                 }
-            }
+            });
 
             // See if we can push the right effective predicate to the left side
-            for (Expression conjunct : EqualityInference.nonInferrableConjuncts(metadata, simplifiedRightEffectivePredicate)) {
-                Expression rewritten = allInference.rewrite(conjunct, leftScope);
-                if (rewritten != null) {
-                    leftPushDownConjuncts.add(rewritten);
-                }
-            }
+            EqualityInference.nonInferrableConjuncts(metadata, simplifiedRightEffectivePredicate)
+                    .map(conjunct -> allInference.rewrite(conjunct, leftScope))
+                    .filter(Objects::nonNull)
+                    .forEach(leftPushDownConjuncts::add);
 
             // See if we can push the left effective predicate to the right side
-            for (Expression conjunct : EqualityInference.nonInferrableConjuncts(metadata, simplifiedLeftEffectivePredicate)) {
-                Expression rewritten = allInference.rewrite(conjunct, rightScope);
-                if (rewritten != null) {
-                    rightPushDownConjuncts.add(rewritten);
-                }
-            }
+            EqualityInference.nonInferrableConjuncts(metadata, simplifiedLeftEffectivePredicate)
+                    .map(conjunct -> allInference.rewrite(conjunct, rightScope))
+                    .filter(Objects::nonNull)
+                    .forEach(rightPushDownConjuncts::add);
 
             // See if we can push any parts of the join predicates to either side
-            for (Expression conjunct : EqualityInference.nonInferrableConjuncts(metadata, joinPredicate)) {
+            EqualityInference.nonInferrableConjuncts(metadata, joinPredicate).forEach(conjunct -> {
                 Expression leftRewritten = allInference.rewrite(conjunct, leftScope);
                 if (leftRewritten != null) {
                     leftPushDownConjuncts.add(leftRewritten);
@@ -1082,7 +1077,7 @@ public class PredicatePushDown
                 if (leftRewritten == null && rightRewritten == null) {
                     joinConjuncts.add(conjunct);
                 }
-            }
+            });
 
             return new InnerJoinPushDownResult(
                     combineConjuncts(metadata, leftPushDownConjuncts.build()),
@@ -1328,7 +1323,7 @@ public class PredicatePushDown
             // Push inheritedPredicates down to the source if they don't involve the semi join output
             ImmutableSet<Symbol> sourceScope = ImmutableSet.copyOf(node.getSource().getOutputSymbols());
             EqualityInference inheritedInference = EqualityInference.newInstance(metadata, inheritedPredicate);
-            for (Expression conjunct : EqualityInference.nonInferrableConjuncts(metadata, inheritedPredicate)) {
+            EqualityInference.nonInferrableConjuncts(metadata, inheritedPredicate).forEach(conjunct -> {
                 Expression rewrittenConjunct = inheritedInference.rewrite(conjunct, sourceScope);
                 // Since each source row is reflected exactly once in the output, ok to push non-deterministic predicates down
                 if (rewrittenConjunct != null) {
@@ -1337,7 +1332,7 @@ public class PredicatePushDown
                 else {
                     postJoinConjuncts.add(conjunct);
                 }
-            }
+            });
 
             // Add the inherited equality predicates back in
             EqualityInference.EqualityPartition equalityPartition = inheritedInference.generateEqualitiesPartitionedBy(sourceScope);
@@ -1392,7 +1387,7 @@ public class PredicatePushDown
 
             // Push inheritedPredicates down to the source if they don't involve the semi join output
             Set<Symbol> sourceScope = ImmutableSet.copyOf(sourceSymbols);
-            for (Expression conjunct : EqualityInference.nonInferrableConjuncts(metadata, inheritedPredicate)) {
+            EqualityInference.nonInferrableConjuncts(metadata, inheritedPredicate).forEach(conjunct -> {
                 Expression rewrittenConjunct = allInference.rewrite(conjunct, sourceScope);
                 // Since each source row is reflected exactly once in the output, ok to push non-deterministic predicates down
                 if (rewrittenConjunct != null) {
@@ -1401,35 +1396,31 @@ public class PredicatePushDown
                 else {
                     postJoinConjuncts.add(conjunct);
                 }
-            }
+            });
 
             // Push inheritedPredicates down to the filtering source if possible
             Set<Symbol> filterScope = ImmutableSet.copyOf(filteringSourceSymbols);
-            for (Expression conjunct : EqualityInference.nonInferrableConjuncts(metadata, deterministicInheritedPredicate)) {
+            EqualityInference.nonInferrableConjuncts(metadata, deterministicInheritedPredicate).forEach(conjunct -> {
                 Expression rewrittenConjunct = allInference.rewrite(conjunct, filterScope);
                 // We cannot push non-deterministic predicates to filtering side. Each filtering side row have to be
                 // logically reevaluated for each source row.
                 if (rewrittenConjunct != null) {
                     filteringSourceConjuncts.add(rewrittenConjunct);
                 }
-            }
+            });
 
             // move effective predicate conjuncts source <-> filter
             // See if we can push the filtering source effective predicate to the source side
-            for (Expression conjunct : EqualityInference.nonInferrableConjuncts(metadata, filteringSourceEffectivePredicate)) {
-                Expression rewritten = allInference.rewrite(conjunct, sourceScope);
-                if (rewritten != null) {
-                    sourceConjuncts.add(rewritten);
-                }
-            }
+            EqualityInference.nonInferrableConjuncts(metadata, filteringSourceEffectivePredicate)
+                    .map(conjunct -> allInference.rewrite(conjunct, sourceScope))
+                    .filter(Objects::nonNull)
+                    .forEach(sourceConjuncts::add);
 
             // See if we can push the source effective predicate to the filtering soruce side
-            for (Expression conjunct : EqualityInference.nonInferrableConjuncts(metadata, sourceEffectivePredicate)) {
-                Expression rewritten = allInference.rewrite(conjunct, filterScope);
-                if (rewritten != null) {
-                    filteringSourceConjuncts.add(rewritten);
-                }
-            }
+            EqualityInference.nonInferrableConjuncts(metadata, sourceEffectivePredicate)
+                    .map(conjunct -> allInference.rewrite(conjunct, filterScope))
+                    .filter(Objects::nonNull)
+                    .forEach(filteringSourceConjuncts::add);
 
             // Add equalities from the inference back in
             sourceConjuncts.addAll(allInferenceWithoutSourceInferred.generateEqualitiesPartitionedBy(sourceScope).getScopeEqualities());
@@ -1495,24 +1486,24 @@ public class PredicatePushDown
 
             // Sort non-equality predicates by those that can be pushed down and those that cannot
             Set<Symbol> groupingKeys = ImmutableSet.copyOf(node.getGroupingKeys());
-            for (Expression conjunct : EqualityInference.nonInferrableConjuncts(metadata, inheritedPredicate)) {
+            EqualityInference.nonInferrableConjuncts(metadata, inheritedPredicate).forEach(conjunct -> {
                 if (node.getGroupIdSymbol().isPresent() && extractUnique(conjunct).contains(node.getGroupIdSymbol().get())) {
                     // aggregation operator synthesizes outputs for group ids corresponding to the global grouping set (i.e., ()), so we
                     // need to preserve any predicates that evaluate the group id to run after the aggregation
                     // TODO: we should be able to infer if conditions on grouping() correspond to global grouping sets to determine whether
                     // we need to do this for each specific case
                     postAggregationConjuncts.add(conjunct);
-                    continue;
-                }
-
-                Expression rewrittenConjunct = equalityInference.rewrite(conjunct, groupingKeys);
-                if (rewrittenConjunct != null) {
-                    pushdownConjuncts.add(rewrittenConjunct);
                 }
                 else {
-                    postAggregationConjuncts.add(conjunct);
+                    Expression rewrittenConjunct = equalityInference.rewrite(conjunct, groupingKeys);
+                    if (rewrittenConjunct != null) {
+                        pushdownConjuncts.add(rewrittenConjunct);
+                    }
+                    else {
+                        postAggregationConjuncts.add(conjunct);
+                    }
                 }
-            }
+            });
 
             // Add the equality predicates back in
             EqualityInference.EqualityPartition equalityPartition = equalityInference.generateEqualitiesPartitionedBy(groupingKeys);
@@ -1561,7 +1552,7 @@ public class PredicatePushDown
 
             // Sort non-equality predicates by those that can be pushed down and those that cannot
             Set<Symbol> replicatedSymbols = ImmutableSet.copyOf(node.getReplicateSymbols());
-            for (Expression conjunct : EqualityInference.nonInferrableConjuncts(metadata, inheritedPredicate)) {
+            EqualityInference.nonInferrableConjuncts(metadata, inheritedPredicate).forEach(conjunct -> {
                 Expression rewrittenConjunct = equalityInference.rewrite(conjunct, replicatedSymbols);
                 if (rewrittenConjunct != null) {
                     pushdownConjuncts.add(rewrittenConjunct);
@@ -1569,7 +1560,7 @@ public class PredicatePushDown
                 else {
                     postUnnestConjuncts.add(conjunct);
                 }
-            }
+            });
 
             // Add the equality predicates back in
             EqualityInference.EqualityPartition equalityPartition = equalityInference.generateEqualitiesPartitionedBy(replicatedSymbols);
