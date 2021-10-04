@@ -53,6 +53,7 @@ public class Analyzer
     private final Map<NodeRef<Parameter>, Expression> parameterLookup;
     private final WarningCollector warningCollector;
     private final StatsCalculator statsCalculator;
+    private final boolean legacyCatalogRoles;
 
     public Analyzer(
             Session session,
@@ -64,7 +65,8 @@ public class Analyzer
             List<Expression> parameters,
             Map<NodeRef<Parameter>, Expression> parameterLookup,
             WarningCollector warningCollector,
-            StatsCalculator statsCalculator)
+            StatsCalculator statsCalculator,
+            boolean legacyCatalogRoles)
     {
         this.session = requireNonNull(session, "session is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
@@ -76,6 +78,7 @@ public class Analyzer
         this.parameterLookup = parameterLookup;
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
+        this.legacyCatalogRoles = legacyCatalogRoles;
     }
 
     public Analysis analyze(Statement statement)
@@ -85,7 +88,7 @@ public class Analyzer
 
     public Analysis analyze(Statement statement, boolean isDescribe)
     {
-        Statement rewrittenStatement = StatementRewrite.rewrite(session, metadata, sqlParser, queryExplainer, statement, parameters, parameterLookup, groupProvider, accessControl, warningCollector, statsCalculator);
+        Statement rewrittenStatement = StatementRewrite.rewrite(session, metadata, sqlParser, queryExplainer, statement, parameters, parameterLookup, groupProvider, accessControl, warningCollector, statsCalculator, legacyCatalogRoles);
         Analysis analysis = new Analysis(rewrittenStatement, parameterLookup, isDescribe);
         StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, groupProvider, accessControl, session, warningCollector, CorrelationSupport.ALLOWED);
         analyzer.analyze(rewrittenStatement, Optional.empty());

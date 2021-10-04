@@ -445,7 +445,7 @@ public class LocalQueryRunner
 
         dataDefinitionTask = ImmutableMap.<Class<? extends Statement>, DataDefinitionTask<?>>builder()
                 .put(CreateTable.class, new CreateTableTask())
-                .put(CreateView.class, new CreateViewTask(sqlParser, groupProvider, statsCalculator))
+                .put(CreateView.class, new CreateViewTask(sqlParser, groupProvider, statsCalculator, featuresConfig))
                 .put(DropTable.class, new DropTableTask())
                 .put(DropView.class, new DropViewTask())
                 .put(RenameColumn.class, new RenameColumnTask())
@@ -460,7 +460,7 @@ public class LocalQueryRunner
                 .put(Commit.class, new CommitTask())
                 .put(Rollback.class, new RollbackTask())
                 .put(SetPath.class, new SetPathTask())
-                .put(SetTimeZone.class, new SetTimeZoneTask(sqlParser, groupProvider, statsCalculator))
+                .put(SetTimeZone.class, new SetTimeZoneTask(sqlParser, groupProvider, statsCalculator, featuresConfig))
                 .build();
 
         SpillerStats spillerStats = new SpillerStats();
@@ -952,8 +952,9 @@ public class LocalQueryRunner
                 sqlParser,
                 statsCalculator,
                 costCalculator,
-                dataDefinitionTask);
-        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, groupProvider, accessControl, Optional.of(queryExplainer), preparedQuery.getParameters(), parameterExtractor(preparedQuery.getStatement(), preparedQuery.getParameters()), warningCollector, statsCalculator);
+                dataDefinitionTask,
+                featuresConfig);
+        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, groupProvider, accessControl, Optional.of(queryExplainer), preparedQuery.getParameters(), parameterExtractor(preparedQuery.getStatement(), preparedQuery.getParameters()), warningCollector, statsCalculator, featuresConfig.isLegacyCatalogRoles());
 
         LogicalPlanner logicalPlanner = new LogicalPlanner(
                 session,

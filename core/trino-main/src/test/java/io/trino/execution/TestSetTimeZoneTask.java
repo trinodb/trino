@@ -18,6 +18,7 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.spi.TrinoException;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.type.TimeZoneNotSupportedException;
+import io.trino.sql.analyzer.FeaturesConfig;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.IntervalLiteral;
@@ -255,7 +256,7 @@ public class TestSetTimeZoneTask
 
     private void executeSetTimeZone(SetTimeZone setTimeZone, QueryStateMachine stateMachine)
     {
-        getFutureValue(new SetTimeZoneTask(localQueryRunner.getSqlParser(), localQueryRunner.getGroupProvider(), localQueryRunner.getStatsCalculator())
+        getFutureValue(new SetTimeZoneTask(localQueryRunner.getSqlParser(), localQueryRunner.getGroupProvider(), localQueryRunner.getStatsCalculator(), new FeaturesConfig())
                 .execute(
                         setTimeZone,
                         localQueryRunner.getTransactionManager(),

@@ -5266,7 +5266,8 @@ public class TestAnalyzer
                 emptyList(),
                 emptyMap(),
                 WarningCollector.NOOP,
-                noopStatsCalculator());
+                noopStatsCalculator(),
+                new FeaturesConfig().isLegacyCatalogRoles());
     }
 
     private Analysis analyze(@Language("SQL") String query)

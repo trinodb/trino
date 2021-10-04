@@ -55,10 +55,12 @@ public final class StatementRewrite
             GroupProvider groupProvider,
             AccessControl accessControl,
             WarningCollector warningCollector,
-            StatsCalculator statsCalculator)
+            StatsCalculator statsCalculator,
+            boolean legacyCatalogRoles)
     {
         for (Rewrite rewrite : REWRITES) {
-            node = requireNonNull(rewrite.rewrite(session, metadata, parser, queryExplainer, node, parameters, parameterLookup, groupProvider, accessControl, warningCollector, statsCalculator), "Statement rewrite returned null");
+            Statement rewritten = rewrite.rewrite(session, metadata, parser, queryExplainer, node, parameters, parameterLookup, groupProvider, accessControl, warningCollector, statsCalculator, legacyCatalogRoles);
+            node = requireNonNull(rewritten, "Statement rewrite returned null");
         }
         return node;
     }
@@ -76,6 +78,7 @@ public final class StatementRewrite
                 GroupProvider groupProvider,
                 AccessControl accessControl,
                 WarningCollector warningCollector,
-                StatsCalculator statsCalculator);
+                StatsCalculator statsCalculator,
+                boolean legacyCatalogRoles);
     }
 }

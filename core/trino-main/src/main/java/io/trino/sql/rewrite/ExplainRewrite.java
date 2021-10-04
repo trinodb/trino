@@ -62,7 +62,8 @@ final class ExplainRewrite
             GroupProvider groupProvider,
             AccessControl accessControl,
             WarningCollector warningCollector,
-            StatsCalculator statsCalculator)
+            StatsCalculator statsCalculator,
+            boolean legacyCatalogRoles)
     {
         return (Statement) new Visitor(session, parser, queryExplainer, warningCollector).process(node, null);
     }

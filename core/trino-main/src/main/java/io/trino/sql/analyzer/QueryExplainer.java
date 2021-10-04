@@ -64,6 +64,7 @@ public class QueryExplainer
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
     private final Map<Class<? extends Statement>, DataDefinitionTask<?>> dataDefinitionTask;
+    private final boolean legacyCatalogRoles;
 
     @Inject
     public QueryExplainer(
@@ -76,7 +77,8 @@ public class QueryExplainer
             SqlParser sqlParser,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
-            Map<Class<? extends Statement>, DataDefinitionTask<?>> dataDefinitionTask)
+            Map<Class<? extends Statement>, DataDefinitionTask<?>> dataDefinitionTask,
+            FeaturesConfig featuresConfig)
     {
         this(
                 planOptimizersFactory.get(),
@@ -88,7 +90,8 @@ public class QueryExplainer
                 sqlParser,
                 statsCalculator,
                 costCalculator,
-                dataDefinitionTask);
+                dataDefinitionTask,
+                featuresConfig);
     }
 
     public QueryExplainer(
@@ -101,7 +104,8 @@ public class QueryExplainer
             SqlParser sqlParser,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
-            Map<Class<? extends Statement>, DataDefinitionTask<?>> dataDefinitionTask)
+            Map<Class<? extends Statement>, DataDefinitionTask<?>> dataDefinitionTask,
+            FeaturesConfig featuresConfig)
     {
         this.planOptimizers = requireNonNull(planOptimizers, "planOptimizers is null");
         this.planFragmenter = requireNonNull(planFragmenter, "planFragmenter is null");
@@ -113,11 +117,12 @@ public class QueryExplainer
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
         this.dataDefinitionTask = ImmutableMap.copyOf(requireNonNull(dataDefinitionTask, "dataDefinitionTask is null"));
+        this.legacyCatalogRoles = requireNonNull(featuresConfig, "featuresConfig is null").isLegacyCatalogRoles();
     }
 
     public Analysis analyze(Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector)
     {
-        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, groupProvider, accessControl, Optional.of(this), parameters, parameterExtractor(statement, parameters), warningCollector, statsCalculator);
+        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, groupProvider, accessControl, Optional.of(this), parameters, parameterExtractor(statement, parameters), warningCollector, statsCalculator, legacyCatalogRoles);
         return analyzer.analyze(statement);
     }
 

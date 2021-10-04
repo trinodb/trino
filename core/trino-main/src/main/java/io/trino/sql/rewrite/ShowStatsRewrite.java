@@ -96,7 +96,8 @@ public class ShowStatsRewrite
             GroupProvider groupProvider,
             AccessControl accessControl,
             WarningCollector warningCollector,
-            StatsCalculator statsCalculator)
+            StatsCalculator statsCalculator,
+            boolean legacyCatalogRoles)
     {
         return (Statement) new Visitor(session, parameters, queryExplainer, warningCollector, statsCalculator).process(node, null);
     }

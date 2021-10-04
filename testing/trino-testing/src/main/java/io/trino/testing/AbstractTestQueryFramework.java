@@ -485,7 +485,8 @@ public abstract class AbstractTestQueryFramework
                 sqlParser,
                 queryRunner.getStatsCalculator(),
                 costCalculator,
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                featuresConfig);
     }
 
     protected static void skipTestUnless(boolean requirement)

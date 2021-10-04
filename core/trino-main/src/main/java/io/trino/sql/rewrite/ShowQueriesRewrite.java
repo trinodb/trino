@@ -104,6 +104,7 @@ import static io.trino.metadata.MetadataListing.listSchemas;
 import static io.trino.metadata.MetadataUtil.createCatalogSchemaName;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
+import static io.trino.metadata.MetadataUtil.processRoleCommandCatalog;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_MATERIALIZED_VIEW_PROPERTY;
@@ -164,9 +165,10 @@ final class ShowQueriesRewrite
             GroupProvider groupProvider,
             AccessControl accessControl,
             WarningCollector warningCollector,
-            StatsCalculator statsCalculator)
+            StatsCalculator statsCalculator,
+            boolean legacyCatalogRoles)
     {
-        return (Statement) new Visitor(metadata, parser, session, accessControl).process(node, null);
+        return (Statement) new Visitor(metadata, parser, session, accessControl, legacyCatalogRoles).process(node, null);
     }
 
     private static class Visitor
@@ -176,13 +178,15 @@ final class ShowQueriesRewrite
         private final Session session;
         private final SqlParser sqlParser;
         private final AccessControl accessControl;
+        private final boolean legacyCatalogRoles;
 
-        public Visitor(Metadata metadata, SqlParser sqlParser, Session session, AccessControl accessControl)
+        public Visitor(Metadata metadata, SqlParser sqlParser, Session session, AccessControl accessControl, boolean legacyCatalogRoles)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
             this.session = requireNonNull(session, "session is null");
             this.accessControl = requireNonNull(accessControl, "accessControl is null");
+            this.legacyCatalogRoles = legacyCatalogRoles;
         }
 
         @Override
@@ -291,7 +295,13 @@ final class ShowQueriesRewrite
         @Override
         protected Node visitShowRoles(ShowRoles node, Void context)
         {
-            Optional<String> catalog = node.getCatalog().map(c -> c.getValue().toLowerCase(ENGLISH));
+            Optional<String> catalog = processRoleCommandCatalog(
+                    metadata,
+                    session,
+                    node,
+                    node.getCatalog()
+                            .map(c -> c.getValue().toLowerCase(ENGLISH)),
+                    legacyCatalogRoles);
 
             if (node.isCurrent()) {
                 accessControl.checkCanShowCurrentRoles(session.toSecurityContext(), catalog);
@@ -314,7 +324,13 @@ final class ShowQueriesRewrite
         @Override
         protected Node visitShowRoleGrants(ShowRoleGrants node, Void context)
         {
-            Optional<String> catalog = node.getCatalog().map(c -> c.getValue().toLowerCase(ENGLISH));
+            Optional<String> catalog = processRoleCommandCatalog(
+                    metadata,
+                    session,
+                    node,
+                    node.getCatalog()
+                            .map(c -> c.getValue().toLowerCase(ENGLISH)),
+                    legacyCatalogRoles);
             TrinoPrincipal principal = new TrinoPrincipal(PrincipalType.USER, session.getUser());
 
             accessControl.checkCanShowRoleGrants(session.toSecurityContext(), catalog);

@@ -32,6 +32,7 @@ import io.trino.sql.analyzer.Analyzer;
 import io.trino.sql.analyzer.CorrelationSupport;
 import io.trino.sql.analyzer.ExpressionAnalysis;
 import io.trino.sql.analyzer.ExpressionAnalyzer;
+import io.trino.sql.analyzer.FeaturesConfig;
 import io.trino.sql.analyzer.RelationId;
 import io.trino.sql.analyzer.RelationType;
 import io.trino.sql.analyzer.Scope;
@@ -71,13 +72,15 @@ public class SetTimeZoneTask
     private final SqlParser sqlParser;
     private final GroupProvider groupProvider;
     private final StatsCalculator statsCalculator;
+    private final boolean legacyCatalogRoles;
 
     @Inject
-    public SetTimeZoneTask(SqlParser sqlParser, GroupProvider groupProvider, StatsCalculator statsCalculator)
+    public SetTimeZoneTask(SqlParser sqlParser, GroupProvider groupProvider, StatsCalculator statsCalculator, FeaturesConfig featuresConfig)
     {
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
+        this.legacyCatalogRoles = requireNonNull(featuresConfig, "featuresConfig is null").isLegacyCatalogRoles();
     }
 
     @Override
@@ -172,7 +175,8 @@ public class SetTimeZoneTask
                 parameters,
                 parameterExtractor(statement, parameters),
                 stateMachine.getWarningCollector(),
-                statsCalculator)
+                statsCalculator,
+                legacyCatalogRoles)
                 .analyze(statement);
     }
 

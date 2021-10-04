@@ -49,6 +49,7 @@ import io.trino.split.SplitManager;
 import io.trino.split.SplitSource;
 import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.Analyzer;
+import io.trino.sql.analyzer.FeaturesConfig;
 import io.trino.sql.analyzer.QueryExplainer;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.DistributedExecutionPlanner;
@@ -159,7 +160,8 @@ public class SqlQueryExecution
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
             DynamicFilterService dynamicFilterService,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            boolean legacyCatalogRoles)
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
             this.slug = requireNonNull(slug, "slug is null");
@@ -187,7 +189,7 @@ public class SqlQueryExecution
             this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
 
             // analyze query
-            this.analysis = analyze(preparedQuery, stateMachine, metadata, groupProvider, accessControl, sqlParser, queryExplainer, warningCollector);
+            this.analysis = analyze(preparedQuery, stateMachine, metadata, groupProvider, accessControl, sqlParser, queryExplainer, warningCollector, legacyCatalogRoles);
 
             stateMachine.addStateChangeListener(state -> {
                 if (!state.isDone()) {
@@ -248,7 +250,8 @@ public class SqlQueryExecution
             AccessControl accessControl,
             SqlParser sqlParser,
             QueryExplainer queryExplainer,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            boolean legacyCatalogRoles)
     {
         stateMachine.beginAnalysis();
 
@@ -263,7 +266,8 @@ public class SqlQueryExecution
                 preparedQuery.getParameters(),
                 parameterExtractor(preparedQuery.getStatement(), preparedQuery.getParameters()),
                 warningCollector,
-                statsCalculator);
+                statsCalculator,
+                legacyCatalogRoles);
         Analysis analysis;
         try {
             analysis = analyzer.analyze(preparedQuery.getStatement());
@@ -741,10 +745,12 @@ public class SqlQueryExecution
         private final StatsCalculator statsCalculator;
         private final CostCalculator costCalculator;
         private final DynamicFilterService dynamicFilterService;
+        private final boolean legacyCatalogRoles;
 
         @Inject
         SqlQueryExecutionFactory(
                 QueryManagerConfig config,
+                FeaturesConfig featuresConfig,
                 Metadata metadata,
                 TypeOperators typeOperators,
                 GroupProvider groupProvider,
@@ -790,6 +796,7 @@ public class SqlQueryExecution
             this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
             this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
             this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
+            this.legacyCatalogRoles = requireNonNull(featuresConfig, "featuresConfig is null").isLegacyCatalogRoles();
         }
 
         @Override
@@ -829,7 +836,8 @@ public class SqlQueryExecution
                     statsCalculator,
                     costCalculator,
                     dynamicFilterService,
-                    warningCollector);
+                    warningCollector,
+                    legacyCatalogRoles);
         }
     }
 }

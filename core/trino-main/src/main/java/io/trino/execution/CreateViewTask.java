@@ -24,6 +24,7 @@ import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.security.GroupProvider;
 import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.Analyzer;
+import io.trino.sql.analyzer.FeaturesConfig;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.CreateView;
 import io.trino.sql.tree.Expression;
@@ -49,13 +50,15 @@ public class CreateViewTask
     private final SqlParser sqlParser;
     private final GroupProvider groupProvider;
     private final StatsCalculator statsCalculator;
+    private final boolean legacyCatalogRoles;
 
     @Inject
-    public CreateViewTask(SqlParser sqlParser, GroupProvider groupProvider, StatsCalculator statsCalculator)
+    public CreateViewTask(SqlParser sqlParser, GroupProvider groupProvider, StatsCalculator statsCalculator, FeaturesConfig featuresConfig)
     {
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
+        this.legacyCatalogRoles = requireNonNull(featuresConfig, "featuresConfig is null").isLegacyCatalogRoles();
     }
 
     @Override
@@ -87,7 +90,7 @@ public class CreateViewTask
 
         String sql = getFormattedSql(statement.getQuery(), sqlParser);
 
-        Analysis analysis = new Analyzer(session, metadata, sqlParser, groupProvider, accessControl, Optional.empty(), parameters, parameterExtractor(statement, parameters), stateMachine.getWarningCollector(), statsCalculator)
+        Analysis analysis = new Analyzer(session, metadata, sqlParser, groupProvider, accessControl, Optional.empty(), parameters, parameterExtractor(statement, parameters), stateMachine.getWarningCollector(), statsCalculator, legacyCatalogRoles)
                 .analyze(statement);
 
         List<ViewColumn> columns = analysis.getOutputDescriptor(statement.getQuery())

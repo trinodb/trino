@@ -71,9 +71,10 @@ final class DescribeOutputRewrite
             GroupProvider groupProvider,
             AccessControl accessControl,
             WarningCollector warningCollector,
-            StatsCalculator statsCalculator)
+            StatsCalculator statsCalculator,
+            boolean legacyCatalogRoles)
     {
-        return (Statement) new Visitor(session, parser, metadata, queryExplainer, parameters, parameterLookup, groupProvider, accessControl, warningCollector, statsCalculator).process(node, null);
+        return (Statement) new Visitor(session, parser, metadata, queryExplainer, parameters, parameterLookup, groupProvider, accessControl, warningCollector, statsCalculator, legacyCatalogRoles).process(node, null);
     }
 
     private static final class Visitor
@@ -89,6 +90,7 @@ final class DescribeOutputRewrite
         private final AccessControl accessControl;
         private final WarningCollector warningCollector;
         private final StatsCalculator statsCalculator;
+        private final boolean legacyCatalogRoles;
 
         public Visitor(
                 Session session,
@@ -100,7 +102,8 @@ final class DescribeOutputRewrite
                 GroupProvider groupProvider,
                 AccessControl accessControl,
                 WarningCollector warningCollector,
-                StatsCalculator statsCalculator)
+                StatsCalculator statsCalculator,
+                boolean legacyCatalogRoles)
         {
             this.session = requireNonNull(session, "session is null");
             this.parser = parser;
@@ -112,6 +115,7 @@ final class DescribeOutputRewrite
             this.accessControl = accessControl;
             this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
             this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
+            this.legacyCatalogRoles = legacyCatalogRoles;
         }
 
         @Override
@@ -120,7 +124,7 @@ final class DescribeOutputRewrite
             String sqlString = session.getPreparedStatement(node.getName().getValue());
             Statement statement = parser.createStatement(sqlString, createParsingOptions(session));
 
-            Analyzer analyzer = new Analyzer(session, metadata, parser, groupProvider, accessControl, queryExplainer, parameters, parameterLookup, warningCollector, statsCalculator);
+            Analyzer analyzer = new Analyzer(session, metadata, parser, groupProvider, accessControl, queryExplainer, parameters, parameterLookup, warningCollector, statsCalculator, legacyCatalogRoles);
             Analysis analysis = analyzer.analyze(statement, true);
 
             Optional<Node> limit = Optional.empty();
