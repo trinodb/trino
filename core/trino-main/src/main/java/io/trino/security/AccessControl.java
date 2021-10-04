@@ -488,6 +488,13 @@ public interface AccessControl
      */
     void checkCanExecuteFunction(SecurityContext context, String functionName);
 
+    /**
+     * Check if identity is allowed to execute given table procedure on given table
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanExecuteTableProcedure(SecurityContext context, QualifiedObjectName tableName, String procedureName);
+
     default List<ViewExpression> getRowFilters(SecurityContext context, QualifiedObjectName tableName)
     {
         return ImmutableList.of();

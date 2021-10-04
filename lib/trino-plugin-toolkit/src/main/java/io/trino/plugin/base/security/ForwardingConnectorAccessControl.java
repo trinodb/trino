@@ -349,6 +349,12 @@ public abstract class ForwardingConnectorAccessControl
     }
 
     @Override
+    public void checkCanExecuteTableProcedure(ConnectorSecurityContext context, SchemaTableName tableName, String procedure)
+    {
+        delegate().checkCanExecuteTableProcedure(context, tableName, procedure);
+    }
+
+    @Override
     public Optional<ViewExpression> getRowFilter(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         return delegate().getRowFilter(context, tableName);

@@ -45,6 +45,7 @@ import static io.trino.spi.security.AccessDeniedException.denyDropView;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteFunction;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteProcedure;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteQuery;
+import static io.trino.spi.security.AccessDeniedException.denyExecuteTableProcedure;
 import static io.trino.spi.security.AccessDeniedException.denyGrantExecuteFunctionPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyGrantRoles;
 import static io.trino.spi.security.AccessDeniedException.denyGrantSchemaPrivilege;
@@ -450,5 +451,11 @@ public class DenyAllAccessControl
     public void checkCanExecuteFunction(SecurityContext context, String functionName)
     {
         denyExecuteFunction(functionName);
+    }
+
+    @Override
+    public void checkCanExecuteTableProcedure(SecurityContext context, QualifiedObjectName tableName, String procedureName)
+    {
+        denyExecuteTableProcedure(tableName.toString(), procedureName.toString());
     }
 }
