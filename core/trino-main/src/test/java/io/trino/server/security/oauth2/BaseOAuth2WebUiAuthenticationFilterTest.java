@@ -19,7 +19,6 @@ import io.airlift.log.Level;
 import io.airlift.log.Logging;
 import io.airlift.testing.Closeables;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.impl.DefaultClaims;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.server.ui.OAuth2WebUiAuthenticationFilter;
@@ -171,7 +170,6 @@ public abstract class BaseOAuth2WebUiAuthenticationFilterTest
             throws NoSuchAlgorithmException, IOException
     {
         KeyPairGenerator keyGenerator = KeyPairGenerator.getInstance("RSA");
-        SignatureAlgorithm signatureAlgorithm = SignatureAlgorithm.RS256;
         keyGenerator.initialize(4096);
         long now = Instant.now().getEpochSecond();
         String token = Jwts.builder()
@@ -191,7 +189,7 @@ public abstract class BaseOAuth2WebUiAuthenticationFilterTest
                                         .put("scp", ImmutableList.of("openid"))
                                         .put("sub", "foo@bar.com")
                                         .build()))
-                .signWith(signatureAlgorithm, keyGenerator.generateKeyPair().getPrivate())
+                .signWith(keyGenerator.generateKeyPair().getPrivate())
                 .compact();
         try (Response response = httpClientWithOAuth2Cookie(token, false)
                 .newCall(uiCall().build())
