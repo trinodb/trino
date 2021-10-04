@@ -13,7 +13,6 @@
  */
 package io.trino.server.remotetask;
 
-import com.google.common.base.Ticker;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
@@ -76,7 +75,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -102,9 +100,7 @@ import static io.trino.server.remotetask.RequestErrorTracker.logError;
 import static io.trino.util.Failures.toFailure;
 import static java.lang.Math.addExact;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
-import static java.util.concurrent.TimeUnit.SECONDS;
 
 public final class HttpRemoteTask
         implements RemoteTask
@@ -160,6 +156,7 @@ public final class HttpRemoteTask
     private final HttpClient httpClient;
     private final Executor executor;
     private final ScheduledExecutorService errorScheduledExecutor;
+    private final Duration maxErrorDuration;
 
     private final JsonCodec<TaskInfo> taskInfoCodec;
     private final JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec;
@@ -223,6 +220,7 @@ public final class HttpRemoteTask
             this.httpClient = httpClient;
             this.executor = executor;
             this.errorScheduledExecutor = errorScheduledExecutor;
+            this.maxErrorDuration = requireNonNull(maxErrorDuration, "maxErrorDuration is null");
             this.summarizeTaskInfo = summarizeTaskInfo;
             this.taskInfoCodec = taskInfoCodec;
             this.taskUpdateRequestCodec = taskUpdateRequestCodec;
@@ -682,7 +680,7 @@ public final class HttpRemoteTask
             Request request = prepareDelete()
                     .setUri(uriBuilder.build())
                     .build();
-            scheduleAsyncCleanupRequest(createCleanupBackoff(), request, "cancel");
+            scheduleAsyncCleanupRequest(new Backoff(maxErrorDuration), request, "cancel");
         }
     }
 
@@ -718,7 +716,7 @@ public final class HttpRemoteTask
                 .setUri(uriBuilder.build())
                 .build();
 
-        scheduleAsyncCleanupRequest(createCleanupBackoff(), request, "cleanup");
+        scheduleAsyncCleanupRequest(new Backoff(maxErrorDuration), request, "cleanup");
     }
 
     @Override
@@ -743,7 +741,7 @@ public final class HttpRemoteTask
             Request request = prepareDelete()
                     .setUri(uriBuilder.build())
                     .build();
-            scheduleAsyncCleanupRequest(createCleanupBackoff(), request, "abort");
+            scheduleAsyncCleanupRequest(new Backoff(maxErrorDuration), request, "abort");
         }
     }
 
@@ -843,17 +841,6 @@ public final class HttpRemoteTask
             uriBuilder.addParameter("summarize");
         }
         return uriBuilder;
-    }
-
-    private static Backoff createCleanupBackoff()
-    {
-        return new Backoff(10, new Duration(10, TimeUnit.MINUTES), Ticker.systemTicker(), ImmutableList.<Duration>builder()
-                .add(new Duration(0, MILLISECONDS))
-                .add(new Duration(100, MILLISECONDS))
-                .add(new Duration(500, MILLISECONDS))
-                .add(new Duration(1, SECONDS))
-                .add(new Duration(10, SECONDS))
-                .build());
     }
 
     @Override
