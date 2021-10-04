@@ -96,11 +96,7 @@ public class TestHiveCompression
         assertThatThrownBy(() -> testSnappyCompressedParquetTableCreatedInTrino(true))
                 .hasStackTraceContaining("at org.apache.hive.jdbc.HiveQueryResultSet.next") // comes via Hive JDBC
                 .extracting(Throwable::toString, InstanceOfAssertFactories.STRING)
-                // There are a few cases here each of which are downstream:
-                // - HDP 2 and CDH 5 cannot read Parquet V2 files and throw "org.apache.parquet.io.ParquetDecodingException: Can not read value at 0 in block -1 in file"
-                // - CDH 5 Parquet uses parquet.* packages, while HDP 2 uses org.apache.parquet.* packages
-                // - HDP 3 throws java.lang.ClassCastException: org.apache.hadoop.io.BytesWritable cannot be cast to org.apache.hadoop.hive.serde2.io.HiveVarcharWritable
-                .matches("\\Qio.trino.tempto.query.QueryExecutionException: java.sql.SQLException: java.io.IOException:\\E ((org.apache.)?parquet.io.ParquetDecodingException: Can not read value at 0 in block -1 in file .*|org.apache.hadoop.hive.ql.metadata.HiveException: java.lang.ClassCastException: org.apache.hadoop.io.BytesWritable cannot be cast to org.apache.hadoop.hive.serde2.io.HiveVarcharWritable)");
+                .matches("\\Qio.trino.tempto.query.QueryExecutionException: java.sql.SQLException: java.io.IOException: org.apache.hadoop.hive.ql.metadata.HiveException: java.lang.ClassCastException: org.apache.hadoop.io.BytesWritable cannot be cast to org.apache.hadoop.hive.serde2.io.HiveVarcharWritable\\E");
     }
 
     private void testSnappyCompressedParquetTableCreatedInTrino(boolean optimizedParquetWriter)
@@ -117,6 +113,8 @@ public class TestHiveCompression
         String catalog = (String) getOnlyElement(getOnlyElement(onTrino().executeQuery("SELECT CURRENT_CATALOG").rows()));
         onTrino().executeQuery("SET SESSION " + catalog + ".compression_codec = 'SNAPPY'");
         onTrino().executeQuery("SET SESSION " + catalog + ".experimental_parquet_optimized_writer_enabled = " + optimizedParquetWriter);
+        // TODO (https://github.com/trinodb/trino/issues/6377) Native Parquet Writer writes Parquet V2 files by default that are not compatible with Hive, see https://github.com/trinodb/trino/issues/7953 for more details
+        onTrino().executeQuery("SET SESSION " + catalog + ".parquet_writer_version = 'PARQUET_1_0'");
         onTrino().executeQuery(format("INSERT INTO %s VALUES(1, 'test data')", tableName));
 
         assertThat(onTrino().executeQuery("SELECT * FROM " + tableName)).containsExactlyInOrder(row(1, "test data"));

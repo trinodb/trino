@@ -93,6 +93,7 @@ public class ParquetFileWriterFactory
                 .setMaxPageSize(HiveSessionProperties.getParquetWriterPageSize(session))
                 .setMaxBlockSize(HiveSessionProperties.getParquetWriterBlockSize(session))
                 .setBatchSize(HiveSessionProperties.getParquetBatchSize(session))
+                .setWriterVersion(HiveSessionProperties.getParquetWriterVersion(session))
                 .build();
 
         CompressionCodecName compressionCodecName = getCompression(conf);

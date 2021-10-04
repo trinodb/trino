@@ -25,6 +25,7 @@ import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.session.PropertyMetadata;
+import org.apache.parquet.column.ParquetProperties;
 
 import javax.inject.Inject;
 
@@ -64,6 +65,7 @@ public final class IcebergSessionProperties
     private static final String PARQUET_WRITER_BLOCK_SIZE = "parquet_writer_block_size";
     private static final String PARQUET_WRITER_PAGE_SIZE = "parquet_writer_page_size";
     private static final String PARQUET_WRITER_BATCH_SIZE = "parquet_writer_batch_size";
+    private static final String PARQUET_WRITER_VERSION = "parquet_writer_version";
     private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
@@ -190,6 +192,12 @@ public final class IcebergSessionProperties
                         "Parquet: Maximum number of rows passed to the writer in each batch",
                         parquetWriterConfig.getBatchSize(),
                         false))
+                .add(enumProperty(
+                        PARQUET_WRITER_VERSION,
+                        "Parquet: Writer version",
+                        ParquetProperties.WriterVersion.class,
+                        ParquetProperties.WriterVersion.PARQUET_2_0,
+                        false))
                 .build();
     }
 
@@ -309,5 +317,10 @@ public final class IcebergSessionProperties
     public static int getParquetWriterBatchSize(ConnectorSession session)
     {
         return session.getProperty(PARQUET_WRITER_BATCH_SIZE, Integer.class);
+    }
+
+    public static ParquetProperties.WriterVersion getParquetWriterVersion(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_WRITER_VERSION, ParquetProperties.WriterVersion.class);
     }
 }

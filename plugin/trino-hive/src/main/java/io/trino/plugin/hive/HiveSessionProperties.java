@@ -26,6 +26,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.ArrayType;
+import org.apache.parquet.column.ParquetProperties;
 
 import javax.inject.Inject;
 
@@ -87,6 +88,7 @@ public final class HiveSessionProperties
     private static final String PARQUET_WRITER_BLOCK_SIZE = "parquet_writer_block_size";
     private static final String PARQUET_WRITER_PAGE_SIZE = "parquet_writer_page_size";
     private static final String PARQUET_WRITER_BATCH_SIZE = "parquet_writer_batch_size";
+    private static final String PARQUET_WRITER_VERSION = "parquet_writer_version";
     private static final String MAX_SPLIT_SIZE = "max_split_size";
     private static final String MAX_INITIAL_SPLIT_SIZE = "max_initial_split_size";
     private static final String RCFILE_OPTIMIZED_WRITER_VALIDATE = "rcfile_optimized_writer_validate";
@@ -330,6 +332,12 @@ public final class HiveSessionProperties
                         PARQUET_WRITER_BATCH_SIZE,
                         "Parquet: Maximum number of rows passed to the writer in each batch",
                         parquetWriterConfig.getBatchSize(),
+                        false),
+                enumProperty(
+                        PARQUET_WRITER_VERSION,
+                        "Parquet: Writer version",
+                        ParquetProperties.WriterVersion.class,
+                        ParquetProperties.WriterVersion.PARQUET_2_0,
                         false),
                 dataSizeProperty(
                         MAX_SPLIT_SIZE,
@@ -642,6 +650,11 @@ public final class HiveSessionProperties
     public static int getParquetBatchSize(ConnectorSession session)
     {
         return session.getProperty(PARQUET_WRITER_BATCH_SIZE, Integer.class);
+    }
+
+    public static ParquetProperties.WriterVersion getParquetWriterVersion(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_WRITER_VERSION, ParquetProperties.WriterVersion.class);
     }
 
     public static DataSize getMaxSplitSize(ConnectorSession session)
