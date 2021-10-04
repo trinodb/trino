@@ -352,7 +352,7 @@ public class ReorderJoins
             // This takes all conjuncts that were part of allFilters that
             // could not be used for equality inference.
             // If they use both the left and right symbols, we add them to the list of joinPredicates
-            nonInferrableConjuncts(metadata, allFilter).stream()
+            nonInferrableConjuncts(metadata, allFilter)
                     .map(conjunct -> allFilterInference.rewrite(conjunct, Sets.union(leftSymbols, rightSymbols)))
                     .filter(Objects::nonNull)
                     // filter expressions that contain only left or right symbols
@@ -376,7 +376,7 @@ public class ReorderJoins
                 Set<Symbol> scope = ImmutableSet.copyOf(outputSymbols);
                 ImmutableList.Builder<Expression> predicates = ImmutableList.builder();
                 predicates.addAll(allFilterInference.generateEqualitiesPartitionedBy(scope).getScopeEqualities());
-                nonInferrableConjuncts(metadata, allFilter).stream()
+                nonInferrableConjuncts(metadata, allFilter)
                         .map(conjunct -> allFilterInference.rewrite(conjunct, scope))
                         .filter(Objects::nonNull)
                         .forEach(predicates::add);
