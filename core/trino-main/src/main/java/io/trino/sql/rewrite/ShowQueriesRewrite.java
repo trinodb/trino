@@ -104,6 +104,7 @@ import static io.trino.metadata.MetadataListing.listSchemas;
 import static io.trino.metadata.MetadataUtil.createCatalogSchemaName;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
+import static io.trino.metadata.MetadataUtil.processRoleCommandCatalog;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_MATERIALIZED_VIEW_PROPERTY;
@@ -291,7 +292,12 @@ final class ShowQueriesRewrite
         @Override
         protected Node visitShowRoles(ShowRoles node, Void context)
         {
-            Optional<String> catalog = node.getCatalog().map(c -> c.getValue().toLowerCase(ENGLISH));
+            Optional<String> catalog = processRoleCommandCatalog(
+                    metadata,
+                    session,
+                    node,
+                    node.getCatalog()
+                            .map(c -> c.getValue().toLowerCase(ENGLISH)));
 
             if (node.isCurrent()) {
                 accessControl.checkCanShowCurrentRoles(session.toSecurityContext(), catalog);
@@ -314,7 +320,12 @@ final class ShowQueriesRewrite
         @Override
         protected Node visitShowRoleGrants(ShowRoleGrants node, Void context)
         {
-            Optional<String> catalog = node.getCatalog().map(c -> c.getValue().toLowerCase(ENGLISH));
+            Optional<String> catalog = processRoleCommandCatalog(
+                    metadata,
+                    session,
+                    node,
+                    node.getCatalog()
+                            .map(c -> c.getValue().toLowerCase(ENGLISH)));
             TrinoPrincipal principal = new TrinoPrincipal(PrincipalType.USER, session.getUser());
 
             accessControl.checkCanShowRoleGrants(session.toSecurityContext(), catalog);
