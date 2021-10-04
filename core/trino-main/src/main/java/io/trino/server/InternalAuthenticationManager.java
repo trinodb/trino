@@ -20,7 +20,6 @@ import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
 import io.trino.server.security.InternalPrincipal;
 import io.trino.spi.security.Identity;
 
@@ -28,10 +27,12 @@ import javax.inject.Inject;
 import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.core.Response;
 
+import java.security.Key;
 import java.time.ZonedDateTime;
 import java.util.Date;
 
 import static io.airlift.http.client.Request.Builder.fromRequest;
+import static io.jsonwebtoken.security.Keys.hmacShaKeyFor;
 import static io.trino.server.ServletSecurityUtils.setAuthenticatedIdentity;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -45,7 +46,7 @@ public class InternalAuthenticationManager
 
     private static final String TRINO_INTERNAL_BEARER = "X-Trino-Internal-Bearer";
 
-    private final byte[] hmac;
+    private final Key hmac;
     private final String nodeId;
 
     @Inject
@@ -72,7 +73,7 @@ public class InternalAuthenticationManager
     {
         requireNonNull(sharedSecret, "sharedSecret is null");
         requireNonNull(nodeId, "nodeId is null");
-        this.hmac = Hashing.sha256().hashString(sharedSecret, UTF_8).asBytes();
+        this.hmac = hmacShaKeyFor(Hashing.sha256().hashString(sharedSecret, UTF_8).asBytes());
         this.nodeId = nodeId;
     }
 
@@ -115,7 +116,7 @@ public class InternalAuthenticationManager
     private String generateJwt()
     {
         return Jwts.builder()
-                .signWith(SignatureAlgorithm.HS256, hmac)
+                .signWith(hmac)
                 .setSubject(nodeId)
                 .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
                 .compact();
@@ -123,8 +124,9 @@ public class InternalAuthenticationManager
 
     private String parseJwt(String jwt)
     {
-        return Jwts.parser()
+        return Jwts.parserBuilder()
                 .setSigningKey(hmac)
+                .build()
                 .parseClaimsJws(jwt)
                 .getBody()
                 .getSubject();
