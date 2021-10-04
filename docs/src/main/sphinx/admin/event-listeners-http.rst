@@ -20,7 +20,7 @@ avoids downtime for non-client-facing changes.
 Requirements
 ------------
 
-you need to perform the following steps:
+You need to perform the following steps:
 
 * Provide an HTTP/S service that accepts POST events with a JSON body.
 * Configure ``http-event-listener.ingest-uri`` in the event listener properties file
