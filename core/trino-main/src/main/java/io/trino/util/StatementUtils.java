@@ -45,6 +45,7 @@ import io.trino.sql.tree.Prepare;
 import io.trino.sql.tree.Query;
 import io.trino.sql.tree.RefreshMaterializedView;
 import io.trino.sql.tree.RenameColumn;
+import io.trino.sql.tree.RenameMaterializedView;
 import io.trino.sql.tree.RenameSchema;
 import io.trino.sql.tree.RenameTable;
 import io.trino.sql.tree.RenameView;
@@ -141,6 +142,7 @@ public final class StatementUtils
             .put(GrantRoles.class, DATA_DEFINITION)
             .put(Prepare.class, DATA_DEFINITION)
             .put(RenameColumn.class, DATA_DEFINITION)
+            .put(RenameMaterializedView.class, DATA_DEFINITION)
             .put(RenameSchema.class, DATA_DEFINITION)
             .put(RenameTable.class, DATA_DEFINITION)
             .put(RenameView.class, DATA_DEFINITION)

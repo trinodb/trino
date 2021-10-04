@@ -909,6 +909,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public void renameMaterializedView(Session session, QualifiedObjectName existingViewName, QualifiedObjectName newViewName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Optional<TableScanRedirectApplicationResult> applyTableScanRedirect(Session session, TableHandle tableHandle)
     {
         throw new UnsupportedOperationException();

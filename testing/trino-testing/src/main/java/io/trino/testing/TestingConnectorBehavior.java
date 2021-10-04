@@ -63,6 +63,7 @@ public enum TestingConnectorBehavior
     SUPPORTS_CREATE_VIEW(false),
 
     SUPPORTS_CREATE_MATERIALIZED_VIEW(false),
+    SUPPORTS_RENAME_MATERIALIZED_VIEW(false),
 
     SUPPORTS_INSERT,
 
