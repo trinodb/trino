@@ -65,11 +65,12 @@ public class TestOAuth2WebUiAuthenticationFilterWithJwt
     protected void validateAccessToken(String cookieValue)
     {
         assertThat(cookieValue).isNotBlank();
-        Jws<Claims> jwt = Jwts.parser()
+        Jws<Claims> jwt = Jwts.parserBuilder()
                 .setSigningKeyResolver(new JwkSigningKeyResolver(new JwkService(
                         URI.create("https://localhost:" + hydraIdP.getAuthPort() + "/.well-known/jwks.json"),
                         new JettyHttpClient(new HttpClientConfig()
                                 .setTrustStorePath(Resources.getResource("cert/localhost.pem").getPath())))))
+                .build()
                 .parseClaimsJws(cookieValue);
         Claims claims = jwt.getBody();
         assertThat(claims.getSubject()).isEqualTo("foo@bar.com");
