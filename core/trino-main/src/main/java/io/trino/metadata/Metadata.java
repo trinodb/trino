@@ -692,6 +692,11 @@ public interface Metadata
     MaterializedViewFreshness getMaterializedViewFreshness(Session session, QualifiedObjectName name);
 
     /**
+     * Rename the specified materialized view.
+     */
+    void renameMaterializedView(Session session, QualifiedObjectName existingViewName, QualifiedObjectName newViewName);
+
+    /**
      * Returns the result of redirecting the table scan on a given table to a different table.
      * This method is used by the engine during the plan optimization phase to allow a connector to offload table scans to any other connector.
      * This method is called after security checks against the original table.

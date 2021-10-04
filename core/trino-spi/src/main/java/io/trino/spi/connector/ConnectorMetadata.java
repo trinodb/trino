@@ -1218,6 +1218,14 @@ public interface ConnectorMetadata
         throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata getMaterializedView() is implemented without getMaterializedViewFreshness()");
     }
 
+    /**
+     * Rename the specified materialized view
+     */
+    default void renameMaterializedView(ConnectorSession session, SchemaTableName source, SchemaTableName target)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming materialized views");
+    }
+
     default Optional<TableScanRedirectApplicationResult> applyTableScanRedirect(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         return Optional.empty();
