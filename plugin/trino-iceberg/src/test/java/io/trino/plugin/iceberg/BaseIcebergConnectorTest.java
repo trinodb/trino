@@ -152,6 +152,7 @@ public abstract class BaseIcebergConnectorTest
                 return true;
 
             case SUPPORTS_CREATE_MATERIALIZED_VIEW:
+            case SUPPORTS_RENAME_MATERIALIZED_VIEW:
                 return true;
 
             case SUPPORTS_DELETE:
