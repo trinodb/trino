@@ -39,6 +39,7 @@ import static io.trino.spi.security.AccessDeniedException.denyDropSchema;
 import static io.trino.spi.security.AccessDeniedException.denyDropTable;
 import static io.trino.spi.security.AccessDeniedException.denyDropView;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteProcedure;
+import static io.trino.spi.security.AccessDeniedException.denyExecuteTableProcedure;
 import static io.trino.spi.security.AccessDeniedException.denyGrantRoles;
 import static io.trino.spi.security.AccessDeniedException.denyGrantSchemaPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyGrantTablePrivilege;
@@ -554,6 +555,11 @@ public interface ConnectorAccessControl
     default void checkCanExecuteProcedure(ConnectorSecurityContext context, SchemaRoutineName procedure)
     {
         denyExecuteProcedure(procedure.toString());
+    }
+
+    default void checkCanExecuteTableProcedure(ConnectorSecurityContext context, SchemaTableName tableName, String procedure)
+    {
+        denyExecuteTableProcedure(tableName.toString(), procedure);
     }
 
     /**
