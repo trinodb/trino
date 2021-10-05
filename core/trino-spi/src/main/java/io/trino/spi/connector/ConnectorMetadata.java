@@ -95,8 +95,7 @@ public interface ConnectorMetadata
      * Create initial handle for execution of table procedure. The handle will be used through planning process. It will be converted to final
      * handle used for execution via @{link {@link ConnectorMetadata#}beginTableExecute}
      */
-    @Nullable
-    default ConnectorTableExecuteHandle getTableHandleForExecute(
+    default Optional<ConnectorTableExecuteHandle> getTableHandleForExecute(
             ConnectorSession session,
             ConnectorTableHandle tableHandle,
             String procedureName,

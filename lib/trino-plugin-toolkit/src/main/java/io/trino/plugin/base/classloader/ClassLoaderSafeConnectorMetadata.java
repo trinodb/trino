@@ -220,7 +220,7 @@ public class ClassLoaderSafeConnectorMetadata
 
     @Nullable
     @Override
-    public ConnectorTableExecuteHandle getTableHandleForExecute(ConnectorSession session, ConnectorTableHandle tableHandle, String procedureName, Map<String, Object> executeProperties, Constraint constraint)
+    public Optional<ConnectorTableExecuteHandle> getTableHandleForExecute(ConnectorSession session, ConnectorTableHandle tableHandle, String procedureName, Map<String, Object> executeProperties, Constraint constraint)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.getTableHandleForExecute(session, tableHandle, procedureName, executeProperties, constraint);
