@@ -26,6 +26,7 @@ import com.google.common.collect.Streams;
 import io.trino.metadata.NewTableLayout;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TableExecuteHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.security.AccessControl;
 import io.trino.security.SecurityContext;
@@ -214,6 +215,8 @@ public class Analysis
     private final Map<NodeRef<Table>, FieldReference> rowIdField = new LinkedHashMap<>();
     private final Multimap<Field, SourceColumn> originColumnDetails = ArrayListMultimap.create();
     private final Multimap<NodeRef<Expression>, Field> fieldLineage = ArrayListMultimap.create();
+
+    private Optional<TableExecuteHandle> tableExecuteHandle = Optional.empty();
 
     public Analysis(@Nullable Statement root, Map<NodeRef<Parameter>, Expression> parameters, QueryType queryType)
     {
@@ -1112,6 +1115,18 @@ public class Analysis
     public PredicateCoercions getPredicateCoercions(Expression expression)
     {
         return predicateCoercions.get(NodeRef.of(expression));
+    }
+
+    public void setTableExecuteHandle(TableExecuteHandle tableExecuteHandle)
+    {
+        requireNonNull(tableExecuteHandle, "tableExecuteHandle is null");
+        checkState(this.tableExecuteHandle.isEmpty(), "tableExecuteHandle already set");
+        this.tableExecuteHandle = Optional.of(tableExecuteHandle);
+    }
+
+    public Optional<TableExecuteHandle> getTableExecuteHandle()
+    {
+        return tableExecuteHandle;
     }
 
     @Immutable

@@ -68,6 +68,7 @@ import io.trino.sql.planner.plan.SortNode;
 import io.trino.sql.planner.plan.SpatialJoinNode;
 import io.trino.sql.planner.plan.StatisticsWriterNode;
 import io.trino.sql.planner.plan.TableDeleteNode;
+import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
@@ -469,6 +470,21 @@ public final class PropertyDerivations
         public ActualProperties visitUpdate(UpdateNode node, List<ActualProperties> inputProperties)
         {
             return Iterables.getOnlyElement(inputProperties).translate(symbol -> Optional.empty());
+        }
+
+        @Override
+        public ActualProperties visitTableExecute(TableExecuteNode node, List<ActualProperties> inputProperties)
+        {
+            ActualProperties properties = Iterables.getOnlyElement(inputProperties);
+
+            if (properties.isCoordinatorOnly()) {
+                return ActualProperties.builder()
+                        .global(coordinatorSingleStreamPartition())
+                        .build();
+            }
+            return ActualProperties.builder()
+                    .global(properties.isSingleNode() ? singleStreamPartition() : arbitraryPartition())
+                    .build();
         }
 
         @Override

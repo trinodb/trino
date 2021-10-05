@@ -91,6 +91,7 @@ import io.trino.sql.planner.plan.StatisticAggregations;
 import io.trino.sql.planner.plan.StatisticAggregationsDescriptor;
 import io.trino.sql.planner.plan.StatisticsWriterNode;
 import io.trino.sql.planner.plan.TableDeleteNode;
+import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
@@ -1384,6 +1385,19 @@ public class PlanPrinter
                 nodeOutput.appendDetailsLine("%s := %s", columnName, node.getColumnValueAndRowIdSymbols().get(index).getName());
                 index++;
             }
+            return processChildren(node, context);
+        }
+
+        @Override
+        public Void visitTableExecute(TableExecuteNode node, Void context)
+        {
+            NodeRepresentation nodeOutput = addNode(node, "TableExecute");
+            for (int i = 0; i < node.getColumnNames().size(); i++) {
+                String name = node.getColumnNames().get(i);
+                Symbol symbol = node.getColumns().get(i);
+                nodeOutput.appendDetailsLine("%s := %s", name, symbol);
+            }
+
             return processChildren(node, context);
         }
 

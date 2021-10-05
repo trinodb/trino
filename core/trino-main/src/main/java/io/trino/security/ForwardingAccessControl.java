@@ -430,6 +430,12 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
+    public void checkCanExecuteTableProcedure(SecurityContext context, QualifiedObjectName tableName, String procedureName)
+    {
+        delegate().checkCanExecuteTableProcedure(context, tableName, procedureName);
+    }
+
+    @Override
     public List<ViewExpression> getRowFilters(SecurityContext context, QualifiedObjectName tableName)
     {
         return delegate().getRowFilters(context, tableName);
