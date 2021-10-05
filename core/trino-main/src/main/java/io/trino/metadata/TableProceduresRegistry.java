@@ -19,7 +19,6 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.TableProcedureMetadata;
 
 import java.util.Collection;
-import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -40,9 +39,7 @@ public class TableProceduresRegistry
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(procedures, "procedures is null");
 
-        Map<String, TableProcedureMetadata> proceduresByName = Maps.uniqueIndex(
-                procedures,
-                tableProcedureMetadata -> tableProcedureMetadata.getName().toLowerCase(Locale.ENGLISH));
+        Map<String, TableProcedureMetadata> proceduresByName = Maps.uniqueIndex(procedures, TableProcedureMetadata::getName);
 
         checkState(tableProcedures.putIfAbsent(catalogName, proceduresByName) == null, "Table procedures already registered for connector: %s", catalogName);
     }
@@ -56,7 +53,7 @@ public class TableProceduresRegistry
     {
         Map<String, TableProcedureMetadata> procedures = tableProcedures.get(catalogName);
         if (procedures != null) {
-            TableProcedureMetadata procedure = procedures.get(name.toLowerCase(Locale.ENGLISH));
+            TableProcedureMetadata procedure = procedures.get(name);
             if (procedure != null) {
                 return procedure;
             }
