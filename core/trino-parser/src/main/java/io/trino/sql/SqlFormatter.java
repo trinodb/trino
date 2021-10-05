@@ -437,7 +437,7 @@ public final class SqlFormatter
         }
 
         @Override
-        protected Void visitAllColumns(AllColumns node, Integer context)
+        protected Void visitAllColumns(AllColumns node, Integer indent)
         {
             node.getTarget().ifPresent(value -> builder
                     .append(formatExpression(value))
@@ -811,7 +811,7 @@ public final class SqlFormatter
         }
 
         @Override
-        protected Void visitRenameView(RenameView node, Integer context)
+        protected Void visitRenameView(RenameView node, Integer indent)
         {
             builder.append("ALTER VIEW ")
                     .append(node.getSource())
@@ -822,7 +822,7 @@ public final class SqlFormatter
         }
 
         @Override
-        protected Void visitRenameMaterializedView(RenameMaterializedView node, Integer context)
+        protected Void visitRenameMaterializedView(RenameMaterializedView node, Integer indent)
         {
             builder.append("ALTER MATERIALIZED VIEW ");
             if (node.isExists()) {
@@ -836,7 +836,7 @@ public final class SqlFormatter
         }
 
         @Override
-        protected Void visitSetViewAuthorization(SetViewAuthorization node, Integer context)
+        protected Void visitSetViewAuthorization(SetViewAuthorization node, Integer indent)
         {
             builder.append("ALTER VIEW ")
                     .append(formatName(node.getSource()))
@@ -872,7 +872,7 @@ public final class SqlFormatter
         }
 
         @Override
-        protected Void visitRefreshMaterializedView(RefreshMaterializedView node, Integer context)
+        protected Void visitRefreshMaterializedView(RefreshMaterializedView node, Integer indent)
         {
             builder.append("REFRESH MATERIALIZED VIEW ");
             builder.append(formatName(node.getName()));
@@ -881,7 +881,7 @@ public final class SqlFormatter
         }
 
         @Override
-        protected Void visitDropMaterializedView(DropMaterializedView node, Integer context)
+        protected Void visitDropMaterializedView(DropMaterializedView node, Integer indent)
         {
             builder.append("DROP MATERIALIZED VIEW ");
             if (node.isExists()) {
@@ -892,7 +892,7 @@ public final class SqlFormatter
         }
 
         @Override
-        protected Void visitDropView(DropView node, Integer context)
+        protected Void visitDropView(DropView node, Integer indent)
         {
             builder.append("DROP VIEW ");
             if (node.isExists()) {
@@ -950,7 +950,7 @@ public final class SqlFormatter
         }
 
         @Override
-        protected Void visitShowCatalogs(ShowCatalogs node, Integer context)
+        protected Void visitShowCatalogs(ShowCatalogs node, Integer indent)
         {
             builder.append("SHOW CATALOGS");
 
@@ -966,7 +966,7 @@ public final class SqlFormatter
         }
 
         @Override
-        protected Void visitShowSchemas(ShowSchemas node, Integer context)
+        protected Void visitShowSchemas(ShowSchemas node, Integer indent)
         {
             builder.append("SHOW SCHEMAS");
 
@@ -987,7 +987,7 @@ public final class SqlFormatter
         }
 
         @Override
-        protected Void visitShowTables(ShowTables node, Integer context)
+        protected Void visitShowTables(ShowTables node, Integer indent)
         {
             builder.append("SHOW TABLES");
 
@@ -1007,7 +1007,7 @@ public final class SqlFormatter
         }
 
         @Override
-        protected Void visitShowCreate(ShowCreate node, Integer context)
+        protected Void visitShowCreate(ShowCreate node, Integer indent)
         {
             if (node.getType() == ShowCreate.Type.TABLE) {
                 builder.append("SHOW CREATE TABLE ")
@@ -1025,7 +1025,7 @@ public final class SqlFormatter
         }
 
         @Override
-        protected Void visitShowColumns(ShowColumns node, Integer context)
+        protected Void visitShowColumns(ShowColumns node, Integer indent)
         {
             builder.append("SHOW COLUMNS FROM ")
                     .append(formatName(node.getTable()));
@@ -1042,7 +1042,7 @@ public final class SqlFormatter
         }
 
         @Override
-        protected Void visitShowStats(ShowStats node, Integer context)
+        protected Void visitShowStats(ShowStats node, Integer indent)
         {
             builder.append("SHOW STATS FOR ");
             process(node.getRelation(), 0);
@@ -1051,7 +1051,7 @@ public final class SqlFormatter
         }
 
         @Override
-        protected Void visitShowFunctions(ShowFunctions node, Integer context)
+        protected Void visitShowFunctions(ShowFunctions node, Integer indent)
         {
             builder.append("SHOW FUNCTIONS");
 
@@ -1067,7 +1067,7 @@ public final class SqlFormatter
         }
 
         @Override
-        protected Void visitShowSession(ShowSession node, Integer context)
+        protected Void visitShowSession(ShowSession node, Integer indent)
         {
             builder.append("SHOW SESSION");
 
@@ -1083,7 +1083,7 @@ public final class SqlFormatter
         }
 
         @Override
-        protected Void visitDelete(Delete node, Integer context)
+        protected Void visitDelete(Delete node, Integer indent)
         {
             builder.append("DELETE FROM ")
                     .append(formatName(node.getTable().getName()));
@@ -1097,7 +1097,7 @@ public final class SqlFormatter
         }
 
         @Override
-        protected Void visitCreateSchema(CreateSchema node, Integer context)
+        protected Void visitCreateSchema(CreateSchema node, Integer indent)
         {
             builder.append("CREATE SCHEMA ");
             if (node.isNotExists()) {
@@ -1114,7 +1114,7 @@ public final class SqlFormatter
         }
 
         @Override
-        protected Void visitDropSchema(DropSchema node, Integer context)
+        protected Void visitDropSchema(DropSchema node, Integer indent)
         {
             builder.append("DROP SCHEMA ");
             if (node.isExists()) {
@@ -1128,7 +1128,7 @@ public final class SqlFormatter
         }
 
         @Override
-        protected Void visitRenameSchema(RenameSchema node, Integer context)
+        protected Void visitRenameSchema(RenameSchema node, Integer indent)
         {
             builder.append("ALTER SCHEMA ")
                     .append(formatName(node.getSource()))
@@ -1139,7 +1139,7 @@ public final class SqlFormatter
         }
 
         @Override
-        protected Void visitSetSchemaAuthorization(SetSchemaAuthorization node, Integer context)
+        protected Void visitSetSchemaAuthorization(SetSchemaAuthorization node, Integer indent)
         {
             builder.append("ALTER SCHEMA ")
                     .append(formatName(node.getSource()))
@@ -1297,7 +1297,7 @@ public final class SqlFormatter
         }
 
         @Override
-        protected Void visitDropTable(DropTable node, Integer context)
+        protected Void visitDropTable(DropTable node, Integer indent)
         {
             builder.append("DROP TABLE ");
             if (node.isExists()) {
@@ -1309,7 +1309,7 @@ public final class SqlFormatter
         }
 
         @Override
-        protected Void visitRenameTable(RenameTable node, Integer context)
+        protected Void visitRenameTable(RenameTable node, Integer indent)
         {
             builder.append("ALTER TABLE ");
             if (node.isExists()) {
@@ -1323,7 +1323,7 @@ public final class SqlFormatter
         }
 
         @Override
-        protected Void visitComment(Comment node, Integer context)
+        protected Void visitComment(Comment node, Integer indent)
         {
             String comment = node.getComment().isPresent() ? formatStringLiteral(node.getComment().get()) : "NULL";
 
@@ -1346,7 +1346,7 @@ public final class SqlFormatter
         }
 
         @Override
-        protected Void visitRenameColumn(RenameColumn node, Integer context)
+        protected Void visitRenameColumn(RenameColumn node, Integer indent)
         {
             builder.append("ALTER TABLE ");
             if (node.isTableExists()) {
@@ -1365,7 +1365,7 @@ public final class SqlFormatter
         }
 
         @Override
-        protected Void visitDropColumn(DropColumn node, Integer context)
+        protected Void visitDropColumn(DropColumn node, Integer indent)
         {
             builder.append("ALTER TABLE ");
             if (node.isTableExists()) {
@@ -1382,7 +1382,7 @@ public final class SqlFormatter
         }
 
         @Override
-        protected Void visitAnalyze(Analyze node, Integer context)
+        protected Void visitAnalyze(Analyze node, Integer indent)
         {
             builder.append("ANALYZE ")
                     .append(formatName(node.getTableName()));
@@ -1408,7 +1408,7 @@ public final class SqlFormatter
         }
 
         @Override
-        protected Void visitSetTableAuthorization(SetTableAuthorization node, Integer context)
+        protected Void visitSetTableAuthorization(SetTableAuthorization node, Integer indent)
         {
             builder.append("ALTER TABLE ")
                     .append(formatName(node.getSource()))
@@ -1464,7 +1464,7 @@ public final class SqlFormatter
         }
 
         @Override
-        public Void visitSetSession(SetSession node, Integer context)
+        public Void visitSetSession(SetSession node, Integer indent)
         {
             builder.append("SET SESSION ")
                     .append(node.getName())
@@ -1475,7 +1475,7 @@ public final class SqlFormatter
         }
 
         @Override
-        public Void visitResetSession(ResetSession node, Integer context)
+        public Void visitResetSession(ResetSession node, Integer indent)
         {
             builder.append("RESET SESSION ")
                     .append(node.getName());
@@ -1555,28 +1555,28 @@ public final class SqlFormatter
         }
 
         @Override
-        protected Void visitTransactionAccessMode(TransactionAccessMode node, Integer context)
+        protected Void visitTransactionAccessMode(TransactionAccessMode node, Integer indent)
         {
             builder.append(node.isReadOnly() ? "READ ONLY" : "READ WRITE");
             return null;
         }
 
         @Override
-        protected Void visitCommit(Commit node, Integer context)
+        protected Void visitCommit(Commit node, Integer indent)
         {
             builder.append("COMMIT");
             return null;
         }
 
         @Override
-        protected Void visitRollback(Rollback node, Integer context)
+        protected Void visitRollback(Rollback node, Integer indent)
         {
             builder.append("ROLLBACK");
             return null;
         }
 
         @Override
-        protected Void visitCreateRole(CreateRole node, Integer context)
+        protected Void visitCreateRole(CreateRole node, Integer indent)
         {
             builder.append("CREATE ROLE ").append(node.getName());
             if (node.getGrantor().isPresent()) {
@@ -1590,7 +1590,7 @@ public final class SqlFormatter
         }
 
         @Override
-        protected Void visitDropRole(DropRole node, Integer context)
+        protected Void visitDropRole(DropRole node, Integer indent)
         {
             builder.append("DROP ROLE ").append(node.getName());
             if (node.getCatalog().isPresent()) {
@@ -1601,7 +1601,7 @@ public final class SqlFormatter
         }
 
         @Override
-        protected Void visitGrantRoles(GrantRoles node, Integer context)
+        protected Void visitGrantRoles(GrantRoles node, Integer indent)
         {
             builder.append("GRANT ");
             builder.append(node.getRoles().stream()
@@ -1625,7 +1625,7 @@ public final class SqlFormatter
         }
 
         @Override
-        protected Void visitRevokeRoles(RevokeRoles node, Integer context)
+        protected Void visitRevokeRoles(RevokeRoles node, Integer indent)
         {
             builder.append("REVOKE ");
             if (node.isAdminOption()) {
@@ -1649,7 +1649,7 @@ public final class SqlFormatter
         }
 
         @Override
-        protected Void visitSetRole(SetRole node, Integer context)
+        protected Void visitSetRole(SetRole node, Integer indent)
         {
             builder.append("SET ROLE ");
             SetRole.Type type = node.getType();
@@ -1746,7 +1746,7 @@ public final class SqlFormatter
         }
 
         @Override
-        protected Void visitShowRoles(ShowRoles node, Integer context)
+        protected Void visitShowRoles(ShowRoles node, Integer indent)
         {
             builder.append("SHOW ");
             if (node.isCurrent()) {
@@ -1763,7 +1763,7 @@ public final class SqlFormatter
         }
 
         @Override
-        protected Void visitShowRoleGrants(ShowRoleGrants node, Integer context)
+        protected Void visitShowRoleGrants(ShowRoleGrants node, Integer indent)
         {
             builder.append("SHOW ROLE GRANTS");
 
