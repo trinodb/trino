@@ -61,6 +61,6 @@ public class TableProceduresRegistry
                 return procedure;
             }
         }
-        throw new TrinoException(PROCEDURE_NOT_FOUND, "Procedure not registered: " + name);
+        throw new TrinoException(PROCEDURE_NOT_FOUND, String.format("Procedure %s not registered for catalog %s", name, catalogName));
     }
 }
