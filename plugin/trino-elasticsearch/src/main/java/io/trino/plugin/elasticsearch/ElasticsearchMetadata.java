@@ -20,6 +20,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.BaseEncoding;
 import io.airlift.json.ObjectMapperProvider;
+import io.airlift.slice.Slice;
+import io.trino.plugin.base.expression.ConnectorExpressions;
 import io.trino.plugin.elasticsearch.client.ElasticsearchClient;
 import io.trino.plugin.elasticsearch.client.IndexMetadata;
 import io.trino.plugin.elasticsearch.client.IndexMetadata.DateTimeType;
@@ -53,6 +55,11 @@ import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
+import io.trino.spi.expression.Call;
+import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.expression.Constant;
+import io.trino.spi.expression.FunctionName;
+import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.ArrayType;
@@ -64,12 +71,15 @@ import io.trino.spi.type.TypeSignature;
 
 import javax.inject.Inject;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -114,6 +124,9 @@ public class ElasticsearchMetadata
                     VARCHAR,
                     new VarcharDecoder.Descriptor(PASSTHROUGH_QUERY_RESULT_COLUMN_NAME),
                     false));
+
+    // See https://www.elastic.co/guide/en/elasticsearch/reference/current/regexp-syntax.html
+    private static final char[] REGEXP_RESERVED_CHARACTERS = new char[] {'.', '?', '+', '*', '|', '{', '}', '[', ']', '(', ')', '"', '#', '@', '&', '<', '>', '~'};
 
     private final Type ipAddressType;
     private final ElasticsearchClient client;
@@ -488,6 +501,7 @@ public class ElasticsearchMetadata
                 handle.getSchema(),
                 handle.getIndex(),
                 handle.getConstraint(),
+                handle.getRegexes(),
                 handle.getQuery(),
                 OptionalLong.of(limit));
 
@@ -521,7 +535,35 @@ public class ElasticsearchMetadata
 
         TupleDomain<ColumnHandle> oldDomain = handle.getConstraint();
         TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(TupleDomain.withColumnDomains(supported));
-        if (oldDomain.equals(newDomain)) {
+
+        ConnectorExpression oldExpression = constraint.getExpression();
+        Map<String, String> newRegexes = new HashMap<>(handle.getRegexes());
+        List<ConnectorExpression> expressions = ConnectorExpressions.extractConjuncts(constraint.getExpression());
+        List<ConnectorExpression> notHandledExpressions = new ArrayList<>();
+        for (ConnectorExpression expression : expressions) {
+            if (expression instanceof Call) {
+                Call call = (Call) expression;
+                // TODO Support ESCAPE character when it's pushed down by the engine
+                if (new FunctionName("$like_pattern").equals(call.getFunctionName()) && call.getArguments().size() == 2 &&
+                        call.getArguments().get(0) instanceof Variable && call.getArguments().get(1) instanceof Constant) {
+                    String columnName = ((Variable) call.getArguments().get(0)).getName();
+                    Object pattern = ((Constant) call.getArguments().get(1)).getValue();
+                    if (!newRegexes.containsKey(columnName) && pattern instanceof Slice) {
+                        IndexMetadata metadata = client.getIndexMetadata(handle.getIndex());
+                        if (metadata.getSchema()
+                                    .getFields().stream()
+                                    .anyMatch(field -> columnName.equals(field.getName()) && field.getType() instanceof PrimitiveType && "keyword".equals(((PrimitiveType) field.getType()).getName()))) {
+                            newRegexes.put(columnName, likeToRegexp(((Slice) pattern).toStringUtf8()));
+                            continue;
+                        }
+                    }
+                }
+            }
+            notHandledExpressions.add(expression);
+        }
+
+        ConnectorExpression newExpression = ConnectorExpressions.and(notHandledExpressions);
+        if (oldDomain.equals(newDomain) && oldExpression.equals(newExpression)) {
             return Optional.empty();
         }
 
@@ -530,10 +572,23 @@ public class ElasticsearchMetadata
                 handle.getSchema(),
                 handle.getIndex(),
                 newDomain,
+                newRegexes,
                 handle.getQuery(),
                 handle.getLimit());
 
-        return Optional.of(new ConstraintApplicationResult<>(handle, TupleDomain.withColumnDomains(unsupported), false));
+        return Optional.of(new ConstraintApplicationResult<>(handle, TupleDomain.withColumnDomains(unsupported), newExpression, false));
+    }
+
+    protected static String likeToRegexp(String like)
+    {
+        // TODO: This can be done more efficiently by using a state machine and iterating over characters (See io.trino.type.LikeFunctions.likePattern(String, char, boolean))
+        String regexp = like.replaceAll(Pattern.quote("\\"), Matcher.quoteReplacement("\\\\")); // first, escape regexp's escape character
+        for (char c : REGEXP_RESERVED_CHARACTERS) {
+            regexp = regexp.replaceAll(Pattern.quote(String.valueOf(c)), Matcher.quoteReplacement("\\" + c));
+        }
+        return regexp
+                .replaceAll("%", ".*")
+                .replaceAll("_", ".");
     }
 
     private static boolean isPassthroughQuery(ElasticsearchTableHandle table)
