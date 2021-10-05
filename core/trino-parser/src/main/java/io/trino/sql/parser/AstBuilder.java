@@ -656,8 +656,7 @@ class AstBuilder
                 new Table(getLocation(context), getQualifiedName(context.tableName)),
                 (Identifier) visit(context.procedureName),
                 properties,
-                visitIfPresent(context.booleanExpression(), Expression.class),
-                Optional.ofNullable(context.ORDER()).map(order -> new OrderBy(getLocation(order), visit(context.sortItem(), SortItem.class))));
+                visitIfPresent(context.booleanExpression(), Expression.class));
     }
 
     @Override

@@ -1860,7 +1860,7 @@ public class TestSqlParser
         Table table = new Table(QualifiedName.of("foo"));
         Identifier procedure = new Identifier("bar");
 
-        assertStatement("ALTER TABLE foo EXECUTE bar", new TableExecute(table, procedure, ImmutableList.of(), Optional.empty(), Optional.empty()));
+        assertStatement("ALTER TABLE foo EXECUTE bar", new TableExecute(table, procedure, ImmutableList.of(), Optional.empty()));
         assertStatement(
                 "ALTER TABLE foo EXECUTE bar WITH(bah=1, wuh='clap') WHERE age > 17 ORDER BY height",
                 new TableExecute(
@@ -1872,9 +1872,7 @@ public class TestSqlParser
                         Optional.of(
                                 new ComparisonExpression(ComparisonExpression.Operator.GREATER_THAN,
                                         new Identifier("age"),
-                                        new LongLiteral("17"))),
-                        Optional.of(new OrderBy(ImmutableList.of(
-                                new SortItem(new Identifier(location(1, 42), "height", false), ASCENDING, UNDEFINED))))));
+                                        new LongLiteral("17")))));
     }
 
     @Test

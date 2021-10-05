@@ -73,8 +73,7 @@ statement
     | ALTER TABLE tableName=qualifiedName
         EXECUTE procedureName=identifier
         (WITH properties)?
-        (WHERE where=booleanExpression)?
-        (ORDER BY sortItem (',' sortItem)*)?                           #tableExecute
+        (WHERE where=booleanExpression)?                               #tableExecute
     | ANALYZE qualifiedName (WITH properties)?                         #analyze
     | CREATE (OR REPLACE)? MATERIALIZED VIEW
         (IF NOT EXISTS)? qualifiedName

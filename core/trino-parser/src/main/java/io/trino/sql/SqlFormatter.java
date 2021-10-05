@@ -1393,11 +1393,6 @@ public final class SqlFormatter
                     builder.append("\n")
                             .append(indentString(indent))
                             .append("WHERE ").append(formatExpression(where)));
-
-            node.getOrderBy().ifPresent(orderBy ->
-                    builder.append("\n")
-                            .append(indentString(indent))
-                            .append(formatOrderBy(orderBy)));
             return null;
         }
 

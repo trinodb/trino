@@ -29,16 +29,14 @@ public class TableExecute
     private final Identifier procedureName;
     private final List<Property> properties;
     private final Optional<Expression> where;
-    private final Optional<OrderBy> orderBy;
 
     public TableExecute(
             Table table,
             Identifier procedureName,
             List<Property> properties,
-            Optional<Expression> where,
-            Optional<OrderBy> orderBy)
+            Optional<Expression> where)
     {
-        this(Optional.empty(), table, procedureName, properties, where, orderBy);
+        this(Optional.empty(), table, procedureName, properties, where);
     }
 
     public TableExecute(
@@ -46,10 +44,9 @@ public class TableExecute
             Table table,
             Identifier procedureName,
             List<Property> properties,
-            Optional<Expression> where,
-            Optional<OrderBy> orderBy)
+            Optional<Expression> where)
     {
-        this(Optional.of(location), table, procedureName, properties, where, orderBy);
+        this(Optional.of(location), table, procedureName, properties, where);
     }
 
     private TableExecute(
@@ -57,15 +54,13 @@ public class TableExecute
             Table table,
             Identifier procedureName,
             List<Property> properties,
-            Optional<Expression> where,
-            Optional<OrderBy> orderBy)
+            Optional<Expression> where)
     {
         super(location);
         this.table = requireNonNull(table, "table is null");
         this.procedureName = requireNonNull(procedureName, "procedureName is null");
         this.properties = requireNonNull(properties, "properties is null");
         this.where = requireNonNull(where, "where is null");
-        this.orderBy = requireNonNull(orderBy, "orderBy is null");
     }
 
     public Table getTable()
@@ -88,11 +83,6 @@ public class TableExecute
         return where;
     }
 
-    public Optional<OrderBy> getOrderBy()
-    {
-        return orderBy;
-    }
-
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
@@ -105,14 +95,13 @@ public class TableExecute
         ImmutableList.Builder<Node> nodes = ImmutableList.builder();
         nodes.addAll(properties);
         where.ifPresent(nodes::add);
-        orderBy.ifPresent(nodes::add);
         return nodes.build();
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(table, procedureName, properties, where, orderBy);
+        return Objects.hash(table, procedureName, properties, where);
     }
 
     @Override
@@ -128,8 +117,7 @@ public class TableExecute
         return Objects.equals(table, that.table) &&
                 Objects.equals(procedureName, that.procedureName) &&
                 Objects.equals(properties, that.properties) &&
-                Objects.equals(where, that.where) &&
-                Objects.equals(orderBy, that.orderBy);
+                Objects.equals(where, that.where);
     }
 
     @Override
@@ -140,7 +128,6 @@ public class TableExecute
                 .add("procedureNaem", procedureName)
                 .add("properties", properties)
                 .add("where", where)
-                .add("orderBy", orderBy)
                 .toString();
     }
 }
