@@ -21,6 +21,7 @@ import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.DictionaryId;
+import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinCompiler;
@@ -93,6 +94,34 @@ public class TestGroupByHash
                 }
             }
         }
+    }
+
+    @Test
+    public void testRunLengthEncodedBigintGroupByHash()
+    {
+        GroupByHash groupByHash = createGroupByHash(TEST_SESSION, ImmutableList.of(BIGINT), new int[] {0}, Optional.of(1), 100, JOIN_COMPILER, TYPE_OPERATOR_FACTORY);
+        Block block = BlockAssertions.createLongsBlock(0L);
+        Block hashBlock = TypeTestUtils.getHashBlock(ImmutableList.of(BIGINT), block);
+        Page page = new Page(
+                new RunLengthEncodedBlock(block, 2),
+                new RunLengthEncodedBlock(hashBlock, 2));
+
+        groupByHash.addPage(page).process();
+
+        assertEquals(groupByHash.getGroupCount(), 1);
+
+        Work<GroupByIdBlock> work = groupByHash.getGroupIds(page);
+        work.process();
+        GroupByIdBlock groupIds = work.getResult();
+
+        assertEquals(groupIds.getGroupCount(), 1);
+        assertEquals(groupIds.getPositionCount(), 2);
+        assertEquals(groupIds.getGroupId(0), 0);
+        assertEquals(groupIds.getGroupId(1), 0);
+
+        List<Block> children = groupIds.getChildren();
+        assertEquals(children.size(), 1);
+        assertTrue(children.get(0) instanceof RunLengthEncodedBlock);
     }
 
     @Test
