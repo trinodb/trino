@@ -14,6 +14,7 @@
 package io.trino.plugin.base.security;
 
 import com.google.common.collect.ImmutableSet;
+import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.base.security.TableAccessControlRule.TablePrivilege;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSecurityContext;
@@ -94,9 +95,9 @@ public class FileBasedAccessControl
     private final List<SessionPropertyAccessControlRule> sessionPropertyRules;
     private final Set<AnySchemaPermissionsRule> anySchemaPermissionsRules;
 
-    public FileBasedAccessControl(String catalogName, FileBasedAccessControlConfig config)
+    public FileBasedAccessControl(CatalogName catalogName, FileBasedAccessControlConfig config)
     {
-        this.catalogName = requireNonNull(catalogName, "catalogName is null");
+        this.catalogName = requireNonNull(catalogName, "catalogName is null").toString();
 
         AccessControlRules rules = parseJson(Paths.get(config.getConfigFile()), AccessControlRules.class);
         checkArgument(!rules.hasRoleRules(), "File connector access control does not support role rules: %s", config.getConfigFile());

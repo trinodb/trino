@@ -21,18 +21,10 @@ import io.trino.plugin.base.security.ReadOnlySecurityModule;
 
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigurationAwareModule.combine;
-import static java.util.Objects.requireNonNull;
 
 public class HiveSecurityModule
         extends AbstractConfigurationAwareModule
 {
-    private final String catalogName;
-
-    public HiveSecurityModule(String catalogName)
-    {
-        this.catalogName = requireNonNull(catalogName, "catalogName is null");
-    }
-
     @Override
     protected void setup(Binder binder)
     {
@@ -44,7 +36,7 @@ public class HiveSecurityModule
         bindSecurityModule(
                 "file",
                 combine(
-                        new FileBasedAccessControlModule(catalogName),
+                        new FileBasedAccessControlModule(),
                         new StaticAccessControlMetadataModule()));
         bindSecurityModule(
                 "read-only",

@@ -17,6 +17,7 @@ import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
 import io.trino.plugin.atop.AtopConnectorConfig.AtopSecurity;
+import io.trino.plugin.base.CatalogNameModule;
 import io.trino.plugin.base.security.AllowAllAccessControlModule;
 import io.trino.plugin.base.security.FileBasedAccessControlModule;
 import io.trino.spi.classloader.ThreadContextClassLoader;
@@ -65,8 +66,8 @@ public class AtopConnectorFactory
                             atopFactoryClass,
                             context.getTypeManager(),
                             context.getNodeManager(),
-                            context.getNodeManager().getEnvironment(),
-                            catalogName),
+                            context.getNodeManager().getEnvironment()),
+                    new CatalogNameModule(catalogName),
                     conditionalModule(
                             AtopConnectorConfig.class,
                             config -> config.getSecurity() == AtopSecurity.NONE,
@@ -75,7 +76,7 @@ public class AtopConnectorFactory
                             AtopConnectorConfig.class,
                             config -> config.getSecurity() == AtopSecurity.FILE,
                             binder -> {
-                                binder.install(new FileBasedAccessControlModule(catalogName));
+                                binder.install(new FileBasedAccessControlModule());
                                 binder.install(new JsonModule());
                             }));
 
