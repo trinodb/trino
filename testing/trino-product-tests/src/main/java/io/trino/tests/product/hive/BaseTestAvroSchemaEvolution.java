@@ -26,7 +26,7 @@ import static io.trino.tests.product.TestGroups.AVRO;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static java.lang.String.format;
 
-public class TestAvroSchemaEvolution
+public abstract class BaseTestAvroSchemaEvolution
         extends ProductTest
 {
     private static final String TABLE_NAME = "product_tests_avro_table";
