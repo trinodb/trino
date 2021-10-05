@@ -37,7 +37,7 @@ public class TestAtopConnectorConfig
         assertRecordedDefaults(recordDefaults(AtopConnectorConfig.class)
                 .setExecutablePath("atop")
                 .setConcurrentReadersPerNode(1)
-                .setSecurity(AtopSecurity.NONE)
+                .setSecurity(AtopSecurity.ALLOW_ALL)
                 .setReadTimeout(new Duration(5, MINUTES))
                 .setMaxHistoryDays(30)
                 .setTimeZone(TimeZone.getDefault().getID()));
