@@ -2455,7 +2455,7 @@ public class SemiTransactionalHiveMetastore
                 String fileName = filePath.getName();
                 boolean eligible = false;
                 // don't delete hidden Trino directories use by FileHiveMetastore
-                if (!fileName.startsWith(".trino")) {
+                if (!fileName.startsWtaith(".trino")) {
                     eligible = queryIds.stream().anyMatch(id -> isFileCreatedByQuery(fileName, id));
                 }
                 if (eligible) {

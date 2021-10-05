@@ -92,6 +92,44 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Create initial handle for execution of table procedure. The handle will be used through planning process. It will be converted to final
+     * handle used for execution via @{link {@link ConnectorMetadata#}beginTableExecute}
+     */
+    default Optional<ConnectorTableExecuteHandle> getTableHandleForExecute(
+            ConnectorSession session,
+            ConnectorTableHandle tableHandle,
+            String procedureName,
+            Map<String, Object> executeProperties)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not table procedures");
+    }
+
+    // TODO Consider using specific marker interface here instead ConnectorNewTableLayout; name suggest it is used only for getNewTableLayout.
+    //      Same applies to getInsertTableLayout.
+    default Optional<ConnectorNewTableLayout> getLayoutForTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle)
+    {
+        return Optional.empty();
+    }
+
+    /**
+     * Begin execution of table procedure
+     */
+    default ConnectorTableExecuteHandle beginTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, Optional<ConnectorTableHandle> updatedSourceTableHandle)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not table procedures");
+    }
+
+    /**
+     * Finish table execute
+     *
+     * @param fragments all fragments returned by {@link io.trino.spi.connector.UpdatablePageSource#finish()}
+     */
+    default void finishTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, Collection<Slice> fragments)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not table procedures");
+    }
+
+    /**
      * Returns the system table for the specified table name, if one exists.
      * The system tables handled via {@link #getSystemTable} differ form those returned by {@link Connector#getSystemTables()}.
      * The former mechanism allows dynamic resolution of system tables, while the latter is
