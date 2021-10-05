@@ -35,6 +35,7 @@ import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.filter2.predicate.FilterApi;
 import org.apache.parquet.filter2.predicate.FilterPredicate;
+import org.apache.parquet.filter2.predicate.Operators;
 import org.apache.parquet.filter2.predicate.UserDefinedPredicate;
 import org.apache.parquet.hadoop.metadata.ColumnPath;
 import org.apache.parquet.internal.column.columnindex.ColumnIndex;
@@ -490,7 +491,9 @@ public class TupleDomainParquetPredicate
                 continue;
             }
 
-            FilterPredicate columnFilter = FilterApi.userDefined(FilterApi.intColumn(ColumnPath.get(column.getPath()).toDotString()), new DomainUserDefinedPredicate(domain, timeZone));
+            FilterPredicate columnFilter = FilterApi.userDefined(
+                    new TrinoIntColumn(ColumnPath.get(column.getPath())),
+                    new DomainUserDefinedPredicate(domain, timeZone));
             if (filter == null) {
                 filter = columnFilter;
             }
@@ -602,6 +605,19 @@ public class TupleDomainParquetPredicate
                 default:
                     return (i) -> dictionary.decodeToBinary(i);
             }
+        }
+    }
+
+    // FilterApi#intColumn splits column name on ".". If column name contains a "." this leads to
+    // ColumnIndexFilter#calculateRowRanges failing to detect that column as part of the projection
+    // and treating it like a column with only NULL values.
+    private static final class TrinoIntColumn
+            extends Operators.Column<Integer>
+            implements Operators.SupportsLtGt
+    {
+        TrinoIntColumn(ColumnPath columnPath)
+        {
+            super(columnPath, Integer.class);
         }
     }
 }
