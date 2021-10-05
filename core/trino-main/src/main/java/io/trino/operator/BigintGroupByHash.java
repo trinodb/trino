@@ -22,6 +22,7 @@ import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.AbstractLongType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.Type;
@@ -161,13 +162,23 @@ public class BigintGroupByHash
     public Work<?> addPage(Page page)
     {
         currentPageSizeInBytes = page.getRetainedSizeInBytes();
-        return new AddPageWork(page.getBlock(hashChannel));
+        Block block = page.getBlock(hashChannel);
+        if (block instanceof RunLengthEncodedBlock) {
+            return new AddRunLengthEncodedPageWork((RunLengthEncodedBlock) block);
+        }
+
+        return new AddPageWork(block);
     }
 
     @Override
     public Work<GroupByIdBlock> getGroupIds(Page page)
     {
         currentPageSizeInBytes = page.getRetainedSizeInBytes();
+        Block block = page.getBlock(hashChannel);
+        if (block instanceof RunLengthEncodedBlock) {
+            return new GetRunLengthEncodedGroupIdsWork((RunLengthEncodedBlock) block);
+        }
+
         return new GetGroupIdsWork(page.getBlock(hashChannel));
     }
 
@@ -374,6 +385,47 @@ public class BigintGroupByHash
         }
     }
 
+    private class AddRunLengthEncodedPageWork
+            implements Work<Void>
+    {
+        private final RunLengthEncodedBlock block;
+
+        private boolean finished;
+
+        public AddRunLengthEncodedPageWork(RunLengthEncodedBlock block)
+        {
+            this.block = requireNonNull(block, "block is null");
+        }
+
+        @Override
+        public boolean process()
+        {
+            checkState(!finished);
+            if (block.getPositionCount() == 0) {
+                finished = true;
+                return true;
+            }
+
+            // needRehash() == false indicates we have reached capacity boundary and a rehash is needed.
+            // We can only proceed if tryRehash() successfully did a rehash.
+            if (needRehash() && !tryRehash()) {
+                return false;
+            }
+
+            // Only needs to process the first row since it is Run Length Encoded
+            putIfAbsent(0, block.getValue());
+            finished = true;
+
+            return true;
+        }
+
+        @Override
+        public Void getResult()
+        {
+            throw new UnsupportedOperationException();
+        }
+    }
+
     private class GetGroupIdsWork
             implements Work<GroupByIdBlock>
     {
@@ -420,6 +472,56 @@ public class BigintGroupByHash
             checkState(!finished, "result has produced");
             finished = true;
             return new GroupByIdBlock(nextGroupId, blockBuilder.build());
+        }
+    }
+
+    private class GetRunLengthEncodedGroupIdsWork
+            implements Work<GroupByIdBlock>
+    {
+        private final RunLengthEncodedBlock block;
+
+        int groupId = -1;
+        private boolean processFinished;
+        private boolean resultProduced;
+
+        public GetRunLengthEncodedGroupIdsWork(RunLengthEncodedBlock block)
+        {
+            this.block = requireNonNull(block, "block is null");
+        }
+
+        @Override
+        public boolean process()
+        {
+            checkState(!processFinished);
+            if (block.getPositionCount() == 0) {
+                processFinished = true;
+                return true;
+            }
+
+            // needRehash() == false indicates we have reached capacity boundary and a rehash is needed.
+            // We can only proceed if tryRehash() successfully did a rehash.
+            if (needRehash() && !tryRehash()) {
+                return false;
+            }
+
+            // Only needs to process the first row since it is Run Length Encoded
+            groupId = putIfAbsent(0, block.getValue());
+            processFinished = true;
+            return true;
+        }
+
+        @Override
+        public GroupByIdBlock getResult()
+        {
+            checkState(processFinished);
+            checkState(!resultProduced);
+            resultProduced = true;
+
+            return new GroupByIdBlock(
+                    nextGroupId,
+                    new RunLengthEncodedBlock(
+                            BIGINT.createFixedSizeBlockBuilder(1).writeLong(groupId).build(),
+                            block.getPositionCount()));
         }
     }
 }
