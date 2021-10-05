@@ -26,6 +26,7 @@ import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.MetastoreConfig;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
+import io.trino.plugin.hive.security.HiveSecurityModule;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.PrincipalType;
@@ -171,7 +172,7 @@ public final class HiveQueryRunner
                     hiveProperties.put("hive.parquet.time-zone", TIME_ZONE.getID());
                 }
                 hiveProperties.put("hive.max-partitions-per-scan", "1000");
-                hiveProperties.put("hive.security", "sql-standard");
+                hiveProperties.put("hive.security", HiveSecurityModule.SQL_STANDARD);
                 hiveProperties.putAll(this.hiveProperties);
 
                 Map<String, String> hiveBucketedProperties = ImmutableMap.<String, String>builder()
