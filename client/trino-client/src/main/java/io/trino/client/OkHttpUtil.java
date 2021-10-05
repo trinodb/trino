@@ -15,6 +15,7 @@ package io.trino.client;
 
 import com.google.common.base.CharMatcher;
 import com.google.common.net.HostAndPort;
+import io.trino.client.auth.kerberos.SpnegoHandler;
 import okhttp3.Credentials;
 import okhttp3.Interceptor;
 import okhttp3.JavaNetCookieJar;
