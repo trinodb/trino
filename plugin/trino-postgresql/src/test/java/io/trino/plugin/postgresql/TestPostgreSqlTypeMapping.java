@@ -21,6 +21,7 @@ import io.trino.Session;
 import io.trino.plugin.jdbc.UnsupportedTypeHandling;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
+import io.trino.spi.type.Decimals;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.FilterNode;
@@ -254,6 +255,10 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip("decimal(38, 0)", "CAST('-27182818284590452353602874713526624977' AS decimal(38, 0))", createDecimalType(38, 0), "CAST('-27182818284590452353602874713526624977' AS decimal(38, 0))")
                 .execute(getQueryRunner(), postgresCreateAndInsert("test_decimal"))
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_decimal"));
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("numeric", "1.1", createDecimalType(Decimals.MAX_PRECISION, 5), "CAST(1.1 AS DECIMAL(38, 5))")
+                .execute(getQueryRunner(), sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 5), postgresCreateAndInsert("test_unspecified_decimal"));
     }
 
     @Test
