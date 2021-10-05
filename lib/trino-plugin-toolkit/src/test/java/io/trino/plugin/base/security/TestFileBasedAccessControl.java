@@ -14,6 +14,7 @@
 package io.trino.plugin.base.security;
 
 import com.google.common.collect.ImmutableSet;
+import io.trino.plugin.base.CatalogName;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSecurityContext;
@@ -440,7 +441,7 @@ public class TestFileBasedAccessControl
         String path = this.getClass().getClassLoader().getResource(fileName).getPath();
         FileBasedAccessControlConfig config = new FileBasedAccessControlConfig();
         config.setConfigFile(path);
-        return new FileBasedAccessControl("test_catalog", config);
+        return new FileBasedAccessControl(new CatalogName("test_catalog"), config);
     }
 
     private static void assertDenied(ThrowingRunnable runnable)
