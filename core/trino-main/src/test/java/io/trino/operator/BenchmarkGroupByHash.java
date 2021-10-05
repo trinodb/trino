@@ -217,7 +217,8 @@ public class BenchmarkGroupByHash
             boolean finished;
             do {
                 finished = work.process();
-            } while (!finished);
+            }
+            while (!finished);
         }
     }
 
@@ -431,6 +432,6 @@ public class BenchmarkGroupByHash
                 .withOptions(optionsBuilder -> optionsBuilder
                         .addProfiler(GCProfiler.class)
                         .jvmArgs("-Xmx10g"))
-                        .run();
+                .run();
     }
 }
