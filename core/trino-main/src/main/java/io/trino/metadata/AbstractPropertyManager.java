@@ -16,7 +16,6 @@ package io.trino.metadata;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
 import io.trino.security.AccessControl;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.TrinoException;
@@ -42,9 +41,9 @@ import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
-abstract class AbstractPropertyManager
+abstract class AbstractPropertyManager<K>
 {
-    private final ConcurrentMap<CatalogName, Map<String, PropertyMetadata<?>>> connectorProperties = new ConcurrentHashMap<>();
+    protected final ConcurrentMap<K, Map<String, PropertyMetadata<?>>> connectorProperties = new ConcurrentHashMap<>();
     private final String propertyType;
     private final ErrorCodeSupplier propertyError;
 
@@ -55,23 +54,23 @@ abstract class AbstractPropertyManager
         this.propertyError = requireNonNull(propertyError, "propertyError is null");
     }
 
-    public final void addProperties(CatalogName catalogName, List<PropertyMetadata<?>> properties)
+    protected final void doAddProperties(K propertiesKey, List<PropertyMetadata<?>> properties)
     {
-        requireNonNull(catalogName, "catalogName is null");
+        requireNonNull(propertiesKey, "propertiesKey is null");
         requireNonNull(properties, "properties is null");
 
         Map<String, PropertyMetadata<?>> propertiesByName = Maps.uniqueIndex(properties, PropertyMetadata::getName);
 
-        checkState(connectorProperties.putIfAbsent(catalogName, propertiesByName) == null, "Properties for connector '%s' are already registered", catalogName);
+        checkState(connectorProperties.putIfAbsent(propertiesKey, propertiesByName) == null, "Properties for key %s are already registered", propertiesKey);
     }
 
-    public final void removeProperties(CatalogName catalogName)
+    protected final void doRemoveProperties(K propertiesKey)
     {
-        connectorProperties.remove(catalogName);
+        connectorProperties.remove(propertiesKey);
     }
 
-    public final Map<String, Object> getProperties(
-            CatalogName catalogName,
+    protected final Map<String, Object> doGetProperties(
+            K propertiesKey,
             String catalogNameForDiagnostics,
             Map<String, Expression> sqlPropertyValues,
             Session session,
@@ -80,9 +79,9 @@ abstract class AbstractPropertyManager
             Map<NodeRef<Parameter>, Expression> parameters,
             boolean setDefaultProperties)
     {
-        Map<String, PropertyMetadata<?>> supportedProperties = connectorProperties.get(catalogName);
+        Map<String, PropertyMetadata<?>> supportedProperties = connectorProperties.get(propertiesKey);
         if (supportedProperties == null) {
-            throw new TrinoException(NOT_FOUND, "Catalog not found: " + catalogNameForDiagnostics);
+            throw new TrinoException(NOT_FOUND, formatPropertiesKeyForMessage(catalogNameForDiagnostics, propertiesKey) + " not found");
         }
 
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
@@ -94,8 +93,8 @@ abstract class AbstractPropertyManager
             if (property == null) {
                 throw new TrinoException(
                         propertyError,
-                        format("Catalog '%s' does not support %s property '%s'",
-                                catalogNameForDiagnostics,
+                        format("%s does not support %s property '%s'",
+                                formatPropertiesKeyForMessage(catalogNameForDiagnostics, propertiesKey),
                                 propertyType,
                                 propertyName));
             }
@@ -150,7 +149,7 @@ abstract class AbstractPropertyManager
         return properties.build();
     }
 
-    public Map<CatalogName, Map<String, PropertyMetadata<?>>> getAllProperties()
+    protected final Map<K, Map<String, PropertyMetadata<?>>> doGetAllProperties()
     {
         return ImmutableMap.copyOf(connectorProperties);
     }
@@ -176,4 +175,6 @@ abstract class AbstractPropertyManager
         }
         return objectValue;
     }
+
+    protected abstract String formatPropertiesKeyForMessage(String catalogName, K propertiesKey);
 }
