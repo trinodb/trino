@@ -21,9 +21,9 @@ import org.testng.annotations.Test;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
-import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.product.TestGroups.AVRO;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
+import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 
 public abstract class BaseTestAvroSchemaEvolution
@@ -51,32 +51,32 @@ public abstract class BaseTestAvroSchemaEvolution
     @BeforeTestWithContext
     public void createAndLoadTable()
     {
-        query(CREATE_TABLE);
-        query(format("INSERT INTO %s VALUES ('string0', 0)", TABLE_NAME));
+        onTrino().executeQuery(CREATE_TABLE);
+        onTrino().executeQuery(format("INSERT INTO %s VALUES ('string0', 0)", TABLE_NAME));
     }
 
     @AfterTestWithContext
     public void dropTestTable()
     {
-        query(format("DROP TABLE IF EXISTS %s", TABLE_NAME));
+        onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", TABLE_NAME));
     }
 
     @Test(groups = AVRO)
     public void testSelectTable()
     {
-        assertThat(query(format("SELECT string_col FROM %s", TABLE_NAME)))
+        assertThat(onTrino().executeQuery(format("SELECT string_col FROM %s", TABLE_NAME)))
                 .containsExactlyInOrder(row("string0"));
     }
 
     @Test(groups = AVRO)
     public void testInsertAfterSchemaEvolution()
     {
-        assertThat(query(SELECT_STAR))
+        assertThat(onTrino().executeQuery(SELECT_STAR))
                 .containsExactlyInOrder(row("string0", 0));
 
         alterTableSchemaTo(ADDED_COLUMN_SCHEMA);
-        query(format("INSERT INTO %s VALUES ('string1', 1, 101)", TABLE_NAME));
-        assertThat(query(SELECT_STAR))
+        onTrino().executeQuery(format("INSERT INTO %s VALUES ('string1', 1, 101)", TABLE_NAME));
+        assertThat(onTrino().executeQuery(SELECT_STAR))
                 .containsOnly(
                         row("string0", 0, 100),
                         row("string1", 1, 101));
@@ -85,72 +85,72 @@ public abstract class BaseTestAvroSchemaEvolution
     @Test(groups = AVRO)
     public void testSchemaEvolutionWithIncompatibleType()
     {
-        assertThat(query(COLUMNS_IN_TABLE))
+        assertThat(onTrino().executeQuery(COLUMNS_IN_TABLE))
                 .containsExactlyInOrder(
                         row("string_col", "varchar", "", ""),
                         row("int_col", "integer", "", ""));
-        assertThat(query(SELECT_STAR))
+        assertThat(onTrino().executeQuery(SELECT_STAR))
                 .containsExactlyInOrder(row("string0", 0));
 
         alterTableSchemaTo(INCOMPATIBLE_TYPE_SCHEMA);
-        assertQueryFailure(() -> query(SELECT_STAR))
+        assertQueryFailure(() -> onTrino().executeQuery(SELECT_STAR))
                 .hasMessageContaining("Found int, expecting string");
     }
 
     @Test(groups = AVRO)
     public void testSchemaEvolution()
     {
-        assertThat(query(COLUMNS_IN_TABLE))
+        assertThat(onTrino().executeQuery(COLUMNS_IN_TABLE))
                 .containsExactlyInOrder(
                         row("string_col", "varchar", "", ""),
                         row("int_col", "integer", "", ""));
-        assertThat(query(SELECT_STAR))
+        assertThat(onTrino().executeQuery(SELECT_STAR))
                 .containsExactlyInOrder(row("string0", 0));
 
         alterTableSchemaTo(CHANGE_COLUMN_TYPE_SCHEMA);
-        assertThat(query(COLUMNS_IN_TABLE))
+        assertThat(onTrino().executeQuery(COLUMNS_IN_TABLE))
                 .containsExactlyInOrder(
                         row("string_col", "varchar", "", ""),
                         row("int_col", "bigint", "", ""));
-        assertThat(query(SELECT_STAR))
+        assertThat(onTrino().executeQuery(SELECT_STAR))
                 .containsExactlyInOrder(row("string0", 0));
 
         alterTableSchemaTo(ADDED_COLUMN_SCHEMA);
-        assertThat(query(COLUMNS_IN_TABLE))
+        assertThat(onTrino().executeQuery(COLUMNS_IN_TABLE))
                 .containsExactlyInOrder(
                         row("string_col", "varchar", "", ""),
                         row("int_col", "integer", "", ""),
                         row("int_col_added", "integer", "", ""));
-        assertThat(query(SELECT_STAR))
+        assertThat(onTrino().executeQuery(SELECT_STAR))
                 .containsExactlyInOrder(row("string0", 0, 100));
 
         alterTableSchemaTo(REMOVED_COLUMN_SCHEMA);
-        assertThat(query(COLUMNS_IN_TABLE))
+        assertThat(onTrino().executeQuery(COLUMNS_IN_TABLE))
                 .containsExactlyInOrder(row("int_col", "integer", "", ""));
-        assertThat(query(SELECT_STAR))
+        assertThat(onTrino().executeQuery(SELECT_STAR))
                 .containsExactlyInOrder(row(0));
 
         alterTableSchemaTo(RENAMED_COLUMN_SCHEMA);
-        assertThat(query(COLUMNS_IN_TABLE))
+        assertThat(onTrino().executeQuery(COLUMNS_IN_TABLE))
                 .containsExactlyInOrder(
                         row("string_col", "varchar", "", ""),
                         row("int_col_renamed", "integer", "", ""));
-        assertThat(query(SELECT_STAR))
+        assertThat(onTrino().executeQuery(SELECT_STAR))
                 .containsExactlyInOrder(row("string0", null));
     }
 
     @Test(groups = AVRO)
     public void testSchemaWhenUrlIsUnset()
     {
-        assertThat(query(COLUMNS_IN_TABLE))
+        assertThat(onTrino().executeQuery(COLUMNS_IN_TABLE))
                 .containsExactlyInOrder(
                         row("string_col", "varchar", "", ""),
                         row("int_col", "integer", "", ""));
-        assertThat(query(SELECT_STAR))
+        assertThat(onTrino().executeQuery(SELECT_STAR))
                 .containsExactlyInOrder(row("string0", 0));
 
         onHive().executeQuery(format("ALTER TABLE %s UNSET TBLPROPERTIES('avro.schema.url')", TABLE_NAME));
-        assertThat(query(COLUMNS_IN_TABLE))
+        assertThat(onTrino().executeQuery(COLUMNS_IN_TABLE))
                 .containsExactlyInOrder(
                         row("dummy_col", "varchar", "", ""));
     }
@@ -159,16 +159,16 @@ public abstract class BaseTestAvroSchemaEvolution
     public void testCreateTableLike()
     {
         String createTableLikeName = "test_avro_like";
-        query(format(
+        onTrino().executeQuery(format(
                 "CREATE TABLE %s (LIKE %s INCLUDING PROPERTIES)",
                 createTableLikeName,
                 TABLE_NAME));
 
-        query(format("INSERT INTO %s VALUES ('string0', 0)", createTableLikeName));
+        onTrino().executeQuery(format("INSERT INTO %s VALUES ('string0', 0)", createTableLikeName));
 
-        assertThat(query(format("SELECT string_col FROM %s", createTableLikeName)))
+        assertThat(onTrino().executeQuery(format("SELECT string_col FROM %s", createTableLikeName)))
                 .containsExactlyInOrder(row("string0"));
-        query("DROP TABLE IF EXISTS " + createTableLikeName);
+        onTrino().executeQuery("DROP TABLE IF EXISTS " + createTableLikeName);
     }
 
     private void alterTableSchemaTo(String schema)
