@@ -19,7 +19,7 @@ import javax.validation.constraints.NotNull;
 
 public class RaptorSecurityConfig
 {
-    private RaptorSecurity securitySystem = RaptorSecurity.NONE;
+    private RaptorSecurity securitySystem = RaptorSecurity.ALLOW_ALL;
 
     @NotNull
     public RaptorSecurity getSecuritySystem()

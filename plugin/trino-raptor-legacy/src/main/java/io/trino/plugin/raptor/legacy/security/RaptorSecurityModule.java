@@ -21,8 +21,8 @@ import io.trino.plugin.base.security.FileBasedAccessControlModule;
 import io.trino.plugin.base.security.ReadOnlySecurityModule;
 
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
+import static io.trino.plugin.raptor.legacy.security.RaptorSecurity.ALLOW_ALL;
 import static io.trino.plugin.raptor.legacy.security.RaptorSecurity.FILE;
-import static io.trino.plugin.raptor.legacy.security.RaptorSecurity.NONE;
 import static io.trino.plugin.raptor.legacy.security.RaptorSecurity.READ_ONLY;
 
 public class RaptorSecurityModule
@@ -31,7 +31,7 @@ public class RaptorSecurityModule
     @Override
     protected void setup(Binder binder)
     {
-        bindSecurityModule(NONE, new AllowAllAccessControlModule());
+        bindSecurityModule(ALLOW_ALL, new AllowAllAccessControlModule());
         bindSecurityModule(READ_ONLY, new ReadOnlySecurityModule());
         bindSecurityModule(FILE, new FileBasedAccessControlModule());
     }
