@@ -325,7 +325,7 @@ final class ShowQueriesRewrite
             return singleColumnValues(rows, "Role Grants");
         }
 
-        private Query singleColumnValues(List<Expression> rows, String columnName)
+        private static Query singleColumnValues(List<Expression> rows, String columnName)
         {
             List<String> columns = ImmutableList.of(columnName);
             if (rows.isEmpty()) {
@@ -344,7 +344,7 @@ final class ShowQueriesRewrite
                 throw semanticException(MISSING_CATALOG_NAME, node, "Catalog must be specified when session catalog is not set");
             }
 
-            String catalog = node.getCatalog().map(Identifier::getValue).orElseGet(() -> session.getCatalog().get());
+            String catalog = node.getCatalog().map(Identifier::getValue).orElseGet(() -> session.getCatalog().orElseThrow());
             accessControl.checkCanShowSchemas(session.toSecurityContext(), catalog);
 
             Optional<Expression> predicate = Optional.empty();
@@ -642,7 +642,7 @@ final class ShowQueriesRewrite
             throw new UnsupportedOperationException("SHOW CREATE only supported for schemas, tables and views");
         }
 
-        private List<Property> buildProperties(
+        private static List<Property> buildProperties(
                 Object objectName,
                 Optional<String> columnName,
                 StandardErrorCode errorCode,
