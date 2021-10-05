@@ -21,6 +21,7 @@ import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.slice.Slice;
 import io.trino.PagesIndexPageSorter;
 import io.trino.operator.PagesIndex;
+import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.base.security.AllowAllAccessControl;
 import io.trino.plugin.raptor.legacy.metadata.MetadataDao;
 import io.trino.plugin.raptor.legacy.metadata.ShardManager;
@@ -94,7 +95,7 @@ public class TestRaptorConnector
         createTablesWithRetry(dbi);
         dataDir = Files.createTempDir();
 
-        RaptorConnectorId connectorId = new RaptorConnectorId("test");
+        CatalogName connectorId = new CatalogName("test");
         NodeManager nodeManager = new TestingNodeManager();
         NodeSupplier nodeSupplier = nodeManager::getWorkerNodes;
         ShardManager shardManager = createShardManager(dbi);
