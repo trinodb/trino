@@ -285,7 +285,7 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public void checkCanExecuteTableProcedure(ConnectorSecurityContext context, SchemaRoutineName procedure, SchemaTableName tableName)
+    public void checkCanExecuteTableProcedure(ConnectorSecurityContext context, SchemaTableName tableName, String procedure)
     {
     }
 

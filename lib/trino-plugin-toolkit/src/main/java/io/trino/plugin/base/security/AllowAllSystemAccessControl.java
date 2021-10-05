@@ -381,7 +381,7 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
-    public void checkCanExecuteTableProcedure(SystemSecurityContext systemSecurityContext, CatalogSchemaRoutineName procedure, CatalogSchemaTableName table)
+    public void checkCanExecuteTableProcedure(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName table, String procedure)
     {
     }
 

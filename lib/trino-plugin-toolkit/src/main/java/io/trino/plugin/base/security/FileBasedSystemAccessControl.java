@@ -891,7 +891,7 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public void checkCanExecuteTableProcedure(SystemSecurityContext systemSecurityContext, CatalogSchemaRoutineName procedure, CatalogSchemaTableName table)
+    public void checkCanExecuteTableProcedure(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName table, String procedure)
     {
     }
 

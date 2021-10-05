@@ -1000,7 +1000,7 @@ class StatementAnalyzer
             accessControl.checkCanExecuteTableProcedure(
                     session.toSecurityContext(),
                     tableName,
-                    createQualifiedObjectName(session, node.getProcedureName(), QualifiedName.of(procedureName)));
+                    procedureName);
 
             if (!accessControl.getRowFilters(session.toSecurityContext(), tableName).isEmpty()) {
                 throw semanticException(NOT_SUPPORTED, node, "ALTER TABLE EXECUTE is not supported for table with row filter");

@@ -493,7 +493,7 @@ public interface AccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
-    void checkCanExecuteTableProcedure(SecurityContext context, QualifiedObjectName procedureName, QualifiedObjectName tableName);
+    void checkCanExecuteTableProcedure(SecurityContext context, QualifiedObjectName tableName, String procedureName);
 
     default List<ViewExpression> getRowFilters(SecurityContext context, QualifiedObjectName tableName)
     {

@@ -417,9 +417,9 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
-    public void checkCanExecuteTableProcedure(SecurityContext context, QualifiedObjectName procedureName, QualifiedObjectName tableName)
+    public void checkCanExecuteTableProcedure(SecurityContext context, QualifiedObjectName tableName, String procedureName)
     {
-        delegate().checkCanExecuteTableProcedure(context, procedureName, tableName);
+        delegate().checkCanExecuteTableProcedure(context, tableName, procedureName);
     }
 
     @Override

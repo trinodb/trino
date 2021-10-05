@@ -399,13 +399,13 @@ public class InjectedConnectorAccessControl
     }
 
     @Override
-    public void checkCanExecuteTableProcedure(ConnectorSecurityContext context, SchemaRoutineName procedure, SchemaTableName tableName)
+    public void checkCanExecuteTableProcedure(ConnectorSecurityContext context, SchemaTableName tableName, String procedure)
     {
         checkArgument(context == null, "context must be null");
         accessControl.checkCanExecuteTableProcedure(
                 securityContext,
-                new QualifiedObjectName(catalogName, procedure.getSchemaName(), procedure.getRoutineName()),
-                getQualifiedObjectName(tableName));
+                getQualifiedObjectName(tableName),
+                procedure);
     }
 
     @Override

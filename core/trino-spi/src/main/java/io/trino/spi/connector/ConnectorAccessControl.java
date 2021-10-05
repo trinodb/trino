@@ -533,9 +533,9 @@ public interface ConnectorAccessControl
         denyExecuteProcedure(procedure.toString());
     }
 
-    default void checkCanExecuteTableProcedure(ConnectorSecurityContext context, SchemaRoutineName procedure, SchemaTableName tableName)
+    default void checkCanExecuteTableProcedure(ConnectorSecurityContext context, SchemaTableName tableName, String procedure)
     {
-        denyExecuteTableProcedure(procedure.toString(), tableName.toString());
+        denyExecuteTableProcedure(tableName.toString(), procedure);
     }
 
     /**

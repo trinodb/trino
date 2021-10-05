@@ -417,9 +417,9 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
-    public void checkCanExecuteTableProcedure(SystemSecurityContext systemSecurityContext, CatalogSchemaRoutineName procedure, CatalogSchemaTableName table)
+    public void checkCanExecuteTableProcedure(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName table, String procedure)
     {
-        delegate().checkCanExecuteTableProcedure(systemSecurityContext, procedure, table);
+        delegate().checkCanExecuteTableProcedure(systemSecurityContext, table, procedure);
     }
 
     @Override

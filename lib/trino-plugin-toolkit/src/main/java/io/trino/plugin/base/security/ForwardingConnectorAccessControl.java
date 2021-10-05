@@ -349,9 +349,9 @@ public abstract class ForwardingConnectorAccessControl
     }
 
     @Override
-    public void checkCanExecuteTableProcedure(ConnectorSecurityContext context, SchemaRoutineName procedure, SchemaTableName tableName)
+    public void checkCanExecuteTableProcedure(ConnectorSecurityContext context, SchemaTableName tableName, String procedure)
     {
-        delegate().checkCanExecuteTableProcedure(context, procedure, tableName);
+        delegate().checkCanExecuteTableProcedure(context, tableName, procedure);
     }
 
     @Override

@@ -710,9 +710,9 @@ public interface SystemAccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
-    default void checkCanExecuteTableProcedure(SystemSecurityContext systemSecurityContext, CatalogSchemaRoutineName procedure, CatalogSchemaTableName table)
+    default void checkCanExecuteTableProcedure(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName table, String procedure)
     {
-        denyExecuteTableProcedure(procedure.toString(), table.toString());
+        denyExecuteTableProcedure(table.toString(), procedure);
     }
 
     /**

@@ -558,7 +558,7 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot execute function %s", functionName));
     }
 
-    public static void denyExecuteTableProcedure(String procedureName, String tableName)
+    public static void denyExecuteTableProcedure(String tableName, String procedureName)
     {
         throw new AccessDeniedException(format("Cannot execute table procedure %s on %s", procedureName, tableName));
     }

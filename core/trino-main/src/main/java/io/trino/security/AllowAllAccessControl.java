@@ -339,7 +339,7 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public void checkCanExecuteTableProcedure(SecurityContext context, QualifiedObjectName procedureName, QualifiedObjectName tableName)
+    public void checkCanExecuteTableProcedure(SecurityContext context, QualifiedObjectName tableName, String procedureName)
     {
     }
 }
