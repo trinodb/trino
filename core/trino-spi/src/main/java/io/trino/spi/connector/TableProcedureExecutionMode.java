@@ -17,9 +17,8 @@ public final class TableProcedureExecutionMode
 {
     private final boolean readsData;
     private final boolean supportsFilter;
-    private final boolean supportsSorting;
 
-    public TableProcedureExecutionMode(boolean readsData, boolean supportsFilter, boolean supportsSorting)
+    public TableProcedureExecutionMode(boolean readsData, boolean supportsFilter)
     {
         this.readsData = readsData;
 
@@ -34,13 +33,9 @@ public final class TableProcedureExecutionMode
             if (supportsFilter) {
                 throw new IllegalArgumentException("filtering not supported if table data is not processed");
             }
-            if (supportsSorting) {
-                throw new IllegalArgumentException("sorting not supported if table data is not processed");
-            }
         }
 
         this.supportsFilter = supportsFilter;
-        this.supportsSorting = supportsSorting;
     }
 
     public boolean isReadsData()
@@ -53,18 +48,13 @@ public final class TableProcedureExecutionMode
         return supportsFilter;
     }
 
-    public boolean supportsSorting()
-    {
-        return supportsSorting;
-    }
-
     public static TableProcedureExecutionMode coordinatorOnly()
     {
-        return new TableProcedureExecutionMode(false, false, false);
+        return new TableProcedureExecutionMode(false, false);
     }
 
     public static TableProcedureExecutionMode distributedWithFilteringAndRepartitioning()
     {
-        return new TableProcedureExecutionMode(true, true, false);
+        return new TableProcedureExecutionMode(true, true);
     }
 }
