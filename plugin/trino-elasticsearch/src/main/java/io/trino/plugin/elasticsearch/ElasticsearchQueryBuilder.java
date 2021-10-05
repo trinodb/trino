@@ -24,6 +24,7 @@ import org.elasticsearch.index.query.MatchAllQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryStringQueryBuilder;
 import org.elasticsearch.index.query.RangeQueryBuilder;
+import org.elasticsearch.index.query.RegexpQueryBuilder;
 import org.elasticsearch.index.query.TermQueryBuilder;
 
 import java.time.Instant;
@@ -54,7 +55,7 @@ public final class ElasticsearchQueryBuilder
 {
     private ElasticsearchQueryBuilder() {}
 
-    public static QueryBuilder buildSearchQuery(TupleDomain<ElasticsearchColumnHandle> constraint, Optional<String> query)
+    public static QueryBuilder buildSearchQuery(TupleDomain<ElasticsearchColumnHandle> constraint, Optional<String> query, Map<String, String> regexes)
     {
         BoolQueryBuilder queryBuilder = new BoolQueryBuilder();
         if (constraint.getDomains().isPresent()) {
@@ -68,6 +69,9 @@ public final class ElasticsearchQueryBuilder
                 }
             }
         }
+
+        regexes.forEach((name, value) -> queryBuilder.filter(new BoolQueryBuilder().must(((new RegexpQueryBuilder(name, value))))));
+
         query.map(QueryStringQueryBuilder::new)
                 .ifPresent(queryBuilder::must);
 
