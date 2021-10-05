@@ -17,8 +17,8 @@ import com.google.common.annotations.VisibleForTesting;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.Duration;
+import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.raptor.legacy.NodeSupplier;
-import io.trino.plugin.raptor.legacy.RaptorConnectorId;
 import io.trino.plugin.raptor.legacy.backup.BackupStore;
 import io.trino.plugin.raptor.legacy.metadata.ShardManager;
 import io.trino.plugin.raptor.legacy.metadata.ShardMetadata;
@@ -85,7 +85,7 @@ public class ShardEjector
             StorageService storageService,
             StorageManagerConfig config,
             Optional<BackupStore> backupStore,
-            RaptorConnectorId connectorId)
+            CatalogName catalogName)
     {
         this(nodeManager.getCurrentNode().getNodeIdentifier(),
                 nodeSupplier,
@@ -93,7 +93,7 @@ public class ShardEjector
                 storageService,
                 config.getShardEjectorInterval(),
                 backupStore,
-                connectorId.toString());
+                catalogName.toString());
     }
 
     public ShardEjector(

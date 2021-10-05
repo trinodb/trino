@@ -14,6 +14,7 @@
 package io.trino.plugin.raptor.legacy;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.raptor.legacy.backup.BackupService;
 import io.trino.plugin.raptor.legacy.metadata.BucketShards;
 import io.trino.plugin.raptor.legacy.metadata.ShardManager;
@@ -71,17 +72,17 @@ public class RaptorSplitManager
     private final ExecutorService executor;
 
     @Inject
-    public RaptorSplitManager(RaptorConnectorId connectorId, NodeSupplier nodeSupplier, ShardManager shardManager, BackupService backupService)
+    public RaptorSplitManager(CatalogName catalogName, NodeSupplier nodeSupplier, ShardManager shardManager, BackupService backupService)
     {
-        this(connectorId, nodeSupplier, shardManager, requireNonNull(backupService, "backupService is null").isBackupAvailable());
+        this(catalogName, nodeSupplier, shardManager, requireNonNull(backupService, "backupService is null").isBackupAvailable());
     }
 
-    public RaptorSplitManager(RaptorConnectorId connectorId, NodeSupplier nodeSupplier, ShardManager shardManager, boolean backupAvailable)
+    public RaptorSplitManager(CatalogName catalogName, NodeSupplier nodeSupplier, ShardManager shardManager, boolean backupAvailable)
     {
         this.nodeSupplier = requireNonNull(nodeSupplier, "nodeSupplier is null");
         this.shardManager = requireNonNull(shardManager, "shardManager is null");
         this.backupAvailable = backupAvailable;
-        this.executor = newCachedThreadPool(daemonThreadsNamed("raptor-split-" + connectorId + "-%s"));
+        this.executor = newCachedThreadPool(daemonThreadsNamed("raptor-split-" + catalogName + "-%s"));
     }
 
     @PreDestroy
