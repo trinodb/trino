@@ -414,6 +414,16 @@ public class InjectedConnectorAccessControl
     }
 
     @Override
+    public void checkCanExecuteTableProcedure(ConnectorSecurityContext context, SchemaTableName tableName, String procedure)
+    {
+        checkArgument(context == null, "context must be null");
+        accessControl.checkCanExecuteTableProcedure(
+                securityContext,
+                getQualifiedObjectName(tableName),
+                procedure);
+    }
+
+    @Override
     public Optional<ViewExpression> getRowFilter(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         checkArgument(context == null, "context must be null");
