@@ -14,8 +14,6 @@
 package io.trino.client.auth.kerberos;
 
 import com.google.common.base.Splitter;
-import com.google.common.collect.ImmutableMap;
-import com.sun.security.auth.module.Krb5LoginModule;
 import io.airlift.units.Duration;
 import io.trino.client.ClientException;
 import okhttp3.Authenticator;
@@ -31,12 +29,8 @@ import org.ietf.jgss.Oid;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.security.auth.Subject;
-import javax.security.auth.login.AppConfigurationEntry;
-import javax.security.auth.login.Configuration;
-import javax.security.auth.login.LoginContext;
 import javax.security.auth.login.LoginException;
 
-import java.io.File;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -45,20 +39,15 @@ import java.security.PrivilegedActionException;
 import java.security.PrivilegedExceptionAction;
 import java.util.Base64;
 import java.util.Locale;
-import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.CharMatcher.whitespace;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
 import static com.google.common.net.HttpHeaders.WWW_AUTHENTICATE;
-import static java.lang.Boolean.getBoolean;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static javax.security.auth.login.AppConfigurationEntry.LoginModuleControlFlag.REQUIRED;
 import static org.ietf.jgss.GSSContext.INDEFINITE_LIFETIME;
 import static org.ietf.jgss.GSSCredential.DEFAULT_LIFETIME;
 import static org.ietf.jgss.GSSCredential.INITIATE_ONLY;
@@ -80,39 +69,21 @@ public class SpnegoHandler
     private final String servicePrincipalPattern;
     private final String remoteServiceName;
     private final boolean useCanonicalHostname;
-    private final Optional<String> principal;
-    private final Optional<File> keytab;
-    private final Optional<File> credentialCache;
+    private final SubjectProvider subjectProvider;
 
     @GuardedBy("this")
-    private Session clientSession;
+    private GSSCredential clientCredential;
 
     public SpnegoHandler(
             String servicePrincipalPattern,
             String remoteServiceName,
             boolean useCanonicalHostname,
-            Optional<String> principal,
-            Optional<File> kerberosConfig,
-            Optional<File> keytab,
-            Optional<File> credentialCache)
+            SubjectProvider subjectProvider)
     {
         this.servicePrincipalPattern = requireNonNull(servicePrincipalPattern, "servicePrincipalPattern is null");
         this.remoteServiceName = requireNonNull(remoteServiceName, "remoteServiceName is null");
         this.useCanonicalHostname = useCanonicalHostname;
-        this.principal = requireNonNull(principal, "principal is null");
-        this.keytab = requireNonNull(keytab, "keytab is null");
-        this.credentialCache = requireNonNull(credentialCache, "credentialCache is null");
-
-        kerberosConfig.ifPresent(file -> {
-            String newValue = file.getAbsolutePath();
-            String currentValue = System.getProperty("java.security.krb5.conf");
-            checkState(
-                    currentValue == null || Objects.equals(currentValue, newValue),
-                    "Refusing to set system property 'java.security.krb5.conf' to '%s', it is already set to '%s'",
-                    newValue,
-                    currentValue);
-            System.setProperty("java.security.krb5.conf", newValue);
-        });
+        this.subjectProvider = requireNonNull(subjectProvider, "subjectProvider is null");
     }
 
     @Override
@@ -161,12 +132,12 @@ public class SpnegoHandler
     {
         GSSContext context = null;
         try {
-            Session session = getSession();
-            context = doAs(session.getLoginContext().getSubject(), () -> {
+            GSSCredential clientCredential = getGssCredential();
+            context = doAs(subjectProvider.getSubject(), () -> {
                 GSSContext result = GSS_MANAGER.createContext(
                         GSS_MANAGER.createName(servicePrincipal, NT_HOSTBASED_SERVICE),
                         SPNEGO_OID,
-                        session.getClientCredential(),
+                        clientCredential,
                         INDEFINITE_LIFETIME);
 
                 result.requestMutualAuth(true);
@@ -196,60 +167,26 @@ public class SpnegoHandler
         }
     }
 
-    private synchronized Session getSession()
+    private synchronized GSSCredential getGssCredential()
             throws LoginException, GSSException
     {
-        if ((clientSession == null) || clientSession.needsRefresh()) {
-            clientSession = createSession();
+        if ((clientCredential == null) || clientCredential.getRemainingLifetime() < MIN_CREDENTIAL_LIFETIME.getValue(SECONDS)) {
+            clientCredential = createGssCredential();
         }
-        return clientSession;
+        return clientCredential;
     }
 
-    private Session createSession()
+    private GSSCredential createGssCredential()
             throws LoginException, GSSException
     {
-        // TODO: do we need to call logout() on the LoginContext?
-
-        LoginContext loginContext = new LoginContext("", null, null, new Configuration()
-        {
-            @Override
-            public AppConfigurationEntry[] getAppConfigurationEntry(String name)
-            {
-                ImmutableMap.Builder<String, String> options = ImmutableMap.builder();
-                options.put("refreshKrb5Config", "true");
-                options.put("doNotPrompt", "true");
-                options.put("useKeyTab", "true");
-
-                if (getBoolean("trino.client.debugKerberos")) {
-                    options.put("debug", "true");
-                }
-
-                keytab.ifPresent(file -> options.put("keyTab", file.getAbsolutePath()));
-
-                credentialCache.ifPresent(file -> {
-                    options.put("ticketCache", file.getAbsolutePath());
-                    options.put("useTicketCache", "true");
-                    options.put("renewTGT", "true");
-                });
-
-                principal.ifPresent(value -> options.put("principal", value));
-
-                return new AppConfigurationEntry[] {
-                        new AppConfigurationEntry(Krb5LoginModule.class.getName(), REQUIRED, options.build())
-                };
-            }
-        });
-
-        loginContext.login();
-        Subject subject = loginContext.getSubject();
+        subjectProvider.refresh();
+        Subject subject = subjectProvider.getSubject();
         Principal clientPrincipal = subject.getPrincipals().iterator().next();
-        GSSCredential clientCredential = doAs(subject, () -> GSS_MANAGER.createCredential(
+        return doAs(subject, () -> GSS_MANAGER.createCredential(
                 GSS_MANAGER.createName(clientPrincipal.getName(), NT_USER_NAME),
                 DEFAULT_LIFETIME,
                 KERBEROS_OID,
                 INITIATE_ONLY));
-
-        return new Session(loginContext, clientCredential);
     }
 
     private static String makeServicePrincipal(String servicePrincipalPattern, String serviceName, String hostName, boolean useCanonicalHostname)
@@ -309,37 +246,6 @@ public class SpnegoHandler
         }
         catch (GSSException e) {
             throw new AssertionError(e);
-        }
-    }
-
-    private static class Session
-    {
-        private final LoginContext loginContext;
-        private final GSSCredential clientCredential;
-
-        public Session(LoginContext loginContext, GSSCredential clientCredential)
-        {
-            requireNonNull(loginContext, "loginContext is null");
-            requireNonNull(clientCredential, "clientCredential is null");
-
-            this.loginContext = loginContext;
-            this.clientCredential = clientCredential;
-        }
-
-        public LoginContext getLoginContext()
-        {
-            return loginContext;
-        }
-
-        public GSSCredential getClientCredential()
-        {
-            return clientCredential;
-        }
-
-        public boolean needsRefresh()
-                throws GSSException
-        {
-            return clientCredential.getRemainingLifetime() < MIN_CREDENTIAL_LIFETIME.getValue(SECONDS);
         }
     }
 }

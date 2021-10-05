@@ -15,7 +15,9 @@ package io.trino.client;
 
 import com.google.common.base.CharMatcher;
 import com.google.common.net.HostAndPort;
+import io.trino.client.auth.kerberos.LoginBasedSubjectProvider;
 import io.trino.client.auth.kerberos.SpnegoHandler;
+import io.trino.client.auth.kerberos.SubjectProvider;
 import okhttp3.Credentials;
 import okhttp3.Interceptor;
 import okhttp3.JavaNetCookieJar;
@@ -289,7 +291,8 @@ public final class OkHttpUtil
             Optional<File> keytab,
             Optional<File> credentialCache)
     {
-        SpnegoHandler handler = new SpnegoHandler(servicePrincipalPattern, remoteServiceName, useCanonicalHostname, principal, kerberosConfig, keytab, credentialCache);
+        SubjectProvider subjectProvider = new LoginBasedSubjectProvider(principal, kerberosConfig, keytab, credentialCache);
+        SpnegoHandler handler = new SpnegoHandler(servicePrincipalPattern, remoteServiceName, useCanonicalHostname, subjectProvider);
         clientBuilder.addInterceptor(handler);
         clientBuilder.authenticator(handler);
     }
