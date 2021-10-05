@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
 import io.trino.cost.CachingCostProvider;
 import io.trino.cost.CachingStatsProvider;
 import io.trino.cost.CostCalculator;
@@ -768,9 +767,8 @@ public class LogicalPlanner
     {
         Table table = statement.getTable();
         TableHandle tableHandle = analysis.getTableHandle(table);
-        CatalogName catalogName = tableHandle.getCatalogName();
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, table.getName());
-        String procedureName = statement.getProcedureName().getValue();
+        String procedureName = statement.getProcedureName().getCanonicalValue();
 
         Optional<Constraint> constraint = getConstraintForTableExecute(analysis, statement);
 
