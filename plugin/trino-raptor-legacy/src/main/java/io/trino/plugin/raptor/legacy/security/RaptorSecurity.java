@@ -13,24 +13,9 @@
  */
 package io.trino.plugin.raptor.legacy.security;
 
-import io.airlift.configuration.Config;
-
-import javax.validation.constraints.NotNull;
-
-public class RaptorSecurityConfig
+public enum RaptorSecurity
 {
-    private RaptorSecurity securitySystem = RaptorSecurity.NONE;
-
-    @NotNull
-    public RaptorSecurity getSecuritySystem()
-    {
-        return securitySystem;
-    }
-
-    @Config("raptor.security")
-    public RaptorSecurityConfig setSecuritySystem(RaptorSecurity securitySystem)
-    {
-        this.securitySystem = securitySystem;
-        return this;
-    }
+    NONE,
+    FILE,
+    READ_ONLY,
 }
