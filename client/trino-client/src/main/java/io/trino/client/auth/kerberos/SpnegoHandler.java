@@ -11,12 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.client;
+package io.trino.client.auth.kerberos;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.sun.security.auth.module.Krb5LoginModule;
 import io.airlift.units.Duration;
+import io.trino.client.ClientException;
 import okhttp3.Authenticator;
 import okhttp3.Interceptor;
 import okhttp3.Request;
