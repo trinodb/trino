@@ -19,8 +19,10 @@ import io.trino.spi.security.Identity;
 import javax.ws.rs.container.ContainerRequestContext;
 
 import java.security.Principal;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
 import static java.lang.String.format;
@@ -47,14 +49,12 @@ public abstract class AbstractBearerAuthenticator
             throws AuthenticationException
     {
         try {
-            Optional<Principal> principal = extractPrincipalFromToken(token);
-            if (principal.isEmpty()) {
-                throw needAuthentication(request, "Invalid credentials");
-            }
+            Principal principal = extractPrincipalFromToken(token).orElseThrow(() -> needAuthentication(request, "Invalid credentials"));
 
-            String authenticatedUser = userMapping.mapUser(principal.get().getName());
+            String authenticatedUser = userMapping.mapUser(principal.getName());
             return Identity.forUser(authenticatedUser)
-                    .withPrincipal(principal.get())
+                    .withPrincipal(principal)
+                    .withGroups(extractGroupsFromToken(token))
                     .build();
         }
         catch (JwtException | UserMappingException e) {
@@ -86,6 +86,11 @@ public abstract class AbstractBearerAuthenticator
             throw needAuthentication(request, null);
         }
         return token;
+    }
+
+    protected Set<String> extractGroupsFromToken(String token)
+    {
+        return Collections.emptySet();
     }
 
     protected abstract Optional<Principal> extractPrincipalFromToken(String token);
