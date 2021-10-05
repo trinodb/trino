@@ -586,7 +586,7 @@ public final class HiveWriteUtils
     public static void createDirectory(HdfsContext context, HdfsEnvironment hdfsEnvironment, Path path)
     {
         try {
-            if (!hdfsEnvironment.getFileSystem(context, path).mkdirs(path, hdfsEnvironment.getNewDirectoryPermissions())) {
+            if (!hdfsEnvironment.getFileSystem(context, path).mkdirs(path, hdfsEnvironment.getNewDirectoryPermissions().orElse(null))) {
                 throw new IOException("mkdirs returned false");
             }
         }
@@ -594,12 +594,14 @@ public final class HiveWriteUtils
             throw new TrinoException(HIVE_FILESYSTEM_ERROR, "Failed to create directory: " + path, e);
         }
 
-        // explicitly set permission since the default umask overrides it on creation
-        try {
-            hdfsEnvironment.getFileSystem(context, path).setPermission(path, hdfsEnvironment.getNewDirectoryPermissions());
-        }
-        catch (IOException e) {
-            throw new TrinoException(HIVE_FILESYSTEM_ERROR, "Failed to set permission on directory: " + path, e);
+        if (hdfsEnvironment.getNewDirectoryPermissions().isPresent()) {
+            // explicitly set permission since the default umask overrides it on creation
+            try {
+                hdfsEnvironment.getFileSystem(context, path).setPermission(path, hdfsEnvironment.getNewDirectoryPermissions().get());
+            }
+            catch (IOException e) {
+                throw new TrinoException(HIVE_FILESYSTEM_ERROR, "Failed to set permission on directory: " + path, e);
+            }
         }
     }
 
