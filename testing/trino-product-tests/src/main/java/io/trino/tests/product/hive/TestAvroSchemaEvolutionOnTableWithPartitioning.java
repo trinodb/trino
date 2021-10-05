@@ -13,11 +13,11 @@
  */
 package io.trino.tests.product.hive;
 
-public class TestAvroSchemaEvolutionOnSimpleTable
+public class TestAvroSchemaEvolutionOnTableWithPartitioning
         extends BaseTestAvroSchemaEvolution
 {
-    public TestAvroSchemaEvolutionOnSimpleTable()
+    public TestAvroSchemaEvolutionOnTableWithPartitioning()
     {
-        super("product_tests_avro_table");
+        super("product_tests_avro_table_with_partitioning", "partition_col");
     }
 }
