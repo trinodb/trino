@@ -19,7 +19,7 @@ import javax.validation.constraints.NotNull;
 
 public class SecurityConfig
 {
-    private String securitySystem = HiveSecurityModule.LEGACY;
+    private String securitySystem = HiveSecurityModule.ALLOW_ALL;
 
     @NotNull
     public String getSecuritySystem()
