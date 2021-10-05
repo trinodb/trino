@@ -15,13 +15,16 @@ package io.trino.plugin.elasticsearch;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.predicate.TupleDomain;
 
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 
@@ -37,6 +40,7 @@ public final class ElasticsearchTableHandle
     private final String schema;
     private final String index;
     private final TupleDomain<ColumnHandle> constraint;
+    private final Map<String, String> regexes;
     private final Optional<String> query;
     private final OptionalLong limit;
 
@@ -48,6 +52,7 @@ public final class ElasticsearchTableHandle
         this.query = requireNonNull(query, "query is null");
 
         constraint = TupleDomain.all();
+        regexes = ImmutableMap.of();
         limit = OptionalLong.empty();
     }
 
@@ -57,6 +62,7 @@ public final class ElasticsearchTableHandle
             @JsonProperty("schema") String schema,
             @JsonProperty("index") String index,
             @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint,
+            @JsonProperty("regexes") Map<String, String> regexes,
             @JsonProperty("query") Optional<String> query,
             @JsonProperty("limit") OptionalLong limit)
     {
@@ -64,6 +70,7 @@ public final class ElasticsearchTableHandle
         this.schema = requireNonNull(schema, "schema is null");
         this.index = requireNonNull(index, "index is null");
         this.constraint = requireNonNull(constraint, "constraint is null");
+        this.regexes = ImmutableMap.copyOf(requireNonNull(regexes, "regexes is null"));
         this.query = requireNonNull(query, "query is null");
         this.limit = requireNonNull(limit, "limit is null");
     }
@@ -93,6 +100,12 @@ public final class ElasticsearchTableHandle
     }
 
     @JsonProperty
+    public Map<String, String> getRegexes()
+    {
+        return regexes;
+    }
+
+    @JsonProperty
     public OptionalLong getLimit()
     {
         return limit;
@@ -118,6 +131,7 @@ public final class ElasticsearchTableHandle
                 schema.equals(that.schema) &&
                 index.equals(that.index) &&
                 constraint.equals(that.constraint) &&
+                regexes.equals(that.regexes) &&
                 query.equals(that.query) &&
                 limit.equals(that.limit);
     }
@@ -125,7 +139,7 @@ public final class ElasticsearchTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(type, schema, index, constraint, query, limit);
+        return Objects.hash(type, schema, index, constraint, regexes, query, limit);
     }
 
     @Override
@@ -135,6 +149,13 @@ public final class ElasticsearchTableHandle
         builder.append(type + ":" + index);
 
         StringBuilder attributes = new StringBuilder();
+        if (!regexes.isEmpty()) {
+            attributes.append("regexes=[");
+            attributes.append(regexes.entrySet().stream()
+                    .map(regex -> regex.getKey() + ":" + regex.getValue())
+                    .collect(Collectors.joining(", ")));
+            attributes.append("]");
+        }
         limit.ifPresent(value -> attributes.append("limit=" + value));
         query.ifPresent(value -> attributes.append("query" + value));
 

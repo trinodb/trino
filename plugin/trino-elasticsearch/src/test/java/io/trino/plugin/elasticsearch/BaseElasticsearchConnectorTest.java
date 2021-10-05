@@ -1042,6 +1042,50 @@ public abstract class BaseElasticsearchConnectorTest
     }
 
     @Test
+    public void testLike()
+            throws IOException
+    {
+        String indexName = "like_test";
+
+        @Language("JSON")
+        String mappings = "" +
+                "{" +
+                "  \"properties\": { " +
+                "    \"keyword_column\":   { \"type\": \"keyword\" }," +
+                "    \"text_column\":      { \"type\": \"text\" }" +
+                "  }" +
+                "}";
+
+        createIndex(indexName, mappings);
+
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("keyword_column", "so.me tex\\t")
+                .put("text_column", "so.me tex\\t")
+                .build());
+
+        // Add another document to make sure '.' is escaped and not treated as any character
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("keyword_column", "soome tex\\t")
+                .put("text_column", "soome tex\\t")
+                .build());
+
+        assertThat(query("" +
+                "SELECT " +
+                "keyword_column " +
+                "FROM " + indexName + " " +
+                "WHERE keyword_column LIKE 's_.m%ex\\t'"))
+                .matches("VALUES VARCHAR 'so.me tex\\t'")
+                .isFullyPushedDown();
+
+        assertThat(query("" +
+                 "SELECT " +
+                 "text_column " +
+                 "FROM " + indexName + " " +
+                 "WHERE text_column LIKE 's_.m%ex\\t'"))
+                .matches("VALUES VARCHAR 'so.me tex\\t'");
+    }
+
+    @Test
     public void testDataTypes()
             throws IOException
     {
