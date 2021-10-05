@@ -15,7 +15,7 @@ package io.trino.plugin.raptor.legacy.security;
 
 public enum RaptorSecurity
 {
-    NONE,
+    ALLOW_ALL,
     FILE,
     READ_ONLY,
 }

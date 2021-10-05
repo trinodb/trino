@@ -70,7 +70,7 @@ public class AtopConnectorFactory
                     new CatalogNameModule(catalogName),
                     conditionalModule(
                             AtopConnectorConfig.class,
-                            config -> config.getSecurity() == AtopSecurity.NONE,
+                            config -> config.getSecurity() == AtopSecurity.ALLOW_ALL,
                             new AllowAllAccessControlModule()),
                     conditionalModule(
                             AtopConnectorConfig.class,
