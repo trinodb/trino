@@ -16,7 +16,6 @@ package io.trino.operator.scalar;
 import io.trino.spi.type.Type;
 import org.testng.annotations.Test;
 
-import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 
@@ -46,13 +45,13 @@ public class TestDataSizeFunctions
         assertFunction("parse_data_size('6917529027641081856EB')", DECIMAL, decimal("7975367974709495237422842361682067456"));
         assertFunction("parse_data_size('69175290276410818560EB')", DECIMAL, decimal("79753679747094952374228423616820674560"));
 
-        assertInvalidFunction("parse_data_size('')", INVALID_FUNCTION_ARGUMENT, "Invalid data size: ''");
-        assertInvalidFunction("parse_data_size('0')", INVALID_FUNCTION_ARGUMENT, "Invalid data size: '0'");
-        assertInvalidFunction("parse_data_size('10KB')", INVALID_FUNCTION_ARGUMENT, "Invalid data size: '10KB'");
-        assertInvalidFunction("parse_data_size('KB')", INVALID_FUNCTION_ARGUMENT, "Invalid data size: 'KB'");
-        assertInvalidFunction("parse_data_size('-1B')", INVALID_FUNCTION_ARGUMENT, "Invalid data size: '-1B'");
-        assertInvalidFunction("parse_data_size('12345K')", INVALID_FUNCTION_ARGUMENT, "Invalid data size: '12345K'");
-        assertInvalidFunction("parse_data_size('A12345B')", INVALID_FUNCTION_ARGUMENT, "Invalid data size: 'A12345B'");
+        assertInvalidFunction("parse_data_size('')", "Invalid data size: ''");
+        assertInvalidFunction("parse_data_size('0')", "Invalid data size: '0'");
+        assertInvalidFunction("parse_data_size('10KB')", "Invalid data size: '10KB'");
+        assertInvalidFunction("parse_data_size('KB')", "Invalid data size: 'KB'");
+        assertInvalidFunction("parse_data_size('-1B')", "Invalid data size: '-1B'");
+        assertInvalidFunction("parse_data_size('12345K')", "Invalid data size: '12345K'");
+        assertInvalidFunction("parse_data_size('A12345B')", "Invalid data size: 'A12345B'");
         assertInvalidFunction("parse_data_size('99999999999999YB')", NUMERIC_VALUE_OUT_OF_RANGE, "Value out of range: '99999999999999YB' ('120892581961461708544797985370825293824B')");
     }
 }
