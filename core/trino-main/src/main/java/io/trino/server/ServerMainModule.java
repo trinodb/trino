@@ -142,9 +142,11 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 
 import java.util.List;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -459,6 +461,19 @@ public class ServerMainModule
     public static TypeOperators createTypeOperators(TypeOperatorsCache typeOperatorsCache)
     {
         return new TypeOperators(typeOperatorsCache);
+    }
+
+    @Provides
+    @Singleton
+    @ForStartup
+    public static Executor createStartupExecutor(ServerConfig config)
+    {
+        if (!config.isConcurrentStartup()) {
+            return directExecutor();
+        }
+        return new BoundedExecutor(
+                newCachedThreadPool(daemonThreadsNamed("startup-%s")),
+                Runtime.getRuntime().availableProcessors());
     }
 
     @Provides
