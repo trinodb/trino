@@ -21,6 +21,9 @@ import io.trino.plugin.base.security.FileBasedAccessControlModule;
 import io.trino.plugin.base.security.ReadOnlySecurityModule;
 
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
+import static io.trino.plugin.raptor.legacy.security.RaptorSecurity.FILE;
+import static io.trino.plugin.raptor.legacy.security.RaptorSecurity.NONE;
+import static io.trino.plugin.raptor.legacy.security.RaptorSecurity.READ_ONLY;
 
 public class RaptorSecurityModule
         extends AbstractConfigurationAwareModule
@@ -28,16 +31,16 @@ public class RaptorSecurityModule
     @Override
     protected void setup(Binder binder)
     {
-        bindSecurityModule("none", new AllowAllAccessControlModule());
-        bindSecurityModule("read-only", new ReadOnlySecurityModule());
-        bindSecurityModule("file", new FileBasedAccessControlModule());
+        bindSecurityModule(NONE, new AllowAllAccessControlModule());
+        bindSecurityModule(READ_ONLY, new ReadOnlySecurityModule());
+        bindSecurityModule(FILE, new FileBasedAccessControlModule());
     }
 
-    private void bindSecurityModule(String name, Module module)
+    private void bindSecurityModule(RaptorSecurity raptorSecurity, Module module)
     {
         install(conditionalModule(
                 RaptorSecurityConfig.class,
-                security -> name.equalsIgnoreCase(security.getSecuritySystem()),
+                security -> raptorSecurity.equals(security.getSecuritySystem()),
                 module));
     }
 }
