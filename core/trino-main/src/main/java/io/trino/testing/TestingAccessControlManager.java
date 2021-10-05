@@ -125,9 +125,14 @@ public class TestingAccessControlManager
     private BiPredicate<Identity, String> denyIdentityTable = IDENTITY_TABLE_TRUE;
 
     @Inject
+    public TestingAccessControlManager(TransactionManager transactionManager, EventListenerManager eventListenerManager, AccessControlConfig accessControlConfig)
+    {
+        super(transactionManager, eventListenerManager, accessControlConfig, DefaultSystemAccessControl.NAME);
+    }
+
     public TestingAccessControlManager(TransactionManager transactionManager, EventListenerManager eventListenerManager)
     {
-        super(transactionManager, eventListenerManager, new AccessControlConfig(), DefaultSystemAccessControl.NAME);
+        this(transactionManager, eventListenerManager, new AccessControlConfig());
     }
 
     public void loadSystemAccessControl(String name, Map<String, String> properties)
