@@ -2043,7 +2043,7 @@ public class SemiTransactionalHiveMetastore
                     logCleanupFailure("Failed to rollback: add_partition for partitions %s.%s %s",
                             partitionAdder.getSchemaName(),
                             partitionAdder.getTableName(),
-                            partitionsFailedToRollback.stream());
+                            partitionsFailedToRollback);
                 }
             }
         }
