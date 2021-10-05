@@ -118,6 +118,7 @@ import io.trino.sql.tree.ShowTables;
 import io.trino.sql.tree.SingleColumn;
 import io.trino.sql.tree.StartTransaction;
 import io.trino.sql.tree.Table;
+import io.trino.sql.tree.TableExecute;
 import io.trino.sql.tree.TableSubquery;
 import io.trino.sql.tree.TransactionAccessMode;
 import io.trino.sql.tree.TransactionMode;
@@ -1398,6 +1399,25 @@ public final class SqlFormatter
         }
 
         @Override
+        protected Void visitTableExecute(TableExecute node, Integer indent)
+        {
+            builder.append("ALTER TABLE ");
+            builder.append(formatName(node.getTable().getName()));
+            builder.append(" EXECUTE ");
+            builder.append(formatExpression(node.getProcedureName()));
+            if (!node.getArguments().isEmpty()) {
+                builder.append("(");
+                formatCallArguments(indent, node.getArguments());
+                builder.append(")");
+            }
+            node.getWhere().ifPresent(where ->
+                    builder.append("\n")
+                            .append(indentString(indent))
+                            .append("WHERE ").append(formatExpression(where)));
+            return null;
+        }
+
+        @Override
         protected Void visitAnalyze(Analyze node, Integer indent)
         {
             builder.append("ANALYZE ")
@@ -1517,18 +1537,21 @@ public final class SqlFormatter
             builder.append("CALL ")
                     .append(node.getName())
                     .append("(");
-
-            Iterator<CallArgument> arguments = node.getArguments().iterator();
-            while (arguments.hasNext()) {
-                process(arguments.next(), indent);
-                if (arguments.hasNext()) {
-                    builder.append(", ");
-                }
-            }
-
+            formatCallArguments(indent, node.getArguments());
             builder.append(")");
 
             return null;
+        }
+
+        private void formatCallArguments(Integer indent, List<CallArgument> arguments)
+        {
+            Iterator<CallArgument> iterator = arguments.iterator();
+            while (iterator.hasNext()) {
+                process(iterator.next(), indent);
+                if (iterator.hasNext()) {
+                    builder.append(", ");
+                }
+            }
         }
 
         @Override
