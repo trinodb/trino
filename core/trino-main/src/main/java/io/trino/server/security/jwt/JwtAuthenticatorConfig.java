@@ -28,6 +28,7 @@ public class JwtAuthenticatorConfig
     private String requiredIssuer;
     private String requiredAudience;
     private String principalField = "sub";
+    private String groupsField;
     private Optional<String> userMappingPattern = Optional.empty();
     private Optional<File> userMappingFile = Optional.empty();
 
@@ -81,6 +82,18 @@ public class JwtAuthenticatorConfig
     public JwtAuthenticatorConfig setPrincipalField(String principalField)
     {
         this.principalField = principalField;
+        return this;
+    }
+
+    public String getGroupsField()
+    {
+        return groupsField;
+    }
+
+    @Config("http-server.authentication.jwt.groups-field")
+    public JwtAuthenticatorConfig setGroupsField(String groupsField)
+    {
+        this.groupsField = groupsField;
         return this;
     }
 
