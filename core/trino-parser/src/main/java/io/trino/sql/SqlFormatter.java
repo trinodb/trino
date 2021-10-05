@@ -1387,7 +1387,7 @@ public final class SqlFormatter
             builder.append("ALTER TABLE ");
             builder.append(formatName(node.getTable().getName()));
             builder.append(" EXECUTE ");
-            builder.append(node.getProcedureName());
+            builder.append(formatExpression(node.getProcedureName()));
             builder.append(formatPropertiesMultiLine(node.getProperties()));
             node.getWhere().ifPresent(where ->
                     builder.append("\n")

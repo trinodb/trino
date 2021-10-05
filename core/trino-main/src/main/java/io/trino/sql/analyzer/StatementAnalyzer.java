@@ -982,7 +982,7 @@ class StatementAnalyzer
         {
             Table table = node.getTable();
             QualifiedObjectName originalName = createQualifiedObjectName(session, table, table.getName());
-            String procedureName = node.getProcedureName().getValue();
+            String procedureName = node.getProcedureName().getCanonicalValue();
 
             if (metadata.getMaterializedView(session, originalName).isPresent()) {
                 throw semanticException(NOT_SUPPORTED, node, "ALTER TABLE EXECUTE is not supported for materialized views");
