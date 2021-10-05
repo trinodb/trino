@@ -1,8 +1,8 @@
 ===================
-HTTP Event Listener
+HTTP event listener
 ===================
 
-The HTTP Event Listener plugin allows streaming of query events, encoded in
+The HTTP event listener plugin allows streaming of query events, encoded in
 JSON format, to an external service for further processing, by POSTing them
 to a specified URI.
 
@@ -32,7 +32,7 @@ You need to perform the following steps:
 Configuration
 -------------
 
-To configure the HTTP Event Listener plugin, create an event listener properties
+To configure the HTTP event listener plugin, create an event listener properties
 file in ``etc`` named ``http-event-listener.properties`` with the following contents
 as an example:
 
