@@ -5379,6 +5379,49 @@ public abstract class AbstractTestHive
         }
     }
 
+    @Test
+    public void testNewDirectoryPermissions()
+            throws Exception
+    {
+        SchemaTableName tableName = temporaryTable("empty_file");
+        List<Column> columns = ImmutableList.of(new Column("test", HIVE_STRING, Optional.empty()));
+        createEmptyTable(tableName, ORC, columns, ImmutableList.of(), Optional.empty());
+        try {
+            Transaction transaction = newTransaction();
+            ConnectorSession session = newSession();
+            ConnectorMetadata metadata = transaction.getMetadata();
+            metadata.beginQuery(session);
+
+            Table table = transaction.getMetastore()
+                    .getTable(new HiveIdentity(session), tableName.getSchemaName(), tableName.getTableName())
+                    .orElseThrow();
+
+            // create new directory and set directory permission after creation
+            HdfsContext context = new HdfsContext(session);
+            Path location = new Path(table.getStorage().getLocation());
+            Path defaultPath = new Path(location + "/defaultperms");
+            createDirectory(context, hdfsEnvironment, defaultPath);
+            FileStatus defaultFsStatus = hdfsEnvironment.getFileSystem(context, defaultPath).getFileStatus(defaultPath);
+            assertEquals(defaultFsStatus.getPermission().toOctal(), 777);
+
+            // use hdfs config that skips setting directory permissions after creation
+            HdfsConfig configWithSkip = new HdfsConfig();
+            configWithSkip.setNewDirectoryPermissions(HdfsConfig.SKIP_DIR_PERMISSIONS);
+            HdfsEnvironment hdfsEnvironmentWithSkip = new HdfsEnvironment(
+                    createTestHdfsConfiguration(),
+                    configWithSkip,
+                    new NoHdfsAuthentication());
+
+            Path skipPath = new Path(location + "/skipperms");
+            createDirectory(context, hdfsEnvironmentWithSkip, skipPath);
+            FileStatus skipFsStatus = hdfsEnvironmentWithSkip.getFileSystem(context, skipPath).getFileStatus(skipPath);
+            assertEquals(skipFsStatus.getPermission().toOctal(), 755);
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
     protected void doTestTransactionDeleteInsert(HiveStorageFormat storageFormat, boolean allowInsertExisting, List<TransactionDeleteInsertTestCase> testCases)
             throws Exception
     {

@@ -379,6 +379,11 @@ Property Name                                      Description                  
 ``hive.parallel-partitioned-bucketed-writes``      Improve parallelism of partitioned and bucketed table        ``true``
                                                    writes. When disabled, the number of writing threads
                                                    is limited to number of buckets.
+
+``hive.fs.new-directory-permissions``              Controls the permissions set on new directories created      ``0777``
+                                                   for tables. It must be either 'skip' or an octal number,
+                                                   with a leading 0. If set to 'skip', permissions of newly
+                                                   created directories will not be set by Trino.
 ================================================== ============================================================ ============
 
 ORC format configuration properties
