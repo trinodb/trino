@@ -13,7 +13,6 @@
  */
 package io.trino.tests.product.hive;
 
-import io.trino.tempto.ProductTest;
 import io.trino.tempto.Requirement;
 import io.trino.tempto.RequirementsProvider;
 import io.trino.tempto.configuration.Configuration;
@@ -36,7 +35,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestHiveCompression
-        extends ProductTest
+        extends HiveProductTest
         implements RequirementsProvider
 {
     @Override
@@ -92,6 +91,11 @@ public class TestHiveCompression
     @Test(groups = HIVE_COMPRESSION)
     public void testSnappyCompressedParquetTableCreatedInTrinoWithNativeWriter()
     {
+        if (getHiveVersionMajor() >= 2) {
+            testSnappyCompressedParquetTableCreatedInTrino(true);
+            return;
+        }
+
         // TODO (https://github.com/trinodb/trino/issues/6377) Native Parquet writer creates files that cannot be read by Hive
         assertThatThrownBy(() -> testSnappyCompressedParquetTableCreatedInTrino(true))
                 .hasStackTraceContaining("at org.apache.hive.jdbc.HiveQueryResultSet.next") // comes via Hive JDBC
@@ -100,7 +104,7 @@ public class TestHiveCompression
                 // - HDP 2 and CDH 5 cannot read Parquet V2 files and throw "org.apache.parquet.io.ParquetDecodingException: Can not read value at 0 in block -1 in file"
                 // - CDH 5 Parquet uses parquet.* packages, while HDP 2 uses org.apache.parquet.* packages
                 // - HDP 3 throws java.lang.ClassCastException: org.apache.hadoop.io.BytesWritable cannot be cast to org.apache.hadoop.hive.serde2.io.HiveVarcharWritable
-                .matches("\\Qio.trino.tempto.query.QueryExecutionException: java.sql.SQLException: java.io.IOException:\\E ((org.apache.)?parquet.io.ParquetDecodingException: Can not read value at 0 in block -1 in file .*|org.apache.hadoop.hive.ql.metadata.HiveException: java.lang.ClassCastException: org.apache.hadoop.io.BytesWritable cannot be cast to org.apache.hadoop.hive.serde2.io.HiveVarcharWritable)");
+                .matches("\\Qio.trino.tempto.query.QueryExecutionException: java.sql.SQLException: java.io.IOException:\\E (org.apache.)?parquet.io.ParquetDecodingException: Can not read value at 0 in block -1 in file .*");
     }
 
     private void testSnappyCompressedParquetTableCreatedInTrino(boolean optimizedParquetWriter)
