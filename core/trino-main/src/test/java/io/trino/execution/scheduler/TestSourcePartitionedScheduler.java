@@ -30,6 +30,7 @@ import io.trino.execution.PartitionedSplitsInfo;
 import io.trino.execution.RemoteTask;
 import io.trino.execution.SqlStageExecution;
 import io.trino.execution.StageId;
+import io.trino.execution.TableExecuteContextManager;
 import io.trino.execution.TableInfo;
 import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
 import io.trino.failuredetector.NoOpFailureDetector;
@@ -345,6 +346,7 @@ public class TestSourcePartitionedScheduler
                     new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(session, Optional.of(CONNECTOR_ID)), stage::getAllTasks),
                     2,
                     new DynamicFilterService(metadata, typeOperators, new DynamicFilterConfig()),
+                    new TableExecuteContextManager(),
                     () -> false);
             scheduler.schedule();
         }).hasErrorCode(NO_NODES_AVAILABLE);
@@ -420,6 +422,7 @@ public class TestSourcePartitionedScheduler
                 new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(session, Optional.of(CONNECTOR_ID)), stage::getAllTasks),
                 500,
                 new DynamicFilterService(metadata, typeOperators, new DynamicFilterConfig()),
+                new TableExecuteContextManager(),
                 () -> false);
 
         // the queues of 3 running nodes should be full
@@ -463,6 +466,7 @@ public class TestSourcePartitionedScheduler
                 new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(session, Optional.of(CONNECTOR_ID)), stage::getAllTasks),
                 400,
                 new DynamicFilterService(metadata, typeOperators, new DynamicFilterConfig()),
+                new TableExecuteContextManager(),
                 () -> true);
 
         // the queues of 3 running nodes should be full
@@ -504,6 +508,7 @@ public class TestSourcePartitionedScheduler
                 new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(session, Optional.of(CONNECTOR_ID)), stage::getAllTasks),
                 2,
                 dynamicFilterService,
+                new TableExecuteContextManager(),
                 () -> true);
 
         SymbolAllocator symbolAllocator = new SymbolAllocator();
@@ -569,6 +574,7 @@ public class TestSourcePartitionedScheduler
                 placementPolicy,
                 splitBatchSize,
                 new DynamicFilterService(metadata, typeOperators, new DynamicFilterConfig()),
+                new TableExecuteContextManager(),
                 () -> false);
     }
 

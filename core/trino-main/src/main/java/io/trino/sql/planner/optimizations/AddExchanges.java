@@ -66,6 +66,7 @@ import io.trino.sql.planner.plan.SortNode;
 import io.trino.sql.planner.plan.SpatialJoinNode;
 import io.trino.sql.planner.plan.StatisticsWriterNode;
 import io.trino.sql.planner.plan.TableDeleteNode;
+import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
@@ -594,28 +595,38 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitTableWriter(TableWriterNode node, PreferredProperties preferredProperties)
         {
-            PlanWithProperties source = node.getSource().accept(this, preferredProperties);
+            return visitTableWriter(node, node.getPartitioningScheme(), node.getSource(), preferredProperties);
+        }
 
-            Optional<PartitioningScheme> partitioningScheme = node.getPartitioningScheme();
+        @Override
+        public PlanWithProperties visitTableExecute(TableExecuteNode node, PreferredProperties preferredProperties)
+        {
+            return visitTableWriter(node, node.getPartitioningScheme(), node.getSource(), preferredProperties);
+        }
+
+        private PlanWithProperties visitTableWriter(PlanNode node, Optional<PartitioningScheme> partitioningScheme, PlanNode source, PreferredProperties preferredProperties)
+        {
+            PlanWithProperties newSource = source.accept(this, preferredProperties);
+
             if (partitioningScheme.isEmpty()) {
                 if (scaleWriters) {
-                    partitioningScheme = Optional.of(new PartitioningScheme(Partitioning.create(SCALED_WRITER_DISTRIBUTION, ImmutableList.of()), source.getNode().getOutputSymbols()));
+                    partitioningScheme = Optional.of(new PartitioningScheme(Partitioning.create(SCALED_WRITER_DISTRIBUTION, ImmutableList.of()), newSource.getNode().getOutputSymbols()));
                 }
                 else if (redistributeWrites) {
-                    partitioningScheme = Optional.of(new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), source.getNode().getOutputSymbols()));
+                    partitioningScheme = Optional.of(new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), newSource.getNode().getOutputSymbols()));
                 }
             }
 
-            if (partitioningScheme.isPresent() && !source.getProperties().isCompatibleTablePartitioningWith(partitioningScheme.get().getPartitioning(), false, metadata, session)) {
-                source = withDerivedProperties(
+            if (partitioningScheme.isPresent() && !newSource.getProperties().isCompatibleTablePartitioningWith(partitioningScheme.get().getPartitioning(), false, metadata, session)) {
+                newSource = withDerivedProperties(
                         partitionedExchange(
                                 idAllocator.getNextId(),
                                 REMOTE,
-                                source.getNode(),
+                                newSource.getNode(),
                                 partitioningScheme.get()),
-                        source.getProperties());
+                        newSource.getProperties());
             }
-            return rebaseAndDeriveProperties(node, source);
+            return rebaseAndDeriveProperties(node, newSource);
         }
 
         @Override

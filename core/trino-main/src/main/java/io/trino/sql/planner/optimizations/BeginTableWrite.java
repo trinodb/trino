@@ -17,7 +17,9 @@ import io.trino.Session;
 import io.trino.cost.StatsAndCosts;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.TableExecuteHandle;
 import io.trino.metadata.TableHandle;
+import io.trino.spi.connector.BeginTableExecuteResult;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.TypeProvider;
@@ -33,6 +35,7 @@ import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.SimplePlanRewriter;
 import io.trino.sql.planner.plan.SimplePlanRewriter.RewriteContext;
 import io.trino.sql.planner.plan.StatisticsWriterNode;
+import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
@@ -41,11 +44,13 @@ import io.trino.sql.planner.plan.TableWriterNode.CreateTarget;
 import io.trino.sql.planner.plan.TableWriterNode.DeleteTarget;
 import io.trino.sql.planner.plan.TableWriterNode.InsertReference;
 import io.trino.sql.planner.plan.TableWriterNode.InsertTarget;
+import io.trino.sql.planner.plan.TableWriterNode.TableExecuteTarget;
 import io.trino.sql.planner.plan.TableWriterNode.UpdateTarget;
 import io.trino.sql.planner.plan.TableWriterNode.WriterTarget;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.UpdateNode;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -150,6 +155,22 @@ public class BeginTableWrite
         }
 
         @Override
+        public PlanNode visitTableExecute(TableExecuteNode node, RewriteContext<Optional<WriterTarget>> context)
+        {
+            TableExecuteTarget tableExecuteTarget = (TableExecuteTarget) getContextTarget(context);
+            return new TableExecuteNode(
+                    node.getId(),
+                    rewriteModifyTableScan(node.getSource(), tableExecuteTarget.getSourceHandle().orElseThrow()),
+                    tableExecuteTarget,
+                    node.getRowCountSymbol(),
+                    node.getFragmentSymbol(),
+                    node.getColumns(),
+                    node.getColumnNames(),
+                    node.getPartitioningScheme(),
+                    node.getPreferredPartitioningScheme());
+        }
+
+        @Override
         public PlanNode visitStatisticsWriterNode(StatisticsWriterNode node, RewriteContext<Optional<WriterTarget>> context)
         {
             PlanNode child = node.getSource();
@@ -207,6 +228,13 @@ public class BeginTableWrite
                         update.getUpdatedColumns(),
                         update.getUpdatedColumnHandles());
             }
+            if (node instanceof TableExecuteNode) {
+                TableExecuteTarget target = ((TableExecuteNode) node).getTarget();
+                return new TableExecuteTarget(
+                        target.getExecuteHandle(),
+                        findTableScanHandleForTableExecute(((TableExecuteNode) node).getSource()),
+                        target.getSchemaTableName());
+            }
             if (node instanceof ExchangeNode || node instanceof UnionNode) {
                 Set<WriterTarget> writerTargets = node.getSources().stream()
                         .map(this::getWriterTarget)
@@ -250,6 +278,12 @@ public class BeginTableWrite
                         metadata.getTableMetadata(session, refreshMV.getStorageTableHandle()).getTable(),
                         refreshMV.getSourceTableHandles());
             }
+            if (target instanceof TableExecuteTarget) {
+                TableExecuteTarget tableExecute = (TableExecuteTarget) target;
+                BeginTableExecuteResult<TableExecuteHandle, TableHandle> result = metadata.beginTableExecute(session, tableExecute.getExecuteHandle(), tableExecute.getMandatorySourceHandle());
+
+                return new TableExecuteTarget(result.getTableExecuteHandle(), Optional.of(result.getSourceHandle()), tableExecute.getSchemaTableName());
+            }
             throw new IllegalArgumentException("Unhandled target type: " + target.getClass().getSimpleName());
         }
 
@@ -280,6 +314,18 @@ public class BeginTableWrite
                 return findTableScanHandleForDeleteOrUpdate(((MarkDistinctNode) node).getSource());
             }
             throw new IllegalArgumentException("Invalid descendant for DeleteNode or UpdateNode: " + node.getClass().getName());
+        }
+
+        private Optional<TableHandle> findTableScanHandleForTableExecute(PlanNode startNode)
+        {
+            List<PlanNode> tableScanNodes = PlanNodeSearcher.searchFrom(startNode)
+                    .where(node -> node instanceof TableScanNode && ((TableScanNode) node).isUpdateTarget())
+                    .findAll();
+
+            if (tableScanNodes.size() == 1) {
+                return Optional.of(((TableScanNode) tableScanNodes.get(0)).getTable());
+            }
+            throw new IllegalArgumentException("Expected to find exactly one update target TableScanNode in plan but found: " + tableScanNodes);
         }
 
         private PlanNode rewriteModifyTableScan(PlanNode node, TableHandle handle)

@@ -63,6 +63,7 @@ import io.trino.sql.planner.plan.SortNode;
 import io.trino.sql.planner.plan.SpatialJoinNode;
 import io.trino.sql.planner.plan.StatisticAggregations;
 import io.trino.sql.planner.plan.StatisticsWriterNode;
+import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
@@ -725,6 +726,29 @@ public class PruneUnreferencedOutputs
         {
             PlanNode source = context.rewrite(node.getSource(), ImmutableSet.copyOf(node.getColumnValueAndRowIdSymbols()));
             return new UpdateNode(node.getId(), source, node.getTarget(), node.getRowId(), node.getColumnValueAndRowIdSymbols(), node.getOutputSymbols());
+        }
+
+        @Override
+        public PlanNode visitTableExecute(TableExecuteNode node, RewriteContext<Set<Symbol>> context)
+        {
+            ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
+                    .addAll(node.getColumns());
+            if (node.getPartitioningScheme().isPresent()) {
+                PartitioningScheme partitioningScheme = node.getPartitioningScheme().get();
+                partitioningScheme.getPartitioning().getColumns().forEach(expectedInputs::add);
+                partitioningScheme.getHashColumn().ifPresent(expectedInputs::add);
+            }
+            PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
+            return new TableExecuteNode(
+                    node.getId(),
+                    source,
+                    node.getTarget(),
+                    node.getRowCountSymbol(),
+                    node.getFragmentSymbol(),
+                    node.getColumns(),
+                    node.getColumnNames(),
+                    node.getPartitioningScheme(),
+                    node.getPreferredPartitioningScheme());
         }
 
         @Override

@@ -64,6 +64,11 @@ public final class Patterns
         return typeOf(UpdateNode.class);
     }
 
+    public static Pattern<TableExecuteNode> tableExecute()
+    {
+        return typeOf(TableExecuteNode.class);
+    }
+
     public static Pattern<ExchangeNode> exchange()
     {
         return typeOf(ExchangeNode.class);

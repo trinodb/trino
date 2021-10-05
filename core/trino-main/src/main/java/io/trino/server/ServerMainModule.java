@@ -44,6 +44,7 @@ import io.trino.execution.MemoryRevokingScheduler;
 import io.trino.execution.NodeTaskMap;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.SqlTaskManager;
+import io.trino.execution.TableExecuteContextManager;
 import io.trino.execution.TaskManagementExecutor;
 import io.trino.execution.TaskManager;
 import io.trino.execution.TaskManagerConfig;
@@ -77,6 +78,7 @@ import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.StaticCatalogStore;
 import io.trino.metadata.StaticCatalogStoreConfig;
 import io.trino.metadata.SystemSecurityMetadata;
+import io.trino.metadata.TableProceduresPropertyManager;
 import io.trino.metadata.TablePropertyManager;
 import io.trino.operator.ExchangeClientConfig;
 import io.trino.operator.ExchangeClientFactory;
@@ -233,6 +235,9 @@ public class ServerMainModule
         // analyze properties
         binder.bind(AnalyzePropertyManager.class).in(Scopes.SINGLETON);
 
+        // table procedures properties
+        binder.bind(TableProceduresPropertyManager.class).in(Scopes.SINGLETON);
+
         // node manager
         discoveryBinder(binder).bindSelector("trino");
         binder.bind(DiscoveryNodeManager.class).in(Scopes.SINGLETON);
@@ -271,6 +276,7 @@ public class ServerMainModule
         binder.bind(TaskManagementExecutor.class).in(Scopes.SINGLETON);
         binder.bind(SqlTaskManager.class).in(Scopes.SINGLETON);
         binder.bind(TaskManager.class).to(Key.get(SqlTaskManager.class));
+        binder.bind(TableExecuteContextManager.class).in(Scopes.SINGLETON);
 
         // memory revoking scheduler
         binder.bind(MemoryRevokingScheduler.class).in(Scopes.SINGLETON);

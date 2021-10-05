@@ -92,6 +92,42 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Create initial handle for execution of table procedure. The handle will be used through planning process. It will be converted to final
+     * handle used for execution via @{link {@link ConnectorMetadata#beginTableExecute}
+     */
+    default Optional<ConnectorTableExecuteHandle> getTableHandleForExecute(
+            ConnectorSession session,
+            ConnectorTableHandle tableHandle,
+            String procedureName,
+            Map<String, Object> executeProperties)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support table procedures");
+    }
+
+    default Optional<ConnectorNewTableLayout> getLayoutForTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle)
+    {
+        return Optional.empty();
+    }
+
+    /**
+     * Begin execution of table procedure
+     */
+    default BeginTableExecuteResult<ConnectorTableExecuteHandle, ConnectorTableHandle> beginTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, ConnectorTableHandle updatedSourceTableHandle)
+    {
+        throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata getTableHandleForExecute() is implemented without beginTableExecute()");
+    }
+
+    /**
+     * Finish table execute
+     *
+     * @param fragments all fragments returned by {@link ConnectorPageSink#finish()}
+     */
+    default void finishTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, Collection<Slice> fragments, List<Object> tableExecuteState)
+    {
+        throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata getTableHandleForExecute() is implemented without finishTableExecute()");
+    }
+
+    /**
      * Returns the system table for the specified table name, if one exists.
      * The system tables handled via {@link #getSystemTable} differ form those returned by {@link Connector#getSystemTables()}.
      * The former mechanism allows dynamic resolution of system tables, while the latter is

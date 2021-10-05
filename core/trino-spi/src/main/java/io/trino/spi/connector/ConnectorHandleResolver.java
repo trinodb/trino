@@ -50,6 +50,11 @@ public interface ConnectorHandleResolver
         throw new UnsupportedOperationException();
     }
 
+    default Class<? extends ConnectorTableExecuteHandle> getTableExecuteHandleClass()
+    {
+        throw new UnsupportedOperationException();
+    }
+
     default Class<? extends ConnectorPartitioningHandle> getPartitioningHandleClass()
     {
         throw new UnsupportedOperationException();
