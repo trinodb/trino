@@ -35,22 +35,13 @@ import javax.inject.Singleton;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.trino.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
-import static java.util.Objects.requireNonNull;
 
 public class RaptorModule
         implements Module
 {
-    private final String connectorId;
-
-    public RaptorModule(String connectorId)
-    {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
-    }
-
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(RaptorConnectorId.class).toInstance(new RaptorConnectorId(connectorId));
         binder.bind(RaptorConnector.class).in(Scopes.SINGLETON);
         binder.bind(RaptorMetadataFactory.class).in(Scopes.SINGLETON);
         binder.bind(RaptorSplitManager.class).in(Scopes.SINGLETON);

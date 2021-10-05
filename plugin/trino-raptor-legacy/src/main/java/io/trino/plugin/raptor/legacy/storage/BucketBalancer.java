@@ -25,8 +25,8 @@ import com.google.common.collect.Multiset;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.Duration;
+import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.raptor.legacy.NodeSupplier;
-import io.trino.plugin.raptor.legacy.RaptorConnectorId;
 import io.trino.plugin.raptor.legacy.backup.BackupService;
 import io.trino.plugin.raptor.legacy.metadata.BucketNode;
 import io.trino.plugin.raptor.legacy.metadata.Distribution;
@@ -95,7 +95,7 @@ public class BucketBalancer
             ShardManager shardManager,
             BucketBalancerConfig config,
             BackupService backupService,
-            RaptorConnectorId connectorId)
+            CatalogName catalogName)
     {
         this(nodeSupplier,
                 shardManager,
@@ -103,7 +103,7 @@ public class BucketBalancer
                 config.getBalancerInterval(),
                 backupService.isBackupAvailable(),
                 nodeManager.getCurrentNode().isCoordinator(),
-                connectorId.toString());
+                catalogName.toString());
     }
 
     public BucketBalancer(
@@ -113,7 +113,7 @@ public class BucketBalancer
             Duration interval,
             boolean backupAvailable,
             boolean coordinator,
-            String connectorId)
+            String catalogName)
     {
         this.nodeSupplier = requireNonNull(nodeSupplier, "nodeSupplier is null");
         this.shardManager = requireNonNull(shardManager, "shardManager is null");
@@ -121,7 +121,7 @@ public class BucketBalancer
         this.interval = requireNonNull(interval, "interval is null");
         this.backupAvailable = backupAvailable;
         this.coordinator = coordinator;
-        this.executor = newSingleThreadScheduledExecutor(daemonThreadsNamed("bucket-balancer-" + connectorId));
+        this.executor = newSingleThreadScheduledExecutor(daemonThreadsNamed("bucket-balancer-" + catalogName));
     }
 
     @PostConstruct
