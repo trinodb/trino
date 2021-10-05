@@ -772,11 +772,11 @@ public class TestArrayOperators
     @Test
     public void testSubscript()
     {
-        assertInvalidFunction("ARRAY [][1]", INVALID_FUNCTION_ARGUMENT, "Array subscript must be less than or equal to array length: 1 > 0");
-        assertInvalidFunction("ARRAY [null][-1]", INVALID_FUNCTION_ARGUMENT, "Array subscript is negative: -1");
-        assertInvalidFunction("ARRAY [1, 2, 3][0]", INVALID_FUNCTION_ARGUMENT, "SQL array indices start at 1");
-        assertInvalidFunction("ARRAY [1, 2, 3][-1]", INVALID_FUNCTION_ARGUMENT, "Array subscript is negative: -1");
-        assertInvalidFunction("ARRAY [1, 2, 3][4]", INVALID_FUNCTION_ARGUMENT, "Array subscript must be less than or equal to array length: 4 > 3");
+        assertInvalidFunction("ARRAY [][1]", "Array subscript must be less than or equal to array length: 1 > 0");
+        assertInvalidFunction("ARRAY [null][-1]", "Array subscript is negative: -1");
+        assertInvalidFunction("ARRAY [1, 2, 3][0]", "SQL array indices start at 1");
+        assertInvalidFunction("ARRAY [1, 2, 3][-1]", "Array subscript is negative: -1");
+        assertInvalidFunction("ARRAY [1, 2, 3][4]", "Array subscript must be less than or equal to array length: 4 > 3");
         assertInvalidFunction("ARRAY [1, 2, 3][1.1E0]", TYPE_MISMATCH, "line 1:1: Cannot use double for subscript of array(integer)");
 
         assertFunction("ARRAY[NULL][1]", UNKNOWN, null);
@@ -1036,19 +1036,15 @@ public class TestArrayOperators
         assertInvalidFunction("ARRAY_SORT(ARRAY[color('red'), color('blue')])", FUNCTION_NOT_FOUND);
         assertInvalidFunction(
                 "ARRAY_SORT(ARRAY[2, 1, 2, 4], (x, y) -> y - x)",
-                INVALID_FUNCTION_ARGUMENT,
                 "Lambda comparator must return either -1, 0, or 1");
         assertInvalidFunction(
                 "ARRAY_SORT(ARRAY[1, 2], (x, y) -> x / COALESCE(y, 0))",
-                INVALID_FUNCTION_ARGUMENT,
                 "Lambda comparator must return either -1, 0, or 1");
         assertInvalidFunction(
                 "ARRAY_SORT(ARRAY[2, 3, 2, 4, 1], (x, y) -> IF(x > y, NULL, IF(x = y, 0, -1)))",
-                INVALID_FUNCTION_ARGUMENT,
                 "Lambda comparator must return either -1, 0, or 1");
         assertInvalidFunction(
                 "ARRAY_SORT(ARRAY[1, null], (x, y) -> x / COALESCE(y, 0))",
-                INVALID_FUNCTION_ARGUMENT,
                 "Lambda comparator must return either -1, 0, or 1");
 
         assertCachedInstanceHasBoundedRetainedSize("ARRAY_SORT(ARRAY[2, 3, 4, 1])");
@@ -1718,19 +1714,15 @@ public class TestArrayOperators
         // failure modes
         assertInvalidFunction(
                 "SEQUENCE(2, -1, 1)",
-                INVALID_FUNCTION_ARGUMENT,
                 "sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than or equal to start");
         assertInvalidFunction(
                 "SEQUENCE(-1, -10, 1)",
-                INVALID_FUNCTION_ARGUMENT,
                 "sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than or equal to start");
         assertInvalidFunction(
                 "SEQUENCE(1, 1000000)",
-                INVALID_FUNCTION_ARGUMENT,
                 "result of sequence function must not have more than 10000 entries");
         assertInvalidFunction(
                 "SEQUENCE(date '2000-04-14', date '2030-04-12')",
-                INVALID_FUNCTION_ARGUMENT,
                 "result of sequence function must not have more than 10000 entries");
     }
 
@@ -1804,31 +1796,24 @@ public class TestArrayOperators
         // failure modes
         assertInvalidFunction(
                 "SEQUENCE(date '2016-04-12', date '2016-04-14', interval '-1' day)",
-                INVALID_FUNCTION_ARGUMENT,
                 "sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than or equal to start");
         assertInvalidFunction(
                 "SEQUENCE(date '2016-04-14', date '2016-04-12', interval '1' day)",
-                INVALID_FUNCTION_ARGUMENT,
                 "sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than or equal to start");
         assertInvalidFunction(
                 "SEQUENCE(date '2000-04-14', date '2030-04-12', interval '1' day)",
-                INVALID_FUNCTION_ARGUMENT,
                 "result of sequence function must not have more than 10000 entries");
         assertInvalidFunction(
                 "SEQUENCE(date '2018-01-01', date '2018-01-04', interval '18' hour)",
-                INVALID_FUNCTION_ARGUMENT,
                 "sequence step must be a day interval if start and end values are dates");
         assertInvalidFunction(
                 "SEQUENCE(timestamp '2016-04-16 01:00:10', timestamp '2016-04-16 01:01:00', interval '-20' second)",
-                INVALID_FUNCTION_ARGUMENT,
                 "sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than or equal to start");
         assertInvalidFunction(
                 "SEQUENCE(timestamp '2016-04-16 01:10:10', timestamp '2016-04-16 01:01:00', interval '20' second)",
-                INVALID_FUNCTION_ARGUMENT,
                 "sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than or equal to start");
         assertInvalidFunction(
                 "SEQUENCE(timestamp '2016-04-16 01:00:10', timestamp '2016-04-16 09:01:00', interval '1' second)",
-                INVALID_FUNCTION_ARGUMENT,
                 "result of sequence function must not have more than 10000 entries");
     }
 
@@ -1896,27 +1881,21 @@ public class TestArrayOperators
         // failure modes
         assertInvalidFunction(
                 "SEQUENCE(date '2016-06-12', date '2016-04-12', interval '1' month)",
-                INVALID_FUNCTION_ARGUMENT,
                 "sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than or equal to start");
         assertInvalidFunction(
                 "SEQUENCE(date '2016-04-12', date '2016-06-12', interval '-1' month)",
-                INVALID_FUNCTION_ARGUMENT,
                 "sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than or equal to start");
         assertInvalidFunction(
                 "SEQUENCE(date '2000-04-12', date '3000-06-12', interval '1' month)",
-                INVALID_FUNCTION_ARGUMENT,
                 "result of sequence function must not have more than 10000 entries");
         assertInvalidFunction(
                 "SEQUENCE(timestamp '2016-05-16 01:00:10', timestamp '2016-04-16 01:01:00', interval '1' month)",
-                INVALID_FUNCTION_ARGUMENT,
                 "sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than or equal to start");
         assertInvalidFunction(
                 "SEQUENCE(timestamp '2016-04-16 01:10:10', timestamp '2016-05-16 01:01:00', interval '-1' month)",
-                INVALID_FUNCTION_ARGUMENT,
                 "sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than or equal to start");
         assertInvalidFunction(
                 "SEQUENCE(timestamp '2016-04-16 01:00:10', timestamp '3000-04-16 09:01:00', interval '1' month)",
-                INVALID_FUNCTION_ARGUMENT,
                 "result of sequence function must not have more than 10000 entries");
     }
 
