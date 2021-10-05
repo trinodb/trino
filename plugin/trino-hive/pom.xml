@@ -325,6 +325,19 @@
 
         <dependency>
             <groupId>io.trino</groupId>
+            <artifactId>trino-resource-group-managers</artifactId>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <!-- Duplicate resources coming from alluxio-shaded-client, TODO remove resources only -->
+                    <groupId>com.google.protobuf</groupId>
+                    <artifactId>protobuf-java</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
             <artifactId>trino-spi</artifactId>
             <type>test-jar</type>
             <scope>test</scope>

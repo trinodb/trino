@@ -1,0 +1,16 @@
+{
+    "rootGroups": [
+        {
+            "name": "fail-all-queries",
+            "softMemoryLimit": "10%",
+            "maxRunning": 0,
+            "maxQueued": 0
+        }
+    ],
+    "selectors": [
+        {
+            "group": "fail-all-queries"
+        }
+    ]
+}
+

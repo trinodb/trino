@@ -27,6 +27,7 @@ import com.google.common.collect.Streams;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.client.NodeVersion;
@@ -162,6 +163,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.primitives.Primitives.wrap;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
+import static io.trino.SystemSessionProperties.isReproduceQueryAlreadyBegunBug;
 import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.metadata.QualifiedObjectName.convertFromSchemaTableName;
 import static io.trino.metadata.RedirectionAwareTableHandle.noRedirection;
@@ -198,6 +200,7 @@ import static java.util.Collections.nCopies;
 import static java.util.Collections.singletonList;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public final class MetadataManager
         implements Metadata
@@ -893,7 +896,28 @@ public final class MetadataManager
     @Override
     public void cleanupQuery(Session session)
     {
+        if (isReproduceQueryAlreadyBegunBug(session)) {
+            try {
+                Logger.get(MetadataManager.class).info("Try having at least one registerCatalog invocation before catalogsByQueryId.remove");
+                SECONDS.sleep(5);
+            }
+            catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+
         QueryCatalogs queryCatalogs = catalogsByQueryId.remove(session.getQueryId());
+
+        if (isReproduceQueryAlreadyBegunBug(session)) {
+            try {
+                Logger.get(MetadataManager.class).info("Avoid calling cleanupQuery through queryCatalogs.finish() " + "before hitting \"Query Already Begun\" exception");
+                SECONDS.sleep(20);
+            }
+            catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+
         if (queryCatalogs != null) {
             queryCatalogs.finish();
         }
@@ -2640,6 +2664,16 @@ public final class MetadataManager
         private synchronized void registerCatalog(CatalogMetadata catalogMetadata)
         {
             checkState(!finished, "Query is already finished");
+            if (isReproduceQueryAlreadyBegunBug(session)) {
+                try {
+                    Logger.get(MetadataManager.class)
+                            .info("Allow some invocations of registerCatalog to take place between " + "catalogsByQueryId#remove and QueryCatalogs#finish");
+                    SECONDS.sleep(2);
+                }
+                catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
             if (catalogs.putIfAbsent(catalogMetadata.getCatalogName(), catalogMetadata) == null) {
                 ConnectorSession connectorSession = session.toConnectorSession(catalogMetadata.getCatalogName());
                 catalogMetadata.getMetadata().beginQuery(connectorSession);

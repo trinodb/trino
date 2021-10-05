@@ -51,6 +51,7 @@ import static java.lang.String.format;
 public final class SystemSessionProperties
         implements SystemSessionPropertiesProvider
 {
+    public static final String REPRODUCE_QUERY_ALREADY_BEGUN_BUG = "reproduce_query_already_begun_bug";
     public static final String OPTIMIZE_HASH_GENERATION = "optimize_hash_generation";
     public static final String JOIN_DISTRIBUTION_TYPE = "join_distribution_type";
     public static final String JOIN_MAX_BROADCAST_TABLE_SIZE = "join_max_broadcast_table_size";
@@ -163,6 +164,11 @@ public final class SystemSessionProperties
             NodeSchedulerConfig nodeSchedulerConfig)
     {
         sessionProperties = ImmutableList.of(
+                booleanProperty(
+                        REPRODUCE_QUERY_ALREADY_BEGUN_BUG,
+                        "Reproduce bug for query already begun failure",
+                        false,
+                        false),
                 stringProperty(
                         EXECUTION_POLICY,
                         "Policy used for scheduling query tasks",
@@ -673,6 +679,11 @@ public final class SystemSessionProperties
     public List<PropertyMetadata<?>> getSessionProperties()
     {
         return sessionProperties;
+    }
+
+    public static boolean isReproduceQueryAlreadyBegunBug(Session session)
+    {
+        return session.getSystemProperty(REPRODUCE_QUERY_ALREADY_BEGUN_BUG, Boolean.class);
     }
 
     public static String getExecutionPolicy(Session session)

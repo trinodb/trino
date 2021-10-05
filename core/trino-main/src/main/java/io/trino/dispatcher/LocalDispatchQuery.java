@@ -44,10 +44,12 @@ import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.trino.SystemSessionProperties.getRequiredWorkers;
 import static io.trino.SystemSessionProperties.getRequiredWorkersMaxWait;
+import static io.trino.SystemSessionProperties.isReproduceQueryAlreadyBegunBug;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.util.Failures.toFailure;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class LocalDispatchQuery
         implements DispatchQuery
@@ -99,6 +101,15 @@ public class LocalDispatchQuery
             }
             if (state.isDone()) {
                 submitted.set(null);
+                if (isReproduceQueryAlreadyBegunBug(stateMachine.getSession())) {
+                    try {
+                        log.info("Allow ample time for query analysis to continue");
+                        SECONDS.sleep(200);
+                    }
+                    catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
                 queryExecutionFuture.cancel(true);
             }
         });
