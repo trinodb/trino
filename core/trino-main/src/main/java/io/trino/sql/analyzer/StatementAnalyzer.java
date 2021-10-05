@@ -1026,6 +1026,7 @@ class StatementAnalyzer
             if (!procedureMetadata.getExecutionMode().supportsSorting() && node.getOrderBy().isPresent()) {
                 throw semanticException(NOT_SUPPORTED, node, "ORDER BY not supported for procedure " + procedureName);
             }
+            node.getOrderBy().ifPresent(orderBy -> analyzeOrderBy(node, orderBy.getSortItems(), tableScope));
 
             // analyze WITH
             validateProperties(node.getProperties(), scope);

@@ -1119,12 +1119,13 @@ public class Analysis
     public void setTableExecuteProperties(Map<String, Object> tableExecuteProperties)
     {
         requireNonNull(tableExecuteProperties, "tableExecuteProperties is null");
-        checkState(this.tableExecuteProperties == null, "tableExecuteProperties alredy set");
+        checkState(this.tableExecuteProperties == null, "tableExecuteProperties already set");
         this.tableExecuteProperties = ImmutableMap.copyOf(tableExecuteProperties);
     }
 
     public Map<String, Object> getTableExecuteProperties()
     {
+        checkState(this.tableExecuteProperties != null, "tableExecuteProperties not set set");
         return tableExecuteProperties;
     }
 

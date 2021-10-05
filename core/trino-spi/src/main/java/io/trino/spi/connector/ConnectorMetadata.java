@@ -123,7 +123,7 @@ public interface ConnectorMetadata
      *
      * @param fragments all fragments returned by {@link ConnectorPageSink#finish()}
      */
-    default void finishTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, Collection<Slice> fragments, List<Object> tableExecuteState)
+    default void finishTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, Collection<Slice> fragments)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support table procedures");
     }
