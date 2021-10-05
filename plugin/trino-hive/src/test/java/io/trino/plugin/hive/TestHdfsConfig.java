@@ -23,11 +23,13 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static org.testng.Assert.assertEquals;
 
 public class TestHdfsConfig
 {
@@ -92,5 +94,19 @@ public class TestHdfsConfig
                 .setDfsReplication(1);
 
         assertFullMapping(properties, expected);
+    }
+
+    @Test
+    public void testNewDirectoryPermissionsMapping()
+    {
+        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+                .put("hive.fs.new-directory-permissions", "skip")
+                .build();
+
+        HdfsConfig expected = new HdfsConfig()
+                .setNewDirectoryPermissions("skip");
+
+        assertEquals(properties.get("hive.fs.new-directory-permissions"), expected.getNewDirectoryPermissions());
+        assertEquals(Optional.empty(), expected.getNewDirectoryFsPermissions());
     }
 }
