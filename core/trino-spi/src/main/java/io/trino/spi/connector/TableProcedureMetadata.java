@@ -24,6 +24,7 @@ import static java.util.Objects.requireNonNull;
 
 public class TableProcedureMetadata
 {
+    // Name must be uppercase if procedure is to be executed without delimitation via ALTER TABLE ... EXECUTE syntax
     private final String name;
     private final TableProcedureExecutionMode executionMode;
     private final List<PropertyMetadata<?>> properties;
