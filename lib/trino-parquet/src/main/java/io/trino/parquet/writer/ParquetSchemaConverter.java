@@ -150,7 +150,10 @@ public class ParquetSchemaConverter
         if (RealType.REAL.equals(type)) {
             return Types.primitive(PrimitiveType.PrimitiveTypeName.FLOAT, OPTIONAL).named(name);
         }
-        if (type instanceof VarcharType || type instanceof CharType || type instanceof VarbinaryType) {
+        if (type instanceof VarcharType || type instanceof CharType) {
+            return Types.primitive(PrimitiveType.PrimitiveTypeName.BINARY, OPTIONAL).as(LogicalTypeAnnotation.stringType()).named(name);
+        }
+        if (type instanceof VarbinaryType) {
             return Types.primitive(PrimitiveType.PrimitiveTypeName.BINARY, OPTIONAL).named(name);
         }
         throw new TrinoException(NOT_SUPPORTED, format("Unsupported primitive type: %s", type));
