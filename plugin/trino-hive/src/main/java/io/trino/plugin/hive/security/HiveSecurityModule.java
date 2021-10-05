@@ -20,7 +20,7 @@ import io.trino.plugin.base.security.FileBasedAccessControlModule;
 import io.trino.plugin.base.security.ReadOnlySecurityModule;
 
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
-import static io.airlift.configuration.ConfigurationModule.installModules;
+import static io.airlift.configuration.ConfigurationAwareModule.combine;
 import static java.util.Objects.requireNonNull;
 
 public class HiveSecurityModule
@@ -38,17 +38,17 @@ public class HiveSecurityModule
     {
         bindSecurityModule(
                 "legacy",
-                installModules(
+                combine(
                         new LegacySecurityModule(),
                         new StaticAccessControlMetadataModule()));
         bindSecurityModule(
                 "file",
-                installModules(
+                combine(
                         new FileBasedAccessControlModule(catalogName),
                         new StaticAccessControlMetadataModule()));
         bindSecurityModule(
                 "read-only",
-                installModules(
+                combine(
                         new ReadOnlySecurityModule(),
                         new StaticAccessControlMetadataModule()));
         bindSecurityModule("sql-standard", new SqlStandardSecurityModule());
