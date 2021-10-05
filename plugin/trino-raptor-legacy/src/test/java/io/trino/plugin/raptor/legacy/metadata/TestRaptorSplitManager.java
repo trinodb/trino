@@ -18,9 +18,9 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 import io.trino.client.NodeVersion;
 import io.trino.metadata.InternalNode;
+import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.raptor.legacy.NodeSupplier;
 import io.trino.plugin.raptor.legacy.RaptorColumnHandle;
-import io.trino.plugin.raptor.legacy.RaptorConnectorId;
 import io.trino.plugin.raptor.legacy.RaptorMetadata;
 import io.trino.plugin.raptor.legacy.RaptorSplitManager;
 import io.trino.plugin.raptor.legacy.RaptorTableHandle;
@@ -107,7 +107,7 @@ public class TestRaptorSplitManager
         String nodeName = UUID.randomUUID().toString();
         nodeManager.addNode(new InternalNode(nodeName, new URI("http://127.0.0.1/"), NodeVersion.UNKNOWN, false));
 
-        RaptorConnectorId connectorId = new RaptorConnectorId("raptor");
+        CatalogName connectorId = new CatalogName("raptor");
         metadata = new RaptorMetadata(dbi, shardManager);
 
         metadata.createTable(SESSION, TEST_TABLE, false);
@@ -166,7 +166,7 @@ public class TestRaptorSplitManager
             throws URISyntaxException
     {
         TestingNodeManager nodeManager = new TestingNodeManager();
-        RaptorConnectorId connectorId = new RaptorConnectorId("raptor");
+        CatalogName connectorId = new CatalogName("raptor");
         NodeSupplier nodeSupplier = nodeManager::getWorkerNodes;
         InternalNode node = new InternalNode(UUID.randomUUID().toString(), new URI("http://127.0.0.1/"), NodeVersion.UNKNOWN, false);
         nodeManager.addNode(node);
@@ -184,7 +184,7 @@ public class TestRaptorSplitManager
     {
         deleteShardNodes();
 
-        RaptorSplitManager raptorSplitManagerWithBackup = new RaptorSplitManager(new RaptorConnectorId("fbraptor"), ImmutableSet::of, shardManager, true);
+        RaptorSplitManager raptorSplitManagerWithBackup = new RaptorSplitManager(new CatalogName("fbraptor"), ImmutableSet::of, shardManager, true);
         ConnectorSplitSource splitSource = getSplits(raptorSplitManagerWithBackup, tableHandle);
         getSplits(splitSource, 1000);
     }
