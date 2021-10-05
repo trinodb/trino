@@ -172,6 +172,7 @@ import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SubsetDefinition;
 import io.trino.sql.tree.Table;
+import io.trino.sql.tree.TableExecute;
 import io.trino.sql.tree.TableSubquery;
 import io.trino.sql.tree.TimeLiteral;
 import io.trino.sql.tree.TimestampLiteral;
@@ -1865,6 +1866,40 @@ public class TestSqlParser
         assertStatement(
                 "ALTER VIEW foo.bar.baz SET AUTHORIZATION ROLE qux",
                 new SetViewAuthorization(QualifiedName.of("foo", "bar", "baz"), new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier("qux"))));
+    }
+
+    @Test
+    public void testTableExecute()
+    {
+        Table table = new Table(QualifiedName.of("foo"));
+        Identifier procedure = new Identifier("bar");
+
+        assertStatement("ALTER TABLE foo EXECUTE bar", new TableExecute(table, procedure, ImmutableList.of(), Optional.empty()));
+        assertStatement(
+                "ALTER TABLE foo EXECUTE bar(bah => 1, wuh => 'clap') WHERE age > 17",
+                new TableExecute(
+                        table,
+                        procedure,
+                        ImmutableList.of(
+                                new CallArgument("bah", new LongLiteral("1")),
+                                new CallArgument("wuh", new StringLiteral("clap"))),
+                        Optional.of(
+                                new ComparisonExpression(ComparisonExpression.Operator.GREATER_THAN,
+                                        new Identifier("age"),
+                                        new LongLiteral("17")))));
+
+        assertStatement(
+                "ALTER TABLE foo EXECUTE bar(1, 'clap') WHERE age > 17",
+                new TableExecute(
+                        table,
+                        procedure,
+                        ImmutableList.of(
+                                new CallArgument(new LongLiteral("1")),
+                                new CallArgument(new StringLiteral("clap"))),
+                        Optional.of(
+                                new ComparisonExpression(ComparisonExpression.Operator.GREATER_THAN,
+                                        new Identifier("age"),
+                                        new LongLiteral("17")))));
     }
 
     @Test

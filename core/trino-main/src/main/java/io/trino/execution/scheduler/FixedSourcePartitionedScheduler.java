@@ -21,6 +21,7 @@ import io.airlift.log.Logger;
 import io.trino.execution.Lifespan;
 import io.trino.execution.RemoteTask;
 import io.trino.execution.SqlStageExecution;
+import io.trino.execution.TableExecuteContextManager;
 import io.trino.execution.scheduler.ScheduleResult.BlockedReason;
 import io.trino.execution.scheduler.group.DynamicLifespanScheduler;
 import io.trino.execution.scheduler.group.FixedLifespanScheduler;
@@ -75,13 +76,15 @@ public class FixedSourcePartitionedScheduler
             OptionalInt concurrentLifespansPerTask,
             NodeSelector nodeSelector,
             List<ConnectorPartitionHandle> partitionHandles,
-            DynamicFilterService dynamicFilterService)
+            DynamicFilterService dynamicFilterService,
+            TableExecuteContextManager tableExecuteContextManager)
     {
         requireNonNull(stage, "stage is null");
         requireNonNull(splitSources, "splitSources is null");
         requireNonNull(bucketNodeMap, "bucketNodeMap is null");
         checkArgument(!requireNonNull(nodes, "nodes is null").isEmpty(), "nodes is empty");
         requireNonNull(partitionHandles, "partitionHandles is null");
+        requireNonNull(tableExecuteContextManager, "tableExecuteContextManager is null");
 
         this.stage = stage;
         this.nodes = ImmutableList.copyOf(nodes);
@@ -119,6 +122,7 @@ public class FixedSourcePartitionedScheduler
                     Math.max(splitBatchSize / concurrentLifespans, 1),
                     groupedExecutionForScanNode,
                     dynamicFilterService,
+                    tableExecuteContextManager,
                     () -> true);
 
             if (stageExecutionDescriptor.isStageGroupedExecution() && !groupedExecutionForScanNode) {

@@ -74,6 +74,7 @@ import io.trino.sql.tree.ShowStats;
 import io.trino.sql.tree.ShowTables;
 import io.trino.sql.tree.StartTransaction;
 import io.trino.sql.tree.Statement;
+import io.trino.sql.tree.TableExecute;
 import io.trino.sql.tree.Update;
 import io.trino.sql.tree.Use;
 
@@ -83,6 +84,7 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.spi.resourcegroups.QueryType.ALTER_TABLE_EXECUTE;
 import static io.trino.spi.resourcegroups.QueryType.ANALYZE;
 import static io.trino.spi.resourcegroups.QueryType.DATA_DEFINITION;
 import static io.trino.spi.resourcegroups.QueryType.DELETE;
@@ -160,6 +162,7 @@ public final class StatementUtils
             .put(SetTimeZone.class, DATA_DEFINITION)
             .put(SetViewAuthorization.class, DATA_DEFINITION)
             .put(StartTransaction.class, DATA_DEFINITION)
+            .put(TableExecute.class, ALTER_TABLE_EXECUTE)
             .put(Use.class, DATA_DEFINITION)
             .build();
 

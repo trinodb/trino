@@ -15,6 +15,7 @@ package io.trino.spi.connector;
 
 import java.io.Closeable;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 import static java.util.Objects.requireNonNull;
@@ -36,6 +37,11 @@ public interface ConnectorSplitSource
      * will be inherently racy.
      */
     boolean isFinished();
+
+    default Optional<List<Object>> getTableExecuteSplitsInfo()
+    {
+        return Optional.empty();
+    }
 
     class ConnectorSplitBatch
     {
