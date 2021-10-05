@@ -449,14 +449,14 @@ public final class MetadataManager
         CatalogMetadata catalogMetadata = getCatalogMetadata(session, catalogName);
         ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
 
-        ConnectorTableExecuteHandle executeHandle = metadata.getTableHandleForExecute(
+        Optional<ConnectorTableExecuteHandle> executeHandle = metadata.getTableHandleForExecute(
                 session.toConnectorSession(catalogName),
                 tableHandle.getConnectorHandle(),
                 procedure,
                 executeProperties,
                 constraint);
 
-        return Optional.ofNullable(executeHandle).map(handle -> new TableExecuteHandle(
+        return executeHandle.map(handle -> new TableExecuteHandle(
                 catalogName,
                 tableHandle.getTransaction(),
                 handle));

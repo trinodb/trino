@@ -18,6 +18,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
+// TODO ConnectorNewTableLayout is used not only for "new" tables. Rename to be less specific. Preferably to ConnectorTableLayout after https://github.com/trinodb/trino/issues/781
 public class ConnectorNewTableLayout
 {
     private final Optional<ConnectorPartitioningHandle> partitioning;
