@@ -51,6 +51,7 @@ import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static java.lang.String.format;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -232,7 +233,7 @@ public class TestOrderByOperator
         assertOperatorEquals(operatorFactory, driverContext, input, expected, revokeMemoryWhenAddingPages);
     }
 
-    @Test(expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded per-node user memory limit of 10B.*")
+    @Test
     public void testMemoryLimit()
     {
         List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
@@ -260,7 +261,9 @@ public class TestOrderByOperator
                 Optional.of(spillerFactory),
                 new OrderingCompiler(typeOperators));
 
-        toPages(operatorFactory, driverContext, input);
+        assertThatThrownBy(() -> toPages(operatorFactory, driverContext, input))
+                .isInstanceOf(ExceededMemoryLimitException.class)
+                .hasMessageMatching("Query exceeded per-node user memory limit of 10B.*");
     }
 
     private DriverContext createDriverContext(long memoryLimit)
