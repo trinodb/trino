@@ -47,6 +47,7 @@ import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
+import io.trino.spi.connector.PropertyProvider;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.procedure.Procedure;
@@ -303,7 +304,7 @@ public class ConnectorManager
         connector.getAccessControl()
                 .ifPresent(accessControl -> accessControlManager.addCatalogAccessControl(catalogName, accessControl));
 
-        metadataManager.getTablePropertyManager().addProperties(catalogName, connector.getTableProperties());
+        metadataManager.getTablePropertyManager().addProperties(catalogName, connector.getTablePropertyProvider());
         metadataManager.getMaterializedViewPropertyManager().addProperties(catalogName, connector.getMaterializedViewProperties());
         metadataManager.getColumnPropertyManager().addProperties(catalogName, connector.getColumnProperties());
         metadataManager.getSchemaPropertyManager().addProperties(catalogName, connector.getSchemaProperties());
@@ -409,7 +410,7 @@ public class ConnectorManager
         private final Optional<ConnectorAccessControl> accessControl;
         private final List<EventListener> eventListeners;
         private final List<PropertyMetadata<?>> sessionProperties;
-        private final List<PropertyMetadata<?>> tableProperties;
+        private final PropertyProvider tablePropertyProvider;
         private final List<PropertyMetadata<?>> materializedViewProperties;
         private final List<PropertyMetadata<?>> schemaProperties;
         private final List<PropertyMetadata<?>> columnProperties;
@@ -497,9 +498,9 @@ public class ConnectorManager
             requireNonNull(sessionProperties, format("Connector '%s' returned a null system properties set", catalogName));
             this.sessionProperties = ImmutableList.copyOf(sessionProperties);
 
-            List<PropertyMetadata<?>> tableProperties = connector.getTableProperties();
-            requireNonNull(tableProperties, format("Connector '%s' returned a null table properties set", catalogName));
-            this.tableProperties = ImmutableList.copyOf(tableProperties);
+            PropertyProvider tablePropertyProvider = connector.getTablePropertyProvider();
+            requireNonNull(tablePropertyProvider, format("Connector '%s' returned a null table properties provider", catalogName));
+            this.tablePropertyProvider = tablePropertyProvider;
 
             List<PropertyMetadata<?>> materializedViewProperties = connector.getMaterializedViewProperties();
             requireNonNull(materializedViewProperties, format("Connector '%s' returned a null materialized view properties set", catalogName));
@@ -578,9 +579,9 @@ public class ConnectorManager
             return sessionProperties;
         }
 
-        public List<PropertyMetadata<?>> getTableProperties()
+        public PropertyProvider getTablePropertyProvider()
         {
-            return tableProperties;
+            return tablePropertyProvider;
         }
 
         public List<PropertyMetadata<?>> getMaterializedViewProperties()

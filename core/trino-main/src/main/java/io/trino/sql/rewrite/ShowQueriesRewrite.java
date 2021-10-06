@@ -38,6 +38,7 @@ import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorViewDefinition;
+import io.trino.spi.connector.PropertyProvider;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.GroupProvider;
 import io.trino.spi.security.PrincipalType;
@@ -521,10 +522,10 @@ final class ShowQueriesRewrite
                 accessControl.checkCanShowCreateTable(session.toSecurityContext(), new QualifiedObjectName(catalogName.getValue(), schemaName.getValue(), tableName.getValue()));
 
                 Map<String, Object> properties = viewDefinition.get().getProperties();
-                Map<String, PropertyMetadata<?>> allMaterializedViewProperties = metadata.getMaterializedViewPropertyManager()
+                PropertyProvider materializedViewPropertyProvider = metadata.getMaterializedViewPropertyManager()
                         .getAllProperties()
                         .get(new CatalogName(catalogName.getValue()));
-                List<Property> propertyNodes = buildProperties(objectName, Optional.empty(), INVALID_MATERIALIZED_VIEW_PROPERTY, properties, allMaterializedViewProperties);
+                List<Property> propertyNodes = buildProperties(objectName, Optional.empty(), INVALID_MATERIALIZED_VIEW_PROPERTY, properties, materializedViewPropertyProvider);
 
                 String sql = formatSql(new CreateMaterializedView(Optional.empty(), QualifiedName.of(ImmutableList.of(catalogName, schemaName, tableName)),
                         query, false, false, propertyNodes, viewDefinition.get().getComment())).trim();
@@ -587,12 +588,12 @@ final class ShowQueriesRewrite
                 accessControl.checkCanShowCreateTable(session.toSecurityContext(), targetTableName);
                 ConnectorTableMetadata connectorTableMetadata = metadata.getTableMetadata(session, tableHandle.get()).getMetadata();
 
-                Map<String, PropertyMetadata<?>> allColumnProperties = metadata.getColumnPropertyManager().getAllProperties().get(tableHandle.get().getCatalogName());
+                PropertyProvider columnPropertyProvider = metadata.getColumnPropertyManager().getAllProperties().get(tableHandle.get().getCatalogName());
 
                 List<TableElement> columns = connectorTableMetadata.getColumns().stream()
                         .filter(column -> !column.isHidden())
                         .map(column -> {
-                            List<Property> propertyNodes = buildProperties(targetTableName, Optional.of(column.getName()), INVALID_COLUMN_PROPERTY, column.getProperties(), allColumnProperties);
+                            List<Property> propertyNodes = buildProperties(targetTableName, Optional.of(column.getName()), INVALID_COLUMN_PROPERTY, column.getProperties(), columnPropertyProvider);
                             return new ColumnDefinition(
                                     new Identifier(column.getName()),
                                     toSqlType(column.getType()),
@@ -603,8 +604,8 @@ final class ShowQueriesRewrite
                         .collect(toImmutableList());
 
                 Map<String, Object> properties = connectorTableMetadata.getProperties();
-                Map<String, PropertyMetadata<?>> allTableProperties = metadata.getTablePropertyManager().getAllProperties().get(tableHandle.get().getCatalogName());
-                List<Property> propertyNodes = buildProperties(targetTableName, Optional.empty(), INVALID_TABLE_PROPERTY, properties, allTableProperties);
+                PropertyProvider tablePropertyProvider = metadata.getTablePropertyManager().getAllProperties().get(tableHandle.get().getCatalogName());
+                List<Property> propertyNodes = buildProperties(targetTableName, Optional.empty(), INVALID_TABLE_PROPERTY, properties, tablePropertyProvider);
 
                 CreateTable createTable = new CreateTable(
                         QualifiedName.of(objectName.getCatalogName(), objectName.getSchemaName(), objectName.getObjectName()),
@@ -625,9 +626,9 @@ final class ShowQueriesRewrite
                 accessControl.checkCanShowCreateSchema(session.toSecurityContext(), schemaName);
 
                 Map<String, Object> properties = metadata.getSchemaProperties(session, schemaName);
-                Map<String, PropertyMetadata<?>> allTableProperties = metadata.getSchemaPropertyManager().getAllProperties().get(new CatalogName(schemaName.getCatalogName()));
+                PropertyProvider tablePropertyProvider = metadata.getSchemaPropertyManager().getAllProperties().get(new CatalogName(schemaName.getCatalogName()));
                 QualifiedName qualifiedSchemaName = QualifiedName.of(schemaName.getCatalogName(), schemaName.getSchemaName());
-                List<Property> propertyNodes = buildProperties(qualifiedSchemaName, Optional.empty(), INVALID_SCHEMA_PROPERTY, properties, allTableProperties);
+                List<Property> propertyNodes = buildProperties(qualifiedSchemaName, Optional.empty(), INVALID_SCHEMA_PROPERTY, properties, tablePropertyProvider);
 
                 Optional<PrincipalSpecification> owner = metadata.getSchemaOwner(session, schemaName).map(MetadataUtil::createPrincipal);
 
@@ -647,7 +648,7 @@ final class ShowQueriesRewrite
                 Optional<String> columnName,
                 StandardErrorCode errorCode,
                 Map<String, Object> properties,
-                Map<String, PropertyMetadata<?>> allProperties)
+                PropertyProvider propertyProvider)
         {
             if (properties.isEmpty()) {
                 return Collections.emptyList();
@@ -662,10 +663,8 @@ final class ShowQueriesRewrite
                     throw new TrinoException(errorCode, format("Property %s for %s cannot have a null value", propertyName, toQualifiedName(objectName, columnName)));
                 }
 
-                PropertyMetadata<?> property = allProperties.get(propertyName);
-                if (property == null) {
-                    throw new TrinoException(errorCode, "No PropertyMetadata for property: " + propertyName);
-                }
+                PropertyMetadata<?> property = propertyProvider.getProperty(propertyName)
+                        .orElseThrow(() -> new TrinoException(errorCode, "No PropertyMetadata for property: " + propertyName));
                 if (!Primitives.wrap(property.getJavaType()).isInstance(value)) {
                     throw new TrinoException(errorCode, format(
                             "Property %s for %s should have value of type %s, not %s",

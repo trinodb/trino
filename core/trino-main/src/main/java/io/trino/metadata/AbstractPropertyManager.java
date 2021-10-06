@@ -14,13 +14,14 @@
 package io.trino.metadata;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.security.AccessControl;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.connector.FixedPropertyProvider;
+import io.trino.spi.connector.PropertyProvider;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.ParameterRewriter;
@@ -44,7 +45,7 @@ import static java.util.Objects.requireNonNull;
 
 abstract class AbstractPropertyManager
 {
-    private final ConcurrentMap<CatalogName, Map<String, PropertyMetadata<?>>> connectorProperties = new ConcurrentHashMap<>();
+    private final ConcurrentMap<CatalogName, PropertyProvider> connectorProperties = new ConcurrentHashMap<>();
     private final String propertyType;
     private final ErrorCodeSupplier propertyError;
 
@@ -57,12 +58,15 @@ abstract class AbstractPropertyManager
 
     public final void addProperties(CatalogName catalogName, List<PropertyMetadata<?>> properties)
     {
+        addProperties(catalogName, new FixedPropertyProvider(properties));
+    }
+
+    public final void addProperties(CatalogName catalogName, PropertyProvider propertyProvider)
+    {
         requireNonNull(catalogName, "catalogName is null");
-        requireNonNull(properties, "properties is null");
+        requireNonNull(propertyProvider, "propertyProvider is null");
 
-        Map<String, PropertyMetadata<?>> propertiesByName = Maps.uniqueIndex(properties, PropertyMetadata::getName);
-
-        checkState(connectorProperties.putIfAbsent(catalogName, propertiesByName) == null, "Properties for connector '%s' are already registered", catalogName);
+        checkState(connectorProperties.putIfAbsent(catalogName, propertyProvider) == null, "Properties for connector '%s' are already registered", catalogName);
     }
 
     public final void removeProperties(CatalogName catalogName)
@@ -79,8 +83,8 @@ abstract class AbstractPropertyManager
             AccessControl accessControl,
             Map<NodeRef<Parameter>, Expression> parameters)
     {
-        Map<String, PropertyMetadata<?>> supportedProperties = connectorProperties.get(catalogName);
-        if (supportedProperties == null) {
+        PropertyProvider propertyProvider = connectorProperties.get(catalogName);
+        if (propertyProvider == null) {
             throw new TrinoException(NOT_FOUND, "Catalog not found: " + catalog);
         }
 
@@ -89,15 +93,14 @@ abstract class AbstractPropertyManager
         // Fill in user-specified properties
         for (Map.Entry<String, Expression> sqlProperty : sqlPropertyValues.entrySet()) {
             String propertyName = sqlProperty.getKey().toLowerCase(ENGLISH);
-            PropertyMetadata<?> property = supportedProperties.get(propertyName);
-            if (property == null) {
-                throw new TrinoException(
-                        propertyError,
-                        format("Catalog '%s' does not support %s property '%s'",
-                                catalog,
-                                propertyType,
-                                propertyName));
-            }
+            PropertyMetadata<?> property = propertyProvider.getProperty(propertyName)
+                    .orElseThrow(() -> new TrinoException(
+                            propertyError,
+                            format(
+                                    "Catalog '%s' does not support %s property '%s'",
+                                    catalog,
+                                    propertyType,
+                                    propertyName)));
 
             Object sqlObjectValue;
             try {
@@ -135,7 +138,9 @@ abstract class AbstractPropertyManager
         Map<String, Object> userSpecifiedProperties = properties.build();
 
         // Fill in the remaining properties with non-null defaults
-        for (PropertyMetadata<?> propertyMetadata : supportedProperties.values()) {
+        for (String propertyName : propertyProvider.getKnownPropertyNames()) {
+            PropertyMetadata<?> propertyMetadata = propertyProvider.getProperty(propertyName)
+                    .orElseThrow(() -> new TrinoException(propertyError, "Could not get load default value property: " + propertyName));
             if (!userSpecifiedProperties.containsKey(propertyMetadata.getName())) {
                 Object value = propertyMetadata.getDefaultValue();
                 if (value != null) {
@@ -146,7 +151,7 @@ abstract class AbstractPropertyManager
         return properties.build();
     }
 
-    public Map<CatalogName, Map<String, PropertyMetadata<?>>> getAllProperties()
+    public Map<CatalogName, PropertyProvider> getAllProperties()
     {
         return ImmutableMap.copyOf(connectorProperties);
     }

@@ -134,10 +134,20 @@ public interface Connector
 
     /**
      * @return the table properties for this connector
+     * @deprecated use getTablePropertyProvider
      */
+    @Deprecated
     default List<PropertyMetadata<?>> getTableProperties()
     {
         return emptyList();
+    }
+
+    /**
+     * @return the table properties for this connector
+     */
+    default PropertyProvider getTablePropertyProvider()
+    {
+        return new FixedPropertyProvider(getTableProperties());
     }
 
     /**
