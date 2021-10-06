@@ -157,6 +157,9 @@ public class TestTrinoDriverUri
         // kerberos config without service name
         assertInvalid("jdbc:trino://localhost:8080?KerberosCredentialCachePath=/test", "Connection property 'KerberosCredentialCachePath' is not allowed");
 
+        // kerberos config with delegated kerberos
+        assertInvalid("jdbc:trino://localhost:8080?KerberosRemoteServiceName=test&KerberosDelegation=true&KerberosCredentialCachePath=/test", "Connection property 'KerberosCredentialCachePath' is not allowed");
+
         // invalid extra credentials
         assertInvalid("jdbc:trino://localhost:8080?extraCredentials=:invalid", "Connection property 'extraCredentials' value is invalid:");
         assertInvalid("jdbc:trino://localhost:8080?extraCredentials=invalid:", "Connection property 'extraCredentials' value is invalid:");

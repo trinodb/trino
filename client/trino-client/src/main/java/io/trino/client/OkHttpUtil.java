@@ -15,6 +15,7 @@ package io.trino.client;
 
 import com.google.common.base.CharMatcher;
 import com.google.common.net.HostAndPort;
+import io.trino.client.auth.kerberos.ContextBasedSubjectProvider;
 import io.trino.client.auth.kerberos.LoginBasedSubjectProvider;
 import io.trino.client.auth.kerberos.SpnegoHandler;
 import io.trino.client.auth.kerberos.SubjectProvider;
@@ -289,9 +290,16 @@ public final class OkHttpUtil
             Optional<String> principal,
             Optional<File> kerberosConfig,
             Optional<File> keytab,
-            Optional<File> credentialCache)
+            Optional<File> credentialCache,
+            boolean delegatedKerberos)
     {
-        SubjectProvider subjectProvider = new LoginBasedSubjectProvider(principal, kerberosConfig, keytab, credentialCache);
+        SubjectProvider subjectProvider;
+        if (delegatedKerberos) {
+            subjectProvider = new ContextBasedSubjectProvider();
+        }
+        else {
+            subjectProvider = new LoginBasedSubjectProvider(principal, kerberosConfig, keytab, credentialCache);
+        }
         SpnegoHandler handler = new SpnegoHandler(servicePrincipalPattern, remoteServiceName, useCanonicalHostname, subjectProvider);
         clientBuilder.addInterceptor(handler);
         clientBuilder.authenticator(handler);
