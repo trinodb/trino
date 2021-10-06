@@ -652,6 +652,7 @@ public class SqlQueryScheduler
                     parent.getStageId(),
                     parent.getState(),
                     parent.getPlan(),
+                    parent.isCoordinatorOnly(),
                     parent.getTypes(),
                     parent.getStageStats(),
                     parent.getTasks(),

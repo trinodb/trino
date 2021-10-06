@@ -355,6 +355,7 @@ public class StageStateMachine
         int totalTasks = taskInfos.size();
         int runningTasks = 0;
         int completedTasks = 0;
+        int failedTasks = 0;
 
         int totalDrivers = 0;
         int queuedDrivers = 0;
@@ -410,6 +411,10 @@ public class StageStateMachine
             }
             else {
                 runningTasks++;
+            }
+
+            if (taskState == TaskState.FAILED) {
+                failedTasks++;
             }
 
             TaskStats taskStats = taskInfo.getStats();
@@ -480,6 +485,7 @@ public class StageStateMachine
                 totalTasks,
                 runningTasks,
                 completedTasks,
+                failedTasks,
 
                 totalDrivers,
                 queuedDrivers,
@@ -532,9 +538,11 @@ public class StageStateMachine
         if (state == FAILED) {
             failureInfo = failureCause.get();
         }
-        return new StageInfo(stageId,
+        return new StageInfo(
+                stageId,
                 state,
                 fragment,
+                fragment.getPartitioning().isCoordinatorOnly(),
                 fragment.getTypes(),
                 stageStats,
                 taskInfos,

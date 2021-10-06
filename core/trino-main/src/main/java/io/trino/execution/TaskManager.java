@@ -109,6 +109,12 @@ public interface TaskManager
     TaskInfo abortTask(TaskId taskId);
 
     /**
+     * Fail a task.  If the task does not already exist, it is created and then
+     * failed.
+     */
+    TaskInfo failTask(TaskId taskId, Throwable failure);
+
+    /**
      * Gets results from a task either immediately or in the future.  If the
      * task or buffer has not been created yet, an uninitialized task is
      * created and a future is returned.
@@ -145,4 +151,9 @@ public interface TaskManager
      * Add a listener that notifies about failures of any source tasks for a given task
      */
     void addSourceTaskFailureListener(TaskId taskId, TaskFailureListener listener);
+
+    /**
+     * Return trace token for a given task (see Session#traceToken)
+     */
+    Optional<String> getTraceToken(TaskId taskId);
 }

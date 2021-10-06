@@ -25,6 +25,7 @@ import io.trino.Session;
 import io.trino.Session.SessionBuilder;
 import io.trino.connector.CatalogName;
 import io.trino.cost.StatsCalculator;
+import io.trino.execution.FailureInjector.InjectedFailureType;
 import io.trino.execution.QueryManager;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AllNodes;
@@ -35,6 +36,7 @@ import io.trino.metadata.SqlFunction;
 import io.trino.server.BasicQueryInfo;
 import io.trino.server.SessionPropertyDefaults;
 import io.trino.server.testing.TestingTrinoServer;
+import io.trino.spi.ErrorType;
 import io.trino.spi.Plugin;
 import io.trino.spi.QueryId;
 import io.trino.spi.eventlistener.EventListener;
@@ -533,6 +535,26 @@ public class DistributedQueryRunner
     public Lock getExclusiveLock()
     {
         return lock.writeLock();
+    }
+
+    @Override
+    public void injectTaskFailure(
+            String traceToken,
+            int stageId,
+            int partitionId,
+            int attemptId,
+            InjectedFailureType injectionType,
+            Optional<ErrorType> errorType)
+    {
+        for (TestingTrinoServer server : servers) {
+            server.injectTaskFailure(
+                    traceToken,
+                    stageId,
+                    partitionId,
+                    attemptId,
+                    injectionType,
+                    errorType);
+        }
     }
 
     @Override

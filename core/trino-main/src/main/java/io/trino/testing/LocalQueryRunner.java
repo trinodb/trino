@@ -51,6 +51,7 @@ import io.trino.cost.TaskCountEstimator;
 import io.trino.eventlistener.EventListenerConfig;
 import io.trino.eventlistener.EventListenerManager;
 import io.trino.execution.DynamicFilterConfig;
+import io.trino.execution.FailureInjector.InjectedFailureType;
 import io.trino.execution.Lifespan;
 import io.trino.execution.NodeTaskMap;
 import io.trino.execution.QueryManagerConfig;
@@ -109,6 +110,7 @@ import io.trino.server.security.HeaderAuthenticatorConfig;
 import io.trino.server.security.HeaderAuthenticatorManager;
 import io.trino.server.security.PasswordAuthenticatorConfig;
 import io.trino.server.security.PasswordAuthenticatorManager;
+import io.trino.spi.ErrorType;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.PageSorter;
 import io.trino.spi.Plugin;
@@ -731,6 +733,18 @@ public class LocalQueryRunner
     public Lock getExclusiveLock()
     {
         return lock.writeLock();
+    }
+
+    @Override
+    public void injectTaskFailure(
+            String traceToken,
+            int stageId,
+            int partitionId,
+            int attemptId,
+            InjectedFailureType injectionType,
+            Optional<ErrorType> errorType)
+    {
+        throw new UnsupportedOperationException("failure injection is not supported");
     }
 
     public List<Driver> createDrivers(@Language("SQL") String sql, OutputFactory outputFactory, TaskContext taskContext)
