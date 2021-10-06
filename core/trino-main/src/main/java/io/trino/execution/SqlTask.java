@@ -91,6 +91,7 @@ public class SqlTask
 
     private final AtomicReference<TaskHolder> taskHolderReference = new AtomicReference<>(new TaskHolder());
     private final AtomicBoolean needsPlan = new AtomicBoolean(true);
+    private final AtomicReference<String> traceToken = new AtomicReference<>();
 
     public static SqlTask createSqlTask(
             TaskId taskId,
@@ -425,6 +426,9 @@ public class SqlTask
             Map<DynamicFilterId, Domain> dynamicFilterDomains)
     {
         try {
+            // trace token must be set first to make sure failure injection for getTaskResults requests works as expected
+            session.getTraceToken().ifPresent(traceToken::set);
+
             // The LazyOutput buffer does not support write methods, so the actual
             // output buffer must be established before drivers are created (e.g.
             // a VALUES query).
@@ -494,11 +498,12 @@ public class SqlTask
         return getTaskInfo();
     }
 
-    public void failed(Throwable cause)
+    public TaskInfo failed(Throwable cause)
     {
         requireNonNull(cause, "cause is null");
 
         taskStateMachine.failed(cause);
+        return getTaskInfo();
     }
 
     public TaskInfo cancel()
@@ -606,5 +611,10 @@ public class SqlTask
             return Optional.empty();
         }
         return Optional.of(taskExecution.getTaskContext());
+    }
+
+    public Optional<String> getTraceToken()
+    {
+        return Optional.ofNullable(traceToken.get());
     }
 }

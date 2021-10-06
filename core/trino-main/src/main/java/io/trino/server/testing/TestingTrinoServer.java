@@ -44,6 +44,8 @@ import io.trino.cost.StatsCalculator;
 import io.trino.dispatcher.DispatchManager;
 import io.trino.eventlistener.EventListenerConfig;
 import io.trino.eventlistener.EventListenerManager;
+import io.trino.execution.FailureInjector;
+import io.trino.execution.FailureInjector.InjectedFailureType;
 import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryManager;
 import io.trino.execution.SqlQueryManager;
@@ -68,6 +70,7 @@ import io.trino.server.SessionPropertyDefaults;
 import io.trino.server.ShutdownAction;
 import io.trino.server.security.CertificateAuthenticatorManager;
 import io.trino.server.security.ServerSecurityModule;
+import io.trino.spi.ErrorType;
 import io.trino.spi.Plugin;
 import io.trino.spi.QueryId;
 import io.trino.spi.eventlistener.EventListener;
@@ -163,6 +166,7 @@ public class TestingTrinoServer
     private final ShutdownAction shutdownAction;
     private final MBeanServer mBeanServer;
     private final boolean coordinator;
+    private final FailureInjector failureInjector;
 
     public static class TestShutdownAction
             implements ShutdownAction
@@ -323,6 +327,7 @@ public class TestingTrinoServer
         shutdownAction = injector.getInstance(ShutdownAction.class);
         mBeanServer = injector.getInstance(MBeanServer.class);
         announcer = injector.getInstance(Announcer.class);
+        failureInjector = injector.getInstance(FailureInjector.class);
 
         accessControl.setSystemAccessControls(systemAccessControls);
 
@@ -555,6 +560,23 @@ public class TestingTrinoServer
     public <T> T getInstance(Key<T> key)
     {
         return injector.getInstance(key);
+    }
+
+    public void injectTaskFailure(
+            String traceToken,
+            int stageId,
+            int partitionId,
+            int attemptId,
+            InjectedFailureType injectionType,
+            Optional<ErrorType> errorType)
+    {
+        failureInjector.injectTaskFailure(
+                traceToken,
+                stageId,
+                partitionId,
+                attemptId,
+                injectionType,
+                errorType);
     }
 
     private static void updateConnectorIdAnnouncement(Announcer announcer, CatalogName catalogName, InternalNodeManager nodeManager)

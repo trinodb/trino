@@ -1085,6 +1085,7 @@ public class QueryStateMachine
                 outputStage.getStageId(),
                 outputStage.getState(),
                 null, // Remove the plan
+                outputStage.isCoordinatorOnly(),
                 outputStage.getTypes(),
                 outputStage.getStageStats(),
                 ImmutableList.of(), // Remove the tasks

@@ -779,6 +779,8 @@ class Query
                 .setProcessedRows(stageStats.getRawInputPositions())
                 .setProcessedBytes(stageStats.getRawInputDataSize().toBytes())
                 .setPhysicalInputBytes(stageStats.getPhysicalInputDataSize().toBytes())
+                .setFailedTasks(stageStats.getFailedTasks())
+                .setCoordinatorOnly(stageInfo.isCoordinatorOnly())
                 .setSubStages(subStages.build())
                 .build();
     }
