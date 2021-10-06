@@ -119,7 +119,7 @@ public class OAuth2WebUiAuthenticationFilter
                 return service.convertTokenToClaims(accessToken.get());
             }
             catch (JwtException | IllegalArgumentException e) {
-                LOG.debug("Unable to parse JWT token: " + e.getMessage(), e);
+                LOG.debug(e, "Unable to parse JWT token");
             }
         }
         return Optional.empty();
