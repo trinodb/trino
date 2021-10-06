@@ -28,7 +28,7 @@ import java.net.URI;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestOAuth2WebUiAuthenticationFilterWithJwt
-        extends TestOAuth2WebUiAuthenticationFilter
+        extends BaseOAuth2WebUiAuthenticationFilterTest
 {
     @Override
     protected ImmutableMap<String, String> getOAuth2Config(String idpUrl)
