@@ -111,7 +111,7 @@ public class LocalExchangeSource
                     return ProcessState.blocked(blocked);
                 }
 
-                return ProcessState.yield();
+                return ProcessState.yielded();
             }
 
             return ProcessState.ofResult(page);

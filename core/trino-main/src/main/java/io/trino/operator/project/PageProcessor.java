@@ -45,7 +45,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.operator.PageUtils.recordMaterializedBytes;
 import static io.trino.operator.WorkProcessor.ProcessState.finished;
 import static io.trino.operator.WorkProcessor.ProcessState.ofResult;
-import static io.trino.operator.WorkProcessor.ProcessState.yield;
+import static io.trino.operator.WorkProcessor.ProcessState.yielded;
 import static io.trino.operator.project.SelectedPositions.positionsRange;
 import static io.trino.spi.block.DictionaryId.randomDictionaryId;
 import static java.util.Objects.requireNonNull;
@@ -209,7 +209,7 @@ public class PageProcessor
                     lastComputeYielded = true;
                     lastComputeBatchSize = batchSize;
                     updateRetainedSize();
-                    return yield();
+                    return yielded();
                 }
 
                 if (result.isPageTooLarge()) {
