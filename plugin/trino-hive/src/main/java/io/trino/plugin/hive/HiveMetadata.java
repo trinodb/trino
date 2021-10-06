@@ -125,6 +125,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -196,6 +197,8 @@ import static io.trino.plugin.hive.HiveTableProperties.CSV_ESCAPE;
 import static io.trino.plugin.hive.HiveTableProperties.CSV_QUOTE;
 import static io.trino.plugin.hive.HiveTableProperties.CSV_SEPARATOR;
 import static io.trino.plugin.hive.HiveTableProperties.EXTERNAL_LOCATION_PROPERTY;
+import static io.trino.plugin.hive.HiveTableProperties.EXTRA_PROPERTY_PATTERN;
+import static io.trino.plugin.hive.HiveTableProperties.EXTRA_PROPERTY_PREFIX;
 import static io.trino.plugin.hive.HiveTableProperties.NULL_FORMAT_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.ORC_BLOOM_FILTER_COLUMNS;
 import static io.trino.plugin.hive.HiveTableProperties.ORC_BLOOM_FILTER_FPP;
@@ -315,6 +318,29 @@ public class HiveMetadata
     private static final String CSV_SEPARATOR_KEY = OpenCSVSerde.SEPARATORCHAR;
     private static final String CSV_QUOTE_KEY = OpenCSVSerde.QUOTECHAR;
     private static final String CSV_ESCAPE_KEY = OpenCSVSerde.ESCAPECHAR;
+
+    private static final Set<String> MANAGED_HIVE_TABLE_PROPERTIES = ImmutableSet.<String>builder()
+            .add(PRESTO_VERSION_NAME)
+            .add(TRINO_CREATED_BY)
+            .add(PRESTO_QUERY_ID_NAME)
+            .add(BUCKETING_VERSION)
+            .add(TABLE_COMMENT)
+            .add(STORAGE_TABLE)
+            .add(TRANSACTIONAL)
+            .add(PRESTO_VIEW_COMMENT)
+            .add(PRESTO_VIEW_EXPANDED_TEXT_MARKER)
+            .add(ORC_BLOOM_FILTER_COLUMNS_KEY)
+            .add(ORC_BLOOM_FILTER_FPP_KEY)
+            .add(SKIP_HEADER_COUNT_KEY)
+            .add(SKIP_FOOTER_COUNT_KEY)
+            .add(TEXT_FIELD_SEPARATOR_KEY)
+            .add(TEXT_FIELD_SEPARATOR_ESCAPE_KEY)
+            .add(NULL_FORMAT_KEY)
+            .add(AVRO_SCHEMA_URL_KEY)
+            .add(CSV_SEPARATOR_KEY)
+            .add(CSV_QUOTE_KEY)
+            .add(CSV_ESCAPE_KEY)
+            .build();
 
     private final CatalogName catalogName;
     private final SemiTransactionalHiveMetastore metastore;
@@ -606,6 +632,15 @@ public class HiveMetadata
 
         Optional<String> comment = Optional.ofNullable(table.getParameters().get(TABLE_COMMENT));
 
+        // add all other table properties that are not already mapped to explicitly managed properties
+        for (Entry<String, String> entry : table.getParameters().entrySet()) {
+            if (!MANAGED_HIVE_TABLE_PROPERTIES.contains(entry.getKey())) {
+                String extraPropertiesName = EXTRA_PROPERTY_PREFIX + entry.getKey();
+                if (EXTRA_PROPERTY_PATTERN.matcher(extraPropertiesName).matches()) {
+                    properties.put(extraPropertiesName, entry.getValue());
+                }
+            }
+        }
         return new ConnectorTableMetadata(tableName, columns.build(), properties.build(), comment);
     }
 
@@ -965,6 +1000,16 @@ public class HiveMetadata
         // Table comment property
         tableMetadata.getComment().ifPresent(value -> tableProperties.put(TABLE_COMMENT, value));
 
+        // add "extra" table properties
+        for (Entry<String, Object> entry : tableMetadata.getProperties().entrySet()) {
+            if (EXTRA_PROPERTY_PATTERN.matcher(entry.getKey()).matches()) {
+                String hivePropertyName = entry.getKey().substring(EXTRA_PROPERTY_PREFIX.length());
+                if (MANAGED_HIVE_TABLE_PROPERTIES.contains(hivePropertyName)) {
+                    throw new TrinoException(INVALID_TABLE_PROPERTY, format("Extra property is a managed table property: %s", entry.getKey()));
+                }
+                tableProperties.put(hivePropertyName, (String) entry.getValue());
+            }
+        }
         return tableProperties.build();
     }
 

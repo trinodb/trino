@@ -14,11 +14,14 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import io.trino.plugin.hive.metastore.SortingColumn;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.trino.plugin.hive.util.HiveUtil;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.PropertyProvider;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.ArrayType;
 
@@ -28,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
@@ -43,7 +47,10 @@ import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 
 public class HiveTableProperties
+        implements PropertyProvider
 {
+    static final String EXTRA_PROPERTY_PREFIX = "extra_property_";
+    static final Pattern EXTRA_PROPERTY_PATTERN = Pattern.compile("^extra_property_[a-z_]+$");
     public static final String EXTERNAL_LOCATION_PROPERTY = "external_location";
     public static final String STORAGE_FORMAT_PROPERTY = "format";
     public static final String PARTITIONED_BY_PROPERTY = "partitioned_by";
@@ -70,6 +77,7 @@ public class HiveTableProperties
     public static final String TRANSACTIONAL = "transactional";
 
     private final List<PropertyMetadata<?>> tableProperties;
+    private final ImmutableMap<String, PropertyMetadata<?>> knownTableProperties;
 
     @Inject
     public HiveTableProperties(
@@ -154,11 +162,28 @@ public class HiveTableProperties
                 stringProperty(CSV_QUOTE, "CSV quote character", null, false),
                 stringProperty(CSV_ESCAPE, "CSV escape character", null, false),
                 booleanProperty(TRANSACTIONAL, "Table is transactional", null, false));
+
+        knownTableProperties = Maps.uniqueIndex(tableProperties, PropertyMetadata::getName);
     }
 
     public List<PropertyMetadata<?>> getTableProperties()
     {
         return tableProperties;
+    }
+
+    @Override
+    public Set<String> getKnownPropertyNames()
+    {
+        return knownTableProperties.keySet();
+    }
+
+    @Override
+    public Optional<PropertyMetadata<?>> getProperty(String name)
+    {
+        if (EXTRA_PROPERTY_PATTERN.matcher(name).matches()) {
+            return Optional.of(stringProperty(name, "Extra property", null, false));
+        }
+        return Optional.ofNullable(knownTableProperties.get(name));
     }
 
     public static String getExternalLocation(Map<String, Object> tableProperties)

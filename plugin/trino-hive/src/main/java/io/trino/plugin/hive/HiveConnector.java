@@ -28,6 +28,7 @@ import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.PropertyProvider;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.procedure.Procedure;
@@ -58,7 +59,7 @@ public class HiveConnector
     private final Set<EventListener> eventListeners;
     private final List<PropertyMetadata<?>> sessionProperties;
     private final List<PropertyMetadata<?>> schemaProperties;
-    private final List<PropertyMetadata<?>> tableProperties;
+    private final HiveTableProperties tableProperties;
     private final List<PropertyMetadata<?>> analyzeProperties;
     private final List<PropertyMetadata<?>> materializedViewProperties;
 
@@ -80,7 +81,7 @@ public class HiveConnector
             Set<EventListener> eventListeners,
             Set<SessionPropertiesProvider> sessionPropertiesProviders,
             List<PropertyMetadata<?>> schemaProperties,
-            List<PropertyMetadata<?>> tableProperties,
+            HiveTableProperties tableProperties,
             List<PropertyMetadata<?>> analyzeProperties,
             List<PropertyMetadata<?>> materializedViewProperties,
             ConnectorAccessControl accessControl,
@@ -100,7 +101,7 @@ public class HiveConnector
                 .flatMap(sessionPropertiesProvider -> sessionPropertiesProvider.getSessionProperties().stream())
                 .collect(toImmutableList());
         this.schemaProperties = ImmutableList.copyOf(requireNonNull(schemaProperties, "schemaProperties is null"));
-        this.tableProperties = ImmutableList.copyOf(requireNonNull(tableProperties, "tableProperties is null"));
+        this.tableProperties = requireNonNull(tableProperties, "tableProperties is null");
         this.analyzeProperties = ImmutableList.copyOf(requireNonNull(analyzeProperties, "analyzeProperties is null"));
         this.materializedViewProperties = requireNonNull(materializedViewProperties, "materializedViewProperties is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
@@ -176,7 +177,7 @@ public class HiveConnector
     }
 
     @Override
-    public List<PropertyMetadata<?>> getTableProperties()
+    public PropertyProvider getTablePropertyProvider()
     {
         return tableProperties;
     }

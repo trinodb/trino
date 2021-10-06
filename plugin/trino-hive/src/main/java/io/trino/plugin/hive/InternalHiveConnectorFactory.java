@@ -152,7 +152,7 @@ public final class InternalHiveConnectorFactory
                     eventListeners,
                     sessionPropertiesProviders,
                     HiveSchemaProperties.SCHEMA_PROPERTIES,
-                    hiveTableProperties.getTableProperties(),
+                    hiveTableProperties,
                     hiveAnalyzeProperties.getAnalyzeProperties(),
                     hiveMaterializedViewPropertiesProvider.getMaterializedViewProperties(),
                     accessControl,
