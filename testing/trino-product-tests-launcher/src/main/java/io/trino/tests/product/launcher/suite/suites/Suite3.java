@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.environment.EnvMultinodeTls;
 import io.trino.tests.product.launcher.env.environment.EnvMultinodeTlsKerberos;
+import io.trino.tests.product.launcher.env.environment.EnvMultinodeTlsKerberosDelegation;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeKerberosHdfsImpersonationWithDataProtection;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeKerberosHdfsImpersonationWithWireEncryption;
 import io.trino.tests.product.launcher.suite.Suite;
@@ -44,6 +45,9 @@ public class Suite3
                         .build(),
                 testOnEnvironment(EnvSinglenodeKerberosHdfsImpersonationWithDataProtection.class)
                         .withTests("TestHiveStorageFormats.testOrcTableCreatedInTrino", "TestHiveCreateTable.testCreateTable")
+                        .build(),
+                testOnEnvironment(EnvMultinodeTlsKerberosDelegation.class)
+                        .withGroups("jdbc")
                         .build());
     }
 }
