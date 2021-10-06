@@ -225,7 +225,7 @@ public class BenchmarkGroupByHash
         }
     }
 
-    private static List<Page> createBigintPages(int positionCount, int groupCount, int channelCount, boolean hashEnabled, boolean pollute)
+    private static List<Page> createBigintPages(int positionCount, int groupCount, int channelCount, boolean hashEnabled, boolean useMixedBlockTypes)
     {
         List<Type> types = Collections.nCopies(channelCount, BIGINT);
         ImmutableList.Builder<Page> pages = ImmutableList.builder();
@@ -247,7 +247,7 @@ public class BenchmarkGroupByHash
             if (pageBuilder.isFull()) {
                 Page page = pageBuilder.build();
                 pageBuilder.reset();
-                if (pollute) {
+                if (useMixedBlockTypes) {
                     if (pageCount % 3 == 0) {
                         pages.add(page);
                     }
@@ -354,9 +354,9 @@ public class BenchmarkGroupByHash
             setup(false);
         }
 
-        public void setup(boolean pollute)
+        public void setup(boolean useMixedBlockTypes)
         {
-            pages = createBigintPages(POSITIONS, GROUP_COUNT, channelCount, hashEnabled, pollute);
+            pages = createBigintPages(POSITIONS, GROUP_COUNT, channelCount, hashEnabled, useMixedBlockTypes);
             types = Collections.nCopies(1, BIGINT);
             channels = new int[1];
             for (int i = 0; i < 1; i++) {
