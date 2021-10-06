@@ -110,10 +110,10 @@ class RequestErrorTracker
         // log failure message
         if (isExpectedError(reason)) {
             // don't print a stack for a known errors
-            log.warn("Error " + jobDescription + " %s: %s: %s", taskId, reason.getMessage(), taskUri);
+            log.warn("Error %s %s: %s: %s", jobDescription, taskId, reason.getMessage(), taskUri);
         }
         else {
-            log.warn(reason, "Error " + jobDescription + " %s: %s", taskId, taskUri);
+            log.warn(reason, "Error %s %s: %s", jobDescription, taskId, taskUri);
         }
 
         // remember the first 10 errors
