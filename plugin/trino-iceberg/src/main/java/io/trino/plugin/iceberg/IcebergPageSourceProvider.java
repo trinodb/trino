@@ -114,6 +114,7 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetMaxRead
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isOrcBloomFiltersEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isOrcNestedLazy;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isUseFileSizeFromMetadata;
+import static io.trino.plugin.iceberg.IcebergSplitManager.ICEBERG_DOMAIN_COMPACTION_THRESHOLD;
 import static io.trino.plugin.iceberg.TypeConverter.ICEBERG_BINARY_TYPE;
 import static io.trino.plugin.iceberg.TypeConverter.ORC_ICEBERG_ID_KEY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -169,6 +170,9 @@ public class IcebergPageSourceProvider
                 .map(IcebergColumnHandle.class::cast)
                 .filter(column -> !partitionKeys.containsKey(column.getId()))
                 .collect(toImmutableList());
+        TupleDomain<IcebergColumnHandle> effectivePredicate = table.getUnenforcedPredicate()
+                .intersect(dynamicFilter.getCurrentPredicate().transformKeys(IcebergColumnHandle.class::cast))
+                .simplify(ICEBERG_DOMAIN_COMPACTION_THRESHOLD);
 
         HdfsContext hdfsContext = new HdfsContext(session);
         ConnectorPageSource dataPageSource = createDataPageSource(
@@ -180,7 +184,7 @@ public class IcebergPageSourceProvider
                 split.getFileSize(),
                 split.getFileFormat(),
                 regularColumns,
-                table.getUnenforcedPredicate());
+                effectivePredicate);
 
         return new IcebergPageSource(icebergColumns, partitionKeys, dataPageSource, session.getTimeZoneKey());
     }
