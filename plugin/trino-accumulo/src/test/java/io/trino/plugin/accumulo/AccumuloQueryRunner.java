@@ -128,7 +128,7 @@ public final class AccumuloQueryRunner
                 break;
         }
 
-        LOG.info("Running import for %s", target, sql);
+        LOG.info("Running import for %s", target);
         LOG.info("%s", sql);
         long start = System.nanoTime();
         long rows = queryRunner.execute(session, sql).getUpdateCount().getAsLong();
