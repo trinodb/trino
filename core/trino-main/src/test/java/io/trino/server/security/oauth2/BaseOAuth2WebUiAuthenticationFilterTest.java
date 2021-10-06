@@ -61,7 +61,7 @@ import static javax.ws.rs.core.Response.Status.UNAUTHORIZED;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
-public abstract class TestOAuth2WebUiAuthenticationFilter
+public abstract class BaseOAuth2WebUiAuthenticationFilterTest
 {
     protected static final Duration TTL_ACCESS_TOKEN_IN_SECONDS = Duration.ofSeconds(5);
 
@@ -83,7 +83,7 @@ public abstract class TestOAuth2WebUiAuthenticationFilter
     private URI serverUri;
     private URI uiUri;
 
-    protected TestOAuth2WebUiAuthenticationFilter()
+    protected BaseOAuth2WebUiAuthenticationFilterTest()
     {
         OkHttpClient.Builder httpClientBuilder = new OkHttpClient.Builder();
         setupInsecureSsl(httpClientBuilder);
