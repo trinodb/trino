@@ -177,7 +177,7 @@ public interface WorkProcessor<T>
          * @return the current transformation state, optionally bearing a result
          * @see TransformationState#needsMoreData()
          * @see TransformationState#blocked(ListenableFuture)
-         * @see TransformationState#yield()
+         * @see TransformationState#yielded()
          * @see TransformationState#ofResult(Object)
          * @see TransformationState#ofResult(Object, boolean)
          * @see TransformationState#finished()
@@ -192,7 +192,7 @@ public interface WorkProcessor<T>
          *
          * @return the current state, optionally bearing a result
          * @see ProcessState#blocked(ListenableFuture)
-         * @see ProcessState#yield()
+         * @see ProcessState#yielded()
          * @see ProcessState#ofResult(Object)
          * @see ProcessState#finished()
          */
@@ -254,7 +254,7 @@ public interface WorkProcessor<T>
          * Signals that transformation has yielded. {@link #process()} will be called again with the same input element.
          */
         @SuppressWarnings("unchecked")
-        public static <T> TransformationState<T> yield()
+        public static <T> TransformationState<T> yielded()
         {
             return (TransformationState<T>) YIELD_STATE;
         }
@@ -349,7 +349,7 @@ public interface WorkProcessor<T>
          * Signals that process has yielded. {@link #process()} will be called again later.
          */
         @SuppressWarnings("unchecked")
-        public static <T> ProcessState<T> yield()
+        public static <T> ProcessState<T> yielded()
         {
             return (ProcessState<T>) YIELD_STATE;
         }
