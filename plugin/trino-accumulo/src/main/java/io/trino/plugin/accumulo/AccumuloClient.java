@@ -364,7 +364,7 @@ public class AccumuloClient
         }
 
         Map<String, Set<Text>> localityGroups = localityGroupsBuilder.build();
-        LOG.debug("Setting locality groups: {}", localityGroups);
+        LOG.debug("Setting locality groups: %s", localityGroups);
         tableManager.setLocalityGroups(table.getFullTableName(), localityGroups);
     }
 
