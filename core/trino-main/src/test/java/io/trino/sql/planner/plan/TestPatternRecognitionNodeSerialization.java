@@ -127,9 +127,16 @@ public class TestPatternRecognitionNodeSerialization
                         new FunctionCall(QualifiedName.of("rand"), ImmutableList.of()),
                         new ArithmeticUnaryExpression(MINUS, new SymbolReference("match_number"))),
                 ImmutableList.of(new Symbol("classifier"), new Symbol("x"), new Symbol("match_number")),
-                ImmutableList.of(new ScalarValuePointer(
-                        new LogicalIndexPointer(ImmutableSet.of(new IrLabel("A"), new IrLabel("B")), false, true, 1, -1),
-                        new Symbol("input_symbol_a"))),
+                ImmutableList.of(
+                        new ScalarValuePointer(
+                                new LogicalIndexPointer(ImmutableSet.of(new IrLabel("A"), new IrLabel("B")), false, true, 1, -1),
+                                new Symbol("input_symbol_a")),
+                        new ScalarValuePointer(
+                                new LogicalIndexPointer(ImmutableSet.of(new IrLabel("B")), true, false, 2, 1),
+                                new Symbol("input_symbol_a")),
+                        new ScalarValuePointer(
+                                new LogicalIndexPointer(ImmutableSet.of(), true, true, 0, 0),
+                                new Symbol("input_symbol_a"))),
                 ImmutableSet.of(new Symbol("classifier")),
                 ImmutableSet.of(new Symbol("match_number"))));
     }
@@ -156,6 +163,9 @@ public class TestPatternRecognitionNodeSerialization
                                 new ArithmeticUnaryExpression(MINUS, new SymbolReference("y"))),
                         ImmutableList.of(new Symbol("match_number"), new Symbol("x"), new Symbol("y")),
                         ImmutableList.of(
+                                new ScalarValuePointer(
+                                        new LogicalIndexPointer(ImmutableSet.of(), true, true, 0, 0),
+                                        new Symbol("input_symbol_a")),
                                 new ScalarValuePointer(
                                         new LogicalIndexPointer(ImmutableSet.of(new IrLabel("A")), false, true, 1, -1),
                                         new Symbol("input_symbol_a")),

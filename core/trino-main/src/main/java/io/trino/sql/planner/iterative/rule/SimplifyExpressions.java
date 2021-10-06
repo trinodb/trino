@@ -65,7 +65,8 @@ public class SimplifyExpressions
                 projectExpressionRewrite(),
                 filterExpressionRewrite(),
                 joinExpressionRewrite(),
-                valuesExpressionRewrite()); // ApplyNode and AggregationNode are not supported, because ExpressionInterpreter doesn't support them
+                valuesExpressionRewrite(),
+                patternRecognitionExpressionRewrite()); // ApplyNode and AggregationNode are not supported, because ExpressionInterpreter doesn't support them
     }
 
     private static ExpressionRewriter createRewrite(Metadata metadata, TypeAnalyzer typeAnalyzer)

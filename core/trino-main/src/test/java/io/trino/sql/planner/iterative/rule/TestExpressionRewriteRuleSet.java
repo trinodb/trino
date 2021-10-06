@@ -33,11 +33,14 @@ import io.trino.sql.tree.SymbolReference;
 import org.testng.annotations.Test;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.patternRecognition;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.planner.rowpattern.Patterns.label;
 
 public class TestExpressionRewriteRuleSet
         extends BaseRuleTest
@@ -164,6 +167,40 @@ public class TestExpressionRewriteRuleSet
                 .on(p -> p.values(
                         ImmutableList.<Symbol>of(p.symbol("a")),
                         ImmutableList.of((ImmutableList.of(PlanBuilder.expression("0"))))))
+                .doesNotFire();
+    }
+
+    @Test
+    public void testPatternRecognitionExpressionRewrite()
+    {
+        // NOTE: this tests that the rewrite works on top-level expressions in MEASURES and DEFINE
+        // Also, any aggregation arguments in MEASURES and DEFINE are rewritten
+        tester().assertThat(zeroRewriter.patternRecognitionExpressionRewrite())
+                .on(p -> p.patternRecognition(
+                        builder -> builder
+                                .addMeasure(p.symbol("measure_1"), "1", INTEGER)
+                                .pattern(label("X"))
+                                .addVariableDefinition(label("X"), "true")
+                                .source(p.values(p.symbol("a")))))
+                .matches(
+                        patternRecognition(
+                                builder -> builder
+                                        .addMeasure("measure_1", "0", INTEGER)
+                                        .pattern(label("X"))
+                                        .addVariableDefinition(label("X"), "0"),
+                                values("a")));
+    }
+
+    @Test
+    public void testPatternRecognitionExpressionNotRewritten()
+    {
+        tester().assertThat(zeroRewriter.patternRecognitionExpressionRewrite())
+                .on(p -> p.patternRecognition(
+                        builder -> builder
+                                .addMeasure(p.symbol("measure_1"), "0", INTEGER)
+                                .pattern(label("X"))
+                                .addVariableDefinition(label("X"), "0")
+                                .source(p.values(p.symbol("a")))))
                 .doesNotFire();
     }
 }
