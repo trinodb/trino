@@ -42,6 +42,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.metadata.ResolvedFunction.extractFunctionName;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -356,6 +357,7 @@ public class LogicalIndexExtractor
             this.expression = requireNonNull(expression, "expression is null");
             this.layout = requireNonNull(layout, "layout is null");
             this.valuePointers = requireNonNull(valuePointers, "valuePointers is null");
+            checkArgument(layout.size() == valuePointers.size(), "layout and valuePointers sizes don't match");
             this.classifierSymbols = requireNonNull(classifierSymbols, "classifierSymbols is null");
             this.matchNumberSymbols = requireNonNull(matchNumberSymbols, "matchNumberSymbols is null");
         }
