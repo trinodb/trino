@@ -52,7 +52,7 @@ public final class Rollback
     @Override
     public int hashCode()
     {
-        return 0;
+        return getClass().hashCode();
     }
 
     @Override
