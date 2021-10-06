@@ -979,8 +979,7 @@ public class TestAggregationsInRowPatternMatching
                 "                   ALL ROWS PER MATCH " +
                 "                   AFTER MATCH SKIP PAST LAST ROW " +
                 "                   PATTERN ((A | B | C)* X) " +
-                // "                DEFINE X AS array_agg(CLASSIFIER()) = ARRAY['C', 'A', 'B', 'X'] " + // TODO let the `SimplifyExpression` optimization through pattern recognition expressions to desugar array constructor
-                "                   DEFINE X AS array_join(array_agg(CLASSIFIER()), '', '') = 'CABX' " +
+                "                   DEFINE X AS array_agg(CLASSIFIER()) = ARRAY['C', 'A', 'B', 'X'] " +
                 "                ) AS m"))
                 .matches("VALUES " +
                         "     (1, CAST(ARRAY['C'] AS array(varchar))), " +
