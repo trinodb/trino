@@ -360,7 +360,7 @@ public class ScanFilterAndProjectOperator
             }
             else {
                 outputMemoryContext.setBytes(pageBuilder.getRetainedSizeInBytes());
-                return ProcessState.yield();
+                return ProcessState.yielded();
             }
         }
     }
@@ -395,7 +395,7 @@ public class ScanFilterAndProjectOperator
                     return ProcessState.finished();
                 }
                 else {
-                    return ProcessState.yield();
+                    return ProcessState.yielded();
                 }
             }
 
