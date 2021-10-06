@@ -316,7 +316,7 @@ public class ScanQueryPageSource
                 }
                 catch (Exception e) {
                     // ignore
-                    LOG.debug("Error clearing scroll", e);
+                    LOG.debug(e, "Error clearing scroll");
                 }
             }
         }
