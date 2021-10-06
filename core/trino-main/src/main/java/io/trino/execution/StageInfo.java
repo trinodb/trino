@@ -37,6 +37,7 @@ public class StageInfo
     private final StageId stageId;
     private final StageState state;
     private final PlanFragment plan;
+    private final boolean coordinatorOnly;
     private final List<Type> types;
     private final StageStats stageStats;
     private final List<TaskInfo> tasks;
@@ -49,6 +50,7 @@ public class StageInfo
             @JsonProperty("stageId") StageId stageId,
             @JsonProperty("state") StageState state,
             @JsonProperty("plan") @Nullable PlanFragment plan,
+            @JsonProperty("coordinatorOnly") boolean coordinatorOnly,
             @JsonProperty("types") List<Type> types,
             @JsonProperty("stageStats") StageStats stageStats,
             @JsonProperty("tasks") List<TaskInfo> tasks,
@@ -66,6 +68,7 @@ public class StageInfo
         this.stageId = stageId;
         this.state = state;
         this.plan = plan;
+        this.coordinatorOnly = coordinatorOnly;
         this.types = types;
         this.stageStats = stageStats;
         this.tasks = ImmutableList.copyOf(tasks);
@@ -91,6 +94,12 @@ public class StageInfo
     public PlanFragment getPlan()
     {
         return plan;
+    }
+
+    @JsonProperty
+    public boolean isCoordinatorOnly()
+    {
+        return coordinatorOnly;
     }
 
     @JsonProperty

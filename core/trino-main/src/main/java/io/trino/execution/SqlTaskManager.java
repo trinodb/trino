@@ -463,6 +463,15 @@ public class SqlTaskManager
         return tasks.getUnchecked(taskId).abort();
     }
 
+    @Override
+    public TaskInfo failTask(TaskId taskId, Throwable failure)
+    {
+        requireNonNull(taskId, "taskId is null");
+        requireNonNull(failure, "failure is null");
+
+        return tasks.getUnchecked(taskId).failed(failure);
+    }
+
     public void removeOldTasks()
     {
         DateTime oldestAllowedTask = DateTime.now().minus(infoCacheTime.toMillis());
@@ -537,6 +546,12 @@ public class SqlTaskManager
     public void addSourceTaskFailureListener(TaskId taskId, TaskFailureListener listener)
     {
         tasks.getUnchecked(taskId).addSourceTaskFailureListener(listener);
+    }
+
+    @Override
+    public Optional<String> getTraceToken(TaskId taskId)
+    {
+        return tasks.getUnchecked(taskId).getTraceToken();
     }
 
     @VisibleForTesting

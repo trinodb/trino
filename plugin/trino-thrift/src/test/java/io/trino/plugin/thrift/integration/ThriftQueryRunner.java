@@ -28,6 +28,7 @@ import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.cost.StatsCalculator;
+import io.trino.execution.FailureInjector.InjectedFailureType;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.SqlFunction;
@@ -35,6 +36,7 @@ import io.trino.plugin.thrift.ThriftPlugin;
 import io.trino.plugin.thrift.server.ThriftIndexedTpchService;
 import io.trino.plugin.thrift.server.ThriftTpchService;
 import io.trino.server.testing.TestingTrinoServer;
+import io.trino.spi.ErrorType;
 import io.trino.spi.Plugin;
 import io.trino.split.PageSourceManager;
 import io.trino.split.SplitManager;
@@ -51,6 +53,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.locks.Lock;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
@@ -299,6 +302,18 @@ public final class ThriftQueryRunner
         public Lock getExclusiveLock()
         {
             return source.getExclusiveLock();
+        }
+
+        @Override
+        public void injectTaskFailure(
+                String traceToken,
+                int stageId,
+                int partitionId,
+                int attemptId,
+                InjectedFailureType injectionType,
+                Optional<ErrorType> errorType)
+        {
+            source.injectTaskFailure(traceToken, stageId, partitionId, attemptId, injectionType, errorType);
         }
     }
 }
