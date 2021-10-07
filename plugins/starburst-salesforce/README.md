@@ -97,7 +97,7 @@ loading the TPC-H data into Salesforce can take several minutes.
 
 Note that these custom objects can be deleted by hand in Salesforce using the Object Manager.
 
-## Booleans
+### Booleans
 
 Salesforce has a "Checkbox" data type which mato a CData `bool`.
 In practice, if you create a table with a `boolean` type the driver wants a max length, and then it turns into a `varchar` on read.
@@ -111,16 +111,16 @@ CREATE TABLE test_booleans (a boolean(1), b boolean(5))
 
 For this reason Booleans are untested but supported in the column mappings.
 
-## Numeric types
+### Numeric types
 
 All numeric types from the CData driver come back as a `double` type.
 We have column mappings for integer, bigint, and decimal however they are not tested at this time as the data type metadata come back as `double` on read. 
 
-## Timestamp/Time Precision
+### Timestamp/Time Precision
 
 Salesforce documents state millisecond precision, however the CData driver truncates all precision timestamp and time types with no rounding.
 This is for both reads and writes to Salesforce.
 
-## Varchar
+### Varchar
 
 Salesforce has a max length of 255 characters for `varchar` types and requires the length to be specified
