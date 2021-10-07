@@ -35,7 +35,7 @@ public class JwtAuthenticator
 {
     private final JwtParser jwtParser;
     private final String principalField;
-    private final String groupsField;
+    private final Optional<String> groupsField;
 
     @Inject
     public JwtAuthenticator(JwtAuthenticatorConfig config, SigningKeyResolver signingKeyResolver)
@@ -69,9 +69,9 @@ public class JwtAuthenticator
     @Override
     protected Set<String> extractGroupsFromToken(String token)
     {
-        return Optional.ofNullable(jwtParser.parseClaimsJws(token)
+        return groupsField.<Set<String>>map(s -> Optional.ofNullable(jwtParser.parseClaimsJws(token)
                 .getBody()
-                .get(groupsField, Set.class)).orElse(Collections.emptySet());
+                .get(s, Set.class)).orElse(Collections.emptySet())).orElse(Collections.emptySet());
     }
 
     @Override

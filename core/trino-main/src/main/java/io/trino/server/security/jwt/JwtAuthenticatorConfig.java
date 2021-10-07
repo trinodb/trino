@@ -14,6 +14,7 @@
 package io.trino.server.security.jwt;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.configuration.validation.FileExists;
 
@@ -28,7 +29,7 @@ public class JwtAuthenticatorConfig
     private String requiredIssuer;
     private String requiredAudience;
     private String principalField = "sub";
-    private String groupsField;
+    private Optional<String> groupsField;
     private Optional<String> userMappingPattern = Optional.empty();
     private Optional<File> userMappingFile = Optional.empty();
 
@@ -85,15 +86,16 @@ public class JwtAuthenticatorConfig
         return this;
     }
 
-    public String getGroupsField()
+    public Optional<String> getGroupsField()
     {
         return groupsField;
     }
 
     @Config("http-server.authentication.jwt.groups-field")
+    @ConfigDescription("Groups field in the claim")
     public JwtAuthenticatorConfig setGroupsField(String groupsField)
     {
-        this.groupsField = groupsField;
+        this.groupsField = Optional.ofNullable(groupsField);
         return this;
     }
 
