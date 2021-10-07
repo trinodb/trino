@@ -1508,16 +1508,11 @@ public abstract class BaseJdbcConnectorTest
     public static Object[][] batchSizeAndTotalNumberOfRowsToInsertDataProvider()
     {
         return new Object[][] {
-                {100, 64},
-                {100, 100},
-                {100, 512},
-                {100, 1000},
-                {1000, 100},
-                {1000, 1000},
-                {1000, 5000},
-                {10000, 1000},
-                {10000, 5000},
-                {10000, 15000},
+                {10, 8},  // number of rows < batch size
+                {10, 10}, // number of rows = batch size
+                {10, 11}, // number of rows > batch size
+                {10, 50}, // number of rows = n * batch size
+                {10, 52}, // number of rows > n * batch size
         };
     }
 }
