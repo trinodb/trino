@@ -1080,6 +1080,36 @@ public abstract class BaseElasticsearchConnectorTest
     }
 
     @Test
+    public void testTableWithUnsupportedTypes()
+            throws IOException
+    {
+        String indexName = "unsupported_types";
+
+        @Language("JSON")
+        String mappings = "" +
+                "{" +
+                "  \"properties\": { " +
+                "    \"long_column\":      { \"type\": \"long\" }," +
+                "    \"unsupported_type\": { \"type\": \"completion\"}" +
+                "  }" +
+                "}";
+
+        createIndex(indexName, mappings);
+
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("long_column", 1L)
+                .put("unsupported_type", ImmutableList.of("foo", "bar"))
+                .build());
+
+        MaterializedResult rows = computeActual("SELECT * FROM unsupported_types");
+        MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
+                .row(1L)
+                .build();
+
+        assertEquals(rows.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
     public void testBoolean()
             throws IOException
     {
