@@ -73,6 +73,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.QUERY;
 import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.SCAN;
@@ -214,19 +215,13 @@ public class ElasticsearchMetadata
 
     private List<IndexMetadata.Field> getColumnFields(IndexMetadata metadata)
     {
-        ImmutableList.Builder<IndexMetadata.Field> result = ImmutableList.builder();
         Map<String, Long> counts = metadata.getSchema()
                 .getFields().stream()
                 .collect(Collectors.groupingBy(f -> f.getName().toLowerCase(ENGLISH), Collectors.counting()));
 
-        for (IndexMetadata.Field field : metadata.getSchema().getFields()) {
-            Type type = toTrino(field).getType();
-            if (type == null || counts.get(field.getName().toLowerCase(ENGLISH)) > 1) {
-                continue;
-            }
-            result.add(field);
-        }
-        return result.build();
+        return metadata.getSchema().getFields().stream()
+                .filter(field -> toTrino(field) != null && counts.get(field.getName().toLowerCase(ENGLISH)) <= 1)
+                .collect(toImmutableList());
     }
 
     private List<ColumnMetadata> makeColumnMetadata(List<IndexMetadata.Field> fields)
