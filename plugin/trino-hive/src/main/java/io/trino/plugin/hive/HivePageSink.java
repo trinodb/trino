@@ -313,14 +313,6 @@ public class HivePageSink
             }
 
             HiveWriter writer = writers.get(index);
-            if (bucketFunction == null && writer.getWrittenBytes() > targetMaxFileSize.orElse(Long.MAX_VALUE)) {
-                // close current writer
-                closeWriter(writer);
-                // open new writer
-                Page partitionColumns = extractColumns(pageForWriter, partitionColumnsInputIndex);
-                writer = writerFactory.createWriter(partitionColumns, 0, OptionalInt.empty());
-                writers.set(index, writer);
-            }
 
             long currentWritten = writer.getWrittenBytes();
             long currentMemory = writer.getSystemMemoryUsage();
@@ -366,15 +358,21 @@ public class HivePageSink
         // create missing writers
         for (int position = 0; position < page.getPositionCount(); position++) {
             int writerIndex = writerIndexes[position];
-            if (writers.get(writerIndex) != null) {
-                continue;
+            HiveWriter writer = writers.get(writerIndex);
+            if (writer != null) {
+                // if current file not too big continue with the current writer
+                if (bucketFunction != null || writer.getWrittenBytes() <= targetMaxFileSize.orElse(Long.MAX_VALUE)) {
+                    continue;
+                }
+                // close current writer
+                closeWriter(writer);
             }
 
             OptionalInt bucketNumber = OptionalInt.empty();
             if (bucketBlock != null) {
                 bucketNumber = OptionalInt.of(bucketBlock.getInt(position, 0));
             }
-            HiveWriter writer = writerFactory.createWriter(partitionColumns, position, bucketNumber);
+            writer = writerFactory.createWriter(partitionColumns, position, bucketNumber);
             writers.set(writerIndex, writer);
         }
         verify(writers.size() == pagePartitioner.getMaxIndex() + 1);
