@@ -121,7 +121,6 @@ public final class SystemSessionProperties
     public static final String IGNORE_STATS_CALCULATOR_FAILURES = "ignore_stats_calculator_failures";
     public static final String MAX_DRIVERS_PER_TASK = "max_drivers_per_task";
     public static final String DEFAULT_FILTER_FACTOR_ENABLED = "default_filter_factor_enabled";
-    public static final String UNWRAP_CASTS = "unwrap_casts";
     public static final String SKIP_REDUNDANT_SORT = "skip_redundant_sort";
     public static final String ALLOW_PUSHDOWN_INTO_CONNECTORS = "allow_pushdown_into_connectors";
     public static final String PREDICATE_PUSHDOWN_USE_TABLE_PROPERTIES = "predicate_pushdown_use_table_properties";
@@ -541,11 +540,6 @@ public final class SystemSessionProperties
                         DEFAULT_FILTER_FACTOR_ENABLED,
                         "use a default filter factor for unknown filters in a filter node",
                         featuresConfig.isDefaultFilterFactorEnabled(),
-                        false),
-                booleanProperty(
-                        UNWRAP_CASTS,
-                        "Enable optimization to unwrap CAST expression",
-                        featuresConfig.isUnwrapCasts(),
                         false),
                 booleanProperty(
                         SKIP_REDUNDANT_SORT,
@@ -1068,11 +1062,6 @@ public final class SystemSessionProperties
     public static boolean isDefaultFilterFactorEnabled(Session session)
     {
         return session.getSystemProperty(DEFAULT_FILTER_FACTOR_ENABLED, Boolean.class);
-    }
-
-    public static boolean isUnwrapCasts(Session session)
-    {
-        return session.getSystemProperty(UNWRAP_CASTS, Boolean.class);
     }
 
     public static boolean isSkipRedundantSort(Session session)

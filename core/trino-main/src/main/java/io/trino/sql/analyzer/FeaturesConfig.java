@@ -91,7 +91,6 @@ public class FeaturesConfig
     private boolean exchangeCompressionEnabled;
     private boolean legacyRowToJsonCast;
     private boolean optimizeMixedDistinctAggregations;
-    private boolean unwrapCasts = true;
     private boolean forceSingleNodeOutput = true;
     private boolean pagesIndexEagerCompactionEnabled;
     private boolean distributedSort = true;
@@ -777,18 +776,6 @@ public class FeaturesConfig
     public FeaturesConfig setOptimizeMixedDistinctAggregations(boolean value)
     {
         this.optimizeMixedDistinctAggregations = value;
-        return this;
-    }
-
-    public boolean isUnwrapCasts()
-    {
-        return unwrapCasts;
-    }
-
-    @Config("optimizer.unwrap-casts")
-    public FeaturesConfig setUnwrapCasts(boolean unwrapCasts)
-    {
-        this.unwrapCasts = unwrapCasts;
         return this;
     }
 
