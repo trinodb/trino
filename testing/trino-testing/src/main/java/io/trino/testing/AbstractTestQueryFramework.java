@@ -32,6 +32,7 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.operator.OperatorStats;
 import io.trino.spi.QueryId;
+import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.analyzer.FeaturesConfig;
@@ -65,6 +66,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -531,7 +533,7 @@ public abstract class AbstractTestQueryFramework
                 .build();
     }
 
-    protected OperatorStats searchScanFilterAndProjectOperatorStats(QueryId queryId, String tableName)
+    protected OperatorStats searchScanFilterAndProjectOperatorStats(QueryId queryId, Predicate<ConnectorTableHandle> tablePredicate)
     {
         Plan plan = getDistributedQueryRunner().getQueryPlan(queryId);
         PlanNodeId nodeId = PlanNodeSearcher.searchFrom(plan.getRoot())
@@ -548,7 +550,7 @@ public abstract class AbstractTestQueryFramework
                         return false;
                     }
                     TableScanNode tableScanNode = (TableScanNode) filterNode.getSource();
-                    return tableName.equals(tableScanNode.getTable().getConnectorHandle().toString());
+                    return tablePredicate.test(tableScanNode.getTable().getConnectorHandle());
                 })
                 .findOnlyElement()
                 .getId();
