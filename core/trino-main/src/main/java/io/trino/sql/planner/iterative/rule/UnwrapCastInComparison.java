@@ -17,7 +17,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import io.airlift.slice.Slice;
 import io.trino.Session;
-import io.trino.SystemSessionProperties;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.OperatorNotFoundException;
 import io.trino.metadata.ResolvedFunction;
@@ -143,11 +142,7 @@ public class UnwrapCastInComparison
             TypeProvider types,
             Expression expression)
     {
-        if (SystemSessionProperties.isUnwrapCasts(session)) {
-            return ExpressionTreeRewriter.rewriteWith(new Visitor(metadata, typeOperators, typeAnalyzer, session, types), expression);
-        }
-
-        return expression;
+        return ExpressionTreeRewriter.rewriteWith(new Visitor(metadata, typeOperators, typeAnalyzer, session, types), expression);
     }
 
     private static class Visitor
