@@ -37,10 +37,7 @@ public class TestParquetPageSkipping
             throws Exception
     {
         return HiveQueryRunner.builder()
-                .setHiveProperties(ImmutableMap.of(
-                        // Reduce writer sort buffer size to ensure SortingFileWriter gets used
-                        "hive.writer-sort-buffer-size", "1MB",
-                        "parquet.use-column-index", "true"))
+                .setHiveProperties(ImmutableMap.of("parquet.use-column-index", "true"))
                 .build();
     }
 
