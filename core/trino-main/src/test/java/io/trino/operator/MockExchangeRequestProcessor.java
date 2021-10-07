@@ -49,6 +49,7 @@ import static io.trino.execution.buffer.TestingPagesSerdeFactory.testingPagesSer
 import static io.trino.server.InternalHeaders.TRINO_BUFFER_COMPLETE;
 import static io.trino.server.InternalHeaders.TRINO_PAGE_NEXT_TOKEN;
 import static io.trino.server.InternalHeaders.TRINO_PAGE_TOKEN;
+import static io.trino.server.InternalHeaders.TRINO_TASK_FAILED;
 import static io.trino.server.InternalHeaders.TRINO_TASK_INSTANCE_ID;
 import static io.trino.server.PagesResponseWriter.SERIALIZED_PAGES_MAGIC;
 import static org.testng.Assert.assertEquals;
@@ -123,12 +124,14 @@ public class MockExchangeRequestProcessor
 
         return new TestingResponse(
                 status,
-                ImmutableListMultimap.of(
-                        CONTENT_TYPE, TRINO_PAGES,
-                        TRINO_TASK_INSTANCE_ID, String.valueOf(result.getTaskInstanceId()),
-                        TRINO_PAGE_TOKEN, String.valueOf(result.getToken()),
-                        TRINO_PAGE_NEXT_TOKEN, String.valueOf(result.getNextToken()),
-                        TRINO_BUFFER_COMPLETE, String.valueOf(result.isBufferComplete())),
+                ImmutableListMultimap.<String, String>builder()
+                        .put(CONTENT_TYPE, TRINO_PAGES)
+                        .put(TRINO_TASK_INSTANCE_ID, String.valueOf(result.getTaskInstanceId()))
+                        .put(TRINO_PAGE_TOKEN, String.valueOf(result.getToken()))
+                        .put(TRINO_PAGE_NEXT_TOKEN, String.valueOf(result.getNextToken()))
+                        .put(TRINO_BUFFER_COMPLETE, String.valueOf(result.isBufferComplete()))
+                        .put(TRINO_TASK_FAILED, "false")
+                        .build(),
                 bytes);
     }
 

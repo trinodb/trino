@@ -18,6 +18,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
 import io.trino.execution.TaskId;
 import io.trino.execution.buffer.SerializedPage;
+import io.trino.spi.TrinoException;
 
 import javax.annotation.concurrent.GuardedBy;
 
@@ -31,6 +32,7 @@ import java.util.concurrent.Executor;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
+import static io.trino.spi.StandardErrorCode.REMOTE_TASK_FAILED;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 
@@ -138,6 +140,12 @@ public class StreamingExchangeClientBuffer
             return;
         }
         checkState(activeTasks.contains(taskId), "taskId not registered: %s", taskId);
+
+        if (t instanceof TrinoException && ((TrinoException) t).getErrorCode() == REMOTE_TASK_FAILED.toErrorCode()) {
+            // let coordinator handle this
+            return;
+        }
+
         failure = t;
         activeTasks.remove(taskId);
         unblockIfNecessary(blocked);

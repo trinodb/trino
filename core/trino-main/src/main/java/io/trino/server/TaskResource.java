@@ -26,6 +26,7 @@ import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskInfo;
 import io.trino.execution.TaskManager;
+import io.trino.execution.TaskState;
 import io.trino.execution.TaskStatus;
 import io.trino.execution.buffer.BufferResult;
 import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
@@ -72,6 +73,7 @@ import static io.trino.server.InternalHeaders.TRINO_MAX_SIZE;
 import static io.trino.server.InternalHeaders.TRINO_MAX_WAIT;
 import static io.trino.server.InternalHeaders.TRINO_PAGE_NEXT_TOKEN;
 import static io.trino.server.InternalHeaders.TRINO_PAGE_TOKEN;
+import static io.trino.server.InternalHeaders.TRINO_TASK_FAILED;
 import static io.trino.server.InternalHeaders.TRINO_TASK_INSTANCE_ID;
 import static io.trino.server.security.ResourceSecurity.AccessType.INTERNAL_ONLY;
 import static java.util.Objects.requireNonNull;
@@ -270,6 +272,9 @@ public class TaskResource
         requireNonNull(taskId, "taskId is null");
         requireNonNull(bufferId, "bufferId is null");
 
+        TaskState state = taskManager.getTaskStatus(taskId).getState();
+        boolean taskFailed = state == TaskState.ABORTED || state == TaskState.FAILED;
+
         long start = System.nanoTime();
         ListenableFuture<BufferResult> bufferResultFuture = taskManager.getTaskResults(taskId, bufferId, token, maxSize);
         Duration waitTime = randomizeWaitTime(DEFAULT_MAX_WAIT_TIME);
@@ -298,6 +303,7 @@ public class TaskResource
                     .header(TRINO_PAGE_TOKEN, result.getToken())
                     .header(TRINO_PAGE_NEXT_TOKEN, result.getNextToken())
                     .header(TRINO_BUFFER_COMPLETE, result.isBufferComplete())
+                    .header(TRINO_TASK_FAILED, taskFailed)
                     .build();
         }, directExecutor());
 
@@ -310,6 +316,7 @@ public class TaskResource
                                 .header(TRINO_PAGE_TOKEN, token)
                                 .header(TRINO_PAGE_NEXT_TOKEN, token)
                                 .header(TRINO_BUFFER_COMPLETE, false)
+                                .header(TRINO_TASK_FAILED, taskFailed)
                                 .build());
 
         responseFuture.addListener(() -> readFromOutputBufferTime.add(Duration.nanosSince(start)), directExecutor());
