@@ -637,30 +637,34 @@ public abstract class BaseConnectorTest
         assertUpdate("DROP MATERIALIZED VIEW " + viewWithComment);
 
         // test filtering materialized views in system metadata table
-        assertQuery(
-                listMaterializedViewsSql("catalog_name = '" + view.getCatalogName() + "'"),
-                getTestingMaterializedViewsResultRows(view, otherView));
+        assertThat(query(listMaterializedViewsSql("catalog_name = '" + view.getCatalogName() + "'")))
+                .skippingTypesCheck()
+                .containsAll(getTestingMaterializedViewsResultRows(view, otherView));
 
-        assertQuery(
+        assertThat(query(
                 listMaterializedViewsSql(
                         "catalog_name = '" + otherView.getCatalogName() + "'",
-                        "schema_name = '" + otherView.getSchemaName() + "'"),
-                getTestingMaterializedViewsResultRow(otherView, "sarcastic comment"));
+                        "schema_name = '" + otherView.getSchemaName() + "'")))
+                .skippingTypesCheck()
+                .containsAll(getTestingMaterializedViewsResultRow(otherView, "sarcastic comment"));
 
-        assertQuery(
+        assertThat(query(
                 listMaterializedViewsSql(
                         "catalog_name = '" + view.getCatalogName() + "'",
                         "schema_name = '" + view.getSchemaName() + "'",
-                        "name = '" + view.getObjectName() + "'"),
-                getTestingMaterializedViewsResultRow(view, ""));
+                        "name = '" + view.getObjectName() + "'")))
+                .skippingTypesCheck()
+                .containsAll(getTestingMaterializedViewsResultRow(view, ""));
 
-        assertQuery(
-                listMaterializedViewsSql("schema_name LIKE '%" + view.getSchemaName() + "%'"),
-                getTestingMaterializedViewsResultRow(view, ""));
+        assertThat(query(
+                listMaterializedViewsSql("schema_name LIKE '%" + view.getSchemaName() + "%'")))
+                .skippingTypesCheck()
+                .containsAll(getTestingMaterializedViewsResultRow(view, ""));
 
-        assertQuery(
-                listMaterializedViewsSql("name LIKE '%" + view.getObjectName() + "%'"),
-                getTestingMaterializedViewsResultRow(view, ""));
+        assertThat(query(
+                listMaterializedViewsSql("name LIKE '%" + view.getObjectName() + "%'")))
+                .skippingTypesCheck()
+                .containsAll(getTestingMaterializedViewsResultRow(view, ""));
 
         // verify write in transaction
         if (!hasBehavior(SUPPORTS_MULTI_STATEMENT_WRITES)) {
