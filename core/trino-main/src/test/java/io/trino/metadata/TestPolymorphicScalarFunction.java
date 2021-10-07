@@ -46,6 +46,7 @@ import static io.trino.spi.type.TypeSignatureParameter.typeVariable;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.util.Arrays.asList;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -275,31 +276,35 @@ public class TestPolymorphicScalarFunction
         function.specialize(functionBinding, new FunctionDependencies(METADATA, ImmutableMap.of(), ImmutableSet.of()));
     }
 
-    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "method foo was not found in class io.trino.metadata.TestPolymorphicScalarFunction\\$TestMethods")
+    @Test
     public void testFailIfNotAllMethodsPresent()
     {
-        new PolymorphicScalarFunctionBuilder(TestMethods.class)
+        assertThatThrownBy(() -> new PolymorphicScalarFunctionBuilder(TestMethods.class)
                 .signature(SIGNATURE)
                 .deterministic(true)
                 .choice(choice -> choice
                         .implementation(methodsGroup -> methodsGroup.methods("bigintToBigintReturnExtraParameter"))
                         .implementation(methodsGroup -> methodsGroup.methods("foo")))
-                .build();
+                .build())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageMatching("method foo was not found in class io.trino.metadata.TestPolymorphicScalarFunction\\$TestMethods");
     }
 
-    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "methods must be selected first")
+    @Test
     public void testFailNoMethodsAreSelectedWhenExtraParametersFunctionIsSet()
     {
-        new PolymorphicScalarFunctionBuilder(TestMethods.class)
+        assertThatThrownBy(() -> new PolymorphicScalarFunctionBuilder(TestMethods.class)
                 .signature(SIGNATURE)
                 .deterministic(true)
                 .choice(choice -> choice
                         .implementation(methodsGroup -> methodsGroup
                                 .withExtraParameters(context -> ImmutableList.of(42))))
-                .build();
+                .build())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageMatching("methods must be selected first");
     }
 
-    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "two matching methods \\(varcharToBigintReturnFirstExtraParameter and varcharToBigintReturnExtraParameter\\) for parameter types \\[varchar\\(10\\)\\]")
+    @Test
     public void testFailIfTwoMethodsWithSameArguments()
     {
         SqlScalarFunction function = new PolymorphicScalarFunctionBuilder(TestMethods.class)
@@ -315,7 +320,10 @@ public class TestPolymorphicScalarFunction
                 BOUND_SIGNATURE,
                 VARCHAR_TYPE_VARIABLES,
                 VARCHAR_LONG_VARIABLES);
-        function.specialize(functionBinding, new FunctionDependencies(METADATA, ImmutableMap.of(), ImmutableSet.of()));
+
+        assertThatThrownBy(() -> function.specialize(functionBinding, new FunctionDependencies(METADATA, ImmutableMap.of(), ImmutableSet.of())))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageMatching("two matching methods \\(varcharToBigintReturnFirstExtraParameter and varcharToBigintReturnExtraParameter\\) for parameter types \\[varchar\\(10\\)\\]");
     }
 
     public static final class TestMethods
