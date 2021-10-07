@@ -89,7 +89,7 @@ public class TestFunctionRegistry
         assertTrue(foundOperator);
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "\\QFunction already registered: custom_add(bigint,bigint):bigint\\E")
+    @Test
     public void testDuplicateFunctions()
     {
         List<SqlFunction> functions = new FunctionListBuilder()
@@ -101,17 +101,21 @@ public class TestFunctionRegistry
 
         Metadata metadata = createTestMetadataManager();
         metadata.addFunctions(functions);
-        metadata.addFunctions(functions);
+        assertThatThrownBy(() -> metadata.addFunctions(functions))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageMatching("\\QFunction already registered: custom_add(bigint,bigint):bigint\\E");
     }
 
-    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "'sum' is both an aggregation and a scalar function")
+    @Test
     public void testConflictingScalarAggregation()
     {
         List<SqlFunction> functions = new FunctionListBuilder()
                 .scalars(ScalarSum.class)
                 .getFunctions();
 
-        createTestMetadataManager().addFunctions(functions);
+        assertThatThrownBy(() -> createTestMetadataManager().addFunctions(functions))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("'sum' is both an aggregation and a scalar function");
     }
 
     @Test
