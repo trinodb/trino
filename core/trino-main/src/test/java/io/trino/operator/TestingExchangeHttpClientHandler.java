@@ -35,6 +35,7 @@ import static io.trino.execution.buffer.TestingPagesSerdeFactory.testingPagesSer
 import static io.trino.server.InternalHeaders.TRINO_BUFFER_COMPLETE;
 import static io.trino.server.InternalHeaders.TRINO_PAGE_NEXT_TOKEN;
 import static io.trino.server.InternalHeaders.TRINO_PAGE_TOKEN;
+import static io.trino.server.InternalHeaders.TRINO_TASK_FAILED;
 import static io.trino.server.InternalHeaders.TRINO_TASK_INSTANCE_ID;
 import static io.trino.server.PagesResponseWriter.SERIALIZED_PAGES_MAGIC;
 import static java.util.Objects.requireNonNull;
@@ -69,6 +70,7 @@ public class TestingExchangeHttpClientHandler
         ImmutableListMultimap.Builder<String, String> headers = ImmutableListMultimap.builder();
         headers.put(TRINO_TASK_INSTANCE_ID, "task-instance-id");
         headers.put(TRINO_PAGE_TOKEN, String.valueOf(pageToken));
+        headers.put(TRINO_TASK_FAILED, "false");
 
         TestingTaskBuffer taskBuffer = taskBuffers.getUnchecked(taskId);
         Page page = taskBuffer.getPage(pageToken);
