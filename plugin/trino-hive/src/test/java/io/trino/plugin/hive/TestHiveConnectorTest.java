@@ -1766,6 +1766,44 @@ public class TestHiveConnectorTest
     }
 
     @Test
+    public void testTargetMaxFileSizePartitioned()
+    {
+        @Language("SQL") String createTableSql = "" +
+                "CREATE TABLE test_max_file_size WITH (partitioned_by = ARRAY['returnflag']) AS " +
+                "SELECT orderkey, partkey, suppkey, linenumber, quantity, extendedprice, discount, tax, linestatus, shipdate, commitdate, receiptdate, shipinstruct, shipmode, comment, returnflag " +
+                "FROM tpch.sf1.lineitem LIMIT 1000000";
+        @Language("SQL") String selectFileInfo = "SELECT distinct \"$path\", \"$file_size\" FROM test_max_file_size";
+
+        // verify the default behavior is one file per node per partition
+        Session session = Session.builder(getSession())
+                .setSystemProperty("task_writer_count", "1")
+                .build();
+        assertUpdate(session, createTableSql, 1000000);
+        assertThat(computeActual(selectFileInfo).getRowCount()).isEqualTo(9);
+        assertUpdate("DROP TABLE test_max_file_size");
+
+        // Write table with small limit and verify we get multiple files per node near the expected size
+        // Writer writes chunks of rows that are about 40k
+        // We use TEXTFILE in this test because is has a very consistent and predictable size
+        DataSize maxSize = DataSize.of(40, Unit.KILOBYTE);
+        session = Session.builder(getSession())
+                .setSystemProperty("task_writer_count", "1")
+                .setCatalogSessionProperty("hive", "target_max_file_size", maxSize.toString())
+                .setCatalogSessionProperty("hive", "hive_storage_format", "TEXTFILE")
+                .build();
+
+        assertUpdate(session, createTableSql, 1000000);
+        MaterializedResult result = computeActual(selectFileInfo);
+        assertThat(result.getRowCount()).isGreaterThan(9);
+        for (MaterializedRow row : result) {
+            // allow up to a larger delta due to the very small max size and the relatively large writer chunk size
+            assertThat((Long) row.getField(1)).isLessThan(maxSize.toBytes() * 3);
+        }
+
+        assertUpdate("DROP TABLE test_max_file_size");
+    }
+
+    @Test
     public void testPropertiesTable()
     {
         @Language("SQL") String createTable = "" +
