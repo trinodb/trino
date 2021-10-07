@@ -43,8 +43,6 @@ import io.trino.plugin.jdbc.SliceWriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.expression.ImplementAvgDecimal;
 import io.trino.plugin.jdbc.expression.ImplementAvgFloatingPoint;
-import io.trino.plugin.jdbc.expression.ImplementCount;
-import io.trino.plugin.jdbc.expression.ImplementCountAll;
 import io.trino.plugin.jdbc.expression.ImplementMinMax;
 import io.trino.plugin.jdbc.expression.ImplementSum;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
@@ -166,6 +164,8 @@ public class SqlServerClient
     // SqlServer supports 2100 parameters in prepared statement, let's create a space for about 4 big IN predicates
     public static final int SQL_SERVER_MAX_LIST_EXPRESSIONS = 500;
 
+    public static final JdbcTypeHandle BIGINT_TYPE = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
+
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
     private static final Joiner DOT_JOINER = Joiner.on(".");
@@ -187,13 +187,11 @@ public class SqlServerClient
 
         requireNonNull(sqlServerConfig, "sqlServerConfig is null");
         snapshotIsolationDisabled = sqlServerConfig.isSnapshotIsolationDisabled();
-
-        JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(
                 this::quoted,
                 ImmutableSet.<AggregateFunctionRule<JdbcExpression>>builder()
-                        .add(new ImplementCountAll(bigintTypeHandle))
-                        .add(new ImplementCount(bigintTypeHandle))
+                        .add(new ImplementSqlServerCountBigAll())
+                        .add(new ImplementSqlServerCountBig())
                         .add(new ImplementMinMax(false))
                         .add(new ImplementSum(SqlServerClient::toTypeHandle))
                         .add(new ImplementAvgFloatingPoint())
