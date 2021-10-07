@@ -124,3 +124,17 @@ This is for both reads and writes to Salesforce.
 ### Varchar
 
 Salesforce has a max length of 255 characters for `varchar` types and requires the length to be specified
+
+
+## CI Tests - Password Expiration
+
+The CI tests are configured to run with two tests users, including their passwords and security tokens stored as GitHub secrets and referenced in the `ci.yml` file.
+Periodically, the passwords will expire and the tests will fail with an `INVALID_OPERATION_WITH_EXPIRED_PASSWORD` error.
+A new password will need to be created, which generates a new security token as well.
+Currently, only the Test User 1 account is used, but there is also a sep.salesforcedl.test2@starburstdata.com user in case it ends up being used in the future.
+
+1. Login to https://starburstdata--partial.my.salesforce.com/ as sep.salesforcedl.test1@starburstdata.com and the current (expired) password
+2. You will be prompted to create a new password. Once created, an email is sent to sep.salesforcedl.test1@starburstdata.com containing the new security token
+    * wbiela is a member of the DL
+3. Update the GitHub secrets for `SALESFORCE_USER1_PASSWORD` and `SALESFORCE_USER1_SECURITY_TOKEN` to the new values
+4. Let the CI build run; the tests should no longer fail with an expired password error
