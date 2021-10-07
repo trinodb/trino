@@ -53,7 +53,7 @@ At a minimum, ``hive.metastore.uri`` must be configured:
     hive.metastore.uri=thrift://localhost:9083
 
 .. list-table:: Iceberg configuration properties
-  :widths: 35, 80, 5
+  :widths: 30, 58, 12
   :header-rows: 1
 
   * - Property name

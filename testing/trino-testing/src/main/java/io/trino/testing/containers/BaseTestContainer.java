@@ -102,7 +102,12 @@ public abstract class BaseTestContainer
                 dockerPath);
     }
 
-    protected void startContainer()
+    protected HostAndPort getMappedHostAndPortForExposedPort(int exposedPort)
+    {
+        return fromParts(container.getHost(), container.getMappedPort(exposedPort));
+    }
+
+    public void start()
     {
         Failsafe.with(new RetryPolicy<>()
                         .withMaxRetries(startupRetryLimit)
@@ -112,17 +117,6 @@ public abstract class BaseTestContainer
                                 event.getAttemptCount(),
                                 event.getLastFailure().getMessage())))
                 .get(() -> TestContainers.startOrReuse(this.container));
-    }
-
-    protected HostAndPort getMappedHostAndPortForExposedPort(int exposedPort)
-    {
-        return fromParts(container.getHost(), container.getMappedPort(exposedPort));
-    }
-
-    public void start()
-    {
-        setupContainer();
-        startContainer();
     }
 
     public void stop()

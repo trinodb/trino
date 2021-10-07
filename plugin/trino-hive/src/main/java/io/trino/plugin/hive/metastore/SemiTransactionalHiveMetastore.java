@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.errorprone.annotations.FormatMethod;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.plugin.hive.HdfsEnvironment;
@@ -2043,7 +2044,7 @@ public class SemiTransactionalHiveMetastore
                     logCleanupFailure("Failed to rollback: add_partition for partitions %s.%s %s",
                             partitionAdder.getSchemaName(),
                             partitionAdder.getTableName(),
-                            partitionsFailedToRollback.stream());
+                            partitionsFailedToRollback);
                 }
             }
         }
@@ -2308,6 +2309,7 @@ public class SemiTransactionalHiveMetastore
         return parent.equals(child);
     }
 
+    @FormatMethod
     private void logCleanupFailure(String format, Object... args)
     {
         if (throwOnCleanupFailure) {
@@ -2316,6 +2318,7 @@ public class SemiTransactionalHiveMetastore
         log.warn(format, args);
     }
 
+    @FormatMethod
     private void logCleanupFailure(Throwable t, String format, Object... args)
     {
         if (throwOnCleanupFailure) {

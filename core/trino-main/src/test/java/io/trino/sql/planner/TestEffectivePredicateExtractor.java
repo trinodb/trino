@@ -86,12 +86,12 @@ import org.testng.annotations.Test;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -1230,12 +1230,10 @@ public class TestEffectivePredicateExtractor
         EqualityInference inference = EqualityInference.newInstance(metadata, predicate);
 
         Set<Symbol> scope = SymbolsExtractor.extractUnique(predicate);
-        Set<Expression> rewrittenSet = new HashSet<>();
-        for (Expression expression : EqualityInference.nonInferrableConjuncts(metadata, predicate)) {
-            Expression rewritten = inference.rewrite(expression, scope);
-            checkState(rewritten != null, "Rewrite with full symbol scope should always be possible");
-            rewrittenSet.add(rewritten);
-        }
+        Set<Expression> rewrittenSet = EqualityInference.nonInferrableConjuncts(metadata, predicate)
+                .map(expression -> inference.rewrite(expression, scope))
+                .peek(rewritten -> checkState(rewritten != null, "Rewrite with full symbol scope should always be possible"))
+                .collect(Collectors.toSet());
         rewrittenSet.addAll(inference.generateEqualitiesPartitionedBy(scope).getScopeEqualities());
 
         return rewrittenSet;
@@ -1265,7 +1263,7 @@ public class TestEffectivePredicateExtractor
             Expression identityNormalizedExpression = expressionCache.get(expression);
             if (identityNormalizedExpression == null) {
                 // Make sure all sub-expressions are normalized first
-                SubExpressionExtractor.extract(expression).stream()
+                SubExpressionExtractor.extract(expression)
                         .filter(e -> !e.equals(expression))
                         .forEach(this::normalize);
 

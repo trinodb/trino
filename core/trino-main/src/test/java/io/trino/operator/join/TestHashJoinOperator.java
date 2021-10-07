@@ -1201,7 +1201,7 @@ public class TestHashJoinOperator
         assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true, false).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
     }
 
-    @Test(expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded per-node user memory limit of.*", dataProvider = "testMemoryLimitProvider")
+    @Test(dataProvider = "testMemoryLimitProvider")
     public void testMemoryLimit(boolean parallelBuild, boolean buildHashEnabled)
     {
         TaskContext taskContext = TestingTaskContext.createTaskContext(executor, scheduledExecutor, TEST_SESSION, DataSize.ofBytes(100));
@@ -1210,7 +1210,10 @@ public class TestHashJoinOperator
                 .addSequencePage(10, 20, 30, 40);
         BuildSideSetup buildSideSetup = setupBuildSide(nodePartitioningManager, parallelBuild, taskContext, buildPages, Optional.empty(), false, SINGLE_STREAM_SPILLER_FACTORY);
         instantiateBuildDrivers(buildSideSetup, taskContext);
-        buildLookupSource(executor, buildSideSetup);
+
+        assertThatThrownBy(() -> buildLookupSource(executor, buildSideSetup))
+                .isInstanceOf(ExceededMemoryLimitException.class)
+                .hasMessageMatching("Query exceeded per-node user memory limit of.*");
     }
 
     @Test(dataProvider = "hashJoinTestValues")

@@ -10,7 +10,7 @@
 
     <groupId>io.trino</groupId>
     <artifactId>trino-root</artifactId>
-    <version>363-SNAPSHOT</version>
+    <version>364-SNAPSHOT</version>
 
     <name>trino-root</name>
     <description>Trino</description>
@@ -1721,6 +1721,7 @@
                                     -Xep:EqualsIncompatibleType:ERROR
                                     -Xep:FallThrough:ERROR
                                     -Xep:FormatString:ERROR
+                                    -Xep:FormatStringAnnotation:ERROR
                                     -Xep:GetClassOnAnnotation:ERROR
                                     -Xep:GetClassOnClass:ERROR
                                     -Xep:IdentityBinaryExpression:ERROR
@@ -1736,6 +1737,8 @@
                                     -Xep:OptionalMapUnusedValue:ERROR
                                     -Xep:PreconditionsInvalidPlaceholder:ERROR
                                     -Xep:ReturnValueIgnored:ERROR
+                                    -Xep:SelfAssignment:ERROR
+                                    -Xep:StreamToString
                                     -Xep:StaticQualifiedUsingExpression:ERROR
                                     -Xep:ThrowIfUncheckedKnownChecked:ERROR
                                     -Xep:UnnecessaryCheckNotNull:ERROR

@@ -28,7 +28,7 @@ import static org.assertj.core.api.Assertions.fail;
 import static org.assertj.core.api.InstanceOfAssertFactories.list;
 
 public class TestOAuth2WebUiAuthenticationFilterWithOpaque
-        extends TestOAuth2WebUiAuthenticationFilter
+        extends BaseOAuth2WebUiAuthenticationFilterTest
 {
     @Override
     protected ImmutableMap<String, String> getOAuth2Config(String idpUrl)
