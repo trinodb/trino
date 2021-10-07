@@ -1862,7 +1862,7 @@ public class TestSqlParser
 
         assertStatement("ALTER TABLE foo EXECUTE bar", new TableExecute(table, procedure, ImmutableList.of(), Optional.empty()));
         assertStatement(
-                "ALTER TABLE foo EXECUTE bar WITH(bah=1, wuh='clap') WHERE age > 17 ORDER BY height",
+                "ALTER TABLE foo EXECUTE bar WITH(bah=1, wuh='clap') WHERE age > 17",
                 new TableExecute(
                         table,
                         procedure,
