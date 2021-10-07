@@ -136,15 +136,24 @@ public class OAuth2Service
 
     public Response startOAuth2Challenge(UriInfo uriInfo)
     {
-        return startOAuth2Challenge(uriInfo, Optional.empty());
+        return startOAuth2Challenge(
+                uriInfo.getBaseUri().resolve(CALLBACK_ENDPOINT),
+                Optional.empty());
     }
 
     public Response startOAuth2Challenge(UriInfo uriInfo, String handlerState)
     {
-        return startOAuth2Challenge(uriInfo, Optional.of(handlerState));
+        return startOAuth2Challenge(
+                uriInfo.getBaseUri().resolve(CALLBACK_ENDPOINT),
+                Optional.of(handlerState));
     }
 
-    private Response startOAuth2Challenge(UriInfo uriInfo, Optional<String> handlerState)
+    public Response startOAuth2Challenge(URI callbackUri, String handlerState)
+    {
+        return startOAuth2Challenge(callbackUri, Optional.of(handlerState));
+    }
+
+    private Response startOAuth2Challenge(URI callbackUri, Optional<String> handlerState)
     {
         Instant challengeExpiration = now().plus(challengeTimeout);
         String state = Jwts.builder()
@@ -166,7 +175,7 @@ public class OAuth2Service
         Response.ResponseBuilder response = Response.seeOther(
                 client.getAuthorizationUri(
                         state,
-                        uriInfo.getBaseUri().resolve(CALLBACK_ENDPOINT),
+                        callbackUri,
                         nonce.map(OAuth2Service::hashNonce)));
         nonce.ifPresent(nce -> response.cookie(NonceCookie.create(nce, challengeExpiration)));
         return response.build();
