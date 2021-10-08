@@ -27,6 +27,8 @@ import org.apache.parquet.column.page.DictionaryPage;
 import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.column.values.rle.RunLengthBitPackingHybridEncoder;
 import org.apache.parquet.format.ColumnMetaData;
+import org.apache.parquet.format.PageEncodingStats;
+import org.apache.parquet.format.PageType;
 import org.apache.parquet.format.converter.ParquetMetadataConverter;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.openjdk.jol.info.ClassLayout;
@@ -36,9 +38,11 @@ import javax.annotation.Nullable;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -73,7 +77,9 @@ public class PrimitiveColumnWriter
     private int currentPageRowCount;
 
     // column meta data stats
-    private final Set<Encoding> encodings;
+    private final Set<Encoding> encodings = new HashSet<>();
+    private final Map<org.apache.parquet.format.Encoding, Integer> dataPagesWithEncoding = new HashMap<>();
+    private final Map<org.apache.parquet.format.Encoding, Integer> dictionaryPagesWithEncoding = new HashMap<>();
     private long totalCompressedSize;
     private long totalUnCompressedSize;
     private long totalRows;
@@ -96,7 +102,6 @@ public class PrimitiveColumnWriter
         this.definitionLevelEncoder = requireNonNull(definitionLevelEncoder, "definitionLevelEncoder is null");
         this.repetitionLevelEncoder = requireNonNull(repetitionLevelEncoder, "repetitionLevelEncoder is null");
         this.primitiveValueWriter = requireNonNull(primitiveValueWriter, "primitiveValueWriter is null");
-        this.encodings = new HashSet<>();
         this.compressionCodec = requireNonNull(compressionCodecName, "compressionCodecName is null");
         this.compressor = getCompressor(compressionCodecName);
         this.pageSizeThreshold = pageSizeThreshold;
@@ -178,6 +183,14 @@ public class PrimitiveColumnWriter
                 totalCompressedSize,
                 -1);
         columnMetaData.setStatistics(ParquetMetadataConverter.toParquetStatistics(columnStatistics));
+        ImmutableList.Builder<PageEncodingStats> pageEncodingStats = ImmutableList.builder();
+        dataPagesWithEncoding.entrySet().stream()
+                .map(encodingAndCount -> new PageEncodingStats(PageType.DATA_PAGE_V2, encodingAndCount.getKey(), encodingAndCount.getValue()))
+                .forEach(pageEncodingStats::add);
+        dictionaryPagesWithEncoding.entrySet().stream()
+                .map(encodingAndCount -> new PageEncodingStats(PageType.DICTIONARY_PAGE, encodingAndCount.getKey(), encodingAndCount.getValue()))
+                .forEach(pageEncodingStats::add);
+        columnMetaData.setEncoding_stats(pageEncodingStats.build());
         return columnMetaData;
     }
 
@@ -236,6 +249,8 @@ public class PrimitiveColumnWriter
 
         List<ParquetDataOutput> dataOutputs = outputDataStreams.build();
 
+        dataPagesWithEncoding.merge(new ParquetMetadataConverter().getEncoding(primitiveValueWriter.getEncoding()), 1, Integer::sum);
+
         // update total stats
         totalCompressedSize += pageHeader.size() + compressedSize;
         totalUnCompressedSize += pageHeader.size() + uncompressedSize;
@@ -283,6 +298,7 @@ public class PrimitiveColumnWriter
             dictPage.add(pageData);
             totalCompressedSize += pageHeader.size() + compressedSize;
             totalUnCompressedSize += pageHeader.size() + uncompressedSize;
+            dictionaryPagesWithEncoding.merge(new ParquetMetadataConverter().getEncoding(dictionaryPage.getEncoding()), 1, Integer::sum);
 
             primitiveValueWriter.resetDictionary();
         }
@@ -325,6 +341,8 @@ public class PrimitiveColumnWriter
         totalUnCompressedSize = 0;
         totalRows = 0;
         encodings.clear();
+        dataPagesWithEncoding.clear();
+        dictionaryPagesWithEncoding.clear();
         this.columnStatistics = Statistics.createStats(columnDescriptor.getPrimitiveType());
 
         getDataStreamsCalled = false;
