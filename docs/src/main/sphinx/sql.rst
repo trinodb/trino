@@ -11,6 +11,7 @@ Trino also provides :doc:`numerous SQL functions and operators<functions>`.
 .. toctree::
     :maxdepth: 1
 
+    sql/alter-materialized-view
     sql/alter-schema
     sql/alter-table
     sql/alter-view
