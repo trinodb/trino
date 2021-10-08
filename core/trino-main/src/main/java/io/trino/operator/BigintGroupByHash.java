@@ -360,7 +360,7 @@ public class BigintGroupByHash
         }
     }
 
-    private int getGroupId(Block dictionary, int positionInDictionary)
+    private int registerGroupId(Block dictionary, int positionInDictionary)
     {
         if (dictionaryLookBack.isProcessed(positionInDictionary)) {
             return dictionaryLookBack.getGroupId(positionInDictionary);
@@ -443,7 +443,7 @@ public class BigintGroupByHash
             // Therefore needRehash will not generally return true even if we have just crossed the capacity boundary.
             while (lastPosition < positionCount && !needRehash()) {
                 int positionInDictionary = block.getId(lastPosition);
-                getGroupId(dictionary, positionInDictionary);
+                registerGroupId(dictionary, positionInDictionary);
                 lastPosition++;
             }
             return lastPosition == positionCount;
@@ -583,7 +583,7 @@ public class BigintGroupByHash
             // Therefore needRehash will not generally return true even if we have just crossed the capacity boundary.
             while (lastPosition < positionCount && !needRehash()) {
                 int positionInDictionary = block.getId(lastPosition);
-                int groupId = getGroupId(dictionary, positionInDictionary);
+                int groupId = registerGroupId(dictionary, positionInDictionary);
                 BIGINT.writeLong(blockBuilder, groupId);
                 lastPosition++;
             }
