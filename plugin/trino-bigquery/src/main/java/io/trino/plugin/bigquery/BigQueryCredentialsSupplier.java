@@ -61,7 +61,7 @@ public class BigQueryCredentialsSupplier
         }
     }
 
-    Optional<Credentials> getCredentials()
+    public Optional<Credentials> getCredentials()
     {
         return credentialsCreator.get();
     }
