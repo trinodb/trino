@@ -99,7 +99,7 @@ public class NativeSnowflakeAuthClient
             return new SamlRequest(oktaRedirectUrl, oAuthSessionStorageData);
         }
         catch (IOException e) {
-            log.error("Could not get SAML request from Snowflake", e);
+            log.error(e, "Could not get SAML request from Snowflake");
             throw new RuntimeException(e);
         }
     }
