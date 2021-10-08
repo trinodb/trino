@@ -276,6 +276,7 @@ public class ParquetWriter
         for (ColumnMetaData column : columns) {
             ColumnMetaData columnMetaData = new ColumnMetaData(column.type, column.encodings, column.path_in_schema, column.codec, column.num_values, column.total_uncompressed_size, column.total_compressed_size, currentOffset);
             columnMetaData.setStatistics(column.getStatistics());
+            columnMetaData.setEncoding_stats(column.getEncoding_stats());
             builder.add(columnMetaData);
             currentOffset += column.getTotal_compressed_size();
         }
