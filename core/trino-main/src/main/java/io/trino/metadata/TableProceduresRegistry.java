@@ -24,6 +24,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.spi.StandardErrorCode.PROCEDURE_NOT_FOUND;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class TableProceduresRegistry
@@ -58,6 +59,6 @@ public class TableProceduresRegistry
                 return procedure;
             }
         }
-        throw new TrinoException(PROCEDURE_NOT_FOUND, String.format("Procedure %s not registered for catalog %s", name, catalogName));
+        throw new TrinoException(PROCEDURE_NOT_FOUND, format("Procedure %s not registered for catalog %s", name, catalogName));
     }
 }
