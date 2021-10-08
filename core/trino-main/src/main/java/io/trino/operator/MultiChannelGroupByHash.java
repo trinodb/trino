@@ -521,7 +521,7 @@ public class MultiChannelGroupByHash
         return true;
     }
 
-    private int getGroupId(HashGenerator hashGenerator, Page page, int positionInDictionary)
+    private int registerGroupId(HashGenerator hashGenerator, Page page, int positionInDictionary)
     {
         if (dictionaryLookBack.isProcessed(positionInDictionary)) {
             return dictionaryLookBack.getGroupId(positionInDictionary);
@@ -640,7 +640,7 @@ public class MultiChannelGroupByHash
             // Therefore needRehash will not generally return true even if we have just crossed the capacity boundary.
             while (lastPosition < positionCount && !needRehash()) {
                 int positionInDictionary = dictionaryBlock.getId(lastPosition);
-                getGroupId(hashGenerator, dictionaryPage, positionInDictionary);
+                registerGroupId(hashGenerator, dictionaryPage, positionInDictionary);
                 lastPosition++;
             }
             return lastPosition == positionCount;
@@ -784,7 +784,7 @@ public class MultiChannelGroupByHash
             // Therefore needRehash will not generally return true even if we have just crossed the capacity boundary.
             while (lastPosition < positionCount && !needRehash()) {
                 int positionInDictionary = dictionaryBlock.getId(lastPosition);
-                int groupId = getGroupId(hashGenerator, dictionaryPage, positionInDictionary);
+                int groupId = registerGroupId(hashGenerator, dictionaryPage, positionInDictionary);
                 BIGINT.writeLong(blockBuilder, groupId);
                 lastPosition++;
             }
