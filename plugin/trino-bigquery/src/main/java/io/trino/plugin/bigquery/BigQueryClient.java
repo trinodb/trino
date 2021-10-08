@@ -311,7 +311,7 @@ public class BigQueryClient
                 .collect(toImmutableList());
     }
 
-    static final class RemoteDatabaseObject
+    public static final class RemoteDatabaseObject
     {
         private final Set<String> remoteNames;
 
