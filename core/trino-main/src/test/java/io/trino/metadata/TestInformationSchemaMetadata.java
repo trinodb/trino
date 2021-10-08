@@ -129,7 +129,7 @@ public class TestInformationSchemaMetadata
     public void testInformationSchemaPredicatePushdownWithConstraintPredicate()
     {
         TransactionId transactionId = transactionManager.beginTransaction(false);
-        Constraint constraint = new Constraint(TupleDomain.all(), TestInformationSchemaMetadata::testConstraint);
+        Constraint constraint = new Constraint(TupleDomain.all(), Optional.of(TestInformationSchemaMetadata::testConstraint), Optional.empty());
 
         ConnectorSession session = createNewSession(transactionId);
         ConnectorMetadata metadata = new InformationSchemaMetadata("test_catalog", this.metadata);
@@ -191,7 +191,7 @@ public class TestInformationSchemaMetadata
         TransactionId transactionId = transactionManager.beginTransaction(false);
 
         // predicate on non columns enumerating table should not cause tables to be enumerated
-        Constraint constraint = new Constraint(TupleDomain.all(), TestInformationSchemaMetadata::testConstraint);
+        Constraint constraint = new Constraint(TupleDomain.all(), Optional.of(TestInformationSchemaMetadata::testConstraint), Optional.empty());
         ConnectorSession session = createNewSession(transactionId);
         ConnectorMetadata metadata = new InformationSchemaMetadata("test_catalog", this.metadata);
         InformationSchemaTableHandle tableHandle = (InformationSchemaTableHandle)
