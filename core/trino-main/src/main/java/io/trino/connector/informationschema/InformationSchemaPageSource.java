@@ -29,6 +29,7 @@ import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.GrantInfo;
+import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.type.Type;
@@ -373,8 +374,8 @@ public class InformationSchemaPageSource
                     grant.getRoleName(),
                     null, // grantor
                     null, // grantor type
-                    grant.getGrantee().getName(),
-                    grant.getGrantee().getType().toString(),
+                    grant.getGrantee().map(TrinoPrincipal::getName).orElse(null),
+                    grant.getGrantee().map(TrinoPrincipal::getType).map(PrincipalType::toString).orElse(null),
                     grant.isGrantable() ? "YES" : "NO");
             if (isLimitExhausted()) {
                 return;
@@ -386,8 +387,8 @@ public class InformationSchemaPageSource
     {
         for (RoleGrant grant : metadata.listApplicableRoles(session, new TrinoPrincipal(USER, session.getUser()), Optional.of(catalogName))) {
             addRecord(
-                    grant.getGrantee().getName(),
-                    grant.getGrantee().getType().toString(),
+                    grant.getGrantee().map(TrinoPrincipal::getName).orElse(null),
+                    grant.getGrantee().map(TrinoPrincipal::getType).map(PrincipalType::toString).orElse(null),
                     grant.getRoleName(),
                     grant.isGrantable() ? "YES" : "NO");
             if (isLimitExhausted()) {

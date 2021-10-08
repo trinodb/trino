@@ -934,7 +934,7 @@ public class FileHiveMetastore
             }
         }
         result.addAll(listRoleGrantsSanitized().stream()
-                .filter(grant -> HivePrincipal.from(grant.getGrantee()).equals(principal))
+                .filter(grant -> getGrantee(grant).equals(principal))
                 .collect(toSet()));
         return result.build();
     }
@@ -950,7 +950,7 @@ public class FileHiveMetastore
     {
         Map<RoleGranteeTuple, RoleGrant> map = new HashMap<>();
         for (RoleGrant grant : grants) {
-            RoleGranteeTuple tuple = new RoleGranteeTuple(grant.getRoleName(), HivePrincipal.from(grant.getGrantee()));
+            RoleGranteeTuple tuple = new RoleGranteeTuple(grant.getRoleName(), getGrantee(grant));
             map.merge(tuple, grant, (first, second) -> first.isGrantable() ? first : second);
         }
         return ImmutableSet.copyOf(map.values());
@@ -963,7 +963,7 @@ public class FileHiveMetastore
             if (!existingRoles.contains(grant.getRoleName())) {
                 continue;
             }
-            HivePrincipal grantee = HivePrincipal.from(grant.getGrantee());
+            HivePrincipal grantee = getGrantee(grant);
             if (grantee.getType() == ROLE && !existingRoles.contains(grantee.getName())) {
                 continue;
             }
@@ -1431,5 +1431,10 @@ public class FileHiveMetastore
                     .add("grantee", grantee)
                     .toString();
         }
+    }
+
+    private static HivePrincipal getGrantee(RoleGrant grant)
+    {
+        return HivePrincipal.from(grant.getGrantee().orElseThrow(() -> new IllegalStateException("Missing role grant grantee")));
     }
 }

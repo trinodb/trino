@@ -17,18 +17,24 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class RoleGrant
 {
-    private final TrinoPrincipal grantee;
+    private final Optional<TrinoPrincipal> grantee;
     private final String roleName;
     private final boolean grantable;
 
+    public RoleGrant(TrinoPrincipal grantee, String roleName, boolean grantable)
+    {
+        this(Optional.of(grantee), roleName, grantable);
+    }
+
     @JsonCreator
-    public RoleGrant(@JsonProperty("grantee") TrinoPrincipal grantee, @JsonProperty("roleName") String roleName, @JsonProperty("grantable") boolean grantable)
+    public RoleGrant(@JsonProperty("grantee") Optional<TrinoPrincipal> grantee, @JsonProperty("roleName") String roleName, @JsonProperty("grantable") boolean grantable)
     {
         this.grantee = requireNonNull(grantee, "grantee is null");
         this.roleName = requireNonNull(roleName, "roleName is null").toLowerCase(ENGLISH);
@@ -42,7 +48,7 @@ public class RoleGrant
     }
 
     @JsonProperty
-    public TrinoPrincipal getGrantee()
+    public Optional<TrinoPrincipal> getGrantee()
     {
         return grantee;
     }

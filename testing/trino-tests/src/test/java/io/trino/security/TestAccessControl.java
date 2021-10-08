@@ -82,7 +82,9 @@ public class TestAccessControl
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
         queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
-                .withListRoleGrants((connectorSession, roles, grantees, limit) -> ImmutableSet.of(new RoleGrant(new TrinoPrincipal(USER, "alice"), "alice_role", false)))
+                .withListRoleGrants((connectorSession, roles, grantees, limit) -> ImmutableSet.of(
+                        new RoleGrant(new TrinoPrincipal(USER, "alice"), "alice_role", false),
+                        new RoleGrant(Optional.empty(), "public", false)))
                 .build()));
         queryRunner.createCatalog("mock", "mock");
         for (String tableName : ImmutableList.of("orders", "nation", "region", "lineitem")) {
@@ -406,10 +408,15 @@ public class TestAccessControl
                         .withConnectorRoles(ImmutableMap.of("mock", new SelectedRole(ROLE, Optional.of("alice_role"))))
                         .build())
                 .build();
-        assertQuery(session, "SHOW ROLES IN mock", "VALUES 'alice_role'");
-        assertQuery(session, "SHOW ROLE GRANTS IN mock", "VALUES 'alice_role'");
-        assertQuery(session, "SHOW CURRENT ROLES FROM mock", "VALUES 'alice_role'");
-        assertQuery(session, "SELECT * FROM mock.information_schema.applicable_roles", "SELECT 'alice', 'USER', 'alice_role', 'NO'");
+        assertQuery(session, "SHOW ROLES IN mock", "VALUES 'alice_role', 'public'");
+        assertQuery(session, "SHOW ROLE GRANTS IN mock", "VALUES 'alice_role', 'public'");
+        assertQuery(session, "SHOW CURRENT ROLES FROM mock", "VALUES 'alice_role', 'public'");
+        assertQuery(
+                session,
+                "SELECT * FROM mock.information_schema.applicable_roles",
+                "VALUES "
+                        + "('alice', 'USER', 'alice_role', 'NO'),"
+                        + "(null, null, 'public', 'NO')");
     }
 
     @Test
@@ -422,10 +429,15 @@ public class TestAccessControl
                         .build())
                 .setSystemProperty("legacy_catalog_roles", "true")
                 .build();
-        assertQuery(session, "SHOW ROLES", "VALUES 'alice_role'");
-        assertQuery(session, "SHOW ROLE GRANTS", "VALUES 'alice_role'");
-        assertQuery(session, "SHOW CURRENT ROLES", "VALUES 'alice_role'");
-        assertQuery(session, "SELECT * FROM mock.information_schema.applicable_roles", "SELECT 'alice', 'USER', 'alice_role', 'NO'");
+        assertQuery(session, "SHOW ROLES", "VALUES 'alice_role', 'public'");
+        assertQuery(session, "SHOW ROLE GRANTS", "VALUES 'alice_role', 'public'");
+        assertQuery(session, "SHOW CURRENT ROLES", "VALUES 'alice_role', 'public'");
+        assertQuery(
+                session,
+                "SELECT * FROM mock.information_schema.applicable_roles",
+                "VALUES "
+                        + "('alice', 'USER', 'alice_role', 'NO'),"
+                        + "(null, null, 'public', 'NO')");
     }
 
     @Test

@@ -565,7 +565,7 @@ public class MockConnector
         {
             return roleGrants.apply(session, Optional.empty(), Optional.empty(), OptionalLong.empty())
                     .stream()
-                    .filter(grant -> grant.getGrantee().equals(principal))
+                    .filter(grant -> grant.getGrantee().isEmpty() || grant.getGrantee().get().equals(principal))
                     .collect(toImmutableSet());
         }
 

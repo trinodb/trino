@@ -160,7 +160,7 @@ class TestingSystemSecurityMetadata
     private Set<RoleGrant> getRoleGrants(TrinoPrincipal principal)
     {
         return roleGrants.stream()
-                .filter(roleGrant -> roleGrant.getGrantee().equals(principal))
+                .filter(roleGrant -> roleGrant.getGrantee().isEmpty() || roleGrant.getGrantee().get().equals(principal))
                 .collect(toImmutableSet());
     }
 
