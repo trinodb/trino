@@ -4625,6 +4625,30 @@ public class TestHiveConnectorTest
         assertNoDataRead("SELECT * FROM test_parquet_long_decimal_predicate_pushdown WHERE decimal_t != DECIMAL '12345678900000000.345'");
     }
 
+    @Test
+    public void testParquetDictionaryPredicatePushdown()
+    {
+        testParquetDictionaryPredicatePushdown(getSession());
+    }
+
+    @Test
+    public void testParquetDictionaryPredicatePushdownWithOptimizedWriter()
+    {
+        testParquetDictionaryPredicatePushdown(
+                Session.builder(getSession())
+                        .setCatalogSessionProperty("hive", "experimental_parquet_optimized_writer_enabled", "true")
+                        .build());
+    }
+
+    private void testParquetDictionaryPredicatePushdown(Session session)
+    {
+        String tableName = "test_parquet_dictionary_pushdown";
+        assertUpdate(session, "DROP TABLE IF EXISTS " + tableName);
+        assertUpdate(session, "CREATE TABLE " + tableName + " (n BIGINT) WITH (format = 'PARQUET')");
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES 1, 1, 2, 2, 4, 4, 5, 5", 8);
+        assertNoDataRead("SELECT * FROM " + tableName + " WHERE n = 3");
+    }
+
     private void assertNoDataRead(@Language("SQL") String sql)
     {
         assertQueryStats(
