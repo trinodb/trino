@@ -41,6 +41,8 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.PrimitiveIterator;
 import java.util.Queue;
+import java.util.Random;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import java.util.stream.LongStream;
 
@@ -67,6 +69,7 @@ public class TestColumnReader
     @Test(dataProvider = "testRowRangesProvider")
     public void testReadFilteredPage(
             ColumnReaderInput columnReaderInput,
+            BatchSkipper skipper,
             Optional<RowRanges> rowRanges,
             List<RowRange> pageRowRanges)
     {
@@ -84,13 +87,22 @@ public class TestColumnReader
 
         int readCount = 0;
         int batchSize = 1;
+        Supplier<Boolean> skipFunction = skipper.getFunction();
         while (readCount < rowCount) {
             reader.prepareNextRead(batchSize);
-            Block block = reader.readPrimitive(columnReaderInput.getField()).getBlock();
-            assertThat(block.getPositionCount()).isEqualTo(batchSize);
-            for (int i = 0; i < block.getPositionCount(); i++) {
-                valuesRead.add((long) block.getInt(i, 0));
-                expectedValues.add(rowRangesIterator.next());
+            if (skipFunction.get()) {
+                // skip current batch to force a seek on next read
+                for (int i = 0; i < batchSize; i++) {
+                    rowRangesIterator.next();
+                }
+            }
+            else {
+                Block block = reader.readPrimitive(columnReaderInput.getField()).getBlock();
+                assertThat(block.getPositionCount()).isEqualTo(batchSize);
+                for (int i = 0; i < block.getPositionCount(); i++) {
+                    valuesRead.add((long) block.getInt(i, 0));
+                    expectedValues.add(rowRangesIterator.next());
+                }
             }
 
             readCount += batchSize;
@@ -104,6 +116,7 @@ public class TestColumnReader
     public Object[][] testRowRangesProvider()
     {
         Object[] columnReaders = ColumnReaderInput.values();
+        Object[] batchSkippers = BatchSkipper.values();
         Object[] rowRanges = new Object[] {
                 Optional.empty(),
                 Optional.of(toRowRange(1024)),
@@ -118,9 +131,10 @@ public class TestColumnReader
                 ImmutableList.of(range(0, 255), range(256, 511), range(512, 767), range(768, 1023)),
                 ImmutableList.of(range(0, 99), range(100, 199), range(200, 399), range(400, 599), range(600, 799), range(800, 999), range(1000, 1023))
         };
-        Object[][] rangesWithNoPageSkipped = cartesianProduct(columnReaders, rowRanges, pageRowRanges);
+        Object[][] rangesWithNoPageSkipped = cartesianProduct(columnReaders, batchSkippers, rowRanges, pageRowRanges);
         Object[][] rangesWithPagesSkipped = cartesianProduct(
                 columnReaders,
+                batchSkippers,
                 new Object[] {Optional.of(toRowRanges(range(56, 80), range(120, 200), range(350, 455), range(600, 940)))},
                 new Object[] {ImmutableList.of(range(50, 100), range(120, 275), range(290, 455), range(590, 800), range(801, 1000))});
         return combine(rangesWithNoPageSkipped, rangesWithPagesSkipped);
@@ -149,6 +163,38 @@ public class TestColumnReader
         {
             return field;
         }
+    }
+
+    private enum BatchSkipper
+    {
+        NO_SEEK {
+            @Override
+            Supplier<Boolean> getFunction()
+            {
+                return () -> false;
+            }
+        },
+        RANDOM_SEEK {
+            @Override
+            Supplier<Boolean> getFunction()
+            {
+                Random random = new Random(42);
+                return random::nextBoolean;
+            }
+        },
+        ALTERNATE_SEEK {
+            @Override
+            Supplier<Boolean> getFunction()
+            {
+                AtomicBoolean last = new AtomicBoolean();
+                return () -> {
+                    last.set(!last.get());
+                    return last.get();
+                };
+            }
+        };
+
+        abstract Supplier<Boolean> getFunction();
     }
 
     private static class TestingPageReader
