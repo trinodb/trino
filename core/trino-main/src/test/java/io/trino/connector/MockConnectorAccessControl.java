@@ -85,7 +85,7 @@ class MockConnectorAccessControl
     public Set<SchemaTableName> filterTables(ConnectorSecurityContext context, Set<SchemaTableName> tableNames)
     {
         return tableNames.stream()
-                .filter(tableName -> canAccessSchema(context.getIdentity(), tableName.getSchemaName()) || canAccessTable(context.getIdentity(), tableName))
+                .filter(tableName -> canAccessSchema(context.getIdentity(), tableName.getSchemaName()) && canAccessTable(context.getIdentity(), tableName))
                 .collect(toImmutableSet());
     }
 
