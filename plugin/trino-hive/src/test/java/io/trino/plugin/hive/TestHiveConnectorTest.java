@@ -2429,31 +2429,6 @@ public class TestHiveConnectorTest
     }
 
     @Test
-    public void testCreateEmptyNonBucketedPartition()
-    {
-        String tableName = "test_insert_empty_partitioned_unbucketed_table";
-        assertUpdate("" +
-                "CREATE TABLE " + tableName + " (" +
-                "  dummy_col bigint," +
-                "  part varchar)" +
-                "WITH (" +
-                "  format = 'ORC', " +
-                "  partitioned_by = ARRAY[ 'part' ] " +
-                ")");
-        assertQuery(format("SELECT count(*) FROM \"%s$partitions\"", tableName), "SELECT 0");
-
-        assertAccessDenied(
-                format("CALL system.create_empty_partition('%s', '%s', ARRAY['part'], ARRAY['%s'])", TPCH_SCHEMA, tableName, "empty"),
-                format("Cannot insert into table hive.tpch.%s", tableName),
-                privilege(tableName, INSERT_TABLE));
-
-        // create an empty partition
-        assertUpdate(format("CALL system.create_empty_partition('%s', '%s', ARRAY['part'], ARRAY['%s'])", TPCH_SCHEMA, tableName, "empty"));
-        assertQuery(format("SELECT count(*) FROM \"%s$partitions\"", tableName), "SELECT 1");
-        assertUpdate("DROP TABLE " + tableName);
-    }
-
-    @Test
     public void testUnregisterRegisterPartition()
     {
         String tableName = "test_register_partition_for_table";
@@ -2495,42 +2470,6 @@ public class TestHiveConnectorTest
         assertQuery(getSession(), "SELECT count(*) FROM " + tableName, "SELECT 3");
 
         assertUpdate("DROP TABLE " + tableName);
-    }
-
-    @Test
-    public void testCreateEmptyBucketedPartition()
-    {
-        for (TestingHiveStorageFormat storageFormat : getAllTestingHiveStorageFormat()) {
-            testCreateEmptyBucketedPartition(storageFormat.getFormat());
-        }
-    }
-
-    private void testCreateEmptyBucketedPartition(HiveStorageFormat storageFormat)
-    {
-        String tableName = "test_insert_empty_partitioned_bucketed_table";
-        createPartitionedBucketedTable(tableName, storageFormat);
-
-        List<String> orderStatusList = ImmutableList.of("F", "O", "P");
-        for (int i = 0; i < orderStatusList.size(); i++) {
-            String sql = format("CALL system.create_empty_partition('%s', '%s', ARRAY['orderstatus'], ARRAY['%s'])", TPCH_SCHEMA, tableName, orderStatusList.get(i));
-            assertUpdate(sql);
-            assertQuery(
-                    format("SELECT count(*) FROM \"%s$partitions\"", tableName),
-                    "SELECT " + (i + 1));
-
-            assertQueryFails(sql, "Partition already exists.*");
-        }
-
-        assertUpdate("DROP TABLE " + tableName);
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
-    }
-
-    @Test
-    public void testCreateEmptyPartitionOnNonExistingTable()
-    {
-        assertQueryFails(
-                format("CALL system.create_empty_partition('%s', '%s', ARRAY['part'], ARRAY['%s'])", TPCH_SCHEMA, "non_existing_table", "empty"),
-                format("Table '%s.%s' does not exist", TPCH_SCHEMA, "non_existing_table"));
     }
 
     @Test
