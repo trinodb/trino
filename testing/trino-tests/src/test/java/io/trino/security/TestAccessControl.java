@@ -20,9 +20,15 @@ import io.airlift.testing.Assertions;
 import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
+import io.trino.connector.MutableGrants;
 import io.trino.plugin.blackhole.BlackHolePlugin;
 import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.SchemaTablePrefix;
+import io.trino.spi.security.GrantInfo;
 import io.trino.spi.security.Identity;
+import io.trino.spi.security.PrincipalType;
+import io.trino.spi.security.PrivilegeInfo;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.SelectedRole;
 import io.trino.spi.security.TrinoPrincipal;
@@ -36,6 +42,7 @@ import java.util.Optional;
 
 import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static io.trino.spi.security.PrincipalType.USER;
+import static io.trino.spi.security.Privilege.SELECT;
 import static io.trino.spi.security.SelectedRole.Type.ROLE;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.ADD_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_MATERIALIZED_VIEW;
@@ -81,10 +88,22 @@ public class TestAccessControl
         queryRunner.createCatalog("blackhole", "blackhole");
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
+        MutableGrants<SchemaTableName> tableGrants = new MutableGrants<>();
+        tableGrants.grant(new TrinoPrincipal(USER, "user"), new SchemaTableName("tiny", "nation"), ImmutableSet.of(SELECT), false);
+        MutableGrants<String> schemaGrants = new MutableGrants<>();
+        schemaGrants.grant(new TrinoPrincipal(USER, "user"), "tiny", ImmutableSet.of(SELECT), false);
         queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
                 .withListRoleGrants((connectorSession, roles, grantees, limit) -> ImmutableSet.of(
                         new RoleGrant(new TrinoPrincipal(USER, "alice"), "alice_role", false),
                         new RoleGrant(Optional.empty(), "public", false)))
+                .withTablePrivileges((connectorSession, prefix) -> ImmutableList.of(
+                        new GrantInfo(new PrivilegeInfo(SELECT, false), Optional.empty(), new SchemaTablePrefix("restricted"), Optional.empty(), Optional.empty()),
+                        new GrantInfo(new PrivilegeInfo(SELECT, false), Optional.empty(), new SchemaTablePrefix("tiny", "restricted"), Optional.empty(), Optional.empty()),
+                        new GrantInfo(new PrivilegeInfo(SELECT, false), Optional.of(new TrinoPrincipal(USER, "alice")), new SchemaTablePrefix("tiny", "nation"), Optional.of(new TrinoPrincipal(PrincipalType.ROLE, "admin")), Optional.of(true)),
+                        new GrantInfo(new PrivilegeInfo(SELECT, false), Optional.of(new TrinoPrincipal(USER, "bob")), new SchemaTablePrefix("tiny"), Optional.of(new TrinoPrincipal(PrincipalType.ROLE, "admin")), Optional.empty()),
+                        new GrantInfo(new PrivilegeInfo(SELECT, true), Optional.empty(), new SchemaTablePrefix(), Optional.empty(), Optional.empty())))
+                .withTableGrants(tableGrants)
+                .withSchemaGrants(schemaGrants)
                 .build()));
         queryRunner.createCatalog("mock", "mock");
         for (String tableName : ImmutableList.of("orders", "nation", "region", "lineitem")) {
@@ -447,5 +466,17 @@ public class TestAccessControl
         assertQueryReturnsEmptyResult("SHOW ROLE GRANTS");
         assertQueryReturnsEmptyResult("SHOW CURRENT ROLES");
         assertQueryReturnsEmptyResult("SELECT * FROM information_schema.applicable_roles");
+    }
+
+    @Test
+    public void testTablePrivileges()
+    {
+        assertQueryReturnsEmptyResult("SELECT * FROM information_schema.table_privileges");
+        assertQuery(
+                "SELECT * FROM mock.information_schema.table_privileges",
+                "VALUES"
+                        + "('admin', 'ROLE', 'alice', 'USER', 'mock', 'tiny', 'nation', 'SELECT', 'NO', 'YES'),"
+                        + "('admin', 'ROLE', 'bob', 'USER', 'mock', 'tiny', null, 'SELECT', 'NO', null),"
+                        + "(null, null, null, null, 'mock', null, null, 'SELECT', 'YES', null)");
     }
 }

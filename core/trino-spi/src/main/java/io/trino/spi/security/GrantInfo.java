@@ -13,7 +13,7 @@
  */
 package io.trino.spi.security;
 
-import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.SchemaTablePrefix;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -23,16 +23,16 @@ import static java.util.Objects.requireNonNull;
 public class GrantInfo
 {
     private final PrivilegeInfo privilegeInfo;
-    private final TrinoPrincipal grantee;
-    private final SchemaTableName schemaTableName;
+    private final Optional<TrinoPrincipal> grantee;
+    private final SchemaTablePrefix schemaTablePrefix;
     private final Optional<TrinoPrincipal> grantor;
     private final Optional<Boolean> withHierarchy;
 
-    public GrantInfo(PrivilegeInfo privilegeInfo, TrinoPrincipal grantee, SchemaTableName schemaTableName, Optional<TrinoPrincipal> grantor, Optional<Boolean> withHierarchy)
+    public GrantInfo(PrivilegeInfo privilegeInfo, Optional<TrinoPrincipal> grantee, SchemaTablePrefix schemaTablePrefix, Optional<TrinoPrincipal> grantor, Optional<Boolean> withHierarchy)
     {
         this.privilegeInfo = requireNonNull(privilegeInfo, "privilegeInfo is null");
         this.grantee = requireNonNull(grantee, "grantee is null");
-        this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
+        this.schemaTablePrefix = requireNonNull(schemaTablePrefix, "schemaTablePrefix is null");
         this.grantor = requireNonNull(grantor, "grantor is null");
         this.withHierarchy = requireNonNull(withHierarchy, "withHierarchy is null");
     }
@@ -42,14 +42,14 @@ public class GrantInfo
         return privilegeInfo;
     }
 
-    public TrinoPrincipal getGrantee()
+    public Optional<TrinoPrincipal> getGrantee()
     {
         return grantee;
     }
 
-    public SchemaTableName getSchemaTableName()
+    public SchemaTablePrefix getSchemaTablePrefix()
     {
-        return schemaTableName;
+        return schemaTablePrefix;
     }
 
     public Optional<TrinoPrincipal> getGrantor()
@@ -65,7 +65,7 @@ public class GrantInfo
     @Override
     public int hashCode()
     {
-        return Objects.hash(privilegeInfo, grantee, schemaTableName, grantor, withHierarchy);
+        return Objects.hash(privilegeInfo, grantee, schemaTablePrefix, grantor, withHierarchy);
     }
 
     @Override
@@ -80,7 +80,7 @@ public class GrantInfo
         GrantInfo grantInfo = (GrantInfo) o;
         return Objects.equals(privilegeInfo, grantInfo.getPrivilegeInfo()) &&
                 Objects.equals(grantee, grantInfo.getGrantee()) &&
-                Objects.equals(schemaTableName, grantInfo.getSchemaTableName()) &&
+                Objects.equals(schemaTablePrefix, grantInfo.getSchemaTablePrefix()) &&
                 Objects.equals(grantor, grantInfo.getGrantor()) &&
                 Objects.equals(withHierarchy, grantInfo.getWithHierarchy());
     }

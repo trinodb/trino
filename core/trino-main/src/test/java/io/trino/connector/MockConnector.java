@@ -64,6 +64,7 @@ import io.trino.spi.connector.TopNApplicationResult;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.procedure.Procedure;
+import io.trino.spi.security.GrantInfo;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.TrinoPrincipal;
@@ -119,6 +120,7 @@ public class MockConnector
     private final BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableProperties> getTableProperties;
     private final Supplier<Iterable<EventListener>> eventListeners;
     private final MockConnectorFactory.ListRoleGrants roleGrants;
+    private final MockConnectorFactory.ListTablePrivileges listTablePrivileges;
     private final Optional<MockConnectorAccessControl> accessControl;
     private final Function<SchemaTableName, List<List<?>>> data;
     private final Set<Procedure> procedures;
@@ -145,6 +147,7 @@ public class MockConnector
             BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableProperties> getTableProperties,
             Supplier<Iterable<EventListener>> eventListeners,
             MockConnectorFactory.ListRoleGrants roleGrants,
+            MockConnectorFactory.ListTablePrivileges listTablePrivileges,
             Optional<MockConnectorAccessControl> accessControl,
             Function<SchemaTableName, List<List<?>>> data,
             Set<Procedure> procedures)
@@ -170,6 +173,7 @@ public class MockConnector
         this.getTableProperties = requireNonNull(getTableProperties, "getTableProperties is null");
         this.eventListeners = requireNonNull(eventListeners, "eventListeners is null");
         this.roleGrants = requireNonNull(roleGrants, "roleGrants is null");
+        this.listTablePrivileges = requireNonNull(listTablePrivileges, "listTablePrivileges is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.data = requireNonNull(data, "data is null");
         this.procedures = requireNonNull(procedures, "procedures is null");
@@ -609,6 +613,12 @@ public class MockConnector
         public void revokeTablePrivileges(ConnectorSession session, SchemaTableName tableName, Set<Privilege> privileges, TrinoPrincipal revokee, boolean grantOption)
         {
             getAccessControl().revokeTablePrivileges(tableName, privileges, revokee, grantOption);
+        }
+
+        @Override
+        public List<GrantInfo> listTablePrivileges(ConnectorSession session, SchemaTablePrefix prefix)
+        {
+            return listTablePrivileges.apply(session, prefix);
         }
     }
 

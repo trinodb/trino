@@ -25,6 +25,7 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.security.GrantInfo;
 
@@ -144,13 +145,39 @@ public final class MetadataListing
     public static Set<GrantInfo> listTablePrivileges(Session session, Metadata metadata, AccessControl accessControl, QualifiedTablePrefix prefix)
     {
         List<GrantInfo> grants = metadata.listTablePrivileges(session, prefix);
+
+        Set<String> allowedSchemas = accessControl.filterSchemas(
+                session.toSecurityContext(),
+                prefix.getCatalogName(),
+                grants.stream()
+                        .map(GrantInfo::getSchemaTablePrefix)
+                        .filter(tablePrefix -> tablePrefix.getSchema().isPresent() && tablePrefix.getTable().isEmpty())
+                        .map(tablePrefix -> tablePrefix.getSchema().get())
+                        .collect(toImmutableSet()));
+
         Set<SchemaTableName> allowedTables = accessControl.filterTables(
                 session.toSecurityContext(),
                 prefix.getCatalogName(),
-                grants.stream().map(GrantInfo::getSchemaTableName).collect(toImmutableSet()));
+                grants.stream()
+                        .map(GrantInfo::getSchemaTablePrefix)
+                        .filter(tablePrefix -> tablePrefix.getTable().isPresent())
+                        .map(SchemaTablePrefix::toSchemaTableName)
+                        .collect(toImmutableSet()));
 
         return grants.stream()
-                .filter(grantInfo -> allowedTables.contains(grantInfo.getSchemaTableName()))
+                .filter(grantInfo -> {
+                    SchemaTablePrefix schemaTablePrefix = grantInfo.getSchemaTablePrefix();
+                    if (schemaTablePrefix.getTable().isPresent()) {
+                        return allowedTables.contains(schemaTablePrefix.toSchemaTableName());
+                    }
+                    if (schemaTablePrefix.getSchema().isPresent()) {
+                        return allowedSchemas.contains(schemaTablePrefix.getSchema().get());
+                    }
+                    if (schemaTablePrefix.isEmpty()) {
+                        return true;
+                    }
+                    return false;
+                })
                 .collect(toImmutableSet());
     }
 

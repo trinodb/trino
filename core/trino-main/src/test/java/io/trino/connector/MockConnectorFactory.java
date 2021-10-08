@@ -47,6 +47,7 @@ import io.trino.spi.connector.TopNApplicationResult;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.procedure.Procedure;
+import io.trino.spi.security.GrantInfo;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.ViewExpression;
 
@@ -94,6 +95,7 @@ public class MockConnectorFactory
 
     // access control
     private final ListRoleGrants roleGrants;
+    private final ListTablePrivileges listTablePrivileges;
     private final Optional<MockConnectorAccessControl> accessControl;
 
     private MockConnectorFactory(
@@ -120,6 +122,7 @@ public class MockConnectorFactory
             Function<SchemaTableName, List<List<?>>> data,
             Set<Procedure> procedures,
             ListRoleGrants roleGrants,
+            ListTablePrivileges listTablePrivileges,
             Optional<MockConnectorAccessControl> accessControl)
     {
         this.listSchemaNames = requireNonNull(listSchemaNames, "listSchemaNames is null");
@@ -143,6 +146,7 @@ public class MockConnectorFactory
         this.getTableProperties = requireNonNull(getTableProperties, "getTableProperties is null");
         this.eventListeners = requireNonNull(eventListeners, "eventListeners is null");
         this.roleGrants = requireNonNull(roleGrants, "roleGrants is null");
+        this.listTablePrivileges = requireNonNull(listTablePrivileges, "listTablePrivileges is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.data = requireNonNull(data, "data is null");
         this.procedures = requireNonNull(procedures, "procedures is null");
@@ -185,6 +189,7 @@ public class MockConnectorFactory
                 getTableProperties,
                 eventListeners,
                 roleGrants,
+                listTablePrivileges,
                 accessControl,
                 data,
                 procedures);
@@ -258,6 +263,12 @@ public class MockConnectorFactory
         Set<RoleGrant> apply(ConnectorSession session, Optional<Set<String>> roles, Optional<Set<String>> grantees, OptionalLong limit);
     }
 
+    @FunctionalInterface
+    public interface ListTablePrivileges
+    {
+        List<GrantInfo> apply(ConnectorSession session, SchemaTablePrefix prefix);
+    }
+
     public static final class Builder
     {
         private Function<ConnectorSession, List<String>> listSchemaNames = defaultListSchemaNames();
@@ -286,6 +297,7 @@ public class MockConnectorFactory
         // access control
         private boolean provideAccessControl;
         private ListRoleGrants roleGrants = defaultRoleAuthorizations();
+        private ListTablePrivileges tablePrivileges = defaultTablePrivileges();
         private Grants<String> schemaGrants = new AllowAllGrants<>();
         private Grants<SchemaTableName> tableGrants = new AllowAllGrants<>();
         private Function<SchemaTableName, ViewExpression> rowFilter = (tableName) -> null;
@@ -455,6 +467,13 @@ public class MockConnectorFactory
             return this;
         }
 
+        public Builder withTablePrivileges(ListTablePrivileges tablePrivileges)
+        {
+            provideAccessControl = true;
+            this.tablePrivileges = requireNonNull(tablePrivileges, "tablePrivileges is null");
+            return this;
+        }
+
         public Builder withRowFilter(Function<SchemaTableName, ViewExpression> rowFilter)
         {
             provideAccessControl = true;
@@ -499,6 +518,7 @@ public class MockConnectorFactory
                     data,
                     procedures,
                     roleGrants,
+                    tablePrivileges,
                     accessControl);
         }
 
@@ -510,6 +530,11 @@ public class MockConnectorFactory
         public static ListRoleGrants defaultRoleAuthorizations()
         {
             return (session, roles, grantees, limit) -> ImmutableSet.of();
+        }
+
+        public static ListTablePrivileges defaultTablePrivileges()
+        {
+            return (session, prefix) -> ImmutableList.of();
         }
 
         public static BiFunction<ConnectorSession, String, List<SchemaTableName>> defaultListTables()

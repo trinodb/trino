@@ -329,11 +329,11 @@ public class InformationSchemaPageSource
             addRecord(
                     grant.getGrantor().map(TrinoPrincipal::getName).orElse(null),
                     grant.getGrantor().map(principal -> principal.getType().toString()).orElse(null),
-                    grant.getGrantee().getName(),
-                    grant.getGrantee().getType().toString(),
+                    grant.getGrantee().map(TrinoPrincipal::getName).orElse(null),
+                    grant.getGrantee().map(principal -> principal.getType().toString()).orElse(null),
                     prefix.getCatalogName(),
-                    grant.getSchemaTableName().getSchemaName(),
-                    grant.getSchemaTableName().getTableName(),
+                    grant.getSchemaTablePrefix().getSchema().orElse(null),
+                    grant.getSchemaTablePrefix().getTable().orElse(null),
                     grant.getPrivilegeInfo().getPrivilege().name(),
                     grant.getPrivilegeInfo().isGrantOption() ? "YES" : "NO",
                     grant.getWithHierarchy().map(withHierarchy -> withHierarchy ? "YES" : "NO").orElse(null));

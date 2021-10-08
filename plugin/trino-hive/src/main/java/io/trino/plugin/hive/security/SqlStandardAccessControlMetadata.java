@@ -23,6 +23,7 @@ import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.security.GrantInfo;
 import io.trino.spi.security.PrincipalType;
@@ -237,8 +238,8 @@ public class SqlStandardAccessControlMetadata
             for (PrivilegeInfo prestoPrivilege : prestoPrivileges) {
                 GrantInfo grant = new GrantInfo(
                         prestoPrivilege,
-                        hivePrivilege.getGrantee().toTrinoPrincipal(),
-                        tableName,
+                        Optional.of(hivePrivilege.getGrantee().toTrinoPrincipal()),
+                        new SchemaTablePrefix(tableName.getSchemaName(), tableName.getTableName()),
                         Optional.of(hivePrivilege.getGrantor().toTrinoPrincipal()),
                         Optional.empty());
                 result.add(grant);
