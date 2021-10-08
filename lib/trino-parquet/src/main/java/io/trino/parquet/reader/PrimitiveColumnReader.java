@@ -236,12 +236,12 @@ public abstract class PrimitiveColumnReader
             readValue(blockBuilder, type);
             definitionLevels.add(definitionLevel);
             repetitionLevels.add(repetitionLevel);
-        }, false);
+        });
     }
 
-    private long skipValues(long valuesToRead)
+    private void skipValues(long valuesToRead)
     {
-        return processValues(valuesToRead, this::skipValue, true);
+        processValues(valuesToRead, this::skipValue);
     }
 
     /**
@@ -273,21 +273,17 @@ public abstract class PrimitiveColumnReader
      * values (and the related rl and dl) for the rows [20, 39] in the end of the page 0 for col2. Similarly, we have to
      * skip values while reading page0 and page1 for col3.
      */
-    private long processValues(long valuesToRead, Runnable valueReader, boolean consumeSkippedValues)
+    private void processValues(long valuesToRead, Runnable valueReader)
     {
         if (definitionLevel == EMPTY_LEVEL_VALUE && repetitionLevel == EMPTY_LEVEL_VALUE) {
             definitionLevel = definitionReader.readLevel();
             repetitionLevel = repetitionReader.readLevel();
         }
-        long rowCount = 0;
         int valueCount = 0;
         int skipCount = 0;
         for (int i = 0; i < valuesToRead; ) {
             boolean consumed;
             do {
-                if (repetitionLevel == 0) {
-                    rowCount++;
-                }
                 if (incrementRowAndTestIfTargetReached(repetitionLevel)) {
                     valueReader.run();
                     valueCount++;
@@ -296,13 +292,13 @@ public abstract class PrimitiveColumnReader
                 else {
                     skipValue();
                     skipCount++;
-                    consumed = consumeSkippedValues;
+                    consumed = false;
                 }
 
                 if (valueCount + skipCount == remainingValueCountInPage) {
                     updateValueCounts(valueCount, skipCount);
                     if (!readNextPage()) {
-                        return rowCount;
+                        return;
                     }
                     valueCount = 0;
                     skipCount = 0;
@@ -318,7 +314,6 @@ public abstract class PrimitiveColumnReader
             }
         }
         updateValueCounts(valueCount, skipCount);
-        return rowCount;
     }
 
     private void seek()
@@ -331,13 +326,8 @@ public abstract class PrimitiveColumnReader
         int valuePosition = 0;
         while (valuePosition < readOffset) {
             if (page == null) {
-                readNextPage();
-                if (indexIterator != null && indexIterator.hasNext()) {
-                    long skipRows = targetRow - currentRow;
-                    while (skipRows > 0) {
-                        skipRows -= skipValues(skipRows);
-                    }
-                    currentRow = targetRow;
+                if (!readNextPage()) {
+                    break;
                 }
             }
             int offset = Math.min(remainingValueCountInPage, readOffset - valuePosition);
@@ -444,11 +434,12 @@ public abstract class PrimitiveColumnReader
             if (currentRow > targetRow) {
                 targetRow = indexIterator.hasNext() ? indexIterator.next() : Long.MAX_VALUE;
             }
-            boolean isAtOrAfterTargetRow = currentRow >= targetRow;
+            boolean isAtTargetRow = currentRow == targetRow;
             currentRow++;
-            return isAtOrAfterTargetRow;
+            return isAtTargetRow;
         }
 
-        return currentRow >= targetRow;
+        // currentRow was incremented at repetitionLevel 0
+        return currentRow - 1 == targetRow;
     }
 }
