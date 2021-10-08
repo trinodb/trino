@@ -35,6 +35,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 
 import java.util.Collections;
@@ -183,10 +184,9 @@ public class BigQueryClient
         return bigQuery.getDataset(datasetId);
     }
 
-    public TableInfo getTable(TableId remoteTableId)
+    public Optional<TableInfo> getTable(TableId remoteTableId)
     {
-        // TODO: Return Optional and make callers handle missing value
-        return bigQuery.getTable(remoteTableId);
+        return Optional.ofNullable(bigQuery.getTable(remoteTableId));
     }
 
     public TableInfo getCachedTable(Duration viewExpiration, TableInfo remoteTableId, List<String> requiredColumns)
@@ -296,12 +296,8 @@ public class BigQueryClient
 
     public List<BigQueryColumnHandle> getColumns(BigQueryTableHandle tableHandle)
     {
-        TableInfo tableInfo = getTable(tableHandle.getRemoteTableName().toTableId());
-        if (tableInfo == null) {
-            throw new TableNotFoundException(
-                    tableHandle.getSchemaTableName(),
-                    format("Table '%s' not found", tableHandle.getSchemaTableName()));
-        }
+        TableInfo tableInfo = getTable(tableHandle.getRemoteTableName().toTableId())
+                .orElseThrow(() -> new TableNotFoundException(tableHandle.getSchemaTableName()));
         Schema schema = tableInfo.getDefinition().getSchema();
         if (schema == null) {
             throw new TableNotFoundException(
@@ -395,7 +391,8 @@ public class BigQueryClient
                 throw convertToBigQueryException(job.getStatus().getError());
             }
             // add expiration time to the table
-            TableInfo createdTable = bigQueryClient.getTable(destinationTable);
+            TableInfo createdTable = bigQueryClient.getTable(destinationTable)
+                    .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(destinationTable.getDataset(), destinationTable.getTable())));
             long expirationTimeMillis = createdTable.getCreationTime() + viewExpiration.toMillis();
             Table updatedTable = bigQueryClient.update(createdTable.toBuilder()
                     .setExpirationTime(expirationTimeMillis)
