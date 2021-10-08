@@ -84,6 +84,15 @@ public class Constraint
         return summary;
     }
 
+    /**
+     * A predicate that can be used to filter data, complementary to {@link #getSummary()}. The {@link #getSummary()}
+     * and predicate returned by this method may describe different constraints and shall be understood as logical conjuncts.
+     * <p>
+     * For Constraint provided in {@link ConnectorMetadata#applyFilter(ConnectorSession, ConnectorTableHandle, Constraint)},
+     * the predicate cannot be held on to after the call returns.
+     *
+     * @see #getPredicateColumns()
+     */
     public Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate()
     {
         return predicate;
