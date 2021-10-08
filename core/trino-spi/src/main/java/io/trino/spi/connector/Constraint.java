@@ -44,27 +44,9 @@ public class Constraint
         this(summary, Optional.empty(), Optional.empty());
     }
 
-    /**
-     * @deprecated Use {@link #Constraint(TupleDomain, Predicate, Set)} instead.
-     */
-    @Deprecated
-    public Constraint(TupleDomain<ColumnHandle> summary, Predicate<Map<ColumnHandle, NullableValue>> predicate)
-    {
-        this(summary, Optional.of(predicate), Optional.empty());
-    }
-
     public Constraint(TupleDomain<ColumnHandle> summary, Predicate<Map<ColumnHandle, NullableValue>> predicate, Set<ColumnHandle> predicateColumns)
     {
         this(summary, Optional.of(predicate), Optional.of(predicateColumns));
-    }
-
-    /**
-     * @deprecated Use {@link #Constraint(TupleDomain, Optional, Optional)} instead.
-     */
-    @Deprecated
-    public Constraint(TupleDomain<ColumnHandle> summary, Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate)
-    {
-        this(summary, predicate, Optional.empty());
     }
 
     public Constraint(TupleDomain<ColumnHandle> summary, Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate, Optional<Set<ColumnHandle>> predicateColumns)
