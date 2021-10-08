@@ -175,13 +175,13 @@ public class BigQueryMetadata
         String remoteTableName = bigQueryClient.toRemoteTable(projectId, remoteSchemaName, schemaTableName.getTableName())
                 .map(RemoteDatabaseObject::getOnlyRemoteName)
                 .orElse(schemaTableName.getTableName());
-        TableInfo tableInfo = bigQueryClient.getTable(TableId.of(projectId, remoteSchemaName, remoteTableName));
-        if (tableInfo == null) {
+        Optional<TableInfo> tableInfo = bigQueryClient.getTable(TableId.of(projectId, remoteSchemaName, remoteTableName));
+        if (tableInfo.isEmpty()) {
             log.debug("Table [%s.%s] was not found", schemaTableName.getSchemaName(), schemaTableName.getTableName());
             return null;
         }
 
-        return new BigQueryTableHandle(schemaTableName, new RemoteTableName(tableInfo.getTableId()), tableInfo);
+        return new BigQueryTableHandle(schemaTableName, new RemoteTableName(tableInfo.get().getTableId()), tableInfo.get());
     }
 
     private ConnectorTableHandle getTableHandleIgnoringConflicts(SchemaTableName schemaTableName)
@@ -192,13 +192,13 @@ public class BigQueryMetadata
         String remoteTableName = bigQueryClient.toRemoteTable(projectId, remoteSchemaName, schemaTableName.getTableName())
                 .map(RemoteDatabaseObject::getAnyRemoteName)
                 .orElse(schemaTableName.getTableName());
-        TableInfo tableInfo = bigQueryClient.getTable(TableId.of(projectId, remoteSchemaName, remoteTableName));
-        if (tableInfo == null) {
+        Optional<TableInfo> tableInfo = bigQueryClient.getTable(TableId.of(projectId, remoteSchemaName, remoteTableName));
+        if (tableInfo.isEmpty()) {
             log.debug("Table [%s.%s] was not found", schemaTableName.getSchemaName(), schemaTableName.getTableName());
             return null;
         }
 
-        return new BigQueryTableHandle(schemaTableName, new RemoteTableName(tableInfo.getTableId()), tableInfo);
+        return new BigQueryTableHandle(schemaTableName, new RemoteTableName(tableInfo.get().getTableId()), tableInfo.get());
     }
 
     @Override
@@ -231,8 +231,9 @@ public class BigQueryMetadata
         String remoteTableName = bigQueryClient.toRemoteTable(projectId, remoteSchemaName, sourceTableName.getTableName())
                 .map(RemoteDatabaseObject::getOnlyRemoteName)
                 .orElseThrow(() -> new TableNotFoundException(viewDefinitionTableName));
-        TableInfo tableInfo = bigQueryClient.getTable(TableId.of(projectId, remoteSchemaName, remoteTableName));
-        if (tableInfo == null || !(tableInfo.getDefinition() instanceof ViewDefinition)) {
+        TableInfo tableInfo = bigQueryClient.getTable(TableId.of(projectId, remoteSchemaName, remoteTableName))
+                .orElseThrow(() -> new TableNotFoundException(viewDefinitionTableName));
+        if (!(tableInfo.getDefinition() instanceof ViewDefinition)) {
             throw new TableNotFoundException(viewDefinitionTableName);
         }
 
