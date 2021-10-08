@@ -75,7 +75,7 @@ public class BigQueryConnectorModule
     }
 
     // Note that at this point the config has been validated, which means that option 2 or option 3 will always be valid
-    static String calculateBillingProjectId(Optional<String> configParentProjectId, Optional<Credentials> credentials)
+    public static String calculateBillingProjectId(Optional<String> configParentProjectId, Optional<Credentials> credentials)
     {
         // 1. Get from configuration
         return configParentProjectId
