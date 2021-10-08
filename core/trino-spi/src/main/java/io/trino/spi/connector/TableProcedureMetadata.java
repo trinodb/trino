@@ -18,7 +18,6 @@ import io.trino.spi.session.PropertyMetadata;
 import java.util.List;
 
 import static io.trino.spi.connector.SchemaUtil.checkNotEmpty;
-import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 public class TableProcedureMetadata
@@ -33,7 +32,7 @@ public class TableProcedureMetadata
         this.name = checkNotEmpty(name, "name");
         this.executionMode = requireNonNull(executionMode, "executionMode is null");
         requireNonNull(properties, "properties is null");
-        this.properties = properties.isEmpty() ? emptyList() : List.copyOf(properties);
+        this.properties = List.copyOf(properties);
     }
 
     public String getName()
