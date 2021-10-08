@@ -1125,7 +1125,7 @@ public class Analysis
 
     public Map<String, Object> getTableExecuteProperties()
     {
-        checkState(this.tableExecuteProperties != null, "tableExecuteProperties not set set");
+        checkState(this.tableExecuteProperties != null, "tableExecuteProperties not set");
         return tableExecuteProperties;
     }
 
