@@ -61,6 +61,7 @@ import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Test(singleThreaded = true)
 public class TestTypeValidator
@@ -212,7 +213,7 @@ public class TestTypeValidator
         assertTypesValid(node);
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "type of symbol 'expr(_[0-9]+)?' is expected to be bigint, but the actual type is integer")
+    @Test
     public void testInvalidProject()
     {
         Expression expression1 = new Cast(columnB.toSymbolReference(), toSqlType(INTEGER));
@@ -226,10 +227,12 @@ public class TestTypeValidator
                 baseTableScan,
                 assignments);
 
-        assertTypesValid(node);
+        assertThatThrownBy(() -> assertTypesValid(node))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageMatching("type of symbol 'expr(_[0-9]+)?' is expected to be bigint, but the actual type is integer");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "type of symbol 'sum(_[0-9]+)?' is expected to be double, but the actual type is bigint")
+    @Test
     public void testInvalidAggregationFunctionCall()
     {
         Symbol aggregationSymbol = symbolAllocator.newSymbol("sum", DOUBLE);
@@ -250,10 +253,12 @@ public class TestTypeValidator
                 Optional.empty(),
                 Optional.empty());
 
-        assertTypesValid(node);
+        assertThatThrownBy(() -> assertTypesValid(node))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageMatching("type of symbol 'sum(_[0-9]+)?' is expected to be double, but the actual type is bigint");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "type of symbol 'sum(_[0-9]+)?' is expected to be bigint, but the actual type is double")
+    @Test
     public void testInvalidAggregationFunctionSignature()
     {
         Symbol aggregationSymbol = symbolAllocator.newSymbol("sum", BIGINT);
@@ -274,10 +279,12 @@ public class TestTypeValidator
                 Optional.empty(),
                 Optional.empty());
 
-        assertTypesValid(node);
+        assertThatThrownBy(() -> assertTypesValid(node))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageMatching("type of symbol 'sum(_[0-9]+)?' is expected to be bigint, but the actual type is double");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "type of symbol 'sum(_[0-9]+)?' is expected to be double, but the actual type is bigint")
+    @Test
     public void testInvalidWindowFunctionCall()
     {
         Symbol windowSymbol = symbolAllocator.newSymbol("sum", DOUBLE);
@@ -307,10 +314,12 @@ public class TestTypeValidator
                 ImmutableSet.of(),
                 0);
 
-        assertTypesValid(node);
+        assertThatThrownBy(() -> assertTypesValid(node))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageMatching("type of symbol 'sum(_[0-9]+)?' is expected to be double, but the actual type is bigint");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "type of symbol 'sum(_[0-9]+)?' is expected to be bigint, but the actual type is double")
+    @Test
     public void testInvalidWindowFunctionSignature()
     {
         Symbol windowSymbol = symbolAllocator.newSymbol("sum", BIGINT);
@@ -340,10 +349,12 @@ public class TestTypeValidator
                 ImmutableSet.of(),
                 0);
 
-        assertTypesValid(node);
+        assertThatThrownBy(() -> assertTypesValid(node))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageMatching("type of symbol 'sum(_[0-9]+)?' is expected to be bigint, but the actual type is double");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "type of symbol 'output(_[0-9]+)?' is expected to be date, but the actual type is bigint")
+    @Test
     public void testInvalidUnion()
     {
         Symbol outputSymbol = symbolAllocator.newSymbol("output", DATE);
@@ -358,7 +369,9 @@ public class TestTypeValidator
                 mappings,
                 ImmutableList.copyOf(mappings.keySet()));
 
-        assertTypesValid(node);
+        assertThatThrownBy(() -> assertTypesValid(node))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageMatching("type of symbol 'output(_[0-9]+)?' is expected to be date, but the actual type is bigint");
     }
 
     private void assertTypesValid(PlanNode node)
