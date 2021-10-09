@@ -23,6 +23,7 @@ import org.apache.parquet.hadoop.metadata.ColumnPath;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class EncDecPropertiesHelper
@@ -66,20 +67,20 @@ public class EncDecPropertiesHelper
         return FileDecryptionProperties.builder().withPlaintextFilesAllowed().withKeyRetriever(keyRetriever).build();
     }
 
-    public static FileEncryptionProperties getFileEncryptionProperties(String[] encrCols, ParquetCipher cipher, Boolean encryptFooter)
+    public static FileEncryptionProperties getFileEncryptionProperties(List<String> encryptColumns, ParquetCipher cipher, Boolean encryptFooter)
     {
-        if (encrCols.length == 0) {
+        if (encryptColumns.size() == 0) {
             return null;
         }
 
         Map<ColumnPath, ColumnEncryptionProperties> columnPropertyMap = new HashMap<>();
-        for (String encrCol : encrCols) {
-            ColumnPath columnPath = ColumnPath.fromDotString(encrCol);
-            ColumnEncryptionProperties colEncProp = ColumnEncryptionProperties.builder(columnPath)
+        for (String encryptColumn : encryptColumns) {
+            ColumnPath columnPath = ColumnPath.fromDotString(encryptColumn);
+            ColumnEncryptionProperties columnEncryptionProperties = ColumnEncryptionProperties.builder(columnPath)
                     .withKey(COL_KEY)
                     .withKeyMetaData(COL_KEY_METADATA)
                     .build();
-            columnPropertyMap.put(columnPath, colEncProp);
+            columnPropertyMap.put(columnPath, columnEncryptionProperties);
         }
 
         FileEncryptionProperties.Builder encryptionPropertiesBuilder =
