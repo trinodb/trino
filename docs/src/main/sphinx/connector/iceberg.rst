@@ -80,6 +80,8 @@ At a minimum, ``hive.metastore.uri`` must be configured:
     - Maximum number of partitions handled per writer.
     - 100
 
+.. _iceberg-sql-support:
+
 SQL support
 -----------
 
