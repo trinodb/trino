@@ -37,6 +37,7 @@ import java.util.function.Function;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestValidateStreamingAggregations
         extends BasePlanTest
@@ -87,10 +88,10 @@ public class TestValidateStreamingAggregations
                                                         ImmutableMap.of(p.symbol("nationkey", BIGINT), new TpchColumnHandle("nationkey", BIGINT)))))));
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Streaming aggregation with input not grouped on the grouping keys")
+    @Test
     public void testValidateFailed()
     {
-        validatePlan(
+        assertThatThrownBy(() -> validatePlan(
                 p -> p.aggregation(
                         a -> a.step(SINGLE)
                                 .singleGroupingSet(p.symbol("nationkey"))
@@ -99,7 +100,9 @@ public class TestValidateStreamingAggregations
                                         p.tableScan(
                                                 nationTableHandle,
                                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
-                                                ImmutableMap.of(p.symbol("nationkey", BIGINT), new TpchColumnHandle("nationkey", BIGINT))))));
+                                                ImmutableMap.of(p.symbol("nationkey", BIGINT), new TpchColumnHandle("nationkey", BIGINT)))))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Streaming aggregation with input not grouped on the grouping keys");
     }
 
     private void validatePlan(Function<PlanBuilder, PlanNode> planProvider)
