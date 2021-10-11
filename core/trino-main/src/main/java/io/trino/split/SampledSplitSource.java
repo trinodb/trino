@@ -74,10 +74,9 @@ public class SampledSplitSource
     @Override
     public Optional<List<Object>> getTableExecuteSplitsInfo()
     {
-        Optional<List<Object>> tableExecuteSplitsInfo = splitSource.getTableExecuteSplitsInfo();
-        if (tableExecuteSplitsInfo.isPresent()) {
-            throw new IllegalStateException("Cannot use SampledSplitSource with SplitSource which returns non-empty TableExecuteSplitsInfo");
-        }
+        splitSource.getTableExecuteSplitsInfo().ifPresent(splitInfo -> {
+            throw new IllegalStateException("Cannot use SampledSplitSource with SplitSource which returns non-empty TableExecuteSplitsInfo=" + splitInfo);
+        });
         return Optional.empty();
     }
 }
