@@ -21,6 +21,7 @@ import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import org.apache.hadoop.hive.metastore.TableType;
@@ -83,7 +84,7 @@ public class HiveTableOperations
             FileOutputFormat.class.getName());
 
     private final HiveMetastore metastore;
-    private final HiveIdentity identity;
+    private final ConnectorSession session;
     private final String database;
     private final String tableName;
     private final Optional<String> owner;
@@ -95,11 +96,11 @@ public class HiveTableOperations
     private boolean shouldRefresh = true;
     private int version = -1;
 
-    HiveTableOperations(FileIO fileIo, HiveMetastore metastore, HiveIdentity identity, String database, String table, Optional<String> owner, Optional<String> location)
+    HiveTableOperations(FileIO fileIo, HiveMetastore metastore, ConnectorSession session, String database, String table, Optional<String> owner, Optional<String> location)
     {
         this.fileIo = requireNonNull(fileIo, "fileIo is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
-        this.identity = requireNonNull(identity, "identity is null");
+        this.session = requireNonNull(session, "session is null");
         this.database = requireNonNull(database, "database is null");
         this.tableName = requireNonNull(table, "table is null");
         this.owner = requireNonNull(owner, "owner is null");
@@ -220,6 +221,7 @@ public class HiveTableOperations
         }
 
         PrincipalPrivileges privileges = buildInitialPrivilegeSet(table.getOwner());
+        HiveIdentity identity = new HiveIdentity(session);
         if (base == null) {
             metastore.createTable(identity, table, privileges);
         }
@@ -263,7 +265,7 @@ public class HiveTableOperations
 
     private Table getTable()
     {
-        return metastore.getTable(identity, database, tableName)
+        return metastore.getTable(new HiveIdentity(session), database, tableName)
                 .orElseThrow(() -> new TableNotFoundException(getSchemaTableName()));
     }
 

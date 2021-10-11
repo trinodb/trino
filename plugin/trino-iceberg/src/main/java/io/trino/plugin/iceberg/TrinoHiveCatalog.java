@@ -263,7 +263,7 @@ class TrinoHiveCatalog
                 metastore,
                 new HdfsContext(session),
                 session.getQueryId(),
-                new HiveIdentity(session),
+                session,
                 schemaTableName.getSchemaName(),
                 schemaTableName.getTableName(),
                 Optional.of(session.getUser()),
