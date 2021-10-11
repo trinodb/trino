@@ -51,8 +51,6 @@ public class FileMetastoreTableOperations
     {
         String newMetadataLocation = writeNewMetadata(metadata, version + 1);
 
-        // TODO: use metastore locking
-
         Table table;
         try {
             Table currentTable = getTable();
