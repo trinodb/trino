@@ -31,12 +31,12 @@ public class TestingIcebergPlugin
 
     public TestingIcebergPlugin(HiveMetastore metastore)
     {
-        this(metastore, Optional.empty());
+        this(Optional.of(metastore), Optional.empty());
     }
 
-    public TestingIcebergPlugin(HiveMetastore metastore, Optional<FileIoProvider> fileIoProvider)
+    public TestingIcebergPlugin(Optional<HiveMetastore> metastore, Optional<FileIoProvider> fileIoProvider)
     {
-        this.metastore = Optional.of(requireNonNull(metastore, "metastore is null"));
+        this.metastore = requireNonNull(metastore, "metastore is null");
         this.fileIoProvider = requireNonNull(fileIoProvider, "fileIoProvider is null");
     }
 
