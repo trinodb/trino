@@ -29,11 +29,6 @@ public class TestingIcebergPlugin
     private final Optional<HiveMetastore> metastore;
     private final Optional<FileIoProvider> fileIoProvider;
 
-    public TestingIcebergPlugin(HiveMetastore metastore)
-    {
-        this(Optional.of(metastore), Optional.empty());
-    }
-
     public TestingIcebergPlugin(Optional<HiveMetastore> metastore, Optional<FileIoProvider> fileIoProvider)
     {
         this.metastore = requireNonNull(metastore, "metastore is null");
