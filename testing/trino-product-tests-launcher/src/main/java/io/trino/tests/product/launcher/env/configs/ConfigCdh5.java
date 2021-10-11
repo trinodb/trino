@@ -31,6 +31,12 @@ public class ConfigCdh5
     }
 
     @Override
+    public String getHadoopImagesVersion()
+    {
+        return "0e21ef5";
+    }
+
+    @Override
     public List<String> getExcludedGroups()
     {
         return ImmutableList.of("skip_on_cdh");
