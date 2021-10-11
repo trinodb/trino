@@ -17,7 +17,6 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.MetastoreTypeConfig;
 import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.hive.metastore.cache.CachingHiveMetastoreModule;
 import io.trino.plugin.hive.metastore.cache.ForCachingHiveMetastore;
@@ -29,6 +28,8 @@ import javax.inject.Inject;
 import java.util.Optional;
 
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
+import static io.trino.plugin.iceberg.CatalogType.HIVE_METASTORE;
+import static io.trino.plugin.iceberg.CatalogType.TESTING_FILE_METASTORE;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergMetastoreModule
@@ -49,8 +50,8 @@ public class IcebergMetastoreModule
             install(new CachingHiveMetastoreModule());
         }
         else {
-            bindMetastoreModule("thrift", new ThriftMetastoreModule());
-            bindMetastoreModule("file", new FileMetastoreModule());
+            bindMetastoreModule(HIVE_METASTORE, new ThriftMetastoreModule());
+            bindMetastoreModule(TESTING_FILE_METASTORE, new FileMetastoreModule());
             // TODO add support for Glue metastore
         }
 
@@ -68,11 +69,11 @@ public class IcebergMetastoreModule
         }
     }
 
-    private void bindMetastoreModule(String name, Module module)
+    private void bindMetastoreModule(CatalogType catalogType, Module module)
     {
         install(conditionalModule(
-                MetastoreTypeConfig.class,
-                metastore -> name.equalsIgnoreCase(metastore.getMetastoreType()),
+                IcebergConfig.class,
+                config -> config.getCatalogType() == catalogType,
                 module));
     }
 }

@@ -15,9 +15,8 @@ package io.trino.plugin.iceberg;
 
 public enum CatalogType
 {
-    HIVE,
-    // TODO: dummy type to pass IcebergConfig test, remove it after adding actual catalog types
-    UNKNOWN,
-
+    TESTING_FILE_METASTORE,
+    HIVE_METASTORE,
+    GLUE,
     /**/;
 }

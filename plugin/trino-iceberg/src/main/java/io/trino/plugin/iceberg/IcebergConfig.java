@@ -22,7 +22,7 @@ import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
 import static io.trino.plugin.hive.HiveCompressionCodec.GZIP;
-import static io.trino.plugin.iceberg.CatalogType.HIVE;
+import static io.trino.plugin.iceberg.CatalogType.HIVE_METASTORE;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 
 public class IcebergConfig
@@ -32,7 +32,7 @@ public class IcebergConfig
     private boolean useFileSizeFromMetadata = true;
     private int maxPartitionsPerWriter = 100;
     private boolean uniqueTableLocation;
-    private CatalogType catalogType = HIVE;
+    private CatalogType catalogType = HIVE_METASTORE;
 
     public CatalogType getCatalogType()
     {
