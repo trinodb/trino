@@ -152,6 +152,10 @@ public class TestParquetPageSkipping
             assertThat(assertColumnIndexResults(format("SELECT * FROM %s WHERE %s < %s ORDER BY orderkey", tableName, sortByColumn, lowValue))).isGreaterThan(0);
             assertThat(assertColumnIndexResults(format("SELECT * FROM %s WHERE %s > %s ORDER BY orderkey", tableName, sortByColumn, highValue))).isGreaterThan(0);
             assertThat(assertColumnIndexResults(format("SELECT * FROM %s WHERE %s BETWEEN %s AND %s ORDER BY orderkey", tableName, sortByColumn, middleLowValue, middleHighValue))).isGreaterThan(0);
+            // Nested data
+            assertColumnIndexResults(format("SELECT rvalues FROM %s WHERE %s IN (%s, %s, %s)", tableName, sortByColumn, lowValue, middleLowValue, highValue));
+            // Without nested data
+            assertColumnIndexResults(format("SELECT orderkey, orderdate FROM %s WHERE %s IN (%s, %s, %s)", tableName, sortByColumn, lowValue, middleLowValue, highValue));
         }
         assertUpdate("DROP TABLE " + tableName);
     }
