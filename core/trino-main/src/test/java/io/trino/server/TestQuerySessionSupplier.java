@@ -132,7 +132,7 @@ public class TestQuerySessionSupplier
         assertEquals(context2.getClientCapabilities(), ImmutableSet.of());
     }
 
-    @Test(expectedExceptions = TrinoException.class)
+    @Test
     public void testInvalidTimeZone()
     {
         MultivaluedMap<String, String> headers = new GuavaMultivaluedMap<>(ImmutableListMultimap.<String, String>builder()
@@ -141,7 +141,9 @@ public class TestQuerySessionSupplier
                 .build());
         SessionContext context = SESSION_CONTEXT_FACTORY.createSessionContext(headers, Optional.empty(), Optional.of("remoteAddress"), Optional.empty());
         QuerySessionSupplier sessionSupplier = createSessionSupplier(new SqlEnvironmentConfig());
-        sessionSupplier.createSession(new QueryId("test_query_id"), context);
+        assertThatThrownBy(() -> sessionSupplier.createSession(new QueryId("test_query_id"), context))
+                .isInstanceOf(TrinoException.class)
+                .hasMessage("Time zone not supported: unknown_timezone");
     }
 
     @Test
