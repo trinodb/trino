@@ -148,8 +148,8 @@ final class ParquetWriters
             return new PrimitiveColumnWriter(
                     columnDescriptor,
                     getValueWriter(parquetProperties.newValuesWriter(columnDescriptor), trinoType, columnDescriptor.getPrimitiveType()),
-                    parquetProperties.newDefinitionLevelEncoder(columnDescriptor),
-                    parquetProperties.newRepetitionLevelEncoder(columnDescriptor),
+                    parquetProperties.newDefinitionLevelWriter(columnDescriptor),
+                    parquetProperties.newRepetitionLevelWriter(columnDescriptor),
                     compressionCodecName,
                     parquetProperties.getPageSizeThreshold());
         }
