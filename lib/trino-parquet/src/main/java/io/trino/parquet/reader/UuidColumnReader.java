@@ -50,7 +50,7 @@ public class UuidColumnReader
     protected void skipValue()
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            valuesReader.readBytes();
+            valuesReader.skip();
         }
     }
 }

@@ -79,7 +79,7 @@ public class LongDecimalColumnReader
     protected void skipValue()
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            valuesReader.readBytes();
+            valuesReader.skip();
         }
     }
 }

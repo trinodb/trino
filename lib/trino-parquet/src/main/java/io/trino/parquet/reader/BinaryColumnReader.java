@@ -63,7 +63,7 @@ public class BinaryColumnReader
     protected void skipValue()
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            valuesReader.readBytes();
+            valuesReader.skip();
         }
     }
 }

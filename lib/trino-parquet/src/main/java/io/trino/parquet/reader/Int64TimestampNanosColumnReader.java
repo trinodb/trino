@@ -68,7 +68,7 @@ public class Int64TimestampNanosColumnReader
     protected void skipValue()
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            valuesReader.readLong();
+            valuesReader.skip();
         }
     }
 }

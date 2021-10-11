@@ -65,7 +65,7 @@ public class Int64TimestampMillisColumnReader
     protected void skipValue()
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            valuesReader.readLong();
+            valuesReader.skip();
         }
     }
 }

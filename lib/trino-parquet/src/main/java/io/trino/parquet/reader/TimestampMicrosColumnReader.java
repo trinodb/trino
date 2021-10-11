@@ -81,7 +81,7 @@ public class TimestampMicrosColumnReader
     protected void skipValue()
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            valuesReader.readLong();
+            valuesReader.skip();
         }
     }
 }

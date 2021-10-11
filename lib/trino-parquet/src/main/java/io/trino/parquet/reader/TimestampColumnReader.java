@@ -65,7 +65,7 @@ public class TimestampColumnReader
     protected void skipValue()
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            valuesReader.readBytes();
+            valuesReader.skip();
         }
     }
 }

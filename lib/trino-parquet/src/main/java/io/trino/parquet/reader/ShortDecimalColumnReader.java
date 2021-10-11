@@ -136,15 +136,7 @@ public class ShortDecimalColumnReader
     protected void skipValue()
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            if (columnDescriptor.getPrimitiveType().getPrimitiveTypeName() == INT32) {
-                valuesReader.readInteger();
-            }
-            else if (columnDescriptor.getPrimitiveType().getPrimitiveTypeName() == INT64) {
-                valuesReader.readLong();
-            }
-            else {
-                valuesReader.readBytes();
-            }
+            valuesReader.skip();
         }
     }
 }

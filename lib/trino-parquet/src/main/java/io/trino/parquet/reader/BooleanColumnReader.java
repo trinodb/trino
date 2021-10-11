@@ -40,7 +40,7 @@ public class BooleanColumnReader
     protected void skipValue()
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            valuesReader.readBoolean();
+            valuesReader.skip();
         }
     }
 }

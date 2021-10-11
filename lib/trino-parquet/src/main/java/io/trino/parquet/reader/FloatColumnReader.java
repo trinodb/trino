@@ -42,7 +42,7 @@ public class FloatColumnReader
     protected void skipValue()
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            valuesReader.readFloat();
+            valuesReader.skip();
         }
     }
 }

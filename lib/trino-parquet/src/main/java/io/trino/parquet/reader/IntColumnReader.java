@@ -40,7 +40,7 @@ public class IntColumnReader
     protected void skipValue()
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            valuesReader.readInteger();
+            valuesReader.skip();
         }
     }
 }
