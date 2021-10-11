@@ -285,7 +285,9 @@ public final class TestRun
                                         "-XX:MinHeapFreeRatio=10",
                                         "-XX:MaxHeapFreeRatio=10",
                                         "-Djava.util.logging.config.file=/docker/presto-product-tests/conf/tempto/logging.properties",
-                                        "-Duser.timezone=Asia/Kathmandu")
+                                        "-Duser.timezone=Asia/Kathmandu",
+                                        // Tempto has progress logging built in
+                                        "-DProgressLoggingListener.enabled=false")
                                 .addAll(temptoJavaOptions)
                                 .add(
                                         "-jar", "/docker/test.jar",
