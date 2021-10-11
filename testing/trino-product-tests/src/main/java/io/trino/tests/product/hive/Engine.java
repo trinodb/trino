@@ -34,6 +34,13 @@ public enum Engine
             return onTrino();
         }
     },
+    SPARK {
+        @Override
+        public QueryExecutor queryExecutor()
+        {
+            return onTrino();
+        }
+    },
     /**/;
 
     public abstract QueryExecutor queryExecutor();
