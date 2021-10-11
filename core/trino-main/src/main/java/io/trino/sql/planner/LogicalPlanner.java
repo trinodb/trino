@@ -731,8 +731,12 @@ public class LogicalPlanner
 
     private RelationPlan createRelationPlan(Analysis analysis, Query query)
     {
-        return new RelationPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), metadata, Optional.empty(), session, ImmutableMap.of())
-                .process(query, null);
+        return getRelationPlanner(analysis).process(query, null);
+    }
+
+    private RelationPlanner getRelationPlanner(Analysis analysis)
+    {
+        return new RelationPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), metadata, Optional.empty(), session, ImmutableMap.of());
     }
 
     private static Map<NodeRef<LambdaArgumentDeclaration>, Symbol> buildLambdaDeclarationToSymbolMap(Analysis analysis, SymbolAllocator symbolAllocator)
@@ -774,36 +778,14 @@ public class LogicalPlanner
 
         TableExecuteHandle executeHandle =
                 metadata.getTableHandleForExecute(
-                        session,
-                        tableHandle,
-                        procedureName,
-                        analysis.getTableExecuteProperties(),
-                        constraint.orElse(alwaysTrue()))
+                                session,
+                                tableHandle,
+                                procedureName,
+                                analysis.getTableExecuteProperties(),
+                                constraint.orElse(alwaysTrue()))
                         .orElseThrow(() -> semanticException(NOT_FOUND, statement, "Table '%s' does not exist", tableName));
 
-        Scope scope = analysis.getScope(table);
-        ImmutableList.Builder<Symbol> outputSymbolsBuilder = ImmutableList.builder();
-        ImmutableMap.Builder<Symbol, ColumnHandle> assignments = ImmutableMap.builder();
-        for (Field field : scope.getRelationType().getAllFields()) {
-            Symbol symbol = symbolAllocator.newSymbol(field);
-
-            outputSymbolsBuilder.add(symbol);
-            assignments.put(symbol, analysis.getColumn(field));
-        }
-
-        List<Symbol> outputSymbols = outputSymbolsBuilder.build();
-        PlanNode tableScanNode = TableScanNode.newInstance(
-                idAllocator.getNextId(),
-                executeHandle.getSourceTableHandle(),
-                outputSymbols,
-                assignments.build(),
-                false,
-                Optional.empty());
-        RelationPlan tableScanPlan = new RelationPlan(
-                tableScanNode,
-                scope,
-                outputSymbols,
-                Optional.empty());
+        RelationPlan tableScanPlan = getRelationPlanner(analysis).processTableWithHandle(table, executeHandle.getSourceTableHandle());
 
         TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
         List<String> columnNames = tableMetadata.getColumns().stream()
@@ -813,7 +795,7 @@ public class LogicalPlanner
 
         Optional<NewTableLayout> layout = metadata.getLayoutForTableExecute(session, executeHandle);
 
-        RelationPlan tableWriterPlan = createTableWriterPlan(
+        return createTableWriterPlan(
                 analysis,
                 tableScanPlan.getRoot(),
                 visibleFields(tableScanPlan),
@@ -822,19 +804,6 @@ public class LogicalPlanner
                 tableMetadata.getColumns(),
                 layout,
                 TableStatisticsMetadata.empty());
-
-        // todo do we need that?
-//        List<Type> types = analysis.getRelationCoercion(node);
-//        if (types != null) {
-//            // apply required coercion and prune invisible fields from child outputs
-//            NodeAndMappings coerced = coerce(plan, types, symbolAllocator, idAllocator);
-//            plan = new RelationPlan(coerced.getNode(), scope, coerced.getFields(), outerContext);
-//        }
-
-//        plan = addRowFilters(node, plan);
-//        plan = addColumnMasks(node, plan);
-
-        return tableWriterPlan;
     }
 
     private Optional<Constraint> getConstraintForTableExecute(Analysis analysis, TableExecute statement)
