@@ -197,7 +197,10 @@ public class TestDictionaryAwarePageProjection
         assertInstanceOf(secondOutputBlock, DictionaryBlock.class);
 
         assertNotSame(firstOutputBlock, secondOutputBlock);
-        assertSame(((DictionaryBlock) firstOutputBlock).getDictionary(), ((DictionaryBlock) secondOutputBlock).getDictionary());
+        Block firstDictionary = ((DictionaryBlock) firstOutputBlock).getDictionary();
+        Block secondDictionary = ((DictionaryBlock) secondOutputBlock).getDictionary();
+        assertSame(firstDictionary, secondDictionary);
+        assertSame(firstDictionary, dictionary);
     }
 
     private static DictionaryBlock createDictionaryBlock(int dictionarySize, int blockSize)
