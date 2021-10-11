@@ -148,6 +148,7 @@ public class InternalHiveSplitFactory
             BlockLocation[] blockLocations,
             long start,
             long length,
+            // Estimated because, for example, encrypted S3 files may be padded, so reported size may not reflect actual size
             long estimatedFileSize,
             long fileModificationTime,
             OptionalInt bucketNumber,
