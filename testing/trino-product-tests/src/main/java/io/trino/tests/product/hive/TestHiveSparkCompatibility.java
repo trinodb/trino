@@ -14,7 +14,6 @@
 package io.trino.tests.product.hive;
 
 import io.trino.tempto.ProductTest;
-import org.assertj.core.api.InstanceOfAssertFactories;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -36,7 +35,6 @@ import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.util.Collections.nCopies;
 import static java.util.Locale.ENGLISH;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestHiveSparkCompatibility
         extends ProductTest
@@ -215,11 +213,7 @@ public class TestHiveSparkCompatibility
     public void testReadTrinoCreatedParquetTableWithNativeWriter()
     {
         onTrino().executeQuery("SET SESSION " + TRINO_CATALOG + ".experimental_parquet_optimized_writer_enabled = true");
-        // TODO (https://github.com/trinodb/trino/issues/6377) Native Parquet Writer writes Parquet V2 files that are not compatible with Spark's vectorized reader, see https://github.com/trinodb/trino/issues/7953 for more details
-        assertThatThrownBy(() -> testReadTrinoCreatedTable("using_native_parquet", "PARQUET"))
-                .hasStackTraceContaining("at org.apache.hive.jdbc.HiveStatement.execute")
-                .extracting(Throwable::toString, InstanceOfAssertFactories.STRING)
-                .matches("\\Qio.trino.tempto.query.QueryExecutionException: java.sql.SQLException: Error running query: java.lang.UnsupportedOperationException: Unsupported encoding: RLE\\E");
+        testReadTrinoCreatedTable("using_native_parquet", "PARQUET");
     }
 
     private void testReadTrinoCreatedTable(String tableName, String tableFormat)
