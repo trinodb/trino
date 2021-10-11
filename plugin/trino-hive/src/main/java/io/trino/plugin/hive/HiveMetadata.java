@@ -279,7 +279,6 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
-import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
 import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
@@ -548,7 +547,7 @@ public class HiveMetadata
         // Partitioning property
         List<String> partitionedBy = table.getPartitionColumns().stream()
                 .map(Column::getName)
-                .collect(toList());
+                .collect(toImmutableList());
         if (!partitionedBy.isEmpty()) {
             properties.put(PARTITIONED_BY_PROPERTY, partitionedBy);
         }
@@ -822,7 +821,7 @@ public class HiveMetadata
         List<Column> partitionColumns = partitionedBy.stream()
                 .map(columnHandlesByName::get)
                 .map(HiveColumnHandle::toMetastoreColumn)
-                .collect(toList());
+                .collect(toImmutableList());
         checkPartitionTypesSupported(partitionColumns);
 
         Optional<Path> targetPath;
@@ -1071,7 +1070,7 @@ public class HiveMetadata
         List<Column> partitionColumns = partitionedBy.stream()
                 .map(columnHandlesByName::get)
                 .map(HiveColumnHandle::toMetastoreColumn)
-                .collect(toList());
+                .collect(toImmutableList());
 
         Set<String> partitionColumnNames = ImmutableSet.copyOf(partitionedBy);
 
@@ -1316,7 +1315,7 @@ public class HiveMetadata
         List<Column> partitionColumns = partitionedBy.stream()
                 .map(columnHandlesByName::get)
                 .map(HiveColumnHandle::toMetastoreColumn)
-                .collect(toList());
+                .collect(toImmutableList());
         checkPartitionTypesSupported(partitionColumns);
 
         LocationHandle locationHandle = locationService.forNewTable(metastore, session, schemaName, tableName, externalLocation);
@@ -1353,7 +1352,7 @@ public class HiveMetadata
         List<PartitionUpdate> partitionUpdates = fragments.stream()
                 .map(Slice::getBytes)
                 .map(partitionUpdateCodec::fromJson)
-                .collect(toList());
+                .collect(toImmutableList());
 
         WriteInfo writeInfo = locationService.getQueryWriteInfo(handle.getLocationHandle());
         Table table = buildTableObject(
@@ -1581,7 +1580,7 @@ public class HiveMetadata
 
         List<HiveColumnHandle> allDataColumns = getRegularColumnHandles(table, typeManager, getTimestampPrecision(session)).stream()
                 .filter(columnHandle -> !columnHandle.isHidden())
-                .collect(toList());
+                .collect(toImmutableList());
         List<HiveColumnHandle> hiveUpdatedColumns = updatedColumns.stream().map(HiveColumnHandle.class::cast).collect(toImmutableList());
 
         if (table.getParameters().containsKey(SKIP_HEADER_COUNT_KEY)) {
@@ -1617,7 +1616,7 @@ public class HiveMetadata
         List<PartitionAndStatementId> partitionAndStatementIds = fragments.stream()
                 .map(Slice::getBytes)
                 .map(PartitionAndStatementId.CODEC::fromJson)
-                .collect(toList());
+                .collect(toImmutableList());
 
         HdfsContext context = new HdfsContext(session);
         for (PartitionAndStatementId ps : partitionAndStatementIds) {
@@ -1647,7 +1646,7 @@ public class HiveMetadata
 
         List<HiveColumnHandle> handles = hiveColumnHandles(table, typeManager, getTimestampPrecision(session)).stream()
                 .filter(columnHandle -> !columnHandle.isHidden())
-                .collect(toList());
+                .collect(toImmutableList());
 
         HiveStorageFormat tableStorageFormat = extractHiveStorageFormat(table);
         Optional.ofNullable(table.getParameters().get(SKIP_HEADER_COUNT_KEY)).map(Integer::parseInt).ifPresent(headerSkipCount -> {
@@ -1691,7 +1690,7 @@ public class HiveMetadata
         List<PartitionUpdate> partitionUpdates = fragments.stream()
                 .map(Slice::getBytes)
                 .map(partitionUpdateCodec::fromJson)
-                .collect(toList());
+                .collect(toImmutableList());
 
         HiveStorageFormat tableStorageFormat = handle.getTableStorageFormat();
         partitionUpdates = PartitionUpdate.mergePartitionUpdates(partitionUpdates);
@@ -2111,7 +2110,7 @@ public class HiveMetadata
         List<PartitionAndStatementId> partitionAndStatementIds = fragments.stream()
                 .map(Slice::getBytes)
                 .map(PartitionAndStatementId.CODEC::fromJson)
-                .collect(toList());
+                .collect(toImmutableList());
 
         HdfsContext context = new HdfsContext(session);
         for (PartitionAndStatementId ps : partitionAndStatementIds) {
@@ -2622,7 +2621,7 @@ public class HiveMetadata
                 hiveBucketHandle.get().getTableBucketCount(),
                 hiveBucketHandle.get().getColumns().stream()
                         .map(HiveColumnHandle::getHiveType)
-                        .collect(toList()),
+                        .collect(toImmutableList()),
                 OptionalInt.of(hiveBucketHandle.get().getTableBucketCount()),
                 !partitionColumns.isEmpty() && isParallelPartitionedBucketedWrites(session));
         return Optional.of(new ConnectorNewTableLayout(partitioningHandle, partitioningColumns.build()));
@@ -2863,7 +2862,7 @@ public class HiveMetadata
 
         List<String> allColumns = tableMetadata.getColumns().stream()
                 .map(ColumnMetadata::getName)
-                .collect(toList());
+                .collect(toImmutableList());
 
         if (!allColumns.containsAll(partitionedBy)) {
             throw new TrinoException(INVALID_TABLE_PROPERTY, format("Partition columns %s not present in schema", Sets.difference(ImmutableSet.copyOf(partitionedBy), ImmutableSet.copyOf(allColumns))));
