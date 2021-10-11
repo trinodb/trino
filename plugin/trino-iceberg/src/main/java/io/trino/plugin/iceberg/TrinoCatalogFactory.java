@@ -75,9 +75,11 @@ public class TrinoCatalogFactory
     public TrinoCatalog create()
     {
         switch (catalogType) {
-            case HIVE:
+            case TESTING_FILE_METASTORE:
+            case HIVE_METASTORE:
                 return new TrinoHiveCatalog(catalogName, memoizeMetastore(metastore, 1000), hdfsEnvironment, typeManager, tableOperationsProvider, trinoVersion, isUniqueTableLocation);
-            case UNKNOWN:
+            case GLUE:
+                // TODO not supported yet
                 throw new TrinoException(NOT_SUPPORTED, "Unknown Trino Iceberg catalog type");
         }
         throw new TrinoException(NOT_SUPPORTED, "Unsupported Trino Iceberg catalog type " + catalogType);

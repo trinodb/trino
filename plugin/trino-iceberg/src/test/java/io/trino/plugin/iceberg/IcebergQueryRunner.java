@@ -85,7 +85,7 @@ public final class IcebergQueryRunner
 
         queryRunner.installPlugin(new IcebergPlugin());
         connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
-        connectorProperties.putIfAbsent("hive.metastore", "file");
+        connectorProperties.putIfAbsent("iceberg.catalog.type", "TESTING_FILE_METASTORE");
         connectorProperties.putIfAbsent("hive.metastore.catalog.dir", dataDir.toString());
         queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", connectorProperties);
 
