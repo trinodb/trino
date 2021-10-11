@@ -13,26 +13,32 @@
  */
 package io.trino.execution;
 
+import com.google.common.collect.ImmutableList;
+
+import javax.annotation.concurrent.GuardedBy;
+
 import java.util.List;
-import java.util.concurrent.atomic.AtomicReference;
+
+import static java.util.Objects.requireNonNull;
 
 public class TableExecuteContext
 {
-    private final AtomicReference<List<Object>> splitsInfo = new AtomicReference<>();
+    @GuardedBy("this")
+    private List<Object> splitsInfo;
 
-    public void setSplitsInfo(List<Object> splitsInfo)
+    public synchronized void setSplitsInfo(List<Object> splitsInfo)
     {
-        boolean success = this.splitsInfo.compareAndSet(null, splitsInfo);
-        if (!success) {
-            throw new IllegalStateException("splitsInfo already set to " + this.splitsInfo.get());
+        requireNonNull(splitsInfo, "splitsInfo is null");
+        if (this.splitsInfo != null) {
+            throw new IllegalStateException("splitsInfo already set to " + this.splitsInfo);
         }
+        this.splitsInfo = ImmutableList.copyOf(splitsInfo);
     }
 
-    public List<Object> getSplitsInfo()
+    public synchronized List<Object> getSplitsInfo()
     {
-        List<Object> splitsInfo = this.splitsInfo.get();
         if (splitsInfo == null) {
-            throw new IllegalStateException("splits info not set yet");
+            throw new IllegalStateException("splitsInfo not set yet");
         }
         return splitsInfo;
     }
