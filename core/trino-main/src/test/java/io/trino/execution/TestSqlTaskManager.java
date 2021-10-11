@@ -309,8 +309,7 @@ public class TestSqlTaskManager
                 nodeMemoryConfig,
                 localSpillManager,
                 new NodeSpillConfig(),
-                new TestingGcMonitor(),
-                new TableExecuteContextManager());
+                new TestingGcMonitor());
     }
 
     private TaskInfo createTask(SqlTaskManager sqlTaskManager, TaskId taskId, ImmutableSet<ScheduledSplit> splits, OutputBuffers outputBuffers)
