@@ -21,6 +21,7 @@ import io.trino.Session;
 import io.trino.operator.OperationTimer.OperationTiming;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
+import io.trino.spi.QueryId;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorOutputMetadata;
 import io.trino.spi.statistics.ComputedStatistics;
@@ -57,6 +58,7 @@ public class TableFinishOperator
         private final TableFinisher tableFinisher;
         private final OperatorFactory statisticsAggregationOperatorFactory;
         private final StatisticAggregationsDescriptor<Integer> descriptor;
+        private final boolean outputRowCount;
         private final Session session;
         private boolean closed;
 
@@ -66,6 +68,7 @@ public class TableFinishOperator
                 TableFinisher tableFinisher,
                 OperatorFactory statisticsAggregationOperatorFactory,
                 StatisticAggregationsDescriptor<Integer> descriptor,
+                boolean outputRowCount,
                 Session session)
         {
             this.operatorId = operatorId;
@@ -74,6 +77,7 @@ public class TableFinishOperator
             this.statisticsAggregationOperatorFactory = requireNonNull(statisticsAggregationOperatorFactory, "statisticsAggregationOperatorFactory is null");
             this.descriptor = requireNonNull(descriptor, "descriptor is null");
             this.session = requireNonNull(session, "session is null");
+            this.outputRowCount = outputRowCount;
         }
 
         @Override
@@ -83,7 +87,8 @@ public class TableFinishOperator
             OperatorContext context = driverContext.addOperatorContext(operatorId, planNodeId, TableFinishOperator.class.getSimpleName());
             Operator statisticsAggregationOperator = statisticsAggregationOperatorFactory.createOperator(driverContext);
             boolean statisticsCpuTimerEnabled = !(statisticsAggregationOperator instanceof DevNullOperator) && isStatisticsCpuTimerEnabled(session);
-            return new TableFinishOperator(context, tableFinisher, statisticsAggregationOperator, descriptor, statisticsCpuTimerEnabled);
+            QueryId queryId = driverContext.getPipelineContext().getTaskContext().getQueryContext().getQueryId();
+            return new TableFinishOperator(context, tableFinisher, statisticsAggregationOperator, descriptor, statisticsCpuTimerEnabled, outputRowCount);
         }
 
         @Override
@@ -95,7 +100,7 @@ public class TableFinishOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new TableFinishOperatorFactory(operatorId, planNodeId, tableFinisher, statisticsAggregationOperatorFactory, descriptor, session);
+            return new TableFinishOperatorFactory(operatorId, planNodeId, tableFinisher, statisticsAggregationOperatorFactory, descriptor, outputRowCount, session);
         }
     }
 
@@ -118,6 +123,8 @@ public class TableFinishOperator
     private final OperationTiming statisticsTiming = new OperationTiming();
     private final boolean statisticsCpuTimerEnabled;
 
+    private final boolean outputRowCount;
+
     private final Supplier<TableFinishInfo> tableFinishInfoSupplier;
 
     public TableFinishOperator(
@@ -125,7 +132,8 @@ public class TableFinishOperator
             TableFinisher tableFinisher,
             Operator statisticsAggregationOperator,
             StatisticAggregationsDescriptor<Integer> descriptor,
-            boolean statisticsCpuTimerEnabled)
+            boolean statisticsCpuTimerEnabled,
+            boolean outputRowCount)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.tableFinisher = requireNonNull(tableFinisher, "tableFinisher is null");
@@ -133,6 +141,7 @@ public class TableFinishOperator
         this.descriptor = requireNonNull(descriptor, "descriptor is null");
         this.statisticsCpuTimerEnabled = statisticsCpuTimerEnabled;
         this.tableFinishInfoSupplier = createTableFinishInfoSupplier(outputMetadata, statisticsTiming);
+        this.outputRowCount = outputRowCount;
         operatorContext.setInfoSupplier(tableFinishInfoSupplier);
     }
 
@@ -302,8 +311,10 @@ public class TableFinishOperator
         // output page will only be constructed once,
         // so a new PageBuilder is constructed (instead of using PageBuilder.reset)
         PageBuilder page = new PageBuilder(1, TYPES);
-        page.declarePosition();
-        BIGINT.writeLong(page.getBlockBuilder(0), rowCount);
+        if (outputRowCount) {
+            page.declarePosition();
+            BIGINT.writeLong(page.getBlockBuilder(0), rowCount);
+        }
         return page.build();
     }
 
@@ -345,6 +356,8 @@ public class TableFinishOperator
 
     public interface TableFinisher
     {
-        Optional<ConnectorOutputMetadata> finishTable(Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics);
+        Optional<ConnectorOutputMetadata> finishTable(
+                Collection<Slice> fragments,
+                Collection<ComputedStatistics> computedStatistics);
     }
 }
