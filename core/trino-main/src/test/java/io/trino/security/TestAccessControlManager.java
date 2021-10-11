@@ -86,11 +86,13 @@ public class TestAccessControlManager
     private static final String USER_NAME = "user_name";
     private static final QueryId queryId = new QueryId("query_id");
 
-    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "Trino server is still initializing")
+    @Test
     public void testInitializing()
     {
         AccessControlManager accessControlManager = createAccessControlManager(createTestTransactionManager());
-        accessControlManager.checkCanSetUser(Optional.empty(), "foo");
+        assertThatThrownBy(() -> accessControlManager.checkCanSetUser(Optional.empty(), "foo"))
+                .isInstanceOf(TrinoException.class)
+                .hasMessage("Trino server is still initializing");
     }
 
     @Test
@@ -169,7 +171,7 @@ public class TestAccessControlManager
                 });
     }
 
-    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "Access Denied: Cannot select from columns \\[column\\] in table or view schema.table")
+    @Test
     public void testDenyCatalogAccessControl()
     {
         CatalogManager catalogManager = new CatalogManager();
@@ -183,10 +185,12 @@ public class TestAccessControlManager
         CatalogName catalogName = registerBogusConnector(catalogManager, transactionManager, accessControlManager, "catalog");
         accessControlManager.addCatalogAccessControl(catalogName, new DenyConnectorAccessControl());
 
-        transaction(transactionManager, accessControlManager)
+        assertThatThrownBy(() -> transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
                     accessControlManager.checkCanSelectFromColumns(context(transactionId), new QualifiedObjectName("catalog", "schema", "table"), ImmutableSet.of("column"));
-                });
+                }))
+                .isInstanceOf(TrinoException.class)
+                .hasMessageMatching("Access Denied: Cannot select from columns \\[column\\] in table or view schema.table");
     }
 
     @Test
@@ -253,7 +257,7 @@ public class TestAccessControlManager
         return new SecurityContext(transactionId, identity, queryId);
     }
 
-    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "Access Denied: Cannot select from table secured_catalog.schema.table")
+    @Test
     public void testDenySystemAccessControl()
     {
         CatalogManager catalogManager = new CatalogManager();
@@ -267,10 +271,12 @@ public class TestAccessControlManager
         registerBogusConnector(catalogManager, transactionManager, accessControlManager, "connector");
         accessControlManager.addCatalogAccessControl(new CatalogName("connector"), new DenyConnectorAccessControl());
 
-        transaction(transactionManager, accessControlManager)
+        assertThatThrownBy(() -> transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
                     accessControlManager.checkCanSelectFromColumns(context(transactionId), new QualifiedObjectName("secured_catalog", "schema", "table"), ImmutableSet.of("column"));
-                });
+                }))
+                .isInstanceOf(TrinoException.class)
+                .hasMessageMatching("Access Denied: Cannot select from table secured_catalog.schema.table");
     }
 
     @Test
