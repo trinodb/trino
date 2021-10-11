@@ -55,7 +55,7 @@ public class Constraint
         this.predicate = requireNonNull(predicate, "predicate is null");
         this.predicateColumns = requireNonNull(predicateColumns, "predicateColumns is null");
 
-        // TODO remove deprecated constructors and validate that predicate is present *iff* predicateColumns is present
+        // TODO (https://github.com/trinodb/trino/issues/9589) validate that predicate is present *iff* predicateColumns is present
         if (predicateColumns.isPresent() && predicate.isEmpty()) {
             throw new IllegalArgumentException("predicateColumns cannot be present when predicate is not present");
         }
