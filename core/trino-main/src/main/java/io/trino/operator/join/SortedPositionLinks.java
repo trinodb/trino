@@ -132,8 +132,20 @@ public final class SortedPositionLinks
                 }
             }
 
-            Factory arrayPositionLinksFactory = arrayPositionLinksFactoryBuilder.build();
+            return createFactory(sortedPositionLinks, arrayPositionLinksFactoryBuilder.build());
+        }
 
+        @Override
+        public int size()
+        {
+            return positionLinks.size();
+        }
+
+        // Separate static method to avoid embedding references to "this"
+        private static Factory createFactory(int[][] sortedPositionLinks, Factory arrayPositionLinksFactory)
+        {
+            requireNonNull(sortedPositionLinks, "sortedPositionLinks is null");
+            requireNonNull(arrayPositionLinksFactory, "arrayPositionLinksFactory is null");
             return new Factory()
             {
                 @Override
@@ -153,12 +165,6 @@ public final class SortedPositionLinks
                 }
             };
         }
-
-        @Override
-        public int size()
-        {
-            return positionLinks.size();
-        }
     }
 
     private final PositionLinks positionLinks;
@@ -176,7 +182,7 @@ public final class SortedPositionLinks
         this.searchFunctions = searchFunctions.stream().toArray(JoinFilterFunction[]::new);
     }
 
-    private long sizeOfPositionLinks(int[][] sortedPositionLinks)
+    private static long sizeOfPositionLinks(int[][] sortedPositionLinks)
     {
         long retainedSize = sizeOf(sortedPositionLinks);
         for (int[] element : sortedPositionLinks) {
@@ -188,6 +194,12 @@ public final class SortedPositionLinks
     public static FactoryBuilder builder(int size, PagesHashStrategy pagesHashStrategy, LongArrayList addresses)
     {
         return new FactoryBuilder(size, pagesHashStrategy, addresses);
+    }
+
+    @Override
+    public long getSizeInBytes()
+    {
+        return sizeInBytes;
     }
 
     @Override
@@ -235,7 +247,7 @@ public final class SortedPositionLinks
         return true;
     }
 
-    private int findStartPositionForFunction(JoinFilterFunction searchFunction, int[] links, int startOffset, int probePosition, Page allProbeChannelsPage)
+    private static int findStartPositionForFunction(JoinFilterFunction searchFunction, int[] links, int startOffset, int probePosition, Page allProbeChannelsPage)
     {
         if (applySearchFunction(searchFunction, links, startOffset, probePosition, allProbeChannelsPage)) {
             // MAJOR HACK: if searchFunction is of shape `f(probe) > build_symbol` it is not fit for binary search below,
@@ -257,7 +269,7 @@ public final class SortedPositionLinks
     /**
      * Find the first element in position links that is NOT smaller than probePosition
      */
-    private int lowerBound(JoinFilterFunction searchFunction, int[] links, int first, int last, int probePosition, Page allProbeChannelsPage)
+    private static int lowerBound(JoinFilterFunction searchFunction, int[] links, int first, int last, int probePosition, Page allProbeChannelsPage)
     {
         int middle;
         int step;
@@ -276,23 +288,17 @@ public final class SortedPositionLinks
         return first;
     }
 
-    @Override
-    public long getSizeInBytes()
+    private static boolean applySearchFunction(JoinFilterFunction searchFunction, int[] links, int linkOffset, int probePosition, Page allProbeChannelsPage)
     {
-        return sizeInBytes;
+        return searchFunction.filter(links[linkOffset], probePosition, allProbeChannelsPage);
     }
 
-    private boolean applySearchFunction(JoinFilterFunction searchFunction, int[] links, int linkOffset, int probePosition, Page allProbeChannelsPage)
+    private static boolean applySearchFunction(JoinFilterFunction searchFunction, int buildPosition, int probePosition, Page allProbeChannelsPage)
     {
-        return applySearchFunction(searchFunction, links[linkOffset], probePosition, allProbeChannelsPage);
+        return searchFunction.filter(buildPosition, probePosition, allProbeChannelsPage);
     }
 
-    private boolean applySearchFunction(JoinFilterFunction searchFunction, long buildPosition, int probePosition, Page allProbeChannelsPage)
-    {
-        return searchFunction.filter((int) buildPosition, probePosition, allProbeChannelsPage);
-    }
-
-    private static class PositionComparator
+    private static final class PositionComparator
             implements IntComparator
     {
         private final PagesHashStrategy pagesHashStrategy;
