@@ -3022,6 +3022,7 @@ public class LocalExecutionPlanner
                     createTableFinisher(session, node, metadata),
                     statisticsAggregation,
                     descriptor,
+                    shouldOutputRowCount(node),
                     session);
             Map<Symbol, Integer> layout = ImmutableMap.of(node.getOutputSymbols().get(0), 0);
 
@@ -3622,6 +3623,12 @@ public class LocalExecutionPlanner
                 throw new AssertionError("Unhandled target type: " + target.getClass().getName());
             }
         };
+    }
+
+    private static boolean shouldOutputRowCount(TableFinishNode node)
+    {
+        WriterTarget target = node.getTarget();
+        return !(target instanceof TableExecuteTarget);
     }
 
     private static Function<Page, Page> enforceLoadedLayoutProcessor(List<Symbol> expectedLayout, Map<Symbol, Integer> inputLayout)

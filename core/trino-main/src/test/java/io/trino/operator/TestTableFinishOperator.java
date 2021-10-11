@@ -103,6 +103,7 @@ public class TestTableFinishOperator
                         ImmutableList.of(LONG_MAX.bind(ImmutableList.of(2), Optional.empty())),
                         true),
                 descriptor,
+                true,
                 session);
         DriverContext driverContext = createTaskContext(scheduledExecutor, scheduledExecutor, session)
                 .addPipelineContext(0, true, true, false)
