@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceUtf8;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnMetadata;
@@ -125,7 +124,7 @@ final class IcebergUtil
                 metastore,
                 new HdfsContext(session),
                 session.getQueryId(),
-                new HiveIdentity(session),
+                session,
                 table.getSchemaName(),
                 table.getTableName(),
                 Optional.empty(),
@@ -144,7 +143,7 @@ final class IcebergUtil
                 metastore,
                 new HdfsContext(session),
                 session.getQueryId(),
-                new HiveIdentity(session),
+                session,
                 table.getSchemaName(),
                 table.getTableName(),
                 Optional.empty(),

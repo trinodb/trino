@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.spi.connector.ConnectorSession;
 import org.apache.iceberg.TableOperations;
 
 import javax.inject.Inject;
@@ -38,7 +39,7 @@ public class HiveTableOperationsProvider
             HiveMetastore hiveMetastore,
             HdfsContext hdfsContext,
             String queryId,
-            HiveIdentity identity,
+            ConnectorSession session,
             String database,
             String table,
             Optional<String> owner,
@@ -47,7 +48,7 @@ public class HiveTableOperationsProvider
         return new HiveTableOperations(
                 fileIoProvider.createFileIo(hdfsContext, queryId),
                 hiveMetastore,
-                identity,
+                session,
                 database,
                 table,
                 owner,
