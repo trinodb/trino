@@ -479,6 +479,13 @@ public class MockThriftMetastoreClient
     }
 
     @Override
+    public void unlock(long lockId)
+            throws TException
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public String getValidWriteIds(List<String> tableList, long currentTransactionId)
     {
         throw new UnsupportedOperationException();
