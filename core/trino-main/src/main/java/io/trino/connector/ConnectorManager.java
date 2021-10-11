@@ -82,7 +82,6 @@ import static io.trino.connector.CatalogName.createInformationSchemaCatalogName;
 import static io.trino.connector.CatalogName.createSystemTablesCatalogName;
 import static io.trino.metadata.Catalog.SecurityManagement.CONNECTOR;
 import static io.trino.metadata.Catalog.SecurityManagement.SYSTEM;
-import static io.trino.metadata.TableProceduresPropertyManager.tableProcedureKey;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
