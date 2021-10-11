@@ -17,8 +17,10 @@ import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
+import io.trino.plugin.hive.metastore.thrift.ThriftMetastore;
 import io.trino.plugin.iceberg.catalog.AbstractMetastoreTableOperations;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.TableNotFoundException;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.exceptions.CommitFailedException;
 import org.apache.iceberg.io.FileIO;
@@ -29,14 +31,19 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
+import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiTable;
+import static java.util.Objects.requireNonNull;
 
 @NotThreadSafe
 public class HiveMetastoreTableOperations
         extends AbstractMetastoreTableOperations
 {
+    private final ThriftMetastore thriftMetastore;
+
     public HiveMetastoreTableOperations(
             FileIO fileIo,
             HiveMetastore metastore,
+            ThriftMetastore thriftMetastore,
             ConnectorSession session,
             String database,
             String table,
@@ -44,45 +51,57 @@ public class HiveMetastoreTableOperations
             Optional<String> location)
     {
         super(fileIo, metastore, session, database, table, owner, location);
+        this.thriftMetastore = requireNonNull(thriftMetastore, "thriftMetastore is null");
     }
 
     @Override
     protected void commitToExistingTable(TableMetadata base, TableMetadata metadata)
     {
         String newMetadataLocation = writeNewMetadata(metadata, version + 1);
-
-        // TODO: use metastore locking
-
-        Table table;
-        try {
-            Table currentTable = getTable();
-
-            checkState(currentMetadataLocation != null, "No current metadata location for existing table");
-            String metadataLocation = currentTable.getParameters().get(METADATA_LOCATION);
-            if (!currentMetadataLocation.equals(metadataLocation)) {
-                throw new CommitFailedException("Metadata location [%s] is not same as table metadata location [%s] for %s",
-                        currentMetadataLocation, metadataLocation, getSchemaTableName());
-            }
-
-            table = Table.builder(currentTable)
-                    .setDataColumns(toHiveColumns(metadata.schema().columns()))
-                    .withStorage(storage -> storage.setLocation(metadata.location()))
-                    .setParameter(METADATA_LOCATION, newMetadataLocation)
-                    .setParameter(PREVIOUS_METADATA_LOCATION, currentMetadataLocation)
-                    .build();
-        }
-        catch (RuntimeException e) {
-            try {
-                io().deleteFile(newMetadataLocation);
-            }
-            catch (RuntimeException ex) {
-                e.addSuppressed(ex);
-            }
-            throw e;
-        }
-
-        PrincipalPrivileges privileges = buildInitialPrivilegeSet(table.getOwner());
         HiveIdentity identity = new HiveIdentity(session);
-        metastore.replaceTable(identity, database, tableName, table, privileges);
+
+        long lockId = thriftMetastore.acquireTableExclusiveLock(
+                identity,
+                session.getQueryId(),
+                database,
+                tableName);
+        try {
+            Table table;
+            try {
+                Table currentTable = fromMetastoreApiTable(thriftMetastore.getTable(identity, database, tableName)
+                        .orElseThrow(() -> new TableNotFoundException(getSchemaTableName())));
+
+                checkState(currentMetadataLocation != null, "No current metadata location for existing table");
+                String metadataLocation = currentTable.getParameters().get(METADATA_LOCATION);
+                if (!currentMetadataLocation.equals(metadataLocation)) {
+                    throw new CommitFailedException("Metadata location [%s] is not same as table metadata location [%s] for %s",
+                            currentMetadataLocation, metadataLocation, getSchemaTableName());
+                }
+
+                table = Table.builder(currentTable)
+                        .setDataColumns(toHiveColumns(metadata.schema().columns()))
+                        .withStorage(storage -> storage.setLocation(metadata.location()))
+                        .setParameter(METADATA_LOCATION, newMetadataLocation)
+                        .setParameter(PREVIOUS_METADATA_LOCATION, currentMetadataLocation)
+                        .build();
+            }
+            catch (RuntimeException e) {
+                try {
+                    io().deleteFile(newMetadataLocation);
+                }
+                catch (RuntimeException ex) {
+                    e.addSuppressed(ex);
+                }
+                throw e;
+            }
+
+            PrincipalPrivileges privileges = buildInitialPrivilegeSet(table.getOwner());
+            metastore.replaceTable(identity, database, tableName, table, privileges);
+        }
+        finally {
+            thriftMetastore.releaseTableLock(identity, lockId);
+        }
+
+        shouldRefresh = true;
     }
 }
