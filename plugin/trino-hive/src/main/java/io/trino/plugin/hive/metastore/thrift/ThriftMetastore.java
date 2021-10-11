@@ -172,6 +172,16 @@ public interface ThriftMetastore
         throw new UnsupportedOperationException();
     }
 
+    default long acquireTableExclusiveLock(HiveIdentity identity, String queryId, String dbName, String tableName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default void releaseTableLock(HiveIdentity identity, long lockId)
+    {
+        throw new UnsupportedOperationException();
+    }
+
     default void updateTableWriteId(HiveIdentity identity, String dbName, String tableName, long transactionId, long writeId, OptionalLong rowCountChange)
     {
         throw new UnsupportedOperationException();
