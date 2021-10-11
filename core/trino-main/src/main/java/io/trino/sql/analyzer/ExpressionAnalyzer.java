@@ -1187,11 +1187,11 @@ public class ExpressionAnalyzer
                     coerceType(expression, actualType, expectedType, format("Function %s argument %d", function, i));
                 }
             }
-            accessControl.checkCanExecuteFunction(SecurityContext.of(session), node.getName().toString());
+            FunctionMetadata functionMetadata = metadata.getFunctionMetadata(function);
 
+            accessControl.checkCanExecuteFunction(SecurityContext.of(session), functionMetadata.getCanonicalName());
             resolvedFunctions.put(NodeRef.of(node), function);
 
-            FunctionMetadata functionMetadata = metadata.getFunctionMetadata(function);
             if (functionMetadata.isDeprecated()) {
                 warningCollector.add(new TrinoWarning(DEPRECATED_FUNCTION,
                         format("Use of deprecated function: %s: %s",

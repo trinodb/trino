@@ -125,6 +125,10 @@ public class TestAccessControl
         assertAccessAllowed("SHOW CREATE TABLE lineitem", privilege("orders", SHOW_CREATE_TABLE));
         assertAccessDenied("SELECT abs(1)", "Cannot execute function abs", privilege("abs", EXECUTE_FUNCTION));
         assertAccessAllowed("SELECT abs(1)", privilege("max", EXECUTE_FUNCTION));
+        // test an access to "every" function which is an alias of "bool_and"
+        assertAccessDenied("SELECT every(x) FROM (VALUES true, true, true) t(x)", "Cannot execute function bool_and", privilege("bool_and", EXECUTE_FUNCTION));
+        assertAccessDenied("SELECT bool_and(x) FROM (VALUES true, true, true) t(x)", "Cannot execute function bool_and", privilege("bool_and", EXECUTE_FUNCTION));
+        assertAccessAllowed("SELECT every(x) FROM (VALUES true, true, true) t(x)", privilege("max", EXECUTE_FUNCTION));
         assertAccessAllowed("SHOW STATS FOR lineitem");
         assertAccessAllowed("SHOW STATS FOR lineitem", privilege("orders", SELECT_COLUMN));
         assertAccessAllowed("SHOW STATS FOR (SELECT * FROM lineitem)");
