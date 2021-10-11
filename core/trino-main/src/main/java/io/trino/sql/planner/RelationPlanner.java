@@ -182,16 +182,6 @@ class RelationPlanner
     @Override
     protected RelationPlan visitTable(Table node, Void context)
     {
-        return processTable(node, Optional.empty());
-    }
-
-    public RelationPlan processTableWithHandle(Table node, TableHandle tableHandle)
-    {
-        return processTable(node, Optional.of(tableHandle));
-    }
-
-    private RelationPlan processTable(Table node, Optional<TableHandle> optionalTableHandle)
-    {
         // is this a recursive reference in expandable named query? If so, there's base relation already planned.
         RelationPlan expansion = recursiveSubqueries.get(NodeRef.of(node));
         if (expansion != null) {
@@ -200,7 +190,6 @@ class RelationPlanner
         }
 
         Query namedQuery = analysis.getNamedQuery(node);
-        checkArgument(optionalTableHandle.isEmpty() || namedQuery == null, "tableHandle cannot be passed for a namedQuery");
         Scope scope = analysis.getScope(node);
 
         RelationPlan plan;
@@ -227,7 +216,7 @@ class RelationPlanner
             plan = new RelationPlan(coerced.getNode(), scope, coerced.getFields(), outerContext);
         }
         else {
-            TableHandle handle = optionalTableHandle.orElseGet(() -> analysis.getTableHandle(node));
+            TableHandle handle = analysis.getTableHandle(node);
 
             ImmutableList.Builder<Symbol> outputSymbolsBuilder = ImmutableList.builder();
             ImmutableMap.Builder<Symbol, ColumnHandle> columns = ImmutableMap.builder();

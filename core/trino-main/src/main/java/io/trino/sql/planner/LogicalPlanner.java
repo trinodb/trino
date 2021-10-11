@@ -58,6 +58,7 @@ import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.RefreshMaterializedViewNode;
+import io.trino.sql.planner.plan.SimplePlanRewriter;
 import io.trino.sql.planner.plan.StatisticAggregations;
 import io.trino.sql.planner.plan.StatisticsWriterNode;
 import io.trino.sql.planner.plan.TableFinishNode;
@@ -105,6 +106,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -126,6 +128,7 @@ import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
+import static io.trino.sql.planner.PlanBuilder.newPlanBuilder;
 import static io.trino.sql.planner.QueryPlanner.visibleFields;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
@@ -734,6 +737,11 @@ public class LogicalPlanner
         return getRelationPlanner(analysis).process(query, null);
     }
 
+    private RelationPlan createRelationPlan(Analysis analysis, Table table)
+    {
+        return getRelationPlanner(analysis).process(table, null);
+    }
+
     private RelationPlanner getRelationPlanner(Analysis analysis)
     {
         return new RelationPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), metadata, Optional.empty(), session, ImmutableMap.of());
@@ -774,8 +782,8 @@ public class LogicalPlanner
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, table.getName());
         String procedureName = statement.getProcedureName().getCanonicalValue();
 
-        Optional<Constraint> constraint = getConstraintForTableExecute(analysis, statement);
-
+        RelationPlan tableScanPlan = createRelationPlan(analysis, table);
+        Optional<Constraint> constraint = getConstraintForTableExecute(analysis, statement, tableScanPlan);
         TableExecuteHandle executeHandle =
                 metadata.getTableHandleForExecute(
                                 session,
@@ -785,7 +793,10 @@ public class LogicalPlanner
                                 constraint.orElse(alwaysTrue()))
                         .orElseThrow(() -> semanticException(NOT_FOUND, statement, "Table '%s' does not exist", tableName));
 
-        RelationPlan tableScanPlan = getRelationPlanner(analysis).processTableWithHandle(table, executeHandle.getSourceTableHandle());
+        // replace TableHandle in TableScanNode to point to executeHandle.getSourceTableHandle()
+        TableHandleUpdater tableHandleUpdater = new TableHandleUpdater(executeHandle.getSourceTableHandle());
+        PlanNode executeTableScanRoot = SimplePlanRewriter.rewriteWith(tableHandleUpdater, tableScanPlan.getRoot());
+        checkState(tableHandleUpdater.wasHandleUpdated(), "TableScanNode was not found in plan");
 
         TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
         List<String> columnNames = tableMetadata.getColumns().stream()
@@ -797,7 +808,7 @@ public class LogicalPlanner
 
         return createTableWriterPlan(
                 analysis,
-                tableScanPlan.getRoot(),
+                executeTableScanRoot,
                 visibleFields(tableScanPlan),
                 new TableWriterNode.TableExecuteTarget(executeHandle, tableName.asSchemaTableName()),
                 columnNames,
@@ -806,35 +817,11 @@ public class LogicalPlanner
                 TableStatisticsMetadata.empty());
     }
 
-    private Optional<Constraint> getConstraintForTableExecute(Analysis analysis, TableExecute statement)
+    private Optional<Constraint> getConstraintForTableExecute(Analysis analysis, TableExecute statement, RelationPlan tableScanPlan)
     {
-        Table table = statement.getTable();
-        TableHandle tableHandle = analysis.getTableHandle(table);
-        Scope scope = analysis.getScope(table);
-
-        // prepare a temporary plan with just table scan for sake of rewriting filter expression to use Symbols
-        // TODO: find a simpler way
-        Map<Symbol, ColumnHandle> assignments = new HashMap<>();
-        List<Symbol> outputs = new ArrayList<>();
-        for (Field field : scope.getRelationType().getAllFields()) {
-            Symbol symbol = symbolAllocator.newSymbol(field);
-            assignments.put(symbol, analysis.getColumn(field));
-            outputs.add(symbol);
-        }
-        RelationPlan temporaryPlan = new RelationPlan(
-                TableScanNode.newInstance(
-                        idAllocator.getNextId(),
-                        tableHandle,
-                        outputs,
-                        assignments,
-                        false,
-                        Optional.empty()),
-                scope,
-                outputs,
-                Optional.empty());
-        PlanBuilder planBuilder = PlanBuilder.newPlanBuilder(temporaryPlan, analysis, ImmutableMap.of(), ImmutableMap.of());
-
         return statement.getWhere().map(predicate -> {
+            PlanBuilder planBuilder = newPlanBuilder(tableScanPlan, analysis, ImmutableMap.of(), ImmutableMap.of());
+
             // don't include non-deterministic predicates
             if (!TRUE_LITERAL.equals(filterNonDeterministicConjuncts(metadata, predicate))) {
                 throw new TrinoException(NOT_SUPPORTED, "cannot use non-deterministic predicate with ALTER TABLE ... EXECUTE");
@@ -854,7 +841,8 @@ public class LogicalPlanner
                 throw new TrinoException(NOT_SUPPORTED, "only predicates expressible as TupleDomain can be used with ALTER TABLE ... EXECUTE");
             }
 
-            return new Constraint(decomposedPredicate.getTupleDomain().transformKeys(assignments::get));
+            TableScanNode tableScanNode = (TableScanNode) tableScanPlan.getRoot();
+            return new Constraint(decomposedPredicate.getTupleDomain().transformKeys(tableScanNode.getAssignments()::get));
         });
     }
 
@@ -887,6 +875,31 @@ public class LogicalPlanner
         public int hashCode()
         {
             return Objects.hash(argument, type);
+        }
+    }
+
+    private static class TableHandleUpdater
+            extends SimplePlanRewriter<Void>
+    {
+        private final TableHandle newTableHandle;
+        private boolean handleUpdated;
+
+        public TableHandleUpdater(TableHandle newTableHandle)
+        {
+            this.newTableHandle = requireNonNull(newTableHandle, "newTableHandle is null");
+        }
+
+        public boolean wasHandleUpdated()
+        {
+            return handleUpdated;
+        }
+
+        @Override
+        public PlanNode visitTableScan(TableScanNode node, RewriteContext<Void> context)
+        {
+            checkArgument(!handleUpdated, "More than one TableScanNode found in plan");
+            handleUpdated = true;
+            return node.withTableHandle(newTableHandle);
         }
     }
 }
