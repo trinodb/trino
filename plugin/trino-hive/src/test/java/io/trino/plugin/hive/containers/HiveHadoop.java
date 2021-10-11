@@ -32,8 +32,6 @@ public class HiveHadoop
 
     public static final String HOST_NAME = "hadoop-master";
 
-    public static final int PROXY_PORT = 1180;
-    public static final int HIVE_SERVER_PORT = 10000;
     public static final int HIVE_METASTORE_PORT = 9083;
 
     public static Builder builder()
@@ -72,16 +70,6 @@ public class HiveHadoop
                         runCmd));
     }
 
-    public HostAndPort getMappedHdfsSocksProxy()
-    {
-        return getMappedHostAndPortForExposedPort(PROXY_PORT);
-    }
-
-    public HostAndPort getHiveServerEndpoint()
-    {
-        return getMappedHostAndPortForExposedPort(HIVE_SERVER_PORT);
-    }
-
     public HostAndPort getHiveMetastoreEndpoint()
     {
         return getMappedHostAndPortForExposedPort(HIVE_METASTORE_PORT);
@@ -94,10 +82,7 @@ public class HiveHadoop
         {
             this.image = DEFAULT_IMAGE;
             this.hostName = HOST_NAME;
-            this.exposePorts =
-                    ImmutableSet.of(
-                            HIVE_METASTORE_PORT,
-                            PROXY_PORT);
+            this.exposePorts = ImmutableSet.of(HIVE_METASTORE_PORT);
         }
 
         @Override
