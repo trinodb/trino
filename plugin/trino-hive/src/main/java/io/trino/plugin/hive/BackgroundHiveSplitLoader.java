@@ -657,7 +657,8 @@ public class BackgroundHiveSplitLoader
                     getMaxInitialSplitSize(session),
                     isForceLocalScheduling(session),
                     s3SelectPushdownEnabled,
-                    transaction, maxSplitFileSize);
+                    transaction,
+                    maxSplitFileSize);
             lastResult = addSplitsToSource(targetSplits, splitFactory);
             if (stopped) {
                 return COMPLETED_FUTURE;
@@ -713,7 +714,8 @@ public class BackgroundHiveSplitLoader
                 getMaxInitialSplitSize(session),
                 isForceLocalScheduling(session),
                 s3SelectPushdownEnabled,
-                transaction, maxSplitFileSize);
+                transaction,
+                maxSplitFileSize);
         return Optional.of(locatedFileStatuses.stream()
                 .map(locatedFileStatus -> splitFactory.createInternalHiveSplit(locatedFileStatus, OptionalInt.empty(), splittable, Optional.empty()))
                 .filter(Optional::isPresent)

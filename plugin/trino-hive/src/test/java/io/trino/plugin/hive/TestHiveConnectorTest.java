@@ -87,13 +87,14 @@ import java.util.StringJoiner;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.Sets.intersection;
 import static com.google.common.io.Files.asCharSink;
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -152,7 +153,9 @@ import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
+import static java.lang.String.join;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Collections.nCopies;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -7724,38 +7727,75 @@ public class TestHiveConnectorTest
                 "\\QIncorrect timestamp precision for timestamp(3); the configured precision is " + HiveTimestampPrecision.MICROSECONDS);
     }
 
-    @Test(invocationCount = 1000)
-    public void testCompactSmallFiles()
+    @Test
+    public void testOptimize()
     {
-        String tableName = "test_compact_small_files_" + randomTableSuffix();
+        String tableName = "test_optimize_" + randomTableSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation WITH NO DATA", 0);
 
-        for (int i = 0; i < 10; i++) {
-            assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.sf1.nation", 25);
-        }
-        assertQuery("SELECT COUNT(*) FROM " + tableName, "VALUES 250");
+        insertNationNTimes(tableName, 10);
+        assertNationNTimes(tableName, 10);
 
-        List<String> initialFiles = getTableFiles(tableName);
+        Set<String> initialFiles = getTableFiles(tableName);
         assertThat(initialFiles).hasSize(10);
 
-        assertUpdate("ALTER TABLE " + tableName + " EXECUTE compact_small_files WITH (file_size_threshold = 10000)");
-        assertQuery("SELECT COUNT(*) FROM " + tableName, "VALUES 250");
+        assertUpdate("ALTER TABLE " + tableName + " EXECUTE optimize WITH (file_size_threshold = '10kB')");
+        assertNationNTimes(tableName, 10);
 
-        List<String> compactedFiles = getTableFiles(tableName);
-        // we expect 3 files as that is write parallelism
-        assertThat(compactedFiles).hasSize(3);
-        assertThat(initialFiles).doesNotContain(compactedFiles.get(0));
+        Set<String> compactedFiles = getTableFiles(tableName);
+        // we expect at most 3 files due to write parallelism
+        assertThat(compactedFiles).hasSizeLessThanOrEqualTo(3);
+        assertThat(intersection(initialFiles, compactedFiles)).isEmpty();
 
         // compact with low threshold; nothing should change
-        assertUpdate("ALTER TABLE " + tableName + " EXECUTE compact_small_files WITH (file_size_threshold = 10)");
+        assertUpdate("ALTER TABLE " + tableName + " EXECUTE optimize WITH (file_size_threshold = '10B')");
+
         assertThat(getTableFiles(tableName)).hasSameElementsAs(compactedFiles);
     }
 
-    private List<String> getTableFiles(String tableName)
+    @Test
+    public void testOptimizeWithWriterScaling()
+    {
+        String tableName = "test_optimize_witer_scaling" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation WITH NO DATA", 0);
+
+        insertNationNTimes(tableName, 4);
+        assertNationNTimes(tableName, 4);
+
+        Set<String> initialFiles = getTableFiles(tableName);
+        assertThat(initialFiles).hasSize(4);
+
+        Session writerScalingSession = Session.builder(getSession())
+                .setSystemProperty("scale_writers", "true")
+                .setSystemProperty("writer_min_size", "100GB")
+                .build();
+
+        assertUpdate(writerScalingSession, "ALTER TABLE " + tableName + " EXECUTE optimize WITH (file_size_threshold = '10kB')");
+        assertNationNTimes(tableName, 4);
+
+        Set<String> compactedFiles = getTableFiles(tableName);
+        assertThat(compactedFiles).hasSize(1);
+        assertThat(intersection(initialFiles, compactedFiles)).isEmpty();
+    }
+
+    private void insertNationNTimes(String tableName, int times)
+    {
+        for (int i = 0; i < times; i++) {
+            assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.sf1.nation", 25);
+        }
+    }
+
+    private void assertNationNTimes(String tableName, int times)
+    {
+        String verifyQuery = join(" UNION ALL ", nCopies(times, "SELECT * FROM nation"));
+        assertQuery("SELECT * FROM " + tableName, verifyQuery);
+    }
+
+    private Set<String> getTableFiles(String tableName)
     {
         return computeActual("SELECT DISTINCT \"$path\" FROM " + tableName).getMaterializedRows().stream()
                 .map(row -> (String) row.getField(0))
-                .collect(Collectors.toList());
+                .collect(toImmutableSet());
     }
 
     @Test

@@ -41,9 +41,6 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.hive.HiveTableProcedures.COMPACT_SMALL_FILES;
-import static io.trino.spi.connector.TableProcedureExecutionMode.distributedWithFilteringAndRepartitioning;
-import static io.trino.spi.session.PropertyMetadata.longProperty;
 import static io.trino.spi.transaction.IsolationLevel.READ_UNCOMMITTED;
 import static io.trino.spi.transaction.IsolationLevel.checkConnectorSupports;
 import static java.util.Objects.requireNonNull;
@@ -59,6 +56,7 @@ public class HiveConnector
     private final ConnectorNodePartitioningProvider nodePartitioningProvider;
     private final Set<SystemTable> systemTables;
     private final Set<Procedure> procedures;
+    private final Set<TableProcedureMetadata> tableProcedures;
     private final Set<EventListener> eventListeners;
     private final List<PropertyMetadata<?>> sessionProperties;
     private final List<PropertyMetadata<?>> schemaProperties;
@@ -81,6 +79,7 @@ public class HiveConnector
             ConnectorNodePartitioningProvider nodePartitioningProvider,
             Set<SystemTable> systemTables,
             Set<Procedure> procedures,
+            Set<TableProcedureMetadata> tableProcedures,
             Set<EventListener> eventListeners,
             Set<SessionPropertiesProvider> sessionPropertiesProviders,
             List<PropertyMetadata<?>> schemaProperties,
@@ -99,6 +98,7 @@ public class HiveConnector
         this.nodePartitioningProvider = requireNonNull(nodePartitioningProvider, "nodePartitioningProvider is null");
         this.systemTables = ImmutableSet.copyOf(requireNonNull(systemTables, "systemTables is null"));
         this.procedures = ImmutableSet.copyOf(requireNonNull(procedures, "procedures is null"));
+        this.tableProcedures = ImmutableSet.copyOf(requireNonNull(tableProcedures, "tableProcedures is null"));
         this.eventListeners = ImmutableSet.copyOf(requireNonNull(eventListeners, "eventListeners is null"));
         this.sessionProperties = requireNonNull(sessionPropertiesProviders, "sessionPropertiesProviders is null").stream()
                 .flatMap(sessionPropertiesProvider -> sessionPropertiesProvider.getSessionProperties().stream())
@@ -249,15 +249,6 @@ public class HiveConnector
     @Override
     public Set<TableProcedureMetadata> getTableProcedures()
     {
-        return ImmutableSet.of(new TableProcedureMetadata(
-                COMPACT_SMALL_FILES,
-                distributedWithFilteringAndRepartitioning(),
-                ImmutableList.of(
-                        longProperty(
-                                "file_size_threshold",
-                                "Only compact files smaller than given threshold in bytes",
-                                100L * 1024 * 1024,
-                                v -> checkArgument(v > 0, "file_size_threshold must be greater than zero"),
-                                false))));
+        return tableProcedures;
     }
 }

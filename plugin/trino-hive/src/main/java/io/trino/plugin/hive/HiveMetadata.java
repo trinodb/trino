@@ -26,6 +26,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
+import io.airlift.units.DataSize;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.trino.plugin.hive.HiveApplyProjectionUtil.ProjectedColumnRepresentation;
@@ -45,6 +46,7 @@ import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.metastore.SortingColumn;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
+import io.trino.plugin.hive.procedure.OptimizeTableProcedure;
 import io.trino.plugin.hive.security.AccessControlMetadata;
 import io.trino.plugin.hive.statistics.HiveStatisticsProvider;
 import io.trino.plugin.hive.util.HiveBucketing;
@@ -189,7 +191,6 @@ import static io.trino.plugin.hive.HiveSessionProperties.isQueryPartitionFilterR
 import static io.trino.plugin.hive.HiveSessionProperties.isRespectTableFormat;
 import static io.trino.plugin.hive.HiveSessionProperties.isSortedWritingEnabled;
 import static io.trino.plugin.hive.HiveSessionProperties.isStatisticsEnabled;
-import static io.trino.plugin.hive.HiveTableProcedures.COMPACT_SMALL_FILES;
 import static io.trino.plugin.hive.HiveTableProperties.ANALYZE_COLUMNS_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.AVRO_SCHEMA_URL;
 import static io.trino.plugin.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
@@ -221,6 +222,7 @@ import static io.trino.plugin.hive.HiveTableProperties.getOrcBloomFilterFpp;
 import static io.trino.plugin.hive.HiveTableProperties.getPartitionedBy;
 import static io.trino.plugin.hive.HiveTableProperties.getSingleCharacterProperty;
 import static io.trino.plugin.hive.HiveTableProperties.isTransactional;
+import static io.trino.plugin.hive.HiveTimestampPrecision.NANOSECONDS;
 import static io.trino.plugin.hive.HiveType.HIVE_STRING;
 import static io.trino.plugin.hive.HiveType.toHiveType;
 import static io.trino.plugin.hive.HiveWriterFactory.computeBucketedFileName;
@@ -1898,22 +1900,23 @@ public class HiveMetadata
     @Override
     public Optional<ConnectorTableExecuteHandle> getTableHandleForExecute(ConnectorSession session, ConnectorTableHandle tableHandle, String procedureName, Map<String, Object> executeProperties, Constraint constraint)
     {
-        if (procedureName.equals(COMPACT_SMALL_FILES)) {
-            return getTableHandleForCompactSmallFiles(session, tableHandle, executeProperties, constraint);
+        if (procedureName.equals(OptimizeTableProcedure.NAME)) {
+            return getTableHandleForOptimize(session, tableHandle, executeProperties, constraint);
         }
-        throw new IllegalArgumentException("unknown procedure '" + procedureName + "'");
+        throw new IllegalArgumentException("Unknown procedure '" + procedureName + "'");
     }
 
-    private Optional<ConnectorTableExecuteHandle> getTableHandleForCompactSmallFiles(ConnectorSession session, ConnectorTableHandle tableHandle, Map<String, Object> executeProperties, Constraint constraint)
+    private Optional<ConnectorTableExecuteHandle> getTableHandleForOptimize(ConnectorSession session, ConnectorTableHandle tableHandle, Map<String, Object> executeProperties, Constraint constraint)
     {
         // TODO lots of that is copied from beginInsert; rafactoring opportunity
+
         HiveIdentity identity = new HiveIdentity(session);
         HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle;
         SchemaTableName tableName = hiveTableHandle.getSchemaTableName();
 
         if (constraint.predicate().isPresent() || !constraint.getSummary().isAll()) {
             // TODO: relax check to to allow constraints which filter out whole partitions
-            throw new TrinoException(NOT_SUPPORTED, format("Compacting small files for Hive table %s with non empty predicate is not supported", tableName));
+            throw new TrinoException(NOT_SUPPORTED, format("Optimizing Hive table %s with non empty predicate is not supported", tableName));
         }
 
         Table table = metastore.getTable(identity, tableName.getSchemaName(), tableName.getTableName())
@@ -1923,52 +1926,55 @@ public class HiveMetadata
 
         for (Column column : table.getDataColumns()) {
             if (!isWritableType(column.getType())) {
-                throw new TrinoException(NOT_SUPPORTED, format("Compacting small files for Hive table %s with column type %s not supported", tableName, column.getType()));
+                throw new TrinoException(NOT_SUPPORTED, format("Optimizing Hive table %s with column type %s not supported", tableName, column.getType()));
             }
         }
 
         if (isTransactionalTable(table.getParameters())) {
-            throw new TrinoException(NOT_SUPPORTED, format("Compacting small files for transactional Hive table %s is not supported", tableName));
+            throw new TrinoException(NOT_SUPPORTED, format("Optimizing transactional Hive table %s is not supported", tableName));
         }
 
         if (table.getStorage().getBucketProperty().isPresent()) {
-            throw new TrinoException(NOT_SUPPORTED, format("Compacting small files for bucketed Hive table %s is not supported", tableName));
+            throw new TrinoException(NOT_SUPPORTED, format("Optimizing bucketed Hive table %s is not supported", tableName));
         }
 
-        List<HiveColumnHandle> handles = hiveColumnHandles(table, typeManager, getTimestampPrecision(session)).stream()
+        // TODO forcing NANOSECONDS precision here so we do not loose data. In future we may be smarter; options:
+        //    - respect timestamp_precision but recognize situation when rounding occurs, and fail query
+        //    - detect data's precision and maintain it
+        List<HiveColumnHandle> columns = hiveColumnHandles(table, typeManager, NANOSECONDS).stream()
                 .filter(columnHandle -> !columnHandle.isHidden())
-                .collect(toList());
+                .collect(toImmutableList());
 
         HiveStorageFormat tableStorageFormat = extractHiveStorageFormat(table);
         Optional.ofNullable(table.getParameters().get(SKIP_HEADER_COUNT_KEY)).map(Integer::parseInt).ifPresent(headerSkipCount -> {
             if (headerSkipCount > 1) {
-                throw new TrinoException(NOT_SUPPORTED, format("Compacting small files for Hive table %s with value of %s property greater than 1 is not supported", tableName, SKIP_HEADER_COUNT_KEY));
+                throw new TrinoException(NOT_SUPPORTED, format("Optimizing Hive table %s with value of %s property greater than 1 is not supported", tableName, SKIP_HEADER_COUNT_KEY));
             }
         });
 
         if (table.getParameters().containsKey(SKIP_FOOTER_COUNT_KEY)) {
-            throw new TrinoException(NOT_SUPPORTED, format("Compacting small files for Hive table %s with %s property not supported", tableName, SKIP_FOOTER_COUNT_KEY));
+            throw new TrinoException(NOT_SUPPORTED, format("Optimizing Hive table %s with %s property not supported", tableName, SKIP_FOOTER_COUNT_KEY));
         }
         LocationHandle locationHandle = locationService.forExistingTable(metastore, session, table);
 
-        long fileSizeThreshold = (long) executeProperties.get("file_size_threshold");
+        DataSize fileSizeThreshold = (DataSize) executeProperties.get("file_size_threshold");
         HiveTableHandle newTableHandle = hiveTableHandle
                 .withRecordScannedFiles(true)
-                .withMaxScannedFileSize(Optional.of(fileSizeThreshold));
+                .withMaxScannedFileSize(Optional.of(fileSizeThreshold.toBytes()));
 
-        HiveTableExecuteHandle result = new HiveTableExecuteHandle(
-                COMPACT_SMALL_FILES,
+        return Optional.of(new HiveTableExecuteHandle(
+                OptimizeTableProcedure.NAME,
                 newTableHandle,
                 tableName.getSchemaName(),
                 tableName.getTableName(),
-                handles,
+                columns,
                 metastore.generatePageSinkMetadata(identity, tableName),
                 locationHandle,
                 table.getStorage().getBucketProperty(),
                 tableStorageFormat,
-                isRespectTableFormat(session) ? tableStorageFormat : getHiveStorageFormat(session),
-                NO_ACID_TRANSACTION);
-        return Optional.of(result);
+                // TODO: test with multiple partitions using different storage format
+                tableStorageFormat,
+                NO_ACID_TRANSACTION));
     }
 
     @Override
@@ -1976,13 +1982,13 @@ public class HiveMetadata
     {
         String procedureName = ((HiveTableExecuteHandle) tableExecuteHandle).getProcedureName();
 
-        if (procedureName.equals(COMPACT_SMALL_FILES)) {
-            return beginCompactSmallFiles(session, tableExecuteHandle);
+        if (procedureName.equals(OptimizeTableProcedure.NAME)) {
+            return beginOptimize(session, tableExecuteHandle);
         }
-        throw new IllegalArgumentException("unknown procedure '" + procedureName + "'");
+        throw new IllegalArgumentException("Unknown procedure '" + procedureName + "'");
     }
 
-    private ConnectorTableExecuteHandle beginCompactSmallFiles(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle)
+    private ConnectorTableExecuteHandle beginOptimize(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle)
     {
         HiveTableExecuteHandle hiveExecuteHandle = (HiveTableExecuteHandle) tableExecuteHandle;
         WriteInfo writeInfo = locationService.getQueryWriteInfo(hiveExecuteHandle.getLocationHandle());
@@ -1995,22 +2001,23 @@ public class HiveMetadata
     {
         String procedureName = ((HiveTableExecuteHandle) tableExecuteHandle).getProcedureName();
 
-        if (procedureName.equals(COMPACT_SMALL_FILES)) {
-            finishCompactSmallFiles(session, tableExecuteHandle, fragments, tableExecuteState);
+        if (procedureName.equals(OptimizeTableProcedure.NAME)) {
+            finishOptimize(session, tableExecuteHandle, fragments, tableExecuteState);
             return;
         }
-        throw new IllegalArgumentException("unknown procedure '" + procedureName + "'");
+        throw new IllegalArgumentException("Unknown procedure '" + procedureName + "'");
     }
 
-    private void finishCompactSmallFiles(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, Collection<Slice> fragments, List<Object> tableExecuteState)
+    private void finishOptimize(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, Collection<Slice> fragments, List<Object> tableExecuteState)
     {
         // TODO lots of that is copied from finishInsert; rafactoring opportunity
+
         HiveTableExecuteHandle handle = (HiveTableExecuteHandle) tableExecuteHandle;
 
         List<PartitionUpdate> partitionUpdates = fragments.stream()
                 .map(Slice::getBytes)
                 .map(partitionUpdateCodec::fromJson)
-                .collect(toList());
+                .collect(toImmutableList());
 
         HiveStorageFormat tableStorageFormat = handle.getTableStorageFormat();
         partitionUpdates = PartitionUpdate.mergePartitionUpdates(partitionUpdates);
@@ -2018,21 +2025,21 @@ public class HiveMetadata
         Table table = metastore.getTable(new HiveIdentity(session), handle.getSchemaName(), handle.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(handle.getSchemaTableName()));
         if (!table.getStorage().getStorageFormat().getInputFormat().equals(tableStorageFormat.getInputFormat()) && isRespectTableFormat(session)) {
-            throw new TrinoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, "Table format changed during insert");
+            throw new TrinoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, "Table format changed during optimize");
         }
 
-        verify(handle.getBucketProperty().isEmpty());
+        // Support for bucketed tables disabled mostly so we do not need to think about grouped execution in intial version. Possibly no change apart from testing required.
+        verify(handle.getBucketProperty().isEmpty(), "bucketed table not supported");
 
         for (PartitionUpdate partitionUpdate : partitionUpdates) {
-            verify(partitionUpdate.getUpdateMode() == APPEND);
+            verify(partitionUpdate.getUpdateMode() == APPEND, "Expected partionUpdate mode to be APPEND but got %s", partitionUpdate.getUpdateMode());
 
             if (partitionUpdate.getName().isEmpty()) {
                 // operating on an unpartitioned table
                 if (!table.getStorage().getStorageFormat().getInputFormat().equals(handle.getPartitionStorageFormat().getInputFormat()) && isRespectTableFormat(session)) {
-                    throw new TrinoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, "Table format changed during insert");
+                    throw new TrinoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, "Table format changed during optimize");
                 }
 
-                // insert into unpartitioned table
                 metastore.finishInsertIntoExistingTable(
                         session,
                         handle.getSchemaName(),
@@ -2042,7 +2049,7 @@ public class HiveMetadata
                         PartitionStatistics.empty());
             }
             else {
-                // insert into existing partition
+                // operating on a partition
                 List<String> partitionValues = toPartitionValues(partitionUpdate.getName());
                 metastore.finishInsertIntoExistingPartition(
                         session,
