@@ -65,6 +65,7 @@ public class TestIcebergV2
 {
     private HiveMetastore metastore;
     private HdfsEnvironment hdfsEnvironment;
+    private java.nio.file.Path tempDir;
     private File metastoreDir;
 
     @Override
@@ -75,8 +76,8 @@ public class TestIcebergV2
         HdfsConfiguration configuration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(config), ImmutableSet.of());
         hdfsEnvironment = new HdfsEnvironment(configuration, config, new NoHdfsAuthentication());
 
-        File tempDir = Files.createTempDirectory("test_iceberg_v2").toFile();
-        metastoreDir = new File(tempDir, "iceberg_data");
+        tempDir = Files.createTempDirectory("test_iceberg_v2");
+        metastoreDir = tempDir.resolve("iceberg_data").toFile();
         metastore = createTestingFileHiveMetastore(metastoreDir);
 
         return createIcebergQueryRunner(ImmutableMap.of(), ImmutableMap.of(), ImmutableList.of(NATION), Optional.of(metastoreDir));
@@ -86,7 +87,7 @@ public class TestIcebergV2
     public void tearDown()
             throws IOException
     {
-        deleteRecursively(metastoreDir.getParentFile().toPath(), ALLOW_INSECURE);
+        deleteRecursively(tempDir, ALLOW_INSECURE);
     }
 
     @Test
