@@ -98,6 +98,9 @@ public class RenameMaterializedViewTask
         if (!materializedViewName.getCatalogName().equals(target.getCatalogName())) {
             throw semanticException(NOT_SUPPORTED, statement, "Materialized View rename across catalogs is not supported");
         }
+        if (!materializedViewName.getSchemaName().equals(target.getSchemaName())) {
+            throw semanticException(NOT_SUPPORTED, statement, "Materialized View rename across schemas is not supported");
+        }
 
         accessControl.checkCanRenameMaterializedView(session.toSecurityContext(), materializedViewName, target);
 

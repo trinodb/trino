@@ -23,6 +23,7 @@ import io.trino.sql.tree.RenameMaterializedView;
 import org.testng.annotations.Test;
 
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
@@ -131,6 +132,19 @@ public class TestRenameMaterializedViewTask
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeRenameMaterializedView(asQualifiedName(materializedViewName), viewName)))
                 .hasErrorCode(TABLE_ALREADY_EXISTS)
                 .hasMessage("Target materialized view '%s' does not exist, but a view with that name exists.", viewName);
+    }
+
+    @Test
+    public void testRenameAcrossSchemasFails()
+    {
+        QualifiedObjectName materializedViewName = qualifiedObjectName("existing_materialized_view");
+        metadata.createMaterializedView(testSession, materializedViewName, someMaterializedView(), false, false);
+
+        assertTrinoExceptionThrownBy(() -> getFutureValue(executeRenameMaterializedView(
+                asQualifiedName(materializedViewName),
+                QualifiedName.of(CATALOG_NAME, "other_schema", "existing_materialized_view"))))
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("Materialized View rename across schemas is not supported");
     }
 
     private ListenableFuture<Void> executeRenameMaterializedView(QualifiedName source, QualifiedName target)
