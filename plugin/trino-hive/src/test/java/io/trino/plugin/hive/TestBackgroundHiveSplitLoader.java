@@ -875,7 +875,8 @@ public class TestBackgroundHiveSplitLoader
                 TableToPartitionMapping.empty(),
                 new Path("hdfs://VOL1:9000/db_name/table_name"),
                 paths,
-                true);
+                true,
+                null);
         assertTrue(splitIterator.isPresent());
         List<InternalHiveSplit> splits = ImmutableList.copyOf(splitIterator.get());
         assertEquals(splits.size(), 2);
@@ -913,7 +914,8 @@ public class TestBackgroundHiveSplitLoader
                 TableToPartitionMapping.empty(),
                 new Path("hdfs://VOL1:9000/db_name/table_name"),
                 paths,
-                false);
+                false,
+                null);
         assertTrue(splitIterator.isEmpty());
     }
 

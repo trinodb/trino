@@ -49,6 +49,7 @@ import static io.trino.plugin.hive.HiveType.HIVE_TIMESTAMP;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.testing.MaterializedResult.materializeSourceDataStream;
+import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -106,6 +107,7 @@ public class TestTimestampMicros
         HivePageSourceFactory pageSourceFactory = StandardFileFormats.TRINO_PARQUET.getHivePageSourceFactory(HDFS_ENVIRONMENT).orElseThrow();
 
         Properties schema = new Properties();
+        schema.setProperty(FILE_INPUT_FORMAT, HiveStorageFormat.PARQUET.getInputFormat());
         schema.setProperty(SERIALIZATION_LIB, HiveStorageFormat.PARQUET.getSerDe());
 
         ReaderPageSource pageSourceWithProjections = pageSourceFactory.createPageSource(

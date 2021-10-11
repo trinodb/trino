@@ -49,6 +49,7 @@ import org.apache.hadoop.hive.serde2.objectinspector.primitive.LongObjectInspect
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.ShortObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.StringObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.TimestampObjectInspector;
+import org.apache.hadoop.io.LongWritable;
 import org.joda.time.DateTimeZone;
 
 import java.util.List;
@@ -334,6 +335,11 @@ public final class SerDeUtils
         if (object instanceof TimestampWritable) {
             TimestampWritable timestamp = (TimestampWritable) object;
             epochSecond = timestamp.getSeconds();
+            nanoOfSecond = timestamp.getNanos();
+        }
+        else if (object instanceof LongWritable) {
+            java.sql.Timestamp timestamp = new java.sql.Timestamp(((LongWritable) object).get() / 1000);
+            epochSecond = timestamp.getTime() / 1000;
             nanoOfSecond = timestamp.getNanos();
         }
         else {
