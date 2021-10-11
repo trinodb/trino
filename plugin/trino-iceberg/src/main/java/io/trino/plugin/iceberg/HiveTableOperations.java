@@ -23,7 +23,6 @@ import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
-import io.trino.spi.security.ConnectorIdentity;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe;
 import org.apache.hadoop.mapred.FileInputFormat;
@@ -221,13 +220,11 @@ public class HiveTableOperations
         }
 
         PrincipalPrivileges privileges = buildInitialPrivilegeSet(table.getOwner());
-        ConnectorIdentity identity = ConnectorIdentity.ofUser(table.getOwner());
-        HiveIdentity context = new HiveIdentity(identity);
         if (base == null) {
-            metastore.createTable(context, table, privileges);
+            metastore.createTable(identity, table, privileges);
         }
         else {
-            metastore.replaceTable(context, database, tableName, table, privileges);
+            metastore.replaceTable(identity, database, tableName, table, privileges);
         }
 
         shouldRefresh = true;
