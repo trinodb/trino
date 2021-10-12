@@ -69,6 +69,7 @@ public class InternalHiveSplitFactory
     private final Optional<BucketConversion> bucketConversion;
     private final Optional<HiveSplit.BucketValidation> bucketValidation;
     private final long minimumTargetSplitSizeInBytes;
+    private final Optional<Long> maxSplitFileSize;
     private final boolean forceLocalScheduling;
     private final boolean s3SelectPushdownEnabled;
     private final Map<Integer, AtomicInteger> bucketStatementCounters = new ConcurrentHashMap<>();
@@ -87,7 +88,8 @@ public class InternalHiveSplitFactory
             DataSize minimumTargetSplitSize,
             boolean forceLocalScheduling,
             boolean s3SelectPushdownEnabled,
-            AcidTransaction transaction)
+            AcidTransaction transaction,
+            Optional<Long> maxSplitFileSize)
     {
         this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
         this.partitionName = requireNonNull(partitionName, "partitionName is null");
@@ -102,6 +104,7 @@ public class InternalHiveSplitFactory
         this.forceLocalScheduling = forceLocalScheduling;
         this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
         this.minimumTargetSplitSizeInBytes = requireNonNull(minimumTargetSplitSize, "minimumTargetSplitSize is null").toBytes();
+        this.maxSplitFileSize = requireNonNull(maxSplitFileSize, "maxSplitFileSize is null");
         checkArgument(minimumTargetSplitSizeInBytes > 0, "minimumTargetSplitSize must be > 0, found: %s", minimumTargetSplitSize);
     }
 
@@ -163,6 +166,10 @@ public class InternalHiveSplitFactory
         // Dynamic filter may not have been ready when partition was loaded in BackgroundHiveSplitLoader,
         // but it might be ready when splits are enumerated lazily.
         if (!partitionMatchSupplier.getAsBoolean()) {
+            return Optional.empty();
+        }
+
+        if (maxSplitFileSize.isPresent() && estimatedFileSize > maxSplitFileSize.get()) {
             return Optional.empty();
         }
 

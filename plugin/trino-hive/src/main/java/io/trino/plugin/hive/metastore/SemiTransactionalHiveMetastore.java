@@ -142,6 +142,8 @@ public class SemiTransactionalHiveMetastore
     @GuardedBy("this")
     private final Map<SchemaTableName, Map<List<String>, Action<PartitionAndMore>>> partitionActions = new HashMap<>();
     @GuardedBy("this")
+    private long declaredIntentionsToWriteCounter;
+    @GuardedBy("this")
     private final List<DeclaredIntentionToWrite> declaredIntentionsToWrite = new ArrayList<>();
     @GuardedBy("this")
     private ExclusiveOperation bufferedExclusiveOperation;
@@ -1138,7 +1140,7 @@ public class SemiTransactionalHiveMetastore
         setExclusive((delegate, hdfsEnvironment) -> delegate.revokeTablePrivileges(databaseName, tableName, getTableOwner(identity, databaseName, tableName), grantee, privileges));
     }
 
-    public synchronized void declareIntentionToWrite(ConnectorSession session, WriteMode writeMode, Path stagingPathRoot, SchemaTableName schemaTableName)
+    public synchronized String declareIntentionToWrite(ConnectorSession session, WriteMode writeMode, Path stagingPathRoot, SchemaTableName schemaTableName)
     {
         setShared();
         if (writeMode == WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY) {
@@ -1149,7 +1151,19 @@ public class SemiTransactionalHiveMetastore
         }
         HdfsContext hdfsContext = new HdfsContext(session);
         HiveIdentity identity = new HiveIdentity(session);
-        declaredIntentionsToWrite.add(new DeclaredIntentionToWrite(writeMode, hdfsContext, identity, session.getQueryId(), stagingPathRoot, schemaTableName));
+        String queryId = session.getQueryId();
+        String declarationId = queryId + "_" + declaredIntentionsToWriteCounter;
+        declaredIntentionsToWriteCounter++;
+        declaredIntentionsToWrite.add(new DeclaredIntentionToWrite(declarationId, writeMode, hdfsContext, identity, queryId, stagingPathRoot, schemaTableName));
+        return declarationId;
+    }
+
+    public synchronized void dropDeclaredIntentionToWrite(String declarationId)
+    {
+        boolean removed = declaredIntentionsToWrite.removeIf(intention -> intention.getDeclarationId().equals(declarationId));
+        if (!removed) {
+            throw new IllegalArgumentException("Declaration with id " + declarationId + " not found");
+        }
     }
 
     public boolean isFinished()
@@ -2865,6 +2879,7 @@ public class SemiTransactionalHiveMetastore
 
     private static class DeclaredIntentionToWrite
     {
+        private final String declarationId;
         private final WriteMode mode;
         private final HdfsContext hdfsContext;
         private final HiveIdentity identity;
@@ -2872,14 +2887,20 @@ public class SemiTransactionalHiveMetastore
         private final Path rootPath;
         private final SchemaTableName schemaTableName;
 
-        public DeclaredIntentionToWrite(WriteMode mode, HdfsContext hdfsContext, HiveIdentity identity, String queryId, Path stagingPathRoot, SchemaTableName schemaTableName)
+        public DeclaredIntentionToWrite(String declarationId, WriteMode mode, HdfsContext hdfsContext, HiveIdentity identity, String queryId, Path stagingPathRoot, SchemaTableName schemaTableName)
         {
+            this.declarationId = requireNonNull(declarationId, "declarationId is null");
             this.mode = requireNonNull(mode, "mode is null");
             this.hdfsContext = requireNonNull(hdfsContext, "hdfsContext is null");
             this.identity = requireNonNull(identity, "identity is null");
             this.queryId = requireNonNull(queryId, "queryId is null");
             this.rootPath = requireNonNull(stagingPathRoot, "stagingPathRoot is null");
             this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
+        }
+
+        public String getDeclarationId()
+        {
+            return declarationId;
         }
 
         public WriteMode getMode()

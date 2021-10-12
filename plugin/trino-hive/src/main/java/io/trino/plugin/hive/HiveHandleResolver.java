@@ -19,6 +19,7 @@ import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.connector.ConnectorTableExecuteHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 
@@ -53,6 +54,12 @@ public class HiveHandleResolver
     public Class<? extends ConnectorInsertTableHandle> getInsertTableHandleClass()
     {
         return HiveInsertTableHandle.class;
+    }
+
+    @Override
+    public Class<? extends ConnectorTableExecuteHandle> getTableExecuteHandleClass()
+    {
+        return HiveTableExecuteHandle.class;
     }
 
     @Override
