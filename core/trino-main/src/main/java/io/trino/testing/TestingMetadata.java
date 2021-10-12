@@ -240,6 +240,17 @@ public class TestingMetadata
     }
 
     @Override
+    public void renameMaterializedView(ConnectorSession session, SchemaTableName source, SchemaTableName target)
+    {
+        // TODO: use locking to do this properly
+        ConnectorMaterializedViewDefinition materializedView = getMaterializedView(session, source).orElseThrow();
+        if (materializedViews.putIfAbsent(target, materializedView) != null) {
+            throw new IllegalArgumentException("Target materialized view already exists: " + target);
+        }
+        materializedViews.remove(source, materializedView);
+    }
+
+    @Override
     public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
     {
         return Optional.ofNullable(materializedViews.get(viewName));
