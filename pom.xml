@@ -1701,35 +1701,45 @@
                         <artifactId>maven-compiler-plugin</artifactId>
                         <!--suppress MavenModelInspection -->
                         <configuration combine.children="merge">
+                            <!-- forking required for JDK 16: https://errorprone.info/docs/installation -->
+                            <fork>true</fork>
                             <compilerArgs>
                                 <arg>-XDcompilePolicy=simple</arg>
                                 <arg>
-                                    -Xplugin:ErrorProne
+                                    -Xplugin:ErrorProne \
+                                    <!-- -Xep:ReferenceEquality:OFF fails in IDEA --> \
+                                    <!-- -Xep:BoxedPrimitiveEquality:OFF fails in IDEA --> \
+                                    -Xep:GuardedBy:OFF <!-- needs some careful inspection --> \
+                                    -Xep:HashtableContains:OFF <!-- https://github.com/trinodb/trino/pull/7001 --> \
+                                    -Xep:BadInstanceof:ERROR \
+                                    -Xep:BoxedPrimitiveConstructor:ERROR \
+                                    -Xep:ClassCanBeStatic:ERROR \
+                                    -Xep:CompareToZero:ERROR \
+                                    -Xep:EqualsIncompatibleType:ERROR \
+                                    -Xep:FallThrough:ERROR \
+                                    -Xep:ImmutableSetForContains:ERROR \
+                                    -Xep:InconsistentHashCode:ERROR \
+                                    -Xep:InjectOnConstructorOfAbstractClass:ERROR \
+                                    -Xep:MissingCasesInEnumSwitch:ERROR \
+                                    -Xep:MissingOverride:ERROR \
+                                    -Xep:NullOptional:ERROR \
+                                    -Xep:ObjectToString:ERROR \
+                                    -Xep:UnnecessaryMethodReference:ERROR \
+                                    -Xep:UnnecessaryOptionalGet:ERROR \
+                                    -Xep:UnusedVariable:ERROR \
+                                    -Xep:UseEnumSwitch:ERROR \
                                     -XepExcludedPaths:.*/target/generated-(|test-)sources/.*
-
-                                    <!-- -Xep:ReferenceEquality:OFF fails in IDEA -->
-                                    <!-- -Xep:BoxedPrimitiveEquality:OFF fails in IDEA -->
-                                    -Xep:GuardedBy:OFF <!-- needs some careful inspection -->
-                                    -Xep:HashtableContains:OFF <!-- https://github.com/trinodb/trino/pull/7001 -->
-
-                                    -Xep:BadInstanceof:ERROR
-                                    -Xep:BoxedPrimitiveConstructor:ERROR
-                                    -Xep:ClassCanBeStatic:ERROR
-                                    -Xep:CompareToZero:ERROR
-                                    -Xep:EqualsIncompatibleType:ERROR
-                                    -Xep:FallThrough:ERROR
-                                    -Xep:ImmutableSetForContains:ERROR
-                                    -Xep:InconsistentHashCode:ERROR
-                                    -Xep:InjectOnConstructorOfAbstractClass:ERROR
-                                    -Xep:MissingCasesInEnumSwitch:ERROR
-                                    -Xep:MissingOverride:ERROR
-                                    -Xep:NullOptional:ERROR
-                                    -Xep:ObjectToString:ERROR
-                                    -Xep:UnnecessaryMethodReference:ERROR
-                                    -Xep:UnnecessaryOptionalGet:ERROR
-                                    -Xep:UnusedVariable:ERROR
-                                    -Xep:UseEnumSwitch:ERROR
                                 </arg>
+                                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED</arg>
+                                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED</arg>
+                                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED</arg>
+                                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED</arg>
+                                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED</arg>
+                                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED</arg>
+                                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED</arg>
+                                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED</arg>
+                                <arg>-J--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED</arg>
+                                <arg>-J--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED</arg>
                             </compilerArgs>
                             <annotationProcessorPaths>
                                 <path>
