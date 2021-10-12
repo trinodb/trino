@@ -522,19 +522,17 @@ public abstract class BaseIcebergConnectorTest
         }
         else {
             assertThat(query(format("SELECT row_count, file_count, _timestamptz FROM \"%s$partitions\"", tableName)))
-                    .matches(format == ORC
-                            ? "VALUES (BIGINT '3', BIGINT '3', CAST(NULL AS row(min timestamp(6) with time zone, max timestamp(6) with time zone, null_count bigint)))"
-                            : format(
+                    .matches(format(
                             "VALUES (BIGINT '3', BIGINT '3', CAST(ROW(%s, %s, 0) AS row(min timestamp(6) with time zone, max timestamp(6) with time zone, null_count bigint)))",
                             instant1Utc,
-                            instant3Utc));
+                            format == ORC ? "TIMESTAMP '2021-10-31 00:30:00.007999 UTC'" : instant3Utc));
         }
 
         // show stats
         assertThat(query("SHOW STATS FOR " + tableName))
                 .skippingTypesCheck()
                 .matches("VALUES " +
-                        "('_timestamptz', NULL, NULL, " + (format == ORC ? "NULL, NULL, NULL, NULL" : "0e0, NULL, '2021-10-31 00:30:00.005 UTC', '2021-10-31 00:30:00.007 UTC'") + "), " +
+                        "('_timestamptz', NULL, NULL, 0e0, NULL, '2021-10-31 00:30:00.005 UTC', '2021-10-31 00:30:00.007 UTC'), " +
                         "(NULL, NULL, NULL, NULL, 3e0, NULL, NULL)");
 
         if (partitioned) {
@@ -543,7 +541,7 @@ public abstract class BaseIcebergConnectorTest
                     .skippingTypesCheck()
                     .matches("VALUES " +
                             // TODO (https://github.com/trinodb/trino/issues/9716) the min/max values are off by 1 millisecond
-                            "('_timestamptz', NULL, NULL, " + (format == ORC ? "NULL, NULL, NULL, NULL" : "0e0, NULL, '2021-10-31 00:30:00.005 UTC', '2021-10-31 00:30:00.005 UTC'") + "), " +
+                            "('_timestamptz', NULL, NULL, 0e0, NULL, '2021-10-31 00:30:00.005 UTC', '2021-10-31 00:30:00.005 UTC'), " +
                             "(NULL, NULL, NULL, NULL, 1e0, NULL, NULL)");
         }
         else {
@@ -735,8 +733,8 @@ public abstract class BaseIcebergConnectorTest
                                     "  ('a_varbinary', NULL, NULL, NULL, NULL, NULL), " +
                                     "  ('a_date', NULL, NULL, NULL, '2021-07-24', '2021-07-24'), " +
                                     "  ('a_time', NULL, NULL, NULL, NULL, NULL), " +
-                                    "  ('a_timestamp', NULL, NULL, NULL, NULL, NULL), " +
-                                    "  ('a_timestamptz', NULL, NULL, NULL, NULL, NULL), " +
+                                    "  ('a_timestamp', NULL, NULL, NULL, '2021-07-24 03:43:57.987000', '2021-07-24 03:43:57.987999'), " +
+                                    "  ('a_timestamptz', NULL, NULL, NULL, '2021-07-24 04:43:57.987 UTC', '2021-07-24 04:43:57.987 UTC'), " +
                                     "  ('a_uuid', NULL, NULL, NULL, NULL, NULL), " +
                                     "  ('a_row', NULL, NULL, NULL, NULL, NULL), " +
                                     "  ('an_array', NULL, NULL, NULL, NULL, NULL), " +
@@ -756,8 +754,8 @@ public abstract class BaseIcebergConnectorTest
                                     "  ('a_varbinary', NULL, 0e0, NULL, NULL, NULL), " +
                                     "  ('a_date', NULL, 0e0, NULL, '2021-07-24', '2021-07-24'), " +
                                     "  ('a_time', NULL, 0e0, NULL, NULL, NULL), " +
-                                    "  ('a_timestamp', NULL, 0e0, NULL, NULL, NULL), " +
-                                    "  ('a_timestamptz', NULL, 0e0, NULL, NULL, NULL), " +
+                                    "  ('a_timestamp', NULL, 0e0, NULL, '2021-07-24 03:43:57.987000', '2021-07-24 03:43:57.987999'), " +
+                                    "  ('a_timestamptz', NULL, 0e0, NULL, '2021-07-24 04:43:57.987 UTC', '2021-07-24 04:43:57.987 UTC'), " +
                                     "  ('a_uuid', NULL, 0e0, NULL, NULL, NULL), " +
                                     "  ('a_row', NULL, 0e0, NULL, NULL, NULL), " +
                                     "  ('an_array', NULL, 0e0, NULL, NULL, NULL), " +
@@ -1173,14 +1171,16 @@ public abstract class BaseIcebergConnectorTest
                 "(394474, 3, TIMESTAMP '2015-01-01 10:01:23.123456', TIMESTAMP '2015-01-01 10:55:00.456789', 1, 3), " +
                 "(397692, 2, TIMESTAMP '2015-05-15 12:05:01.234567', TIMESTAMP '2015-05-15 12:21:02.345678', 4, 5), " +
                 "(439525, 2, TIMESTAMP '2020-02-21 13:11:11.876543', TIMESTAMP '2020-02-21 13:12:12.654321', 6, 7)";
+        String expectedTimestampStats = "'1969-12-31 22:22:22.222222', '2020-02-21 13:12:12.654321'";
         if (format == ORC) {
             expected = "VALUES " +
-                    "(-2, 1, NULL, NULL, 8, 8), " +
-                    "(-1, 2, NULL, NULL, 9, 10), " +
-                    "(0, 1, NULL, NULL, 11, 11), " +
-                    "(394474, 3, NULL, NULL, 1, 3), " +
-                    "(397692, 2, NULL, NULL, 4, 5), " +
-                    "(439525, 2, NULL, NULL, 6, 7)";
+                    "(-2, 1, TIMESTAMP '1969-12-31 22:22:22.222000', TIMESTAMP '1969-12-31 22:22:22.222999', 8, 8), " +
+                    "(-1, 2, TIMESTAMP '1969-12-31 23:33:11.456000', TIMESTAMP '1969-12-31 23:44:55.567999', 9, 10), " +
+                    "(0, 1, TIMESTAMP '1970-01-01 00:55:44.765000', TIMESTAMP '1970-01-01 00:55:44.765999', 11, 11), " +
+                    "(394474, 3, TIMESTAMP '2015-01-01 10:01:23.123000', TIMESTAMP '2015-01-01 10:55:00.456999', 1, 3), " +
+                    "(397692, 2, TIMESTAMP '2015-05-15 12:05:01.234000', TIMESTAMP '2015-05-15 12:21:02.345999', 4, 5), " +
+                    "(439525, 2, TIMESTAMP '2020-02-21 13:11:11.876000', TIMESTAMP '2020-02-21 13:12:12.654999', 6, 7)";
+            expectedTimestampStats = "'1969-12-31 22:22:22.222000', '2020-02-21 13:12:12.654999'";
         }
 
         assertQuery("SELECT d_hour, row_count, d.min, d.max, b.min, b.max FROM \"test_hour_transform$partitions\"", expected);
@@ -1194,7 +1194,7 @@ public abstract class BaseIcebergConnectorTest
                 .projected(0, 2, 3, 4, 5, 6) // ignore data size which is available for Parquet, but not for ORC
                 .skippingTypesCheck()
                 .matches("VALUES " +
-                        "  ('d', NULL, 0e0, NULL, " + (format == ORC ? "NULL, NULL" : "'1969-12-31 22:22:22.222222', '2020-02-21 13:12:12.654321'") + "), " +
+                        "  ('d', NULL, 0e0, NULL, " + expectedTimestampStats + "), " +
                         "  ('b', NULL, 0e0, NULL, '1', '11'), " +
                         "  (NULL, NULL, NULL, 11e0, NULL, NULL)");
 
@@ -1278,16 +1278,18 @@ public abstract class BaseIcebergConnectorTest
                 "(DATE '2015-01-01', 3, TIMESTAMP '2015-01-01 10:01:23.123456', TIMESTAMP '2015-01-01 12:55:00.456789', 1, 3), " +
                 "(DATE '2015-05-15', 2, TIMESTAMP '2015-05-15 13:05:01.234567', TIMESTAMP '2015-05-15 14:21:02.345678', 4, 5), " +
                 "(DATE '2020-02-21', 2, TIMESTAMP '2020-02-21 15:11:11.876543', TIMESTAMP '2020-02-21 16:12:12.654321', 6, 7)";
+        String expectedTimestampStats = "'1969-12-25 15:13:12.876543', '2020-02-21 16:12:12.654321'";
+
         if (format == ORC) {
-            // Parquet has min/max for timestamps but ORC does not.
             expected = "VALUES " +
-                    "(DATE '1969-12-25', 1, NULL, NULL, 8, 8), " +
-                    "(DATE '1969-12-30', 1, NULL, NULL, 9, 9), " +
-                    "(DATE '1969-12-31', 2, NULL, NULL, 10, 11), " +
-                    "(DATE '1970-01-01', 1, NULL, NULL, 12, 12), " +
-                    "(DATE '2015-01-01', 3, NULL, NULL, 1, 3), " +
-                    "(DATE '2015-05-15', 2, NULL, NULL, 4, 5), " +
-                    "(DATE '2020-02-21', 2, NULL, NULL, 6, 7)";
+                    "(DATE '1969-12-25', 1, TIMESTAMP '1969-12-25 15:13:12.876000', TIMESTAMP '1969-12-25 15:13:12.876999', 8, 8), " +
+                    "(DATE '1969-12-30', 1, TIMESTAMP '1969-12-30 18:47:33.345000', TIMESTAMP '1969-12-30 18:47:33.345999', 9, 9), " +
+                    "(DATE '1969-12-31', 2, TIMESTAMP '1969-12-31 00:00:00.000000', TIMESTAMP '1969-12-31 05:06:07.234999', 10, 11), " +
+                    "(DATE '1970-01-01', 1, TIMESTAMP '1970-01-01 12:03:08.456000', TIMESTAMP '1970-01-01 12:03:08.456999', 12, 12), " +
+                    "(DATE '2015-01-01', 3, TIMESTAMP '2015-01-01 10:01:23.123000', TIMESTAMP '2015-01-01 12:55:00.456999', 1, 3), " +
+                    "(DATE '2015-05-15', 2, TIMESTAMP '2015-05-15 13:05:01.234000', TIMESTAMP '2015-05-15 14:21:02.345999', 4, 5), " +
+                    "(DATE '2020-02-21', 2, TIMESTAMP '2020-02-21 15:11:11.876000', TIMESTAMP '2020-02-21 16:12:12.654999', 6, 7)";
+            expectedTimestampStats = "'1969-12-25 15:13:12.876000', '2020-02-21 16:12:12.654999'";
         }
 
         assertQuery("SELECT d_day, row_count, d.min, d.max, b.min, b.max FROM \"test_day_transform_timestamp$partitions\"", expected);
@@ -1301,7 +1303,7 @@ public abstract class BaseIcebergConnectorTest
                 .projected(0, 2, 3, 4, 5, 6) // ignore data size which is available for Parquet, but not for ORC
                 .skippingTypesCheck()
                 .matches("VALUES " +
-                        "  ('d', NULL, 0e0, NULL, " + (format == ORC ? "NULL, NULL" : "'1969-12-25 15:13:12.876543', '2020-02-21 16:12:12.654321'") + "), " +
+                        "  ('d', NULL, 0e0, NULL, " + expectedTimestampStats + "), " +
                         "  ('b', NULL, 0e0, NULL, '1', '12'), " +
                         "  (NULL, NULL, NULL, 12e0, NULL, NULL)");
 
@@ -1388,14 +1390,17 @@ public abstract class BaseIcebergConnectorTest
                 "(540, 3, TIMESTAMP '2015-01-01 10:01:23.123456', TIMESTAMP '2015-01-01 12:55:00.456789', 1, 3), " +
                 "(544, 2, TIMESTAMP '2015-05-15 13:05:01.234567', TIMESTAMP '2015-05-15 14:21:02.345678', 4, 5), " +
                 "(601, 2, TIMESTAMP '2020-02-21 15:11:11.876543', TIMESTAMP '2020-02-21 16:12:12.654321', 6, 7)";
+        String expectedTimestampStats = "'1969-11-15 15:13:12.876543', '2020-02-21 16:12:12.654321'";
+
         if (format == ORC) {
             expected = "VALUES " +
-                    "(-2, 2, NULL, NULL, 8, 9), " +
-                    "(-1, 2, NULL, NULL, 10, 11), " +
-                    "(0, 1, NULL, NULL, 12, 12), " +
-                    "(540, 3, NULL, NULL, 1, 3), " +
-                    "(544, 2, NULL, NULL, 4, 5), " +
-                    "(601, 2, NULL, NULL, 6, 7)";
+                    "(-2, 2, TIMESTAMP '1969-11-15 15:13:12.876000', TIMESTAMP '1969-11-19 18:47:33.345999', 8, 9), " +
+                    "(-1, 2, TIMESTAMP '1969-12-01 00:00:00.000000', TIMESTAMP '1969-12-01 05:06:07.234999', 10, 11), " +
+                    "(0, 1, TIMESTAMP '1970-01-01 12:03:08.456000', TIMESTAMP '1970-01-01 12:03:08.456999', 12, 12), " +
+                    "(540, 3, TIMESTAMP '2015-01-01 10:01:23.123000', TIMESTAMP '2015-01-01 12:55:00.456999', 1, 3), " +
+                    "(544, 2, TIMESTAMP '2015-05-15 13:05:01.234000', TIMESTAMP '2015-05-15 14:21:02.345999', 4, 5), " +
+                    "(601, 2, TIMESTAMP '2020-02-21 15:11:11.876000', TIMESTAMP '2020-02-21 16:12:12.654999', 6, 7)";
+            expectedTimestampStats = "'1969-11-15 15:13:12.876000', '2020-02-21 16:12:12.654999'";
         }
 
         assertQuery("SELECT d_month, row_count, d.min, d.max, b.min, b.max FROM \"test_month_transform_timestamp$partitions\"", expected);
@@ -1409,7 +1414,7 @@ public abstract class BaseIcebergConnectorTest
                 .projected(0, 2, 3, 4, 5, 6) // ignore data size which is available for Parquet, but not for ORC
                 .skippingTypesCheck()
                 .matches("VALUES " +
-                        "  ('d', NULL, 0e0, NULL, " + (format == ORC ? "NULL, NULL" : "'1969-11-15 15:13:12.876543', '2020-02-21 16:12:12.654321'") + "), " +
+                        "  ('d', NULL, 0e0, NULL, " + expectedTimestampStats + "), " +
                         "  ('b', NULL, 0e0, NULL, '1', '12'), " +
                         "  (NULL, NULL, NULL, 12e0, NULL, NULL)");
 
@@ -1490,13 +1495,17 @@ public abstract class BaseIcebergConnectorTest
                 "(0, 4, TIMESTAMP '1970-01-18 12:03:08.456789', TIMESTAMP '1970-12-31 12:55:00.456789', 5, 8), " +
                 "(45, 2, TIMESTAMP '2015-05-15 13:05:01.234567', TIMESTAMP '2015-09-15 14:21:02.345678', 9, 10), " +
                 "(50, 2, TIMESTAMP '2020-02-21 15:11:11.876543', TIMESTAMP '2020-08-21 16:12:12.654321', 11, 12)";
+
+        String expectedTimestampStats = "'1968-03-15 15:13:12.876543', '2020-08-21 16:12:12.654321'";
+
         if (format == ORC) {
             expected = "VALUES " +
-                    "(-2, 2, NULL, NULL, 1, 2), " +
-                    "(-1, 2, NULL, NULL, 3, 4), " +
-                    "(0, 4, NULL, NULL, 5, 8), " +
-                    "(45, 2, NULL, NULL, 9, 10), " +
-                    "(50, 2, NULL, NULL, 11, 12)";
+                    "(-2, 2, TIMESTAMP '1968-03-15 15:13:12.876000', TIMESTAMP '1968-11-19 18:47:33.345999', 1, 2), " +
+                    "(-1, 2, TIMESTAMP '1969-01-01 00:00:00.000000', TIMESTAMP '1969-01-01 05:06:07.234999', 3, 4), " +
+                    "(0, 4, TIMESTAMP '1970-01-18 12:03:08.456000', TIMESTAMP '1970-12-31 12:55:00.456999', 5, 8), " +
+                    "(45, 2, TIMESTAMP '2015-05-15 13:05:01.234000', TIMESTAMP '2015-09-15 14:21:02.345999', 9, 10), " +
+                    "(50, 2, TIMESTAMP '2020-02-21 15:11:11.876000', TIMESTAMP '2020-08-21 16:12:12.654999', 11, 12)";
+            expectedTimestampStats = "'1968-03-15 15:13:12.876000', '2020-08-21 16:12:12.654999'";
         }
 
         assertQuery("SELECT d_year, row_count, d.min, d.max, b.min, b.max FROM \"test_year_transform_timestamp$partitions\"", expected);
@@ -1510,7 +1519,7 @@ public abstract class BaseIcebergConnectorTest
                 .projected(0, 2, 3, 4, 5, 6) // ignore data size which is available for Parquet, but not for ORC
                 .skippingTypesCheck()
                 .matches("VALUES " +
-                        "  ('d', NULL, 0e0, NULL, " + (format == ORC ? "NULL, NULL" : "'1968-03-15 15:13:12.876543', '2020-08-21 16:12:12.654321'") + "), " +
+                        "  ('d', NULL, 0e0, NULL, " + expectedTimestampStats + "), " +
                         "  ('b', NULL, 0e0, NULL, '1', '12'), " +
                         "  (NULL, NULL, NULL, 12e0, NULL, NULL)");
 
@@ -2246,8 +2255,8 @@ public abstract class BaseIcebergConnectorTest
                         "  ('dec', NULL, 0e0, NULL, '1.0', '1.0'), " +
                         "  ('vc', NULL, 0e0, NULL, NULL, NULL), " +
                         "  ('vb', NULL, 0e0, NULL, NULL, NULL), " +
-                        "  ('ts', NULL, 0e0, NULL, " + (format == ORC ? "NULL, NULL" : "'2021-07-24 02:43:57.348000', '2021-07-24 02:43:57.348000'") + "), " +
-                        "  ('tstz', NULL, 0e0, NULL, " + (format == ORC ? "NULL, NULL" : "'2021-07-24 02:43:57.348 UTC', '2021-07-24 02:43:57.348 UTC'") + "), " +
+                        "  ('ts', NULL, 0e0, NULL, '2021-07-24 02:43:57.348000', " + (format == ORC ? "'2021-07-24 02:43:57.348999'" : "'2021-07-24 02:43:57.348000'") + "), " +
+                        "  ('tstz', NULL, 0e0, NULL, '2021-07-24 02:43:57.348 UTC', '2021-07-24 02:43:57.348 UTC'), " +
                         "  ('str', NULL, " + (format == ORC ? "0e0" : "NULL") + ", NULL, NULL, NULL), " +
                         "  ('dt', NULL, 0e0, NULL, '2021-07-24', '2021-07-24'), " +
                         "  (NULL, NULL, NULL, 1e0, NULL, NULL)");
@@ -2586,8 +2595,8 @@ public abstract class BaseIcebergConnectorTest
                                     "  ('a_varbinary', NULL, 0e0, NULL, NULL, NULL), " +
                                     "  ('a_date', NULL, 0e0, NULL, '2021-07-24', '2021-07-24'), " +
                                     "  ('a_time', NULL, 0e0, NULL, NULL, NULL), " +
-                                    "  ('a_timestamp', NULL, 0e0, NULL, NULL, NULL), " +
-                                    "  ('a_timestamptz', NULL, 0e0, NULL, NULL, NULL), " +
+                                    "  ('a_timestamp', NULL, 0e0, NULL, '2021-07-24 03:43:57.987000', '2021-07-24 03:43:57.987999'), " +
+                                    "  ('a_timestamptz', NULL, 0e0, NULL, '2021-07-24 04:43:57.987 UTC', '2021-07-24 04:43:57.987 UTC'), " +
                                     "  ('a_uuid', NULL, 0e0, NULL, NULL, NULL), " +
                                     "  ('a_row', NULL, 0e0, NULL, NULL, NULL), " +
                                     "  ('an_array', NULL, 0e0, NULL, NULL, NULL), " +
@@ -2871,8 +2880,13 @@ public abstract class BaseIcebergConnectorTest
             verifySplitCount("SELECT row_id FROM " + tableName, 2);
             verifySplitCount("SELECT row_id FROM " + tableName + " WHERE col = " + sampleValue, expectedSplitCount);
             verifySplitCount("SELECT row_id FROM " + tableName + " WHERE col = " + highValue, expectedSplitCount);
-            verifySplitCount("SELECT row_id FROM " + tableName + " WHERE col > " + sampleValue, expectedSplitCount);
-            verifySplitCount("SELECT row_id FROM " + tableName + " WHERE col < " + highValue, expectedSplitCount);
+
+            // ORC max timestamp statistics are truncated to millisecond precision and then appended with 999 microseconds.
+            // Therefore, sampleValue and highValue are within the max timestamp & there will be 2 splits.
+            verifySplitCount("SELECT row_id FROM " + tableName + " WHERE col > " + sampleValue,
+                    (format == ORC && testSetup.getTrinoTypeName().contains("timestamp") ? 2 : expectedSplitCount));
+            verifySplitCount("SELECT row_id FROM " + tableName + " WHERE col < " + highValue,
+                    (format == ORC && testSetup.getTrinoTypeName().contains("timestamp") ? 2 : expectedSplitCount));
         }
     }
 
