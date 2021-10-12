@@ -77,24 +77,28 @@ public final class InternalAggregationFunction
         return name;
     }
 
+    @VisibleForTesting
     public List<Type> getParameterTypes()
     {
         return parameterTypes;
     }
 
+    @VisibleForTesting
     public Type getFinalType()
     {
         return finalType;
     }
 
-    public Type getIntermediateType()
+    @VisibleForTesting
+    public Optional<Type> getIntermediateType()
     {
+        if (intermediateType.isEmpty()) {
+            return Optional.empty();
+        }
         if (intermediateType.size() == 1) {
-            return getOnlyElement(intermediateType);
+            return Optional.of(getOnlyElement(intermediateType));
         }
-        else {
-            return RowType.anonymous(intermediateType);
-        }
+        return Optional.of(RowType.anonymous(intermediateType));
     }
 
     public List<Class<?>> getLambdaInterfaces()

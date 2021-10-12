@@ -61,12 +61,11 @@ public abstract class AbstractTestAggregationFunction
 
     protected abstract Block[] getSequenceBlocks(int start, int length);
 
-    protected final InternalAggregationFunction getFunction()
+    protected final ResolvedFunction getFunction()
     {
-        ResolvedFunction resolvedFunction = metadata.resolveFunction(
+        return metadata.resolveFunction(
                 QualifiedName.of(getFunctionName()),
                 fromTypes(getFunctionParameterTypes()));
-        return metadata.getAggregateFunctionImplementation(resolvedFunction);
     }
 
     protected abstract String getFunctionName();
@@ -102,7 +101,7 @@ public abstract class AbstractTestAggregationFunction
     public void testAllPositionsNull()
     {
         // if there are no parameters skip this test
-        List<Type> parameterTypes = getFunction().getParameterTypes();
+        List<Type> parameterTypes = getFunction().getSignature().getArgumentTypes();
         if (parameterTypes.isEmpty()) {
             return;
         }
@@ -118,7 +117,7 @@ public abstract class AbstractTestAggregationFunction
     public void testMixedNullAndNonNullPositions()
     {
         // if there are no parameters skip this test
-        List<Type> parameterTypes = getFunction().getParameterTypes();
+        List<Type> parameterTypes = getFunction().getSignature().getArgumentTypes();
         if (parameterTypes.isEmpty()) {
             return;
         }
@@ -154,7 +153,7 @@ public abstract class AbstractTestAggregationFunction
         }
         Page inputPage = new Page(totalPositions, getSequenceBlocks(0, totalPositions));
 
-        InternalAggregationFunction function = getFunction();
+        InternalAggregationFunction function = metadata.getAggregateFunctionImplementation(getFunction());
         List<Integer> channels = Ints.asList(createArgs(function));
         AccumulatorFactory accumulatorFactory = function.bind(channels, Optional.empty());
         PagesIndex pagesIndex = new PagesIndex.TestingFactory(false).newPagesIndex(function.getParameterTypes(), totalPositions);
@@ -213,7 +212,7 @@ public abstract class AbstractTestAggregationFunction
 
     protected void testAggregation(Object expectedValue, Block... blocks)
     {
-        assertAggregation(getFunction(), expectedValue, blocks);
+        assertAggregation(metadata, getFunction(), expectedValue, blocks);
     }
 
     protected void assertInvalidAggregation(Runnable runnable)

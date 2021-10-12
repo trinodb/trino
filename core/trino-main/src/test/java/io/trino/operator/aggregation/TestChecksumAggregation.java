@@ -14,6 +14,7 @@
 package io.trino.operator.aggregation;
 
 import io.trino.metadata.Metadata;
+import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DecimalType;
@@ -51,70 +52,67 @@ public class TestChecksumAggregation
     @Test
     public void testEmpty()
     {
-        InternalAggregationFunction booleanAgg = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of("checksum"), fromTypes(BOOLEAN)));
-        assertAggregation(booleanAgg, null, createBooleansBlock());
+        ResolvedFunction booleanAgg = metadata.resolveFunction(QualifiedName.of("checksum"), fromTypes(BOOLEAN));
+        assertAggregation(metadata, booleanAgg, null, createBooleansBlock());
     }
 
     @Test
     public void testBoolean()
     {
-        InternalAggregationFunction booleanAgg = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of("checksum"), fromTypes(BOOLEAN)));
+        ResolvedFunction booleanAgg = metadata.resolveFunction(QualifiedName.of("checksum"), fromTypes(BOOLEAN));
         Block block = createBooleansBlock(null, null, true, false, false);
-        assertAggregation(booleanAgg, expectedChecksum(BOOLEAN, block), block);
+        assertAggregation(metadata, booleanAgg, expectedChecksum(BOOLEAN, block), block);
     }
 
     @Test
     public void testLong()
     {
-        InternalAggregationFunction longAgg = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of("checksum"), fromTypes(BIGINT)));
+        ResolvedFunction longAgg = metadata.resolveFunction(QualifiedName.of("checksum"), fromTypes(BIGINT));
         Block block = createLongsBlock(null, 1L, 2L, 100L, null, Long.MAX_VALUE, Long.MIN_VALUE);
-        assertAggregation(longAgg, expectedChecksum(BIGINT, block), block);
+        assertAggregation(metadata, longAgg, expectedChecksum(BIGINT, block), block);
     }
 
     @Test
     public void testDouble()
     {
-        InternalAggregationFunction doubleAgg = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of("checksum"), fromTypes(DOUBLE)));
+        ResolvedFunction doubleAgg = metadata.resolveFunction(QualifiedName.of("checksum"), fromTypes(DOUBLE));
         Block block = createDoublesBlock(null, 2.0, null, 3.0, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY, Double.NaN);
-        assertAggregation(doubleAgg, expectedChecksum(DOUBLE, block), block);
+        assertAggregation(metadata, doubleAgg, expectedChecksum(DOUBLE, block), block);
     }
 
     @Test
     public void testString()
     {
-        InternalAggregationFunction stringAgg = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of("checksum"), fromTypes(VARCHAR)));
+        ResolvedFunction stringAgg = metadata.resolveFunction(QualifiedName.of("checksum"), fromTypes(VARCHAR));
         Block block = createStringsBlock("a", "a", null, "b", "c");
-        assertAggregation(stringAgg, expectedChecksum(VARCHAR, block), block);
+        assertAggregation(metadata, stringAgg, expectedChecksum(VARCHAR, block), block);
     }
 
     @Test
     public void testShortDecimal()
     {
-        InternalAggregationFunction decimalAgg = metadata.getAggregateFunctionImplementation(
-                metadata.resolveFunction(QualifiedName.of("checksum"), fromTypes(createDecimalType(10, 2))));
+        ResolvedFunction decimalAgg = metadata.resolveFunction(QualifiedName.of("checksum"), fromTypes(createDecimalType(10, 2)));
         Block block = createShortDecimalsBlock("11.11", "22.22", null, "33.33", "44.44");
         DecimalType shortDecimalType = createDecimalType(1);
-        assertAggregation(decimalAgg, expectedChecksum(shortDecimalType, block), block);
+        assertAggregation(metadata, decimalAgg, expectedChecksum(shortDecimalType, block), block);
     }
 
     @Test
     public void testLongDecimal()
     {
-        InternalAggregationFunction decimalAgg = metadata.getAggregateFunctionImplementation(
-                metadata.resolveFunction(QualifiedName.of("checksum"), fromTypes(createDecimalType(19, 2))));
+        ResolvedFunction decimalAgg = metadata.resolveFunction(QualifiedName.of("checksum"), fromTypes(createDecimalType(19, 2)));
         Block block = createLongDecimalsBlock("11.11", "22.22", null, "33.33", "44.44");
         DecimalType longDecimalType = createDecimalType(19);
-        assertAggregation(decimalAgg, expectedChecksum(longDecimalType, block), block);
+        assertAggregation(metadata, decimalAgg, expectedChecksum(longDecimalType, block), block);
     }
 
     @Test
     public void testArray()
     {
         ArrayType arrayType = new ArrayType(BIGINT);
-        InternalAggregationFunction stringAgg = metadata.getAggregateFunctionImplementation(
-                metadata.resolveFunction(QualifiedName.of("checksum"), fromTypes(arrayType)));
+        ResolvedFunction stringAgg = metadata.resolveFunction(QualifiedName.of("checksum"), fromTypes(arrayType));
         Block block = createArrayBigintBlock(asList(null, asList(1L, 2L), asList(3L, 4L), asList(5L, 6L)));
-        assertAggregation(stringAgg, expectedChecksum(arrayType, block), block);
+        assertAggregation(metadata, stringAgg, expectedChecksum(arrayType, block), block);
     }
 
     private static SqlVarbinary expectedChecksum(Type type, Block block)
