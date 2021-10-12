@@ -34,6 +34,7 @@ import io.airlift.units.Duration;
 import io.trino.execution.buffer.SerializedPage;
 import io.trino.server.remotetask.Backoff;
 import io.trino.spi.TrinoException;
+import io.trino.spi.TrinoTransportException;
 import io.trino.sql.analyzer.FeaturesConfig.DataIntegrityVerification;
 import org.joda.time.DateTime;
 
@@ -492,7 +493,7 @@ public final class HttpPageBufferClient
                             backoff.getFailureCount(),
                             backoff.getFailureDuration().convertTo(SECONDS),
                             backoff.getFailureRequestTimeTotal().convertTo(SECONDS));
-                    t = new TrinoException(REMOTE_BUFFER_CLOSE_FAILED, message, t);
+                    t = new TrinoTransportException(REMOTE_BUFFER_CLOSE_FAILED, fromUri(location), message, t);
                 }
                 handleFailure(t, resultFuture);
             }
