@@ -207,6 +207,9 @@ public class HiveSplitManager
 
         // short circuit if we don't have any partitions
         if (partitions.isEmpty()) {
+            if (hiveTable.isRecordScannedFiles()) {
+                return new FixedSplitSource(ImmutableList.of(), ImmutableList.of());
+            }
             return new FixedSplitSource(ImmutableList.of());
         }
 
@@ -245,7 +248,8 @@ public class HiveSplitManager
                 !hiveTable.getPartitionColumns().isEmpty() && isIgnoreAbsentPartitions(session),
                 isOptimizeSymlinkListing(session),
                 metastore.getValidWriteIds(session, hiveTable)
-                        .map(validTxnWriteIdList -> validTxnWriteIdList.getTableValidWriteIdList(table.getDatabaseName() + "." + table.getTableName())));
+                        .map(validTxnWriteIdList -> validTxnWriteIdList.getTableValidWriteIdList(table.getDatabaseName() + "." + table.getTableName())),
+                hiveTable.getMaxScannedFileSize());
 
         HiveSplitSource splitSource;
         switch (splitSchedulingStrategy) {
@@ -260,7 +264,8 @@ public class HiveSplitManager
                         maxSplitsPerSecond,
                         hiveSplitLoader,
                         executor,
-                        highMemorySplitSourceCounter);
+                        highMemorySplitSourceCounter,
+                        hiveTable.isRecordScannedFiles());
                 break;
             case GROUPED_SCHEDULING:
                 splitSource = HiveSplitSource.bucketed(
@@ -273,7 +278,8 @@ public class HiveSplitManager
                         maxSplitsPerSecond,
                         hiveSplitLoader,
                         executor,
-                        highMemorySplitSourceCounter);
+                        highMemorySplitSourceCounter,
+                        hiveTable.isRecordScannedFiles());
                 break;
             default:
                 throw new IllegalArgumentException("Unknown splitSchedulingStrategy: " + splitSchedulingStrategy);
