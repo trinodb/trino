@@ -34,6 +34,7 @@ import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.connector.RecordCursor;
@@ -287,11 +288,12 @@ public class ScanFilterAndProjectOperator
 
         WorkProcessor<Page> processPageSource()
         {
+            ConnectorSession connectorSession = session.toConnectorSession();
             return WorkProcessor
                     .create(new ConnectorPageSourceToPages(pageSourceMemoryContext))
                     .yielding(yieldSignal::isSet)
                     .flatMap(page -> pageProcessor.createWorkProcessor(
-                            session.toConnectorSession(),
+                            connectorSession,
                             yieldSignal,
                             outputMemoryContext,
                             page,
@@ -304,7 +306,7 @@ public class ScanFilterAndProjectOperator
     private class RecordCursorToPages
             implements WorkProcessor.Process<Page>
     {
-        final Session session;
+        final ConnectorSession session;
         final DriverYieldSignal yieldSignal;
         final CursorProcessor cursorProcessor;
         final PageBuilder pageBuilder;
@@ -321,7 +323,7 @@ public class ScanFilterAndProjectOperator
                 LocalMemoryContext pageSourceMemoryContext,
                 LocalMemoryContext outputMemoryContext)
         {
-            this.session = session;
+            this.session = session.toConnectorSession();
             this.yieldSignal = yieldSignal;
             this.cursorProcessor = cursorProcessor;
             this.pageBuilder = new PageBuilder(types);
@@ -333,7 +335,7 @@ public class ScanFilterAndProjectOperator
         public ProcessState<Page> process()
         {
             if (!finished) {
-                CursorProcessorOutput output = cursorProcessor.process(session.toConnectorSession(), yieldSignal, cursor, pageBuilder);
+                CursorProcessorOutput output = cursorProcessor.process(session, yieldSignal, cursor, pageBuilder);
                 pageSourceMemoryContext.setBytes(cursor.getSystemMemoryUsage());
 
                 processedPositions += output.getProcessedRows();
