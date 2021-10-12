@@ -30,12 +30,14 @@ public class HiveTableExecuteHandle
         implements ConnectorTableExecuteHandle
 {
     private final String procedureName;
-    private final HiveTableHandle sourceTableHandle;
+    private final Optional<HiveTableHandle> sourceTableHandle;
+    private final Optional<String> writeDeclarationId;
 
     @JsonCreator
     public HiveTableExecuteHandle(
             @JsonProperty("procedureName") String procedureName,
-            @JsonProperty("sourceTableHandle") HiveTableHandle sourceTableHandle,
+            @JsonProperty("sourceTableHandle") Optional<HiveTableHandle> sourceTableHandle,
+            @JsonProperty("writeDeclarationId") Optional<String> writeDeclarationId,
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("inputColumns") List<HiveColumnHandle> inputColumns,
@@ -59,6 +61,7 @@ public class HiveTableExecuteHandle
 
         this.procedureName = requireNonNull(procedureName, "procedureName is null");
         this.sourceTableHandle = requireNonNull(sourceTableHandle, "sourceTableHandle is null");
+        this.writeDeclarationId = requireNonNull(writeDeclarationId, "writeDeclarationId is null");
     }
 
     @JsonProperty
@@ -69,9 +72,49 @@ public class HiveTableExecuteHandle
 
     @Override
     @JsonProperty
-    public ConnectorTableHandle getSourceTableHandle()
+    public Optional<ConnectorTableHandle> getSourceTableHandle()
     {
-        return sourceTableHandle;
+        return sourceTableHandle.map(handle -> handle);
+    }
+
+    @JsonProperty
+    public Optional<String> getWriteDeclarationId()
+    {
+        return writeDeclarationId;
+    }
+
+    public HiveTableExecuteHandle withWriteDeclarationId(String writeDeclarationId)
+    {
+        return new HiveTableExecuteHandle(
+                procedureName,
+                sourceTableHandle,
+                Optional.of(writeDeclarationId),
+                getSchemaName(),
+                getTableName(),
+                getInputColumns(),
+                getPageSinkMetadata(),
+                getLocationHandle(),
+                getBucketProperty(),
+                getTableStorageFormat(),
+                getPartitionStorageFormat(),
+                getTransaction());
+    }
+
+    public HiveTableExecuteHandle withSourceTableHandle(Optional<HiveTableHandle> sourceTableHandle)
+    {
+        return new HiveTableExecuteHandle(
+                procedureName,
+                sourceTableHandle,
+                writeDeclarationId,
+                getSchemaName(),
+                getTableName(),
+                getInputColumns(),
+                getPageSinkMetadata(),
+                getLocationHandle(),
+                getBucketProperty(),
+                getTableStorageFormat(),
+                getPartitionStorageFormat(),
+                getTransaction());
     }
 
     @Override

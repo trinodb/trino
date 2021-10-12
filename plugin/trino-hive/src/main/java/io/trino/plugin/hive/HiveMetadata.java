@@ -25,6 +25,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import io.airlift.json.JsonCodec;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.trino.plugin.base.CatalogName;
@@ -126,6 +127,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -138,6 +140,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -261,6 +264,7 @@ import static io.trino.plugin.hive.util.HiveWriteUtils.initializeSerializer;
 import static io.trino.plugin.hive.util.HiveWriteUtils.isFileCreatedByQuery;
 import static io.trino.plugin.hive.util.HiveWriteUtils.isS3FileSystem;
 import static io.trino.plugin.hive.util.HiveWriteUtils.isWritableType;
+import static io.trino.plugin.hive.util.RetryDriver.retry;
 import static io.trino.plugin.hive.util.Statistics.ReduceOperator.ADD;
 import static io.trino.plugin.hive.util.Statistics.createComputedStatisticsToPartitionMap;
 import static io.trino.plugin.hive.util.Statistics.createEmptyPartitionStatistics;
@@ -293,6 +297,8 @@ import static org.apache.hadoop.hive.ql.io.AcidUtils.isTransactionalTable;
 public class HiveMetadata
         implements TransactionalMetadata
 {
+    private static final Logger log = Logger.get(HiveMetadata.class);
+
     public static final String PRESTO_VERSION_NAME = "presto_version";
     public static final String TRINO_CREATED_BY = "trino_created_by";
     public static final String PRESTO_QUERY_ID_NAME = "presto_query_id";
@@ -1898,29 +1904,21 @@ public class HiveMetadata
     }
 
     @Override
-    public Optional<ConnectorTableExecuteHandle> getTableHandleForExecute(ConnectorSession session, ConnectorTableHandle tableHandle, String procedureName, Map<String, Object> executeProperties, Constraint constraint)
+    public Optional<ConnectorTableExecuteHandle> getTableHandleForExecute(ConnectorSession session, ConnectorTableHandle tableHandle, String procedureName, Map<String, Object> executeProperties)
     {
         if (procedureName.equals(OptimizeTableProcedure.NAME)) {
-            return getTableHandleForOptimize(session, tableHandle, executeProperties, constraint);
+            return getTableHandleForOptimize(session, tableHandle, executeProperties);
         }
         throw new IllegalArgumentException("Unknown procedure '" + procedureName + "'");
     }
 
-    private Optional<ConnectorTableExecuteHandle> getTableHandleForOptimize(ConnectorSession session, ConnectorTableHandle tableHandle, Map<String, Object> executeProperties, Constraint constraint)
+    private Optional<ConnectorTableExecuteHandle> getTableHandleForOptimize(ConnectorSession session, ConnectorTableHandle tableHandle, Map<String, Object> executeProperties)
     {
         // TODO lots of that is copied from beginInsert; rafactoring opportunity
 
         HiveIdentity identity = new HiveIdentity(session);
         HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle;
         SchemaTableName tableName = hiveTableHandle.getSchemaTableName();
-
-        if (constraint.getSummary().isNone()) {
-            throw new TrinoException(NOT_SUPPORTED, format("Optimizing Hive table %s with predicate filtering out all data is not supported", tableName));
-        }
-
-        if (constraint.predicate().isPresent() || !isOnPartitionColumnsOnly(constraint.getSummary(), hiveTableHandle.getPartitionColumns())) {
-            throw new TrinoException(NOT_SUPPORTED, "Predicate used for optimize must match whole partitions");
-        }
 
         Table table = metastore.getTable(identity, tableName.getSchemaName(), tableName.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(tableName));
@@ -1958,22 +1956,17 @@ public class HiveMetadata
         if (table.getParameters().containsKey(SKIP_FOOTER_COUNT_KEY)) {
             throw new TrinoException(NOT_SUPPORTED, format("Optimizing Hive table %s with %s property not supported", tableName, SKIP_FOOTER_COUNT_KEY));
         }
-        LocationHandle locationHandle = locationService.forExistingTable(metastore, session, table);
+        LocationHandle locationHandle = locationService.forOptimize(metastore, session, table);
 
         DataSize fileSizeThreshold = (DataSize) executeProperties.get("file_size_threshold");
         hiveTableHandle = hiveTableHandle
                 .withRecordScannedFiles(true)
                 .withMaxScannedFileSize(Optional.of(fileSizeThreshold.toBytes()));
 
-        if (!constraint.getSummary().isAll()) {
-            HivePartitionResult partitionResult = partitionManager.getPartitions(metastore, new HiveIdentity(session), hiveTableHandle, constraint);
-            checkArgument(partitionResult.getUnenforcedConstraint().isAll(), "expected whole predicate to be consumed; remaining: " + partitionResult.getUnenforcedConstraint());
-            hiveTableHandle = partitionManager.applyPartitionResult(hiveTableHandle, partitionResult, constraint.getPredicateColumns());
-        }
-
         return Optional.of(new HiveTableExecuteHandle(
                 OptimizeTableProcedure.NAME,
-                hiveTableHandle,
+                Optional.of(hiveTableHandle),
+                Optional.empty(),
                 tableName.getSchemaName(),
                 tableName.getTableName(),
                 columns,
@@ -2002,22 +1995,24 @@ public class HiveMetadata
     }
 
     @Override
-    public ConnectorTableExecuteHandle beginTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle)
+    public ConnectorTableExecuteHandle beginTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, Optional<ConnectorTableHandle> updatedSourceTableHandle)
     {
         String procedureName = ((HiveTableExecuteHandle) tableExecuteHandle).getProcedureName();
 
         if (procedureName.equals(OptimizeTableProcedure.NAME)) {
-            return beginOptimize(session, tableExecuteHandle);
+            return beginOptimize(session, tableExecuteHandle, updatedSourceTableHandle);
         }
         throw new IllegalArgumentException("Unknown procedure '" + procedureName + "'");
     }
 
-    private ConnectorTableExecuteHandle beginOptimize(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle)
+    private ConnectorTableExecuteHandle beginOptimize(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, Optional<ConnectorTableHandle> updatedSourceTableHandle)
     {
         HiveTableExecuteHandle hiveExecuteHandle = (HiveTableExecuteHandle) tableExecuteHandle;
         WriteInfo writeInfo = locationService.getQueryWriteInfo(hiveExecuteHandle.getLocationHandle());
-        metastore.declareIntentionToWrite(session, writeInfo.getWriteMode(), writeInfo.getWritePath(), hiveExecuteHandle.getSchemaTableName());
-        return tableExecuteHandle;
+        String writeDeclarationId = metastore.declareIntentionToWrite(session, writeInfo.getWriteMode(), writeInfo.getWritePath(), hiveExecuteHandle.getSchemaTableName());
+        return hiveExecuteHandle
+                .withWriteDeclarationId(writeDeclarationId)
+                .withSourceTableHandle(updatedSourceTableHandle.map(handle -> (HiveTableHandle) handle));
     }
 
     @Override
@@ -2037,6 +2032,7 @@ public class HiveMetadata
         // TODO lots of that is copied from finishInsert; rafactoring opportunity
 
         HiveTableExecuteHandle handle = (HiveTableExecuteHandle) tableExecuteHandle;
+        checkArgument(handle.getWriteDeclarationId().isPresent(), "no write declaration id present in tableExecuteHandle");
 
         List<PartitionUpdate> partitionUpdates = fragments.stream()
                 .map(Slice::getBytes)
@@ -2086,16 +2082,35 @@ public class HiveMetadata
             }
         }
 
+        boolean someDeleted = false;
+
+        // track remaining files to be delted for error reporting
+        Set<String> remainingFilesToDelete = tableExecuteState.stream()
+                .map(value -> (String) value)
+                .collect(Collectors.toCollection(HashSet::new));
+
         try {
-            // TODO; this is not safe; we can delete old files. And then if there is error new files will be deleted too.
             FileSystem fs = hdfsEnvironment.getFileSystem(new HdfsContext(session), new Path(table.getStorage().getLocation()));
             for (Object scannedPathObject : tableExecuteState) {
                 Path scannedPath = new Path((String) scannedPathObject);
-                fs.delete(scannedPath, false);
+                retry().run("delete " + scannedPath, () -> fs.delete(scannedPath, false));
+                someDeleted = true;
+                remainingFilesToDelete.remove(scannedPathObject);
             }
         }
-        catch (IOException e) {
-            throw new TrinoException(HIVE_FILESYSTEM_ERROR, "Error while deleting ", e);
+        catch (Exception e) {
+            if (!someDeleted) {
+                // we are good - we did not delete any source files so we can just throw error and allow rollback to happend
+                throw new TrinoException(HIVE_FILESYSTEM_ERROR, "Error while deleting original files", e);
+            }
+
+            // If we already deleted some original files we disable rollback routine so written files are not deleted
+            // The reported exceptiona and log entry lists files which need to be cleaned up by user manually.
+            // Until table is cleaned up there will duplicate rows present.
+            metastore.dropDeclaredIntentionToWrite(handle.getWriteDeclarationId().get());
+            String errorMessage = "Error while deleting data files in FINISH phase of OPTIMIZE for table " + table.getTableName() + "; remaining files need to be deleted manually:  " + remainingFilesToDelete;
+            log.error(e, errorMessage);
+            throw new TrinoException(HIVE_FILESYSTEM_ERROR, errorMessage, e);
         }
     }
 
