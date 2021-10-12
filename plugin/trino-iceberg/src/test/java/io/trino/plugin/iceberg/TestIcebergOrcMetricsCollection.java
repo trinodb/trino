@@ -149,8 +149,12 @@ public class TestIcebergOrcMetricsCollection
     @Test
     public void testWithNulls()
     {
-        assertUpdate("CREATE TABLE test_with_nulls (_integer INTEGER, _real REAL, _string VARCHAR)");
-        assertUpdate("INSERT INTO test_with_nulls VALUES (7, 3.4, 'aaa'), (3, 4.5, 'bbb'), (4, null, 'ccc'), (null, null, 'ddd')", 4);
+        assertUpdate("CREATE TABLE test_with_nulls (_integer INTEGER, _real REAL, _string VARCHAR, _timestamp TIMESTAMP(6))");
+        assertUpdate("INSERT INTO test_with_nulls VALUES " +
+                "(7, 3.4, 'aaa', TIMESTAMP '2020-01-01 00:00:00.123456')," +
+                "(3, 4.5, 'bbb', TIMESTAMP '2021-02-01 00:23:10.398102')," +
+                "(4, null, 'ccc', null)," +
+                "(null, null, 'ddd', null)", 4);
         MaterializedResult materializedResult = computeActual("SELECT * FROM \"test_with_nulls$files\"");
         assertEquals(materializedResult.getRowCount(), 1);
         DataFileRecord datafile = toDataFileRecord(materializedResult.getMaterializedRows().get(0));
@@ -162,11 +166,13 @@ public class TestIcebergOrcMetricsCollection
         assertEquals(datafile.getNullValueCounts().get(1), (Long) 1L);
         assertEquals(datafile.getNullValueCounts().get(2), (Long) 2L);
         assertEquals(datafile.getNullValueCounts().get(3), (Long) 0L);
+        assertEquals(datafile.getNullValueCounts().get(4), (Long) 2L);
 
         // Check per-column lower bound
         assertEquals(datafile.getLowerBounds().get(1), "3");
         assertEquals(datafile.getLowerBounds().get(2), "3.4");
         assertEquals(datafile.getLowerBounds().get(3), "aaa");
+        assertEquals(datafile.getLowerBounds().get(4), "2020-01-01T00:00:00.123");
 
         assertUpdate("DROP TABLE test_with_nulls");
 
@@ -247,6 +253,41 @@ public class TestIcebergOrcMetricsCollection
         assertEquals(upperBounds.get(5), "4.9");
 
         assertUpdate("DROP TABLE test_nested_types");
+    }
+
+    @Test
+    public void testWithTimestamps()
+    {
+        assertUpdate("CREATE TABLE test_timestamp (_timestamp TIMESTAMP(6)) WITH (format = 'ORC')");
+        assertUpdate("INSERT INTO test_timestamp VALUES" +
+                "(TIMESTAMP '2021-01-01 00:00:00.111111'), " +
+                "(TIMESTAMP '2021-01-01 00:00:00.222222'), " +
+                "(TIMESTAMP '2021-01-31 00:00:00.333333')", 3);
+        MaterializedResult materializedResult = computeActual("SELECT * FROM \"test_timestamp$files\"");
+        assertEquals(materializedResult.getRowCount(), 1);
+        DataFileRecord datafile = toDataFileRecord(materializedResult.getMaterializedRows().get(0));
+
+        // Check file format
+        assertEquals(datafile.getFileFormat(), "ORC");
+
+        // Check file row count
+        assertEquals(datafile.getRecordCount(), 3L);
+
+        // Check per-column value count
+        datafile.getValueCounts().values().forEach(valueCount -> assertEquals(valueCount, (Long) 3L));
+
+        // Check per-column null value count
+        datafile.getNullValueCounts().values().forEach(nullValueCount -> assertEquals(nullValueCount, (Long) 0L));
+
+        // Check column lower bound. Min timestamp doesn't rely on file-level statistics and will not be truncated to milliseconds.
+        assertEquals(datafile.getLowerBounds().get(1), "2021-01-01T00:00:00.111");
+        assertQuery("SELECT min(_timestamp) FROM test_timestamp", "VALUES '2021-01-01 00:00:00.111111'");
+
+        // Check column upper bound. Max timestamp doesn't rely on file-level statistics and will not be truncated to milliseconds.
+        assertEquals(datafile.getUpperBounds().get(1), "2021-01-31T00:00:00.333999");
+        assertQuery("SELECT max(_timestamp) FROM test_timestamp", "VALUES '2021-01-31 00:00:00.333333'");
+
+        assertUpdate("DROP TABLE test_timestamp");
     }
 
     public static class DataFileRecord
