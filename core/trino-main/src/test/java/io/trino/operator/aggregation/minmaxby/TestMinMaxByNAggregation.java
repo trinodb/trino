@@ -15,6 +15,7 @@ package io.trino.operator.aggregation.minmaxby;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.aggregation.InternalAggregationFunction;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
@@ -47,9 +48,9 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMaxDoubleDouble()
     {
-        InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(
-                METADATA.resolveFunction(QualifiedName.of("max_by"), fromTypes(DOUBLE, DOUBLE, BIGINT)));
+        ResolvedFunction function = METADATA.resolveFunction(QualifiedName.of("max_by"), fromTypes(DOUBLE, DOUBLE, BIGINT));
         assertAggregation(
+                METADATA,
                 function,
                 Arrays.asList((Double) null),
                 createDoublesBlock(1.0, null),
@@ -57,6 +58,7 @@ public class TestMinMaxByNAggregation
                 createRLEBlock(1L, 2));
 
         assertAggregation(
+                METADATA,
                 function,
                 null,
                 createDoublesBlock(null, null),
@@ -64,6 +66,7 @@ public class TestMinMaxByNAggregation
                 createRLEBlock(1L, 2));
 
         assertAggregation(
+                METADATA,
                 function,
                 Arrays.asList(1.0),
                 createDoublesBlock(null, 1.0, null, null),
@@ -71,6 +74,7 @@ public class TestMinMaxByNAggregation
                 createRLEBlock(2L, 4));
 
         assertAggregation(
+                METADATA,
                 function,
                 Arrays.asList(1.0),
                 createDoublesBlock(1.0),
@@ -78,6 +82,7 @@ public class TestMinMaxByNAggregation
                 createRLEBlock(2L, 1));
 
         assertAggregation(
+                METADATA,
                 function,
                 null,
                 createDoublesBlock(),
@@ -85,6 +90,7 @@ public class TestMinMaxByNAggregation
                 createRLEBlock(2L, 0));
 
         assertAggregation(
+                METADATA,
                 function,
                 ImmutableList.of(2.5),
                 createDoublesBlock(2.5, 2.0, 5.0, 3.0),
@@ -92,6 +98,7 @@ public class TestMinMaxByNAggregation
                 createRLEBlock(1L, 4));
 
         assertAggregation(
+                METADATA,
                 function,
                 ImmutableList.of(2.5, 3.0),
                 createDoublesBlock(2.5, 2.0, 5.0, 3.0),
@@ -102,9 +109,9 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMinDoubleDouble()
     {
-        InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(
-                METADATA.resolveFunction(QualifiedName.of("min_by"), fromTypes(DOUBLE, DOUBLE, BIGINT)));
+        ResolvedFunction function = METADATA.resolveFunction(QualifiedName.of("min_by"), fromTypes(DOUBLE, DOUBLE, BIGINT));
         assertAggregation(
+                METADATA,
                 function,
                 Arrays.asList((Double) null),
                 createDoublesBlock(1.0, null),
@@ -112,6 +119,7 @@ public class TestMinMaxByNAggregation
                 createRLEBlock(1L, 2));
 
         assertAggregation(
+                METADATA,
                 function,
                 null,
                 createDoublesBlock(null, null),
@@ -119,6 +127,7 @@ public class TestMinMaxByNAggregation
                 createRLEBlock(1L, 2));
 
         assertAggregation(
+                METADATA,
                 function,
                 ImmutableList.of(2.0),
                 createDoublesBlock(2.5, 2.0, 5.0, 3.0),
@@ -126,6 +135,7 @@ public class TestMinMaxByNAggregation
                 createRLEBlock(1L, 4));
 
         assertAggregation(
+                METADATA,
                 function,
                 ImmutableList.of(2.0, 5.0),
                 createDoublesBlock(2.5, 2.0, 5.0, 3.0),
@@ -136,9 +146,9 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMinDoubleVarchar()
     {
-        InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(
-                METADATA.resolveFunction(QualifiedName.of("min_by"), fromTypes(VARCHAR, DOUBLE, BIGINT)));
+        ResolvedFunction function = METADATA.resolveFunction(QualifiedName.of("min_by"), fromTypes(VARCHAR, DOUBLE, BIGINT));
         assertAggregation(
+                METADATA,
                 function,
                 ImmutableList.of("z", "a"),
                 createStringsBlock("z", "a", "x", "b"),
@@ -146,6 +156,7 @@ public class TestMinMaxByNAggregation
                 createRLEBlock(2L, 4));
 
         assertAggregation(
+                METADATA,
                 function,
                 ImmutableList.of("a", "zz"),
                 createStringsBlock("zz", "hi", "bb", "a"),
@@ -153,6 +164,7 @@ public class TestMinMaxByNAggregation
                 createRLEBlock(2L, 4));
 
         assertAggregation(
+                METADATA,
                 function,
                 ImmutableList.of("a", "zz"),
                 createStringsBlock("zz", "hi", null, "a"),
@@ -160,6 +172,7 @@ public class TestMinMaxByNAggregation
                 createRLEBlock(2L, 4));
 
         assertAggregation(
+                METADATA,
                 function,
                 ImmutableList.of("b", "c"),
                 createStringsBlock("a", "b", "c", "d"),
@@ -167,6 +180,7 @@ public class TestMinMaxByNAggregation
                 createRLEBlock(2L, 4));
 
         assertAggregation(
+                METADATA,
                 function,
                 ImmutableList.of("a", "c"),
                 createStringsBlock("a", "b", "c", "d"),
@@ -174,6 +188,7 @@ public class TestMinMaxByNAggregation
                 createRLEBlock(2L, 4));
 
         assertAggregation(
+                METADATA,
                 function,
                 ImmutableList.of("a", "b"),
                 createStringsBlock("a", "b", "c", "d"),
@@ -181,6 +196,7 @@ public class TestMinMaxByNAggregation
                 createRLEBlock(2L, 4));
 
         assertAggregation(
+                METADATA,
                 function,
                 ImmutableList.of("a", "b"),
                 createStringsBlock("a", "b", "c", "d"),
@@ -188,6 +204,7 @@ public class TestMinMaxByNAggregation
                 createRLEBlock(2L, 4));
 
         assertAggregation(
+                METADATA,
                 function,
                 ImmutableList.of("a", "b"),
                 createStringsBlock("a", "b"),
@@ -198,9 +215,9 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMaxDoubleVarchar()
     {
-        InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(
-                METADATA.resolveFunction(QualifiedName.of("max_by"), fromTypes(VARCHAR, DOUBLE, BIGINT)));
+        ResolvedFunction function = METADATA.resolveFunction(QualifiedName.of("max_by"), fromTypes(VARCHAR, DOUBLE, BIGINT));
         assertAggregation(
+                METADATA,
                 function,
                 ImmutableList.of("a", "z"),
                 createStringsBlock("z", "a", null),
@@ -208,6 +225,7 @@ public class TestMinMaxByNAggregation
                 createRLEBlock(2L, 3));
 
         assertAggregation(
+                METADATA,
                 function,
                 ImmutableList.of("bb", "hi"),
                 createStringsBlock("zz", "hi", "bb", "a"),
@@ -215,6 +233,7 @@ public class TestMinMaxByNAggregation
                 createRLEBlock(2L, 4));
 
         assertAggregation(
+                METADATA,
                 function,
                 ImmutableList.of("hi", "zz"),
                 createStringsBlock("zz", "hi", null, "a"),
@@ -222,6 +241,7 @@ public class TestMinMaxByNAggregation
                 createRLEBlock(2L, 4));
 
         assertAggregation(
+                METADATA,
                 function,
                 ImmutableList.of("d", "c"),
                 createStringsBlock("a", "b", "c", "d"),
@@ -229,6 +249,7 @@ public class TestMinMaxByNAggregation
                 createRLEBlock(2L, 4));
 
         assertAggregation(
+                METADATA,
                 function,
                 ImmutableList.of("d", "c"),
                 createStringsBlock("a", "b", "c", "d"),
@@ -236,6 +257,7 @@ public class TestMinMaxByNAggregation
                 createRLEBlock(2L, 4));
 
         assertAggregation(
+                METADATA,
                 function,
                 ImmutableList.of("d", "b"),
                 createStringsBlock("a", "b", "c", "d"),
@@ -243,6 +265,7 @@ public class TestMinMaxByNAggregation
                 createRLEBlock(2L, 4));
 
         assertAggregation(
+                METADATA,
                 function,
                 ImmutableList.of("c", "b"),
                 createStringsBlock("a", "b", "c", "d"),
@@ -250,6 +273,7 @@ public class TestMinMaxByNAggregation
                 createRLEBlock(2L, 4));
 
         assertAggregation(
+                METADATA,
                 function,
                 ImmutableList.of("a", "b"),
                 createStringsBlock("a", "b"),
@@ -260,9 +284,9 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMinRealVarchar()
     {
-        InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(
-                METADATA.resolveFunction(QualifiedName.of("min_by"), fromTypes(VARCHAR, REAL, BIGINT)));
+        ResolvedFunction function = METADATA.resolveFunction(QualifiedName.of("min_by"), fromTypes(VARCHAR, REAL, BIGINT));
         assertAggregation(
+                METADATA,
                 function,
                 ImmutableList.of("z", "a"),
                 createStringsBlock("z", "a", "x", "b"),
@@ -270,6 +294,7 @@ public class TestMinMaxByNAggregation
                 createRLEBlock(2L, 4));
 
         assertAggregation(
+                METADATA,
                 function,
                 ImmutableList.of("a", "zz"),
                 createStringsBlock("zz", "hi", "bb", "a"),
@@ -277,6 +302,7 @@ public class TestMinMaxByNAggregation
                 createRLEBlock(2L, 4));
 
         assertAggregation(
+                METADATA,
                 function,
                 ImmutableList.of("a", "zz"),
                 createStringsBlock("zz", "hi", null, "a"),
@@ -284,6 +310,7 @@ public class TestMinMaxByNAggregation
                 createRLEBlock(2L, 4));
 
         assertAggregation(
+                METADATA,
                 function,
                 ImmutableList.of("b", "c"),
                 createStringsBlock("a", "b", "c", "d"),
@@ -291,6 +318,7 @@ public class TestMinMaxByNAggregation
                 createRLEBlock(2L, 4));
 
         assertAggregation(
+                METADATA,
                 function,
                 ImmutableList.of("a", "c"),
                 createStringsBlock("a", "b", "c", "d"),
@@ -298,6 +326,7 @@ public class TestMinMaxByNAggregation
                 createRLEBlock(2L, 4));
 
         assertAggregation(
+                METADATA,
                 function,
                 ImmutableList.of("a", "b"),
                 createStringsBlock("a", "b", "c", "d"),
@@ -305,6 +334,7 @@ public class TestMinMaxByNAggregation
                 createRLEBlock(2L, 4));
 
         assertAggregation(
+                METADATA,
                 function,
                 ImmutableList.of("a", "b"),
                 createStringsBlock("a", "b", "c", "d"),
@@ -312,6 +342,7 @@ public class TestMinMaxByNAggregation
                 createRLEBlock(2L, 4));
 
         assertAggregation(
+                METADATA,
                 function,
                 ImmutableList.of("a", "b"),
                 createStringsBlock("a", "b"),
@@ -322,9 +353,9 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMaxRealVarchar()
     {
-        InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(
-                METADATA.resolveFunction(QualifiedName.of("max_by"), fromTypes(VARCHAR, REAL, BIGINT)));
+        ResolvedFunction function = METADATA.resolveFunction(QualifiedName.of("max_by"), fromTypes(VARCHAR, REAL, BIGINT));
         assertAggregation(
+                METADATA,
                 function,
                 ImmutableList.of("a", "z"),
                 createStringsBlock("z", "a", null),
@@ -332,6 +363,7 @@ public class TestMinMaxByNAggregation
                 createRLEBlock(2L, 3));
 
         assertAggregation(
+                METADATA,
                 function,
                 ImmutableList.of("bb", "hi"),
                 createStringsBlock("zz", "hi", "bb", "a"),
@@ -339,6 +371,7 @@ public class TestMinMaxByNAggregation
                 createRLEBlock(2L, 4));
 
         assertAggregation(
+                METADATA,
                 function,
                 ImmutableList.of("hi", "zz"),
                 createStringsBlock("zz", "hi", null, "a"),
@@ -346,6 +379,7 @@ public class TestMinMaxByNAggregation
                 createRLEBlock(2L, 4));
 
         assertAggregation(
+                METADATA,
                 function,
                 ImmutableList.of("d", "c"),
                 createStringsBlock("a", "b", "c", "d"),
@@ -353,6 +387,7 @@ public class TestMinMaxByNAggregation
                 createRLEBlock(2L, 4));
 
         assertAggregation(
+                METADATA,
                 function,
                 ImmutableList.of("d", "c"),
                 createStringsBlock("a", "b", "c", "d"),
@@ -360,6 +395,7 @@ public class TestMinMaxByNAggregation
                 createRLEBlock(2L, 4));
 
         assertAggregation(
+                METADATA,
                 function,
                 ImmutableList.of("d", "b"),
                 createStringsBlock("a", "b", "c", "d"),
@@ -367,6 +403,7 @@ public class TestMinMaxByNAggregation
                 createRLEBlock(2L, 4));
 
         assertAggregation(
+                METADATA,
                 function,
                 ImmutableList.of("c", "b"),
                 createStringsBlock("a", "b", "c", "d"),
@@ -374,6 +411,7 @@ public class TestMinMaxByNAggregation
                 createRLEBlock(2L, 4));
 
         assertAggregation(
+                METADATA,
                 function,
                 ImmutableList.of("a", "b"),
                 createStringsBlock("a", "b"),
@@ -384,9 +422,9 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMinVarcharDouble()
     {
-        InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(
-                METADATA.resolveFunction(QualifiedName.of("min_by"), fromTypes(DOUBLE, VARCHAR, BIGINT)));
+        ResolvedFunction function = METADATA.resolveFunction(QualifiedName.of("min_by"), fromTypes(DOUBLE, VARCHAR, BIGINT));
         assertAggregation(
+                METADATA,
                 function,
                 ImmutableList.of(2.0, 3.0),
                 createDoublesBlock(1.0, 2.0, 2.0, 3.0),
@@ -394,6 +432,7 @@ public class TestMinMaxByNAggregation
                 createRLEBlock(2L, 4));
 
         assertAggregation(
+                METADATA,
                 function,
                 ImmutableList.of(-1.0, 2.0),
                 createDoublesBlock(0.0, 1.0, 2.0, -1.0),
@@ -401,6 +440,7 @@ public class TestMinMaxByNAggregation
                 createRLEBlock(2L, 4));
 
         assertAggregation(
+                METADATA,
                 function,
                 ImmutableList.of(-1.0, 1.0),
                 createDoublesBlock(0.0, 1.0, null, -1.0),
@@ -411,9 +451,9 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMaxVarcharDouble()
     {
-        InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(
-                METADATA.resolveFunction(QualifiedName.of("max_by"), fromTypes(DOUBLE, VARCHAR, BIGINT)));
+        ResolvedFunction function = METADATA.resolveFunction(QualifiedName.of("max_by"), fromTypes(DOUBLE, VARCHAR, BIGINT));
         assertAggregation(
+                METADATA,
                 function,
                 ImmutableList.of(1.0, 2.0),
                 createDoublesBlock(1.0, 2.0, null),
@@ -421,6 +461,7 @@ public class TestMinMaxByNAggregation
                 createRLEBlock(2L, 3));
 
         assertAggregation(
+                METADATA,
                 function,
                 ImmutableList.of(0.0, 1.0),
                 createDoublesBlock(0.0, 1.0, 2.0, -1.0),
@@ -428,6 +469,7 @@ public class TestMinMaxByNAggregation
                 createRLEBlock(2L, 4));
 
         assertAggregation(
+                METADATA,
                 function,
                 ImmutableList.of(0.0, 1.0),
                 createDoublesBlock(0.0, 1.0, null, -1.0),
@@ -438,9 +480,9 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMinVarcharArray()
     {
-        InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(
-                METADATA.resolveFunction(QualifiedName.of("min_by"), fromTypes(new ArrayType(BIGINT), VARCHAR, BIGINT)));
+        ResolvedFunction function = METADATA.resolveFunction(QualifiedName.of("min_by"), fromTypes(new ArrayType(BIGINT), VARCHAR, BIGINT));
         assertAggregation(
+                METADATA,
                 function,
                 ImmutableList.of(ImmutableList.of(2L, 3L), ImmutableList.of(4L, 5L)),
                 createArrayBigintBlock(ImmutableList.of(ImmutableList.of(1L, 2L), ImmutableList.of(2L, 3L), ImmutableList.of(3L, 4L), ImmutableList.of(4L, 5L))),
@@ -451,9 +493,9 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMaxVarcharArray()
     {
-        InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(
-                METADATA.resolveFunction(QualifiedName.of("max_by"), fromTypes(new ArrayType(BIGINT), VARCHAR, BIGINT)));
+        ResolvedFunction function = METADATA.resolveFunction(QualifiedName.of("max_by"), fromTypes(new ArrayType(BIGINT), VARCHAR, BIGINT));
         assertAggregation(
+                METADATA,
                 function,
                 ImmutableList.of(ImmutableList.of(1L, 2L), ImmutableList.of(3L, 4L)),
                 createArrayBigintBlock(ImmutableList.of(ImmutableList.of(1L, 2L), ImmutableList.of(2L, 3L), ImmutableList.of(3L, 4L), ImmutableList.of(4L, 5L))),
@@ -464,9 +506,9 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMinArrayVarchar()
     {
-        InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(
-                METADATA.resolveFunction(QualifiedName.of("min_by"), fromTypes(VARCHAR, new ArrayType(BIGINT), BIGINT)));
+        ResolvedFunction function = METADATA.resolveFunction(QualifiedName.of("min_by"), fromTypes(VARCHAR, new ArrayType(BIGINT), BIGINT));
         assertAggregation(
+                METADATA,
                 function,
                 ImmutableList.of("b", "x", "z"),
                 createStringsBlock("z", "a", "x", "b"),
@@ -477,9 +519,9 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMaxArrayVarchar()
     {
-        InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(
-                METADATA.resolveFunction(QualifiedName.of("max_by"), fromTypes(VARCHAR, new ArrayType(BIGINT), BIGINT)));
+        ResolvedFunction function = METADATA.resolveFunction(QualifiedName.of("max_by"), fromTypes(VARCHAR, new ArrayType(BIGINT), BIGINT));
         assertAggregation(
+                METADATA,
                 function,
                 ImmutableList.of("a", "z", "x"),
                 createStringsBlock("z", "a", "x", "b"),

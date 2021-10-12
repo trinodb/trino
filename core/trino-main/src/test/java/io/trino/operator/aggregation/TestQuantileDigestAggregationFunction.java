@@ -17,6 +17,7 @@ import com.google.common.base.Joiner;
 import com.google.common.primitives.Floats;
 import io.airlift.stats.QuantileDigest;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.scalar.AbstractTestFunctions;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -164,9 +165,9 @@ public class TestQuantileDigestAggregationFunction
                 LongStream.range(-1000, 1000).toArray());
     }
 
-    private InternalAggregationFunction getAggregationFunction(Type... types)
+    private ResolvedFunction getAggregationFunction(Type... types)
     {
-        return METADATA.getAggregateFunctionImplementation(METADATA.resolveFunction(QualifiedName.of("qdigest_agg"), fromTypes(types)));
+        return METADATA.resolveFunction(QualifiedName.of("qdigest_agg"), fromTypes(types));
     }
 
     private void testAggregationBigint(Block inputBlock, Block weightsBlock, double maxError, long... inputs)
@@ -236,10 +237,12 @@ public class TestQuantileDigestAggregationFunction
                 inputs);
     }
 
-    private void testAggregationBigints(InternalAggregationFunction function, Page page, double maxError, long... inputs)
+    private void testAggregationBigints(ResolvedFunction function, Page page, double maxError, long... inputs)
     {
         // aggregate level
-        assertAggregation(function,
+        assertAggregation(
+                METADATA,
+                function,
                 QDIGEST_EQUALITY,
                 "test multiple positions",
                 page,
@@ -248,13 +251,15 @@ public class TestQuantileDigestAggregationFunction
         // test scalars
         List<Long> rows = Arrays.stream(inputs).sorted().boxed().collect(Collectors.toList());
 
-        SqlVarbinary returned = (SqlVarbinary) AggregationTestUtils.aggregation(function, page);
+        SqlVarbinary returned = (SqlVarbinary) AggregationTestUtils.aggregation(METADATA.getAggregateFunctionImplementation(function), page);
         assertPercentileWithinError(StandardTypes.BIGINT, returned, maxError, rows, 0.1, 0.5, 0.9, 0.99);
     }
 
-    private void testAggregationDoubles(InternalAggregationFunction function, Page page, double maxError, double... inputs)
+    private void testAggregationDoubles(ResolvedFunction function, Page page, double maxError, double... inputs)
     {
-        assertAggregation(function,
+        assertAggregation(
+                METADATA,
+                function,
                 QDIGEST_EQUALITY,
                 "test multiple positions",
                 page,
@@ -263,13 +268,15 @@ public class TestQuantileDigestAggregationFunction
         // test scalars
         List<Double> rows = Arrays.stream(inputs).sorted().boxed().collect(Collectors.toList());
 
-        SqlVarbinary returned = (SqlVarbinary) AggregationTestUtils.aggregation(function, page);
+        SqlVarbinary returned = (SqlVarbinary) AggregationTestUtils.aggregation(METADATA.getAggregateFunctionImplementation(function), page);
         assertPercentileWithinError(StandardTypes.DOUBLE, returned, maxError, rows, 0.1, 0.5, 0.9, 0.99);
     }
 
-    private void testAggregationReal(InternalAggregationFunction function, Page page, double maxError, float... inputs)
+    private void testAggregationReal(ResolvedFunction function, Page page, double maxError, float... inputs)
     {
-        assertAggregation(function,
+        assertAggregation(
+                METADATA,
+                function,
                 QDIGEST_EQUALITY,
                 "test multiple positions",
                 page,
@@ -278,7 +285,7 @@ public class TestQuantileDigestAggregationFunction
         // test scalars
         List<Double> rows = Floats.asList(inputs).stream().sorted().map(Float::doubleValue).collect(Collectors.toList());
 
-        SqlVarbinary returned = (SqlVarbinary) AggregationTestUtils.aggregation(function, page);
+        SqlVarbinary returned = (SqlVarbinary) AggregationTestUtils.aggregation(METADATA.getAggregateFunctionImplementation(function), page);
         assertPercentileWithinError(StandardTypes.REAL, returned, maxError, rows, 0.1, 0.5, 0.9, 0.99);
     }
 

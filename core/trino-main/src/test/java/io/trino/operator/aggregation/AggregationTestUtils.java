@@ -15,12 +15,16 @@ package io.trino.operator.aggregation;
 
 import com.google.common.primitives.Ints;
 import io.trino.block.BlockAssertions;
+import io.trino.metadata.AggregationFunctionMetadata;
+import io.trino.metadata.Metadata;
+import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.GroupByIdBlock;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.BooleanType;
+import io.trino.spi.type.Type;
 import org.apache.commons.math3.util.Precision;
 
 import java.util.Collections;
@@ -39,16 +43,16 @@ public final class AggregationTestUtils
 {
     private AggregationTestUtils() {}
 
-    public static void assertAggregation(InternalAggregationFunction function, Object expectedValue, Block... blocks)
+    public static void assertAggregation(Metadata metadata, ResolvedFunction resolvedFunction, Object expectedValue, Block... blocks)
     {
-        assertAggregation(function, expectedValue, new Page(blocks));
+        assertAggregation(metadata, resolvedFunction, expectedValue, new Page(blocks));
     }
 
-    public static void assertAggregation(InternalAggregationFunction function, Object expectedValue, Page page)
+    public static void assertAggregation(Metadata metadata, ResolvedFunction resolvedFunction, Object expectedValue, Page page)
     {
         BiFunction<Object, Object, Boolean> equalAssertion = makeValidityAssertion(expectedValue);
 
-        assertAggregation(function, equalAssertion, null, page, expectedValue);
+        assertAggregation(metadata, resolvedFunction, equalAssertion, null, page, expectedValue);
     }
 
     public static BiFunction<Object, Object, Boolean> makeValidityAssertion(Object expectedValue)
@@ -62,8 +66,15 @@ public final class AggregationTestUtils
         return Objects::equals;
     }
 
-    public static void assertAggregation(InternalAggregationFunction function, BiFunction<Object, Object, Boolean> equalAssertion, String testDescription, Page page, Object expectedValue)
+    public static void assertAggregation(Metadata metadata, ResolvedFunction resolvedFunction, BiFunction<Object, Object, Boolean> equalAssertion, String testDescription, Page page, Object expectedValue)
     {
+        AggregationFunctionMetadata functionMetadata = metadata.getAggregationFunctionMetadata(resolvedFunction);
+        InternalAggregationFunction function = metadata.getAggregateFunctionImplementation(resolvedFunction);
+
+        assertEquals(function.getParameterTypes(), resolvedFunction.getSignature().getArgumentTypes());
+        assertEquals(function.getFinalType(), resolvedFunction.getSignature().getReturnType());
+        assertEquals(function.getIntermediateType().map(Type::getTypeSignature), functionMetadata.getIntermediateType());
+
         int positions = page.getPositionCount();
         for (int i = 1; i < page.getChannelCount(); i++) {
             assertEquals(positions, page.getBlock(i).getPositionCount(), "input blocks provided are not equal in position count");
