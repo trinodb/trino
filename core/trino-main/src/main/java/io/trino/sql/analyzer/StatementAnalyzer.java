@@ -1037,7 +1037,7 @@ class StatementAnalyzer
                     analysis.getParameters());
             analysis.setTableExecuteProperties(tableProperties);
 
-            analysis.setUpdateType("EXECUTE", tableName, Optional.empty(), Optional.empty());
+            analysis.setUpdateType("EXECUTE");
 
             return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
         }

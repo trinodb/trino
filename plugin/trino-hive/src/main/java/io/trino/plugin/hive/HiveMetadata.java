@@ -267,6 +267,7 @@ import static io.trino.plugin.hive.util.Statistics.createEmptyPartitionStatistic
 import static io.trino.plugin.hive.util.Statistics.fromComputedStatistics;
 import static io.trino.plugin.hive.util.Statistics.reduce;
 import static io.trino.plugin.hive.util.SystemTables.getSourceTableNameFromSystemTable;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.INVALID_ANALYZE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
@@ -2097,6 +2098,7 @@ public class HiveMetadata
         catch (IOException e) {
             throw new TrinoException(HIVE_FILESYSTEM_ERROR, "Error while deleting ", e);
         }
+        throw new TrinoException(GENERIC_INTERNAL_ERROR, "Blah!!!");
     }
 
     @Override
