@@ -15,6 +15,7 @@ package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import io.trino.sql.tree.QualifiedName;
@@ -53,8 +54,9 @@ public class TestArbitraryAggregation
     @Test
     public void testNullBoolean()
     {
-        InternalAggregationFunction booleanAgg = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of("arbitrary"), fromTypes(BOOLEAN)));
+        ResolvedFunction booleanAgg = metadata.resolveFunction(QualifiedName.of("arbitrary"), fromTypes(BOOLEAN));
         assertAggregation(
+                metadata,
                 booleanAgg,
                 null,
                 createBooleansBlock((Boolean) null));
@@ -63,9 +65,9 @@ public class TestArbitraryAggregation
     @Test
     public void testValidBoolean()
     {
-        InternalAggregationFunction booleanAgg = metadata.getAggregateFunctionImplementation(
-                metadata.resolveFunction(QualifiedName.of("arbitrary"), fromTypes(BOOLEAN)));
+        ResolvedFunction booleanAgg = metadata.resolveFunction(QualifiedName.of("arbitrary"), fromTypes(BOOLEAN));
         assertAggregation(
+                metadata,
                 booleanAgg,
                 true,
                 createBooleansBlock(true, true));
@@ -74,9 +76,9 @@ public class TestArbitraryAggregation
     @Test
     public void testNullLong()
     {
-        InternalAggregationFunction longAgg = metadata.getAggregateFunctionImplementation(
-                metadata.resolveFunction(QualifiedName.of("arbitrary"), fromTypes(BIGINT)));
+        ResolvedFunction longAgg = metadata.resolveFunction(QualifiedName.of("arbitrary"), fromTypes(BIGINT));
         assertAggregation(
+                metadata,
                 longAgg,
                 null,
                 createLongsBlock(null, null));
@@ -85,9 +87,9 @@ public class TestArbitraryAggregation
     @Test
     public void testValidLong()
     {
-        InternalAggregationFunction longAgg = metadata.getAggregateFunctionImplementation(
-                metadata.resolveFunction(QualifiedName.of("arbitrary"), fromTypes(BIGINT)));
+        ResolvedFunction longAgg = metadata.resolveFunction(QualifiedName.of("arbitrary"), fromTypes(BIGINT));
         assertAggregation(
+                metadata,
                 longAgg,
                 1L,
                 createLongsBlock(1L, null));
@@ -96,9 +98,9 @@ public class TestArbitraryAggregation
     @Test
     public void testNullDouble()
     {
-        InternalAggregationFunction doubleAgg = metadata.getAggregateFunctionImplementation(
-                metadata.resolveFunction(QualifiedName.of("arbitrary"), fromTypes(DOUBLE)));
+        ResolvedFunction doubleAgg = metadata.resolveFunction(QualifiedName.of("arbitrary"), fromTypes(DOUBLE));
         assertAggregation(
+                metadata,
                 doubleAgg,
                 null,
                 createDoublesBlock(null, null));
@@ -107,9 +109,9 @@ public class TestArbitraryAggregation
     @Test
     public void testValidDouble()
     {
-        InternalAggregationFunction doubleAgg = metadata.getAggregateFunctionImplementation(
-                metadata.resolveFunction(QualifiedName.of("arbitrary"), fromTypes(DOUBLE)));
+        ResolvedFunction doubleAgg = metadata.resolveFunction(QualifiedName.of("arbitrary"), fromTypes(DOUBLE));
         assertAggregation(
+                metadata,
                 doubleAgg,
                 2.0,
                 createDoublesBlock(null, 2.0));
@@ -118,9 +120,9 @@ public class TestArbitraryAggregation
     @Test
     public void testNullString()
     {
-        InternalAggregationFunction stringAgg = metadata.getAggregateFunctionImplementation(
-                metadata.resolveFunction(QualifiedName.of("arbitrary"), fromTypes(VARCHAR)));
+        ResolvedFunction stringAgg = metadata.resolveFunction(QualifiedName.of("arbitrary"), fromTypes(VARCHAR));
         assertAggregation(
+                metadata,
                 stringAgg,
                 null,
                 createStringsBlock(null, null));
@@ -129,9 +131,9 @@ public class TestArbitraryAggregation
     @Test
     public void testValidString()
     {
-        InternalAggregationFunction stringAgg = metadata.getAggregateFunctionImplementation(
-                metadata.resolveFunction(QualifiedName.of("arbitrary"), fromTypes(VARCHAR)));
+        ResolvedFunction stringAgg = metadata.resolveFunction(QualifiedName.of("arbitrary"), fromTypes(VARCHAR));
         assertAggregation(
+                metadata,
                 stringAgg,
                 "a",
                 createStringsBlock("a", "a"));
@@ -140,9 +142,9 @@ public class TestArbitraryAggregation
     @Test
     public void testNullArray()
     {
-        InternalAggregationFunction arrayAgg = metadata.getAggregateFunctionImplementation(
-                metadata.resolveFunction(QualifiedName.of("arbitrary"), fromTypes(new ArrayType(BIGINT))));
+        ResolvedFunction arrayAgg = metadata.resolveFunction(QualifiedName.of("arbitrary"), fromTypes(new ArrayType(BIGINT)));
         assertAggregation(
+                metadata,
                 arrayAgg,
                 null,
                 createArrayBigintBlock(Arrays.asList(null, null, null, null)));
@@ -151,9 +153,9 @@ public class TestArbitraryAggregation
     @Test
     public void testValidArray()
     {
-        InternalAggregationFunction arrayAgg = metadata.getAggregateFunctionImplementation(
-                metadata.resolveFunction(QualifiedName.of("arbitrary"), fromTypes(new ArrayType(BIGINT))));
+        ResolvedFunction arrayAgg = metadata.resolveFunction(QualifiedName.of("arbitrary"), fromTypes(new ArrayType(BIGINT)));
         assertAggregation(
+                metadata,
                 arrayAgg,
                 ImmutableList.of(23L, 45L),
                 createArrayBigintBlock(ImmutableList.of(ImmutableList.of(23L, 45L), ImmutableList.of(23L, 45L), ImmutableList.of(23L, 45L), ImmutableList.of(23L, 45L))));
@@ -162,9 +164,9 @@ public class TestArbitraryAggregation
     @Test
     public void testValidInt()
     {
-        InternalAggregationFunction arrayAgg = metadata.getAggregateFunctionImplementation(
-                metadata.resolveFunction(QualifiedName.of("arbitrary"), fromTypes(INTEGER)));
+        ResolvedFunction arrayAgg = metadata.resolveFunction(QualifiedName.of("arbitrary"), fromTypes(INTEGER));
         assertAggregation(
+                metadata,
                 arrayAgg,
                 3,
                 createIntsBlock(3, 3, null));
