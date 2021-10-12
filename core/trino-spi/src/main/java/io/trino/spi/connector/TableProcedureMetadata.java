@@ -31,8 +31,7 @@ public class TableProcedureMetadata
     {
         this.name = checkNotEmpty(name, "name");
         this.executionMode = requireNonNull(executionMode, "executionMode is null");
-        requireNonNull(properties, "properties is null");
-        this.properties = List.copyOf(properties);
+        this.properties = List.copyOf(requireNonNull(properties, "properties is null"));
     }
 
     public String getName()
