@@ -90,7 +90,7 @@ public abstract class AbstractEnvSinglenodeLdap
 
     protected String getBaseImage()
     {
-        return "centos7-oj8-openldap";
+        return "centos7-oj11-openldap";
     }
 
     protected abstract String getPasswordAuthenticatorConfigPath();
