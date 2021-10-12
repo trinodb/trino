@@ -93,6 +93,7 @@ import java.util.stream.Stream;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.Sets.intersection;
 import static com.google.common.io.Files.asCharSink;
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -152,12 +153,15 @@ import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
+import static java.lang.String.join;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Collections.nCopies;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.toSet;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.data.Offset.offset;
@@ -7748,6 +7752,174 @@ public class TestHiveConnectorTest
                 session,
                 "CREATE TABLE test_invalid_precision_timestamp (ts TIMESTAMP(3))",
                 "\\QIncorrect timestamp precision for timestamp(3); the configured precision is " + HiveTimestampPrecision.MICROSECONDS);
+    }
+
+    @Test
+    public void testOptimize()
+    {
+        String tableName = "test_optimize_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation WITH NO DATA", 0);
+
+        insertNationNTimes(tableName, 10);
+        assertNationNTimes(tableName, 10);
+
+        Set<String> initialFiles = getTableFiles(tableName);
+        assertThat(initialFiles).hasSize(10);
+
+        assertUpdate("ALTER TABLE " + tableName + " EXECUTE optimize(file_size_threshold => '10kB')");
+        assertNationNTimes(tableName, 10);
+
+        Set<String> compactedFiles = getTableFiles(tableName);
+        // we expect at most 3 files due to write parallelism
+        assertThat(compactedFiles).hasSizeLessThanOrEqualTo(3);
+        assertThat(intersection(initialFiles, compactedFiles)).isEmpty();
+
+        // compact with low threshold; nothing should change
+        assertUpdate("ALTER TABLE " + tableName + " EXECUTE optimize(file_size_threshold => '10B')");
+
+        assertThat(getTableFiles(tableName)).hasSameElementsAs(compactedFiles);
+    }
+
+    @Test
+    public void testOptimizeWithWriterScaling()
+    {
+        String tableName = "test_optimize_witer_scaling" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation WITH NO DATA", 0);
+
+        insertNationNTimes(tableName, 4);
+        assertNationNTimes(tableName, 4);
+
+        Set<String> initialFiles = getTableFiles(tableName);
+        assertThat(initialFiles).hasSize(4);
+
+        Session writerScalingSession = Session.builder(getSession())
+                .setSystemProperty("scale_writers", "true")
+                .setSystemProperty("writer_min_size", "100GB")
+                .build();
+
+        assertUpdate(writerScalingSession, "ALTER TABLE " + tableName + " EXECUTE optimize(file_size_threshold => '10kB')");
+        assertNationNTimes(tableName, 4);
+
+        Set<String> compactedFiles = getTableFiles(tableName);
+        assertThat(compactedFiles).hasSize(1);
+        assertThat(intersection(initialFiles, compactedFiles)).isEmpty();
+    }
+
+    @Test
+    public void testOptimizeWithPartitioning()
+    {
+        int insertCount = 4;
+        int partitionsCount = 5;
+
+        String tableName = "test_optimize_with_partitioning_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + "(" +
+                "  nationkey BIGINT, " +
+                "  name VARCHAR, " +
+                "  comment VARCHAR, " +
+                "  regionkey BIGINT" +
+                ")" +
+                "WITH (partitioned_by = ARRAY['regionkey'])");
+
+        insertNationNTimes(tableName, insertCount);
+        assertNationNTimes(tableName, insertCount);
+
+        Set<String> initialFiles = getTableFiles(tableName);
+        assertThat(initialFiles).hasSize(insertCount * partitionsCount);
+
+        Session writerScalingSession = Session.builder(getSession())
+                .setSystemProperty("scale_writers", "true")
+                .setSystemProperty("writer_min_size", "100GB")
+                .build();
+
+        // optimize with unsupported WHERE
+        assertThatThrownBy(() -> computeActual("ALTER TABLE " + tableName + " EXECUTE optimize(file_size_threshold => '10kB') WHERE nationkey = 1"))
+                .hasMessageContaining("Unexpected FilterNode found in plan; probably connector was not able to handle provided WHERE expression");
+        assertNationNTimes(tableName, insertCount);
+        assertThat(getTableFiles(tableName)).hasSameElementsAs(initialFiles);
+
+        // optimize using predicate on on partition key but not matching any partitions
+        assertUpdate(writerScalingSession, "ALTER TABLE " + tableName + " EXECUTE optimize(file_size_threshold => '10kB') WHERE regionkey > 5");
+        assertNationNTimes(tableName, insertCount);
+        assertThat(getTableFiles(tableName)).hasSameElementsAs(initialFiles);
+
+        // optimize two partitions; also use positional argument
+        assertUpdate(writerScalingSession, "ALTER TABLE " + tableName + " EXECUTE optimize('10kB') WHERE regionkey IN (1,2)");
+        assertNationNTimes(tableName, insertCount);
+        assertThat(getTableFiles(tableName)).hasSize(2 + 3 * insertCount);
+
+        // optimize one more partition; default file_size_threshold
+        assertUpdate(writerScalingSession, "ALTER TABLE " + tableName + " EXECUTE optimize WHERE regionkey > 3");
+        assertNationNTimes(tableName, insertCount);
+        assertThat(getTableFiles(tableName)).hasSize(3 + 2 * insertCount);
+
+        // optimize remaining partitions
+        assertUpdate(writerScalingSession, "ALTER TABLE " + tableName + " EXECUTE optimize(file_size_threshold => '10kB')");
+        assertNationNTimes(tableName, insertCount);
+
+        Set<String> compactedFiles = getTableFiles(tableName);
+        assertThat(compactedFiles).hasSize(partitionsCount);
+        assertThat(intersection(initialFiles, compactedFiles)).isEmpty();
+    }
+
+    @Test
+    public void testOptimizeWithBucketing()
+    {
+        int insertCount = 4;
+        String tableName = "test_optimize_with_bucketing_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + "(" +
+                "  nationkey BIGINT, " +
+                "  name VARCHAR, " +
+                "  comment VARCHAR, " +
+                "  regionkey BIGINT" +
+                ")" +
+                "WITH (bucketed_by = ARRAY['regionkey'], bucket_count = 4)");
+
+        insertNationNTimes(tableName, insertCount);
+        assertNationNTimes(tableName, insertCount);
+        Set<String> initialFiles = getTableFiles(tableName);
+
+        assertThatThrownBy(() -> computeActual("ALTER TABLE " + tableName + " EXECUTE optimize(file_size_threshold => '10kB')"))
+                .hasMessageMatching("Optimizing bucketed Hive table .* is not supported");
+
+        assertThat(getTableFiles(tableName)).hasSameElementsAs(initialFiles);
+        assertNationNTimes(tableName, insertCount);
+    }
+
+    @Test
+    public void testOptimizeHiveInformationSchema()
+    {
+        assertThatThrownBy(() -> computeActual("ALTER TABLE information_schema.tables EXECUTE optimize(file_size_threshold => '10kB')"))
+                .hasMessage("This connector does not support table procedures");
+    }
+
+    @Test
+    public void testOptimizeHiveSystemTable()
+    {
+        String tableName = "test_optimize_system_table_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + "(a bigint, b bigint) WITH (partitioned_by = ARRAY['b'])");
+
+        assertQuery("SELECT count(*) FROM " + tableName, "SELECT 0");
+
+        assertThatThrownBy(() -> computeActual(format("ALTER TABLE \"%s$partitions\" EXECUTE optimize(file_size_threshold => '10kB')", tableName)))
+                .hasMessage("This connector does not support table procedures");
+    }
+
+    private void insertNationNTimes(String tableName, int times)
+    {
+        assertUpdate("INSERT INTO " + tableName + "(nationkey, name, regionkey, comment) " + join(" UNION ALL ", nCopies(times, "SELECT * FROM tpch.sf1.nation")), times * 25);
+    }
+
+    private void assertNationNTimes(String tableName, int times)
+    {
+        String verifyQuery = join(" UNION ALL ", nCopies(times, "SELECT * FROM nation"));
+        assertQuery("SELECT nationkey, name, regionkey, comment FROM " + tableName, verifyQuery);
+    }
+
+    private Set<String> getTableFiles(String tableName)
+    {
+        return computeActual("SELECT DISTINCT \"$path\" FROM " + tableName).getOnlyColumn()
+                .map(String.class::cast)
+                .collect(toSet());
     }
 
     @Test
