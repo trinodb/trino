@@ -57,7 +57,8 @@ public class TestHiveSplitSource
                 Integer.MAX_VALUE,
                 new TestingHiveSplitLoader(),
                 Executors.newFixedThreadPool(5),
-                new CounterStat());
+                new CounterStat(),
+                false);
 
         // add 10 splits
         for (int i = 0; i < 10; i++) {
@@ -91,7 +92,8 @@ public class TestHiveSplitSource
                 Integer.MAX_VALUE,
                 new TestingHiveSplitLoader(),
                 Executors.newFixedThreadPool(5),
-                new CounterStat());
+                new CounterStat(),
+                false);
 
         // add 10 splits
         for (int i = 0; i < 10; i++) {
@@ -119,7 +121,8 @@ public class TestHiveSplitSource
                 Integer.MAX_VALUE,
                 new TestingHiveSplitLoader(),
                 Executors.newSingleThreadExecutor(),
-                new CounterStat());
+                new CounterStat(),
+                false);
 
         // One byte larger than the initial split max size
         DataSize fileSize = DataSize.ofBytes(initialSplitSize.toBytes() + 1);
@@ -146,7 +149,8 @@ public class TestHiveSplitSource
                 Integer.MAX_VALUE,
                 new TestingHiveSplitLoader(),
                 Executors.newFixedThreadPool(5),
-                new CounterStat());
+                new CounterStat(),
+                false);
 
         // add some splits
         for (int i = 0; i < 5; i++) {
@@ -196,7 +200,8 @@ public class TestHiveSplitSource
                 Integer.MAX_VALUE,
                 new TestingHiveSplitLoader(),
                 Executors.newFixedThreadPool(5),
-                new CounterStat());
+                new CounterStat(),
+                false);
 
         SettableFuture<ConnectorSplit> splits = SettableFuture.create();
 
@@ -250,7 +255,8 @@ public class TestHiveSplitSource
                 Integer.MAX_VALUE,
                 new TestingHiveSplitLoader(),
                 Executors.newFixedThreadPool(5),
-                new CounterStat());
+                new CounterStat(),
+                false);
         int testSplitSizeInBytes = new TestSplit(0).getEstimatedSizeInBytes();
 
         int maxSplitCount = toIntExact(maxOutstandingSplitsSize.toBytes()) / testSplitSizeInBytes;
@@ -283,7 +289,8 @@ public class TestHiveSplitSource
                 Integer.MAX_VALUE,
                 new TestingHiveSplitLoader(),
                 Executors.newFixedThreadPool(5),
-                new CounterStat());
+                new CounterStat(),
+                false);
         hiveSplitSource.addToQueue(new TestSplit(0, OptionalInt.of(2)));
         hiveSplitSource.noMoreSplits();
         assertEquals(getSplits(hiveSplitSource, OptionalInt.of(0), 10).size(), 0);
