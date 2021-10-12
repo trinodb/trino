@@ -207,6 +207,9 @@ public class HiveSplitManager
 
         // short circuit if we don't have any partitions
         if (partitions.isEmpty()) {
+            if (hiveTable.isRecordScannedFiles()) {
+                return new FixedSplitSource(ImmutableList.of(), ImmutableList.of());
+            }
             return new FixedSplitSource(ImmutableList.of());
         }
 

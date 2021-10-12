@@ -7778,17 +7778,73 @@ public class TestHiveConnectorTest
         assertThat(intersection(initialFiles, compactedFiles)).isEmpty();
     }
 
+    @Test
+    public void testOptimizeWithPartitioning()
+    {
+        int insertCount = 4;
+        int partitionsCount = 5;
+
+        String tableName = "test_optimize_with_partitioning_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + "(" +
+                "  nationkey BIGINT, " +
+                "  name VARCHAR, " +
+                "  comment VARCHAR, " +
+                "  regionkey BIGINT" +
+                ")" +
+                "WITH (partitioned_by = ARRAY['regionkey'])");
+
+        insertNationNTimes(tableName, insertCount);
+        assertNationNTimes(tableName, insertCount);
+
+        Set<String> initialFiles = getTableFiles(tableName);
+        assertThat(initialFiles).hasSize(insertCount * partitionsCount);
+
+        Session writerScalingSession = Session.builder(getSession())
+                .setSystemProperty("scale_writers", "true")
+                .setSystemProperty("writer_min_size", "100GB")
+                .build();
+
+        // optimize with unsupported WHERE
+        assertThatThrownBy(() -> computeActual("ALTER TABLE " + tableName + " EXECUTE optimize WITH (file_size_threshold = '10kB') WHERE nationkey = 1"))
+                .hasMessageContaining("Predicate used for optimize must match whole partitions");
+        assertNationNTimes(tableName, insertCount);
+        assertThat(getTableFiles(tableName)).hasSameElementsAs(initialFiles);
+
+        // optimize using predicate on on partition key but not matching any partitions
+        assertUpdate(writerScalingSession, "ALTER TABLE " + tableName + " EXECUTE optimize WITH (file_size_threshold = '10kB') WHERE regionkey > 5");
+        assertNationNTimes(tableName, insertCount);
+        assertThat(getTableFiles(tableName)).hasSameElementsAs(initialFiles);
+
+        // optimize two partitions
+        assertUpdate(writerScalingSession, "ALTER TABLE " + tableName + " EXECUTE optimize WITH (file_size_threshold = '10kB') WHERE regionkey IN (1,2)");
+        assertNationNTimes(tableName, insertCount);
+        assertThat(getTableFiles(tableName)).hasSize(2 + 3 * insertCount);
+
+        // optimize one more partition
+        assertUpdate(writerScalingSession, "ALTER TABLE " + tableName + " EXECUTE optimize WITH (file_size_threshold = '10kB') WHERE regionkey > 3");
+        assertNationNTimes(tableName, insertCount);
+        assertThat(getTableFiles(tableName)).hasSize(3 + 2 * insertCount);
+
+        // optimize remaining partitions
+        assertUpdate(writerScalingSession, "ALTER TABLE " + tableName + " EXECUTE optimize WITH (file_size_threshold = '10kB')");
+        assertNationNTimes(tableName, insertCount);
+
+        Set<String> compactedFiles = getTableFiles(tableName);
+        assertThat(compactedFiles).hasSize(partitionsCount);
+        assertThat(intersection(initialFiles, compactedFiles)).isEmpty();
+    }
+
     private void insertNationNTimes(String tableName, int times)
     {
         for (int i = 0; i < times; i++) {
-            assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.sf1.nation", 25);
+            assertUpdate("INSERT INTO " + tableName + "(nationkey, name, regionkey, comment) SELECT * FROM tpch.sf1.nation", 25);
         }
     }
 
     private void assertNationNTimes(String tableName, int times)
     {
         String verifyQuery = join(" UNION ALL ", nCopies(times, "SELECT * FROM nation"));
-        assertQuery("SELECT * FROM " + tableName, verifyQuery);
+        assertQuery("SELECT nationkey, name, regionkey, comment FROM " + tableName, verifyQuery);
     }
 
     private Set<String> getTableFiles(String tableName)

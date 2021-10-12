@@ -1914,9 +1914,12 @@ public class HiveMetadata
         HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle;
         SchemaTableName tableName = hiveTableHandle.getSchemaTableName();
 
-        if (constraint.predicate().isPresent() || !constraint.getSummary().isAll()) {
-            // TODO: relax check to to allow constraints which filter out whole partitions
-            throw new TrinoException(NOT_SUPPORTED, format("Optimizing Hive table %s with non empty predicate is not supported", tableName));
+        if (constraint.getSummary().isNone()) {
+            throw new TrinoException(NOT_SUPPORTED, format("Optimizing Hive table %s with predicate filtering out all data is not supported", tableName));
+        }
+
+        if (constraint.predicate().isPresent() || !isOnPartitionColumnsOnly(constraint.getSummary(), hiveTableHandle.getPartitionColumns())) {
+            throw new TrinoException(NOT_SUPPORTED, "Predicate used for optimize must match whole partitions");
         }
 
         Table table = metastore.getTable(identity, tableName.getSchemaName(), tableName.getTableName())
@@ -1958,13 +1961,19 @@ public class HiveMetadata
         LocationHandle locationHandle = locationService.forExistingTable(metastore, session, table);
 
         DataSize fileSizeThreshold = (DataSize) executeProperties.get("file_size_threshold");
-        HiveTableHandle newTableHandle = hiveTableHandle
+        hiveTableHandle = hiveTableHandle
                 .withRecordScannedFiles(true)
                 .withMaxScannedFileSize(Optional.of(fileSizeThreshold.toBytes()));
 
+        if (!constraint.getSummary().isAll()) {
+            HivePartitionResult partitionResult = partitionManager.getPartitions(metastore, new HiveIdentity(session), hiveTableHandle, constraint);
+            checkArgument(partitionResult.getUnenforcedConstraint().isAll(), "expected whole predicate to be consumed; remaining: " + partitionResult.getUnenforcedConstraint());
+            hiveTableHandle = partitionManager.applyPartitionResult(hiveTableHandle, partitionResult, constraint.getPredicateColumns());
+        }
+
         return Optional.of(new HiveTableExecuteHandle(
                 OptimizeTableProcedure.NAME,
-                newTableHandle,
+                hiveTableHandle,
                 tableName.getSchemaName(),
                 tableName.getTableName(),
                 columns,
@@ -1975,6 +1984,21 @@ public class HiveMetadata
                 // TODO: test with multiple partitions using different storage format
                 tableStorageFormat,
                 NO_ACID_TRANSACTION));
+    }
+
+    private boolean isOnPartitionColumnsOnly(TupleDomain<ColumnHandle> summary, List<HiveColumnHandle> partitionColumns)
+    {
+        if (summary.isAll() || summary.isNone()) {
+            return true;
+        }
+
+        Set<ColumnHandle> partitionColumnsSet = ImmutableSet.copyOf(partitionColumns);
+        for (ColumnHandle columnHandle : summary.getDomains().get().keySet()) {
+            if (!partitionColumnsSet.contains(columnHandle)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Override
