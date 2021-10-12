@@ -55,6 +55,8 @@ import static io.trino.operator.aggregation.AggregationUtils.generateAggregation
 import static io.trino.operator.aggregation.TypedSet.createEqualityTypedSet;
 import static io.trino.spi.type.TypeSignature.arrayType;
 import static io.trino.spi.type.TypeSignature.mapType;
+import static io.trino.spi.type.TypeSignature.rowType;
+import static io.trino.spi.type.TypeSignatureParameter.anonymousField;
 import static io.trino.type.TypeUtils.expectedValueSize;
 import static io.trino.util.Reflection.methodHandle;
 import static java.util.Objects.requireNonNull;
@@ -108,8 +110,7 @@ public class MultimapAggregationFunction
                         AGGREGATE),
                 new AggregationFunctionMetadata(
                         true,
-                        new TypeSignature("V"),
-                        new TypeSignature("K")));
+                        arrayType(rowType(anonymousField(new TypeSignature("V")), anonymousField(new TypeSignature("K"))))));
         this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
     }
 
