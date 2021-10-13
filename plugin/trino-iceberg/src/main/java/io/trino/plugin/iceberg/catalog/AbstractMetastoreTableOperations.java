@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg;
+package io.trino.plugin.iceberg.catalog;
 
 import io.airlift.log.Logger;
 import io.trino.plugin.hive.authentication.HiveIdentity;
@@ -20,6 +20,7 @@ import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
+import io.trino.plugin.iceberg.UnknownTableTypeException;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
@@ -30,7 +31,6 @@ import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.FileOutputFormat;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableMetadataParser;
-import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.exceptions.CommitFailedException;
 import org.apache.iceberg.hive.HiveSchemaUtil;
 import org.apache.iceberg.io.FileIO;
@@ -69,34 +69,41 @@ import static org.apache.iceberg.TableProperties.METADATA_COMPRESSION_DEFAULT;
 import static org.apache.iceberg.TableProperties.WRITE_METADATA_LOCATION;
 
 @NotThreadSafe
-public class HiveTableOperations
-        implements TableOperations
+public abstract class AbstractMetastoreTableOperations
+        implements IcebergTableOperations
 {
-    private static final Logger log = Logger.get(HiveTableOperations.class);
+    private static final Logger log = Logger.get(AbstractMetastoreTableOperations.class);
 
     public static final String METADATA_LOCATION = "metadata_location";
     public static final String PREVIOUS_METADATA_LOCATION = "previous_metadata_location";
-    private static final String METADATA_FOLDER_NAME = "metadata";
+    protected static final String METADATA_FOLDER_NAME = "metadata";
 
-    private static final StorageFormat STORAGE_FORMAT = StorageFormat.create(
+    protected static final StorageFormat STORAGE_FORMAT = StorageFormat.create(
             LazySimpleSerDe.class.getName(),
             FileInputFormat.class.getName(),
             FileOutputFormat.class.getName());
 
-    private final HiveMetastore metastore;
-    private final ConnectorSession session;
-    private final String database;
-    private final String tableName;
-    private final Optional<String> owner;
-    private final Optional<String> location;
-    private final FileIO fileIo;
+    protected final HiveMetastore metastore;
+    protected final ConnectorSession session;
+    protected final String database;
+    protected final String tableName;
+    protected final Optional<String> owner;
+    protected final Optional<String> location;
+    protected final FileIO fileIo;
 
-    private TableMetadata currentMetadata;
-    private String currentMetadataLocation;
-    private boolean shouldRefresh = true;
-    private int version = -1;
+    protected TableMetadata currentMetadata;
+    protected String currentMetadataLocation;
+    protected boolean shouldRefresh = true;
+    protected int version = -1;
 
-    HiveTableOperations(FileIO fileIo, HiveMetastore metastore, ConnectorSession session, String database, String table, Optional<String> owner, Optional<String> location)
+    protected AbstractMetastoreTableOperations(
+            FileIO fileIo,
+            HiveMetastore metastore,
+            ConnectorSession session,
+            String database,
+            String table,
+            Optional<String> owner,
+            Optional<String> location)
     {
         this.fileIo = requireNonNull(fileIo, "fileIo is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
@@ -107,6 +114,7 @@ public class HiveTableOperations
         this.location = requireNonNull(location, "location is null");
     }
 
+    @Override
     public void initializeFromMetadata(TableMetadata tableMetadata)
     {
         checkState(currentMetadata == null, "already initialized");
@@ -263,18 +271,18 @@ public class HiveTableOperations
         return getLocationProvider(getSchemaTableName(), metadata.location(), metadata.properties());
     }
 
-    private Table getTable()
+    protected Table getTable()
     {
         return metastore.getTable(new HiveIdentity(session), database, tableName)
                 .orElseThrow(() -> new TableNotFoundException(getSchemaTableName()));
     }
 
-    private SchemaTableName getSchemaTableName()
+    protected SchemaTableName getSchemaTableName()
     {
         return new SchemaTableName(database, tableName);
     }
 
-    private String writeNewMetadata(TableMetadata metadata, int newVersion)
+    protected String writeNewMetadata(TableMetadata metadata, int newVersion)
     {
         String newTableMetadataFilePath = newTableMetadataFilePath(metadata, newVersion);
         OutputFile newMetadataLocation = fileIo.newOutputFile(newTableMetadataFilePath);
@@ -285,7 +293,7 @@ public class HiveTableOperations
         return newTableMetadataFilePath;
     }
 
-    private void refreshFromMetadataLocation(String newLocation)
+    protected void refreshFromMetadataLocation(String newLocation)
     {
         // use null-safe equality check because new tables have a null metadata location
         if (Objects.equals(currentMetadataLocation, newLocation)) {
@@ -312,13 +320,13 @@ public class HiveTableOperations
         shouldRefresh = false;
     }
 
-    private static String newTableMetadataFilePath(TableMetadata meta, int newVersion)
+    protected static String newTableMetadataFilePath(TableMetadata meta, int newVersion)
     {
         String codec = meta.property(METADATA_COMPRESSION, METADATA_COMPRESSION_DEFAULT);
         return metadataFileLocation(meta, format("%05d-%s%s", newVersion, randomUUID(), getFileExtension(codec)));
     }
 
-    private static String metadataFileLocation(TableMetadata metadata, String filename)
+    protected static String metadataFileLocation(TableMetadata metadata, String filename)
     {
         String location = metadata.properties().get(WRITE_METADATA_LOCATION);
         if (location != null) {
@@ -327,7 +335,7 @@ public class HiveTableOperations
         return format("%s/%s/%s", metadata.location(), METADATA_FOLDER_NAME, filename);
     }
 
-    private static int parseVersion(String metadataLocation)
+    protected static int parseVersion(String metadataLocation)
     {
         int versionStart = metadataLocation.lastIndexOf('/') + 1; // if '/' isn't found, this will be 0
         int versionEnd = metadataLocation.indexOf('-', versionStart);
@@ -340,7 +348,7 @@ public class HiveTableOperations
         }
     }
 
-    private static List<Column> toHiveColumns(List<NestedField> columns)
+    protected static List<Column> toHiveColumns(List<NestedField> columns)
     {
         return columns.stream()
                 .map(column -> new Column(

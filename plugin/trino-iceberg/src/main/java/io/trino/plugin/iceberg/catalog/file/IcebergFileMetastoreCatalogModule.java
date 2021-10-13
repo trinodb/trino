@@ -17,7 +17,7 @@ import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.hive.metastore.file.FileMetastoreModule;
-import io.trino.plugin.iceberg.HiveTableOperationsProvider;
+import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 
 public class IcebergFileMetastoreCatalogModule
         extends AbstractConfigurationAwareModule
@@ -26,8 +26,6 @@ public class IcebergFileMetastoreCatalogModule
     protected void setup(Binder binder)
     {
         install(new FileMetastoreModule());
-
-        // TODO inject table operations based on IcebergConfig.getCatalogType
-        binder.bind(HiveTableOperationsProvider.class).in(Scopes.SINGLETON);
+        binder.bind(IcebergTableOperationsProvider.class).to(FileMetastoreTableOperationsProvider.class).in(Scopes.SINGLETON);
     }
 }

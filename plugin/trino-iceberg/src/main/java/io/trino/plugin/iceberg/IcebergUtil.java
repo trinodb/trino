@@ -18,6 +18,8 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceUtf8;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
+import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
@@ -107,7 +109,7 @@ import static org.apache.iceberg.TableProperties.WRITE_LOCATION_PROVIDER_IMPL;
 import static org.apache.iceberg.types.Type.TypeID.BINARY;
 import static org.apache.iceberg.types.Type.TypeID.FIXED;
 
-final class IcebergUtil
+public final class IcebergUtil
 {
     private static final Pattern SIMPLE_NAME = Pattern.compile("[a-z][a-z0-9]*");
 
@@ -118,7 +120,7 @@ final class IcebergUtil
         return ICEBERG_TABLE_TYPE_VALUE.equalsIgnoreCase(table.getParameters().get(TABLE_TYPE_PROP));
     }
 
-    public static Table loadIcebergTable(HiveMetastore metastore, HiveTableOperationsProvider tableOperationsProvider, ConnectorSession session, SchemaTableName table)
+    public static Table loadIcebergTable(HiveMetastore metastore, IcebergTableOperationsProvider tableOperationsProvider, ConnectorSession session, SchemaTableName table)
     {
         TableOperations operations = tableOperationsProvider.createTableOperations(
                 metastore,
@@ -134,12 +136,12 @@ final class IcebergUtil
 
     public static Table getIcebergTableWithMetadata(
             HiveMetastore metastore,
-            HiveTableOperationsProvider tableOperationsProvider,
+            IcebergTableOperationsProvider tableOperationsProvider,
             ConnectorSession session,
             SchemaTableName table,
             TableMetadata tableMetadata)
     {
-        HiveTableOperations operations = (HiveTableOperations) tableOperationsProvider.createTableOperations(
+        IcebergTableOperations operations = tableOperationsProvider.createTableOperations(
                 metastore,
                 new HdfsContext(session),
                 session.getQueryId(),
