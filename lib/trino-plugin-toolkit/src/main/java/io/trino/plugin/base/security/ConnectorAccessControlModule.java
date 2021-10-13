@@ -15,15 +15,16 @@ package io.trino.plugin.base.security;
 
 import com.google.inject.Binder;
 import com.google.inject.Module;
-import com.google.inject.Scopes;
 import io.trino.spi.connector.ConnectorAccessControl;
 
-public class AllowAllAccessControlModule
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
+
+public class ConnectorAccessControlModule
         implements Module
 {
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(ConnectorAccessControl.class).to(AllowAllAccessControl.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, ConnectorAccessControl.class);
     }
 }

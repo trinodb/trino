@@ -64,7 +64,7 @@ public class HiveConnector
     private final List<PropertyMetadata<?>> analyzeProperties;
     private final List<PropertyMetadata<?>> materializedViewProperties;
 
-    private final ConnectorAccessControl accessControl;
+    private final Optional<ConnectorAccessControl> accessControl;
     private final ClassLoader classLoader;
 
     private final HiveTransactionManager transactionManager;
@@ -86,7 +86,7 @@ public class HiveConnector
             List<PropertyMetadata<?>> tableProperties,
             List<PropertyMetadata<?>> analyzeProperties,
             List<PropertyMetadata<?>> materializedViewProperties,
-            ConnectorAccessControl accessControl,
+            Optional<ConnectorAccessControl> accessControl,
             ClassLoader classLoader)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
@@ -200,7 +200,7 @@ public class HiveConnector
     @Override
     public ConnectorAccessControl getAccessControl()
     {
-        return accessControl;
+        return accessControl.orElseThrow(UnsupportedOperationException::new);
     }
 
     @Override
