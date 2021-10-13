@@ -17,10 +17,13 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.Duration;
 import io.trino.plugin.hive.HiveCompressionCodec;
+import io.trino.spi.function.Description;
 import org.apache.iceberg.FileFormat;
 
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
+
+import java.util.Optional;
 
 import static io.trino.plugin.hive.HiveCompressionCodec.GZIP;
 import static io.trino.plugin.iceberg.CatalogType.HIVE_METASTORE;
@@ -35,6 +38,7 @@ public class IcebergConfig
     private int maxPartitionsPerWriter = 100;
     private boolean uniqueTableLocation;
     private CatalogType catalogType = HIVE_METASTORE;
+    private Optional<String> catalogWarehouse = Optional.empty();
     private Duration dynamicFilteringWaitTimeout = new Duration(0, SECONDS);
     private boolean tableStatisticsEnabled = true;
     private boolean projectionPushdownEnabled = true;
@@ -48,6 +52,20 @@ public class IcebergConfig
     public IcebergConfig setCatalogType(CatalogType catalogType)
     {
         this.catalogType = catalogType;
+        return this;
+    }
+
+    @NotNull
+    public Optional<String> getCatalogWarehouse()
+    {
+        return catalogWarehouse;
+    }
+
+    @Config("iceberg.catalog.warehouse")
+    @Description("Iceberg default warehouse location, used to generate default table location")
+    public IcebergConfig setCatalogWarehouse(String warehouse)
+    {
+        this.catalogWarehouse = Optional.ofNullable(warehouse);
         return this;
     }
 

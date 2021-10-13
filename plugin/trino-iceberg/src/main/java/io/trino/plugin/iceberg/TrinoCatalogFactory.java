@@ -23,6 +23,8 @@ import io.trino.spi.type.TypeManager;
 
 import javax.inject.Inject;
 
+import java.util.Optional;
+
 import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeMetastore;
 import static io.trino.plugin.iceberg.IcebergSecurityConfig.IcebergSecurity.SYSTEM;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -37,6 +39,7 @@ public class TrinoCatalogFactory
     private final IcebergTableOperationsProvider tableOperationsProvider;
     private final String trinoVersion;
     private final CatalogType catalogType;
+    private final Optional<String> catalogWarehouse;
     private final boolean isUniqueTableLocation;
     private final boolean isUsingSystemSecurity;
 
@@ -59,6 +62,7 @@ public class TrinoCatalogFactory
         this.trinoVersion = requireNonNull(nodeVersion, "trinoVersion is null").toString();
         requireNonNull(config, "config is null");
         this.catalogType = config.getCatalogType();
+        this.catalogWarehouse = config.getCatalogWarehouse();
         this.isUniqueTableLocation = config.isUniqueTableLocation();
         this.isUsingSystemSecurity = securityConfig.getSecuritySystem() == SYSTEM;
     }
@@ -75,6 +79,7 @@ public class TrinoCatalogFactory
                         typeManager,
                         tableOperationsProvider,
                         trinoVersion,
+                        catalogWarehouse,
                         isUniqueTableLocation,
                         isUsingSystemSecurity);
             case GLUE:
