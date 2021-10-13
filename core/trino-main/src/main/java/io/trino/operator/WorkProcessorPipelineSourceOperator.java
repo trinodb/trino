@@ -538,6 +538,11 @@ public class WorkProcessorPipelineSourceOperator
                             operatorContext.getDriverContext().getTaskId());
                 }
                 finally {
+                    workProcessorOperatorContext.metrics.set(operator.getMetrics());
+                    if (operator instanceof WorkProcessorSourceOperator) {
+                        WorkProcessorSourceOperator sourceOperator = (WorkProcessorSourceOperator) operator;
+                        workProcessorOperatorContext.connectorMetrics.set(sourceOperator.getConnectorMetrics());
+                    }
                     workProcessorOperatorContext.memoryTrackingContext.close();
                     workProcessorOperatorContext.finalOperatorInfo = operator.getOperatorInfo().orElse(null);
                     workProcessorOperatorContext.operator = null;
