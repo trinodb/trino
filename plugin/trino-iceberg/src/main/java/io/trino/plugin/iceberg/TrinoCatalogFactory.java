@@ -31,6 +31,7 @@ import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.TypeManager;
 
@@ -46,7 +47,7 @@ public class TrinoCatalogFactory
     private final HiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
     private final TypeManager typeManager;
-    private final HiveTableOperationsProvider tableOperationsProvider;
+    private final IcebergTableOperationsProvider tableOperationsProvider;
     private final String trinoVersion;
     private final CatalogType catalogType;
     private final boolean isUniqueTableLocation;
@@ -58,7 +59,7 @@ public class TrinoCatalogFactory
             HiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
-            HiveTableOperationsProvider tableOperationsProvider,
+            IcebergTableOperationsProvider tableOperationsProvider,
             NodeVersion nodeVersion)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
