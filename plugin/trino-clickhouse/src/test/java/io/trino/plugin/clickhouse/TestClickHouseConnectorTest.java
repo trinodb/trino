@@ -24,10 +24,21 @@ import io.trino.testing.sql.TestTable;
 import org.testng.SkipException;
 import org.testng.annotations.Test;
 
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.plugin.clickhouse.ClickHouseQueryRunner.createClickHouseQueryRunner;
+import static io.trino.plugin.clickhouse.ClickHouseTableProperties.ENGINE_PROPERTY;
+import static io.trino.plugin.clickhouse.ClickHouseTableProperties.ORDER_BY_PROPERTY;
+import static io.trino.plugin.clickhouse.ClickHouseTableProperties.PARTITION_BY_PROPERTY;
+import static io.trino.plugin.clickhouse.ClickHouseTableProperties.PRIMARY_KEY_PROPERTY;
+import static io.trino.plugin.clickhouse.ClickHouseTableProperties.SAMPLE_BY_PROPERTY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.assertions.Assert.assertEquals;
@@ -321,6 +332,46 @@ public class TestClickHouseConnectorTest
                 "Invalid value for table property 'partition_by': .*");
     }
 
+    @Test
+    public void testSetTableProperties()
+            throws Exception
+    {
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_alter_table_properties",
+                "(p1 int NOT NULL, p2 int NOT NULL, x VARCHAR) WITH (engine = 'MergeTree', order_by = ARRAY['p1', 'p2'], primary_key = ARRAY['p1', 'p2'])")) {
+            assertThat(getTableProperties("tpch", table.getName()))
+                    .containsExactlyEntriesOf(ImmutableMap.of(
+                            "engine", "MergeTree",
+                            "order_by", "p1, p2",
+                            "partition_by", "",
+                            "primary_key", "p1, p2",
+                            "sample_by", ""));
+
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES (sample_by = 'p2')");
+            assertThat(getTableProperties("tpch", table.getName()))
+                    .containsExactlyEntriesOf(ImmutableMap.of(
+                            "engine", "MergeTree",
+                            "order_by", "p1, p2",
+                            "partition_by", "",
+                            "primary_key", "p1, p2",
+                            "sample_by", "p2"));
+        }
+    }
+
+    @Test
+    public void testAlterInvalidTableProperties()
+    {
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_alter_table_properties",
+                "(p1 int NOT NULL, p2 int NOT NULL, x VARCHAR) WITH (engine = 'MergeTree', order_by = ARRAY['p1', 'p2'], primary_key = ARRAY['p1', 'p2'])")) {
+            assertQueryFails(
+                    "ALTER TABLE " + table.getName() + " SET PROPERTIES (invalid_property = 'p2')",
+                    "Catalog 'clickhouse' does not support table property 'invalid_property'");
+        }
+    }
+
     @Override
     protected TestTable createTableWithUnsupportedColumn()
     {
@@ -390,5 +441,27 @@ public class TestClickHouseConnectorTest
     protected SqlExecutor onRemoteDatabase()
     {
         return clickhouseServer::execute;
+    }
+
+    private Map<String, String> getTableProperties(String schemaName, String tableName)
+            throws SQLException
+    {
+        String sql = "SELECT * FROM system.tables WHERE database = ? AND name = ?";
+        try (Connection connection = DriverManager.getConnection(clickhouseServer.getJdbcUrl());
+                PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
+            preparedStatement.setString(1, schemaName);
+            preparedStatement.setString(2, tableName);
+
+            ResultSet resultSet = preparedStatement.executeQuery();
+            ImmutableMap.Builder<String, String> properties = new ImmutableMap.Builder<>();
+            while (resultSet.next()) {
+                properties.put(ENGINE_PROPERTY, resultSet.getString("engine"));
+                properties.put(ORDER_BY_PROPERTY, resultSet.getString("sorting_key"));
+                properties.put(PARTITION_BY_PROPERTY, resultSet.getString("partition_key"));
+                properties.put(PRIMARY_KEY_PROPERTY, resultSet.getString("primary_key"));
+                properties.put(SAMPLE_BY_PROPERTY, resultSet.getString("sampling_key"));
+            }
+            return properties.build();
+        }
     }
 }
