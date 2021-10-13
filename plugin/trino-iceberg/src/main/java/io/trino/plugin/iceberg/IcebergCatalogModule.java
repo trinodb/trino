@@ -15,13 +15,14 @@ package io.trino.plugin.iceberg;
 
 import com.google.inject.Binder;
 import com.google.inject.Module;
+import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.hive.metastore.cache.CachingHiveMetastoreModule;
 import io.trino.plugin.hive.metastore.cache.ForCachingHiveMetastore;
-import io.trino.plugin.hive.metastore.file.FileMetastoreModule;
-import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreModule;
+import io.trino.plugin.iceberg.catalog.file.IcebergFileMetastoreCatalogModule;
+import io.trino.plugin.iceberg.catalog.hms.IcebergHiveMetastoreCatalogModule;
 
 import javax.inject.Inject;
 
@@ -32,12 +33,12 @@ import static io.trino.plugin.iceberg.CatalogType.HIVE_METASTORE;
 import static io.trino.plugin.iceberg.CatalogType.TESTING_FILE_METASTORE;
 import static java.util.Objects.requireNonNull;
 
-public class IcebergMetastoreModule
+public class IcebergCatalogModule
         extends AbstractConfigurationAwareModule
 {
     private final Optional<HiveMetastore> metastore;
 
-    public IcebergMetastoreModule(Optional<HiveMetastore> metastore)
+    public IcebergCatalogModule(Optional<HiveMetastore> metastore)
     {
         this.metastore = requireNonNull(metastore, "metastore is null");
     }
@@ -48,10 +49,11 @@ public class IcebergMetastoreModule
         if (metastore.isPresent()) {
             binder.bind(HiveMetastore.class).annotatedWith(ForCachingHiveMetastore.class).toInstance(metastore.get());
             install(new CachingHiveMetastoreModule());
+            binder.bind(HiveTableOperationsProvider.class).in(Scopes.SINGLETON);
         }
         else {
-            bindMetastoreModule(HIVE_METASTORE, new ThriftMetastoreModule());
-            bindMetastoreModule(TESTING_FILE_METASTORE, new FileMetastoreModule());
+            bindCatalogModule(HIVE_METASTORE, new IcebergHiveMetastoreCatalogModule());
+            bindCatalogModule(TESTING_FILE_METASTORE, new IcebergFileMetastoreCatalogModule());
             // TODO add support for Glue metastore
         }
 
@@ -69,7 +71,7 @@ public class IcebergMetastoreModule
         }
     }
 
-    private void bindMetastoreModule(CatalogType catalogType, Module module)
+    private void bindCatalogModule(CatalogType catalogType, Module module)
     {
         install(conditionalModule(
                 IcebergConfig.class,
