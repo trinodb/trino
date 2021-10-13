@@ -545,14 +545,17 @@ public abstract class AbstractTestQueryFramework
                 .findOnlyElement()
                 .getId();
 
-        return getDistributedQueryRunner().getCoordinator()
+        OperatorStats operatorStats = getDistributedQueryRunner().getCoordinator()
                 .getQueryManager()
                 .getFullQueryInfo(queryId)
                 .getQueryStats()
                 .getOperatorSummaries()
                 .stream()
-                .filter(summary -> nodeId.equals(summary.getPlanNodeId()) && summary.getOperatorType().equals("ScanFilterAndProjectOperator"))
+                .filter(summary -> nodeId.equals(summary.getPlanNodeId()))
                 .collect(MoreCollectors.onlyElement());
+        // sanity check
+        assertEquals(operatorStats.getOperatorType(), "ScanFilterAndProjectOperator");
+        return operatorStats;
     }
 
     @CanIgnoreReturnValue
