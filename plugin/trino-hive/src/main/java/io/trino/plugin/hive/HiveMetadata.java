@@ -189,6 +189,7 @@ import static io.trino.plugin.hive.HiveSessionProperties.isRespectTableFormat;
 import static io.trino.plugin.hive.HiveSessionProperties.isSortedWritingEnabled;
 import static io.trino.plugin.hive.HiveSessionProperties.isStatisticsEnabled;
 import static io.trino.plugin.hive.HiveTableProperties.ANALYZE_COLUMNS_PROPERTY;
+import static io.trino.plugin.hive.HiveTableProperties.AUTO_PURGE;
 import static io.trino.plugin.hive.HiveTableProperties.AVRO_SCHEMA_URL;
 import static io.trino.plugin.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
@@ -315,6 +316,8 @@ public class HiveMetadata
     private static final String CSV_SEPARATOR_KEY = OpenCSVSerde.SEPARATORCHAR;
     private static final String CSV_QUOTE_KEY = OpenCSVSerde.QUOTECHAR;
     private static final String CSV_ESCAPE_KEY = OpenCSVSerde.ESCAPECHAR;
+
+    private static final String AUTO_PURGE_KEY = "auto.purge";
 
     private final CatalogName catalogName;
     private final SemiTransactionalHiveMetastore metastore;
@@ -606,6 +609,11 @@ public class HiveMetadata
 
         Optional<String> comment = Optional.ofNullable(table.getParameters().get(TABLE_COMMENT));
 
+        String autoPurgeProperty = table.getParameters().get(AUTO_PURGE_KEY);
+        if (parseBoolean(autoPurgeProperty)) {
+            properties.put(AUTO_PURGE, true);
+        }
+
         return new ConnectorTableMetadata(tableName, columns.build(), properties.build(), comment);
     }
 
@@ -876,6 +884,9 @@ public class HiveMetadata
 
         boolean transactional = HiveTableProperties.isTransactional(tableMetadata.getProperties()).orElse(false);
         tableProperties.put(TRANSACTIONAL, String.valueOf(transactional));
+
+        boolean autoPurgeEnabled = HiveTableProperties.isAutoPurge(tableMetadata.getProperties()).orElse(false);
+        tableProperties.put(AUTO_PURGE_KEY, String.valueOf(autoPurgeEnabled));
 
         bucketProperty.ifPresent(hiveBucketProperty ->
                 tableProperties.put(BUCKETING_VERSION, Integer.toString(hiveBucketProperty.getBucketingVersion().getVersion())));
