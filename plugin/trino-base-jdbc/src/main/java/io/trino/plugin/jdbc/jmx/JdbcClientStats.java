@@ -45,6 +45,7 @@ public final class JdbcClientStats
     private final JdbcApiStats getTableStatistics = new JdbcApiStats();
     private final JdbcApiStats renameColumn = new JdbcApiStats();
     private final JdbcApiStats renameTable = new JdbcApiStats();
+    private final JdbcApiStats setTableProperties = new JdbcApiStats();
     private final JdbcApiStats rollbackCreateTable = new JdbcApiStats();
     private final JdbcApiStats schemaExists = new JdbcApiStats();
     private final JdbcApiStats toPrestoType = new JdbcApiStats();
@@ -241,6 +242,13 @@ public final class JdbcClientStats
     public JdbcApiStats getRenameTable()
     {
         return renameTable;
+    }
+
+    @Managed
+    @Nested
+    public JdbcApiStats getSetTableProperties()
+    {
+        return setTableProperties;
     }
 
     @Managed
