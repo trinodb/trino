@@ -263,7 +263,7 @@ public class TestTableScanRedirectionWithPushdown
                                                             TupleDomain.all(),
                                                             Optional.of(ImmutableList.of(DESTINATION_COLUMN_HANDLE_B, DESTINATION_COLUMN_HANDLE_A)))::equals,
                                                     // PushProjectionIntoTableScan does not preserve enforced constraint
-                                                    // (issue: https://github.com/prestosql/presto/issues/6029)
+                                                    // (issue: https://github.com/trinodb/trino/issues/6029)
                                                     TupleDomain.all(),
                                                     ImmutableMap.of(
                                                             "DEST_COL_B", DESTINATION_COLUMN_HANDLE_B::equals,
