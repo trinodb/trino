@@ -25,6 +25,7 @@ import io.trino.spi.type.Type;
 
 import java.security.Principal;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
@@ -168,6 +169,12 @@ public abstract class ForwardingAccessControl
     public void checkCanRenameTable(SecurityContext context, QualifiedObjectName tableName, QualifiedObjectName newTableName)
     {
         delegate().checkCanRenameTable(context, tableName, newTableName);
+    }
+
+    @Override
+    public void checkCanSetTableProperties(SecurityContext context, QualifiedObjectName tableName, Map<String, Object> properties)
+    {
+        delegate().checkCanSetTableProperties(context, tableName, properties);
     }
 
     @Override

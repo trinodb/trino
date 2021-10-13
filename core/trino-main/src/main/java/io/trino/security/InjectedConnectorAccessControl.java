@@ -26,6 +26,7 @@ import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.Type;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -122,6 +123,13 @@ public class InjectedConnectorAccessControl
     {
         checkArgument(context == null, "context must be null");
         accessControl.checkCanRenameTable(securityContext, getQualifiedObjectName(tableName), getQualifiedObjectName(tableName));
+    }
+
+    @Override
+    public void checkCanSetTableProperties(ConnectorSecurityContext context, SchemaTableName tableName, Map<String, Object> properties)
+    {
+        checkArgument(context == null, "context must be null");
+        accessControl.checkCanSetTableProperties(securityContext, getQualifiedObjectName(tableName), properties);
     }
 
     @Override

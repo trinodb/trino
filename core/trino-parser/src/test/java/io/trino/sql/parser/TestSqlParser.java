@@ -145,6 +145,7 @@ import io.trino.sql.tree.SearchedCaseExpression;
 import io.trino.sql.tree.Select;
 import io.trino.sql.tree.SelectItem;
 import io.trino.sql.tree.SetPath;
+import io.trino.sql.tree.SetProperties;
 import io.trino.sql.tree.SetRole;
 import io.trino.sql.tree.SetSession;
 import io.trino.sql.tree.SetTableAuthorization;
@@ -1802,6 +1803,19 @@ public class TestSqlParser
     {
         assertStatement("ALTER TABLE a RENAME TO b", new RenameTable(QualifiedName.of("a"), QualifiedName.of("b"), false));
         assertStatement("ALTER TABLE IF EXISTS a RENAME TO b", new RenameTable(QualifiedName.of("a"), QualifiedName.of("b"), true));
+    }
+
+    @Test
+    public void testSetTableProperties()
+    {
+        assertStatement("ALTER TABLE a SET PROPERTIES (foo='bar')", new SetProperties(SetProperties.Type.TABLE, QualifiedName.of("a"), ImmutableList.of(new Property(new Identifier("foo"), new StringLiteral("bar")))));
+        assertStatement("ALTER TABLE a SET PROPERTIES (foo=true)", new SetProperties(SetProperties.Type.TABLE, QualifiedName.of("a"), ImmutableList.of(new Property(new Identifier("foo"), new BooleanLiteral("true")))));
+        assertStatement("ALTER TABLE a SET PROPERTIES (foo=123)", new SetProperties(SetProperties.Type.TABLE, QualifiedName.of("a"), ImmutableList.of(new Property(new Identifier("foo"), new LongLiteral("123")))));
+        assertStatement("ALTER TABLE a SET PROPERTIES (foo=123, bar=456)", new SetProperties(SetProperties.Type.TABLE, QualifiedName.of("a"), ImmutableList.of(new Property(new Identifier("foo"), new LongLiteral("123")), new Property(new Identifier("bar"), new LongLiteral("456")))));
+        assertStatement("ALTER TABLE a SET PROPERTIES (\" s p a c e \"='bar')", new SetProperties(SetProperties.Type.TABLE, QualifiedName.of("a"), ImmutableList.of(new Property(new Identifier(" s p a c e "), new StringLiteral("bar")))));
+
+        assertStatementIsInvalid("ALTER TABLE a SET PROPERTIES ()")
+                .withMessage("line 1:31: mismatched input ')'. Expecting: <identifier>");
     }
 
     @Test

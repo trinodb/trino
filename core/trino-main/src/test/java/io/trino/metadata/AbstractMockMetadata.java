@@ -247,6 +247,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public void setTableProperties(Session session, TableHandle tableHandle, Map<String, Object> properties)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void setTableComment(Session session, TableHandle tableHandle, Optional<String> comment)
     {
         throw new UnsupportedOperationException();

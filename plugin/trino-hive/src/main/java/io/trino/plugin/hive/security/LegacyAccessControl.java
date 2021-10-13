@@ -26,6 +26,7 @@ import io.trino.spi.type.Type;
 
 import javax.inject.Inject;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -138,6 +139,11 @@ public class LegacyAccessControl
         if (!allowRenameTable) {
             denyRenameTable(tableName.toString(), newTableName.toString());
         }
+    }
+
+    @Override
+    public void checkCanSetTableProperties(ConnectorSecurityContext context, SchemaTableName tableName, Map<String, Object> properties)
+    {
     }
 
     @Override

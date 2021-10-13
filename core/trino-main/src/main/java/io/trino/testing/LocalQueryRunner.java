@@ -74,6 +74,7 @@ import io.trino.execution.ResetSessionTask;
 import io.trino.execution.RollbackTask;
 import io.trino.execution.ScheduledSplit;
 import io.trino.execution.SetPathTask;
+import io.trino.execution.SetPropertiesTask;
 import io.trino.execution.SetSessionTask;
 import io.trino.execution.SetTimeZoneTask;
 import io.trino.execution.StartTransactionTask;
@@ -184,6 +185,7 @@ import io.trino.sql.tree.RenameView;
 import io.trino.sql.tree.ResetSession;
 import io.trino.sql.tree.Rollback;
 import io.trino.sql.tree.SetPath;
+import io.trino.sql.tree.SetProperties;
 import io.trino.sql.tree.SetSession;
 import io.trino.sql.tree.SetTimeZone;
 import io.trino.sql.tree.StartTransaction;
@@ -466,6 +468,7 @@ public class LocalQueryRunner
                 .put(Commit.class, new CommitTask())
                 .put(Rollback.class, new RollbackTask())
                 .put(SetPath.class, new SetPathTask())
+                .put(SetProperties.class, new SetPropertiesTask())
                 .put(SetTimeZone.class, new SetTimeZoneTask(sqlParser, groupProvider, statsCalculator))
                 .build();
 
