@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
 import io.trino.connector.CatalogName;
 import io.trino.spi.transaction.IsolationLevel;
+import io.trino.spi.transaction.TransactionStatus;
 import org.joda.time.DateTime;
 
 import java.util.List;
@@ -25,6 +26,7 @@ import java.util.Optional;
 import static java.util.Objects.requireNonNull;
 
 public class TransactionInfo
+        implements TransactionStatus
 {
     private final TransactionId transactionId;
     private final IsolationLevel isolationLevel;
@@ -60,16 +62,19 @@ public class TransactionInfo
         return transactionId;
     }
 
+    @Override
     public IsolationLevel getIsolationLevel()
     {
         return isolationLevel;
     }
 
+    @Override
     public boolean isReadOnly()
     {
         return readOnly;
     }
 
+    @Override
     public boolean isAutoCommitContext()
     {
         return autoCommitContext;

@@ -20,12 +20,15 @@ import io.trino.metadata.CatalogMetadata;
 import io.trino.security.AccessControl;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.transaction.IsolationLevel;
+import io.trino.spi.transaction.TransactionStatus;
+import io.trino.spi.transaction.TransactionStatusProvider;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 public interface TransactionManager
+        extends TransactionStatusProvider
 {
     IsolationLevel DEFAULT_ISOLATION = IsolationLevel.READ_UNCOMMITTED;
     boolean DEFAULT_READ_ONLY = false;
@@ -35,6 +38,12 @@ public interface TransactionManager
     default boolean isAutoCommit(TransactionId transactionId)
     {
         return getTransactionInfo(transactionId).isAutoCommitContext();
+    }
+
+    @Override
+    default TransactionStatus getTransactionInfo(String transactionId)
+    {
+        return getTransactionInfo(TransactionId.valueOf(transactionId));
     }
 
     TransactionInfo getTransactionInfo(TransactionId transactionId);
