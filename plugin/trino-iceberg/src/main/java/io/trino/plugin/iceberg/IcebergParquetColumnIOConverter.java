@@ -56,13 +56,14 @@ public final class IcebergParquetColumnIOConverter
         Type type = context.getType();
         if (type instanceof RowType) {
             RowType rowType = (RowType) type;
+            List<ColumnIdentity> subColumns = context.getColumnIdentity().getChildren();
             GroupColumnIO groupColumnIO = (GroupColumnIO) columnIO;
             ImmutableList.Builder<Optional<Field>> fieldsBuilder = ImmutableList.builder();
             List<RowType.Field> fields = rowType.getFields();
             boolean structHasParameters = false;
             for (int i = 0; i < fields.size(); i++) {
                 RowType.Field rowField = fields.get(i);
-                ColumnIdentity fieldIdentity = context.getColumnIdentity().getChildren().get(i);
+                ColumnIdentity fieldIdentity = subColumns.get(i);
                 Optional<Field> field = constructField(new FieldContext(rowField.getType(), fieldIdentity), lookupColumnById(groupColumnIO, fieldIdentity.getId()));
                 structHasParameters |= field.isPresent();
                 fieldsBuilder.add(field);
@@ -79,9 +80,10 @@ public final class IcebergParquetColumnIOConverter
             if (keyValueColumnIO.getChildrenCount() != 2) {
                 return Optional.empty();
             }
-            checkArgument(context.getColumnIdentity().getChildren().size() == 2, "Not a map: %s", context);
-            ColumnIdentity keyIdentity = context.getColumnIdentity().getChildren().get(0);
-            ColumnIdentity valueIdentity = context.getColumnIdentity().getChildren().get(1);
+            List<ColumnIdentity> subColumns = context.getColumnIdentity().getChildren();
+            checkArgument(subColumns.size() == 2, "Not a map: %s", context);
+            ColumnIdentity keyIdentity = subColumns.get(0);
+            ColumnIdentity valueIdentity = subColumns.get(1);
             // TODO validate column ID
             Optional<Field> keyField = constructField(new FieldContext(mapType.getKeyType(), keyIdentity), keyValueColumnIO.getChild(0));
             // TODO validate column ID
@@ -94,8 +96,9 @@ public final class IcebergParquetColumnIOConverter
             if (groupColumnIO.getChildrenCount() != 1) {
                 return Optional.empty();
             }
-            checkArgument(context.getColumnIdentity().getChildren().size() == 1, "Not an array: %s", context);
-            ColumnIdentity elementIdentity = getOnlyElement(context.getColumnIdentity().getChildren());
+            List<ColumnIdentity> subColumns = context.getColumnIdentity().getChildren();
+            checkArgument(subColumns.size() == 1, "Not an array: %s", context);
+            ColumnIdentity elementIdentity = getOnlyElement(subColumns);
             // TODO validate column ID
             Optional<Field> field = constructField(new FieldContext(arrayType.getElementType(), elementIdentity), getArrayElementColumn(groupColumnIO.getChild(0)));
             return Optional.of(new GroupField(type, repetitionLevel, definitionLevel, required, ImmutableList.of(field)));
