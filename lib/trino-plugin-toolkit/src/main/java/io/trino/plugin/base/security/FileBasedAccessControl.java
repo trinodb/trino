@@ -192,6 +192,15 @@ public class FileBasedAccessControl
     }
 
     @Override
+    public void checkCanCreateTable(ConnectorSecurityContext context, SchemaTableName tableName, Map<String, Object> properties)
+    {
+        // check if user will be an owner of the table after creation
+        if (!checkTablePermission(context, tableName, OWNERSHIP)) {
+            denyCreateTable(tableName.toString());
+        }
+    }
+
+    @Override
     public void checkCanDropTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         if (!checkTablePermission(context, tableName, OWNERSHIP)) {

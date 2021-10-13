@@ -123,6 +123,11 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanCreateTable(SecurityContext context, QualifiedObjectName tableName, Map<String, Object> properties)
+    {
+    }
+
+    @Override
     public void checkCanDropTable(SecurityContext context, QualifiedObjectName tableName)
     {
     }

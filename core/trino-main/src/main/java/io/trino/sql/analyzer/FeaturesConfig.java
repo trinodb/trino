@@ -142,6 +142,7 @@ public class FeaturesConfig
     private int maxGroupingSets = 2048;
 
     private boolean legacyCatalogRoles;
+    private boolean disableSetPropertiesSecurityCheckForCreateDdl;
 
     public enum JoinReorderingStrategy
     {
@@ -1101,6 +1102,18 @@ public class FeaturesConfig
     public FeaturesConfig setLegacyCatalogRoles(boolean legacyCatalogRoles)
     {
         this.legacyCatalogRoles = legacyCatalogRoles;
+        return this;
+    }
+
+    public boolean isDisableSetPropertiesSecurityCheckForCreateDdl()
+    {
+        return disableSetPropertiesSecurityCheckForCreateDdl;
+    }
+
+    @Config("deprecated.disable-set-properties-security-check-for-create-ddl")
+    public FeaturesConfig setDisableSetPropertiesSecurityCheckForCreateDdl(boolean disableSetPropertiesSecurityCheckForCreateDdl)
+    {
+        this.disableSetPropertiesSecurityCheckForCreateDdl = disableSetPropertiesSecurityCheckForCreateDdl;
         return this;
     }
 }

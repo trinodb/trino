@@ -102,6 +102,12 @@ public abstract class ForwardingConnectorAccessControl
     }
 
     @Override
+    public void checkCanCreateTable(ConnectorSecurityContext context, SchemaTableName tableName, Map<String, Object> properties)
+    {
+        delegate().checkCanCreateTable(context, tableName, properties);
+    }
+
+    @Override
     public void checkCanDropTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         delegate().checkCanDropTable(context, tableName);
