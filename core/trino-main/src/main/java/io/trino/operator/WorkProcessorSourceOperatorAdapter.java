@@ -176,9 +176,9 @@ public class WorkProcessorSourceOperatorAdapter
     public void close()
             throws Exception
     {
+        sourceOperator.close();
         operatorContext.setLatestMetrics(sourceOperator.getMetrics());
         operatorContext.setLatestConnectorMetrics(sourceOperator.getConnectorMetrics());
-        sourceOperator.close();
     }
 
     private void updateOperatorStats()
