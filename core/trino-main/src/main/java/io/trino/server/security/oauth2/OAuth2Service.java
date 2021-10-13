@@ -102,7 +102,14 @@ public class OAuth2Service
     private final boolean webUiOAuthEnabled;
 
     @Inject
-    public OAuth2Service(OAuth2Client client, @ForOAuth2 SigningKeyResolver signingKeyResolver, @ForOAuth2 HttpClient httpClient, OAuth2Config oauth2Config, OAuth2TokenHandler tokenHandler, Optional<OAuth2WebUiInstalled> webUiOAuthEnabled)
+    public OAuth2Service(
+            OAuth2Client client,
+            @ForOAuth2 SigningKeyResolver signingKeyResolver,
+            @ForOAuth2 HttpClient httpClient,
+            OAuth2Config oauth2Config,
+            OAuth2Endpoints oauth2Endpoints,
+            OAuth2TokenHandler tokenHandler,
+            Optional<OAuth2WebUiInstalled> webUiOAuthEnabled)
             throws IOException
     {
         this.client = requireNonNull(client, "client is null");
@@ -121,9 +128,9 @@ public class OAuth2Service
 
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.issuer = oauth2Config.getIssuer();
-        this.accessTokenIssuer = oauth2Config.getAccessTokenIssuer().orElse(issuer);
+        this.accessTokenIssuer = oauth2Endpoints.getAccessTokenIssuer().orElse(issuer);
         this.clientId = oauth2Config.getClientId();
-        this.userinfoUri = oauth2Config.getUserinfoUrl().map(url -> UriBuilder.fromUri(url).build());
+        this.userinfoUri = oauth2Endpoints.getUserinfoUrl().map(url -> UriBuilder.fromUri(url).build());
         this.allowedAudiences = ImmutableSet.<String>builder()
                 .addAll(oauth2Config.getAdditionalAudiences())
                 .add(clientId)

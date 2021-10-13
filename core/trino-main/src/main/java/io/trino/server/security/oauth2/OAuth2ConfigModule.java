@@ -14,20 +14,32 @@
 package io.trino.server.security.oauth2;
 
 import com.google.inject.Binder;
-import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 
-import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
+import static com.google.inject.Scopes.SINGLETON;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 
-public class OAuth2AuthenticationSupportModule
+public class OAuth2ConfigModule
         extends AbstractConfigurationAwareModule
 {
     @Override
     protected void setup(Binder binder)
     {
-        binder.bind(OAuth2TokenExchange.class).in(Scopes.SINGLETON);
-        binder.bind(OAuth2TokenHandler.class).to(OAuth2TokenExchange.class).in(Scopes.SINGLETON);
-        jaxrsBinder(binder).bind(OAuth2TokenExchangeResource.class);
-        install(new OAuth2ServiceModule());
+        configBinder(binder).bindConfig(OAuth2Config.class);
+        configBinder(binder).bindConfig(OAuth2EndpointsConfig.class);
+        binder.bind(OAuth2Endpoints.class).in(SINGLETON);
+    }
+
+    // this module can be added multiple times, and this prevents multiple processing by Guice
+    @Override
+    public int hashCode()
+    {
+        return OAuth2ConfigModule.class.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        return o instanceof OAuth2ConfigModule;
     }
 }

@@ -41,11 +41,15 @@ public class ScribeJavaOAuth2Client
     private final DynamicCallbackOAuth2Service service;
 
     @Inject
-    public ScribeJavaOAuth2Client(OAuth2Config config, @ForOAuth2 HttpClient httpClient)
+    public ScribeJavaOAuth2Client(
+            OAuth2Config config,
+            OAuth2Endpoints endpoints,
+            @ForOAuth2 HttpClient httpClient)
     {
         requireNonNull(config, "config is null");
+        requireNonNull(endpoints, "endpoints is null");
         requireNonNull(httpClient, "httpClient is null");
-        service = new DynamicCallbackOAuth2Service(config, httpClient);
+        service = new DynamicCallbackOAuth2Service(config, endpoints, httpClient);
     }
 
     @Override
@@ -73,10 +77,10 @@ public class ScribeJavaOAuth2Client
     static class DynamicCallbackOAuth2Service
             extends OAuth20Service
     {
-        public DynamicCallbackOAuth2Service(OAuth2Config config, HttpClient httpClient)
+        public DynamicCallbackOAuth2Service(OAuth2Config config, OAuth2Endpoints endpoints, HttpClient httpClient)
         {
             super(
-                    new OAuth2Api(config.getTokenUrl(), config.getAuthUrl()),
+                    new OAuth2Api(endpoints.getTokenUrl(), endpoints.getAuthUrl()),
                     config.getClientId(),
                     config.getClientSecret(),
                     null,

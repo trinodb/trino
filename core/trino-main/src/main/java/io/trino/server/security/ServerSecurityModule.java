@@ -28,8 +28,8 @@ import io.airlift.http.server.HttpServerConfig;
 import io.airlift.jmx.MBeanResource;
 import io.trino.server.security.jwt.JwtAuthenticator;
 import io.trino.server.security.jwt.JwtAuthenticatorSupportModule;
-import io.trino.server.security.oauth2.OAuth2AuthenticationSupportModule;
 import io.trino.server.security.oauth2.OAuth2Authenticator;
+import io.trino.server.security.oauth2.OAuth2AuthenticatorSupportModule;
 
 import java.util.List;
 import java.util.Map;
@@ -82,7 +82,7 @@ public class ServerSecurityModule
             headerBinder.bind(HeaderAuthenticatorManager.class).in(Scopes.SINGLETON);
         }));
         install(authenticatorModule("jwt", JwtAuthenticator.class, new JwtAuthenticatorSupportModule()));
-        install(authenticatorModule("oauth2", OAuth2Authenticator.class, new OAuth2AuthenticationSupportModule()));
+        install(authenticatorModule("oauth2", OAuth2Authenticator.class, new OAuth2AuthenticatorSupportModule()));
 
         configBinder(binder).bindConfig(InsecureAuthenticatorConfig.class);
         binder.bind(InsecureAuthenticator.class).in(Scopes.SINGLETON);

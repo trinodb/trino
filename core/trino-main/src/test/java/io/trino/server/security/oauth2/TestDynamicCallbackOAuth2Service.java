@@ -31,6 +31,7 @@ import org.testng.annotations.Test;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.io.Resources.getResource;
@@ -81,12 +82,15 @@ public class TestDynamicCallbackOAuth2Service
         DynamicCallbackOAuth2Service service = new DynamicCallbackOAuth2Service(
                 new OAuth2Config()
                         .setIssuer(hydraUrl)
-                        .setAuthUrl(hydraUrl + "/oauth2/auth")
-                        .setTokenUrl(hydraUrl + "/oauth2/token")
-                        .setJwksUrl(hydraUrl + "/.well-known/jwks.json")
                         .setClientId(CLIENT_ID)
                         .setClientSecret(CLIENT_SECRET)
                         .setScopes("openid,offline"),
+                new OAuth2Endpoints(
+                        Optional.empty(),
+                        hydraUrl + "/oauth2/auth",
+                        hydraUrl + "/oauth2/token",
+                        hydraUrl + "/oauth2/well-known/jwks.json",
+                        Optional.empty()),
                 httpClient);
 
         OAuth2AccessToken token = service.getAccessTokenClientCredentialsGrant();
