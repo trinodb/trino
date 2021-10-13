@@ -155,7 +155,8 @@ public class CreateTableTask
                         session,
                         metadata,
                         accessControl,
-                        parameterLookup);
+                        parameterLookup,
+                        true);
 
                 columns.put(name, ColumnMetadata.builder()
                         .setName(name)
@@ -240,7 +241,8 @@ public class CreateTableTask
                 session,
                 metadata,
                 accessControl,
-                parameterLookup);
+                parameterLookup,
+                true);
 
         Map<String, Object> finalProperties = combineProperties(sqlProperties.keySet(), properties, inheritedProperties);
 

@@ -54,6 +54,7 @@ import io.trino.sql.tree.Revoke;
 import io.trino.sql.tree.RevokeRoles;
 import io.trino.sql.tree.Rollback;
 import io.trino.sql.tree.SetPath;
+import io.trino.sql.tree.SetProperties;
 import io.trino.sql.tree.SetRole;
 import io.trino.sql.tree.SetSchemaAuthorization;
 import io.trino.sql.tree.SetSession;
@@ -154,6 +155,7 @@ public final class StatementUtils
             .put(SetRole.class, DATA_DEFINITION)
             .put(SetSchemaAuthorization.class, DATA_DEFINITION)
             .put(SetSession.class, DATA_DEFINITION)
+            .put(SetProperties.class, DATA_DEFINITION)
             .put(SetTableAuthorization.class, DATA_DEFINITION)
             .put(SetTimeZone.class, DATA_DEFINITION)
             .put(SetViewAuthorization.class, DATA_DEFINITION)

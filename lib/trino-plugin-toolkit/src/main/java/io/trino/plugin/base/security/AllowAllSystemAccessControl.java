@@ -174,6 +174,11 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
+    public void checkCanSetTableProperties(SystemSecurityContext context, CatalogSchemaTableName table, Map<String, Object> properties)
+    {
+    }
+
+    @Override
     public void checkCanSetTableComment(SystemSecurityContext context, CatalogSchemaTableName table)
     {
     }
