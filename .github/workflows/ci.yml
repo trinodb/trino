@@ -454,6 +454,10 @@ jobs:
           - config: hdp3
             suite: suite-1
             jdk: 17
+          # suite-2 contains Kerberos/encrypted Hive environments
+          - config: hdp3
+            suite: suite-2
+            jdk: 17
     # PT Launcher's timeout defaults to 2h, account for preparation steps (compilation) and add some margin
     timeout-minutes: 140
     steps:
