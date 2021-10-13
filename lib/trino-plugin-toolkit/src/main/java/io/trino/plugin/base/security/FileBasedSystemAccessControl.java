@@ -509,6 +509,15 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
+    public void checkCanCreateTable(SystemSecurityContext context, CatalogSchemaTableName table, Map<String, Object> properties)
+    {
+        // check if user will be an owner of the table after creation
+        if (!checkTablePermission(context, table, OWNERSHIP)) {
+            denyCreateTable(table.toString());
+        }
+    }
+
+    @Override
     public void checkCanDropTable(SystemSecurityContext context, CatalogSchemaTableName table)
     {
         if (!checkTablePermission(context, table, OWNERSHIP)) {

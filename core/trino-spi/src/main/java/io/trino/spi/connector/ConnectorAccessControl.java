@@ -159,8 +159,20 @@ public interface ConnectorAccessControl
      * Check if identity is allowed to create the specified table.
      *
      * @throws io.trino.spi.security.AccessDeniedException if not allowed
+     * @deprecated use {@link #checkCanCreateTable(ConnectorSecurityContext context, SchemaTableName tableName, Map properties)} instead
      */
+    @Deprecated
     default void checkCanCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+        denyCreateTable(tableName.toString());
+    }
+
+    /**
+     * Check if identity is allowed to create the specified table with properties.
+     *
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanCreateTable(ConnectorSecurityContext context, SchemaTableName tableName, Map<String, Object> properties)
     {
         denyCreateTable(tableName.toString());
     }

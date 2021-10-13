@@ -116,6 +116,11 @@ public class LegacyAccessControl
     }
 
     @Override
+    public void checkCanCreateTable(ConnectorSecurityContext context, SchemaTableName tableName, Map<String, Object> properties)
+    {
+    }
+
+    @Override
     public void checkCanDropTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         if (!allowDropTable) {

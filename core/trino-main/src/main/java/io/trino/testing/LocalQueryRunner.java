@@ -451,7 +451,7 @@ public class LocalQueryRunner
                 defaultSession.getProtocolHeaders());
 
         dataDefinitionTask = ImmutableMap.<Class<? extends Statement>, DataDefinitionTask<?>>builder()
-                .put(CreateTable.class, new CreateTableTask())
+                .put(CreateTable.class, new CreateTableTask(featuresConfig))
                 .put(CreateView.class, new CreateViewTask(sqlParser, groupProvider, statsCalculator))
                 .put(DropTable.class, new DropTableTask())
                 .put(DropView.class, new DropViewTask())
