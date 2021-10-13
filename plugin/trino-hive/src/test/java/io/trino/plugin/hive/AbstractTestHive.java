@@ -130,6 +130,7 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.TestingConnectorSession;
 import io.trino.testing.TestingNodeManager;
+import io.trino.transaction.InMemoryTransactionManager;
 import io.trino.type.BlockTypeOperators;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
@@ -802,6 +803,7 @@ public abstract class AbstractTestHive
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
         metadataFactory = new HiveMetadataFactory(
                 new CatalogName("hive"),
+                InMemoryTransactionManager.createTestTransactionManager(),
                 metastoreClient,
                 hdfsEnvironment,
                 partitionManager,

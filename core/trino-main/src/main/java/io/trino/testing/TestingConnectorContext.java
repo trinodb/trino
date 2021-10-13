@@ -25,9 +25,11 @@ import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.PageSorter;
 import io.trino.spi.VersionEmbedder;
 import io.trino.spi.connector.ConnectorContext;
+import io.trino.spi.transaction.TransactionStatusProvider;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinCompiler;
+import io.trino.transaction.InMemoryTransactionManager;
 import io.trino.type.BlockTypeOperators;
 import io.trino.type.InternalTypeManager;
 import io.trino.version.EmbedVersion;
@@ -42,6 +44,7 @@ public final class TestingConnectorContext
     private final TypeManager typeManager;
     private final PageSorter pageSorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
     private final PageIndexerFactory pageIndexerFactory;
+    private final TransactionStatusProvider transactionStatusProvider;
 
     public TestingConnectorContext()
     {
@@ -53,6 +56,7 @@ public final class TestingConnectorContext
         InMemoryNodeManager inMemoryNodeManager = new InMemoryNodeManager();
         inMemoryNodeManager.addCurrentNodeConnector(catalogName);
         nodeManager = new ConnectorAwareNodeManager(inMemoryNodeManager, "testenv", catalogName, true);
+        transactionStatusProvider = InMemoryTransactionManager.createTestTransactionManager();
     }
 
     @Override
@@ -83,6 +87,12 @@ public final class TestingConnectorContext
     public PageIndexerFactory getPageIndexerFactory()
     {
         return pageIndexerFactory;
+    }
+
+    @Override
+    public TransactionStatusProvider getTransactionStatusProvider()
+    {
+        return transactionStatusProvider;
     }
 
     @Override

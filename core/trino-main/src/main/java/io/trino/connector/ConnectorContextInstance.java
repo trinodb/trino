@@ -18,6 +18,7 @@ import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.PageSorter;
 import io.trino.spi.VersionEmbedder;
 import io.trino.spi.connector.ConnectorContext;
+import io.trino.spi.transaction.TransactionStatusProvider;
 import io.trino.spi.type.TypeManager;
 
 import java.util.function.Supplier;
@@ -32,6 +33,7 @@ public class ConnectorContextInstance
     private final TypeManager typeManager;
     private final PageSorter pageSorter;
     private final PageIndexerFactory pageIndexerFactory;
+    private final TransactionStatusProvider transactionStatusProvider;
     private final Supplier<ClassLoader> duplicatePluginClassLoaderFactory;
 
     public ConnectorContextInstance(
@@ -40,6 +42,7 @@ public class ConnectorContextInstance
             TypeManager typeManager,
             PageSorter pageSorter,
             PageIndexerFactory pageIndexerFactory,
+            TransactionStatusProvider transactionStatusProvider,
             Supplier<ClassLoader> duplicatePluginClassLoaderFactory)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
@@ -47,6 +50,7 @@ public class ConnectorContextInstance
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
         this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
+        this.transactionStatusProvider = requireNonNull(transactionStatusProvider, "transactionStatusProvider is null");
         this.duplicatePluginClassLoaderFactory = requireNonNull(duplicatePluginClassLoaderFactory, "duplicatePluginClassLoaderFactory is null");
     }
 
@@ -78,6 +82,12 @@ public class ConnectorContextInstance
     public PageIndexerFactory getPageIndexerFactory()
     {
         return pageIndexerFactory;
+    }
+
+    @Override
+    public TransactionStatusProvider getTransactionStatusProvider()
+    {
+        return transactionStatusProvider;
     }
 
     @Override

@@ -60,6 +60,7 @@ import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.procedure.Procedure;
+import io.trino.spi.transaction.TransactionStatusProvider;
 import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
@@ -110,6 +111,7 @@ public final class InternalHiveConnectorFactory
                         binder.bind(VersionEmbedder.class).toInstance(context.getVersionEmbedder());
                         binder.bind(PageIndexerFactory.class).toInstance(context.getPageIndexerFactory());
                         binder.bind(PageSorter.class).toInstance(context.getPageSorter());
+                        binder.bind(TransactionStatusProvider.class).toInstance(context.getTransactionStatusProvider());
                     },
                     binder -> newSetBinder(binder, EventListener.class),
                     binder -> bindSessionPropertiesProvider(binder, HiveSessionProperties.class),

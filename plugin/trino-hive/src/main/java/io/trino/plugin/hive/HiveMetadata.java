@@ -99,6 +99,7 @@ import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatisticType;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.statistics.TableStatisticsMetadata;
+import io.trino.spi.transaction.TransactionStatusProvider;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
@@ -320,6 +321,7 @@ public class HiveMetadata
     private static final String AUTO_PURGE_KEY = "auto.purge";
 
     private final CatalogName catalogName;
+    private final TransactionStatusProvider transactionStatusProvider;
     private final SemiTransactionalHiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
     private final HivePartitionManager partitionManager;
@@ -339,6 +341,7 @@ public class HiveMetadata
 
     public HiveMetadata(
             CatalogName catalogName,
+            TransactionStatusProvider transactionStatusProvider,
             SemiTransactionalHiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
             HivePartitionManager partitionManager,
@@ -357,6 +360,7 @@ public class HiveMetadata
             AccessControlMetadata accessControlMetadata)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
+        this.transactionStatusProvider = requireNonNull(transactionStatusProvider, "transactionStatusProvider is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.partitionManager = requireNonNull(partitionManager, "partitionManager is null");
@@ -1675,9 +1679,13 @@ public class HiveMetadata
 
         WriteInfo writeInfo = locationService.getQueryWriteInfo(locationHandle);
         if (getInsertExistingPartitionsBehavior(session) == InsertExistingPartitionsBehavior.OVERWRITE
-                && isTransactionalTable(table.getParameters())
                 && writeInfo.getWriteMode() == DIRECT_TO_TARGET_EXISTING_DIRECTORY) {
-            throw new TrinoException(NOT_SUPPORTED, "Overwriting existing partition in transactional tables doesn't support DIRECT_TO_TARGET_EXISTING_DIRECTORY write mode");
+            if (isTransactionalTable(table.getParameters())) {
+                throw new TrinoException(NOT_SUPPORTED, "Overwriting existing partition in transactional tables doesn't support DIRECT_TO_TARGET_EXISTING_DIRECTORY write mode");
+            }
+            if (!transactionStatusProvider.getTransactionInfo(session.getTransactionId().get()).isAutoCommitContext()) {
+                throw new TrinoException(NOT_SUPPORTED, "Overwriting existing partition in non auto commit context doesn't support DIRECT_TO_TARGET_EXISTING_DIRECTORY write mode");
+            }
         }
         metastore.declareIntentionToWrite(session, writeInfo.getWriteMode(), writeInfo.getWritePath(), tableName);
         return result;

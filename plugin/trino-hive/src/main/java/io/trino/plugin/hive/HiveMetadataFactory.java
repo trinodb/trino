@@ -24,6 +24,7 @@ import io.trino.plugin.hive.security.AccessControlMetadata;
 import io.trino.plugin.hive.security.AccessControlMetadataFactory;
 import io.trino.plugin.hive.statistics.HiveStatisticsProvider;
 import io.trino.plugin.hive.statistics.MetastoreHiveStatisticsProvider;
+import io.trino.spi.transaction.TransactionStatusProvider;
 import io.trino.spi.type.TypeManager;
 
 import javax.inject.Inject;
@@ -42,6 +43,7 @@ public class HiveMetadataFactory
         implements TransactionalMetadataFactory
 {
     private final CatalogName catalogName;
+    private final TransactionStatusProvider transactionStatusProvider;
     private final boolean skipDeletionForAlter;
     private final boolean skipTargetCleanupOnRollback;
     private final boolean writesToNonManagedTablesEnabled;
@@ -69,6 +71,7 @@ public class HiveMetadataFactory
     @Inject
     public HiveMetadataFactory(
             CatalogName catalogName,
+            TransactionStatusProvider transactionStatusProvider,
             HiveConfig hiveConfig,
             MetastoreConfig metastoreConfig,
             HiveMetastore metastore,
@@ -87,6 +90,7 @@ public class HiveMetadataFactory
     {
         this(
                 catalogName,
+                transactionStatusProvider,
                 metastore,
                 hdfsEnvironment,
                 partitionManager,
@@ -115,6 +119,7 @@ public class HiveMetadataFactory
 
     public HiveMetadataFactory(
             CatalogName catalogName,
+            TransactionStatusProvider transactionStatusProvider,
             HiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
             HivePartitionManager partitionManager,
@@ -141,6 +146,7 @@ public class HiveMetadataFactory
             AccessControlMetadataFactory accessControlMetadataFactory)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
+        this.transactionStatusProvider = requireNonNull(transactionStatusProvider, "transactionStatusProvider is null");
         this.skipDeletionForAlter = skipDeletionForAlter;
         this.skipTargetCleanupOnRollback = skipTargetCleanupOnRollback;
         this.writesToNonManagedTablesEnabled = writesToNonManagedTablesEnabled;
@@ -231,6 +237,7 @@ public class HiveMetadataFactory
     {
         return new HiveMetadata(
                 catalogName,
+                transactionStatusProvider,
                 metastore,
                 hdfsEnvironment,
                 partitionManager,

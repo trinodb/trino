@@ -360,6 +360,7 @@ public class ConnectorManager
                 new InternalTypeManager(metadataManager, typeOperators),
                 pageSorter,
                 pageIndexerFactory,
+                transactionManager,
                 factory.getDuplicatePluginClassLoaderFactory());
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getConnectorFactory().getClass().getClassLoader())) {

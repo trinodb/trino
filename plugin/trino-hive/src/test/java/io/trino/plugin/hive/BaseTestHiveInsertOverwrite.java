@@ -14,6 +14,7 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.Session;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.plugin.hive.s3.S3HiveQueryRunner;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -23,6 +24,7 @@ import org.testng.annotations.Test;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.function.Consumer;
 
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
@@ -73,6 +75,30 @@ public abstract class BaseTestHiveInsertOverwrite
                 "CREATE SCHEMA hive.%1$s WITH (location='s3a://%2$s/%1$s')",
                 HIVE_TEST_SCHEMA,
                 bucketName));
+    }
+
+    @Test
+    public void testInsertOverwriteInTransaction()
+    {
+        String testTable = getTestTableName();
+        computeActual(getCreateTableStatement(
+                testTable,
+                "partitioned_by=ARRAY['regionkey']"));
+        try {
+            newTransaction().execute(
+                    getSession(),
+                    (Consumer<Session>) session -> {
+                        assertInsertFailure(
+                                session,
+                                testTable,
+                                "Overwriting existing partition in non auto commit context doesn't support DIRECT_TO_TARGET_EXISTING_DIRECTORY write mode");
+                        throw new RuntimeException("Required as we suspend above exception to check it.");
+                    });
+        }
+        catch (RuntimeException ex) {
+            //Ignore as we expect it.
+        }
+        computeActual(format("DROP TABLE %s", testTable));
     }
 
     @Test
@@ -150,7 +176,13 @@ public abstract class BaseTestHiveInsertOverwrite
 
     protected void assertInsertFailure(String testTable, String expectedMessageRegExp)
     {
+        assertInsertFailure(getSession(), testTable, expectedMessageRegExp);
+    }
+
+    protected void assertInsertFailure(Session session, String testTable, String expectedMessageRegExp)
+    {
         assertQueryFails(
+                session,
                 format("INSERT INTO %s " +
                                 "SELECT name, comment, nationkey, regionkey " +
                                 "FROM tpch.tiny.nation",
