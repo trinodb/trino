@@ -33,6 +33,7 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeNotFoundException;
+import io.trino.sql.analyzer.FeaturesConfig;
 import io.trino.sql.analyzer.Output;
 import io.trino.sql.analyzer.OutputColumn;
 import io.trino.sql.tree.ColumnDefinition;
@@ -43,6 +44,8 @@ import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.TableElement;
 import io.trino.transaction.TransactionManager;
+
+import javax.inject.Inject;
 
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -81,6 +84,14 @@ import static java.lang.String.format;
 public class CreateTableTask
         implements DataDefinitionTask<CreateTable>
 {
+    private final boolean disableSetPropertiesSecurityCheckForCreateDdl;
+
+    @Inject
+    public CreateTableTask(FeaturesConfig featuresConfig)
+    {
+        this.disableSetPropertiesSecurityCheckForCreateDdl = featuresConfig.isDisableSetPropertiesSecurityCheckForCreateDdl();
+    }
+
     @Override
     public String getName()
     {
@@ -231,8 +242,6 @@ public class CreateTableTask
             }
         }
 
-        accessControl.checkCanCreateTable(session.toSecurityContext(), tableName);
-
         Map<String, Expression> sqlProperties = mapFromProperties(statement.getProperties());
         Map<String, Object> properties = metadata.getTablePropertyManager().getProperties(
                 catalogName,
@@ -243,6 +252,13 @@ public class CreateTableTask
                 accessControl,
                 parameterLookup,
                 true);
+
+        if (!disableSetPropertiesSecurityCheckForCreateDdl && !properties.isEmpty()) {
+            accessControl.checkCanCreateTable(session.toSecurityContext(), tableName, properties);
+        }
+        else {
+            accessControl.checkCanCreateTable(session.toSecurityContext(), tableName);
+        }
 
         Map<String, Object> finalProperties = combineProperties(sqlProperties.keySet(), properties, inheritedProperties);
 

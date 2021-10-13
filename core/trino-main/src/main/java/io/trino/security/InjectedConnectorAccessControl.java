@@ -112,6 +112,13 @@ public class InjectedConnectorAccessControl
     }
 
     @Override
+    public void checkCanCreateTable(ConnectorSecurityContext context, SchemaTableName tableName, Map<String, Object> properties)
+    {
+        checkArgument(context == null, "context must be null");
+        accessControl.checkCanCreateTable(securityContext, getQualifiedObjectName(tableName), properties);
+    }
+
+    @Override
     public void checkCanDropTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         checkArgument(context == null, "context must be null");

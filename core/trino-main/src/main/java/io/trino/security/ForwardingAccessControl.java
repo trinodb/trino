@@ -160,6 +160,12 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
+    public void checkCanCreateTable(SecurityContext context, QualifiedObjectName tableName, Map<String, Object> properties)
+    {
+        delegate().checkCanCreateTable(context, tableName, properties);
+    }
+
+    @Override
     public void checkCanDropTable(SecurityContext context, QualifiedObjectName tableName)
     {
         delegate().checkCanDropTable(context, tableName);

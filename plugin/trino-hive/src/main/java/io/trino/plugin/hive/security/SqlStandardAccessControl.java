@@ -187,6 +187,14 @@ public class SqlStandardAccessControl
     }
 
     @Override
+    public void checkCanCreateTable(ConnectorSecurityContext context, SchemaTableName tableName, Map<String, Object> properties)
+    {
+        if (!isDatabaseOwner(context, tableName.getSchemaName())) {
+            denyCreateTable(tableName.toString());
+        }
+    }
+
+    @Override
     public void checkCanDropTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         if (!isTableOwner(context, tableName)) {

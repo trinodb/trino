@@ -341,6 +341,20 @@ public class TestingAccessControlManager
     }
 
     @Override
+    public void checkCanCreateTable(SecurityContext context, QualifiedObjectName tableName, Map<String, Object> properties)
+    {
+        if (shouldDenyPrivilege(context.getIdentity().getUser(), tableName.getObjectName(), CREATE_TABLE)) {
+            denyCreateTable(tableName.toString());
+        }
+        if (shouldDenyPrivilege(context.getIdentity().getUser(), tableName.getObjectName(), SET_TABLE_PROPERTIES)) {
+            denySetTableProperties(tableName.toString());
+        }
+        if (denyPrivileges.isEmpty()) {
+            super.checkCanCreateTable(context, tableName, properties);
+        }
+    }
+
+    @Override
     public void checkCanDropTable(SecurityContext context, QualifiedObjectName tableName)
     {
         if (shouldDenyPrivilege(context.getIdentity().getUser(), tableName.getObjectName(), DROP_TABLE)) {

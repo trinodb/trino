@@ -185,6 +185,12 @@ public class DenyAllAccessControl
     }
 
     @Override
+    public void checkCanCreateTable(SecurityContext context, QualifiedObjectName tableName, Map<String, Object> properties)
+    {
+        denyCreateTable(tableName.toString());
+    }
+
+    @Override
     public void checkCanDropTable(SecurityContext context, QualifiedObjectName tableName)
     {
         denyDropTable(tableName.toString());
