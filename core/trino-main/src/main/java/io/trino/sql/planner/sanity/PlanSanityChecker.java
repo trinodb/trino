@@ -60,7 +60,9 @@ public final class PlanSanityChecker
                         new ValidateStreamingAggregations(),
                         new ValidateLimitWithPresortedInput(),
                         new DynamicFiltersChecker(),
-                        new TableScanValidator())
+                        new TableScanValidator(),
+                        new TableExecuteStructureValidator())
+
                 .build();
     }
 
