@@ -2074,7 +2074,6 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5172", match = "Couldn't find operator summary, probably due to query statistic collection error")
     public void testSplitPruningForFilterOnPartitionColumn()
     {
         String tableName = "nation_partitioned_pruning";
@@ -2184,7 +2183,6 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test(dataProvider = "testDataMappingSmokeTestDataProvider")
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5172", match = "Couldn't find operator summary, probably due to query statistic collection error")
     public void testSplitPruningForFilterOnNonPartitionColumn(DataMappingTestSetup testSetup)
     {
         if (testSetup.isUnsupportedType()) {
@@ -2211,7 +2209,6 @@ public abstract class BaseIcebergConnectorTest
     protected abstract boolean supportsIcebergFileStatistics(String typeName);
 
     @Test(dataProvider = "testDataMappingSmokeTestDataProvider")
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5172", match = "Couldn't find operator summary, probably due to query statistic collection error")
     public void testSplitPruningFromDataFileStatistics(DataMappingTestSetup testSetup)
     {
         if (testSetup.isUnsupportedType()) {
@@ -2242,13 +2239,9 @@ public abstract class BaseIcebergConnectorTest
 
     private void verifySplitCount(String query, int expectedSplitCount)
     {
-        // using assertEventually here as the operator stats mechanism is known to be best-effort and some late-stage stats are sometimes not recorded
-        // (see https://github.com/trinodb/trino/issues/5172)
-        assertEventually(new Duration(10, TimeUnit.SECONDS), () -> {
-            ResultWithQueryId<MaterializedResult> selectAllPartitionsResult = getDistributedQueryRunner().executeWithQueryId(getSession(), query);
-            assertEqualsIgnoreOrder(selectAllPartitionsResult.getResult().getMaterializedRows(), computeActual(withoutPredicatePushdown(getSession()), query).getMaterializedRows());
-            verifySplitCount(selectAllPartitionsResult.getQueryId(), expectedSplitCount);
-        });
+        ResultWithQueryId<MaterializedResult> selectAllPartitionsResult = getDistributedQueryRunner().executeWithQueryId(getSession(), query);
+        assertEqualsIgnoreOrder(selectAllPartitionsResult.getResult().getMaterializedRows(), computeActual(withoutPredicatePushdown(getSession()), query).getMaterializedRows());
+        verifySplitCount(selectAllPartitionsResult.getQueryId(), expectedSplitCount);
     }
 
     private void verifyPredicatePushdownDataRead(@Language("SQL") String query, boolean supportsPushdown)

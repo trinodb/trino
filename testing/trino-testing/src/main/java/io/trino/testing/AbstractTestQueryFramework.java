@@ -75,7 +75,6 @@ import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.sql.ParsingUtil.createParsingOptions;
 import static io.trino.sql.SqlFormatter.formatSql;
-import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.util.Collections.emptyList;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -396,18 +395,14 @@ public abstract class AbstractTestQueryFramework
             Consumer<MaterializedResult> resultAssertion,
             Duration timeout)
     {
-        // TODO: replace this with a simple query stats check once we find a way to wait until all pending updates to query stats have been applied
-        // (might be fixed by https://github.com/trinodb/trino/issues/5172)
-        assertEventually(timeout, () -> {
-            DistributedQueryRunner queryRunner = getDistributedQueryRunner();
-            ResultWithQueryId<MaterializedResult> resultWithQueryId = queryRunner.executeWithQueryId(session, query);
-            QueryStats queryStats = queryRunner.getCoordinator()
-                    .getQueryManager()
-                    .getFullQueryInfo(resultWithQueryId.getQueryId())
-                    .getQueryStats();
-            queryStatsAssertion.accept(queryStats);
-            resultAssertion.accept(resultWithQueryId.getResult());
-        });
+        DistributedQueryRunner queryRunner = getDistributedQueryRunner();
+        ResultWithQueryId<MaterializedResult> resultWithQueryId = queryRunner.executeWithQueryId(session, query);
+        QueryStats queryStats = queryRunner.getCoordinator()
+                .getQueryManager()
+                .getFullQueryInfo(resultWithQueryId.getQueryId())
+                .getQueryStats();
+        queryStatsAssertion.accept(queryStats);
+        resultAssertion.accept(resultWithQueryId.getResult());
     }
 
     protected MaterializedResult computeExpected(@Language("SQL") String sql, List<? extends Type> resultTypes)

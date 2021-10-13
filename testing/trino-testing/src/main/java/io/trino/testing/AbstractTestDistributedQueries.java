@@ -1087,7 +1087,6 @@ public abstract class AbstractTestDistributedQueries
     }
 
     @Test
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5172", match = "AssertionError: expected \\[.*\\] but found \\[.*\\]")
     public void testWrittenStats()
     {
         skipTestUnless(supportsCreateTable());

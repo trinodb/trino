@@ -2286,7 +2286,6 @@ public abstract class AbstractTestJoinQueries
     }
 
     @Test
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5172", match = ".*expected.*but found.*")
     public void testOutputDuplicatesInsensitiveJoin()
     {
         assertJoinOutputPositions(
