@@ -60,7 +60,7 @@ public class IcebergConnector
     private final List<PropertyMetadata<?>> sessionProperties;
     private final List<PropertyMetadata<?>> schemaProperties;
     private final List<PropertyMetadata<?>> tableProperties;
-    private final ConnectorAccessControl accessControl;
+    private final Optional<ConnectorAccessControl> accessControl;
     private final Set<Procedure> procedures;
 
     public IcebergConnector(
@@ -75,7 +75,7 @@ public class IcebergConnector
             Set<SessionPropertiesProvider> sessionPropertiesProviders,
             List<PropertyMetadata<?>> schemaProperties,
             List<PropertyMetadata<?>> tableProperties,
-            ConnectorAccessControl accessControl,
+            Optional<ConnectorAccessControl> accessControl,
             Set<Procedure> procedures)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
@@ -177,7 +177,7 @@ public class IcebergConnector
     @Override
     public ConnectorAccessControl getAccessControl()
     {
-        return accessControl;
+        return accessControl.orElseThrow(UnsupportedOperationException::new);
     }
 
     @Override

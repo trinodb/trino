@@ -131,13 +131,16 @@ public final class InternalHiveConnectorFactory
             HiveTableProperties hiveTableProperties = injector.getInstance(HiveTableProperties.class);
             HiveAnalyzeProperties hiveAnalyzeProperties = injector.getInstance(HiveAnalyzeProperties.class);
             HiveMaterializedViewPropertiesProvider hiveMaterializedViewPropertiesProvider = injector.getInstance(HiveMaterializedViewPropertiesProvider.class);
-            ConnectorAccessControl accessControl = new ClassLoaderSafeConnectorAccessControl(injector.getInstance(SystemTableAwareAccessControl.class), classLoader);
             Set<Procedure> procedures = injector.getInstance(Key.get(new TypeLiteral<Set<Procedure>>() {}));
             Set<SystemTable> systemTables = injector.getInstance(Key.get(new TypeLiteral<Set<SystemTable>>() {}));
             Set<EventListener> eventListeners = injector.getInstance(Key.get(new TypeLiteral<Set<EventListener>>() {}))
                     .stream()
                     .map(listener -> new ClassLoaderSafeEventListener(listener, classLoader))
                     .collect(toImmutableSet());
+            Set<SystemTableProvider> systemTableProviders = injector.getInstance(Key.get(new TypeLiteral<Set<SystemTableProvider>>() {}));
+            Optional<ConnectorAccessControl> hiveAccessControl = injector.getInstance(Key.get(new TypeLiteral<Optional<ConnectorAccessControl>>() {}))
+                    .map(accessControl -> new SystemTableAwareAccessControl(accessControl, systemTableProviders))
+                    .map(accessControl -> new ClassLoaderSafeConnectorAccessControl(accessControl, classLoader));
 
             return new HiveConnector(
                     lifeCycleManager,
@@ -155,7 +158,7 @@ public final class InternalHiveConnectorFactory
                     hiveTableProperties.getTableProperties(),
                     hiveAnalyzeProperties.getAnalyzeProperties(),
                     hiveMaterializedViewPropertiesProvider.getMaterializedViewProperties(),
-                    accessControl,
+                    hiveAccessControl,
                     classLoader);
         }
     }
