@@ -912,7 +912,7 @@ public class PlanOptimizers
                 costCalculator,
                 ImmutableSet.<Rule<?>>builder()
                         .addAll(simplifyOptimizerRules) // Should be always run after PredicatePushDown
-                        .add(new PushPredicateIntoTableScan(metadata, typeOperators, typeAnalyzer))
+                        .add(new PushPredicateIntoTableScan(metadata, typeOperators, typeAnalyzer, true))
                         .build()));
         builder.add(inlineProjections);
         builder.add(new UnaliasSymbolReferences(metadata)); // Run unalias after merging projections to simplify projections more efficiently

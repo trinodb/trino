@@ -153,6 +153,7 @@ public class RemoveRedundantTableScanPredicate
                 typeAnalyzer,
                 domainTranslator.toPredicate(unenforcedDomain.transformKeys(assignments::get)),
                 nonDeterministicPredicate,
+                TRUE_LITERAL,
                 decomposedPredicate.getRemainingExpression());
 
         if (!TRUE_LITERAL.equals(resultingPredicate)) {

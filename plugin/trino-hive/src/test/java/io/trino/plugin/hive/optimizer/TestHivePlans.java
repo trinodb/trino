@@ -162,7 +162,7 @@ public class TestHivePlans
                                 join(INNER, List.of(equiJoinClause("L_STR_PART", "R_STR_COL")),
                                         exchange(REMOTE, REPARTITION,
                                                 project(
-                                                        filter("\"like\"(L_STR_PART, \"$like_pattern\"('t%'))",
+                                                        filter("true", // dynamic filter
                                                                 tableScan("table_str_partitioned", Map.of("L_INT_COL", "int_col", "L_STR_PART", "str_part"))))),
                                         exchange(LOCAL,
                                                 exchange(REMOTE, REPARTITION,
@@ -233,7 +233,7 @@ public class TestHivePlans
                                 join(INNER, List.of(equiJoinClause("L_INT_PART", "R_INT_COL")),
                                         exchange(REMOTE, REPARTITION,
                                                 project(
-                                                        filter("substring(L_STR_COL, BIGINT '2') != CAST('hree' AS varchar(5))",
+                                                        filter("substring(L_STR_COL, BIGINT '2') != CAST('hree' AS varchar(5)) AND L_INT_PART IN (2, 3, 4)",
                                                                 tableScan("table_int_partitioned", Map.of("L_INT_PART", "int_part", "L_STR_COL", "str_col"))))),
                                         exchange(LOCAL,
                                                 exchange(REMOTE, REPARTITION,
@@ -257,7 +257,7 @@ public class TestHivePlans
                                 join(INNER, List.of(equiJoinClause("L_INT_PART", "R_INT_COL")),
                                         exchange(REMOTE, REPARTITION,
                                                 project(
-                                                        filter("L_INT_PART % 2 = 0",
+                                                        filter("true", // dynamic filter
                                                                 tableScan("table_int_partitioned", Map.of("L_INT_PART", "int_part", "L_STR_COL", "str_col"))))),
                                         exchange(LOCAL,
                                                 exchange(REMOTE, REPARTITION,

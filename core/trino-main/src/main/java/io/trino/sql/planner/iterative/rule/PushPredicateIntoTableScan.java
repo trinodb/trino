@@ -32,6 +32,7 @@ import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TypeOperators;
+import io.trino.sql.DynamicFilters;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.ExpressionInterpreter;
 import io.trino.sql.planner.LiteralEncoder;
@@ -61,6 +62,7 @@ import static io.trino.SystemSessionProperties.isAllowPushdownIntoConnectors;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.metadata.TableLayoutResult.computeEnforced;
 import static io.trino.sql.ExpressionUtils.combineConjuncts;
+import static io.trino.sql.ExpressionUtils.filterConjuncts;
 import static io.trino.sql.ExpressionUtils.filterDeterministicConjuncts;
 import static io.trino.sql.ExpressionUtils.filterNonDeterministicConjuncts;
 import static io.trino.sql.planner.iterative.rule.Rules.deriveTableStatisticsForPushdown;
@@ -86,13 +88,20 @@ public class PushPredicateIntoTableScan
     private final TypeOperators typeOperators;
     private final TypeAnalyzer typeAnalyzer;
     private final DomainTranslator domainTranslator;
+    private final boolean pruneWithPredicateExpression;
 
     public PushPredicateIntoTableScan(Metadata metadata, TypeOperators typeOperators, TypeAnalyzer typeAnalyzer)
+    {
+        this(metadata, typeOperators, typeAnalyzer, false);
+    }
+
+    public PushPredicateIntoTableScan(Metadata metadata, TypeOperators typeOperators, TypeAnalyzer typeAnalyzer, boolean pruneWithPredicateExpression)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
         this.domainTranslator = new DomainTranslator(metadata);
+        this.pruneWithPredicateExpression = pruneWithPredicateExpression;
     }
 
     @Override
@@ -115,7 +124,7 @@ public class PushPredicateIntoTableScan
         Optional<PlanNode> rewritten = pushFilterIntoTableScan(
                 filterNode,
                 tableScan,
-                false,
+                pruneWithPredicateExpression,
                 context.getSession(),
                 context.getSymbolAllocator(),
                 metadata,
@@ -171,8 +180,11 @@ public class PushPredicateIntoTableScan
         Expression predicate = filterNode.getPredicate();
 
         // don't include non-deterministic predicates
-        Expression deterministicPredicate = filterDeterministicConjuncts(metadata, predicate);
-        Expression nonDeterministicPredicate = filterNonDeterministicConjuncts(metadata, predicate);
+        Expression dynamicFilters = filterConjuncts(metadata, predicate, DynamicFilters::isDynamicFilter);
+        Expression nonDynamicPredicate = filterConjuncts(metadata, predicate, expression -> !DynamicFilters.isDynamicFilter(expression));
+
+        Expression deterministicPredicate = filterDeterministicConjuncts(metadata, nonDynamicPredicate);
+        Expression nonDeterministicPredicate = filterNonDeterministicConjuncts(metadata, nonDynamicPredicate);
 
         DomainTranslator.ExtractionResult decomposedPredicate = DomainTranslator.fromPredicate(
                 metadata,
@@ -225,6 +237,7 @@ public class PushPredicateIntoTableScan
                         typeAnalyzer,
                         TRUE_LITERAL,
                         nonDeterministicPredicate,
+                        dynamicFilters,
                         remainingExpression);
 
                 if (!TRUE_LITERAL.equals(resultingPredicate)) {
@@ -300,6 +313,7 @@ public class PushPredicateIntoTableScan
                 typeAnalyzer,
                 domainTranslator.toPredicate(remainingFilter.transformKeys(assignments::get)),
                 nonDeterministicPredicate,
+                dynamicFilters,
                 remainingExpression);
 
         if (!TRUE_LITERAL.equals(resultingPredicate)) {
@@ -334,6 +348,7 @@ public class PushPredicateIntoTableScan
             TypeAnalyzer typeAnalyzer,
             Expression unenforcedConstraints,
             Expression nonDeterministicPredicate,
+            Expression dynamicFilters,
             Expression remainingDecomposedPredicate)
     {
         // The order of the arguments to combineConjuncts matters:
@@ -344,7 +359,7 @@ public class PushPredicateIntoTableScan
         // * Short of implementing the previous bullet point, the current order of non-deterministic expressions
         //   and non-TupleDomain-expressible expressions should be retained. Changing the order can lead
         //   to failures of previously successful queries.
-        Expression expression = combineConjuncts(metadata, unenforcedConstraints, nonDeterministicPredicate, remainingDecomposedPredicate);
+        Expression expression = combineConjuncts(metadata, unenforcedConstraints, nonDeterministicPredicate, dynamicFilters, remainingDecomposedPredicate);
 
         // Make sure we produce an expression whose terms are consistent with the canonical form used in other optimizations
         // Otherwise, we'll end up ping-ponging among rules
