@@ -41,6 +41,12 @@ enum ToStringSession
     }
 
     @Override
+    public Optional<String> getTransactionId()
+    {
+        return Optional.of("to_string");
+    }
+
+    @Override
     public Optional<String> getSource()
     {
         return Optional.of("to_string");

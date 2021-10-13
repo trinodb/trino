@@ -37,6 +37,12 @@ public final class TestingSession
         }
 
         @Override
+        public Optional<String> getTransactionId()
+        {
+            return Optional.of("test_transaction_id");
+        }
+
+        @Override
         public Optional<String> getSource()
         {
             return Optional.of("TestSource");

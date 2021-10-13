@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
@@ -43,6 +44,7 @@ public class TestingConnectorSession
     public static final ConnectorSession SESSION = builder().build();
 
     private final String queryId = queryIdGenerator.createNextQueryId().toString();
+    private final String transactionId = UUID.randomUUID().toString();
     private final ConnectorIdentity identity;
     private final Optional<String> source;
     private final TimeZoneKey timeZoneKey;
@@ -76,6 +78,12 @@ public class TestingConnectorSession
     public String getQueryId()
     {
         return queryId;
+    }
+
+    @Override
+    public Optional<String> getTransactionId()
+    {
+        return Optional.of(transactionId);
     }
 
     @Override

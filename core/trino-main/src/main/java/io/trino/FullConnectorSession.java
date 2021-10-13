@@ -79,6 +79,13 @@ public class FullConnectorSession
     }
 
     @Override
+    public Optional<String> getTransactionId()
+    {
+        return session.getTransactionId()
+                .map(transactionId -> transactionId.toString());
+    }
+
+    @Override
     public Optional<String> getSource()
     {
         return session.getSource();

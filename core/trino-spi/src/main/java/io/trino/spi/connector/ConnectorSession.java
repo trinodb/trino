@@ -24,6 +24,8 @@ public interface ConnectorSession
 {
     String getQueryId();
 
+    Optional<String> getTransactionId();
+
     Optional<String> getSource();
 
     default String getUser()
