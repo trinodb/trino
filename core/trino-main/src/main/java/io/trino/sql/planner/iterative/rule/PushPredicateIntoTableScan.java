@@ -180,6 +180,7 @@ public class PushPredicateIntoTableScan
                 session,
                 deterministicPredicate,
                 symbolAllocator.getTypes());
+        Expression remainingExpression = decomposedPredicate.getRemainingExpression();
 
         TupleDomain<ColumnHandle> newDomain = decomposedPredicate.getTupleDomain()
                 .transformKeys(node.getAssignments()::get)
@@ -189,7 +190,7 @@ public class PushPredicateIntoTableScan
 
         Constraint constraint;
         // use evaluator only when there is some predicate which could not be translated into tuple domain
-        if (pruneWithPredicateExpression && !TRUE_LITERAL.equals(decomposedPredicate.getRemainingExpression())) {
+        if (pruneWithPredicateExpression && !TRUE_LITERAL.equals(remainingExpression)) {
             LayoutConstraintEvaluator evaluator = new LayoutConstraintEvaluator(
                     metadata,
                     typeAnalyzer,
@@ -224,7 +225,7 @@ public class PushPredicateIntoTableScan
                         typeAnalyzer,
                         TRUE_LITERAL,
                         nonDeterministicPredicate,
-                        decomposedPredicate.getRemainingExpression());
+                        remainingExpression);
 
                 if (!TRUE_LITERAL.equals(resultingPredicate)) {
                     return Optional.of(new FilterNode(filterNode.getId(), node, resultingPredicate));
@@ -256,6 +257,9 @@ public class PushPredicateIntoTableScan
 
             remainingFilter = result.get().getRemainingFilter();
             precalculateStatistics = result.get().isPrecalculateStatistics();
+            if (result.get().isPredicateSubsumed()) {
+                remainingExpression = TRUE_LITERAL;
+            }
         }
         else {
             Optional<TableLayoutResult> layout = metadata.getLayout(
@@ -296,7 +300,7 @@ public class PushPredicateIntoTableScan
                 typeAnalyzer,
                 domainTranslator.toPredicate(remainingFilter.transformKeys(assignments::get)),
                 nonDeterministicPredicate,
-                decomposedPredicate.getRemainingExpression());
+                remainingExpression);
 
         if (!TRUE_LITERAL.equals(resultingPredicate)) {
             return Optional.of(new FilterNode(filterNode.getId(), tableScan, resultingPredicate));

@@ -38,6 +38,7 @@ public class HivePartitionResult
     private final TupleDomain<HiveColumnHandle> compactEffectivePredicate;
     private final TupleDomain<ColumnHandle> unenforcedConstraint;
     private final TupleDomain<ColumnHandle> enforcedConstraint;
+    private final boolean subsumedFunctionalPredicate;
     private final Optional<HiveBucketHandle> bucketHandle;
     private final Optional<HiveBucketFilter> bucketFilter;
 
@@ -47,6 +48,7 @@ public class HivePartitionResult
             TupleDomain<HiveColumnHandle> compactEffectivePredicate,
             TupleDomain<ColumnHandle> unenforcedConstraint,
             TupleDomain<ColumnHandle> enforcedConstraint,
+            boolean subsumedFunctionalPredicate,
             Optional<HiveBucketHandle> bucketHandle,
             Optional<HiveBucketFilter> bucketFilter)
     {
@@ -55,6 +57,7 @@ public class HivePartitionResult
         this.compactEffectivePredicate = requireNonNull(compactEffectivePredicate, "compactEffectivePredicate is null");
         this.unenforcedConstraint = requireNonNull(unenforcedConstraint, "unenforcedConstraint is null");
         this.enforcedConstraint = requireNonNull(enforcedConstraint, "enforcedConstraint is null");
+        this.subsumedFunctionalPredicate = subsumedFunctionalPredicate;
         this.bucketHandle = requireNonNull(bucketHandle, "bucketHandle is null");
         this.bucketFilter = requireNonNull(bucketFilter, "bucketFilter is null");
     }
@@ -82,6 +85,11 @@ public class HivePartitionResult
     public TupleDomain<ColumnHandle> getEnforcedConstraint()
     {
         return enforcedConstraint;
+    }
+
+    public boolean isSubsumedFunctionalPredicate()
+    {
+        return subsumedFunctionalPredicate;
     }
 
     public Optional<HiveBucketHandle> getBucketHandle()

@@ -2249,7 +2249,11 @@ public class HiveMetadata
             return Optional.empty();
         }
 
-        return Optional.of(new ConstraintApplicationResult<>(newHandle, partitionResult.getUnenforcedConstraint(), false));
+        return Optional.of(new ConstraintApplicationResult<>(
+                newHandle,
+                partitionResult.getUnenforcedConstraint(),
+                partitionResult.isSubsumedFunctionalPredicate(),
+                false));
     }
 
     @Override

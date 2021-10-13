@@ -142,8 +142,7 @@ public class TestHivePlans
                 "SELECT * FROM table_str_partitioned WHERE str_part LIKE 't%'",
                 output(
                         exchange(REMOTE, GATHER,
-                                filter("\"like\"(STR_PART, \"$like_pattern\"('t%'))",
-                                        tableScan("table_str_partitioned", Map.of("INT_COL", "int_col", "STR_PART", "str_part"))))));
+                                tableScan("table_str_partitioned", Map.of("INT_COL", "int_col", "STR_PART", "str_part")))));
     }
 
     @Test

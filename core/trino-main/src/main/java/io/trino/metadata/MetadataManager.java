@@ -1708,10 +1708,14 @@ public final class MetadataManager
 
         ConnectorSession connectorSession = session.toConnectorSession(catalogName);
         return metadata.applyFilter(connectorSession, table.getConnectorHandle(), constraint)
-                .map(result -> new ConstraintApplicationResult<>(
-                        new TableHandle(catalogName, result.getHandle(), table.getTransaction(), Optional.empty()),
-                        result.getRemainingFilter(),
-                        result.isPrecalculateStatistics()));
+                .map(result -> {
+                    checkState(!result.isPredicateSubsumed() || constraint.predicate().isPresent(), "Connector declared it subsumed predicate even though no predicate has been provided");
+                    return new ConstraintApplicationResult<>(
+                            new TableHandle(catalogName, result.getHandle(), table.getTransaction(), Optional.empty()),
+                            result.getRemainingFilter(),
+                            result.isPredicateSubsumed(),
+                            result.isPrecalculateStatistics());
+                });
     }
 
     @Override

@@ -87,7 +87,7 @@ public class HivePartitionManager
         List<HiveColumnHandle> partitionColumns = hiveTableHandle.getPartitionColumns();
 
         if (effectivePredicate.isNone()) {
-            return new HivePartitionResult(partitionColumns, ImmutableList.of(), none(), none(), none(), hiveBucketHandle, Optional.empty());
+            return new HivePartitionResult(partitionColumns, ImmutableList.of(), none(), none(), none(), true, hiveBucketHandle, Optional.empty());
         }
 
         Optional<HiveBucketFilter> bucketFilter = getHiveBucketFilter(hiveTableHandle, effectivePredicate);
@@ -102,6 +102,7 @@ public class HivePartitionManager
                     compactEffectivePredicate,
                     effectivePredicate,
                     TupleDomain.all(),
+                    false,
                     hiveBucketHandle,
                     bucketFilter);
         }
@@ -130,7 +131,19 @@ public class HivePartitionManager
         // All partition key domains will be fully evaluated, so we don't need to include those
         TupleDomain<ColumnHandle> remainingTupleDomain = effectivePredicate.filter((column, domain) -> !partitionColumns.contains(column));
         TupleDomain<ColumnHandle> enforcedTupleDomain = effectivePredicate.filter((column, domain) -> partitionColumns.contains(column));
-        return new HivePartitionResult(partitionColumns, partitionsIterable, compactEffectivePredicate, remainingTupleDomain, enforcedTupleDomain, hiveBucketHandle, bucketFilter);
+        return new HivePartitionResult(
+                partitionColumns,
+                partitionsIterable,
+                compactEffectivePredicate,
+                remainingTupleDomain,
+                enforcedTupleDomain,
+                constraint.predicate().isPresent() &&
+                        constraint.getPredicateColumns().isPresent() &&
+                        constraint.getPredicateColumns().get().stream()
+                                .map(HiveColumnHandle.class::cast)
+                                .allMatch(HiveColumnHandle::isPartitionKey),
+                hiveBucketHandle,
+                bucketFilter);
     }
 
     public HivePartitionResult getPartitions(ConnectorTableHandle tableHandle, List<List<String>> partitionValuesList)
@@ -154,7 +167,7 @@ public class HivePartitionManager
                 .map(partition -> partition.orElseThrow(() -> new VerifyException("partition must exist")))
                 .collect(toImmutableList());
 
-        return new HivePartitionResult(partitionColumns, partitionList, TupleDomain.all(), TupleDomain.all(), TupleDomain.all(), bucketHandle, Optional.empty());
+        return new HivePartitionResult(partitionColumns, partitionList, TupleDomain.all(), TupleDomain.all(), TupleDomain.all(), false, bucketHandle, Optional.empty());
     }
 
     public List<HivePartition> getPartitionsAsList(HivePartitionResult partitionResult)
