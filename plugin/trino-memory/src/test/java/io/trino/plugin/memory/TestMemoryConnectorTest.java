@@ -141,7 +141,7 @@ public class TestMemoryConnectorTest
 
     @Test
     // TODO (https://github.com/trinodb/trino/issues/8691) fix the test
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/8691", match = "ComparisonFailure: expected:<LongCount\\{total=\\[\\d+]}> but was:<LongCount\\{total=\\[\\d+]}>")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/8691", match = "ComparisonFailure: expected:<LongCount\\{total=\\[\\d+]}> but was:<(LongCount\\{total=\\[\\d+]}|null)>")
     public void testCustomMetricsScanFilter()
     {
         Metrics metrics = collectCustomMetrics("SELECT partkey FROM part WHERE partkey % 1000 > 0");
@@ -151,7 +151,7 @@ public class TestMemoryConnectorTest
     }
 
     @Test
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/8691", match = "ComparisonFailure: expected:<LongCount\\{total=\\[\\d+]}> but was:<LongCount\\{total=\\[\\d+]}>")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/8691", match = "ComparisonFailure: expected:<LongCount\\{total=\\[\\d+]}> but was:<(LongCount\\{total=\\[\\d+]}|null)>")
     public void testCustomMetricsScanOnly()
     {
         Metrics metrics = collectCustomMetrics("SELECT partkey FROM part");
