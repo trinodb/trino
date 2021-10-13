@@ -112,6 +112,7 @@ import static io.trino.plugin.hive.HiveColumnHandle.PATH_COLUMN_NAME;
 import static io.trino.plugin.hive.HiveQueryRunner.HIVE_CATALOG;
 import static io.trino.plugin.hive.HiveQueryRunner.TPCH_SCHEMA;
 import static io.trino.plugin.hive.HiveQueryRunner.createBucketedSession;
+import static io.trino.plugin.hive.HiveTableProperties.AUTO_PURGE;
 import static io.trino.plugin.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
@@ -1829,7 +1830,7 @@ public class TestHiveConnectorTest
         String queryId = (String) computeScalar("SELECT query_id FROM system.runtime.queries WHERE query LIKE 'CREATE TABLE test_show_properties%'");
         String nodeVersion = (String) computeScalar("SELECT node_version FROM system.runtime.nodes WHERE coordinator");
         assertQuery("SELECT * FROM \"test_show_properties$properties\"",
-                "SELECT 'workaround for potential lack of HIVE-12730', 'ship_priority,order_status', '0.5', '" + queryId + "', '" + nodeVersion + "', 'false'");
+                "SELECT 'workaround for potential lack of HIVE-12730', 'false', 'ship_priority,order_status', '0.5', '" + queryId + "', '" + nodeVersion + "', 'false'");
         assertUpdate("DROP TABLE test_show_properties");
     }
 
@@ -7992,6 +7993,37 @@ public class TestHiveConnectorTest
         String query = "CREATE TABLE copy_orders AS SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN " + query);
         assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan(query, DISTRIBUTED));
+    }
+
+    @Test
+    public void testAutoPurgeProperty()
+    {
+        String tableName = "test_auto_purge_property";
+        @Language("SQL") String createTableSql = format("" +
+                        "CREATE TABLE %s " +
+                        "AS " +
+                        "SELECT * FROM tpch.tiny.customer",
+                tableName);
+        assertUpdate(createTableSql, 1500L);
+
+        TableMetadata tableMetadataDefaults = getTableMetadata(catalog, TPCH_SCHEMA, tableName);
+        assertEquals(tableMetadataDefaults.getMetadata().getProperties().get(AUTO_PURGE), null);
+
+        assertUpdate("DROP TABLE " + tableName);
+
+        @Language("SQL") String createTableSqlWithAutoPurge = format("" +
+                        "CREATE TABLE %s " +
+                        "WITH (" +
+                        "   auto_purge = true" +
+                        ") AS " +
+                        "SELECT * FROM tpch.tiny.customer",
+                tableName);
+        assertUpdate(createTableSqlWithAutoPurge, 1500L);
+
+        TableMetadata tableMetadataWithPurge = getTableMetadata(catalog, TPCH_SCHEMA, tableName);
+        assertEquals(tableMetadataWithPurge.getMetadata().getProperties().get(AUTO_PURGE), true);
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     private static final Set<HiveStorageFormat> NAMED_COLUMN_ONLY_FORMATS = ImmutableSet.of(HiveStorageFormat.AVRO, HiveStorageFormat.JSON);
