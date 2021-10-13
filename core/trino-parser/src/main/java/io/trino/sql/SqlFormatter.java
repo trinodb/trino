@@ -97,6 +97,7 @@ import io.trino.sql.tree.SampledRelation;
 import io.trino.sql.tree.Select;
 import io.trino.sql.tree.SelectItem;
 import io.trino.sql.tree.SetPath;
+import io.trino.sql.tree.SetProperties;
 import io.trino.sql.tree.SetRole;
 import io.trino.sql.tree.SetSchemaAuthorization;
 import io.trino.sql.tree.SetSession;
@@ -1248,12 +1249,7 @@ public final class SqlFormatter
                 return "";
             }
 
-            String propertyList = properties.stream()
-                    .map(element -> formatExpression(element.getName()) + " = " +
-                            formatExpression(element.getValue()))
-                    .collect(joining(", "));
-
-            return " WITH ( " + propertyList + " )";
+            return " WITH ( " + joinProperties(properties) + " )";
         }
 
         private String formatColumnDefinition(ColumnDefinition column)
@@ -1323,7 +1319,27 @@ public final class SqlFormatter
         }
 
         @Override
-        protected Void visitComment(Comment node, Integer indent)
+        protected Void visitSetProperties(SetProperties node, Integer context)
+        {
+            builder.append("ALTER TABLE ");
+            builder.append(node.getName())
+                    .append(" SET PROPERTIES ( ");
+            builder.append(joinProperties(node.getProperties()));
+            builder.append(" )");
+
+            return null;
+        }
+
+        private String joinProperties(List<Property> properties)
+        {
+            return properties.stream()
+                    .map(element -> formatExpression(element.getName()) + " = " +
+                            formatExpression(element.getValue()))
+                    .collect(joining(", "));
+        }
+
+        @Override
+        protected Void visitComment(Comment node, Integer context)
         {
             String comment = node.getComment().isPresent() ? formatStringLiteral(node.getComment().get()) : "NULL";
 

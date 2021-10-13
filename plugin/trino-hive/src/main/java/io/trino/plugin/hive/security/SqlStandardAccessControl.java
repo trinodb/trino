@@ -34,6 +34,7 @@ import io.trino.spi.type.Type;
 
 import javax.inject.Inject;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -84,6 +85,7 @@ import static io.trino.spi.security.AccessDeniedException.denySetCatalogSessionP
 import static io.trino.spi.security.AccessDeniedException.denySetRole;
 import static io.trino.spi.security.AccessDeniedException.denySetSchemaAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denySetTableAuthorization;
+import static io.trino.spi.security.AccessDeniedException.denySetTableProperties;
 import static io.trino.spi.security.AccessDeniedException.denySetViewAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denyShowColumns;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateSchema;
@@ -197,6 +199,14 @@ public class SqlStandardAccessControl
     {
         if (!isTableOwner(context, tableName)) {
             denyRenameTable(tableName.toString(), newTableName.toString());
+        }
+    }
+
+    @Override
+    public void checkCanSetTableProperties(ConnectorSecurityContext context, SchemaTableName tableName, Map<String, Object> properties)
+    {
+        if (!isTableOwner(context, tableName)) {
+            denySetTableProperties(tableName.toString());
         }
     }
 

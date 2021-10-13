@@ -97,6 +97,7 @@ import static io.trino.spi.security.AccessDeniedException.denySetCatalogSessionP
 import static io.trino.spi.security.AccessDeniedException.denySetSchemaAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denySetSystemSessionProperty;
 import static io.trino.spi.security.AccessDeniedException.denySetTableAuthorization;
+import static io.trino.spi.security.AccessDeniedException.denySetTableProperties;
 import static io.trino.spi.security.AccessDeniedException.denySetUser;
 import static io.trino.spi.security.AccessDeniedException.denySetViewAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denyShowColumns;
@@ -521,6 +522,14 @@ public class FileBasedSystemAccessControl
         // check if user is an owner current table and will be an owner of the renamed table
         if (!checkTablePermission(context, table, OWNERSHIP) || !checkTablePermission(context, newTable, OWNERSHIP)) {
             denyRenameTable(table.toString(), newTable.toString());
+        }
+    }
+
+    @Override
+    public void checkCanSetTableProperties(SystemSecurityContext context, CatalogSchemaTableName table, Map<String, Object> properties)
+    {
+        if (!checkTablePermission(context, table, OWNERSHIP)) {
+            denySetTableProperties(table.toString());
         }
     }
 

@@ -157,6 +157,7 @@ import io.trino.sql.tree.SampledRelation;
 import io.trino.sql.tree.Select;
 import io.trino.sql.tree.SelectItem;
 import io.trino.sql.tree.SetOperation;
+import io.trino.sql.tree.SetProperties;
 import io.trino.sql.tree.SetSchemaAuthorization;
 import io.trino.sql.tree.SetSession;
 import io.trino.sql.tree.SetTableAuthorization;
@@ -726,7 +727,8 @@ class StatementAnalyzer
                     session,
                     metadata,
                     accessControl,
-                    analysis.getParameters());
+                    analysis.getParameters(),
+                    true);
             TableHandle tableHandle = metadata.getTableHandleForStatisticsCollection(session, tableName, analyzeProperties)
                     .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, node, "Table '%s' does not exist", tableName));
 
@@ -815,7 +817,8 @@ class StatementAnalyzer
                     session,
                     metadata,
                     accessControl,
-                    analysis.getParameters());
+                    analysis.getParameters(),
+                    true);
 
             ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(targetTable.asSchemaTableName(), columns.build(), properties, node.getComment());
 
@@ -949,6 +952,12 @@ class StatementAnalyzer
         protected Scope visitRenameTable(RenameTable node, Optional<Scope> scope)
         {
             return createAndAssignScope(node, scope);
+        }
+
+        @Override
+        protected Scope visitSetProperties(SetProperties node, Optional<Scope> context)
+        {
+            return createAndAssignScope(node, context);
         }
 
         @Override

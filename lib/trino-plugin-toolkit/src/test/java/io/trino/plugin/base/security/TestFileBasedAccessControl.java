@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.base.security;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.base.CatalogName;
 import io.trino.spi.QueryId;
@@ -282,10 +283,14 @@ public class TestFileBasedAccessControl
         accessControl.checkCanRenameMaterializedView(ADMIN, new SchemaTableName("bobschema", "bobmaterializedview"), new SchemaTableName("aliceschema", "newbobaterializedview"));
         accessControl.checkCanRenameMaterializedView(ALICE, new SchemaTableName("aliceschema", "alicevaterializediew"), new SchemaTableName("aliceschema", "newaliceaterializedview"));
 
+        accessControl.checkCanSetTableProperties(ADMIN, bobTable, ImmutableMap.of());
+        accessControl.checkCanSetTableProperties(ALICE, aliceTable, ImmutableMap.of());
+
         assertDenied(() -> accessControl.checkCanInsertIntoTable(ALICE, bobTable));
         assertDenied(() -> accessControl.checkCanDropTable(BOB, bobTable));
         assertDenied(() -> accessControl.checkCanRenameTable(BOB, bobTable, new SchemaTableName("bobschema", "newbobtable")));
         assertDenied(() -> accessControl.checkCanRenameTable(ALICE, aliceTable, new SchemaTableName("bobschema", "newalicetable")));
+        assertDenied(() -> accessControl.checkCanSetTableProperties(BOB, bobTable, ImmutableMap.of()));
         assertDenied(() -> accessControl.checkCanInsertIntoTable(BOB, testTable));
         assertDenied(() -> accessControl.checkCanSelectFromColumns(ADMIN, new SchemaTableName("secret", "secret"), ImmutableSet.of()));
         assertDenied(() -> accessControl.checkCanSelectFromColumns(JOE, new SchemaTableName("secret", "secret"), ImmutableSet.of()));

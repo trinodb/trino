@@ -103,6 +103,7 @@ public class TestFileBasedSystemAccessControl
     private static final String DROP_TABLE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot drop table .*";
     private static final String CREATE_TABLE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot show create table for .*";
     private static final String RENAME_TABLE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot rename table .*";
+    private static final String SET_TABLE_PROPERTIES_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot set table properties to .*";
     private static final String CREATE_VIEW_ACCESS_DENIED_MESSAGE = "Access Denied: View owner '.*' cannot create view that selects from .*";
     private static final String CREATE_MATERIALIZED_VIEW_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot create materialized view .*";
     private static final String DROP_MATERIALIZED_VIEW_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot drop materialized view .*";
@@ -671,6 +672,16 @@ public class TestFileBasedSystemAccessControl
         accessControl.checkCanRenameTable(ALICE, new CatalogSchemaTableName("some-catalog", "aliceschema", "alicetable"), new CatalogSchemaTableName("some-catalog", "aliceschema", "newalicetable"));
         assertAccessDenied(() -> accessControl.checkCanRenameTable(BOB, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), new CatalogSchemaTableName("some-catalog", "bobschema", "newbobtable")), RENAME_TABLE_ACCESS_DENIED_MESSAGE);
         assertAccessDenied(() -> accessControl.checkCanRenameTable(ALICE, new CatalogSchemaTableName("some-catalog", "aliceschema", "alicetable"), new CatalogSchemaTableName("some-catalog", "bobschema", "newalicetable")), RENAME_TABLE_ACCESS_DENIED_MESSAGE);
+    }
+
+    @Test
+    public void testTableRulesForCheckCanSetTableProperties()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table.json");
+
+        accessControl.checkCanSetTableProperties(ADMIN, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), ImmutableMap.of());
+        accessControl.checkCanSetTableProperties(ALICE, new CatalogSchemaTableName("some-catalog", "aliceschema", "alicetable"), ImmutableMap.of());
+        assertAccessDenied(() -> accessControl.checkCanSetTableProperties(BOB, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), ImmutableMap.of()), SET_TABLE_PROPERTIES_ACCESS_DENIED_MESSAGE);
     }
 
     @Test
