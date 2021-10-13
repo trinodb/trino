@@ -16,6 +16,7 @@ package io.trino.plugin.hive.security;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.plugin.base.security.ConnectorAccessControlModule;
 import io.trino.plugin.base.security.FileBasedAccessControlModule;
 import io.trino.plugin.base.security.ReadOnlySecurityModule;
 
@@ -34,6 +35,7 @@ public class HiveSecurityModule
     @Override
     protected void setup(Binder binder)
     {
+        install(new ConnectorAccessControlModule());
         bindSecurityModule(
                 LEGACY,
                 combine(

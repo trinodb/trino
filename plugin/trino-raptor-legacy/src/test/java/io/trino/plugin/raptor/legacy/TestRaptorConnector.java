@@ -22,7 +22,6 @@ import io.airlift.slice.Slice;
 import io.trino.PagesIndexPageSorter;
 import io.trino.operator.PagesIndex;
 import io.trino.plugin.base.CatalogName;
-import io.trino.plugin.base.security.AllowAllAccessControl;
 import io.trino.plugin.raptor.legacy.metadata.MetadataDao;
 import io.trino.plugin.raptor.legacy.metadata.ShardManager;
 import io.trino.plugin.raptor.legacy.storage.StorageManager;
@@ -55,6 +54,7 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.util.Collection;
+import java.util.Optional;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -112,7 +112,7 @@ public class TestRaptorConnector
                 new RaptorSessionProperties(config),
                 new RaptorTableProperties(typeManager),
                 ImmutableSet.of(),
-                new AllowAllAccessControl(),
+                Optional.empty(),
                 dbi);
     }
 
