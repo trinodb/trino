@@ -35,7 +35,7 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
-import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.FixedHostPortGenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.startupcheck.OneShotStartupCheckStrategy;
 import org.testcontainers.containers.wait.strategy.Wait;
@@ -70,18 +70,20 @@ public class TestingHydraIdentityProvider
     private final ObjectMapper mapper = new ObjectMapper();
     private final Duration ttlAccessToken;
     private final boolean useJwt;
+    private final boolean exposeFixedPorts;
     private final OkHttpClient httpClient;
-    private GenericContainer<?> hydraContainer;
+    private FixedHostPortGenericContainer<?> hydraContainer;
 
     public TestingHydraIdentityProvider()
     {
-        this(Duration.ofMinutes(30), true);
+        this(Duration.ofMinutes(30), true, false);
     }
 
-    public TestingHydraIdentityProvider(Duration ttlAccessToken, boolean useJwt)
+    public TestingHydraIdentityProvider(Duration ttlAccessToken, boolean useJwt, boolean exposeFixedPorts)
     {
         this.ttlAccessToken = requireNonNull(ttlAccessToken, "ttlAccessToken is null");
         this.useJwt = useJwt;
+        this.exposeFixedPorts = exposeFixedPorts;
         OkHttpClient.Builder httpClientBuilder = new OkHttpClient.Builder();
         setupInsecureSsl(httpClientBuilder);
         httpClientBuilder.followRedirects(false);
@@ -113,13 +115,18 @@ public class TestingHydraIdentityProvider
                 .waitingFor(new WaitAllStrategy()
                         .withStrategy(Wait.forLogMessage(".*Setting up http server on :4444.*", 1))
                         .withStrategy(Wait.forLogMessage(".*Setting up http server on :4445.*", 1)));
+        if (exposeFixedPorts) {
+            hydraContainer = hydraContainer
+                    .withFixedExposedPort(4444, 4444)
+                    .withFixedExposedPort(4445, 4445);
+        }
         closer.register(hydraContainer);
         hydraContainer.start();
     }
 
-    public GenericContainer<?> createHydraContainer()
+    public FixedHostPortGenericContainer<?> createHydraContainer()
     {
-        return new GenericContainer<>(HYDRA_IMAGE).withNetwork(network);
+        return new FixedHostPortGenericContainer<>(HYDRA_IMAGE).withNetwork(network);
     }
 
     public void createClient(
