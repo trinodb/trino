@@ -774,6 +774,14 @@ public final class MetadataManager
     }
 
     @Override
+    public void setTableProperties(Session session, TableHandle tableHandle, Map<String, Object> properties)
+    {
+        CatalogName catalogName = tableHandle.getCatalogName();
+        ConnectorMetadata metadata = getMetadataForWrite(session, catalogName);
+        metadata.setTableProperties(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle(), properties);
+    }
+
+    @Override
     public void setTableComment(Session session, TableHandle tableHandle, Optional<String> comment)
     {
         CatalogName catalogName = tableHandle.getCatalogName();

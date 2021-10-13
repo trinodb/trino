@@ -326,6 +326,14 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Set properties to the specified table
+     */
+    default void setTableProperties(ConnectorSession session, ConnectorTableHandle tableHandle, Map<String, Object> properties)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting table properties");
+    }
+
+    /**
      * Comments to the specified table
      */
     default void setTableComment(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<String> comment)

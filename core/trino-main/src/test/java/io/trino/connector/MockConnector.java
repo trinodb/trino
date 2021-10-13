@@ -384,6 +384,9 @@ public class MockConnector
         public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTableName) {}
 
         @Override
+        public void setTableProperties(ConnectorSession session, ConnectorTableHandle tableHandle, Map<String, Object> properties) {}
+
+        @Override
         public void setTableComment(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<String> comment) {}
 
         @Override

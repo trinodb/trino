@@ -66,6 +66,7 @@ ALTER SCHEMA ... SET AUTHORIZATION   all        owner
 CREATE TABLE                         all                owner
 DROP TABLE                           all                owner
 ALTER TABLE ... RENAME TO            all                owner*               Ownership is required on both old and new tables
+ALTER TABLE ... SET PROPERTIES       all                owner
 CREATE VIEW                          all                owner
 DROP VIEW                            all                owner
 ALTER VIEW ... RENAME TO             all                owner*               Ownership is required on both old and new views

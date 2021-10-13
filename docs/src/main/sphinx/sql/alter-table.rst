@@ -14,6 +14,7 @@ Synopsis
     ALTER TABLE [ IF EXISTS ] name DROP COLUMN [ IF EXISTS ] column_name
     ALTER TABLE [ IF EXISTS ] name RENAME COLUMN [ IF EXISTS ] old_name TO new_name
     ALTER TABLE name SET AUTHORIZATION ( user | USER user | ROLE role )
+    ALTER TABLE SET PROPERTIES ( property_name = expression [, ...] )
 
 Description
 -----------
@@ -68,6 +69,10 @@ Change owner of table ``people`` to user ``alice``::
 Allow everyone with role public to drop and alter table ``people``::
 
     ALTER TABLE people SET AUTHORIZATION ROLE PUBLIC
+
+Set table properties (``x=y``) to table ``users``::
+
+    ALTER TABLE people SET PROPERTIES (x = 'y')
 
 See also
 --------

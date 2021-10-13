@@ -110,7 +110,8 @@ public class CreateMaterializedViewTask
                 session,
                 metadata,
                 accessControl,
-                parameterLookup);
+                parameterLookup,
+                true);
 
         ConnectorMaterializedViewDefinition definition = new ConnectorMaterializedViewDefinition(
                 sql,

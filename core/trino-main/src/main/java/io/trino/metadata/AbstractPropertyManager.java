@@ -77,7 +77,8 @@ abstract class AbstractPropertyManager
             Session session,
             Metadata metadata,
             AccessControl accessControl,
-            Map<NodeRef<Parameter>, Expression> parameters)
+            Map<NodeRef<Parameter>, Expression> parameters,
+            boolean setDefaultProperties)
     {
         Map<String, PropertyMetadata<?>> supportedProperties = connectorProperties.get(catalogName);
         if (supportedProperties == null) {
@@ -134,6 +135,9 @@ abstract class AbstractPropertyManager
         }
         Map<String, Object> userSpecifiedProperties = properties.build();
 
+        if (!setDefaultProperties) {
+            return properties.build();
+        }
         // Fill in the remaining properties with non-null defaults
         for (PropertyMetadata<?> propertyMetadata : supportedProperties.values()) {
             if (!userSpecifiedProperties.containsKey(propertyMetadata.getName())) {
