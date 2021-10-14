@@ -225,8 +225,11 @@ public final class SortedRangeSet
      */
     static SortedRangeSet of(Range first, Range... rest)
     {
-        if (rest.length == 0 && first.isSingleValue()) {
-            return of(first.getType(), first.getSingleValue());
+        if (rest.length == 0) {
+            if (first.isSingleValue()) {
+                return of(first.getType(), first.getSingleValue());
+            }
+            return copyOf(first.getType(), List.of(first));
         }
 
         List<Range> rangeList = new ArrayList<>(rest.length + 1);
@@ -891,36 +894,42 @@ public final class SortedRangeSet
             throw new IllegalArgumentException("Type is not orderable: " + type);
         }
 
-        List<Range> ranges = new ArrayList<>(unsortedRanges);
-        for (Range range : ranges) {
-            if (!type.equals(range.getType())) {
-                throw new IllegalArgumentException(format("Range type %s does not match builder type %s", range.getType(), type));
-            }
+        List<Range> result;
+        if (unsortedRanges.size() <= 1 && unsortedRanges instanceof List) {
+            result = (List<Range>) unsortedRanges;
         }
-
-        ranges.sort(Range::compareLowBound);
-
-        List<Range> result = new ArrayList<>(ranges.size());
-
-        Range current = null;
-        for (Range next : ranges) {
-            if (current == null) {
-                current = next;
-                continue;
+        else {
+            List<Range> ranges = new ArrayList<>(unsortedRanges);
+            for (Range range : ranges) {
+                if (!type.equals(range.getType())) {
+                    throw new IllegalArgumentException(format("Range type %s does not match builder type %s", range.getType(), type));
+                }
             }
 
-            Optional<Range> merged = current.tryMergeWithNext(next);
-            if (merged.isPresent()) {
-                current = merged.get();
+            ranges.sort(Range::compareLowBound);
+
+            result = new ArrayList<>(ranges.size());
+
+            Range current = null;
+            for (Range next : ranges) {
+                if (current == null) {
+                    current = next;
+                    continue;
+                }
+
+                Optional<Range> merged = current.tryMergeWithNext(next);
+                if (merged.isPresent()) {
+                    current = merged.get();
+                }
+                else {
+                    result.add(current);
+                    current = next;
+                }
             }
-            else {
+
+            if (current != null) {
                 result.add(current);
-                current = next;
             }
-        }
-
-        if (current != null) {
-            result.add(current);
         }
 
         boolean[] inclusive = new boolean[2 * result.size()];
