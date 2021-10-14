@@ -55,6 +55,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static java.util.Collections.synchronizedSet;
@@ -440,6 +441,16 @@ public class TestingMetadata
         public int hashCode()
         {
             return Objects.hash(name, ordinalPosition, type);
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .addValue(ordinalPosition)
+                    .add("name", name)
+                    .add("type", type)
+                    .toString();
         }
     }
 }
