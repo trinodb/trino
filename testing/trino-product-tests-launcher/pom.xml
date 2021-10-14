@@ -127,14 +127,14 @@
                 <directory>src/main/resources</directory>
                 <filtering>true</filtering>
                 <includes>
-                    <include>presto-product-tests-launcher-version.txt</include>
+                    <include>trino-testing.properties</include>
                 </includes>
             </resource>
             <resource>
                 <directory>src/main/resources</directory>
                 <filtering>false</filtering>
                 <excludes>
-                    <exclude>presto-product-tests-launcher-version.txt</exclude>
+                    <exclude>trino-testing.properties</exclude>
                 </excludes>
             </resource>
         </resources>
