@@ -15,4 +15,3 @@ CREATE TABLE IF NOT EXISTS resource_groups (
     PRIMARY KEY (resource_group_id),
     FOREIGN KEY (parent) REFERENCES resource_groups (resource_group_id) ON DELETE CASCADE
 );
-

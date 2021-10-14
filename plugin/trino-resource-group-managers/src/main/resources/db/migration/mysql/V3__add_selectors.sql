@@ -8,4 +8,3 @@ CREATE TABLE IF NOT EXISTS selectors (
      selector_resource_estimate VARCHAR(1024),
      FOREIGN KEY (resource_group_id) REFERENCES resource_groups (resource_group_id) ON DELETE CASCADE
 );
-

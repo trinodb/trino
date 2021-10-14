@@ -7,4 +7,3 @@ CREATE TABLE IF NOT EXISTS exact_match_source_selectors(
      PRIMARY KEY (environment, source(128), resource_group_id),
      UNIQUE (source(128), environment, query_type(128), resource_group_id)
 );
-
