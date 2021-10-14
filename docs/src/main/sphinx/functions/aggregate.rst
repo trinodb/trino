@@ -59,7 +59,7 @@ flowers, modifying the following query::
     virginica  |   50
     versicolor |   50
 
-If you just use a normal ``WHERE`` statement you loose information::
+If you just use a normal ``WHERE`` statement you lose information::
 
     SELECT species,
         count(*) AS count
