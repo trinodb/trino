@@ -54,6 +54,18 @@ public class BenchmarkSortedRangeSet
     }
 
     @Benchmark
+    public List<SortedRangeSet> ofSingleRange(Data data)
+    {
+        List<SortedRangeSet> result = new ArrayList<>(data.ranges.size());
+        for (Range range : data.ranges) {
+            // intentionally going through public interface to cover any overhead or code path redirection this could incur
+            ValueSet valueSet = ValueSet.ofRanges(range);
+            result.add((SortedRangeSet) valueSet);
+        }
+        return result;
+    }
+
+    @Benchmark
     public List<Boolean> equalsSmall(Data data)
     {
         return benchmarkEquals(data.smallRanges);
@@ -249,6 +261,8 @@ public class BenchmarkSortedRangeSet
         data.init();
 
         benchmarkBuilder(data);
+
+        ofSingleRange(data);
 
         equalsSmall(data);
         equalsLarge(data);
