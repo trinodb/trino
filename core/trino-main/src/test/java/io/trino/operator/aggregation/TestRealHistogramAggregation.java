@@ -35,6 +35,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.util.StructuralTestUtil.mapType;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -103,11 +104,13 @@ public class TestRealHistogramAggregation
         assertTrue(result.isNull(0));
     }
 
-    @Test(expectedExceptions = TrinoException.class)
+    @Test
     public void testBadNumberOfBuckets()
     {
         Accumulator singleStep = factory.createAccumulator();
-        singleStep.addInput(makeInput(0));
+        assertThatThrownBy(() -> singleStep.addInput(makeInput(0)))
+                .isInstanceOf(TrinoException.class)
+                .hasMessage("numeric_histogram bucket count must be greater than one");
         getFinalBlock(singleStep);
     }
 
