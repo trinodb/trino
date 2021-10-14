@@ -15,6 +15,7 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.testing.TempFile;
 import io.trino.connector.CatalogName;
 import io.trino.metadata.TableHandle;
@@ -34,9 +35,11 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
@@ -171,6 +174,13 @@ public class TestNodeLocalDynamicSplitPruning
     {
         return new DynamicFilter()
         {
+            @Override
+            public Set<ColumnHandle> getColumnsCovered()
+            {
+                return tupleDomain.getDomains().map(Map::keySet)
+                        .orElseGet(ImmutableSet::of);
+            }
+
             @Override
             public CompletableFuture<?> isBlocked()
             {
