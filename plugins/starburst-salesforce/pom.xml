@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.starburstdata.presto</groupId>
         <artifactId>starburst-enterprise-root</artifactId>
-        <version>361-e-SNAPSHOT</version>
+        <version>364-e-SNAPSHOT</version>
         <relativePath>../..</relativePath>
     </parent>
 
@@ -61,7 +61,7 @@
         <dependency>
             <groupId>com.cdata</groupId>
             <artifactId>salesforce-jdbc</artifactId>
-            <version>2020-2</version>
+            <version>2021-1</version>
         </dependency>
 
         <dependency>

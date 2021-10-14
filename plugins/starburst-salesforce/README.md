@@ -47,7 +47,7 @@ mvn deploy:deploy-file \
 -Dfile=/path/to/cdata-salesforce-jdbc.jar \
 -DgroupId=com.cdata \
 -DartifactId=salesforce-jdbc \
--Dversion=2020-2 \
+-Dversion=2021-2 \
 -Dpackaging=jar \
 -DrepositoryId=starburstdata.releases \
 -Durl=https://maven.starburstdata.net/starburstdata-artifacts/releases

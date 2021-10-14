@@ -2295,8 +2295,8 @@ public class TestSalesforceConnectorTest
                         "   name varchar(80) COMMENT 'Label Name corresponds to this field.',\n" +
                         "   createddate timestamp(0) NOT NULL COMMENT 'Label Created Date corresponds to this field.',\n" +
                         "   createdbyid varchar(18) NOT NULL COMMENT 'Label Created By ID corresponds to this field.',\n" +
-                        "   lastmodifieddate timestamp(0) NOT NULL COMMENT 'Label Last Modified Date corresponds to this field.',\n" +
-                        "   lastmodifiedbyid varchar(18) NOT NULL COMMENT 'Label Last Modified By ID corresponds to this field.',\n" +
+                        "   lastmodifieddate timestamp(0) COMMENT 'Label Last Modified Date corresponds to this field.',\n" +
+                        "   lastmodifiedbyid varchar(18) COMMENT 'Label Last Modified By ID corresponds to this field.',\n" +
                         "   systemmodstamp timestamp(0) NOT NULL COMMENT 'Label System Modstamp corresponds to this field.',\n" +
                         "   lastactivitydate date COMMENT 'Label Last Activity Date corresponds to this field.',\n" +
                         "   shippriority__c double COMMENT 'Label shippriority corresponds to this field.',\n" +
