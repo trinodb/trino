@@ -4827,8 +4827,7 @@ public abstract class BaseIcebergConnectorTest
         assertThat(allDataFilesAfterOptimizeWithWhere)
                 .hasSize(6)
                 .doesNotContain(allDataFilesInitially.stream().filter(file -> file.contains("regionkey=4"))
-                        .collect(toImmutableList())
-                        .toArray(new String[0]));
+                        .toArray(String[]::new));
 
         assertThat(query("SELECT * FROM " + tableName))
                 .matches("SELECT * FROM nation WHERE nationkey != 7");

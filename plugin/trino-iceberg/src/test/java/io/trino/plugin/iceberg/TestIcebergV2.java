@@ -307,8 +307,7 @@ public class TestIcebergV2
         Assertions.assertThat(updatedFiles)
                 .doesNotContain(initialActiveFiles.stream()
                                 .filter(path -> !path.contains("regionkey=1"))
-                                .collect(toImmutableList())
-                                .toArray(new String[0]));
+                                .toArray(String[]::new));
     }
 
     @Test
