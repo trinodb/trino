@@ -46,11 +46,7 @@ public class BenchmarkSortedRangeSet
     @Benchmark
     public SortedRangeSet benchmarkBuilder(Data data)
     {
-        SortedRangeSet build = new SortedRangeSet.Builder(BIGINT)
-                .addAll(data.ranges)
-                .build();
-
-        return build;
+        return SortedRangeSet.buildFromUnsortedRanges(BIGINT, data.ranges);
     }
 
     @Benchmark
