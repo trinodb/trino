@@ -68,6 +68,8 @@
         <dep.jackson.version>2.12.3</dep.jackson.version>
         <dep.parquet.version>1.11.1</dep.parquet.version>
 
+        <dep.docker.images.version>47</dep.docker.images.version>
+
         <!--
           America/Bahia_Banderas has:
            - offset change since 1970 (offset Jan 1970: -08:00, offset Jan 2018: -06:00)

@@ -16,6 +16,7 @@ package io.trino.plugin.hive.containers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
+import io.trino.testing.TestingProperties;
 import io.trino.testing.containers.BaseTestContainer;
 import org.testcontainers.containers.Network;
 
@@ -26,9 +27,8 @@ import java.util.Set;
 public class HiveHadoop
         extends BaseTestContainer
 {
-    private static final String IMAGE_VERSION = "43";
-    public static final String DEFAULT_IMAGE = "ghcr.io/trinodb/testing/hdp2.6-hive:" + IMAGE_VERSION;
-    public static final String HIVE3_IMAGE = "ghcr.io/trinodb/testing/hdp3.1-hive:" + IMAGE_VERSION;
+    public static final String DEFAULT_IMAGE = "ghcr.io/trinodb/testing/hdp2.6-hive:" + TestingProperties.INSTANCE.getDockerImagesVersion();
+    public static final String HIVE3_IMAGE = "ghcr.io/trinodb/testing/hdp3.1-hive:" + TestingProperties.INSTANCE.getDockerImagesVersion();
 
     public static final String HOST_NAME = "hadoop-master";
 
