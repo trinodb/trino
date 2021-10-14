@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.resourcegroups.db;
 
-import com.mysql.cj.jdbc.MysqlDataSource;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
@@ -22,18 +21,16 @@ import javax.inject.Provider;
 
 import static java.util.Objects.requireNonNull;
 
-public class MysqlDaoProvider
+public class DaoProvider
         implements Provider<ResourceGroupsDao>
 {
     private final ResourceGroupsDao dao;
 
     @Inject
-    public MysqlDaoProvider(DbResourceGroupConfig config)
+    public DaoProvider(DbResourceGroupConfig config, Jdbi jdbi)
     {
         requireNonNull(config, "config is null");
-        MysqlDataSource dataSource = new MysqlDataSource();
-        dataSource.setURL(requireNonNull(config.getConfigDbUrl(), "resource-groups.config-db-url is null"));
-        this.dao = Jdbi.create(dataSource)
+        this.dao = jdbi
                 .installPlugin(new SqlObjectPlugin())
                 .onDemand(ResourceGroupsDao.class);
     }
