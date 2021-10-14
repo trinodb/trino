@@ -253,9 +253,9 @@ public final class SortedRangeSet
                 new RunLengthEncodedBlock(block, 2));
     }
 
-    static SortedRangeSet copyOf(Type type, Iterable<Range> ranges)
+    static SortedRangeSet copyOf(Type type, Collection<Range> ranges)
     {
-        return new Builder(type).addAll(ranges).build();
+        return buildFromUnsortedRanges(type, ranges);
     }
 
     /**
@@ -263,7 +263,7 @@ public final class SortedRangeSet
      */
     public static SortedRangeSet copyOf(Type type, List<Range> ranges)
     {
-        return copyOf(type, (Iterable<Range>) ranges);
+        return copyOf(type, (Collection<Range>) ranges);
     }
 
     @Override
@@ -882,75 +882,55 @@ public final class SortedRangeSet
                 .collect(joining(", ", "{", "}"));
     }
 
-    static class Builder
+    static SortedRangeSet buildFromUnsortedRanges(Type type, Collection<Range> unsortedRanges)
     {
-        private final Type type;
-        private final List<Range> ranges = new ArrayList<>();
+        requireNonNull(type, "type is null");
+        requireNonNull(unsortedRanges, "unsortedRanges is null");
 
-        Builder(Type type)
-        {
-            requireNonNull(type, "type is null");
-
-            if (!type.isOrderable()) {
-                throw new IllegalArgumentException("Type is not orderable: " + type);
-            }
-            this.type = type;
+        if (!type.isOrderable()) {
+            throw new IllegalArgumentException("Type is not orderable: " + type);
         }
 
-        Builder add(Range range)
-        {
+        List<Range> ranges = new ArrayList<>(unsortedRanges);
+        for (Range range : ranges) {
             if (!type.equals(range.getType())) {
                 throw new IllegalArgumentException(format("Range type %s does not match builder type %s", range.getType(), type));
             }
-
-            ranges.add(range);
-            return this;
         }
 
-        Builder addAll(Iterable<Range> ranges)
-        {
-            for (Range range : ranges) {
-                add(range);
-            }
-            return this;
-        }
+        ranges.sort(Range::compareLowBound);
 
-        SortedRangeSet build()
-        {
-            ranges.sort(Range::compareLowBound);
+        List<Range> result = new ArrayList<>(ranges.size());
 
-            List<Range> result = new ArrayList<>(ranges.size());
-
-            Range current = null;
-            for (Range next : ranges) {
-                if (current == null) {
-                    current = next;
-                    continue;
-                }
-
-                Optional<Range> merged = current.tryMergeWithNext(next);
-                if (merged.isPresent()) {
-                    current = merged.get();
-                }
-                else {
-                    result.add(current);
-                    current = next;
-                }
+        Range current = null;
+        for (Range next : ranges) {
+            if (current == null) {
+                current = next;
+                continue;
             }
 
-            if (current != null) {
+            Optional<Range> merged = current.tryMergeWithNext(next);
+            if (merged.isPresent()) {
+                current = merged.get();
+            }
+            else {
                 result.add(current);
+                current = next;
             }
-
-            boolean[] inclusive = new boolean[2 * result.size()];
-            BlockBuilder blockBuilder = type.createBlockBuilder(null, 2 * result.size());
-            for (int rangeIndex = 0; rangeIndex < result.size(); rangeIndex++) {
-                Range range = result.get(rangeIndex);
-                writeRange(type, blockBuilder, inclusive, rangeIndex, range);
-            }
-
-            return new SortedRangeSet(type, inclusive, blockBuilder);
         }
+
+        if (current != null) {
+            result.add(current);
+        }
+
+        boolean[] inclusive = new boolean[2 * result.size()];
+        BlockBuilder blockBuilder = type.createBlockBuilder(null, 2 * result.size());
+        for (int rangeIndex = 0; rangeIndex < result.size(); rangeIndex++) {
+            Range range = result.get(rangeIndex);
+            writeRange(type, blockBuilder, inclusive, rangeIndex, range);
+        }
+
+        return new SortedRangeSet(type, inclusive, blockBuilder);
     }
 
     private static void writeRange(Type type, BlockBuilder blockBuilder, boolean[] inclusive, int rangeIndex, Range range)
