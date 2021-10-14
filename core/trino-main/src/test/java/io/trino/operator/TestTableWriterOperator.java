@@ -67,6 +67,7 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
@@ -148,7 +149,7 @@ public class TestTableWriterOperator
         assertFalse(operator.needsInput());
     }
 
-    @Test(expectedExceptions = IllegalStateException.class)
+    @Test
     public void addInputFailsOnBlockedOperator()
     {
         Operator operator = createTableWriterOperator(new BlockingPageSink());
@@ -158,7 +159,9 @@ public class TestTableWriterOperator
         assertFalse(operator.isBlocked().isDone());
         assertFalse(operator.needsInput());
 
-        operator.addInput(rowPagesBuilder(BIGINT).row(42).build().get(0));
+        assertThatThrownBy(() -> operator.addInput(rowPagesBuilder(BIGINT).row(42).build().get(0)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Operator does not need input");
     }
 
     @Test
