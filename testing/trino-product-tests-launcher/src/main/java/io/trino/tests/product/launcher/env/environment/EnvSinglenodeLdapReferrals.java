@@ -42,6 +42,6 @@ public class EnvSinglenodeLdapReferrals
     @Override
     protected String getBaseImage()
     {
-        return "centos7-oj8-openldap-referrals";
+        return "centos7-oj11-openldap-referrals";
     }
 }
