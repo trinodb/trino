@@ -258,8 +258,20 @@ public class DynamicFilterService
                 .collect(toImmutableList());
         AtomicReference<CurrentDynamicFilter> currentDynamicFilter = new AtomicReference<>(new CurrentDynamicFilter(0, TupleDomain.all()));
 
+        Set<ColumnHandle> columnsCovered = symbolsMap.values().stream()
+                .map(DynamicFilters.Descriptor::getInput)
+                .map(Symbol::from)
+                .map(probeSymbol -> requireNonNull(columnHandles.get(probeSymbol), () -> "Missing probe column for " + probeSymbol))
+                .collect(toImmutableSet());
+
         return new DynamicFilter()
         {
+            @Override
+            public Set<ColumnHandle> getColumnsCovered()
+            {
+                return columnsCovered;
+            }
+
             @Override
             public CompletableFuture<?> isBlocked()
             {
