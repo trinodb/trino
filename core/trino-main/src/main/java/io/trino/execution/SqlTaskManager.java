@@ -68,6 +68,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
@@ -119,6 +120,9 @@ public class SqlTaskManager
 
     private final CounterStat failedTasks = new CounterStat();
 
+    private static final AtomicInteger IDGEN = new AtomicInteger(45);
+    private final int instanceId = IDGEN.incrementAndGet();
+
     @Inject
     public SqlTaskManager(
             VersionEmbedder versionEmbedder,
@@ -161,7 +165,10 @@ public class SqlTaskManager
         queryMaxTotalMemoryPerNode = maxQueryTotalMemoryPerNode.toBytes();
 
         queryContexts = CacheBuilder.newBuilder().weakValues().build(CacheLoader.from(
-                queryId -> createQueryContext(queryId, localMemoryManager, localSpillManager, gcMonitor, maxQueryMemoryPerNode, maxQueryTotalMemoryPerNode, maxQuerySpillPerNode)));
+                queryId -> {
+                    log.info("Creating new QueryContext for %s@%s", queryId, instanceId);
+                    return createQueryContext(queryId, localMemoryManager, localSpillManager, gcMonitor, maxQueryMemoryPerNode, maxQueryTotalMemoryPerNode, maxQuerySpillPerNode);
+                }));
 
         tasks = CacheBuilder.newBuilder().build(CacheLoader.from(
                 taskId -> createSqlTask(
