@@ -107,6 +107,7 @@ public class Server
                 new CoordinatorDiscoveryModule(),
                 new ServerMainModule(trinoVersion),
                 new GracefulShutdownModule(),
+                new DecommissionModule(),
                 new WarningCollectorModule());
 
         modules.addAll(getAdditionalModules());

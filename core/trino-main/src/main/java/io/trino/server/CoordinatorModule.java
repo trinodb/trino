@@ -264,6 +264,14 @@ public class CoordinatorModule
 
         install(new QueryExecutionFactoryModule());
 
+        jaxrsBinder(binder).bind(AutoScaleResource.class);
+        httpClientBinder(binder).bindHttpClient("auto-scale", ForAutoScale.class)
+                .withTracing()
+                .withConfigDefaults(config -> {
+                    config.setIdleTimeout(new Duration(30, SECONDS));
+                    config.setRequestTimeout(new Duration(10, SECONDS));
+                });
+
         // cleanup
         binder.bind(ExecutorCleanup.class).in(Scopes.SINGLETON);
     }

@@ -61,6 +61,7 @@ import io.trino.security.AccessControl;
 import io.trino.security.AccessControlConfig;
 import io.trino.security.AccessControlManager;
 import io.trino.security.GroupProviderManager;
+import io.trino.server.DecommissionHandler;
 import io.trino.server.GracefulShutdownHandler;
 import io.trino.server.PluginManager;
 import io.trino.server.ServerMainModule;
@@ -249,6 +250,7 @@ public class TestingTrinoServer
                     binder.bind(AccessControl.class).to(AccessControlManager.class).in(Scopes.SINGLETON);
                     binder.bind(ShutdownAction.class).to(TestShutdownAction.class).in(Scopes.SINGLETON);
                     binder.bind(GracefulShutdownHandler.class).in(Scopes.SINGLETON);
+                    binder.bind(DecommissionHandler.class).in(Scopes.SINGLETON);
                     binder.bind(ProcedureTester.class).in(Scopes.SINGLETON);
                 });
 

@@ -436,7 +436,8 @@ public abstract class AbstractTestIndexedQueries
                 "  ON l.a = o.a AND l.b = o.b");
     }
 
-    @Test
+    // Ignore the flaky test as in https://github.com/trinodb/trino/issues/6220
+    @Test(enabled = false)
     public void testHighCardinalityReducedIndexProbeKey()
     {
         assertQuery("" +

@@ -89,33 +89,7 @@ public class GracefulShutdownHandler
 
     private void shutdown()
     {
-        List<TaskInfo> activeTasks = getActiveTasks();
-
-        // At this point no new tasks should be scheduled by coordinator on this worker node.
-        // Wait for all remaining tasks to finish.
-        while (activeTasks.size() > 0) {
-            CountDownLatch countDownLatch = new CountDownLatch(activeTasks.size());
-
-            for (TaskInfo taskInfo : activeTasks) {
-                sqlTaskManager.addStateChangeListener(taskInfo.getTaskStatus().getTaskId(), newState -> {
-                    if (newState.isDone()) {
-                        countDownLatch.countDown();
-                    }
-                });
-            }
-
-            log.info("Waiting for all tasks to finish");
-
-            try {
-                countDownLatch.await();
-            }
-            catch (InterruptedException e) {
-                log.warn("Interrupted while waiting for all tasks to finish");
-                currentThread().interrupt();
-            }
-
-            activeTasks = getActiveTasks();
-        }
+        waitActiveTasksToFinish(sqlTaskManager);
 
         // wait for another grace period for all task states to be observed by the coordinator
         sleepUninterruptibly(gracePeriod.toMillis(), MILLISECONDS);
@@ -143,16 +117,46 @@ public class GracefulShutdownHandler
         shutdownAction.onShutdown();
     }
 
-    private List<TaskInfo> getActiveTasks()
+    public synchronized boolean isShutdownRequested()
+    {
+        return shutdownRequested;
+    }
+
+    static void waitActiveTasksToFinish(TaskManager sqlTaskManager)
+    {
+        // At this point no new tasks should be scheduled by coordinator on this worker node.
+        // Wait for all remaining tasks to finish.
+        while (true) {
+            List<TaskInfo> activeTasks = getActiveTasks(sqlTaskManager);
+            log.info("Waiting for " + activeTasks.size() + " active tasks to finish");
+            if (activeTasks.isEmpty()) {
+                break;
+            }
+            CountDownLatch countDownLatch = new CountDownLatch(activeTasks.size());
+
+            for (TaskInfo taskInfo : activeTasks) {
+                sqlTaskManager.addStateChangeListener(taskInfo.getTaskStatus().getTaskId(), newState -> {
+                    if (newState.isDone()) {
+                        countDownLatch.countDown();
+                    }
+                });
+            }
+
+            try {
+                countDownLatch.await();
+            }
+            catch (InterruptedException e) {
+                log.warn("Interrupted while waiting for all tasks to finish");
+                currentThread().interrupt();
+            }
+        }
+    }
+
+    private static List<TaskInfo> getActiveTasks(TaskManager sqlTaskManager)
     {
         return sqlTaskManager.getAllTaskInfo()
                 .stream()
                 .filter(taskInfo -> !taskInfo.getTaskStatus().getState().isDone())
                 .collect(toImmutableList());
-    }
-
-    public synchronized boolean isShutdownRequested()
-    {
-        return shutdownRequested;
     }
 }

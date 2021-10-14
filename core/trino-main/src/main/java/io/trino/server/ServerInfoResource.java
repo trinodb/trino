@@ -13,6 +13,7 @@
  */
 package io.trino.server;
 
+import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 import io.trino.client.NodeVersion;
 import io.trino.client.ServerInfo;
@@ -35,6 +36,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.metadata.NodeState.ACTIVE;
+import static io.trino.metadata.NodeState.DECOMMISSIONED;
+import static io.trino.metadata.NodeState.DECOMMISSIONING;
 import static io.trino.metadata.NodeState.SHUTTING_DOWN;
 import static io.trino.server.security.ResourceSecurity.AccessType.MANAGEMENT_WRITE;
 import static io.trino.server.security.ResourceSecurity.AccessType.PUBLIC;
@@ -47,20 +50,27 @@ import static javax.ws.rs.core.Response.Status.BAD_REQUEST;
 @Path("/v1/info")
 public class ServerInfoResource
 {
+    private static Logger log = Logger.get(ServerInfoResource.class);
+
     private final NodeVersion version;
     private final String environment;
     private final boolean coordinator;
     private final GracefulShutdownHandler shutdownHandler;
+    private final DecommissionHandler decommissionHandler;
     private final long startTime = System.nanoTime();
     private final AtomicBoolean startupComplete = new AtomicBoolean();
+    private NodeState currState = NodeState.ACTIVE;
 
     @Inject
-    public ServerInfoResource(NodeVersion nodeVersion, NodeInfo nodeInfo, ServerConfig serverConfig, GracefulShutdownHandler shutdownHandler)
+    public ServerInfoResource(NodeVersion nodeVersion, NodeInfo nodeInfo,
+            ServerConfig serverConfig, GracefulShutdownHandler shutdownHandler,
+            DecommissionHandler decommissionHandler)
     {
         this.version = requireNonNull(nodeVersion, "nodeVersion is null");
         this.environment = requireNonNull(nodeInfo, "nodeInfo is null").getEnvironment();
         this.coordinator = requireNonNull(serverConfig, "serverConfig is null").isCoordinator();
         this.shutdownHandler = requireNonNull(shutdownHandler, "shutdownHandler is null");
+        this.decommissionHandler = requireNonNull(decommissionHandler, "decommissionHandler is null");
     }
 
     @ResourceSecurity(PUBLIC)
@@ -81,23 +91,48 @@ public class ServerInfoResource
             throws WebApplicationException
     {
         requireNonNull(state, "state is null");
+        log.info(String.format("Entre updateState %s -> %s", currState, state));
+
+        // Supported state transitions:
+        //   1. ? -> ?
+        //   2. * -> SHUTTING_DOWN
+        //   3. ACTIVE -> DECOMMISSIONING
+        //   4. DECOMMISSIONING, DECOMMISSIONED -> ACTIVE
+
+        if (currState == state || (state == DECOMMISSIONING && currState == DECOMMISSIONED)) {
+            return Response.ok().build();
+        }
+
+        // Prefer using a switch instead of a chained if-else for enums
         switch (state) {
             case SHUTTING_DOWN:
                 shutdownHandler.requestShutdown();
+                currState = SHUTTING_DOWN;
                 return Response.ok().build();
+            case DECOMMISSIONING:
+                if (currState == ACTIVE) {
+                    decommissionHandler.requestDecommission(this);
+                    currState = DECOMMISSIONING;
+                    return Response.ok().build();
+                }
+                break;
             case ACTIVE:
-            case INACTIVE:
-                throw new WebApplicationException(Response
-                        .status(BAD_REQUEST)
-                        .type(MediaType.TEXT_PLAIN)
-                        .entity(format("Invalid state transition to %s", state))
-                        .build());
+                if (currState == DECOMMISSIONING || currState == DECOMMISSIONED) {
+                    currState = ACTIVE;
+                    return Response.ok().build();
+                }
+                break;
             default:
-                return Response.status(BAD_REQUEST)
-                        .type(TEXT_PLAIN)
+                return Response.status(BAD_REQUEST).type(TEXT_PLAIN)
                         .entity(format("Invalid state %s", state))
                         .build();
         }
+
+        throw new WebApplicationException(Response
+                .status(BAD_REQUEST)
+                .type(MediaType.TEXT_PLAIN)
+                .entity(format("Invalid state transition %s to %s", currState, state))
+                .build());
     }
 
     @ResourceSecurity(PUBLIC)
@@ -106,12 +141,7 @@ public class ServerInfoResource
     @Produces(APPLICATION_JSON)
     public NodeState getServerState()
     {
-        if (shutdownHandler.isShutdownRequested()) {
-            return SHUTTING_DOWN;
-        }
-        else {
-            return ACTIVE;
-        }
+        return currState;
     }
 
     @ResourceSecurity(PUBLIC)
@@ -130,5 +160,15 @@ public class ServerInfoResource
     public void startupComplete()
     {
         checkState(startupComplete.compareAndSet(false, true), "Server startup already marked as complete");
+    }
+
+    // callback used by decommissionHandler
+    NodeState onDecommissioned()
+    {
+        log.info("onDecommissioned " + (currState == null ? "null" : currState));
+        if (currState == NodeState.DECOMMISSIONING) {
+            currState = NodeState.DECOMMISSIONED;
+        }
+        return currState;
     }
 }

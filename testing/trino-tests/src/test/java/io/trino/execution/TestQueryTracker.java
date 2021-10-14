@@ -77,7 +77,8 @@ public class TestQueryTracker
         return queryRunner;
     }
 
-    @Test(timeOut = 5_000)
+    // Ignore the flaky test as in https://github.com/trinodb/trino/issues/8432
+    @Test(timeOut = 5_000, enabled = false)
     public void testInterruptApplyFilter()
             throws InterruptedException
     {

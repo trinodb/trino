@@ -11,13 +11,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.metadata;
+package io.trino.server;
 
-public enum NodeState
+import com.google.inject.Binder;
+import com.google.inject.Scopes;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
+
+public class DecommissionModule
+        extends AbstractConfigurationAwareModule
 {
-    ACTIVE,
-    DECOMMISSIONED,
-    DECOMMISSIONING,
-    INACTIVE,
-    SHUTTING_DOWN
+    @Override
+    protected void setup(Binder binder)
+    {
+        binder.bind(DecommissionHandler.class).in(Scopes.SINGLETON);
+    }
 }
