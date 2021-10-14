@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.SetMultimap;
-import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
 import io.airlift.discovery.client.ServiceDescriptor;
 import io.airlift.discovery.client.ServiceSelector;
@@ -43,6 +42,7 @@ import javax.inject.Inject;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -59,6 +59,8 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.trino.connector.system.GlobalSystemConnector.CATALOG_HANDLE;
 import static io.trino.metadata.NodeState.ACTIVE;
+import static io.trino.metadata.NodeState.DECOMMISSIONED;
+import static io.trino.metadata.NodeState.DECOMMISSIONING;
 import static io.trino.metadata.NodeState.INACTIVE;
 import static io.trino.metadata.NodeState.SHUTTING_DOWN;
 import static java.util.Locale.ENGLISH;
@@ -92,6 +94,9 @@ public final class DiscoveryNodeManager
 
     @GuardedBy("this")
     private Set<InternalNode> coordinators;
+
+    @GuardedBy("this")
+    private Set<String> nodesToBeDecommissioned = new HashSet<>();
 
     @GuardedBy("this")
     private final List<Consumer<AllNodes>> listeners = new ArrayList<>();
@@ -169,10 +174,7 @@ public final class DiscoveryNodeManager
     private void pollWorkers()
     {
         AllNodes allNodes = getAllNodes();
-        Set<InternalNode> aliveNodes = ImmutableSet.<InternalNode>builder()
-                .addAll(allNodes.getActiveNodes())
-                .addAll(allNodes.getShuttingDownNodes())
-                .build();
+        Set<InternalNode> aliveNodes = allNodes.getAliveNodes();
 
         ImmutableSet<String> aliveNodeIds = aliveNodes.stream()
                 .map(InternalNode::getNodeIdentifier)
@@ -215,9 +217,7 @@ public final class DiscoveryNodeManager
                 .filter(service -> !failureDetector.getFailed().contains(service))
                 .collect(toImmutableSet());
 
-        ImmutableSet.Builder<InternalNode> activeNodesBuilder = ImmutableSet.builder();
-        ImmutableSet.Builder<InternalNode> inactiveNodesBuilder = ImmutableSet.builder();
-        ImmutableSet.Builder<InternalNode> shuttingDownNodesBuilder = ImmutableSet.builder();
+        ImmutableSetMultimap.Builder<NodeState, InternalNode> nodeStateMapBuilder = ImmutableSetMultimap.builder();
         ImmutableSet.Builder<InternalNode> coordinatorsBuilder = ImmutableSet.builder();
         ImmutableSetMultimap.Builder<CatalogHandle, InternalNode> byCatalogHandleBuilder = ImmutableSetMultimap.builder();
 
@@ -229,42 +229,36 @@ public final class DiscoveryNodeManager
                 InternalNode node = new InternalNode(service.getNodeId(), uri, nodeVersion, coordinator);
                 NodeState nodeState = getNodeState(node);
 
-                switch (nodeState) {
-                    case ACTIVE:
-                        activeNodesBuilder.add(node);
-                        if (coordinator) {
-                            coordinatorsBuilder.add(node);
-                        }
-
-                        // record available active nodes organized by catalog handle
-                        String catalogHandleIds = service.getProperties().get("catalogHandleIds");
-                        if (catalogHandleIds != null) {
-                            catalogHandleIds = catalogHandleIds.toLowerCase(ENGLISH);
-                            for (String catalogHandleId : CATALOG_HANDLE_ID_SPLITTER.split(catalogHandleIds)) {
-                                byCatalogHandleBuilder.put(CatalogHandle.fromId(catalogHandleId), node);
-                            }
-                        }
-
-                        // always add system connector
-                        byCatalogHandleBuilder.put(CATALOG_HANDLE, node);
-                        break;
-                    case INACTIVE:
-                        inactiveNodesBuilder.add(node);
-                        break;
-                    case SHUTTING_DOWN:
-                        shuttingDownNodesBuilder.add(node);
-                        break;
-                    default:
-                        log.error("Unknown state %s for node %s", nodeState, node);
+                // nodesToBeDecommissioned is the authoritative list of node to be decommissioned
+                // from coordinator perspective. Once a worker appears in the list,
+                // its state become DECOMMISSIONING even if worker has yet confirmed such
+                // so that no new tasks will be scheduled on it.
+                if (!coordinator && nodesToBeDecommissioned.contains(node.getNodeIdentifier())
+                        && nodeState == ACTIVE) {
+                    log.debug("Treat " + node.getNodeIdentifier() + " as DECOMMISSIONING");
+                    nodeState = DECOMMISSIONING;
                 }
-            }
-        }
 
-        if (allNodes != null) {
-            // log node that are no longer active (but not shutting down)
-            SetView<InternalNode> missingNodes = difference(allNodes.getActiveNodes(), Sets.union(activeNodesBuilder.build(), shuttingDownNodesBuilder.build()));
-            for (InternalNode missingNode : missingNodes) {
-                log.info("Previously active node is missing: %s (last seen at %s)", missingNode.getNodeIdentifier(), missingNode.getHost());
+                // Add node to node state map.
+                nodeStateMapBuilder.put(nodeState, node);
+
+                if (nodeState == ACTIVE) {
+                    if (coordinator) {
+                        coordinatorsBuilder.add(node);
+                    }
+
+                    // record available active nodes organized by catalog handle
+                    String catalogHandleIds = service.getProperties().get("catalogHandleIds");
+                    if (catalogHandleIds != null) {
+                        catalogHandleIds = catalogHandleIds.toLowerCase(ENGLISH);
+                        for (String catalogHandleId : CATALOG_HANDLE_ID_SPLITTER.split(catalogHandleIds)) {
+                            byCatalogHandleBuilder.put(CatalogHandle.fromId(catalogHandleId), node);
+                        }
+                    }
+
+                    // always add system connector
+                    byCatalogHandleBuilder.put(CATALOG_HANDLE, node);
+                }
             }
         }
 
@@ -273,11 +267,27 @@ public final class DiscoveryNodeManager
             activeNodesByCatalogHandle = Optional.of(byCatalogHandleBuilder.build());
         }
 
-        AllNodes allNodes = new AllNodes(activeNodesBuilder.build(), inactiveNodesBuilder.build(), shuttingDownNodesBuilder.build(), coordinatorsBuilder.build());
+        SetMultimap<NodeState, InternalNode> nodeStateMap = nodeStateMapBuilder.build();
+        AllNodes currAllNodes = new AllNodes(
+                nodeStateMap.get(ACTIVE),
+                nodeStateMap.get(DECOMMISSIONED),
+                nodeStateMap.get(DECOMMISSIONING),
+                nodeStateMap.get(INACTIVE),
+                nodeStateMap.get(SHUTTING_DOWN),
+                coordinatorsBuilder.build());
+
+        if (this.allNodes != null) {
+            // log node that are no longer active (but not shutting down)
+            SetView<InternalNode> missingNodes = difference(allNodes.getActiveNodes(), currAllNodes.getAliveNodes());
+            for (InternalNode missingNode : missingNodes) {
+                log.info("Previously active node is missing: %s (last seen at %s)", missingNode.getNodeIdentifier(), missingNode.getHost());
+            }
+        }
+
         // only update if all nodes actually changed (note: this does not include the connectors registered with the nodes)
-        if (!allNodes.equals(this.allNodes)) {
+        if (!currAllNodes.equals(this.allNodes)) {
             // assign allNodes to a local variable for use in the callback below
-            this.allNodes = allNodes;
+            this.allNodes = currAllNodes;
             coordinators = coordinatorsBuilder.build();
 
             // notify listeners
@@ -289,20 +299,17 @@ public final class DiscoveryNodeManager
     private NodeState getNodeState(InternalNode node)
     {
         if (expectedNodeVersion.equals(node.getNodeVersion())) {
-            if (isNodeShuttingDown(node.getNodeIdentifier())) {
-                return SHUTTING_DOWN;
+            String nodeId = node.getNodeIdentifier();
+            Optional<NodeState> remoteNodeState = nodeStates.containsKey(nodeId)
+                    ? nodeStates.get(nodeId).getNodeState()
+                    : Optional.empty();
+            if (remoteNodeState.isPresent()) {
+                return remoteNodeState.get();
             }
+            // no remote node state
             return ACTIVE;
         }
         return INACTIVE;
-    }
-
-    private boolean isNodeShuttingDown(String nodeId)
-    {
-        Optional<NodeState> remoteNodeState = nodeStates.containsKey(nodeId)
-                ? nodeStates.get(nodeId).getNodeState()
-                : Optional.empty();
-        return remoteNodeState.isPresent() && remoteNodeState.get() == SHUTTING_DOWN;
     }
 
     @Override
@@ -315,6 +322,18 @@ public final class DiscoveryNodeManager
     public int getActiveNodeCount()
     {
         return getAllNodes().getActiveNodes().size();
+    }
+
+    @Managed
+    public int getDecommissionedNodeCount()
+    {
+        return getAllNodes().getDecommissionedNodes().size();
+    }
+
+    @Managed
+    public int getDecommissioningNodeCount()
+    {
+        return getAllNodes().getDecommissioningNodes().size();
     }
 
     @Managed
@@ -335,6 +354,10 @@ public final class DiscoveryNodeManager
         switch (state) {
             case ACTIVE:
                 return getAllNodes().getActiveNodes();
+            case DECOMMISSIONED:
+                return getAllNodes().getDecommissionedNodes();
+            case DECOMMISSIONING:
+                return getAllNodes().getDecommissioningNodes();
             case INACTIVE:
                 return getAllNodes().getInactiveNodes();
             case SHUTTING_DOWN:
@@ -406,5 +429,10 @@ public final class DiscoveryNodeManager
     private static boolean isCoordinator(ServiceDescriptor service)
     {
         return Boolean.parseBoolean(service.getProperties().get("coordinator"));
+    }
+
+    public synchronized void setNodesToExclude(Set<String> nodesToExclude)
+    {
+        this.nodesToBeDecommissioned = nodesToExclude;
     }
 }

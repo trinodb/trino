@@ -11,13 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.metadata;
+package io.trino.server;
 
-public enum NodeState
+import javax.inject.Qualifier;
+
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
+
+import static java.lang.annotation.ElementType.FIELD;
+import static java.lang.annotation.ElementType.METHOD;
+import static java.lang.annotation.ElementType.PARAMETER;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
+
+@Retention(RUNTIME)
+@Target({FIELD, PARAMETER, METHOD})
+@Qualifier
+public @interface ForNodes
 {
-    ACTIVE,
-    DECOMMISSIONED,
-    DECOMMISSIONING,
-    INACTIVE,
-    SHUTTING_DOWN
 }

@@ -23,21 +23,47 @@ import static java.util.Objects.requireNonNull;
 public class AllNodes
 {
     private final Set<InternalNode> activeNodes;
+    private final Set<InternalNode> decommissionedNodes;
+    private final Set<InternalNode> decommissioningNodes;
     private final Set<InternalNode> inactiveNodes;
     private final Set<InternalNode> shuttingDownNodes;
     private final Set<InternalNode> activeCoordinators;
+    private final Set<InternalNode> aliveNodes;
 
-    public AllNodes(Set<InternalNode> activeNodes, Set<InternalNode> inactiveNodes, Set<InternalNode> shuttingDownNodes, Set<InternalNode> activeCoordinators)
+    public AllNodes(Set<InternalNode> activeNodes,
+            Set<InternalNode> decommissionedNodes,
+            Set<InternalNode> decommissioningNodes,
+            Set<InternalNode> inactiveNodes,
+            Set<InternalNode> shuttingDownNodes,
+            Set<InternalNode> activeCoordinators)
     {
         this.activeNodes = ImmutableSet.copyOf(requireNonNull(activeNodes, "activeNodes is null"));
+        this.decommissionedNodes = ImmutableSet.copyOf(requireNonNull(decommissionedNodes, "decommissionedNodes is null"));
+        this.decommissioningNodes = ImmutableSet.copyOf(requireNonNull(decommissioningNodes, "decommissioningNodes is null"));
         this.inactiveNodes = ImmutableSet.copyOf(requireNonNull(inactiveNodes, "inactiveNodes is null"));
         this.shuttingDownNodes = ImmutableSet.copyOf(requireNonNull(shuttingDownNodes, "shuttingDownNodes is null"));
         this.activeCoordinators = ImmutableSet.copyOf(requireNonNull(activeCoordinators, "activeCoordinators is null"));
+        this.aliveNodes = ImmutableSet.<InternalNode>builder()
+                .addAll(activeNodes)
+                .addAll(decommissionedNodes)
+                .addAll(decommissioningNodes)
+                .addAll(shuttingDownNodes)
+                .build();
     }
 
     public Set<InternalNode> getActiveNodes()
     {
         return activeNodes;
+    }
+
+    public Set<InternalNode> getDecommissionedNodes()
+    {
+        return decommissionedNodes;
+    }
+
+    public Set<InternalNode> getDecommissioningNodes()
+    {
+        return decommissioningNodes;
     }
 
     public Set<InternalNode> getInactiveNodes()
@@ -48,6 +74,11 @@ public class AllNodes
     public Set<InternalNode> getShuttingDownNodes()
     {
         return shuttingDownNodes;
+    }
+
+    public Set<InternalNode> getAliveNodes()
+    {
+        return aliveNodes;
     }
 
     public Set<InternalNode> getActiveCoordinators()
@@ -66,6 +97,8 @@ public class AllNodes
         }
         AllNodes allNodes = (AllNodes) o;
         return Objects.equals(activeNodes, allNodes.activeNodes) &&
+                Objects.equals(decommissionedNodes, allNodes.decommissionedNodes) &&
+                Objects.equals(decommissioningNodes, allNodes.decommissioningNodes) &&
                 Objects.equals(inactiveNodes, allNodes.inactiveNodes) &&
                 Objects.equals(shuttingDownNodes, allNodes.shuttingDownNodes) &&
                 Objects.equals(activeCoordinators, allNodes.activeCoordinators);
@@ -74,6 +107,12 @@ public class AllNodes
     @Override
     public int hashCode()
     {
-        return Objects.hash(activeNodes, inactiveNodes, shuttingDownNodes, activeCoordinators);
+        return Objects.hash(
+                activeNodes,
+                inactiveNodes,
+                shuttingDownNodes,
+                decommissioningNodes,
+                decommissionedNodes,
+                activeCoordinators);
     }
 }

@@ -31,6 +31,7 @@ import javax.ws.rs.GET;
 import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
+import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.HttpHeaders;
@@ -42,13 +43,16 @@ import java.util.Locale;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.connector.system.KillQueryProcedure.createKillQueryException;
 import static io.trino.connector.system.KillQueryProcedure.createPreemptQueryException;
 import static io.trino.security.AccessControlUtil.checkCanKillQueryOwnedBy;
 import static io.trino.security.AccessControlUtil.checkCanViewQueryOwnedBy;
 import static io.trino.security.AccessControlUtil.filterQueries;
 import static io.trino.server.security.ResourceSecurity.AccessType.AUTHENTICATED_USER;
+import static io.trino.server.security.ResourceSecurity.AccessType.MANAGEMENT_READ;
 import static java.util.Objects.requireNonNull;
+import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 
 /**
  * Manage queries scheduled on this node
@@ -166,6 +170,30 @@ public class QueryResource
         }
         catch (NoSuchElementException e) {
             return Response.status(Status.GONE).build();
+        }
+    }
+
+    // Get BasicQueryInfo of all pending and recently ended queries.
+    // Here recently is defined as ended on or after maxEndAgeSec (default value 0) seconds ago.
+    @ResourceSecurity(MANAGEMENT_READ)
+    @GET
+    @Path("all")
+    @Produces(APPLICATION_JSON)
+    public List<BasicQueryInfo> getAllQueryInfos(@QueryParam("maxEndAgeSec") int maxEndAgeSec)
+    {
+        // If maxEndAgeSec is negative, return all queries cached.
+        // Otherwise, return queries not ended or ended within maxEndAgeSec seconds.
+        // Specifically if maxEndAgeSec is 0, return all queries not ended.
+        if (maxEndAgeSec < 0) {
+            return dispatchManager.getQueries();
+        }
+        else {
+            long endCutoff = System.currentTimeMillis() - 1000L * maxEndAgeSec;
+            return dispatchManager.getQueries().stream()
+                    .filter(v -> v.getQueryStats() == null
+                        || v.getQueryStats().getEndTime() == null
+                        || v.getQueryStats().getEndTime().getMillis() >= endCutoff)
+                    .collect(toImmutableList());
         }
     }
 }

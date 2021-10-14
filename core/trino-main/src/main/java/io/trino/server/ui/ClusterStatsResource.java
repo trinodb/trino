@@ -63,6 +63,8 @@ public class ClusterStatsResource
         long activeNodes = nodeManager.getNodes(NodeState.ACTIVE).stream()
                 .filter(node -> isIncludeCoordinator || !node.isCoordinator())
                 .count();
+        long decommissioningNodes = nodeManager.getNodes(NodeState.DECOMMISSIONING).stream().count();
+        long decommissionedNodes = nodeManager.getNodes(NodeState.DECOMMISSIONED).stream().count();
 
         long activeCoordinators = nodeManager.getNodes(NodeState.ACTIVE).stream()
                 .filter(InternalNode::isCoordinator)
@@ -105,6 +107,8 @@ public class ClusterStatsResource
                 queuedQueries,
                 activeCoordinators,
                 activeNodes,
+                decommissioningNodes,
+                decommissionedNodes,
                 runningDrivers,
                 totalAvailableProcessors,
                 memoryReservation,
@@ -121,6 +125,8 @@ public class ClusterStatsResource
 
         private final long activeCoordinators;
         private final long activeWorkers;
+        private final long decommissioningWorkers;
+        private final long decommissionedWorkers;
         private final long runningDrivers;
 
         private final long totalAvailableProcessors;
@@ -138,6 +144,8 @@ public class ClusterStatsResource
                 @JsonProperty("queuedQueries") long queuedQueries,
                 @JsonProperty("activeCoordinators") long activeCoordinators,
                 @JsonProperty("activeWorkers") long activeWorkers,
+                @JsonProperty("decommissioningWorkers") long decommissioningWorkers,
+                @JsonProperty("decommissionedWorkers") long decommissionedWorkers,
                 @JsonProperty("runningDrivers") long runningDrivers,
                 @JsonProperty("totalAvailableProcessors") long totalAvailableProcessors,
                 @JsonProperty("reservedMemory") double reservedMemory,
@@ -150,6 +158,8 @@ public class ClusterStatsResource
             this.queuedQueries = queuedQueries;
             this.activeCoordinators = activeCoordinators;
             this.activeWorkers = activeWorkers;
+            this.decommissioningWorkers = decommissioningWorkers;
+            this.decommissionedWorkers = decommissionedWorkers;
             this.runningDrivers = runningDrivers;
             this.totalAvailableProcessors = totalAvailableProcessors;
             this.reservedMemory = reservedMemory;
@@ -186,6 +196,18 @@ public class ClusterStatsResource
         public long getActiveWorkers()
         {
             return activeWorkers;
+        }
+
+        @JsonProperty
+        public long getDecommissioningWorkers()
+        {
+            return decommissioningWorkers;
+        }
+
+        @JsonProperty
+        public long getDecommissionedWorkers()
+        {
+            return decommissionedWorkers;
         }
 
         @JsonProperty

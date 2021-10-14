@@ -45,6 +45,7 @@ public class StatusResource
     private final int logicalCores;
     private final LocalMemoryManager memoryManager;
     private final MemoryMXBean memoryMXBean;
+    private final long startTimeEpoch = System.currentTimeMillis();
 
     private OperatingSystemMXBean operatingSystemMXBean;
 
@@ -92,6 +93,7 @@ public class StatusResource
                 operatingSystemMXBean == null ? 0 : operatingSystemMXBean.getSystemCpuLoad(),
                 memoryMXBean.getHeapMemoryUsage().getUsed(),
                 memoryMXBean.getHeapMemoryUsage().getMax(),
-                memoryMXBean.getNonHeapMemoryUsage().getUsed());
+                memoryMXBean.getNonHeapMemoryUsage().getUsed(),
+                startTimeEpoch);
     }
 }

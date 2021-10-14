@@ -98,7 +98,7 @@ public class TestGracefulShutdown
                 MILLISECONDS.sleep(500);
             }
 
-            worker.getGracefulShutdownHandler().requestShutdown();
+            worker.getUpdateNodeStateHandler().requestShutdown();
 
             Futures.allAsList(queryFutures).get();
 
@@ -124,7 +124,7 @@ public class TestGracefulShutdown
                     .filter(TestingTrinoServer::isCoordinator)
                     .collect(onlyElement());
 
-            assertThatThrownBy(coordinator.getGracefulShutdownHandler()::requestShutdown)
+            assertThatThrownBy(coordinator.getUpdateNodeStateHandler()::requestShutdown)
                     .isInstanceOf(UnsupportedOperationException.class)
                     .hasMessage("Cannot shutdown coordinator");
         }

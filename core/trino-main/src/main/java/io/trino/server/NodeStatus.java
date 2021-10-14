@@ -37,6 +37,7 @@ public class NodeStatus
     private final long heapUsed;
     private final long heapAvailable;
     private final long nonHeapUsed;
+    private final long startTimeEpoch;
 
     @JsonCreator
     public NodeStatus(
@@ -53,7 +54,8 @@ public class NodeStatus
             @JsonProperty("systemCpuLoad") double systemCpuLoad,
             @JsonProperty("heapUsed") long heapUsed,
             @JsonProperty("heapAvailable") long heapAvailable,
-            @JsonProperty("nonHeapUsed") long nonHeapUsed)
+            @JsonProperty("nonHeapUsed") long nonHeapUsed,
+            @JsonProperty("startTimeEpoch") long startTimeEpoch)
     {
         this.nodeId = requireNonNull(nodeId, "nodeId is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
@@ -69,6 +71,7 @@ public class NodeStatus
         this.heapUsed = heapUsed;
         this.heapAvailable = heapAvailable;
         this.nonHeapUsed = nonHeapUsed;
+        this.startTimeEpoch = startTimeEpoch;
     }
 
     @JsonProperty
@@ -153,5 +156,11 @@ public class NodeStatus
     public long getNonHeapUsed()
     {
         return nonHeapUsed;
+    }
+
+    @JsonProperty
+    public long getStartTimeEpoch()
+    {
+        return startTimeEpoch;
     }
 }

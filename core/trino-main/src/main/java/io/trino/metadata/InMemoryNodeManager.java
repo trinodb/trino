@@ -59,7 +59,11 @@ public class InMemoryNodeManager
     {
         switch (state) {
             case ACTIVE:
-                return allNodes;
+                return getAllNodes().getActiveNodes();
+            case DECOMMISSIONED:
+                return getAllNodes().getDecommissionedNodes();
+            case DECOMMISSIONING:
+                return getAllNodes().getDecommissioningNodes();
             case INACTIVE:
             case SHUTTING_DOWN:
                 return ImmutableSet.of();
@@ -84,6 +88,8 @@ public class InMemoryNodeManager
     {
         return new AllNodes(
                 allNodes,
+                ImmutableSet.of(),
+                ImmutableSet.of(),
                 ImmutableSet.of(),
                 ImmutableSet.of(),
                 ImmutableSet.of(CURRENT_NODE));

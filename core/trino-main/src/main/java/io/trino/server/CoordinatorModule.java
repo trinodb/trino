@@ -341,6 +341,15 @@ public class CoordinatorModule
 
         install(new QueryExecutionFactoryModule());
 
+        // nodes and queries for monitoring and auto-scaling
+        jaxrsBinder(binder).bind(NodesResource.class);
+        httpClientBinder(binder).bindHttpClient("nodes", ForNodes.class)
+                .withTracing()
+                .withConfigDefaults(config -> {
+                    config.setIdleTimeout(new Duration(30, SECONDS));
+                    config.setRequestTimeout(new Duration(10, SECONDS));
+                });
+
         // cleanup
         binder.bind(ExecutorCleanup.class).asEagerSingleton();
     }
