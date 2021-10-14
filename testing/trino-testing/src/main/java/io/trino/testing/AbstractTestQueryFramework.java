@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.MoreCollectors;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.cost.CostCalculator;
@@ -83,6 +84,8 @@ import static org.testng.Assert.assertEquals;
 
 public abstract class AbstractTestQueryFramework
 {
+    private static final Logger log = Logger.get(AbstractTestQueryFramework.class);
+
     private QueryRunner queryRunner;
     private H2QueryRunner h2QueryRunner;
     private SqlParser sqlParser;
@@ -397,6 +400,7 @@ public abstract class AbstractTestQueryFramework
     {
         DistributedQueryRunner queryRunner = getDistributedQueryRunner();
         ResultWithQueryId<MaterializedResult> resultWithQueryId = queryRunner.executeWithQueryId(session, query);
+        log.info("assertQueryStats: queryId: %s", resultWithQueryId.getQueryId());
         QueryStats queryStats = queryRunner.getCoordinator()
                 .getQueryManager()
                 .getFullQueryInfo(resultWithQueryId.getQueryId())
@@ -520,6 +524,8 @@ public abstract class AbstractTestQueryFramework
 
     protected OperatorStats searchScanFilterAndProjectOperatorStats(QueryId queryId, Predicate<ConnectorTableHandle> tablePredicate)
     {
+        log.info("searchScanFilterAndProjectOperatorStats: queryId: %s", queryId);
+
         Plan plan = getDistributedQueryRunner().getQueryPlan(queryId);
         PlanNodeId nodeId = PlanNodeSearcher.searchFrom(plan.getRoot())
                 .where(node -> {
