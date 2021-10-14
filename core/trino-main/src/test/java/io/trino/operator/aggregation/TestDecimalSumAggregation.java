@@ -26,6 +26,7 @@ import java.math.BigInteger;
 
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
@@ -120,14 +121,16 @@ public class TestDecimalSumAggregation
         assertEquals(state.getLongDecimal(), unscaledDecimal(TWO.pow(126).negate()));
     }
 
-    @Test(expectedExceptions = ArithmeticException.class)
+    @Test
     public void testOverflowOnOutput()
     {
         addToState(state, TWO.pow(126));
         addToState(state, TWO.pow(126));
 
         assertEquals(state.getOverflow(), 1);
-        DecimalSumAggregation.outputLongDecimal(state, new VariableWidthBlockBuilder(null, 10, 100));
+        assertThatThrownBy(() -> DecimalSumAggregation.outputLongDecimal(state, new VariableWidthBlockBuilder(null, 10, 100)))
+                .isInstanceOf(ArithmeticException.class)
+                .hasMessage("Decimal overflow");
     }
 
     private static void addToState(LongDecimalWithOverflowState state, BigInteger value)
