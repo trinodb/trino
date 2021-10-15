@@ -125,6 +125,27 @@ public class BenchmarkSortedRangeSet
     }
 
     @Benchmark
+    public List<ValueSet> intersectSmall(Data data)
+    {
+        return benchmarkIntersect(data.smallRanges);
+    }
+
+    @Benchmark
+    public List<ValueSet> intersectLarge(Data data)
+    {
+        return benchmarkIntersect(data.largeRanges);
+    }
+
+    private List<ValueSet> benchmarkIntersect(List<SortedRangeSet> dataRanges)
+    {
+        List<ValueSet> result = new ArrayList<>(dataRanges.size() - 1);
+        for (int index = 0; index < dataRanges.size() - 1; index++) {
+            result.add(dataRanges.get(index).intersect(dataRanges.get(index + 1)));
+        }
+        return result;
+    }
+
+    @Benchmark
     public long containsValueSmall(Data data)
     {
         return benchmarkContainsValue(data.smallRanges);
@@ -268,6 +289,9 @@ public class BenchmarkSortedRangeSet
 
         overlapsSmall(data);
         overlapsLarge(data);
+
+        intersectSmall(data);
+        intersectLarge(data);
 
         containsValueSmall(data);
         containsValueLarge(data);
