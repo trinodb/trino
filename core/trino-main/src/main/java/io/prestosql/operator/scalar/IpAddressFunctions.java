@@ -22,6 +22,7 @@ import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 
 import java.math.BigInteger;
+import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 
@@ -44,11 +45,14 @@ public final class IpAddressFunctions
         }
 
         byte[] base;
+        boolean isIpv4;
         try {
-            base = InetAddresses.forString(cidr.substring(0, separator)).getAddress();
+            InetAddress inetAddress = InetAddresses.forString(cidr.substring(0, separator));
+            base = inetAddress.getAddress();
+            isIpv4 = inetAddress instanceof Inet4Address;
         }
         catch (IllegalArgumentException e) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid CIDR");
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid network IP address");
         }
 
         int prefixLength = Integer.parseInt(cidr.substring(separator + 1));
@@ -63,10 +67,13 @@ public final class IpAddressFunctions
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Prefix length exceeds address length");
         }
 
-        if (base.length == 4 && !isValidIpV4Cidr(base, prefixLength)) {
+        if (isIpv4 && !isValidIpV4Cidr(base, prefixLength)) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid CIDR");
         }
-        // TODO: Restrict IPv6 CIDR format
+
+        if (!isIpv4 && !isValidIpV6Cidr(prefixLength)) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid CIDR");
+        }
 
         BigInteger cidrPrefix = new BigInteger(base).shiftRight(baseLength - prefixLength);
         byte[] ipAddress;
@@ -88,6 +95,10 @@ public final class IpAddressFunctions
         BigInteger addressPrefix = new BigInteger(ipAddress).shiftRight(baseLength - prefixLength);
 
         return cidrPrefix.equals(addressPrefix);
+    }
+
+    private static boolean isValidIpV6Cidr(int prefixLength) {
+        return prefixLength >= 0 && prefixLength <= 128;
     }
 
     private static boolean isValidIpV4Cidr(byte[] address, int prefix)

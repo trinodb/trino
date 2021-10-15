@@ -178,9 +178,36 @@ public class TestIpAddressFunctions
         assertFunction("contains('64:ff9b::10.0.0.0/64', IPADDRESS '64:ff9b:0:0:f:f:f:f')", BOOLEAN, true);
         assertFunction("contains('64:ff9b::10.0.0.0/64', IPADDRESS '64:ff9b:0:1:0:0:0:0')", BOOLEAN, false);
 
+        assertFunction("contains('2001:0DB8:0000:CD30:0000:0000:0000:0000/60', IPADDRESS '2001:0DB8::CD30:0:0:0:0')", BOOLEAN, true);
+        assertFunction("contains('2620:109:c003:104::/64', IPADDRESS '2620:109:c003:104::C01')", BOOLEAN, true);
+
         assertFunction("contains('2001:0db8:0:0:0:ff00:0042:8329/128', IPADDRESS '2001:0db8:0:0:0:ff00:0042:8328')", BOOLEAN, false);
         assertFunction("contains('2001:0db8:0:0:0:ff00:0042:8329/128', IPADDRESS '2001:0db8:0:0:0:ff00:0042:8329')", BOOLEAN, true);
         assertFunction("contains('2001:0db8:0:0:0:ff00:0042:8329/128', IPADDRESS '2001:0db8:0:0:0:ff00:0042:8330')", BOOLEAN, false);
+
+        assertFunction("contains('::/0', IPADDRESS '::')", BOOLEAN, true);
+        assertFunction("contains('::/0', IPADDRESS '::1')", BOOLEAN, true);
+        assertFunction("contains('::/0', IPADDRESS '2001::')", BOOLEAN, true);
+
+        assertFunction("contains('::1/128', IPADDRESS '::1')", BOOLEAN, true);
+        assertFunction("contains('::1/128', IPADDRESS '::')", BOOLEAN, false);
+        assertFunction("contains('::1/128', IPADDRESS '2001::')", BOOLEAN, false);
+
+        assertFunction("contains('2001:abcd:ef01:2345:6789:abcd:ef01:234/64', IPADDRESS '2001:abcd:ef01:2345::1')", BOOLEAN, true);
+        assertFunction("contains('2001:abcd:ef01:2345:6789:abcd:ef01:234/64', IPADDRESS '2001:abcd:ef01:2345::')", BOOLEAN, true);
+        assertFunction("contains('2001:abcd:ef01:2345:6789:abcd:ef01:234/64', IPADDRESS '2001::')", BOOLEAN, false);
+        assertFunction("contains('2001:abcd:ef01:2345:6789:abcd:ef01:234/64', IPADDRESS '2001:abcd::')", BOOLEAN, false);
+        assertFunction("contains('2001:abcd:ef01:2345:6789:abcd:ef01:234/64', IPADDRESS '2001:abcd:ef01:2340::')", BOOLEAN, false);
+        assertFunction("contains('2001:abcd:ef01:2345:6789:abcd:ef01:234/64', IPADDRESS '2002::')", BOOLEAN, false);
+
+        assertFunction("contains('2001:abcd:ef01:2345:6789:abcd:ef01:234/60', IPADDRESS '2001:abcd:ef01:2345::')", BOOLEAN, true);
+        assertFunction("contains('2001:abcd:ef01:2345:6789:abcd:ef01:234/60', IPADDRESS '2001:abcd:ef01:2340::')", BOOLEAN, true);
+
+        assertFunction("contains('2001:abcd:ef01:2345:6789:abcd:ef01:234/60', IPADDRESS '2001:abcd:ef01:2330::')", BOOLEAN, false);
+        assertFunction("contains('2001:abcd:ef01:2345:6789:abcd:ef01:234/60', IPADDRESS '2001:abcd::')", BOOLEAN, false);
+        assertFunction("contains('2001:abcd:ef01:2345:6789:abcd:ef01:234/60', IPADDRESS '2001:abcd:ef00::')", BOOLEAN, false);
+        assertFunction("contains('2001:abcd:ef01:2345:6789:abcd:ef01:234/60', IPADDRESS '2001::')", BOOLEAN, false);
+        assertFunction("contains('2001:abcd:ef01:2345:6789:abcd:ef01:234/60', IPADDRESS '2002::')", BOOLEAN, false);
 
         // NULL argument
         assertFunction("contains('10.0.0.1/0', cast(NULL as IPADDRESS))", BOOLEAN, null);
@@ -251,10 +278,12 @@ public class TestIpAddressFunctions
 
         assertInvalidFunction("contains('10.0.0.1/33', IPADDRESS '0.0.0.0')", "Prefix length exceeds address length");
         assertInvalidFunction("contains('64:ff9b::10.0.0.0/129', IPADDRESS '0.0.0.0')", "Prefix length exceeds address length");
+        assertInvalidFunction("contains('2620:109:c006:104::/250', IPADDRESS '2620:109:c006:104::')", "Prefix length exceeds address length");
 
         assertInvalidFunction("contains('x.x.x.x', IPADDRESS '0.0.0.0')", "Invalid CIDR");
         assertInvalidFunction("contains('x:x:x:10.0.0.0', IPADDRESS '64:ff9b::10.0.0.0')", "Invalid CIDR");
         assertInvalidFunction("contains('x.x.x.x/1', IPADDRESS '0.0.0.0')", "Invalid CIDR");
         assertInvalidFunction("contains('x:x:x:10.0.0.0/1', IPADDRESS '64:ff9b::10.0.0.0')", "Invalid CIDR");
+        assertInvalidFunction("contains('2001:0DB8:0:CD3/60', IPADDRESS '2001:0DB8::CD30:0:0:0:0')", "Invalid CIDR");
     }
 }
