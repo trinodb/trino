@@ -104,7 +104,7 @@ public final class TestingSqlServer
 
         String databaseName = "database_" + UUID.randomUUID().toString().replace("-", "");
         MSSQLServerContainer<?> container = new TestingMSSQLServerContainer(DOCKER_IMAGE_NAME);
-        container.addEnv("ACCEPT_EULA", "yes");
+        container.acceptLicense();
         // enable case sensitive (see the CS below) collation for SQL identifiers
         container.addEnv("MSSQL_COLLATION", "Latin1_General_CS_AS");
 
