@@ -582,8 +582,7 @@ public class UnaliasSymbolReferences
                         return previous;
                     }));
 
-            List<Symbol> newOutputs = deduplicateAssignments.keySet().stream()
-                    .collect(toImmutableList());
+            List<Symbol> newOutputs = ImmutableList.copyOf(deduplicateAssignments.keySet());
 
             List<ImmutableList.Builder<Expression>> newRows = new ArrayList<>(node.getRowCount());
             for (int i = 0; i < node.getRowCount(); i++) {

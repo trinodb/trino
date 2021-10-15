@@ -570,8 +570,7 @@ public class BigQueryMetadata
                 session, handle, projections, assignments);
         BigQueryTableHandle bigQueryTableHandle = (BigQueryTableHandle) handle;
 
-        List<ColumnHandle> newColumns = assignments.values().stream()
-                .collect(toImmutableList());
+        List<ColumnHandle> newColumns = ImmutableList.copyOf(assignments.values());
 
         if (bigQueryTableHandle.getProjectedColumns().isPresent() && containSameElements(newColumns, bigQueryTableHandle.getProjectedColumns().get())) {
             return Optional.empty();

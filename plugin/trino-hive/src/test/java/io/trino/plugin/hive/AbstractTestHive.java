@@ -2014,8 +2014,7 @@ public abstract class AbstractTestHive
             tableHandle = getTableHandle(metadata, tableName);
 
             // read entire table
-            List<ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle).values().stream()
-                    .collect(toImmutableList());
+            List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(session, tableHandle).values());
             MaterializedResult result = readTable(transaction, tableHandle, columnHandles, session, TupleDomain.all(), OptionalInt.empty(), Optional.empty());
             assertEquals(result.getRowCount(), 300);
         }

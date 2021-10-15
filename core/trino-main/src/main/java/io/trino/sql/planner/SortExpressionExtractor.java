@@ -29,7 +29,6 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
@@ -66,15 +65,13 @@ public final class SortExpressionExtractor
         List<Expression> filterConjuncts = ExpressionUtils.extractConjuncts(filter);
         SortExpressionVisitor visitor = new SortExpressionVisitor(buildSymbols);
 
-        List<SortExpressionContext> sortExpressionCandidates = filterConjuncts.stream()
+        List<SortExpressionContext> sortExpressionCandidates = ImmutableList.copyOf(filterConjuncts.stream()
                 .filter(expression -> DeterminismEvaluator.isDeterministic(expression, metadata))
                 .map(visitor::process)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .collect(toMap(SortExpressionContext::getSortExpression, identity(), SortExpressionExtractor::merge))
-                .values()
-                .stream()
-                .collect(toImmutableList());
+                .values());
 
         // For now heuristically pick sort expression which has most search expressions assigned to it.
         // TODO: make it cost based decision based on symbol statistics
