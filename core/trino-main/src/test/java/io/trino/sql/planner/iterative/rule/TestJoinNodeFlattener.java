@@ -65,6 +65,7 @@ import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN;
 import static io.trino.sql.tree.ComparisonExpression.Operator.NOT_EQUAL;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -88,7 +89,7 @@ public class TestJoinNodeFlattener
         queryRunner = null;
     }
 
-    @Test(expectedExceptions = IllegalStateException.class)
+    @Test
     public void testDoesNotAllowOuterJoin()
     {
         PlanNodeIdAllocator planNodeIdAllocator = new PlanNodeIdAllocator();
@@ -103,7 +104,9 @@ public class TestJoinNodeFlattener
                 ImmutableList.of(a1),
                 ImmutableList.of(b1),
                 Optional.empty());
-        toMultiJoinNode(queryRunner.getMetadata(), outerJoin, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, false, testSessionBuilder().build(), new TypeAnalyzer(new SqlParser(), queryRunner.getMetadata()), p.getTypes());
+        assertThatThrownBy(() -> toMultiJoinNode(queryRunner.getMetadata(), outerJoin, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, false, testSessionBuilder().build(), new TypeAnalyzer(new SqlParser(), queryRunner.getMetadata()), p.getTypes()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageMatching("join type must be.*");
     }
 
     @Test
