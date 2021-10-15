@@ -262,8 +262,6 @@ class TrinoHiveCatalog
         TableMetadata metadata = newTableMetadata(schema, partitionSpec, location, properties);
         TableOperations ops = tableOperationsProvider.createTableOperations(
                 metastore,
-                new HdfsContext(session),
-                session.getQueryId(),
                 session,
                 schemaTableName.getSchemaName(),
                 schemaTableName.getTableName(),

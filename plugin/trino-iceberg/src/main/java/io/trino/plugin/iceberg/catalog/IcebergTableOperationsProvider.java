@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.iceberg.catalog;
 
-import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.spi.connector.ConnectorSession;
 
@@ -23,8 +22,6 @@ public interface IcebergTableOperationsProvider
 {
     IcebergTableOperations createTableOperations(
             HiveMetastore hiveMetastore,
-            HdfsContext hdfsContext,
-            String queryId,
             ConnectorSession session,
             String database,
             String table,
