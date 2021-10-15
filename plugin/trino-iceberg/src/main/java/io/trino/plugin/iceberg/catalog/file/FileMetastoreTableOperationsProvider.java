@@ -40,8 +40,6 @@ public class FileMetastoreTableOperationsProvider
     @Override
     public IcebergTableOperations createTableOperations(
             HiveMetastore hiveMetastore,
-            HdfsContext hdfsContext,
-            String queryId,
             ConnectorSession session,
             String database,
             String table,
@@ -49,7 +47,7 @@ public class FileMetastoreTableOperationsProvider
             Optional<String> location)
     {
         return new FileMetastoreTableOperations(
-                fileIoProvider.createFileIo(hdfsContext, queryId),
+                fileIoProvider.createFileIo(new HdfsContext(session), session.getQueryId()),
                 hiveMetastore,
                 session,
                 database,
