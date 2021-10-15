@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.trino.plugin.hive.HiveCompressionCodec;
+import io.trino.spi.function.Description;
 import org.apache.iceberg.FileFormat;
 
 import javax.validation.constraints.Min;
@@ -33,6 +34,7 @@ public class IcebergConfig
     private int maxPartitionsPerWriter = 100;
     private boolean uniqueTableLocation;
     private CatalogType catalogType = HIVE_METASTORE;
+    private String catalogWarehouse;
 
     public CatalogType getCatalogType()
     {
@@ -44,6 +46,19 @@ public class IcebergConfig
     {
         this.catalogType = catalogType;
         return this;
+    }
+
+    @Config("iceberg.catalog.warehouse")
+    @Description("Iceberg default warehouse location, used to generate default table location")
+    public IcebergConfig setCatalogWarehouse(String warehouse)
+    {
+        this.catalogWarehouse = warehouse;
+        return this;
+    }
+
+    public String getCatalogWarehouse()
+    {
+        return catalogWarehouse;
     }
 
     @NotNull

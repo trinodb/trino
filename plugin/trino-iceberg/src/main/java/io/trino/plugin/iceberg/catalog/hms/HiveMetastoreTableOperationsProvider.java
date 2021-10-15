@@ -11,12 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg;
+package io.trino.plugin.iceberg.catalog.hms;
 
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.HiveMetastore;
-import org.apache.iceberg.TableOperations;
+import io.trino.plugin.hive.metastore.thrift.ThriftMetastore;
+import io.trino.plugin.iceberg.FileIoProvider;
+import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
+import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
+import io.trino.spi.connector.ConnectorSession;
 
 import javax.inject.Inject;
 
@@ -24,30 +27,34 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class HiveTableOperationsProvider
+public class HiveMetastoreTableOperationsProvider
+        implements IcebergTableOperationsProvider
 {
+    private final HiveMetastore hiveMetastore;
     private final FileIoProvider fileIoProvider;
+    private final ThriftMetastore thriftMetastore;
 
     @Inject
-    public HiveTableOperationsProvider(FileIoProvider fileIoProvider)
+    public HiveMetastoreTableOperationsProvider(HiveMetastore hiveMetastore, FileIoProvider fileIoProvider, ThriftMetastore thriftMetastore)
     {
+        this.hiveMetastore = requireNonNull(hiveMetastore, "hiveMetastore is null");
         this.fileIoProvider = requireNonNull(fileIoProvider, "fileIoProvider is null");
+        this.thriftMetastore = requireNonNull(thriftMetastore, "thriftMetastore is null");
     }
 
-    public TableOperations createTableOperations(
-            HiveMetastore hiveMetastore,
-            HdfsContext hdfsContext,
-            String queryId,
-            HiveIdentity identity,
+    @Override
+    public IcebergTableOperations createTableOperations(
+            ConnectorSession session,
             String database,
             String table,
             Optional<String> owner,
             Optional<String> location)
     {
-        return new HiveTableOperations(
-                fileIoProvider.createFileIo(hdfsContext, queryId),
+        return new HiveMetastoreTableOperations(
+                fileIoProvider.createFileIo(new HdfsContext(session), session.getQueryId()),
                 hiveMetastore,
-                identity,
+                thriftMetastore,
+                session,
                 database,
                 table,
                 owner,

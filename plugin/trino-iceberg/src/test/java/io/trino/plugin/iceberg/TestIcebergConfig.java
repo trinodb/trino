@@ -39,7 +39,8 @@ public class TestIcebergConfig
                 .setUseFileSizeFromMetadata(true)
                 .setMaxPartitionsPerWriter(100)
                 .setUniqueTableLocation(false)
-                .setCatalogType(HIVE_METASTORE));
+                .setCatalogType(HIVE_METASTORE)
+                .setCatalogWarehouse(null));
     }
 
     @Test
@@ -52,6 +53,7 @@ public class TestIcebergConfig
                 .put("iceberg.max-partitions-per-writer", "222")
                 .put("iceberg.unique-table-location", "true")
                 .put("iceberg.catalog.type", "GLUE")
+                .put("iceberg.catalog.warehouse", "/tmp")
                 .build();
 
         IcebergConfig expected = new IcebergConfig()
@@ -60,7 +62,8 @@ public class TestIcebergConfig
                 .setUseFileSizeFromMetadata(false)
                 .setMaxPartitionsPerWriter(222)
                 .setUniqueTableLocation(true)
-                .setCatalogType(GLUE);
+                .setCatalogType(GLUE)
+                .setCatalogWarehouse("/tmp");
 
         assertFullMapping(properties, expected);
     }

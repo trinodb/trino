@@ -15,29 +15,38 @@ package io.trino.plugin.iceberg;
 
 import com.google.inject.Binder;
 import com.google.inject.Module;
+import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.hive.metastore.cache.CachingHiveMetastoreModule;
 import io.trino.plugin.hive.metastore.cache.ForCachingHiveMetastore;
-import io.trino.plugin.hive.metastore.file.FileMetastoreModule;
-import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreModule;
+import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
+import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
+import io.trino.plugin.iceberg.catalog.file.FileMetastoreTableOperationsProvider;
+import io.trino.plugin.iceberg.catalog.file.IcebergFileMetastoreCatalogModule;
+import io.trino.plugin.iceberg.catalog.glue.IcebergGlueCatalogModule;
+import io.trino.plugin.iceberg.catalog.hadoop.IcebergHadoopCatalogModule;
+import io.trino.plugin.iceberg.catalog.hms.IcebergHiveMetastoreCatalogModule;
+import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalogFactory;
 
 import javax.inject.Inject;
 
 import java.util.Optional;
 
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
+import static io.trino.plugin.iceberg.CatalogType.GLUE;
+import static io.trino.plugin.iceberg.CatalogType.HADOOP;
 import static io.trino.plugin.iceberg.CatalogType.HIVE_METASTORE;
 import static io.trino.plugin.iceberg.CatalogType.TESTING_FILE_METASTORE;
 import static java.util.Objects.requireNonNull;
 
-public class IcebergMetastoreModule
+public class IcebergCatalogModule
         extends AbstractConfigurationAwareModule
 {
     private final Optional<HiveMetastore> metastore;
 
-    public IcebergMetastoreModule(Optional<HiveMetastore> metastore)
+    public IcebergCatalogModule(Optional<HiveMetastore> metastore)
     {
         this.metastore = requireNonNull(metastore, "metastore is null");
     }
@@ -48,11 +57,14 @@ public class IcebergMetastoreModule
         if (metastore.isPresent()) {
             binder.bind(HiveMetastore.class).annotatedWith(ForCachingHiveMetastore.class).toInstance(metastore.get());
             install(new CachingHiveMetastoreModule());
+            binder.bind(TrinoCatalogFactory.class).to(TrinoHiveCatalogFactory.class).in(Scopes.SINGLETON);
+            binder.bind(IcebergTableOperationsProvider.class).to(FileMetastoreTableOperationsProvider.class).in(Scopes.SINGLETON);
         }
         else {
-            bindMetastoreModule(HIVE_METASTORE, new ThriftMetastoreModule());
-            bindMetastoreModule(TESTING_FILE_METASTORE, new FileMetastoreModule());
-            // TODO add support for Glue metastore
+            bindCatalogModule(HIVE_METASTORE, new IcebergHiveMetastoreCatalogModule());
+            bindCatalogModule(TESTING_FILE_METASTORE, new IcebergFileMetastoreCatalogModule());
+            bindCatalogModule(GLUE, new IcebergGlueCatalogModule());
+            bindCatalogModule(HADOOP, new IcebergHadoopCatalogModule());
         }
 
         binder.bind(MetastoreValidator.class).asEagerSingleton();
@@ -69,7 +81,7 @@ public class IcebergMetastoreModule
         }
     }
 
-    private void bindMetastoreModule(CatalogType catalogType, Module module)
+    private void bindCatalogModule(CatalogType catalogType, Module module)
     {
         install(conditionalModule(
                 IcebergConfig.class,
