@@ -2970,4 +2970,21 @@ public abstract class BaseIcebergConnectorTest
         }
         return Optional.of(dataMappingTestSetup);
     }
+
+    @Test
+    public void testAmbiguousColumnsWithDots()
+    {
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE ambiguous (\"a.cow\" BIGINT, a ROW(cow BIGINT))"))
+                .hasMessage("Invalid schema: multiple fields for name a.cow: 1 and 3");
+
+        assertUpdate("CREATE TABLE ambiguous (\"a.cow\" BIGINT, b ROW(cow BIGINT))");
+        assertThatThrownBy(() -> assertUpdate("ALTER TABLE ambiguous RENAME COLUMN b TO a"))
+                .hasMessage("Invalid schema: multiple fields for name a.cow: 1 and 3");
+        assertUpdate("DROP TABLE ambiguous");
+
+        assertUpdate("CREATE TABLE ambiguous (a ROW(cow BIGINT))");
+        assertThatThrownBy(() -> assertUpdate("ALTER TABLE ambiguous ADD COLUMN \"a.cow\" BIGINT"))
+                .hasMessage("Cannot add column with ambiguous name: a.cow, use addColumn(parent, name, type)");
+        assertUpdate("DROP TABLE ambiguous");
+    }
 }
