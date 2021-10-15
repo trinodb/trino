@@ -32,6 +32,7 @@ import io.trino.spi.type.Type;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
@@ -210,6 +211,10 @@ public class TestTupleDomain
     @Test
     public void testOverlaps()
     {
+        TupleDomain<ColumnHandle> emptyTupleDomain = TupleDomain.withColumnDomains(
+                Map.of(A, Domain.create(ValueSet.copyOf(BIGINT, List.of()), false)));
+        assertThat(emptyTupleDomain.overlaps(emptyTupleDomain)).isEqualTo(false);
+
         verifyOverlaps(ImmutableMap.of(), ImmutableMap.of(), true);
 
         verifyOverlaps(
@@ -230,6 +235,11 @@ public class TestTupleDomain
         verifyOverlaps(
                 ImmutableMap.of(A, Domain.all(BIGINT)),
                 ImmutableMap.of(A, Domain.all(BIGINT)),
+                true);
+
+        verifyOverlaps(
+                ImmutableMap.of(A, Domain.singleValue(BIGINT, 1L)),
+                ImmutableMap.of(A, Domain.singleValue(BIGINT, 1L)),
                 true);
 
         verifyOverlaps(
@@ -255,6 +265,29 @@ public class TestTupleDomain
                         A, Domain.singleValue(BIGINT, 1L),
                         B, Domain.singleValue(BIGINT, 2L)),
                 false);
+
+        verifyOverlaps(
+                ImmutableMap.of(
+                        A, Domain.singleValue(BIGINT, 1L),
+                        B, Domain.singleValue(BIGINT, 1L)),
+                ImmutableMap.of(
+                        B, Domain.singleValue(BIGINT, 1L)),
+                true);
+
+        verifyOverlaps(
+                ImmutableMap.of(
+                        A, Domain.singleValue(BIGINT, 1L),
+                        B, Domain.singleValue(BIGINT, 1L)),
+                ImmutableMap.of(
+                        B, Domain.singleValue(BIGINT, 2L)),
+                false);
+
+        verifyOverlaps(
+                ImmutableMap.of(
+                        A, Domain.singleValue(BIGINT, 1L)),
+                ImmutableMap.of(
+                        B, Domain.singleValue(BIGINT, 2L)),
+                true);
 
         verifyOverlaps(
                 ImmutableMap.of(
@@ -692,6 +725,8 @@ public class TestTupleDomain
         TupleDomain<ColumnHandle> tupleDomain1 = TupleDomain.withColumnDomains(domains1);
         TupleDomain<ColumnHandle> tupleDomain2 = TupleDomain.withColumnDomains(domains2);
         assertThat(tupleDomain1.overlaps(tupleDomain2)).isEqualTo(expected);
+        assertThat(tupleDomain2.overlaps(tupleDomain1)).isEqualTo(expected);
+        assertThat(tupleDomain1.intersect(tupleDomain2).isNone()).isEqualTo(!expected);
     }
 
     private boolean contains(Map<ColumnHandle, Domain> superSet, Map<ColumnHandle, Domain> subSet)

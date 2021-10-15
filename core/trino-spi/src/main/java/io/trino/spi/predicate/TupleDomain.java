@@ -420,7 +420,28 @@ public final class TupleDomain<T>
      */
     public boolean overlaps(TupleDomain<T> other)
     {
-        return !this.intersect(other).isNone();
+        requireNonNull(other, "other is null");
+
+        if (this.isNone() || other.isNone()) {
+            return false;
+        }
+        if (this == other || this.isAll() || other.isAll()) {
+            return true;
+        }
+
+        Map<T, Domain> thisDomains = this.domains.orElseThrow();
+        Map<T, Domain> otherDomains = other.getDomains().orElseThrow();
+
+        for (Map.Entry<T, Domain> entry : otherDomains.entrySet()) {
+            Domain commonColumnDomain = thisDomains.get(entry.getKey());
+            if (commonColumnDomain != null) {
+                if (!commonColumnDomain.overlaps(entry.getValue())) {
+                    return false;
+                }
+            }
+        }
+        // All the common columns have overlapping domains
+        return true;
     }
 
     /**
