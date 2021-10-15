@@ -16,7 +16,6 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceUtf8;
-import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
@@ -124,8 +123,6 @@ public final class IcebergUtil
     {
         TableOperations operations = tableOperationsProvider.createTableOperations(
                 metastore,
-                new HdfsContext(session),
-                session.getQueryId(),
                 session,
                 table.getSchemaName(),
                 table.getTableName(),
@@ -143,8 +140,6 @@ public final class IcebergUtil
     {
         IcebergTableOperations operations = tableOperationsProvider.createTableOperations(
                 metastore,
-                new HdfsContext(session),
-                session.getQueryId(),
                 session,
                 table.getSchemaName(),
                 table.getTableName(),
