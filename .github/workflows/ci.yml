@@ -444,6 +444,10 @@ jobs:
             jdk: 11
           # this suite is not meant to be run with different configs
           - config: default
+            suite: suite-ldap
+            jdk: 11
+          # this suite is not meant to be run with different configs
+          - config: default
             suite: suite-compatibility
             jdk: 11
           # this suite is designed specifically for apache-hive3. TODO remove the suite once we can run all regular tests on apache-hive3.
