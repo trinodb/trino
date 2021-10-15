@@ -1436,7 +1436,7 @@ public class IcebergMetadata
     private static void updatePartitioning(Table icebergTable, Transaction transaction, List<String> partitionColumns)
     {
         UpdatePartitionSpec updatePartitionSpec = transaction.updateSpec();
-        Set<PartitionField> existingPartitionFields = icebergTable.spec().fields().stream().collect(toImmutableSet());
+        Set<PartitionField> existingPartitionFields = ImmutableSet.copyOf(icebergTable.spec().fields());
         Schema schema = icebergTable.schema();
         if (partitionColumns.isEmpty()) {
             existingPartitionFields.stream()
@@ -1584,8 +1584,7 @@ public class IcebergMetadata
         UpdateProperties updateProperties = transaction.updateProperties();
         Map<String, Integer> columnNameToId = transaction.table().schema().columns().stream()
                 .collect(toImmutableMap(nestedField -> nestedField.name().toLowerCase(ENGLISH), Types.NestedField::fieldId));
-        Set<Integer> columnIds = columnNameToId.values().stream()
-                .collect(toImmutableSet());
+        Set<Integer> columnIds = ImmutableSet.copyOf(columnNameToId.values());
 
         // Drop stats for obsolete columns
         transaction.table().properties().keySet().stream()
@@ -2162,7 +2161,7 @@ public class IcebergMetadata
                 .map(expression -> replaceWithNewVariables(expression, newVariables))
                 .collect(toImmutableList());
 
-        List<Assignment> outputAssignments = newAssignments.values().stream().collect(toImmutableList());
+        List<Assignment> outputAssignments = ImmutableList.copyOf(newAssignments.values());
         return Optional.of(new ProjectionApplicationResult<>(
                 icebergTableHandle.withProjectedColumns(projectedColumnsBuilder.build()),
                 newProjections,

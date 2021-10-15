@@ -20,6 +20,7 @@ import alluxio.grpc.table.ColumnStatisticsInfo;
 import alluxio.grpc.table.Constraint;
 import alluxio.grpc.table.TableInfo;
 import alluxio.grpc.table.layout.hive.PartitionInfo;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.HiveBasicStatistics;
 import io.trino.plugin.hive.HiveColumnStatisticType;
@@ -160,7 +161,7 @@ public class AlluxioHiveMetastore
                     .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().getRowCount()));
 
             Map<String, List<ColumnStatisticsInfo>> colStatsMap = client.getPartitionColumnStatistics(table.getDatabaseName(), table.getTableName(),
-                    partitionBasicStatistics.keySet().stream().collect(toImmutableList()), dataColumns);
+                    ImmutableList.copyOf(partitionBasicStatistics.keySet()), dataColumns);
             Map<String, Map<String, HiveColumnStatistics>> partitionColumnStatistics = colStatsMap.entrySet().stream()
                     .filter(entry -> !entry.getValue().isEmpty())
                     .collect(toImmutableMap(

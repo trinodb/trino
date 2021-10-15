@@ -25,7 +25,6 @@ import org.testng.annotations.Test;
 import java.util.Set;
 
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
@@ -198,8 +197,7 @@ public class TestDeltaLakeDelete
     private Set<String> testDeleteAllAndReturnInitialDataLakeFilesSet(String tableName, String resourcePath)
     {
         hiveMinioDataLake.copyResources(resourcePath + "/customer", tableName);
-        Set<String> originalFiles = hiveMinioDataLake.listFiles(tableName).stream()
-                .collect(toImmutableSet());
+        Set<String> originalFiles = ImmutableSet.copyOf(hiveMinioDataLake.listFiles(tableName));
         getQueryRunner().execute(format("CREATE TABLE %s (dummy int) WITH (location = '%s')",
                 tableName,
                 getLocationForTable(tableName)));
