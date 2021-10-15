@@ -13,6 +13,7 @@
  */
 package io.trino.testing;
 
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.MoreCollectors;
@@ -400,13 +401,19 @@ public abstract class AbstractTestQueryFramework
     {
         DistributedQueryRunner queryRunner = getDistributedQueryRunner();
         ResultWithQueryId<MaterializedResult> resultWithQueryId = queryRunner.executeWithQueryId(session, query);
-        log.info("assertQueryStats: queryId: %s", resultWithQueryId.getQueryId());
-        QueryStats queryStats = queryRunner.getCoordinator()
-                .getQueryManager()
-                .getFullQueryInfo(resultWithQueryId.getQueryId())
-                .getQueryStats();
-        queryStatsAssertion.accept(queryStats);
-        resultAssertion.accept(resultWithQueryId.getResult());
+        QueryId queryId = resultWithQueryId.getQueryId();
+        log.info("assertQueryStats: queryId: %s", queryId);
+        try {
+            QueryStats queryStats = queryRunner.getCoordinator()
+                    .getQueryManager()
+                    .getFullQueryInfo(queryId)
+                    .getQueryStats();
+            queryStatsAssertion.accept(queryStats);
+            resultAssertion.accept(resultWithQueryId.getResult());
+        }
+        catch (AssertionError ae) {
+            throw new AssertionError(Strings.nullToEmpty(ae.getMessage()) + " - failure for queryId: " + queryId, ae);
+        }
     }
 
     protected MaterializedResult computeExpected(@Language("SQL") String sql, List<? extends Type> resultTypes)
