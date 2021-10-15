@@ -153,7 +153,6 @@
         <module>service/trino-proxy</module>
         <module>service/trino-verifier</module>
         <module>testing/trino-benchmark</module>
-        <module>testing/trino-benchmark-driver</module>
         <module>testing/trino-benchto-benchmarks</module>
         <module>testing/trino-product-tests</module>
         <module>testing/trino-product-tests-launcher</module>
