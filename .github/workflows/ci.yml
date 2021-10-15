@@ -37,7 +37,8 @@ jobs:
 #          - ":trino-memory"
 #          - ":trino-tests"
           - ":trino-hive"
-          - ":trino-iceberg"
+          # hive is enough
+#          - ":trino-iceberg"
         i: [0,1,2,3,4]
     timeout-minutes: 60
     steps:
