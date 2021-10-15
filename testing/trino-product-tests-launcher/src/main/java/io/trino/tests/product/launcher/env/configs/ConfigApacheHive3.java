@@ -13,6 +13,11 @@
  */
 package io.trino.tests.product.launcher.env.configs;
 
+import io.trino.tests.product.launcher.env.Environment;
+
+import static com.google.common.base.Preconditions.checkState;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.HADOOP;
+
 public class ConfigApacheHive3
         extends ConfigDefault
 {
@@ -26,5 +31,16 @@ public class ConfigApacheHive3
     public String getTemptoEnvironmentConfigFile()
     {
         return "/docker/presto-product-tests/conf/tempto/tempto-configuration-for-hive3.yaml,/docker/presto-product-tests/conf/tempto/tempto-configuration-for-hms-only.yaml";
+    }
+
+    @Override
+    public void extendEnvironment(Environment.Builder builder)
+    {
+        // TODO: Remove when https://github.com/trinodb/docker-images/pull/115 is merged and released
+        checkState(getImagesVersion().equals("49"), "Override is unnecessary when version is moved beyond 49");
+
+        builder.configureContainer(HADOOP, container -> {
+            container.withEnv("JAVA_HOME", "/usr/lib/jvm/zulu-8");
+        });
     }
 }
