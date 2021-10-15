@@ -38,8 +38,14 @@ public class ConstraintApplicationResult<T>
     public ConstraintApplicationResult(T handle, TupleDomain<ColumnHandle> remainingFilter, boolean predicateSubsumed, boolean precalculateStatistics)
     {
         this.handle = requireNonNull(handle, "handle is null");
-        this.remainingFilter = requireNonNull(remainingFilter, "remainingFilter is null");
+
+        requireNonNull(remainingFilter, "remainingFilter is null");
+        if (predicateSubsumed && !remainingFilter.isAll()) {
+            throw new IllegalArgumentException("Invalid remaining filter when predicate is subsumed: " + remainingFilter);
+        }
+        this.remainingFilter = remainingFilter;
         this.predicateSubsumed = predicateSubsumed;
+
         this.precalculateStatistics = precalculateStatistics;
     }
 
