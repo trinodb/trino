@@ -13,14 +13,22 @@
  */
 package io.trino.plugin.iceberg.catalog.file;
 
+import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.PrincipalPrivileges;
+import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.iceberg.catalog.AbstractMetastoreTableOperations;
 import io.trino.spi.connector.ConnectorSession;
+import org.apache.iceberg.TableMetadata;
+import org.apache.iceberg.exceptions.CommitFailedException;
 import org.apache.iceberg.io.FileIO;
 
 import javax.annotation.concurrent.NotThreadSafe;
 
 import java.util.Optional;
+
+import static com.google.common.base.Preconditions.checkState;
+import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
 
 @NotThreadSafe
 public class FileMetastoreTableOperations
@@ -36,5 +44,45 @@ public class FileMetastoreTableOperations
             Optional<String> location)
     {
         super(fileIo, metastore, session, database, table, owner, location);
+    }
+
+    @Override
+    protected void commitToExistingTable(TableMetadata base, TableMetadata metadata)
+    {
+        String newMetadataLocation = writeNewMetadata(metadata, version + 1);
+
+        // TODO: use metastore locking
+
+        Table table;
+        try {
+            Table currentTable = getTable();
+
+            checkState(currentMetadataLocation != null, "No current metadata location for existing table");
+            String metadataLocation = currentTable.getParameters().get(METADATA_LOCATION);
+            if (!currentMetadataLocation.equals(metadataLocation)) {
+                throw new CommitFailedException("Metadata location [%s] is not same as table metadata location [%s] for %s",
+                        currentMetadataLocation, metadataLocation, getSchemaTableName());
+            }
+
+            table = Table.builder(currentTable)
+                    .setDataColumns(toHiveColumns(metadata.schema().columns()))
+                    .withStorage(storage -> storage.setLocation(metadata.location()))
+                    .setParameter(METADATA_LOCATION, newMetadataLocation)
+                    .setParameter(PREVIOUS_METADATA_LOCATION, currentMetadataLocation)
+                    .build();
+        }
+        catch (RuntimeException e) {
+            try {
+                io().deleteFile(newMetadataLocation);
+            }
+            catch (RuntimeException ex) {
+                e.addSuppressed(ex);
+            }
+            throw e;
+        }
+
+        PrincipalPrivileges privileges = buildInitialPrivilegeSet(table.getOwner());
+        HiveIdentity identity = new HiveIdentity(session);
+        metastore.replaceTable(identity, database, tableName, table, privileges);
     }
 }
