@@ -32,7 +32,6 @@ import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
@@ -77,7 +76,7 @@ public class TestDeltaLakeConnectorSmokeTest
                             tableName),
                     2);
 
-            Set<String> originalFiles = getTableFiles(tableName).stream().collect(toImmutableSet());
+            Set<String> originalFiles = ImmutableSet.copyOf(getTableFiles(tableName));
             assertThat(originalFiles).isNotEmpty(); // sanity check
 
             String lockFilePath = lockTable(tableName, java.time.Duration.ofMinutes(5));
