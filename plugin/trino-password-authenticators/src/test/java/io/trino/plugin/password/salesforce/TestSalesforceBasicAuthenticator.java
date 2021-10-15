@@ -31,6 +31,7 @@ import static com.google.common.net.MediaType.ANY_TEXT_TYPE;
 import static io.airlift.http.client.HttpStatus.OK;
 import static io.airlift.http.client.testing.TestingResponse.mockResponse;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
@@ -79,7 +80,7 @@ public class TestSalesforceBasicAuthenticator
         assertEquals(principal.getName(), username, "Test principal name from expired cache.");
     }
 
-    @Test(expectedExceptions = AccessDeniedException.class)
+    @Test
     public void createAuthenticatedPrincipalWrongOrg()
     {
         String org = "my18CharOrgId";  // As if from ssalesforce.allowed-organizations property.
@@ -93,10 +94,12 @@ public class TestSalesforceBasicAuthenticator
 
         HttpClient testHttpClient = new TestingHttpClient((request -> mockResponse(OK, ANY_TEXT_TYPE, xmlResponse)));
         SalesforceBasicAuthenticator authenticator = new SalesforceBasicAuthenticator(config, testHttpClient);
-        authenticator.createAuthenticatedPrincipal(username, password);
+        assertThatThrownBy(() -> authenticator.createAuthenticatedPrincipal(username, password))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessageMatching("Access Denied:.*");
     }
 
-    @Test(expectedExceptions = AccessDeniedException.class)
+    @Test
     public void createAuthenticatedPrincipalBadPass()
     {
         String org = "my18CharOrgId";  // As if from salesforce.allowed-organizations property.
@@ -110,7 +113,9 @@ public class TestSalesforceBasicAuthenticator
 
         HttpClient testHttpClient = new TestingHttpClient((request -> mockResponse(HttpStatus.INTERNAL_SERVER_ERROR, ANY_TEXT_TYPE, xmlResponse)));
         SalesforceBasicAuthenticator authenticator = new SalesforceBasicAuthenticator(config, testHttpClient);
-        authenticator.createAuthenticatedPrincipal(username, password);
+        assertThatThrownBy(() -> authenticator.createAuthenticatedPrincipal(username, password))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessageMatching("Access Denied: Invalid response for login\n.*");
     }
 
     @Test
@@ -192,7 +197,7 @@ public class TestSalesforceBasicAuthenticator
     }
 
     // Test a real login for a different org.
-    @Test(expectedExceptions = AccessDeniedException.class, description = "Test got wrong org for real, yo!")
+    @Test
     public void createAuthenticatedPrincipalRealWrongOrg()
     {
         // Skip this test if SALESFORCE_TEST_FORREAL is not set to TRUE.
@@ -212,7 +217,9 @@ public class TestSalesforceBasicAuthenticator
         HttpClient testHttpClient = new JettyHttpClient();
         SalesforceBasicAuthenticator authenticator = new SalesforceBasicAuthenticator(config, testHttpClient);
 
-        authenticator.createAuthenticatedPrincipal(username, password);
+        assertThatThrownBy(() -> authenticator.createAuthenticatedPrincipal(username, password))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Test got wrong org for real, yo!");
     }
 
     // Test a real login for a different org.
@@ -241,7 +248,7 @@ public class TestSalesforceBasicAuthenticator
     }
 
     // Test a login with a bad password.
-    @Test(expectedExceptions = AccessDeniedException.class, description = "Test bad password for real, yo!")
+    @Test
     public void createAuthenticatedPrincipalRealBadPassword()
     {
         // Skip this test if SALESFORCE_TEST_FORREAL is not set to TRUE.
@@ -263,6 +270,8 @@ public class TestSalesforceBasicAuthenticator
                 .setAllowedOrganizations(org);
         HttpClient testHttpClient = new JettyHttpClient();
         SalesforceBasicAuthenticator authenticator = new SalesforceBasicAuthenticator(config, testHttpClient);
-        authenticator.createAuthenticatedPrincipal(username, "NotMyPassword");
+        assertThatThrownBy(() -> authenticator.createAuthenticatedPrincipal(username, "NotMyPassword"))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Test bad password for real, yo!");
     }
 }
