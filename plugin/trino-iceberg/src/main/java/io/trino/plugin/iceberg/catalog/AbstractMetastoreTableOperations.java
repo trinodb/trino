@@ -224,44 +224,7 @@ public abstract class AbstractMetastoreTableOperations
         metastore.createTable(identity, table, privileges);
     }
 
-    protected void commitToExistingTable(TableMetadata base, TableMetadata metadata)
-    {
-        String newMetadataLocation = writeNewMetadata(metadata, version + 1);
-
-        // TODO: use metastore locking
-
-        Table table;
-        try {
-            Table currentTable = getTable();
-
-            checkState(currentMetadataLocation != null, "No current metadata location for existing table");
-            String metadataLocation = currentTable.getParameters().get(METADATA_LOCATION);
-            if (!currentMetadataLocation.equals(metadataLocation)) {
-                throw new CommitFailedException("Metadata location [%s] is not same as table metadata location [%s] for %s",
-                        currentMetadataLocation, metadataLocation, getSchemaTableName());
-            }
-
-            table = Table.builder(currentTable)
-                    .setDataColumns(toHiveColumns(metadata.schema().columns()))
-                    .withStorage(storage -> storage.setLocation(metadata.location()))
-                    .setParameter(METADATA_LOCATION, newMetadataLocation)
-                    .setParameter(PREVIOUS_METADATA_LOCATION, currentMetadataLocation)
-                    .build();
-        }
-        catch (RuntimeException e) {
-            try {
-                io().deleteFile(newMetadataLocation);
-            }
-            catch (RuntimeException ex) {
-                e.addSuppressed(ex);
-            }
-            throw e;
-        }
-
-        PrincipalPrivileges privileges = buildInitialPrivilegeSet(table.getOwner());
-        HiveIdentity identity = new HiveIdentity(session);
-        metastore.replaceTable(identity, database, tableName, table, privileges);
-    }
+    protected abstract void commitToExistingTable(TableMetadata base, TableMetadata metadata);
 
     @Override
     public FileIO io()
