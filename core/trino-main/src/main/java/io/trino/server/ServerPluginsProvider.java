@@ -69,8 +69,8 @@ public class ServerPluginsProvider
 
     private static List<File> listFiles(File path)
     {
-        try {
-            return stream(newDirectoryStream(path.toPath()))
+        try (Stream<Path> paths = newDirectoryStream(path.toPath())) {
+            return stream(paths)
                     .map(Path::toFile)
                     .sorted()
                     .collect(toImmutableList());
