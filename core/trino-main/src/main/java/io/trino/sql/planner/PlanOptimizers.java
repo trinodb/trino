@@ -182,6 +182,7 @@ import io.trino.sql.planner.iterative.rule.RemoveAggregationInSemiJoin;
 import io.trino.sql.planner.iterative.rule.RemoveDuplicateConditions;
 import io.trino.sql.planner.iterative.rule.RemoveEmptyDelete;
 import io.trino.sql.planner.iterative.rule.RemoveEmptyExceptBranches;
+import io.trino.sql.planner.iterative.rule.RemoveEmptyTableExecute;
 import io.trino.sql.planner.iterative.rule.RemoveEmptyUnionBranches;
 import io.trino.sql.planner.iterative.rule.RemoveFullSample;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantDistinctLimit;
@@ -886,7 +887,9 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         costCalculator,
-                        ImmutableSet.of(new RemoveEmptyDelete()))); // Run RemoveEmptyDelete after table scan is removed by PickTableLayout/AddExchanges
+                        ImmutableSet.of(
+                                new RemoveEmptyDelete(),
+                                new RemoveEmptyTableExecute()))); // Run RemoveEmptyDelete and RemoveEmptyTableExecute after table scan is removed by PickTableLayout/AddExchanges
 
         // Run predicate push down one more time in case we can leverage new information from layouts' effective predicate
         // and to pushdown dynamic filters
