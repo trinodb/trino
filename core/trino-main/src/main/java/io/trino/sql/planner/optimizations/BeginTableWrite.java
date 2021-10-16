@@ -13,7 +13,6 @@
  */
 package io.trino.sql.planner.optimizations;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.cost.StatsAndCosts;
 import io.trino.execution.warnings.WarningCollector;
@@ -49,10 +48,11 @@ import io.trino.sql.planner.plan.UpdateNode;
 
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.sql.planner.plan.ChildReplacer.replaceChildren;
 import static io.trino.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
 import static java.util.stream.Collectors.toSet;
 
@@ -284,45 +284,34 @@ public class BeginTableWrite
 
         private PlanNode rewriteModifyTableScan(PlanNode node, TableHandle handle)
         {
-            if (node instanceof TableScanNode) {
-                TableScanNode scan = (TableScanNode) node;
-                return new TableScanNode(
-                        scan.getId(),
-                        handle,
-                        scan.getOutputSymbols(),
-                        scan.getAssignments(),
-                        scan.getEnforcedConstraint(),
-                        scan.getStatistics(),
-                        scan.isUpdateTarget(),
-                        // partitioning should not change with write table handle
-                        scan.getUseConnectorNodePartitioning());
-            }
+            AtomicInteger modifyCount = new AtomicInteger(0);
+            PlanNode rewrittenNode = SimplePlanRewriter.rewriteWith(
+                    new SimplePlanRewriter<Void>()
+                    {
+                        @Override
+                        public PlanNode visitTableScan(TableScanNode scan, RewriteContext<Void> context)
+                        {
+                            if (!scan.isUpdateTarget()) {
+                                return scan;
+                            }
+                            modifyCount.incrementAndGet();
+                            return new TableScanNode(
+                                    scan.getId(),
+                                    handle,
+                                    scan.getOutputSymbols(),
+                                    scan.getAssignments(),
+                                    scan.getEnforcedConstraint(),
+                                    scan.getStatistics(),
+                                    scan.isUpdateTarget(),
+                                    // partitioning should not change with write table handle
+                                    scan.getUseConnectorNodePartitioning());
+                        }
+                    },
+                    node,
+                    null);
 
-            if (node instanceof FilterNode) {
-                PlanNode source = rewriteModifyTableScan(((FilterNode) node).getSource(), handle);
-                return replaceChildren(node, ImmutableList.of(source));
-            }
-            if (node instanceof ProjectNode) {
-                PlanNode source = rewriteModifyTableScan(((ProjectNode) node).getSource(), handle);
-                return replaceChildren(node, ImmutableList.of(source));
-            }
-            if (node instanceof SemiJoinNode) {
-                PlanNode source = rewriteModifyTableScan(((SemiJoinNode) node).getSource(), handle);
-                return replaceChildren(node, ImmutableList.of(source, ((SemiJoinNode) node).getFilteringSource()));
-            }
-            if (node instanceof JoinNode) {
-                PlanNode source = rewriteModifyTableScan(((JoinNode) node).getLeft(), handle);
-                return replaceChildren(node, ImmutableList.of(source, ((JoinNode) node).getRight()));
-            }
-            if (node instanceof AssignUniqueId) {
-                PlanNode source = rewriteModifyTableScan(((AssignUniqueId) node).getSource(), handle);
-                return replaceChildren(node, ImmutableList.of(source));
-            }
-            if (node instanceof MarkDistinctNode) {
-                PlanNode source = rewriteModifyTableScan(((MarkDistinctNode) node).getSource(), handle);
-                return replaceChildren(node, ImmutableList.of(source));
-            }
-            throw new IllegalArgumentException("Invalid descendant for DeleteNode or UpdateNode: " + node.getClass().getName());
+            verify(modifyCount.get() == 1, "Expected to find exactly one update target TableScanNode but found %s", modifyCount);
+            return rewrittenNode;
         }
     }
 
