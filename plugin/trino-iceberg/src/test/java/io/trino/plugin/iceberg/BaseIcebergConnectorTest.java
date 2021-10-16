@@ -2247,7 +2247,6 @@ public abstract class BaseIcebergConnectorTest
     protected abstract boolean supportsIcebergFileStatistics(String typeName);
 
     @Test(dataProvider = "testDataMappingSmokeTestDataProvider")
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5172", match = "Couldn't find operator summary, probably due to query statistic collection error")
     public void testSplitPruningFromDataFileStatistics(DataMappingTestSetup testSetup)
     {
         if (testSetup.isUnsupportedType()) {
@@ -2289,7 +2288,9 @@ public abstract class BaseIcebergConnectorTest
 
     private void verifyPredicatePushdownDataRead(@Language("SQL") String query, boolean supportsPushdown)
     {
-        try {
+        // using assertEventually here as the operator stats mechanism is known to be best-effort and some late-stage stats are sometimes not recorded
+        // (see https://github.com/trinodb/trino/issues/5172)
+        assertEventually(new Duration(10, TimeUnit.SECONDS), () -> {
             ResultWithQueryId<MaterializedResult> resultWithPredicatePushdown = getDistributedQueryRunner().executeWithQueryId(getSession(), query);
             ResultWithQueryId<MaterializedResult> resultWithoutPredicatePushdown = getDistributedQueryRunner().executeWithQueryId(
                     withoutPredicatePushdown(getSession()),
@@ -2303,10 +2304,7 @@ public abstract class BaseIcebergConnectorTest
             else {
                 assertThat(withPushdownDataSize).isEqualTo(withoutPushdownDataSize);
             }
-        }
-        catch (NoSuchElementException e) {
-            throw new RuntimeException("Couldn't find operator summary, probably due to query statistic collection error", e);
-        }
+        });
     }
 
     private Session withoutPredicatePushdown(Session session)
@@ -2319,33 +2317,33 @@ public abstract class BaseIcebergConnectorTest
     private void verifySplitCount(QueryId queryId, long expectedSplitCount)
     {
         checkArgument(expectedSplitCount >= 0);
-        try {
-            OperatorStats operatorStats = getOperatorStats(queryId);
-            if (expectedSplitCount > 0) {
-                assertThat(operatorStats.getTotalDrivers()).isEqualTo(expectedSplitCount);
-                assertThat(operatorStats.getAddInputCalls()).isGreaterThan(0);
-            }
-            else {
-                // expectedSplitCount == 0
-                assertThat(operatorStats.getTotalDrivers()).isEqualTo(1);
-                assertThat(operatorStats.getAddInputCalls()).isEqualTo(0);
-            }
+        OperatorStats operatorStats = getOperatorStats(queryId);
+        if (expectedSplitCount > 0) {
+            assertThat(operatorStats.getTotalDrivers()).isEqualTo(expectedSplitCount);
+            assertThat(operatorStats.getAddInputCalls()).isGreaterThan(0);
         }
-        catch (NoSuchElementException e) {
-            throw new RuntimeException("Couldn't find operator summary, probably due to query statistic collection error", e);
+        else {
+            // expectedSplitCount == 0
+            assertThat(operatorStats.getTotalDrivers()).isEqualTo(1);
+            assertThat(operatorStats.getAddInputCalls()).isEqualTo(0);
         }
     }
 
     private OperatorStats getOperatorStats(QueryId queryId)
     {
-        return getDistributedQueryRunner().getCoordinator()
-                .getQueryManager()
-                .getFullQueryInfo(queryId)
-                .getQueryStats()
-                .getOperatorSummaries()
-                .stream()
-                .filter(summary -> summary.getOperatorType().startsWith("TableScan") || summary.getOperatorType().startsWith("Scan"))
-                .collect(onlyElement());
+        try {
+            return getDistributedQueryRunner().getCoordinator()
+                    .getQueryManager()
+                    .getFullQueryInfo(queryId)
+                    .getQueryStats()
+                    .getOperatorSummaries()
+                    .stream()
+                    .filter(summary -> summary.getOperatorType().startsWith("TableScan") || summary.getOperatorType().startsWith("Scan"))
+                    .collect(onlyElement());
+        }
+        catch (NoSuchElementException e) {
+            throw new RuntimeException("Couldn't find operator summary, probably due to query statistic collection error", e);
+        }
     }
 
     @Override
