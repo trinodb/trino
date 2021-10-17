@@ -733,7 +733,16 @@ public class TestTupleDomain
     {
         TupleDomain<ColumnHandle> superSetTupleDomain = TupleDomain.withColumnDomains(superSet);
         TupleDomain<ColumnHandle> subSetTupleDomain = TupleDomain.withColumnDomains(subSet);
-        return superSetTupleDomain.contains(subSetTupleDomain);
+        boolean contains = superSetTupleDomain.contains(subSetTupleDomain);
+        // Results from computing contains using union and using the method directly should match
+        assertThat(contains).isEqualTo(containsFromUnion(superSetTupleDomain, subSetTupleDomain));
+        return contains;
+    }
+
+    private static boolean containsFromUnion(TupleDomain<ColumnHandle> superSetTupleDomain, TupleDomain<ColumnHandle> subSetTupleDomain)
+    {
+        return subSetTupleDomain.isNone()
+                || columnWiseUnion(superSetTupleDomain, subSetTupleDomain).equals(superSetTupleDomain);
     }
 
     private boolean equals(Map<ColumnHandle, Domain> domains1, Map<ColumnHandle, Domain> domains2)
