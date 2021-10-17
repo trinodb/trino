@@ -42,7 +42,7 @@ public class TestPinotQueryBase
     protected List<String> getColumnNames(String table)
     {
         return pinotMetadata.getPinotColumns(table).stream()
-                .map(PinotColumn::getName)
+                .map(PinotColumnHandle::getColumnName)
                 .collect(toImmutableList());
     }
 
