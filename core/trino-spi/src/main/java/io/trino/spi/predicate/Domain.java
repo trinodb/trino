@@ -208,7 +208,10 @@ public final class Domain
     public boolean contains(Domain other)
     {
         checkCompatibility(other);
-        return this.union(other).equals(this);
+        if (!this.isNullAllowed() && other.isNullAllowed()) {
+            return false;
+        }
+        return values.contains(other.getValues());
     }
 
     public Domain intersect(Domain other)
