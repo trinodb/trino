@@ -16,7 +16,7 @@ package io.trino.plugin.pinot.query.aggregation;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.plugin.base.expression.AggregateFunctionRule;
-import io.trino.plugin.pinot.PinotColumnHandle;
+import io.trino.plugin.pinot.query.AggregateExpression;
 import io.trino.spi.connector.AggregateFunction;
 
 import java.util.List;
@@ -32,7 +32,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
  * Implements {@code count(*)}.
  */
 public class ImplementCountAll
-        implements AggregateFunctionRule
+        implements AggregateFunctionRule<AggregateExpression>
 {
     @Override
     public Pattern<AggregateFunction> getPattern()
@@ -44,8 +44,8 @@ public class ImplementCountAll
     }
 
     @Override
-    public Optional<PinotColumnHandle> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext context)
+    public Optional<AggregateExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext context)
     {
-        return Optional.of(new PinotColumnHandle("count(*)", aggregateFunction.getOutputType(), false));
+        return Optional.of(new AggregateExpression("count", "*", false));
     }
 }

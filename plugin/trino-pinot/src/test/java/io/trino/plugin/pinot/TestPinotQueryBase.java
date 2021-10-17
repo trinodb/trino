@@ -104,6 +104,10 @@ public class TestPinotQueryBase
                         .addSingleValueDimension("float_col", DataType.FLOAT)
                         .addSingleValueDimension("bytes_col", DataType.BYTES)
                         .build())
+                .put("quotes_in_column_names", new SchemaBuilder().setSchemaName("quotes_in_column_names")
+                        .addSingleValueDimension("non_quoted", DataType.STRING)
+                        .addSingleValueDimension("qu\"ot\"ed", DataType.STRING)
+                        .build())
                 .build();
     }
 }

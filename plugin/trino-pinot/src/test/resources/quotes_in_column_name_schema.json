@@ -1,12 +1,18 @@
 {
-    "schemaName": "reserved_keyword",
+    "schemaName": "quotes_in_column_name",
     "dimensionFieldSpecs": [
         {
-            "name": "date",
-            "dataType": "STRING"
+            "name": "qu\"ot\"ed",
+            "dataType": "STRING",
+            "transformFunction": "upper(non_quoted)"
         },
         {
-            "name": "as",
+            "name": "double\"\"qu\"ot\"ed\"",
+            "dataType": "STRING",
+            "transformFunction": "lower(non_quoted)"
+        },
+        {
+            "name": "non_quoted",
             "dataType": "STRING"
         }
     ],
