@@ -41,7 +41,7 @@ import io.trino.plugin.pinot.PinotErrorCode;
 import io.trino.plugin.pinot.PinotException;
 import io.trino.plugin.pinot.PinotInsufficientServerResponseException;
 import io.trino.plugin.pinot.PinotSessionProperties;
-import io.trino.plugin.pinot.query.PinotQuery;
+import io.trino.plugin.pinot.query.PinotQueryInfo;
 import io.trino.spi.connector.ConnectorSession;
 import org.apache.pinot.common.response.broker.BrokerResponseNative;
 import org.apache.pinot.common.response.broker.ResultTable;
@@ -424,7 +424,7 @@ public class PinotClient
         }
     }
 
-    private BrokerResponseNative submitBrokerQueryJson(ConnectorSession session, PinotQuery query)
+    private BrokerResponseNative submitBrokerQueryJson(ConnectorSession session, PinotQueryInfo query)
     {
         return doWithRetries(PinotSessionProperties.getPinotRetryCount(session), retryNumber -> {
             String queryHost = getBrokerHost(query.getTable());
@@ -472,7 +472,7 @@ public class PinotClient
      * Results: aggregationResults.get(0..aggregationResults.size())
      * Result: function, value means columnName -> columnValue
      */
-    public Iterator<BrokerResultRow> createResultIterator(ConnectorSession session, PinotQuery query, List<PinotColumnHandle> columnHandles)
+    public Iterator<BrokerResultRow> createResultIterator(ConnectorSession session, PinotQueryInfo query, List<PinotColumnHandle> columnHandles)
     {
         BrokerResponseNative response = submitBrokerQueryJson(session, query);
         return fromResultTable(response, columnHandles, query.getGroupByClauses());
