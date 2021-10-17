@@ -34,7 +34,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -187,7 +186,6 @@ public final class PinotQueryBuilder
 
     private static String quoteIdentifier(String identifier)
     {
-        checkArgument(!identifier.contains("\""), "Identifier contains double quotes: '%s'", identifier);
-        return format("\"%s\"", identifier);
+        return format("\"%s\"", identifier.replaceAll("\"", "\"\""));
     }
 }

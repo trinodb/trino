@@ -13,10 +13,10 @@
  */
 package io.trino.plugin.pinot.client;
 
-import com.yammer.metrics.core.MetricsRegistry;
 import io.trino.plugin.pinot.PinotException;
 import org.apache.helix.model.InstanceConfig;
 import org.apache.pinot.common.metrics.BrokerMetrics;
+import org.apache.pinot.common.metrics.PinotMetricUtils;
 import org.apache.pinot.common.request.BrokerRequest;
 import org.apache.pinot.common.utils.DataTable;
 import org.apache.pinot.core.transport.AsyncQueryResponse;
@@ -24,6 +24,7 @@ import org.apache.pinot.core.transport.QueryRouter;
 import org.apache.pinot.core.transport.ServerInstance;
 import org.apache.pinot.core.transport.ServerResponse;
 import org.apache.pinot.core.transport.ServerRoutingInstance;
+import org.apache.pinot.spi.metrics.PinotMetricsRegistry;
 import org.apache.pinot.spi.utils.builder.TableNameBuilder;
 import org.apache.pinot.sql.parsers.CalciteSqlCompiler;
 import org.apache.pinot.sql.parsers.SqlCompilationException;
@@ -62,7 +63,7 @@ public class PinotQueryClient
     {
         trinoHostId = getDefaultTrinoId();
         this.pinotHostMapper = requireNonNull(pinotHostMapper, "pinotHostMapper is null");
-        MetricsRegistry registry = new MetricsRegistry();
+        PinotMetricsRegistry registry = PinotMetricUtils.getPinotMetricsRegistry();
         this.brokerMetrics = new BrokerMetrics(registry);
         brokerMetrics.initializeGlobalMeters();
         queryRouter = new QueryRouter(trinoHostId, brokerMetrics);
