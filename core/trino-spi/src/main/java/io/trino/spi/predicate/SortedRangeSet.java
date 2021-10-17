@@ -677,6 +677,45 @@ public final class SortedRangeSet
     }
 
     @Override
+    public boolean contains(ValueSet other)
+    {
+        SortedRangeSet that = checkCompatibility(other);
+
+        if (this.isAll()) {
+            return true;
+        }
+        if (that.isAll()) {
+            return false;
+        }
+        if (this == that || that.isNone()) {
+            return true;
+        }
+        if (this.isNone()) {
+            return false;
+        }
+
+        int thisRangeCount = this.getRangeCount();
+        int thatRangeCount = that.getRangeCount();
+        int thisRangeIndex = 0;
+        RangeView thisRangeView = this.getRangeView(thisRangeIndex);
+        for (int thatRangeIndex = 0; thatRangeIndex < thatRangeCount; thatRangeIndex++) {
+            RangeView thatRangeView = that.getRangeView(thatRangeIndex);
+            while (thisRangeView.isFullyBefore(thatRangeView)) {
+                thisRangeIndex++;
+                if (thisRangeIndex == thisRangeCount) {
+                    return false;
+                }
+                thisRangeView = this.getRangeView(thisRangeIndex);
+            }
+            if (!thisRangeView.contains(thatRangeView)) {
+                // thisRange partially overlaps with thatRange, or it's fully after thatRange
+                return false;
+            }
+        }
+        return true;
+    }
+
+    @Override
     public SortedRangeSet complement()
     {
         if (isNone()) {
@@ -1108,6 +1147,11 @@ public final class SortedRangeSet
         public boolean overlaps(RangeView that)
         {
             return !this.isFullyBefore(that) && !that.isFullyBefore(this);
+        }
+
+        public boolean contains(RangeView that)
+        {
+            return this.compareLowBound(that) <= 0 && this.compareHighBound(that) >= 0;
         }
 
         public Optional<RangeView> tryIntersect(RangeView that)
