@@ -49,8 +49,6 @@ import org.apache.pinot.spi.data.Schema;
 
 import javax.inject.Inject;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -73,6 +71,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.json.JsonCodec.listJsonCodec;
 import static io.airlift.json.JsonCodec.mapJsonCodec;
 import static io.trino.plugin.pinot.PinotErrorCode.PINOT_EXCEPTION;
@@ -91,7 +90,7 @@ public class PinotClient
     private static final Pattern BROKER_PATTERN = Pattern.compile("Broker_(.*)_(\\d+)");
     private static final String TIME_BOUNDARY_NOT_FOUND_ERROR_CODE = "404";
     private static final JsonCodec<Map<String, Map<String, List<String>>>> ROUTING_TABLE_CODEC = mapJsonCodec(String.class, mapJsonCodec(String.class, listJsonCodec(String.class)));
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final JsonCodec<QueryRequest> QUERY_REQUEST_JSON_CODEC = jsonCodec(QueryRequest.class);
 
     private static final String GET_ALL_TABLES_API_TEMPLATE = "tables";
     private static final String TABLE_INSTANCES_API_TEMPLATE = "tables/%s/instances";
@@ -377,6 +376,23 @@ public class PinotClient
         }
     }
 
+    public static class QueryRequest
+    {
+        private final String sql;
+
+        @JsonCreator
+        public QueryRequest(@JsonProperty String sql)
+        {
+            this.sql = requireNonNull(sql, "sql is null");
+        }
+
+        @JsonProperty
+        public String getSql()
+        {
+            return sql;
+        }
+    }
+
     public interface BrokerResultRow
     {
         Object getField(int index);
@@ -426,12 +442,13 @@ public class PinotClient
 
     private BrokerResponseNative submitBrokerQueryJson(ConnectorSession session, PinotQueryInfo query)
     {
+        String queryRequest = QUERY_REQUEST_JSON_CODEC.toJson(new QueryRequest(query.getQuery()));
         return doWithRetries(PinotSessionProperties.getPinotRetryCount(session), retryNumber -> {
             String queryHost = getBrokerHost(query.getTable());
             LOG.info("Query '%s' on broker host '%s'", queryHost, query.getQuery());
             Request.Builder builder = Request.Builder.preparePost()
                     .setUri(URI.create(format(QUERY_URL_TEMPLATE, queryHost)));
-            BrokerResponseNative response = doHttpActionWithHeadersJson(builder, Optional.of(buildRequest(query.getQuery())), brokerResponseCodec);
+            BrokerResponseNative response = doHttpActionWithHeadersJson(builder, Optional.of(queryRequest), brokerResponseCodec);
 
             if (response.getExceptionsSize() > 0 && response.getProcessingExceptions() != null && !response.getProcessingExceptions().isEmpty()) {
                 // Pinot is known to return exceptions with benign errorcodes like 200
@@ -447,16 +464,6 @@ public class PinotClient
 
             return response;
         });
-    }
-
-    private static String buildRequest(String sql)
-    {
-        try {
-            return OBJECT_MAPPER.writeValueAsString(ImmutableMap.of("sql", sql));
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
     }
 
     /**
