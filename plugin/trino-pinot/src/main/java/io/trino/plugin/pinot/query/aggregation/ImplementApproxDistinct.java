@@ -17,7 +17,7 @@ import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.plugin.base.expression.AggregateFunctionRule;
-import io.trino.plugin.pinot.PinotColumnHandle;
+import io.trino.plugin.pinot.query.AggregateExpression;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.expression.Variable;
 
@@ -30,10 +30,9 @@ import static io.trino.plugin.base.expression.AggregateFunctionPatterns.outputTy
 import static io.trino.plugin.base.expression.AggregateFunctionPatterns.singleInput;
 import static io.trino.plugin.base.expression.AggregateFunctionPatterns.variable;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static java.lang.String.format;
 
 public class ImplementApproxDistinct
-        implements AggregateFunctionRule
+        implements AggregateFunctionRule<AggregateExpression>
 {
     // Extracted from io.trino.plugin.jdbc.expression
     private static final Capture<Variable> INPUT = newCapture();
@@ -48,9 +47,9 @@ public class ImplementApproxDistinct
     }
 
     @Override
-    public Optional<PinotColumnHandle> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext context)
+    public Optional<AggregateExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext context)
     {
         Variable input = captures.get(INPUT);
-        return Optional.of(new PinotColumnHandle(format("distinctcounthll(%s)", context.getIdentifierQuote().apply(input.getName())), aggregateFunction.getOutputType(), false));
+        return Optional.of(new AggregateExpression("distinctcounthll", context.getIdentifierQuote().apply(input.getName()), false));
     }
 }
