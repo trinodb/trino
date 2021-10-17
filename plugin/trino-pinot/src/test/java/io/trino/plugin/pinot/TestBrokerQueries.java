@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.plugin.pinot.client.PinotClient;
 import io.trino.plugin.pinot.client.PinotClient.BrokerResultRow;
 import io.trino.plugin.pinot.client.PinotClient.ResultsIterator;
-import io.trino.plugin.pinot.query.PinotQuery;
+import io.trino.plugin.pinot.query.PinotQueryInfo;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import org.apache.pinot.common.response.broker.BrokerResponseNative;
@@ -109,7 +109,7 @@ public class TestBrokerQueries
                 .add(new PinotColumnHandle("col_3", VARCHAR))
                 .build();
         PinotBrokerPageSource pageSource = new PinotBrokerPageSource(createSessionWithNumSplits(1, false, pinotConfig),
-                new PinotQuery("test_table", "SELECT col_1, col_2, col_3 FROM test_table", 0),
+                new PinotQueryInfo("test_table", "SELECT col_1, col_2, col_3 FROM test_table", 0),
                 columnHandles,
                 testingPinotClient,
                 LIMIT_FOR_BROKER_QUERIES);
@@ -131,7 +131,7 @@ public class TestBrokerQueries
     public void testCountStarBrokerQuery()
     {
         PinotBrokerPageSource pageSource = new PinotBrokerPageSource(createSessionWithNumSplits(1, false, pinotConfig),
-                new PinotQuery("test_table", "SELECT COUNT(*) FROM test_table", 0),
+                new PinotQueryInfo("test_table", "SELECT COUNT(*) FROM test_table", 0),
                 ImmutableList.of(),
                 testingPinotClient,
                 LIMIT_FOR_BROKER_QUERIES);
@@ -163,7 +163,7 @@ public class TestBrokerQueries
                 .add(new PinotColumnHandle("col_3", VARCHAR))
                 .build();
         PinotBrokerPageSource pageSource = new PinotBrokerPageSource(createSessionWithNumSplits(1, false, pinotConfig),
-                new PinotQuery("test_table", "SELECT col_1, col_2, col_3 FROM test_table", 0),
+                new PinotQueryInfo("test_table", "SELECT col_1, col_2, col_3 FROM test_table", 0),
                 columnHandles,
                 testingPinotClient,
                 LIMIT_FOR_BROKER_QUERIES);
