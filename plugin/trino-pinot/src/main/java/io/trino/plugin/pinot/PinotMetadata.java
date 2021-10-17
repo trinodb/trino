@@ -73,7 +73,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.cache.CacheLoader.asyncReloading;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.plugin.pinot.PinotColumn.getPinotColumnsForPinotSchema;
+import static io.trino.plugin.pinot.PinotColumnHandle.getPinotColumnsForPinotSchema;
 import static io.trino.plugin.pinot.PinotSessionProperties.isAggregationPushdownEnabled;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -88,7 +88,7 @@ public class PinotMetadata
     private static final String SCHEMA_NAME = "default";
     private static final String PINOT_COLUMN_NAME_PROPERTY = "pinotColumnName";
 
-    private final LoadingCache<String, List<PinotColumn>> pinotTableColumnCache;
+    private final LoadingCache<String, List<PinotColumnHandle>> pinotTableColumnCache;
     private final LoadingCache<Object, List<String>> allTablesCache;
     private final int maxRowsPerBrokerQuery;
     private final AggregateFunctionRewriter aggregateFunctionRewriter;
@@ -111,7 +111,7 @@ public class PinotMetadata
                         .build(asyncReloading(new CacheLoader<>()
                         {
                             @Override
-                            public List<PinotColumn> load(String tableName)
+                            public List<PinotColumnHandle> load(String tableName)
                                     throws Exception
                             {
                                 Schema tablePinotSchema = pinotClient.getTableSchema(tableName);
@@ -442,7 +442,7 @@ public class PinotMetadata
     }
 
     @VisibleForTesting
-    public List<PinotColumn> getPinotColumns(String tableName)
+    public List<PinotColumnHandle> getPinotColumns(String tableName)
     {
         String pinotTableName = getPinotTableNameFromTrinoTableName(tableName);
         return getFromCache(pinotTableColumnCache, pinotTableName);
@@ -518,19 +518,19 @@ public class PinotMetadata
 
     private List<ColumnMetadata> getColumnsMetadata(String tableName)
     {
-        List<PinotColumn> columns = getPinotColumns(tableName);
+        List<PinotColumnHandle> columns = getPinotColumns(tableName);
         return columns.stream()
                 .map(PinotMetadata::createPinotColumnMetadata)
                 .collect(toImmutableList());
     }
 
-    private static ColumnMetadata createPinotColumnMetadata(PinotColumn pinotColumn)
+    private static ColumnMetadata createPinotColumnMetadata(PinotColumnHandle pinotColumn)
     {
         return ColumnMetadata.builder()
-                .setName(pinotColumn.getName().toLowerCase(ENGLISH))
-                .setType(pinotColumn.getType())
+                .setName(pinotColumn.getColumnName().toLowerCase(ENGLISH))
+                .setType(pinotColumn.getDataType())
                 .setProperties(ImmutableMap.<String, Object>builder()
-                        .put(PINOT_COLUMN_NAME_PROPERTY, pinotColumn.getName())
+                        .put(PINOT_COLUMN_NAME_PROPERTY, pinotColumn.getColumnName())
                         .build())
                 .build();
     }
