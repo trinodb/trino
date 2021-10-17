@@ -450,7 +450,21 @@ public final class TupleDomain<T>
      */
     public boolean contains(TupleDomain<T> other)
     {
-        return other.isNone() || columnWiseUnion(this, other).equals(this);
+        if (other.isNone() || this == other) {
+            return true;
+        }
+        if (isNone()) {
+            return false;
+        }
+        Map<T, Domain> thisDomains = domains.orElseThrow();
+        Map<T, Domain> otherDomains = other.getDomains().orElseThrow();
+        for (Map.Entry<T, Domain> entry : thisDomains.entrySet()) {
+            Domain otherDomain = otherDomains.get(entry.getKey());
+            if (otherDomain == null || !entry.getValue().contains(otherDomain)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Override
