@@ -73,15 +73,18 @@ public class TestPinotIntegrationSmokeTest
     // If a broker query does not supply a limit, pinot defaults to 10 rows
     private static final int DEFAULT_PINOT_LIMIT_FOR_BROKER_QUERIES = 10;
     private static final String ALL_TYPES_TABLE = "alltypes";
+    private static final String DATE_TIME_FIELDS_TABLE = "date_time_fields";
     private static final String MIXED_CASE_COLUMN_NAMES_TABLE = "mixed_case";
     private static final String MIXED_CASE_DISTINCT_TABLE = "mixed_case_distinct";
     private static final String TOO_MANY_ROWS_TABLE = "too_many_rows";
     private static final String TOO_MANY_BROKER_ROWS_TABLE = "too_many_broker_rows";
     private static final String JSON_TABLE = "my_table";
     private static final String RESERVED_KEYWORD_TABLE = "reserved_keyword";
-
+    private static final String QUOTES_IN_COLUMN_NAME_TABLE = "quotes_in_column_name";
     // Use a recent value for updated_at to ensure Pinot doesn't clean up records older than retentionTimeValue as defined in the table specs
     private static final Instant initialUpdatedAt = Instant.now().minus(Duration.ofDays(1)).truncatedTo(SECONDS);
+    // Use a fixed instant for testing date time functions
+    private static final Instant CREATED_AT_INSTANT = Instant.parse("2021-05-10T00:00:00.00Z");
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -101,8 +104,8 @@ public class TestPinotIntegrationSmokeTest
             allTypesRecordsBuilder.add(new ProducerRecord<>(ALL_TYPES_TABLE, "key" + i * step,
                     createTestRecord(
                             Arrays.asList("string_" + (offset), "string1_" + (offset + 1), "string2_" + (offset + 2)),
-                            Arrays.asList(false, true, true),
-                            Arrays.asList(54, -10001, 1000),
+                            true,
+                            Arrays.asList(54 + i / 3, -10001, 1000),
                             Arrays.asList(-7.33F + i, Float.POSITIVE_INFINITY, 17.034F + i),
                             Arrays.asList(-17.33D + i, Double.POSITIVE_INFINITY, 10596.034D + i),
                             Arrays.asList(-3147483647L + i, 12L - i, 4147483647L + i),
@@ -220,6 +223,34 @@ public class TestPinotIntegrationSmokeTest
         pinot.createSchema(getClass().getClassLoader().getResourceAsStream("too_many_broker_rows_schema.json"), TOO_MANY_BROKER_ROWS_TABLE);
         pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("too_many_broker_rows_realtimeSpec.json"), TOO_MANY_BROKER_ROWS_TABLE);
 
+        // Create and populate date time fields table and topic
+        kafka.createTopic(DATE_TIME_FIELDS_TABLE);
+        Schema dateTimeFieldsAvroSchema = SchemaBuilder.record(DATE_TIME_FIELDS_TABLE).fields()
+                .name("string_col").type().stringType().noDefault()
+                .name("created_at").type().longType().noDefault()
+                .name("updated_at").type().longType().noDefault()
+                .endRecord();
+        List<ProducerRecord<String, GenericRecord>> dateTimeFieldsProducerRecords = ImmutableList.<ProducerRecord<String, GenericRecord>>builder()
+                .add(new ProducerRecord<>(DATE_TIME_FIELDS_TABLE, "string_0", new GenericRecordBuilder(dateTimeFieldsAvroSchema)
+                        .set("string_col", "string_0")
+                        .set("created_at", CREATED_AT_INSTANT.toEpochMilli())
+                        .set("updated_at", initialUpdatedAt.toEpochMilli())
+                        .build()))
+                .add(new ProducerRecord<>(DATE_TIME_FIELDS_TABLE, "string_1", new GenericRecordBuilder(dateTimeFieldsAvroSchema)
+                        .set("string_col", "string_1")
+                        .set("created_at", CREATED_AT_INSTANT.plusMillis(1000).toEpochMilli())
+                        .set("updated_at", initialUpdatedAt.plusMillis(1000).toEpochMilli())
+                        .build()))
+                .add(new ProducerRecord<>(DATE_TIME_FIELDS_TABLE, "string_2", new GenericRecordBuilder(dateTimeFieldsAvroSchema)
+                        .set("string_col", "string_2")
+                        .set("created_at", CREATED_AT_INSTANT.plusMillis(2000).toEpochMilli())
+                        .set("updated_at", initialUpdatedAt.plusMillis(2000).toEpochMilli())
+                        .build()))
+                .build();
+        kafka.sendMessages(dateTimeFieldsProducerRecords.stream(), schemaRegistryAwareProducer(kafka));
+        pinot.createSchema(getClass().getClassLoader().getResourceAsStream("date_time_fields_schema.json"), DATE_TIME_FIELDS_TABLE);
+        pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("date_time_fields_realtimeSpec.json"), DATE_TIME_FIELDS_TABLE);
+
         // Create json table
         kafka.createTopic(JSON_TABLE);
         long key = 0L;
@@ -239,14 +270,28 @@ public class TestPinotIntegrationSmokeTest
         kafka.createTopic(RESERVED_KEYWORD_TABLE);
         Schema reservedKeywordAvroSchema = SchemaBuilder.record(RESERVED_KEYWORD_TABLE).fields()
                 .name("date").type().optional().stringType()
+                .name("as").type().optional().stringType()
                 .name("updatedAt").type().optional().longType()
                 .endRecord();
         ImmutableList.Builder<ProducerRecord<String, GenericRecord>> reservedKeywordRecordsBuilder = ImmutableList.builder();
-        reservedKeywordRecordsBuilder.add(new ProducerRecord<>(RESERVED_KEYWORD_TABLE, "key0", new GenericRecordBuilder(reservedKeywordAvroSchema).set("date", "2021-09-30").set("updatedAt", initialUpdatedAt.plusMillis(1000).toEpochMilli()).build()));
-        reservedKeywordRecordsBuilder.add(new ProducerRecord<>(RESERVED_KEYWORD_TABLE, "key1", new GenericRecordBuilder(reservedKeywordAvroSchema).set("date", "2021-10-01").set("updatedAt", initialUpdatedAt.plusMillis(2000).toEpochMilli()).build()));
+        reservedKeywordRecordsBuilder.add(new ProducerRecord<>(RESERVED_KEYWORD_TABLE, "key0", new GenericRecordBuilder(reservedKeywordAvroSchema).set("date", "2021-09-30").set("as", "foo").set("updatedAt", initialUpdatedAt.plusMillis(1000).toEpochMilli()).build()));
+        reservedKeywordRecordsBuilder.add(new ProducerRecord<>(RESERVED_KEYWORD_TABLE, "key1", new GenericRecordBuilder(reservedKeywordAvroSchema).set("date", "2021-10-01").set("as", "bar").set("updatedAt", initialUpdatedAt.plusMillis(2000).toEpochMilli()).build()));
         kafka.sendMessages(reservedKeywordRecordsBuilder.build().stream(), schemaRegistryAwareProducer(kafka));
         pinot.createSchema(getClass().getClassLoader().getResourceAsStream("reserved_keyword_schema.json"), RESERVED_KEYWORD_TABLE);
         pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("reserved_keyword_realtimeSpec.json"), RESERVED_KEYWORD_TABLE);
+
+        // Create a table having quotes in column names
+        kafka.createTopic(QUOTES_IN_COLUMN_NAME_TABLE);
+        Schema quotesInColumnNameAvroSchema = SchemaBuilder.record(QUOTES_IN_COLUMN_NAME_TABLE).fields()
+                .name("non_quoted").type().optional().stringType()
+                .name("updatedAt").type().optional().longType()
+                .endRecord();
+        ImmutableList.Builder<ProducerRecord<String, GenericRecord>> quotesInColumnNameRecordsBuilder = ImmutableList.builder();
+        quotesInColumnNameRecordsBuilder.add(new ProducerRecord<>(QUOTES_IN_COLUMN_NAME_TABLE, "key0", new GenericRecordBuilder(quotesInColumnNameAvroSchema).set("non_quoted", "Foo").set("updatedAt", initialUpdatedAt.plusMillis(1000).toEpochMilli()).build()));
+        quotesInColumnNameRecordsBuilder.add(new ProducerRecord<>(QUOTES_IN_COLUMN_NAME_TABLE, "key1", new GenericRecordBuilder(quotesInColumnNameAvroSchema).set("non_quoted", "Bar").set("updatedAt", initialUpdatedAt.plusMillis(2000).toEpochMilli()).build()));
+        kafka.sendMessages(quotesInColumnNameRecordsBuilder.build().stream(), schemaRegistryAwareProducer(kafka));
+        pinot.createSchema(getClass().getClassLoader().getResourceAsStream("quotes_in_column_name_schema.json"), QUOTES_IN_COLUMN_NAME_TABLE);
+        pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("quotes_in_column_name_realtimeSpec.json"), QUOTES_IN_COLUMN_NAME_TABLE);
 
         Map<String, String> pinotProperties = ImmutableMap.<String, String>builder()
                 .put("pinot.controller-urls", pinot.getControllerConnectString())
@@ -272,7 +317,7 @@ public class TestPinotIntegrationSmokeTest
 
     private static GenericRecord createTestRecord(
             List<String> stringArrayColumn,
-            List<Boolean> booleanArrayColumn,
+            Boolean booleanColumn,
             List<Integer> intArrayColumn,
             List<Float> floatArrayColumn,
             List<Double> doubleArrayColumn,
@@ -283,10 +328,9 @@ public class TestPinotIntegrationSmokeTest
 
         return new GenericRecordBuilder(schema)
                 .set("string_col", stringArrayColumn.get(0))
-                .set("bool_col", booleanArrayColumn.get(0))
+                .set("bool_col", booleanColumn)
                 .set("bytes_col", Hex.toHexString(stringArrayColumn.get(0).getBytes(StandardCharsets.UTF_8)))
                 .set("string_array_col", stringArrayColumn)
-                .set("bool_array_col", booleanArrayColumn)
                 .set("int_array_col", intArrayColumn)
                 .set("int_array_col_with_pinot_default", intArrayColumn)
                 .set("float_array_col", floatArrayColumn)
@@ -313,7 +357,6 @@ public class TestPinotIntegrationSmokeTest
     {
         Schema schema = getAllTypesAvroSchema();
         List<String> stringList = Arrays.asList("string_0", null, "string_2", null, "string_4");
-        List<Boolean> booleanList = Arrays.asList(true, null, false, null, true);
         List<Integer> integerList = new ArrayList<>();
         integerList.addAll(Arrays.asList(null, null, null, null, null));
         List<Integer> integerWithDefaultList = Arrays.asList(-1112, null, 753, null, -9238);
@@ -325,7 +368,6 @@ public class TestPinotIntegrationSmokeTest
         return new GenericRecordBuilder(schema)
                 .set("string_col", "array_null")
                 .set("string_array_col", stringList)
-                .set("bool_array_col", booleanList)
                 .set("int_array_col", integerList)
                 .set("int_array_col_with_pinot_default", integerWithDefaultList)
                 .set("float_array_col", floatList)
@@ -351,7 +393,6 @@ public class TestPinotIntegrationSmokeTest
                 .name("bool_col").type().optional().booleanType()
                 .name("bytes_col").type().optional().stringType()
                 .name("string_array_col").type().optional().array().items().nullable().stringType()
-                .name("bool_array_col").type().optional().array().items().nullable().booleanType()
                 .name("int_array_col").type().optional().array().items().nullable().intType()
                 .name("int_array_col_with_pinot_default").type().optional().array().items().nullable().intType()
                 .name("float_array_col").type().optional().array().items().nullable().floatType()
@@ -646,6 +687,29 @@ public class TestPinotIntegrationSmokeTest
         assertThat(query("SELECT \"count(*)\" FROM  \"SELECT COUNT(*) FROM " + RESERVED_KEYWORD_TABLE + " ORDER BY COUNT(*)\""))
                 .matches("VALUES BIGINT '2'")
                 .isFullyPushedDown();
+
+        assertQuery("SELECT \"as\" FROM " + RESERVED_KEYWORD_TABLE + " WHERE \"as\" = 'foo'", "VALUES 'foo'");
+        assertQuery("SELECT \"as\" FROM " + RESERVED_KEYWORD_TABLE + " WHERE \"as\" IN ('foo', 'bar')", "VALUES 'foo', 'bar'");
+
+        assertThat(query("SELECT \"as\" FROM  \"SELECT \"\"as\"\" FROM " + RESERVED_KEYWORD_TABLE + "\""))
+                .matches("VALUES VARCHAR 'foo', VARCHAR 'bar'")
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT \"as\" FROM  \"SELECT \"\"as\"\" FROM " + RESERVED_KEYWORD_TABLE + " WHERE \"\"as\"\" = 'foo'\""))
+                .matches("VALUES VARCHAR 'foo'")
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT \"as\" FROM  \"SELECT \"\"as\"\" FROM " + RESERVED_KEYWORD_TABLE + " WHERE \"\"as\"\" IN ('foo', 'bar')\""))
+                .matches("VALUES VARCHAR 'foo', VARCHAR 'bar'")
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT \"as\" FROM  \"SELECT \"\"as\"\" FROM " + RESERVED_KEYWORD_TABLE + " ORDER BY \"\"as\"\"\""))
+                .matches("VALUES VARCHAR 'foo', VARCHAR 'bar'")
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT \"as\", \"count(*)\" FROM  \"SELECT \"\"as\"\", COUNT(*) FROM " + RESERVED_KEYWORD_TABLE + " GROUP BY \"\"as\"\"\""))
+                .matches("VALUES (VARCHAR 'foo', BIGINT '1'), (VARCHAR 'bar', BIGINT '1')")
+                .isFullyPushedDown();
     }
 
     @Test
@@ -690,8 +754,8 @@ public class TestPinotIntegrationSmokeTest
                 "Broker query returned '13' rows, maximum allowed is '12' rows. with query \"select \"updated_at_seconds\", \"string_col\" from too_many_broker_rows limit 13\"");
 
         // Pinot issue preventing Integer.MAX_VALUE from being a limit: https://github.com/apache/incubator-pinot/issues/7110
-        assertQueryFails("SELECT * FROM \"SELECT string_col, long_col FROM " + ALL_TYPES_TABLE + " LIMIT " + Integer.MAX_VALUE + "\"",
-                "Unexpected response status: 500 for request \\{\"sql\":\"select \\\\\"string_col\\\\\", \\\\\"long_col\\\\\" from alltypes limit 2147483647\"\\} to url http://localhost:\\d+/query/sql, with headers \\{Accept=\\[application/json\\], Content-Type=\\[application/json\\]\\}, full response null");
+        // This is now resolved in pinot 0.8.0
+        assertQuerySucceeds("SELECT * FROM \"SELECT string_col, long_col FROM " + ALL_TYPES_TABLE + " LIMIT " + Integer.MAX_VALUE + "\"");
 
         // Pinot broker requests do not handle limits greater than Integer.MAX_VALUE
         // Note that -2147483648 is due to an integer overflow in Pinot: https://github.com/apache/pinot/issues/7242
@@ -778,32 +842,24 @@ public class TestPinotIntegrationSmokeTest
         // Default null value for strings is the string 'null'
         assertThat(query("SELECT string_col" +
                         "  FROM " + ALL_TYPES_TABLE +
-                        "  WHERE bytes_col = X'' AND element_at(bool_array_col, 1) = 'null'"))
+                        "  WHERE bytes_col = X'' AND element_at(string_array_col, 1) = 'null'"))
                 .matches("VALUES (VARCHAR 'null')")
                 .isNotFullyPushedDown(FilterNode.class);
 
         // Default array null value for strings is the string 'null'
         assertThat(query("SELECT element_at(string_array_col, 1)" +
                         "  FROM " + ALL_TYPES_TABLE +
-                        "  WHERE bytes_col = X'' AND element_at(bool_array_col, 1) = 'null'"))
+                        "  WHERE bytes_col = X'' AND string_col = 'null'"))
                 .matches("VALUES (VARCHAR 'null')")
-                .isNotFullyPushedDown(ExchangeNode.class, ProjectNode.class, FilterNode.class);
+                .isNotFullyPushedDown(ExchangeNode.class, ProjectNode.class);
 
         // Default null value for booleans is the string 'null'
         // Booleans are treated as a string
         assertThat(query("SELECT bool_col" +
                         "  FROM " + ALL_TYPES_TABLE +
                         "  WHERE string_col = 'null'"))
-                .matches("VALUES (VARCHAR 'null')")
+                .matches("VALUES (false)")
                 .isFullyPushedDown();
-
-        // Default array null value for booleans is the string 'null'
-        // Boolean are treated as a string
-        assertThat(query("SELECT element_at(bool_array_col, 1)" +
-                        "  FROM " + ALL_TYPES_TABLE +
-                        "  WHERE string_col = 'null'"))
-                .matches("VALUES (VARCHAR 'null')")
-                .isNotFullyPushedDown(ProjectNode.class);
 
         // Default null value for pinot BYTES type (varbinary) is the string 'null'
         // BYTES values are treated as a strings
@@ -846,7 +902,6 @@ public class TestPinotIntegrationSmokeTest
         // Default value for a "null" array is 1 element with default null array value,
         // Values are tested above, this test is to verify pinot returns an array with 1 element.
         assertThat(query("SELECT CARDINALITY(string_array_col)," +
-                        "  CARDINALITY(bool_array_col)," +
                         "  CARDINALITY(int_array_col_with_pinot_default)," +
                         "  CARDINALITY(int_array_col)," +
                         "  CARDINALITY(float_array_col)," +
@@ -854,13 +909,12 @@ public class TestPinotIntegrationSmokeTest
                         "  CARDINALITY(long_array_col)" +
                         "  FROM " + ALL_TYPES_TABLE +
                         "  WHERE string_col = 'null'"))
-                .matches("VALUES (BIGINT '1', BIGINT '1', BIGINT '1', BIGINT '1', BIGINT '1', BIGINT '1', BIGINT '1')")
+                .matches("VALUES (BIGINT '1', BIGINT '1', BIGINT '1', BIGINT '1', BIGINT '1', BIGINT '1')")
                 .isNotFullyPushedDown(ProjectNode.class);
 
         // If an array contains both null and non-null values, the null values are omitted:
         // There are 5 values in the avro records, but only the 3 non-null values are in pinot
         assertThat(query("SELECT CARDINALITY(string_array_col)," +
-                        "  CARDINALITY(bool_array_col)," +
                         "  CARDINALITY(int_array_col_with_pinot_default)," +
                         "  CARDINALITY(int_array_col)," +
                         "  CARDINALITY(float_array_col)," +
@@ -868,7 +922,7 @@ public class TestPinotIntegrationSmokeTest
                         "  CARDINALITY(long_array_col)" +
                         "  FROM " + ALL_TYPES_TABLE +
                         "  WHERE string_col = 'array_null'"))
-                .matches("VALUES (BIGINT '3', BIGINT '3', BIGINT '3', BIGINT '1', BIGINT '1', BIGINT '1', BIGINT '1')")
+                .matches("VALUES (BIGINT '3', BIGINT '3', BIGINT '1', BIGINT '1', BIGINT '1', BIGINT '1')")
                 .isNotFullyPushedDown(ProjectNode.class);
     }
 
@@ -925,9 +979,9 @@ public class TestPinotIntegrationSmokeTest
     public void testLimitPushdown()
     {
         assertThat(query("SELECT string_col, long_col FROM " + "\"SELECT string_col, long_col, bool_col FROM " + ALL_TYPES_TABLE + " WHERE int_col > 0\" " +
-                "  WHERE bool_col = 'false' LIMIT " + MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES))
+                "  WHERE bool_col = false LIMIT " + MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES))
                 .isFullyPushedDown();
-        assertThat(query("SELECT string_col, long_col FROM " + ALL_TYPES_TABLE + "  WHERE int_col >0 AND bool_col = 'false' LIMIT " + MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES))
+        assertThat(query("SELECT string_col, long_col FROM " + ALL_TYPES_TABLE + "  WHERE int_col >0 AND bool_col = false LIMIT " + MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES))
                 .isNotFullyPushedDown(LimitNode.class);
     }
 
@@ -1364,5 +1418,272 @@ public class TestPinotIntegrationSmokeTest
                 "  FROM " + ALL_TYPES_TABLE +
                 "  WHERE string_col = 'string_0'\""))
                 .matches("VALUES (POWER(0, -1))");
+    }
+
+    @Test
+    public void testTransformFunctions()
+    {
+        // Test that time units and formats are correctly uppercased.
+        // The dynamic table, i.e. the query between the quotes, will be lowercased since it is passed as a SchemaTableName.
+        assertThat(query("SELECT hours_col, hours_col2 FROM \"SELECT timeconvert(created_at_seconds, 'SECONDS', 'HOURS') as hours_col," +
+                "  CAST(FLOOR(created_at_seconds / 3600) as long) as hours_col2 from " + DATE_TIME_FIELDS_TABLE + "\""))
+                .matches("VALUES (BIGINT '450168', BIGINT '450168')," +
+                        "  (BIGINT '450168', BIGINT '450168')," +
+                        "  (BIGINT '450168', BIGINT '450168')");
+        assertThat(query("SELECT \"datetimeconvert(created_at_seconds,'1:seconds:epoch','1:days:epoch','1:days')\" FROM \"SELECT datetimeconvert(created_at_seconds, '1:SECONDS:EPOCH', '1:DAYS:EPOCH', '1:DAYS')" +
+                " FROM " + DATE_TIME_FIELDS_TABLE + "\""))
+                .matches("VALUES (BIGINT '18757'), (BIGINT '18757'), (BIGINT '18757')");
+        // Multiple forms of datetrunc from 2-5 arguments
+        assertThat(query("SELECT \"datetrunc('hour',created_at)\" FROM \"SELECT datetrunc('hour', created_at)" +
+                " FROM " + DATE_TIME_FIELDS_TABLE + "\""))
+                .matches("VALUES (BIGINT '1620604800000'), (BIGINT '1620604800000'), (BIGINT '1620604800000')");
+        assertThat(query("SELECT \"datetrunc('hour',created_at_seconds,'seconds')\" FROM \"SELECT datetrunc('hour', created_at_seconds, 'SECONDS')" +
+                " FROM " + DATE_TIME_FIELDS_TABLE + "\""))
+                .matches("VALUES (BIGINT '1620604800'), (BIGINT '1620604800'), (BIGINT '1620604800')");
+        assertThat(query("SELECT \"datetrunc('hour',created_at_seconds,'seconds','utc')\" FROM \"SELECT datetrunc('hour', created_at_seconds, 'SECONDS', 'UTC')" +
+                " FROM " + DATE_TIME_FIELDS_TABLE + "\""))
+                .matches("VALUES (BIGINT '1620604800'), (BIGINT '1620604800'), (BIGINT '1620604800')");
+
+        assertThat(query("SELECT \"datetrunc('quarter',created_at_seconds,'seconds','america/los_angeles','hours')\" FROM \"SELECT datetrunc('quarter', created_at_seconds, 'SECONDS', 'America/Los_Angeles', 'HOURS')" +
+                " FROM " + DATE_TIME_FIELDS_TABLE + "\""))
+                .matches("VALUES (BIGINT '449239'), (BIGINT '449239'), (BIGINT '449239')");
+        assertThat(query("SELECT \"arraylength(double_array_col)\" FROM " +
+                "\"SELECT arraylength(double_array_col)" +
+                "  FROM " + ALL_TYPES_TABLE +
+                "  WHERE string_col in ('string_0', 'array_null')\""))
+                .matches("VALUES (3), (1)");
+
+        assertThat(query("SELECT \"cast(floor(arrayaverage(long_array_col)),'long')\" FROM " +
+                "\"SELECT cast(floor(arrayaverage(long_array_col)) as long)" +
+                "  FROM " + ALL_TYPES_TABLE +
+                "  WHERE double_array_col is not null and double_col != -17.33\""))
+                .matches("VALUES (BIGINT '333333337')," +
+                        "  (BIGINT '333333338')," +
+                        "  (BIGINT '333333338')," +
+                        "  (BIGINT '333333338')," +
+                        "  (BIGINT '333333339')," +
+                        "  (BIGINT '333333339')," +
+                        "  (BIGINT '333333339')," +
+                        "  (BIGINT '333333340')");
+
+        assertThat(query("SELECT \"arraymax(long_array_col)\" FROM " +
+                "\"SELECT arraymax(long_array_col)" +
+                "  FROM " + ALL_TYPES_TABLE +
+                "  WHERE string_col is not null and string_col != 'array_null'\""))
+                .matches("VALUES (BIGINT '4147483647')," +
+                        "  (BIGINT '4147483648')," +
+                        "  (BIGINT '4147483649')," +
+                        "  (BIGINT '4147483650')," +
+                        "  (BIGINT '4147483651')," +
+                        "  (BIGINT '4147483652')," +
+                        "  (BIGINT '4147483653')," +
+                        "  (BIGINT '4147483654')," +
+                        "  (BIGINT '4147483655')");
+
+        assertThat(query("SELECT \"arraymin(long_array_col)\" FROM " +
+                "\"SELECT arraymin(long_array_col)" +
+                "  FROM " + ALL_TYPES_TABLE +
+                "  WHERE string_col is not null and string_col != 'array_null'\""))
+                .matches("VALUES (BIGINT '-3147483647')," +
+                        "  (BIGINT '-3147483646')," +
+                        "  (BIGINT '-3147483645')," +
+                        "  (BIGINT '-3147483644')," +
+                        "  (BIGINT '-3147483643')," +
+                        "  (BIGINT '-3147483642')," +
+                        "  (BIGINT '-3147483641')," +
+                        "  (BIGINT '-3147483640')," +
+                        "  (BIGINT '-3147483639')");
+    }
+
+    @Test
+    public void testPassthroughQueriesWithAliases()
+    {
+        assertThat(query("SELECT hours_col, hours_col2 FROM " +
+                "\"SELECT timeconvert(created_at_seconds, 'SECONDS', 'HOURS') AS hours_col," +
+                "  CAST(FLOOR(created_at_seconds / 3600) as long) as hours_col2" +
+                "  FROM " + DATE_TIME_FIELDS_TABLE + "\""))
+                .matches("VALUES (BIGINT '450168', BIGINT '450168'), (BIGINT '450168', BIGINT '450168'), (BIGINT '450168', BIGINT '450168')");
+
+        // Test without aliases to verify fieldName is correctly handled
+        assertThat(query("SELECT \"timeconvert(created_at_seconds,'seconds','hours')\"," +
+                " \"cast(floor(divide(created_at_seconds,'3600')),'long')\" FROM " +
+                "\"SELECT timeconvert(created_at_seconds, 'SECONDS', 'HOURS')," +
+                "  CAST(FLOOR(created_at_seconds / 3600) as long)" +
+                "  FROM " + DATE_TIME_FIELDS_TABLE + "\""))
+                .matches("VALUES (BIGINT '450168', BIGINT '450168'), (BIGINT '450168', BIGINT '450168'), (BIGINT '450168', BIGINT '450168')");
+
+        assertThat(query("SELECT int_col2, long_col2 FROM " +
+                "\"SELECT int_col AS int_col2, long_col AS long_col2" +
+                "  FROM " + ALL_TYPES_TABLE +
+                "  WHERE string_col IS NOT null AND string_col != 'array_null'\""))
+                .matches("VALUES (54, BIGINT '-3147483647')," +
+                        "  (54, BIGINT '-3147483646')," +
+                        "  (54, BIGINT '-3147483645')," +
+                        "  (55, BIGINT '-3147483644')," +
+                        "  (55, BIGINT '-3147483643')," +
+                        "  (55, BIGINT '-3147483642')," +
+                        "  (56, BIGINT '-3147483641')," +
+                        "  (56, BIGINT '-3147483640')," +
+                        "  (56, BIGINT '-3147483639')");
+
+        assertThat(query("SELECT int_col2, long_col2 FROM " +
+                "\"SELECT int_col AS int_col2, long_col AS long_col2 " +
+                "  FROM " + ALL_TYPES_TABLE +
+                "  WHERE string_col IS NOT null AND string_col != 'array_null'\""))
+                .matches("VALUES (54, BIGINT '-3147483647')," +
+                        "  (54, BIGINT '-3147483646')," +
+                        "  (54, BIGINT '-3147483645')," +
+                        "  (55, BIGINT '-3147483644')," +
+                        "  (55, BIGINT '-3147483643')," +
+                        "  (55, BIGINT '-3147483642')," +
+                        "  (56, BIGINT '-3147483641')," +
+                        "  (56, BIGINT '-3147483640')," +
+                        "  (56, BIGINT '-3147483639')");
+
+        // Query with a function on a column and an alias with the same column name fails
+        // For more details see https://github.com/apache/pinot/issues/7545
+        assertThatExceptionOfType(RuntimeException.class)
+                .isThrownBy(() -> query("SELECT int_col FROM " +
+                        "\"SELECT floor(int_col / 3) AS int_col" +
+                        "  FROM " + ALL_TYPES_TABLE +
+                        "  WHERE string_col IS NOT null AND string_col != 'array_null'\""))
+                .withRootCauseInstanceOf(RuntimeException.class)
+                .withMessage("Alias int_col cannot be referred in SELECT Clause");
+    }
+
+    @Test
+    public void testPassthroughQueriesWithPushdowns()
+    {
+        assertThat(query("SELECT DISTINCT \"timeconvert(created_at_seconds,'seconds','hours')\"," +
+                "  \"cast(floor(divide(created_at_seconds,'3600')),'long')\" FROM " +
+                "\"SELECT timeconvert(created_at_seconds, 'SECONDS', 'HOURS')," +
+                "  CAST(FLOOR(created_at_seconds / 3600) AS long)" +
+                "  FROM " + DATE_TIME_FIELDS_TABLE + "\""))
+                .matches("VALUES (BIGINT '450168', BIGINT '450168')");
+
+        assertThat(query("SELECT DISTINCT \"timeconvert(created_at_seconds,'seconds','milliseconds')\"," +
+                "  \"cast(floor(divide(created_at_seco" +
+                "nds,'3600')),'long')\" FROM " +
+                "\"SELECT timeconvert(created_at_seconds, 'SECONDS', 'MILLISECONDS')," +
+                "  CAST(FLOOR(created_at_seconds / 3600) as long)" +
+                "  FROM " + DATE_TIME_FIELDS_TABLE + "\""))
+                .matches("VALUES (BIGINT '1620604802000', BIGINT '450168')," +
+                        "  (BIGINT '1620604801000', BIGINT '450168')," +
+                        "  (BIGINT '1620604800000', BIGINT '450168')");
+
+        assertThat(query("SELECT int_col, sum(long_col) FROM " +
+                "\"SELECT int_col, long_col" +
+                "  FROM " + ALL_TYPES_TABLE +
+                "  WHERE string_col IS NOT null AND string_col != 'array_null'\"" +
+                "  GROUP BY int_col"))
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT DISTINCT int_col, long_col FROM " +
+                "\"SELECT int_col, long_col FROM " + ALL_TYPES_TABLE +
+                "  WHERE string_col IS NOT null AND string_col != 'array_null'\""))
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT int_col2, long_col2, count(*) FROM " +
+                "\"SELECT int_col AS int_col2, long_col AS long_col2" +
+                "  FROM " + ALL_TYPES_TABLE +
+                "  WHERE string_col IS NOT null AND string_col != 'array_null'\"" +
+                "  GROUP BY int_col2, long_col2"))
+                .isFullyPushedDown();
+
+        // Query with grouping columns but no aggregates ignores aliases.
+        // For more details see: https://github.com/apache/pinot/issues/7546
+        assertThatExceptionOfType(RuntimeException.class)
+                .isThrownBy(() -> query("SELECT DISTINCT int_col2, long_col2 FROM " +
+                        "\"SELECT int_col AS int_col2, long_col AS long_col2" +
+                        "  FROM " + ALL_TYPES_TABLE +
+                        "  WHERE string_col IS NOT null AND string_col != 'array_null'\""))
+                .withRootCauseInstanceOf(RuntimeException.class)
+                .withMessage("java.lang.NullPointerException");
+
+        assertThat(query("SELECT int_col2, count(*) FROM " +
+                "\"SELECT int_col AS int_col2, long_col AS long_col2" +
+                "  FROM " + ALL_TYPES_TABLE +
+                "  WHERE string_col IS NOT null AND string_col != 'array_null'\"" +
+                "  GROUP BY int_col2"))
+                .isFullyPushedDown();
+    }
+
+    @Test
+    public void testColumnNamesWithDoubleQuotes()
+    {
+        assertThat(query("select \"double\"\"\"\"qu\"\"ot\"\"ed\"\"\" from quotes_in_column_name"))
+                .matches("VALUES (VARCHAR 'foo'), (VARCHAR 'bar')")
+                .isFullyPushedDown();
+
+        assertThat(query("select \"qu\"\"ot\"\"ed\" from quotes_in_column_name"))
+                .matches("VALUES (VARCHAR 'FOO'), (VARCHAR 'BAR')")
+                .isFullyPushedDown();
+
+        assertThat(query("select non_quoted from \"select \"\"qu\"\"\"\"ot\"\"\"\"ed\"\" as non_quoted from quotes_in_column_name\""))
+                .matches("VALUES (VARCHAR 'FOO'), (VARCHAR 'BAR')")
+                .isFullyPushedDown();
+
+        assertThat(query("select \"qu\"\"ot\"\"ed\" from \"select non_quoted as \"\"qu\"\"\"\"ot\"\"\"\"ed\"\" from quotes_in_column_name\""))
+                .matches("VALUES (VARCHAR 'Foo'), (VARCHAR 'Bar')")
+                .isFullyPushedDown();
+
+        assertThat(query("select \"double\"\"\"\"qu\"\"ot\"\"ed\"\"\" from \"select \"\"double\"\"\"\"\"\"\"\"qu\"\"\"\"ot\"\"\"\"ed\"\"\"\"\"\" from quotes_in_column_name\""))
+                .matches("VALUES (VARCHAR 'foo'), (VARCHAR 'bar')")
+                .isFullyPushedDown();
+
+        assertThat(query("select \"qu\"\"oted\" from \"select \"\"double\"\"\"\"\"\"\"\"qu\"\"\"\"ot\"\"\"\"ed\"\"\"\"\"\" as \"\"qu\"\"\"\"oted\"\" from quotes_in_column_name\""))
+                .matches("VALUES (VARCHAR 'foo'), (VARCHAR 'bar')")
+                .isFullyPushedDown();
+
+        assertThat(query("select \"date\" from \"select \"\"qu\"\"\"\"ot\"\"\"\"ed\"\" as \"\"date\"\" from quotes_in_column_name\""))
+                .matches("VALUES (VARCHAR 'FOO'), (VARCHAR 'BAR')")
+                .isFullyPushedDown();
+
+        assertThat(query("select \"date\" from \"select non_quoted as \"\"date\"\" from quotes_in_column_name\""))
+                .matches("VALUES (VARCHAR 'Foo'), (VARCHAR 'Bar')")
+                .isFullyPushedDown();
+
+        /// Test aggregations with double quoted columns
+        assertThat(query("select non_quoted, COUNT(DISTINCT \"date\") from \"select non_quoted, non_quoted as \"\"date\"\" from quotes_in_column_name\" GROUP BY non_quoted"))
+                .isFullyPushedDown();
+
+        assertThat(query("select non_quoted, COUNT(DISTINCT \"double\"\"\"\"qu\"\"ot\"\"ed\"\"\") from \"select non_quoted, \"\"double\"\"\"\"\"\"\"\"qu\"\"\"\"ot\"\"\"\"ed\"\"\"\"\"\" from quotes_in_column_name\" GROUP BY non_quoted"))
+                .isFullyPushedDown();
+
+        assertThat(query("select non_quoted, COUNT(DISTINCT  \"qu\"\"ot\"\"ed\") from \"select non_quoted, \"\"qu\"\"\"\"ot\"\"\"\"ed\"\" from quotes_in_column_name\" GROUP BY non_quoted"))
+                .isFullyPushedDown();
+
+        assertThat(query("select non_quoted, COUNT(DISTINCT  \"qu\"\"ot\"\"ed\") from \"select non_quoted, non_quoted as \"\"qu\"\"\"\"ot\"\"\"\"ed\"\" from quotes_in_column_name\" GROUP BY non_quoted"))
+                .isFullyPushedDown();
+
+        assertThat(query("select \"qu\"\"ot\"\"ed\", COUNT(DISTINCT \"date\") from \"select \"\"qu\"\"\"\"ot\"\"\"\"ed\"\", non_quoted as \"\"date\"\" from quotes_in_column_name\" GROUP BY \"qu\"\"ot\"\"ed\""))
+                .isFullyPushedDown();
+
+        assertThat(query("select \"qu\"\"ot\"\"ed\", COUNT(DISTINCT \"double\"\"\"\"qu\"\"ot\"\"ed\"\"\") from \"select \"\"qu\"\"\"\"ot\"\"\"\"ed\"\", \"\"double\"\"\"\"\"\"\"\"qu\"\"\"\"ot\"\"\"\"ed\"\"\"\"\"\" from quotes_in_column_name\" GROUP BY \"qu\"\"ot\"\"ed\""))
+                .isFullyPushedDown();
+
+        // Test with grouping column that has double quotes aliased to a name without double quotes
+        assertThat(query("select non_quoted, COUNT(DISTINCT  \"qu\"\"ot\"\"ed\") from \"select \"\"double\"\"\"\"\"\"\"\"qu\"\"\"\"ot\"\"\"\"ed\"\"\"\"\"\" as non_quoted, \"\"qu\"\"\"\"ot\"\"\"\"ed\"\" from quotes_in_column_name\" GROUP BY non_quoted"))
+                .isFullyPushedDown();
+
+        // Test with grouping column that has no double quotes aliased to a name with double quotes
+        assertThat(query("select \"qu\"\"oted\", COUNT(DISTINCT  \"qu\"\"ot\"\"ed\") from \"select non_quoted as \"\"qu\"\"\"\"oted\"\", \"\"qu\"\"\"\"ot\"\"\"\"ed\"\" from quotes_in_column_name\" GROUP BY \"qu\"\"oted\""))
+                .isFullyPushedDown();
+
+        assertThat(query("select \"qu\"\"oted\", COUNT(DISTINCT  \"qu\"\"oted\") from \"select \"\"qu\"\"\"\"ot\"\"\"\"ed\"\", non_quoted as \"\"qu\"\"\"\"oted\"\" from quotes_in_column_name\" GROUP BY \"qu\"\"oted\""))
+                .isFullyPushedDown();
+
+        /// Test aggregations with double quoted columns and no grouping sets
+        assertThat(query("select COUNT(DISTINCT \"date\") from \"select non_quoted as \"\"date\"\" from quotes_in_column_name\""))
+                .isFullyPushedDown();
+
+        assertThat(query("select COUNT(DISTINCT \"double\"\"\"\"qu\"\"ot\"\"ed\"\"\") from \"select \"\"double\"\"\"\"\"\"\"\"qu\"\"\"\"ot\"\"\"\"ed\"\"\"\"\"\" from quotes_in_column_name\""))
+                .isFullyPushedDown();
+
+        assertThat(query("select COUNT(DISTINCT  \"qu\"\"ot\"\"ed\") from \"select \"\"qu\"\"\"\"ot\"\"\"\"ed\"\" from quotes_in_column_name\""))
+                .isFullyPushedDown();
+
+        assertThat(query("select COUNT(DISTINCT  \"qu\"\"ot\"\"ed\") from \"select non_quoted as \"\"qu\"\"\"\"ot\"\"\"\"ed\"\" from quotes_in_column_name\""))
+                .isFullyPushedDown();
     }
 }
