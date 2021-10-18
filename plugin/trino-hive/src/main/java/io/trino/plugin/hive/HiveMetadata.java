@@ -1675,9 +1675,15 @@ public class HiveMetadata
 
         WriteInfo writeInfo = locationService.getQueryWriteInfo(locationHandle);
         if (getInsertExistingPartitionsBehavior(session) == InsertExistingPartitionsBehavior.OVERWRITE
-                && isTransactionalTable(table.getParameters())
                 && writeInfo.getWriteMode() == DIRECT_TO_TARGET_EXISTING_DIRECTORY) {
-            throw new TrinoException(NOT_SUPPORTED, "Overwriting existing partition in transactional tables doesn't support DIRECT_TO_TARGET_EXISTING_DIRECTORY write mode");
+            if (isTransactionalTable(table.getParameters())) {
+                throw new TrinoException(NOT_SUPPORTED, "Overwriting existing partition in transactional tables doesn't support DIRECT_TO_TARGET_EXISTING_DIRECTORY write mode");
+            }
+            // This check is required to prevent using partition overwrite operation during user managed transactions
+            // Partition overwrite operation is nonatomic thus can't and shouldn't be used in non autocommit context.
+            if (!session.isAutoCommitContext()) {
+                throw new TrinoException(NOT_SUPPORTED, "Overwriting existing partition in non auto commit context doesn't support DIRECT_TO_TARGET_EXISTING_DIRECTORY write mode");
+            }
         }
         metastore.declareIntentionToWrite(session, writeInfo.getWriteMode(), writeInfo.getWritePath(), tableName);
         return result;
