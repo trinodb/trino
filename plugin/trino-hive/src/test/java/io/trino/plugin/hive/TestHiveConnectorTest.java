@@ -355,7 +355,7 @@ public class TestHiveConnectorTest
     @DataProvider
     public Object[][] queryPartitionFilterRequiredSchemasDataProvider()
     {
-        return new Object[][]{
+        return new Object[][] {
                 {"[]"},
                 {"[\"tpch\"]"}
         };
@@ -1834,61 +1834,73 @@ public class TestHiveConnectorTest
         assertUpdate("DROP TABLE test_show_properties");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Partition keys must be the last columns in the table and in the same order as the table properties.*")
+    @Test
     public void testCreatePartitionedTableInvalidColumnOrdering()
     {
-        assertUpdate("" +
+        assertThatThrownBy(() -> getQueryRunner().execute("" +
                 "CREATE TABLE test_create_table_invalid_column_ordering\n" +
                 "(grape bigint, apple varchar, orange bigint, pear varchar)\n" +
-                "WITH (partitioned_by = ARRAY['apple'])");
+                "WITH (partitioned_by = ARRAY['apple'])"))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageMatching("Partition keys must be the last columns in the table and in the same order as the table properties.*");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Partition keys must be the last columns in the table and in the same order as the table properties.*")
+    @Test
     public void testCreatePartitionedTableAsInvalidColumnOrdering()
     {
-        assertUpdate("" +
+        assertThatThrownBy(() -> getQueryRunner().execute("" +
                 "CREATE TABLE test_create_table_as_invalid_column_ordering " +
                 "WITH (partitioned_by = ARRAY['SHIP_PRIORITY', 'ORDER_STATUS']) " +
                 "AS " +
                 "SELECT shippriority AS ship_priority, orderkey AS order_key, orderstatus AS order_status " +
-                "FROM tpch.tiny.orders");
+                "FROM tpch.tiny.orders"))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageMatching("Partition keys must be the last columns in the table and in the same order as the table properties.*");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Table contains only partition columns")
+    @Test
     public void testCreateTableOnlyPartitionColumns()
     {
-        assertUpdate("" +
+        assertThatThrownBy(() -> getQueryRunner().execute("" +
                 "CREATE TABLE test_create_table_only_partition_columns\n" +
                 "(grape bigint, apple varchar, orange bigint, pear varchar)\n" +
-                "WITH (partitioned_by = ARRAY['grape', 'apple', 'orange', 'pear'])");
+                "WITH (partitioned_by = ARRAY['grape', 'apple', 'orange', 'pear'])"))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("Table contains only partition columns");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Partition columns .* not present in schema")
+    @Test
     public void testCreateTableNonExistentPartitionColumns()
     {
-        assertUpdate("" +
+        assertThatThrownBy(() -> getQueryRunner().execute("" +
                 "CREATE TABLE test_create_table_nonexistent_partition_columns\n" +
                 "(grape bigint, apple varchar, orange bigint, pear varchar)\n" +
-                "WITH (partitioned_by = ARRAY['dragonfruit'])");
+                "WITH (partitioned_by = ARRAY['dragonfruit'])"))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageMatching("Partition columns .* not present in schema");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Unsupported type .* for partition: .*")
+    @Test
     public void testCreateTableUnsupportedPartitionType()
     {
-        assertUpdate("" +
+        assertThatThrownBy(() -> getQueryRunner().execute("" +
                 "CREATE TABLE test_create_table_unsupported_partition_type " +
                 "(foo bigint, bar ARRAY(varchar)) " +
-                "WITH (partitioned_by = ARRAY['bar'])");
+                "WITH (partitioned_by = ARRAY['bar'])"))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageMatching("Unsupported type .* for partition: .*");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Unsupported type .* for partition: a")
+    @Test
     public void testCreateTableUnsupportedPartitionTypeAs()
     {
-        assertUpdate("" +
+        assertThatThrownBy(() -> getQueryRunner().execute("" +
                 "CREATE TABLE test_create_table_unsupported_partition_type_as " +
                 "WITH (partitioned_by = ARRAY['a']) " +
                 "AS " +
-                "SELECT 123 x, ARRAY ['foo'] a");
+                "SELECT 123 x, ARRAY ['foo'] a"))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageMatching("Unsupported type .* for partition: a");
     }
 
     @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Unsupported Hive type: varchar\\(65536\\)\\. Supported VARCHAR types: VARCHAR\\(<=65535\\), VARCHAR\\.")
