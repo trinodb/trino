@@ -1163,9 +1163,8 @@ public final class SortedRangeSet
 
         public String formatRange(ConnectorSession session)
         {
-            Optional<Object> singleValue = getSingleValue();
-            if (singleValue.isPresent()) {
-                return format("[%s]", singleValue.get());
+            if (isSingleValue()) {
+                return format("[%s]", type.getObjectValue(session, lowValueBlock, lowValuePosition));
             }
 
             Object lowValue = isLowUnbounded()
