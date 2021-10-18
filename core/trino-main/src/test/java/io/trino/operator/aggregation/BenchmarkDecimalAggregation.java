@@ -70,6 +70,7 @@ public class BenchmarkDecimalAggregation
     }
 
     @Benchmark
+    @OperationsPerInvocation(ELEMENT_COUNT)
     public Block benchmarkEvaluateIntermediate(BenchmarkData data)
     {
         GroupedAccumulator accumulator = data.getAccumulatorFactory().createGroupedAccumulator();
