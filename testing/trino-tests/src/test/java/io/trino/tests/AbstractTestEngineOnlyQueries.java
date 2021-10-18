@@ -5219,7 +5219,8 @@ public abstract class AbstractTestEngineOnlyQueries
                         .build()),
                 getQueryRunner().getMetadata().getSessionPropertyManager(),
                 getSession().getPreparedStatements(),
-                getSession().getProtocolHeaders());
+                getSession().getProtocolHeaders(),
+                Optional.empty());
         MaterializedResult result = computeActual(session, "SHOW SESSION");
 
         ImmutableMap<String, MaterializedRow> properties = Maps.uniqueIndex(result.getMaterializedRows(), input -> {
