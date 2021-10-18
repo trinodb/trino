@@ -150,23 +150,23 @@ public class TestUnscaledDecimal128Arithmetic
     @Test
     public void testAdd()
     {
-        assertEquals(add(unscaledDecimal(0), unscaledDecimal(0)), unscaledDecimal(0));
-        assertEquals(add(unscaledDecimal(1), unscaledDecimal(0)), unscaledDecimal(1));
-        assertEquals(add(unscaledDecimal(1), unscaledDecimal(1)), unscaledDecimal(2));
-        assertEquals(add(unscaledDecimal(-1), unscaledDecimal(0)), unscaledDecimal(-1));
-        assertEquals(add(unscaledDecimal(-1), unscaledDecimal(-1)), unscaledDecimal(-2));
-        assertEquals(add(unscaledDecimal(-1), unscaledDecimal(1)), unscaledDecimal(0));
-        assertEquals(add(unscaledDecimal(1), unscaledDecimal(-1)), unscaledDecimal(0));
-        assertEquals(add(unscaledDecimal("10000000000000000000000000000000000000"), unscaledDecimal(0)), unscaledDecimal("10000000000000000000000000000000000000"));
-        assertEquals(add(unscaledDecimal("10000000000000000000000000000000000000"), unscaledDecimal("10000000000000000000000000000000000000")), unscaledDecimal("20000000000000000000000000000000000000"));
-        assertEquals(add(unscaledDecimal("-10000000000000000000000000000000000000"), unscaledDecimal(0)), unscaledDecimal("-10000000000000000000000000000000000000"));
-        assertEquals(add(unscaledDecimal("-10000000000000000000000000000000000000"), unscaledDecimal("-10000000000000000000000000000000000000")), unscaledDecimal("-20000000000000000000000000000000000000"));
-        assertEquals(add(unscaledDecimal("-10000000000000000000000000000000000000"), unscaledDecimal("10000000000000000000000000000000000000")), unscaledDecimal(0));
-        assertEquals(add(unscaledDecimal("10000000000000000000000000000000000000"), unscaledDecimal("-10000000000000000000000000000000000000")), unscaledDecimal(0));
+        assertAdd(unscaledDecimal(0), unscaledDecimal(0), unscaledDecimal(0));
+        assertAdd(unscaledDecimal(1), unscaledDecimal(0), unscaledDecimal(1));
+        assertAdd(unscaledDecimal(1), unscaledDecimal(1), unscaledDecimal(2));
+        assertAdd(unscaledDecimal(-1), unscaledDecimal(0), unscaledDecimal(-1));
+        assertAdd(unscaledDecimal(-1), unscaledDecimal(-1), unscaledDecimal(-2));
+        assertAdd(unscaledDecimal(-1), unscaledDecimal(1), unscaledDecimal(0));
+        assertAdd(unscaledDecimal(1), unscaledDecimal(-1), unscaledDecimal(0));
+        assertAdd(unscaledDecimal("10000000000000000000000000000000000000"), unscaledDecimal(0), unscaledDecimal("10000000000000000000000000000000000000"));
+        assertAdd(unscaledDecimal("10000000000000000000000000000000000000"), unscaledDecimal("10000000000000000000000000000000000000"), unscaledDecimal("20000000000000000000000000000000000000"));
+        assertAdd(unscaledDecimal("-10000000000000000000000000000000000000"), unscaledDecimal(0), unscaledDecimal("-10000000000000000000000000000000000000"));
+        assertAdd(unscaledDecimal("-10000000000000000000000000000000000000"), unscaledDecimal("-10000000000000000000000000000000000000"), unscaledDecimal("-20000000000000000000000000000000000000"));
+        assertAdd(unscaledDecimal("-10000000000000000000000000000000000000"), unscaledDecimal("10000000000000000000000000000000000000"), unscaledDecimal(0));
+        assertAdd(unscaledDecimal("10000000000000000000000000000000000000"), unscaledDecimal("-10000000000000000000000000000000000000"), unscaledDecimal(0));
 
-        assertEquals(add(unscaledDecimal(1L << 32), unscaledDecimal(0)), unscaledDecimal(1L << 32));
-        assertEquals(add(unscaledDecimal(1L << 31), unscaledDecimal(1L << 31)), unscaledDecimal(1L << 32));
-        assertEquals(add(unscaledDecimal(1L << 32), unscaledDecimal(1L << 33)), unscaledDecimal((1L << 32) + (1L << 33)));
+        assertAdd(unscaledDecimal(1L << 32), unscaledDecimal(0), unscaledDecimal(1L << 32));
+        assertAdd(unscaledDecimal(1L << 31), unscaledDecimal(1L << 31), unscaledDecimal(1L << 32));
+        assertAdd(unscaledDecimal(1L << 32), unscaledDecimal(1L << 33), unscaledDecimal((1L << 32) + (1L << 33)));
     }
 
     @Test
@@ -550,6 +550,11 @@ public class TestUnscaledDecimal128Arithmetic
         assertEquals(shiftLeft(wrappedLongArray(0x0034567890ABCDEFL, 0L), 64 + 8), wrappedLongArray(0x0000000000000000L, 0x34567890ABCDEF00L));
         assertEquals(shiftLeft(wrappedLongArray(0x000000000000CDEFL, 0L), 64 + 48), wrappedLongArray(0x0000000000000000L, 0xCDEF000000000000L));
         assertEquals(shiftLeft(wrappedLongArray(0x1L, 0L), 64 + 63), wrappedLongArray(0x0000000000000000L, 0x8000000000000000L));
+    }
+
+    private void assertAdd(Slice left, Slice right, Slice result)
+    {
+        assertEquals(add(left, right), result);
     }
 
     private void assertAddReturnOverflow(BigInteger left, BigInteger right)
