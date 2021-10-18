@@ -1,0 +1,44 @@
+{
+    "tableName": "unparsed_logs",
+    "topicPrefix": "LP_Unparsed_RT",
+    "key": {
+        "dataFormat": "raw",
+        "fields": [{
+            "name": "kafka_key",
+            "dataFormat": "BYTE",
+            "type": "VARCHAR",
+            "hidden": "false"
+        }]
+    },
+    "message": {
+        "dataFormat": "protobuf",
+        "dynamic": true,
+        "fields": [
+            {
+                "name": "id",
+                "mapping": "id",
+                "type": "VARCHAR",
+                "dataFormat": "string"
+            },
+            {
+                "name": "log",
+                "mapping": "log",
+                "type": "VARCHAR",
+                "dataFormat": "string"
+            },
+            {
+                "name": "parsed",
+                "type": "BOOLEAN"
+            },
+            {
+                "name": "approx_log_time",
+                "type": "TIMESTAMP",
+                "dataFormat": "milliseconds-since-epoch"
+            },
+            {
+                "name": "fields",
+                "type": "MAP(varchar, varchar)"
+            }
+        ]
+    }
+}

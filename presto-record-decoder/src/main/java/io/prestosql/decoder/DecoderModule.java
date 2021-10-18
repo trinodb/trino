@@ -23,6 +23,8 @@ import io.prestosql.decoder.dummy.DummyRowDecoder;
 import io.prestosql.decoder.dummy.DummyRowDecoderFactory;
 import io.prestosql.decoder.json.JsonRowDecoder;
 import io.prestosql.decoder.json.JsonRowDecoderFactory;
+import io.prestosql.decoder.proto.ProtobufRowDecoder;
+import io.prestosql.decoder.proto.ProtobufRowDecoderFactory;
 import io.prestosql.decoder.raw.RawRowDecoder;
 import io.prestosql.decoder.raw.RawRowDecoderFactory;
 
@@ -51,6 +53,7 @@ public class DecoderModule
     public void configure(Binder binder)
     {
         MapBinder<String, RowDecoderFactory> decoderFactoriesByName = MapBinder.newMapBinder(binder, String.class, RowDecoderFactory.class);
+        decoderFactoriesByName.addBinding(ProtobufRowDecoder.NAME).to(ProtobufRowDecoderFactory.class).in(SINGLETON);
         decoderFactoriesByName.addBinding(DummyRowDecoder.NAME).to(DummyRowDecoderFactory.class).in(SINGLETON);
         decoderFactoriesByName.addBinding(CsvRowDecoder.NAME).to(CsvRowDecoderFactory.class).in(SINGLETON);
         decoderFactoriesByName.addBinding(JsonRowDecoder.NAME).to(JsonRowDecoderFactory.class).in(SINGLETON);

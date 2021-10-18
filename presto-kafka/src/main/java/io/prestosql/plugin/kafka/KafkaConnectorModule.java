@@ -64,6 +64,7 @@ public class KafkaConnectorModule
         bindTopicSchemaProviderModule(FileTableDescriptionSupplier.NAME, new FileTableDescriptionSupplierModule());
         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
         jsonCodecBinder(binder).bindJsonCodec(KafkaTopicDescription.class);
+        jsonCodecBinder(binder).bindJsonCodec(ECPKafkaTopicDescription.class);
 
         binder.install(new EncoderModule());
     }

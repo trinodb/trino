@@ -39,6 +39,7 @@
         <air.check.skip-spotbugs>true</air.check.skip-spotbugs>
         <air.check.skip-pmd>true</air.check.skip-pmd>
         <air.check.skip-jacoco>true</air.check.skip-jacoco>
+        <air.check.skip-checkstyle>true</air.check.skip-checkstyle>
 
         <project.build.targetJdk>11</project.build.targetJdk>
         <air.modernizer.java-version>8</air.modernizer.java-version>
@@ -61,6 +62,7 @@
         <dep.docker-java.version>3.2.5</dep.docker-java.version>
         <dep.joda.version>2.10.6</dep.joda.version>
         <dep.coral.version>1.0.12</dep.coral.version>
+        <dep.protobuf.version>3.14.0</dep.protobuf.version>
 
         <!--
           America/Bahia_Banderas has:
@@ -991,6 +993,12 @@
                 <groupId>com.google.errorprone</groupId>
                 <artifactId>error_prone_annotations</artifactId>
                 <version>${dep.errorprone.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.google.protobuf</groupId>
+                <artifactId>protobuf-java</artifactId>
+                <version>${dep.protobuf.version}</version>
             </dependency>
 
             <dependency>
