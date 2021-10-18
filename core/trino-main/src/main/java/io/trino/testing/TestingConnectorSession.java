@@ -79,6 +79,12 @@ public class TestingConnectorSession
     }
 
     @Override
+    public boolean isAutoCommitContext()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Optional<String> getSource()
     {
         return source;
