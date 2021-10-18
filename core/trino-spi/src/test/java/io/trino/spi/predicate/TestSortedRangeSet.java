@@ -91,6 +91,10 @@ public class TestSortedRangeSet
         assertTrue(rangeSet.containsValue(10L));
         assertFalse(rangeSet.containsValue(9L));
         assertEquals(rangeSet.toString(), "SortedRangeSet[type=bigint, ranges=1, {[10]}]");
+
+        assertEquals(
+                SortedRangeSet.of(Range.equal(VARCHAR, utf8Slice("LARGE PLATED NICKEL"))).toString(),
+                "SortedRangeSet[type=varchar, ranges=1, {[LARGE PLATED NICKEL]}]");
     }
 
     @Test
