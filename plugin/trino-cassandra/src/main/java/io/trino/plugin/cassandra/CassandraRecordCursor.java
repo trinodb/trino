@@ -140,6 +140,7 @@ public class CassandraRecordCursor
         CassandraType cassandraType = cassandraTypes.get(i);
         switch (cassandraType.getKind()) {
             case TUPLE:
+            case UDT:
                 return cassandraType.getColumnValue(currentRow, i).getValue();
             default:
                 throw new IllegalArgumentException("getObject cannot be called for " + cassandraType);
