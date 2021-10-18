@@ -236,7 +236,7 @@ public class PrimitiveColumnWriter
         // update total stats
         totalCompressedSize += pageHeader.size() + compressedSize;
         totalUnCompressedSize += pageHeader.size() + uncompressedSize;
-        totalRows += rowCount;
+        totalRows += valueCount;
 
         pageBuffer.addAll(dataOutputs);
 
