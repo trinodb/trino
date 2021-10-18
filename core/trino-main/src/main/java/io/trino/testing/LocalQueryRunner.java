@@ -192,6 +192,7 @@ import io.trino.sql.tree.StartTransaction;
 import io.trino.sql.tree.Statement;
 import io.trino.testing.PageConsumerOperator.PageConsumerOutputFactory;
 import io.trino.transaction.InMemoryTransactionManager;
+import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
 import io.trino.transaction.TransactionManagerConfig;
 import io.trino.type.BlockTypeOperators;
@@ -424,9 +425,10 @@ public class LocalQueryRunner
         connectorManager.createCatalog(GlobalSystemConnector.NAME, GlobalSystemConnector.NAME, ImmutableMap.of());
 
         // rewrite session to use managed SessionPropertyMetadata
+        Optional<TransactionId> transactionId = withInitialTransaction ? Optional.of(transactionManager.beginTransaction(false)) : defaultSession.getTransactionId();
         this.defaultSession = new Session(
                 defaultSession.getQueryId(),
-                withInitialTransaction ? Optional.of(transactionManager.beginTransaction(false)) : defaultSession.getTransactionId(),
+                transactionId,
                 defaultSession.isClientTransactionSupport(),
                 defaultSession.getIdentity(),
                 defaultSession.getSource(),
@@ -448,7 +450,8 @@ public class LocalQueryRunner
                 defaultSession.getUnprocessedCatalogProperties(),
                 metadata.getSessionPropertyManager(),
                 defaultSession.getPreparedStatements(),
-                defaultSession.getProtocolHeaders());
+                defaultSession.getProtocolHeaders(),
+                transactionId.map(tId -> transactionManager.getTransactionInfo(tId).isAutoCommitContext()));
 
         dataDefinitionTask = ImmutableMap.<Class<? extends Statement>, DataDefinitionTask<?>>builder()
                 .put(CreateTable.class, new CreateTableTask(featuresConfig))
