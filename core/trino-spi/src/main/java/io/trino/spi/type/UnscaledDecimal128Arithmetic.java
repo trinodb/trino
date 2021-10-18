@@ -45,13 +45,13 @@ public final class UnscaledDecimal128Arithmetic
     private static final int NUMBER_OF_INTS = 2 * NUMBER_OF_LONGS;
 
     public static final int UNSCALED_DECIMAL_128_SLICE_LENGTH = NUMBER_OF_LONGS * SIZE_OF_LONG;
+    public static final long SIGN_LONG_MASK = 1L << 63;
 
     private static final Slice[] POWERS_OF_TEN = new Slice[MAX_PRECISION];
     private static final Slice[] POWERS_OF_FIVE = new Slice[MAX_PRECISION];
 
     private static final int SIGN_LONG_INDEX = 1;
     private static final int SIGN_INT_INDEX = 3;
-    private static final long SIGN_LONG_MASK = 1L << 63;
     private static final int SIGN_INT_MASK = 1 << 31;
     private static final int SIGN_BYTE_MASK = 1 << 7;
     private static final long ALL_BITS_SET_64 = 0xFFFFFFFFFFFFFFFFL;
@@ -182,6 +182,26 @@ public final class UnscaledDecimal128Arithmetic
         reverse(bytes);
         bytes[0] &= ~SIGN_BYTE_MASK;
         return new BigInteger(isNegative(decimal) ? -1 : 1, bytes);
+    }
+
+    public static BigInteger unscaledDecimalToBigInteger(long rawLow, long rawHigh)
+    {
+        byte[] bytes = new byte[16];
+        // convert to big-endian order
+        toByteArray(rawHigh, bytes, 0);
+        toByteArray(rawLow, bytes, 8);
+        bytes[0] &= ~SIGN_BYTE_MASK;
+        return new BigInteger(isNegative(rawHigh) ? -1 : 1, bytes);
+    }
+
+    public static byte[] toByteArray(long value, byte[] result, int offset)
+    {
+        // copied from Guava Longs#toByteArray
+        for (int i = 7; i >= 0; i--) {
+            result[i + offset] = (byte) (value & 0xffL);
+            value >>= 8;
+        }
+        return result;
     }
 
     public static long unscaledDecimalToUnscaledLong(Slice decimal)
@@ -345,6 +365,21 @@ public final class UnscaledDecimal128Arithmetic
         }
     }
 
+    // only visible for testing
+    static void add(
+            long leftRawLow,
+            long leftRawHigh,
+            long rightRawLow,
+            long rightRawHigh,
+            long[] result,
+            int resultOffset)
+    {
+        long overflow = addWithOverflow(leftRawLow, leftRawHigh, rightRawLow, rightRawHigh, result, resultOffset);
+        if (overflow != 0) {
+            throwOverflowException();
+        }
+    }
+
     /**
      * Instead of throwing overflow exception, this function returns:
      * 0 when there was no overflow
@@ -373,6 +408,41 @@ public final class UnscaledDecimal128Arithmetic
             }
             else {
                 setToZero(result);
+            }
+        }
+        return overflow;
+    }
+
+    public static long addWithOverflow(
+            long leftRawLow,
+            long leftRawHigh,
+            long rightRawLow,
+            long rightRawHigh,
+            long[] result,
+            int resultOffset)
+    {
+        boolean leftNegative = isNegative(leftRawHigh);
+        boolean rightNegative = isNegative(rightRawHigh);
+        long overflow = 0;
+        if (leftNegative == rightNegative) {
+            // either both negative or both positive
+            overflow = addUnsignedReturnOverflow(leftRawLow, leftRawHigh, rightRawLow, rightRawHigh, result, resultOffset, leftNegative);
+            if (leftNegative) {
+                overflow = -overflow;
+            }
+        }
+        else {
+            int compare = compareAbsolute(leftRawLow, leftRawHigh, rightRawLow, rightRawHigh);
+            if (compare > 0) {
+                subtractUnsigned(leftRawLow, leftRawHigh, rightRawLow, rightRawHigh, result, resultOffset, leftNegative);
+            }
+            else if (compare < 0) {
+                subtractUnsigned(rightRawLow, rightRawHigh, leftRawLow, leftRawHigh, result, resultOffset, !leftNegative);
+            }
+            else {
+                // set to 0
+                result[resultOffset] = 0;
+                result[resultOffset + 1] = 0;
             }
         }
         return overflow;
@@ -431,6 +501,28 @@ public final class UnscaledDecimal128Arithmetic
         return intermediateResult >>> 63;
     }
 
+    private static long addUnsignedReturnOverflow(
+            long leftRawLow,
+            long leftRawHigh,
+            long rightRawLow,
+            long rightRawHigh,
+            long[] result,
+            int resultOffset,
+            boolean resultNegative)
+    {
+        long leftHigh = unpackUnsignedLong(leftRawHigh);
+        long rightHigh = unpackUnsignedLong(rightRawHigh);
+
+        long z0 = leftRawLow + rightRawLow;
+        int overflow = unsignedIsSmaller(z0, leftRawLow) ? 1 : 0;
+
+        long intermediateResult = leftHigh + rightHigh + overflow;
+        long z1 = intermediateResult & (~SIGN_LONG_MASK);
+        pack(z0, z1, resultNegative, result, resultOffset);
+
+        return intermediateResult >>> 63;
+    }
+
     /**
      * This method ignores signs of the left and right and assumes that left is greater then right
      */
@@ -447,6 +539,22 @@ public final class UnscaledDecimal128Arithmetic
         long z1 = l1 - r1 - underflow;
 
         pack(result, z0, z1, resultNegative);
+    }
+
+    private static void subtractUnsigned(
+            long leftRawLow,
+            long leftRawHigh,
+            long rightRawLow,
+            long rightRawHigh,
+            long[] result,
+            int resultOffset,
+            boolean resultNegative)
+    {
+        long z0 = leftRawLow - rightRawLow;
+        int underflow = unsignedIsSmaller(leftRawLow, z0) ? 1 : 0;
+        long z1 = unpackUnsignedLong(leftRawHigh) - unpackUnsignedLong(rightRawHigh) - underflow;
+
+        pack(z0, z1, resultNegative, result, resultOffset);
     }
 
     public static Slice multiply(Slice left, Slice right)
@@ -918,6 +1026,25 @@ public final class UnscaledDecimal128Arithmetic
         return 0;
     }
 
+    public static int compareAbsolute(
+            long leftRawLow,
+            long leftRawHigh,
+            long rightRawLow,
+            long rightRawHigh)
+    {
+        long leftHigh = unpackUnsignedLong(leftRawHigh);
+        long rightHigh = unpackUnsignedLong(rightRawHigh);
+        if (leftHigh != rightHigh) {
+            return Long.compareUnsigned(leftHigh, rightHigh);
+        }
+
+        if (leftRawLow != rightRawLow) {
+            return Long.compareUnsigned(leftRawLow, rightRawLow);
+        }
+
+        return 0;
+    }
+
     public static int compareUnsigned(long leftRawLow, long leftRawHigh, long rightRawLow, long rightRawHigh)
     {
         if (leftRawHigh != rightRawHigh) {
@@ -1010,6 +1137,13 @@ public final class UnscaledDecimal128Arithmetic
     public static void throwIfOverflows(Slice decimal)
     {
         if (exceedsOrEqualTenToThirtyEight(decimal)) {
+            throwOverflowException();
+        }
+    }
+
+    public static void throwIfOverflows(long rawLow, long rawHigh)
+    {
+        if (exceedsOrEqualTenToThirtyEight(rawLow, rawHigh)) {
             throwOverflowException();
         }
     }
@@ -1830,6 +1964,22 @@ public final class UnscaledDecimal128Arithmetic
 
         long low = getLong(decimal, 0);
         return low < 0 || low >= 0x098a224000000000L;
+    }
+
+    private static boolean exceedsOrEqualTenToThirtyEight(long rawLow, long rawHigh)
+    {
+        // 10**38=
+        // i0 = 0(0), i1 = 160047680(98a22400), i2 = 1518781562(5a86c47a), i3 = 1262177448(4b3b4ca8)
+        // low = 0x98a2240000000000l, high = 0x4b3b4ca85a86c47al
+        long high = unpackUnsignedLong(rawHigh);
+        if (high >= 0 && high < 0x4b3b4ca85a86c47aL) {
+            return false;
+        }
+        if (high != 0x4b3b4ca85a86c47aL) {
+            return true;
+        }
+
+        return rawLow < 0 || rawLow >= 0x098a224000000000L;
     }
 
     private static void reverse(final byte[] a)
