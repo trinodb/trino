@@ -5,6 +5,8 @@ on:
     branches:
       - master
   pull_request:
+    paths-ignore:
+      - 'docs/**'
 
 env:
   # An envar that signals to tests we are executing in the CI environment
