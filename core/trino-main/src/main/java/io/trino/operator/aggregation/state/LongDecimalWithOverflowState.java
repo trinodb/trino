@@ -13,7 +13,6 @@
  */
 package io.trino.operator.aggregation.state;
 
-import io.airlift.slice.Slice;
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateMetadata;
 
@@ -21,9 +20,13 @@ import io.trino.spi.function.AccumulatorStateMetadata;
 public interface LongDecimalWithOverflowState
         extends AccumulatorState
 {
-    Slice getLongDecimal();
+    boolean isNotNull();
 
-    void setLongDecimal(Slice unscaledDecimal);
+    void setNotNull();
+
+    long[] getDecimalArray();
+
+    int getDecimalArrayOffset();
 
     long getOverflow();
 

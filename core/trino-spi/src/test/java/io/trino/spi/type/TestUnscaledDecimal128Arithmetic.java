@@ -43,6 +43,7 @@ import static io.trino.spi.type.UnscaledDecimal128Arithmetic.shiftLeftDestructiv
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.shiftLeftMultiPrecision;
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.shiftRight;
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.shiftRightMultiPrecision;
+import static io.trino.spi.type.UnscaledDecimal128Arithmetic.throwIfOverflows;
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.toUnscaledString;
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimalToBigInteger;
@@ -167,6 +168,18 @@ public class TestUnscaledDecimal128Arithmetic
         assertAdd(unscaledDecimal(1L << 32), unscaledDecimal(0), unscaledDecimal(1L << 32));
         assertAdd(unscaledDecimal(1L << 31), unscaledDecimal(1L << 31), unscaledDecimal(1L << 32));
         assertAdd(unscaledDecimal(1L << 32), unscaledDecimal(1L << 33), unscaledDecimal((1L << 32) + (1L << 33)));
+    }
+
+    @Test
+    public void testThrowIfOverflows()
+    {
+        Slice decimal = add(unscaledDecimal(MAX_DECIMAL_UNSCALED_VALUE), unscaledDecimal(1));
+        assertThatThrownBy(() -> throwIfOverflows(decimal))
+                .isInstanceOf(ArithmeticException.class)
+                .hasMessage("Decimal overflow");
+        assertThatThrownBy(() -> throwIfOverflows(decimal.getLong(0), decimal.getLong(SIZE_OF_LONG)))
+                .isInstanceOf(ArithmeticException.class)
+                .hasMessage("Decimal overflow");
     }
 
     @Test
@@ -555,18 +568,38 @@ public class TestUnscaledDecimal128Arithmetic
     private void assertAdd(Slice left, Slice right, Slice result)
     {
         assertEquals(add(left, right), result);
+
+        // test with array based version of the method
+        long[] resultArray = new long[2];
+        add(
+                left.getLong(0),
+                left.getLong(SIZE_OF_LONG),
+                right.getLong(0),
+                right.getLong(SIZE_OF_LONG),
+                resultArray,
+                0);
+        assertEquals(unscaledDecimalToBigInteger(resultArray[0], resultArray[1]), unscaledDecimalToBigInteger(result));
     }
 
     private void assertAddReturnOverflow(BigInteger left, BigInteger right)
     {
         Slice result = unscaledDecimal();
-        long overflow = addWithOverflow(unscaledDecimal(left), unscaledDecimal(right), result);
+        Slice leftSlice = unscaledDecimal(left);
+        Slice rightSlice = unscaledDecimal(right);
+        long overflow = addWithOverflow(leftSlice, rightSlice, result);
 
         BigInteger actual = unscaledDecimalToBigInteger(result);
         BigInteger expected = left.add(right).remainder(TWO.pow(UnscaledDecimal128Arithmetic.UNSCALED_DECIMAL_128_SLICE_LENGTH * 8 - 1));
         BigInteger expectedOverflow = left.add(right).divide(TWO.pow(UnscaledDecimal128Arithmetic.UNSCALED_DECIMAL_128_SLICE_LENGTH * 8 - 1));
 
         assertEquals(actual, expected);
+        assertEquals(overflow, expectedOverflow.longValueExact());
+
+        // test with array based version of the method
+        long[] resultArray = new long[2];
+        overflow = addWithOverflow(leftSlice.getLong(0), leftSlice.getLong(SIZE_OF_LONG), rightSlice.getLong(0), rightSlice.getLong(SIZE_OF_LONG), resultArray, 0);
+
+        assertEquals(unscaledDecimalToBigInteger(resultArray[0], resultArray[1]), expected);
         assertEquals(overflow, expectedOverflow.longValueExact());
     }
 

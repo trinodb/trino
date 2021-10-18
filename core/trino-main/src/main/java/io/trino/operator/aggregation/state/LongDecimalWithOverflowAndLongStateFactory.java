@@ -79,7 +79,7 @@ public class LongDecimalWithOverflowAndLongStateFactory
         @Override
         public long getEstimatedSize()
         {
-            return INSTANCE_SIZE + unscaledDecimals.sizeOf() + (numberOfElements * SingleLongDecimalWithOverflowAndLongState.SIZE) + (overflows == null ? 0 : overflows.sizeOf());
+            return INSTANCE_SIZE + isNotNull.sizeOf() + unscaledDecimals.sizeOf() + (overflows == null ? 0 : overflows.sizeOf());
         }
     }
 
@@ -112,9 +112,6 @@ public class LongDecimalWithOverflowAndLongStateFactory
         @Override
         public long getEstimatedSize()
         {
-            if (getLongDecimal() == null) {
-                return INSTANCE_SIZE;
-            }
             return INSTANCE_SIZE + SIZE;
         }
     }
