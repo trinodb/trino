@@ -202,7 +202,7 @@ public interface WorkProcessor<T>
     @Immutable
     final class TransformationState<T>
     {
-        private static final TransformationState<?> NEEDS_MORE_DATE_STATE = new TransformationState<>(Type.NEEDS_MORE_DATA, true, null, null);
+        private static final TransformationState<?> NEEDS_MORE_DATA_STATE = new TransformationState<>(Type.NEEDS_MORE_DATA, true, null, null);
         private static final TransformationState<?> YIELD_STATE = new TransformationState<>(Type.YIELD, false, null, null);
         private static final TransformationState<?> FINISHED_STATE = new TransformationState<>(Type.FINISHED, false, null, null);
 
@@ -238,7 +238,7 @@ public interface WorkProcessor<T>
         @SuppressWarnings("unchecked")
         public static <T> TransformationState<T> needsMoreData()
         {
-            return (TransformationState<T>) NEEDS_MORE_DATE_STATE;
+            return (TransformationState<T>) NEEDS_MORE_DATA_STATE;
         }
 
         /**
