@@ -660,6 +660,45 @@ features:
 
 * :ref:`sql-security-operations`, see also :ref:`hive-sql-standard-based-authorization`
 
+.. _hive-alter-table-execute:
+
+ALTER TABLE EXECUTE
+^^^^^^^^^^^^^^^^^^^
+
+The connector supports the following commands for use with
+:ref:`ALTER TABLE EXECUTE <alter-table-execute>`:
+
+* ``optimize``: collapse files in transactional tables up to a threshold
+  defined in the ``file_size_threshold`` parameter. For example, the following
+  statement collapses files in a table that are under 10 megabytes in size:
+
+  .. code-block:: sql
+
+    ALTER TABLE test_table EXECUTE optimize(file_size_threshold => '10MB')
+
+  You can use a ``WHERE`` clause with the columns used to partition the table,
+  to filter which partitions are optimized.
+
+  The ``optimize`` procedure is disabled by default, and can be enabled for a
+  catalog with the ``<catalog-name>.non_transactional_optimize_enabled``
+  session property:
+
+  .. code-block:: sql
+
+    SET SESSION <catalog_name>.non_transactional_optimize_enabled=true
+
+.. warning::
+
+  Because Hive tables are non-transactional, take note of the following possible
+  outcomes:
+
+  * If queries are run against tables that are currently being optimized,
+    duplicate rows may be read.
+  * In rare cases where exceptions occur during the ``optimize`` operation,
+    a manual cleanup of the table directory is needed. In this situation, refer
+    to the Trino logs and query failure messages to see which files need to be
+    deleted.
+
 .. _hive-data-management:
 
 Data management
