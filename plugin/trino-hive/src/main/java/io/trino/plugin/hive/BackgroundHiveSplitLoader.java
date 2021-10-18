@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Streams;
@@ -212,7 +213,9 @@ public class BackgroundHiveSplitLoader
         this.transaction = requireNonNull(transaction, "transaction is null");
         this.compactEffectivePredicate = compactEffectivePredicate;
         this.dynamicFilter = dynamicFilter;
-        this.dynamicFilteringProbeBlockingTimeoutMillis = dynamicFilteringProbeBlockingTimeout.toMillis();
+        this.dynamicFilteringProbeBlockingTimeoutMillis = shouldWaitForDynamicFilter(dynamicFilter, tableBucketInfo)
+                ? dynamicFilteringProbeBlockingTimeout.toMillis()
+                : 0;
         this.typeManager = typeManager;
         this.tableBucketInfo = tableBucketInfo;
         this.loaderConcurrency = loaderConcurrency;
@@ -229,6 +232,20 @@ public class BackgroundHiveSplitLoader
         this.hdfsContext = new HdfsContext(session);
         this.validWriteIds = requireNonNull(validWriteIds, "validWriteIds is null");
         this.maxSplitFileSize = requireNonNull(maxSplitFileSize, "maxSplitFileSize is null");
+    }
+
+    private boolean shouldWaitForDynamicFilter(DynamicFilter dynamicFilter, Optional<BucketSplitInfo> tableBucketInfo)
+    {
+        if (!dynamicFilter.isAwaitable()) {
+            return false;
+        }
+        Set<HiveColumnHandle> bucketingColumns = tableBucketInfo
+                .map(BucketSplitInfo::getBucketColumns)
+                .map(ImmutableSet::copyOf)
+                .orElseGet(ImmutableSet::of);
+        return dynamicFilter.getColumnsCovered().stream()
+                .map(HiveColumnHandle.class::cast)
+                .anyMatch(column -> column.isPartitionKey() || bucketingColumns.contains(column));
     }
 
     @Override
