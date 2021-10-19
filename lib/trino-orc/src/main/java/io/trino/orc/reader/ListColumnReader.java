@@ -39,7 +39,7 @@ import java.time.ZoneId;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.trino.orc.OrcReader.ProjectedLayout.fullyProjectedLayout;
+import static io.trino.orc.OrcReader.fullyProjectedLayout;
 import static io.trino.orc.metadata.Stream.StreamKind.LENGTH;
 import static io.trino.orc.metadata.Stream.StreamKind.PRESENT;
 import static io.trino.orc.reader.ColumnReaders.createColumnReader;
