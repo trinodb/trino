@@ -193,10 +193,10 @@ public class ConnectorManager
         requireNonNull(connectorName, "connectorName is null");
         InternalConnectorFactory connectorFactory = connectorFactories.get(connectorName);
         checkArgument(connectorFactory != null, "No factory for connector '%s'.  Available factories: %s", connectorName, connectorFactories.keySet());
-        return createCatalog(catalogName, connectorFactory, properties);
+        return createCatalog(catalogName, connectorName, connectorFactory, properties);
     }
 
-    private synchronized CatalogName createCatalog(String catalogName, InternalConnectorFactory connectorFactory, Map<String, String> properties)
+    private synchronized CatalogName createCatalog(String catalogName, String connectorName, InternalConnectorFactory connectorFactory, Map<String, String> properties)
     {
         checkState(!stopped.get(), "ConnectorManager is stopped");
         requireNonNull(catalogName, "catalogName is null");
@@ -207,12 +207,12 @@ public class ConnectorManager
         CatalogName catalog = new CatalogName(catalogName);
         checkState(!connectors.containsKey(catalog), "Catalog '%s' already exists", catalog);
 
-        createCatalog(catalog, connectorFactory, properties);
+        createCatalog(catalog, connectorName, connectorFactory, properties);
 
         return catalog;
     }
 
-    private synchronized void createCatalog(CatalogName catalogName, InternalConnectorFactory factory, Map<String, String> properties)
+    private synchronized void createCatalog(CatalogName catalogName, String connectorName, InternalConnectorFactory factory, Map<String, String> properties)
     {
         // create all connectors before adding, so a broken connector does not leave the system half updated
         MaterializedConnector connector = new MaterializedConnector(catalogName, createConnector(catalogName, factory, properties));
@@ -249,6 +249,7 @@ public class ConnectorManager
         Catalog catalog = new Catalog(
                 catalogName.getCatalogName(),
                 connector.getCatalogName(),
+                connectorName,
                 connector.getConnector(),
                 securityManagement,
                 informationSchemaConnector.getCatalogName(),
