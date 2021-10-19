@@ -111,7 +111,7 @@ public class TestSnowflakeInstanceCleaner
             handle.execute("USE DATABASE " + TEST_DATABASE);
             objectsToDrop.forEach(snowflakeObject -> {
                 String dropStatement = getDropStatement(snowflakeObject.schemaName, snowflakeObject.tableName, snowflakeObject.tableType);
-                LOG.info("Executing: " + dropStatement);
+                LOG.info("Executing: %s", dropStatement);
                 handle.execute(dropStatement);
             });
         }
