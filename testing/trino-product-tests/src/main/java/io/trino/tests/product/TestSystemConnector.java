@@ -13,9 +13,11 @@
  */
 package io.trino.tests.product;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.tempto.ProductTest;
 import org.testng.annotations.Test;
 
+import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.product.TestGroups.JDBC;
@@ -114,6 +116,10 @@ public class TestSystemConnector
         String sql = "select catalog_name, connector_id, connector_name from system.metadata.catalogs";
         assertThat(query(sql))
                 .hasColumns(VARCHAR, VARCHAR, VARCHAR)
-                .hasAnyRows();
+                .contains(
+                        ImmutableList.of(
+                                row("jmx", "jmx", "jmx"),
+                                row("system", "system", "system"),
+                                row("tpch", "tpch", "tpch")));
     }
 }
