@@ -284,7 +284,7 @@ public class ShardRecoveryManager
             Files.move(file.toPath(), quarantine.toPath(), ATOMIC_MOVE);
         }
         catch (IOException e) {
-            log.warn(e, "Quarantine of corrupt file failed: " + quarantine);
+            log.warn(e, "Quarantine of corrupt file failed: %s", quarantine);
             file.delete();
         }
     }

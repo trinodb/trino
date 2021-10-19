@@ -675,7 +675,7 @@ public abstract class AbstractTestHive
                 deleteRecursively(temporaryStagingDirectory, ALLOW_INSECURE);
             }
             catch (Exception e) {
-                log.warn(e, "Error deleting " + temporaryStagingDirectory);
+                log.warn(e, "Error deleting %s", temporaryStagingDirectory);
             }
         }
     }

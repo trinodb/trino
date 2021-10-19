@@ -62,7 +62,6 @@ import static io.trino.plugin.hive.HiveType.HIVE_STRING;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.trino.plugin.hive.util.HiveUtil.SPARK_TABLE_PROVIDER_KEY;
 import static io.trino.testing.TestingConnectorSession.SESSION;
-import static java.lang.String.format;
 import static java.nio.file.Files.copy;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
@@ -267,7 +266,7 @@ public abstract class AbstractTestHiveLocal
             throws IOException
     {
         java.nio.file.Path tempDir = java.nio.file.Files.createTempDirectory(getClass().getSimpleName()).normalize();
-        log.info(format("Copying resource dir '%s' to %s", resourceName, tempDir));
+        log.info("Copying resource dir '%s' to %s", resourceName, tempDir);
         ClassPath.from(getClass().getClassLoader())
                 .getResources().stream()
                 .filter(resourceInfo -> resourceInfo.getResourceName().startsWith(resourceName))
