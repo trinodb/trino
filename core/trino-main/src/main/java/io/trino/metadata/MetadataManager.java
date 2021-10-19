@@ -1562,7 +1562,8 @@ public final class MetadataManager
             TableHandle table,
             List<AggregateFunction> aggregations,
             Map<String, ColumnHandle> assignments,
-            List<List<ColumnHandle>> groupingSets)
+            List<List<ColumnHandle>> groupingSets,
+            Set<String> requiredColumns)
     {
         // Global aggregation is represented by [[]]
         checkArgument(!groupingSets.isEmpty(), "No grouping sets provided");
@@ -1575,7 +1576,7 @@ public final class MetadataManager
         }
 
         ConnectorSession connectorSession = session.toConnectorSession(catalogName);
-        return metadata.applyAggregation(connectorSession, table.getConnectorHandle(), aggregations, assignments, groupingSets)
+        return metadata.applyAggregation(connectorSession, table.getConnectorHandle(), aggregations, assignments, groupingSets, requiredColumns)
                 .map(result -> {
                     verifyProjection(table, result.getProjections(), result.getAssignments(), aggregations.size());
 

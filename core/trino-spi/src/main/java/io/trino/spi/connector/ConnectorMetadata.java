@@ -1086,7 +1086,8 @@ public interface ConnectorMetadata
             ConnectorTableHandle handle,
             List<AggregateFunction> aggregates,
             Map<String, ColumnHandle> assignments,
-            List<List<ColumnHandle>> groupingSets)
+            List<List<ColumnHandle>> groupingSets,
+            Set<String> requiredColumns)
     {
         return Optional.empty();
     }

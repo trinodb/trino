@@ -34,6 +34,7 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -249,7 +250,8 @@ public class TestDefaultJdbcMetadata
                 handle,
                 ImmutableList.of(new AggregateFunction("count", BIGINT, List.of(), List.of(), false, Optional.empty())),
                 ImmutableMap.of(),
-                ImmutableList.of(ImmutableList.of(groupByColumn)));
+                ImmutableList.of(ImmutableList.of(groupByColumn)),
+                Collections.emptySet());
 
         ConnectorTableHandle baseTableHandle = metadata.getTableHandle(session, new SchemaTableName("example", "numbers"));
         Optional<AggregationApplicationResult<ConnectorTableHandle>> aggregationResult = applyAggregation.apply(baseTableHandle);
@@ -371,7 +373,8 @@ public class TestDefaultJdbcMetadata
                 tableHandle,
                 ImmutableList.of(new AggregateFunction("count", BIGINT, List.of(), List.of(), false, Optional.empty())),
                 ImmutableMap.of(),
-                groupByColumns);
+                groupByColumns,
+                Collections.emptySet());
         assertThat(aggResult).isPresent();
         return (JdbcTableHandle) aggResult.get().getHandle();
     }

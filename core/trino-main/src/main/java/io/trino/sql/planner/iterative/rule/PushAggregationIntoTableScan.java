@@ -43,11 +43,13 @@ import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.SymbolReference;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Verify.verify;
@@ -146,12 +148,16 @@ public class PushAggregationIntoTableScan
                 .map(groupByColumn -> assignments.get(groupByColumn.getName()))
                 .collect(toImmutableList());
 
+        // TODO FIXME How to get columns required by upstream query?
+        Set<String> requiredColumns = Collections.emptySet();
+
         Optional<AggregationApplicationResult<TableHandle>> aggregationPushdownResult = metadata.applyAggregation(
                 context.getSession(),
                 tableScan.getTable(),
                 aggregateFunctions,
                 assignments,
-                ImmutableList.of(groupByColumns));
+                ImmutableList.of(groupByColumns),
+                requiredColumns);
 
         if (aggregationPushdownResult.isEmpty()) {
             return Optional.empty();
