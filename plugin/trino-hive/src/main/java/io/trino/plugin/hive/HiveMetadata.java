@@ -2154,7 +2154,7 @@ public class HiveMetadata
             // Until table is cleaned up there will duplicate rows present.
             metastore.dropDeclaredIntentionToWrite(handle.getWriteDeclarationId().get());
             String errorMessage = "Error while deleting data files in FINISH phase of OPTIMIZE for table " + table.getTableName() + "; remaining files need to be deleted manually:  " + remainingFilesToDelete;
-            log.error(e, errorMessage);
+            log.error(e, "%s", errorMessage);
             throw new TrinoException(HIVE_FILESYSTEM_ERROR, errorMessage, e);
         }
     }

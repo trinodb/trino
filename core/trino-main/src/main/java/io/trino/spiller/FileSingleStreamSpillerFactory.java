@@ -147,11 +147,11 @@ public class FileSingleStreamSpillerFactory
         try (DirectoryStream<Path> stream = newDirectoryStream(path, SPILL_FILE_GLOB)) {
             stream.forEach(spillFile -> {
                 try {
-                    log.info("Deleting old spill file: " + spillFile);
+                    log.info("Deleting old spill file: %s", spillFile);
                     delete(spillFile);
                 }
                 catch (Exception e) {
-                    log.warn("Could not cleanup old spill file: " + spillFile);
+                    log.warn("Could not cleanup old spill file: %s", spillFile);
                 }
             });
         }

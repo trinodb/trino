@@ -123,7 +123,7 @@ public class LdapAuthenticator
                     String groupSearch = replaceUser(groupAuthorizationSearchPattern.get(), user);
                     if (!client.isGroupMember(searchBase, groupSearch, userDistinguishedName, credential.getPassword())) {
                         String message = format("User [%s] not a member of an authorized group", user);
-                        log.debug(message);
+                        log.debug("%s", message);
                         throw new AccessDeniedException(message);
                     }
                 }
@@ -186,12 +186,12 @@ public class LdapAuthenticator
         Set<String> userDistinguishedNames = client.lookupUserDistinguishedNames(searchBase, searchFilter, bindDistinguishedName.orElseThrow(), bindPassword.orElseThrow());
         if (userDistinguishedNames.isEmpty()) {
             String message = format("User [%s] not a member of an authorized group", user);
-            log.debug(message);
+            log.debug("%s", message);
             throw new AccessDeniedException(message);
         }
         if (userDistinguishedNames.size() > 1) {
             String message = format("Multiple group membership results for user [%s]: %s", user, userDistinguishedNames);
-            log.debug(message);
+            log.debug("%s", message);
             throw new AccessDeniedException(message);
         }
         return getOnlyElement(userDistinguishedNames);

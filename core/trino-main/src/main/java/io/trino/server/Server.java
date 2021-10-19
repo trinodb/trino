@@ -152,7 +152,7 @@ public class Server
             addMessages(message, "Warnings", ImmutableList.copyOf(e.getWarnings()));
             message.append("\n");
             message.append("==========");
-            log.error(message.toString());
+            log.error("%s", message);
             System.exit(1);
         }
         catch (Throwable e) {
