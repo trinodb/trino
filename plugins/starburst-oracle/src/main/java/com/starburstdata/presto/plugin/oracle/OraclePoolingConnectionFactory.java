@@ -172,7 +172,7 @@ public class OraclePoolingConnectionFactory
             poolManager.stopConnectionPool(dataSource.getConnectionPoolName());
         }
         catch (UniversalConnectionPoolException e) {
-            log.error(e, "Failed to stop UCP pool " + dataSource.getDataSourceName());
+            log.error(e, "Failed to stop UCP pool %s", dataSource.getDataSourceName());
         }
     }
 
