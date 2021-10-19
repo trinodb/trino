@@ -177,11 +177,9 @@
                     <artifactId>commons-lang3</artifactId>
                 </exclusion>
                 <exclusion>
-                    <!-- mysql:mysql-connector-java:jar:8.0.22 depends on
-                         com.google.protobuf:protobuf-java:jar:3.11.4 which conflicts with
-                         org.alluxio:alluxio-shaded-client:2.4.0 -->
-                    <groupId>mysql</groupId>
-                    <artifactId>mysql-connector-java</artifactId>
+                    <!-- provided by org.alluxio:alluxio-shaded-client:2.4.0 -->
+                    <groupId>com.google.protobuf</groupId>
+                    <artifactId>protobuf-java</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
@@ -193,11 +191,9 @@
             <scope>test</scope>
             <exclusions>
                 <exclusion>
-                    <!-- mysql:mysql-connector-java:jar:8.0.22 depends on
-                         com.google.protobuf:protobuf-java:jar:3.11.4 which conflicts with
-                         org.alluxio:alluxio-shaded-client:2.4.0 -->
-                    <groupId>mysql</groupId>
-                    <artifactId>mysql-connector-java</artifactId>
+                    <!-- provided by org.alluxio:alluxio-shaded-client:2.4.0 -->
+                    <groupId>com.google.protobuf</groupId>
+                    <artifactId>protobuf-java</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
