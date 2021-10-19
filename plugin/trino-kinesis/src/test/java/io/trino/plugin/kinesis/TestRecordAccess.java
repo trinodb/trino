@@ -199,14 +199,14 @@ public class TestRecordAccess
         assertEquals(types.size(), 5);
         assertEquals(types.get(0).toString(), "bigint");
         assertEquals(types.get(1).toString(), "varchar");
-        log.info("Types : " + types.toString());
+        log.info("Types : %s", types);
 
         List<MaterializedRow> rows = result.getMaterializedRows();
         assertEquals(rows.size(), uncompressedMessages + compressedMessages);
         for (MaterializedRow row : rows) {
             assertEquals(row.getFieldCount(), 5);
             assertTrue((long) row.getFields().get(0) >= 100);
-            log.info("ROW: " + row.toString());
+            log.info("ROW: %s", row);
         }
     }
 

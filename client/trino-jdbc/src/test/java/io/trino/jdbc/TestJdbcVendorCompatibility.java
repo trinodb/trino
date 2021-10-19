@@ -372,7 +372,7 @@ public class TestJdbcVendorCompatibility
                 catch (RuntimeException | AssertionError e) {
                     String message = format("Failure when checking behavior against %s", driver);
                     // log immediately since further tests may take more time; "log and rethrown" is not harmful in tests
-                    log.error(e, message);
+                    log.error(e, "%s", message);
                     failures.add(new AssertionError(message, e));
                 }
             }
