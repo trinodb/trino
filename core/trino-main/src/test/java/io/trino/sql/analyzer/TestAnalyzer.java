@@ -5381,6 +5381,7 @@ public class TestAnalyzer
         return new Catalog(
                 catalogName,
                 catalog,
+                "test",
                 connector,
                 SecurityManagement.CONNECTOR,
                 createInformationSchemaCatalogName(catalog),
