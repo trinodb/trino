@@ -1340,7 +1340,9 @@ public final class UnscaledDecimal128Arithmetic
         divide(dividendLow, dividendHigh, dividendScaleFactor, divisorLow, divisorHigh, 0, quotient, remainder);
 
         // round
-        boolean quotientIsNegative = isNegative(quotient);
+        boolean dividendIsNegative = isNegative(dividendHigh);
+        boolean divisorIsNegative = isNegative(divisorHigh);
+        boolean resultIsNegative = (dividendIsNegative != divisorIsNegative);
         setNegative(quotient, false);
         setNegative(remainder, false);
 
@@ -1354,7 +1356,9 @@ public final class UnscaledDecimal128Arithmetic
             throwIfOverflows(quotient);
         }
 
-        setNegative(quotient, quotientIsNegative);
+        // clear resultIsNegative if quotient is zero to avoid negative zeros
+        resultIsNegative &= !isZero(quotient);
+        setNegative(quotient, resultIsNegative);
         return quotient;
     }
 
