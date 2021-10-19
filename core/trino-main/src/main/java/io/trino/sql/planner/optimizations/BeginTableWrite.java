@@ -195,14 +195,14 @@ public class BeginTableWrite
                 DeleteNode deleteNode = (DeleteNode) node;
                 DeleteTarget delete = deleteNode.getTarget();
                 return new DeleteTarget(
-                        Optional.of(findTableScanHandle(deleteNode.getSource())),
+                        Optional.of(findTableScanHandleForDeleteOrUpdate(deleteNode.getSource())),
                         delete.getSchemaTableName());
             }
             if (node instanceof UpdateNode) {
                 UpdateNode updateNode = (UpdateNode) node;
                 UpdateTarget update = updateNode.getTarget();
                 return new UpdateTarget(
-                        Optional.of(findTableScanHandle(updateNode.getSource())),
+                        Optional.of(findTableScanHandleForDeleteOrUpdate(updateNode.getSource())),
                         update.getSchemaTableName(),
                         update.getUpdatedColumns(),
                         update.getUpdatedColumnHandles());
@@ -253,7 +253,7 @@ public class BeginTableWrite
             throw new IllegalArgumentException("Unhandled target type: " + target.getClass().getSimpleName());
         }
 
-        private TableHandle findTableScanHandle(PlanNode node)
+        private TableHandle findTableScanHandleForDeleteOrUpdate(PlanNode node)
         {
             if (node instanceof TableScanNode) {
                 TableScanNode tableScanNode = (TableScanNode) node;
@@ -261,23 +261,23 @@ public class BeginTableWrite
                 return tableScanNode.getTable();
             }
             if (node instanceof FilterNode) {
-                return findTableScanHandle(((FilterNode) node).getSource());
+                return findTableScanHandleForDeleteOrUpdate(((FilterNode) node).getSource());
             }
             if (node instanceof ProjectNode) {
-                return findTableScanHandle(((ProjectNode) node).getSource());
+                return findTableScanHandleForDeleteOrUpdate(((ProjectNode) node).getSource());
             }
             if (node instanceof SemiJoinNode) {
-                return findTableScanHandle(((SemiJoinNode) node).getSource());
+                return findTableScanHandleForDeleteOrUpdate(((SemiJoinNode) node).getSource());
             }
             if (node instanceof JoinNode) {
                 JoinNode joinNode = (JoinNode) node;
-                return findTableScanHandle(joinNode.getLeft());
+                return findTableScanHandleForDeleteOrUpdate(joinNode.getLeft());
             }
             if (node instanceof AssignUniqueId) {
-                return findTableScanHandle(((AssignUniqueId) node).getSource());
+                return findTableScanHandleForDeleteOrUpdate(((AssignUniqueId) node).getSource());
             }
             if (node instanceof MarkDistinctNode) {
-                return findTableScanHandle(((MarkDistinctNode) node).getSource());
+                return findTableScanHandleForDeleteOrUpdate(((MarkDistinctNode) node).getSource());
             }
             throw new IllegalArgumentException("Invalid descendant for DeleteNode or UpdateNode: " + node.getClass().getName());
         }
