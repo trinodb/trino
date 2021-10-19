@@ -62,12 +62,29 @@ public final class MetadataListing
             catalogNames = ImmutableSortedMap.of(catalogName.get(), catalogHandle.get());
         }
         else {
-            catalogNames = metadata.getCatalogNames(session);
+            catalogNames = metadata.getCatalogs(session).entrySet().stream()
+                    .collect(toImmutableMap(
+                            Map.Entry::getKey,
+                            entry -> entry.getValue().getConnectorCatalogName()));
         }
         Set<String> allowedCatalogs = accessControl.filterCatalogs(session.getIdentity(), catalogNames.keySet());
 
         ImmutableSortedMap.Builder<String, CatalogName> result = ImmutableSortedMap.naturalOrder();
         for (Map.Entry<String, CatalogName> entry : catalogNames.entrySet()) {
+            if (allowedCatalogs.contains(entry.getKey())) {
+                result.put(entry);
+            }
+        }
+        return result.build();
+    }
+
+    public static SortedMap<String, Catalog> getCatalogs(Session session, Metadata metadata, AccessControl accessControl)
+    {
+        Map<String, Catalog> catalogs = metadata.getCatalogs(session);
+        Set<String> allowedCatalogs = accessControl.filterCatalogs(session.getIdentity(), catalogs.keySet());
+
+        ImmutableSortedMap.Builder<String, Catalog> result = ImmutableSortedMap.naturalOrder();
+        for (Map.Entry<String, Catalog> entry : catalogs.entrySet()) {
             if (allowedCatalogs.contains(entry.getKey())) {
                 result.put(entry);
             }
