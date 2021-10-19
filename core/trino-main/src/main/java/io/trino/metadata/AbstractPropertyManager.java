@@ -72,7 +72,7 @@ abstract class AbstractPropertyManager
 
     public final Map<String, Object> getProperties(
             CatalogName catalogName,
-            String catalog, // only use this for error messages
+            String catalogNameForDiagnostics,
             Map<String, Expression> sqlPropertyValues,
             Session session,
             Metadata metadata,
@@ -82,7 +82,7 @@ abstract class AbstractPropertyManager
     {
         Map<String, PropertyMetadata<?>> supportedProperties = connectorProperties.get(catalogName);
         if (supportedProperties == null) {
-            throw new TrinoException(NOT_FOUND, "Catalog not found: " + catalog);
+            throw new TrinoException(NOT_FOUND, "Catalog not found: " + catalogNameForDiagnostics);
         }
 
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
@@ -95,7 +95,7 @@ abstract class AbstractPropertyManager
                 throw new TrinoException(
                         propertyError,
                         format("Catalog '%s' does not support %s property '%s'",
-                                catalog,
+                                catalogNameForDiagnostics,
                                 propertyType,
                                 propertyName));
             }
