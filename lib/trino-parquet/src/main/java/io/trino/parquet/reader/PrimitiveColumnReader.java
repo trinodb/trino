@@ -13,8 +13,6 @@
  */
 package io.trino.parquet.reader;
 
-import com.google.common.collect.Iterators;
-import com.google.common.collect.PeekingIterator;
 import io.airlift.slice.Slice;
 import io.trino.parquet.DataPage;
 import io.trino.parquet.DataPageV1;
@@ -42,9 +40,12 @@ import org.apache.parquet.schema.OriginalType;
 import org.apache.parquet.schema.PrimitiveType;
 import org.joda.time.DateTimeZone;
 
+import javax.annotation.Nullable;
+
 import java.io.IOException;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.PrimitiveIterator;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -77,7 +78,8 @@ public abstract class PrimitiveColumnReader
     private DataPage page;
     private int remainingValueCountInPage;
     private int readOffset;
-    private PeekingIterator<Long> indexIterator;
+    @Nullable
+    private PrimitiveIterator.OfLong indexIterator;
     private long currentRow;
     private long targetRow;
 
@@ -189,7 +191,12 @@ public abstract class PrimitiveColumnReader
         }
         checkArgument(pageReader.getTotalValueCount() > 0, "page is empty");
         totalValueCount = pageReader.getTotalValueCount();
-        indexIterator = (rowRanges == null) ? null : Iterators.peekingIterator(rowRanges.iterator());
+        if (rowRanges != null) {
+            indexIterator = rowRanges.iterator();
+            // If rowRanges is empty for a row-group, then no page needs to be read, and we should not reach here
+            checkArgument(indexIterator.hasNext(), "rowRanges is empty");
+            targetRow = indexIterator.next();
+        }
     }
 
     public void prepareNextRead(int batchSize)
@@ -418,7 +425,6 @@ public abstract class PrimitiveColumnReader
             valuesReader.initFromPage(valueCount, in);
             if (firstRowIndex.isPresent()) {
                 currentRow = firstRowIndex.getAsLong();
-                targetRow = indexIterator.hasNext() ? indexIterator.peek() : Long.MAX_VALUE;
             }
             return valuesReader;
         }
