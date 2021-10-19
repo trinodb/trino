@@ -261,7 +261,7 @@ public class OrcReader
         return createRecordReader(
                 readColumns,
                 readTypes,
-                Collections.nCopies(readColumns.size(), ProjectedLayout.fullyProjectedLayout()),
+                Collections.nCopies(readColumns.size(), fullyProjectedLayout()),
                 predicate,
                 0,
                 orcDataSource.getEstimatedSize(),
@@ -432,27 +432,38 @@ public class OrcReader
         }
     }
 
-    public static class ProjectedLayout
+    public interface ProjectedLayout
+    {
+        ProjectedLayout getFieldLayout(OrcColumn orcColumn);
+    }
+
+    /**
+     * Constructs a ProjectedLayout where all subfields must be read
+     */
+    public static ProjectedLayout fullyProjectedLayout()
+    {
+        return orcColumn -> fullyProjectedLayout();
+    }
+
+    public static class NameBasedProjectedLayout
+            implements ProjectedLayout
     {
         private final Optional<Map<String, ProjectedLayout>> fieldLayouts;
 
-        private ProjectedLayout(Optional<Map<String, ProjectedLayout>> fieldLayouts)
+        private NameBasedProjectedLayout(Optional<Map<String, ProjectedLayout>> fieldLayouts)
         {
             this.fieldLayouts = requireNonNull(fieldLayouts, "fieldLayouts is null");
         }
 
-        public ProjectedLayout getFieldLayout(String name)
+        @Override
+        public ProjectedLayout getFieldLayout(OrcColumn orcColumn)
         {
+            String name = orcColumn.getColumnName().toLowerCase(ENGLISH);
             if (fieldLayouts.isPresent()) {
                 return fieldLayouts.get().get(name);
             }
 
             return fullyProjectedLayout();
-        }
-
-        public static ProjectedLayout fullyProjectedLayout()
-        {
-            return new ProjectedLayout(Optional.empty());
         }
 
         public static ProjectedLayout createProjectedLayout(OrcColumn root, List<List<String>> dereferences)
@@ -474,7 +485,7 @@ public class OrcReader
                 }
             }
 
-            return new ProjectedLayout(Optional.of(fieldLayouts.build()));
+            return new NameBasedProjectedLayout(Optional.of(fieldLayouts.build()));
         }
     }
 
