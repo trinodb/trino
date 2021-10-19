@@ -91,6 +91,7 @@ public class TestInformationSchemaMetadata
         catalogManager.registerCatalog(new Catalog(
                 catalogName,
                 catalog,
+                "test",
                 testConnector,
                 SecurityManagement.CONNECTOR,
                 createInformationSchemaCatalogName(catalog),

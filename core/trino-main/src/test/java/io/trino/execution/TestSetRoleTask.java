@@ -95,6 +95,7 @@ public class TestSetRoleTask
         catalogManager.registerCatalog(new Catalog(
                 CATALOG_NAME,
                 catalogName,
+                "test",
                 testConnector,
                 SecurityManagement.CONNECTOR,
                 createInformationSchemaCatalogName(catalogName),
@@ -120,6 +121,7 @@ public class TestSetRoleTask
         catalogManager.registerCatalog(new Catalog(
                 SYSTEM_ROLE_CATALOG_NAME,
                 systemRoleCatalog,
+                "test",
                 systemRoleConnector,
                 SecurityManagement.SYSTEM,
                 createInformationSchemaCatalogName(systemRoleCatalog),
