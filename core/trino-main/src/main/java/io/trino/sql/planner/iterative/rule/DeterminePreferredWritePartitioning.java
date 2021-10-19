@@ -27,6 +27,15 @@ import static io.trino.cost.AggregationStatsRule.getRowsCount;
 import static io.trino.sql.planner.plan.Patterns.tableWriterNode;
 import static java.lang.Double.isNaN;
 
+/**
+ * Rule verifies if preconditions for using preferred write partitioning are met:
+ *  - expected number of partitions to be written (based on table stat) is greater
+ *    than or equal to preferred_write_partitioning_min_number_of_partitions session property,
+ *  - use_preferred_write_partitioning is set to true.
+ *
+ * If precondition are met the {@link TableWriterNode} is modified to mark the intention to use preferred write partitioning:
+ * value of {@link TableWriterNode#getPreferredPartitioningScheme()} is set as result of {@link TableWriterNode#getPartitioningScheme()}.
+ */
 public class DeterminePreferredWritePartitioning
         implements Rule<TableWriterNode>
 {
