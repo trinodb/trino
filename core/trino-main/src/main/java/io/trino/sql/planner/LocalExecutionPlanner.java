@@ -2883,7 +2883,6 @@ public class LocalExecutionPlanner
             // Set table writer count
             context.setDriverInstanceCount(getTaskWriterCount(session));
 
-            // serialize writes by forcing data through a single writer
             PhysicalOperation source = node.getSource().accept(this, context);
 
             ImmutableMap.Builder<Symbol, Integer> outputMapping = ImmutableMap.builder();
