@@ -68,7 +68,7 @@
         <dep.jackson.version>2.12.3</dep.jackson.version>
         <dep.parquet.version>1.11.1</dep.parquet.version>
 
-        <dep.docker.images.version>49</dep.docker.images.version>
+        <dep.docker.images.version>50</dep.docker.images.version>
 
         <!--
           America/Bahia_Banderas has:
