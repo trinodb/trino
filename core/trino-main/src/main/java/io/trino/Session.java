@@ -350,12 +350,12 @@ public final class Session
             connectorRoles.put(catalog.getCatalogName(), role);
 
             String informationSchemaCatalogName = createInformationSchemaCatalogName(catalog).getCatalogName();
-            if (transactionManager.getCatalogNames(transactionId).containsKey(informationSchemaCatalogName)) {
+            if (transactionManager.getCatalogs(transactionId).containsKey(informationSchemaCatalogName)) {
                 connectorRoles.put(informationSchemaCatalogName, role);
             }
 
             String systemTablesCatalogName = createSystemTablesCatalogName(catalog).getCatalogName();
-            if (transactionManager.getCatalogNames(transactionId).containsKey(systemTablesCatalogName)) {
+            if (transactionManager.getCatalogs(transactionId).containsKey(systemTablesCatalogName)) {
                 connectorRoles.put(systemTablesCatalogName, role);
             }
         }

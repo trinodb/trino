@@ -376,9 +376,9 @@ public interface Metadata
     /**
      * Gets all the loaded catalogs
      *
-     * @return Map of catalog name to connector id
+     * @return Map of catalog name to connector
      */
-    Map<String, CatalogName> getCatalogNames(Session session);
+    Map<String, Catalog> getCatalogs(Session session);
 
     /**
      * Get the names that match the specified table prefix (never null).
