@@ -7,6 +7,8 @@ on:
   pull_request:
     paths-ignore:
       - 'docs/**'
+      # [TEST] This PR contains the change in below file and directory, so it should be ignored for tests
+      - '.github/**'
 
 env:
   # An envar that signals to tests we are executing in the CI environment
