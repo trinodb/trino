@@ -457,7 +457,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public Map<String, CatalogName> getCatalogNames(Session session)
+    public Map<String, Catalog> getCatalogs(Session session)
     {
         throw new UnsupportedOperationException();
     }
