@@ -104,7 +104,7 @@ public class StructColumnReader
             OrcColumn fieldStream = fieldMapper.get(fieldName);
 
             if (fieldStream != null) {
-                OrcReader.ProjectedLayout fieldLayout = readLayout.getFieldLayout(fieldStream.getColumnName().toLowerCase(ENGLISH));
+                OrcReader.ProjectedLayout fieldLayout = readLayout.getFieldLayout(fieldStream);
                 if (fieldLayout != null) {
                     structFields.put(
                             fieldName,
