@@ -18,6 +18,7 @@ import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.plugin.hive.HiveColumnHandle;
+import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HiveInsertTableHandle;
 import io.trino.plugin.hive.HiveMetastoreClosure;
 import io.trino.plugin.hive.HiveTableHandle;
@@ -52,6 +53,7 @@ import java.util.Optional;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
 import static io.trino.spi.block.MethodHandleUtil.methodHandle;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
@@ -71,14 +73,16 @@ public class CreateEmptyPartitionProcedure
             List.class,
             String.class);
 
+    private final boolean allowCreatePartitionWithLocation;
     private final TransactionalMetadataFactory hiveMetadataFactory;
     private final HiveMetastoreClosure metastore;
     private final LocationService locationService;
     private final JsonCodec<PartitionUpdate> partitionUpdateJsonCodec;
 
     @Inject
-    public CreateEmptyPartitionProcedure(TransactionalMetadataFactory hiveMetadataFactory, HiveMetastore metastore, LocationService locationService, JsonCodec<PartitionUpdate> partitionUpdateCodec)
+    public CreateEmptyPartitionProcedure(HiveConfig hiveConfig, TransactionalMetadataFactory hiveMetadataFactory, HiveMetastore metastore, LocationService locationService, JsonCodec<PartitionUpdate> partitionUpdateCodec)
     {
+        this.allowCreatePartitionWithLocation = requireNonNull(hiveConfig, "hiveConfig is null").isAllowCreateEmptyPartitionWithLocation();
         this.hiveMetadataFactory = requireNonNull(hiveMetadataFactory, "hiveMetadataFactory is null");
         this.metastore = new HiveMetastoreClosure(requireNonNull(metastore, "metastore is null"));
         this.locationService = requireNonNull(locationService, "locationService is null");
@@ -109,6 +113,10 @@ public class CreateEmptyPartitionProcedure
 
     private void doCreateEmptyPartition(ConnectorSession session, ConnectorAccessControl accessControl, String schemaName, String tableName, List<String> partitionColumnNames, List<String> partitionValues, String location)
     {
+        if (location != null && !allowCreatePartitionWithLocation) {
+            throw new TrinoException(PERMISSION_DENIED, "create_empty_partition procedure with location is disabled");
+        }
+
         TransactionalMetadata hiveMetadata = hiveMetadataFactory.create();
         HiveTableHandle tableHandle = (HiveTableHandle) hiveMetadata.getTableHandle(session, new SchemaTableName(schemaName, tableName));
         if (tableHandle == null) {

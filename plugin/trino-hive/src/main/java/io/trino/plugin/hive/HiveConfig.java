@@ -138,6 +138,7 @@ public class HiveConfig
     private Optional<Duration> hiveTransactionHeartbeatInterval = Optional.empty();
     private int hiveTransactionHeartbeatThreads = 5;
 
+    private boolean allowCreateEmptyPartitionWithLocation;
     private boolean allowRegisterPartition;
     private boolean queryPartitionFilterRequired;
     private Set<String> queryPartitionFilterRequiredSchemas = ImmutableSet.of();
@@ -979,6 +980,18 @@ public class HiveConfig
     public HiveConfig setHiveTransactionHeartbeatThreads(int hiveTransactionHeartbeatThreads)
     {
         this.hiveTransactionHeartbeatThreads = hiveTransactionHeartbeatThreads;
+        return this;
+    }
+
+    public boolean isAllowCreateEmptyPartitionWithLocation()
+    {
+        return allowCreateEmptyPartitionWithLocation;
+    }
+
+    @Config("hive.allow-create-partition-with-location")
+    public HiveConfig setAllowCreateEmptyPartitionWithLocation(boolean allowCreateEmptyPartitionWithLocation)
+    {
+        this.allowCreateEmptyPartitionWithLocation = allowCreateEmptyPartitionWithLocation;
         return this;
     }
 

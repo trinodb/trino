@@ -46,6 +46,7 @@ public class TestHiveCreateEmptyPartition
     {
         return HiveQueryRunner.builder()
                 .setHiveProperties(ImmutableMap.of(
+                        "hive.allow-create-partition-with-location", "true",
                         "hive.allow-register-partition-procedure", "true",
                         "hive.non-managed-table-writes-enabled", "true"))
                 .build();
@@ -206,13 +207,52 @@ public class TestHiveCreateEmptyPartition
         assertQuery(format("SELECT count(*) FROM \"%s$partitions\"", tableName), "SELECT 1");
 
         boolean partitionFileExistsAtLocation = Files.walk(tempOtherDir.toPath(), 1).anyMatch(path -> path.endsWith("part=empty"));
-        assertTrue(partitionFileExistsAtLocation);
+        assertTrue(partitionFileExistsAtLocation, format("expected 'part=empty' to be present at '%s'", tempOtherDir.toPath()));
 
         boolean partitionFileDoesNotExistAtDefaultLocation = Files.walk(tempTableDir.toPath(), 1).anyMatch(path -> path.endsWith("part=empty"));
-        assertFalse(partitionFileDoesNotExistAtDefaultLocation);
+        assertFalse(partitionFileDoesNotExistAtDefaultLocation, format("expected 'part=empty' not to exist at default location '%s'", tempTableDir.toPath()));
 
         assertUpdate(format("DROP TABLE %s", tableName));
+
+        boolean partitionFileExistsAtLocationAfterTableWasDropped = Files.walk(tempOtherDir.toPath(), 1).anyMatch(path -> path.endsWith("part=empty"));
+        assertTrue(partitionFileExistsAtLocationAfterTableWasDropped, format("expected 'part=empty' to be present at '%s'", tempOtherDir.toPath()));
+
         deleteRecursively(tempTableDir.toPath(), ALLOW_INSECURE);
         deleteRecursively(tempOtherDir.toPath(), ALLOW_INSECURE);
+    }
+
+    @Test
+    public void testCreateEmptyPartitionWithLocationForManagedTable()
+            throws Exception
+    {
+        String tableName = "test_insert_empty_partitioned_unbucketed_table_with_location";
+
+        // Currently, FileHiveMetastore only allows managed tables to write to its base data directory
+        java.nio.file.Path baseDataDir = getDistributedQueryRunner().getCoordinator().getBaseDataDir().resolve("hive_data");
+        File defaultTableLocation = new File(format("%s/%s/%s", baseDataDir, TPCH_SCHEMA, tableName));
+
+        @Language("SQL") String createTableSql = format("" +
+                        "CREATE TABLE hive.%s.%s (\n" +
+                        "   col1 varchar,\n" +
+                        "   part varchar\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   format = 'ORC',\n" +
+                        "   partitioned_by = Array[ 'part' ]\n" +
+                        ")",
+                TPCH_SCHEMA,
+                tableName);
+
+        assertUpdate(createTableSql);
+        assertUpdate(format("CALL system.create_empty_partition('%s', '%s', ARRAY['part'], ARRAY['%s'], '%s')", TPCH_SCHEMA, tableName, "empty", new Path(defaultTableLocation.toURI().toASCIIString())));
+        assertQuery(format("SELECT count(*) FROM \"%s$partitions\"", tableName), "SELECT 1");
+
+        boolean partitionFileExistsAtLocation = Files.walk(defaultTableLocation.toPath(), 1).anyMatch(path -> path.endsWith("part=empty"));
+        assertTrue(partitionFileExistsAtLocation, format("expected 'part=empty' to be present at '%s'", defaultTableLocation.toPath()));
+
+        assertUpdate(format("DROP TABLE %s", tableName));
+
+        boolean partitionFileExistsAtLocationAfterTableWasDropped = defaultTableLocation.exists();
+        assertFalse(partitionFileExistsAtLocationAfterTableWasDropped, "expected 'part=empty' to be deleted after managed table was dropped");
     }
 }
