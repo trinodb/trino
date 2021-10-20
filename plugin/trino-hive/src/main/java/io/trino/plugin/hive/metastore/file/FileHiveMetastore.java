@@ -331,10 +331,9 @@ public class FileHiveMetastore
     @Override
     public synchronized List<String> getAllDatabases()
     {
-        List<String> databases = getChildSchemaDirectories(DATABASE, catalogDirectory).stream()
+        return getChildSchemaDirectories(DATABASE, catalogDirectory).stream()
                 .map(Path::getName)
-                .collect(toList());
-        return ImmutableList.copyOf(databases);
+                .collect(toImmutableList());
     }
 
     @Override
@@ -1071,9 +1070,9 @@ public class FileHiveMetastore
         List<String> partitionNames = partitions.stream()
                 .map(partitionValues -> makePartitionName(table.getPartitionColumns(), ImmutableList.copyOf(partitionValues)))
                 .filter(partitionName -> isValidPartition(table, partitionName))
-                .collect(toList());
+                .collect(toImmutableList());
 
-        return Optional.of(ImmutableList.copyOf(partitionNames));
+        return Optional.of(partitionNames);
     }
 
     private boolean isValidPartition(Table table, String partitionName)

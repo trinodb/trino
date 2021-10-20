@@ -19,7 +19,6 @@ import com.google.common.collect.Lists;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -41,7 +40,7 @@ public class QualifiedName
     public static QualifiedName of(String first, String... rest)
     {
         requireNonNull(first, "first is null");
-        return of(ImmutableList.copyOf(Lists.asList(first, rest).stream().map(Identifier::new).collect(Collectors.toList())));
+        return of(Lists.asList(first, rest).stream().map(Identifier::new).collect(toImmutableList()));
     }
 
     public static QualifiedName of(String name)

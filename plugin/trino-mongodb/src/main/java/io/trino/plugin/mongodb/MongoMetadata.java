@@ -431,11 +431,11 @@ public class MongoMetadata
         MongoTable mongoTable = mongoSession.getTable(tableName);
         MongoTableHandle tableHandle = mongoTable.getTableHandle();
 
-        List<ColumnMetadata> columns = ImmutableList.copyOf(
+        List<ColumnMetadata> columns =
                 getColumnHandles(session, tableHandle).values().stream()
                         .map(MongoColumnHandle.class::cast)
                         .map(MongoColumnHandle::toColumnMetadata)
-                        .collect(toList()));
+                .collect(toImmutableList());
 
         return new ConnectorTableMetadata(tableName, columns, ImmutableMap.of(), mongoTable.getComment());
     }
