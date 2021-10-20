@@ -16,6 +16,7 @@ package io.trino.spi.statistics;
 import com.google.common.primitives.Primitives;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.Type;
 import org.testng.annotations.Test;
 
@@ -25,13 +26,16 @@ import java.util.OptionalDouble;
 import static com.google.common.base.Verify.verify;
 import static io.trino.spi.statistics.StatsUtil.toStatsRepresentation;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.TimestampType.createTimestampType;
+import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.Float.floatToIntBits;
 import static org.testng.Assert.assertEquals;
@@ -55,6 +59,11 @@ public class TestStatsUtil
         assertToStatsRepresentation(createTimestampType(6), 3L, 3.);
         assertToStatsRepresentation(createTimestampType(9), new LongTimestamp(3, 0), 3.);
         assertToStatsRepresentation(createTimestampType(12), new LongTimestamp(3, 999), 3.);
+        assertToStatsRepresentation(createTimestampWithTimeZoneType(0), packDateTimeWithZone(3000, getTimeZoneKey("Europe/Warsaw")), 3000.);
+        assertToStatsRepresentation(createTimestampWithTimeZoneType(3), packDateTimeWithZone(3, getTimeZoneKey("Europe/Warsaw")), 3.);
+        assertToStatsRepresentation(createTimestampWithTimeZoneType(6), LongTimestampWithTimeZone.fromEpochMillisAndFraction(3, 999999999, getTimeZoneKey("Europe/Warsaw")), 3.);
+        assertToStatsRepresentation(createTimestampWithTimeZoneType(9), LongTimestampWithTimeZone.fromEpochMillisAndFraction(3, 999999999, getTimeZoneKey("Europe/Warsaw")), 3.);
+        assertToStatsRepresentation(createTimestampWithTimeZoneType(12), LongTimestampWithTimeZone.fromEpochMillisAndFraction(3, 999999999, getTimeZoneKey("Europe/Warsaw")), 3.);
     }
 
     private static void assertToStatsRepresentation(Type type, Object trinoValue, double expected)
