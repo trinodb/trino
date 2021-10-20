@@ -66,7 +66,6 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.Arrays;
@@ -2127,7 +2126,6 @@ public abstract class BaseIcebergConnectorTest
                 ", a_timestamp TIMESTAMP(6)" +
                 ", a_timestamptz TIMESTAMP(6) WITH TIME ZONE" +
                 ", a_string VARCHAR" +
-                ", a_fixed VARBINARY" +
                 ", a_binary VARBINARY" +
                 ", a_row ROW(id INTEGER , vc VARCHAR)" +
                 ", a_array ARRAY(VARCHAR)" +
@@ -2149,7 +2147,6 @@ public abstract class BaseIcebergConnectorTest
                         "TIMESTAMP '2021-07-24 04:43:57.348000' AT TIME ZONE 'America/Los_Angeles',  " +
                         "'onefsadfdsf', " +
                         "X'000102f0feff', " +
-                        "VARBINARY 'binary2/3values', " +
                         "(CAST(ROW(null, 'this is a random value') AS ROW(int, varchar))), " +
                         "array['uno', 'dos', 'tres'], " +
                         "map(array[1,2], array['ek', 'one']))", 1);
@@ -2184,7 +2181,6 @@ public abstract class BaseIcebergConnectorTest
                                 .row(
                                         ZonedDateTime.of(2021, 7, 23, 15, 43, 57, 348000000, ZoneId.of("UTC")),
                                         new byte[] {00, 01, 02, -16, -2, -1},
-                                        "binary2/3values".getBytes(StandardCharsets.UTF_8),
                                         new MaterializedRow(Arrays.asList(null, "this is a random value")),
                                         Arrays.asList("uno", "dos", "tres"),
                                         ImmutableMap.of(1, "ek", 2, "one"))
