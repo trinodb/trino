@@ -56,6 +56,7 @@ public class AggregateWindowFunction
                 null,
                 null,
                 lambdaProviders,
+                false,
                 null);
 
         this.accumulatorHasRemoveInput = accumulatorFactory.hasRemoveInput();
