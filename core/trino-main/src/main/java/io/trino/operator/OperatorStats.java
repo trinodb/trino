@@ -443,9 +443,9 @@ public class OperatorStats
         return info;
     }
 
-    public OperatorStats add(OperatorStats... operators)
+    public OperatorStats add(OperatorStats operatorStats)
     {
-        return add(ImmutableList.copyOf(operators));
+        return add(ImmutableList.of(operatorStats));
     }
 
     public OperatorStats add(Iterable<OperatorStats> operators)

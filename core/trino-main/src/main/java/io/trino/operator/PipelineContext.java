@@ -17,7 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Multimap;
+import com.google.common.collect.ListMultimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.stats.CounterStat;
 import io.airlift.stats.Distribution;
@@ -35,7 +35,6 @@ import javax.annotation.concurrent.ThreadSafe;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
@@ -385,7 +384,7 @@ public class PipelineContext
         List<DriverStats> drivers = new ArrayList<>();
 
         TreeMap<Integer, OperatorStats> operatorSummaries = new TreeMap<>(this.operatorSummaries);
-        Multimap<Integer, OperatorStats> runningOperators = ArrayListMultimap.create();
+        ListMultimap<Integer, OperatorStats> runningOperators = ArrayListMultimap.create();
         for (DriverContext driverContext : driverContexts) {
             DriverStats driverStats = driverContext.getDriverStats();
             drivers.add(driverStats);
@@ -422,15 +421,23 @@ public class PipelineContext
         }
 
         // merge the running operator stats into the operator summary
-        for (Entry<Integer, OperatorStats> entry : runningOperators.entries()) {
-            OperatorStats current = operatorSummaries.get(entry.getKey());
-            if (current == null) {
-                current = entry.getValue();
+        for (Integer operatorId : runningOperators.keySet()) {
+            List<OperatorStats> runningStats = runningOperators.get(operatorId);
+            if (runningStats.isEmpty()) {
+                continue;
+            }
+            OperatorStats current = operatorSummaries.get(operatorId);
+            OperatorStats combined;
+            if (current != null) {
+                combined = current.add(runningStats);
             }
             else {
-                current = current.add(entry.getValue());
+                combined = runningStats.get(0);
+                if (runningStats.size() > 1) {
+                    combined = combined.add(runningStats.subList(1, runningStats.size()));
+                }
             }
-            operatorSummaries.put(entry.getKey(), current);
+            operatorSummaries.put(operatorId, combined);
         }
 
         Set<DriverStats> runningDriverStats = drivers.stream()
