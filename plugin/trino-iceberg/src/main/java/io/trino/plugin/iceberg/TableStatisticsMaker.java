@@ -152,6 +152,7 @@ public class TableStatisticsMaker
                     summary.incrementFileCount();
                     summary.incrementRecordCount(dataFile.recordCount());
                     summary.incrementSize(dataFile.fileSizeInBytes());
+                    // TODO (https://github.com/trinodb/trino/issues/9716) for partition fields we should extract values with IcebergUtil#getPartitionKeys
                     updateSummaryMin(summary, partitionFields, convertBounds(idToTypeMapping, dataFile.lowerBounds()), dataFile.nullValueCounts(), dataFile.recordCount());
                     updateSummaryMax(summary, partitionFields, convertBounds(idToTypeMapping, dataFile.upperBounds()), dataFile.nullValueCounts(), dataFile.recordCount());
                     summary.updateNullCount(dataFile.nullValueCounts());
@@ -309,8 +310,13 @@ public class TableStatisticsMaker
             List<PartitionField> partitionFields,
             Map<Integer, Object> current,
             Map<Integer, Object> newStats,
+            // TODO (https://github.com/trinodb/trino/issues/9716) replace with something like a comparator, or comparator factory
             Predicate<Integer> predicate)
     {
+        if (newStats == null) {
+            // TODO (https://github.com/trinodb/trino/issues/9716) if some/many files miss statistics, we should probably invalidate statistics collection, see Partition#hasValidColumnMetrics
+            return;
+        }
         for (PartitionField field : partitionFields) {
             int id = field.sourceId();
             if (summary.getCorruptedStats().contains(id)) {
@@ -319,6 +325,7 @@ public class TableStatisticsMaker
 
             Object newValue = newStats.get(id);
             if (newValue == null) {
+                // TODO (https://github.com/trinodb/trino/issues/9716) if some/many files miss statistics, we should probably invalidate statistics collection, see Partition#hasValidColumnMetrics
                 continue;
             }
 
