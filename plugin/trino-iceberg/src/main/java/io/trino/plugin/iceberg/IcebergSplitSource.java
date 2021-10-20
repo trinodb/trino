@@ -43,6 +43,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
@@ -262,7 +263,7 @@ public class IcebergSplitSource
     @VisibleForTesting
     static boolean partitionMatchesPredicate(
             Set<IcebergColumnHandle> identityPartitionColumns,
-            Map<Integer, String> partitionKeys,
+            Map<Integer, Optional<String>> partitionKeys,
             TupleDomain<IcebergColumnHandle> dynamicFilterPredicate,
             TimeZoneKey timeZoneKey)
     {
@@ -274,7 +275,7 @@ public class IcebergSplitSource
         for (IcebergColumnHandle partitionColumn : identityPartitionColumns) {
             Domain allowedDomain = domains.get(partitionColumn);
             if (allowedDomain != null) {
-                Object partitionValue = deserializePartitionValue(partitionColumn.getType(), partitionKeys.get(partitionColumn.getId()), partitionColumn.getName(), timeZoneKey);
+                Object partitionValue = deserializePartitionValue(partitionColumn.getType(), partitionKeys.get(partitionColumn.getId()).orElse(null), partitionColumn.getName(), timeZoneKey);
                 if (!allowedDomain.includesNullableValue(partitionValue)) {
                     return false;
                 }
