@@ -179,17 +179,17 @@ public class TestIcebergSplitSource
         IcebergColumnHandle bigintColumn = IcebergColumnHandle.primitiveIcebergColumnHandle(1, "name", BIGINT, Optional.empty());
         assertFalse(IcebergSplitSource.partitionMatchesPredicate(
                 ImmutableSet.of(bigintColumn),
-                ImmutableMap.of(1, "1000"),
+                ImmutableMap.of(1, Optional.of("1000")),
                 TupleDomain.fromFixedValues(ImmutableMap.of(bigintColumn, NullableValue.of(BIGINT, 100L))),
                 TimeZoneKey.UTC_KEY));
         assertTrue(IcebergSplitSource.partitionMatchesPredicate(
                 ImmutableSet.of(bigintColumn),
-                ImmutableMap.of(1, "1000"),
+                ImmutableMap.of(1, Optional.of("1000")),
                 TupleDomain.fromFixedValues(ImmutableMap.of(bigintColumn, NullableValue.of(BIGINT, 1000L))),
                 TimeZoneKey.UTC_KEY));
         assertFalse(IcebergSplitSource.partitionMatchesPredicate(
                 ImmutableSet.of(bigintColumn),
-                ImmutableMap.of(1, "1000"),
+                ImmutableMap.of(1, Optional.of("1000")),
                 TupleDomain.fromFixedValues(ImmutableMap.of(bigintColumn, NullableValue.asNull(BIGINT))),
                 TimeZoneKey.UTC_KEY));
     }
