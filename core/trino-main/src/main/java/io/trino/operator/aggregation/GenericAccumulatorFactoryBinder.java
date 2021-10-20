@@ -76,6 +76,7 @@ public class GenericAccumulatorFactoryBinder
             JoinCompiler joinCompiler,
             BlockTypeOperators blockTypeOperators,
             List<LambdaProvider> lambdaProviders,
+            boolean spillEnabled,
             Session session)
     {
         return new GenericAccumulatorFactory(
@@ -93,7 +94,8 @@ public class GenericAccumulatorFactoryBinder
                 joinCompiler,
                 blockTypeOperators,
                 session,
-                distinct);
+                distinct,
+                spillEnabled);
     }
 
     @VisibleForTesting
