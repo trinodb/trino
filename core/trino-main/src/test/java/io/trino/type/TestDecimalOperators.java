@@ -17,6 +17,8 @@ import io.airlift.slice.Slice;
 import io.trino.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.Test;
 
+import java.math.BigDecimal;
+
 import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
@@ -24,6 +26,7 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
 import static io.trino.type.DecimalOperators.addShortLongLong;
+import static java.math.RoundingMode.HALF_UP;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDecimalOperators
@@ -205,90 +208,90 @@ public class TestDecimalOperators
     public void testDivide()
     {
         // short short -> short
-        assertDecimalFunction("DECIMAL '1' / DECIMAL '3'", decimal("0"));
-        assertDecimalFunction("DECIMAL '1' / DECIMAL '3'", decimal("0"));
-        assertDecimalFunction("DECIMAL '1.0' / DECIMAL '3'", decimal("0.3"));
-        assertDecimalFunction("DECIMAL '1.0' / DECIMAL '0.1'", decimal("10.0"));
-        assertDecimalFunction("DECIMAL '1.0' / DECIMAL '9.0'", decimal("00.1"));
-        assertDecimalFunction("DECIMAL '500.00' / DECIMAL '0.1'", decimal("5000.00"));
-        assertDecimalFunction("DECIMAL '100.00' / DECIMAL '0.3'", decimal("0333.33"));
-        assertDecimalFunction("DECIMAL '100.00' / DECIMAL '0.30'", decimal("00333.33"));
-        assertDecimalFunction("DECIMAL '100.00' / DECIMAL '-0.30'", decimal("-00333.33"));
-        assertDecimalFunction("DECIMAL '-100.00' / DECIMAL '0.30'", decimal("-00333.33"));
-        assertDecimalFunction("DECIMAL '200.00' / DECIMAL '0.3'", decimal("0666.67"));
-        assertDecimalFunction("DECIMAL '200.00000' / DECIMAL '0.3'", decimal("0666.66667"));
-        assertDecimalFunction("DECIMAL '200.00000' / DECIMAL '-0.3'", decimal("-0666.66667"));
-        assertDecimalFunction("DECIMAL '-200.00000' / DECIMAL '0.3'", decimal("-0666.66667"));
-        assertDecimalFunction("DECIMAL '999999999999999999' / DECIMAL '1'", decimal("999999999999999999"));
-        assertDecimalFunction("DECIMAL '9' / DECIMAL '000000000000000003'", decimal("3"));
-        assertDecimalFunction("DECIMAL '9.0' / DECIMAL '3.0'", decimal("03.0"));
-        assertDecimalFunction("DECIMAL '999999999999999999' / DECIMAL '500000000000000000'", decimal("000000000000000002"));
-        assertDecimalFunction("DECIMAL '1' / DECIMAL '999999999999999999'", decimal("0"));
-        assertDecimalFunction("DECIMAL '-1' / DECIMAL '999999999999999999'", decimal("0"));
+        testDivide("1", "3", "0");
+        testDivide("1", "3", "0");
+        testDivide("1.0", "3", "0.3");
+        testDivide("1.0", "0.1", "10.0");
+        testDivide("1.0", "9.0", "00.1");
+        testDivide("500.00", "0.1", "5000.00");
+        testDivide("100.00", "0.3", "0333.33");
+        testDivide("100.00", "0.30", "00333.33");
+        testDivide("100.00", "-0.30", "-00333.33");
+        testDivide("-100.00", "0.30", "-00333.33");
+        testDivide("200.00", "0.3", "0666.67");
+        testDivide("200.00000", "0.3", "0666.66667");
+        testDivide("200.00000", "-0.3", "-0666.66667");
+        testDivide("-200.00000", "0.3", "-0666.66667");
+        testDivide("999999999999999999", "1", "999999999999999999");
+        testDivide("9", "000000000000000003", "3");
+        testDivide("9.0", "3.0", "03.0");
+        testDivide("999999999999999999", "500000000000000000", "000000000000000002");
+        testDivide("1", "999999999999999999", "0");
+        testDivide("-1", "999999999999999999", "0");
         // round
-        assertDecimalFunction("DECIMAL '9' / DECIMAL '5'", decimal("2"));
-        assertDecimalFunction("DECIMAL '7' / DECIMAL '5'", decimal("1"));
-        assertDecimalFunction("DECIMAL '-9' / DECIMAL '5'", decimal("-2"));
-        assertDecimalFunction("DECIMAL '-7' / DECIMAL '5'", decimal("-1"));
-        assertDecimalFunction("DECIMAL '-9' / DECIMAL '-5'", decimal("2"));
-        assertDecimalFunction("DECIMAL '-7' / DECIMAL '-5'", decimal("1"));
-        assertDecimalFunction("DECIMAL '9' / DECIMAL '-5'", decimal("-2"));
-        assertDecimalFunction("DECIMAL '7' / DECIMAL '-5'", decimal("-1"));
-        assertDecimalFunction("DECIMAL '-1' / DECIMAL '2'", decimal("-1"));
-        assertDecimalFunction("DECIMAL '1' / DECIMAL '-2'", decimal("-1"));
-        assertDecimalFunction("DECIMAL '-1' / DECIMAL '3'", decimal("0"));
+        testDivide("9", "5", "2");
+        testDivide("7", "5", "1");
+        testDivide("-9", "5", "-2");
+        testDivide("-7", "5", "-1");
+        testDivide("-9", "-5", "2");
+        testDivide("-7", "-5", "1");
+        testDivide("9", "-5", "-2");
+        testDivide("7", "-5", "-1");
+        testDivide("-1", "2", "-1");
+        testDivide("1", "-2", "-1");
+        testDivide("-1", "3", "0");
 
         // short short -> long
-        assertDecimalFunction("DECIMAL '10' / DECIMAL '.000000001'", decimal("10000000000.000000000"));
-        assertDecimalFunction("DECIMAL '-10' / DECIMAL '.000000001'", decimal("-10000000000.000000000"));
-        assertDecimalFunction("DECIMAL '10' / DECIMAL '-.000000001'", decimal("-10000000000.000000000"));
-        assertDecimalFunction("DECIMAL '-10' / DECIMAL '-.000000001'", decimal("10000000000.000000000"));
+        testDivide("10", ".000000001", "10000000000.000000000");
+        testDivide("-10", ".000000001", "-10000000000.000000000");
+        testDivide("10", "-.000000001", "-10000000000.000000000");
+        testDivide("-10", "-.000000001", "10000000000.000000000");
 
         // long short -> long
-        assertDecimalFunction("DECIMAL '200000000000000000000000000000000000' / DECIMAL '0.30'", decimal("666666666666666666666666666666666666.67"));
-        assertDecimalFunction("DECIMAL '200000000000000000000000000000000000' / DECIMAL '-0.30'", decimal("-666666666666666666666666666666666666.67"));
-        assertDecimalFunction("DECIMAL '-.20000000000000000000000000000000000000' / DECIMAL '0.30'", decimal("-.66666666666666666666666666666666666667"));
-        assertDecimalFunction("DECIMAL '-.20000000000000000000000000000000000000' / DECIMAL '-0.30'", decimal(".66666666666666666666666666666666666667"));
-        assertDecimalFunction("DECIMAL '.20000000000000000000000000000000000000' / DECIMAL '0.30'", decimal(".66666666666666666666666666666666666667"));
+        testDivide("200000000000000000000000000000000000", "0.30", "666666666666666666666666666666666666.67");
+        testDivide("200000000000000000000000000000000000", "-0.30", "-666666666666666666666666666666666666.67");
+        testDivide("-.20000000000000000000000000000000000000", "0.30", "-.66666666666666666666666666666666666667");
+        testDivide("-.20000000000000000000000000000000000000", "-0.30", ".66666666666666666666666666666666666667");
+        testDivide(".20000000000000000000000000000000000000", "0.30", ".66666666666666666666666666666666666667");
         // round
-        assertDecimalFunction("DECIMAL '500000000000000000000000000000000075' / DECIMAL '50'", decimal("010000000000000000000000000000000002"));
-        assertDecimalFunction("DECIMAL '500000000000000000000000000000000070' / DECIMAL '50'", decimal("010000000000000000000000000000000001"));
-        assertDecimalFunction("DECIMAL '-500000000000000000000000000000000075' / DECIMAL '50'", decimal("-010000000000000000000000000000000002"));
-        assertDecimalFunction("DECIMAL '-500000000000000000000000000000000070' / DECIMAL '50'", decimal("-010000000000000000000000000000000001"));
-        assertDecimalFunction("DECIMAL '500000000000000000000000000000000075' / DECIMAL '-50'", decimal("-010000000000000000000000000000000002"));
-        assertDecimalFunction("DECIMAL '500000000000000000000000000000000070' / DECIMAL '-50'", decimal("-010000000000000000000000000000000001"));
-        assertDecimalFunction("DECIMAL '-500000000000000000000000000000000075' / DECIMAL '-50'", decimal("010000000000000000000000000000000002"));
-        assertDecimalFunction("DECIMAL '-500000000000000000000000000000000070' / DECIMAL '-50'", decimal("010000000000000000000000000000000001"));
-        assertDecimalFunction("CAST(-1 AS DECIMAL(19,0))/ DECIMAL '2'", decimal("-0000000000000000001"));
-        assertDecimalFunction("CAST(1 AS DECIMAL(19,0))/ DECIMAL '-2'", decimal("-0000000000000000001"));
-        assertDecimalFunction("CAST(-1 AS DECIMAL(19,0))/ DECIMAL '3'", decimal("0000000000000000000"));
+        testDivide("500000000000000000000000000000000075", "50", "010000000000000000000000000000000002");
+        testDivide("500000000000000000000000000000000070", "50", "010000000000000000000000000000000001");
+        testDivide("-500000000000000000000000000000000075", "50", "-010000000000000000000000000000000002");
+        testDivide("-500000000000000000000000000000000070", "50", "-010000000000000000000000000000000001");
+        testDivide("500000000000000000000000000000000075", "-50", "-010000000000000000000000000000000002");
+        testDivide("500000000000000000000000000000000070", "-50", "-010000000000000000000000000000000001");
+        testDivide("-500000000000000000000000000000000075", "-50", "010000000000000000000000000000000002");
+        testDivide("-500000000000000000000000000000000070", "-50", "010000000000000000000000000000000001");
+        testDivide("-1", "2", "CAST(-1 AS DECIMAL(19,0))/ 2", "-0000000000000000001");
+        testDivide("1", "-2", "CAST(1 AS DECIMAL(19,0))/ -2", "-0000000000000000001");
+        testDivide("-1", "3", "CAST(-1 AS DECIMAL(19,0))/ 3", "0000000000000000000");
 
         // short long -> long
-        assertDecimalFunction("DECIMAL '0.1' / DECIMAL '.0000000000000000001'", decimal("1000000000000000000.0000000000000000000"));
-        assertDecimalFunction("DECIMAL '-0.1' / DECIMAL '.0000000000000000001'", decimal("-1000000000000000000.0000000000000000000"));
-        assertDecimalFunction("DECIMAL '0.1' / DECIMAL '-.0000000000000000001'", decimal("-1000000000000000000.0000000000000000000"));
-        assertDecimalFunction("DECIMAL '-0.1' / DECIMAL '-.0000000000000000001'", decimal("1000000000000000000.0000000000000000000"));
+        testDivide("0.1", ".0000000000000000001", "1000000000000000000.0000000000000000000");
+        testDivide("-0.1", ".0000000000000000001", "-1000000000000000000.0000000000000000000");
+        testDivide("0.1", "-.0000000000000000001", "-1000000000000000000.0000000000000000000");
+        testDivide("-0.1", "-.0000000000000000001", "1000000000000000000.0000000000000000000");
 
         // short long -> short
-        assertDecimalFunction("DECIMAL '9' / DECIMAL '000000000000000003.0'", decimal("03.0"));
-        assertDecimalFunction("DECIMAL '1' / DECIMAL '99999999999999999999999999999999999999'", decimal("0"));
-        assertDecimalFunction("DECIMAL '-1' / DECIMAL '99999999999999999999999999999999999999'", decimal("0"));
-        assertDecimalFunction("DECIMAL '1' / DECIMAL '-99999999999999999999999999999999999999'", decimal("0"));
-        assertDecimalFunction("DECIMAL '-1' / DECIMAL '-99999999999999999999999999999999999999'", decimal("0"));
+        testDivide("9", "000000000000000003.0", "03.0");
+        testDivide("1", "99999999999999999999999999999999999999", "0");
+        testDivide("-1", "99999999999999999999999999999999999999", "0");
+        testDivide("1", "-99999999999999999999999999999999999999", "0");
+        testDivide("-1", "-99999999999999999999999999999999999999", "0");
 
         // long long -> long
-        assertDecimalFunction("DECIMAL '99999999999999999999999999999999999999' / DECIMAL '11111111111111111111111111111111111111'", decimal("00000000000000000000000000000000000009"));
-        assertDecimalFunction("DECIMAL '-99999999999999999999999999999999999999' / DECIMAL '11111111111111111111111111111111111111'", decimal("-00000000000000000000000000000000000009"));
-        assertDecimalFunction("DECIMAL '99999999999999999999999999999999999999' / DECIMAL '-11111111111111111111111111111111111111'", decimal("-00000000000000000000000000000000000009"));
-        assertDecimalFunction("DECIMAL '-99999999999999999999999999999999999999' / DECIMAL '-11111111111111111111111111111111111111'", decimal("00000000000000000000000000000000000009"));
-        assertDecimalFunction("DECIMAL '11111111111111111111111111111111111111' / DECIMAL '99999999999999999999999999999999999999'", decimal("00000000000000000000000000000000000000"));
-        assertDecimalFunction("DECIMAL '-11111111111111111111111111111111111111' / DECIMAL '99999999999999999999999999999999999999'", decimal("00000000000000000000000000000000000000"));
-        assertDecimalFunction("DECIMAL '11111111111111111111111111111111111111' / DECIMAL '-99999999999999999999999999999999999999'", decimal("00000000000000000000000000000000000000"));
-        assertDecimalFunction("DECIMAL '-11111111111111111111111111111111111111' / DECIMAL '-99999999999999999999999999999999999999'", decimal("00000000000000000000000000000000000000"));
-        assertDecimalFunction("DECIMAL '99999999999999999999999999999999999998' / DECIMAL '99999999999999999999999999999999999999'", decimal("00000000000000000000000000000000000001"));
-        assertDecimalFunction("DECIMAL '9999999999999999999999999999999999999.8' / DECIMAL '9999999999999999999999999999999999999.9'", decimal("0000000000000000000000000000000000001.0"));
-        assertDecimalFunction("DECIMAL '9999999999999999999999.9' / DECIMAL '1111111111111111111111.100'", decimal("0000000000000000000000009.000"));
-        assertDecimalFunction("CAST('1635619.3155' AS DECIMAL(38,4)) / CAST('47497517.7405' AS DECIMAL(38,4))", decimal("0000000000000000000000000000000000.0344"));
+        testDivide("99999999999999999999999999999999999999", "11111111111111111111111111111111111111", "00000000000000000000000000000000000009");
+        testDivide("-99999999999999999999999999999999999999", "11111111111111111111111111111111111111", "-00000000000000000000000000000000000009");
+        testDivide("99999999999999999999999999999999999999", "-11111111111111111111111111111111111111", "-00000000000000000000000000000000000009");
+        testDivide("-99999999999999999999999999999999999999", "-11111111111111111111111111111111111111", "00000000000000000000000000000000000009");
+        testDivide("11111111111111111111111111111111111111", "99999999999999999999999999999999999999", "00000000000000000000000000000000000000");
+        testDivide("-11111111111111111111111111111111111111", "99999999999999999999999999999999999999", "00000000000000000000000000000000000000");
+        testDivide("11111111111111111111111111111111111111", "-99999999999999999999999999999999999999", "00000000000000000000000000000000000000");
+        testDivide("-11111111111111111111111111111111111111", "-99999999999999999999999999999999999999", "00000000000000000000000000000000000000");
+        testDivide("99999999999999999999999999999999999998", "99999999999999999999999999999999999999", "00000000000000000000000000000000000001");
+        testDivide("9999999999999999999999999999999999999.8", "9999999999999999999999999999999999999.9", "0000000000000000000000000000000000001.0");
+        testDivide("9999999999999999999999.9", "1111111111111111111111.100", "0000000000000000000000009.000");
+        testDivide("1635619.3155", "47497517.7405", "CAST('1635619.3155' AS DECIMAL(38,4)) / CAST('47497517.7405' AS DECIMAL(38,4))", "0000000000000000000000000000000000.0344");
 
         // runtime overflow
         assertInvalidFunction("DECIMAL '12345678901234567890123456789012345678' / DECIMAL '.1'", NUMERIC_VALUE_OUT_OF_RANGE);
@@ -302,7 +305,20 @@ public class TestDecimalOperators
         assertInvalidFunction("DECIMAL '1.000000000000000000000000000000000000' / DECIMAL '0.0000000000000000000000000000000000000'", DIVISION_BY_ZERO);
         assertInvalidFunction("DECIMAL '1' / DECIMAL '0.0000000000000000000000000000000000000'", DIVISION_BY_ZERO);
 
-        assertDecimalFunction("CAST(1000 AS DECIMAL(38,8)) / CAST(25 AS DECIMAL(38,8))", decimal("000000000000000000000000000040.00000000"));
+        testDivide("1000", "25", "CAST(1000 AS DECIMAL(38,8)) / CAST(25 AS DECIMAL(38,8))", "000000000000000000000000000040.00000000");
+    }
+
+    private void testDivide(String dividend, String divisor, String expectedResult)
+    {
+        testDivide(dividend, divisor, String.format("DECIMAL '%s' / DECIMAL '%s'", dividend, divisor), expectedResult);
+    }
+
+    private void testDivide(String dividend, String divisor, String divisionExpression, String expectedResult)
+    {
+        assertDecimalFunction(divisionExpression, decimal(expectedResult));
+        BigDecimal expected = decimal(expectedResult).toBigDecimal();
+        assertThat(new BigDecimal(dividend).divide(new BigDecimal(divisor), expected.scale(), HALF_UP))
+                .isEqualByComparingTo(expected);
     }
 
     @Test
