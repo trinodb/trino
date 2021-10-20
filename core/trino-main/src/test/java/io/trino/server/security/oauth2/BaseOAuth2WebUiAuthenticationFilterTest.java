@@ -96,6 +96,7 @@ public abstract class BaseOAuth2WebUiAuthenticationFilterTest
             throws Exception
     {
         logging.setLevel(OAuth2WebUiAuthenticationFilter.class.getName(), Level.DEBUG);
+        logging.setLevel(OAuth2Service.class.getName(), Level.DEBUG);
 
         hydraIdP = getHydraIdp();
         String idpUrl = "https://localhost:" + hydraIdP.getAuthPort();
@@ -139,6 +140,7 @@ public abstract class BaseOAuth2WebUiAuthenticationFilterTest
             throws Exception
     {
         logging.clearLevel(OAuth2WebUiAuthenticationFilter.class.getName());
+        logging.clearLevel(OAuth2Service.class.getName());
         Closeables.closeAll(server, hydraIdP);
     }
 
