@@ -274,8 +274,7 @@ public class IcebergMetadata
                                     Object prestoValue = deserializePartitionValue(
                                             column.getType(),
                                             partitionColumnValueStrings.get(columnId),
-                                            column.getName(),
-                                            session.getTimeZoneKey());
+                                            column.getName());
 
                                     return NullableValue.of(column.getType(), prestoValue);
                                 }));

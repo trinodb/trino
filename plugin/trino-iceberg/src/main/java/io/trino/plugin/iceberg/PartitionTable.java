@@ -28,7 +28,6 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.RowType;
-import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeUtils;
 import org.apache.iceberg.DataFile;
@@ -297,7 +296,7 @@ public class PartitionTable
         if (type instanceof Types.TimestampType) {
             long epochMicros = (long) value;
             if (((Types.TimestampType) type).shouldAdjustToUTC()) {
-                return timestampTzFromMicros(epochMicros, TimeZoneKey.UTC_KEY);
+                return timestampTzFromMicros(epochMicros);
             }
             return epochMicros;
         }

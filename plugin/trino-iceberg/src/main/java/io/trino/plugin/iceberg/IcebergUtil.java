@@ -26,7 +26,6 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
-import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.UuidType;
@@ -233,7 +232,7 @@ public final class IcebergUtil
         return '"' + name.replace("\"", "\"\"") + '"';
     }
 
-    public static Object deserializePartitionValue(Type type, String valueString, String name, TimeZoneKey timeZoneKey)
+    public static Object deserializePartitionValue(Type type, String valueString, String name)
     {
         if (valueString == null) {
             return null;
@@ -271,7 +270,7 @@ public final class IcebergUtil
                 return parseLong(valueString);
             }
             if (type.equals(TIMESTAMP_TZ_MICROS)) {
-                return timestampTzFromMicros(parseLong(valueString), timeZoneKey);
+                return timestampTzFromMicros(parseLong(valueString));
             }
             if (type instanceof VarcharType) {
                 Slice value = utf8Slice(valueString);
