@@ -1803,17 +1803,6 @@ public abstract class BaseIcebergConnectorTest
         }
     }
 
-    private ColumnStatistics getStatisticsForColumn(TableStatistics tableStatistics, String columnName)
-    {
-        for (Map.Entry<ColumnHandle, ColumnStatistics> entry : tableStatistics.getColumnStatistics().entrySet()) {
-            IcebergColumnHandle handle = (IcebergColumnHandle) entry.getKey();
-            if (handle.getName().equals(columnName)) {
-                return checkColumnStatistics(entry.getValue());
-            }
-        }
-        throw new IllegalArgumentException("TableStatistics did not contain column named " + columnName);
-    }
-
     private static IcebergColumnHandle getColumnHandleFromStatistics(TableStatistics tableStatistics, String columnName)
     {
         for (ColumnHandle columnHandle : tableStatistics.getColumnStatistics().keySet()) {
