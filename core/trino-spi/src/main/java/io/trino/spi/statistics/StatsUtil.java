@@ -16,13 +16,16 @@ package io.trino.spi.statistics;
 import io.airlift.slice.Slice;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 
 import java.util.OptionalDouble;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalConversions.longDecimalToDouble;
 import static io.trino.spi.type.DecimalConversions.shortDecimalToDouble;
@@ -72,6 +75,12 @@ public final class StatsUtil
                 return OptionalDouble.of((long) value);
             }
             return OptionalDouble.of(((LongTimestamp) value).getEpochMicros());
+        }
+        if (type instanceof TimestampWithTimeZoneType) {
+            if (((TimestampWithTimeZoneType) type).isShort()) {
+                return OptionalDouble.of(unpackMillisUtc((long) value));
+            }
+            return OptionalDouble.of(((LongTimestampWithTimeZone) value).getEpochMillis());
         }
 
         return OptionalDouble.empty();
