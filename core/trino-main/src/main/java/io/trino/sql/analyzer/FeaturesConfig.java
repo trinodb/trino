@@ -120,6 +120,7 @@ public class FeaturesConfig
     private double memoryRevokingTarget = 0.5;
     private double memoryRevokingThreshold = 0.9;
     private boolean parseDecimalLiteralsAsDouble;
+    private boolean parseReadOnlySqlStatements;
     private boolean useMarkDistinct = true;
     private boolean preferPartialAggregation = true;
     private boolean optimizeTopNRanking = true;
@@ -850,6 +851,18 @@ public class FeaturesConfig
     public FeaturesConfig setParseDecimalLiteralsAsDouble(boolean parseDecimalLiteralsAsDouble)
     {
         this.parseDecimalLiteralsAsDouble = parseDecimalLiteralsAsDouble;
+        return this;
+    }
+
+    public boolean isParseReadOnlySqlStatements()
+    {
+        return parseReadOnlySqlStatements;
+    }
+
+    @Config("parser.read-only")
+    public FeaturesConfig setParseReadOnlySqlStatements(boolean parseReadOnlySqlStatements)
+    {
+        this.parseReadOnlySqlStatements = parseReadOnlySqlStatements;
         return this;
     }
 

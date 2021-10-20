@@ -24,7 +24,14 @@ public class ParsingOptions
         REJECT
     }
 
+    public enum SqlParserMode
+    {
+        READ_ONLY,
+        CRUD
+    }
+
     private final DecimalLiteralTreatment decimalLiteralTreatment;
+    private final SqlParserMode parserMode;
 
     public ParsingOptions()
     {
@@ -33,11 +40,23 @@ public class ParsingOptions
 
     public ParsingOptions(DecimalLiteralTreatment decimalLiteralTreatment)
     {
+        this.parserMode = requireNonNull(SqlParserMode.CRUD, "parserMode is null");
+        this.decimalLiteralTreatment = requireNonNull(decimalLiteralTreatment, "decimalLiteralTreatment is null");
+    }
+
+    public ParsingOptions(DecimalLiteralTreatment decimalLiteralTreatment, SqlParserMode parserMode)
+    {
+        this.parserMode = requireNonNull(parserMode, "parserMode is null");
         this.decimalLiteralTreatment = requireNonNull(decimalLiteralTreatment, "decimalLiteralTreatment is null");
     }
 
     public DecimalLiteralTreatment getDecimalLiteralTreatment()
     {
         return decimalLiteralTreatment;
+    }
+
+    public SqlParserMode getSqlParserMode()
+    {
+        return parserMode;
     }
 }

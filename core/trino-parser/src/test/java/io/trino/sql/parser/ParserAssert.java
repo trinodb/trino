@@ -28,7 +28,9 @@ import java.util.function.Function;
 
 import static io.trino.sql.SqlFormatter.formatSql;
 import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DECIMAL;
+import static io.trino.sql.parser.ParsingOptions.SqlParserMode.READ_ONLY;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.assertj.core.api.Assertions.assertThatNoException;
 
 public class ParserAssert
         extends RecursiveComparisonAssert<ParserAssert>
@@ -75,6 +77,11 @@ public class ParserAssert
         return new SqlParser().createStatement(statement, new ParsingOptions(AS_DECIMAL));
     }
 
+    private static Statement createReadOnlyStatement(String statement)
+    {
+        return new SqlParser().createStatement(statement, new ParsingOptions(AS_DECIMAL, READ_ONLY));
+    }
+
     public static ThrowableAssertAlternative<ParsingException> assertExpressionIsInvalid(String sql)
     {
         return assertThatExceptionOfType(ParsingException.class)
@@ -87,6 +94,19 @@ public class ParserAssert
         return assertThatExceptionOfType(ParsingException.class)
                 .as("statement: %s", sql)
                 .isThrownBy(() -> createStatement(sql));
+    }
+
+    public static ThrowableAssertAlternative<ParsingException> assertRestrictedStatementInReadOnlyMode(String sql)
+    {
+        return assertThatExceptionOfType(ParsingException.class)
+                .as("Unexpected %s statement when READ_ONLY mode is enabled", sql)
+                .isThrownBy(() -> createReadOnlyStatement(sql));
+    }
+
+    public static void assertAllowedStatementsInReadOnlyMode(String sql)
+    {
+        assertThatNoException()
+                .isThrownBy(() -> createReadOnlyStatement(sql));
     }
 
     private ParserAssert(Node actual, RecursiveComparisonConfiguration recursiveComparisonConfiguration)

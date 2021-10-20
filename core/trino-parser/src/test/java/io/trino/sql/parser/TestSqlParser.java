@@ -214,7 +214,9 @@ import static io.trino.sql.QueryUtil.subquery;
 import static io.trino.sql.QueryUtil.table;
 import static io.trino.sql.QueryUtil.values;
 import static io.trino.sql.SqlFormatter.formatSql;
+import static io.trino.sql.parser.ParserAssert.assertAllowedStatementsInReadOnlyMode;
 import static io.trino.sql.parser.ParserAssert.assertExpressionIsInvalid;
+import static io.trino.sql.parser.ParserAssert.assertRestrictedStatementInReadOnlyMode;
 import static io.trino.sql.parser.ParserAssert.assertStatementIsInvalid;
 import static io.trino.sql.parser.ParserAssert.expression;
 import static io.trino.sql.parser.ParserAssert.rowPattern;
@@ -3597,6 +3599,62 @@ public class TestSqlParser
                                 new StringLiteral("HIDDEN"),
                                 new BooleanLiteral("false"))));
     }
+
+    @Test
+    public void testRestrictedSchemaNodesReadOnlyMode()
+    {
+        assertRestrictedStatementInReadOnlyMode("CREATE SCHEMA test");
+        assertRestrictedStatementInReadOnlyMode("ALTER SCHEMA foo RENAME TO bar");
+        assertRestrictedStatementInReadOnlyMode("DROP SCHEMA test");
+    }
+
+    @Test
+    public void testRestrictedTableNodesReadOnlyMode()
+    {
+        assertRestrictedStatementInReadOnlyMode("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c IPADDRESS)");
+        assertRestrictedStatementInReadOnlyMode("CREATE TABLE foo AS SELECT * FROM t");
+        assertRestrictedStatementInReadOnlyMode("ALTER TABLE a RENAME TO b");
+        assertRestrictedStatementInReadOnlyMode("DROP TABLE a.b.c");
+        assertRestrictedStatementInReadOnlyMode("DELETE FROM t");
+        assertRestrictedStatementInReadOnlyMode("UPDATE t\n" +
+                                                    "    SET bar = 23\n" +
+                                                    "WHERE (id = 'test')");
+    }
+
+    @Test
+    public void testRestrictedViewNodesReadOnlyMode()
+    {
+        assertRestrictedStatementInReadOnlyMode("CREATE VIEW bar.foo AS SELECT * FROM t");
+        assertRestrictedStatementInReadOnlyMode("ALTER VIEW a RENAME TO b");
+        assertRestrictedStatementInReadOnlyMode("DROP VIEW a.b.c");
+        assertRestrictedStatementInReadOnlyMode("CREATE MATERIALIZED VIEW a AS SELECT * FROM t");
+        assertRestrictedStatementInReadOnlyMode("DROP MATERIALIZED VIEW a");
+        assertRestrictedStatementInReadOnlyMode("REFRESH MATERIALIZED VIEW test");
+    }
+
+    @Test
+    public void testRestrictedRoleNodesReadOnlyMode()
+    {
+        assertRestrictedStatementInReadOnlyMode("CREATE ROLE role1 WITH ADMIN admin");
+        assertRestrictedStatementInReadOnlyMode("GRANT role1 TO user1");
+        assertRestrictedStatementInReadOnlyMode("REVOKE INSERT, DELETE ON t FROM u");
+        assertRestrictedStatementInReadOnlyMode("REVOKE GRANT OPTION FOR SELECT ON t FROM ROLE PUBLIC");
+        assertRestrictedStatementInReadOnlyMode("SHOW ROLES");
+        assertRestrictedStatementInReadOnlyMode("SHOW ROLE GRANTS");
+        assertRestrictedStatementInReadOnlyMode("SET ROLE role");
+    }
+
+    @Test
+    public void testAllowedSelectNodesReadOnlyMode()
+    {
+        assertAllowedStatementsInReadOnlyMode("SELECT * FROM t");
+        assertAllowedStatementsInReadOnlyMode("SELECT * FROM d.t");
+        assertAllowedStatementsInReadOnlyMode("SELECT name FROM d.t as tbl WHERE tbl.id = 1");
+        assertAllowedStatementsInReadOnlyMode("SELECT * FROM table1 GROUP BY a, b");
+    }
+
+    @Test
+    public void testAllowedGroupBy
 
     private static QualifiedName makeQualifiedName(String tableName)
     {
