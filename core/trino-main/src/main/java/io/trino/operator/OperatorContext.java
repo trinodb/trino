@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.stats.CounterStat;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.memory.QueryContextVisitor;
@@ -46,7 +47,6 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.operator.BlockedReason.WAITING_FOR_MEMORY;
 import static io.trino.operator.Operator.NOT_BLOCKED;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -546,26 +546,26 @@ public class OperatorContext
                 addInputTiming.getCalls(),
                 new Duration(addInputTiming.getWallNanos(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(addInputTiming.getCpuNanos(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                succinctBytes(physicalInputDataSize.getTotalCount()),
+                DataSize.ofBytes(physicalInputDataSize.getTotalCount()),
                 physicalInputPositions.getTotalCount(),
-                succinctBytes(internalNetworkInputDataSize.getTotalCount()),
+                DataSize.ofBytes(internalNetworkInputDataSize.getTotalCount()),
                 internalNetworkPositions.getTotalCount(),
-                succinctBytes(physicalInputDataSize.getTotalCount() + internalNetworkInputDataSize.getTotalCount()),
-                succinctBytes(inputDataSize.getTotalCount()),
+                DataSize.ofBytes(physicalInputDataSize.getTotalCount() + internalNetworkInputDataSize.getTotalCount()),
+                DataSize.ofBytes(inputDataSize.getTotalCount()),
                 inputPositionsCount,
                 (double) inputPositionsCount * inputPositionsCount,
 
                 getOutputTiming.getCalls(),
                 new Duration(getOutputTiming.getWallNanos(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(getOutputTiming.getCpuNanos(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                succinctBytes(outputDataSize.getTotalCount()),
+                DataSize.ofBytes(outputDataSize.getTotalCount()),
                 outputPositions.getTotalCount(),
 
                 dynamicFilterSplitsProcessed.get(),
                 metrics.get(),
                 connectorMetrics.get(),
 
-                succinctBytes(physicalWrittenDataSize.get()),
+                DataSize.ofBytes(physicalWrittenDataSize.get()),
 
                 new Duration(blockedWallNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
 
@@ -573,16 +573,16 @@ public class OperatorContext
                 new Duration(finishTiming.getWallNanos(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(finishTiming.getCpuNanos(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
 
-                succinctBytes(operatorMemoryContext.getUserMemory()),
-                succinctBytes(getReservedRevocableBytes()),
-                succinctBytes(operatorMemoryContext.getSystemMemory()),
+                DataSize.ofBytes(operatorMemoryContext.getUserMemory()),
+                DataSize.ofBytes(getReservedRevocableBytes()),
+                DataSize.ofBytes(operatorMemoryContext.getSystemMemory()),
 
-                succinctBytes(peakUserMemoryReservation.get()),
-                succinctBytes(peakSystemMemoryReservation.get()),
-                succinctBytes(peakRevocableMemoryReservation.get()),
-                succinctBytes(peakTotalMemoryReservation.get()),
+                DataSize.ofBytes(peakUserMemoryReservation.get()),
+                DataSize.ofBytes(peakSystemMemoryReservation.get()),
+                DataSize.ofBytes(peakRevocableMemoryReservation.get()),
+                DataSize.ofBytes(peakTotalMemoryReservation.get()),
 
-                succinctBytes(spillContext.getSpilledBytes()),
+                DataSize.ofBytes(spillContext.getSpilledBytes()),
 
                 memoryFuture.get().isDone() ? Optional.empty() : Optional.of(WAITING_FOR_MEMORY),
                 info);
