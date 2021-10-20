@@ -388,6 +388,147 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testPartitionByTimestampWithTimeZone()
+    {
+        testSelectOrPartitionedByTimestampWithTimeZone(true);
+    }
+
+    @Test
+    public void testSelectByTimestampWithTimeZone()
+    {
+        testSelectOrPartitionedByTimestampWithTimeZone(false);
+    }
+
+    private void testSelectOrPartitionedByTimestampWithTimeZone(boolean partitioned)
+    {
+        String tableName = format("test_%s_by_timestamptz", partitioned ? "partitioned" : "selected");
+        assertUpdate(format(
+                "CREATE TABLE %s (_timestamptz timestamp(6) with time zone) %s",
+                tableName,
+                partitioned ? "WITH (partitioning = ARRAY['_timestamptz'])" : ""));
+
+        String instant1Utc = "TIMESTAMP '2021-10-31 00:30:00.005000 UTC'";
+        String instant1La = "TIMESTAMP '2021-10-30 17:30:00.005000 America/Los_Angeles'";
+        String instant2Utc = "TIMESTAMP '2021-10-31 00:30:00.006000 UTC'";
+        String instant2La = "TIMESTAMP '2021-10-30 17:30:00.006000 America/Los_Angeles'";
+        String instant3Utc = "TIMESTAMP '2021-10-31 00:30:00.007000 UTC'";
+        String instant3La = "TIMESTAMP '2021-10-30 17:30:00.007000 America/Los_Angeles'";
+
+        assertUpdate(format("INSERT INTO %s VALUES %s", tableName, instant1Utc), 1);
+        assertUpdate(format("INSERT INTO %s VALUES %s", tableName, instant2La /* non-UTC for this one */), 1);
+        assertUpdate(format("INSERT INTO %s VALUES %s", tableName, instant3Utc), 1);
+        assertQuery(format("SELECT COUNT(*) from %s", tableName), "SELECT 3");
+
+        // =
+        assertThat(query(format("SELECT * from %s WHERE _timestamptz = %s", tableName, instant1Utc)))
+                .matches("VALUES " + instant1Utc);
+        assertThat(query(format("SELECT * from %s WHERE _timestamptz = %s", tableName, instant1La)))
+                .matches("VALUES " + instant1Utc);
+        assertThat(query(format("SELECT * from %s WHERE _timestamptz = %s", tableName, instant2Utc)))
+                .matches("VALUES " + instant2Utc);
+        assertThat(query(format("SELECT * from %s WHERE _timestamptz = %s", tableName, instant2La)))
+                .matches("VALUES " + instant2Utc);
+        assertThat(query(format("SELECT * from %s WHERE _timestamptz = %s", tableName, instant3Utc)))
+                .matches("VALUES " + instant3Utc);
+        assertThat(query(format("SELECT * from %s WHERE _timestamptz = %s", tableName, instant3La)))
+                .matches("VALUES " + instant3Utc);
+
+        // <
+        assertThat(query(format("SELECT * from %s WHERE _timestamptz < %s", tableName, instant2Utc)))
+                .matches("VALUES " + instant1Utc);
+        assertThat(query(format("SELECT * from %s WHERE _timestamptz < %s", tableName, instant2La)))
+                .matches("VALUES " + instant1Utc);
+        assertThat(query(format("SELECT * from %s WHERE _timestamptz < %s", tableName, instant3Utc)))
+                .matches(format("VALUES %s, %s", instant1Utc, instant2Utc));
+        assertThat(query(format("SELECT * from %s WHERE _timestamptz < %s", tableName, instant3La)))
+                .matches(format("VALUES %s, %s", instant1Utc, instant2Utc));
+
+        // <=
+        assertThat(query(format("SELECT * from %s WHERE _timestamptz <= %s", tableName, instant2Utc)))
+                .matches(format("VALUES %s, %s", instant1Utc, instant2Utc));
+        assertThat(query(format("SELECT * from %s WHERE _timestamptz <= %s", tableName, instant2La)))
+                .matches(format("VALUES %s, %s", instant1Utc, instant2Utc));
+
+        // >
+        assertThat(query(format("SELECT * from %s WHERE _timestamptz > %s", tableName, instant2Utc)))
+                .matches("VALUES " + instant3Utc);
+        assertThat(query(format("SELECT * from %s WHERE _timestamptz > %s", tableName, instant2La)))
+                .matches("VALUES " + instant3Utc);
+        assertThat(query(format("SELECT * from %s WHERE _timestamptz > %s", tableName, instant1Utc)))
+                .matches(format("VALUES %s, %s", instant2Utc, instant3Utc));
+        assertThat(query(format("SELECT * from %s WHERE _timestamptz > %s", tableName, instant1La)))
+                .matches(format("VALUES %s, %s", instant2Utc, instant3Utc));
+
+        // >=
+        assertThat(query(format("SELECT * from %s WHERE _timestamptz >= %s", tableName, instant2Utc)))
+                .matches(format("VALUES %s, %s", instant2Utc, instant3Utc));
+        assertThat(query(format("SELECT * from %s WHERE _timestamptz >= %s", tableName, instant2La)))
+                .matches(format("VALUES %s, %s", instant2Utc, instant3Utc));
+
+        // open range
+        assertThat(query(format("SELECT * from %s WHERE _timestamptz > %s AND _timestamptz < %s", tableName, instant1Utc, instant3Utc)))
+                .matches("VALUES " + instant2Utc);
+        assertThat(query(format("SELECT * from %s WHERE _timestamptz > %s AND _timestamptz < %s", tableName, instant1La, instant3La)))
+                .matches("VALUES " + instant2Utc);
+
+        // closed range
+        assertThat(query(format("SELECT * from %s WHERE _timestamptz BETWEEN %s AND %s", tableName, instant1Utc, instant2Utc)))
+                .matches(format("VALUES %s, %s", instant1Utc, instant2Utc));
+        assertThat(query(format("SELECT * from %s WHERE _timestamptz BETWEEN %s AND %s", tableName, instant1La, instant2La)))
+                .matches(format("VALUES %s, %s", instant1Utc, instant2Utc));
+
+        // !=
+        assertThat(query(format("SELECT * from %s WHERE _timestamptz != %s", tableName, instant1Utc)))
+                .matches(format("VALUES %s, %s", instant2Utc, instant3Utc));
+        assertThat(query(format("SELECT * from %s WHERE _timestamptz != %s", tableName, instant1La)))
+                .matches(format("VALUES %s, %s", instant2Utc, instant3Utc));
+        assertThat(query(format("SELECT * from %s WHERE _timestamptz != %s", tableName, instant2Utc)))
+                .matches(format("VALUES %s, %s", instant1Utc, instant3Utc));
+        assertThat(query(format("SELECT * from %s WHERE _timestamptz != %s", tableName, instant2La)))
+                .matches(format("VALUES %s, %s", instant1Utc, instant3Utc));
+
+        // IS DISTINCT FROM
+        assertThat(query(format("SELECT * from %s WHERE _timestamptz IS DISTINCT FROM %s", tableName, instant1Utc)))
+                .matches(format("VALUES %s, %s", instant2Utc, instant3Utc));
+        assertThat(query(format("SELECT * from %s WHERE _timestamptz IS DISTINCT FROM %s", tableName, instant1La)))
+                .matches(format("VALUES %s, %s", instant2Utc, instant3Utc));
+        assertThat(query(format("SELECT * from %s WHERE _timestamptz IS DISTINCT FROM %s", tableName, instant2Utc)))
+                .matches(format("VALUES %s, %s", instant1Utc, instant3Utc));
+        assertThat(query(format("SELECT * from %s WHERE _timestamptz IS DISTINCT FROM %s", tableName, instant2La)))
+                .matches(format("VALUES %s, %s", instant1Utc, instant3Utc));
+
+        // IS NOT DISTINCT FROM
+        assertThat(query(format("SELECT * from %s WHERE _timestamptz IS NOT DISTINCT FROM %s", tableName, instant1Utc)))
+                .matches("VALUES " + instant1Utc);
+        assertThat(query(format("SELECT * from %s WHERE _timestamptz IS NOT DISTINCT FROM %s", tableName, instant1La)))
+                .matches("VALUES " + instant1Utc);
+        assertThat(query(format("SELECT * from %s WHERE _timestamptz IS NOT DISTINCT FROM %s", tableName, instant2Utc)))
+                .matches("VALUES " + instant2Utc);
+        assertThat(query(format("SELECT * from %s WHERE _timestamptz IS NOT DISTINCT FROM %s", tableName, instant2La)))
+                .matches("VALUES " + instant2Utc);
+        assertThat(query(format("SELECT * from %s WHERE _timestamptz IS NOT DISTINCT FROM %s", tableName, instant3Utc)))
+                .matches("VALUES " + instant3Utc);
+        assertThat(query(format("SELECT * from %s WHERE _timestamptz IS NOT DISTINCT FROM %s", tableName, instant3La)))
+                .matches("VALUES " + instant3Utc);
+
+        if (partitioned) {
+            assertThat(query(format("SELECT row_count, file_count, _timestamptz FROM \"%s$partitions\"", tableName)))
+                    .matches(format("VALUES (BIGINT '1', BIGINT '1', %s), (BIGINT '1', BIGINT '1', %s), (BIGINT '1', BIGINT '1', %s)", instant1Utc, instant2Utc, instant3Utc));
+        }
+        else {
+            assertThat(query(format("SELECT row_count, file_count, _timestamptz FROM \"%s$partitions\"", tableName)))
+                    .matches(format == ORC
+                            ? "VALUES (BIGINT '3', BIGINT '3', CAST(NULL AS row(min timestamp(6) with time zone, max timestamp(6) with time zone, null_count bigint)))"
+                            : format(
+                            "VALUES (BIGINT '3', BIGINT '3', CAST(ROW(%s, %s, 0) AS row(min timestamp(6) with time zone, max timestamp(6) with time zone, null_count bigint)))",
+                            instant1Utc,
+                            instant3Utc));
+        }
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testUuid()
     {
         testSelectOrPartitionedByUuid(false);
@@ -459,7 +600,7 @@ public abstract class BaseIcebergConnectorTest
                 "  'a_date', " +
                 "  'a_time', " +
                 "  'a_timestamp', " +
-                // "  'a_timestamptz', " + TODO (https://github.com/trinodb/trino/issues/9704) this yields incorrect zone
+                "  'a_timestamptz', " +
                 "  'a_uuid' " +
                 // Note: partitioning on non-primitive columns is not allowed in Iceberg
                 "  ]" +
@@ -636,10 +777,7 @@ public abstract class BaseIcebergConnectorTest
                         "  DATE '2021-07-24'," +
                         "  TIME '02:43:57.987654', " +
                         "  TIMESTAMP '2021-07-24 03:43:57.987654'," +
-                        // TODO (https://github.com/trinodb/trino/issues/9704) include in partitioning
-                        (format == ORC
-                                ? "  CAST(ROW(NULL, NULL, 0) AS ROW(min timestamp(6) with time zone, max timestamp(6) with time zone, null_count bigint)), "
-                                : "  CAST(ROW(TIMESTAMP '2021-07-24 04:43:57.987654 UTC', TIMESTAMP '2021-07-24 04:43:57.987654 UTC', 0) AS ROW(min timestamp(6) with time zone, max timestamp(6) with time zone, null_count bigint)), ") +
+                        "  TIMESTAMP '2021-07-24 04:43:57.987654 UTC', " +
                         "  UUID '20050910-1330-11e9-ffff-2a86e4085a59' " +
                         ")" +
                         "UNION ALL " +
@@ -661,10 +799,7 @@ public abstract class BaseIcebergConnectorTest
                         "  NULL, " +
                         "  NULL, " +
                         "  NULL, " +
-                        // TODO (https://github.com/trinodb/trino/issues/9704) include in partitioning
-                        (format == ORC
-                                ? "  NULL, "
-                                : "  CAST(ROW(NULL, NULL, 1) AS ROW(min timestamp(6) with time zone, max timestamp(6) with time zone, null_count bigint)), ") +
+                        "  NULL, " +
                         "  NULL " +
                         ")");
 

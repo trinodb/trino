@@ -28,7 +28,6 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
-import io.trino.spi.type.TimeZoneKey;
 import org.apache.iceberg.CombinedScanTask;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.TableScan;
@@ -71,7 +70,6 @@ public class IcebergSplitSource
     private final TableScan tableScan;
     private final Map<Integer, Type.PrimitiveType> fieldIdToType;
     private final DynamicFilter dynamicFilter;
-    private final TimeZoneKey sessionZone;
     private final long dynamicFilteringWaitTimeoutMillis;
     private final Stopwatch dynamicFilterWaitStopwatch;
 
@@ -84,7 +82,6 @@ public class IcebergSplitSource
             Set<IcebergColumnHandle> identityPartitionColumns,
             TableScan tableScan,
             DynamicFilter dynamicFilter,
-            TimeZoneKey sessionZone,
             Duration dynamicFilteringWaitTimeout)
     {
         this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
@@ -92,7 +89,6 @@ public class IcebergSplitSource
         this.tableScan = requireNonNull(tableScan, "tableScan is null");
         this.fieldIdToType = primitiveFieldTypes(tableScan.schema());
         this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
-        this.sessionZone = requireNonNull(sessionZone, "sessionZone is null");
         this.dynamicFilteringWaitTimeoutMillis = requireNonNull(dynamicFilteringWaitTimeout, "dynamicFilteringWaitTimeout is null").toMillis();
         this.dynamicFilterWaitStopwatch = Stopwatch.createStarted();
     }
@@ -159,8 +155,7 @@ public class IcebergSplitSource
                 if (!partitionMatchesPredicate(
                         identityPartitionColumns,
                         icebergSplit.getPartitionKeys(),
-                        dynamicFilterPredicate,
-                        sessionZone)) {
+                        dynamicFilterPredicate)) {
                     continue;
                 }
                 if (!fileMatchesPredicate(
@@ -265,8 +260,7 @@ public class IcebergSplitSource
     static boolean partitionMatchesPredicate(
             Set<IcebergColumnHandle> identityPartitionColumns,
             Map<Integer, Optional<String>> partitionKeys,
-            TupleDomain<IcebergColumnHandle> dynamicFilterPredicate,
-            TimeZoneKey timeZoneKey)
+            TupleDomain<IcebergColumnHandle> dynamicFilterPredicate)
     {
         if (dynamicFilterPredicate.isNone()) {
             return false;
@@ -276,7 +270,7 @@ public class IcebergSplitSource
         for (IcebergColumnHandle partitionColumn : identityPartitionColumns) {
             Domain allowedDomain = domains.get(partitionColumn);
             if (allowedDomain != null) {
-                Object partitionValue = deserializePartitionValue(partitionColumn.getType(), partitionKeys.get(partitionColumn.getId()).orElse(null), partitionColumn.getName(), timeZoneKey);
+                Object partitionValue = deserializePartitionValue(partitionColumn.getType(), partitionKeys.get(partitionColumn.getId()).orElse(null), partitionColumn.getName());
                 if (!allowedDomain.includesNullableValue(partitionValue)) {
                     return false;
                 }

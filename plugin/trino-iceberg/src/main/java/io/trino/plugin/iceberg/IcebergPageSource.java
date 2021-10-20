@@ -19,7 +19,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.predicate.Utils;
-import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.Type;
 
 import java.io.IOException;
@@ -44,8 +43,7 @@ public class IcebergPageSource
     public IcebergPageSource(
             List<IcebergColumnHandle> columns,
             Map<Integer, Optional<String>> partitionKeys,
-            ConnectorPageSource delegate,
-            TimeZoneKey timeZoneKey)
+            ConnectorPageSource delegate)
     {
         int size = requireNonNull(columns, "columns is null").size();
         requireNonNull(partitionKeys, "partitionKeys is null");
@@ -60,7 +58,7 @@ public class IcebergPageSource
             if (partitionKeys.containsKey(column.getId())) {
                 String partitionValue = partitionKeys.get(column.getId()).orElse(null);
                 Type type = column.getType();
-                Object prefilledValue = deserializePartitionValue(type, partitionValue, column.getName(), timeZoneKey);
+                Object prefilledValue = deserializePartitionValue(type, partitionValue, column.getName());
                 prefilledBlocks[outputIndex] = Utils.nativeValueToBlock(type, prefilledValue);
                 delegateIndexes[outputIndex] = -1;
             }

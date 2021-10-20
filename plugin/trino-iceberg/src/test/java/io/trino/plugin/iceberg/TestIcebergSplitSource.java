@@ -34,7 +34,6 @@ import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
-import io.trino.spi.type.TimeZoneKey;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.apache.iceberg.Table;
@@ -155,7 +154,6 @@ public class TestIcebergSplitSource
                         return TupleDomain.all();
                     }
                 },
-                TimeZoneKey.UTC_KEY,
                 new Duration(2, SECONDS));
 
         ImmutableList.Builder<IcebergSplit> splits = ImmutableList.builder();
@@ -180,18 +178,15 @@ public class TestIcebergSplitSource
         assertFalse(IcebergSplitSource.partitionMatchesPredicate(
                 ImmutableSet.of(bigintColumn),
                 ImmutableMap.of(1, Optional.of("1000")),
-                TupleDomain.fromFixedValues(ImmutableMap.of(bigintColumn, NullableValue.of(BIGINT, 100L))),
-                TimeZoneKey.UTC_KEY));
+                TupleDomain.fromFixedValues(ImmutableMap.of(bigintColumn, NullableValue.of(BIGINT, 100L)))));
         assertTrue(IcebergSplitSource.partitionMatchesPredicate(
                 ImmutableSet.of(bigintColumn),
                 ImmutableMap.of(1, Optional.of("1000")),
-                TupleDomain.fromFixedValues(ImmutableMap.of(bigintColumn, NullableValue.of(BIGINT, 1000L))),
-                TimeZoneKey.UTC_KEY));
+                TupleDomain.fromFixedValues(ImmutableMap.of(bigintColumn, NullableValue.of(BIGINT, 1000L)))));
         assertFalse(IcebergSplitSource.partitionMatchesPredicate(
                 ImmutableSet.of(bigintColumn),
                 ImmutableMap.of(1, Optional.of("1000")),
-                TupleDomain.fromFixedValues(ImmutableMap.of(bigintColumn, NullableValue.asNull(BIGINT))),
-                TimeZoneKey.UTC_KEY));
+                TupleDomain.fromFixedValues(ImmutableMap.of(bigintColumn, NullableValue.asNull(BIGINT)))));
     }
 
     @Test

@@ -15,7 +15,6 @@ package io.trino.plugin.iceberg;
 
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
-import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.UuidType;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
@@ -89,7 +88,7 @@ public final class IcebergTypes
         if (icebergType instanceof Types.TimestampType) {
             long epochMicros = (long) value;
             if (((Types.TimestampType) icebergType).shouldAdjustToUTC()) {
-                return timestampTzFromMicros(epochMicros, TimeZoneKey.UTC_KEY);
+                return timestampTzFromMicros(epochMicros);
             }
             return epochMicros;
         }
