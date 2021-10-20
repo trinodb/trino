@@ -135,9 +135,9 @@ public final class SortedPositionLinks
         }
 
         @Override
-        public int size()
+        public boolean isEmpty()
         {
-            return positionLinks.size();
+            return positionLinks.isEmpty();
         }
 
         // Separate static method to avoid embedding references to "this"
