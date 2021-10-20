@@ -62,7 +62,7 @@ import static io.trino.cost.ComparisonStatsCalculator.estimateExpressionToLitera
 import static io.trino.cost.PlanNodeStatsEstimateMath.addStatsAndSumDistinctValues;
 import static io.trino.cost.PlanNodeStatsEstimateMath.capStats;
 import static io.trino.cost.PlanNodeStatsEstimateMath.subtractSubsetStats;
-import static io.trino.cost.StatsUtil.toStatsRepresentation;
+import static io.trino.spi.statistics.StatsUtil.toStatsRepresentation;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.DynamicFilters.isDynamicFilter;
 import static io.trino.sql.ExpressionUtils.and;
@@ -441,7 +441,7 @@ public class FilterStatsCalculator
         private OptionalDouble doubleValueFromLiteral(Type type, Literal literal)
         {
             Object literalValue = LiteralInterpreter.evaluate(metadata, session, getExpressionTypes(session, literal, types), literal);
-            return toStatsRepresentation(metadata, session, type, literalValue);
+            return toStatsRepresentation(type, literalValue);
         }
     }
 }
