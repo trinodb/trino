@@ -264,7 +264,7 @@ public class IcebergMetadata
 
             Iterable<TupleDomain<ColumnHandle>> discreteTupleDomain = Iterables.transform(files, fileScan -> {
                 // Extract partition values in the data file
-                Map<Integer, String> partitionColumnValueStrings = getPartitionKeys(fileScan);
+                Map<Integer, Optional<String>> partitionColumnValueStrings = getPartitionKeys(fileScan);
                 Map<ColumnHandle, NullableValue> partitionValues = partitionSourceIds.stream()
                         .filter(partitionColumnValueStrings::containsKey)
                         .collect(toImmutableMap(
@@ -273,7 +273,7 @@ public class IcebergMetadata
                                     IcebergColumnHandle column = columns.get(columnId);
                                     Object prestoValue = deserializePartitionValue(
                                             column.getType(),
-                                            partitionColumnValueStrings.get(columnId),
+                                            partitionColumnValueStrings.get(columnId).orElse(null),
                                             column.getName(),
                                             session.getTimeZoneKey());
 

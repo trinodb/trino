@@ -164,7 +164,7 @@ public class IcebergPageSourceProvider
                 .map(IcebergColumnHandle.class::cast)
                 .collect(toImmutableList());
 
-        Map<Integer, String> partitionKeys = split.getPartitionKeys();
+        Map<Integer, Optional<String>> partitionKeys = split.getPartitionKeys();
 
         List<IcebergColumnHandle> regularColumns = columns.stream()
                 .map(IcebergColumnHandle.class::cast)

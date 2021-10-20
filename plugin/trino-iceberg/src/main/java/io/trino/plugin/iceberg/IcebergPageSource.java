@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalLong;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
@@ -42,7 +43,7 @@ public class IcebergPageSource
 
     public IcebergPageSource(
             List<IcebergColumnHandle> columns,
-            Map<Integer, String> partitionKeys,
+            Map<Integer, Optional<String>> partitionKeys,
             ConnectorPageSource delegate,
             TimeZoneKey timeZoneKey)
     {
@@ -57,7 +58,7 @@ public class IcebergPageSource
         int delegateIndex = 0;
         for (IcebergColumnHandle column : columns) {
             if (partitionKeys.containsKey(column.getId())) {
-                String partitionValue = partitionKeys.get(column.getId());
+                String partitionValue = partitionKeys.get(column.getId()).orElse(null);
                 Type type = column.getType();
                 Object prefilledValue = deserializePartitionValue(type, partitionValue, column.getName(), timeZoneKey);
                 prefilledBlocks[outputIndex] = Utils.nativeValueToBlock(type, prefilledValue);
