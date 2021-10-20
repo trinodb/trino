@@ -38,6 +38,7 @@ import java.util.Optional;
 
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static java.util.Collections.singletonList;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
@@ -58,8 +59,10 @@ public class TestTimestamp
         MessageType parquetSchema = parseMessageType("message hive_timestamp { optional int64 test (TIMESTAMP_MILLIS); }");
         ContiguousSet<Long> epochMillisValues = ContiguousSet.create(Range.closedOpen((long) -1_000, (long) 1_000), DiscreteDomain.longs());
         ImmutableList.Builder<SqlTimestamp> timestampsMillis = new ImmutableList.Builder<>();
+        ImmutableList.Builder<Long> bigints = new ImmutableList.Builder<>();
         for (long value : epochMillisValues) {
             timestampsMillis.add(SqlTimestamp.fromMillis(3, value));
+            bigints.add(value);
         }
 
         List<ObjectInspector> objectInspectors = singletonList(javaLongObjectInspector);
@@ -82,6 +85,7 @@ public class TestTimestamp
                     false);
 
             testReadingAs(TIMESTAMP_MILLIS, session, tempFile, columnNames, timestampsMillis.build());
+            testReadingAs(BIGINT, session, tempFile, columnNames, bigints.build());
         }
     }
 

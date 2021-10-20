@@ -21,6 +21,7 @@ import io.trino.spi.type.Timestamps;
 import io.trino.spi.type.Type;
 
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
@@ -54,6 +55,9 @@ public class Int64TimestampNanosColumnReader
                 type.writeObject(blockBuilder, new LongTimestamp(
                         floorDiv(epochNanos, NANOSECONDS_PER_MICROSECOND),
                         floorMod(epochNanos, NANOSECONDS_PER_MICROSECOND) * PICOSECONDS_PER_NANOSECOND));
+            }
+            else if (type == BIGINT) {
+                type.writeLong(blockBuilder, epochNanos);
             }
             else {
                 throw new TrinoException(NOT_SUPPORTED, format("Unsupported Trino column type (%s) for Parquet column (%s)", type, columnDescriptor));
