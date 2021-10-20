@@ -287,6 +287,52 @@ public class TestShowStats
     }
 
     @Test
+    public void testShowStatsWithTimestampWithTimeZone()
+    {
+        // precision 0
+        assertQuery(
+                "SHOW STATS FOR (VALUES TIMESTAMP '2021-07-20 16:52:00 UTC')",
+                "VALUES " +
+                        "   ('_col0', null, 1, 0, null, '2021-07-20 16:52:00 UTC', '2021-07-20 16:52:00 UTC'), " +
+                        "   (null, null, null, null, 1, null, null)");
+
+        // precision 3
+        assertQuery(
+                "SHOW STATS FOR (VALUES TIMESTAMP '2021-07-20 16:52:00.123 UTC')",
+                "VALUES " +
+                        "   ('_col0', null, 1, 0, null, '2021-07-20 16:52:00.123 UTC', '2021-07-20 16:52:00.123 UTC'), " +
+                        "   (null, null, null, null, 1, null, null)");
+
+        // precision 6
+        assertQuery(
+                "SHOW STATS FOR (VALUES TIMESTAMP '2021-07-20 16:52:00.123999 UTC')",
+                "VALUES " +
+                        "   ('_col0', null, 1, 0, null, '2021-07-20 16:52:00.123 UTC', '2021-07-20 16:52:00.123 UTC'), " +
+                        "   (null, null, null, null, 1, null, null)");
+
+        // precision 9
+        assertQuery(
+                "SHOW STATS FOR (VALUES TIMESTAMP '2021-07-20 16:52:00.123999999 UTC')",
+                "VALUES " +
+                        "   ('_col0', null, 1, 0, null, '2021-07-20 16:52:00.123 UTC', '2021-07-20 16:52:00.123 UTC'), " +
+                        "   (null, null, null, null, 1, null, null)");
+
+        // precision 12
+        assertQuery(
+                "SHOW STATS FOR (VALUES TIMESTAMP '2021-07-20 16:52:00.123999999999 UTC')",
+                "VALUES " +
+                        "   ('_col0', null, 1, 0, null, '2021-07-20 16:52:00.123 UTC', '2021-07-20 16:52:00.123 UTC'), " +
+                        "   (null, null, null, null, 1, null, null)");
+
+        // non-UTC zone, min < max
+        assertQuery(
+                "SHOW STATS FOR (VALUES TIMESTAMP '2021-07-20 16:52:00.123456789 Europe/Warsaw', TIMESTAMP '2021-07-20 16:52:00.123456789 America/Los_Angeles')",
+                "VALUES " +
+                        "   ('_col0', null, 2, 0, null, '2021-07-20 14:52:00.123 UTC', '2021-07-20 23:52:00.123 UTC'), " +
+                        "   (null, null, null, null, 2, null, null)");
+    }
+
+    @Test
     public void testShowStatsWithoutFrom()
     {
         assertQuery(
