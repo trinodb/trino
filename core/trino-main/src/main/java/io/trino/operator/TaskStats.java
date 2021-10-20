@@ -25,7 +25,6 @@ import javax.annotation.Nullable;
 
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -598,8 +597,16 @@ public class TaskStats
                 physicalWrittenDataSize,
                 fullGcCount,
                 fullGcTime,
-                pipelines.stream()
-                        .map(PipelineStats::summarize)
-                        .collect(Collectors.toList()));
+                summarizePipelineStats(pipelines));
+    }
+
+    private static List<PipelineStats> summarizePipelineStats(List<PipelineStats> pipelines)
+    {
+        // Use an exact size ImmutableList builder to avoid a redundant copy in the TaskStats constructor
+        ImmutableList.Builder<PipelineStats> results = ImmutableList.builderWithExpectedSize(pipelines.size());
+        for (PipelineStats pipeline : pipelines) {
+            results.add(pipeline.summarize());
+        }
+        return results.build();
     }
 }
