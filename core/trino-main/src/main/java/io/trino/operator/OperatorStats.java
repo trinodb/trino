@@ -29,7 +29,6 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
-import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -564,26 +563,26 @@ public class OperatorStats
                 addInputCalls,
                 new Duration(addInputWall, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(addInputCpu, NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                succinctBytes(physicalInputDataSize),
+                DataSize.ofBytes(physicalInputDataSize),
                 physicalInputPositions,
-                succinctBytes(internalNetworkInputDataSize),
+                DataSize.ofBytes(internalNetworkInputDataSize),
                 internalNetworkInputPositions,
-                succinctBytes(rawInputDataSize),
-                succinctBytes(inputDataSize),
+                DataSize.ofBytes(rawInputDataSize),
+                DataSize.ofBytes(inputDataSize),
                 inputPositions,
                 sumSquaredInputPositions,
 
                 getOutputCalls,
                 new Duration(getOutputWall, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(getOutputCpu, NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                succinctBytes(outputDataSize),
+                DataSize.ofBytes(outputDataSize),
                 outputPositions,
 
                 dynamicFilterSplitsProcessed,
                 metricsAccumulator.get(),
                 connectorMetricsAccumulator.get(),
 
-                succinctBytes(physicalWrittenDataSize),
+                DataSize.ofBytes(physicalWrittenDataSize),
 
                 new Duration(blockedWall, NANOSECONDS).convertToMostSuccinctTimeUnit(),
 
@@ -591,15 +590,15 @@ public class OperatorStats
                 new Duration(finishWall, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(finishCpu, NANOSECONDS).convertToMostSuccinctTimeUnit(),
 
-                succinctBytes(memoryReservation),
-                succinctBytes(revocableMemoryReservation),
-                succinctBytes(systemMemoryReservation),
-                succinctBytes(peakUserMemory),
-                succinctBytes(peakSystemMemory),
-                succinctBytes(peakRevocableMemory),
-                succinctBytes(peakTotalMemory),
+                DataSize.ofBytes(memoryReservation),
+                DataSize.ofBytes(revocableMemoryReservation),
+                DataSize.ofBytes(systemMemoryReservation),
+                DataSize.ofBytes(peakUserMemory),
+                DataSize.ofBytes(peakSystemMemory),
+                DataSize.ofBytes(peakRevocableMemory),
+                DataSize.ofBytes(peakTotalMemory),
 
-                succinctBytes(spilledDataSize),
+                DataSize.ofBytes(spilledDataSize),
 
                 blockedReason,
 
