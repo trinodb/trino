@@ -21,6 +21,7 @@ import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcJoinCondition;
 import io.trino.plugin.jdbc.JdbcSortItem;
+import io.trino.plugin.jdbc.JdbcSplit;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.PreparedQuery;
@@ -36,7 +37,6 @@ import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.type.CharType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
@@ -116,10 +116,17 @@ public class MemSqlClient
     }
 
     @Override
+    public Connection getConnection(ConnectorSession session, JdbcSplit split) throws SQLException
+    {
+        Connection c = super.getConnection(session, split);
+        c.prepareStatement("set collation_connection = 'utf8_bin'").execute();
+        return c;
+    }
+
+    @Override
     public boolean supportsAggregationPushdown(ConnectorSession session, JdbcTableHandle table, List<AggregateFunction> aggregates, Map<String, ColumnHandle> assignments, List<List<ColumnHandle>> groupingSets)
     {
-        // Remote database can be case insensitive.
-        return preventTextualTypeAggregationPushdown(groupingSets);
+        return true;
     }
 
     @Override
@@ -188,10 +195,10 @@ public class MemSqlClient
                 return Optional.of(doubleColumnMapping());
             case Types.CHAR:
             case Types.NCHAR: // TODO it it is dummy copied from StandardColumnMappings, verify if it is proper mapping
-                return Optional.of(defaultCharColumnMapping(typeHandle.getRequiredColumnSize(), false));
+                return Optional.of(defaultCharColumnMapping(typeHandle.getRequiredColumnSize(), true));
             case Types.VARCHAR:
             case Types.LONGVARCHAR:
-                return Optional.of(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize(), false));
+                return Optional.of(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize(), true));
             case Types.DECIMAL:
                 int precision = typeHandle.getRequiredColumnSize();
                 int decimalDigits = typeHandle.getRequiredDecimalDigits();
@@ -362,13 +369,6 @@ public class MemSqlClient
     @Override
     public boolean supportsTopN(ConnectorSession session, JdbcTableHandle handle, List<JdbcSortItem> sortOrder)
     {
-        for (JdbcSortItem sortItem : sortOrder) {
-            Type sortItemType = sortItem.getColumn().getColumnType();
-            if (sortItemType instanceof CharType || sortItemType instanceof VarcharType) {
-                // Remote database can be case insensitive.
-                return false;
-            }
-        }
         return true;
     }
 
@@ -431,15 +431,8 @@ public class MemSqlClient
     @Override
     protected boolean isSupportedJoinCondition(JdbcJoinCondition joinCondition)
     {
-        if (joinCondition.getOperator() == JoinCondition.Operator.IS_DISTINCT_FROM) {
-            // Not supported in MemSQL
-            return false;
-        }
-
-        // Remote database can be case insensitive.
-        return Stream.of(joinCondition.getLeftColumn(), joinCondition.getRightColumn())
-                .map(JdbcColumnHandle::getColumnType)
-                .noneMatch(type -> type instanceof CharType || type instanceof VarcharType);
+        // Not supported in MemSQL
+        return joinCondition.getOperator() != JoinCondition.Operator.IS_DISTINCT_FROM;
     }
 
     private static Optional<ColumnMapping> getUnsignedMapping(JdbcTypeHandle typeHandle)
