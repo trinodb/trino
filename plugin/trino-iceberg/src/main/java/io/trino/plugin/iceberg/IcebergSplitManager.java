@@ -84,7 +84,6 @@ public class IcebergSplitManager
                 identityPartitionColumns,
                 tableScan,
                 dynamicFilter,
-                session.getTimeZoneKey(),
                 dynamicFilteringWaitTimeout);
 
         return new ClassLoaderSafeConnectorSplitSource(splitSource, Thread.currentThread().getContextClassLoader());
