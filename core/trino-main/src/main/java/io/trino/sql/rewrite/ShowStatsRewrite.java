@@ -22,6 +22,7 @@ import io.trino.cost.SymbolStatsEstimate;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.operator.scalar.timestamp.TimestampToVarcharCast;
+import io.trino.operator.scalar.timestamptz.TimestampWithTimeZoneToVarcharCast;
 import io.trino.security.AccessControl;
 import io.trino.spi.security.GroupProvider;
 import io.trino.spi.type.BigintType;
@@ -30,6 +31,7 @@ import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.sql.QueryUtil;
@@ -66,8 +68,10 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.QueryUtil.aliased;
 import static io.trino.sql.QueryUtil.selectAll;
@@ -241,6 +245,12 @@ public class ShowStatsRewrite
                 long epochMicros = (long) value;
                 int outputPrecision = min(((TimestampType) type).getPrecision(), TimestampType.MAX_SHORT_PRECISION);
                 return new StringLiteral(TimestampToVarcharCast.cast(outputPrecision, epochMicros).toStringUtf8());
+            }
+            if (type instanceof TimestampWithTimeZoneType) {
+                @SuppressWarnings("NumericCastThatLosesPrecision")
+                long millisUtc = (long) value;
+                int outputPrecision = min(((TimestampWithTimeZoneType) type).getPrecision(), TimestampWithTimeZoneType.MAX_SHORT_PRECISION);
+                return new StringLiteral(TimestampWithTimeZoneToVarcharCast.cast(outputPrecision, packDateTimeWithZone(millisUtc, UTC_KEY)).toStringUtf8());
             }
             throw new IllegalArgumentException("Unexpected type: " + type);
         }
