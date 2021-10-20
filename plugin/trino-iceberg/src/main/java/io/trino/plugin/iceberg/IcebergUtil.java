@@ -54,8 +54,6 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -309,12 +307,16 @@ public final class IcebergUtil
         throw new TrinoException(GENERIC_INTERNAL_ERROR, "Invalid partition type " + type.toString());
     }
 
-    public static Map<Integer, String> getPartitionKeys(FileScanTask scanTask)
+    /**
+     * Returns a map from fieldId to serialized partition value containing entries for all identity partitions.
+     * {@code null} partition values are represented with {@link Optional#empty}.
+     */
+    public static Map<Integer, Optional<String>> getPartitionKeys(FileScanTask scanTask)
     {
         StructLike partition = scanTask.file().partition();
         PartitionSpec spec = scanTask.spec();
         Map<PartitionField, Integer> fieldToIndex = getIdentityPartitions(spec);
-        Map<Integer, String> partitionKeys = new HashMap<>();
+        ImmutableMap.Builder<Integer, Optional<String>> partitionKeys = ImmutableMap.builder();
 
         fieldToIndex.forEach((field, index) -> {
             int id = field.sourceId();
@@ -323,7 +325,7 @@ public final class IcebergUtil
             Object value = partition.get(index, javaClass);
 
             if (value == null) {
-                partitionKeys.put(id, null);
+                partitionKeys.put(id, Optional.empty());
             }
             else {
                 String partitionValue;
@@ -334,11 +336,11 @@ public final class IcebergUtil
                 else {
                     partitionValue = value.toString();
                 }
-                partitionKeys.put(id, partitionValue);
+                partitionKeys.put(id, Optional.of(partitionValue));
             }
         });
 
-        return Collections.unmodifiableMap(partitionKeys);
+        return partitionKeys.build();
     }
 
     public static LocationProvider getLocationProvider(SchemaTableName schemaTableName, String tableLocation, Map<String, String> storageProperties)
