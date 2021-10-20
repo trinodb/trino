@@ -27,6 +27,7 @@ import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.PartitionField;
+import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.io.CloseableIterable;
@@ -39,7 +40,6 @@ import java.io.UncheckedIOException;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
 
@@ -50,6 +50,7 @@ import static io.trino.plugin.iceberg.IcebergUtil.getColumns;
 import static io.trino.plugin.iceberg.IcebergUtil.getIdentityPartitions;
 import static io.trino.plugin.iceberg.IcebergUtil.primitiveFieldTypes;
 import static io.trino.plugin.iceberg.Partition.convertBounds;
+import static io.trino.plugin.iceberg.PartitionTable.convert;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -86,9 +87,10 @@ public class TableStatisticsMaker
             return TableStatistics.empty();
         }
 
-        List<Types.NestedField> columns = icebergTable.schema().columns();
+        Schema icebergTableSchema = icebergTable.schema();
+        List<Types.NestedField> columns = icebergTableSchema.columns();
 
-        Map<Integer, Type.PrimitiveType> idToTypeMapping = primitiveFieldTypes(icebergTable.schema());
+        Map<Integer, Type.PrimitiveType> idToTypeMapping = primitiveFieldTypes(icebergTableSchema);
         List<PartitionField> partitionFields = icebergTable.spec().fields();
 
         Set<Integer> identityPartitionIds = getIdentityPartitions(icebergTable.spec()).keySet().stream()
@@ -100,7 +102,7 @@ public class TableStatisticsMaker
                 .collect(toImmutableList());
 
         List<Type> icebergPartitionTypes = partitionTypes(partitionFields, idToTypeMapping);
-        List<IcebergColumnHandle> columnHandles = getColumns(icebergTable.schema(), typeManager);
+        List<IcebergColumnHandle> columnHandles = getColumns(icebergTableSchema, typeManager);
         Map<Integer, IcebergColumnHandle> idToColumnHandle = columnHandles.stream()
                 .collect(toUnmodifiableMap(IcebergColumnHandle::getId, identity()));
 
@@ -169,6 +171,7 @@ public class TableStatisticsMaker
         double recordCount = summary.getRecordCount();
         for (IcebergColumnHandle columnHandle : idToColumnHandle.values()) {
             int fieldId = columnHandle.getId();
+            Type icebergType = icebergTableSchema.findType(fieldId);
             ColumnStatistics.Builder columnBuilder = new ColumnStatistics.Builder();
             Long nullCount = summary.getNullCounts().get(fieldId);
             if (nullCount != null) {
@@ -182,8 +185,8 @@ public class TableStatisticsMaker
             }
             Object min = summary.getMinValues().get(fieldId);
             Object max = summary.getMaxValues().get(fieldId);
-            if (min instanceof Number && max instanceof Number) {
-                columnBuilder.setRange(Optional.of(new DoubleRange(((Number) min).doubleValue(), ((Number) max).doubleValue())));
+            if (min != null && max != null) {
+                columnBuilder.setRange(DoubleRange.from(columnHandle.getType(), convert(min, icebergType), convert(max, icebergType)));
             }
             columnHandleBuilder.put(columnHandle, columnBuilder.build());
         }
@@ -209,7 +212,7 @@ public class TableStatisticsMaker
             int fieldId = field.sourceId();
             ColumnFieldDetails details = fieldDetails.get(fieldId);
             IcebergColumnHandle column = details.getColumnHandle();
-            Object value = PartitionTable.convert(dataFile.partition().get(index, details.getJavaClass()), details.getIcebergType());
+            Object value = convert(dataFile.partition().get(index, details.getJavaClass()), details.getIcebergType());
             Domain allowedDomain = domains.get(column);
             if (allowedDomain != null && !allowedDomain.includesNullableValue(value)) {
                 return false;

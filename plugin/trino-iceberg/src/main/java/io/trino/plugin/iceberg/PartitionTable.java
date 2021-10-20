@@ -305,7 +305,7 @@ public class PartitionTable
             return Math.multiplyExact((Long) value, PICOSECONDS_PER_MICROSECOND);
         }
         if (type instanceof Types.FloatType) {
-            return Float.floatToIntBits((Float) value);
+            return (long) Float.floatToIntBits((Float) value);
         }
         if (type instanceof Types.IntegerType || type instanceof Types.DateType) {
             return ((Integer) value).longValue();
