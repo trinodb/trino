@@ -1857,6 +1857,7 @@ public abstract class BaseIcebergConnectorTest
                 ", vc VARCHAR" +
                 ", vb VARBINARY" +
                 ", ts TIMESTAMP(6)" +
+                ", tstz TIMESTAMP(6) WITH TIME ZONE" +
                 ", str ROW(id INTEGER , vc VARCHAR)" +
                 ", dt DATE)" +
                 " WITH (partitioning = ARRAY['int'])");
@@ -1867,6 +1868,7 @@ public abstract class BaseIcebergConnectorTest
                         " CAST(1.0 as DECIMAL(5,2))," +
                         " 'one', VARBINARY 'binary0/1values',\n" +
                         " TIMESTAMP '2021-07-24 02:43:57.348000'," +
+                        " TIMESTAMP '2021-07-24 02:43:57.348000 UTC'," +
                         " (CAST(ROW(null, 'this is a random value') AS ROW(int, varchar))), " +
                         " DATE '2021-07-24'",
                 1);
@@ -1876,7 +1878,7 @@ public abstract class BaseIcebergConnectorTest
                 .projected(0, 2, 3, 4, 5, 6) // ignore data size which is available for Parquet, but not for ORC
                 .skippingTypesCheck()
                 .matches("VALUES " +
-                        "  ('bool', NULL, 0e0, NULL, NULL, NULL), " +
+                        "  ('bool', NULL, 0e0, NULL, " + (format == ORC ? "NULL, NULL" : "'true', 'true'") + "), " +
                         "  ('int', NULL, 0e0, NULL, '1', '1'), " +
                         "  ('arr', NULL, " + (format == ORC ? "0e0" : "NULL") + ", NULL, NULL, NULL), " +
                         "  ('big', NULL, 0e0, NULL, '1', '1'), " +
@@ -1887,6 +1889,7 @@ public abstract class BaseIcebergConnectorTest
                         "  ('vc', NULL, 0e0, NULL, NULL, NULL), " +
                         "  ('vb', NULL, 0e0, NULL, NULL, NULL), " +
                         "  ('ts', NULL, 0e0, NULL, " + (format == ORC ? "NULL, NULL" : "'2021-07-24 02:43:57.348000', '2021-07-24 02:43:57.348000'") + "), " +
+                        "  ('tstz', NULL, 0e0, NULL, " + (format == ORC ? "NULL, NULL" : "'2021-07-24 02:43:57.348 UTC', '2021-07-24 02:43:57.348 UTC'") + "), " +
                         "  ('str', NULL, " + (format == ORC ? "0e0" : "NULL") + ", NULL, NULL, NULL), " +
                         "  ('dt', NULL, 0e0, NULL, '2021-07-24', '2021-07-24'), " +
                         "  (NULL, NULL, NULL, 1e0, NULL, NULL)");
