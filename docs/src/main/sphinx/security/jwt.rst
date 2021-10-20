@@ -11,9 +11,6 @@ including:
 *  Valid time period
 *  Signature
 
-Sites such as `jwt.io <https://jwt.io>`_ are available to help you decode and
-verify a JWT.
-
 A JWT is designed to be passed between servers as proof of prior authentication
 in a workflow like the following:
 
@@ -139,3 +136,18 @@ in :ref:`cli-jwt-auth`.
 When using the Trino JDBC driver, specify a JWT with the ``accessToken``
 :ref:`parameter <jdbc-parameter-reference>`.
 
+Resources
+---------
+
+The following resources may prove useful in your work with JWTs and JWKs.
+
+* `jwt.io <https://jwt.io>`_ helps you decode and verify a JWT.
+
+* `An article on using RS256
+  <https://auth0.com/blog/navigating-rs256-and-jwks/>`_
+  to sign and verify your JWTs.
+
+* An `online JSON web key <https://mkjwk.org>`_ generator.
+
+* A `command line JSON web key
+  <https://connect2id.com/products/nimbus-jose-jwt/generator>`_ generator.
