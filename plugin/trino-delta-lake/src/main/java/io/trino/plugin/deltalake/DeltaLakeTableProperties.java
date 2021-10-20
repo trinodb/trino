@@ -24,8 +24,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.session.PropertyMetadata.longProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
@@ -58,9 +58,9 @@ public class DeltaLakeTableProperties
                         List.class,
                         ImmutableList.of(),
                         false,
-                        value -> ImmutableList.copyOf(((Collection<String>) value).stream()
+                        value -> ((Collection<String>) value).stream()
                                 .map(name -> name.toLowerCase(ENGLISH))
-                                .collect(Collectors.toList())),
+                                .collect(toImmutableList()),
                         value -> value))
                 .add(longProperty(
                         CHECKPOINT_INTERVAL_PROPERTY,
