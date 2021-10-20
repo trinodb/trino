@@ -228,6 +228,26 @@ public class TestShowStats
     }
 
     @Test
+    public void testShowStatsWithBoolean()
+    {
+        assertQuery(
+                "SHOW STATS FOR (VALUES true)",
+                "VALUES " +
+                        "   ('_col0', null, 1, 0, null, 'true', 'true'), " +
+                        "   (null, null, null, null, 1, null, null)");
+        assertQuery(
+                "SHOW STATS FOR (VALUES false)",
+                "VALUES " +
+                        "   ('_col0', null, 1, 0, null, 'false', 'false'), " +
+                        "   (null, null, null, null, 1, null, null)");
+        assertQuery(
+                "SHOW STATS FOR (VALUES true, false)",
+                "VALUES " +
+                        "   ('_col0', null, 2, 0, null, 'false', 'true'), " +
+                        "   (null, null, null, null, 2, null, null)");
+    }
+
+    @Test
     public void testShowStatsWithTimestamp()
     {
         // precision 0

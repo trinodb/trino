@@ -65,6 +65,7 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -209,6 +210,19 @@ public class ShowStatsRewrite
         {
             if (!isFinite(value)) {
                 return NULL_VARCHAR;
+            }
+            if (type == BOOLEAN) {
+                String representation;
+                if (value == 0) {
+                    representation = "false";
+                }
+                else if (value == 1) {
+                    representation = "true";
+                }
+                else {
+                    representation = Double.toString(value);
+                }
+                return new StringLiteral(representation);
             }
             if (type.equals(BigintType.BIGINT) || type.equals(IntegerType.INTEGER) || type.equals(SmallintType.SMALLINT) || type.equals(TinyintType.TINYINT)) {
                 return new StringLiteral(Long.toString(round(value)));
