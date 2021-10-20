@@ -186,7 +186,7 @@ public class IcebergPageSourceProvider
                 regularColumns,
                 effectivePredicate);
 
-        return new IcebergPageSource(icebergColumns, partitionKeys, dataPageSource, session.getTimeZoneKey());
+        return new IcebergPageSource(icebergColumns, partitionKeys, dataPageSource);
     }
 
     private ConnectorPageSource createDataPageSource(
