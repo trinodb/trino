@@ -16,7 +16,6 @@ package io.trino.cost;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Primitives;
-import io.trino.metadata.Metadata;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
@@ -26,9 +25,7 @@ import java.time.LocalDate;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.cost.StatsUtil.toStatsRepresentation;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.spi.statistics.StatsUtil.toStatsRepresentation;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -42,8 +39,6 @@ import static java.util.function.Function.identity;
 
 public class TestStatsNormalizer
 {
-    private final Metadata metadata = createTestMetadataManager();
-
     private final StatsNormalizer normalizer = new StatsNormalizer();
 
     @Test
@@ -161,6 +156,6 @@ public class TestStatsNormalizer
 
     private double asStatsValue(Object value, Type type)
     {
-        return toStatsRepresentation(metadata, TEST_SESSION, type, value).orElse(NaN);
+        return toStatsRepresentation(type, value).orElse(NaN);
     }
 }
