@@ -613,6 +613,13 @@ public abstract class BaseIcebergConnectorTest
                 "WITH (\n" +
                 format("   format = '%s'\n", format) +
                 ")";
+        String createTableWithoutComment = "" +
+                "CREATE TABLE iceberg.tpch.test_table_comments (\n" +
+                "   _x bigint\n" +
+                ")\n" +
+                "WITH (\n" +
+                "   format = '%s'\n" +
+                ")";
         @Language("SQL") String createTableSql = format(createTableTemplate, "test table comment", format);
         assertUpdate(createTableSql);
         MaterializedResult resultOfCreate = computeActual("SHOW CREATE TABLE test_table_comments");
@@ -622,19 +629,14 @@ public abstract class BaseIcebergConnectorTest
         MaterializedResult resultOfCommentChange = computeActual("SHOW CREATE TABLE test_table_comments");
         String afterChangeSql = format(createTableTemplate, "different test table comment", format);
         assertEquals(getOnlyElement(resultOfCommentChange.getOnlyColumnAsSet()), afterChangeSql);
-        dropTable("iceberg.tpch.test_table_comments");
 
-        String createTableWithoutComment = "" +
-                "CREATE TABLE iceberg.tpch.test_table_comments (\n" +
-                "   _x bigint\n" +
-                ")\n" +
-                "WITH (\n" +
-                "   format = '%s'\n" +
-                ")";
-        assertUpdate(format(createTableWithoutComment, format));
         assertUpdate("COMMENT ON TABLE test_table_comments IS NULL");
         MaterializedResult resultOfRemovingComment = computeActual("SHOW CREATE TABLE test_table_comments");
         assertEquals(getOnlyElement(resultOfRemovingComment.getOnlyColumnAsSet()), format(createTableWithoutComment, format));
+        dropTable("iceberg.tpch.test_table_comments");
+
+        assertUpdate(format(createTableWithoutComment, format));
+        assertEquals(computeScalar("SHOW CREATE TABLE test_table_comments"), format(createTableWithoutComment, format));
 
         dropTable("iceberg.tpch.test_table_comments");
     }
