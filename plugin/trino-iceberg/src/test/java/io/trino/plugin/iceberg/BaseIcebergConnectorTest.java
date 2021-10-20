@@ -641,7 +641,7 @@ public abstract class BaseIcebergConnectorTest
                 "   _x bigint\n" +
                 ")\n" +
                 "WITH (\n" +
-                "   format = 'ORC'\n" +
+                "   format = '%s'\n" +
                 ")";
         assertUpdate(format(createTableWithoutComment, format));
         assertUpdate("COMMENT ON TABLE test_table_comments IS NULL");
