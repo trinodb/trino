@@ -51,6 +51,7 @@ public class TestOAuth2WebUiAuthenticationFilterWithOpaque
                 .put("http-server.authentication.oauth2.additional-audiences", TRUSTED_CLIENT_ID)
                 .put("http-server.authentication.oauth2.max-clock-skew", "0s")
                 .put("http-server.authentication.oauth2.user-mapping.pattern", "(.*)(@.*)?")
+                .put("http-server.authentication.oauth2.oidc.discovery", "false")
                 .put("oauth2-jwk.http-client.trust-store-path", Resources.getResource("cert/localhost.pem").getPath())
                 .buildOrThrow();
     }

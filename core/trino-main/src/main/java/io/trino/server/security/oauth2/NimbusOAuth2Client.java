@@ -57,10 +57,10 @@ import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 
 import javax.inject.Inject;
+import javax.inject.Provider;
 
 import java.net.MalformedURLException;
 import java.net.URI;
-import java.net.URL;
 import java.time.Instant;
 import java.util.Date;
 import java.util.HashSet;
@@ -70,6 +70,7 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.hash.Hashing.sha256;
 import static com.nimbusds.oauth2.sdk.ResponseType.CODE;
@@ -87,59 +88,74 @@ public class NimbusOAuth2Client
     private final ClientID clientId;
     private final ClientSecretBasic clientAuth;
     private final Scope scope;
-    private final URI authUrl;
-    private final URI tokenUrl;
-    private final Optional<URI> userinfoUri;
+    private final String principalField;
+    private final Set<String> accessTokenAudiences;
     private final Duration maxClockSkew;
     private final NimbusHttpClient httpClient;
-    private final JWSKeySelector<SecurityContext> jwsKeySelector;
-    private final JWTProcessor<SecurityContext> accessTokenProcessor;
-    private final AuthorizationCodeFlow flow;
+    private final Provider<OAuth2ServerConfiguration> serverConfigurationProvider;
+    private volatile boolean loaded;
+    private URI authUrl;
+    private URI tokenUrl;
+    private Optional<URI> userinfoUrl;
+    private JWSKeySelector<SecurityContext> jwsKeySelector;
+    private JWTProcessor<SecurityContext> accessTokenProcessor;
+    private AuthorizationCodeFlow flow;
 
     @Inject
-    public NimbusOAuth2Client(OAuth2Config config, NimbusHttpClient httpClient)
-            throws MalformedURLException
+    public NimbusOAuth2Client(OAuth2Config oauthConfig, Provider<OAuth2ServerConfiguration> serverConfigurationProvider, NimbusHttpClient httpClient)
     {
-        requireNonNull(config, "config is null");
-        issuer = new Issuer(config.getIssuer());
-        clientId = new ClientID(config.getClientId());
-        clientAuth = new ClientSecretBasic(clientId, new Secret(config.getClientSecret()));
-        scope = Scope.parse(config.getScopes());
+        requireNonNull(oauthConfig, "oauthConfig is null");
+        issuer = new Issuer(oauthConfig.getIssuer());
+        clientId = new ClientID(oauthConfig.getClientId());
+        clientAuth = new ClientSecretBasic(clientId, new Secret(oauthConfig.getClientSecret()));
+        scope = Scope.parse(oauthConfig.getScopes());
+        principalField = oauthConfig.getPrincipalField();
+        maxClockSkew = oauthConfig.getMaxClockSkew();
 
-        authUrl = URI.create(requireNonNull(config.getAuthUrl(), "authUrl is null"));
-        tokenUrl = URI.create(requireNonNull(config.getTokenUrl(), "tokenUrl is null"));
-        userinfoUri = config.getUserinfoUrl().map(URI::create);
-        maxClockSkew = config.getMaxClockSkew();
+        accessTokenAudiences = new HashSet<>(oauthConfig.getAdditionalAudiences());
+        accessTokenAudiences.add(clientId.getValue());
+        accessTokenAudiences.add(null); // A null value in the set allows JWTs with no audience
 
+        this.serverConfigurationProvider = requireNonNull(serverConfigurationProvider, "serverConfigurationProvider is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
+    }
 
-        jwsKeySelector = new JWSVerificationKeySelector<>(
-                Stream.concat(JWSAlgorithm.Family.RSA.stream(), JWSAlgorithm.Family.EC.stream()).collect(toImmutableSet()),
-                new RemoteJWKSet<>(new URL(config.getJwksUrl()), httpClient));
+    @Override
+    public void load()
+    {
+        OAuth2ServerConfiguration config = serverConfigurationProvider.get();
+        this.authUrl = config.getAuthUrl();
+        this.tokenUrl = config.getTokenUrl();
+        this.userinfoUrl = config.getUserinfoUrl();
+        try {
+            jwsKeySelector = new JWSVerificationKeySelector<>(
+                    Stream.concat(JWSAlgorithm.Family.RSA.stream(), JWSAlgorithm.Family.EC.stream()).collect(toImmutableSet()),
+                    new RemoteJWKSet<>(config.getJwksUrl().toURL(), httpClient));
+        }
+        catch (MalformedURLException e) {
+            throw new RuntimeException(e);
+        }
 
         DefaultJWTProcessor<SecurityContext> processor = new DefaultJWTProcessor<>();
         processor.setJWSKeySelector(jwsKeySelector);
-        Set<String> allowedAudiences = new HashSet<>(config.getAdditionalAudiences());
-        allowedAudiences.add(clientId.getValue());
-        allowedAudiences.add(null); // A null value in the set allows JWTs with no audience
-
         DefaultJWTClaimsVerifier<SecurityContext> accessTokenVerifier = new DefaultJWTClaimsVerifier<>(
-                allowedAudiences,
+                accessTokenAudiences,
                 new JWTClaimsSet.Builder()
-                        .issuer(config.getAccessTokenIssuer().orElse(config.getIssuer()))
+                        .issuer(config.getAccessTokenIssuer().orElse(issuer.getValue()))
                         .build(),
-                ImmutableSet.of(requireNonNull(config.getPrincipalField(), "principalField is null")),
+                ImmutableSet.of(principalField),
                 ImmutableSet.of());
         accessTokenVerifier.setMaxClockSkew((int) maxClockSkew.roundTo(SECONDS));
         processor.setJWTClaimsSetVerifier(accessTokenVerifier);
         accessTokenProcessor = processor;
-
         flow = scope.contains(OPENID) ? new OAuth2WithOidcExtensionsCodeFlow() : new OAuth2AuthorizationCodeFlow();
+        loaded = true;
     }
 
     @Override
     public Request createAuthorizationRequest(String state, URI callbackUri)
     {
+        checkState(loaded, "OAuth2 client not initialized");
         return flow.createAuthorizationRequest(state, callbackUri);
     }
 
@@ -147,12 +163,14 @@ public class NimbusOAuth2Client
     public Response getOAuth2Response(String code, URI callbackUri, Optional<String> nonce)
             throws ChallengeFailedException
     {
+        checkState(loaded, "OAuth2 client not initialized");
         return flow.getOAuth2Response(code, callbackUri, nonce);
     }
 
     @Override
     public Optional<Map<String, Object>> getClaims(String accessToken)
     {
+        checkState(loaded, "OAuth2 client not initialized");
         return getJWTClaimsSet(accessToken).map(JWTClaimsSet::getClaims);
     }
 
@@ -276,7 +294,7 @@ public class NimbusOAuth2Client
 
     private Optional<JWTClaimsSet> getJWTClaimsSet(String accessToken)
     {
-        if (userinfoUri.isPresent()) {
+        if (userinfoUrl.isPresent()) {
             return queryUserInfo(accessToken);
         }
         return parseAccessToken(accessToken);
@@ -285,7 +303,7 @@ public class NimbusOAuth2Client
     private Optional<JWTClaimsSet> queryUserInfo(String accessToken)
     {
         try {
-            UserInfoResponse response = httpClient.execute(new UserInfoRequest(userinfoUri.get(), new BearerAccessToken(accessToken)), UserInfoResponse::parse);
+            UserInfoResponse response = httpClient.execute(new UserInfoRequest(userinfoUrl.get(), new BearerAccessToken(accessToken)), UserInfoResponse::parse);
             if (!response.indicatesSuccess()) {
                 LOG.error("Received bad response from userinfo endpoint: " + response.toErrorResponse().getErrorObject());
                 return Optional.empty();

@@ -823,6 +823,7 @@ public class TestResourceSecurity
                 .put("http-server.authentication.oauth2.token-url", tokenServer.getIssuer())
                 .put("http-server.authentication.oauth2.client-id", tokenServer.getClientId())
                 .put("http-server.authentication.oauth2.client-secret", tokenServer.getClientSecret())
+                .put("http-server.authentication.oauth2.oidc.discovery", "false")
                 .buildOrThrow();
     }
 
@@ -869,6 +870,11 @@ public class TestResourceSecurity
         {
             return new OAuth2Client()
             {
+                @Override
+                public void load()
+                {
+                }
+
                 @Override
                 public Request createAuthorizationRequest(String state, URI callbackUri)
                 {

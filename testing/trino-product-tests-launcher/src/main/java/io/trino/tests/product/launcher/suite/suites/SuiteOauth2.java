@@ -18,6 +18,7 @@ import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeOauth2;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeOauth2HttpProxy;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeOauth2HttpsProxy;
+import io.trino.tests.product.launcher.env.environment.EnvSinglenodeOidc;
 import io.trino.tests.product.launcher.suite.Suite;
 import io.trino.tests.product.launcher.suite.SuiteTestRun;
 
@@ -39,6 +40,9 @@ public class SuiteOauth2
                         .withGroups("oauth2")
                         .build(),
                 testOnEnvironment(EnvSinglenodeOauth2HttpsProxy.class)
+                        .withGroups("oauth2")
+                        .build(),
+                testOnEnvironment(EnvSinglenodeOidc.class)
                         .withGroups("oauth2")
                         .build());
     }

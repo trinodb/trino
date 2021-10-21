@@ -138,6 +138,7 @@ public class TestWebUi
             .put("http-server.authentication.oauth2.token-url", "http://example.com/")
             .put("http-server.authentication.oauth2.client-id", OAUTH_CLIENT_ID)
             .put("http-server.authentication.oauth2.client-secret", "client-secret")
+            .put("http-server.authentication.oauth2.oidc.discovery", "false")
             .buildOrThrow();
     private static final String TEST_USER = "test-user";
     private static final String AUTHENTICATED_USER = TEST_USER + "@allowed";
@@ -1106,6 +1107,11 @@ public class TestWebUi
                 nonce = Optional.empty();
                 idToken = Optional.empty();
             }
+        }
+
+        @Override
+        public void load()
+        {
         }
 
         @Override

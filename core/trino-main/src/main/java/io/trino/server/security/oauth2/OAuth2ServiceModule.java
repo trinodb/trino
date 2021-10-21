@@ -14,20 +14,12 @@
 package io.trino.server.security.oauth2;
 
 import com.google.inject.Binder;
-import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.airlift.http.client.HttpClient;
-import io.jsonwebtoken.SigningKeyResolver;
-import io.trino.server.security.jwt.JwkService;
-import io.trino.server.security.jwt.JwkSigningKeyResolver;
 import io.trino.server.ui.OAuth2WebUiInstalled;
 
-import javax.inject.Singleton;
-
-import java.net.URI;
-
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
@@ -49,6 +41,7 @@ public class OAuth2ServiceModule
                 .setDefault()
                 .to(NimbusOAuth2Client.class)
                 .in(Scopes.SINGLETON);
+        install(conditionalModule(OAuth2Config.class, OAuth2Config::isEnableDiscovery, this::bindOidcDiscovery, this::bindStaticConfiguration));
         httpClientBinder(binder)
                 .bindHttpClient("oauth2-jwk", ForOAuth2.class)
                 // Reset to defaults to override InternalCommunicationModule changes to this client default configuration.
@@ -63,20 +56,16 @@ public class OAuth2ServiceModule
                         .setAutomaticHttpsSharedSecret(null));
     }
 
-    @Provides
-    @Singleton
-    @ForOAuth2
-    public static JwkService createJwkService(OAuth2Config config, @ForOAuth2 HttpClient httpClient)
+    private void bindStaticConfiguration(Binder binder)
     {
-        return new JwkService(URI.create(config.getJwksUrl()), httpClient);
+        configBinder(binder).bindConfig(StaticOAuth2ServerConfiguration.class);
+        binder.bind(OAuth2ServerConfiguration.class).toProvider(StaticConfigurationProvider.class).in(Scopes.SINGLETON);
     }
 
-    @Provides
-    @Singleton
-    @ForOAuth2
-    public static SigningKeyResolver createSigningKeyResolver(@ForOAuth2 JwkService jwkService)
+    private void bindOidcDiscovery(Binder binder)
     {
-        return new JwkSigningKeyResolver(jwkService);
+        configBinder(binder).bindConfig(OidcDiscoveryConfig.class);
+        binder.bind(OAuth2ServerConfiguration.class).toProvider(OidcDiscovery.class).in(Scopes.SINGLETON);
     }
 
     @Override
