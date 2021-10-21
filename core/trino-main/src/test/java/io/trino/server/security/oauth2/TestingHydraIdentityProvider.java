@@ -19,6 +19,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
+import com.google.inject.Key;
 import com.nimbusds.oauth2.sdk.GrantType;
 import io.airlift.http.server.HttpServerConfig;
 import io.airlift.http.server.HttpServerInfo;
@@ -352,21 +353,17 @@ public class TestingHydraIdentityProvider
                     .put("http-server.https.keystore.key", "")
                     .put("http-server.authentication.type", "oauth2")
                     .put("http-server.authentication.oauth2.issuer", ISSUER)
-                    .put("http-server.authentication.oauth2.auth-url", ISSUER + "oauth2/auth")
-                    .put("http-server.authentication.oauth2.token-url", ISSUER + "oauth2/token")
-                    .put("http-server.authentication.oauth2.jwks-url", ISSUER + ".well-known/jwks.json")
                     .put("http-server.authentication.oauth2.client-id", "trino-client")
                     .put("http-server.authentication.oauth2.client-secret", "trino-secret")
                     .put("http-server.authentication.oauth2.user-mapping.pattern", "(.*)@.*")
+                    .put("http-server.authentication.oauth2.oidc.use-userinfo-endpoint", String.valueOf(!useJwt))
                     .put("oauth2-jwk.http-client.trust-store-path", Resources.getResource("cert/localhost.pem").getPath());
-            if (!useJwt) {
-                config.put("http-server.authentication.oauth2.userinfo-url", ISSUER + "userinfo");
-            }
-            try (TestingTrinoServer ignored = TestingTrinoServer.builder()
+            try (TestingTrinoServer server = TestingTrinoServer.builder()
                     .setCoordinator(true)
                     .setAdditionalModule(new WebUiModule())
                     .setProperties(config.buildOrThrow())
                     .build()) {
+                server.getInstance(Key.get(OAuth2Client.class)).load();
                 Thread.sleep(Long.MAX_VALUE);
             }
         }

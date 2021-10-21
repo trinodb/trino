@@ -21,7 +21,7 @@ import com.nimbusds.oauth2.sdk.http.HTTPResponse;
 public interface NimbusHttpClient
         extends ResourceRetriever
 {
-    <T> T execute(Request nimbusRequest, Parser<T> parser);
+    <T> T execute(Request request, Parser<T> parser);
 
     interface Parser<T>
     {

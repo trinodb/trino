@@ -54,6 +54,7 @@ import io.trino.server.security.CertificateAuthenticatorManager;
 import io.trino.server.security.HeaderAuthenticatorManager;
 import io.trino.server.security.PasswordAuthenticatorManager;
 import io.trino.server.security.ServerSecurityModule;
+import io.trino.server.security.oauth2.OAuth2Client;
 import io.trino.version.EmbedVersion;
 import org.weakref.jmx.guice.MBeanModule;
 
@@ -141,6 +142,8 @@ public class Server
             injector.getInstance(CertificateAuthenticatorManager.class).loadCertificateAuthenticator();
             injector.getInstance(optionalKey(HeaderAuthenticatorManager.class))
                     .ifPresent(HeaderAuthenticatorManager::loadHeaderAuthenticator);
+
+            injector.getInstance(optionalKey(OAuth2Client.class)).ifPresent(OAuth2Client::load);
 
             injector.getInstance(Announcer.class).start();
 

@@ -40,11 +40,6 @@ public class OAuth2Config
 {
     private Optional<String> stateKey = Optional.empty();
     private String issuer;
-    private Optional<String> accessTokenIssuer = Optional.empty();
-    private String authUrl;
-    private String tokenUrl;
-    private String jwksUrl;
-    private Optional<String> userinfoUrl = Optional.empty();
     private String clientId;
     private String clientSecret;
     private Set<String> scopes = ImmutableSet.of(OPENID_SCOPE);
@@ -55,6 +50,7 @@ public class OAuth2Config
     private Duration maxClockSkew = new Duration(1, TimeUnit.MINUTES);
     private Optional<String> userMappingPattern = Optional.empty();
     private Optional<File> userMappingFile = Optional.empty();
+    private boolean enableDiscovery = true;
 
     public Optional<String> getStateKey()
     {
@@ -80,75 +76,6 @@ public class OAuth2Config
     public OAuth2Config setIssuer(String issuer)
     {
         this.issuer = issuer;
-        return this;
-    }
-
-    @NotNull
-    public Optional<String> getAccessTokenIssuer()
-    {
-        return accessTokenIssuer;
-    }
-
-    @Config("http-server.authentication.oauth2.access-token-issuer")
-    @ConfigDescription("The required issuer for access tokens")
-    public OAuth2Config setAccessTokenIssuer(String accessTokenIssuer)
-    {
-        this.accessTokenIssuer = Optional.ofNullable(accessTokenIssuer);
-        return this;
-    }
-
-    @NotNull
-    public String getAuthUrl()
-    {
-        return authUrl;
-    }
-
-    @Config("http-server.authentication.oauth2.auth-url")
-    @ConfigDescription("URL of the authorization server's authorization endpoint")
-    public OAuth2Config setAuthUrl(String authUrl)
-    {
-        this.authUrl = authUrl;
-        return this;
-    }
-
-    @NotNull
-    public String getTokenUrl()
-    {
-        return tokenUrl;
-    }
-
-    @Config("http-server.authentication.oauth2.token-url")
-    @ConfigDescription("URL of the authorization server's token endpoint")
-    public OAuth2Config setTokenUrl(String tokenUrl)
-    {
-        this.tokenUrl = tokenUrl;
-        return this;
-    }
-
-    @NotNull
-    public String getJwksUrl()
-    {
-        return jwksUrl;
-    }
-
-    @Config("http-server.authentication.oauth2.jwks-url")
-    @ConfigDescription("URL of the authorization server's JWKS (JSON Web Key Set) endpoint")
-    public OAuth2Config setJwksUrl(String jwksUrl)
-    {
-        this.jwksUrl = jwksUrl;
-        return this;
-    }
-
-    public Optional<String> getUserinfoUrl()
-    {
-        return userinfoUrl;
-    }
-
-    @Config("http-server.authentication.oauth2.userinfo-url")
-    @ConfigDescription("URL of the userinfo endpoint")
-    public OAuth2Config setUserinfoUrl(String userinfoUrl)
-    {
-        this.userinfoUrl = Optional.ofNullable(userinfoUrl);
         return this;
     }
 
@@ -290,6 +217,19 @@ public class OAuth2Config
     public OAuth2Config setUserMappingFile(File userMappingFile)
     {
         this.userMappingFile = Optional.ofNullable(userMappingFile);
+        return this;
+    }
+
+    public boolean isEnableDiscovery()
+    {
+        return enableDiscovery;
+    }
+
+    @Config("http-server.authentication.oauth2.oidc.discovery")
+    @ConfigDescription("Enable OpenID Provider Issuer discovery")
+    public OAuth2Config setEnableDiscovery(boolean enableDiscovery)
+    {
+        this.enableDiscovery = enableDiscovery;
         return this;
     }
 }
