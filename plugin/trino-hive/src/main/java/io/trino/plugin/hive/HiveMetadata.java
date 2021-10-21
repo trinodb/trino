@@ -81,6 +81,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SortingProperty;
 import io.trino.spi.connector.SystemTable;
+import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.ViewNotFoundException;
@@ -135,6 +136,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -683,28 +685,29 @@ public class HiveMetadata
 
     @SuppressWarnings("TryWithIdenticalCatches")
     @Override
-    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
+    public Stream<TableColumnsMetadata> streamTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
         requireNonNull(prefix, "prefix is null");
-        ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
-        for (SchemaTableName tableName : listTables(session, prefix)) {
+        return listTables(session, prefix).stream().flatMap(tableName -> {
             try {
-                columns.put(tableName, getTableMetadata(session, tableName).getColumns());
+                return Stream.of(TableColumnsMetadata.forTable(tableName, getTableMetadata(session, tableName).getColumns()));
             }
             catch (HiveViewNotSupportedException e) {
                 // view is not supported
+                return Stream.empty();
             }
             catch (TableNotFoundException e) {
                 // table disappeared during listing operation
+                return Stream.empty();
             }
             catch (TrinoException e) {
                 // Skip this table if there's a failure due to Hive, a bad Serde, or bad metadata
                 if (!e.getErrorCode().getType().equals(ErrorType.EXTERNAL)) {
                     throw e;
                 }
+                return Stream.empty();
             }
-        }
-        return columns.build();
+        });
     }
 
     @Override
