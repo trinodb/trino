@@ -22,6 +22,8 @@ import static java.util.Objects.requireNonNull;
 
 public interface OAuth2Client
 {
+    void load();
+
     Request createAuthorizationRequest(String state, URI callbackUri);
 
     Response getOAuth2Response(String code, URI callbackUri, Optional<String> nonce)
