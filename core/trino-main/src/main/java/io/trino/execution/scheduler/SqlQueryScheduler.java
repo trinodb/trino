@@ -456,7 +456,14 @@ public class SqlQueryScheduler
         }
 
         stage.addStateChangeListener(newState -> {
-            if (newState == FLUSHING || newState.isDone()) {
+            if (newState == FLUSHING) {
+                // there might be incoming finished task updates that hasn't yet reached some of the sub stages,
+                // so give them a bit more time to complete before cancelling
+                schedulerExecutor.schedule(() -> {
+                    childStages.forEach(SqlStageExecution::cancel);
+                }, 100, MILLISECONDS);
+            }
+            else if (newState.isDone()) {
                 childStages.forEach(SqlStageExecution::cancel);
             }
         });

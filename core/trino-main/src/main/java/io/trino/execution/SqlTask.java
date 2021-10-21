@@ -54,6 +54,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -89,6 +91,7 @@ public class SqlTask
     private final AtomicLong taskStatusVersion = new AtomicLong(TaskStatus.STARTING_VERSION);
     private final FutureStateChange<?> taskStatusVersionChange = new FutureStateChange<>();
 
+    private final ReadWriteLock taskHolderLock = new ReentrantReadWriteLock();
     private final AtomicReference<TaskHolder> taskHolderReference = new AtomicReference<>(new TaskHolder());
     private final AtomicBoolean needsPlan = new AtomicBoolean(true);
 
@@ -148,6 +151,18 @@ public class SqlTask
         requireNonNull(failedTasks, "failedTasks is null");
         taskStateMachine.addStateChangeListener(newState -> {
             if (!newState.isDone()) {
+                while (true) {
+                    TaskHolder taskHolder = taskHolderReference.get();
+                    taskHolderLock.readLock().lock();
+                    try {
+                        if (taskHolderReference.compareAndSet(taskHolder, taskHolder.withState(newState))) {
+                            break;
+                        }
+                    }
+                    finally {
+                        taskHolderLock.readLock().unlock();
+                    }
+                }
                 if (newState != RUNNING) {
                     // notify that task state changed (apart from initial RUNNING state notification)
                     notifyStatusChanged();
@@ -168,8 +183,15 @@ public class SqlTask
                     return;
                 }
 
-                if (taskHolderReference.compareAndSet(taskHolder, new TaskHolder(createTaskInfo(taskHolder), taskHolder.getIoStats()))) {
-                    break;
+                taskHolderLock.readLock().lock();
+                try {
+                    // make sure we have final TaskInfo ready before coordinator 'sees' final state of the task
+                    if (taskHolderReference.compareAndSet(taskHolder, new TaskHolder(createTaskInfo(taskHolder.withState(newState)), taskHolder.getIoStats()))) {
+                        break;
+                    }
+                }
+                finally {
+                    taskHolderLock.readLock().unlock();
                 }
             }
 
@@ -207,7 +229,7 @@ public class SqlTask
 
     public TaskState getTaskState()
     {
-        return taskStateMachine.getState();
+        return taskHolderReference.get().getState();
     }
 
     public DateTime getTaskCreatedTime()
@@ -273,7 +295,7 @@ public class SqlTask
         // before version number is increased.
         long versionNumber = taskStatusVersion.get();
 
-        TaskState state = taskStateMachine.getState();
+        TaskState state = taskHolder.getState();
         List<ExecutionFailureInfo> failures = ImmutableList.of();
         if (state == FAILED) {
             failures = toFailures(taskStateMachine.getFailureCauses());
@@ -423,7 +445,11 @@ public class SqlTask
 
             // assure the task execution is only created once
             SqlTaskExecution taskExecution;
-            synchronized (this) {
+
+            // task state changes might happen while taskExecution is still being constructed and initialized,
+            // so make sure initial creation and write of the holder happens before any attempt to update it
+            taskHolderLock.writeLock().lock();
+            try {
                 // is task already complete?
                 TaskHolder taskHolder = taskHolderReference.get();
                 if (taskHolder.isFinished()) {
@@ -440,9 +466,12 @@ public class SqlTask
                             fragment.get(),
                             sources,
                             this::notifyStatusChanged);
-                    taskHolderReference.compareAndSet(taskHolder, new TaskHolder(taskExecution));
+                    taskHolderReference.compareAndSet(taskHolder, new TaskHolder(taskExecution, taskStateMachine.getState()));
                     needsPlan.set(false);
                 }
+            }
+            finally {
+                taskHolderLock.writeLock().unlock();
             }
 
             if (taskExecution != null) {
@@ -516,17 +545,20 @@ public class SqlTask
         private final SqlTaskExecution taskExecution;
         private final TaskInfo finalTaskInfo;
         private final SqlTaskIoStats finalIoStats;
+        private final TaskState taskState;
 
         private TaskHolder()
         {
             this.taskExecution = null;
             this.finalTaskInfo = null;
             this.finalIoStats = null;
+            this.taskState = TaskState.PLANNED;
         }
 
-        private TaskHolder(SqlTaskExecution taskExecution)
+        private TaskHolder(SqlTaskExecution taskExecution, TaskState taskState)
         {
             this.taskExecution = requireNonNull(taskExecution, "taskExecution is null");
+            this.taskState = taskState;
             this.finalTaskInfo = null;
             this.finalIoStats = null;
         }
@@ -536,6 +568,16 @@ public class SqlTask
             this.taskExecution = null;
             this.finalTaskInfo = requireNonNull(finalTaskInfo, "finalTaskInfo is null");
             this.finalIoStats = requireNonNull(finalIoStats, "finalIoStats is null");
+            this.taskState = finalTaskInfo.getTaskStatus().getState();
+        }
+
+        private TaskHolder withState(TaskState newState)
+        {
+            if (taskExecution == null) {
+                return this;
+            }
+
+            return new TaskHolder(taskExecution, newState);
         }
 
         public boolean isFinished()
@@ -553,6 +595,11 @@ public class SqlTask
         public TaskInfo getFinalTaskInfo()
         {
             return finalTaskInfo;
+        }
+
+        public TaskState getState()
+        {
+            return taskState;
         }
 
         public SqlTaskIoStats getIoStats()
