@@ -15,6 +15,7 @@ package io.trino.server.security.oauth2;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Key;
 import io.airlift.log.Level;
 import io.airlift.log.Logging;
 import io.airlift.testing.Closeables;
@@ -105,6 +106,7 @@ public abstract class BaseOAuth2WebUiAuthenticationFilterTest
                 .setAdditionalModule(new WebUiModule())
                 .setProperties(getOAuth2Config(idpUrl))
                 .build();
+        server.getInstance(Key.get(OAuth2Client.class)).load();
         server.waitForNodeRefresh(Duration.ofSeconds(10));
         serverUri = server.getHttpsBaseUrl();
         uiUri = serverUri.resolve("/ui/");
