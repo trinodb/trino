@@ -732,13 +732,13 @@ public class HiveMetadata
 
     private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)
     {
+        if (prefix.getSchema().map(HiveUtil::isHiveSystemSchema).orElse(false)) {
+            return ImmutableList.of();
+        }
         if (prefix.getTable().isEmpty()) {
             return listTables(session, prefix.getSchema());
         }
         SchemaTableName tableName = prefix.toSchemaTableName();
-        if (isHiveSystemSchema(tableName.getSchemaName())) {
-            return ImmutableList.of();
-        }
 
         Optional<Table> optionalTable;
         try {
