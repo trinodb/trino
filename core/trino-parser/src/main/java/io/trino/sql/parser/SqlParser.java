@@ -153,7 +153,7 @@ public class SqlParser
                 tree = parseFunction.apply(parser);
             }
 
-            return new AstBuilder(parsingOptions).visit(tree);
+            return AstBuilderFactory.create(parsingOptions).visit(tree);
         }
         catch (StackOverflowError e) {
             throw new ParsingException(name + " is too large (stack overflow while parsing)");

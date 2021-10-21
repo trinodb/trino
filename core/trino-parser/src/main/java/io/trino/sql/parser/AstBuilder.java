@@ -314,7 +314,6 @@ class AstBuilder
     @Override
     public Node visitUse(SqlBaseParser.UseContext context)
     {
-        restrictNode();
         return new Use(
                 getLocation(context),
                 visitIfPresent(context.catalog, Identifier.class),
@@ -324,7 +323,6 @@ class AstBuilder
     @Override
     public Node visitCreateSchema(SqlBaseParser.CreateSchemaContext context)
     {
-        restrictNode();
         Optional<PrincipalSpecification> principal = Optional.empty();
         if (context.AUTHORIZATION() != null) {
             principal = Optional.of(getPrincipalSpecification(context.principal()));
@@ -346,7 +344,6 @@ class AstBuilder
     @Override
     public Node visitDropSchema(SqlBaseParser.DropSchemaContext context)
     {
-        restrictNode();
         return new DropSchema(
                 getLocation(context),
                 getQualifiedName(context.qualifiedName()),
@@ -357,7 +354,6 @@ class AstBuilder
     @Override
     public Node visitRenameSchema(SqlBaseParser.RenameSchemaContext context)
     {
-        restrictNode();
         return new RenameSchema(
                 getLocation(context),
                 getQualifiedName(context.qualifiedName()),
@@ -367,7 +363,6 @@ class AstBuilder
     @Override
     public Node visitSetSchemaAuthorization(SqlBaseParser.SetSchemaAuthorizationContext context)
     {
-        restrictNode();
         return new SetSchemaAuthorization(
                 getLocation(context),
                 getQualifiedName(context.qualifiedName()),
@@ -377,7 +372,6 @@ class AstBuilder
     @Override
     public Node visitCreateTableAsSelect(SqlBaseParser.CreateTableAsSelectContext context)
     {
-        restrictNode();
         Optional<String> comment = Optional.empty();
         if (context.COMMENT() != null) {
             comment = Optional.of(((StringLiteral) visit(context.string())).getValue());
@@ -407,7 +401,6 @@ class AstBuilder
     @Override
     public Node visitCreateTable(SqlBaseParser.CreateTableContext context)
     {
-        restrictNode();
         Optional<String> comment = Optional.empty();
         if (context.COMMENT() != null) {
             comment = Optional.of(((StringLiteral) visit(context.string())).getValue());
@@ -428,7 +421,6 @@ class AstBuilder
     @Override
     public Node visitCreateMaterializedView(SqlBaseParser.CreateMaterializedViewContext context)
     {
-        restrictNode();
         Optional<String> comment = Optional.empty();
         if (context.COMMENT() != null) {
             comment = Optional.of(((StringLiteral) visit(context.string())).getValue());
@@ -452,7 +444,6 @@ class AstBuilder
     @Override
     public Node visitRefreshMaterializedView(SqlBaseParser.RefreshMaterializedViewContext context)
     {
-        restrictNode();
         return new RefreshMaterializedView(Optional.of(getLocation(context)),
                 getQualifiedName(context.qualifiedName()));
     }
@@ -460,7 +451,6 @@ class AstBuilder
     @Override
     public Node visitDropMaterializedView(SqlBaseParser.DropMaterializedViewContext context)
     {
-        restrictNode();
         return new DropMaterializedView(
                 getLocation(context), getQualifiedName(context.qualifiedName()), context.EXISTS() != null);
     }
@@ -468,28 +458,24 @@ class AstBuilder
     @Override
     public Node visitShowCreateTable(SqlBaseParser.ShowCreateTableContext context)
     {
-        restrictNode();
         return new ShowCreate(getLocation(context), ShowCreate.Type.TABLE, getQualifiedName(context.qualifiedName()));
     }
 
     @Override
     public Node visitDropTable(SqlBaseParser.DropTableContext context)
     {
-        restrictNode();
         return new DropTable(getLocation(context), getQualifiedName(context.qualifiedName()), context.EXISTS() != null);
     }
 
     @Override
     public Node visitDropView(SqlBaseParser.DropViewContext context)
     {
-        restrictNode();
         return new DropView(getLocation(context), getQualifiedName(context.qualifiedName()), context.EXISTS() != null);
     }
 
     @Override
     public Node visitInsertInto(SqlBaseParser.InsertIntoContext context)
     {
-        restrictNode();
         Optional<List<Identifier>> columnAliases = Optional.empty();
         if (context.columnAliases() != null) {
             columnAliases = Optional.of(visit(context.columnAliases().identifier(), Identifier.class));
@@ -504,7 +490,6 @@ class AstBuilder
     @Override
     public Node visitDelete(SqlBaseParser.DeleteContext context)
     {
-        restrictNode();
         return new Delete(
                 getLocation(context),
                 new Table(getLocation(context), getQualifiedName(context.qualifiedName())),
@@ -514,7 +499,6 @@ class AstBuilder
     @Override
     public Node visitUpdate(SqlBaseParser.UpdateContext context)
     {
-        restrictNode();
         return new Update(
                 getLocation(context),
                 new Table(getLocation(context), getQualifiedName(context.qualifiedName())),
@@ -525,14 +509,12 @@ class AstBuilder
     @Override
     public Node visitUpdateAssignment(SqlBaseParser.UpdateAssignmentContext context)
     {
-        restrictNode();
         return new UpdateAssignment((Identifier) visit(context.identifier()), (Expression) visit(context.expression()));
     }
 
     @Override
     public Node visitMerge(SqlBaseParser.MergeContext context)
     {
-        restrictNode();
         return new Merge(
                 getLocation(context),
                 new Table(getLocation(context), getQualifiedName(context.qualifiedName())),
@@ -545,7 +527,6 @@ class AstBuilder
     @Override
     public Node visitMergeInsert(SqlBaseParser.MergeInsertContext context)
     {
-        restrictNode();
         return new MergeInsert(
                 getLocation(context),
                 visitIfPresent(context.condition, Expression.class),
@@ -563,7 +544,6 @@ class AstBuilder
     @Override
     public Node visitMergeUpdate(SqlBaseParser.MergeUpdateContext context)
     {
-        restrictNode();
         ImmutableList.Builder<MergeUpdate.Assignment> assignments = ImmutableList.builder();
         for (int i = 0; i < context.targets.size(); i++) {
             assignments.add(new MergeUpdate.Assignment(
@@ -577,14 +557,12 @@ class AstBuilder
     @Override
     public Node visitMergeDelete(SqlBaseParser.MergeDeleteContext context)
     {
-        restrictNode();
         return new MergeDelete(getLocation(context), visitIfPresent(context.condition, Expression.class));
     }
 
     @Override
     public Node visitRenameTable(SqlBaseParser.RenameTableContext context)
     {
-        restrictNode();
         return new RenameTable(getLocation(context), getQualifiedName(context.from), getQualifiedName(context.to), context.EXISTS() != null);
     }
 
@@ -602,7 +580,6 @@ class AstBuilder
     @Override
     public Node visitCommentTable(SqlBaseParser.CommentTableContext context)
     {
-        restrictNode();
         Optional<String> comment = Optional.empty();
 
         if (context.string() != null) {
@@ -615,7 +592,6 @@ class AstBuilder
     @Override
     public Node visitCommentColumn(SqlBaseParser.CommentColumnContext context)
     {
-        restrictNode();
         Optional<String> comment = Optional.empty();
 
         if (context.string() != null) {
@@ -628,7 +604,6 @@ class AstBuilder
     @Override
     public Node visitRenameColumn(SqlBaseParser.RenameColumnContext context)
     {
-        restrictNode();
         return new RenameColumn(
                 getLocation(context),
                 getQualifiedName(context.tableName),
@@ -641,7 +616,6 @@ class AstBuilder
     @Override
     public Node visitAnalyze(SqlBaseParser.AnalyzeContext context)
     {
-        restrictNode();
         List<Property> properties = ImmutableList.of();
         if (context.properties() != null) {
             properties = visit(context.properties().property(), Property.class);
@@ -655,7 +629,6 @@ class AstBuilder
     @Override
     public Node visitAddColumn(SqlBaseParser.AddColumnContext context)
     {
-        restrictNode();
         return new AddColumn(getLocation(context),
                 getQualifiedName(context.qualifiedName()),
                 (ColumnDefinition) visit(context.columnDefinition()),
@@ -666,7 +639,6 @@ class AstBuilder
     @Override
     public Node visitSetTableAuthorization(SqlBaseParser.SetTableAuthorizationContext context)
     {
-        restrictNode();
         return new SetTableAuthorization(
                 getLocation(context),
                 getQualifiedName(context.qualifiedName()),
@@ -676,7 +648,6 @@ class AstBuilder
     @Override
     public Node visitDropColumn(SqlBaseParser.DropColumnContext context)
     {
-        restrictNode();
         return new DropColumn(getLocation(context),
                 getQualifiedName(context.tableName),
                 (Identifier) visit(context.column),
@@ -687,7 +658,6 @@ class AstBuilder
     @Override
     public Node visitCreateView(SqlBaseParser.CreateViewContext context)
     {
-        restrictNode();
         Optional<String> comment = Optional.empty();
         if (context.COMMENT() != null) {
             comment = Optional.of(((StringLiteral) visit(context.string())).getValue());
@@ -713,7 +683,6 @@ class AstBuilder
     @Override
     public Node visitRenameView(SqlBaseParser.RenameViewContext context)
     {
-        restrictNode();
         return new RenameView(getLocation(context), getQualifiedName(context.from), getQualifiedName(context.to));
     }
 
@@ -726,7 +695,6 @@ class AstBuilder
     @Override
     public Node visitSetViewAuthorization(SqlBaseParser.SetViewAuthorizationContext context)
     {
-        restrictNode();
         return new SetViewAuthorization(
                 getLocation(context),
                 getQualifiedName(context.qualifiedName()),
@@ -736,70 +704,60 @@ class AstBuilder
     @Override
     public Node visitStartTransaction(SqlBaseParser.StartTransactionContext context)
     {
-        restrictNode();
         return new StartTransaction(visit(context.transactionMode(), TransactionMode.class));
     }
 
     @Override
     public Node visitCommit(SqlBaseParser.CommitContext context)
     {
-        restrictNode();
         return new Commit(getLocation(context));
     }
 
     @Override
     public Node visitRollback(SqlBaseParser.RollbackContext context)
     {
-        restrictNode();
         return new Rollback(getLocation(context));
     }
 
     @Override
     public Node visitTransactionAccessMode(SqlBaseParser.TransactionAccessModeContext context)
     {
-        restrictNode();
         return new TransactionAccessMode(getLocation(context), context.accessMode.getType() == SqlBaseLexer.ONLY);
     }
 
     @Override
     public Node visitIsolationLevel(SqlBaseParser.IsolationLevelContext context)
     {
-        restrictNode();
         return visit(context.levelOfIsolation());
     }
 
     @Override
     public Node visitReadUncommitted(SqlBaseParser.ReadUncommittedContext context)
     {
-        restrictNode();
         return new Isolation(getLocation(context), Isolation.Level.READ_UNCOMMITTED);
     }
 
     @Override
     public Node visitReadCommitted(SqlBaseParser.ReadCommittedContext context)
     {
-        restrictNode();
         return new Isolation(getLocation(context), Isolation.Level.READ_COMMITTED);
     }
 
     @Override
     public Node visitRepeatableRead(SqlBaseParser.RepeatableReadContext context)
     {
-        restrictNode();
         return new Isolation(getLocation(context), Isolation.Level.REPEATABLE_READ);
     }
 
     @Override
     public Node visitSerializable(SqlBaseParser.SerializableContext context)
     {
-        restrictNode();
         return new Isolation(getLocation(context), Isolation.Level.SERIALIZABLE);
     }
 
     @Override
     public Node visitCall(SqlBaseParser.CallContext context)
     {
-        restrictNode();
         return new Call(
                 getLocation(context),
                 getQualifiedName(context.qualifiedName()),
@@ -835,7 +793,6 @@ class AstBuilder
     @Override
     public Node visitDescribeOutput(SqlBaseParser.DescribeOutputContext context)
     {
-        restrictNode();
         return new DescribeOutput(
                 getLocation(context),
                 (Identifier) visit(context.identifier()));
@@ -844,7 +801,6 @@ class AstBuilder
     @Override
     public Node visitDescribeInput(SqlBaseParser.DescribeInputContext context)
     {
-        restrictNode();
         return new DescribeInput(
                 getLocation(context),
                 (Identifier) visit(context.identifier()));
@@ -1139,21 +1095,18 @@ class AstBuilder
     @Override
     public Node visitExplain(SqlBaseParser.ExplainContext context)
     {
-        restrictNode();
         return new Explain(getLocation(context), (Statement) visit(context.statement()), visit(context.explainOption(), ExplainOption.class));
     }
 
     @Override
     public Node visitExplainAnalyze(SqlBaseParser.ExplainAnalyzeContext context)
     {
-        restrictNode();
         return new ExplainAnalyze(getLocation(context), context.VERBOSE() != null, (Statement) visit(context.statement()));
     }
 
     @Override
     public Node visitExplainFormat(SqlBaseParser.ExplainFormatContext context)
     {
-        restrictNode();
         switch (context.value.getType()) {
             case SqlBaseLexer.GRAPHVIZ:
                 return new ExplainFormat(getLocation(context), ExplainFormat.Type.GRAPHVIZ);
@@ -1169,7 +1122,6 @@ class AstBuilder
     @Override
     public Node visitExplainType(SqlBaseParser.ExplainTypeContext context)
     {
-        restrictNode();
         switch (context.value.getType()) {
             case SqlBaseLexer.LOGICAL:
                 return new ExplainType(getLocation(context), ExplainType.Type.LOGICAL);
@@ -1234,14 +1186,12 @@ class AstBuilder
     @Override
     public Node visitShowStats(SqlBaseParser.ShowStatsContext context)
     {
-        restrictNode();
         return new ShowStats(Optional.of(getLocation(context)), new Table(getQualifiedName(context.qualifiedName())));
     }
 
     @Override
     public Node visitShowStatsForQuery(SqlBaseParser.ShowStatsForQueryContext context)
     {
-        restrictNode();
         Query query = (Query) visit(context.query());
         return new ShowStats(Optional.of(getLocation(context)), new TableSubquery(query));
     }
@@ -1249,21 +1199,18 @@ class AstBuilder
     @Override
     public Node visitShowCreateSchema(SqlBaseParser.ShowCreateSchemaContext context)
     {
-        restrictNode();
         return new ShowCreate(getLocation(context), ShowCreate.Type.SCHEMA, getQualifiedName(context.qualifiedName()));
     }
 
     @Override
     public Node visitShowCreateView(SqlBaseParser.ShowCreateViewContext context)
     {
-        restrictNode();
         return new ShowCreate(getLocation(context), ShowCreate.Type.VIEW, getQualifiedName(context.qualifiedName()));
     }
 
     @Override
     public Node visitShowCreateMaterializedView(SqlBaseParser.ShowCreateMaterializedViewContext context)
     {
-        restrictNode();
         return new ShowCreate(getLocation(context), ShowCreate.Type.MATERIALIZED_VIEW, getQualifiedName(context.qualifiedName()));
     }
 
@@ -1280,7 +1227,6 @@ class AstBuilder
     @Override
     public Node visitShowSession(SqlBaseParser.ShowSessionContext context)
     {
-        restrictNode();
         return new ShowSession(getLocation(context),
                 getTextIfPresent(context.pattern)
                         .map(AstBuilder::unquote),
@@ -1291,21 +1237,18 @@ class AstBuilder
     @Override
     public Node visitSetSession(SqlBaseParser.SetSessionContext context)
     {
-        restrictNode();
         return new SetSession(getLocation(context), getQualifiedName(context.qualifiedName()), (Expression) visit(context.expression()));
     }
 
     @Override
     public Node visitResetSession(SqlBaseParser.ResetSessionContext context)
     {
-        restrictNode();
         return new ResetSession(getLocation(context), getQualifiedName(context.qualifiedName()));
     }
 
     @Override
     public Node visitCreateRole(SqlBaseParser.CreateRoleContext context)
     {
-        restrictNode();
         return new CreateRole(
                 getLocation(context),
                 (Identifier) visit(context.name),
@@ -1316,7 +1259,6 @@ class AstBuilder
     @Override
     public Node visitDropRole(SqlBaseParser.DropRoleContext context)
     {
-        restrictNode();
         return new DropRole(
                 getLocation(context),
                 (Identifier) visit(context.name),
@@ -1326,7 +1268,6 @@ class AstBuilder
     @Override
     public Node visitGrantRoles(SqlBaseParser.GrantRolesContext context)
     {
-        restrictNode();
         return new GrantRoles(
                 getLocation(context),
                 ImmutableSet.copyOf(getIdentifiers(context.roles().identifier())),
@@ -1339,7 +1280,6 @@ class AstBuilder
     @Override
     public Node visitRevokeRoles(SqlBaseParser.RevokeRolesContext context)
     {
-        restrictNode();
         return new RevokeRoles(
                 getLocation(context),
                 ImmutableSet.copyOf(getIdentifiers(context.roles().identifier())),
@@ -1352,7 +1292,6 @@ class AstBuilder
     @Override
     public Node visitSetRole(SqlBaseParser.SetRoleContext context)
     {
-        restrictNode();
         SetRole.Type type = SetRole.Type.ROLE;
         if (context.ALL() != null) {
             type = SetRole.Type.ALL;
@@ -1370,7 +1309,6 @@ class AstBuilder
     @Override
     public Node visitGrant(SqlBaseParser.GrantContext context)
     {
-        restrictNode();
         Optional<List<String>> privileges;
         if (context.ALL() != null) {
             privileges = Optional.empty();
@@ -1404,7 +1342,6 @@ class AstBuilder
     @Override
     public Node visitRevoke(SqlBaseParser.RevokeContext context)
     {
-        restrictNode();
         Optional<List<String>> privileges;
         if (context.ALL() != null) {
             privileges = Optional.empty();
@@ -1438,7 +1375,6 @@ class AstBuilder
     @Override
     public Node visitShowGrants(SqlBaseParser.ShowGrantsContext context)
     {
-        restrictNode();
         Optional<QualifiedName> tableName = Optional.empty();
 
         if (context.qualifiedName() != null) {
@@ -1454,7 +1390,6 @@ class AstBuilder
     @Override
     public Node visitShowRoles(SqlBaseParser.ShowRolesContext context)
     {
-        restrictNode();
         return new ShowRoles(
                 getLocation(context),
                 getIdentifierIfPresent(context.identifier()),
@@ -1464,7 +1399,6 @@ class AstBuilder
     @Override
     public Node visitShowRoleGrants(SqlBaseParser.ShowRoleGrantsContext context)
     {
-        restrictNode();
         return new ShowRoleGrants(
                 getLocation(context),
                 getIdentifierIfPresent(context.identifier()));
@@ -1473,14 +1407,12 @@ class AstBuilder
     @Override
     public Node visitSetPath(SqlBaseParser.SetPathContext context)
     {
-        restrictNode();
         return new SetPath(getLocation(context), (PathSpecification) visit(context.pathSpecification()));
     }
 
     @Override
     public Node visitSetTimeZone(SqlBaseParser.SetTimeZoneContext context)
     {
-        restrictNode();
         Optional<Expression> timeZone = Optional.empty();
         if (context.expression() != null) {
             timeZone = Optional.of((Expression) visit(context.expression()));
@@ -3249,14 +3181,8 @@ class AstBuilder
         return new ParsingException(message, null, context.getStart().getLine(), context.getStart().getCharPositionInLine() + 1);
     }
 
-    public void restrictNode()
+    public ParsingOptions getParsingOptions()
     {
-        switch (parsingOptions.getSqlParserMode()) {
-            case CRUD:
-                return;
-            case READ_ONLY:
-                throw new ParsingException("Unexpected CRUD operation. Read Only mode is enabled.");
-        }
-        throw new AssertionError("Unreachable");
+        return this.parsingOptions;
     }
 }
