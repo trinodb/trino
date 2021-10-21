@@ -3619,6 +3619,7 @@ public class TestSqlParser
         assertRestrictedStatementInReadOnlyMode("UPDATE t\n" +
                                                     "    SET bar = 23\n" +
                                                     "WHERE (id = 'test')");
+        assertRestrictedStatementInReadOnlyMode("INSERT INTO t (number, string) VALUES (1, 'string')");
     }
 
     @Test
@@ -3645,6 +3646,90 @@ public class TestSqlParser
     }
 
     @Test
+    public void testRestrictedMergeNodesReadOnlyMode()
+    {
+        assertRestrictedStatementInReadOnlyMode("MERGE foo AS bar\n" +
+                "USING t AS TEST \n" +
+                "ON (bar.id = TEST.ProductID)");
+        assertRestrictedStatementInReadOnlyMode("MERGE foo AS bar\n" +
+                "   USING t AS TEST \n" +
+                "   ON (bar.id = TEST.ProductID)" +
+                "WHEN MATCHED\n" +
+                "   THEN UPDATE SET bar.ProductName = TEST.ProductName");
+        assertRestrictedStatementInReadOnlyMode("MERGE INTO inventory AS i " +
+                "  USING changes AS c " +
+                "  ON i.part = c.part " +
+                "WHEN MATCHED AND c.action = 'mod' " +
+                "  THEN UPDATE SET " +
+                "    qty = qty + c.qty " +
+                "  , ts = CURRENT_TIMESTAMP " +
+                "WHEN MATCHED AND c.action = 'del' " +
+                "  THEN DELETE " +
+                "WHEN NOT MATCHED AND c.action = 'new' " +
+                "  THEN INSERT (part, qty) VALUES (c.part, c.qty)");
+    }
+
+    @Test
+    public void testRestrictedShowNodesReadOnlyMode()
+    {
+        assertRestrictedStatementInReadOnlyMode("SHOW CREATE TABLE tbl_name");
+        assertRestrictedStatementInReadOnlyMode("SHOW CREATE SCHEMA schema_name");
+        assertRestrictedStatementInReadOnlyMode("SHOW CREATE VIEW view_name");
+        assertRestrictedStatementInReadOnlyMode("SHOW CREATE MATERIALIZED VIEW view_name");
+    }
+
+    @Test
+    public void testRestrictedSessionNodesReadOnlyMode()
+    {
+        assertRestrictedStatementInReadOnlyMode("SHOW SESSION");
+        assertRestrictedStatementInReadOnlyMode("RESET SESSION catalog.name");
+        assertRestrictedStatementInReadOnlyMode("SET SESSION foo = bar");
+        assertRestrictedStatementInReadOnlyMode("RESET SESSION name");
+    }
+
+    @Test
+    public void testRestrictedCallNodeReadOnlyMode()
+    {
+        assertRestrictedStatementInReadOnlyMode("CALL procedure_name");
+    }
+
+    @Test
+    public void testRestrictedExplainNodeReadOnlyMode()
+    {
+        assertRestrictedStatementInReadOnlyMode("EXPLAIN (TYPE LOGICAL) SELECT foo FROM bar");
+        assertRestrictedStatementInReadOnlyMode("EXPLAIN ANALYZE SELECT count(*) FROM foo\n" +
+                                                    "WHERE d > date '1995-01-01' GROUP BY bar");
+    }
+
+    @Test
+    public void testRestrictedDescribeNodeReadOnlyMode()
+    {
+        assertRestrictedStatementInReadOnlyMode("DESCRIBE INPUT my_statement");
+        assertRestrictedStatementInReadOnlyMode("DESCRIBE OUTPUT my_statement");
+    }
+
+    @Test
+    public void testRestrictedTransactionsReadOnlyMode()
+    {
+        assertRestrictedStatementInReadOnlyMode("START TRANSACTION");
+        assertRestrictedStatementInReadOnlyMode("START TRANSACTION ISOLATION LEVEL READ UNCOMMITTED");
+        assertRestrictedStatementInReadOnlyMode("START TRANSACTION ISOLATION LEVEL READ COMMITTED");
+        assertRestrictedStatementInReadOnlyMode("START TRANSACTION ISOLATION LEVEL REPEATABLE READ");
+        assertRestrictedStatementInReadOnlyMode("START TRANSACTION ISOLATION LEVEL SERIALIZABLE");
+        assertRestrictedStatementInReadOnlyMode("START TRANSACTION READ ONLY");
+        assertRestrictedStatementInReadOnlyMode("START TRANSACTION READ WRITE");
+        assertRestrictedStatementInReadOnlyMode("COMMIT");
+        assertRestrictedStatementInReadOnlyMode("ROLLBACK");
+    }
+
+    @Test
+    public void testRestrictedShoqStatsNodesReadOnlyMode()
+    {
+        assertRestrictedStatementInReadOnlyMode("SHOW STATS FOR table");
+        assertRestrictedStatementInReadOnlyMode("SHOW STATS FOR ( query )");
+    }
+
+    @Test
     public void testAllowedSelectNodesReadOnlyMode()
     {
         assertAllowedStatementsInReadOnlyMode("SELECT * FROM t");
@@ -3654,7 +3739,19 @@ public class TestSqlParser
     }
 
     @Test
-    public void testAllowedGroupBy
+    public void testAllowedJoinReadOnlyMode()
+    {
+        assertAllowedStatementsInReadOnlyMode("SELECT * FROM a CROSS JOIN b LEFT JOIN c ON true");
+        assertAllowedStatementsInReadOnlyMode("SELECT * FROM a CROSS JOIN b NATURAL JOIN c CROSS JOIN d NATURAL JOIN e");
+    }
+
+    @Test
+    public void testAllowedShowNodesReadOnlyMode()
+    {
+        assertAllowedStatementsInReadOnlyMode("SHOW COLUMNS FROM t");
+        assertAllowedStatementsInReadOnlyMode("SHOW TABLES");
+        assertAllowedStatementsInReadOnlyMode("SHOW SCHEMAS");
+    }
 
     private static QualifiedName makeQualifiedName(String tableName)
     {
