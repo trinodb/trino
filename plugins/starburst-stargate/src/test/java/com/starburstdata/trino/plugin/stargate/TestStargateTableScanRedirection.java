@@ -29,7 +29,6 @@ public class TestStargateTableScanRedirection
             throws Exception
     {
         DistributedQueryRunner remoteStarburst = closeAfterClass(createRemoteStarburstQueryRunnerWithMemory(
-                Map.of(),
                 REQUIRED_TPCH_TABLES,
                 Optional.empty()));
 

@@ -42,7 +42,7 @@ public final class StargateQueryRunner
 {
     private StargateQueryRunner() {}
 
-    private static DistributedQueryRunner createRemoteStarburstQueryRunner(Map<String, String> extraProperties, Optional<SystemAccessControl> systemAccessControl)
+    private static DistributedQueryRunner createRemoteStarburstQueryRunner(Optional<SystemAccessControl> systemAccessControl)
             throws Exception
     {
         DistributedQueryRunner queryRunner = null;
@@ -53,8 +53,7 @@ public final class StargateQueryRunner
                     .setSchema("unspecified_schema")
                     .build();
             DistributedQueryRunner.Builder queryRunnerBuilder = StarburstDistributedQueryRunner.builder(session)
-                    .setNodeCount(1) // 1 is perfectly enough until we do parallel Stargate connector
-                    .setExtraProperties(extraProperties);
+                    .setNodeCount(1); // 1 is perfectly enough until we do parallel Stargate connector
 
             systemAccessControl.ifPresent(queryRunnerBuilder::setSystemAccessControl);
 
@@ -147,39 +146,44 @@ public final class StargateQueryRunner
     }
 
     public static DistributedQueryRunner createRemoteStarburstQueryRunnerWithMemory(
-            Map<String, String> extraProperties,
             Iterable<TpchTable<?>> requiredTablesInMemoryConnector,
             Optional<SystemAccessControl> systemAccessControl)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = createRemoteStarburstQueryRunner(extraProperties, systemAccessControl);
+        DistributedQueryRunner queryRunner = createRemoteStarburstQueryRunner(systemAccessControl);
         addMemoryToRemoteStarburstQueryRunner(queryRunner, requiredTablesInMemoryConnector);
         return queryRunner;
     }
 
     public static DistributedQueryRunner createRemoteStarburstQueryRunnerWithHive(
             Path hiveCatalog,
-            Map<String, String> extraProperties,
             Iterable<TpchTable<?>> requiredTablesInHiveConnector,
             Optional<SystemAccessControl> systemAccessControl)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = createRemoteStarburstQueryRunner(extraProperties, systemAccessControl);
+        DistributedQueryRunner queryRunner = createRemoteStarburstQueryRunner(systemAccessControl);
         addHiveToRemoteStarburstQueryRunner(queryRunner, hiveCatalog, requiredTablesInHiveConnector);
         return queryRunner;
     }
 
     public static DistributedQueryRunner createRemoteStarburstQueryRunnerWithPostgreSql(
             TestingPostgreSqlServer server,
-            Map<String, String> extraProperties,
             Map<String, String> connectorProperties,
             Iterable<TpchTable<?>> requiredTablesInPostgreSqlConnector,
             Optional<SystemAccessControl> systemAccessControl)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = createRemoteStarburstQueryRunner(extraProperties, systemAccessControl);
+        DistributedQueryRunner queryRunner = createRemoteStarburstQueryRunner(systemAccessControl);
         addPostgreSqlToRemoteStarburstQueryRunner(queryRunner, server, connectorProperties, requiredTablesInPostgreSqlConnector);
         return queryRunner;
+    }
+
+    public static DistributedQueryRunner createStargateQueryRunner(
+            boolean enableWrites,
+            Map<String, String> connectorProperties)
+            throws Exception
+    {
+        return createStargateQueryRunner(enableWrites, Map.of(), connectorProperties);
     }
 
     public static DistributedQueryRunner createStargateQueryRunner(
@@ -195,9 +199,9 @@ public final class StargateQueryRunner
 
         DistributedQueryRunner queryRunner = null;
         try {
-            queryRunner = StarburstDistributedQueryRunner.builder(session)
-                    .setExtraProperties(extraProperties)
-                    .build();
+            DistributedQueryRunner.Builder builder = StarburstDistributedQueryRunner.builder(session);
+            extraProperties.forEach(builder::addExtraProperty);
+            queryRunner = builder.build();
 
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
@@ -238,7 +242,7 @@ public final class StargateQueryRunner
             throws Exception
     {
         Logging.initialize();
-        DistributedQueryRunner stargateQueryRunner = createRemoteStarburstQueryRunner(Map.of(), Optional.empty());
+        DistributedQueryRunner stargateQueryRunner = createRemoteStarburstQueryRunner(Optional.empty());
 
         addMemoryToRemoteStarburstQueryRunner(
                 stargateQueryRunner,

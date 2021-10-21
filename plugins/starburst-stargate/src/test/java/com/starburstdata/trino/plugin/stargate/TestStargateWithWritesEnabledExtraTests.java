@@ -37,12 +37,10 @@ public class TestStargateWithWritesEnabledExtraTests
             throws Exception
     {
         DistributedQueryRunner remoteStarburst = closeAfterClass(createRemoteStarburstQueryRunnerWithMemory(
-                Map.of(),
                 TpchTable.getTables(),
                 Optional.empty()));
         return createStargateQueryRunner(
                 true,
-                Map.of(),
                 Map.of(
                         "connection-url", stargateConnectionUrl(remoteStarburst, "memory"),
                         "allow-drop-table", "true"));

@@ -56,7 +56,6 @@ public class TestStargateTableStatisticsWithPostgreSql
         postgreSqlServer = closeAfterClass(new TestingPostgreSqlServer());
         remoteStarburst = closeAfterClass(StargateQueryRunner.createRemoteStarburstQueryRunnerWithPostgreSql(
                 postgreSqlServer,
-                Map.of(),
                 Map.of(
                         "connection-url", postgreSqlServer.getJdbcUrl(),
                         "connection-user", postgreSqlServer.getUser(),
@@ -70,7 +69,6 @@ public class TestStargateTableStatisticsWithPostgreSql
                 .build();
         return createStargateQueryRunner(
                 true,
-                Map.of(),
                 Map.of(
                         "connection-url", stargateConnectionUrl(remoteStarburst, "postgresql"),
                         "allow-drop-table", "true",

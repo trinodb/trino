@@ -30,12 +30,10 @@ public class TestStargateDynamicFilteringWritesEnabled
             throws Exception
     {
         DistributedQueryRunner remoteStarburst = closeAfterClass(createRemoteStarburstQueryRunnerWithMemory(
-                Map.of(),
                 List.of(ORDERS),
                 Optional.empty()));
         return createStargateQueryRunner(
                 true,
-                Map.of(),
                 Map.of(
                         "connection-url", stargateConnectionUrl(remoteStarburst, "memory"),
                         "allow-drop-table", "true"));

@@ -58,7 +58,6 @@ public class TestStargateTableStatisticsWithHive
 
         remoteStarburst = closeAfterClass(createRemoteStarburstQueryRunnerWithHive(
                 tempDir,
-                Map.of(),
                 ImmutableList.of(ORDERS, NATION, REGION),
                 Optional.empty()));
         remoteSession = testSessionBuilder()
@@ -67,7 +66,6 @@ public class TestStargateTableStatisticsWithHive
                 .build();
         return createStargateQueryRunner(
                 true,
-                Map.of(),
                 Map.of(
                         "connection-url", stargateConnectionUrl(remoteStarburst, "hive"),
                         "allow-drop-table", "true"));

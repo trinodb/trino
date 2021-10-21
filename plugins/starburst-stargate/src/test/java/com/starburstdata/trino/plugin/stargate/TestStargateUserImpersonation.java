@@ -42,13 +42,11 @@ public class TestStargateUserImpersonation
         String authToLocalConfig = Resources.getResource("test-user-impersonation.auth-to-local.json").getPath();
         String accessControlRules = Resources.getResource("test-user-impersonation.system-access-rules.json").getPath();
         DistributedQueryRunner remoteStarburst = closeAfterClass(createRemoteStarburstQueryRunnerWithMemory(
-                Map.of(),
                 ImmutableList.of(NATION),
                 Optional.of(new FileBasedSystemAccessControl.Factory().create(ImmutableMap.of(SECURITY_CONFIG_FILE, accessControlRules)))));
 
         return createStargateQueryRunner(
                 true,
-                Map.of(),
                 Map.of(
                         "connection-url", stargateConnectionUrl(remoteStarburst, "memory"),
                         "starburst.impersonation.enabled", "true",

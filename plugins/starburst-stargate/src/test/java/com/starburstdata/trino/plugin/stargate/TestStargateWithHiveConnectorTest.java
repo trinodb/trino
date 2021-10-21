@@ -39,12 +39,10 @@ public class TestStargateWithHiveConnectorTest
 
         remoteStarburst = closeAfterClass(createRemoteStarburstQueryRunnerWithHive(
                 tempDir,
-                Map.of(),
                 REQUIRED_TPCH_TABLES,
                 Optional.empty()));
         return createStargateQueryRunner(
                 false,
-                Map.of(),
                 Map.of(
                         "connection-url", stargateConnectionUrl(remoteStarburst, getRemoteCatalogName()),
                         "allow-drop-table", "true"));

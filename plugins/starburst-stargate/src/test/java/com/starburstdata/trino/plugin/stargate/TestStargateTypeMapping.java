@@ -94,12 +94,10 @@ public class TestStargateTypeMapping
             throws Exception
     {
         starburstEnterprise = createRemoteStarburstQueryRunnerWithMemory(
-                Map.of(),
                 List.of(),
                 Optional.empty());
         return createStargateQueryRunner(
                 true,
-                Map.of(),
                 Map.of(
                         "connection-url", stargateConnectionUrl(starburstEnterprise, "memory"),
                         "allow-drop-table", "true",

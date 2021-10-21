@@ -35,10 +35,9 @@ public class TestStargateWithMemoryWritesEnabledConnectorTest
             throws Exception
     {
         remoteStarburst = closeAfterClass(
-                createRemoteStarburstQueryRunnerWithMemory(Map.of(), REQUIRED_TPCH_TABLES, Optional.empty()));
+                createRemoteStarburstQueryRunnerWithMemory(REQUIRED_TPCH_TABLES, Optional.empty()));
         return createStargateQueryRunner(
                 true,
-                Map.of(),
                 Map.of(
                         "connection-url", stargateConnectionUrl(remoteStarburst, "memory"),
                         "allow-drop-table", "true"));

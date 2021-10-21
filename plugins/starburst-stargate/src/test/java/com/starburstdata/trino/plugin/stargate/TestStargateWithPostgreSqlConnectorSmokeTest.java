@@ -33,7 +33,6 @@ public class TestStargateWithPostgreSqlConnectorSmokeTest
 
         DistributedQueryRunner remoteStarburst = closeAfterClass(StargateQueryRunner.createRemoteStarburstQueryRunnerWithPostgreSql(
                 postgreSqlServer,
-                Map.of(),
                 Map.of(
                         "connection-url", postgreSqlServer.getJdbcUrl(),
                         "connection-user", postgreSqlServer.getUser(),
@@ -43,7 +42,6 @@ public class TestStargateWithPostgreSqlConnectorSmokeTest
 
         return createStargateQueryRunner(
                 false,
-                Map.of(),
                 Map.of(
                         "connection-url", stargateConnectionUrl(remoteStarburst, "postgresql"),
                         "allow-drop-table", "true"));

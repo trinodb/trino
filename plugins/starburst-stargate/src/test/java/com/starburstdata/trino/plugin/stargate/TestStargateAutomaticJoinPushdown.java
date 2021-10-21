@@ -42,7 +42,6 @@ public class TestStargateAutomaticJoinPushdown
 
         remoteStarburst = closeAfterClass(StargateQueryRunner.createRemoteStarburstQueryRunnerWithPostgreSql(
                 postgreSqlServer,
-                Map.of(),
                 Map.of(
                         "connection-url", postgreSqlServer.getJdbcUrl(),
                         "connection-user", postgreSqlServer.getUser(),
@@ -57,7 +56,6 @@ public class TestStargateAutomaticJoinPushdown
 
         return createStargateQueryRunner(
                 false,
-                Map.of(),
                 Map.of(
                         "connection-url", stargateConnectionUrl(remoteStarburst, "postgresql"),
                         "allow-drop-table", "true"));
