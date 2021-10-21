@@ -11,31 +11,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive;
+package io.trino.testing;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.log.Logger;
+import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
+import io.trino.server.DynamicFilterService.DynamicFilterDomainStats;
+import io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import io.trino.spi.QueryId;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.ValueSet;
-import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.MaterializedResult;
-import io.trino.testing.QueryRunner;
-import io.trino.testing.ResultWithQueryId;
+import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.airlift.units.Duration.nanosSince;
 import static io.trino.SystemSessionProperties.ENABLE_LARGE_DYNAMIC_FILTERS;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
-import static io.trino.server.DynamicFilterService.DynamicFilterDomainStats;
-import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import static io.trino.spi.predicate.Domain.none;
 import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.predicate.Range.range;
@@ -43,34 +42,26 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
 import static io.trino.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
-import static io.trino.tpch.TpchTable.getTables;
+import static io.trino.tpch.TpchTable.LINE_ITEM;
+import static io.trino.tpch.TpchTable.ORDERS;
+import static io.trino.tpch.TpchTable.SUPPLIER;
 import static io.trino.util.DynamicFiltersTestUtil.getSimplifiedDomainString;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-public class TestHiveDynamicPartitionPruning
+public abstract class BaseDynamicPartitionPruningTest
         extends AbstractTestQueryFramework
 {
-    private static final Logger log = Logger.get(TestHiveDynamicPartitionPruning.class);
     private static final String PARTITIONED_LINEITEM = "partitioned_lineitem";
     private static final long LINEITEM_COUNT = 60175;
-
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
-    {
-        return HiveQueryRunner.builder()
-                // Reduced partitioned join limit for large DF to enable DF min/max collection with ENABLE_LARGE_DYNAMIC_FILTERS
-                .addExtraProperty("dynamic-filtering.large-partitioned.max-distinct-values-per-driver", "100")
-                .addExtraProperty("dynamic-filtering.large-partitioned.range-row-limit-per-driver", "100000")
-                // disable semi join to inner join rewrite to test semi join operators explicitly
-                .addExtraProperty("optimizer.rewrite-filtering-semi-join-to-inner-join", "false")
-                .setHiveProperties(ImmutableMap.of("hive.dynamic-filtering-probe-blocking-timeout", "1h"))
-                .setInitialTables(getTables())
-                .build();
-    }
+    protected static final Set<TpchTable<?>> REQUIRED_TABLES = ImmutableSet.of(LINE_ITEM, ORDERS, SUPPLIER);
+    protected static final Map<String, String> EXTRA_PROPERTIES = ImmutableMap.of(
+            // Reduced partitioned join limit for large DF to enable DF min/max collection with ENABLE_LARGE_DYNAMIC_FILTERS
+            "dynamic-filtering.large-partitioned.max-distinct-values-per-driver", "100",
+            "dynamic-filtering.large-partitioned.range-row-limit-per-driver", "100000",
+            // disable semi join to inner join rewrite to test semi join operators explicitly
+            "optimizer.rewrite-filtering-semi-join-to-inner-join", "false");
 
     @BeforeClass
     @Override
@@ -79,12 +70,10 @@ public class TestHiveDynamicPartitionPruning
     {
         super.init();
         // setup partitioned fact table for dynamic partition pruning
-        @Language("SQL") String sql = format("CREATE TABLE %s WITH (format = 'TEXTFILE', partitioned_by=array['suppkey']) AS " +
-                "SELECT orderkey, partkey, suppkey FROM %s", PARTITIONED_LINEITEM, "tpch.tiny.lineitem");
-        long start = System.nanoTime();
-        long rows = (Long) getQueryRunner().execute(sql).getMaterializedRows().get(0).getField(0);
-        log.info("Imported %s rows for %s in %s", rows, PARTITIONED_LINEITEM, nanosSince(start).convertToMostSuccinctTimeUnit());
+        createLineitemTable(PARTITIONED_LINEITEM, ImmutableList.of("orderkey", "partkey", "suppkey"), ImmutableList.of("suppkey"));
     }
+
+    protected abstract void createLineitemTable(String tableName, List<String> columns, List<String> partitionColumns);
 
     @Override
     protected Session getSession()
@@ -230,11 +219,10 @@ public class TestHiveDynamicPartitionPruning
     public void testJoinWithImplicitCoercion()
     {
         // setup partitioned fact table with integer suppkey
-        assertUpdate(
-                "CREATE TABLE partitioned_lineitem_int " +
-                        "WITH (format = 'TEXTFILE', partitioned_by=array['suppkey_int']) AS " +
-                        "SELECT orderkey, CAST(suppkey as int) suppkey_int FROM tpch.tiny.lineitem",
-                LINEITEM_COUNT);
+        createLineitemTable("partitioned_lineitem_int", ImmutableList.of("orderkey", "CAST(suppkey as int) suppkey_int"), ImmutableList.of("suppkey_int"));
+        assertQuery(
+                "SELECT count(*) FROM partitioned_lineitem_int",
+                "VALUES " + LINEITEM_COUNT);
 
         @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem_int l JOIN supplier s ON l.suppkey_int = s.suppkey AND s.name = 'Supplier#000000001'";
         ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
