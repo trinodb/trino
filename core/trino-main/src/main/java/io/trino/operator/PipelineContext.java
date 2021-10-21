@@ -32,10 +32,8 @@ import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.ThreadSafe;
 
-import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -47,7 +45,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -381,13 +378,22 @@ public class PipelineContext
 
         long physicalWrittenDataSize = this.physicalWrittenDataSize.get();
 
-        List<DriverStats> drivers = new ArrayList<>();
+        ImmutableSet.Builder<BlockedReason> blockedReasons = ImmutableSet.builder();
+        boolean hasRunningDrivers = false;
+        boolean runningDriversFullyBlocked = true;
 
         TreeMap<Integer, OperatorStats> operatorSummaries = new TreeMap<>(this.operatorSummaries);
         ListMultimap<Integer, OperatorStats> runningOperators = ArrayListMultimap.create();
+        ImmutableList.Builder<DriverStats> drivers = ImmutableList.builderWithExpectedSize(driverContexts.size());
         for (DriverContext driverContext : driverContexts) {
             DriverStats driverStats = driverContext.getDriverStats();
             drivers.add(driverStats);
+            if (driverStats.getStartTime() != null && driverStats.getEndTime() == null) {
+                // driver is running
+                hasRunningDrivers = true;
+                runningDriversFullyBlocked &= driverStats.isFullyBlocked();
+                blockedReasons.addAll(driverStats.getBlockedReasons());
+            }
 
             queuedTime.add(driverStats.getQueuedTime().roundTo(NANOSECONDS));
             elapsedTime.add(driverStats.getElapsedTime().roundTo(NANOSECONDS));
@@ -396,9 +402,8 @@ public class PipelineContext
             totalCpuTime += driverStats.getTotalCpuTime().roundTo(NANOSECONDS);
             totalBlockedTime += driverStats.getTotalBlockedTime().roundTo(NANOSECONDS);
 
-            List<OperatorStats> operators = driverContext.getOperatorStats();
-            for (OperatorStats operator : operators) {
-                runningOperators.put(operator.getOperatorId(), operator);
+            for (OperatorStats operatorStats : driverStats.getOperatorStats()) {
+                runningOperators.put(operatorStats.getOperatorId(), operatorStats);
             }
 
             physicalInputDataSize += driverStats.getPhysicalInputDataSize().toBytes();
@@ -440,14 +445,7 @@ public class PipelineContext
             operatorSummaries.put(operatorId, combined);
         }
 
-        Set<DriverStats> runningDriverStats = drivers.stream()
-                .filter(driver -> driver.getEndTime() == null && driver.getStartTime() != null)
-                .collect(toImmutableSet());
-        ImmutableSet<BlockedReason> blockedReasons = runningDriverStats.stream()
-                .flatMap(driver -> driver.getBlockedReasons().stream())
-                .collect(toImmutableSet());
-
-        boolean fullyBlocked = !runningDriverStats.isEmpty() && runningDriverStats.stream().allMatch(DriverStats::isFullyBlocked);
+        boolean fullyBlocked = hasRunningDrivers && runningDriversFullyBlocked;
 
         return new PipelineStats(
                 pipelineId,
@@ -480,7 +478,7 @@ public class PipelineContext
                 new Duration(totalCpuTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 fullyBlocked,
-                blockedReasons,
+                blockedReasons.build(),
 
                 succinctBytes(physicalInputDataSize),
                 physicalInputPositions,
@@ -501,7 +499,7 @@ public class PipelineContext
                 succinctBytes(physicalWrittenDataSize),
 
                 ImmutableList.copyOf(operatorSummaries.values()),
-                drivers);
+                drivers.build());
     }
 
     public <C, R> R accept(QueryContextVisitor<C, R> visitor, C context)
