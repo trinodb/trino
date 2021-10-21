@@ -3098,12 +3098,12 @@ public abstract class AbstractTestHive
         }
     }
 
-    private Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorMetadata metadata, ConnectorSession session, SchemaTablePrefix prefix)
+    private static Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorMetadata metadata, ConnectorSession session, SchemaTablePrefix prefix)
     {
         return metadata.streamTableColumns(session, prefix)
                 .collect(toImmutableMap(
                         TableColumnsMetadata::getTable,
-                        tableColumns -> tableColumns.getColumns().orElseThrow(() -> new IllegalStateException("Table " + tableColumns.getTable() + " reported as redirect target"))));
+                        tableColumns -> tableColumns.getColumns().orElseThrow(() -> new IllegalStateException("Table " + tableColumns.getTable() + " reported as redirected"))));
     }
 
     private void createDummyTable(SchemaTableName tableName)

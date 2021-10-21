@@ -690,6 +690,9 @@ public class HiveMetadata
         requireNonNull(prefix, "prefix is null");
         return listTables(session, prefix).stream().flatMap(tableName -> {
             try {
+                if (redirectTable(session, tableName).isPresent()) {
+                    return Stream.of(TableColumnsMetadata.forRedirectedTable(tableName));
+                }
                 return Stream.of(TableColumnsMetadata.forTable(tableName, getTableMetadata(session, tableName).getColumns()));
             }
             catch (HiveViewNotSupportedException e) {
