@@ -265,20 +265,4 @@
         </artifact>
     </artifactSet>
 
-    <artifactSet to="plugin/queryeventlistener">
-        <artifact id="${project.groupId}:trino-queryeventlistener:zip:${project.version}">
-            <unpack />
-        </artifact>
-    </artifactSet>
-
-    <artifactSet to="plugin/queryeventlistener">
-        <artifact id="${project.groupId}:trino-queryeventlistener:zip:${project.version}">
-            <unpack />
-        </artifact>
-    </artifactSet>
-    <artifactSet to="plugin/trino-fission-functions">
-        <artifact id="${project.groupId}:trino-fission-functions:zip:${project.version}">
-            <unpack />
-        </artifact>
-    </artifactSet>
 </runtime>
