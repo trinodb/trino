@@ -587,135 +587,64 @@ public final class UnscaledDecimal128Arithmetic
 
     public static void multiply(long leftLow, long leftHigh, long rightLow, long rightHigh, Slice result)
     {
+        multiply(isNegative(leftHigh), leftLow, unpackUnsignedLong(leftHigh), isNegative(rightHigh), rightLow, unpackUnsignedLong(rightHigh), result);
+    }
+
+    private static void multiply(boolean leftNegative, long leftLow, long leftHigh, boolean rightNegative, long rightLow, long rightHigh, Slice result)
+    {
         checkArgument(result.length() == NUMBER_OF_LONGS * Long.BYTES);
 
-        long l0 = low(leftLow);
-        long l1 = high(leftLow);
-        long l2 = low(leftHigh);
-        boolean leftNegative = isNegative(leftHigh);
-        long l3 = unpackUnsignedInt(high(leftHigh));
+        /*
+            Given a and b, two 128 bit values composed of 64 bit values (a_H, a_L) and (b_H, b_L), respectively,
+            computes the product in the following way:
 
-        long r0 = low(rightLow);
-        long r1 = high(rightLow);
-        long r2 = low(rightHigh);
-        boolean rightNegative = isNegative(rightHigh);
-        long r3 = unpackUnsignedInt(high(rightHigh));
+                                                                                  a_H a_L
+                                                                                * b_H b_L
+             -----------------------------------------------------------------------------------
+                  64 bits    |       64 bits       |       64 bits       |        64 bits
+                             |                     |                     |
+                             |                     | z1_H= (a_L * b_L)_H | z1_L = (a_L * b_L)_L
+                             | z2_H= (a_L * b_H)_H | z2_L= (a_L * b_H)_L |
+                             | z3_H= (a_H * b_L)_H | z3_L= (a_H * b_L)_L |
+              (a_H * b_H)_H  |       (a_H * b_H)_L |                     |
+             -----------------------------------------------------------------------------------
+                             |                     |      result_H       |      result_L
 
-        // the combinations below definitely result in an overflow
-        if (((r3 != 0 && (l3 | l2 | l1) != 0) || (r2 != 0 && (l3 | l2) != 0) || (r1 != 0 && l3 != 0))) {
+            The product is performed on positive values. The product overflows
+            * if any of the terms above 128 bits is non-zero:
+               * a_H and b_H are both non-zero
+               * z2_H is non-zero
+               * z3_H is non-zero
+            * result_H is negative (high bit of a java long is set) -- since the original numbers are positive, the result cannot be negative
+            * any of z1_H, z2_L and z3_L are negative -- since the original numbers are positive, these intermediate
+              results cannot be negative
+         */
+
+        long z1High = unsignedMultiplyHigh(leftLow, rightLow);
+        long z1Low = leftLow * rightLow;
+        long z2Low = leftLow * rightHigh;
+        long z3Low = leftHigh * rightLow;
+
+        long resultLow = z1Low;
+        long resultHigh = z1High + z2Low + z3Low;
+
+        if ((leftHigh != 0 && rightHigh != 0) ||
+                resultHigh < 0 || z1High < 0 || z2Low < 0 || z3Low < 0 ||
+                unsignedMultiplyHigh(leftLow, rightHigh) != 0 ||
+                unsignedMultiplyHigh(leftHigh, rightLow) != 0) {
             throwOverflowException();
         }
 
-        long z0 = 0;
-        long z1 = 0;
-        long z2 = 0;
-        long z3 = 0;
-
-        if (l0 != 0) {
-            long accumulator = r0 * l0;
-            z0 = low(accumulator);
-            accumulator = high(accumulator) + r1 * l0;
-
-            z1 = low(accumulator);
-            accumulator = high(accumulator) + r2 * l0;
-
-            z2 = low(accumulator);
-            accumulator = high(accumulator) + r3 * l0;
-
-            z3 = low(accumulator);
-
-            if (high(accumulator) != 0) {
-                throwOverflowException();
-            }
-        }
-
-        if (l1 != 0) {
-            long accumulator = r0 * l1 + z1;
-            z1 = low(accumulator);
-            accumulator = high(accumulator) + r1 * l1 + z2;
-
-            z2 = low(accumulator);
-            accumulator = high(accumulator) + r2 * l1 + z3;
-
-            z3 = low(accumulator);
-
-            if (high(accumulator) != 0) {
-                throwOverflowException();
-            }
-        }
-
-        if (l2 != 0) {
-            long accumulator = r0 * l2 + z2;
-            z2 = low(accumulator);
-            accumulator = high(accumulator) + r1 * l2 + z3;
-
-            z3 = low(accumulator);
-
-            if (high(accumulator) != 0) {
-                throwOverflowException();
-            }
-        }
-
-        if (l3 != 0) {
-            long accumulator = r0 * l3 + z3;
-            z3 = low(accumulator);
-
-            if (high(accumulator) != 0) {
-                throwOverflowException();
-            }
-        }
-
-        pack(result, (int) z0, (int) z1, (int) z2, (int) z3, leftNegative != rightNegative);
+        pack(result, resultLow, resultHigh, leftNegative != rightNegative);
     }
 
     public static void multiply(Slice left, long right, Slice result)
     {
-        checkArgument(result.length() == NUMBER_OF_LONGS * Long.BYTES);
-
+        long leftLow = getRawLong(left, 0);
+        long leftHigh = getRawLong(left, 1);
         boolean rightNegative = right < 0;
-        if (rightNegative) {
-            right = -right;
-        }
 
-        multiply(getRawLong(left, 0), getRawLong(left, 1), right, rightNegative ? SIGN_LONG_MASK : 0, result);
-    }
-
-    public static void multiply(Slice left, int right, Slice result)
-    {
-        checkArgument(result.length() == NUMBER_OF_LONGS * Long.BYTES);
-
-        long l0 = toUnsignedLong(getInt(left, 0));
-        long l1 = toUnsignedLong(getInt(left, 1));
-        long l2 = toUnsignedLong(getInt(left, 2));
-        int l3raw = getRawInt(left, 3);
-        boolean leftNegative = isNegative(l3raw);
-        long l3 = toUnsignedLong(unpackUnsignedInt(l3raw));
-
-        boolean rightNegative = right < 0;
-        long r0 = abs(right);
-
-        long z0;
-        long z1;
-        long z2;
-        long z3;
-
-        long accumulator = r0 * l0;
-        z0 = low(accumulator);
-        accumulator = high(accumulator) + l1 * r0;
-
-        z1 = low(accumulator);
-        accumulator = high(accumulator) + l2 * r0;
-
-        z2 = low(accumulator);
-        accumulator = high(accumulator) + l3 * r0;
-
-        z3 = low(accumulator);
-
-        if (high(accumulator) != 0) {
-            throwOverflowException();
-        }
-
-        pack(result, (int) z0, (int) z1, (int) z2, (int) z3, leftNegative != rightNegative);
+        multiply(isNegative(leftHigh), leftLow, unpackUnsignedLong(leftHigh), rightNegative, abs(right), 0, result);
     }
 
     // Using multiply(long, long, long, long, Slice) here decreases performance by ~40%
@@ -727,58 +656,10 @@ public final class UnscaledDecimal128Arithmetic
         left = abs(left);
         right = abs(right);
 
-        long l0 = low(left);
-        long l1 = high(left);
+        long resultLow = left * right;
+        long resultHigh = Math.multiplyHigh(left, right);
 
-        long r0 = low(right);
-        long r1 = high(right);
-
-        long z0;
-        long z1;
-        long z2;
-        long z3;
-
-        long accumulator = r0 * l0;
-        z0 = low(accumulator);
-        accumulator = high(accumulator) + r1 * l0;
-
-        z1 = low(accumulator);
-        z2 = accumulator >> 32;
-
-        accumulator = r0 * l1 + z1;
-        z1 = low(accumulator);
-        accumulator = high(accumulator) + r1 * l1 + z2;
-
-        z2 = low(accumulator);
-        z3 = high(accumulator);
-
-        pack(result, (int) z0, (int) z1, (int) z2, (int) z3, leftNegative != rightNegative);
-    }
-
-    public static void multiply(long left, int right, Slice result)
-    {
-        checkArgument(result.length() == NUMBER_OF_LONGS * Long.BYTES);
-        boolean rightNegative = right < 0;
-        boolean leftNegative = left < 0;
-        left = abs(left);
-        long r0 = abs(right);
-
-        long l0 = low(left);
-        long l1 = high(left);
-
-        long z0;
-        long z1;
-        long z2;
-
-        long accumulator = r0 * l0;
-        z0 = low(accumulator);
-        z1 = high(accumulator);
-
-        accumulator = r0 * l1 + z1;
-        z1 = low(accumulator);
-        z2 = high(accumulator);
-
-        pack(result, (int) z0, (int) z1, (int) z2, 0, leftNegative != rightNegative);
+        pack(result, resultLow, resultHigh, leftNegative != rightNegative);
     }
 
     /**
@@ -1951,6 +1832,16 @@ public final class UnscaledDecimal128Arithmetic
             return unpackUnsignedLong(value);
         }
         return value;
+    }
+
+    // TODO: replace with JDK 18's Math.unsignedMultiplyHigh
+    private static long unsignedMultiplyHigh(long x, long y)
+    {
+        // From Hacker's Delight 2nd Ed. 8-3: High-Order Product Signed from/to Unsigned
+        long result = Math.multiplyHigh(x, y);
+        result += (y & (x >> 63)); // equivalent to: if (x < 0) result += y;
+        result += (x & (y >> 63)); // equivalent to: if (y < 0) result += x;
+        return result;
     }
 
     private static boolean exceedsOrEqualTenToThirtyEight(Slice decimal)
