@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.trino.spi.HostAddress;
+import io.trino.spi.SplitWeight;
 import io.trino.spi.connector.ConnectorSplit;
 
 import java.util.List;
@@ -55,6 +56,7 @@ public class HiveSplit
     private final boolean s3SelectPushdownEnabled;
     private final Optional<AcidInfo> acidInfo;
     private final long splitNumber;
+    private final SplitWeight splitWeight;
 
     @JsonCreator
     public HiveSplit(
@@ -77,7 +79,8 @@ public class HiveSplit
             @JsonProperty("bucketValidation") Optional<BucketValidation> bucketValidation,
             @JsonProperty("s3SelectPushdownEnabled") boolean s3SelectPushdownEnabled,
             @JsonProperty("acidInfo") Optional<AcidInfo> acidInfo,
-            @JsonProperty("splitNumber") long splitNumber)
+            @JsonProperty("splitNumber") long splitNumber,
+            @JsonProperty("splitWeight") SplitWeight splitWeight)
     {
         checkArgument(start >= 0, "start must be positive");
         checkArgument(length >= 0, "length must be positive");
@@ -115,6 +118,7 @@ public class HiveSplit
         this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
         this.acidInfo = acidInfo;
         this.splitNumber = splitNumber;
+        this.splitWeight = requireNonNull(splitWeight, "splitWeight is null");
     }
 
     @JsonProperty
@@ -242,6 +246,13 @@ public class HiveSplit
     public long getSplitNumber()
     {
         return splitNumber;
+    }
+
+    @JsonProperty
+    @Override
+    public SplitWeight getSplitWeight()
+    {
+        return splitWeight;
     }
 
     @Override
