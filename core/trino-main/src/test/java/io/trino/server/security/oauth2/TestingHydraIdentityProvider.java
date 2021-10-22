@@ -110,6 +110,7 @@ public class TestingHydraIdentityProvider
                 .withEnv("SERVE_TLS_CERT_PATH", "/tmp/certs/localhost.pem")
                 .withEnv("TTL_ACCESS_TOKEN", ttlAccessToken.getSeconds() + "s")
                 .withEnv("STRATEGIES_ACCESS_TOKEN", useJwt ? "jwt" : null)
+                .withEnv("LOG_LEAK_SENSITIVE_VALUES", "true")
                 .withCommand("serve", "all")
                 .withCopyFileToContainer(MountableFile.forClasspathResource("/cert"), "/tmp/certs")
                 .waitingFor(new WaitAllStrategy()
