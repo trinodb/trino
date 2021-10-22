@@ -29,6 +29,8 @@ import org.joda.time.DateTimeZone;
 
 import javax.annotation.Nullable;
 import javax.validation.constraints.AssertTrue;
+import javax.validation.constraints.DecimalMax;
+import javax.validation.constraints.DecimalMin;
 import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
@@ -152,6 +154,9 @@ public class HiveConfig
 
     private boolean legacyHiveViewTranslation;
     private DataSize targetMaxFileSize = DataSize.of(1, GIGABYTE);
+
+    private boolean sizeBasedSplitWeightsEnabled = true;
+    private double minimumAssignedSplitWeight = 0.05;
 
     public int getMaxInitialSplits()
     {
@@ -1084,5 +1089,32 @@ public class HiveConfig
     public boolean isLegacyHiveViewTranslation()
     {
         return this.legacyHiveViewTranslation;
+    }
+
+    @Config("hive.size-based-split-weights-enabled")
+    public HiveConfig setSizeBasedSplitWeightsEnabled(boolean sizeBasedSplitWeightsEnabled)
+    {
+        this.sizeBasedSplitWeightsEnabled = sizeBasedSplitWeightsEnabled;
+        return this;
+    }
+
+    public boolean isSizeBasedSplitWeightsEnabled()
+    {
+        return sizeBasedSplitWeightsEnabled;
+    }
+
+    @Config("hive.minimum-assigned-split-weight")
+    @ConfigDescription("Minimum weight that a split can be assigned when size based split weights are enabled")
+    public HiveConfig setMinimumAssignedSplitWeight(double minimumAssignedSplitWeight)
+    {
+        this.minimumAssignedSplitWeight = minimumAssignedSplitWeight;
+        return this;
+    }
+
+    @DecimalMax("1")
+    @DecimalMin(value = "0", inclusive = false)
+    public double getMinimumAssignedSplitWeight()
+    {
+        return minimumAssignedSplitWeight;
     }
 }
