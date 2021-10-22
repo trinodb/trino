@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.connector.CatalogName;
 import io.trino.execution.Lifespan;
 import io.trino.spi.HostAddress;
+import io.trino.spi.SplitWeight;
 import io.trino.spi.connector.ConnectorSplit;
 
 import java.util.List;
@@ -73,6 +74,11 @@ public final class Split
     public boolean isRemotelyAccessible()
     {
         return connectorSplit.isRemotelyAccessible();
+    }
+
+    public SplitWeight getSplitWeight()
+    {
+        return connectorSplit.getSplitWeight();
     }
 
     @Override
