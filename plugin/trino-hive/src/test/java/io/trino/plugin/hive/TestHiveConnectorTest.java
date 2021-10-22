@@ -190,7 +190,9 @@ public class TestHiveConnectorTest
                 .setHiveProperties(ImmutableMap.of(
                         "hive.allow-register-partition-procedure", "true",
                         // Reduce writer sort buffer size to ensure SortingFileWriter gets used
-                        "hive.writer-sort-buffer-size", "1MB"))
+                        "hive.writer-sort-buffer-size", "1MB",
+                        // Make weighted split scheduling more conservative to avoid OOMs in test
+                        "hive.minimum-assigned-split-weight", "0.5"))
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
 
