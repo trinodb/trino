@@ -13,25 +13,22 @@
  */
 package io.trino.operator.aggregation.state;
 
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AccumulatorStateSerializer;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.UnscaledDecimal128Arithmetic;
 
-import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.spi.type.DecimalAggregationAccumulatorType.LONG_DECIMAL_WITH_OVERFLOW_AND_LONG;
 
 public class LongDecimalWithOverflowAndLongStateSerializer
         implements AccumulatorStateSerializer<LongDecimalWithOverflowAndLongState>
 {
-    private static final int SERIALIZED_SIZE = (Long.BYTES * 2) + UnscaledDecimal128Arithmetic.UNSCALED_DECIMAL_128_SLICE_LENGTH;
+    public static final Type SERIALIZED_TYPE = LONG_DECIMAL_WITH_OVERFLOW_AND_LONG;
 
     @Override
     public Type getSerializedType()
     {
-        return VARBINARY;
+        return SERIALIZED_TYPE;
     }
 
     @Override
@@ -42,7 +39,12 @@ public class LongDecimalWithOverflowAndLongStateSerializer
             long overflow = state.getOverflow();
             long[] decimal = state.getDecimalArray();
             int offset = state.getDecimalArrayOffset();
-            VARBINARY.writeSlice(out, Slices.wrappedLongArray(count, overflow, decimal[offset], decimal[offset + 1]));
+
+            out.writeLong(count);
+            out.writeLong(decimal[offset]);
+            out.writeLong(decimal[offset + 1]);
+            out.writeLong(overflow);
+            out.closeEntry();
         }
         else {
             out.appendNull();
@@ -53,21 +55,16 @@ public class LongDecimalWithOverflowAndLongStateSerializer
     public void deserialize(Block block, int index, LongDecimalWithOverflowAndLongState state)
     {
         if (!block.isNull(index)) {
-            Slice slice = VARBINARY.getSlice(block, index);
-            if (slice.length() != SERIALIZED_SIZE) {
-                throw new IllegalStateException("Unexpected serialized state size: " + slice.length());
-            }
-
-            long count = slice.getLong(0);
-            long overflow = slice.getLong(Long.BYTES);
-
-            state.setLong(count);
-            state.setOverflow(overflow);
             state.setNotNull();
+            long count = block.getLong(index, 0);
+            state.setLong(count);
+
             long[] decimal = state.getDecimalArray();
             int offset = state.getDecimalArrayOffset();
-            decimal[offset] = slice.getLong(Long.BYTES * 2);
-            decimal[offset + 1] = slice.getLong(Long.BYTES * 3);
+            decimal[offset] = block.getLong(index, Long.BYTES);
+            decimal[offset + 1] = block.getLong(index, Long.BYTES * 2);
+            long overflow = block.getLong(index, Long.BYTES * 3);
+            state.setOverflow(overflow);
         }
     }
 }

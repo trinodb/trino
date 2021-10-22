@@ -42,6 +42,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockEncoding;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.block.ByteArrayBlockEncoding;
+import io.trino.spi.block.DecimalAggregationAccumulatorBlockEncoding;
 import io.trino.spi.block.DictionaryBlockEncoding;
 import io.trino.spi.block.Int128ArrayBlockEncoding;
 import io.trino.spi.block.Int96ArrayBlockEncoding;
@@ -282,6 +283,7 @@ public final class MetadataManager
         addBlockEncoding(new SingleRowBlockEncoding());
         addBlockEncoding(new RunLengthBlockEncoding());
         addBlockEncoding(new LazyBlockEncoding());
+        addBlockEncoding(new DecimalAggregationAccumulatorBlockEncoding());
 
         verifyTypes();
 

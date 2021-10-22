@@ -48,6 +48,8 @@ import static com.google.common.base.Throwables.throwIfUnchecked;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.DecimalAggregationAccumulatorType.LONG_DECIMAL_WITH_OVERFLOW;
+import static io.trino.spi.type.DecimalAggregationAccumulatorType.LONG_DECIMAL_WITH_OVERFLOW_AND_LONG;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -122,6 +124,8 @@ final class TypeRegistry
         addType(IPADDRESS);
         addType(UUID);
         addType(TDIGEST);
+        addType(LONG_DECIMAL_WITH_OVERFLOW_AND_LONG);
+        addType(LONG_DECIMAL_WITH_OVERFLOW);
         addParametricType(VarcharParametricType.VARCHAR);
         addParametricType(CharParametricType.CHAR);
         addParametricType(DecimalParametricType.DECIMAL);

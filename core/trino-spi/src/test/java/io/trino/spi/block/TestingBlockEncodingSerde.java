@@ -50,6 +50,7 @@ public final class TestingBlockEncodingSerde
         addBlockEncoding(new SingleRowBlockEncoding());
         addBlockEncoding(new RunLengthBlockEncoding());
         addBlockEncoding(new LazyBlockEncoding());
+        addBlockEncoding(new DecimalAggregationAccumulatorBlockEncoding());
     }
 
     private void addBlockEncoding(BlockEncoding blockEncoding)

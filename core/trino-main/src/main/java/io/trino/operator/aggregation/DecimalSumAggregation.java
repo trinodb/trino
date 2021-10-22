@@ -46,7 +46,6 @@ import static io.trino.spi.type.UnscaledDecimal128Arithmetic.SIGN_LONG_MASK;
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.addWithOverflow;
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.throwIfOverflows;
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.throwOverflowException;
-import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.util.Reflection.methodHandle;
 
 public class DecimalSumAggregation
@@ -76,7 +75,7 @@ public class DecimalSumAggregation
                         AGGREGATE),
                 new AggregationFunctionMetadata(
                         false,
-                        VARBINARY.getTypeSignature()));
+                        LongDecimalWithOverflowStateSerializer.SERIALIZED_TYPE.getTypeSignature()));
     }
 
     @Override

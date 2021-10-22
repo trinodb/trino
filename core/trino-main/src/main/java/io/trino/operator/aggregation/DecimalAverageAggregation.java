@@ -53,7 +53,6 @@ import static io.trino.spi.type.UnscaledDecimal128Arithmetic.addWithOverflow;
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.divideRoundUp;
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimalToBigInteger;
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimalToUnscaledLong;
-import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.util.Reflection.methodHandle;
 import static java.math.BigDecimal.ROUND_HALF_UP;
 
@@ -89,7 +88,7 @@ public class DecimalAverageAggregation
                         AGGREGATE),
                 new AggregationFunctionMetadata(
                         false,
-                        VARBINARY.getTypeSignature()));
+                        LongDecimalWithOverflowAndLongStateSerializer.SERIALIZED_TYPE.getTypeSignature()));
     }
 
     @Override
