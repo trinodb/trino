@@ -24,6 +24,7 @@ import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
+import io.trino.spi.SplitWeight;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.DynamicFilter;
@@ -110,7 +111,8 @@ public class TestNodeLocalDynamicSplitPruning
                 Optional.empty(),
                 false,
                 Optional.empty(),
-                0);
+                0,
+                SplitWeight.standard());
 
         TableHandle tableHandle = new TableHandle(
                 new CatalogName(HIVE_CATALOG_NAME),
