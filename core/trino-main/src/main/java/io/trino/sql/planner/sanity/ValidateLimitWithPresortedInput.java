@@ -31,6 +31,9 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.sanity.PlanSanityChecker.Checker;
 
+import java.util.HashSet;
+import java.util.Set;
+
 import static com.google.common.collect.Iterators.peekingIterator;
 import static io.trino.sql.planner.optimizations.LocalProperties.normalizeAndPrune;
 import static io.trino.sql.planner.optimizations.StreamPropertyDerivations.derivePropertiesRecursively;
@@ -99,25 +102,20 @@ public class ValidateLimitWithPresortedInput
             // as OrderingScheme of input is not tracked by LimitNode
             PeekingIterator<Symbol> expected = peekingIterator(node.getPreSortedInputs().iterator());
 
+            Set<Symbol> constants = new HashSet<>();
             for (LocalProperty<Symbol> property : normalizeAndPrune(properties.getLocalProperties())) {
                 if (!expected.hasNext()) {
                     // all properties satisfied
                     break;
                 }
 
-                Symbol column = expected.peek();
-                if (property instanceof SortingProperty && ((SortingProperty<Symbol>) property).getColumn().equals(column) ||
-                        property instanceof ConstantProperty && ((ConstantProperty<Symbol>) property).getColumn().equals(column)) {
-                    expected.next();
-                    continue;
-                }
-
+                Symbol column = expected.next();
                 if (property instanceof ConstantProperty) {
-                    // unrelated constant columns don't matter for the purpose of satisfying sorting requirements
-                    continue;
+                    constants.add(((ConstantProperty<Symbol>) property).getColumn());
                 }
-
-                break;
+                else if (!(property instanceof SortingProperty) || (!((SortingProperty<Symbol>) property).getColumn().equals(column) && !constants.contains(((SortingProperty<Symbol>) property).getColumn()))) {
+                    throw new VerifyException(format("Expected Limit input to be sorted by: %s, but was %s", node.getPreSortedInputs(), properties.getLocalProperties()));
+                }
             }
 
             if (expected.hasNext()) {
