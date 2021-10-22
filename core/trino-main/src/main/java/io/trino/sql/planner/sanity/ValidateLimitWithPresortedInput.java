@@ -31,6 +31,9 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.sanity.PlanSanityChecker.Checker;
 
+import java.util.HashSet;
+import java.util.Set;
+
 import static com.google.common.collect.Iterators.peekingIterator;
 import static io.trino.sql.planner.optimizations.LocalProperties.normalizeAndPrune;
 import static io.trino.sql.planner.optimizations.StreamPropertyDerivations.derivePropertiesRecursively;
@@ -95,33 +98,25 @@ public class ValidateLimitWithPresortedInput
 
             StreamProperties properties = derivePropertiesRecursively(node.getSource(), metadata, typeOperators, session, types, typeAnalyzer);
 
-            // We do not use LocalProperties#match to fully verify sorting properties
-            // as OrderingScheme of input is not tracked by LimitNode
-            PeekingIterator<Symbol> expected = peekingIterator(node.getPreSortedInputs().iterator());
+            PeekingIterator<LocalProperty<Symbol>> actuals = peekingIterator(normalizeAndPrune(properties.getLocalProperties()).iterator());
 
-            for (LocalProperty<Symbol> property : normalizeAndPrune(properties.getLocalProperties())) {
-                if (!expected.hasNext()) {
-                    // all properties satisfied
-                    break;
+            Set<Symbol> satisfied = new HashSet<>();
+            for (Symbol expected : node.getPreSortedInputs()) {
+                while (actuals.hasNext()) {
+                    LocalProperty<Symbol> actual = actuals.peek();
+                    if (actual instanceof ConstantProperty ||
+                            (actual instanceof SortingProperty && ((SortingProperty<Symbol>) actual).getColumn().equals(expected))) {
+                        satisfied.addAll(actual.getColumns());
+                        actuals.next();
+                    }
+                    else {
+                        break;
+                    }
                 }
 
-                Symbol column = expected.peek();
-                if (property instanceof SortingProperty && ((SortingProperty<Symbol>) property).getColumn().equals(column) ||
-                        property instanceof ConstantProperty && ((ConstantProperty<Symbol>) property).getColumn().equals(column)) {
-                    expected.next();
-                    continue;
+                if (!satisfied.contains(expected)) {
+                    throw new VerifyException(format("Expected Limit input to be sorted by: %s, but was %s", node.getPreSortedInputs(), properties.getLocalProperties()));
                 }
-
-                if (property instanceof ConstantProperty) {
-                    // unrelated constant columns don't matter for the purpose of satisfying sorting requirements
-                    continue;
-                }
-
-                break;
-            }
-
-            if (expected.hasNext()) {
-                throw new VerifyException(format("Expected Limit input to be sorted by: %s, but was %s", node.getPreSortedInputs(), properties.getLocalProperties()));
             }
 
             return null;
