@@ -243,6 +243,16 @@ public class TestUnscaledDecimal128Arithmetic
     {
         assertMultiplyOverflows(unscaledDecimal("99999999999999"), unscaledDecimal("-10000000000000000000000000"));
         assertMultiplyOverflows(MAX_DECIMAL, unscaledDecimal("10"));
+
+        assertMultiplyOverflows(unscaledDecimal("18446744073709551616"), unscaledDecimal("18446744073709551616")); // 2^64 * 2^64
+        assertMultiplyOverflows(unscaledDecimal("18446744073709551615"), unscaledDecimal("18446744073709551615")); // (2^64 - 1) * (2^64 - 1)
+        assertMultiplyOverflows(unscaledDecimal("85070591730234615865843651857942052864"), unscaledDecimal("2")); // 2^126 * 2
+        assertMultiplyOverflows(unscaledDecimal("2"), unscaledDecimal("85070591730234615865843651857942052864")); // 2 * 2^126
+
+        assertMultiplyOverflows(unscaledDecimal("-18446744073709551616"), unscaledDecimal("18446744073709551616")); // -(2^64) * 2^64
+        assertMultiplyOverflows(unscaledDecimal("-18446744073709551615"), unscaledDecimal("18446744073709551615")); // 1(2^64 - 1) * (2^64 - 1)
+        assertMultiplyOverflows(unscaledDecimal("85070591730234615865843651857942052864"), unscaledDecimal("-2")); // 2^126 * -2
+        assertMultiplyOverflows(unscaledDecimal("-2"), unscaledDecimal("85070591730234615865843651857942052864")); // -2 * 2^126
     }
 
     @Test
