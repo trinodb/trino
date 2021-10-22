@@ -39,7 +39,9 @@ import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
 import org.testcontainers.containers.FixedHostPortGenericContainer;
+import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
+import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.startupcheck.OneShotStartupCheckStrategy;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.containers.wait.strategy.WaitAllStrategy;
@@ -65,10 +67,23 @@ import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 public class TestingHydraIdentityProvider
         implements AutoCloseable
 {
-    private static final String HYDRA_IMAGE = "oryd/hydra:v1.9.0-sqlite";
+    private static final String HYDRA_IMAGE = "oryd/hydra:v1.10.6";
     private static final String ISSUER = "https://localhost:4444/";
+    private static final String DSN = "postgres://hydra:mysecretpassword@database:5432/hydra?sslmode=disable";
 
     private final Network network = Network.newNetwork();
+
+    private final PostgreSQLContainer<?> databaseContainer = new PostgreSQLContainer<>()
+            .withNetwork(network)
+            .withNetworkAliases("database")
+            .withUsername("hydra")
+            .withPassword("mysecretpassword")
+            .withDatabaseName("hydra");
+
+    private final GenericContainer<?> migrationContainer = createHydraContainer()
+            .withCommand("migrate", "sql", "--yes", DSN)
+            .withStartupCheckStrategy(new OneShotStartupCheckStrategy().withTimeout(Duration.ofMinutes(5)));
+
     private final AutoCloseableCloser closer = AutoCloseableCloser.create();
     private final ObjectMapper mapper = new ObjectMapper();
     private final Duration ttlAccessToken;
@@ -92,11 +107,15 @@ public class TestingHydraIdentityProvider
         httpClientBuilder.followRedirects(false);
         httpClient = httpClientBuilder.build();
         closer.register(network);
+        closer.register(databaseContainer);
+        closer.register(migrationContainer);
     }
 
     public void start()
             throws Exception
     {
+        databaseContainer.start();
+        migrationContainer.start();
         TestingHttpServer loginAndConsentServer = createTestingLoginAndConsentServer();
         closer.register(loginAndConsentServer::stop);
         loginAndConsentServer.start();
@@ -105,7 +124,7 @@ public class TestingHydraIdentityProvider
         hydraContainer = createHydraContainer()
                 .withNetworkAliases("hydra")
                 .withExposedPorts(4444, 4445)
-                .withEnv("DSN", "memory")
+                .withEnv("DSN", DSN)
                 .withEnv("URLS_SELF_ISSUER", ISSUER)
                 .withEnv("URLS_CONSENT", loginAndConsentBaseUrl + "/consent")
                 .withEnv("URLS_LOGIN", loginAndConsentBaseUrl + "/login")
