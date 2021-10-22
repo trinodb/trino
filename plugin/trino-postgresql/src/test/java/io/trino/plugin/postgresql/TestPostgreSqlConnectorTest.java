@@ -13,12 +13,16 @@
  */
 package io.trino.plugin.postgresql;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
+import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.RemoteDatabaseEvent;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode;
@@ -42,7 +46,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import static com.google.common.collect.MoreCollectors.onlyElement;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
@@ -82,6 +89,7 @@ public class TestPostgreSqlConnectorTest
     {
         switch (connectorBehavior) {
             case SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY:
+            case SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_INEQUALITY:
                 return false;
 
             case SUPPORTS_TOPN_PUSHDOWN:
@@ -362,6 +370,59 @@ public class TestPostgreSqlConnectorTest
         assertThat(query(joinPushdownEnabled, "SELECT c.name, n.name FROM customer c JOIN nation n ON c.custkey = n.nationkey WHERE address = 'TcGe5gaZNgVePxU5kRrvXBfkasDTea'"))
                 .isFullyPushedDown();
         assertThat(query(joinPushdownEnabled, "SELECT c.name, n.name FROM customer c JOIN nation n ON c.custkey = n.nationkey WHERE address < 'TcGe5gaZNgVePxU5kRrvXBfkasDTea'"))
+                .isNotFullyPushedDown(
+                        node(JoinNode.class,
+                                anyTree(node(TableScanNode.class)),
+                                anyTree(node(TableScanNode.class))));
+    }
+
+    @Test
+    public void testStringPushdownWithCollate()
+    {
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty("postgresql", "enable_string_pushdown_with_collate", "true")
+                .build();
+
+        // varchar range
+        assertThat(query(session, "SELECT regionkey, nationkey, name FROM nation WHERE name BETWEEN 'POLAND' AND 'RPA'"))
+                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(25)))")
+                .isFullyPushedDown();
+
+        // varchar IN with small compaction threshold
+        assertThat(query(
+                Session.builder(session)
+                        .setCatalogSessionProperty("postgresql", "domain_compaction_threshold", "1")
+                        .build(),
+                "SELECT regionkey, nationkey, name FROM nation WHERE name IN ('POLAND', 'ROMANIA', 'VIETNAM')"))
+                .matches("VALUES " +
+                        "(BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(25))), " +
+                        "(BIGINT '2', BIGINT '21', CAST('VIETNAM' AS varchar(25)))")
+                // Verify that a FilterNode is retained and only a compacted domain is pushed down to connector as a range predicate
+                .isNotFullyPushedDown(node(FilterNode.class, tableScan(
+                        tableHandle -> {
+                            TupleDomain<ColumnHandle> constraint = ((JdbcTableHandle) tableHandle).getConstraint();
+                            ColumnHandle nameColumn = constraint.getDomains().orElseThrow()
+                                    .keySet().stream()
+                                    .map(JdbcColumnHandle.class::cast)
+                                    .filter(column -> column.getColumnName().equals("name"))
+                                    .collect(onlyElement());
+                            return constraint.getDomains().get().get(nameColumn).getValues().getRanges().getOrderedRanges()
+                                    .equals(ImmutableList.of(
+                                            Range.range(
+                                                    createVarcharType(25),
+                                                    utf8Slice("POLAND"), true,
+                                                    utf8Slice("VIETNAM"), true)));
+                        },
+                        TupleDomain.all(),
+                        ImmutableMap.of())));
+
+        // varchar predicate over join
+        Session joinPushdownEnabled = joinPushdownEnabled(session);
+        assertThat(query(joinPushdownEnabled, "SELECT c.name, n.name FROM customer c JOIN nation n ON c.custkey = n.nationkey WHERE address < 'TcGe5gaZNgVePxU5kRrvXBfkasDTea'"))
+                .isFullyPushedDown();
+
+        // join on varchar columns is not pushed down
+        assertThat(query(joinPushdownEnabled, "SELECT c.name, n.name FROM customer c JOIN nation n ON c.address = n.name"))
                 .isNotFullyPushedDown(
                         node(JoinNode.class,
                                 anyTree(node(TableScanNode.class)),
