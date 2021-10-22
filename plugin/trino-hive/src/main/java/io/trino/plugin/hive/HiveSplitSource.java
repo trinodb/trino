@@ -23,6 +23,7 @@ import io.airlift.units.DataSize;
 import io.trino.plugin.hive.InternalHiveSplit.InternalHiveBlock;
 import io.trino.plugin.hive.util.AsyncQueue;
 import io.trino.plugin.hive.util.AsyncQueue.BorrowResult;
+import io.trino.plugin.hive.util.SizeBasedSplitWeightProvider;
 import io.trino.plugin.hive.util.ThrottledAsyncQueue;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPartitionHandle;
@@ -56,6 +57,8 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILE_NOT_FOUND;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static io.trino.plugin.hive.HiveSessionProperties.getMaxInitialSplitSize;
 import static io.trino.plugin.hive.HiveSessionProperties.getMaxSplitSize;
+import static io.trino.plugin.hive.HiveSessionProperties.getMinimumAssignedSplitWeight;
+import static io.trino.plugin.hive.HiveSessionProperties.isSizeBasedSplitWeightsEnabled;
 import static io.trino.plugin.hive.HiveSplitSource.StateKind.CLOSED;
 import static io.trino.plugin.hive.HiveSplitSource.StateKind.FAILED;
 import static io.trino.plugin.hive.HiveSplitSource.StateKind.INITIAL;
@@ -88,6 +91,7 @@ class HiveSplitSource
 
     private final CounterStat highMemorySplitSourceCounter;
     private final AtomicBoolean loggedHighMemoryWarning = new AtomicBoolean();
+    private final HiveSplitWeightProvider splitWeightProvider;
 
     private HiveSplitSource(
             ConnectorSession session,
@@ -114,6 +118,7 @@ class HiveSplitSource
         this.maxInitialSplitSize = getMaxInitialSplitSize(session);
         this.remainingInitialSplits = new AtomicInteger(maxInitialSplits);
         this.numberOfProcessedSplits = new AtomicLong(0);
+        this.splitWeightProvider = isSizeBasedSplitWeightsEnabled(session) ? new SizeBasedSplitWeightProvider(getMinimumAssignedSplitWeight(session), maxSplitSize) : HiveSplitWeightProvider.uniformStandardWeightProvider();
     }
 
     public static HiveSplitSource allAtOnce(
@@ -384,7 +389,8 @@ class HiveSplitSource
                         internalSplit.getBucketValidation(),
                         internalSplit.isS3SelectPushdownEnabled(),
                         internalSplit.getAcidInfo(),
-                        numberOfProcessedSplits.getAndIncrement()));
+                        numberOfProcessedSplits.getAndIncrement(),
+                        splitWeightProvider.weightForSplitSizeInBytes(splitBytes)));
 
                 internalSplit.increaseStart(splitBytes);
 
