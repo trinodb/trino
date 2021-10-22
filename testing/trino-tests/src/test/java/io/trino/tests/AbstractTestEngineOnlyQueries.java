@@ -6195,6 +6195,14 @@ public abstract class AbstractTestEngineOnlyQueries
                 "ORDER BY orderkey " +
                 "LIMIT 1"))
                 .matches("VALUES (BIGINT '1', BIGINT '370')");
+
+        assertThat(query("SELECT " +
+                "         'name' as name, " +
+                "         'age' as age " +
+                "         FROM customer " +
+                "         ORDER BY age, name " +
+                "         LIMIT 1"))
+                .matches("VALUES ('name', 'age')");
     }
 
     private static ZonedDateTime zonedDateTime(String value)
