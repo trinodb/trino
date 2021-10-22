@@ -23,8 +23,11 @@ import com.google.common.io.Resources;
 import io.airlift.http.server.HttpServerConfig;
 import io.airlift.http.server.HttpServerInfo;
 import io.airlift.http.server.testing.TestingHttpServer;
+import io.airlift.log.Level;
+import io.airlift.log.Logging;
 import io.airlift.node.NodeInfo;
 import io.trino.server.testing.TestingTrinoServer;
+import io.trino.server.ui.OAuth2WebUiAuthenticationFilter;
 import io.trino.server.ui.WebUiModule;
 import io.trino.util.AutoCloseableCloser;
 import okhttp3.Credentials;
@@ -309,42 +312,58 @@ public class TestingHydraIdentityProvider
         }
     }
 
-    public static void main(String[] args)
+    private static void runTestServer(boolean useJwt)
             throws Exception
     {
-        try (TestingHydraIdentityProvider service = new TestingHydraIdentityProvider()) {
+        try (TestingHydraIdentityProvider service = new TestingHydraIdentityProvider(Duration.ofMinutes(30), useJwt, true)) {
             service.start();
-            String authServerUrl = "https://localhost:" + service.getAuthPort();
             service.createClient(
                     "trino-client",
                     "trino-secret",
                     CLIENT_SECRET_BASIC,
                     ImmutableList.of("https://localhost:8443/ui"),
                     "https://localhost:8443/oauth2/callback");
+            ImmutableMap.Builder<String, String> config = ImmutableMap.<String, String>builder()
+                    .put("web-ui.enabled", "true")
+                    .put("web-ui.authentication.type", "oauth2")
+                    .put("http-server.https.port", "8443")
+                    .put("http-server.https.enabled", "true")
+                    .put("http-server.https.keystore.path", Resources.getResource("cert/localhost.pem").getPath())
+                    .put("http-server.https.keystore.key", "")
+                    .put("http-server.authentication.type", "oauth2")
+                    .put("http-server.authentication.oauth2.issuer", ISSUER)
+                    .put("http-server.authentication.oauth2.auth-url", ISSUER + "oauth2/auth")
+                    .put("http-server.authentication.oauth2.token-url", ISSUER + "oauth2/token")
+                    .put("http-server.authentication.oauth2.jwks-url", ISSUER + ".well-known/jwks.json")
+                    .put("http-server.authentication.oauth2.client-id", "trino-client")
+                    .put("http-server.authentication.oauth2.client-secret", "trino-secret")
+                    .put("http-server.authentication.oauth2.user-mapping.pattern", "(.*)@.*")
+                    .put("oauth2-jwk.http-client.trust-store-path", Resources.getResource("cert/localhost.pem").getPath());
+            if (!useJwt) {
+                config.put("http-server.authentication.oauth2.userinfo-url", ISSUER + "userinfo");
+            }
             try (TestingTrinoServer ignored = TestingTrinoServer.builder()
                     .setCoordinator(true)
                     .setAdditionalModule(new WebUiModule())
-                    .setProperties(
-                            ImmutableMap.<String, String>builder()
-                                    .put("web-ui.enabled", "true")
-                                    .put("web-ui.authentication.type", "oauth2")
-                                    .put("http-server.https.port", "8443")
-                                    .put("http-server.https.enabled", "true")
-                                    .put("http-server.https.keystore.path", Resources.getResource("cert/localhost.pem").getPath())
-                                    .put("http-server.https.keystore.key", "")
-                                    .put("http-server.authentication.type", "oauth2")
-                                    .put("http-server.authentication.oauth2.issuer", ISSUER)
-                                    .put("http-server.authentication.oauth2.auth-url", authServerUrl + "/oauth2/auth")
-                                    .put("http-server.authentication.oauth2.token-url", authServerUrl + "/oauth2/token")
-                                    .put("http-server.authentication.oauth2.jwks-url", authServerUrl + "/.well-known/jwks.json")
-                                    .put("http-server.authentication.oauth2.client-id", "trino-client")
-                                    .put("http-server.authentication.oauth2.client-secret", "trino-secret")
-                                    .put("http-server.authentication.oauth2.user-mapping.pattern", "(.*)@.*")
-                                    .put("oauth2-jwk.http-client.trust-store-path", Resources.getResource("cert/localhost.pem").getPath())
-                                    .build())
+                    .setProperties(config.build())
                     .build()) {
                 Thread.sleep(Long.MAX_VALUE);
             }
+        }
+    }
+
+    public static void main(String[] args)
+            throws Exception
+    {
+        Logging logging = Logging.initialize();
+        try {
+            logging.setLevel(OAuth2WebUiAuthenticationFilter.class.getName(), Level.DEBUG);
+            logging.setLevel(OAuth2Service.class.getName(), Level.DEBUG);
+            runTestServer(false);
+        }
+        finally {
+            logging.clearLevel(OAuth2WebUiAuthenticationFilter.class.getName());
+            logging.clearLevel(OAuth2Service.class.getName());
         }
     }
 }
