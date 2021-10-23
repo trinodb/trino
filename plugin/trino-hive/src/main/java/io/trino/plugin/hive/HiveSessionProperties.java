@@ -108,7 +108,7 @@ public final class HiveSessionProperties
     private static final String PROJECTION_PUSHDOWN_ENABLED = "projection_pushdown_enabled";
     private static final String TIMESTAMP_PRECISION = "timestamp_precision";
     private static final String PARQUET_OPTIMIZED_WRITER_ENABLED = "experimental_parquet_optimized_writer_enabled";
-    private static final String DYNAMIC_FILTERING_PROBE_BLOCKING_TIMEOUT = "dynamic_filtering_probe_blocking_timeout";
+    private static final String DYNAMIC_FILTERING_WAIT_TIMEOUT = "dynamic_filtering_wait_timeout";
     private static final String OPTIMIZE_SYMLINK_LISTING = "optimize_symlink_listing";
     private static final String LEGACY_HIVE_VIEW_TRANSLATION = "legacy_hive_view_translation";
     public static final String SIZE_BASED_SPLIT_WEIGHTS_ENABLED = "size_based_split_weights_enabled";
@@ -449,9 +449,9 @@ public final class HiveSessionProperties
                         parquetWriterConfig.isParquetOptimizedWriterEnabled(),
                         false),
                 durationProperty(
-                        DYNAMIC_FILTERING_PROBE_BLOCKING_TIMEOUT,
-                        "Duration to wait for completion of dynamic filters during split generation for probe side table",
-                        hiveConfig.getDynamicFilteringProbeBlockingTimeout(),
+                        DYNAMIC_FILTERING_WAIT_TIMEOUT,
+                        "Duration to wait for completion of dynamic filters during split generation",
+                        hiveConfig.getDynamicFilteringWaitTimeout(),
                         false),
                 booleanProperty(
                         OPTIMIZE_SYMLINK_LISTING,
@@ -775,9 +775,9 @@ public final class HiveSessionProperties
         return session.getProperty(PARQUET_OPTIMIZED_WRITER_ENABLED, Boolean.class);
     }
 
-    public static Duration getDynamicFilteringProbeBlockingTimeout(ConnectorSession session)
+    public static Duration getDynamicFilteringWaitTimeout(ConnectorSession session)
     {
-        return session.getProperty(DYNAMIC_FILTERING_PROBE_BLOCKING_TIMEOUT, Duration.class);
+        return session.getProperty(DYNAMIC_FILTERING_WAIT_TIMEOUT, Duration.class);
     }
 
     public static boolean isOptimizeSymlinkListing(ConnectorSession session)

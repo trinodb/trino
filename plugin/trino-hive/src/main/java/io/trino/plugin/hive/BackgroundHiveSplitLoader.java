@@ -148,7 +148,7 @@ public class BackgroundHiveSplitLoader
     private final AcidTransaction transaction;
     private final TupleDomain<? extends ColumnHandle> compactEffectivePredicate;
     private final DynamicFilter dynamicFilter;
-    private final long dynamicFilteringProbeBlockingTimeoutMillis;
+    private final long dynamicFilteringWaitTimeoutMillis;
     private final TypeManager typeManager;
     private final Optional<BucketSplitInfo> tableBucketInfo;
     private final HdfsEnvironment hdfsEnvironment;
@@ -193,7 +193,7 @@ public class BackgroundHiveSplitLoader
             Iterable<HivePartitionMetadata> partitions,
             TupleDomain<? extends ColumnHandle> compactEffectivePredicate,
             DynamicFilter dynamicFilter,
-            Duration dynamicFilteringProbeBlockingTimeout,
+            Duration dynamicFilteringWaitTimeout,
             TypeManager typeManager,
             Optional<BucketSplitInfo> tableBucketInfo,
             ConnectorSession session,
@@ -212,7 +212,7 @@ public class BackgroundHiveSplitLoader
         this.transaction = requireNonNull(transaction, "transaction is null");
         this.compactEffectivePredicate = compactEffectivePredicate;
         this.dynamicFilter = dynamicFilter;
-        this.dynamicFilteringProbeBlockingTimeoutMillis = dynamicFilteringProbeBlockingTimeout.toMillis();
+        this.dynamicFilteringWaitTimeoutMillis = dynamicFilteringWaitTimeout.toMillis();
         this.typeManager = typeManager;
         this.tableBucketInfo = tableBucketInfo;
         this.loaderConcurrency = loaderConcurrency;
@@ -262,7 +262,7 @@ public class BackgroundHiveSplitLoader
                 // Block until one of below conditions is met:
                 // 1. Completion of DynamicFilter
                 // 2. Timeout after waiting for the configured time
-                long timeLeft = dynamicFilteringProbeBlockingTimeoutMillis - stopwatch.elapsed(MILLISECONDS);
+                long timeLeft = dynamicFilteringWaitTimeoutMillis - stopwatch.elapsed(MILLISECONDS);
                 if (timeLeft > 0 && dynamicFilter.isAwaitable()) {
                     future = asVoid(toListenableFuture(dynamicFilter.isBlocked().orTimeout(timeLeft, MILLISECONDS)));
                     return TaskStatus.continueOn(future);

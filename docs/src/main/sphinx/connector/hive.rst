@@ -828,8 +828,8 @@ in query and CPU time, if dynamic filtering is able to reduce the amount of scan
 
 For the Hive connector, a table scan can be delayed for a configured amount of
 time until the collection of dynamic filters by using the configuration property
-``hive.dynamic-filtering-probe-blocking-timeout`` in the catalog file or the catalog
-session property ``<hive-catalog>.dynamic_filtering_probe_blocking_timeout``.
+``hive.dynamic-filtering.wait-timeout`` in the catalog file or the catalog
+session property ``<hive-catalog>.dynamic_filtering_wait_timeout``.
 
 Schema evolution
 ----------------
