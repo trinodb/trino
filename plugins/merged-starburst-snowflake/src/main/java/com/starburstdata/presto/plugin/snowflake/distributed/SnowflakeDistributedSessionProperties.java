@@ -42,6 +42,7 @@ public class SnowflakeDistributedSessionProperties
     private static final String RETRY_CANCELED_QUERIES = "retry_canceled_queries";
     private static final String VALIDATE_BUCKETING = "validate_bucketing";
     private static final String OPTIMIZE_SYMLINK_LISTING = "optimize_symlink_listing";
+    private static final String SIZE_BASED_SPLIT_WEIGHTS_ENABLED = "size_based_split_weights_enabled";
 
     private final SnowflakeDistributedConfig snowflakeConfig;
 
@@ -122,6 +123,12 @@ public class SnowflakeDistributedSessionProperties
                         "Internal Snowflake connector property",
                         false,
                         value -> checkArgument(!value, "Enabling optimize_symlink_listing not supported for Snowflake"),
+                        true),
+                booleanProperty(
+                        SIZE_BASED_SPLIT_WEIGHTS_ENABLED,
+                        "Internal Snowflake connector property",
+                        false,
+                        value -> checkArgument(!value, "Enabling size_based_split_weights_enabled not supported for Snowflake"),
                         true));
     }
 
