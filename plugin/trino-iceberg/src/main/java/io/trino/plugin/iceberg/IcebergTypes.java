@@ -42,11 +42,23 @@ public final class IcebergTypes
         if (value == null) {
             return null;
         }
+        if (icebergType instanceof Types.BooleanType) {
+            //noinspection RedundantCast
+            return (Boolean) value;
+        }
         if (icebergType instanceof Types.IntegerType) {
             return ((Integer) value).longValue();
         }
+        if (icebergType instanceof Types.LongType) {
+            //noinspection RedundantCast
+            return (Long) value;
+        }
         if (icebergType instanceof Types.FloatType) {
             return (long) Float.floatToIntBits((Float) value);
+        }
+        if (icebergType instanceof Types.DoubleType) {
+            //noinspection RedundantCast
+            return (Double) value;
         }
         if (icebergType instanceof Types.DecimalType) {
             Types.DecimalType icebergDecimalType = (Types.DecimalType) icebergType;
@@ -65,6 +77,7 @@ public final class IcebergTypes
         }
         if (icebergType instanceof Types.BinaryType) {
             // TODO the client sees the bytearray's tostring ouput instead of seeing actual bytes, needs to be fixed.
+            // TODO return Slice
             return ((ByteBuffer) value).array().clone();
         }
         if (icebergType instanceof Types.DateType) {
@@ -84,7 +97,6 @@ public final class IcebergTypes
             return UuidType.javaUuidToTrinoUuid((UUID) value);
         }
 
-        // TODO implement explicit conversion for all supported types
-        return value;
+        throw new UnsupportedOperationException("Unsupported iceberg type: " + icebergType);
     }
 }
