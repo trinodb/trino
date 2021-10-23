@@ -68,7 +68,7 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
 import static io.trino.plugin.hive.HivePartition.UNPARTITIONED_ID;
-import static io.trino.plugin.hive.HiveSessionProperties.getDynamicFilteringProbeBlockingTimeout;
+import static io.trino.plugin.hive.HiveSessionProperties.getDynamicFilteringWaitTimeout;
 import static io.trino.plugin.hive.HiveSessionProperties.isIgnoreAbsentPartitions;
 import static io.trino.plugin.hive.HiveSessionProperties.isOptimizeSymlinkListing;
 import static io.trino.plugin.hive.HiveSessionProperties.isPropagateTableScanSortingProperties;
@@ -235,7 +235,7 @@ public class HiveSplitManager
                 hivePartitions,
                 hiveTable.getCompactEffectivePredicate(),
                 dynamicFilter,
-                getDynamicFilteringProbeBlockingTimeout(session),
+                getDynamicFilteringWaitTimeout(session),
                 typeManager,
                 createBucketSplitInfo(bucketHandle, bucketFilter),
                 session,
