@@ -146,7 +146,7 @@ public class HiveConfig
 
     private boolean projectionPushdownEnabled = true;
 
-    private Duration dynamicFilteringProbeBlockingTimeout = new Duration(0, MINUTES);
+    private Duration dynamicFilteringWaitTimeout = new Duration(0, MINUTES);
 
     private HiveTimestampPrecision timestampPrecision = HiveTimestampPrecision.DEFAULT_PRECISION;
 
@@ -1039,16 +1039,17 @@ public class HiveConfig
     }
 
     @NotNull
-    public Duration getDynamicFilteringProbeBlockingTimeout()
+    public Duration getDynamicFilteringWaitTimeout()
     {
-        return dynamicFilteringProbeBlockingTimeout;
+        return dynamicFilteringWaitTimeout;
     }
 
-    @Config("hive.dynamic-filtering-probe-blocking-timeout")
-    @ConfigDescription("Duration to wait for completion of dynamic filters during split generation for probe side table")
-    public HiveConfig setDynamicFilteringProbeBlockingTimeout(Duration dynamicFilteringProbeBlockingTimeout)
+    @Config("hive.dynamic-filtering.wait-timeout")
+    @LegacyConfig("hive.dynamic-filtering-probe-blocking-timeout")
+    @ConfigDescription("Duration to wait for completion of dynamic filters during split generation")
+    public HiveConfig setDynamicFilteringWaitTimeout(Duration dynamicFilteringWaitTimeout)
     {
-        this.dynamicFilteringProbeBlockingTimeout = dynamicFilteringProbeBlockingTimeout;
+        this.dynamicFilteringWaitTimeout = dynamicFilteringWaitTimeout;
         return this;
     }
 
