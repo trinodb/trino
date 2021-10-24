@@ -15,6 +15,7 @@ package io.trino.sql.gen;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.primitives.Primitives;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.ClassDefinition;
@@ -305,9 +306,20 @@ public class CursorProcessorCompiler
 
                 Class<?> javaType = type.getJavaType();
 
+                String recordCursorMethodName;
+                if (javaType == boolean.class || javaType == long.class || javaType == double.class) {
+                    recordCursorMethodName = "get" + Primitives.wrap(javaType).getSimpleName();
+                }
+                else if (javaType == Slice.class) {
+                    recordCursorMethodName = "getSlice";
+                }
+                else {
+                    recordCursorMethodName = "getObject";
+                }
+
                 IfStatement ifStatement = new IfStatement();
                 ifStatement.condition()
-                        .setDescription(format("cursor.get%s(%d)", type, field))
+                        .setDescription(format("cursor.%s(%d)", recordCursorMethodName, field))
                         .getVariable(cursorVariable)
                         .push(field)
                         .invokeInterface(RecordCursor.class, "isNull", boolean.class, int.class);
