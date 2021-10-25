@@ -21,7 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
-import io.prestosql.operator.scalar.IpAddressFunctions;
+import io.trino.operator.scalar.IpAddressFunctions;
 import io.trino.operator.aggregation.ApproximateCountDistinctAggregation;
 import io.trino.operator.aggregation.ApproximateDoublePercentileAggregations;
 import io.trino.operator.aggregation.ApproximateDoublePercentileArrayAggregations;

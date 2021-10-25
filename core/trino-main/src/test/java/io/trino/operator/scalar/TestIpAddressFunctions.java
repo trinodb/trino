@@ -11,9 +11,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.operator.scalar;
+package io.trino.operator.scalar;
 
-import io.trino.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.Test;
 
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -282,8 +281,8 @@ public class TestIpAddressFunctions
 
         assertInvalidFunction("contains('x.x.x.x', IPADDRESS '0.0.0.0')", "Invalid CIDR");
         assertInvalidFunction("contains('x:x:x:10.0.0.0', IPADDRESS '64:ff9b::10.0.0.0')", "Invalid CIDR");
-        assertInvalidFunction("contains('x.x.x.x/1', IPADDRESS '0.0.0.0')", "Invalid CIDR");
-        assertInvalidFunction("contains('x:x:x:10.0.0.0/1', IPADDRESS '64:ff9b::10.0.0.0')", "Invalid CIDR");
-        assertInvalidFunction("contains('2001:0DB8:0:CD3/60', IPADDRESS '2001:0DB8::CD30:0:0:0:0')", "Invalid CIDR");
+        assertInvalidFunction("contains('x.x.x.x/1', IPADDRESS '0.0.0.0')", "Invalid network IP address");
+        assertInvalidFunction("contains('x:x:x:10.0.0.0/1', IPADDRESS '64:ff9b::10.0.0.0')", "Invalid network IP address");
+        assertInvalidFunction("contains('2001:0DB8:0:CD3/60', IPADDRESS '2001:0DB8::CD30:0:0:0:0')", "Invalid network IP address");
     }
 }
