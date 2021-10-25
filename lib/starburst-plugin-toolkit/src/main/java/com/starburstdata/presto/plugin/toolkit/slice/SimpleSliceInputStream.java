@@ -12,6 +12,7 @@ package com.starburstdata.presto.plugin.toolkit.slice;
 import io.airlift.slice.Slice;
 import io.airlift.slice.UnsafeSlice;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkPositionIndexes;
 import static java.util.Objects.requireNonNull;
 
@@ -37,6 +38,7 @@ public final class SimpleSliceInputStream
     public SimpleSliceInputStream(Slice slice, int offset)
     {
         this.slice = requireNonNull(slice, "slice is null");
+        checkArgument(slice.length() == 0 || slice.hasByteArray(), "SimpleSliceInputStream supports only slices backed by byte array");
         this.offset = offset;
     }
 
@@ -156,5 +158,23 @@ public final class SimpleSliceInputStream
     public Slice asSlice()
     {
         return slice.slice(offset, slice.length() - offset);
+    }
+
+    /**
+     * Returns the byte array wrapped by this Slice.
+     * Callers should take care to use {@link SimpleSliceInputStream#getByteArrayOffset()}
+     * since the contents of this Slice may not start at array index 0.
+     */
+    public byte[] getByteArray()
+    {
+        return slice.byteArray();
+    }
+
+    /**
+     * Returns the start index the content of this slice within the byte array wrapped by this slice.
+     */
+    public int getByteArrayOffset()
+    {
+        return offset + slice.byteArrayOffset();
     }
 }
