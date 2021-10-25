@@ -46,11 +46,11 @@ import java.util.function.Predicate;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
+import static io.trino.plugin.iceberg.IcebergTypes.convertIcebergValueToTrino;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumns;
 import static io.trino.plugin.iceberg.IcebergUtil.getIdentityPartitions;
 import static io.trino.plugin.iceberg.IcebergUtil.primitiveFieldTypes;
 import static io.trino.plugin.iceberg.Partition.convertBounds;
-import static io.trino.plugin.iceberg.PartitionTable.convert;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -186,7 +186,7 @@ public class TableStatisticsMaker
             Object min = summary.getMinValues().get(fieldId);
             Object max = summary.getMaxValues().get(fieldId);
             if (min != null && max != null) {
-                columnBuilder.setRange(DoubleRange.from(columnHandle.getType(), convert(min, icebergType), convert(max, icebergType)));
+                columnBuilder.setRange(DoubleRange.from(columnHandle.getType(), convertIcebergValueToTrino(icebergType, min), convertIcebergValueToTrino(icebergType, max)));
             }
             columnHandleBuilder.put(columnHandle, columnBuilder.build());
         }
@@ -212,7 +212,7 @@ public class TableStatisticsMaker
             int fieldId = field.sourceId();
             ColumnFieldDetails details = fieldDetails.get(fieldId);
             IcebergColumnHandle column = details.getColumnHandle();
-            Object value = convert(dataFile.partition().get(index, details.getJavaClass()), details.getIcebergType());
+            Object value = convertIcebergValueToTrino(details.getIcebergType(), dataFile.partition().get(index, details.getJavaClass()));
             Domain allowedDomain = domains.get(column);
             if (allowedDomain != null && !allowedDomain.includesNullableValue(value)) {
                 return false;
