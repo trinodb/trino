@@ -20,6 +20,7 @@ import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.spi.type.Type;
 import io.trino.testing.BaseConnectorTest;
+import io.trino.testing.Bytes;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
@@ -938,7 +939,7 @@ public class TestCassandraConnectorTest
                     format("00000000-0000-0000-0000-%012d", rowNumber),
                     rowNumber,
                     rowNumber + 1000L,
-                    ByteBuffer.wrap(Ints.toByteArray(rowNumber)),
+                    Bytes.fromBytes(Ints.toByteArray(rowNumber)),
                     TIMESTAMP_VALUE,
                     "ansi " + rowNumber,
                     rowNumber % 2 == 0,
