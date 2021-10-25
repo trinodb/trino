@@ -113,6 +113,7 @@ public final class HiveSessionProperties
     private static final String LEGACY_HIVE_VIEW_TRANSLATION = "legacy_hive_view_translation";
     public static final String SIZE_BASED_SPLIT_WEIGHTS_ENABLED = "size_based_split_weights_enabled";
     public static final String MINIMUM_ASSIGNED_SPLIT_WEIGHT = "minimum_assigned_split_weight";
+    public static final String NON_TRANSACTIONAL_OPTIMIZE_ENABLED = "non_transactional_optimize_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -476,6 +477,11 @@ public final class HiveSessionProperties
                                 throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s must be > 0 and <= 1.0: %s", MINIMUM_ASSIGNED_SPLIT_WEIGHT, value));
                             }
                         },
+                        false),
+                booleanProperty(
+                        NON_TRANSACTIONAL_OPTIMIZE_ENABLED,
+                        "Enable OPTIMIZE table procedure",
+                        false,
                         false));
     }
 
@@ -792,5 +798,10 @@ public final class HiveSessionProperties
     public static double getMinimumAssignedSplitWeight(ConnectorSession session)
     {
         return session.getProperty(MINIMUM_ASSIGNED_SPLIT_WEIGHT, Double.class);
+    }
+
+    public static boolean isNonTransactionalOptimizeEnabled(ConnectorSession session)
+    {
+        return session.getProperty(NON_TRANSACTIONAL_OPTIMIZE_ENABLED, Boolean.class);
     }
 }
