@@ -170,6 +170,9 @@ Name                                                         Description
 ``KerberosConfigPath``                                       Kerberos configuration file.
 ``KerberosKeytabPath``                                       Kerberos keytab file.
 ``KerberosCredentialCachePath``                              Kerberos credential cache.
+``KerberosDelegation``                                       Set to ``true`` to use the token from an existing Kerberos context.
+                                                             This allows client to use Kerberos authentication without passing
+                                                             the Keytab or credential cache. Defaults to ``false``.
 ``extraCredentials``                                         Extra credentials for connecting to external services,
                                                              specified as a list of key-value pairs. For example,
                                                              ``foo:bar;abc:xyz`` creates the credential named ``abc``
