@@ -7766,7 +7766,15 @@ public class TestHiveConnectorTest
         Set<String> initialFiles = getTableFiles(tableName);
         assertThat(initialFiles).hasSize(10);
 
-        assertUpdate("ALTER TABLE " + tableName + " EXECUTE optimize(file_size_threshold => '10kB')");
+        // OPTIMIZE must be explicitly enabled
+        assertThatThrownBy(() -> computeActual("ALTER TABLE " + tableName + " EXECUTE optimize(file_size_threshold => '10kB')"))
+                .hasMessage("OPTIMIZE procedure must be explicitly enabled via non_transactional_optimize_enabled session property");
+        assertNationNTimes(tableName, 10);
+        assertThat(getTableFiles(tableName)).hasSameElementsAs(initialFiles);
+
+        Session optimizeEnabledSession = optimizeEnabledSession();
+
+        assertUpdate(optimizeEnabledSession, "ALTER TABLE " + tableName + " EXECUTE optimize(file_size_threshold => '10kB')");
         assertNationNTimes(tableName, 10);
 
         Set<String> compactedFiles = getTableFiles(tableName);
@@ -7775,7 +7783,7 @@ public class TestHiveConnectorTest
         assertThat(intersection(initialFiles, compactedFiles)).isEmpty();
 
         // compact with low threshold; nothing should change
-        assertUpdate("ALTER TABLE " + tableName + " EXECUTE optimize(file_size_threshold => '10B')");
+        assertUpdate(optimizeEnabledSession, "ALTER TABLE " + tableName + " EXECUTE optimize(file_size_threshold => '10B')");
 
         assertThat(getTableFiles(tableName)).hasSameElementsAs(compactedFiles);
     }
@@ -7792,7 +7800,7 @@ public class TestHiveConnectorTest
         Set<String> initialFiles = getTableFiles(tableName);
         assertThat(initialFiles).hasSize(4);
 
-        Session writerScalingSession = Session.builder(getSession())
+        Session writerScalingSession = Session.builder(optimizeEnabledSession())
                 .setSystemProperty("scale_writers", "true")
                 .setSystemProperty("writer_min_size", "100GB")
                 .build();
@@ -7826,13 +7834,14 @@ public class TestHiveConnectorTest
         Set<String> initialFiles = getTableFiles(tableName);
         assertThat(initialFiles).hasSize(insertCount * partitionsCount);
 
-        Session writerScalingSession = Session.builder(getSession())
+        Session optimizeEnabledSession = optimizeEnabledSession();
+        Session writerScalingSession = Session.builder(optimizeEnabledSession)
                 .setSystemProperty("scale_writers", "true")
                 .setSystemProperty("writer_min_size", "100GB")
                 .build();
 
         // optimize with unsupported WHERE
-        assertThatThrownBy(() -> computeActual("ALTER TABLE " + tableName + " EXECUTE optimize(file_size_threshold => '10kB') WHERE nationkey = 1"))
+        assertThatThrownBy(() -> computeActual(optimizeEnabledSession, "ALTER TABLE " + tableName + " EXECUTE optimize(file_size_threshold => '10kB') WHERE nationkey = 1"))
                 .hasMessageContaining("Unexpected FilterNode found in plan; probably connector was not able to handle provided WHERE expression");
         assertNationNTimes(tableName, insertCount);
         assertThat(getTableFiles(tableName)).hasSameElementsAs(initialFiles);
@@ -7878,7 +7887,7 @@ public class TestHiveConnectorTest
         assertNationNTimes(tableName, insertCount);
         Set<String> initialFiles = getTableFiles(tableName);
 
-        assertThatThrownBy(() -> computeActual("ALTER TABLE " + tableName + " EXECUTE optimize(file_size_threshold => '10kB')"))
+        assertThatThrownBy(() -> computeActual(optimizeEnabledSession(), "ALTER TABLE " + tableName + " EXECUTE optimize(file_size_threshold => '10kB')"))
                 .hasMessageMatching("Optimizing bucketed Hive table .* is not supported");
 
         assertThat(getTableFiles(tableName)).hasSameElementsAs(initialFiles);
@@ -7888,7 +7897,7 @@ public class TestHiveConnectorTest
     @Test
     public void testOptimizeHiveInformationSchema()
     {
-        assertThatThrownBy(() -> computeActual("ALTER TABLE information_schema.tables EXECUTE optimize(file_size_threshold => '10kB')"))
+        assertThatThrownBy(() -> computeActual(optimizeEnabledSession(), "ALTER TABLE information_schema.tables EXECUTE optimize(file_size_threshold => '10kB')"))
                 .hasMessage("This connector does not support table procedures");
     }
 
@@ -7900,8 +7909,15 @@ public class TestHiveConnectorTest
 
         assertQuery("SELECT count(*) FROM " + tableName, "SELECT 0");
 
-        assertThatThrownBy(() -> computeActual(format("ALTER TABLE \"%s$partitions\" EXECUTE optimize(file_size_threshold => '10kB')", tableName)))
+        assertThatThrownBy(() -> computeActual(optimizeEnabledSession(), format("ALTER TABLE \"%s$partitions\" EXECUTE optimize(file_size_threshold => '10kB')", tableName)))
                 .hasMessage("This connector does not support table procedures");
+    }
+
+    private Session optimizeEnabledSession()
+    {
+        return Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "non_transactional_optimize_enabled", "true")
+                .build();
     }
 
     private void insertNationNTimes(String tableName, int times)
