@@ -540,6 +540,134 @@ public abstract class BaseIcebergConnectorTest
                 .skippingTypesCheck()
                 .matches(nullValues);
 
+        // SHOW STATS
+        if (format == ORC) {
+            // TODO (https://github.com/trinodb/trino/issues/9714, https://github.com/trinodb/trino/issues/9716) SHOW STATS fails with NullPointerException
+            assertThatThrownBy(() -> query("SHOW STATS FOR test_partitioned_table"))
+                    .hasToString("java.lang.RuntimeException: java.lang.NullPointerException")
+                    .hasStackTraceContaining("at io.trino.plugin.iceberg.TableStatisticsMaker.updatePartitionedStats");
+        }
+        else {
+            assertThat(query("SHOW STATS FOR test_partitioned_table"))
+                    .skippingTypesCheck()
+                    .projected(0, 2, 3, 4, 5, 6) // ignore data size which is varying for Parquet (and not available for ORC)
+                    .matches("VALUES " +
+                            "  ('a_boolean', NULL, 0.5e0, NULL, 'true', 'true'), " +
+                            "  ('an_integer', NULL, 0.5e0, NULL, '1', '1'), " +
+                            "  ('a_bigint', NULL, 0.5e0, NULL, '1', '1'), " +
+                            "  ('a_real', NULL, 0.5e0, NULL, '1.0', '1.0'), " +
+                            "  ('a_double', NULL, 0.5e0, NULL, '1.0', '1.0'), " +
+                            "  ('a_short_decimal', NULL, 0.5e0, NULL, '1.0', '1.0'), " +
+                            "  ('a_long_decimal', NULL, 0.5e0, NULL, '11.0', '11.0'), " +
+                            "  ('a_varchar', NULL, 0.5e0, NULL, NULL, NULL), " +
+                            "  ('a_varbinary', NULL, 0.5e0, NULL, NULL, NULL), " +
+                            "  ('a_date', NULL, 0.5e0, NULL, '2021-07-24', '2021-07-24'), " +
+                            "  ('a_time', NULL, 0.5e0, NULL, NULL, NULL), " +
+                            "  ('a_timestamp', NULL, 0.5e0, NULL, '2021-07-24 03:43:57.987654', '2021-07-24 03:43:57.987654'), " +
+                            "  ('a_timestamptz', NULL, 0.5e0, NULL, '2021-07-24 04:43:57.987 UTC', '2021-07-24 04:43:57.987 UTC'), " +
+                            "  ('a_uuid', NULL, 0.5e0, NULL, NULL, NULL), " +
+                            "  ('a_row', NULL, NULL, NULL, NULL, NULL), " +
+                            "  ('an_array', NULL, NULL, NULL, NULL, NULL), " +
+                            "  ('a_map', NULL, NULL, NULL, NULL, NULL), " +
+                            "  (NULL, NULL, NULL, 2e0, NULL, NULL)");
+        }
+
+        // $partitions
+        String schema = getSession().getSchema().orElseThrow();
+        assertThat(query("SELECT column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name = 'test_partitioned_table$partitions' "))
+                .skippingTypesCheck()
+                .matches("VALUES " +
+                        // Generic columns (selected tested below)
+                        " 'row_count', " +
+                        " 'file_count', " +
+                        " 'total_size', " +
+                        // Table columns
+                        " 'a_boolean', " +
+                        " 'an_integer', " +
+                        " 'a_bigint', " +
+                        " 'a_real', " +
+                        " 'a_double', " +
+                        " 'a_short_decimal', " +
+                        " 'a_long_decimal', " +
+                        " 'a_varchar', " +
+                        " 'a_varbinary', " +
+                        " 'a_date', " +
+                        " 'a_time', " +
+                        " 'a_timestamp', " +
+                        " 'a_timestamptz', " +
+                        " 'a_uuid' " +
+                        // Note: non-primitive columns not being returned from $partitions (otherwise they would be tested below)
+                        "");
+        assertThat(query("SELECT " +
+                "  row_count," +
+                "  file_count, " +
+                "  a_boolean, " +
+                "  an_integer, " +
+                "  a_bigint, " +
+                "  a_real, " +
+                "  a_double, " +
+                "  a_short_decimal, " +
+                "  a_long_decimal, " +
+                "  a_varchar, " +
+                "  a_varbinary, " +
+                "  a_date, " +
+                "  a_time, " +
+                "  a_timestamp, " +
+                "  a_timestamptz, " +
+                "  a_uuid " +
+                // Note: partitioning on non-primitive columns is not allowed in Iceberg
+                " FROM \"test_partitioned_table$partitions\" "))
+                .matches("" +
+                        "VALUES (" +
+                        "  BIGINT '1', " +
+                        "  BIGINT '1', " +
+                        "  true, " +
+                        "  1, " +
+                        "  BIGINT '1', " +
+                        "  REAL '1.0', " +
+                        "  DOUBLE '1.0', " +
+                        "  CAST(1.0 AS decimal(5,2)), " +
+                        "  CAST(11.0 AS decimal(38,20)), " +
+                        "  VARCHAR 'onefsadfdsf', " +
+                        // TODO (https://github.com/trinodb/trino/issues/9755) include in partitioning
+                        (format == ORC
+                                ? "  CAST(ROW(NULL, NULL, 0) AS ROW(min varbinary, max varbinary, null_count bigint)), "
+                                : "  CAST(ROW(X'000102f0feff', X'000102f0feff', 0) AS ROW(min varbinary, max varbinary, null_count bigint)), ") +
+                        "  DATE '2021-07-24'," +
+                        "  TIME '02:43:57.987654', " +
+                        "  TIMESTAMP '2021-07-24 03:43:57.987654'," +
+                        // TODO (https://github.com/trinodb/trino/issues/9704) include in partitioning
+                        (format == ORC
+                                ? "  CAST(ROW(NULL, NULL, 0) AS ROW(min timestamp(6) with time zone, max timestamp(6) with time zone, null_count bigint)), "
+                                : "  CAST(ROW(TIMESTAMP '2021-07-24 04:43:57.987654 UTC', TIMESTAMP '2021-07-24 04:43:57.987654 UTC', 0) AS ROW(min timestamp(6) with time zone, max timestamp(6) with time zone, null_count bigint)), ") +
+                        "  UUID '20050910-1330-11e9-ffff-2a86e4085a59' " +
+                        ")" +
+                        "UNION ALL " +
+                        "VALUES (" +
+                        "  BIGINT '1', " +
+                        "  BIGINT '1', " +
+                        "  NULL, " +
+                        "  NULL, " +
+                        "  NULL, " +
+                        "  NULL, " +
+                        "  NULL, " +
+                        "  NULL, " +
+                        "  NULL, " +
+                        "  NULL, " +
+                        // TODO (https://github.com/trinodb/trino/issues/9755) include in partitioning
+                        (format == ORC
+                                ? "  NULL, "
+                                : "  CAST(ROW(NULL, NULL, 1) AS ROW(min varbinary, max varbinary, null_count bigint)), ") +
+                        "  NULL, " +
+                        "  NULL, " +
+                        "  NULL, " +
+                        // TODO (https://github.com/trinodb/trino/issues/9704) include in partitioning
+                        (format == ORC
+                                ? "  NULL, "
+                                : "  CAST(ROW(NULL, NULL, 1) AS ROW(min timestamp(6) with time zone, max timestamp(6) with time zone, null_count bigint)), ") +
+                        "  NULL " +
+                        ")");
+
         assertUpdate("DROP TABLE test_partitioned_table");
     }
 
@@ -2194,6 +2322,105 @@ public abstract class BaseIcebergConnectorTest
                 ""))
                 .skippingTypesCheck()
                 .matches(nullValues);
+
+        // SHOW STATS
+        try {
+            // TODO (https://github.com/trinodb/trino/issues/9714, https://github.com/trinodb/trino/issues/9716) SHOW STATS may fail with NullPointerException, depending which file is processed first
+//        assertThat(query("SHOW STATS FOR test_all_types"))
+//                .skippingTypesCheck()
+//                .matches("....");
+
+            computeActual("SHOW STATS FOR test_all_types");
+        }
+        catch (RuntimeException sometimesExpected) {
+            assertThat(sometimesExpected)
+                    .hasToString("java.lang.RuntimeException: java.lang.NullPointerException")
+                    .hasStackTraceContaining("at io.trino.plugin.iceberg.TableStatisticsMaker.makeTableStatistics");
+        }
+
+        // $partitions
+        String schema = getSession().getSchema().orElseThrow();
+        assertThat(query("SELECT column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name = 'test_all_types$partitions' "))
+                .skippingTypesCheck()
+                .matches("VALUES " +
+                        // Generic columns (selected tested below)
+                        " 'row_count', " +
+                        " 'file_count', " +
+                        " 'total_size', " +
+                        // Table columns
+                        " 'a_boolean', " +
+                        " 'an_integer', " +
+                        " 'a_bigint', " +
+                        " 'a_real', " +
+                        " 'a_double', " +
+                        " 'a_short_decimal', " +
+                        " 'a_long_decimal', " +
+                        " 'a_varchar', " +
+                        " 'a_varbinary', " +
+                        " 'a_date', " +
+                        " 'a_time', " +
+                        " 'a_timestamp', " +
+                        " 'a_timestamptz', " +
+                        " 'a_uuid' " +
+                        // Note: non-primitive columns not being returned from $partitions (otherwise they would be tested below)
+                        "");
+        assertThat(query("SELECT " +
+                "  row_count," +
+                "  file_count, " +
+                "  a_boolean, " +
+                "  an_integer, " +
+                "  a_bigint, " +
+                "  a_real, " +
+                "  a_double, " +
+                "  a_short_decimal, " +
+                "  a_long_decimal, " +
+                "  a_varchar, " +
+                "  a_varbinary, " +
+                "  a_date, " +
+                "  a_time, " +
+                "  a_timestamp, " +
+                "  a_timestamptz, " +
+                "  a_uuid " +
+                // Note: partitioning on non-primitive columns is not allowed in Iceberg
+                " FROM \"test_all_types$partitions\" "))
+                .matches(
+                        format == ORC
+                                ? "VALUES (" +
+                                "  BIGINT '2', " +
+                                "  BIGINT '2', " +
+                                "  CAST(NULL AS ROW(min boolean, max boolean, null_count bigint)), " +
+                                "  CAST(NULL AS ROW(min integer, max integer, null_count bigint)), " +
+                                "  CAST(NULL AS ROW(min bigint, max bigint, null_count bigint)), " +
+                                "  CAST(NULL AS ROW(min real, max real, null_count bigint)), " +
+                                "  CAST(NULL AS ROW(min double, max double, null_count bigint)), " +
+                                "  CAST(NULL AS ROW(min decimal(5,2), max decimal(5,2), null_count bigint)), " +
+                                "  CAST(NULL AS ROW(min decimal(38,20), max decimal(38,20), null_count bigint)), " +
+                                "  CAST(NULL AS ROW(min varchar, max varchar, null_count bigint)), " +
+                                "  CAST(NULL AS ROW(min varbinary, max varbinary, null_count bigint)), " +
+                                "  CAST(NULL AS ROW(min date, max date, null_count bigint)), " +
+                                "  CAST(NULL AS ROW(min time(6), max time(6), null_count bigint)), " +
+                                "  CAST(NULL AS ROW(min timestamp(6), max timestamp(6), null_count bigint)), " +
+                                "  CAST(NULL AS ROW(min timestamp(6) with time zone, max timestamp(6) with time zone, null_count bigint)), " +
+                                "  CAST(NULL AS ROW(min uuid, max uuid, null_count bigint)) " +
+                                ")"
+                                : "VALUES (" +
+                                "  BIGINT '2', " +
+                                "  BIGINT '2', " +
+                                "  CAST(ROW(true, true, 1) AS ROW(min boolean, max boolean, null_count bigint)), " +
+                                "  CAST(ROW(1, 1, 1) AS ROW(min integer, max integer, null_count bigint)), " +
+                                "  CAST(ROW(1, 1, 1) AS ROW(min bigint, max bigint, null_count bigint)), " +
+                                "  CAST(ROW(1, 1, 1) AS ROW(min real, max real, null_count bigint)), " +
+                                "  CAST(ROW(1, 1, 1) AS ROW(min double, max double, null_count bigint)), " +
+                                "  CAST(ROW(1, 1, 1) AS ROW(min decimal(5,2), max decimal(5,2), null_count bigint)), " +
+                                "  CAST(ROW(11, 11, 1) AS ROW(min decimal(38,20), max decimal(38,20), null_count bigint)), " +
+                                "  CAST(ROW('onefsadfdsf', 'onefsadfdsf', 1) AS ROW(min varchar, max varchar, null_count bigint)), " +
+                                "  CAST(ROW(X'000102f0feff', X'000102f0feff', 1) AS ROW(min varbinary, max varbinary, null_count bigint)), " +
+                                "  CAST(ROW(DATE '2021-07-24', DATE '2021-07-24', 1) AS ROW(min date, max date, null_count bigint)), " +
+                                "  CAST(ROW(TIME '02:43:57.987654', TIME '02:43:57.987654', 1) AS ROW(min time(6), max time(6), null_count bigint)), " +
+                                "  CAST(ROW(TIMESTAMP '2021-07-24 03:43:57.987654', TIMESTAMP '2021-07-24 03:43:57.987654', 1) AS ROW(min timestamp(6), max timestamp(6), null_count bigint)), " +
+                                "  CAST(ROW(TIMESTAMP '2021-07-24 04:43:57.987654 UTC', TIMESTAMP '2021-07-24 04:43:57.987654 UTC', 1) AS ROW(min timestamp(6) with time zone, max timestamp(6) with time zone, null_count bigint)), " +
+                                "  CAST(ROW(UUID '20050910-1330-11e9-ffff-2a86e4085a59', UUID '20050910-1330-11e9-ffff-2a86e4085a59', 1) AS ROW(min uuid, max uuid, null_count bigint)) " +
+                                ")");
 
         assertUpdate("DROP TABLE test_all_types");
     }

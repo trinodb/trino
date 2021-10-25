@@ -16,12 +16,14 @@ package io.trino.plugin.iceberg;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.TimeZoneKey;
+import io.trino.spi.type.UuidType;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
 
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
+import java.util.UUID;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzFromMicros;
@@ -77,6 +79,9 @@ public final class IcebergTypes
                 return timestampTzFromMicros(epochMicros, TimeZoneKey.UTC_KEY);
             }
             return epochMicros;
+        }
+        if (icebergType instanceof Types.UUIDType) {
+            return UuidType.javaUuidToTrinoUuid((UUID) value);
         }
 
         // TODO implement explicit conversion for all supported types
