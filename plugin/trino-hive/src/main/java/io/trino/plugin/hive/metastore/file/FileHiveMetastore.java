@@ -133,6 +133,8 @@ public class FileHiveMetastore
     private static final String ADMIN_ROLE_NAME = "admin";
     private static final String TRINO_SCHEMA_FILE_NAME = ".trinoSchema";
     private static final String TRINO_PERMISSIONS_DIRECTORY_NAME = ".trinoPermissions";
+    public static final String ROLES_FILE_NAME = ".roles";
+    public static final String ROLE_GRANTS_FILE_NAME = ".roleGrants";
     // todo there should be a way to manage the admins list
     private static final Set<String> ADMIN_USERS = ImmutableSet.of("admin", "hive", "hdfs");
 
@@ -1240,12 +1242,12 @@ public class FileHiveMetastore
 
     private Path getRolesFile()
     {
-        return new Path(catalogDirectory, ".roles");
+        return new Path(catalogDirectory, ROLES_FILE_NAME);
     }
 
     private Path getRoleGrantsFile()
     {
-        return new Path(catalogDirectory, ".roleGrants");
+        return new Path(catalogDirectory, ROLE_GRANTS_FILE_NAME);
     }
 
     private Set<HivePrivilegeInfo> readPermissionsFile(Path permissionFilePath)
