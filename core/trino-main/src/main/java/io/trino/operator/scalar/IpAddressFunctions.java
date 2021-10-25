@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.operator.scalar;
+package io.trino.operator.scalar;
 
 import com.google.common.net.InetAddresses;
 import io.airlift.slice.Slice;
@@ -97,7 +97,8 @@ public final class IpAddressFunctions
         return cidrPrefix.equals(addressPrefix);
     }
 
-    private static boolean isValidIpV6Cidr(int prefixLength) {
+    private static boolean isValidIpV6Cidr(int prefixLength)
+    {
         return prefixLength >= 0 && prefixLength <= 128;
     }
 
