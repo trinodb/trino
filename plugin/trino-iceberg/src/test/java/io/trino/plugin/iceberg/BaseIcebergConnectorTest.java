@@ -720,7 +720,7 @@ public abstract class BaseIcebergConnectorTest
                                 .collect(toOptional()).orElseThrow();
                         if (aSampleColumnStatsRow.getField(2) == null) {
                             assertEqualsIgnoreOrder(result, computeActual("VALUES " +
-                                    "  ('a_boolean', NULL, NULL, NULL, NULL, NULL), " +
+                                    "  ('a_boolean', NULL, NULL, NULL, 'true', 'true'), " +
                                     "  ('an_integer', NULL, NULL, NULL, '1', '1'), " +
                                     "  ('a_bigint', NULL, NULL, NULL, '1', '1'), " +
                                     "  ('a_real', NULL, NULL, NULL, '1.0', '1.0'), " +
@@ -741,7 +741,7 @@ public abstract class BaseIcebergConnectorTest
                         }
                         else {
                             assertEqualsIgnoreOrder(result, computeActual("VALUES " +
-                                    "  ('a_boolean', NULL, 0e0, NULL, NULL, NULL), " +
+                                    "  ('a_boolean', NULL, 0e0, NULL, 'true', 'true'), " +
                                     "  ('an_integer', NULL, 0e0, NULL, '1', '1'), " +
                                     "  ('a_bigint', NULL, 0e0, NULL, '1', '1'), " +
                                     "  ('a_real', NULL, 0e0, NULL, '1.0', '1.0'), " +
@@ -2225,7 +2225,7 @@ public abstract class BaseIcebergConnectorTest
                 .projected(0, 2, 3, 4, 5, 6) // ignore data size which is available for Parquet, but not for ORC
                 .skippingTypesCheck()
                 .matches("VALUES " +
-                        "  ('bool', NULL, 0e0, NULL, " + (format == ORC ? "NULL, NULL" : "'true', 'true'") + "), " +
+                        "  ('bool', NULL, 0e0, NULL, 'true', 'true'), " +
                         "  ('int', NULL, 0e0, NULL, '1', '1'), " +
                         "  ('arr', NULL, " + (format == ORC ? "0e0" : "NULL") + ", NULL, NULL, NULL), " +
                         "  ('big', NULL, 0e0, NULL, '1', '1'), " +

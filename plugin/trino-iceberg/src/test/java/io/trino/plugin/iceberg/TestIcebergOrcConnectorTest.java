@@ -28,8 +28,7 @@ public class TestIcebergOrcConnectorTest
     @Override
     protected boolean supportsIcebergFileStatistics(String typeName)
     {
-        return !(typeName.equalsIgnoreCase("boolean") ||
-                typeName.equalsIgnoreCase("varbinary") ||
+        return !(typeName.equalsIgnoreCase("varbinary") ||
                 typeName.contains("timestamp"));
     }
 
