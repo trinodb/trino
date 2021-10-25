@@ -98,6 +98,7 @@ import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.tpch.TpchTable.LINE_ITEM;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
+import static java.lang.String.join;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
@@ -716,7 +717,7 @@ public abstract class BaseIcebergConnectorTest
                 .map(Object::toString)
                 .collect(toImmutableList());
 
-        String filter = format("col2 IN (%s)", String.join(",", predicates));
+        String filter = format("col2 IN (%s)", join(",", predicates));
         assertThatThrownBy(() -> getQueryRunner().execute(format("SELECT * FROM test_large_in_failure WHERE %s", filter)))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessage("java.lang.StackOverflowError");
@@ -1696,7 +1697,7 @@ public abstract class BaseIcebergConnectorTest
                 .filter(index -> index != 20L)
                 .collect(toImmutableList());
         assertTrue(values.size() > ICEBERG_DOMAIN_COMPACTION_THRESHOLD);
-        String valuesString = String.join(",", values.stream().map(Object::toString).collect(toImmutableList()));
+        String valuesString = join(",", values.stream().map(Object::toString).collect(toImmutableList()));
         String inPredicate = "%s IN (" + valuesString + ")";
         assertQuery(
                 format("SELECT * FROM %s WHERE %s AND %s", tableName, format(inPredicate, "col1"), format(inPredicate, "col2")),
