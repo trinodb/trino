@@ -49,6 +49,7 @@ import java.util.concurrent.CompletableFuture;
 
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
 import static io.trino.plugin.iceberg.IcebergSplitManager.ICEBERG_DOMAIN_COMPACTION_THRESHOLD;
+import static io.trino.plugin.iceberg.IcebergTypes.convertIcebergValueToTrino;
 import static io.trino.plugin.iceberg.IcebergUtil.deserializePartitionValue;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
 import static io.trino.plugin.iceberg.IcebergUtil.primitiveFieldTypes;
@@ -246,16 +247,16 @@ public class IcebergSplitSource
         if (lowerBound != null && upperBound != null) {
             statisticsRange = Range.range(
                     type,
-                    PartitionTable.convert(lowerBound, icebergType),
+                    convertIcebergValueToTrino(icebergType, lowerBound),
                     true,
-                    PartitionTable.convert(upperBound, icebergType),
+                    convertIcebergValueToTrino(icebergType, upperBound),
                     true);
         }
         else if (upperBound != null) {
-            statisticsRange = Range.lessThanOrEqual(type, PartitionTable.convert(upperBound, icebergType));
+            statisticsRange = Range.lessThanOrEqual(type, convertIcebergValueToTrino(icebergType, upperBound));
         }
         else {
-            statisticsRange = Range.greaterThanOrEqual(type, PartitionTable.convert(lowerBound, icebergType));
+            statisticsRange = Range.greaterThanOrEqual(type, convertIcebergValueToTrino(icebergType, lowerBound));
         }
         return Domain.create(ValueSet.ofRanges(statisticsRange), containsNulls);
     }
