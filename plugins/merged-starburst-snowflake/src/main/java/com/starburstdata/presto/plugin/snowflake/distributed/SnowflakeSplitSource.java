@@ -298,7 +298,9 @@ public class SnowflakeSplitSource
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                NO_ACID_TRANSACTION);
+                NO_ACID_TRANSACTION,
+                false,
+                Optional.empty());
 
         return getHiveSplitManager().getSplits(
                 // no transaction is needed
