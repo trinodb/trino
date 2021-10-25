@@ -60,11 +60,14 @@
         <dep.tempto.version>186</dep.tempto.version>
         <dep.gcs.version>2.0.0</dep.gcs.version>
         <dep.errorprone.version>2.9.0</dep.errorprone.version>
-        <dep.testcontainers.version>1.16.0</dep.testcontainers.version>
-        <dep.docker-java.version>3.2.11</dep.docker-java.version>
+        <dep.testcontainers.version>1.16.2</dep.testcontainers.version>
+        <dep.docker-java.version>3.2.12</dep.docker-java.version>
         <dep.coral.version>1.0.120</dep.coral.version>
         <dep.confluent.version>5.5.2</dep.confluent.version>
         <dep.parquet.version>1.11.1</dep.parquet.version>
+
+        <!-- TODO(https://github.com/airlift/airbase/pull/281): Required by testcontainers, remove when pulled from Airbase -->
+        <dep.slf4j.version>1.7.32</dep.slf4j.version>
 
         <dep.docker.images.version>50</dep.docker.images.version>
 
@@ -1263,6 +1266,12 @@
             </dependency>
 
             <dependency>
+                <groupId>junit</groupId>
+                <artifactId>junit</artifactId>
+                <version>4.13.2</version>
+            </dependency>
+
+            <dependency>
                 <groupId>mysql</groupId>
                 <artifactId>mysql-connector-java</artifactId>
                 <version>8.0.22</version>
@@ -1333,7 +1342,7 @@
             <dependency>
                 <groupId>org.apache.commons</groupId>
                 <artifactId>commons-compress</artifactId>
-                <version>1.20</version>
+                <version>1.21</version>
             </dependency>
 
             <dependency>
