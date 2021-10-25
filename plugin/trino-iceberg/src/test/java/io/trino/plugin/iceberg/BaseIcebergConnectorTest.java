@@ -427,62 +427,120 @@ public abstract class BaseIcebergConnectorTest
     {
         assertUpdate("" +
                 "CREATE TABLE test_partitioned_table (" +
-                "  _string VARCHAR" +
-                ", _bigint BIGINT" +
-                ", _integer INTEGER" +
-                ", _real REAL" +
-                ", _double DOUBLE" +
-                ", _boolean BOOLEAN" +
-                ", _decimal_short DECIMAL(3,2)" +
-                ", _decimal_long DECIMAL(30,10)" +
-                ", _timestamp TIMESTAMP(6)" +
-                ", _date DATE" +
+                "  a_boolean boolean, " +
+                "  an_integer integer, " +
+                "  a_bigint bigint, " +
+                "  a_real real, " +
+                "  a_double double, " +
+                "  a_short_decimal decimal(5,2), " +
+                "  a_long_decimal decimal(38,20), " +
+                "  a_varchar varchar, " +
+                "  a_varbinary varbinary, " +
+                "  a_date date, " +
+                "  a_time time(6), " +
+                "  a_timestamp timestamp(6), " +
+                "  a_timestamptz timestamp(6) with time zone, " +
+                "  a_uuid uuid, " +
+                "  a_row row(id integer , vc varchar), " +
+                "  an_array array(varchar), " +
+                "  a_map map(integer, varchar) " +
                 ") " +
                 "WITH (" +
                 "partitioning = ARRAY[" +
-                "  '_string'," +
-                "  '_integer'," +
-                "  '_bigint'," +
-                "  '_boolean'," +
-                "  '_real'," +
-                "  '_double'," +
-                "  '_decimal_short', " +
-                "  '_decimal_long'," +
-                "  '_timestamp'," +
-                "  '_date']" +
+                "  'a_boolean', " +
+                "  'an_integer', " +
+                "  'a_bigint', " +
+                "  'a_real', " +
+                "  'a_double', " +
+                "  'a_short_decimal', " +
+                "  'a_long_decimal', " +
+                "  'a_varchar', " +
+                // "  'a_varbinary', " + TODO (https://github.com/trinodb/trino/issues/9755) this yields incorrect query results
+                "  'a_date', " +
+                "  'a_time', " +
+                "  'a_timestamp', " +
+                // "  'a_timestamptz', " + TODO (https://github.com/trinodb/trino/issues/9704) this yields incorrect zone
+                "  'a_uuid' " +
+                // Note: partitioning on non-primitive columns is not allowed in Iceberg
+                "  ]" +
                 ")");
 
         assertQueryReturnsEmptyResult("SELECT * FROM test_partitioned_table");
 
-        @Language("SQL") String select = "" +
-                "SELECT" +
-                " 'foo' _string" +
-                ", CAST(123 AS BIGINT) _bigint" +
-                ", 456 _integer" +
-                ", CAST('123.45' AS REAL) _real" +
-                ", CAST('3.14' AS DOUBLE) _double" +
-                ", true _boolean" +
-                ", CAST('3.14' AS DECIMAL(3,2)) _decimal_short" +
-                ", CAST('12345678901234567890.0123456789' AS DECIMAL(30,10)) _decimal_long" +
-                ", CAST('2017-05-01 10:12:34' AS TIMESTAMP) _timestamp" +
-                ", CAST('2017-05-01' AS DATE) _date";
+        String values = "VALUES (" +
+                "true, " +
+                "1, " +
+                "BIGINT '1', " +
+                "REAL '1.0', " +
+                "DOUBLE '1.0', " +
+                "CAST(1.0 AS decimal(5,2)), " +
+                "CAST(11.0 AS decimal(38,20)), " +
+                "VARCHAR 'onefsadfdsf', " +
+                "X'000102f0feff', " +
+                "DATE '2021-07-24'," +
+                "TIME '02:43:57.987654', " +
+                "TIMESTAMP '2021-07-24 03:43:57.987654'," +
+                "TIMESTAMP '2021-07-24 04:43:57.987654 UTC', " +
+                "UUID '20050910-1330-11e9-ffff-2a86e4085a59', " +
+                "CAST(ROW(42, 'this is a random value') AS ROW(id int, vc varchar)), " +
+                "ARRAY[VARCHAR 'uno', 'dos', 'tres'], " +
+                "map(ARRAY[1,2], ARRAY['ek', VARCHAR 'one'])) ";
 
-        assertUpdate(format("INSERT INTO test_partitioned_table %s", select), 1);
-        assertQuery("SELECT * FROM test_partitioned_table", select);
+        String nullValues = nCopies(17, "NULL").stream()
+                .collect(joining(", ", "VALUES (", ")"));
 
-        assertQuery(
-                "SELECT * FROM test_partitioned_table WHERE" +
-                        " 'foo' = _string" +
-                        " AND 456 = _integer" +
-                        " AND CAST(123 AS BIGINT) = _bigint" +
-                        " AND true = _boolean" +
-                        " AND CAST('3.14' AS DECIMAL(3,2)) = _decimal_short" +
-                        " AND CAST('12345678901234567890.0123456789' AS DECIMAL(30,10)) = _decimal_long" +
-                        " AND CAST('2017-05-01 10:12:34' AS TIMESTAMP) = _timestamp" +
-                        " AND CAST('2017-05-01' AS DATE) = _date",
-                select);
+        assertUpdate("INSERT INTO test_partitioned_table " + values, 1);
+        assertUpdate("INSERT INTO test_partitioned_table " + nullValues, 1);
 
-        dropTable("test_partitioned_table");
+        // SELECT
+        assertThat(query("SELECT * FROM test_partitioned_table"))
+                .matches(values + " UNION ALL " + nullValues);
+
+        // SELECT with predicates
+        assertThat(query("SELECT * FROM test_partitioned_table WHERE " +
+                "    a_boolean = true " +
+                "AND an_integer = 1 " +
+                "AND a_bigint = BIGINT '1' " +
+                "AND a_real = REAL '1.0' " +
+                "AND a_double = DOUBLE '1.0' " +
+                "AND a_short_decimal = CAST(1.0 AS decimal(5,2)) " +
+                "AND a_long_decimal = CAST(11.0 AS decimal(38,20)) " +
+                "AND a_varchar = VARCHAR 'onefsadfdsf' " +
+                "AND a_varbinary = X'000102f0feff' " +
+                "AND a_date = DATE '2021-07-24' " +
+                "AND a_time = TIME '02:43:57.987654' " +
+                "AND a_timestamp = TIMESTAMP '2021-07-24 03:43:57.987654' " +
+                "AND a_timestamptz = TIMESTAMP '2021-07-24 04:43:57.987654 UTC' " +
+                "AND a_uuid = UUID '20050910-1330-11e9-ffff-2a86e4085a59' " +
+                "AND a_row = CAST(ROW(42, 'this is a random value') AS ROW(id int, vc varchar)) " +
+                "AND an_array = ARRAY[VARCHAR 'uno', 'dos', 'tres'] " +
+                "AND a_map = map(ARRAY[1,2], ARRAY['ek', VARCHAR 'one']) " +
+                ""))
+                .matches(values);
+
+        assertThat(query("SELECT * FROM test_partitioned_table WHERE " +
+                "    a_boolean IS NULL " +
+                "AND an_integer IS NULL " +
+                "AND a_bigint IS NULL " +
+                "AND a_real IS NULL " +
+                "AND a_double IS NULL " +
+                "AND a_short_decimal IS NULL " +
+                "AND a_long_decimal IS NULL " +
+                "AND a_varchar IS NULL " +
+                "AND a_varbinary IS NULL " +
+                "AND a_date IS NULL " +
+                "AND a_time IS NULL " +
+                "AND a_timestamp IS NULL " +
+                "AND a_timestamptz IS NULL " +
+                "AND a_uuid IS NULL " +
+                "AND a_row IS NULL " +
+                "AND an_array IS NULL " +
+                "AND a_map IS NULL " +
+                ""))
+                .skippingTypesCheck()
+                .matches(nullValues);
+
+        assertUpdate("DROP TABLE test_partitioned_table");
     }
 
     @Test
@@ -499,55 +557,6 @@ public abstract class BaseIcebergConnectorTest
                 ")");
 
         dropTable("test_partitioned_table_nested_type");
-    }
-
-    @Test
-    public void testPartitionedTableWithNullValues()
-    {
-        assertUpdate("CREATE TABLE test_partitioned_table_with_null_values (" +
-                "  _string VARCHAR" +
-                ", _bigint BIGINT" +
-                ", _integer INTEGER" +
-                ", _real REAL" +
-                ", _double DOUBLE" +
-                ", _boolean BOOLEAN" +
-                ", _decimal_short DECIMAL(3,2)" +
-                ", _decimal_long DECIMAL(30,10)" +
-                ", _timestamp TIMESTAMP(6)" +
-                ", _date DATE" +
-                ") " +
-                "WITH (" +
-                "partitioning = ARRAY[" +
-                "  '_string'," +
-                "  '_integer'," +
-                "  '_bigint'," +
-                "  '_boolean'," +
-                "  '_real'," +
-                "  '_double'," +
-                "  '_decimal_short', " +
-                "  '_decimal_long'," +
-                "  '_timestamp'," +
-                "  '_date']" +
-                ")");
-
-        assertQueryReturnsEmptyResult("SELECT * from test_partitioned_table_with_null_values");
-
-        @Language("SQL") String select = "" +
-                "SELECT" +
-                " null _string" +
-                ", null _bigint" +
-                ", null _integer" +
-                ", null _real" +
-                ", null _double" +
-                ", null _boolean" +
-                ", null _decimal_short" +
-                ", null _decimal_long" +
-                ", null _timestamp" +
-                ", null _date";
-
-        assertUpdate("INSERT INTO test_partitioned_table_with_null_values " + select, 1);
-        assertQuery("SELECT * from test_partitioned_table_with_null_values", select);
-        dropTable("test_partitioned_table_with_null_values");
     }
 
     @Test
@@ -2094,22 +2103,23 @@ public abstract class BaseIcebergConnectorTest
     public void testAllAvailableTypes()
     {
         assertUpdate("CREATE TABLE test_all_types (" +
-                "  a_bool BOOLEAN" +
-                ", a_int INTEGER" +
-                ", a_big BIGINT" +
-                ", a_real REAL" +
-                ", a_double DOUBLE" +
-                ", a_short_decimal DECIMAL(5,2)" +
-                ", a_long_decimal DECIMAL(38,20)" +
-                ", a_date DATE" +
-                ", a_time TIME(6)" +
-                ", a_timestamp TIMESTAMP(6)" +
-                ", a_timestamptz TIMESTAMP(6) WITH TIME ZONE" +
-                ", a_string VARCHAR" +
-                ", a_binary VARBINARY" +
-                ", a_row ROW(id INTEGER , vc VARCHAR)" +
-                ", a_array ARRAY(VARCHAR)" +
-                ", a_map MAP(INTEGER, VARCHAR)" +
+                "  a_boolean boolean, " +
+                "  an_integer integer, " +
+                "  a_bigint bigint, " +
+                "  a_real real, " +
+                "  a_double double, " +
+                "  a_short_decimal decimal(5,2), " +
+                "  a_long_decimal decimal(38,20), " +
+                "  a_varchar varchar, " +
+                "  a_varbinary varbinary, " +
+                "  a_date date, " +
+                "  a_time time(6), " +
+                "  a_timestamp timestamp(6), " +
+                "  a_timestamptz timestamp(6) with time zone, " +
+                "  a_uuid uuid, " +
+                "  a_row row(id integer , vc varchar), " +
+                "  an_array array(varchar), " +
+                "  a_map map(integer, varchar) " +
                 ")");
 
         String values = "VALUES (" +
@@ -2117,22 +2127,73 @@ public abstract class BaseIcebergConnectorTest
                 "1, " +
                 "BIGINT '1', " +
                 "REAL '1.0', " +
-                "DOUBLE '1.0',  " +
-                "CAST(1.0 as DECIMAL(5,2)),  " +
-                "CAST(11.0 as DECIMAL(38,20)),  " +
-                "DATE '2021-07-24'," +
-                "TIME '02:43:57.348000',  " +
-                "TIMESTAMP '2021-07-24 03:43:57.348000'," +
-                "TIMESTAMP '2021-07-24 04:43:57.348000 UTC', " +
+                "DOUBLE '1.0', " +
+                "CAST(1.0 AS decimal(5,2)), " +
+                "CAST(11.0 AS decimal(38,20)), " +
                 "VARCHAR 'onefsadfdsf', " +
                 "X'000102f0feff', " +
-                "(CAST(ROW(null, 'this is a random value') AS ROW(id int, vc varchar))), " +
-                "array[VARCHAR 'uno', 'dos', 'tres'], " +
-                "map(array[1,2], array['ek', VARCHAR 'one']))";
-        assertUpdate("INSERT INTO test_all_types " + values, 1);
+                "DATE '2021-07-24'," +
+                "TIME '02:43:57.987654', " +
+                "TIMESTAMP '2021-07-24 03:43:57.987654'," +
+                "TIMESTAMP '2021-07-24 04:43:57.987654 UTC', " +
+                "UUID '20050910-1330-11e9-ffff-2a86e4085a59', " +
+                "CAST(ROW(42, 'this is a random value') AS ROW(id int, vc varchar)), " +
+                "ARRAY[VARCHAR 'uno', 'dos', 'tres'], " +
+                "map(ARRAY[1,2], ARRAY['ek', VARCHAR 'one'])) ";
 
+        String nullValues = nCopies(17, "NULL").stream()
+                .collect(joining(", ", "VALUES (", ")"));
+
+        assertUpdate("INSERT INTO test_all_types " + values, 1);
+        assertUpdate("INSERT INTO test_all_types " + nullValues, 1);
+
+        // SELECT
         assertThat(query("SELECT * FROM test_all_types"))
+                .matches(values + " UNION ALL " + nullValues);
+
+        // SELECT with predicates
+        assertThat(query("SELECT * FROM test_all_types WHERE " +
+                "    a_boolean = true " +
+                "AND an_integer = 1 " +
+                "AND a_bigint = BIGINT '1' " +
+                "AND a_real = REAL '1.0' " +
+                "AND a_double = DOUBLE '1.0' " +
+                "AND a_short_decimal = CAST(1.0 AS decimal(5,2)) " +
+                "AND a_long_decimal = CAST(11.0 AS decimal(38,20)) " +
+                "AND a_varchar = VARCHAR 'onefsadfdsf' " +
+                "AND a_varbinary = X'000102f0feff' " +
+                "AND a_date = DATE '2021-07-24' " +
+                "AND a_time = TIME '02:43:57.987654' " +
+                "AND a_timestamp = TIMESTAMP '2021-07-24 03:43:57.987654' " +
+                "AND a_timestamptz = TIMESTAMP '2021-07-24 04:43:57.987654 UTC' " +
+                "AND a_uuid = UUID '20050910-1330-11e9-ffff-2a86e4085a59' " +
+                "AND a_row = CAST(ROW(42, 'this is a random value') AS ROW(id int, vc varchar)) " +
+                "AND an_array = ARRAY[VARCHAR 'uno', 'dos', 'tres'] " +
+                "AND a_map = map(ARRAY[1,2], ARRAY['ek', VARCHAR 'one']) " +
+                ""))
                 .matches(values);
+
+        assertThat(query("SELECT * FROM test_all_types WHERE " +
+                "    a_boolean IS NULL " +
+                "AND an_integer IS NULL " +
+                "AND a_bigint IS NULL " +
+                "AND a_real IS NULL " +
+                "AND a_double IS NULL " +
+                "AND a_short_decimal IS NULL " +
+                "AND a_long_decimal IS NULL " +
+                "AND a_varchar IS NULL " +
+                "AND a_varbinary IS NULL " +
+                "AND a_date IS NULL " +
+                "AND a_time IS NULL " +
+                "AND a_timestamp IS NULL " +
+                "AND a_timestamptz IS NULL " +
+                "AND a_uuid IS NULL " +
+                "AND a_row IS NULL " +
+                "AND an_array IS NULL " +
+                "AND a_map IS NULL " +
+                ""))
+                .skippingTypesCheck()
+                .matches(nullValues);
 
         assertUpdate("DROP TABLE test_all_types");
     }
