@@ -13,7 +13,9 @@
  */
 package io.trino.plugin.memsql;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.log.Logger;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
@@ -24,6 +26,8 @@ import io.trino.plugin.jdbc.JdbcSortItem;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.PreparedQuery;
+import io.trino.plugin.jdbc.RemoteTableName;
+import io.trino.plugin.jdbc.UnsupportedTypeHandling;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
@@ -36,6 +40,7 @@ import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.StandardTypes;
@@ -51,13 +56,17 @@ import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
@@ -87,6 +96,7 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
+import static io.trino.plugin.jdbc.UnsupportedTypeHandling.IGNORE;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.RealType.REAL;
@@ -95,12 +105,15 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
+import static java.sql.DatabaseMetaData.columnNoNulls;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
 public class MemSqlClient
         extends BaseJdbcClient
 {
+    private static final Logger log = Logger.get(MemSqlClient.class);
+
     static final int MEMSQL_VARCHAR_MAX_LENGTH = 21844;
     static final int MEMSQL_TEXT_MAX_LENGTH = 65535;
     static final int MEMSQL_MEDIUMTEXT_MAX_LENGTH = 16777215;
@@ -149,6 +162,80 @@ public class MemSqlClient
             return false;
         }
         return super.filterSchema(schemaName);
+    }
+
+    @Override
+    public List<JdbcColumnHandle> getColumns(ConnectorSession session, JdbcTableHandle tableHandle)
+    {
+        if (tableHandle.getColumns().isPresent()) {
+            return tableHandle.getColumns().get();
+        }
+        checkArgument(tableHandle.isNamedRelation(), "Cannot get columns for %s", tableHandle);
+        SchemaTableName schemaTableName = tableHandle.getRequiredNamedRelation().getSchemaTableName();
+        RemoteTableName remoteTableName = tableHandle.getRequiredNamedRelation().getRemoteTableName();
+
+        try (Connection connection = connectionFactory.openConnection(session);
+                ResultSet resultSet = getColumns(tableHandle, connection.getMetaData())) {
+            int allColumns = 0;
+            List<JdbcColumnHandle> columns = new ArrayList<>();
+            while (resultSet.next()) {
+                // skip if table doesn't match expected
+                if (!(Objects.equals(remoteTableName, getRemoteTable(resultSet)))) {
+                    continue;
+                }
+                allColumns++;
+                String columnName = resultSet.getString("COLUMN_NAME");
+                JdbcTypeHandle typeHandle = new JdbcTypeHandle(
+                        getInteger(resultSet, "DATA_TYPE").orElseThrow(() -> new IllegalStateException("DATA_TYPE is null")),
+                        Optional.ofNullable(resultSet.getString("TYPE_NAME")),
+                        getInteger(resultSet, "COLUMN_SIZE"),
+                        getInteger(resultSet, "DECIMAL_DIGITS"),
+                        Optional.empty(),
+                        Optional.empty());
+                Optional<ColumnMapping> columnMapping = toColumnMapping(session, connection, typeHandle);
+                log.debug("Mapping data type of '%s' column '%s': %s mapped to %s", schemaTableName, columnName, typeHandle, columnMapping);
+                // skip unsupported column types
+                boolean nullable = (resultSet.getInt("NULLABLE") != columnNoNulls);
+                // Note: some databases (e.g. SQL Server) do not return column remarks/comment here.
+                Optional<String> comment = Optional.ofNullable(emptyToNull(resultSet.getString("REMARKS")));
+                if (columnMapping.isPresent()) {
+                    columns.add(JdbcColumnHandle.builder()
+                            .setColumnName(columnName)
+                            .setJdbcTypeHandle(typeHandle)
+                            .setColumnType(columnMapping.get().getType())
+                            .setNullable(nullable)
+                            .setComment(comment)
+                            .build());
+                }
+                if (columnMapping.isEmpty()) {
+                    UnsupportedTypeHandling unsupportedTypeHandling = getUnsupportedTypeHandling(session);
+                    verify(
+                            unsupportedTypeHandling == IGNORE,
+                            "Unsupported type handling is set to %s, but toTrinoType() returned empty for %s",
+                            unsupportedTypeHandling,
+                            typeHandle);
+                }
+            }
+            if (columns.isEmpty()) {
+                // A table may have no supported columns. In rare cases (e.g. PostgreSQL) a table might have no columns at all.
+                throw new TableNotFoundException(
+                        schemaTableName,
+                        format("Table '%s' has no supported columns (all %s columns are not supported)", schemaTableName, allColumns));
+            }
+            return ImmutableList.copyOf(columns);
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
+    }
+
+    private static RemoteTableName getRemoteTable(ResultSet resultSet)
+            throws SQLException
+    {
+        return new RemoteTableName(
+                Optional.ofNullable(resultSet.getString("TABLE_CAT")),
+                Optional.ofNullable(resultSet.getString("TABLE_SCHEM")),
+                resultSet.getString("TABLE_NAME"));
     }
 
     @Override
