@@ -2491,6 +2491,7 @@ public class LocalExecutionPlanner
                 Set<DynamicFilterId> localDynamicFilters)
         {
             LocalExecutionPlanContext buildContext = context.createSubContext();
+            buildContext.setDriverInstanceCount(1);
             PhysicalOperation buildSource = buildNode.accept(this, buildContext);
 
             if (buildSource.getPipelineExecutionStrategy() == GROUPED_EXECUTION) {
