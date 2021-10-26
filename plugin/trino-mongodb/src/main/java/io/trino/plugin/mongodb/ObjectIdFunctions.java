@@ -69,7 +69,7 @@ public final class ObjectIdFunctions
     public static Slice timestampObjectid(@SqlType("timestamp(0) with time zone") long timestamp)
     {
         long epochSeconds = MILLISECONDS.toSeconds(unpackMillisUtc(timestamp));
-        return Slices.wrappedBuffer(new ObjectId((int) epochSeconds, 0, (short) 0, 0).toByteArray());
+        return Slices.wrappedBuffer(new ObjectId((int) epochSeconds, 0).toByteArray());
     }
 
     @ScalarOperator(CAST)

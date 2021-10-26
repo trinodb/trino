@@ -14,6 +14,7 @@
 package io.trino.plugin.mongodb;
 
 import com.google.common.net.HostAndPort;
+import com.mongodb.ConnectionString;
 import org.testcontainers.containers.MongoDBContainer;
 
 import java.io.Closeable;
@@ -25,16 +26,18 @@ public class MongoServer
 
     private final MongoDBContainer dockerContainer;
 
+    private static final String CONNECTION_STRING = "mongodb://kay:myRealPassword@cluster0.mongodb.net";
+
     public MongoServer()
     {
-        this("3.4.0");
+        this("4.3.3");
     }
 
     public MongoServer(String mongoVersion)
     {
         this.dockerContainer = new MongoDBContainer("mongo:" + mongoVersion)
                 .withStartupAttempts(3)
-                .withEnv("MONGO_INITDB_DATABASE", "tpch")
+                .withEnv("MONGODB_CONNSTRING", CONNECTION_STRING)
                 .withCommand("--bind_ip 0.0.0.0");
         this.dockerContainer.start();
     }
@@ -42,6 +45,11 @@ public class MongoServer
     public HostAndPort getAddress()
     {
         return HostAndPort.fromParts(dockerContainer.getContainerIpAddress(), dockerContainer.getMappedPort(MONGO_PORT));
+    }
+
+    public ConnectionString getConnectionString()
+    {
+        return new ConnectionString(CONNECTION_STRING);
     }
 
     @Override

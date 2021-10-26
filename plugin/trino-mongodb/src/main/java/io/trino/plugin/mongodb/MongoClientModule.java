@@ -17,14 +17,18 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
-import com.mongodb.MongoClient;
-import com.mongodb.MongoClientOptions;
+import com.mongodb.ConnectionString;
+import com.mongodb.MongoClientSettings;
+import com.mongodb.client.MongoClient;
+import com.mongodb.client.MongoClients;
+import com.mongodb.connection.ClusterConnectionMode;
 import io.trino.spi.type.TypeManager;
 
 import javax.inject.Singleton;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class MongoClientModule
         implements Module
@@ -46,24 +50,23 @@ public class MongoClientModule
     {
         requireNonNull(config, "config is null");
 
-        MongoClientOptions.Builder options = MongoClientOptions.builder();
-
-        options.connectionsPerHost(config.getConnectionsPerHost())
-                .connectTimeout(config.getConnectionTimeout())
-                .socketTimeout(config.getSocketTimeout())
-                .socketKeepAlive(config.getSocketKeepAlive())
-                .sslEnabled(config.getSslEnabled())
-                .maxWaitTime(config.getMaxWaitTime())
-                .maxConnectionIdleTime(config.getMaxConnectionIdleTime())
-                .minConnectionsPerHost(config.getMinConnectionsPerHost())
+        MongoClientSettings.Builder options = MongoClientSettings.builder();
+        options.applyConnectionString(new ConnectionString(config.getConnectionString()))
+                .writeConcern(config.getWriteConcern().getWriteConcern())
                 .readPreference(config.getReadPreference().getReadPreference())
-                .writeConcern(config.getWriteConcern().getWriteConcern());
+                .applyToConnectionPoolSettings(builder -> builder.maxConnectionIdleTime(config.getMaxConnectionIdleTime(), SECONDS)
+                        .maxWaitTime(config.getMaxWaitTime(), SECONDS)
+                        .minSize(config.getMinConnectionsPerHost())
+                        .maxSize(config.getConnectionsPerHost()))
+                .applyToClusterSettings(builder -> builder.mode(ClusterConnectionMode.SINGLE))
+                .applyToSocketSettings(builder -> builder.connectTimeout(config.getSocketTimeout(), SECONDS))
+                .applyToSslSettings(builder -> builder.enabled(config.getSslEnabled()));
 
         if (config.getRequiredReplicaSetName() != null) {
-            options.requiredReplicaSetName(config.getRequiredReplicaSetName());
+            options.applyToClusterSettings(builder -> config.getRequiredReplicaSetName());
         }
 
-        MongoClient client = new MongoClient(config.getSeeds(), config.getCredentials(), options.build());
+        MongoClient client = MongoClients.create(options.build());
 
         return new MongoSession(
                 typeManager,

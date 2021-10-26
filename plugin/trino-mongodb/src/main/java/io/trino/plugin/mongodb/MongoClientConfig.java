@@ -38,6 +38,7 @@ public class MongoClientConfig
     private static final Splitter PORT_SPLITTER = Splitter.on(':').trimResults().omitEmptyStrings();
 
     private String schemaCollection = "_schema";
+    private String connectionString;
     private boolean caseInsensitiveNameMatching;
     private List<ServerAddress> seeds = ImmutableList.of();
     private List<MongoCredential> credentials = ImmutableList.of();
@@ -48,7 +49,6 @@ public class MongoClientConfig
     private int connectionTimeout = 10_000;
     private int socketTimeout;
     private int maxConnectionIdleTime;
-    private boolean socketKeepAlive = true;
     private boolean sslEnabled;
 
     // query configurations
@@ -81,6 +81,19 @@ public class MongoClientConfig
     public MongoClientConfig setCaseInsensitiveNameMatching(boolean caseInsensitiveNameMatching)
     {
         this.caseInsensitiveNameMatching = caseInsensitiveNameMatching;
+        return this;
+    }
+
+    @NotNull
+    public String getConnectionString()
+    {
+        return connectionString;
+    }
+
+    @Config("mongodb.connection-string")
+    public MongoClientConfig setConnectionString(String connectionString)
+    {
+        this.connectionString = connectionString;
         return this;
     }
 
@@ -221,18 +234,6 @@ public class MongoClientConfig
     public MongoClientConfig setSocketTimeout(int socketTimeout)
     {
         this.socketTimeout = socketTimeout;
-        return this;
-    }
-
-    public boolean getSocketKeepAlive()
-    {
-        return socketKeepAlive;
-    }
-
-    @Config("mongodb.socket-keep-alive")
-    public MongoClientConfig setSocketKeepAlive(boolean socketKeepAlive)
-    {
-        this.socketKeepAlive = socketKeepAlive;
         return this;
     }
 

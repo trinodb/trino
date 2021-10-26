@@ -24,7 +24,7 @@ replacing the properties as appropriate:
 .. code-block:: text
 
     connector.name=mongodb
-    mongodb.seeds=host1,host:port
+    mongodb.connection-string=protocol://user:pass@sample.host:27017/
 
 Multiple MongoDB clusters
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -43,17 +43,15 @@ The following configuration properties are available:
 ========================================== ==============================================================
 Property Name                              Description
 ========================================== ==============================================================
-``mongodb.seeds``                          List of all MongoDB servers
+``mongodb.connection-string``              The connection uri that the driver uses to connect to a MongoDB deployment
 ``mongodb.schema-collection``              A collection which contains schema information
 ``mongodb.case-insensitive-name-matching`` Match database and collection names case insensitively
-``mongodb.credentials``                    List of credentials
 ``mongodb.min-connections-per-host``       The minimum size of the connection pool per host
 ``mongodb.connections-per-host``           The maximum size of the connection pool per host
 ``mongodb.max-wait-time``                  The maximum wait time
 ``mongodb.max-connection-idle-time``       The maximum idle time of a pooled connection
 ``mongodb.connection-timeout``             The socket connect timeout
 ``mongodb.socket-timeout``                 The socket timeout
-``mongodb.socket-keep-alive``              Whether keep-alive is enabled on each socket
 ``mongodb.ssl.enabled``                    Use TLS/SSL for connections to mongod/mongos
 ``mongodb.read-preference``                The read preference
 ``mongodb.write-concern``                  The write concern
@@ -61,12 +59,14 @@ Property Name                              Description
 ``mongodb.cursor-batch-size``              The number of elements to return in a batch
 ========================================== ==============================================================
 
-``mongodb.seeds``
+``mongodb.connection-string``
 ^^^^^^^^^^^^^^^^^
 
-Comma-separated list of ``hostname[:port]`` all MongoDB servers in the same replica set, or a list of MongoDB servers in the same sharded cluster. If a port is not specified, port 27017 will be used.
+A string containing the protocol, credential and host info for use in connection to your MongoDB deployment.
 
-This property is required; there is no default and at least one seed must be defined.
+This could be 'mongodb://host1:27017,host2:27017,host3:27017/", mongodb://user:pass@sample.host:27017/ , mongodb+srv://kay:myRealPassword@cluster0.mongodb.net/
+
+This property is required
 
 ``mongodb.schema-collection``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -83,13 +83,6 @@ This property is optional; the default is ``_schema``.
 Match database and collection names case insensitively.
 
 This property is optional; the default is ``false``.
-
-``mongodb.credentials``
-^^^^^^^^^^^^^^^^^^^^^^^
-
-A comma separated list of ``username:password@database`` credentials.
-
-This property is optional; no default value. The ``database`` should be the authentication database for the user (e.g. ``admin``).
 
 ``mongodb.min-connections-per-host``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -135,13 +128,6 @@ The socket timeout in milliseconds. It is used for I/O socket read and write ope
 
 This property is optional; the default is ``0`` and means no timeout.
 
-``mongodb.socket-keep-alive``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-This flag controls the socket keep alive feature that keeps a connection alive through firewalls.
-
-This property is optional; the default is ``true``.
-
 ``mongodb.ssl.enabled``
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -161,8 +147,7 @@ This property is optional; the default is ``PRIMARY``.
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The write concern to use. The available values are
-``ACKNOWLEDGED``, ``FSYNC_SAFE``, ``FSYNCED``, ``JOURNAL_SAFEY``, ``JOURNALED``, ``MAJORITY``,
-``NORMAL``, ``REPLICA_ACKNOWLEDGED``, ``REPLICAS_SAFE`` and ``UNACKNOWLEDGED``.
+``ACKNOWLEDGED`` and ``UNACKNOWLEDGED``.
 
 This property is optional; the default is ``ACKNOWLEDGED``.
 
