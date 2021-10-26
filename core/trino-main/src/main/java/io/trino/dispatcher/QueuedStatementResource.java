@@ -29,6 +29,7 @@ import io.trino.server.HttpRequestSessionContextFactory;
 import io.trino.server.ProtocolConfig;
 import io.trino.server.ServerConfig;
 import io.trino.server.SessionContext;
+import io.trino.server.StartupStatus;
 import io.trino.server.protocol.QueryInfoUrlFactory;
 import io.trino.server.protocol.Slug;
 import io.trino.server.security.ResourceSecurity;
@@ -90,6 +91,7 @@ import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 import static javax.ws.rs.core.MediaType.TEXT_PLAIN_TYPE;
 import static javax.ws.rs.core.Response.Status.BAD_REQUEST;
 import static javax.ws.rs.core.Response.Status.NOT_FOUND;
+import static javax.ws.rs.core.Response.Status.SERVICE_UNAVAILABLE;
 
 @Path("/v1/statement")
 public class QueuedStatementResource
@@ -103,6 +105,8 @@ public class QueuedStatementResource
     private final DispatchManager dispatchManager;
 
     private final QueryInfoUrlFactory queryInfoUrlFactory;
+
+    private final StartupStatus startupStatus;
 
     private final Executor responseExecutor;
     private final ScheduledExecutorService timeoutExecutor;
@@ -118,6 +122,7 @@ public class QueuedStatementResource
             DispatchManager dispatchManager,
             DispatchExecutor executor,
             QueryInfoUrlFactory queryInfoUrlTemplate,
+            StartupStatus startupStatus,
             ServerConfig serverConfig,
             ProtocolConfig protocolConfig)
     {
@@ -126,6 +131,7 @@ public class QueuedStatementResource
         this.responseExecutor = requireNonNull(executor, "executor is null").getExecutor();
         this.timeoutExecutor = requireNonNull(executor, "executor is null").getScheduledExecutor();
         this.queryInfoUrlFactory = requireNonNull(queryInfoUrlTemplate, "queryInfoUrlTemplate is null");
+        this.startupStatus = requireNonNull(startupStatus, "startupStatus is null");
         this.compressionEnabled = requireNonNull(serverConfig, "serverConfig is null").isQueryResultsCompressionEnabled();
         this.alternateHeaderName = requireNonNull(protocolConfig, "protocolConfig is null").getAlternateHeaderName();
 
@@ -179,6 +185,9 @@ public class QueuedStatementResource
     {
         if (isNullOrEmpty(statement)) {
             throw badRequest(BAD_REQUEST, "SQL statement is empty");
+        }
+        if (!startupStatus.isStartupComplete()) {
+            throw badRequest(SERVICE_UNAVAILABLE, "Trino server is still initializing");
         }
 
         Optional<String> remoteAddress = Optional.ofNullable(servletRequest.getRemoteAddr());
