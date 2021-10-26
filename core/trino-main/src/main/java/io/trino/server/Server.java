@@ -140,7 +140,7 @@ public class Server
 
             injector.getInstance(Announcer.class).start();
 
-            injector.getInstance(ServerInfoResource.class).startupComplete();
+            injector.getInstance(StartupStatus.class).startupComplete();
 
             log.info("======== SERVER STARTED ========");
         }
