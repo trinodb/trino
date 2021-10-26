@@ -103,6 +103,9 @@ import static io.trino.plugin.hive.HivePartitionManager.extractPartitionValues;
 import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.makePartitionName;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.verifyCanDropColumn;
+import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.SchemaType.DATABASE;
+import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.SchemaType.PARTITION;
+import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.SchemaType.TABLE;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig.VERSION_COMPATIBILITY_CONFIG;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig.VersionCompatibility.UNSAFE_ASSUME_COMPATIBILITY;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
@@ -198,7 +201,7 @@ public class FileHiveMetastore
         verifyDatabaseNotExists(database.getDatabaseName());
 
         Path databaseMetadataDirectory = getDatabaseMetadataDirectory(database.getDatabaseName());
-        writeSchemaFile("database", databaseMetadataDirectory, databaseCodec, new DatabaseMetadata(currentVersion, database), false);
+        writeSchemaFile(DATABASE, databaseMetadataDirectory, databaseCodec, new DatabaseMetadata(currentVersion, database), false);
     }
 
     @Override
@@ -243,7 +246,7 @@ public class FileHiveMetastore
                 .setOwnerType(principal.getType())
                 .build();
 
-        writeSchemaFile("database", databaseMetadataDirectory, databaseCodec, new DatabaseMetadata(currentVersion, newDatabase), true);
+        writeSchemaFile(DATABASE, databaseMetadataDirectory, databaseCodec, new DatabaseMetadata(currentVersion, newDatabase), true);
     }
 
     @Override
@@ -252,7 +255,7 @@ public class FileHiveMetastore
         requireNonNull(databaseName, "databaseName is null");
 
         Path databaseMetadataDirectory = getDatabaseMetadataDirectory(databaseName);
-        return readSchemaFile("database", databaseMetadataDirectory, databaseCodec)
+        return readSchemaFile(DATABASE, databaseMetadataDirectory, databaseCodec)
                 .map(databaseMetadata -> {
                     checkVersion(databaseMetadata.getWriterVersion());
                     return databaseMetadata.toDatabase(databaseName, databaseMetadataDirectory.toString());
@@ -313,7 +316,7 @@ public class FileHiveMetastore
             throw new TrinoException(NOT_SUPPORTED, "Table type not supported: " + table.getTableType());
         }
 
-        writeSchemaFile("table", tableMetadataDirectory, tableCodec, new TableMetadata(currentVersion, table), false);
+        writeSchemaFile(TABLE, tableMetadataDirectory, tableCodec, new TableMetadata(currentVersion, table), false);
 
         for (Entry<String, Collection<HivePrivilegeInfo>> entry : principalPrivileges.getUserPrivileges().asMap().entrySet()) {
             setTablePrivileges(new HivePrincipal(USER, entry.getKey()), table.getDatabaseName(), table.getTableName(), entry.getValue());
@@ -335,7 +338,7 @@ public class FileHiveMetastore
         requireNonNull(tableName, "tableName is null");
 
         Path tableMetadataDirectory = getTableMetadataDirectory(databaseName, tableName);
-        return readSchemaFile("table", tableMetadataDirectory, tableCodec)
+        return readSchemaFile(TABLE, tableMetadataDirectory, tableCodec)
                 .map(tableMetadata -> {
                     checkVersion(tableMetadata.getWriterVersion());
                     return tableMetadata.toTable(databaseName, tableName, tableMetadataDirectory.toString());
@@ -356,7 +359,7 @@ public class FileHiveMetastore
                 .setOwner(principal.getName())
                 .build();
 
-        writeSchemaFile("table", tableMetadataDirectory, tableCodec, new TableMetadata(currentVersion, newTable), true);
+        writeSchemaFile(TABLE, tableMetadataDirectory, tableCodec, new TableMetadata(currentVersion, newTable), true);
     }
 
     @Override
@@ -374,7 +377,7 @@ public class FileHiveMetastore
     private synchronized PartitionStatistics getTableStatistics(String databaseName, String tableName)
     {
         Path tableMetadataDirectory = getTableMetadataDirectory(databaseName, tableName);
-        TableMetadata tableMetadata = readSchemaFile("table", tableMetadataDirectory, tableCodec)
+        TableMetadata tableMetadata = readSchemaFile(TABLE, tableMetadataDirectory, tableCodec)
                 .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
         checkVersion(tableMetadata.getWriterVersion());
         HiveBasicStatistics basicStatistics = getHiveBasicStatistics(tableMetadata.getParameters());
@@ -392,7 +395,7 @@ public class FileHiveMetastore
     private synchronized PartitionStatistics getPartitionStatistics(Table table, List<String> partitionValues)
     {
         Path partitionDirectory = getPartitionMetadataDirectory(table, ImmutableList.copyOf(partitionValues));
-        PartitionMetadata partitionMetadata = readSchemaFile("partition", partitionDirectory, partitionCodec)
+        PartitionMetadata partitionMetadata = readSchemaFile(PARTITION, partitionDirectory, partitionCodec)
                 .orElseThrow(() -> new PartitionNotFoundException(table.getSchemaTableName(), partitionValues));
         HiveBasicStatistics basicStatistics = getHiveBasicStatistics(partitionMetadata.getParameters());
         return new PartitionStatistics(basicStatistics, partitionMetadata.getColumnStatistics());
@@ -418,7 +421,7 @@ public class FileHiveMetastore
         PartitionStatistics updatedStatistics = update.apply(originalStatistics);
 
         Path tableMetadataDirectory = getTableMetadataDirectory(databaseName, tableName);
-        TableMetadata tableMetadata = readSchemaFile("table", tableMetadataDirectory, tableCodec)
+        TableMetadata tableMetadata = readSchemaFile(TABLE, tableMetadataDirectory, tableCodec)
                 .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
         checkVersion(tableMetadata.getWriterVersion());
 
@@ -426,7 +429,7 @@ public class FileHiveMetastore
                 .withParameters(currentVersion, updateStatisticsParameters(tableMetadata.getParameters(), updatedStatistics.getBasicStatistics()))
                 .withColumnStatistics(currentVersion, updatedStatistics.getColumnStatistics());
 
-        writeSchemaFile("table", tableMetadataDirectory, tableCodec, updatedMetadata, true);
+        writeSchemaFile(TABLE, tableMetadataDirectory, tableCodec, updatedMetadata, true);
     }
 
     @Override
@@ -438,14 +441,14 @@ public class FileHiveMetastore
 
             List<String> partitionValues = extractPartitionValues(partitionName);
             Path partitionDirectory = getPartitionMetadataDirectory(table, partitionValues);
-            PartitionMetadata partitionMetadata = readSchemaFile("partition", partitionDirectory, partitionCodec)
+            PartitionMetadata partitionMetadata = readSchemaFile(PARTITION, partitionDirectory, partitionCodec)
                     .orElseThrow(() -> new PartitionNotFoundException(new SchemaTableName(table.getDatabaseName(), table.getTableName()), partitionValues));
 
             PartitionMetadata updatedMetadata = partitionMetadata
                     .withParameters(updateStatisticsParameters(partitionMetadata.getParameters(), updatedStatistics.getBasicStatistics()))
                     .withColumnStatistics(updatedStatistics.getColumnStatistics());
 
-            writeSchemaFile("partition", partitionDirectory, partitionCodec, updatedMetadata, true);
+            writeSchemaFile(PARTITION, partitionDirectory, partitionCodec, updatedMetadata, true);
         });
     }
 
@@ -521,7 +524,7 @@ public class FileHiveMetastore
         }
         else {
             // in this case we only wan to delete the metadata of a managed table
-            deleteSchemaFile("table", tableMetadataDirectory);
+            deleteSchemaFile(TABLE, tableMetadataDirectory);
             deleteTablePrivileges(table);
         }
     }
@@ -535,7 +538,7 @@ public class FileHiveMetastore
         }
 
         Path tableMetadataDirectory = getTableMetadataDirectory(table);
-        writeSchemaFile("table", tableMetadataDirectory, tableCodec, new TableMetadata(currentVersion, newTable), true);
+        writeSchemaFile(TABLE, tableMetadataDirectory, tableCodec, new TableMetadata(currentVersion, newTable), true);
 
         // replace existing permissions
         deleteTablePrivileges(table);
@@ -699,7 +702,7 @@ public class FileHiveMetastore
 
         Path tableMetadataDirectory = getTableMetadataDirectory(databaseName, tableName);
 
-        TableMetadata oldTableSchema = readSchemaFile("table", tableMetadataDirectory, tableCodec)
+        TableMetadata oldTableSchema = readSchemaFile(TABLE, tableMetadataDirectory, tableCodec)
                 .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
         checkVersion(oldTableSchema.getWriterVersion());
 
@@ -708,7 +711,7 @@ public class FileHiveMetastore
             return;
         }
 
-        writeSchemaFile("table", tableMetadataDirectory, tableCodec, newTableSchema, true);
+        writeSchemaFile(TABLE, tableMetadataDirectory, tableCodec, newTableSchema, true);
     }
 
     @Override
@@ -812,7 +815,7 @@ public class FileHiveMetastore
             deleteMetadataDirectory(partitionMetadataDirectory);
         }
         else {
-            deleteSchemaFile("partition", partitionMetadataDirectory);
+            deleteSchemaFile(PARTITION, partitionMetadataDirectory);
         }
     }
 
@@ -825,7 +828,7 @@ public class FileHiveMetastore
         verifiedPartition(table, partition);
 
         Path partitionMetadataDirectory = getPartitionMetadataDirectory(table, partition.getValues());
-        writeSchemaFile("partition", partitionMetadataDirectory, partitionCodec, new PartitionMetadata(table, partitionWithStatistics), true);
+        writeSchemaFile(PARTITION, partitionMetadataDirectory, partitionCodec, new PartitionMetadata(table, partitionWithStatistics), true);
     }
 
     @Override
@@ -1063,7 +1066,7 @@ public class FileHiveMetastore
         requireNonNull(partitionValues, "partitionValues is null");
 
         Path partitionDirectory = getPartitionMetadataDirectory(table, partitionValues);
-        return readSchemaFile("partition", partitionDirectory, partitionCodec)
+        return readSchemaFile(PARTITION, partitionDirectory, partitionCodec)
                 .map(partitionMetadata -> partitionMetadata.toPartition(table.getDatabaseName(), table.getTableName(), partitionValues, partitionDirectory.toString()));
     }
 
@@ -1261,7 +1264,7 @@ public class FileHiveMetastore
                 UNSAFE_ASSUME_COMPATIBILITY));
     }
 
-    private <T> Optional<T> readSchemaFile(String type, Path metadataDirectory, JsonCodec<T> codec)
+    private <T> Optional<T> readSchemaFile(SchemaType type, Path metadataDirectory, JsonCodec<T> codec)
     {
         return readFile(type + " schema", getSchemaPath(metadataDirectory), codec);
     }
@@ -1283,7 +1286,7 @@ public class FileHiveMetastore
         }
     }
 
-    private <T> void writeSchemaFile(String type, Path directory, JsonCodec<T> codec, T value, boolean overwrite)
+    private <T> void writeSchemaFile(SchemaType type, Path directory, JsonCodec<T> codec, T value, boolean overwrite)
     {
         writeFile(type + " schema", getSchemaPath(directory), codec, value, overwrite);
     }
@@ -1311,7 +1314,7 @@ public class FileHiveMetastore
         }
     }
 
-    private void deleteSchemaFile(String type, Path metadataDirectory)
+    private void deleteSchemaFile(SchemaType type, Path metadataDirectory)
     {
         try {
             if (!metadataFileSystem.delete(getSchemaPath(metadataDirectory), false)) {
@@ -1434,6 +1437,18 @@ public class FileHiveMetastore
                     .add("role", role)
                     .add("grantee", grantee)
                     .toString();
+        }
+    }
+
+    // Visible to allow import into this file
+    enum SchemaType
+    {
+        DATABASE, TABLE, PARTITION;
+
+        @Override
+        public String toString()
+        {
+            return name().toLowerCase(Locale.ENGLISH);
         }
     }
 }
