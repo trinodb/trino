@@ -14,13 +14,13 @@
 package io.trino.tests.product.hive;
 
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.inject.Inject;
 import io.airlift.units.DataSize;
 import io.trino.plugin.hive.HiveTimestampPrecision;
-import io.trino.tempto.ProductTest;
 import io.trino.tempto.assertions.QueryAssert.Row;
 import io.trino.tempto.query.QueryExecutionException;
 import io.trino.tempto.query.QueryExecutor.QueryParam;
@@ -34,22 +34,31 @@ import org.testng.annotations.Test;
 
 import javax.inject.Named;
 
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.JDBCType;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -70,14 +79,16 @@ import static io.trino.tests.product.utils.JdbcDriverUtils.setSessionProperty;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Collections.nCopies;
+import static java.util.Collections.unmodifiableList;
 import static java.util.Comparator.comparingInt;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 public class TestHiveStorageFormats
-        extends ProductTest
+        extends HiveProductTest
 {
     private static final String TPCH_SCHEMA = "tiny";
 
@@ -750,7 +761,308 @@ public class TestHiveStorageFormats
         runLargeInsert(storageFormat("ORC", ImmutableMap.of("hive.orc_optimized_writer_validate", "true")));
     }
 
-    private void runLargeInsert(StorageFormat storageFormat)
+    private static class DataTypesTestSetup
+    {
+        private final int rowCount;
+        private final List<ColumnSetup> columns;
+
+        public DataTypesTestSetup(List<ColumnSetup> columns)
+        {
+            requireNonNull(columns, "columns is null");
+            checkArgument(!columns.isEmpty(), "columns are empty");
+
+            rowCount = columns.get(0).getHiveExpectedValues().size();
+
+            checkArgument(
+                    columns.stream().allMatch(columnSetup -> columnSetup.getHiveExpectedValues().size() == rowCount),
+                    "Expected rowcount to be %s for all columns",
+                    rowCount);
+
+            this.columns = ImmutableList.copyOf(columns);
+        }
+
+        public List<ColumnSetup> getColumns()
+        {
+            return columns;
+        }
+
+        int getRowCount()
+        {
+            return rowCount;
+        }
+
+        public List<String> getInsertedValuesForRow(int row)
+        {
+            checkArgument(row < rowCount, "cannot find row %s (%s total rows)", row, rowCount);
+            return columns.stream()
+                    .map(ColumnSetup::getInsertedValues)
+                    .map(values -> values.get(row))
+                    .collect(Collectors.toCollection(ArrayList::new));
+        }
+
+        public List<Row> getHiveExpectedValuesAsRows()
+        {
+            ImmutableList.Builder<Row> rows = ImmutableList.builder();
+            for (int row = 0; row < rowCount; ++row) {
+                rows.add(getExpectedValuesForRow(row, ColumnSetup::getHiveExpectedValues));
+            }
+            return rows.build();
+        }
+
+        public List<Row> getTrinoExpectedValuesAsRows()
+        {
+            ImmutableList.Builder<Row> rows = ImmutableList.builder();
+            for (int row = 0; row < rowCount; ++row) {
+                rows.add(getExpectedValuesForRow(row, ColumnSetup::getTrinoExpectedValues));
+            }
+            return rows.build();
+        }
+
+        private Row getExpectedValuesForRow(int row, Function<ColumnSetup, List<Object>> expectedValuesSupplier)
+        {
+            checkArgument(row < rowCount, "cannot find row %s (%s total rows)", row, rowCount);
+            List<Object> rowValues = columns.stream()
+                    .map(expectedValuesSupplier)
+                    .map(values -> values.get(row))
+                    .collect(Collectors.toCollection(ArrayList::new));
+            return new Row(rowValues);
+        }
+
+        private static class ColumnSetup
+        {
+            private final String columnName;
+            private final String dataType;
+            private final List<String> insertedValues;
+            private final List<Object> hiveExpectedValues;
+            private final List<Object> trinoExpectedValues;
+
+            public ColumnSetup(String columnName, String dataType, List<String> insertedValues, List<Object> hiveExpectedValues, List<Object> trinoExpectedValues)
+            {
+                this.columnName = requireNonNull(columnName, "columnName is null");
+                this.dataType = requireNonNull(dataType, "dataType is null");
+                requireNonNull(insertedValues, "insertedValues is null");
+                requireNonNull(hiveExpectedValues, "hiveExpectedValues is null");
+                checkArgument(insertedValues.size() == hiveExpectedValues.size(), "size of insertedValues  (%s) and hiveExpectedValues (%s) does not match", insertedValues.size(), hiveExpectedValues.size());
+                checkArgument(trinoExpectedValues.size() == hiveExpectedValues.size(), "size of insertedValues  (%s) and trinoExpectedValues (%s) does not match", insertedValues.size(), trinoExpectedValues.size());
+                this.insertedValues = unmodifiableList(new ArrayList<>(insertedValues));
+                this.hiveExpectedValues = unmodifiableList(new ArrayList<>(hiveExpectedValues));
+                this.trinoExpectedValues = unmodifiableList(new ArrayList<>(trinoExpectedValues));
+            }
+
+            public String getColumnName()
+            {
+                return columnName;
+            }
+
+            public String getDataType()
+            {
+                return dataType;
+            }
+
+            public List<String> getInsertedValues()
+            {
+                return insertedValues;
+            }
+
+            public List<Object> getHiveExpectedValues()
+            {
+                return hiveExpectedValues;
+            }
+
+            public List<Object> getTrinoExpectedValues()
+            {
+                return trinoExpectedValues;
+            }
+        }
+
+        public static Builder builder()
+        {
+            return new Builder();
+        }
+
+        private static class Builder
+        {
+            private final Map<String, String> columns = new LinkedHashMap<>();
+            private final Map<String, List<String>> insertedValues = new LinkedHashMap<>();
+            private final Map<String, List<Object>> hiveExpectedValues = new LinkedHashMap<>();
+            private final Map<String, List<Object>> trinoExpectedValues = new LinkedHashMap<>();
+
+            public void addColumn(String columnName, String dataType)
+            {
+                checkArgument(!columns.containsKey(columnName), columnName, "column %s already defined", columnName);
+                columns.put(columnName, dataType);
+                insertedValues.put(columnName, new ArrayList<>());
+                hiveExpectedValues.put(columnName, new ArrayList<>());
+                trinoExpectedValues.put(columnName, new ArrayList<>());
+            }
+
+            public void addValue(String columnName, String insertedValue, Object expectedValue)
+            {
+                addValue(columnName, insertedValue, expectedValue, expectedValue);
+            }
+
+            public void addValue(String columnName, String insertedValue, Object hiveExpectedValue, Object trinoExpectedValue)
+            {
+                checkArgument(columns.containsKey(columnName), columnName, "column %s not defined", columnName);
+                insertedValues.get(columnName).add(insertedValue);
+                hiveExpectedValues.get(columnName).add(hiveExpectedValue);
+                trinoExpectedValues.get(columnName).add(trinoExpectedValue);
+            }
+
+            public DataTypesTestSetup build()
+            {
+                checkState(!columns.isEmpty(), "no columns defined");
+                long rowCount = insertedValues.values().stream()
+                        .mapToLong(List::size)
+                        .max()
+                        .orElseThrow();
+
+                ImmutableList.Builder<ColumnSetup> columnSetups = ImmutableList.builder();
+
+                for (String columnName : columns.keySet()) {
+                    String dataType = columns.get(columnName);
+                    List<String> columnInsertedValues = insertedValues.get(columnName);
+                    List<Object> columnHiveExpectedValues = hiveExpectedValues.get(columnName);
+                    List<Object> columnTrinoExpectedValues = trinoExpectedValues.get(columnName);
+                    verify(columnHiveExpectedValues.size() == columnTrinoExpectedValues.size());
+                    if (columnInsertedValues.size() < rowCount) {
+                        int missingRows = (int) (rowCount - columnInsertedValues.size());
+                        columnInsertedValues.addAll(nCopies(missingRows, "NULL"));
+                        columnHiveExpectedValues.addAll(nCopies(missingRows, null));
+                        columnTrinoExpectedValues.addAll(nCopies(missingRows, null));
+                    }
+                    columnSetups.add(new ColumnSetup(columnName, dataType, columnInsertedValues, columnHiveExpectedValues, columnTrinoExpectedValues));
+                }
+
+                return new DataTypesTestSetup(columnSetups.build());
+            }
+
+            public Set<String> getColumnNames()
+            {
+                return ImmutableSet.copyOf(columns.keySet());
+            }
+        }
+    }
+
+    @Test(dataProvider = "hiveStorageFormats", groups = STORAGE_FORMATS_DETAILED)
+    public void testAllDataTypesHiveCreated(HiveStorageFormat storageFormat)
+    {
+        DataTypesTestSetup.Builder setupBuilder = DataTypesTestSetup.builder();
+
+        setupBuilder.addColumn("a_tinyint", "TINYINT");
+        setupBuilder.addValue("a_tinyint", "127", (byte) 127);
+        setupBuilder.addValue("a_tinyint", "-128", (byte) -128);
+
+        setupBuilder.addColumn("a_smallint", "SMALLINT");
+        setupBuilder.addValue("a_smallint", "32767", (short) 32767);
+        setupBuilder.addValue("a_smallint", "-32768", (short) -32768);
+
+        setupBuilder.addColumn("an_int", "INT");
+        setupBuilder.addValue("an_int", "1000000000", 1000000000);
+        setupBuilder.addValue("an_int", "-1000000012", -1000000012);
+
+        setupBuilder.addColumn("a_bigint", "BIGINT");
+        setupBuilder.addValue("a_bigint", "1000000000000000", 1000000000000000L);
+        setupBuilder.addValue("a_bigint", "-1000000000000012", -1000000000000012L);
+
+        setupBuilder.addColumn("a_float", "FLOAT");
+        setupBuilder.addValue("a_float", "10000000.123", 10000000.123F);
+        setupBuilder.addValue("a_float", "-10000000.123", -10000000.123F);
+
+        setupBuilder.addColumn("a_double", "DOUBLE");
+        setupBuilder.addValue("a_double", "100000000000.123", 100000000000.123);
+        setupBuilder.addValue("a_double", "-100000000000.123", -100000000000.123);
+
+        setupBuilder.addColumn("a_short_decimal", "DECIMAL(10,5)");
+        setupBuilder.addValue("a_short_decimal", "'12345.8901'", new BigDecimal("12345.89010"));
+        setupBuilder.addValue("a_short_decimal", "'-12345.8901'", new BigDecimal("-12345.89010"));
+
+        setupBuilder.addColumn("a_long_decimal", "DECIMAL(30,5)");
+        setupBuilder.addValue("a_long_decimal", "'1234567890123456789.12345'", new BigDecimal("1234567890123456789.12345"));
+        setupBuilder.addValue("a_long_decimal", "'-1234567890123456789.12345'", new BigDecimal("-1234567890123456789.12345"));
+
+        setupBuilder.addColumn("a_timestamp", "TIMESTAMP");
+        if (storageFormat.getStoredAs().equals("AVRO")) {
+            boolean hiveWithBrokenAvroTimestamp = getHiveVersionMajor() == 3 && getHiveVersionMinor() == 1 && getHiveVersionPatch() == 0;
+            setupBuilder.addValue(
+                    "a_timestamp",
+                    "'2005-09-10 13:00:00.123456'",
+                    java.sql.Timestamp.valueOf(LocalDateTime.of(2005, 9, 10, 13, 0, 0, 123_000_000)),
+                    hiveWithBrokenAvroTimestamp ?
+                            java.sql.Timestamp.valueOf(LocalDateTime.of(2005, 9, 10, 18, 45, 0, 123_000_000)) :
+                            java.sql.Timestamp.valueOf(LocalDateTime.of(2005, 9, 10, 13, 0, 0, 123_000_000)));
+            setupBuilder.addValue(
+                    "a_timestamp",
+                    "'1965-09-10 13:00:00.123456'",
+                    java.sql.Timestamp.valueOf(LocalDateTime.of(1965, 9, 10, 13, 0, 0, 123_000_000)),
+                    hiveWithBrokenAvroTimestamp ?
+                            java.sql.Timestamp.valueOf(LocalDateTime.of(1965, 9, 10, 18, 30, 0, 123_000_000)) :
+                            java.sql.Timestamp.valueOf(LocalDateTime.of(1965, 9, 10, 13, 0, 0, 123_000_000)));
+        }
+        else {
+            setupBuilder.addValue(
+                    "a_timestamp",
+                    "'2005-09-10 13:00:00.123456'",
+                    java.sql.Timestamp.valueOf(LocalDateTime.of(2005, 9, 10, 13, 0, 0, 123_456_000)));
+            setupBuilder.addValue(
+                    "a_timestamp",
+                    "'1965-09-10 13:00:00.123456'",
+                    java.sql.Timestamp.valueOf(LocalDateTime.of(1965, 9, 10, 13, 0, 0, 123_456_000)));
+        }
+
+        setupBuilder.addColumn("a_date", "DATE");
+        setupBuilder.addValue("a_date", "'2005-09-10'", java.sql.Date.valueOf(LocalDate.of(2005, 9, 10)));
+        setupBuilder.addValue("a_date", "'1965-09-10'", java.sql.Date.valueOf(LocalDate.of(1965, 9, 10)));
+
+        setupBuilder.addColumn("a_string", "STRING");
+        setupBuilder.addValue("a_string", "'some_string'", "some_string");
+
+        setupBuilder.addColumn("a_varchar", "VARCHAR(20)");
+        setupBuilder.addValue("a_varchar", "'some_varchar'", "some_varchar");
+
+        setupBuilder.addColumn("a_char", "CHAR(20)");
+        setupBuilder.addValue("a_char", "'some_char'", "some_char           ");
+
+        setupBuilder.addColumn("a_boolean", "BOOLEAN");
+        setupBuilder.addValue("a_boolean", "true", true);
+        setupBuilder.addValue("a_boolean", "false", false);
+
+        setupBuilder.addColumn("a_binary", "BINARY");
+        setupBuilder.addValue("a_binary", "'some_binary'", "some_binary".getBytes(US_ASCII)); // todo: it would be better to use unhex('000102') here but it throws "Error invoking signature method"
+
+        // all nulls
+        for (String columnName : setupBuilder.getColumnNames()) {
+            setupBuilder.addValue(columnName, "NULL", null);
+        }
+
+        DataTypesTestSetup setup = setupBuilder.build();
+
+        String tableName = "test_all_data_types_hive_" + storageFormat.getStoredAs() + "_" + randomTableSuffix();
+        onHive().executeQuery(format(
+                "CREATE TABLE %s(" +
+                        setup.columns.stream()
+                                .map(columnSetup -> String.format("%s %s", columnSetup.getColumnName(), columnSetup.getDataType()))
+                                .collect(Collectors.joining(",")) +
+                        ") " +
+                        storageFormat.getRowFormatSerde().map(serde -> " ROW FORMAT SERDE \"" + serde + "\"").orElse("") +
+                        " STORED AS " + storageFormat.getStoredAs(),
+                tableName));
+
+        for (int row = 0; row < setup.getRowCount(); ++row) {
+            onHive().executeQuery("INSERT INTO " + tableName + " VALUES " +
+                    setup.getInsertedValuesForRow(row)
+                            .stream()
+                            .collect(Collectors.joining(", ", "(", ")")));
+        }
+
+        assertThat(onHive().executeQuery("SELECT * FROM " + tableName)).containsOnly(setup.getHiveExpectedValuesAsRows());
+        onTrino().executeQuery("SET SESSION hive.timestamp_precision = 'NANOSECONDS'");
+        assertThat(onTrino().executeQuery("SELECT * FROM " + tableName)).containsOnly(setup.getTrinoExpectedValuesAsRows());
+
+        onHive().executeQuery("DROP TABLE " + tableName);
+    }
+
+    private void runLargeInsert( StorageFormat storageFormat)
     {
         String tableName = "test_large_insert_" + storageFormat.getName() + randomTableSuffix();
         setSessionProperties(storageFormat);
@@ -1038,6 +1350,58 @@ public class TestHiveStorageFormats
                     .add("sessionProperties", sessionProperties)
                     .toString();
         }
+    }
+
+    private static class HiveStorageFormat
+    {
+        private final String storedAs;
+        private final Optional<String> rowFormatSerde;
+
+        public HiveStorageFormat(String storedAs)
+        {
+            this(storedAs, Optional.empty());
+        }
+
+        public HiveStorageFormat(String storedAs, String rowFormatSerde)
+        {
+            this(storedAs, Optional.of(requireNonNull(rowFormatSerde, "rowFormatSerde is null")));
+        }
+
+        private HiveStorageFormat(String storedAs, Optional<String> rowFormatSerde)
+        {
+            this.storedAs = requireNonNull(storedAs, "storedAs is null");
+            this.rowFormatSerde = requireNonNull(rowFormatSerde, "rowFormatSerde is null");
+        }
+
+        public String getStoredAs()
+        {
+            return storedAs;
+        }
+
+        public Optional<String> getRowFormatSerde()
+        {
+            return rowFormatSerde;
+        }
+
+        @Override
+        public String toString()
+        {
+            return storedAs + rowFormatSerde.map(serde -> "/" + serde).orElse("");
+        }
+    }
+
+    @DataProvider
+    public static HiveStorageFormat[] hiveStorageFormats()
+    {
+        return new HiveStorageFormat[] {
+                new HiveStorageFormat("ORC"),
+                new HiveStorageFormat("PARQUET"),
+                new HiveStorageFormat("RCFILE", "org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe"),
+                new HiveStorageFormat("RCFILE", "org.apache.hadoop.hive.serde2.columnar.ColumnarSerDe"),
+                new HiveStorageFormat("SEQUENCEFILE"),
+                new HiveStorageFormat("TEXTFILE"),
+                new HiveStorageFormat("AVRO")
+        };
     }
 
     /**
