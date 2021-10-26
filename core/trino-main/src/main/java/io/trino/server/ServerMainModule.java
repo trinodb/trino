@@ -190,6 +190,8 @@ public class ServerMainModule
             install(new WorkerModule());
         }
 
+        binder.bind(StartupStatus.class).in(Scopes.SINGLETON);
+
         configBinder(binder).bindConfigDefaults(HttpServerConfig.class, httpServerConfig -> {
             httpServerConfig.setAdminEnabled(false);
         });
