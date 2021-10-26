@@ -44,6 +44,7 @@ import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
@@ -53,11 +54,13 @@ import javax.inject.Inject;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -88,7 +91,7 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.realColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.realWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timeColumnMappingUsingSqlTime;
-import static io.trino.plugin.jdbc.StandardColumnMappings.timestampColumnMappingUsingSqlTimestampWithRounding;
+import static io.trino.plugin.jdbc.StandardColumnMappings.timestampColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timestampWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryColumnMapping;
@@ -100,7 +103,8 @@ import static io.trino.plugin.jdbc.UnsupportedTypeHandling.IGNORE;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.RealType.REAL;
-import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
+import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -114,6 +118,7 @@ public class MemSqlClient
 {
     private static final Logger log = Logger.get(MemSqlClient.class);
 
+    static final int MEMSQL_DATE_TIME_MAX_PRECISION = 6;
     static final int MEMSQL_VARCHAR_MAX_LENGTH = 21844;
     static final int MEMSQL_TEXT_MAX_LENGTH = 65535;
     static final int MEMSQL_MEDIUMTEXT_MAX_LENGTH = 16777215;
@@ -176,6 +181,7 @@ public class MemSqlClient
 
         try (Connection connection = connectionFactory.openConnection(session);
                 ResultSet resultSet = getColumns(tableHandle, connection.getMetaData())) {
+            Map<String, Integer> timestampPrecisions = getTimestampPrecisions(connection, tableHandle);
             int allColumns = 0;
             List<JdbcColumnHandle> columns = new ArrayList<>();
             while (resultSet.next()) {
@@ -185,18 +191,22 @@ public class MemSqlClient
                 }
                 allColumns++;
                 String columnName = resultSet.getString("COLUMN_NAME");
+                Optional<Integer> decimalDigits = getInteger(resultSet, "DECIMAL_DIGITS");
+                if (timestampPrecisions.containsKey(columnName)) {
+                    decimalDigits = Optional.of(timestampPrecisions.get(columnName));
+                }
+
                 JdbcTypeHandle typeHandle = new JdbcTypeHandle(
                         getInteger(resultSet, "DATA_TYPE").orElseThrow(() -> new IllegalStateException("DATA_TYPE is null")),
                         Optional.ofNullable(resultSet.getString("TYPE_NAME")),
                         getInteger(resultSet, "COLUMN_SIZE"),
-                        getInteger(resultSet, "DECIMAL_DIGITS"),
+                        decimalDigits,
                         Optional.empty(),
                         Optional.empty());
                 Optional<ColumnMapping> columnMapping = toColumnMapping(session, connection, typeHandle);
                 log.debug("Mapping data type of '%s' column '%s': %s mapped to %s", schemaTableName, columnName, typeHandle, columnMapping);
                 // skip unsupported column types
                 boolean nullable = (resultSet.getInt("NULLABLE") != columnNoNulls);
-                // Note: some databases (e.g. SQL Server) do not return column remarks/comment here.
                 Optional<String> comment = Optional.ofNullable(emptyToNull(resultSet.getString("REMARKS")));
                 if (columnMapping.isPresent()) {
                     columns.add(JdbcColumnHandle.builder()
@@ -217,7 +227,6 @@ public class MemSqlClient
                 }
             }
             if (columns.isEmpty()) {
-                // A table may have no supported columns. In rare cases (e.g. PostgreSQL) a table might have no columns at all.
                 throw new TableNotFoundException(
                         schemaTableName,
                         format("Table '%s' has no supported columns (all %s columns are not supported)", schemaTableName, allColumns));
@@ -236,6 +245,32 @@ public class MemSqlClient
                 Optional.ofNullable(resultSet.getString("TABLE_CAT")),
                 Optional.ofNullable(resultSet.getString("TABLE_SCHEM")),
                 resultSet.getString("TABLE_NAME"));
+    }
+
+    private static Map<String, Integer> getTimestampPrecisions(Connection connection, JdbcTableHandle tableHandle)
+            throws SQLException
+    {
+        // MariaDB JDBC driver doesn't expose timestamp precision when connecting to MemSQL cluster
+        String sql = "" +
+                "SELECT column_name, column_type " +
+                "FROM information_schema.columns " +
+                "WHERE table_schema = ? " +
+                "AND table_name = ? " +
+                "AND column_type IN ('datetime', 'datetime(6)', 'timestamp', 'timestamp(6)')";
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, tableHandle.getCatalogName());
+            statement.setString(2, tableHandle.getTableName());
+
+            Map<String, Integer> timestampColumnPrecisions = new HashMap<>();
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    String columnType = resultSet.getString("column_type");
+                    int size = columnType.equals("datetime") || columnType.equals("timestamp") ? 0 : 6;
+                    timestampColumnPrecisions.put(resultSet.getString("column_name"), size);
+                }
+            }
+            return timestampColumnPrecisions;
+        }
     }
 
     @Override
@@ -300,8 +335,9 @@ public class MemSqlClient
                 // TODO (https://github.com/trinodb/trino/issues/5450) Fix TIME type mapping
                 return Optional.of(timeColumnMappingUsingSqlTime());
             case Types.TIMESTAMP:
-                // TODO (https://github.com/trinodb/trino/issues/5450) Fix Timestamp type mapping
-                return Optional.of(timestampColumnMappingUsingSqlTimestampWithRounding(TIMESTAMP_MILLIS));
+                // TODO (https://github.com/trinodb/trino/issues/5450) Fix DST handling
+                TimestampType timestampType = createTimestampType(typeHandle.getRequiredDecimalDigits());
+                return Optional.of(timestampColumnMapping(timestampType));
         }
 
         if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
@@ -425,9 +461,13 @@ public class MemSqlClient
             return WriteMapping.longMapping("float", realWriteFunction());
         }
         // TODO implement TIME type
-        // TODO add support for other TIMESTAMP precisions
-        if (TIMESTAMP_MILLIS.equals(type)) {
-            return WriteMapping.longMapping("datetime", timestampWriteFunction(TIMESTAMP_MILLIS));
+        if (type instanceof TimestampType) {
+            TimestampType timestampType = (TimestampType) type;
+            checkArgument(timestampType.getPrecision() <= MEMSQL_DATE_TIME_MAX_PRECISION, "The max timestamp precision in MemSQL is 6");
+            if (timestampType.getPrecision() == 0) {
+                return WriteMapping.longMapping("datetime", timestampWriteFunction(timestampType));
+            }
+            return WriteMapping.longMapping(format("datetime(%s)", MEMSQL_DATE_TIME_MAX_PRECISION), timestampWriteFunction(TIMESTAMP_MICROS));
         }
 
         // TODO add explicit mappings
