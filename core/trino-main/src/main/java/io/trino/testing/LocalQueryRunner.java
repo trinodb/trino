@@ -457,7 +457,7 @@ public class LocalQueryRunner
                 transactionId.map(tId -> transactionManager.getTransactionInfo(tId).isAutoCommitContext()));
 
         dataDefinitionTask = ImmutableMap.<Class<? extends Statement>, DataDefinitionTask<?>>builder()
-                .put(CreateTable.class, new CreateTableTask(featuresConfig))
+                .put(CreateTable.class, new CreateTableTask())
                 .put(CreateView.class, new CreateViewTask(sqlParser, groupProvider, statsCalculator))
                 .put(DropTable.class, new DropTableTask())
                 .put(DropView.class, new DropViewTask())

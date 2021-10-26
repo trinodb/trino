@@ -164,9 +164,7 @@ public interface AccessControl
      * Check if identity is allowed to create the specified table.
      *
      * @throws AccessDeniedException if not allowed
-     * @deprecated use {@link #checkCanCreateTable(SecurityContext context, QualifiedObjectName tableName, Map properties)}
      */
-    @Deprecated
     void checkCanCreateTable(SecurityContext context, QualifiedObjectName tableName);
 
     /**

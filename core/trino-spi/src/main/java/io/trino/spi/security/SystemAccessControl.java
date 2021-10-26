@@ -286,9 +286,7 @@ public interface SystemAccessControl
      * Check if identity is allowed to create the specified table in a catalog.
      *
      * @throws AccessDeniedException if not allowed
-     * @deprecated use {@link #checkCanCreateTable(SystemSecurityContext context, CatalogSchemaTableName table, Map properties)} instead
      */
-    @Deprecated
     default void checkCanCreateTable(SystemSecurityContext context, CatalogSchemaTableName table)
     {
         denyCreateTable(table.toString());

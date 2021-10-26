@@ -56,6 +56,9 @@ public class SetPropertiesTask
             List<Expression> parameters,
             WarningCollector warningCollector)
     {
+        // Disable until we fix some issues (nested properties, reset values to their default, etc)
+        throwUnsupportedError(statement);
+
         Session session = stateMachine.getSession();
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName());
 
@@ -78,6 +81,11 @@ public class SetPropertiesTask
         }
 
         return immediateVoidFuture();
+    }
+
+    private void throwUnsupportedError(SetProperties statement)
+    {
+        throw semanticException(NOT_SUPPORTED, statement, "Unsupported statement");
     }
 
     private void setTableProperties(SetProperties statement, QualifiedObjectName tableName, Metadata metadata, AccessControl accessControl, Session session, Map<String, Object> properties)
