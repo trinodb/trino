@@ -29,13 +29,13 @@ import static org.testng.Assert.assertEquals;
 public class TestMongoPlugin
 {
     private MongoServer server;
-    private String connectionString;
+    private String seed;
 
     @BeforeClass
     public void start()
     {
         server = new MongoServer();
-        connectionString = server.getConnectionString().toString();
+        seed = server.getAddress().toString();
     }
 
     @Test
@@ -44,7 +44,7 @@ public class TestMongoPlugin
         MongoPlugin plugin = new MongoPlugin();
 
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        Connector connector = factory.create("test", ImmutableMap.of("mongodb.connection-string", connectionString), new TestingConnectorContext());
+        Connector connector = factory.create("test", ImmutableMap.of("mongodb.seeds", seed), new TestingConnectorContext());
 
         Type type = getOnlyElement(plugin.getTypes());
         assertEquals(type, OBJECT_ID);

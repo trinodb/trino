@@ -51,19 +51,26 @@ public class MongoClientModule
         requireNonNull(config, "config is null");
 
         MongoClientSettings.Builder options = MongoClientSettings.builder();
-        options.applyConnectionString(new ConnectionString(config.getConnectionString()))
-                .writeConcern(config.getWriteConcern().getWriteConcern())
+        options.writeConcern(config.getWriteConcern().getWriteConcern())
                 .readPreference(config.getReadPreference().getReadPreference())
                 .applyToConnectionPoolSettings(builder -> builder.maxConnectionIdleTime(config.getMaxConnectionIdleTime(), SECONDS)
                         .maxWaitTime(config.getMaxWaitTime(), SECONDS)
                         .minSize(config.getMinConnectionsPerHost())
                         .maxSize(config.getConnectionsPerHost()))
-                .applyToClusterSettings(builder -> builder.mode(ClusterConnectionMode.SINGLE))
                 .applyToSocketSettings(builder -> builder.connectTimeout(config.getSocketTimeout(), SECONDS))
                 .applyToSslSettings(builder -> builder.enabled(config.getSslEnabled()));
 
         if (config.getRequiredReplicaSetName() != null) {
             options.applyToClusterSettings(builder -> config.getRequiredReplicaSetName());
+        }
+
+        if (config.getConnectionUrl().isEmpty()) {
+            options.credential(config.getCredentials().get(0));
+            options.applyToClusterSettings(builder -> builder.mode(ClusterConnectionMode.SINGLE)
+                    .hosts(config.getSeeds()));
+        }
+        else {
+            options.applyConnectionString(new ConnectionString(config.getConnectionUrl()));
         }
 
         MongoClient client = MongoClients.create(options.build());

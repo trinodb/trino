@@ -15,6 +15,8 @@ package io.trino.plugin.mongodb;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.mongodb.MongoClientSettings;
+import com.mongodb.ServerAddress;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import io.airlift.log.Logger;
@@ -57,9 +59,10 @@ public final class MongoQueryRunner
 
             Map<String, String> properties = ImmutableMap.of(
                     "mongodb.case-insensitive-name-matching", "true",
-                    "mongodb.connection-string", server.getConnectionString().toString());
+                    "mongodb.seeds", server.getAddress().toString(),
+                    "mongodb.credentials", server.getCredentialString());
             queryRunner.installPlugin(new MongoPlugin());
-            queryRunner.createCatalog("mongodb.connection-string", "mongodb", properties);
+            queryRunner.createCatalog("mongodb", "mongodb", properties);
 
             copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
             return queryRunner;
@@ -80,7 +83,13 @@ public final class MongoQueryRunner
 
     public static MongoClient createMongoClient(MongoServer server)
     {
-        return MongoClients.create(server.getConnectionString());
+        MongoClient mongoClient = MongoClients.create(
+                MongoClientSettings.builder()
+                        .applyToClusterSettings(builder ->
+                                builder.hosts(ImmutableList.of((new ServerAddress(server.getAddress().getHost(), server.getAddress().getPort())))))
+                        .credential(server.getDefaultCredentials())
+                        .build());
+        return mongoClient;
     }
 
     public static void main(String[] args)
@@ -89,7 +98,7 @@ public final class MongoQueryRunner
         Logging.initialize();
         DistributedQueryRunner queryRunner = createMongoQueryRunner(
                 new MongoServer(),
-                ImmutableMap.of("mongodb.connection-string", "mongodb+srv://kay:myRealPassword@cluster0.mongodb.net"),
+                ImmutableMap.of("http-server.http.port", "8080"),
                 TpchTable.getTables());
         Thread.sleep(10);
         Logger log = Logger.get(MongoQueryRunner.class);

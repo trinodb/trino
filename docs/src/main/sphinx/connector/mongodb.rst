@@ -43,9 +43,11 @@ The following configuration properties are available:
 ========================================== ==============================================================
 Property Name                              Description
 ========================================== ==============================================================
+``mongodb.seeds``                          List of all MongoDB servers
 ``mongodb.connection-string``              The connection uri that the driver uses to connect to a MongoDB deployment
 ``mongodb.schema-collection``              A collection which contains schema information
 ``mongodb.case-insensitive-name-matching`` Match database and collection names case insensitively
+``mongodb.credentials``                    List of credentials
 ``mongodb.min-connections-per-host``       The minimum size of the connection pool per host
 ``mongodb.connections-per-host``           The maximum size of the connection pool per host
 ``mongodb.max-wait-time``                  The maximum wait time
@@ -59,14 +61,21 @@ Property Name                              Description
 ``mongodb.cursor-batch-size``              The number of elements to return in a batch
 ========================================== ==============================================================
 
-``mongodb.connection-string``
+``mongodb.seeds``
 ^^^^^^^^^^^^^^^^^
+
+Comma-separated list of ``hostname[:port]`` all MongoDB servers in the same replica set, or a list of MongoDB servers in the same sharded cluster. If a port is not specified, port 27017 will be used.
+
+This property is required; there is no default and at least one seed must be defined. Seeds or a connection string must be provided to connect to a MongoDB deployment.
+
+``mongodb.connection-url``
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 A string containing the protocol, credential and host info for use in connection to your MongoDB deployment.
 
-This could be 'mongodb://host1:27017,host2:27017,host3:27017/", mongodb://user:pass@sample.host:27017/ , mongodb+srv://kay:myRealPassword@cluster0.mongodb.net/
+This could be mongodb://user:pass@sample.host:27017/ or mongodb+srv://kay:myRealPassword@cluster0.mongodb.net/
 
-This property is required
+This property is required there is no default. A connection url or seeds must be provided to connect to a MongoDB deployment.
 
 ``mongodb.schema-collection``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -83,6 +92,13 @@ This property is optional; the default is ``_schema``.
 Match database and collection names case insensitively.
 
 This property is optional; the default is ``false``.
+
+``mongodb.credentials``
+^^^^^^^^^^^^^^^^^^^^^^^
+
+A comma separated list of ``username:password@database`` credentials.
+
+This property is optional; no default value. The ``database`` should be the authentication database for the user (e.g. ``admin``).
 
 ``mongodb.min-connections-per-host``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

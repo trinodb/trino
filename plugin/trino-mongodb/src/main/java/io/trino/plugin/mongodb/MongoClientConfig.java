@@ -21,6 +21,7 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.configuration.DefunctConfig;
 
+import javax.validation.constraints.AssertTrue;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
@@ -31,14 +32,14 @@ import java.util.List;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.mongodb.MongoCredential.createCredential;
 
-@DefunctConfig("mongodb.connection-per-host")
+@DefunctConfig({"mongodb.connection-per-host", "mongodb.socket-keep-alive"})
 public class MongoClientConfig
 {
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
     private static final Splitter PORT_SPLITTER = Splitter.on(':').trimResults().omitEmptyStrings();
 
     private String schemaCollection = "_schema";
-    private String connectionString;
+    private String connectionUrl = "";
     private boolean caseInsensitiveNameMatching;
     private List<ServerAddress> seeds = ImmutableList.of();
     private List<MongoCredential> credentials = ImmutableList.of();
@@ -49,6 +50,7 @@ public class MongoClientConfig
     private int connectionTimeout = 10_000;
     private int socketTimeout;
     private int maxConnectionIdleTime;
+    private boolean socketKeepAlive = true;
     private boolean sslEnabled;
 
     // query configurations
@@ -58,6 +60,17 @@ public class MongoClientConfig
     private WriteConcernType writeConcern = WriteConcernType.ACKNOWLEDGED;
     private String requiredReplicaSetName;
     private String implicitRowFieldPrefix = "_pos";
+
+    @AssertTrue(message = "Exactly one of these 'mongodb.seed' or 'mongodb.connection-url' must be specified")
+    public boolean isConnectionPropertyValid()
+    {
+        if (seeds.isEmpty() && connectionUrl.isEmpty()) {
+            return false;
+        }
+        else {
+            return seeds.isEmpty() || connectionUrl.isEmpty();
+        }
+    }
 
     @NotNull
     public String getSchemaCollection()
@@ -85,15 +98,16 @@ public class MongoClientConfig
     }
 
     @NotNull
-    public String getConnectionString()
+    public String getConnectionUrl()
     {
-        return connectionString;
+        return connectionUrl;
     }
 
-    @Config("mongodb.connection-string")
-    public MongoClientConfig setConnectionString(String connectionString)
+    @Config("mongodb.connection-url")
+    @ConfigSecuritySensitive
+    public MongoClientConfig setConnectionUrl(String connectionUrl)
     {
-        this.connectionString = connectionString;
+        this.connectionUrl = connectionUrl;
         return this;
     }
 
@@ -234,6 +248,18 @@ public class MongoClientConfig
     public MongoClientConfig setSocketTimeout(int socketTimeout)
     {
         this.socketTimeout = socketTimeout;
+        return this;
+    }
+
+    public boolean getSocketKeepAlive()
+    {
+        return socketKeepAlive;
+    }
+
+    @Config("mongodb.socket-keep-alive")
+    public MongoClientConfig setSocketKeepAlive(boolean socketKeepAlive)
+    {
+        this.socketKeepAlive = socketKeepAlive;
         return this;
     }
 

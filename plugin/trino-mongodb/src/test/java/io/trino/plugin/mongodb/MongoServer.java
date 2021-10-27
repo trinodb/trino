@@ -14,7 +14,7 @@
 package io.trino.plugin.mongodb;
 
 import com.google.common.net.HostAndPort;
-import com.mongodb.ConnectionString;
+import com.mongodb.MongoCredential;
 import org.testcontainers.containers.MongoDBContainer;
 
 import java.io.Closeable;
@@ -23,14 +23,17 @@ public class MongoServer
         implements Closeable
 {
     private static final int MONGO_PORT = 27017;
+    private static final String CONNECTION_STRING = "mongodb://localhost:8080";
 
     private final MongoDBContainer dockerContainer;
 
-    private static final String CONNECTION_STRING = "mongodb://kay:myRealPassword@cluster0.mongodb.net";
+    private static final String USER = "mongoAdmin";
+    private static final String PASSWORD = "secret1234";
+    private static final String DATABASE = "tpch";
 
     public MongoServer()
     {
-        this("4.3.3");
+        this("4.0");
     }
 
     public MongoServer(String mongoVersion)
@@ -38,6 +41,8 @@ public class MongoServer
         this.dockerContainer = new MongoDBContainer("mongo:" + mongoVersion)
                 .withStartupAttempts(3)
                 .withEnv("MONGODB_CONNSTRING", CONNECTION_STRING)
+                .withEnv("MONGO_INITDB_ROOT_USERNAME", USER)
+                .withEnv("MONGO_INITDB_ROOT_PASSWORD", PASSWORD)
                 .withCommand("--bind_ip 0.0.0.0");
         this.dockerContainer.start();
     }
@@ -47,9 +52,14 @@ public class MongoServer
         return HostAndPort.fromParts(dockerContainer.getContainerIpAddress(), dockerContainer.getMappedPort(MONGO_PORT));
     }
 
-    public ConnectionString getConnectionString()
+    public MongoCredential getDefaultCredentials()
     {
-        return new ConnectionString(CONNECTION_STRING);
+        return MongoCredential.createCredential(USER, DATABASE, PASSWORD.toCharArray());
+    }
+
+    public String getCredentialString()
+    {
+        return String.format("%s:%s@%s", USER, PASSWORD, DATABASE);
     }
 
     @Override

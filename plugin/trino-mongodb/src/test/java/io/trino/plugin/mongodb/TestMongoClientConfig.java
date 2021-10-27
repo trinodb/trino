@@ -30,9 +30,11 @@ public class TestMongoClientConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(MongoClientConfig.class)
-                .setConnectionString("")
+                .setConnectionUrl("")
                 .setSchemaCollection("_schema")
                 .setCaseInsensitiveNameMatching(false)
+                .setSeeds("")
+                .setCredentials("")
                 .setMinConnectionsPerHost(0)
                 .setConnectionsPerHost(100)
                 .setMaxWaitTime(120_000)
@@ -51,9 +53,11 @@ public class TestMongoClientConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("mongodb.connection-string", "mongodb://user:pass@sample.host:27017/")
+                .put("mongodb.connection-url", "mongodb://user:pass@sample.host:27017/")
                 .put("mongodb.schema-collection", "_my_schema")
                 .put("mongodb.case-insensitive-name-matching", "true")
+                .put("mongodb.seeds", "host1,host2:27016")
+                .put("mongodb.credentials", "username:password@collection")
                 .put("mongodb.min-connections-per-host", "1")
                 .put("mongodb.connections-per-host", "99")
                 .put("mongodb.max-wait-time", "120001")
@@ -69,9 +73,11 @@ public class TestMongoClientConfig
                 .build();
 
         MongoClientConfig expected = new MongoClientConfig()
-                .setConnectionString("mongodb://user:pass@sample.host:27017/")
+                .setConnectionUrl("mongodb://user:pass@sample.host:27017/")
                 .setSchemaCollection("_my_schema")
                 .setCaseInsensitiveNameMatching(true)
+                .setSeeds("host1", "host2:27016")
+                .setCredentials("username:password@collection")
                 .setMinConnectionsPerHost(1)
                 .setConnectionsPerHost(99)
                 .setMaxWaitTime(120_001)
