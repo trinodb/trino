@@ -2904,13 +2904,6 @@ public class HiveMetadata
             throw new TrinoException(NOT_SUPPORTED, "Writing to bucketed sorted Hive tables is disabled");
         }
 
-        List<Column> dataColumn = getColumnHandles(tableMetadata, ImmutableSet.copyOf(partitionedBy)).stream()
-                .map(HiveColumnHandle::toMetastoreColumn)
-                .collect(toImmutableList());
-        if (!isSupportedBucketing(bucketProperty.get(), dataColumn, tableMetadata.getTable().getTableName())) {
-            throw new TrinoException(NOT_SUPPORTED, "Cannot write to a table bucketed on an unsupported type");
-        }
-
         List<String> bucketedBy = bucketProperty.get().getBucketedBy();
         Map<String, HiveType> hiveTypeMap = tableMetadata.getColumns().stream()
                 .collect(toMap(ColumnMetadata::getName, column -> toHiveType(column.getType())));
@@ -3109,6 +3102,13 @@ public class HiveMetadata
 
         if (sortedBy.stream().anyMatch(partitionColumns::contains)) {
             throw new TrinoException(INVALID_TABLE_PROPERTY, format("Sorting columns %s are also used as partitioning columns", Sets.intersection(ImmutableSet.copyOf(sortedBy), partitionColumns)));
+        }
+
+        List<Column> dataColumns = tableMetadata.getColumns().stream()
+                .map(columnMetadata -> new Column(columnMetadata.getName(), toHiveType(columnMetadata.getType()), Optional.ofNullable(columnMetadata.getComment())))
+                .collect(toImmutableList());
+        if (!isSupportedBucketing(bucketProperty.get(), dataColumns, tableMetadata.getTable().getTableName())) {
+            throw new TrinoException(NOT_SUPPORTED, "Cannot create a table bucketed on an unsupported type");
         }
     }
 
