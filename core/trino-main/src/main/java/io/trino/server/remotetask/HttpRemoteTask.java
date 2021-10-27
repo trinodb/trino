@@ -281,6 +281,7 @@ public final class HttpRemoteTask
 
             this.taskInfoFetcher = new TaskInfoFetcher(
                     this::failTask,
+                    taskStatusFetcher,
                     initialTask,
                     httpClient,
                     taskInfoUpdateInterval,
