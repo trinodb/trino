@@ -1718,7 +1718,6 @@
                                     <!-- -Xep:ReferenceEquality:OFF fails in IDEA --> \
                                     <!-- -Xep:BoxedPrimitiveEquality:OFF fails in IDEA --> \
                                     -Xep:GuardedBy:OFF <!-- needs some careful inspection --> \
-                                    -Xep:HashtableContains:OFF <!-- https://github.com/trinodb/trino/pull/7001 --> \
                                     -Xep:BadInstanceof:ERROR \
                                     -Xep:BoxedPrimitiveConstructor:ERROR \
                                     -Xep:ClassCanBeStatic:ERROR \
