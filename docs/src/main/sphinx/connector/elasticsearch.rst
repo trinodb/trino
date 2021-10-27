@@ -10,7 +10,8 @@ This document describes how to setup the Elasticsearch Connector to run SQL quer
 
 .. note::
 
-    Elasticsearch 6.0.0 or later is required.
+    Connector is tested against Elasticsearch 6.0.0, 7.0.0, 6.8.20, and 7.14.2,
+    but any intermediate or newer versions are expected to work.
 
 Configuration
 -------------
