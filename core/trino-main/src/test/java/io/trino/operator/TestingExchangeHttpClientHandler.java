@@ -58,7 +58,7 @@ public class TestingExchangeHttpClientHandler
         ImmutableList<String> parts = ImmutableList.copyOf(Splitter.on("/").omitEmptyStrings().split(request.getUri().getPath()));
         if (request.getMethod().equals("DELETE")) {
             assertEquals(parts.size(), 1);
-            return new TestingResponse(HttpStatus.OK, ImmutableListMultimap.of(), new byte[0]);
+            return new TestingResponse(HttpStatus.NO_CONTENT, ImmutableListMultimap.of(), new byte[0]);
         }
 
         assertEquals(parts.size(), 2);
