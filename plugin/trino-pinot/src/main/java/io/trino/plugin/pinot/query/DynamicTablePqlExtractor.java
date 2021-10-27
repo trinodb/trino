@@ -72,12 +72,12 @@ public final class DynamicTablePqlExtractor
                             .collect(joining(", ")));
         }
         if (table.getLimit().isPresent()) {
-            builder.append(" limit ")
-                    .append(table.getLimit().getAsLong());
-            if (!table.getSelections().isEmpty() && table.getOffset().isPresent()) {
-                builder.append(", ")
-                        .append(table.getOffset().getAsLong());
+            builder.append(" limit ");
+            if (table.getOffset().isPresent()) {
+                builder.append(table.getOffset().getAsLong())
+                        .append(", ");
             }
+            builder.append(table.getLimit().getAsLong());
         }
         return builder.toString();
     }

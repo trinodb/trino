@@ -1686,4 +1686,67 @@ public class TestPinotIntegrationSmokeTest
         assertThat(query("select COUNT(DISTINCT  \"qu\"\"ot\"\"ed\") from \"select non_quoted as \"\"qu\"\"\"\"ot\"\"\"\"ed\"\" from quotes_in_column_name\""))
                 .isFullyPushedDown();
     }
+
+    @Test
+    public void testLimitAndOffsetWithPushedDownAggregates()
+    {
+        // Aggregation pushdown must be disabled when there is an offset as the results will not be correct
+        assertThat(query("SELECT COUNT(*), MAX(long_col)" +
+                "  FROM \"SELECT long_col FROM " + ALL_TYPES_TABLE +
+                "  WHERE long_col < 0" +
+                "  ORDER BY long_col " +
+                "  LIMIT 5, 6\""))
+                .matches("VALUES (BIGINT '4', BIGINT '-3147483639')")
+                .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class);
+
+        assertThat(query("SELECT long_col, COUNT(*), MAX(long_col)" +
+                "  FROM \"SELECT long_col FROM " + ALL_TYPES_TABLE +
+                "  WHERE long_col < 0" +
+                "  ORDER BY long_col " +
+                "  LIMIT 5, 6\" GROUP BY long_col"))
+                .matches("VALUES (BIGINT '-3147483642', BIGINT '1', BIGINT '-3147483642')," +
+                        "  (BIGINT '-3147483640', BIGINT '1', BIGINT '-3147483640')," +
+                        "  (BIGINT '-3147483641', BIGINT '1', BIGINT '-3147483641')," +
+                        "  (BIGINT '-3147483639', BIGINT '1', BIGINT '-3147483639')")
+                .isNotFullyPushedDown(ExchangeNode.class, AggregationNode.class, ExchangeNode.class, ExchangeNode.class, ProjectNode.class, AggregationNode.class);
+
+        assertThat(query("SELECT long_col, string_col, COUNT(*), MAX(long_col)" +
+                "  FROM \"SELECT * FROM " + ALL_TYPES_TABLE +
+                "  WHERE long_col < 0" +
+                "  ORDER BY long_col, string_col" +
+                "  LIMIT 5, 6\" GROUP BY long_col, string_col"))
+                .matches("VALUES (BIGINT '-3147483641', VARCHAR 'string_7200', BIGINT '1', BIGINT '-3147483641')," +
+                        "  (BIGINT '-3147483640', VARCHAR 'string_8400', BIGINT '1', BIGINT '-3147483640')," +
+                        "  (BIGINT '-3147483642', VARCHAR 'string_6000', BIGINT '1', BIGINT '-3147483642')," +
+                        "  (BIGINT '-3147483639', VARCHAR 'string_9600', BIGINT '1', BIGINT '-3147483639')")
+                .isNotFullyPushedDown(ExchangeNode.class, ProjectNode.class, AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, ProjectNode.class);
+
+        // Note that the offset is the first parameter
+        assertThat(query("SELECT long_col" +
+                "  FROM \"SELECT long_col FROM " + ALL_TYPES_TABLE +
+                "  WHERE long_col < 0" +
+                "  ORDER BY long_col " +
+                "  LIMIT 2, 6\""))
+                .matches("VALUES (BIGINT '-3147483645')," +
+                        "  (BIGINT '-3147483644')," +
+                        "  (BIGINT '-3147483643')," +
+                        "  (BIGINT '-3147483642')," +
+                        "  (BIGINT '-3147483641')," +
+                        "  (BIGINT '-3147483640')")
+                .isFullyPushedDown();
+
+        // Note that the offset is the first parameter
+        assertThat(query("SELECT long_col, string_col" +
+                "  FROM \"SELECT long_col, string_col FROM " + ALL_TYPES_TABLE +
+                "  WHERE long_col < 0" +
+                "  ORDER BY long_col " +
+                "  LIMIT 2, 6\""))
+                .matches("VALUES (BIGINT '-3147483645', VARCHAR 'string_2400')," +
+                        "  (BIGINT '-3147483644', VARCHAR 'string_3600')," +
+                        "  (BIGINT '-3147483643', VARCHAR 'string_4800')," +
+                        "  (BIGINT '-3147483642', VARCHAR 'string_6000')," +
+                        "  (BIGINT '-3147483641', VARCHAR 'string_7200')," +
+                        "  (BIGINT '-3147483640', VARCHAR 'string_8400')")
+                .isFullyPushedDown();
+    }
 }

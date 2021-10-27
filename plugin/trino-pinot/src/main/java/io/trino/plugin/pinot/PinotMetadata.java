@@ -348,9 +348,12 @@ public class PinotMetadata
 
         PinotTableHandle tableHandle = (PinotTableHandle) handle;
         // If aggregates are present than no further aggregations
-        // can be pushed down: there are currently no subqueries in pinot
+        // can be pushed down: there are currently no subqueries in pinot.
+        // If there is an offset then do not push the aggregation down as the results will not be correct
         if (tableHandle.getQuery().isPresent() &&
-                (!tableHandle.getQuery().get().getAggregateColumns().isEmpty() || tableHandle.getQuery().get().isAggregateInProjections())) {
+                (!tableHandle.getQuery().get().getAggregateColumns().isEmpty() ||
+                        tableHandle.getQuery().get().isAggregateInProjections() ||
+                        tableHandle.getQuery().get().getOffset().isPresent())) {
             return Optional.empty();
         }
 
