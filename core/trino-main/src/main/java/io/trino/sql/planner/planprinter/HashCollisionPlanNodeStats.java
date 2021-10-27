@@ -92,7 +92,6 @@ public class HashCollisionPlanNodeStats
     @Override
     public PlanNodeStats mergeWith(PlanNodeStats other)
     {
-        checkMergeable(other);
         PlanNodeStats merged = super.mergeWith(other);
 
         return new HashCollisionPlanNodeStats(
