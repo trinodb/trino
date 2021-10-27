@@ -256,7 +256,6 @@ public class MongoClientConfig
         return socketKeepAlive;
     }
 
-    @Config("mongodb.socket-keep-alive")
     public MongoClientConfig setSocketKeepAlive(boolean socketKeepAlive)
     {
         this.socketKeepAlive = socketKeepAlive;

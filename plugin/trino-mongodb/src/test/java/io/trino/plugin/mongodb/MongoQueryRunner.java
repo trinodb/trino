@@ -16,6 +16,7 @@ package io.trino.plugin.mongodb;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.mongodb.MongoClientSettings;
+import com.mongodb.MongoCredential;
 import com.mongodb.ServerAddress;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
@@ -59,8 +60,12 @@ public final class MongoQueryRunner
 
             Map<String, String> properties = ImmutableMap.of(
                     "mongodb.case-insensitive-name-matching", "true",
-                    "mongodb.seeds", server.getAddress().toString(),
-                    "mongodb.credentials", server.getCredentialString());
+                    "mongodb.seeds", server.getAddress().toString());
+
+            if (!server.getCredentialString().isEmpty()) {
+                properties.put("mongodb.credentials", server.getCredentialString());
+            }
+
             queryRunner.installPlugin(new MongoPlugin());
             queryRunner.createCatalog("mongodb", "mongodb", properties);
 
@@ -83,12 +88,19 @@ public final class MongoQueryRunner
 
     public static MongoClient createMongoClient(MongoServer server)
     {
-        MongoClient mongoClient = MongoClients.create(
-                MongoClientSettings.builder()
-                        .applyToClusterSettings(builder ->
-                                builder.hosts(ImmutableList.of((new ServerAddress(server.getAddress().getHost(), server.getAddress().getPort())))))
-                        .credential(server.getDefaultCredentials())
-                        .build());
+        MongoClientSettings.Builder options = MongoClientSettings.builder();
+
+        MongoCredential credential = server.getDefaultCredentials();
+
+        if (credential != null) {
+            options.credential(credential);
+        }
+
+        options.applyToClusterSettings(builder ->
+                builder.hosts(ImmutableList.of((new ServerAddress(server.getAddress().getHost(), server.getAddress().getPort())))));
+
+        MongoClient mongoClient = MongoClients.create(options.build());
+
         return mongoClient;
     }
 

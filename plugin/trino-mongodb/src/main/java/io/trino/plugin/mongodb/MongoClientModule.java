@@ -65,7 +65,10 @@ public class MongoClientModule
         }
 
         if (config.getConnectionUrl().isEmpty()) {
-            options.credential(config.getCredentials().get(0));
+            if (!config.getCredentials().isEmpty()) {
+                options.credential(config.getCredentials().get(0));
+            }
+
             options.applyToClusterSettings(builder -> builder.mode(ClusterConnectionMode.SINGLE)
                     .hosts(config.getSeeds()));
         }

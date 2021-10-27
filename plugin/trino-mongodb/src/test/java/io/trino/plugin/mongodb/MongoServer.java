@@ -23,7 +23,6 @@ public class MongoServer
         implements Closeable
 {
     private static final int MONGO_PORT = 27017;
-    private static final String CONNECTION_STRING = "mongodb://localhost:8080";
 
     private final MongoDBContainer dockerContainer;
 
@@ -33,16 +32,13 @@ public class MongoServer
 
     public MongoServer()
     {
-        this("4.0");
+        this("4.0.27");
     }
 
     public MongoServer(String mongoVersion)
     {
         this.dockerContainer = new MongoDBContainer("mongo:" + mongoVersion)
                 .withStartupAttempts(3)
-                .withEnv("MONGODB_CONNSTRING", CONNECTION_STRING)
-                .withEnv("MONGO_INITDB_ROOT_USERNAME", USER)
-                .withEnv("MONGO_INITDB_ROOT_PASSWORD", PASSWORD)
                 .withCommand("--bind_ip 0.0.0.0");
         this.dockerContainer.start();
     }
@@ -54,11 +50,19 @@ public class MongoServer
 
     public MongoCredential getDefaultCredentials()
     {
+        if (DATABASE.equals("tpch")) {
+            return null;
+        }
+
         return MongoCredential.createCredential(USER, DATABASE, PASSWORD.toCharArray());
     }
 
     public String getCredentialString()
     {
+        if (DATABASE.equals("tpch")) {
+            return "";
+        }
+
         return String.format("%s:%s@%s", USER, PASSWORD, DATABASE);
     }
 
