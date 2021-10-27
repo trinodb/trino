@@ -226,6 +226,18 @@ public class TestDynamicTable
         assertEquals(dynamicTable.getTableName(), tableName);
     }
 
+    @Test
+    public void testLimitAndOffset()
+    {
+        String tableName = hybridTable.getTableName();
+        String tableNameWithSuffix = tableName + REALTIME_SUFFIX;
+        String query = format("select * from %s limit 70, 40", tableNameWithSuffix);
+        DynamicTable dynamicTable = buildFromPql(pinotMetadata, new SchemaTableName("default", query), mockClusterInfoFetcher);
+        String expectedPql = format("select %s from %s limit 70, 40", getColumnNames(tableName).stream().map(TestDynamicTable::quoteIdentifier).collect(joining(", ")), tableNameWithSuffix);
+        assertEquals(extractPql(dynamicTable, TupleDomain.all(), ImmutableList.of()), expectedPql);
+        assertEquals(dynamicTable.getTableName(), tableName);
+    }
+
     private static String quoteIdentifier(String identifier)
     {
         return "\"" + identifier.replaceAll("\"", "\"\"") + "\"";
