@@ -14,6 +14,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.sql.TestTable;
 import org.testcontainers.containers.OracleContainer;
+import org.testcontainers.utility.DockerImageName;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -29,7 +30,7 @@ import static org.testcontainers.containers.BindMode.READ_ONLY;
 public final class TestingStarburstOracleServer
 {
     private static final OracleContainer CONTAINER = new CustomOracleContainer(
-            "harbor.starburstdata.net/testing/oracledb:12.2.0.1-ee")
+            DockerImageName.parse("harbor.starburstdata.net/testing/oracledb:12.2.0.1-ee").asCompatibleSubstituteFor("gvenzl/oracle-xe"))
             .withUsername(OracleTestUsers.USER)
             .withPassword(OracleTestUsers.PASSWORD)
             .withEnv("ORACLE_SID", "testdbsid")
@@ -116,7 +117,7 @@ public final class TestingStarburstOracleServer
     private static class CustomOracleContainer
             extends OracleContainer
     {
-        public CustomOracleContainer(String dockerImageName)
+        public CustomOracleContainer(DockerImageName dockerImageName)
         {
             super(dockerImageName);
         }
