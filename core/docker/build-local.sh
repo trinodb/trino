@@ -24,16 +24,16 @@ cp ${SOURCE_DIR}/client/trino-cli/target/trino-cli-${TRINO_VERSION}-executable.j
 
 CONTAINER="trino:${TRINO_VERSION}"
 
-docker build ${WORK_DIR} --pull --platform linux/amd64 -f amd64.dockerfile -t ${CONTAINER}-amd64 --build-arg "TRINO_VERSION=${TRINO_VERSION}"
-docker build ${WORK_DIR} --pull --platform linux/arm64 -f arm64.dockerfile -t ${CONTAINER}-arm64 --build-arg "TRINO_VERSION=${TRINO_VERSION}"
+docker build ${WORK_DIR} --pull --platform linux/amd64 -f amd64.dockerfile -t trino:opentelemetry_bug --build-arg "TRINO_VERSION=${TRINO_VERSION}"
+# docker build ${WORK_DIR} --pull --platform linux/arm64 -f arm64.dockerfile -t ${CONTAINER}-arm64 --build-arg "TRINO_VERSION=${TRINO_VERSION}"
 
 rm -r ${WORK_DIR}
 
 # Source common testing functions
-. container-test.sh
+# . container-test.sh
 
-test_container ${CONTAINER}-amd64 linux/amd64
-test_container ${CONTAINER}-arm64 linux/arm64
+# test_container ${CONTAINER}-amd64 linux/amd64
+# test_container ${CONTAINER}-arm64 linux/arm64
 
-docker image inspect -f '🚀 Built {{.RepoTags}} {{.Id}}' ${CONTAINER}-amd64
-docker image inspect -f '🚀 Built {{.RepoTags}} {{.Id}}' ${CONTAINER}-arm64
+# docker image inspect -f '🚀 Built {{.RepoTags}} {{.Id}}' ${CONTAINER}-amd64
+# docker image inspect -f '🚀 Built {{.RepoTags}} {{.Id}}' ${CONTAINER}-arm64
