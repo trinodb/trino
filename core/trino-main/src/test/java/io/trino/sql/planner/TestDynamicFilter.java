@@ -368,6 +368,25 @@ public class TestDynamicFilter
     }
 
     @Test
+    public void testNotDistinctFromLeftJoin()
+    {
+        assertPlan("SELECT 1 FROM (SELECT o.orderkey FROM nation n LEFT JOIN orders o ON n.nationkey = o.orderkey) o JOIN lineitem l ON o.orderkey IS NOT DISTINCT FROM l.orderkey",
+                anyTree(join(
+                        INNER,
+                        ImmutableList.of(),
+                        join(
+                                LEFT,
+                                ImmutableList.of(equiJoinClause("nationkey", "ORDERS_OK")),
+                                anyTree(
+                                        tableScan("nation", ImmutableMap.of("nationkey", "nationkey"))),
+                                exchange(
+                                        anyTree(
+                                                tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))))),
+                        exchange(
+                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))))));
+    }
+
+    @Test
     public void testJoinOnCast()
     {
         assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE cast(l.orderkey as int) = cast(o.orderkey as int)",
