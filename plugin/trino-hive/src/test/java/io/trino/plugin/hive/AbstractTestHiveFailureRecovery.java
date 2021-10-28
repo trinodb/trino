@@ -14,6 +14,7 @@
 package io.trino.plugin.hive;
 
 import io.trino.Session;
+import io.trino.operator.RetryPolicy;
 import io.trino.testing.AbstractTestFailureRecovery;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
@@ -25,11 +26,16 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestHiveFailureRecovery
+public abstract class AbstractTestHiveFailureRecovery
         extends AbstractTestFailureRecovery
 {
+    protected AbstractTestHiveFailureRecovery(RetryPolicy retryPolicy)
+    {
+        super(retryPolicy);
+    }
+
     @Override
-    protected QueryRunner createQueryRunner(List<TpchTable<?>> requiredTpchTables, Map<String, String> configProperties, Map<String, String> coordinatorProperties)
+    protected final QueryRunner createQueryRunner(List<TpchTable<?>> requiredTpchTables, Map<String, String> configProperties, Map<String, String> coordinatorProperties)
             throws Exception
     {
         return HiveQueryRunner.builder()
