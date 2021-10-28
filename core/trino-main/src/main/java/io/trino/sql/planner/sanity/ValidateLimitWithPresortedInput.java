@@ -31,7 +31,9 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.sanity.PlanSanityChecker.Checker;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import static com.google.common.collect.Iterators.peekingIterator;
@@ -100,25 +102,30 @@ public class ValidateLimitWithPresortedInput
 
             // We do not use LocalProperties#match to fully verify sorting properties
             // as OrderingScheme of input is not tracked by LimitNode
-            PeekingIterator<Symbol> expected = peekingIterator(node.getPreSortedInputs().iterator());
 
             Set<Symbol> constants = new HashSet<>();
+            List<Symbol> ordering = new ArrayList<>();
             for (LocalProperty<Symbol> property : normalizeAndPrune(properties.getLocalProperties())) {
-                if (!expected.hasNext()) {
-                    // all properties satisfied
-                    break;
-                }
-
-                Symbol column = expected.next();
                 if (property instanceof ConstantProperty) {
                     constants.add(((ConstantProperty<Symbol>) property).getColumn());
                 }
-                else if (!(property instanceof SortingProperty) || (!((SortingProperty<Symbol>) property).getColumn().equals(column) && !constants.contains(((SortingProperty<Symbol>) property).getColumn()))) {
-                    throw new VerifyException(format("Expected Limit input to be sorted by: %s, but was %s", node.getPreSortedInputs(), properties.getLocalProperties()));
+
+                if (property instanceof SortingProperty) {
+                    ordering.add(((SortingProperty<Symbol>) property).getColumn());
                 }
             }
 
-            if (expected.hasNext()) {
+            // verify expected order matches stream properties
+            int orderingPosition = 0;
+            for (Symbol column : node.getPreSortedInputs()) {
+                if (constants.contains(column)) {
+                    continue;
+                }
+                if (orderingPosition < ordering.size() && ordering.get(orderingPosition).equals(column)) {
+                    orderingPosition++;
+                    continue;
+                }
+
                 throw new VerifyException(format("Expected Limit input to be sorted by: %s, but was %s", node.getPreSortedInputs(), properties.getLocalProperties()));
             }
 
