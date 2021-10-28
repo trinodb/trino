@@ -44,6 +44,7 @@ import io.trino.cost.StatsCalculator;
 import io.trino.dispatcher.DispatchManager;
 import io.trino.eventlistener.EventListenerConfig;
 import io.trino.eventlistener.EventListenerManager;
+import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.FailureInjector;
 import io.trino.execution.FailureInjector.InjectedFailureType;
 import io.trino.execution.QueryInfo;
@@ -264,6 +265,7 @@ public class TestingTrinoServer
                     binder.bind(ShutdownAction.class).to(TestShutdownAction.class).in(Scopes.SINGLETON);
                     binder.bind(GracefulShutdownHandler.class).in(Scopes.SINGLETON);
                     binder.bind(ProcedureTester.class).in(Scopes.SINGLETON);
+                    binder.bind(ExchangeManagerRegistry.class).in(Scopes.SINGLETON);
                 });
 
         if (discoveryUri.isPresent()) {

@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.trino.connector.ConnectorManager;
 import io.trino.eventlistener.EventListenerManager;
+import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.resourcegroups.ResourceGroupManager;
 import io.trino.metadata.BlockEncodingManager;
 import io.trino.metadata.MetadataManager;
@@ -31,6 +32,7 @@ import io.trino.spi.block.BlockEncoding;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.eventlistener.EventListenerFactory;
+import io.trino.spi.exchange.ExchangeManagerFactory;
 import io.trino.spi.resourcegroups.ResourceGroupConfigurationManagerFactory;
 import io.trino.spi.security.CertificateAuthenticatorFactory;
 import io.trino.spi.security.GroupProviderFactory;
@@ -78,6 +80,7 @@ public class PluginManager
     private final Optional<HeaderAuthenticatorManager> headerAuthenticatorManager;
     private final EventListenerManager eventListenerManager;
     private final GroupProviderManager groupProviderManager;
+    private final ExchangeManagerRegistry exchangeManagerRegistry;
     private final SessionPropertyDefaults sessionPropertyDefaults;
     private final TypeRegistry typeRegistry;
     private final BlockEncodingManager blockEncodingManager;
@@ -98,7 +101,8 @@ public class PluginManager
             GroupProviderManager groupProviderManager,
             SessionPropertyDefaults sessionPropertyDefaults,
             TypeRegistry typeRegistry,
-            BlockEncodingManager blockEncodingManager)
+            BlockEncodingManager blockEncodingManager,
+            ExchangeManagerRegistry exchangeManagerRegistry)
     {
         this.pluginsProvider = requireNonNull(pluginsProvider, "pluginsProvider is null");
         this.connectorManager = requireNonNull(connectorManager, "connectorManager is null");
@@ -113,6 +117,7 @@ public class PluginManager
         this.sessionPropertyDefaults = requireNonNull(sessionPropertyDefaults, "sessionPropertyDefaults is null");
         this.typeRegistry = requireNonNull(typeRegistry, "typeRegistry is null");
         this.blockEncodingManager = requireNonNull(blockEncodingManager, "blockEncodingManager is null");
+        this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
     }
 
     public void loadPlugins()
@@ -233,6 +238,11 @@ public class PluginManager
         for (GroupProviderFactory groupProviderFactory : plugin.getGroupProviderFactories()) {
             log.info("Registering group provider %s", groupProviderFactory.getName());
             groupProviderManager.addGroupProviderFactory(groupProviderFactory);
+        }
+
+        for (ExchangeManagerFactory exchangeManagerFactory : plugin.getExchangeManagerFactories()) {
+            log.info("Registering exchange manager %s", exchangeManagerFactory.getName());
+            exchangeManagerRegistry.addExchangeManagerFactory(exchangeManagerFactory);
         }
     }
 

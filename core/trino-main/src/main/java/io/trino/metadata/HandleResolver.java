@@ -25,6 +25,9 @@ import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTableExecuteHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.exchange.ExchangeManagerHandleResolver;
+import io.trino.spi.exchange.ExchangeSinkInstanceHandle;
+import io.trino.spi.exchange.ExchangeSourceHandle;
 import io.trino.split.EmptySplitHandleResolver;
 
 import javax.inject.Inject;
@@ -34,6 +37,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -44,7 +48,8 @@ import static java.util.Objects.requireNonNull;
 
 public final class HandleResolver
 {
-    private final ConcurrentMap<String, MaterializedHandleResolver> handleResolvers = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, MaterializedHandleResolver> catalogHandleResolvers = new ConcurrentHashMap<>();
+    private final AtomicReference<ExchangeManagerHandleResolver> exchangeManagerHandleResolver = new AtomicReference<>();
 
     @Inject
     public HandleResolver()
@@ -59,13 +64,18 @@ public final class HandleResolver
     {
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(resolver, "resolver is null");
-        MaterializedHandleResolver existingResolver = handleResolvers.putIfAbsent(catalogName, new MaterializedHandleResolver(resolver));
+        MaterializedHandleResolver existingResolver = catalogHandleResolvers.putIfAbsent(catalogName, new MaterializedHandleResolver(resolver));
         checkState(existingResolver == null, "Catalog '%s' is already assigned to resolver: %s", catalogName, existingResolver);
+    }
+
+    public void setExchangeManagerHandleResolver(ExchangeManagerHandleResolver resolver)
+    {
+        checkState(exchangeManagerHandleResolver.compareAndSet(null, resolver), "Exchange manager handle resolver is already set");
     }
 
     public void removeCatalogHandleResolver(String catalogName)
     {
-        handleResolvers.remove(catalogName);
+        catalogHandleResolvers.remove(catalogName);
     }
 
     public String getId(ConnectorTableHandle tableHandle)
@@ -158,16 +168,30 @@ public final class HandleResolver
         return resolverFor(id).getTransactionHandleClass().orElseThrow(() -> new IllegalArgumentException("No resolver for " + id));
     }
 
+    public Class<? extends ExchangeSinkInstanceHandle> getExchangeSinkInstanceHandleClass()
+    {
+        ExchangeManagerHandleResolver resolver = exchangeManagerHandleResolver.get();
+        checkState(resolver != null, "Exchange manager handle resolver is not set");
+        return resolver.getExchangeSinkInstanceHandleClass();
+    }
+
+    public Class<? extends ExchangeSourceHandle> getExchangeSourceHandleHandleClass()
+    {
+        ExchangeManagerHandleResolver resolver = exchangeManagerHandleResolver.get();
+        checkState(resolver != null, "Exchange manager handle resolver is not set");
+        return resolver.getExchangeSourceHandleHandleClass();
+    }
+
     private MaterializedHandleResolver resolverFor(String id)
     {
-        MaterializedHandleResolver resolver = handleResolvers.get(id);
+        MaterializedHandleResolver resolver = catalogHandleResolvers.get(id);
         checkArgument(resolver != null, "No handle resolver for connector: %s", id);
         return resolver;
     }
 
     private <T> String getId(T handle, Function<MaterializedHandleResolver, Optional<Class<? extends T>>> getter)
     {
-        for (Entry<String, MaterializedHandleResolver> entry : handleResolvers.entrySet()) {
+        for (Entry<String, MaterializedHandleResolver> entry : catalogHandleResolvers.entrySet()) {
             try {
                 if (getter.apply(entry.getValue()).map(clazz -> clazz.isInstance(handle)).orElse(false)) {
                     return entry.getKey();
