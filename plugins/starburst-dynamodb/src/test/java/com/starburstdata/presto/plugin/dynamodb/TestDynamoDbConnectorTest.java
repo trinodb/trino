@@ -10,8 +10,6 @@
 package com.starburstdata.presto.plugin.dynamodb;
 
 import com.google.common.collect.ImmutableSet;
-import io.trino.Session;
-import io.trino.sql.analyzer.FeaturesConfig;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
@@ -156,17 +154,5 @@ public class TestDynamoDbConnectorTest
                 .build();
 
         assertEquals(expectedParametrizedVarchar, actual, format("%s does not match %s", actual, expectedParametrizedVarchar));
-    }
-
-    @Override
-    public void testJoinWithEmptySides(FeaturesConfig.JoinDistributionType joinDistributionType)
-    {
-        Session session = noJoinReordering(joinDistributionType);
-        // empty build side
-        assertQuery(session, "SELECT count(*) FROM nation JOIN region ON nation.regionkey = region.regionkey AND region.name = ''", "VALUES 0");
-        assertQuery(session, "SELECT count(*) FROM nation JOIN region ON nation.regionkey = region.regionkey AND region.regionkey < 0", "VALUES 0");
-        // empty probe side
-        assertQuery(session, "SELECT count(*) FROM region JOIN nation ON nation.regionkey = region.regionkey AND region.name = ''", "VALUES 0");
-        assertQuery(session, "SELECT count(*) FROM nation JOIN region ON nation.regionkey = region.regionkey AND region.regionkey < 0", "VALUES 0");
     }
 }
