@@ -145,16 +145,18 @@ public class TestDeduplicatingDirectExchangeBuffer
     }
 
     @Test
-    public void testPollPage()
+    public void testPollPagesQueryLevelRetry()
     {
-        testPollPages(ImmutableListMultimap.of(), ImmutableMap.of(), ImmutableList.of());
+        testPollPages(RetryPolicy.QUERY, ImmutableListMultimap.of(), ImmutableMap.of(), ImmutableList.of());
         testPollPages(
+                RetryPolicy.QUERY,
                 ImmutableListMultimap.<TaskId, Slice>builder()
                         .put(createTaskId(0, 0), utf8Slice("p0a0v0"))
                         .build(),
                 ImmutableMap.of(),
                 ImmutableList.of("p0a0v0"));
         testPollPages(
+                RetryPolicy.QUERY,
                 ImmutableListMultimap.<TaskId, Slice>builder()
                         .put(createTaskId(0, 0), utf8Slice("p0a0v0"))
                         .put(createTaskId(0, 1), utf8Slice("p0a1v0"))
@@ -162,6 +164,7 @@ public class TestDeduplicatingDirectExchangeBuffer
                 ImmutableMap.of(),
                 ImmutableList.of("p0a1v0"));
         testPollPages(
+                RetryPolicy.QUERY,
                 ImmutableListMultimap.<TaskId, Slice>builder()
                         .put(createTaskId(0, 0), utf8Slice("p0a0v0"))
                         .put(createTaskId(1, 0), utf8Slice("p1a0v0"))
@@ -170,6 +173,7 @@ public class TestDeduplicatingDirectExchangeBuffer
                 ImmutableMap.of(),
                 ImmutableList.of("p0a1v0"));
         testPollPages(
+                RetryPolicy.QUERY,
                 ImmutableListMultimap.<TaskId, Slice>builder()
                         .put(createTaskId(0, 0), utf8Slice("p0a0v0"))
                         .put(createTaskId(1, 0), utf8Slice("p1a0v0"))
@@ -181,6 +185,7 @@ public class TestDeduplicatingDirectExchangeBuffer
                 ImmutableList.of("p0a1v0"));
         RuntimeException error = new RuntimeException("error");
         testPollPagesFailure(
+                RetryPolicy.QUERY,
                 ImmutableListMultimap.<TaskId, Slice>builder()
                         .put(createTaskId(0, 0), utf8Slice("p0a0v0"))
                         .put(createTaskId(1, 0), utf8Slice("p1a0v0"))
@@ -191,6 +196,7 @@ public class TestDeduplicatingDirectExchangeBuffer
                         error),
                 error);
         testPollPagesFailure(
+                RetryPolicy.QUERY,
                 ImmutableListMultimap.<TaskId, Slice>builder()
                         .put(createTaskId(0, 0), utf8Slice("p0a0v0"))
                         .put(createTaskId(1, 0), utf8Slice("p1a0v0"))
@@ -202,23 +208,86 @@ public class TestDeduplicatingDirectExchangeBuffer
                 error);
     }
 
-    private static void testPollPages(Multimap<TaskId, Slice> pages, Map<TaskId, RuntimeException> failures, List<String> expectedValues)
+    @Test
+    public void testPollPagesTaskLevelRetry()
     {
-        List<Slice> actualPages = pollPages(pages, failures);
+        testPollPages(RetryPolicy.TASK, ImmutableListMultimap.of(), ImmutableMap.of(), ImmutableList.of());
+        testPollPages(
+                RetryPolicy.TASK,
+                ImmutableListMultimap.<TaskId, Slice>builder()
+                        .put(createTaskId(0, 0), utf8Slice("p0a0v0"))
+                        .build(),
+                ImmutableMap.of(),
+                ImmutableList.of("p0a0v0"));
+        testPollPages(
+                RetryPolicy.TASK,
+                ImmutableListMultimap.<TaskId, Slice>builder()
+                        .put(createTaskId(0, 0), utf8Slice("p0a0v0"))
+                        .put(createTaskId(0, 1), utf8Slice("p0a1v0"))
+                        .build(),
+                ImmutableMap.of(),
+                ImmutableList.of("p0a0v0"));
+        testPollPages(
+                RetryPolicy.TASK,
+                ImmutableListMultimap.<TaskId, Slice>builder()
+                        .put(createTaskId(0, 0), utf8Slice("p0a0v0"))
+                        .put(createTaskId(0, 1), utf8Slice("p0a1v0"))
+                        .put(createTaskId(1, 0), utf8Slice("p1a0v0"))
+                        .build(),
+                ImmutableMap.of(),
+                ImmutableList.of("p0a0v0", "p1a0v0"));
+        testPollPages(
+                RetryPolicy.TASK,
+                ImmutableListMultimap.<TaskId, Slice>builder()
+                        .put(createTaskId(0, 0), utf8Slice("p0a0v0"))
+                        .put(createTaskId(0, 1), utf8Slice("p0a1v0"))
+                        .put(createTaskId(1, 1), utf8Slice("p1a0v0"))
+                        .build(),
+                ImmutableMap.of(
+                        createTaskId(1, 0),
+                        new RuntimeException("error")),
+                ImmutableList.of("p0a0v0", "p1a0v0"));
+        RuntimeException error = new RuntimeException("error");
+        testPollPagesFailure(
+                RetryPolicy.TASK,
+                ImmutableListMultimap.<TaskId, Slice>builder()
+                        .put(createTaskId(0, 0), utf8Slice("p0a0v0"))
+                        .put(createTaskId(0, 1), utf8Slice("p0a1v0"))
+                        .put(createTaskId(1, 0), utf8Slice("p1a0v0"))
+                        .build(),
+                ImmutableMap.of(
+                        createTaskId(2, 2),
+                        error),
+                error);
+        testPollPagesFailure(
+                RetryPolicy.TASK,
+                ImmutableListMultimap.<TaskId, Slice>builder()
+                        .put(createTaskId(0, 1), utf8Slice("p0a1v0"))
+                        .put(createTaskId(1, 0), utf8Slice("p1a0v0"))
+                        .build(),
+                ImmutableMap.of(
+                        createTaskId(0, 1),
+                        error),
+                error);
+    }
+
+    private static void testPollPages(RetryPolicy retryPolicy, Multimap<TaskId, Slice> pages, Map<TaskId, RuntimeException> failures, List<String> expectedValues)
+    {
+        List<Slice> actualPages = pollPages(retryPolicy, pages, failures);
         List<String> actualValues = actualPages.stream()
                 .map(Slice::toStringUtf8)
                 .collect(toImmutableList());
         assertThat(actualValues).containsExactlyInAnyOrderElementsOf(expectedValues);
     }
 
-    private static void testPollPagesFailure(Multimap<TaskId, Slice> pages, Map<TaskId, RuntimeException> failures, Throwable expectedFailure)
+    private static void testPollPagesFailure(RetryPolicy retryPolicy, Multimap<TaskId, Slice> pages, Map<TaskId, RuntimeException> failures, Throwable expectedFailure)
     {
-        assertThatThrownBy(() -> pollPages(pages, failures)).isEqualTo(expectedFailure);
+        assertThatThrownBy(() -> pollPages(retryPolicy, pages, failures)).isEqualTo(expectedFailure);
     }
 
-    private static List<Slice> pollPages(Multimap<TaskId, Slice> pages, Map<TaskId, RuntimeException> failures)
+    private static List<Slice> pollPages(RetryPolicy retryPolicy, Multimap<TaskId, Slice> pages, Map<TaskId, RuntimeException> failures)
     {
-        try (DirectExchangeBuffer buffer = new DeduplicatingDirectExchangeBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
+        try (DirectExchangeBuffer buffer = new DeduplicatingDirectExchangeBuffer(directExecutor(), ONE_KB, retryPolicy)) {
             for (TaskId taskId : Sets.union(pages.keySet(), failures.keySet())) {
                 buffer.addTask(taskId);
             }
@@ -460,8 +529,14 @@ public class TestDeduplicatingDirectExchangeBuffer
     @Test
     public void testRemoteTaskFailedError()
     {
+        testRemoteTaskFailedError(RetryPolicy.QUERY);
+        testRemoteTaskFailedError(RetryPolicy.TASK);
+    }
+
+    private void testRemoteTaskFailedError(RetryPolicy retryPolicy)
+    {
         // fail before noMoreTasks
-        try (DirectExchangeBuffer buffer = new DeduplicatingDirectExchangeBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
+        try (DirectExchangeBuffer buffer = new DeduplicatingDirectExchangeBuffer(directExecutor(), ONE_KB, retryPolicy)) {
             TaskId taskId = createTaskId(0, 0);
             buffer.addTask(taskId);
             buffer.taskFailed(taskId, new TrinoException(REMOTE_TASK_FAILED, "Remote task failed"));
@@ -474,7 +549,7 @@ public class TestDeduplicatingDirectExchangeBuffer
         }
 
         // fail after noMoreTasks
-        try (DirectExchangeBuffer buffer = new DeduplicatingDirectExchangeBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
+        try (DirectExchangeBuffer buffer = new DeduplicatingDirectExchangeBuffer(directExecutor(), ONE_KB, retryPolicy)) {
             TaskId taskId = createTaskId(0, 0);
             buffer.addTask(taskId);
             buffer.noMoreTasks();
