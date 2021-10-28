@@ -50,7 +50,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -119,7 +118,7 @@ public final class SqlStageExecution
             Session session,
             boolean summarizeTaskInfo,
             NodeTaskMap nodeTaskMap,
-            ExecutorService executor,
+            Executor executor,
             FailureDetector failureDetector,
             DynamicFilterService dynamicFilterService,
             SplitSchedulerStats schedulerStats)
