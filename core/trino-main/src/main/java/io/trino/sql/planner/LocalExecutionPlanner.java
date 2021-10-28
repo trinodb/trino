@@ -31,6 +31,7 @@ import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
+import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.ExplainAnalyzeContext;
 import io.trino.execution.StageId;
@@ -379,6 +380,7 @@ public class LocalExecutionPlanner
     private final TypeOperators typeOperators;
     private final BlockTypeOperators blockTypeOperators;
     private final TableExecuteContextManager tableExecuteContextManager;
+    private final ExchangeManagerRegistry exchangeManagerRegistry;
 
     @Inject
     public LocalExecutionPlanner(
@@ -405,7 +407,8 @@ public class LocalExecutionPlanner
             DynamicFilterConfig dynamicFilterConfig,
             TypeOperators typeOperators,
             BlockTypeOperators blockTypeOperators,
-            TableExecuteContextManager tableExecuteContextManager)
+            TableExecuteContextManager tableExecuteContextManager,
+            ExchangeManagerRegistry exchangeManagerRegistry)
     {
         this.explainAnalyzeContext = requireNonNull(explainAnalyzeContext, "explainAnalyzeContext is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
@@ -434,6 +437,7 @@ public class LocalExecutionPlanner
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
         this.tableExecuteContextManager = requireNonNull(tableExecuteContextManager, "tableExecuteContextManager is null");
+        this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
     }
 
     public LocalExecutionPlan plan(
@@ -900,7 +904,8 @@ public class LocalExecutionPlanner
                     node.getId(),
                     directExchangeClientSupplier,
                     new PagesSerdeFactory(metadata.getBlockEncodingSerde(), isExchangeCompressionEnabled(session)),
-                    node.getRetryPolicy());
+                    node.getRetryPolicy(),
+                    exchangeManagerRegistry);
 
             return new PhysicalOperation(operatorFactory, makeLayout(node), context, UNGROUPED_EXECUTION);
         }

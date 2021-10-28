@@ -24,6 +24,7 @@ import io.trino.spi.connector.SortOrder;
 import io.trino.spi.connector.UpdatablePageSource;
 import io.trino.spi.type.Type;
 import io.trino.split.RemoteSplit;
+import io.trino.split.RemoteSplit.DirectExchangeInput;
 import io.trino.sql.gen.OrderingCompiler;
 import io.trino.sql.planner.plan.PlanNodeId;
 
@@ -160,7 +161,8 @@ public class MergeOperator
         TaskContext taskContext = operatorContext.getDriverContext().getPipelineContext().getTaskContext();
         DirectExchangeClient client = closer.register(directExchangeClientSupplier.get(operatorContext.localSystemMemoryContext(), taskContext::sourceTaskFailed, RetryPolicy.NONE));
         RemoteSplit remoteSplit = (RemoteSplit) split.getConnectorSplit();
-        client.addLocation(remoteSplit.getTaskId(), remoteSplit.getLocation());
+        DirectExchangeInput taskInput = (DirectExchangeInput) remoteSplit.getExchangeInput();
+        client.addLocation(taskInput.getTaskId(), taskInput.getLocation());
         client.noMoreLocations();
         pageProducers.add(client.pages()
                 .map(serializedPage -> {

@@ -15,10 +15,13 @@ package io.trino.split;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.google.common.collect.ImmutableList;
 import io.trino.execution.TaskId;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.exchange.ExchangeSourceHandle;
 
 import java.net.URI;
 import java.util.List;
@@ -29,26 +32,18 @@ import static java.util.Objects.requireNonNull;
 public class RemoteSplit
         implements ConnectorSplit
 {
-    private final TaskId taskId;
-    private final URI location;
+    private final ExchangeInput exchangeInput;
 
     @JsonCreator
-    public RemoteSplit(@JsonProperty("taskId") TaskId taskId, @JsonProperty("location") URI location)
+    public RemoteSplit(@JsonProperty("exchangeInput") ExchangeInput exchangeInput)
     {
-        this.taskId = requireNonNull(taskId, "taskId is null");
-        this.location = requireNonNull(location, "location is null");
+        this.exchangeInput = requireNonNull(exchangeInput, "remoteSplitInput is null");
     }
 
     @JsonProperty
-    public TaskId getTaskId()
+    public ExchangeInput getExchangeInput()
     {
-        return taskId;
-    }
-
-    @JsonProperty
-    public URI getLocation()
-    {
-        return location;
+        return exchangeInput;
     }
 
     @Override
@@ -73,8 +68,78 @@ public class RemoteSplit
     public String toString()
     {
         return toStringHelper(this)
-                .add("taskId", taskId)
-                .add("location", location)
+                .add("exchangeInput", exchangeInput)
                 .toString();
+    }
+
+    @JsonTypeInfo(
+            use = JsonTypeInfo.Id.NAME,
+            property = "@type")
+    @JsonSubTypes({
+            @JsonSubTypes.Type(value = DirectExchangeInput.class, name = "direct"),
+            @JsonSubTypes.Type(value = ExternalExchangeInput.class, name = "external")})
+    public interface ExchangeInput
+    {
+    }
+
+    public static class DirectExchangeInput
+            implements ExchangeInput
+    {
+        private final TaskId taskId;
+        private final URI location;
+
+        @JsonCreator
+        public DirectExchangeInput(@JsonProperty("taskId") TaskId taskId, @JsonProperty("location") URI location)
+        {
+            this.taskId = requireNonNull(taskId, "taskId is null");
+            this.location = requireNonNull(location, "location is null");
+        }
+
+        @JsonProperty
+        public TaskId getTaskId()
+        {
+            return taskId;
+        }
+
+        @JsonProperty
+        public URI getLocation()
+        {
+            return location;
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("taskId", taskId)
+                    .add("location", location)
+                    .toString();
+        }
+    }
+
+    public static class ExternalExchangeInput
+            implements ExchangeInput
+    {
+        private final List<ExchangeSourceHandle> exchangeSourceHandles;
+
+        @JsonCreator
+        public ExternalExchangeInput(@JsonProperty("exchangeSourceHandles") List<ExchangeSourceHandle> exchangeSourceHandles)
+        {
+            this.exchangeSourceHandles = ImmutableList.copyOf(requireNonNull(exchangeSourceHandles, "exchangeSourceHandles is null"));
+        }
+
+        @JsonProperty
+        public List<ExchangeSourceHandle> getExchangeSourceHandles()
+        {
+            return exchangeSourceHandles;
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("exchangeSourceHandles", exchangeSourceHandles)
+                    .toString();
+        }
     }
 }

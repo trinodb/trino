@@ -81,7 +81,7 @@ public final class PagesSerdeUtil
         hash.update(page.getSlice());
     }
 
-    private static SerializedPage readSerializedPage(SliceInput sliceInput)
+    public static SerializedPage readSerializedPage(SliceInput sliceInput)
     {
         int positionCount = sliceInput.readInt();
         PageCodecMarker.MarkerSet markers = PageCodecMarker.MarkerSet.fromByteValue(sliceInput.readByte());
