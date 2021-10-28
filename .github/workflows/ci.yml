@@ -342,6 +342,7 @@ jobs:
           - ":trino-hive,:trino-orc"
           - ":trino-hive,:trino-parquet -P test-parquet"
           - ":trino-hive -P test-failure-recovery"
+          - ":trino-hive -P test-fault-tolerant-execution"
           - ":trino-mongodb,:trino-kafka,:trino-elasticsearch"
           - ":trino-elasticsearch -P test-stats"
           - ":trino-redis"

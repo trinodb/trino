@@ -13,23 +13,31 @@
  */
 package io.trino.plugin.hive;
 
+import io.trino.testing.AbstractTestFaultTolerantExecutionJoinQueries;
 import io.trino.testing.QueryRunner;
-import io.trino.tpch.TpchTable;
+import org.testng.annotations.Test;
 
-import java.util.List;
 import java.util.Map;
 
-public class TestHiveFileFailureRecoveryTest
-        extends BaseHiveFailureRecoveryTest
+import static io.trino.tpch.TpchTable.getTables;
+
+public class TestHiveFaultTolerantExecutionJoinQueries
+        extends AbstractTestFaultTolerantExecutionJoinQueries
 {
     @Override
-    protected QueryRunner createQueryRunner(List<TpchTable<?>> requiredTpchTables, Map<String, String> configProperties, Map<String, String> coordinatorProperties)
+    protected QueryRunner createQueryRunner(Map<String, String> extraProperties)
             throws Exception
     {
         return HiveQueryRunner.builder()
-                .setInitialTables(requiredTpchTables)
-                .setCoordinatorProperties(coordinatorProperties)
-                .setExtraProperties(configProperties)
+                .setExtraProperties(extraProperties)
+                .setInitialTables(getTables())
                 .build();
+    }
+
+    @Override
+    @Test(enabled = false)
+    public void testOutputDuplicatesInsensitiveJoin()
+    {
+        // flaky
     }
 }
