@@ -46,6 +46,7 @@ import org.weakref.jmx.Managed;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
@@ -152,10 +153,10 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
-    public void abortReadConnection(Connection connection)
+    public void abortReadConnection(Connection connection, ResultSet resultSet)
             throws SQLException
     {
-        stats.getAbortReadConnection().wrap(() -> delegate().abortReadConnection(connection));
+        stats.getAbortReadConnection().wrap(() -> delegate().abortReadConnection(connection, resultSet));
     }
 
     @Override

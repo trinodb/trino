@@ -228,12 +228,14 @@ public class MySqlClient
     }
 
     @Override
-    public void abortReadConnection(Connection connection)
+    public void abortReadConnection(Connection connection, ResultSet resultSet)
             throws SQLException
     {
-        // Abort connection before closing. Without this, the MySQL driver
-        // attempts to drain the connection by reading all the results.
-        connection.abort(directExecutor());
+        if (!resultSet.isAfterLast()) {
+            // Abort connection before closing. Without this, the MySQL driver
+            // attempts to drain the connection by reading all the results.
+            connection.abort(directExecutor());
+        }
     }
 
     @Override
