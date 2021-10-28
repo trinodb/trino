@@ -52,6 +52,12 @@ public class DynamicBucketNodeMap
     }
 
     @Override
+    public int getNodeCount()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void assignBucketToNode(int bucketedId, InternalNode node)
     {
         checkArgument(bucketedId >= 0 && bucketedId < bucketCount);

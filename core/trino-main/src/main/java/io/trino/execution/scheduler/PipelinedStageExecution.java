@@ -66,6 +66,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
+import static io.trino.execution.ExecutionFailureInfo.rewriteTransportFailure;
 import static io.trino.execution.scheduler.PipelinedStageExecution.State.ABORTED;
 import static io.trino.execution.scheduler.PipelinedStageExecution.State.CANCELED;
 import static io.trino.execution.scheduler.PipelinedStageExecution.State.FAILED;
@@ -76,10 +77,8 @@ import static io.trino.execution.scheduler.PipelinedStageExecution.State.RUNNING
 import static io.trino.execution.scheduler.PipelinedStageExecution.State.SCHEDULED;
 import static io.trino.execution.scheduler.PipelinedStageExecution.State.SCHEDULING;
 import static io.trino.execution.scheduler.PipelinedStageExecution.State.SCHEDULING_SPLITS;
-import static io.trino.failuredetector.FailureDetector.State.GONE;
 import static io.trino.operator.ExchangeOperator.REMOTE_CONNECTOR_ID;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static io.trino.spi.StandardErrorCode.REMOTE_HOST_GONE;
 import static java.util.Objects.requireNonNull;
 
 public class PipelinedStageExecution
@@ -355,7 +354,7 @@ public class PipelinedStageExecution
             case FAILED:
                 RuntimeException failure = taskStatus.getFailures().stream()
                         .findFirst()
-                        .map(this::rewriteTransportFailure)
+                        .map(f -> rewriteTransportFailure(failureDetector, f))
                         .map(ExecutionFailureInfo::toException)
                         .orElse(new TrinoException(GENERIC_INTERNAL_ERROR, "A task failed for an unknown reason"));
                 fail(failure);
@@ -406,23 +405,6 @@ public class PipelinedStageExecution
         // newlyCompletedDriverGroups is a view.
         // Making changes to completedDriverGroups will change newlyCompletedDriverGroups.
         completedDriverGroups.addAll(newlyCompletedDriverGroups);
-    }
-
-    private ExecutionFailureInfo rewriteTransportFailure(ExecutionFailureInfo executionFailureInfo)
-    {
-        if (executionFailureInfo.getRemoteHost() == null || failureDetector.getState(executionFailureInfo.getRemoteHost()) != GONE) {
-            return executionFailureInfo;
-        }
-
-        return new ExecutionFailureInfo(
-                executionFailureInfo.getType(),
-                executionFailureInfo.getMessage(),
-                executionFailureInfo.getCause(),
-                executionFailureInfo.getSuppressed(),
-                executionFailureInfo.getStack(),
-                executionFailureInfo.getErrorLocation(),
-                REMOTE_HOST_GONE.toErrorCode(),
-                executionFailureInfo.getRemoteHost());
     }
 
     public TaskLifecycleListener getTaskLifecycleListener()

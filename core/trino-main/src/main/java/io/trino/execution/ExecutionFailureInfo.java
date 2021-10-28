@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.trino.client.ErrorLocation;
 import io.trino.client.FailureInfo;
+import io.trino.failuredetector.FailureDetector;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.HostAddress;
 
@@ -29,6 +30,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.failuredetector.FailureDetector.State.GONE;
+import static io.trino.spi.StandardErrorCode.REMOTE_HOST_GONE;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -174,5 +177,22 @@ public class ExecutionFailureInfo
             return new StackTraceElement(declaringClass, methodName, fileName, number);
         }
         return new StackTraceElement("Unknown", stack, null, -1);
+    }
+
+    public static ExecutionFailureInfo rewriteTransportFailure(FailureDetector failureDetector, ExecutionFailureInfo executionFailureInfo)
+    {
+        if (executionFailureInfo.getRemoteHost() == null || failureDetector.getState(executionFailureInfo.getRemoteHost()) != GONE) {
+            return executionFailureInfo;
+        }
+
+        return new ExecutionFailureInfo(
+                executionFailureInfo.getType(),
+                executionFailureInfo.getMessage(),
+                executionFailureInfo.getCause(),
+                executionFailureInfo.getSuppressed(),
+                executionFailureInfo.getStack(),
+                executionFailureInfo.getErrorLocation(),
+                REMOTE_HOST_GONE.toErrorCode(),
+                executionFailureInfo.getRemoteHost());
     }
 }

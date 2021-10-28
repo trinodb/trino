@@ -14,6 +14,7 @@
 package io.trino.execution.scheduler;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
 
@@ -45,6 +46,12 @@ public class FixedBucketNodeMap
     public int getBucketCount()
     {
         return bucketToNode.size();
+    }
+
+    @Override
+    public int getNodeCount()
+    {
+        return ImmutableSet.copyOf(bucketToNode).size();
     }
 
     @Override

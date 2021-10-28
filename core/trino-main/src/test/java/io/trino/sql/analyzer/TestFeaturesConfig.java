@@ -121,7 +121,9 @@ public class TestFeaturesConfig
                 .setRetryPolicy(RetryPolicy.NONE)
                 .setRetryAttempts(4)
                 .setRetryInitialDelay(new Duration(10, SECONDS))
-                .setRetryMaxDelay(new Duration(1, MINUTES)));
+                .setRetryMaxDelay(new Duration(1, MINUTES))
+                .setFaultTolerantExecutionTargetTaskInputSize(DataSize.of(1, GIGABYTE))
+                .setFaultTolerantExecutionTargetTaskSplitCount(16));
     }
 
     @Test
@@ -205,6 +207,8 @@ public class TestFeaturesConfig
                 .put("retry-attempts", "0")
                 .put("retry-initial-delay", "1m")
                 .put("retry-max-delay", "1h")
+                .put("fault-tolerant-execution-target-task-input-size", "222MB")
+                .put("fault-tolerant-execution-target-task-split-count", "3")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -284,7 +288,9 @@ public class TestFeaturesConfig
                 .setRetryPolicy(RetryPolicy.QUERY)
                 .setRetryAttempts(0)
                 .setRetryInitialDelay(new Duration(1, MINUTES))
-                .setRetryMaxDelay(new Duration(1, HOURS));
+                .setRetryMaxDelay(new Duration(1, HOURS))
+                .setFaultTolerantExecutionTargetTaskInputSize(DataSize.of(222, MEGABYTE))
+                .setFaultTolerantExecutionTargetTaskSplitCount(3);
         assertFullMapping(properties, expected);
     }
 }

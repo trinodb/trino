@@ -32,6 +32,8 @@ public abstract class BucketNodeMap
 
     public abstract int getBucketCount();
 
+    public abstract int getNodeCount();
+
     public abstract Optional<InternalNode> getAssignedNode(int bucketedId);
 
     public abstract void assignBucketToNode(int bucketedId, InternalNode node);
@@ -41,5 +43,10 @@ public abstract class BucketNodeMap
     public final Optional<InternalNode> getAssignedNode(Split split)
     {
         return getAssignedNode(splitToBucket.applyAsInt(split));
+    }
+
+    public final int getBucket(Split split)
+    {
+        return splitToBucket.applyAsInt(split);
     }
 }
