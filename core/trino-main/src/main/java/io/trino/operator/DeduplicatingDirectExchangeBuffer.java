@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Executor;
+import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -38,8 +39,8 @@ import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
+import static io.trino.operator.RetryPolicy.NONE;
 import static io.trino.operator.RetryPolicy.QUERY;
-import static io.trino.operator.RetryPolicy.TASK;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
@@ -84,7 +85,7 @@ public class DeduplicatingDirectExchangeBuffer
         this.executor = requireNonNull(executor, "executor is null");
         this.bufferCapacityInBytes = requireNonNull(bufferCapacity, "bufferCapacity is null").toBytes();
         requireNonNull(retryPolicy, "retryPolicy is null");
-        checkArgument(retryPolicy == QUERY, "retryPolicy is expected to be QUERY: %s", retryPolicy);
+        checkArgument(retryPolicy != NONE, "retryPolicy is not expected to be NONE");
         this.retryPolicy = retryPolicy;
     }
 
@@ -188,10 +189,6 @@ public class DeduplicatingDirectExchangeBuffer
         checkState(!failedTasks.containsKey(taskId), "task is failed: %s", taskId);
         checkState(successfulTasks.add(taskId), "task is finished: %s", taskId);
 
-        if (retryPolicy == TASK) {
-            // TODO implement deduplication for task level retries
-            throw new UnsupportedOperationException("task level retry policy is unsupported");
-        }
         checkInputFinished();
     }
 
@@ -239,10 +236,46 @@ public class DeduplicatingDirectExchangeBuffer
             return;
         }
 
+        List<Throwable> failures;
         switch (retryPolicy) {
-            case TASK:
-                // TODO implement deduplication for task level retries
-                throw new UnsupportedOperationException("task level retry policy is unsupported");
+            case TASK: {
+                Set<Integer> allPartitions = allTasks.stream()
+                        .map(TaskId::getPartitionId)
+                        .collect(toImmutableSet());
+
+                Set<Integer> successfulPartitions = successfulTasks.stream()
+                        .map(TaskId::getPartitionId)
+                        .collect(toImmutableSet());
+
+                if (successfulPartitions.containsAll(allPartitions)) {
+                    Map<Integer, TaskId> partitionToTaskMap = new HashMap<>();
+                    for (TaskId successfulTaskId : successfulTasks) {
+                        Integer partitionId = successfulTaskId.getPartitionId();
+                        TaskId existing = partitionToTaskMap.get(partitionId);
+                        if (existing == null || existing.getAttemptId() > successfulTaskId.getAttemptId()) {
+                            partitionToTaskMap.put(partitionId, successfulTaskId);
+                        }
+                    }
+
+                    removePagesFor(taskId -> !taskId.equals(partitionToTaskMap.get(taskId.getPartitionId())));
+                    inputFinished = true;
+                    unblock(blocked);
+                    return;
+                }
+
+                Set<Integer> runningPartitions = allTasks.stream()
+                        .filter(taskId -> !successfulTasks.contains(taskId))
+                        .filter(taskId -> !failedTasks.containsKey(taskId))
+                        .map(TaskId::getPartitionId)
+                        .collect(toImmutableSet());
+
+                failures = failedTasks.entrySet().stream()
+                        .filter(entry -> !successfulPartitions.contains(entry.getKey().getPartitionId()))
+                        .filter(entry -> !runningPartitions.contains(entry.getKey().getPartitionId()))
+                        .map(Map.Entry::getValue)
+                        .collect(toImmutableList());
+                break;
+            }
             case QUERY: {
                 Set<TaskId> latestAttemptTasks = allTasks.stream()
                         .filter(taskId -> taskId.getAttemptId() == maxAttemptId)
@@ -255,41 +288,46 @@ public class DeduplicatingDirectExchangeBuffer
                     return;
                 }
 
-                List<Throwable> failures = failedTasks.entrySet().stream()
+                failures = failedTasks.entrySet().stream()
                         .filter(entry -> entry.getKey().getAttemptId() == maxAttemptId)
                         .map(Map.Entry::getValue)
                         .collect(toImmutableList());
-
-                if (!failures.isEmpty()) {
-                    Throwable failure = null;
-                    for (Throwable taskFailure : failures) {
-                        if (failure == null) {
-                            failure = taskFailure;
-                        }
-                        else if (failure != taskFailure) {
-                            failure.addSuppressed(taskFailure);
-                        }
-                    }
-                    pageBuffer.clear();
-                    bufferRetainedSizeInBytes = 0;
-                    this.failure = failure;
-                    unblock(blocked);
-                }
                 break;
             }
             default:
                 throw new UnsupportedOperationException("unexpected retry policy: " + retryPolicy);
         }
+
+        if (!failures.isEmpty()) {
+            Throwable failure = null;
+            for (Throwable taskFailure : failures) {
+                if (failure == null) {
+                    failure = taskFailure;
+                }
+                else if (failure != taskFailure) {
+                    failure.addSuppressed(taskFailure);
+                }
+            }
+            pageBuffer.clear();
+            bufferRetainedSizeInBytes = 0;
+            this.failure = failure;
+            unblock(blocked);
+        }
     }
 
     private synchronized void removePagesForPreviousAttempts(int currentAttemptId)
     {
-        // wipe previous attempt pages
+        removePagesFor(task -> task.getAttemptId() < currentAttemptId);
+    }
+
+    private synchronized void removePagesFor(Predicate<TaskId> taskIdPredicate)
+    {
         long pagesRetainedSizeInBytes = 0;
         Iterator<Map.Entry<TaskId, SerializedPage>> iterator = pageBuffer.entries().iterator();
         while (iterator.hasNext()) {
             Map.Entry<TaskId, SerializedPage> entry = iterator.next();
-            if (entry.getKey().getAttemptId() < currentAttemptId) {
+            TaskId taskId = entry.getKey();
+            if (taskIdPredicate.test(taskId)) {
                 pagesRetainedSizeInBytes += entry.getValue().getRetainedSizeInBytes();
                 iterator.remove();
             }
