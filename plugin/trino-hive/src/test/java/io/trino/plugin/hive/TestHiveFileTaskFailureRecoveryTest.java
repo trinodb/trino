@@ -14,46 +14,42 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.hive.containers.HiveHadoop;
-import io.trino.plugin.hive.containers.HiveMinioDataLake;
-import io.trino.plugin.hive.s3.S3HiveQueryRunner;
+import io.trino.operator.RetryPolicy;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
-import org.testng.annotations.AfterClass;
 
 import java.util.List;
 import java.util.Map;
 
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestHiveMinioFailureRecoveryTest
+public class TestHiveFileTaskFailureRecoveryTest
         extends BaseHiveFailureRecoveryTest
 {
-    private String bucketName;
-    private HiveMinioDataLake dockerizedS3DataLake;
+    protected TestHiveFileTaskFailureRecoveryTest()
+    {
+        super(RetryPolicy.TASK);
+    }
 
     @Override
     protected QueryRunner createQueryRunner(List<TpchTable<?>> requiredTpchTables, Map<String, String> configProperties, Map<String, String> coordinatorProperties)
             throws Exception
     {
-        this.bucketName = "test-hive-insert-overwrite-" + randomTableSuffix(); // randomizing bucket name to ensure cached TrinoS3FileSystem objects are not reused
-        this.dockerizedS3DataLake = new HiveMinioDataLake(bucketName, ImmutableMap.of(), HiveHadoop.DEFAULT_IMAGE);
-        this.dockerizedS3DataLake.start();
-
-        return S3HiveQueryRunner.builder(dockerizedS3DataLake)
+        return HiveQueryRunner.builder()
                 .setInitialTables(requiredTpchTables)
-                .setExtraProperties(configProperties)
                 .setCoordinatorProperties(coordinatorProperties)
+                .setExtraProperties(ImmutableMap.<String, String>builder()
+                        .putAll(configProperties)
+                        // currently not supported for fault tolerant execution mode
+                        .put("enable-dynamic-filtering", "false")
+                        .build())
                 .build();
     }
 
-    @AfterClass(alwaysRun = true)
-    public void destroy()
-            throws Exception
+    @Override
+    public void testJoinDynamicFilteringEnabled()
     {
-        if (dockerizedS3DataLake != null) {
-            dockerizedS3DataLake.close();
-            dockerizedS3DataLake = null;
-        }
+        assertThatThrownBy(super::testJoinDynamicFilteringEnabled)
+                .hasMessageContaining("Dynamic filtering is not supported with automatic task retries enabled");
     }
 }
