@@ -22,11 +22,13 @@ import io.trino.SystemSessionProperties;
 import io.trino.connector.CatalogName;
 import io.trino.cost.CostCalculator;
 import io.trino.cost.StatsCalculator;
+import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.QueryPreparer.PreparedQuery;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.scheduler.NodeScheduler;
 import io.trino.execution.scheduler.SplitSchedulerStats;
 import io.trino.execution.scheduler.SqlQueryScheduler;
+import io.trino.execution.scheduler.TaskSourceFactory;
 import io.trino.execution.scheduler.policy.ExecutionPolicy;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.failuredetector.FailureDetector;
@@ -117,6 +119,8 @@ public class SqlQueryExecution
     private final TableExecuteContextManager tableExecuteContextManager;
     private final TypeAnalyzer typeAnalyzer;
     private final TaskManager coordinatorTaskManager;
+    private final ExchangeManagerRegistry exchangeManagerRegistry;
+    private final TaskSourceFactory taskSourceFactory;
 
     private SqlQueryExecution(
             PreparedQuery preparedQuery,
@@ -143,7 +147,9 @@ public class SqlQueryExecution
             WarningCollector warningCollector,
             TableExecuteContextManager tableExecuteContextManager,
             TypeAnalyzer typeAnalyzer,
-            TaskManager coordinatorTaskManager)
+            TaskManager coordinatorTaskManager,
+            ExchangeManagerRegistry exchangeManagerRegistry,
+            TaskSourceFactory taskSourceFactory)
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
             this.slug = requireNonNull(slug, "slug is null");
@@ -199,6 +205,8 @@ public class SqlQueryExecution
             this.remoteTaskFactory = new MemoryTrackingRemoteTaskFactory(requireNonNull(remoteTaskFactory, "remoteTaskFactory is null"), stateMachine);
             this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
             this.coordinatorTaskManager = requireNonNull(coordinatorTaskManager, "coordinatorTaskManager is null");
+            this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
+            this.taskSourceFactory = requireNonNull(taskSourceFactory, "taskSourceFactory is null");
         }
     }
 
@@ -511,7 +519,9 @@ public class SqlQueryExecution
                 tableExecuteContextManager,
                 plannerContext.getMetadata(),
                 splitSourceFactory,
-                coordinatorTaskManager);
+                coordinatorTaskManager,
+                exchangeManagerRegistry,
+                taskSourceFactory);
 
         queryScheduler.set(scheduler);
 
@@ -697,6 +707,8 @@ public class SqlQueryExecution
         private final TableExecuteContextManager tableExecuteContextManager;
         private final TypeAnalyzer typeAnalyzer;
         private final TaskManager coordinatorTaskManager;
+        private final ExchangeManagerRegistry exchangeManagerRegistry;
+        private final TaskSourceFactory taskSourceFactory;
 
         @Inject
         SqlQueryExecutionFactory(
@@ -720,7 +732,9 @@ public class SqlQueryExecution
                 DynamicFilterService dynamicFilterService,
                 TableExecuteContextManager tableExecuteContextManager,
                 TypeAnalyzer typeAnalyzer,
-                TaskManager coordinatorTaskManager)
+                TaskManager coordinatorTaskManager,
+                ExchangeManagerRegistry exchangeManagerRegistry,
+                TaskSourceFactory taskSourceFactory)
         {
             requireNonNull(config, "config is null");
             this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
@@ -744,6 +758,8 @@ public class SqlQueryExecution
             this.tableExecuteContextManager = requireNonNull(tableExecuteContextManager, "tableExecuteContextManager is null");
             this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
             this.coordinatorTaskManager = requireNonNull(coordinatorTaskManager, "coordinatorTaskManager is null");
+            this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
+            this.taskSourceFactory = requireNonNull(taskSourceFactory, "taskSourceFactory is null");
         }
 
         @Override
@@ -782,7 +798,9 @@ public class SqlQueryExecution
                     warningCollector,
                     tableExecuteContextManager,
                     typeAnalyzer,
-                    coordinatorTaskManager);
+                    coordinatorTaskManager,
+                    exchangeManagerRegistry,
+                    taskSourceFactory);
         }
     }
 }
