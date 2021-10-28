@@ -24,6 +24,7 @@ import io.trino.spi.connector.SortOrder;
 import io.trino.spi.connector.UpdatablePageSource;
 import io.trino.spi.type.Type;
 import io.trino.split.RemoteSplit;
+import io.trino.split.RemoteSplit.DirectExchangeInput;
 import io.trino.sql.gen.OrderingCompiler;
 import io.trino.sql.planner.plan.PlanNodeId;
 
@@ -161,7 +162,10 @@ public class MergeOperator
         TaskContext taskContext = operatorContext.getDriverContext().getPipelineContext().getTaskContext();
         DirectExchangeClient client = closer.register(directExchangeClientSupplier.get(operatorContext.localSystemMemoryContext(), taskContext::sourceTaskFailed, RetryPolicy.NONE));
         RemoteSplit remoteSplit = (RemoteSplit) split.getConnectorSplit();
-        client.addLocation(remoteSplit.getTaskId(), URI.create(remoteSplit.getLocation()));
+        // Only fault tolerant execution mode is expected to execute external exchanges.
+        // MergeOperator is used for distributed sort only and it is not compatible (and disabled) with fault tolerant execution mode.
+        DirectExchangeInput exchangeInput = (DirectExchangeInput) remoteSplit.getExchangeInput();
+        client.addLocation(exchangeInput.getTaskId(), URI.create(exchangeInput.getLocation()));
         client.noMoreLocations();
         pageProducers.add(client.pages()
                 .map(serializedPage -> {

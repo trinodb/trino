@@ -32,6 +32,7 @@ import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.split.RemoteSplit;
+import io.trino.split.RemoteSplit.DirectExchangeInput;
 import io.trino.sql.gen.OrderingCompiler;
 import io.trino.sql.planner.plan.PlanNodeId;
 import org.testng.annotations.AfterMethod;
@@ -354,7 +355,7 @@ public class TestMergeOperator
 
     private static Split createRemoteSplit(TaskId taskId)
     {
-        return new Split(ExchangeOperator.REMOTE_CONNECTOR_ID, new RemoteSplit(taskId, "http://localhost/" + taskId), Lifespan.taskWide());
+        return new Split(ExchangeOperator.REMOTE_CONNECTOR_ID, new RemoteSplit(new DirectExchangeInput(taskId, "http://localhost/" + taskId)), Lifespan.taskWide());
     }
 
     private static List<Page> pullAvailablePages(Operator operator)

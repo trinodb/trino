@@ -871,7 +871,8 @@ public class LocalQueryRunner
                 new OrderingCompiler(plannerContext.getTypeOperators()),
                 new DynamicFilterConfig(),
                 blockTypeOperators,
-                tableExecuteContextManager);
+                tableExecuteContextManager,
+                exchangeManagerRegistry);
 
         // plan query
         StageExecutionDescriptor stageExecutionDescriptor = subplan.getFragment().getStageExecutionDescriptor();
