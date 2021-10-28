@@ -73,6 +73,7 @@ import io.trino.server.SessionPropertyDefaults;
 import io.trino.server.ShutdownAction;
 import io.trino.server.security.CertificateAuthenticatorManager;
 import io.trino.server.security.ServerSecurityModule;
+import io.trino.server.testing.exchange.LocalFileSystemExchangeManagerFactory;
 import io.trino.spi.ErrorType;
 import io.trino.spi.Plugin;
 import io.trino.spi.QueryId;
@@ -348,6 +349,11 @@ public class TestingTrinoServer
 
         EventListenerManager eventListenerManager = injector.getInstance(EventListenerManager.class);
         eventListeners.forEach(eventListenerManager::addEventListener);
+
+        ExchangeManagerRegistry exchangeManagerRegistry = injector.getInstance(ExchangeManagerRegistry.class);
+        exchangeManagerRegistry.addExchangeManagerFactory(new LocalFileSystemExchangeManagerFactory());
+        exchangeManagerRegistry.loadExchangeManager("local", ImmutableMap.of(
+                "base-directory", System.getProperty("java.io.tmpdir") + "/trino-local-file-system-exchange-manager"));
 
         announcer.forceAnnounce();
 

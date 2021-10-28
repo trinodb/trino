@@ -149,6 +149,8 @@ public final class SystemSessionProperties
     public static final String RETRY_INITIAL_DELAY = "retry_initial_delay";
     public static final String RETRY_MAX_DELAY = "retry_max_delay";
     public static final String HIDE_INACCESSIBLE_COLUMNS = "hide_inaccessible_columns";
+    public static final String FAULT_TOLERANT_EXECUTION_TARGET_TASK_INPUT_SIZE = "fault_tolerant_execution_target_task_input_size";
+    public static final String FAULT_TOLERANT_EXECUTION_TARGET_TASK_SPLIT_COUNT = "fault_tolerant_execution_target_task_split_count";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -693,6 +695,16 @@ public final class SystemSessionProperties
                         "When enabled non-accessible columns are silently filtered from results from SELECT * statements",
                         featuresConfig.isHideInaccesibleColumns(),
                         value -> validateHideInaccesibleColumns(value, featuresConfig.isHideInaccesibleColumns()),
+                        false),
+                dataSizeProperty(
+                        FAULT_TOLERANT_EXECUTION_TARGET_TASK_INPUT_SIZE,
+                        "Target size in bytes of all task inputs for a single fault tolerant task",
+                        queryManagerConfig.getFaultTolerantExecutionTargetTaskInputSize(),
+                        false),
+                integerProperty(
+                        FAULT_TOLERANT_EXECUTION_TARGET_TASK_SPLIT_COUNT,
+                        "Target number of splits for a single fault tolerant task",
+                        queryManagerConfig.getFaultTolerantExecutionTargetTaskSplitCount(),
                         false));
     }
 
@@ -1227,6 +1239,11 @@ public final class SystemSessionProperties
                 throw new TrinoException(NOT_SUPPORTED, "Dynamic filtering is not supported with automatic task retries enabled");
             }
         }
+        if (retryPolicy == RetryPolicy.TASK) {
+            if (isGroupedExecutionEnabled(session) || isDynamicScheduleForGroupedExecution(session)) {
+                throw new TrinoException(NOT_SUPPORTED, "Grouped execution is not supported with task level retries enabled");
+            }
+        }
         return retryPolicy;
     }
 
@@ -1248,5 +1265,15 @@ public final class SystemSessionProperties
     public static boolean isHideInaccesibleColumns(Session session)
     {
         return session.getSystemProperty(HIDE_INACCESSIBLE_COLUMNS, Boolean.class);
+    }
+
+    public static DataSize getFaultTolerantExecutionTargetTaskInputSize(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_TARGET_TASK_INPUT_SIZE, DataSize.class);
+    }
+
+    public static int getFaultTolerantExecutionTargetTaskSplitCount(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_TARGET_TASK_SPLIT_COUNT, Integer.class);
     }
 }
