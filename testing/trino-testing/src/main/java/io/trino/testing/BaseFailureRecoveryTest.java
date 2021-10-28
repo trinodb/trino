@@ -22,6 +22,7 @@ import io.trino.client.StageStats;
 import io.trino.client.StatementStats;
 import io.trino.execution.FailureInjector.InjectedFailureType;
 import io.trino.operator.OperatorStats;
+import io.trino.operator.RetryPolicy;
 import io.trino.server.DynamicFilterService.DynamicFilterDomainStats;
 import io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import io.trino.spi.ErrorType;
@@ -83,6 +84,13 @@ public abstract class BaseFailureRecoveryTest
     private static final Duration MAX_ERROR_DURATION = new Duration(5, SECONDS);
     private static final Duration REQUEST_TIMEOUT = new Duration(5, SECONDS);
 
+    private final RetryPolicy retryPolicy;
+
+    protected BaseFailureRecoveryTest(RetryPolicy retryPolicy)
+    {
+        this.retryPolicy = requireNonNull(retryPolicy, "retryPolicy is null");
+    }
+
     @Override
     protected final QueryRunner createQueryRunner()
             throws Exception
@@ -92,11 +100,12 @@ public abstract class BaseFailureRecoveryTest
                 ImmutableMap.<String, String>builder()
                         .put("query.remote-task.max-error-duration", MAX_ERROR_DURATION.toString())
                         .put("exchange.max-error-duration", MAX_ERROR_DURATION.toString())
-                        .put("retry-policy", "QUERY")
+                        .put("retry-policy", retryPolicy.toString())
                         .put("retry-initial-delay", "0s")
                         .put("retry-attempts", "1")
                         .put("failure-injection.request-timeout", new Duration(REQUEST_TIMEOUT.toMillis() * 2, MILLISECONDS).toString())
                         .put("exchange.http-client.idle-timeout", REQUEST_TIMEOUT.toString())
+                        .put("query.initial-hash-partitions", "5")
                         .buildOrThrow(),
                 ImmutableMap.<String, String>builder()
                         .put("scheduler.http-client.idle-timeout", REQUEST_TIMEOUT.toString())
@@ -131,13 +140,18 @@ public abstract class BaseFailureRecoveryTest
     }
 
     @Test(invocationCount = INVOCATION_COUNT)
-    public void testJoin()
+    public void testJoinDynamicFilteringDisabled()
     {
         @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem JOIN supplier ON partitioned_lineitem.suppkey = supplier.suppkey " +
                 "AND supplier.name = 'Supplier#000000001'";
-        // Test without dynamic filtering
         testSelect(selectQuery, Optional.of(enableDynamicFiltering(false)));
+    }
 
+    @Test(invocationCount = INVOCATION_COUNT)
+    public void testJoinDynamicFilteringEnabled()
+    {
+        @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem JOIN supplier ON partitioned_lineitem.suppkey = supplier.suppkey " +
+                "AND supplier.name = 'Supplier#000000001'";
         testSelect(
                 selectQuery,
                 Optional.of(enableDynamicFiltering(true)),

@@ -411,8 +411,8 @@
                             <excludes>
                                 <exclude>**/TestHiveGlueMetastore.java</exclude>
                                 <exclude>**/TestFullParquetReader.java</exclude>
-                                <exclude>**/TestHiveFileFailureRecoveryTest.java</exclude>
-                                <exclude>**/TestHiveMinioFailureRecoveryTest.java</exclude>
+                                <exclude>**/TestHive*FailureRecoveryTest.java</exclude>
+                                <exclude>**/TestHiveFaultTolerantExecution*.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -462,9 +462,27 @@
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
+                            <!-- Failure recovery tests spend most of the time waiting for a retry -->
+                            <threadCount>4</threadCount>
                             <includes>
-                                <include>**/TestHiveFileFailureRecoveryTest.java</include>
-                                <include>**/TestHiveMinioFailureRecoveryTest.java</include>
+                                <include>**/TestHive*FailureRecoveryTest.java</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <profile>
+            <id>test-fault-tolerant-execution</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <include>**/TestHiveFaultTolerantExecution*.java</include>
                             </includes>
                         </configuration>
                     </plugin>
