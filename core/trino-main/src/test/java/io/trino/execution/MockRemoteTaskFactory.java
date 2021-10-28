@@ -26,6 +26,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.cost.StatsAndCosts;
+import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import io.trino.execution.buffer.LazyOutputBuffer;
 import io.trino.execution.buffer.OutputBuffer;
@@ -33,6 +34,7 @@ import io.trino.execution.buffer.OutputBuffers;
 import io.trino.memory.MemoryPool;
 import io.trino.memory.QueryContext;
 import io.trino.memory.context.SimpleLocalMemoryContext;
+import io.trino.metadata.HandleResolver;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
 import io.trino.operator.TaskContext;
@@ -214,7 +216,8 @@ public class MockRemoteTaskFactory
                     DataSize.ofBytes(1),
                     DataSize.ofBytes(1),
                     () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
-                    () -> {});
+                    () -> {},
+                    new ExchangeManagerRegistry(new HandleResolver()));
 
             this.fragment = requireNonNull(fragment, "fragment is null");
             this.nodeId = requireNonNull(nodeId, "nodeId is null");

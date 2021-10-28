@@ -22,6 +22,7 @@ import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
+import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.buffer.BufferResult;
 import io.trino.execution.buffer.BufferState;
 import io.trino.execution.buffer.OutputBuffers;
@@ -31,6 +32,7 @@ import io.trino.memory.LocalMemoryManager;
 import io.trino.memory.NodeMemoryConfig;
 import io.trino.memory.QueryContext;
 import io.trino.memory.context.LocalMemoryContext;
+import io.trino.metadata.HandleResolver;
 import io.trino.metadata.InternalNode;
 import io.trino.operator.DirectExchangeClient;
 import io.trino.operator.DirectExchangeClientSupplier;
@@ -311,7 +313,8 @@ public class TestSqlTaskManager
                 nodeMemoryConfig,
                 localSpillManager,
                 new NodeSpillConfig(),
-                new TestingGcMonitor());
+                new TestingGcMonitor(),
+                new ExchangeManagerRegistry(new HandleResolver()));
     }
 
     private TaskInfo createTask(SqlTaskManager sqlTaskManager, TaskId taskId, ImmutableSet<ScheduledSplit> splits, OutputBuffers outputBuffers)
