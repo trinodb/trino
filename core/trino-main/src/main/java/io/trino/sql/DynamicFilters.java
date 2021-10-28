@@ -20,6 +20,7 @@ import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.spi.function.IsNull;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
@@ -96,7 +97,7 @@ public final class DynamicFilters
             boolean nullAllowed)
     {
         return FunctionCallBuilder.resolve(session, metadata)
-                .setName(QualifiedName.of(Function.NAME))
+                .setName(QualifiedName.of(nullAllowed ? NullableFunction.NAME : Function.NAME))
                 .addArgument(inputType, input)
                 .addArgument(VarcharType.VARCHAR, new StringLiteral(operator.toString()))
                 .addArgument(VarcharType.VARCHAR, new StringLiteral(id.toString()))
@@ -165,8 +166,7 @@ public final class DynamicFilters
         }
 
         FunctionCall functionCall = (FunctionCall) expression;
-        boolean isDynamicFilterFunction = ResolvedFunction.extractFunctionName(functionCall.getName()).equals(Function.NAME);
-        if (!isDynamicFilterFunction) {
+        if (!isDynamicFilterFunction(functionCall)) {
             return Optional.empty();
         }
 
@@ -188,6 +188,12 @@ public final class DynamicFilters
         checkArgument(nullAllowedExpression instanceof BooleanLiteral, "nullAllowedExpression is expected to be an instance of BooleanLiteral: %s", nullAllowedExpression.getClass().getSimpleName());
         boolean nullAllowed = ((BooleanLiteral) nullAllowedExpression).getValue();
         return Optional.of(new Descriptor(new DynamicFilterId(id), probeSymbol, operator, nullAllowed));
+    }
+
+    private static boolean isDynamicFilterFunction(FunctionCall functionCall)
+    {
+        String functionName = ResolvedFunction.extractFunctionName(functionCall.getName());
+        return functionName.equals(Function.NAME) || functionName.equals(NullableFunction.NAME);
     }
 
     public static class ExtractResult
@@ -364,6 +370,46 @@ public final class DynamicFilters
         @TypeParameter("T")
         @SqlType(BOOLEAN)
         public static boolean dynamicFilter(@SqlType("T") double input, @SqlType(VARCHAR) Slice operator, @SqlType(VARCHAR) Slice id, @SqlType(BOOLEAN) boolean nullAllowed)
+        {
+            throw new UnsupportedOperationException();
+        }
+    }
+
+    // Used for "IS NOT DISTINCT FROM" to let the engine know that the
+    // DF expression accepts null parameters.
+    // This in turn may influence optimization decisions like whether
+    // LEFT join can be converted to INNER.
+    @ScalarFunction(value = NullableFunction.NAME, hidden = true)
+    public static final class NullableFunction
+    {
+        private NullableFunction() {}
+
+        private static final String NAME = "$internal$dynamic_filter_nullable_function";
+
+        @TypeParameter("T")
+        @SqlType(BOOLEAN)
+        public static boolean dynamicFilter(@SqlType("T") Object input, @IsNull boolean inputNull, @SqlType(VARCHAR) Slice operator, @SqlType(VARCHAR) Slice id, @SqlType(BOOLEAN) boolean nullAllowed)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @TypeParameter("T")
+        @SqlType(BOOLEAN)
+        public static boolean dynamicFilter(@SqlType("T") long input, @IsNull boolean inputNull, @SqlType(VARCHAR) Slice operator, @SqlType(VARCHAR) Slice id, @SqlType(BOOLEAN) boolean nullAllowed)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @TypeParameter("T")
+        @SqlType(BOOLEAN)
+        public static boolean dynamicFilter(@SqlType("T") boolean input, @IsNull boolean inputNull, @SqlType(VARCHAR) Slice operator, @SqlType(VARCHAR) Slice id, @SqlType(BOOLEAN) boolean nullAllowed)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @TypeParameter("T")
+        @SqlType(BOOLEAN)
+        public static boolean dynamicFilter(@SqlType("T") double input, @IsNull boolean inputNull, @SqlType(VARCHAR) Slice operator, @SqlType(VARCHAR) Slice id, @SqlType(BOOLEAN) boolean nullAllowed)
         {
             throw new UnsupportedOperationException();
         }
