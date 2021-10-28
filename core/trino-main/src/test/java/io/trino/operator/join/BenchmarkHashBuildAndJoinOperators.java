@@ -86,11 +86,11 @@ import static org.openjdk.jmh.annotations.Mode.AverageTime;
 
 @SuppressWarnings("MethodMayBeStatic")
 @State(Scope.Benchmark)
-@Threads(Threads.MAX)
+@Threads(4)
 @OutputTimeUnit(MILLISECONDS)
 @BenchmarkMode(AverageTime)
-@Fork(3)
-@Warmup(iterations = 5)
+@Fork(1)
+@Warmup(iterations = 10)
 @Measurement(iterations = 10, time = 2, timeUnit = SECONDS)
 public class BenchmarkHashBuildAndJoinOperators
 {
@@ -103,7 +103,7 @@ public class BenchmarkHashBuildAndJoinOperators
     public static class BuildContext
     {
         protected static final int ROWS_PER_PAGE = 1024;
-        protected static final int BUILD_ROWS_NUMBER = 20_000_000;
+        protected static final int BUILD_ROWS_NUMBER = 20000;
 
         @Param("bigint")
         protected String hashColumns = "bigint";
@@ -199,13 +199,13 @@ public class BenchmarkHashBuildAndJoinOperators
     {
         protected static final int PROBE_ROWS_NUMBER = 1_400_000;
 
-        @Param({"0.5", "1", "5"})
+        @Param("0.5")
         protected double matchRate = 5;
 
-        @Param({"bigint", "all"})
+        @Param("bigint")
         protected String outputColumns = "bigint";
 
-        @Param({"1", "16"})
+        @Param("1")
         protected int partitionCount = 1;
 
         @Param({"true", "false"})
@@ -281,9 +281,9 @@ public class BenchmarkHashBuildAndJoinOperators
             while (remainingRows > 0) {
                 double roll = random.nextDouble();
 
-                int columnA = 20 + remainingRows;
-                int columnB = 30 + remainingRows;
-                int columnC = 40 + remainingRows;
+                int columnA = 20 + (remainingRows % BUILD_ROWS_NUMBER);
+                int columnB = 30 + (remainingRows % BUILD_ROWS_NUMBER);
+                int columnC = 40 + (remainingRows % BUILD_ROWS_NUMBER);
 
                 int rowsCount = 1;
                 if (matchRate < 1) {
@@ -479,7 +479,7 @@ public class BenchmarkHashBuildAndJoinOperators
         checkState(pages.get(0).getPositionCount() > 0);
     }
 
-    @Test
+    //@Test
     public void testBenchmarkBuildHash()
     {
         BuildContext buildContext = new BuildContext();

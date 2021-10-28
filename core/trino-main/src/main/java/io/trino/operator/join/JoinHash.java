@@ -88,55 +88,35 @@ public final class JoinHash
     }
 
     @Override
-    public long[] getJoinPositions(int[] positions, Page hashChannelsPage, Page allChannelsPage, long[] rawHashes)
+    public void getJoinPositions(SelectedPositions positions, Page hashChannelsPage, Page allChannelsPage, long[] rawHashes, long[] result)
     {
-        long[] result = pagesHash.getAddressIndex(positions, hashChannelsPage, rawHashes);
+        pagesHash.getAddressIndex(positions, hashChannelsPage, rawHashes, result);
         startJoinPositions(positions, allChannelsPage, result);
-
-        return result;
-    }
-
-    @Override
-    public long[] getJoinPositions(SelectedPositions positions, Page hashChannelsPage, Page allChannelsPage, long[] rawHashes)
-    {
-        long[] result = pagesHash.getAddressIndex(positions, hashChannelsPage, rawHashes);
-        startJoinPositions(positions, allChannelsPage, result);
-
-        return result;
-    }
-
-    @Override
-    public long[] getJoinPositions(int[] positions, Page hashChannelsPage, Page allChannelsPage)
-    {
-        long[] result = pagesHash.getAddressIndex(positions, hashChannelsPage);
-        startJoinPositions(positions, allChannelsPage, result);
-
-        return result;
     }
 
     /**
      * modify join positions array in-place for performance reasons
      */
-    private void startJoinPositions(int[] probePositions, Page hashChannelsPage, long[] joinPositions)
+    private void startJoinPositions(SelectedPositions positions, Page hashChannelsPage, long[] joinPositions)
     {
         if (positionLinks == null) {
             return;
         }
-        for (int i = 0; i < probePositions.length; i++) {
-            if (joinPositions[i] != -1) {
-                joinPositions[i] = positionLinks.start((int) joinPositions[i], probePositions[i], hashChannelsPage);
+
+        if (positions.isList()) {
+            int[] positionList = positions.getPositions();
+            for (int i = 0; i < positions.size(); ++i) {
+                int position = positionList[i];
+                if (joinPositions[position] != -1) {
+                    joinPositions[position] = positionLinks.start((int) joinPositions[position], positions.getOffset() + position, hashChannelsPage);
+                }
             }
         }
-    }
-
-    private void startJoinPositions(SelectedPositions probePositions, Page hashChannelsPage, long[] joinPositions)
-    {
-        if (positionLinks == null) {
-            return;
-        }
-        for (int i = 0; i < probePositions.size(); i++) {
-            if (joinPositions[i] != -1) {
-                joinPositions[i] = positionLinks.start((int) joinPositions[i], probePositions.getOffset() + i, hashChannelsPage);
+        else {
+            for (int position = 0; position < positions.size(); position++) {
+                if (joinPositions[position] != -1) {
+                    joinPositions[position] = positionLinks.start((int) joinPositions[position], positions.getOffset() + position, hashChannelsPage);
+                }
             }
         }
     }

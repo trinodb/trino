@@ -44,9 +44,9 @@ public class SelectedPositions
 
         checkArgument(offset >= 0, "offset is negative");
         checkArgument(size >= 0, "size is negative");
-        if (isList) {
+        /*if (isList) {
             checkPositionIndexes(offset, offset + size, positions.length);
-        }
+        }*/
     }
 
     public boolean isList()

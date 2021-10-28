@@ -21,8 +21,6 @@ import javax.annotation.concurrent.NotThreadSafe;
 
 import java.io.Closeable;
 
-import static com.google.common.base.Verify.verify;
-
 @NotThreadSafe
 public interface LookupSource
         extends Closeable
@@ -37,32 +35,9 @@ public interface LookupSource
 
     long getJoinPosition(int position, Page hashChannelsPage, Page allChannelsPage);
 
-    default long[] getJoinPositions(int[] positions, Page hashChannelsPage, Page allChannelsPage, long[] rawHashes)
-    {
-        verify(positions.length == rawHashes.length, "Number of positions must match number of hashes");
-        long[] result = new long[positions.length];
-
-        for (int i = 0; i < positions.length; i++) {
-            result[i] = getJoinPosition(positions[i], hashChannelsPage, allChannelsPage, rawHashes[i]);
-        }
-
-        return result;
-    }
-
-    default long[] getJoinPositions(SelectedPositions positions, Page hashChannelsPage, Page allChannelsPage, long[] rawHashes)
+    default void getJoinPositions(SelectedPositions positions, Page hashChannelsPage, Page allChannelsPage, long[] rawHashes, long[] result)
     {
         throw new UnsupportedOperationException();
-    }
-
-    default long[] getJoinPositions(int[] positions, Page hashChannelsPage, Page allChannelsPage)
-    {
-        long[] result = new long[positions.length];
-
-        for (int i = 0; i < positions.length; i++) {
-            result[i] = getJoinPosition(positions[i], hashChannelsPage, allChannelsPage);
-        }
-
-        return result;
     }
 
     long getNextJoinPosition(long currentJoinPosition, int probePosition, Page allProbeChannelsPage);

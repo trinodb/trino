@@ -16,7 +16,6 @@ package io.trino.operator.join;
 import com.google.common.io.Closer;
 import io.trino.operator.InterpretedHashGenerator;
 import io.trino.operator.exchange.LocalPartitionGenerator;
-import io.trino.operator.project.SelectedPositions;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.type.Type;
@@ -142,120 +141,6 @@ public class PartitionedLookupSource
             return joinPosition;
         }
         return encodePartitionedJoinPosition(partition, toIntExact(joinPosition));
-    }
-
-    @Override
-    public long[] getJoinPositions(int[] positions, Page hashChannelsPage, Page allChannelsPage)
-    {
-        if (!supportsCaching()) {
-            return LookupSource.super.getJoinPositions(positions, hashChannelsPage, allChannelsPage);
-        }
-
-        long[] rawHashes = new long[positions.length];
-        for (int i = 0; i < positions.length; i++) {
-            rawHashes[i] = partitionGenerator.getRawHash(hashChannelsPage, positions[i]);
-        }
-
-        return getJoinPositions(positions, hashChannelsPage, allChannelsPage, rawHashes);
-    }
-
-    @Override
-    public long[] getJoinPositions(int[] positions, Page hashChannelsPage, Page allChannelsPage, long[] rawHashes)
-    {
-        if (!supportsCaching()) {
-            return LookupSource.super.getJoinPositions(positions, hashChannelsPage, allChannelsPage, rawHashes);
-        }
-        long[] result = new long[positions.length];
-
-        // Determine the partition of each element of positions array
-        int[] partitions = new int[positions.length];
-        int[] partitionCount = new int[lookupSources.length];
-        for (int i = 0; i < positions.length; i++) {
-            int partition = partitionGenerator.getPartition(rawHashes[i]);
-            partitions[i] = partition;
-            partitionCount[partition]++;
-        }
-
-        // Split positions array into partitions
-        int[][] partitionedPositions = new int[lookupSources.length][];
-        long[][] partitionedRawHashes = new long[lookupSources.length][];
-        for (int i = 0; i < lookupSources.length; i++) {
-            partitionedPositions[i] = new int[partitionCount[i]];
-            partitionedRawHashes[i] = new long[partitionCount[i]];
-            partitionCount[i] = 0;
-        }
-
-        for (int i = 0; i < positions.length; i++) {
-            int partition = partitions[i];
-            partitionedPositions[partition][partitionCount[partition]] = positions[i];
-            partitionedRawHashes[partition][partitionCount[partition]] = rawHashes[i];
-            partitionCount[partition]++;
-        }
-
-        // Execute getJoinPositions per every partition
-        long[][] partitionedResults = new long[lookupSources.length][];
-        for (int i = 0; i < lookupSources.length; i++) {
-            partitionedResults[i] = lookupSources[i].getJoinPositions(partitionedPositions[i], hashChannelsPage, allChannelsPage, partitionedRawHashes[i]);
-            partitionCount[i] = 0;
-        }
-
-        // Merge the results
-        for (int i = 0; i < positions.length; i++) {
-            int partition = partitions[i];
-            result[i] = encodePartitionedJoinPosition(partition, toIntExact(partitionedResults[partition][partitionCount[partition]++]));
-        }
-
-        return result;
-    }
-
-    @Override
-    public long[] getJoinPositions(SelectedPositions positions, Page hashChannelsPage, Page allChannelsPage, long[] rawHashes)
-    {
-        if (!supportsCaching()) {
-            return LookupSource.super.getJoinPositions(positions, hashChannelsPage, allChannelsPage, rawHashes);
-        }
-        verify(!positions.isList());
-        long[] result = new long[positions.size()];
-
-        // Determine the partition of each element of positions array
-        int[] partitions = new int[positions.size()];
-        int[] partitionCount = new int[lookupSources.length];
-        for (int i = 0; i < positions.size(); i++) {
-            int partition = partitionGenerator.getPartition(rawHashes[i]);
-            partitions[i] = partition;
-            partitionCount[partition]++;
-        }
-
-        // Split positions array into partitions
-        int[][] partitionedPositions = new int[lookupSources.length][];
-        long[][] partitionedRawHashes = new long[lookupSources.length][];
-        for (int i = 0; i < lookupSources.length; i++) {
-            partitionedPositions[i] = new int[partitionCount[i]];
-            partitionedRawHashes[i] = new long[partitionCount[i]];
-            partitionCount[i] = 0;
-        }
-
-        for (int i = 0; i < positions.size(); i++) {
-            int partition = partitions[i];
-            partitionedPositions[partition][partitionCount[partition]] = positions.getOffset() + i;
-            partitionedRawHashes[partition][partitionCount[partition]] = rawHashes[i];
-            partitionCount[partition]++;
-        }
-
-        // Execute getJoinPositions per every partition
-        long[][] partitionedResults = new long[lookupSources.length][];
-        for (int i = 0; i < lookupSources.length; i++) {
-            partitionedResults[i] = lookupSources[i].getJoinPositions(partitionedPositions[i], hashChannelsPage, allChannelsPage, partitionedRawHashes[i]);
-            partitionCount[i] = 0;
-        }
-
-        // Merge the results
-        for (int i = 0; i < positions.size(); i++) {
-            int partition = partitions[i];
-            result[i] = encodePartitionedJoinPosition(partition, toIntExact(partitionedResults[partition][partitionCount[partition]++]));
-        }
-
-        return result;
     }
 
     @Override
