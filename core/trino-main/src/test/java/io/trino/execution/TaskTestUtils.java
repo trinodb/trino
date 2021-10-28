@@ -21,12 +21,14 @@ import io.trino.cost.StatsAndCosts;
 import io.trino.event.SplitMonitor;
 import io.trino.eventlistener.EventListenerConfig;
 import io.trino.eventlistener.EventListenerManager;
+import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.TestSqlTaskManager.MockDirectExchangeClientSupplier;
 import io.trino.execution.buffer.OutputBuffers;
 import io.trino.execution.scheduler.NodeScheduler;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.execution.scheduler.UniformNodeSelectorFactory;
 import io.trino.index.IndexManager;
+import io.trino.metadata.HandleResolver;
 import io.trino.metadata.InMemoryNodeManager;
 import io.trino.metadata.Split;
 import io.trino.operator.PagesIndex;
@@ -144,7 +146,8 @@ public final class TaskTestUtils
                 new OrderingCompiler(PLANNER_CONTEXT.getTypeOperators()),
                 new DynamicFilterConfig(),
                 blockTypeOperators,
-                new TableExecuteContextManager());
+                new TableExecuteContextManager(),
+                new ExchangeManagerRegistry(new HandleResolver()));
     }
 
     public static TaskInfo updateTask(SqlTask sqlTask, List<TaskSource> taskSources, OutputBuffers outputBuffers)

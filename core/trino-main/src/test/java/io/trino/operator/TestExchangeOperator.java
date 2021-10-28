@@ -22,16 +22,19 @@ import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.FeaturesConfig.DataIntegrityVerification;
+import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.Lifespan;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.execution.buffer.TestingPagesSerdeFactory;
+import io.trino.metadata.HandleResolver;
 import io.trino.metadata.Split;
 import io.trino.operator.ExchangeOperator.ExchangeOperatorFactory;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
 import io.trino.split.RemoteSplit;
+import io.trino.split.RemoteSplit.DirectExchangeInput;
 import io.trino.sql.planner.plan.PlanNodeId;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -148,7 +151,7 @@ public class TestExchangeOperator
 
     private static Split newRemoteSplit(TaskId taskId)
     {
-        return new Split(REMOTE_CONNECTOR_ID, new RemoteSplit(taskId, "http://localhost/" + taskId), Lifespan.taskWide());
+        return new Split(REMOTE_CONNECTOR_ID, new RemoteSplit(new DirectExchangeInput(taskId, "http://localhost/" + taskId)), Lifespan.taskWide());
     }
 
     @Test
@@ -253,7 +256,7 @@ public class TestExchangeOperator
 
     private SourceOperator createExchangeOperator()
     {
-        ExchangeOperatorFactory operatorFactory = new ExchangeOperatorFactory(0, new PlanNodeId("test"), directExchangeClientSupplier, SERDE_FACTORY, RetryPolicy.NONE);
+        ExchangeOperatorFactory operatorFactory = new ExchangeOperatorFactory(0, new PlanNodeId("test"), directExchangeClientSupplier, SERDE_FACTORY, RetryPolicy.NONE, new ExchangeManagerRegistry(new HandleResolver()));
 
         DriverContext driverContext = createTaskContext(scheduler, scheduledExecutor, TEST_SESSION)
                 .addPipelineContext(0, true, true, false)
