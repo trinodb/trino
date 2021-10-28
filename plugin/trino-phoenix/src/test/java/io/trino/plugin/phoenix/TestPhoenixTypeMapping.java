@@ -16,6 +16,7 @@ package io.trino.plugin.phoenix;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.plugin.jdbc.UnsupportedTypeHandling;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -26,12 +27,14 @@ import io.trino.testing.datatype.DataSetup;
 import io.trino.testing.datatype.DataType;
 import io.trino.testing.datatype.DataTypeTest;
 import io.trino.testing.datatype.SqlDataTypeTest;
+import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
 import io.trino.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -42,6 +45,13 @@ import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
+import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.STRICT;
+import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.DECIMAL_DEFAULT_SCALE;
+import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.DECIMAL_MAPPING;
+import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.DECIMAL_ROUNDING_MODE;
+import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
+import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.plugin.phoenix.PhoenixQueryRunner.createPhoenixQueryRunner;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
@@ -59,6 +69,7 @@ import static io.trino.testing.datatype.DataType.smallintDataType;
 import static io.trino.testing.datatype.DataType.tinyintDataType;
 import static io.trino.testing.datatype.DataType.varcharDataType;
 import static java.lang.String.format;
+import static java.math.RoundingMode.HALF_UP;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
@@ -177,12 +188,14 @@ public class TestPhoenixTypeMapping
                 .addRoundTrip(dataTypeFactory.apply(3, 1), new BigDecimal("10.0"))
                 .addRoundTrip(dataTypeFactory.apply(3, 1), new BigDecimal("10.1"))
                 .addRoundTrip(dataTypeFactory.apply(3, 1), new BigDecimal("-10.1"))
+                .addRoundTrip(dataTypeFactory.apply(3, 2), new BigDecimal("3.14"))
                 .addRoundTrip(dataTypeFactory.apply(4, 2), new BigDecimal("2"))
                 .addRoundTrip(dataTypeFactory.apply(4, 2), new BigDecimal("2.3"))
                 .addRoundTrip(dataTypeFactory.apply(24, 2), new BigDecimal("2"))
                 .addRoundTrip(dataTypeFactory.apply(24, 2), new BigDecimal("2.3"))
                 .addRoundTrip(dataTypeFactory.apply(24, 2), new BigDecimal("123456789.3"))
                 .addRoundTrip(dataTypeFactory.apply(24, 4), new BigDecimal("12345678901234567890.31"))
+                .addRoundTrip(dataTypeFactory.apply(24, 23), new BigDecimal("3.12345678901234567890123"))
                 .addRoundTrip(dataTypeFactory.apply(30, 5), new BigDecimal("3141592653589793238462643.38327"))
                 .addRoundTrip(dataTypeFactory.apply(30, 5), new BigDecimal("-3141592653589793238462643.38327"))
                 .addRoundTrip(dataTypeFactory.apply(38, 0), new BigDecimal("27182818284590452353602874713526624977"))
@@ -197,6 +210,50 @@ public class TestPhoenixTypeMapping
                 createDecimalType(precision, scale),
                 bigDecimal -> format("CAST(%s AS %s)", bigDecimal, databaseType),
                 bigDecimal -> bigDecimal.setScale(scale, UNNECESSARY));
+    }
+
+    @Test
+    public void testDecimalUnspecifiedPrecision()
+    {
+        PhoenixSqlExecutor phoenixSqlExecutor = new PhoenixSqlExecutor(phoenixServer.getJdbcUrl());
+        try (TestTable testTable = new TestTable(
+                phoenixSqlExecutor,
+                "tpch.test_var_decimal",
+                "(pk bigint primary key, d_col decimal)",
+                asList("1, 1.12", "2, 123456.789", "3, -1.12", "4, -123456.789"))) {
+            assertQueryFails(
+                    sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 0),
+                    "SELECT d_col FROM " + testTable.getName(),
+                    "Rounding necessary");
+            assertQuery(
+                    sessionWithDecimalMappingAllowOverflow(HALF_UP, 0),
+                    "SELECT d_col FROM " + testTable.getName(),
+                    "VALUES (1), (123457), (-1), (-123457)");
+            assertQueryFails(
+                    sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 1),
+                    "SELECT d_col FROM " + testTable.getName(),
+                    "Rounding necessary");
+            assertQuery(
+                    sessionWithDecimalMappingAllowOverflow(HALF_UP, 1),
+                    "SELECT d_col FROM " + testTable.getName(),
+                    "VALUES (1.1), (123456.8), (-1.1), (-123456.8)");
+            assertQueryFails(
+                    sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 2),
+                    "SELECT d_col FROM " + testTable.getName(),
+                    "Rounding necessary");
+            assertQuery(
+                    sessionWithDecimalMappingAllowOverflow(HALF_UP, 2),
+                    "SELECT d_col FROM " + testTable.getName(),
+                    "VALUES (1.12), (123456.79), (-1.12), (-123456.79)");
+            assertQuery(
+                    sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 3),
+                    "SELECT d_col FROM " + testTable.getName(),
+                    "VALUES (1.12), (123456.789), (-1.12), (-123456.789)");
+            assertQueryFails(
+                    sessionWithDecimalMappingStrict(CONVERT_TO_VARCHAR),
+                    "SELECT d_col FROM " + testTable.getName(),
+                    "Rounding necessary");
+        }
     }
 
     @Test
@@ -419,5 +476,22 @@ public class TestPhoenixTypeMapping
     private DataSetup phoenixCreateAndInsert(String tableNamePrefix)
     {
         return new CreateAndInsertDataSetup(new PhoenixSqlExecutor(phoenixServer.getJdbcUrl()), tableNamePrefix);
+    }
+
+    private Session sessionWithDecimalMappingAllowOverflow(RoundingMode roundingMode, int scale)
+    {
+        return Session.builder(getSession())
+                .setCatalogSessionProperty("phoenix", DECIMAL_MAPPING, ALLOW_OVERFLOW.name())
+                .setCatalogSessionProperty("phoenix", DECIMAL_ROUNDING_MODE, roundingMode.name())
+                .setCatalogSessionProperty("phoenix", DECIMAL_DEFAULT_SCALE, Integer.valueOf(scale).toString())
+                .build();
+    }
+
+    private Session sessionWithDecimalMappingStrict(UnsupportedTypeHandling unsupportedTypeHandling)
+    {
+        return Session.builder(getSession())
+                .setCatalogSessionProperty("phoenix", DECIMAL_MAPPING, STRICT.name())
+                .setCatalogSessionProperty("phoenix", UNSUPPORTED_TYPE_HANDLING, unsupportedTypeHandling.name())
+                .build();
     }
 }
