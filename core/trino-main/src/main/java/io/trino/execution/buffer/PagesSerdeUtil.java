@@ -41,6 +41,13 @@ public final class PagesSerdeUtil
      * @implNote It's not just 0, so that hypothetical zero-ed out data is not treated as valid payload with no checksum.
      */
     public static final long NO_CHECKSUM = 0x0123456789abcdefL;
+    public static final int SERIALIZED_PAGE_HEADER_SIZE = /*positionCount*/ Integer.BYTES +
+            // pageCodecMarkers
+            Byte.BYTES +
+            // uncompressedSizeInBytes
+            Integer.BYTES +
+            // sizeInBytes
+            Integer.BYTES;
 
     static void writeRawPage(Page page, SliceOutput output, BlockEncodingSerde serde)
     {

@@ -28,6 +28,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.event.SplitMonitor;
+import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.buffer.BufferResult;
@@ -133,7 +134,8 @@ public class SqlTaskManager
             NodeMemoryConfig nodeMemoryConfig,
             LocalSpillManager localSpillManager,
             NodeSpillConfig nodeSpillConfig,
-            GcMonitor gcMonitor)
+            GcMonitor gcMonitor,
+            ExchangeManagerRegistry exchangeManagerRegistry)
     {
         requireNonNull(nodeInfo, "nodeInfo is null");
         requireNonNull(config, "config is null");
@@ -174,6 +176,7 @@ public class SqlTaskManager
                         sqlTask -> finishedTaskStats.merge(sqlTask.getIoStats()),
                         maxBufferSize,
                         maxBroadcastBufferSize,
+                        requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null"),
                         failedTasks)));
     }
 

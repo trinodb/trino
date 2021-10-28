@@ -18,11 +18,15 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.ExtendedSettableFuture;
 import io.airlift.units.DataSize;
+import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.StateMachine;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.TaskId;
 import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
 import io.trino.memory.context.LocalMemoryContext;
+import io.trino.spi.exchange.ExchangeManager;
+import io.trino.spi.exchange.ExchangeSink;
+import io.trino.spi.exchange.ExchangeSinkInstanceHandle;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
@@ -54,6 +58,7 @@ public class LazyOutputBuffer
     private final Supplier<LocalMemoryContext> systemMemoryContextSupplier;
     private final Executor executor;
     private final Runnable notifyStatusChanged;
+    private final ExchangeManagerRegistry exchangeManagerRegistry;
 
     // Note: this is a write once field, so an unsynchronized volatile read that returns a non-null value is safe, but if a null value is observed instead
     // a subsequent synchronized read is required to ensure the writing thread can complete any in-flight initialization
@@ -73,9 +78,9 @@ public class LazyOutputBuffer
             DataSize maxBufferSize,
             DataSize maxBroadcastBufferSize,
             Supplier<LocalMemoryContext> systemMemoryContextSupplier,
-            Runnable notifyStatusChanged)
+            Runnable notifyStatusChanged,
+            ExchangeManagerRegistry exchangeManagerRegistry)
     {
-        requireNonNull(taskId, "taskId is null");
         this.taskInstanceId = requireNonNull(taskInstanceId, "taskInstanceId is null");
         this.executor = requireNonNull(executor, "executor is null");
         state = new StateMachine<>(taskId + "-buffer", executor, OPEN, TERMINAL_BUFFER_STATES);
@@ -84,6 +89,7 @@ public class LazyOutputBuffer
         checkArgument(maxBufferSize.toBytes() > 0, "maxBufferSize must be at least 1");
         this.systemMemoryContextSupplier = requireNonNull(systemMemoryContextSupplier, "systemMemoryContextSupplier is null");
         this.notifyStatusChanged = requireNonNull(notifyStatusChanged, "notifyStatusChanged is null");
+        this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
     }
 
     @Override
@@ -168,6 +174,15 @@ public class LazyOutputBuffer
                         case ARBITRARY:
                             outputBuffer = new ArbitraryOutputBuffer(taskInstanceId, state, maxBufferSize, systemMemoryContextSupplier, executor);
                             break;
+                        case EXTERNAL:
+                            ExchangeSinkInstanceHandle exchangeSinkInstanceHandle = newOutputBuffers.getExchangeSinkInstanceHandle()
+                                    .orElseThrow(() -> new IllegalArgumentException("exchange sink handle is expected to be present for buffer type EXTERNAL"));
+                            ExchangeManager exchangeManager = exchangeManagerRegistry.getExchangeManager();
+                            ExchangeSink exchangeSink = exchangeManager.createSink(exchangeSinkInstanceHandle);
+                            outputBuffer = new ExternalExchangeOutputBuffer(state, newOutputBuffers, exchangeSink, systemMemoryContextSupplier);
+                            break;
+                        default:
+                            throw new IllegalArgumentException("Unexpected output buffer type: " + newOutputBuffers.getType());
                     }
 
                     // process pending aborts and reads outside of synchronized lock
