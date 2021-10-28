@@ -116,6 +116,11 @@ public class StarburstSynapseClient
                         timeType,
                         timeReadFunction(timeType),
                         synapseTimeWriteFunction(timeType.getPrecision())));
+
+            // Synapse does not support text and ntext data types
+            case Types.LONGVARCHAR:
+            case Types.LONGNVARCHAR:
+                return Optional.empty();
         }
 
         return super.toColumnMapping(session, connection, typeHandle);

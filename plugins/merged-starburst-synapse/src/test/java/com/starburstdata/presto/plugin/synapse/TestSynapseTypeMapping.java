@@ -58,6 +58,14 @@ public class TestSynapseTypeMapping
 
     @Override
     @Test
+    public void testSqlServerLongVarchar()
+    {
+        assertThatThrownBy(super::testSqlServerLongVarchar).hasRootCauseMessage("Cannot find data type 'text'.");
+        throw new SkipException("Synapse does not support text and ntext data types");
+    }
+
+    @Override
+    @Test
     public void testTrinoUnboundedVarchar()
     {
         SqlDataTypeTest.create()
