@@ -23,6 +23,7 @@ import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
+import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.buffer.BufferResult;
@@ -103,9 +104,10 @@ public class SqlTask
             Consumer<SqlTask> onDone,
             DataSize maxBufferSize,
             DataSize maxBroadcastBufferSize,
+            ExchangeManagerRegistry exchangeManagerRegistry,
             CounterStat failedTasks)
     {
-        SqlTask sqlTask = new SqlTask(taskId, location, nodeId, queryContext, sqlTaskExecutionFactory, taskNotificationExecutor, maxBufferSize, maxBroadcastBufferSize);
+        SqlTask sqlTask = new SqlTask(taskId, location, nodeId, queryContext, sqlTaskExecutionFactory, taskNotificationExecutor, maxBufferSize, maxBroadcastBufferSize, exchangeManagerRegistry);
         sqlTask.initialize(onDone, failedTasks);
         return sqlTask;
     }
@@ -118,7 +120,8 @@ public class SqlTask
             SqlTaskExecutionFactory sqlTaskExecutionFactory,
             ExecutorService taskNotificationExecutor,
             DataSize maxBufferSize,
-            DataSize maxBroadcastBufferSize)
+            DataSize maxBroadcastBufferSize,
+            ExchangeManagerRegistry exchangeManagerRegistry)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.taskInstanceId = UUID.randomUUID().toString();
@@ -138,7 +141,8 @@ public class SqlTask
                 // Pass a memory context supplier instead of a memory context to the output buffer,
                 // because we haven't created the task context that holds the memory context yet.
                 () -> queryContext.getTaskContextByTaskId(taskId).localSystemMemoryContext(),
-                () -> notifyStatusChanged());
+                () -> notifyStatusChanged(),
+                exchangeManagerRegistry);
         taskStateMachine = new TaskStateMachine(taskId, taskNotificationExecutor);
     }
 
