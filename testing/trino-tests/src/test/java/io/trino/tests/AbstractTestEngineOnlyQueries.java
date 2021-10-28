@@ -6179,6 +6179,76 @@ public abstract class AbstractTestEngineOnlyQueries
                 "         ORDER BY age, name " +
                 "         LIMIT 1"))
                 .matches("VALUES ('name', 'age')");
+
+        assertThat(query("SELECT " +
+                "         custkey, " +
+                "         'name' as name, " +
+                "         'age' as age " +
+                "         FROM customer " +
+                "         ORDER BY custkey, age, name " +
+                "         LIMIT 1"))
+                .matches("VALUES (cast(1 as bigint), 'name', 'age')");
+
+        assertThat(query("SELECT " +
+                "         'name' as name, " +
+                "         custkey, " +
+                "         'age' as age " +
+                "         FROM customer " +
+                "         ORDER BY custkey, age, name " +
+                "         LIMIT 1"))
+                .matches("VALUES ('name', cast(1 as bigint), 'age')");
+
+        assertThat(query("SELECT " +
+                "         custkey, " +
+                "         'name' as name, " +
+                "         'age' as age " +
+                "         FROM customer " +
+                "         ORDER BY age, custkey, name " +
+                "         LIMIT 1"))
+                .matches("VALUES (cast(1 as bigint), 'name', 'age')");
+
+        assertThat(query("SELECT " +
+                "         'name' as name, " +
+                "         custkey, " +
+                "         'age' as age " +
+                "         FROM customer " +
+                "         ORDER BY age, custkey, name " +
+                "         LIMIT 1"))
+                .matches("VALUES ('name', cast(1 as bigint), 'age')");
+
+        query("SELECT " +
+                "         custkey, " +
+                "         'name' as name, " +
+                "         'age' as age " +
+                "         FROM customer " +
+                "         ORDER BY  age, name " +
+                "         LIMIT 1");
+
+        query("SELECT " +
+                "         'name' as name, " +
+                "         custkey, " +
+                "         'age' as age " +
+                "         FROM customer " +
+                "         ORDER BY  age, name " +
+                "         LIMIT 1");
+
+        query("SELECT " +
+                "         custkey, " +
+                "         'name' as name, " +
+                "         'age' as age " +
+                "         FROM customer " +
+                "         ORDER BY age, name " +
+                "         LIMIT 1");
+
+        query("SELECT " +
+                "         'name' as name, " +
+                "         custkey, " +
+                "         'age' as age " +
+                "         FROM customer " +
+                "         ORDER BY age, name " +
+                "         LIMIT 1");
+
+
     }
 
     private static ZonedDateTime zonedDateTime(String value)
