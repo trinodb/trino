@@ -26,6 +26,8 @@ import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTableExecuteHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.exchange.ExchangeSinkInstanceHandle;
+import io.trino.spi.exchange.ExchangeSourceHandle;
 
 public class HandleJsonModule
         implements Module
@@ -88,5 +90,17 @@ public class HandleJsonModule
     public static com.fasterxml.jackson.databind.Module partitioningHandleModule(HandleResolver resolver)
     {
         return new AbstractTypedJacksonModule<>(ConnectorPartitioningHandle.class, resolver::getId, resolver::getPartitioningHandleClass) {};
+    }
+
+    @ProvidesIntoSet
+    public static com.fasterxml.jackson.databind.Module exchangeSinkInstanceHandleModule(HandleResolver resolver)
+    {
+        return new AbstractTypedJacksonModule<>(ExchangeSinkInstanceHandle.class, (clazz) -> clazz.getClass().getSimpleName(), (ignored) -> resolver.getExchangeSinkInstanceHandleClass()) {};
+    }
+
+    @ProvidesIntoSet
+    public static com.fasterxml.jackson.databind.Module exchangeSourceHandleModule(HandleResolver resolver)
+    {
+        return new AbstractTypedJacksonModule<>(ExchangeSourceHandle.class, (clazz) -> clazz.getClass().getSimpleName(), (ignored) -> resolver.getExchangeSourceHandleHandleClass()) {};
     }
 }
