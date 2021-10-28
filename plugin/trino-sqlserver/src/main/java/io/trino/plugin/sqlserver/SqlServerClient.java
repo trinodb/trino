@@ -71,6 +71,7 @@ import javax.inject.Inject;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.time.Instant;
@@ -634,12 +635,14 @@ public class SqlServerClient
     }
 
     @Override
-    public void abortReadConnection(Connection connection)
+    public void abortReadConnection(Connection connection, ResultSet resultSet)
             throws SQLException
     {
-        // Abort connection before closing. Without this, the SQL Server driver
-        // attempts to drain the connection by reading all the results.
-        connection.abort(directExecutor());
+        if (!resultSet.isAfterLast()) {
+            // Abort connection before closing. Without this, the SQL Server driver
+            // attempts to drain the connection by reading all the results.
+            connection.abort(directExecutor());
+        }
     }
 
     @Override

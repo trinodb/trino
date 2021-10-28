@@ -276,8 +276,8 @@ public class JdbcRecordCursor
                     // statement already closed or cancel is not supported
                 }
             }
-            if (connection != null) {
-                jdbcClient.abortReadConnection(connection);
+            if (connection != null && resultSet != null) {
+                jdbcClient.abortReadConnection(connection, resultSet);
             }
         }
         catch (SQLException | RuntimeException e) {
