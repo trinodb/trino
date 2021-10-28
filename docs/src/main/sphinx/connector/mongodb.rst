@@ -24,7 +24,7 @@ replacing the properties as appropriate:
 .. code-block:: text
 
     connector.name=mongodb
-    mongodb.connection-url=protocol://user:pass@sample.host:27017/
+    mongodb.connection-uri=protocol://user:pass@sample.host:27017/
 
 Multiple MongoDB clusters
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -44,7 +44,7 @@ The following configuration properties are available:
 Property Name                              Description
 ========================================== ==============================================================
 ``mongodb.seeds``                          List of all MongoDB servers
-``mongodb.connection-string``              The connection uri that the driver uses to connect to a MongoDB deployment
+``mongodb.connection-uri``              The connection uri that the driver uses to connect to a MongoDB deployment
 ``mongodb.schema-collection``              A collection which contains schema information
 ``mongodb.case-insensitive-name-matching`` Match database and collection names case insensitively
 ``mongodb.credentials``                    List of credentials
