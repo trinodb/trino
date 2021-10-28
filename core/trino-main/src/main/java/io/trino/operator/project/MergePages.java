@@ -21,6 +21,7 @@ import io.trino.operator.WorkProcessor.TransformationState;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
 
 import java.util.List;
@@ -204,10 +205,17 @@ public final class MergePages
         {
             pageBuilder.declarePositions(page.getPositionCount());
             for (int channel = 0; channel < types.size(); channel++) {
-                Type type = types.get(channel);
-                for (int position = 0; position < page.getPositionCount(); position++) {
-                    type.appendTo(page.getBlock(channel), position, pageBuilder.getBlockBuilder(channel));
-                }
+                appendBlock(
+                        types.get(channel),
+                        page.getBlock(channel).getLoadedBlock(),
+                        pageBuilder.getBlockBuilder(channel));
+            }
+        }
+
+        private void appendBlock(Type type, Block block, BlockBuilder blockBuilder)
+        {
+            for (int position = 0; position < block.getPositionCount(); position++) {
+                type.appendTo(block, position, blockBuilder);
             }
         }
 
