@@ -41,7 +41,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.Set;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -99,7 +99,7 @@ public class StageStateMachine
             Session session,
             PlanFragment fragment,
             Map<PlanNodeId, TableInfo> tables,
-            ExecutorService executor,
+            Executor executor,
             SplitSchedulerStats schedulerStats)
     {
         this.stageId = requireNonNull(stageId, "stageId is null");
