@@ -332,6 +332,15 @@ public class TestPhoenixConnectorTest
         assertUpdate("DROP TABLE tpch.test_timestamp");
     }
 
+    @Test
+    public void testDefaultDecimalTable()
+            throws Exception
+    {
+        executeInPhoenix("CREATE TABLE tpch.test_null_decimal (pk bigint primary key, val1 decimal)");
+        executeInPhoenix("UPSERT INTO tpch.test_null_decimal (pk, val1) VALUES (1, 2)");
+        assertQuery("SELECT * FROM tpch.test_null_decimal", "VALUES (1, 2) ");
+    }
+
     private Session withUnsupportedType(UnsupportedTypeHandling unsupportedTypeHandling)
     {
         return Session.builder(getSession())
