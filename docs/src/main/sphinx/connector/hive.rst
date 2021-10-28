@@ -960,9 +960,7 @@ Special columns
 ---------------
 
 In addition to the defined columns, the Hive connector automatically exposes
-metadata in a number of hidden columns in each table. You can use these columns
-in your SQL statements like any other column, e.g., they can be selected
-directly or used in conditional statements.
+metadata in a number of hidden columns in each table:
 
 * ``$bucket``: Bucket number for this row
 
@@ -973,6 +971,20 @@ directly or used in conditional statements.
 * ``$file_size``: Size of the file for this row
 
 * ``$partition``: Partition name for this row
+
+You can use these columns in your SQL statements like any other column. They
+can be selected directly, or used in conditional statements. For example, you
+can inspect the file size, location and partition for each record::
+
+    SELECT *, "$path", "$file_size", "$partition"
+    FROM hive.web.page_views;
+
+Retrieve all records that belong to files stored in the partition
+``ds=2016-08-09/country=US``::
+
+    SELECT *, "$path", "$file_size"
+    FROM hive.web.page_views
+    WHERE "$partition" = 'ds=2016-08-09/country=US'
 
 Special tables
 ----------------
