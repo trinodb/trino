@@ -3116,6 +3116,62 @@ public class TestHiveConnectorTest
     }
 
     @Test
+    public void testPartitionPerScanLimitWithMultiplePartitionColumns()
+    {
+        String tableName = "test_multi_partition_per_scan_limit";
+        String partitionsTable = "\"" + tableName + "$partitions\"";
+
+        assertUpdate("" +
+                "CREATE TABLE " + tableName + " (  foo varchar,   part1 bigint,   part2 bigint) " +
+                "WITH (partitioned_by = ARRAY['part1', 'part2'])");
+
+        // insert 1200 partitions with part1 being NULL
+        for (int batchNumber = 0; batchNumber < 12; batchNumber++) {
+            // insert with a loop to avoid max open writers limit
+            assertUpdate(
+                    format(
+                            "INSERT INTO %s SELECT 'bar' foo, NULL part1, n part2 FROM UNNEST(sequence(%s, %s)) a(n)",
+                            tableName,
+                            batchNumber * 100 + 1,
+                            (batchNumber + 1) * 100),
+                    100);
+        }
+        // insert 10 partitions with part1=part2
+        assertUpdate("INSERT INTO " + tableName + " SELECT 'bar' foo, n part1, n part2 FROM UNNEST(sequence(1, 10)) a(n)", 10);
+
+        // verify can query 1000 partitions
+        assertThat(query("SELECT count(*) FROM " + tableName + " WHERE part1 IS NULL AND part2 < 1001"))
+                .matches("VALUES BIGINT '1000'");
+
+        // verify cannot query more than 1000 partitions
+        assertThatThrownBy(() -> query("SELECT count(*) FROM " + tableName + " WHERE part1 IS NULL AND part2 <= 1001"))
+                .hasMessage(format("Query over table 'tpch.%s' can potentially read more than 1000 partitions", tableName));
+        assertThatThrownBy(() -> query("SELECT count(*) FROM " + tableName))
+                .hasMessage(format("Query over table 'tpch.%s' can potentially read more than 1000 partitions", tableName));
+
+        // verify we can query with a predicate that is not representable as a TupleDomain
+        // TODO this shouldn't fail
+        assertThatThrownBy(() -> query("SELECT * FROM " + tableName + " WHERE part1 % 400 = 3")) // may be translated to Domain.all
+                .hasMessage(format("Query over table 'tpch.%s' can potentially read more than 1000 partitions", tableName));
+        assertThat(query("SELECT * FROM " + tableName + " WHERE part1 % 400 = 3 AND part1 IS NOT NULL"))  // may be translated to Domain.all except nulls
+                .matches("VALUES (VARCHAR 'bar', BIGINT '3', BIGINT '3')");
+
+        // we are not constrained by hive.max-partitions-per-scan (=1000) when listing partitions
+        assertThat(query("SELECT * FROM " + partitionsTable))
+                .matches("" +
+                        "SELECT CAST(NULL AS bigint), CAST(n AS bigint) FROM UNNEST(sequence(1, 1200)) a(n) " +
+                        "UNION ALL VALUES (1,1), (2,2), (3,3), (4,4), (5,5), (6,6), (7,7), (8,8), (9,9), (10, 10)");
+        assertThat(query("SELECT * FROM " + partitionsTable + " WHERE part1 IS NOT NULL"))
+                .matches("VALUES (BIGINT '1', BIGINT '1'), (2,2), (3,3), (4,4), (5,5), (6,6), (7,7), (8,8), (9,9), (10, 10)");
+        assertThat(query("SELECT * FROM " + partitionsTable + " WHERE part1 < 4"))
+                .matches("VALUES (BIGINT '1', BIGINT '1'), (2,2), (3,3)");
+        assertThat(query("SELECT * FROM " + partitionsTable + " WHERE part2 < 4"))
+                .matches("VALUES (BIGINT '1', BIGINT '1'), (2,2), (3,3), (NULL,1), (NULL,2), (NULL,3)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testShowColumnsFromPartitions()
     {
         String tableName = "test_show_columns_from_partitions";
