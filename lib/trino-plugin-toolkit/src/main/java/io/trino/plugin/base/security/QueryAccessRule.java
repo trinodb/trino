@@ -35,22 +35,26 @@ public class QueryAccessRule
     private final Set<AccessMode> allow;
     private final Optional<Pattern> userRegex;
     private final Optional<Pattern> roleRegex;
+    private final Optional<Pattern> groupRegex;
 
     @JsonCreator
     public QueryAccessRule(
             @JsonProperty("allow") Set<AccessMode> allow,
             @JsonProperty("user") Optional<Pattern> userRegex,
-            @JsonProperty("role") Optional<Pattern> roleRegex)
+            @JsonProperty("role") Optional<Pattern> roleRegex,
+            @JsonProperty("group") Optional<Pattern> groupRegex)
     {
         this.allow = ImmutableSet.copyOf(requireNonNull(allow, "allow is null"));
         this.userRegex = requireNonNull(userRegex, "userRegex is null");
         this.roleRegex = requireNonNull(roleRegex, "roleRegex is null");
+        this.groupRegex = requireNonNull(groupRegex, "groupRegex is null");
     }
 
-    public Optional<Set<AccessMode>> match(String user, Set<String> roles)
+    public Optional<Set<AccessMode>> match(String user, Set<String> roles, Set<String> groups)
     {
         if (userRegex.map(regex -> regex.matcher(user).matches()).orElse(true) &&
-                roleRegex.map(regex -> roles.stream().anyMatch(role -> regex.matcher(role).matches())).orElse(true)) {
+                roleRegex.map(regex -> roles.stream().anyMatch(role -> regex.matcher(role).matches())).orElse(true) &&
+                groupRegex.map(regex -> groups.stream().anyMatch(role -> regex.matcher(role).matches())).orElse(true)) {
             return Optional.of(allow);
         }
         return Optional.empty();
@@ -64,6 +68,7 @@ public class QueryAccessRule
                 .add("allow", allow)
                 .add("userRegex", userRegex.orElse(null))
                 .add("roleRegex", roleRegex.orElse(null))
+                .add("groupRegex", groupRegex.orElse(null))
                 .toString();
     }
 
