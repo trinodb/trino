@@ -35,6 +35,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 
 import java.util.Collections;
@@ -45,7 +46,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 import static com.google.cloud.bigquery.TableDefinition.Type.TABLE;
@@ -65,7 +65,7 @@ import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.joining;
 
-class BigQueryClient
+public class BigQueryClient
 {
     private static final Logger log = Logger.get(BigQueryClient.class);
 
@@ -77,7 +77,7 @@ class BigQueryClient
     private final Cache<TableId, Optional<RemoteDatabaseObject>> remoteTables;
     private final Cache<String, TableInfo> destinationTableCache;
 
-    BigQueryClient(BigQuery bigQuery, BigQueryConfig config)
+    public BigQueryClient(BigQuery bigQuery, BigQueryConfig config)
     {
         this.bigQuery = bigQuery;
         this.viewMaterializationProject = config.getViewMaterializationProject();
@@ -95,7 +95,7 @@ class BigQueryClient
                 .build();
     }
 
-    Optional<RemoteDatabaseObject> toRemoteDataset(String projectId, String datasetName)
+    public Optional<RemoteDatabaseObject> toRemoteDataset(String projectId, String datasetName)
     {
         requireNonNull(projectId, "projectId is null");
         requireNonNull(datasetName, "datasetName is null");
@@ -127,12 +127,12 @@ class BigQueryClient
         return mapping.get(datasetName);
     }
 
-    Optional<RemoteDatabaseObject> toRemoteTable(String projectId, String remoteDatasetName, String tableName)
+    public Optional<RemoteDatabaseObject> toRemoteTable(String projectId, String remoteDatasetName, String tableName)
     {
         return toRemoteTable(projectId, remoteDatasetName, tableName, () -> listTables(DatasetId.of(projectId, remoteDatasetName), TABLE, VIEW));
     }
 
-    Optional<RemoteDatabaseObject> toRemoteTable(String projectId, String remoteDatasetName, String tableName, Iterable<Table> tables)
+    public Optional<RemoteDatabaseObject> toRemoteTable(String projectId, String remoteDatasetName, String tableName, Iterable<Table> tables)
     {
         return toRemoteTable(projectId, remoteDatasetName, tableName, () -> tables);
     }
@@ -179,41 +179,40 @@ class BigQueryClient
                 tableId.getTable().toLowerCase(ENGLISH));
     }
 
-    DatasetInfo getDataset(DatasetId datasetId)
+    public DatasetInfo getDataset(DatasetId datasetId)
     {
         return bigQuery.getDataset(datasetId);
     }
 
-    TableInfo getTable(TableId remoteTableId)
+    public Optional<TableInfo> getTable(TableId remoteTableId)
     {
-        // TODO: Return Optional and make callers handle missing value
-        return bigQuery.getTable(remoteTableId);
+        return Optional.ofNullable(bigQuery.getTable(remoteTableId));
     }
 
-    TableInfo getCachedTable(ReadSessionCreatorConfig config, TableInfo remoteTableId, List<String> requiredColumns)
+    public TableInfo getCachedTable(Duration viewExpiration, TableInfo remoteTableId, List<String> requiredColumns)
     {
         String query = selectSql(remoteTableId, requiredColumns);
         log.debug("query is %s", query);
         try {
             return destinationTableCache.get(query,
-                    new DestinationTableBuilder(this, config, query, remoteTableId.getTableId()));
+                    new DestinationTableBuilder(this, viewExpiration, query, remoteTableId.getTableId()));
         }
         catch (ExecutionException e) {
             throw new TrinoException(BIGQUERY_VIEW_DESTINATION_TABLE_CREATION_FAILED, "Error creating destination table", e);
         }
     }
 
-    String getProjectId()
+    public String getProjectId()
     {
         return bigQuery.getOptions().getProjectId();
     }
 
-    Iterable<Dataset> listDatasets(String projectId)
+    public Iterable<Dataset> listDatasets(String projectId)
     {
         return bigQuery.listDatasets(projectId).iterateAll();
     }
 
-    Iterable<Table> listTables(DatasetId remoteDatasetId, TableDefinition.Type... types)
+    public Iterable<Table> listTables(DatasetId remoteDatasetId, TableDefinition.Type... types)
     {
         Set<TableDefinition.Type> allowedTypes = ImmutableSet.copyOf(types);
         Iterable<Table> allTables = bigQuery.listTables(remoteDatasetId).iterateAll();
@@ -222,7 +221,7 @@ class BigQueryClient
                 .collect(toImmutableList());
     }
 
-    TableId createDestinationTable(TableId remoteTableId)
+    private TableId createDestinationTable(TableId remoteTableId)
     {
         String project = viewMaterializationProject.orElse(remoteTableId.getProject());
         String dataset = viewMaterializationDataset.orElse(remoteTableId.getDataset());
@@ -231,7 +230,7 @@ class BigQueryClient
         return TableId.of(project, dataset, name);
     }
 
-    Table update(TableInfo table)
+    private Table update(TableInfo table)
     {
         return bigQuery.update(table);
     }
@@ -256,12 +255,12 @@ class BigQueryClient
         bigQuery.delete(tableId);
     }
 
-    Job create(JobInfo jobInfo)
+    private Job create(JobInfo jobInfo)
     {
         return bigQuery.create(jobInfo);
     }
 
-    TableResult query(String sql)
+    public TableResult query(String sql)
     {
         try {
             return bigQuery.query(QueryJobConfiguration.of(sql));
@@ -272,7 +271,7 @@ class BigQueryClient
         }
     }
 
-    String selectSql(TableInfo remoteTable, List<String> requiredColumns)
+    private String selectSql(TableInfo remoteTable, List<String> requiredColumns)
     {
         String columns = requiredColumns.isEmpty() ? "*" :
                 requiredColumns.stream().map(column -> format("`%s`", column)).collect(joining(","));
@@ -281,7 +280,7 @@ class BigQueryClient
     }
 
     // assuming the SELECT part is properly formatted, can be used to call functions such as COUNT and SUM
-    String selectSql(TableId table, String formattedColumns)
+    public String selectSql(TableId table, String formattedColumns)
     {
         String tableName = fullTableName(table);
         return format("SELECT %s FROM `%s`", formattedColumns, tableName);
@@ -295,14 +294,10 @@ class BigQueryClient
         return format("%s.%s.%s", remoteTableId.getProject(), remoteTableId.getDataset(), remoteTableId.getTable());
     }
 
-    List<BigQueryColumnHandle> getColumns(BigQueryTableHandle tableHandle)
+    public List<BigQueryColumnHandle> getColumns(BigQueryTableHandle tableHandle)
     {
-        TableInfo tableInfo = getTable(tableHandle.getRemoteTableName().toTableId());
-        if (tableInfo == null) {
-            throw new TableNotFoundException(
-                    tableHandle.getSchemaTableName(),
-                    format("Table '%s' not found", tableHandle.getSchemaTableName()));
-        }
+        TableInfo tableInfo = getTable(tableHandle.getRemoteTableName().toTableId())
+                .orElseThrow(() -> new TableNotFoundException(tableHandle.getSchemaTableName()));
         Schema schema = tableInfo.getDefinition().getSchema();
         if (schema == null) {
             throw new TableNotFoundException(
@@ -316,7 +311,7 @@ class BigQueryClient
                 .collect(toImmutableList());
     }
 
-    static final class RemoteDatabaseObject
+    public static final class RemoteDatabaseObject
     {
         private final Set<String> remoteNames;
 
@@ -358,18 +353,18 @@ class BigQueryClient
         }
     }
 
-    static class DestinationTableBuilder
+    private static class DestinationTableBuilder
             implements Callable<TableInfo>
     {
         private final BigQueryClient bigQueryClient;
-        private final ReadSessionCreatorConfig config;
+        private final Duration viewExpiration;
         private final String query;
         private final TableId remoteTable;
 
-        DestinationTableBuilder(BigQueryClient bigQueryClient, ReadSessionCreatorConfig config, String query, TableId remoteTable)
+        DestinationTableBuilder(BigQueryClient bigQueryClient, Duration viewExpiration, String query, TableId remoteTable)
         {
             this.bigQueryClient = requireNonNull(bigQueryClient, "bigQueryClient is null");
-            this.config = requireNonNull(config, "config is null");
+            this.viewExpiration = requireNonNull(viewExpiration, "viewExpiration is null");
             this.query = requireNonNull(query, "query is null");
             this.remoteTable = requireNonNull(remoteTable, "remoteTable is null");
         }
@@ -380,7 +375,7 @@ class BigQueryClient
             return createTableFromQuery();
         }
 
-        TableInfo createTableFromQuery()
+        private TableInfo createTableFromQuery()
         {
             TableId destinationTable = bigQueryClient.createDestinationTable(remoteTable);
             log.debug("destinationTable is %s", destinationTable);
@@ -396,16 +391,16 @@ class BigQueryClient
                 throw convertToBigQueryException(job.getStatus().getError());
             }
             // add expiration time to the table
-            TableInfo createdTable = bigQueryClient.getTable(destinationTable);
-            long expirationTime = createdTable.getCreationTime() +
-                    TimeUnit.HOURS.toMillis(config.viewExpirationTimeInHours);
+            TableInfo createdTable = bigQueryClient.getTable(destinationTable)
+                    .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(destinationTable.getDataset(), destinationTable.getTable())));
+            long expirationTimeMillis = createdTable.getCreationTime() + viewExpiration.toMillis();
             Table updatedTable = bigQueryClient.update(createdTable.toBuilder()
-                    .setExpirationTime(expirationTime)
+                    .setExpirationTime(expirationTimeMillis)
                     .build());
             return updatedTable;
         }
 
-        Job waitForJob(Job job)
+        private Job waitForJob(Job job)
         {
             try {
                 return job.waitFor();

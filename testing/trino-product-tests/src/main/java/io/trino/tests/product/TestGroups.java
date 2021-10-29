@@ -35,6 +35,8 @@ public final class TestGroups
     public static final String LOGICAL = "logical";
     public static final String JSON_FUNCTIONS = "json_functions";
     public static final String STORAGE_FORMATS = "storage_formats";
+    public static final String STORAGE_FORMATS_DETAILED = "storage_formats_detailed";
+    public static final String HMS_ONLY = "hms_only";
     public static final String PROFILE_SPECIFIC_TESTS = "profile_specific_tests";
     public static final String HDFS_IMPERSONATION = "hdfs_impersonation";
     public static final String HDFS_NO_IMPERSONATION = "hdfs_no_impersonation";
@@ -45,7 +47,6 @@ public final class TestGroups
     public static final String HIVE_VIEWS = "hive_views";
     public static final String HIVE_VIEW_COMPATIBILITY = "hive_view_compatibility";
     public static final String HIVE_CACHING = "hive_caching";
-    public static final String HIVE_WITH_EXTERNAL_WRITES = "hive_with_external_writes";
     public static final String AUTHORIZATION = "authorization";
     public static final String HIVE_COERCION = "hive_coercion";
     public static final String CASSANDRA = "cassandra";

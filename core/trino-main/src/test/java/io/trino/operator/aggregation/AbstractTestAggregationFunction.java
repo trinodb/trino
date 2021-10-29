@@ -26,13 +26,12 @@ import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.function.WindowIndex;
 import io.trino.spi.type.Type;
 import io.trino.sql.tree.QualifiedName;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static io.trino.operator.aggregation.AggregationTestUtils.createArgs;
@@ -45,28 +44,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class AbstractTestAggregationFunction
 {
-    protected Metadata metadata;
-
-    @BeforeClass
-    public final void initTestAggregationFunction()
-    {
-        metadata = createTestMetadataManager();
-    }
-
-    @AfterClass(alwaysRun = true)
-    public final void destroyTestAggregationFunction()
-    {
-        metadata = null;
-    }
+    protected Metadata metadata = createTestMetadataManager();
 
     protected abstract Block[] getSequenceBlocks(int start, int length);
 
-    protected final InternalAggregationFunction getFunction()
+    protected final ResolvedFunction getFunction()
     {
-        ResolvedFunction resolvedFunction = metadata.resolveFunction(
+        return metadata.resolveFunction(
+                TEST_SESSION,
                 QualifiedName.of(getFunctionName()),
                 fromTypes(getFunctionParameterTypes()));
-        return metadata.getAggregateFunctionImplementation(resolvedFunction);
     }
 
     protected abstract String getFunctionName();
@@ -102,7 +89,7 @@ public abstract class AbstractTestAggregationFunction
     public void testAllPositionsNull()
     {
         // if there are no parameters skip this test
-        List<Type> parameterTypes = getFunction().getParameterTypes();
+        List<Type> parameterTypes = getFunction().getSignature().getArgumentTypes();
         if (parameterTypes.isEmpty()) {
             return;
         }
@@ -118,7 +105,7 @@ public abstract class AbstractTestAggregationFunction
     public void testMixedNullAndNonNullPositions()
     {
         // if there are no parameters skip this test
-        List<Type> parameterTypes = getFunction().getParameterTypes();
+        List<Type> parameterTypes = getFunction().getSignature().getArgumentTypes();
         if (parameterTypes.isEmpty()) {
             return;
         }
@@ -154,7 +141,7 @@ public abstract class AbstractTestAggregationFunction
         }
         Page inputPage = new Page(totalPositions, getSequenceBlocks(0, totalPositions));
 
-        InternalAggregationFunction function = getFunction();
+        InternalAggregationFunction function = metadata.getAggregateFunctionImplementation(getFunction());
         List<Integer> channels = Ints.asList(createArgs(function));
         AccumulatorFactory accumulatorFactory = function.bind(channels, Optional.empty());
         PagesIndex pagesIndex = new PagesIndex.TestingFactory(false).newPagesIndex(function.getParameterTypes(), totalPositions);
@@ -213,7 +200,7 @@ public abstract class AbstractTestAggregationFunction
 
     protected void testAggregation(Object expectedValue, Block... blocks)
     {
-        assertAggregation(getFunction(), expectedValue, blocks);
+        assertAggregation(metadata, getFunction(), expectedValue, blocks);
     }
 
     protected void assertInvalidAggregation(Runnable runnable)

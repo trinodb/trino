@@ -29,6 +29,7 @@ public class Catalog
 
     private final String catalogName;
     private final CatalogName connectorCatalogName;
+    private final String connectorName;
     private final Connector connector;
     private final SecurityManagement securityManagement;
 
@@ -41,6 +42,7 @@ public class Catalog
     public Catalog(
             String catalogName,
             CatalogName connectorCatalogName,
+            String connectorName,
             Connector connector,
             SecurityManagement securityManagement,
             CatalogName informationSchemaId,
@@ -50,6 +52,7 @@ public class Catalog
     {
         this.catalogName = checkCatalogName(catalogName);
         this.connectorCatalogName = requireNonNull(connectorCatalogName, "connectorCatalogName is null");
+        this.connectorName = requireNonNull(connectorName, "connectorName is null");
         this.connector = requireNonNull(connector, "connector is null");
         this.securityManagement = requireNonNull(securityManagement, "securityManagement is null");
         this.informationSchemaId = requireNonNull(informationSchemaId, "informationSchemaId is null");
@@ -66,6 +69,11 @@ public class Catalog
     public CatalogName getConnectorCatalogName()
     {
         return connectorCatalogName;
+    }
+
+    public String getConnectorName()
+    {
+        return connectorName;
     }
 
     public SecurityManagement getSecurityManagement()

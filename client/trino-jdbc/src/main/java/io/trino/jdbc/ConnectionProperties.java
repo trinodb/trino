@@ -71,6 +71,7 @@ final class ConnectionProperties
     public static final ConnectionProperty<File> KERBEROS_CONFIG_PATH = new KerberosConfigPath();
     public static final ConnectionProperty<File> KERBEROS_KEYTAB_PATH = new KerberosKeytabPath();
     public static final ConnectionProperty<File> KERBEROS_CREDENTIAL_CACHE_PATH = new KerberosCredentialCachePath();
+    public static final ConnectionProperty<Boolean> KERBEROS_DELEGATION = new KerberosDelegation();
     public static final ConnectionProperty<String> ACCESS_TOKEN = new AccessToken();
     public static final ConnectionProperty<Boolean> EXTERNAL_AUTHENTICATION = new ExternalAuthentication();
     public static final ConnectionProperty<Duration> EXTERNAL_AUTHENTICATION_TIMEOUT = new ExternalAuthenticationTimeout();
@@ -107,6 +108,7 @@ final class ConnectionProperties
             .add(KERBEROS_CONFIG_PATH)
             .add(KERBEROS_KEYTAB_PATH)
             .add(KERBEROS_CREDENTIAL_CACHE_PATH)
+            .add(KERBEROS_DELEGATION)
             .add(ACCESS_TOKEN)
             .add(EXTRA_CREDENTIALS)
             .add(CLIENT_INFO)
@@ -390,6 +392,11 @@ final class ConnectionProperties
         return checkedPredicate(properties -> KERBEROS_REMOTE_SERVICE_NAME.getValue(properties).isPresent());
     }
 
+    private static Predicate<Properties> isKerberosWithoutDelegation()
+    {
+        return isKerberosEnabled().and(checkedPredicate(properties -> !KERBEROS_DELEGATION.getValue(properties).orElse(false)));
+    }
+
     private static class KerberosServicePrincipalPattern
             extends AbstractConnectionProperty<String>
     {
@@ -404,7 +411,7 @@ final class ConnectionProperties
     {
         public KerberosPrincipal()
         {
-            super("KerberosPrincipal", NOT_REQUIRED, isKerberosEnabled(), STRING_CONVERTER);
+            super("KerberosPrincipal", NOT_REQUIRED, isKerberosWithoutDelegation(), STRING_CONVERTER);
         }
     }
 
@@ -422,7 +429,7 @@ final class ConnectionProperties
     {
         public KerberosConfigPath()
         {
-            super("KerberosConfigPath", NOT_REQUIRED, isKerberosEnabled(), FILE_CONVERTER);
+            super("KerberosConfigPath", NOT_REQUIRED, isKerberosWithoutDelegation(), FILE_CONVERTER);
         }
     }
 
@@ -431,7 +438,7 @@ final class ConnectionProperties
     {
         public KerberosKeytabPath()
         {
-            super("KerberosKeytabPath", NOT_REQUIRED, isKerberosEnabled(), FILE_CONVERTER);
+            super("KerberosKeytabPath", NOT_REQUIRED, isKerberosWithoutDelegation(), FILE_CONVERTER);
         }
     }
 
@@ -440,7 +447,16 @@ final class ConnectionProperties
     {
         public KerberosCredentialCachePath()
         {
-            super("KerberosCredentialCachePath", NOT_REQUIRED, isKerberosEnabled(), FILE_CONVERTER);
+            super("KerberosCredentialCachePath", NOT_REQUIRED, isKerberosWithoutDelegation(), FILE_CONVERTER);
+        }
+    }
+
+    private static class KerberosDelegation
+            extends AbstractConnectionProperty<Boolean>
+    {
+        public KerberosDelegation()
+        {
+            super("KerberosDelegation", Optional.of("false"), isKerberosEnabled(), ALLOWED, BOOLEAN_CONVERTER);
         }
     }
 

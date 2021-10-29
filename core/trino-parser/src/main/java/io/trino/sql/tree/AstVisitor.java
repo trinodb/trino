@@ -432,7 +432,7 @@ public abstract class AstVisitor<R, C>
         return visitExpression(node, context);
     }
 
-    protected R visitLogicalBinaryExpression(LogicalBinaryExpression node, C context)
+    protected R visitLogicalExpression(LogicalExpression node, C context)
     {
         return visitExpression(node, context);
     }
@@ -627,7 +627,17 @@ public abstract class AstVisitor<R, C>
         return visitStatement(node, context);
     }
 
+    protected R visitRenameMaterializedView(RenameMaterializedView node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
     protected R visitSetViewAuthorization(SetViewAuthorization node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitSetProperties(SetProperties node, C context)
     {
         return visitStatement(node, context);
     }
@@ -653,6 +663,11 @@ public abstract class AstVisitor<R, C>
     }
 
     protected R visitSetTableAuthorization(SetTableAuthorization node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitTableExecute(TableExecute node, C context)
     {
         return visitStatement(node, context);
     }

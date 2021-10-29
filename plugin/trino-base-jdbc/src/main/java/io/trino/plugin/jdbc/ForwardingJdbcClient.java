@@ -287,6 +287,12 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
+    public void setTableProperties(ConnectorSession session, JdbcTableHandle handle, Map<String, Object> properties)
+    {
+        delegate().setTableProperties(session, handle, properties);
+    }
+
+    @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         delegate().createTable(session, tableMetadata);

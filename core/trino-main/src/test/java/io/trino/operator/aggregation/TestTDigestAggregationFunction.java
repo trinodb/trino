@@ -16,6 +16,7 @@ package io.trino.operator.aggregation;
 import com.google.common.collect.ImmutableList;
 import io.airlift.stats.TDigest;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.scalar.AbstractTestFunctions;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -29,6 +30,7 @@ import java.util.stream.LongStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.block.BlockAssertions.createDoubleSequenceBlock;
 import static io.trino.block.BlockAssertions.createDoublesBlock;
 import static io.trino.block.BlockAssertions.createRLEBlock;
@@ -61,8 +63,8 @@ public class TestTDigestAggregationFunction
 
     private static final Metadata METADATA = createTestMetadataManager();
 
-    private final InternalAggregationFunction tdigestAggregation = METADATA.getAggregateFunctionImplementation(METADATA.resolveFunction(QualifiedName.of("tdigest_agg"), fromTypes(DOUBLE)));
-    private final InternalAggregationFunction tdigestWeigthedAggregation = METADATA.getAggregateFunctionImplementation(METADATA.resolveFunction(QualifiedName.of("tdigest_agg"), fromTypes(DOUBLE, DOUBLE)));
+    private final ResolvedFunction tdigestAggregation = METADATA.resolveFunction(TEST_SESSION, QualifiedName.of("tdigest_agg"), fromTypes(DOUBLE));
+    private final ResolvedFunction tdigestWeigthedAggregation = METADATA.resolveFunction(TEST_SESSION, QualifiedName.of("tdigest_agg"), fromTypes(DOUBLE, DOUBLE));
 
     @Test
     public void testTdigestAggregationFunction()
@@ -123,9 +125,9 @@ public class TestTDigestAggregationFunction
                 inputs);
     }
 
-    private void testAggregation(InternalAggregationFunction function, Page page, List<Double> weights, double... inputs)
+    private void testAggregation(ResolvedFunction function, Page page, List<Double> weights, double... inputs)
     {
-        assertAggregation(function, getExpectedValue(weights, inputs), page);
+        assertAggregation(METADATA, function, getExpectedValue(weights, inputs), page);
     }
 
     private void testAggregation(BiFunction<Object, Object, Boolean> equalAssertion, Block doublesBlock, Block weightsBlock, List<Double> weights, double... inputs)
@@ -146,9 +148,9 @@ public class TestTDigestAggregationFunction
                 inputs);
     }
 
-    private void testAggregation(BiFunction<Object, Object, Boolean> equalAssertion, InternalAggregationFunction function, Page page, List<Double> weights, double... inputs)
+    private void testAggregation(BiFunction<Object, Object, Boolean> equalAssertion, ResolvedFunction function, Page page, List<Double> weights, double... inputs)
     {
-        assertAggregation(function, equalAssertion, "Test multiple values", page, getExpectedValue(weights, inputs));
+        assertAggregation(METADATA, function, equalAssertion, "Test multiple values", page, getExpectedValue(weights, inputs));
     }
 
     private Object getExpectedValue(List<Double> weights, double... values)

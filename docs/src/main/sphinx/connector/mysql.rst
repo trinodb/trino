@@ -50,10 +50,6 @@ determine the user credentials for the connection, often a service user. You can
 use :doc:`secrets </security/secrets>` to avoid actual values in the catalog
 properties files.
 
-.. include:: jdbc-common-configurations.fragment
-
-.. include:: non-transactional-insert.fragment
-
 Multiple MySQL servers
 ^^^^^^^^^^^^^^^^^^^^^^
 
@@ -63,10 +59,157 @@ with a different name, making sure it ends in ``.properties``. For
 example, if you name the property file ``sales.properties``, Trino
 creates a catalog named ``sales`` using the configured connector.
 
+.. include:: jdbc-common-configurations.fragment
+
+.. include:: jdbc-case-insensitive-matching.fragment
+
+.. include:: non-transactional-insert.fragment
+
 .. _mysql-type-mapping:
 
 Type mapping
 ------------
+
+Because Trino and MySQL each support types that the other does not, this
+connector modifies some types when reading or writing data.
+
+MySQL to Trino read type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This connector supports reading the following MySQL types and performs
+conversion to Trino types with the detailed mappings as shown in the following
+table.
+
+.. list-table:: MySQL to Trino type mapping
+  :widths: 30, 20, 50
+  :header-rows: 1
+
+  * - MySQL database type
+    - Trino type
+    - Notes
+  * - ``BIT``
+    - ``BOOLEAN``
+    -
+  * - ``BOOLEAN``
+    - ``TINYINT``
+    -
+  * - ``TINYINT``
+    - ``TINYINT``
+    -
+  * - ``SMALLINT``
+    - ``SMALLINT``
+    -
+  * - ``INTEGER``
+    - ``INTEGER``
+    -
+  * - ``BIGINT``
+    - ``BIGINT``
+    -
+  * - ``DOUBLE PRECISION``
+    - ``DOUBLE``
+    -
+  * - ``FLOAT``
+    - ``REAL``
+    -
+  * - ``REAL``
+    - ``REAL``
+    -
+  * - ``DECIMAL(p, s)``
+    - ``DECIMAL(p, s)``
+    - See :ref:`MySQL DECIMAL type handling <mysql-decimal-handling>`
+  * - ``CHAR(n)``
+    - ``CHAR(n)``
+    -
+  * - ``VARCHAR(n)``
+    - ``VARCHAR(n)``
+    -
+  * - ``TINYTEXT``
+    - ``VARCHAR(255)``
+    -
+  * - ``TEXT``
+    - ``VARCHAR(65535)``
+    -
+  * - ``MEDIUMTEXT``
+    - ``VARCHAR(16777215)``
+    -
+  * - ``LONGTEXT``
+    - ``VARCHAR``
+    -
+  * - ``BINARY``, ``VARBINARY``, ``TINYBLOB``, ``BLOB``, ``MEDIUMBLOB``, ``LONGBLOB``
+    - ``VARBINARY``
+    -
+  * - ``DATE``
+    - ``DATE``
+    -
+  * - ``TIME(n)``
+    - ``TIME(n)``
+    -
+  * - ``DATETIME(n)``
+    - ``DATETIME(n)``
+    -
+  * - ``TIMESTAMP(n)``
+    - ``TIMESTAMP(n)``
+    -
+
+No other types are supported.
+
+Trino to MySQL write type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This connector supports writing the following Trino types and performs
+conversion to MySQL types with the detailed mappings as shown in the
+following table.
+
+.. list-table:: Trino to MySQL type mapping
+  :widths: 30, 20, 50
+  :header-rows: 1
+
+  * - Trino type
+    - MySQL type
+    - Notes
+  * - ``BOOLEAN``
+    - ``TINYINT``
+    -
+  * - ``TINYINT``
+    - ``TINYINT``
+    -
+  * - ``SMALLINT``
+    - ``SMALLINT``
+    -
+  * - ``INTEGER``
+    - ``INTEGER``
+    -
+  * - ``BIGINT``
+    - ``BIGINT``
+    -
+  * - ``REAL``
+    - ``REAL``
+    -
+  * - ``DOUBLE``
+    - ``DOUBLE PRECISION``
+    -
+  * - ``DECIMAL(p, s)``
+    - ``DECIMAL(p, s)``
+    - :ref:`MySQL DECIMAL type handling <mysql-decimal-handling>`
+  * - ``CHAR(n)``
+    - ``CHAR(n)``
+    -
+  * - ``VARCHAR(n)``
+    - ``VARCHAR(n)``
+    -
+  * - ``DATE``
+    - ``DATE``
+    -
+  * - ``TIME(n)``
+    - ``TIME(n)``
+    -
+  * - ``TIMESTAMP(n)``
+    - ``TIMESTAMP(n)``
+    -
+
+No other types are supported.
+
+.. _mysql-decimal-handling:
 
 Decimal type handling
 ^^^^^^^^^^^^^^^^^^^^^

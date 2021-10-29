@@ -39,7 +39,6 @@ public final class PagesHash
     private final LongArrayList addresses;
     private final PagesHashStrategy pagesHashStrategy;
 
-    private final int channelCount;
     private final int mask;
     private final int[] key;
     private final long size;
@@ -58,7 +57,6 @@ public final class PagesHash
     {
         this.addresses = requireNonNull(addresses, "addresses is null");
         this.pagesHashStrategy = requireNonNull(pagesHashStrategy, "pagesHashStrategy is null");
-        this.channelCount = pagesHashStrategy.getChannelCount();
 
         // reserve memory for the arrays
         int hashSize = HashCommon.arraySize(addresses.size(), 0.75f);
@@ -123,11 +121,6 @@ public final class PagesHash
                 sizeOf(key) + sizeOf(positionToHashes);
         hashCollisions = hashCollisionsLocal;
         expectedHashCollisions = estimateNumberOfHashCollisions(addresses.size(), hashSize);
-    }
-
-    public final int getChannelCount()
-    {
-        return channelCount;
     }
 
     public int getPositionCount()

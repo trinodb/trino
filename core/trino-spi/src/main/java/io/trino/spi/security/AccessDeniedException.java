@@ -208,6 +208,16 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot rename table from %s to %s%s", tableName, newTableName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denySetTableProperties(String tableName)
+    {
+        denySetTableProperties(tableName, null);
+    }
+
+    public static void denySetTableProperties(String tableName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot set table properties to %s%s", tableName, formatExtraInfo(extraInfo)));
+    }
+
     public static void denyCommentTable(String tableName)
     {
         denyCommentTable(tableName, null);
@@ -363,9 +373,9 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot rename view from %s to %s%s", viewName, newViewName, formatExtraInfo(extraInfo)));
     }
 
-    public static void denySetViewAuthorization(String tableName, TrinoPrincipal principal)
+    public static void denySetViewAuthorization(String viewName, TrinoPrincipal principal)
     {
-        throw new AccessDeniedException(format("Cannot set authorization for view %s to %s", tableName, principal));
+        throw new AccessDeniedException(format("Cannot set authorization for view %s to %s", viewName, principal));
     }
 
     public static void denyDropView(String viewName)
@@ -416,6 +426,16 @@ public class AccessDeniedException
     public static void denyDropMaterializedView(String materializedViewName, String extraInfo)
     {
         throw new AccessDeniedException(format("Cannot drop materialized view %s%s", materializedViewName, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyRenameMaterializedView(String materializedViewName, String newMaterializedViewName)
+    {
+        denyRenameMaterializedView(materializedViewName, newMaterializedViewName, null);
+    }
+
+    public static void denyRenameMaterializedView(String materializedViewName, String newMaterializedViewName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot rename materialized view from %s to %s%s", materializedViewName, newMaterializedViewName, formatExtraInfo(extraInfo)));
     }
 
     public static void denyGrantSchemaPrivilege(String privilege, String schemaName)
@@ -525,12 +545,12 @@ public class AccessDeniedException
 
     public static void denyGrantRoles(Set<String> roles, Set<TrinoPrincipal> grantees)
     {
-        throw new AccessDeniedException(format("Cannot grant roles %s to %s ", roles, grantees));
+        throw new AccessDeniedException(format("Cannot grant roles %s to %s", roles, grantees));
     }
 
     public static void denyRevokeRoles(Set<String> roles, Set<TrinoPrincipal> grantees)
     {
-        throw new AccessDeniedException(format("Cannot revoke roles %s from %s ", roles, grantees));
+        throw new AccessDeniedException(format("Cannot revoke roles %s from %s", roles, grantees));
     }
 
     public static void denySetRole(String role)
@@ -546,6 +566,11 @@ public class AccessDeniedException
     public static void denyExecuteFunction(String functionName)
     {
         throw new AccessDeniedException(format("Cannot execute function %s", functionName));
+    }
+
+    public static void denyExecuteTableProcedure(String tableName, String procedureName)
+    {
+        throw new AccessDeniedException(format("Cannot execute table procedure %s on %s", procedureName, tableName));
     }
 
     private static Object formatExtraInfo(String extraInfo)

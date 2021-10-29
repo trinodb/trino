@@ -258,7 +258,7 @@ public class ColumnJdbcTable
                 continue;
             }
 
-            if ((schemaDomain.isAll() && tableDomain.isAll()) || (schemaFilter.isPresent() && tableFilter.isPresent())) {
+            if ((schemaDomain.isAll() && tableDomain.isAll()) || schemaFilter.isPresent()) {
                 QualifiedTablePrefix tablePrefix = tablePrefix(catalog, schemaFilter, tableFilter);
                 Map<SchemaTableName, List<ColumnMetadata>> tableColumns = listTableColumns(session, metadata, accessControl, tablePrefix);
                 addColumnsRow(table, catalog, tableColumns, omitDateTimeTypePrecision);

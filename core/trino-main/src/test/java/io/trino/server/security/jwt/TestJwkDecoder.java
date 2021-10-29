@@ -305,7 +305,6 @@ public class TestJwkDecoder
         assertJwtEc("jwk-ec-p256", SignatureAlgorithm.ES256, EcCurve.P_256);
         assertJwtEc("jwk-ec-p384", SignatureAlgorithm.ES384, EcCurve.P_384);
         assertJwtEc("jwk-ec-p512", SignatureAlgorithm.ES512, EcCurve.P_521);
-        assertJwtEc("jwk-ec-secp256k1", SignatureAlgorithm.ES256, EcCurve.SECP256K1);
     }
 
     private static void assertJwtEc(String keyName, SignatureAlgorithm signatureAlgorithm, ECParameterSpec expectedSpec)

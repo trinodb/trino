@@ -107,6 +107,11 @@ public class LabelEvaluator
             this.session = requireNonNull(session, "session is null");
         }
 
+        public List<PhysicalValuePointer> getExpectedLayout()
+        {
+            return expectedLayout;
+        }
+
         // TODO This method allocates an intermediate block and passes it as the input to the pre-compiled expression.
         //  Instead, the expression should be compiled directly against the row navigations.
         //  The same applies to MeasureComputation.compute()

@@ -20,6 +20,7 @@ import com.google.cloud.bigquery.TableResult;
 import com.google.cloud.bigquery.storage.v1beta1.Storage.ReadSession;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
+import io.airlift.units.Duration;
 import io.trino.spi.NodeManager;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
@@ -30,6 +31,8 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
 
 import javax.inject.Inject;
@@ -55,7 +58,8 @@ public class BigQuerySplitManager
     private final BigQueryClient bigQueryClient;
     private final BigQueryStorageClientFactory bigQueryStorageClientFactory;
     private final OptionalInt parallelism;
-    private final ReadSessionCreatorConfig readSessionCreatorConfig;
+    private final boolean viewEnabled;
+    private final Duration viewExpiration;
     private final NodeManager nodeManager;
 
     @Inject
@@ -70,7 +74,8 @@ public class BigQuerySplitManager
         this.bigQueryClient = requireNonNull(bigQueryClient, "bigQueryClient cannot be null");
         this.bigQueryStorageClientFactory = requireNonNull(bigQueryStorageClientFactory, "bigQueryStorageClientFactory cannot be null");
         this.parallelism = config.getParallelism();
-        this.readSessionCreatorConfig = config.createReadSessionCreatorConfig();
+        this.viewEnabled = config.isViewsEnabled();
+        this.viewExpiration = config.getViewExpiration();
         this.nodeManager = requireNonNull(nodeManager, "nodeManager cannot be null");
     }
 
@@ -108,7 +113,7 @@ public class BigQuerySplitManager
                 .map(column -> ((BigQueryColumnHandle) column).getName())
                 .collect(toImmutableList());
 
-        ReadSession readSession = new ReadSessionCreator(readSessionCreatorConfig, bigQueryClient, bigQueryStorageClientFactory)
+        ReadSession readSession = new ReadSessionCreator(bigQueryClient, bigQueryStorageClientFactory, viewEnabled, viewExpiration)
                 .create(remoteTableId, projectedColumnsNames, filter, actualParallelism);
 
         return readSession.getStreamsList().stream()
@@ -129,7 +134,8 @@ public class BigQuerySplitManager
             }
             else {
                 // no filters, so we can take the value from the table info when the object is TABLE
-                TableInfo tableInfo = bigQueryClient.getTable(remoteTableId);
+                TableInfo tableInfo = bigQueryClient.getTable(remoteTableId)
+                        .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(remoteTableId.getDataset(), remoteTableId.getTable())));
                 if (tableInfo.getDefinition().getType() == TABLE) {
                     numberOfRows = tableInfo.getNumRows().longValue();
                 }

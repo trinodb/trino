@@ -96,7 +96,7 @@ import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.Lateral;
 import io.trino.sql.tree.LikeClause;
 import io.trino.sql.tree.Limit;
-import io.trino.sql.tree.LogicalBinaryExpression;
+import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.MeasureDefinition;
 import io.trino.sql.tree.Merge;
@@ -131,6 +131,7 @@ import io.trino.sql.tree.QuerySpecification;
 import io.trino.sql.tree.RangeQuantifier;
 import io.trino.sql.tree.RefreshMaterializedView;
 import io.trino.sql.tree.RenameColumn;
+import io.trino.sql.tree.RenameMaterializedView;
 import io.trino.sql.tree.RenameSchema;
 import io.trino.sql.tree.RenameTable;
 import io.trino.sql.tree.RenameView;
@@ -144,6 +145,7 @@ import io.trino.sql.tree.SearchedCaseExpression;
 import io.trino.sql.tree.Select;
 import io.trino.sql.tree.SelectItem;
 import io.trino.sql.tree.SetPath;
+import io.trino.sql.tree.SetProperties;
 import io.trino.sql.tree.SetRole;
 import io.trino.sql.tree.SetSession;
 import io.trino.sql.tree.SetTableAuthorization;
@@ -170,6 +172,7 @@ import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SubsetDefinition;
 import io.trino.sql.tree.Table;
+import io.trino.sql.tree.TableExecute;
 import io.trino.sql.tree.TableSubquery;
 import io.trino.sql.tree.TimeLiteral;
 import io.trino.sql.tree.TimestampLiteral;
@@ -785,23 +788,70 @@ public class TestSqlParser
     @Test
     public void testPrecedenceAndAssociativity()
     {
-        assertExpression("1 AND 2 OR 3", new LogicalBinaryExpression(LogicalBinaryExpression.Operator.OR,
-                new LogicalBinaryExpression(LogicalBinaryExpression.Operator.AND,
+        assertThat(expression("1 AND 2 AND 3 AND 4"))
+                .isEqualTo(new LogicalExpression(
+                        location(1, 1),
+                        LogicalExpression.Operator.AND,
+                        ImmutableList.of(
+                                new LongLiteral(location(1, 1), "1"),
+                                new LongLiteral(location(1, 7), "2"),
+                                new LongLiteral(location(1, 13), "3"),
+                                new LongLiteral(location(1, 19), "4"))));
+
+        assertThat(expression("1 OR 2 OR 3 OR 4"))
+                .isEqualTo(new LogicalExpression(
+                        location(1, 1),
+                        LogicalExpression.Operator.OR,
+                        ImmutableList.of(
+                                new LongLiteral(location(1, 1), "1"),
+                                new LongLiteral(location(1, 6), "2"),
+                                new LongLiteral(location(1, 11), "3"),
+                                new LongLiteral(location(1, 16), "4"))));
+
+        assertThat(expression("1 AND 2 AND 3 OR 4 AND 5 AND 6 OR 7 AND 8 AND 9"))
+                .isEqualTo(new LogicalExpression(
+                        location(1, 1),
+                        LogicalExpression.Operator.OR,
+                        ImmutableList.of(
+                                new LogicalExpression(
+                                        location(1, 1),
+                                        LogicalExpression.Operator.AND,
+                                        ImmutableList.of(
+                                                new LongLiteral(location(1, 1), "1"),
+                                                new LongLiteral(location(1, 7), "2"),
+                                                new LongLiteral(location(1, 13), "3"))),
+                                new LogicalExpression(
+                                        location(1, 18),
+                                        LogicalExpression.Operator.AND,
+                                        ImmutableList.of(
+                                                new LongLiteral(location(1, 18), "4"),
+                                                new LongLiteral(location(1, 24), "5"),
+                                                new LongLiteral(location(1, 30), "6"))),
+                                new LogicalExpression(
+                                        location(1, 35),
+                                        LogicalExpression.Operator.AND,
+                                        ImmutableList.of(
+                                                new LongLiteral(location(1, 35), "7"),
+                                                new LongLiteral(location(1, 41), "8"),
+                                                new LongLiteral(location(1, 47), "9"))))));
+
+        assertExpression("1 AND 2 OR 3", LogicalExpression.or(
+                LogicalExpression.and(
                         new LongLiteral("1"),
                         new LongLiteral("2")),
                 new LongLiteral("3")));
 
-        assertExpression("1 OR 2 AND 3", new LogicalBinaryExpression(LogicalBinaryExpression.Operator.OR,
+        assertExpression("1 OR 2 AND 3", LogicalExpression.or(
                 new LongLiteral("1"),
-                new LogicalBinaryExpression(LogicalBinaryExpression.Operator.AND,
+                LogicalExpression.and(
                         new LongLiteral("2"),
                         new LongLiteral("3"))));
 
-        assertExpression("NOT 1 AND 2", new LogicalBinaryExpression(LogicalBinaryExpression.Operator.AND,
+        assertExpression("NOT 1 AND 2", LogicalExpression.and(
                 new NotExpression(new LongLiteral("1")),
                 new LongLiteral("2")));
 
-        assertExpression("NOT 1 OR 2", new LogicalBinaryExpression(LogicalBinaryExpression.Operator.OR,
+        assertExpression("NOT 1 OR 2", LogicalExpression.or(
                 new NotExpression(new LongLiteral("1")),
                 new LongLiteral("2")));
 
@@ -1757,6 +1807,19 @@ public class TestSqlParser
     }
 
     @Test
+    public void testSetTableProperties()
+    {
+        assertStatement("ALTER TABLE a SET PROPERTIES (foo='bar')", new SetProperties(SetProperties.Type.TABLE, QualifiedName.of("a"), ImmutableList.of(new Property(new Identifier("foo"), new StringLiteral("bar")))));
+        assertStatement("ALTER TABLE a SET PROPERTIES (foo=true)", new SetProperties(SetProperties.Type.TABLE, QualifiedName.of("a"), ImmutableList.of(new Property(new Identifier("foo"), new BooleanLiteral("true")))));
+        assertStatement("ALTER TABLE a SET PROPERTIES (foo=123)", new SetProperties(SetProperties.Type.TABLE, QualifiedName.of("a"), ImmutableList.of(new Property(new Identifier("foo"), new LongLiteral("123")))));
+        assertStatement("ALTER TABLE a SET PROPERTIES (foo=123, bar=456)", new SetProperties(SetProperties.Type.TABLE, QualifiedName.of("a"), ImmutableList.of(new Property(new Identifier("foo"), new LongLiteral("123")), new Property(new Identifier("bar"), new LongLiteral("456")))));
+        assertStatement("ALTER TABLE a SET PROPERTIES (\" s p a c e \"='bar')", new SetProperties(SetProperties.Type.TABLE, QualifiedName.of("a"), ImmutableList.of(new Property(new Identifier(" s p a c e "), new StringLiteral("bar")))));
+
+        assertStatementIsInvalid("ALTER TABLE a SET PROPERTIES ()")
+                .withMessage("line 1:31: mismatched input ')'. Expecting: <identifier>");
+    }
+
+    @Test
     public void testCommentTable()
     {
         assertStatement("COMMENT ON TABLE a IS 'test'", new Comment(Comment.Type.TABLE, QualifiedName.of("a"), Optional.of("test")));
@@ -1803,6 +1866,40 @@ public class TestSqlParser
         assertStatement(
                 "ALTER VIEW foo.bar.baz SET AUTHORIZATION ROLE qux",
                 new SetViewAuthorization(QualifiedName.of("foo", "bar", "baz"), new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier("qux"))));
+    }
+
+    @Test
+    public void testTableExecute()
+    {
+        Table table = new Table(QualifiedName.of("foo"));
+        Identifier procedure = new Identifier("bar");
+
+        assertStatement("ALTER TABLE foo EXECUTE bar", new TableExecute(table, procedure, ImmutableList.of(), Optional.empty()));
+        assertStatement(
+                "ALTER TABLE foo EXECUTE bar(bah => 1, wuh => 'clap') WHERE age > 17",
+                new TableExecute(
+                        table,
+                        procedure,
+                        ImmutableList.of(
+                                new CallArgument("bah", new LongLiteral("1")),
+                                new CallArgument("wuh", new StringLiteral("clap"))),
+                        Optional.of(
+                                new ComparisonExpression(ComparisonExpression.Operator.GREATER_THAN,
+                                        new Identifier("age"),
+                                        new LongLiteral("17")))));
+
+        assertStatement(
+                "ALTER TABLE foo EXECUTE bar(1, 'clap') WHERE age > 17",
+                new TableExecute(
+                        table,
+                        procedure,
+                        ImmutableList.of(
+                                new CallArgument(new LongLiteral("1")),
+                                new CallArgument(new StringLiteral("clap"))),
+                        Optional.of(
+                                new ComparisonExpression(ComparisonExpression.Operator.GREATER_THAN,
+                                        new Identifier("age"),
+                                        new LongLiteral("17")))));
     }
 
     @Test
@@ -2616,7 +2713,7 @@ public class TestSqlParser
                     createShowStats(qualifiedName,
                             ImmutableList.of(new AllColumns()),
                             Optional.of(
-                                    new LogicalBinaryExpression(LogicalBinaryExpression.Operator.OR,
+                                    LogicalExpression.or(
                                             new ComparisonExpression(ComparisonExpression.Operator.GREATER_THAN,
                                                     new Identifier("field"),
                                                     new LongLiteral("0")),
@@ -3132,6 +3229,13 @@ public class TestSqlParser
         assertStatement("DROP MATERIALIZED VIEW IF EXISTS a", new DropMaterializedView(QualifiedName.of("a"), true));
         assertStatement("DROP MATERIALIZED VIEW IF EXISTS a.b", new DropMaterializedView(QualifiedName.of("a", "b"), true));
         assertStatement("DROP MATERIALIZED VIEW IF EXISTS a.b.c", new DropMaterializedView(QualifiedName.of("a", "b", "c"), true));
+    }
+
+    @Test
+    public void testRenameMaterializedView()
+    {
+        assertStatement("ALTER MATERIALIZED VIEW a RENAME TO b", new RenameMaterializedView(QualifiedName.of("a"), QualifiedName.of("b"), false));
+        assertStatement("ALTER MATERIALIZED VIEW IF EXISTS a RENAME TO b", new RenameMaterializedView(QualifiedName.of("a"), QualifiedName.of("b"), true));
     }
 
     @Test

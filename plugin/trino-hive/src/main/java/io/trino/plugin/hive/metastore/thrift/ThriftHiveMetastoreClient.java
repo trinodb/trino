@@ -62,6 +62,7 @@ import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.hadoop.hive.metastore.api.TableStatsRequest;
 import org.apache.hadoop.hive.metastore.api.ThriftHiveMetastore;
 import org.apache.hadoop.hive.metastore.api.TxnToWriteId;
+import org.apache.hadoop.hive.metastore.api.UnlockRequest;
 import org.apache.hadoop.hive.metastore.txn.TxnUtils;
 import org.apache.thrift.TException;
 import org.apache.thrift.protocol.TBinaryProtocol;
@@ -501,6 +502,13 @@ public class ThriftHiveMetastoreClient
             throws TException
     {
         return client.check_lock(new CheckLockRequest(lockId));
+    }
+
+    @Override
+    public void unlock(long lockId)
+            throws TException
+    {
+        client.unlock(new UnlockRequest(lockId));
     }
 
     @Override

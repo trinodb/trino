@@ -23,13 +23,11 @@ import io.trino.plugin.raptor.legacy.storage.StorageService;
 import io.trino.plugin.raptor.legacy.util.DaoSupplier;
 import io.trino.plugin.raptor.legacy.util.UuidUtil.UuidArgumentFactory;
 import org.intellij.lang.annotations.Language;
-import org.skife.jdbi.v2.DBI;
-import org.skife.jdbi.v2.Handle;
-import org.skife.jdbi.v2.IDBI;
-import org.skife.jdbi.v2.sqlobject.Bind;
-import org.skife.jdbi.v2.sqlobject.GetGeneratedKeys;
-import org.skife.jdbi.v2.sqlobject.SqlUpdate;
-import org.skife.jdbi.v2.sqlobject.customizers.RegisterArgumentFactory;
+import org.jdbi.v3.core.Handle;
+import org.jdbi.v3.core.Jdbi;
+import org.jdbi.v3.sqlobject.config.RegisterArgumentFactory;
+import org.jdbi.v3.sqlobject.statement.GetGeneratedKeys;
+import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -42,11 +40,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
 
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static io.trino.plugin.raptor.legacy.DatabaseTesting.createTestingJdbi;
 import static io.trino.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static io.trino.plugin.raptor.legacy.util.UuidUtil.uuidFromBytes;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
@@ -61,7 +59,7 @@ import static org.testng.Assert.assertTrue;
 @Test(singleThreaded = true)
 public class TestShardCleaner
 {
-    private IDBI dbi;
+    private Jdbi dbi;
     private Handle dummyHandle;
     private File temporary;
     private StorageService storageService;
@@ -72,7 +70,7 @@ public class TestShardCleaner
     @BeforeMethod
     public void setup()
     {
-        dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime() + ThreadLocalRandom.current().nextLong());
+        dbi = createTestingJdbi();
         dummyHandle = dbi.open();
         createTablesWithRetry(dbi);
 
@@ -423,7 +421,7 @@ public class TestShardCleaner
     private List<List<Object>> select(@Language("SQL") String sql)
     {
         return dbi.withHandle(handle -> handle.createQuery(sql)
-                .map((index, rs, context) -> {
+                .map((rs, index, context) -> {
                     int count = rs.getMetaData().getColumnCount();
                     List<Object> row = new ArrayList<>(count);
                     for (int i = 1; i <= count; i++) {
@@ -448,15 +446,13 @@ public class TestShardCleaner
     {
         @SqlUpdate("INSERT INTO transactions (start_time) VALUES (:startTime)")
         @GetGeneratedKeys
-        long insertTransaction(@Bind("startTime") Timestamp timestamp);
+        long insertTransaction(Timestamp startTime);
 
         @SqlUpdate("INSERT INTO deleted_shards (shard_uuid, delete_time)\n" +
                 "VALUES (:shardUuid, :deleteTime)")
-        void insertDeletedShard(
-                @Bind("shardUuid") UUID shardUuid,
-                @Bind("deleteTime") Timestamp deleteTime);
+        void insertDeletedShard(UUID shardUuid, Timestamp deleteTime);
 
         @SqlUpdate("UPDATE transactions SET end_time = :endTime WHERE transaction_id = :transactionId")
-        int updateTransactionEndTime(@Bind("transactionId") long transactionId, @Bind("endTime") Timestamp endTime);
+        int updateTransactionEndTime(long transactionId, Timestamp endTime);
     }
 }

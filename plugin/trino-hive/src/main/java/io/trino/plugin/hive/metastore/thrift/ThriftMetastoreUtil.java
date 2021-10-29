@@ -173,7 +173,7 @@ public final class ThriftMetastoreUtil
         return result;
     }
 
-    static org.apache.hadoop.hive.metastore.api.Table toMetastoreApiTable(Table table)
+    public static org.apache.hadoop.hive.metastore.api.Table toMetastoreApiTable(Table table)
     {
         org.apache.hadoop.hive.metastore.api.Table result = new org.apache.hadoop.hive.metastore.api.Table();
         result.setDbName(table.getDatabaseName());
@@ -703,7 +703,7 @@ public final class ThriftMetastoreUtil
         serdeInfo.setParameters(storage.getSerdeParameters());
 
         StorageDescriptor sd = new StorageDescriptor();
-        sd.setLocation(emptyToNull(storage.getLocation()));
+        sd.setLocation(emptyToNull(storage.getOptionalLocation().orElse(null)));
         sd.setCols(columns.stream()
                 .map(ThriftMetastoreUtil::toMetastoreApiFieldSchema)
                 .collect(toImmutableList()));

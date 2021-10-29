@@ -19,6 +19,7 @@ import com.google.common.io.BaseEncoding;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
@@ -58,12 +59,12 @@ import org.testng.annotations.Test;
 import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.predicate.TupleDomain.withColumnDomains;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -165,6 +166,7 @@ public class TestDomainTranslator
     private static final long COLOR_VALUE_1 = 1;
     private static final long COLOR_VALUE_2 = 2;
 
+    private TestingFunctionResolution functionResolution;
     private Metadata metadata;
     private TypeOperators typeOperators;
     private LiteralEncoder literalEncoder;
@@ -173,15 +175,17 @@ public class TestDomainTranslator
     @BeforeClass
     public void setup()
     {
-        metadata = createTestMetadataManager();
+        functionResolution = new TestingFunctionResolution();
+        metadata = functionResolution.getMetadata();
         typeOperators = new TypeOperators();
-        literalEncoder = new LiteralEncoder(metadata);
-        domainTranslator = new DomainTranslator(metadata);
+        literalEncoder = new LiteralEncoder(TEST_SESSION, metadata);
+        domainTranslator = new DomainTranslator(TEST_SESSION, metadata);
     }
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
     {
+        functionResolution = null;
         metadata = null;
         literalEncoder = null;
         domainTranslator = null;
@@ -471,6 +475,13 @@ public class TestDomainTranslator
         result = fromPredicate(originalPredicate);
         assertEquals(result.getRemainingExpression(), originalPredicate);
         assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 1L), Range.equal(BIGINT, 2L)), false))));
+
+        originalPredicate = or(
+                and(lessThan(C_BIGINT, bigintLiteral(20L)), unprocessableExpression1(C_BIGINT)),
+                and(greaterThan(C_BIGINT, bigintLiteral(10L)), unprocessableExpression2(C_BIGINT)));
+        result = fromPredicate(originalPredicate);
+        assertEquals(result.getRemainingExpression(), originalPredicate);
+        assertEquals(result.getTupleDomain(), TupleDomain.withColumnDomains(Map.of(C_BIGINT, Domain.create(ValueSet.all(BIGINT), false))));
 
         // Same unprocessableExpression means that we can do more extraction
         // If both sides are operating on the same single symbol
@@ -1175,8 +1186,8 @@ public class TestDomainTranslator
     @Test
     public void testExpressionConstantFolding()
     {
-        FunctionCall fromHex = new FunctionCallBuilder(metadata)
-                .setName(QualifiedName.of("from_hex"))
+        FunctionCall fromHex = functionResolution
+                .functionCallBuilder(QualifiedName.of("from_hex"))
                 .addArgument(VARCHAR, stringLiteral("123456"))
                 .build();
         Expression originalExpression = comparison(GREATER_THAN, C_VARBINARY.toSymbolReference(), fromHex);
@@ -1732,8 +1743,8 @@ public class TestDomainTranslator
 
     private Expression randPredicate(Symbol symbol, Type type)
     {
-        FunctionCall rand = new FunctionCallBuilder(metadata)
-                .setName(QualifiedName.of("rand"))
+        FunctionCall rand = functionResolution
+                .functionCallBuilder(QualifiedName.of("rand"))
                 .build();
         return comparison(GREATER_THAN, symbol.toSymbolReference(), cast(rand, type));
     }

@@ -1479,6 +1479,7 @@ public abstract class AbstractTestEngineOnlyQueries
         assertDescribeOutputEmpty("ALTER TABLE foo ADD COLUMN y bigint");
         assertDescribeOutputEmpty("ALTER TABLE foo SET AUTHORIZATION bar");
         assertDescribeOutputEmpty("ALTER TABLE foo RENAME TO bar");
+        assertDescribeOutputEmpty("ALTER TABLE foo SET PROPERTIES ( x = 'y' )");
         assertDescribeOutputEmpty("DROP TABLE foo");
         assertDescribeOutputEmpty("CREATE VIEW foo AS SELECT * FROM nation");
         assertDescribeOutputEmpty("DROP VIEW foo");
@@ -5218,7 +5219,8 @@ public abstract class AbstractTestEngineOnlyQueries
                         .build()),
                 getQueryRunner().getMetadata().getSessionPropertyManager(),
                 getSession().getPreparedStatements(),
-                getSession().getProtocolHeaders());
+                getSession().getProtocolHeaders(),
+                Optional.empty());
         MaterializedResult result = computeActual(session, "SHOW SESSION");
 
         ImmutableMap<String, MaterializedRow> properties = Maps.uniqueIndex(result.getMaterializedRows(), input -> {
@@ -6122,6 +6124,53 @@ public abstract class AbstractTestEngineOnlyQueries
                 "    CAST(JSON '{\"key\": {\"name\": \"trino\"}}' AS map(varchar, map(varchar, varchar)))['key'] mapped " +
                 ") b ON contains(b.names, a.name)"))
                 .matches("SELECT CAST(map(ARRAY['name'], ARRAY['trino']) AS map(varchar, varchar))");
+    }
+
+    /**
+     * See https://github.com/trinodb/trino/issues/9171
+     * <p>
+     * Only occurs in distributed planning mode
+     */
+    @Test
+    public void testPartialLimitWithPresortedConstantInputs()
+    {
+        assertThat(query("SELECT a " +
+                "FROM (" +
+                "    SELECT 0, 1" +
+                "    FROM (" +
+                "        SELECT 1" +
+                "        FROM (VALUES (1, 1, 1)) t(k, g, h)" +
+                "            CROSS JOIN (VALUES 1)" +
+                "        GROUP BY k" +
+                "    )" +
+                "    UNION ALL" +
+                "    SELECT 0, 1" +
+                ") u(a, b) " +
+                "ORDER BY b " +
+                "LIMIT 10"))
+                .matches("VALUES (0), (0)");
+
+        assertThat(query("SELECT * " +
+                "FROM (" +
+                "    VALUES (0, 1)" +
+                "    UNION ALL" +
+                "    SELECT k, 1" +
+                "    FROM (" +
+                "        SELECT k" +
+                "        FROM (VALUES 1) t(k)" +
+                "        GROUP BY k" +
+                "     )" +
+                ") u(a, b) " +
+                "ORDER BY b " +
+                "LIMIT 10"))
+                .matches("VALUES (1, 1), (0, 1)");
+
+        assertThat(query("SELECT orderkey, custkey " +
+                "FROM orders " +
+                "WHERE orderkey = 1 AND custkey = 370 " +
+                "ORDER BY orderkey " +
+                "LIMIT 1"))
+                .matches("VALUES (BIGINT '1', BIGINT '370')");
     }
 
     private static ZonedDateTime zonedDateTime(String value)

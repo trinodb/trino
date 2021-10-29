@@ -38,7 +38,6 @@ import static io.trino.spi.security.SelectedRole.Type.ROLE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-@SuppressWarnings("UnstableApiUsage")
 @Test(singleThreaded = true)
 public class TestCachingHiveMetastoreWithQueryRunner
 {
@@ -116,7 +115,7 @@ public class TestCachingHiveMetastoreWithQueryRunner
     }
 
     @DataProvider
-    private Object[][] testCacheRefreshOnRoleGrantAndRevokeParams()
+    public Object[][] testCacheRefreshOnRoleGrantAndRevokeParams()
     {
         String grantSelectStatement = "GRANT SELECT ON test TO ROLE test_role";
         String grantRoleStatement = "GRANT test_role TO " + ALICE_NAME + " IN " + CATALOG;

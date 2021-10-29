@@ -82,7 +82,7 @@ import static org.testng.Assert.assertTrue;
 public class TestLiteralEncoder
 {
     private final Metadata metadata = createTestMetadataManager();
-    private final LiteralEncoder encoder = new LiteralEncoder(metadata);
+    private final LiteralEncoder encoder = new LiteralEncoder(TEST_SESSION, metadata);
 
     private final ResolvedFunction literalFunction = new ResolvedFunction(
             new BoundSignature(LITERAL_FUNCTION_NAME, VARBINARY, ImmutableList.of(VARBINARY)),

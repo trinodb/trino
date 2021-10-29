@@ -53,7 +53,7 @@ import static io.trino.operator.WorkProcessor.TransformationState.blocked;
 import static io.trino.operator.WorkProcessor.TransformationState.finished;
 import static io.trino.operator.WorkProcessor.TransformationState.needsMoreData;
 import static io.trino.operator.WorkProcessor.TransformationState.ofResult;
-import static io.trino.operator.WorkProcessor.TransformationState.yield;
+import static io.trino.operator.WorkProcessor.TransformationState.yielded;
 import static io.trino.operator.join.LookupJoinOperatorFactory.JoinType.FULL_OUTER;
 import static io.trino.operator.join.LookupJoinOperatorFactory.JoinType.PROBE_OUTER;
 import static io.trino.operator.join.PartitionedLookupSourceFactory.NO_SPILL_EPOCH;
@@ -205,7 +205,7 @@ public class DefaultPageJoiner
                 return ofResult(buildOutputPage(), false);
             }
 
-            return yield();
+            return yielded();
         }
 
         if (!pageBuilder.isEmpty() || finishing) {

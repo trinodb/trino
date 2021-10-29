@@ -65,7 +65,7 @@ public class RenameTableTask
                 throw semanticException(
                         TABLE_NOT_FOUND,
                         statement,
-                        "Table '%s' does not exist, but a materialized view with that name exists.", tableName);
+                        "Table '%s' does not exist, but a materialized view with that name exists. Did you mean ALTER MATERIALIZED VIEW %s RENAME ...?", tableName, tableName);
             }
             return immediateVoidFuture();
         }

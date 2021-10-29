@@ -16,6 +16,7 @@ package io.trino.plugin.bigquery;
 import com.google.cloud.bigquery.Field;
 import com.google.cloud.bigquery.FieldList;
 import com.google.cloud.bigquery.StandardSQLTypeName;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
@@ -48,6 +49,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.cloud.bigquery.Field.Mode.REPEATED;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -73,6 +75,7 @@ import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 public enum BigQueryType
@@ -82,10 +85,10 @@ public enum BigQueryType
     DATE(DateType.DATE, BigQueryType::dateToStringConverter),
     DATETIME(TimestampType.TIMESTAMP_MICROS, BigQueryType::datetimeToStringConverter),
     FLOAT(DoubleType.DOUBLE, BigQueryType::floatToStringConverter),
-    GEOGRAPHY(VarcharType.VARCHAR, BigQueryType::stringToStringConverter),
+    GEOGRAPHY(VarcharType.VARCHAR, unsupportedToStringConverter()),
     INTEGER(BigintType.BIGINT, BigQueryType::simpleToStringConverter),
     NUMERIC(null, BigQueryType::numericToStringConverter),
-    RECORD(null, BigQueryType::simpleToStringConverter),
+    RECORD(null, unsupportedToStringConverter()),
     STRING(createUnboundedVarcharType(), BigQueryType::stringToStringConverter),
     TIME(TimeType.TIME_MICROS, BigQueryType::timeToStringConverter),
     TIMESTAMP(TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS, BigQueryType::timestampToStringConverter);
@@ -106,9 +109,15 @@ public enum BigQueryType
     private static final DateTimeFormatter DATETIME_FORMATTER = DateTimeFormatter.ofPattern("''yyyy-MM-dd HH:mm:ss.SSSSSS''");
 
     private final Type nativeType;
-    private final ToStringConverter toStringConverter;
+    private final OptionalToStringConverter toStringConverter;
 
     BigQueryType(Type nativeType, ToStringConverter toStringConverter)
+    {
+        this(nativeType, (OptionalToStringConverter) value -> Optional.of(toStringConverter.convertToString(value)));
+        requireNonNull(toStringConverter, "toStringConverter is null");
+    }
+
+    BigQueryType(Type nativeType, OptionalToStringConverter toStringConverter)
     {
         this.nativeType = nativeType;
         this.toStringConverter = toStringConverter;
@@ -119,13 +128,14 @@ public enum BigQueryType
         return toRawTypeField(entry.getKey(), entry.getValue());
     }
 
-    static RowType.Field toRawTypeField(String name, BigQueryType.Adaptor typeAdaptor)
+    private static RowType.Field toRawTypeField(String name, BigQueryType.Adaptor typeAdaptor)
     {
         Type trinoType = typeAdaptor.getTrinoType();
         return RowType.field(name, trinoType);
     }
 
-    static LocalDateTime toLocalDateTime(String datetime)
+    @VisibleForTesting
+    public static LocalDateTime toLocalDateTime(String datetime)
     {
         int dotPosition = datetime.indexOf('.');
         if (dotPosition == -1) {
@@ -139,7 +149,7 @@ public enum BigQueryType
         return result.withNano(nanoOfSecond);
     }
 
-    static long toTrinoTimestamp(String datetime)
+    public static long toTrinoTimestamp(String datetime)
     {
         Instant instant = toLocalDateTime(datetime).toInstant(UTC);
         return (instant.getEpochSecond() * MICROSECONDS_PER_SECOND) + (instant.getNano() / NANOSECONDS_PER_MICROSECOND);
@@ -150,18 +160,24 @@ public enum BigQueryType
         return format("CAST('%s' AS float64)", value);
     }
 
-    static String simpleToStringConverter(Object value)
+    private static String simpleToStringConverter(Object value)
     {
         return String.valueOf(value);
     }
 
-    static String dateToStringConverter(Object value)
+    private static OptionalToStringConverter unsupportedToStringConverter()
+    {
+        return value -> Optional.empty();
+    }
+
+    @VisibleForTesting
+    public static String dateToStringConverter(Object value)
     {
         LocalDate date = LocalDate.ofEpochDay(((Long) value).longValue());
         return quote(date.toString());
     }
 
-    static String datetimeToStringConverter(Object value)
+    private static String datetimeToStringConverter(Object value)
     {
         long epochMicros = (long) value;
         long epochSeconds = floorDiv(epochMicros, MICROSECONDS_PER_SECOND);
@@ -169,7 +185,8 @@ public enum BigQueryType
         return formatTimestamp(epochSeconds, nanoAdjustment, UTC);
     }
 
-    static String timeToStringConverter(Object value)
+    @VisibleForTesting
+    public static String timeToStringConverter(Object value)
     {
         long time = (long) value;
         verify(0 <= time, "Invalid time value: %s", time);
@@ -178,7 +195,8 @@ public enum BigQueryType
         return TIME_FORMATTER.format(toZonedDateTime(epochSeconds, nanoAdjustment, UTC));
     }
 
-    static String timestampToStringConverter(Object value)
+    @VisibleForTesting
+    public static String timestampToStringConverter(Object value)
     {
         LongTimestampWithTimeZone timestamp = (LongTimestampWithTimeZone) value;
         long epochMillis = timestamp.getEpochMillis();
@@ -299,13 +317,16 @@ public enum BigQueryType
         return "'" + value + "'";
     }
 
-    String convertToString(Type type, Object value)
+    public Optional<String> convertToString(Type type, Object value)
     {
+        if (type instanceof ArrayType) {
+            return Optional.empty();
+        }
         if (type instanceof DecimalType) {
             if (isShortDecimal(type)) {
-                return "NUMERIC " + quote(Decimals.toString((long) value, ((DecimalType) type).getScale()));
+                return Optional.of("NUMERIC " + quote(Decimals.toString((long) value, ((DecimalType) type).getScale())));
             }
-            return "NUMERIC " + quote(Decimals.toString((Slice) value, ((DecimalType) type).getScale()));
+            return Optional.of("NUMERIC " + quote(Decimals.toString((Slice) value, ((DecimalType) type).getScale())));
         }
         return toStringConverter.convertToString(value);
     }
@@ -357,5 +378,11 @@ public enum BigQueryType
     interface ToStringConverter
     {
         String convertToString(Object value);
+    }
+
+    @FunctionalInterface
+    interface OptionalToStringConverter
+    {
+        Optional<String> convertToString(Object value);
     }
 }

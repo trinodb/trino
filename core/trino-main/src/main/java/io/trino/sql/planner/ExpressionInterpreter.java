@@ -42,9 +42,7 @@ import io.trino.spi.type.VarcharType;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.analyzer.ExpressionAnalyzer;
 import io.trino.sql.analyzer.Scope;
-import io.trino.sql.planner.iterative.rule.DesugarCurrentCatalog;
 import io.trino.sql.planner.iterative.rule.DesugarCurrentPath;
-import io.trino.sql.planner.iterative.rule.DesugarCurrentSchema;
 import io.trino.sql.planner.iterative.rule.DesugarCurrentUser;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
@@ -76,7 +74,7 @@ import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.LikePredicate;
 import io.trino.sql.tree.Literal;
-import io.trino.sql.tree.LogicalBinaryExpression;
+import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NotExpression;
@@ -144,6 +142,8 @@ import static io.trino.sql.gen.VarArgsToMapAdapterGenerator.generateVarArgsToMap
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.ResolvedFunctionCallRewriter.rewriteResolvedFunctions;
 import static io.trino.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.canonicalizeExpression;
+import static io.trino.sql.planner.iterative.rule.DesugarCurrentCatalog.desugarCurrentCatalog;
+import static io.trino.sql.planner.iterative.rule.DesugarCurrentSchema.desugarCurrentSchema;
 import static io.trino.sql.tree.ArithmeticUnaryExpression.Sign.MINUS;
 import static io.trino.type.LikeFunctions.isLikePattern;
 import static io.trino.type.LikeFunctions.unescapeLiteralLikePattern;
@@ -157,7 +157,8 @@ public class ExpressionInterpreter
     private final Expression expression;
     private final Metadata metadata;
     private final LiteralEncoder literalEncoder;
-    private final ConnectorSession session;
+    private final Session session;
+    private final ConnectorSession connectorSession;
     private final Map<NodeRef<Expression>, Type> expressionTypes;
     private final InterpretedFunctionInvoker functionInvoker;
     private final TypeCoercion typeCoercion;
@@ -170,8 +171,9 @@ public class ExpressionInterpreter
     {
         this.expression = requireNonNull(expression, "expression is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
-        this.literalEncoder = new LiteralEncoder(metadata);
-        this.session = requireNonNull(session, "session is null").toConnectorSession();
+        this.literalEncoder = new LiteralEncoder(session, metadata);
+        this.session = requireNonNull(session, "session is null");
+        this.connectorSession = session.toConnectorSession();
         this.expressionTypes = ImmutableMap.copyOf(requireNonNull(expressionTypes, "expressionTypes is null"));
         verify((expressionTypes.containsKey(NodeRef.of(expression))));
         this.functionInvoker = new InterpretedFunctionInvoker(metadata);
@@ -223,7 +225,7 @@ public class ExpressionInterpreter
         analyzer.analyze(rewrite, Scope.create());
 
         // remove syntax sugar
-        rewrite = DesugarAtTimeZoneRewriter.rewrite(rewrite, analyzer.getExpressionTypes(), metadata);
+        rewrite = DesugarAtTimeZoneRewriter.rewrite(rewrite, analyzer.getExpressionTypes(), metadata, session);
 
         // The optimization above may have rewritten the expression tree which breaks all the identity maps, so redo the analysis
         // to re-analyze coercions that might be necessary
@@ -232,7 +234,7 @@ public class ExpressionInterpreter
 
         // expressionInterpreter/optimizer only understands a subset of expression types
         // TODO: remove this when the new expression tree is implemented
-        Expression canonicalized = canonicalizeExpression(rewrite, analyzer.getExpressionTypes(), metadata);
+        Expression canonicalized = canonicalizeExpression(rewrite, analyzer.getExpressionTypes(), metadata, session);
 
         // The optimization above may have rewritten the expression tree which breaks all the identity maps, so redo the analysis
         // to re-analyze coercions that might be necessary
@@ -602,8 +604,8 @@ public class ExpressionInterpreter
                     set = FastutilSetHelper.toFastutilHashSet(
                             objectSet,
                             type,
-                            metadata.getScalarFunctionInvoker(metadata.resolveOperator(HASH_CODE, ImmutableList.of(type)), simpleConvention(FAIL_ON_NULL, NEVER_NULL)).getMethodHandle(),
-                            metadata.getScalarFunctionInvoker(metadata.resolveOperator(EQUAL, ImmutableList.of(type, type)), simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL)).getMethodHandle());
+                            metadata.getScalarFunctionInvoker(metadata.resolveOperator(session, HASH_CODE, ImmutableList.of(type)), simpleConvention(FAIL_ON_NULL, NEVER_NULL)).getMethodHandle(),
+                            metadata.getScalarFunctionInvoker(metadata.resolveOperator(session, EQUAL, ImmutableList.of(type, type)), simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL)).getMethodHandle());
                 }
                 inListCache.put(valueList, set);
             }
@@ -618,7 +620,7 @@ public class ExpressionInterpreter
             List<Object> values = new ArrayList<>(valueList.getValues().size());
             List<Type> types = new ArrayList<>(valueList.getValues().size());
 
-            ResolvedFunction equalsOperator = metadata.resolveOperator(OperatorType.EQUAL, types(node.getValue(), valueList));
+            ResolvedFunction equalsOperator = metadata.resolveOperator(session, OperatorType.EQUAL, types(node.getValue(), valueList));
             for (Expression expression : valueList.getValues()) {
                 // Use process() instead of processWithExceptionHandling() for processing in-list items.
                 // Do not handle exceptions thrown while processing a single in-list expression,
@@ -637,7 +639,7 @@ public class ExpressionInterpreter
                     hasNullValue = true;
                 }
                 else {
-                    Boolean result = (Boolean) functionInvoker.invoke(equalsOperator, session, ImmutableList.of(value, inValue));
+                    Boolean result = (Boolean) functionInvoker.invoke(equalsOperator, connectorSession, ImmutableList.of(value, inValue));
                     if (result == null) {
                         hasNullValue = true;
                     }
@@ -718,12 +720,12 @@ public class ExpressionInterpreter
                 case PLUS:
                     return value;
                 case MINUS:
-                    ResolvedFunction resolvedOperator = metadata.resolveOperator(OperatorType.NEGATION, types(node.getValue()));
+                    ResolvedFunction resolvedOperator = metadata.resolveOperator(session, OperatorType.NEGATION, types(node.getValue()));
                     InvocationConvention invocationConvention = new InvocationConvention(ImmutableList.of(NEVER_NULL), FAIL_ON_NULL, true, false);
                     MethodHandle handle = metadata.getScalarFunctionInvoker(resolvedOperator, invocationConvention).getMethodHandle();
 
                     if (handle.type().parameterCount() > 0 && handle.type().parameterType(0) == ConnectorSession.class) {
-                        handle = handle.bindTo(session);
+                        handle = handle.bindTo(connectorSession);
                     }
                     try {
                         return handle.invokeWithArguments(value);
@@ -908,16 +910,16 @@ public class ExpressionInterpreter
 
             Type commonType = typeCoercion.getCommonSuperType(firstType, secondType).get();
 
-            ResolvedFunction firstCast = metadata.getCoercion(firstType, commonType);
-            ResolvedFunction secondCast = metadata.getCoercion(secondType, commonType);
+            ResolvedFunction firstCast = metadata.getCoercion(session, firstType, commonType);
+            ResolvedFunction secondCast = metadata.getCoercion(session, secondType, commonType);
 
             // cast(first as <common type>) == cast(second as <common type>)
             boolean equal = Boolean.TRUE.equals(invokeOperator(
                     OperatorType.EQUAL,
                     ImmutableList.of(commonType, commonType),
                     ImmutableList.of(
-                            functionInvoker.invoke(firstCast, session, ImmutableList.of(first)),
-                            functionInvoker.invoke(secondCast, session, ImmutableList.of(second)))));
+                            functionInvoker.invoke(firstCast, connectorSession, ImmutableList.of(first)),
+                            functionInvoker.invoke(secondCast, connectorSession, ImmutableList.of(second)))));
 
             if (equal) {
                 return null;
@@ -941,55 +943,63 @@ public class ExpressionInterpreter
         }
 
         @Override
-        protected Object visitLogicalBinaryExpression(LogicalBinaryExpression node, Object context)
+        protected Object visitLogicalExpression(LogicalExpression node, Object context)
         {
-            Object left = processWithExceptionHandling(node.getLeft(), context);
-            Object right;
+            List<Object> terms = new ArrayList<>();
+            List<Type> types = new ArrayList<>();
 
-            switch (node.getOperator()) {
-                case AND: {
-                    if (Boolean.FALSE.equals(left)) {
-                        return false;
-                    }
+            for (Expression term : node.getTerms()) {
+                Object processed = processWithExceptionHandling(term, context);
 
-                    right = processWithExceptionHandling(node.getRight(), context);
+                switch (node.getOperator()) {
+                    case AND:
+                        if (Boolean.FALSE.equals(processed)) {
+                            return false;
+                        }
 
-                    if (Boolean.FALSE.equals(left) || Boolean.TRUE.equals(right)) {
-                        return left;
-                    }
+                        if (!Boolean.TRUE.equals(processed)) {
+                            terms.add(processed);
+                            types.add(type(term));
+                        }
 
-                    if (Boolean.FALSE.equals(right) || Boolean.TRUE.equals(left)) {
-                        return right;
-                    }
-                    break;
+                        break;
+                    case OR:
+                        if (Boolean.TRUE.equals(processed)) {
+                            return true;
+                        }
+
+                        if (!Boolean.FALSE.equals(processed)) {
+                            terms.add(processed);
+                            types.add(type(term));
+                        }
+                        break;
                 }
-                case OR: {
-                    if (Boolean.TRUE.equals(left)) {
-                        return true;
-                    }
-
-                    right = processWithExceptionHandling(node.getRight(), context);
-
-                    if (Boolean.TRUE.equals(left) || Boolean.FALSE.equals(right)) {
-                        return left;
-                    }
-
-                    if (Boolean.TRUE.equals(right) || Boolean.FALSE.equals(left)) {
-                        return right;
-                    }
-                    break;
-                }
-                default:
-                    throw new IllegalStateException("Unknown LogicalBinaryExpression#Type");
             }
 
-            if (left == null && right == null) {
+            if (terms.isEmpty()) {
+                switch (node.getOperator()) {
+                    case AND:
+                        // terms are true
+                        return true;
+                    case OR:
+                        // all terms are false
+                        return false;
+                }
+            }
+
+            if (terms.size() == 1) {
+                return terms.get(0);
+            }
+
+            if (terms.stream().allMatch(Objects::isNull)) {
                 return null;
             }
 
-            return new LogicalBinaryExpression(node.getOperator(),
-                    toExpression(left, type(node.getLeft())),
-                    toExpression(right, type(node.getRight())));
+            ImmutableList.Builder<Expression> expressions = ImmutableList.builder();
+            for (int i = 0; i < terms.size(); i++) {
+                expressions.add(toExpression(terms.get(i), types.get(i)));
+            }
+            return new LogicalExpression(node.getOperator(), expressions.build());
         }
 
         @Override
@@ -1027,13 +1037,13 @@ public class ExpressionInterpreter
                 verify(!node.isDistinct(), "distinct not supported");
                 verify(node.getOrderBy().isEmpty(), "order by not supported");
                 verify(node.getFilter().isEmpty(), "filter not supported");
-                return new FunctionCallBuilder(metadata)
+                return FunctionCallBuilder.resolve(session, metadata)
                         .setName(node.getName())
                         .setWindow(node.getWindow())
                         .setArguments(argumentTypes, toExpressions(argumentValues, argumentTypes))
                         .build();
             }
-            return functionInvoker.invoke(resolvedFunction, session, argumentValues);
+            return functionInvoker.invoke(resolvedFunction, connectorSession, argumentValues);
         }
 
         @Override
@@ -1225,10 +1235,10 @@ public class ExpressionInterpreter
                 return null;
             }
 
-            ResolvedFunction operator = metadata.getCoercion(sourceType, targetType);
+            ResolvedFunction operator = metadata.getCoercion(session, sourceType, targetType);
 
             try {
-                return functionInvoker.invoke(operator, session, ImmutableList.of(value));
+                return functionInvoker.invoke(operator, connectorSession, ImmutableList.of(value));
             }
             catch (RuntimeException e) {
                 if (node.isSafe()) {
@@ -1249,7 +1259,7 @@ public class ExpressionInterpreter
                 if (value instanceof Expression) {
                     checkCondition(node.getValues().size() <= 254, NOT_SUPPORTED, "Too many arguments for array constructor");
                     return visitFunctionCall(
-                            new FunctionCallBuilder(metadata)
+                            FunctionCallBuilder.resolve(session, metadata)
                                     .setName(QualifiedName.of(ArrayConstructor.ARRAY_CONSTRUCTOR))
                                     .setArguments(types(node.getValues()), node.getValues())
                                     .build(),
@@ -1264,25 +1274,25 @@ public class ExpressionInterpreter
         @Override
         protected Object visitCurrentCatalog(CurrentCatalog node, Object context)
         {
-            return visitFunctionCall(DesugarCurrentCatalog.getCall(node, metadata), context);
+            return visitFunctionCall(desugarCurrentCatalog(session, node, metadata), context);
         }
 
         @Override
         protected Object visitCurrentSchema(CurrentSchema node, Object context)
         {
-            return visitFunctionCall(DesugarCurrentSchema.getCall(node, metadata), context);
+            return visitFunctionCall(desugarCurrentSchema(session, node, metadata), context);
         }
 
         @Override
         protected Object visitCurrentUser(CurrentUser node, Object context)
         {
-            return visitFunctionCall(DesugarCurrentUser.getCall(node, metadata), context);
+            return visitFunctionCall(DesugarCurrentUser.getCall(node, metadata, session), context);
         }
 
         @Override
         protected Object visitCurrentPath(CurrentPath node, Object context)
         {
-            return visitFunctionCall(DesugarCurrentPath.getCall(node, metadata), context);
+            return visitFunctionCall(DesugarCurrentPath.getCall(node, metadata, session), context);
         }
 
         @Override
@@ -1392,8 +1402,8 @@ public class ExpressionInterpreter
 
         private Object invokeOperator(OperatorType operatorType, List<? extends Type> argumentTypes, List<Object> argumentValues)
         {
-            ResolvedFunction operator = metadata.resolveOperator(operatorType, argumentTypes);
-            return functionInvoker.invoke(operator, session, argumentValues);
+            ResolvedFunction operator = metadata.resolveOperator(session, operatorType, argumentTypes);
+            return functionInvoker.invoke(operator, connectorSession, argumentValues);
         }
 
         private Expression toExpression(Object base, Type type)

@@ -47,6 +47,7 @@ import static io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAS
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -117,12 +118,15 @@ public class TestMemoryConnectorTest
         throw new SkipException("Memory connector does not support column default values");
     }
 
-    // it has to be RuntimeException as FailureInfo$FailureException is private
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "line 1:1: Destination table 'memory.default.nation' already exists")
+    @Test
     public void testCreateTableWhenTableIsAlreadyCreated()
     {
         @Language("SQL") String createTableSql = "CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation";
-        assertUpdate(createTableSql);
+
+        // it has to be RuntimeException as FailureInfo$FailureException is private
+        assertThatThrownBy(() -> assertUpdate(createTableSql))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("line 1:1: Destination table 'memory.default.nation' already exists");
     }
 
     @Test
@@ -141,7 +145,7 @@ public class TestMemoryConnectorTest
 
     @Test
     // TODO (https://github.com/trinodb/trino/issues/8691) fix the test
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/8691", match = "ComparisonFailure: expected:<LongCount\\{total=\\[\\d+]}> but was:<LongCount\\{total=\\[\\d+]}>")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/8691", match = "ComparisonFailure: expected:<LongCount\\{total=\\[\\d+]}> but was:<(LongCount\\{total=\\[\\d+]}|null)>")
     public void testCustomMetricsScanFilter()
     {
         Metrics metrics = collectCustomMetrics("SELECT partkey FROM part WHERE partkey % 1000 > 0");
@@ -151,6 +155,7 @@ public class TestMemoryConnectorTest
     }
 
     @Test
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/8691", match = "ComparisonFailure: expected:<LongCount\\{total=\\[\\d+]}> but was:<(LongCount\\{total=\\[\\d+]}|null)>")
     public void testCustomMetricsScanOnly()
     {
         Metrics metrics = collectCustomMetrics("SELECT partkey FROM part");

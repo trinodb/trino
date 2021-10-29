@@ -179,9 +179,9 @@ public class InMemoryTransactionManager
     }
 
     @Override
-    public Map<String, CatalogName> getCatalogNames(TransactionId transactionId)
+    public Map<String, Catalog> getCatalogs(TransactionId transactionId)
     {
-        return getTransactionMetadata(transactionId).getCatalogNames();
+        return getTransactionMetadata(transactionId).getCatalogs();
     }
 
     @Override
@@ -366,19 +366,19 @@ public class InMemoryTransactionManager
             }
         }
 
-        private synchronized Map<String, CatalogName> getCatalogNames()
+        private synchronized Map<String, Catalog> getCatalogs()
         {
             // todo if repeatable read, this must be recorded
-            Map<String, CatalogName> catalogNames = new HashMap<>();
+            Map<String, Catalog> catalogs = new HashMap<>();
             catalogByName.values().stream()
                     .filter(Optional::isPresent)
                     .map(Optional::get)
-                    .forEach(catalog -> catalogNames.put(catalog.getCatalogName(), catalog.getConnectorCatalogName()));
+                    .forEach(catalog -> catalogs.put(catalog.getCatalogName(), catalog));
 
             catalogManager.getCatalogs().stream()
-                    .forEach(catalog -> catalogNames.putIfAbsent(catalog.getCatalogName(), catalog.getConnectorCatalogName()));
+                    .forEach(catalog -> catalogs.putIfAbsent(catalog.getCatalogName(), catalog));
 
-            return ImmutableMap.copyOf(catalogNames);
+            return ImmutableMap.copyOf(catalogs);
         }
 
         private synchronized Optional<CatalogName> getConnectorId(String catalogName)
@@ -465,7 +465,7 @@ public class InMemoryTransactionManager
                 throw new TrinoException(MULTI_CATALOG_WRITE_CONFLICT, "Multi-catalog writes not supported in a single transaction. Already wrote to catalog " + writtenConnectorId.get());
             }
             if (transactionMetadata.isSingleStatementWritesOnly() && !autoCommitContext) {
-                throw new TrinoException(AUTOCOMMIT_WRITE_CONFLICT, "Catalog " + catalogName + " only supports writes using autocommit");
+                throw new TrinoException(AUTOCOMMIT_WRITE_CONFLICT, "Catalog only supports writes using autocommit: " + catalogName);
             }
         }
 

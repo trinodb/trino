@@ -95,6 +95,7 @@ Materialized views management
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * :doc:`/sql/create-materialized-view`
+* :doc:`/sql/alter-materialized-view`
 * :doc:`/sql/drop-materialized-view`
 * :doc:`/sql/refresh-materialized-view`
 

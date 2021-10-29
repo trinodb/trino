@@ -15,18 +15,21 @@ package io.trino.tests.product.cassandra;
 
 import com.datastax.driver.core.utils.Bytes;
 import io.airlift.units.Duration;
+import io.trino.jdbc.Row;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.Requirement;
 import io.trino.tempto.RequirementsProvider;
 import io.trino.tempto.configuration.Configuration;
 import io.trino.tempto.internal.query.CassandraQueryExecutor;
 import io.trino.tempto.query.QueryResult;
+import org.assertj.core.api.Assertions;
 import org.testng.annotations.Test;
 
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.function.Consumer;
 
 import static io.trino.tempto.Requirements.compose;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
@@ -50,6 +53,7 @@ import static java.sql.JDBCType.BOOLEAN;
 import static java.sql.JDBCType.DATE;
 import static java.sql.JDBCType.DOUBLE;
 import static java.sql.JDBCType.INTEGER;
+import static java.sql.JDBCType.JAVA_OBJECT;
 import static java.sql.JDBCType.REAL;
 import static java.sql.JDBCType.SMALLINT;
 import static java.sql.JDBCType.TIMESTAMP_WITH_TIMEZONE;
@@ -182,7 +186,7 @@ public class TestSelect
 
         assertThat(query)
                 .hasColumns(VARCHAR, BIGINT, VARBINARY, BOOLEAN, DOUBLE, DOUBLE, DATE, REAL, VARCHAR, VARCHAR,
-                        INTEGER, VARCHAR, VARCHAR, VARCHAR, SMALLINT, VARCHAR, TINYINT, TIMESTAMP_WITH_TIMEZONE, VARCHAR, VARCHAR,
+                        INTEGER, VARCHAR, VARCHAR, VARCHAR, SMALLINT, VARCHAR, TINYINT, TIMESTAMP_WITH_TIMEZONE, JAVA_OBJECT, JAVA_OBJECT,
                         VARCHAR, VARCHAR)
                 .containsOnly(
                         row("\0",
@@ -296,7 +300,7 @@ public class TestSelect
 
         assertThat(query)
                 .hasColumns(VARCHAR, BIGINT, VARBINARY, BOOLEAN, DOUBLE, DOUBLE, DATE, REAL, VARCHAR, VARCHAR,
-                        INTEGER, VARCHAR, VARCHAR, VARCHAR, SMALLINT, VARCHAR, TINYINT, TIMESTAMP_WITH_TIMEZONE, VARCHAR, VARCHAR,
+                        INTEGER, VARCHAR, VARCHAR, VARCHAR, SMALLINT, VARCHAR, TINYINT, TIMESTAMP_WITH_TIMEZONE, JAVA_OBJECT, JAVA_OBJECT,
                         VARCHAR, VARCHAR)
                 .containsOnly(
                         row("\0",
@@ -372,6 +376,56 @@ public class TestSelect
         QueryResult queryResult = onTrino()
                 .executeQuery(format("SELECT native_protocol_version FROM %s.system.local", CONNECTOR_NAME));
         assertThat(queryResult).containsOnly(row("4"));
+    }
+
+    @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
+    public void testSelectTupleType()
+    {
+        String tableName = "select_tuple_table";
+        onCassandra(format("DROP TABLE IF EXISTS %s.%s", KEY_SPACE, tableName));
+
+        onCassandra(format("CREATE TABLE %s.%s (key int, value frozen<tuple<int, text, float>>, PRIMARY KEY (key))",
+                 KEY_SPACE, tableName));
+
+        onCassandra(format("INSERT INTO %s.%s (key, value) VALUES(1, (1, 'text-1', 1.11))", KEY_SPACE, tableName));
+
+        QueryResult queryResult = onTrino().executeQuery(
+                 format("SELECT * FROM %s.%s.%s", CONNECTOR_NAME, KEY_SPACE, tableName));
+        assertThat(queryResult).hasRowsCount(1);
+        Assertions.assertThat(queryResult.row(0).get(0)).isEqualTo(1);
+        Assertions.assertThat(queryResult.row(0).get(1)).isEqualTo(Row.builder()
+                .addUnnamedField(1)
+                .addUnnamedField("text-1")
+                .addUnnamedField(1.11f)
+                .build());
+
+        onCassandra(format("DROP TABLE IF EXISTS %s.%s", KEY_SPACE, tableName));
+    }
+
+    @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
+    public void testSelectTupleTypeInPrimaryKey()
+    {
+        String tableName = "select_tuple_in_primary_key_table";
+        onCassandra(format("DROP TABLE IF EXISTS %s.%s", KEY_SPACE, tableName));
+
+        onCassandra(format("CREATE TABLE %s.%s (intkey int, tuplekey frozen<tuple<int, text, float>>, PRIMARY KEY (intkey, tuplekey))",
+                KEY_SPACE, tableName));
+
+        onCassandra(format("INSERT INTO %s.%s (intkey, tuplekey) VALUES(1, (1, 'text-1', 1.11))", KEY_SPACE, tableName));
+
+        Consumer<QueryResult> assertion = queryResult -> {
+            assertThat(queryResult).hasRowsCount(1);
+            Assertions.assertThat(queryResult.row(0).get(0)).isEqualTo(1);
+            Assertions.assertThat(queryResult.row(0).get(1)).isEqualTo(Row.builder()
+                    .addUnnamedField(1)
+                    .addUnnamedField("text-1")
+                    .addUnnamedField(1.11f)
+                    .build());
+        };
+        assertion.accept(onTrino().executeQuery(format("SELECT * FROM %s.%s.%s", CONNECTOR_NAME, KEY_SPACE, tableName)));
+        assertion.accept(onTrino().executeQuery(format("SELECT * FROM %s.%s.%s WHERE intkey = 1 and tuplekey = row(1, 'text-1', 1.11)", CONNECTOR_NAME, KEY_SPACE, tableName)));
+
+        onCassandra(format("DROP TABLE IF EXISTS %s.%s", KEY_SPACE, tableName));
     }
 
     private void onCassandra(String query)

@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
+import io.trino.spi.block.SingleRowBlock;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.Connector;
@@ -39,7 +40,9 @@ import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.DateType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarcharType;
 import io.trino.testing.TestingConnectorContext;
 import io.trino.testing.TestingConnectorSession;
@@ -57,6 +60,7 @@ import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.trino.plugin.cassandra.CassandraTestingUtils.TABLE_ALL_TYPES;
 import static io.trino.plugin.cassandra.CassandraTestingUtils.TABLE_DELETE_DATA;
+import static io.trino.plugin.cassandra.CassandraTestingUtils.TABLE_TUPLE_TYPE;
 import static io.trino.plugin.cassandra.CassandraTestingUtils.createTestTables;
 import static io.trino.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
@@ -70,10 +74,12 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
@@ -90,6 +96,7 @@ public class TestCassandraConnector
     protected String database;
     protected SchemaTableName table;
     protected SchemaTableName tableForDelete;
+    protected SchemaTableName tableTuple;
     private ConnectorMetadata metadata;
     private ConnectorSplitManager splitManager;
     private ConnectorRecordSetProvider recordSetProvider;
@@ -122,6 +129,7 @@ public class TestCassandraConnector
         database = keyspace;
         table = new SchemaTableName(database, TABLE_ALL_TYPES.toLowerCase(ENGLISH));
         tableForDelete = new SchemaTableName(database, TABLE_DELETE_DATA.toLowerCase(ENGLISH));
+        tableTuple = new SchemaTableName(database, TABLE_TUPLE_TYPE.toLowerCase(ENGLISH));
     }
 
     @AfterClass(alwaysRun = true)
@@ -202,7 +210,7 @@ public class TestCassandraConnector
 
                     assertEquals(cursor.getLong(columnIndex.get("typelong")), 1000 + rowId);
 
-                    assertEquals(cursor.getSlice(columnIndex.get("typeuuid")).toStringUtf8(), format("00000000-0000-0000-0000-%012d", rowId));
+                    assertEquals(trinoUuidToJavaUuid(cursor.getSlice(columnIndex.get("typeuuid"))).toString(), format("00000000-0000-0000-0000-%012d", rowId));
 
                     assertEquals(cursor.getLong(columnIndex.get("typetimestamp")), packDateTimeWithZone(DATE.getTime(), UTC_KEY));
 
@@ -232,6 +240,57 @@ public class TestCassandraConnector
         assertNumberOfRows(tableForDelete, 7);
     }
 
+    @Test
+    public void testGetTupleType()
+    {
+        // TODO add test with nested tuple types
+        ConnectorTableHandle tableHandle = getTableHandle(tableTuple);
+        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(SESSION, tableHandle);
+        List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(SESSION, tableHandle).values());
+        Map<String, Integer> columnIndex = indexColumns(columnHandles);
+
+        ConnectorTransactionHandle transaction = CassandraTransactionHandle.INSTANCE;
+
+        List<ConnectorSplit> splits = getAllSplits(splitManager.getSplits(transaction, SESSION, tableHandle, UNGROUPED_SCHEDULING, DynamicFilter.EMPTY));
+
+        long rowNumber = 0;
+        for (ConnectorSplit split : splits) {
+            CassandraSplit cassandraSplit = (CassandraSplit) split;
+
+            long completedBytes = 0;
+            try (RecordCursor cursor = recordSetProvider.getRecordSet(transaction, SESSION, cassandraSplit, tableHandle, columnHandles).cursor()) {
+                while (cursor.advanceNextPosition()) {
+                    try {
+                        assertReadFields(cursor, tableMetadata.getColumns());
+                    }
+                    catch (RuntimeException e) {
+                        throw new RuntimeException("row " + rowNumber, e);
+                    }
+
+                    rowNumber++;
+
+                    String keyValue = cursor.getSlice(columnIndex.get("key")).toStringUtf8();
+                    assertEquals(keyValue, Long.toString(rowNumber));
+
+                    SingleRowBlock tupleValueBlock = (SingleRowBlock) cursor.getObject(columnIndex.get("typetuple"));
+                    assertThat(tupleValueBlock.getPositionCount()).isEqualTo(3);
+
+                    CassandraColumnHandle tupleColumnHandle = (CassandraColumnHandle) columnHandles.get(columnIndex.get("typetuple"));
+                    List<CassandraType> tupleArgumentTypes = tupleColumnHandle.getCassandraType().getArgumentTypes();
+                    assertThat(tupleArgumentTypes.get(0).getTrinoType().getLong(tupleValueBlock, 0)).isEqualTo(rowNumber);
+                    assertThat(tupleArgumentTypes.get(1).getTrinoType().getSlice(tupleValueBlock, 1).toStringUtf8()).isEqualTo("text-" + rowNumber);
+                    assertThat(tupleArgumentTypes.get(2).getTrinoType().getLong(tupleValueBlock, 2)).isEqualTo(Float.floatToRawIntBits(1.11f * rowNumber));
+
+                    long newCompletedBytes = cursor.getCompletedBytes();
+                    assertTrue(newCompletedBytes >= completedBytes);
+                    completedBytes = newCompletedBytes;
+                }
+            }
+        }
+        assertEquals(rowNumber, 2);
+    }
+
+    @SuppressWarnings({"ResultOfMethodCallIgnored", "CheckReturnValue"}) // we only check if the values are valid, we don't need them otherwise
     private static void assertReadFields(RecordCursor cursor, List<ColumnMetadata> schema)
     {
         for (int columnIndex = 0; columnIndex < schema.size(); columnIndex++) {
@@ -273,8 +332,14 @@ public class TestCassandraConnector
                         throw new RuntimeException("column " + column, e);
                     }
                 }
+                else if (type instanceof RowType) {
+                    cursor.getObject(columnIndex);
+                }
+                else if (UuidType.UUID.equals(type)) {
+                    cursor.getSlice(columnIndex);
+                }
                 else {
-                    fail("Unknown primitive type " + columnIndex);
+                    fail("Unknown primitive type " + type + " for column " + columnIndex);
                 }
             }
         }
@@ -316,8 +381,8 @@ public class TestCassandraConnector
 
     private CassandraPartition createPartition(long value1, long value2)
     {
-        CassandraColumnHandle column1 = new CassandraColumnHandle("partition_one", 1, CassandraType.BIGINT, true, false, false, false);
-        CassandraColumnHandle column2 = new CassandraColumnHandle("partition_two", 2, CassandraType.INT, true, false, false, false);
+        CassandraColumnHandle column1 = new CassandraColumnHandle("partition_one", 1, CassandraTypes.BIGINT, true, false, false, false);
+        CassandraColumnHandle column2 = new CassandraColumnHandle("partition_two", 2, CassandraTypes.INT, true, false, false, false);
         TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(
                 ImmutableMap.of(
                         column1, Domain.singleValue(BIGINT, value1),

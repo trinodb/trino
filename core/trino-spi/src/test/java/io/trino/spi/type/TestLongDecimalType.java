@@ -27,13 +27,31 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.type.Decimals.encodeScaledValue;
+import static io.trino.spi.type.UnscaledDecimal128Arithmetic.negate;
+import static io.trino.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
 import static java.lang.Math.signum;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
 public class TestLongDecimalType
 {
     private static final LongDecimalType TYPE = (LongDecimalType) LongDecimalType.createDecimalType(20, 10);
-    private static final MethodHandle TYPE_COMPARISON = new TypeOperators().getComparisonOperator(TYPE, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
+    private static final MethodHandle TYPE_COMPARISON = new TypeOperators().getComparisonUnorderedLastOperator(TYPE, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
+
+    @Test
+    public void testRejectNegativeZero()
+    {
+        Slice slice = unscaledDecimal(0);
+        negate(slice);
+
+        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(null, 1, slice.length());
+        TYPE.writeSlice(blockBuilder, slice);
+        Block block = blockBuilder.build();
+
+        assertThatThrownBy(() -> new LongDecimalType(19, 0).getObjectValue(null, block, 0))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("negative zero");
+    }
 
     @Test
     public void testCompareTo()

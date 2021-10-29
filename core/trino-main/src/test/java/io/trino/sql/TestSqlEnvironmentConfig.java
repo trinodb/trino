@@ -22,6 +22,7 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestSqlEnvironmentConfig
 {
@@ -54,10 +55,12 @@ public class TestSqlEnvironmentConfig
         assertFullMapping(properties, expected);
     }
 
-    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "\\Qline 1:9: mismatched input '.'. Expecting: ',', <EOF>\\E")
+    @Test
     public void testInvalidPath()
     {
         SqlEnvironmentConfig config = new SqlEnvironmentConfig().setPath("too.many.qualifiers");
-        new SqlPath(config.getPath()).getParsedPath();
+        assertThatThrownBy(() -> new SqlPath(config.getPath()).getParsedPath())
+                .isInstanceOf(ParsingException.class)
+                .hasMessageMatching("\\Qline 1:9: mismatched input '.'. Expecting: ',', <EOF>\\E");
     }
 }

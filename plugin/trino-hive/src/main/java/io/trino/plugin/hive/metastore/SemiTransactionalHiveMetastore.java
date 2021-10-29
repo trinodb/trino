@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.errorprone.annotations.FormatMethod;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.plugin.hive.HdfsEnvironment;
@@ -100,6 +101,7 @@ import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilege
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.NUM_ROWS;
 import static io.trino.plugin.hive.util.HiveUtil.toPartitionValues;
 import static io.trino.plugin.hive.util.HiveWriteUtils.createDirectory;
+import static io.trino.plugin.hive.util.HiveWriteUtils.isFileCreatedByQuery;
 import static io.trino.plugin.hive.util.HiveWriteUtils.pathExists;
 import static io.trino.plugin.hive.util.Statistics.ReduceOperator.SUBTRACT;
 import static io.trino.plugin.hive.util.Statistics.merge;
@@ -139,6 +141,8 @@ public class SemiTransactionalHiveMetastore
     private final Map<SchemaTableName, Action<TableAndMore>> tableActions = new HashMap<>();
     @GuardedBy("this")
     private final Map<SchemaTableName, Map<List<String>, Action<PartitionAndMore>>> partitionActions = new HashMap<>();
+    @GuardedBy("this")
+    private long declaredIntentionsToWriteCounter;
     @GuardedBy("this")
     private final List<DeclaredIntentionToWrite> declaredIntentionsToWrite = new ArrayList<>();
     @GuardedBy("this")
@@ -1136,7 +1140,7 @@ public class SemiTransactionalHiveMetastore
         setExclusive((delegate, hdfsEnvironment) -> delegate.revokeTablePrivileges(databaseName, tableName, getTableOwner(identity, databaseName, tableName), grantee, privileges));
     }
 
-    public synchronized void declareIntentionToWrite(ConnectorSession session, WriteMode writeMode, Path stagingPathRoot, SchemaTableName schemaTableName)
+    public synchronized String declareIntentionToWrite(ConnectorSession session, WriteMode writeMode, Path stagingPathRoot, SchemaTableName schemaTableName)
     {
         setShared();
         if (writeMode == WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY) {
@@ -1147,7 +1151,19 @@ public class SemiTransactionalHiveMetastore
         }
         HdfsContext hdfsContext = new HdfsContext(session);
         HiveIdentity identity = new HiveIdentity(session);
-        declaredIntentionsToWrite.add(new DeclaredIntentionToWrite(writeMode, hdfsContext, identity, session.getQueryId(), stagingPathRoot, schemaTableName));
+        String queryId = session.getQueryId();
+        String declarationId = queryId + "_" + declaredIntentionsToWriteCounter;
+        declaredIntentionsToWriteCounter++;
+        declaredIntentionsToWrite.add(new DeclaredIntentionToWrite(declarationId, writeMode, hdfsContext, identity, queryId, stagingPathRoot, schemaTableName));
+        return declarationId;
+    }
+
+    public synchronized void dropDeclaredIntentionToWrite(String declarationId)
+    {
+        boolean removed = declaredIntentionsToWrite.removeIf(intention -> intention.getDeclarationId().equals(declarationId));
+        if (!removed) {
+            throw new IllegalArgumentException("Declaration with id " + declarationId + " not found");
+        }
     }
 
     public boolean isFinished()
@@ -1569,45 +1585,48 @@ public class SemiTransactionalHiveMetastore
 
             Table table = tableAndMore.getTable();
             if (table.getTableType().equals(MANAGED_TABLE.name())) {
-                String targetLocation = table.getStorage().getLocation();
-                checkArgument(!targetLocation.isEmpty(), "target location is empty");
-                Optional<Path> currentPath = tableAndMore.getCurrentLocation();
-                Path targetPath = new Path(targetLocation);
-                if (table.getPartitionColumns().isEmpty() && currentPath.isPresent()) {
-                    // CREATE TABLE AS SELECT unpartitioned table
-                    if (targetPath.equals(currentPath.get())) {
-                        // Target path and current path are the same. Therefore, directory move is not needed.
-                    }
-                    else {
-                        renameDirectory(
-                                context,
-                                hdfsEnvironment,
-                                currentPath.get(),
-                                targetPath,
-                                () -> cleanUpTasksForAbort.add(new DirectoryCleanUpTask(context, targetPath, true)));
-                    }
-                }
-                else {
-                    // CREATE TABLE AS SELECT partitioned table, or
-                    // CREATE TABLE partitioned/unpartitioned table (without data)
-                    if (pathExists(context, hdfsEnvironment, targetPath)) {
-                        if (currentPath.isPresent() && currentPath.get().equals(targetPath)) {
-                            // It is okay to skip directory creation when currentPath is equal to targetPath
-                            // because the directory may have been created when creating partition directories.
-                            // However, it is important to note that the two being equal does not guarantee
-                            // a directory had been created.
+                Optional<String> targetLocation = table.getStorage().getOptionalLocation();
+                if (targetLocation.isPresent()) {
+                    checkArgument(!targetLocation.get().isEmpty(), "target location is empty");
+                    Optional<Path> currentPath = tableAndMore.getCurrentLocation();
+                    Path targetPath = new Path(targetLocation.get());
+                    if (table.getPartitionColumns().isEmpty() && currentPath.isPresent()) {
+                        // CREATE TABLE AS SELECT unpartitioned table
+                        if (targetPath.equals(currentPath.get())) {
+                            // Target path and current path are the same. Therefore, directory move is not needed.
                         }
                         else {
-                            throw new TrinoException(
-                                    HIVE_PATH_ALREADY_EXISTS,
-                                    format("Unable to create directory %s: target directory already exists", targetPath));
+                            renameDirectory(
+                                    context,
+                                    hdfsEnvironment,
+                                    currentPath.get(),
+                                    targetPath,
+                                    () -> cleanUpTasksForAbort.add(new DirectoryCleanUpTask(context, targetPath, true)));
                         }
                     }
                     else {
-                        cleanUpTasksForAbort.add(new DirectoryCleanUpTask(context, targetPath, true));
-                        createDirectory(context, hdfsEnvironment, targetPath);
+                        // CREATE TABLE AS SELECT partitioned table, or
+                        // CREATE TABLE partitioned/unpartitioned table (without data)
+                        if (pathExists(context, hdfsEnvironment, targetPath)) {
+                            if (currentPath.isPresent() && currentPath.get().equals(targetPath)) {
+                                // It is okay to skip directory creation when currentPath is equal to targetPath
+                                // because the directory may have been created when creating partition directories.
+                                // However, it is important to note that the two being equal does not guarantee
+                                // a directory had been created.
+                            }
+                            else {
+                                throw new TrinoException(
+                                        HIVE_PATH_ALREADY_EXISTS,
+                                        format("Unable to create directory %s: target directory already exists", targetPath));
+                            }
+                        }
+                        else {
+                            cleanUpTasksForAbort.add(new DirectoryCleanUpTask(context, targetPath, true));
+                            createDirectory(context, hdfsEnvironment, targetPath);
+                        }
                     }
                 }
+                // if targetLocation is not set in table we assume table directory is created by HMS
             }
             addTableOperations.add(new CreateTableOperation(tableAndMore.getIdentity(), table, tableAndMore.getPrincipalPrivileges(), tableAndMore.isIgnoreExisting()));
             if (!isPrestoView(table)) {
@@ -2039,7 +2058,7 @@ public class SemiTransactionalHiveMetastore
                     logCleanupFailure("Failed to rollback: add_partition for partitions %s.%s %s",
                             partitionAdder.getSchemaName(),
                             partitionAdder.getTableName(),
-                            partitionsFailedToRollback.stream());
+                            partitionsFailedToRollback);
                 }
             }
         }
@@ -2304,6 +2323,7 @@ public class SemiTransactionalHiveMetastore
         return parent.equals(child);
     }
 
+    @FormatMethod
     private void logCleanupFailure(String format, Object... args)
     {
         if (throwOnCleanupFailure) {
@@ -2312,6 +2332,7 @@ public class SemiTransactionalHiveMetastore
         log.warn(format, args);
     }
 
+    @FormatMethod
     private void logCleanupFailure(Throwable t, String format, Object... args)
     {
         if (throwOnCleanupFailure) {
@@ -2449,7 +2470,7 @@ public class SemiTransactionalHiveMetastore
                 boolean eligible = false;
                 // don't delete hidden Trino directories use by FileHiveMetastore
                 if (!fileName.startsWith(".trino")) {
-                    eligible = queryIds.stream().anyMatch(id -> fileName.startsWith(id) || fileName.endsWith(id));
+                    eligible = queryIds.stream().anyMatch(id -> isFileCreatedByQuery(fileName, id));
                 }
                 if (eligible) {
                     if (!deleteIfExists(fileSystem, filePath, false)) {
@@ -2692,7 +2713,7 @@ public class SemiTransactionalHiveMetastore
             this.statistics = requireNonNull(statistics, "statistics is null");
             this.statisticsUpdate = requireNonNull(statisticsUpdate, "statisticsUpdate is null");
 
-            checkArgument(!table.getStorage().getLocation().isEmpty() || currentLocation.isEmpty(), "currentLocation cannot be supplied for table without location");
+            checkArgument(!table.getStorage().getOptionalLocation().orElse("").isEmpty() || currentLocation.isEmpty(), "currentLocation cannot be supplied for table without location");
             checkArgument(fileNames.isEmpty() || currentLocation.isPresent(), "fileNames can be supplied only when currentLocation is supplied");
         }
 
@@ -2858,6 +2879,7 @@ public class SemiTransactionalHiveMetastore
 
     private static class DeclaredIntentionToWrite
     {
+        private final String declarationId;
         private final WriteMode mode;
         private final HdfsContext hdfsContext;
         private final HiveIdentity identity;
@@ -2865,14 +2887,20 @@ public class SemiTransactionalHiveMetastore
         private final Path rootPath;
         private final SchemaTableName schemaTableName;
 
-        public DeclaredIntentionToWrite(WriteMode mode, HdfsContext hdfsContext, HiveIdentity identity, String queryId, Path stagingPathRoot, SchemaTableName schemaTableName)
+        public DeclaredIntentionToWrite(String declarationId, WriteMode mode, HdfsContext hdfsContext, HiveIdentity identity, String queryId, Path stagingPathRoot, SchemaTableName schemaTableName)
         {
+            this.declarationId = requireNonNull(declarationId, "declarationId is null");
             this.mode = requireNonNull(mode, "mode is null");
             this.hdfsContext = requireNonNull(hdfsContext, "hdfsContext is null");
             this.identity = requireNonNull(identity, "identity is null");
             this.queryId = requireNonNull(queryId, "queryId is null");
             this.rootPath = requireNonNull(stagingPathRoot, "stagingPathRoot is null");
             this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
+        }
+
+        public String getDeclarationId()
+        {
+            return declarationId;
         }
 
         public WriteMode getMode()

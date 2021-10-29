@@ -226,6 +226,7 @@ public abstract class AbstractOperatorBenchmark
 
         Map<Symbol, Type> symbolTypes = symbolAllocator.getTypes().allTypes();
         Optional<Expression> hashExpression = HashGenerationOptimizer.getHashExpression(
+                session,
                 localQueryRunner.getMetadata(),
                 symbolAllocator,
                 ImmutableList.copyOf(symbolTypes.keySet()));

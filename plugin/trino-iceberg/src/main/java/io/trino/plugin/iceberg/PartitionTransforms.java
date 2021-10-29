@@ -54,6 +54,7 @@ import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_HOUR;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Integer.parseInt;
@@ -191,6 +192,9 @@ public final class PartitionTransforms
         }
         if (type.equals(VARBINARY)) {
             return block -> bucketVarbinary(block, count);
+        }
+        if (type.equals(UUID)) {
+            return block -> bucketUuid(block, count);
         }
         throw new UnsupportedOperationException("Unsupported type for 'bucket': " + type);
     }
@@ -355,6 +359,11 @@ public final class PartitionTransforms
     private static Block bucketVarbinary(Block block, int count)
     {
         return bucketBlock(block, count, position -> bucketHash(VARBINARY.getSlice(block, position)));
+    }
+
+    private static Block bucketUuid(Block block, int count)
+    {
+        return bucketBlock(block, count, position -> bucketHash(UUID.getSlice(block, position)));
     }
 
     private static Block bucketBlock(Block block, int count, IntUnaryOperator hasher)

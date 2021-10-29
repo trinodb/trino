@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.orc.OrcDeletedRows.MaskDeletedRowsFunction;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.ColumnarRow;
 import io.trino.spi.block.RowBlock;
 import io.trino.spi.type.RowType;
 
@@ -44,6 +45,7 @@ import static io.trino.plugin.hive.HiveUpdatablePageSource.ROW_CHANNEL;
 import static io.trino.plugin.hive.HiveUpdatablePageSource.ROW_ID_CHANNEL;
 import static io.trino.plugin.hive.acid.AcidSchema.ACID_COLUMN_ROW_STRUCT;
 import static io.trino.plugin.hive.acid.AcidSchema.ACID_READ_FIELDS;
+import static io.trino.spi.block.ColumnarRow.toColumnarRow;
 import static io.trino.spi.block.RowBlock.fromFieldBlocks;
 import static io.trino.spi.type.RowType.Field;
 import static io.trino.spi.type.RowType.field;
@@ -178,11 +180,10 @@ public class HiveUpdateProcessor
         return createBaseColumn(UPDATE_ROW_ID_COLUMN_NAME, UPDATE_ROW_ID_COLUMN_INDEX, toHiveType(acidRowType), acidRowType, SYNTHESIZED, Optional.empty());
     }
 
-    public RowBlock getAcidRowBlock(Page page, List<Integer> columnValueAndRowIdChannels)
+    public ColumnarRow getAcidBlock(Page page, List<Integer> columnValueAndRowIdChannels)
     {
         Block acidBlock = page.getBlock(columnValueAndRowIdChannels.get(columnValueAndRowIdChannels.size() - 1));
-        checkArgument(acidBlock instanceof RowBlock, "The acid block in the page must be a RowBlock, but instead was %s", acidBlock);
-        return (RowBlock) acidBlock;
+        return toColumnarRow(acidBlock);
     }
 
     /**
@@ -195,18 +196,23 @@ public class HiveUpdateProcessor
     public Block createMergedColumnsBlock(Page page, List<Integer> columnValueAndRowIdChannels)
     {
         requireNonNull(page, "page is null");
-        RowBlock acidBlock = getAcidRowBlock(page, columnValueAndRowIdChannels);
-        List<Block> acidBlocks = acidBlock.getChildren();
+        ColumnarRow acidBlock = getAcidBlock(page, columnValueAndRowIdChannels);
+        int fieldCount = acidBlock.getFieldCount();
         List<Block> nonUpdatedColumnRowBlocks;
         if (nonUpdatedColumns.isEmpty()) {
-            checkArgument(acidBlocks.size() == 3, "The ACID RowBlock must contain 3 children, but instead had %s children", acidBlocks.size());
+            checkArgument(fieldCount == 3, "The ACID block must contain 3 children, but instead had %s children", fieldCount);
             nonUpdatedColumnRowBlocks = ImmutableList.of();
         }
         else {
-            checkArgument(acidBlocks.size() == 4, "The first RowBlock must contain 4 children, but instead had %s children", acidBlocks.size());
-            Block lastAcidBlock = acidBlocks.get(3);
+            checkArgument(fieldCount == 4, "The first RowBlock must contain 4 children, but instead had %s children", fieldCount);
+            Block lastAcidBlock = acidBlock.getField(3);
             checkArgument(lastAcidBlock instanceof RowBlock, "The last block in the acidBlock must be a RowBlock, but instead was %s", lastAcidBlock);
-            nonUpdatedColumnRowBlocks = lastAcidBlock.getChildren();
+            ColumnarRow nonUpdatedColumnRow = toColumnarRow(lastAcidBlock);
+            ImmutableList.Builder builder = ImmutableList.builder();
+            for (int field = 0; field < nonUpdatedColumnRow.getFieldCount(); field++) {
+                builder.add(nonUpdatedColumnRow.getField(field));
+            }
+            nonUpdatedColumnRowBlocks = builder.build();
         }
 
         // Merge the non-updated and updated column blocks

@@ -22,11 +22,14 @@ import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.DictionaryBlock;
+import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.AbstractLongType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
+import java.util.Arrays;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -67,6 +70,7 @@ public class BigintGroupByHash
     private final LongBigArray valuesByGroupId;
 
     private int nextGroupId;
+    private DictionaryLookBack dictionaryLookBack;
     private long hashCollisions;
     private double expectedHashCollisions;
 
@@ -161,13 +165,29 @@ public class BigintGroupByHash
     public Work<?> addPage(Page page)
     {
         currentPageSizeInBytes = page.getRetainedSizeInBytes();
-        return new AddPageWork(page.getBlock(hashChannel));
+        Block block = page.getBlock(hashChannel);
+        if (block instanceof RunLengthEncodedBlock) {
+            return new AddRunLengthEncodedPageWork((RunLengthEncodedBlock) block);
+        }
+        if (block instanceof DictionaryBlock) {
+            return new AddDictionaryPageWork((DictionaryBlock) block);
+        }
+
+        return new AddPageWork(block);
     }
 
     @Override
     public Work<GroupByIdBlock> getGroupIds(Page page)
     {
         currentPageSizeInBytes = page.getRetainedSizeInBytes();
+        Block block = page.getBlock(hashChannel);
+        if (block instanceof RunLengthEncodedBlock) {
+            return new GetRunLengthEncodedGroupIdsWork((RunLengthEncodedBlock) block);
+        }
+        if (block instanceof DictionaryBlock) {
+            return new GetDictionaryGroupIdsWork((DictionaryBlock) block);
+        }
+
         return new GetGroupIdsWork(page.getBlock(hashChannel));
     }
 
@@ -333,6 +353,24 @@ public class BigintGroupByHash
         return maxFill;
     }
 
+    private void updateDictionaryLookBack(Block dictionary)
+    {
+        if (dictionaryLookBack == null || dictionaryLookBack.getDictionary() != dictionary) {
+            dictionaryLookBack = new DictionaryLookBack(dictionary);
+        }
+    }
+
+    private int registerGroupId(Block dictionary, int positionInDictionary)
+    {
+        if (dictionaryLookBack.isProcessed(positionInDictionary)) {
+            return dictionaryLookBack.getGroupId(positionInDictionary);
+        }
+
+        int groupId = putIfAbsent(positionInDictionary, dictionary);
+        dictionaryLookBack.setProcessed(positionInDictionary, groupId);
+        return groupId;
+    }
+
     private class AddPageWork
             implements Work<Void>
     {
@@ -365,6 +403,91 @@ public class BigintGroupByHash
                 lastPosition++;
             }
             return lastPosition == positionCount;
+        }
+
+        @Override
+        public Void getResult()
+        {
+            throw new UnsupportedOperationException();
+        }
+    }
+
+    private class AddDictionaryPageWork
+            implements Work<Void>
+    {
+        private final Block dictionary;
+        private final DictionaryBlock block;
+
+        private int lastPosition;
+
+        public AddDictionaryPageWork(DictionaryBlock block)
+        {
+            this.block = requireNonNull(block, "block is null");
+            this.dictionary = block.getDictionary();
+            updateDictionaryLookBack(dictionary);
+        }
+
+        @Override
+        public boolean process()
+        {
+            int positionCount = block.getPositionCount();
+            checkState(lastPosition < positionCount, "position count out of bound");
+
+            // needRehash() == false indicates we have reached capacity boundary and a rehash is needed.
+            // We can only proceed if tryRehash() successfully did a rehash.
+            if (needRehash() && !tryRehash()) {
+                return false;
+            }
+
+            // putIfAbsent will rehash automatically if rehash is needed, unless there isn't enough memory to do so.
+            // Therefore needRehash will not generally return true even if we have just crossed the capacity boundary.
+            while (lastPosition < positionCount && !needRehash()) {
+                int positionInDictionary = block.getId(lastPosition);
+                registerGroupId(dictionary, positionInDictionary);
+                lastPosition++;
+            }
+            return lastPosition == positionCount;
+        }
+
+        @Override
+        public Void getResult()
+        {
+            throw new UnsupportedOperationException();
+        }
+    }
+
+    private class AddRunLengthEncodedPageWork
+            implements Work<Void>
+    {
+        private final RunLengthEncodedBlock block;
+
+        private boolean finished;
+
+        public AddRunLengthEncodedPageWork(RunLengthEncodedBlock block)
+        {
+            this.block = requireNonNull(block, "block is null");
+        }
+
+        @Override
+        public boolean process()
+        {
+            checkState(!finished);
+            if (block.getPositionCount() == 0) {
+                finished = true;
+                return true;
+            }
+
+            // needRehash() == false indicates we have reached capacity boundary and a rehash is needed.
+            // We can only proceed if tryRehash() successfully did a rehash.
+            if (needRehash() && !tryRehash()) {
+                return false;
+            }
+
+            // Only needs to process the first row since it is Run Length Encoded
+            putIfAbsent(0, block.getValue());
+            finished = true;
+
+            return true;
         }
 
         @Override
@@ -420,6 +543,143 @@ public class BigintGroupByHash
             checkState(!finished, "result has produced");
             finished = true;
             return new GroupByIdBlock(nextGroupId, blockBuilder.build());
+        }
+    }
+
+    private class GetDictionaryGroupIdsWork
+            implements Work<GroupByIdBlock>
+    {
+        private final BlockBuilder blockBuilder;
+        private final Block dictionary;
+        private final DictionaryBlock block;
+
+        private boolean finished;
+        private int lastPosition;
+
+        public GetDictionaryGroupIdsWork(DictionaryBlock block)
+        {
+            this.block = requireNonNull(block, "block is null");
+            this.dictionary = block.getDictionary();
+            updateDictionaryLookBack(dictionary);
+
+            // we know the exact size required for the block
+            this.blockBuilder = BIGINT.createFixedSizeBlockBuilder(block.getPositionCount());
+        }
+
+        @Override
+        public boolean process()
+        {
+            int positionCount = block.getPositionCount();
+            checkState(lastPosition < positionCount, "position count out of bound");
+            checkState(!finished);
+
+            // needRehash() == false indicates we have reached capacity boundary and a rehash is needed.
+            // We can only proceed if tryRehash() successfully did a rehash.
+            if (needRehash() && !tryRehash()) {
+                return false;
+            }
+
+            // putIfAbsent will rehash automatically if rehash is needed, unless there isn't enough memory to do so.
+            // Therefore needRehash will not generally return true even if we have just crossed the capacity boundary.
+            while (lastPosition < positionCount && !needRehash()) {
+                int positionInDictionary = block.getId(lastPosition);
+                int groupId = registerGroupId(dictionary, positionInDictionary);
+                BIGINT.writeLong(blockBuilder, groupId);
+                lastPosition++;
+            }
+            return lastPosition == positionCount;
+        }
+
+        @Override
+        public GroupByIdBlock getResult()
+        {
+            checkState(lastPosition == block.getPositionCount(), "process has not yet finished");
+            checkState(!finished, "result has produced");
+            finished = true;
+            return new GroupByIdBlock(nextGroupId, blockBuilder.build());
+        }
+    }
+
+    private class GetRunLengthEncodedGroupIdsWork
+            implements Work<GroupByIdBlock>
+    {
+        private final RunLengthEncodedBlock block;
+
+        int groupId = -1;
+        private boolean processFinished;
+        private boolean resultProduced;
+
+        public GetRunLengthEncodedGroupIdsWork(RunLengthEncodedBlock block)
+        {
+            this.block = requireNonNull(block, "block is null");
+        }
+
+        @Override
+        public boolean process()
+        {
+            checkState(!processFinished);
+            if (block.getPositionCount() == 0) {
+                processFinished = true;
+                return true;
+            }
+
+            // needRehash() == false indicates we have reached capacity boundary and a rehash is needed.
+            // We can only proceed if tryRehash() successfully did a rehash.
+            if (needRehash() && !tryRehash()) {
+                return false;
+            }
+
+            // Only needs to process the first row since it is Run Length Encoded
+            groupId = putIfAbsent(0, block.getValue());
+            processFinished = true;
+            return true;
+        }
+
+        @Override
+        public GroupByIdBlock getResult()
+        {
+            checkState(processFinished);
+            checkState(!resultProduced);
+            resultProduced = true;
+
+            return new GroupByIdBlock(
+                    nextGroupId,
+                    new RunLengthEncodedBlock(
+                            BIGINT.createFixedSizeBlockBuilder(1).writeLong(groupId).build(),
+                            block.getPositionCount()));
+        }
+    }
+
+    private static final class DictionaryLookBack
+    {
+        private final Block dictionary;
+        private final int[] processed;
+
+        public DictionaryLookBack(Block dictionary)
+        {
+            this.dictionary = dictionary;
+            this.processed = new int[dictionary.getPositionCount()];
+            Arrays.fill(processed, -1);
+        }
+
+        public Block getDictionary()
+        {
+            return dictionary;
+        }
+
+        public int getGroupId(int position)
+        {
+            return processed[position];
+        }
+
+        public boolean isProcessed(int position)
+        {
+            return processed[position] != -1;
+        }
+
+        public void setProcessed(int position, int groupId)
+        {
+            processed[position] = groupId;
         }
     }
 }

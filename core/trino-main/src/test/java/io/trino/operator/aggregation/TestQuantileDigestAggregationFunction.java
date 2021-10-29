@@ -17,9 +17,11 @@ import com.google.common.base.Joiner;
 import com.google.common.primitives.Floats;
 import io.airlift.stats.QuantileDigest;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.scalar.AbstractTestFunctions;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.SqlVarbinary;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
@@ -33,6 +35,7 @@ import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.block.BlockAssertions.createBlockOfReals;
 import static io.trino.block.BlockAssertions.createDoubleSequenceBlock;
 import static io.trino.block.BlockAssertions.createDoublesBlock;
@@ -49,7 +52,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
-import static io.trino.spi.type.TypeSignature.arrayType;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static java.lang.Double.NaN;
 import static java.lang.Integer.max;
@@ -164,9 +166,9 @@ public class TestQuantileDigestAggregationFunction
                 LongStream.range(-1000, 1000).toArray());
     }
 
-    private InternalAggregationFunction getAggregationFunction(Type... types)
+    private ResolvedFunction getAggregationFunction(Type... types)
     {
-        return METADATA.getAggregateFunctionImplementation(METADATA.resolveFunction(QualifiedName.of("qdigest_agg"), fromTypes(types)));
+        return METADATA.resolveFunction(TEST_SESSION, QualifiedName.of("qdigest_agg"), fromTypes(types));
     }
 
     private void testAggregationBigint(Block inputBlock, Block weightsBlock, double maxError, long... inputs)
@@ -236,10 +238,12 @@ public class TestQuantileDigestAggregationFunction
                 inputs);
     }
 
-    private void testAggregationBigints(InternalAggregationFunction function, Page page, double maxError, long... inputs)
+    private void testAggregationBigints(ResolvedFunction function, Page page, double maxError, long... inputs)
     {
         // aggregate level
-        assertAggregation(function,
+        assertAggregation(
+                METADATA,
+                function,
                 QDIGEST_EQUALITY,
                 "test multiple positions",
                 page,
@@ -248,13 +252,15 @@ public class TestQuantileDigestAggregationFunction
         // test scalars
         List<Long> rows = Arrays.stream(inputs).sorted().boxed().collect(Collectors.toList());
 
-        SqlVarbinary returned = (SqlVarbinary) AggregationTestUtils.aggregation(function, page);
+        SqlVarbinary returned = (SqlVarbinary) AggregationTestUtils.aggregation(METADATA.getAggregateFunctionImplementation(function), page);
         assertPercentileWithinError(StandardTypes.BIGINT, returned, maxError, rows, 0.1, 0.5, 0.9, 0.99);
     }
 
-    private void testAggregationDoubles(InternalAggregationFunction function, Page page, double maxError, double... inputs)
+    private void testAggregationDoubles(ResolvedFunction function, Page page, double maxError, double... inputs)
     {
-        assertAggregation(function,
+        assertAggregation(
+                METADATA,
+                function,
                 QDIGEST_EQUALITY,
                 "test multiple positions",
                 page,
@@ -263,13 +269,15 @@ public class TestQuantileDigestAggregationFunction
         // test scalars
         List<Double> rows = Arrays.stream(inputs).sorted().boxed().collect(Collectors.toList());
 
-        SqlVarbinary returned = (SqlVarbinary) AggregationTestUtils.aggregation(function, page);
+        SqlVarbinary returned = (SqlVarbinary) AggregationTestUtils.aggregation(METADATA.getAggregateFunctionImplementation(function), page);
         assertPercentileWithinError(StandardTypes.DOUBLE, returned, maxError, rows, 0.1, 0.5, 0.9, 0.99);
     }
 
-    private void testAggregationReal(InternalAggregationFunction function, Page page, double maxError, float... inputs)
+    private void testAggregationReal(ResolvedFunction function, Page page, double maxError, float... inputs)
     {
-        assertAggregation(function,
+        assertAggregation(
+                METADATA,
+                function,
                 QDIGEST_EQUALITY,
                 "test multiple positions",
                 page,
@@ -278,7 +286,7 @@ public class TestQuantileDigestAggregationFunction
         // test scalars
         List<Double> rows = Floats.asList(inputs).stream().sorted().map(Float::doubleValue).collect(Collectors.toList());
 
-        SqlVarbinary returned = (SqlVarbinary) AggregationTestUtils.aggregation(function, page);
+        SqlVarbinary returned = (SqlVarbinary) AggregationTestUtils.aggregation(METADATA.getAggregateFunctionImplementation(function), page);
         assertPercentileWithinError(StandardTypes.REAL, returned, maxError, rows, 0.1, 0.5, 0.9, 0.99);
     }
 
@@ -358,7 +366,7 @@ public class TestQuantileDigestAggregationFunction
                         type,
                         ARRAY_JOINER.join(boxedPercentiles),
                         ARRAY_JOINER.join(lowerBounds)),
-                METADATA.getType(arrayType(BOOLEAN.getTypeSignature())),
+                new ArrayType(BOOLEAN),
                 Collections.nCopies(percentiles.length, true));
 
         // Ensure that the upper bound of each item in the distribution is not less than the chosen quantiles
@@ -369,7 +377,7 @@ public class TestQuantileDigestAggregationFunction
                         type,
                         ARRAY_JOINER.join(boxedPercentiles),
                         ARRAY_JOINER.join(upperBounds)),
-                METADATA.getType(arrayType(BOOLEAN.getTypeSignature())),
+                new ArrayType(BOOLEAN),
                 Collections.nCopies(percentiles.length, true));
     }
 

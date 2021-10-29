@@ -33,6 +33,7 @@ import io.trino.spi.type.MapType;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import org.apache.iceberg.expressions.Expression;
@@ -48,6 +49,7 @@ import static io.trino.spi.type.TimeType.TIME_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -210,6 +212,10 @@ public final class ExpressionConverter
 
         if (type instanceof VarbinaryType) {
             return ByteBuffer.wrap(((Slice) trinoNativeValue).getBytes());
+        }
+
+        if (type instanceof UuidType) {
+            return trinoUuidToJavaUuid(((Slice) trinoNativeValue));
         }
 
         if (type instanceof DecimalType) {

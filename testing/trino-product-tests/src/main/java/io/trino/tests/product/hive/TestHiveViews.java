@@ -20,6 +20,8 @@ import io.trino.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequiremen
 import org.assertj.core.api.Assertions;
 import org.testng.annotations.Test;
 
+import java.math.BigDecimal;
+
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.query.QueryExecutor.query;
@@ -36,17 +38,17 @@ public class TestHiveViews
         extends AbstractTestHiveViews
 {
     @Test(groups = HIVE_VIEWS)
-    public void testFailingHiveViewsForInformationSchema()
+    public void testFailingHiveViewsWithMetadataListing()
     {
+        setupBrokenView();
+        testFailingHiveViewsWithInformationSchema();
+        testFailingHiveViewsWithSystemJdbc();
+        // cleanup
         onHive().executeQuery("DROP SCHEMA IF EXISTS test_list_failing_views CASCADE");
-        onHive().executeQuery("CREATE SCHEMA test_list_failing_views");
-        onHive().executeQuery("CREATE VIEW test_list_failing_views.correct_view AS SELECT * FROM nation limit 5");
+    }
 
-        // Create a view for which the translation is guaranteed to fail
-        onTrino().executeQuery("CREATE TABLE test_list_failing_views.table_dropped (col0 BIGINT)");
-        onHive().executeQuery("CREATE VIEW test_list_failing_views.failing_view AS SELECT * FROM test_list_failing_views.table_dropped");
-        onTrino().executeQuery("DROP TABLE test_list_failing_views.table_dropped");
-
+    private void testFailingHiveViewsWithInformationSchema()
+    {
         // The expected behavior is different across hive versions. For hive 3, the call "getTableNamesByType" is
         // used in ThriftHiveMetastore#getAllViews. For older versions, the fallback to doGetTablesWithParameter
         // is used, so Trino's information_schema.views table does not include translated Hive views.
@@ -54,7 +56,7 @@ public class TestHiveViews
         String withNoFilter = "SELECT table_name FROM information_schema.views";
         if (getHiveVersionMajor() == 3) {
             assertThat(query(withSchemaFilter)).containsOnly(row("correct_view"));
-            assertThat(query(withSchemaFilter)).contains(row("correct_view"));
+            assertThat(query(withNoFilter)).contains(row("correct_view"));
         }
         else {
             assertThat(query(withSchemaFilter)).hasNoRows();
@@ -82,6 +84,68 @@ public class TestHiveViews
 
         assertThatThrownBy(() -> query("SELECT * FROM information_schema.columns WHERE table_schema = 'test_list_failing_views' AND table_name = 'failing_view'"))
                 .hasMessageContaining("Failed to translate Hive view 'test_list_failing_views.failing_view'");
+    }
+
+    private void testFailingHiveViewsWithSystemJdbc()
+    {
+        // The expected behavior is different across hive versions. For hive 3, the call "getTableNamesByType" is
+        // used in ThriftHiveMetastore#getAllViews. For older versions, the fallback to doGetTablesWithParameter
+        // is used, so Trino's system.jdbc.tables table does not include translated Hive views.
+        String withSchemaFilter = "SELECT table_name FROM system.jdbc.tables WHERE " +
+                "table_cat = 'hive' AND " +
+                "table_schem = 'test_list_failing_views' AND " +
+                "table_type = 'VIEW'";
+        String withNoFilter = "SELECT table_name FROM system.jdbc.tables WHERE table_cat = 'hive' AND table_type = 'VIEW'";
+        if (getHiveVersionMajor() == 3) {
+            assertThat(query(withSchemaFilter)).containsOnly(row("correct_view"), row("failing_view"));
+            assertThat(query(withNoFilter)).contains(row("correct_view"), row("failing_view"));
+        }
+        else {
+            assertThat(query(withSchemaFilter)).hasNoRows();
+            Assertions.assertThat(query(withNoFilter).rows()).doesNotContain(ImmutableList.of("correct_view"));
+        }
+
+        // Queries with filters on table_schema and table_name are optimized to only fetch the specified table and uses
+        // a different API. so the Hive version does not matter here.
+        assertThat(query(
+                "SELECT table_name FROM system.jdbc.tables WHERE " +
+                        "table_cat = 'hive' AND " +
+                        "table_schem = 'test_list_failing_views' AND " +
+                        "table_name = 'correct_view'"))
+                .containsOnly(row("correct_view"));
+
+        // Listing fails when metadata for the problematic view is queried specifically
+        assertThatThrownBy(() -> query(
+                "SELECT table_name FROM system.jdbc.tables WHERE " +
+                        "table_cat = 'hive' AND " +
+                        "table_schem = 'test_list_failing_views' AND " +
+                        "table_name = 'failing_view'"))
+                .hasMessageContaining("Failed to translate Hive view 'test_list_failing_views.failing_view'");
+
+        // Queries on system.jdbc.columns also trigger ConnectorMetadata#getViews. Columns from failing_view are
+        // listed too since HiveMetadata#listTableColumns does not ignore views.
+        assertThat(query("SELECT table_name, column_name FROM system.jdbc.columns WHERE table_cat = 'hive' AND table_schem = 'test_list_failing_views'"))
+                .containsOnly(
+                        row("correct_view", "n_nationkey"),
+                        row("correct_view", "n_name"),
+                        row("correct_view", "n_regionkey"),
+                        row("correct_view", "n_comment"),
+                        row("failing_view", "col0"));
+
+        assertThatThrownBy(() -> query("SELECT * FROM system.jdbc.columns WHERE table_cat = 'hive' AND table_schem = 'test_list_failing_views' AND table_name = 'failing_view'"))
+                .hasMessageContaining("Failed to translate Hive view 'test_list_failing_views.failing_view'");
+    }
+
+    private static void setupBrokenView()
+    {
+        onHive().executeQuery("DROP SCHEMA IF EXISTS test_list_failing_views CASCADE");
+        onHive().executeQuery("CREATE SCHEMA test_list_failing_views");
+        onHive().executeQuery("CREATE VIEW test_list_failing_views.correct_view AS SELECT * FROM nation limit 5");
+
+        // Create a view for which the translation is guaranteed to fail
+        onTrino().executeQuery("CREATE TABLE test_list_failing_views.table_dropped (col0 BIGINT)");
+        onHive().executeQuery("CREATE VIEW test_list_failing_views.failing_view AS SELECT * FROM test_list_failing_views.table_dropped");
+        onTrino().executeQuery("DROP TABLE test_list_failing_views.table_dropped");
     }
 
     @Test(groups = HIVE_VIEWS)
@@ -327,5 +391,31 @@ public class TestHiveViews
         // It appears from_utc_timestamp semantics in Hive changes some time on the way. The guess is that it happened
         // together with change of timestamp semantics at version 3.1.
         return getHiveVersionMajor() < 3 || (getHiveVersionMajor() == 3 && getHiveVersionMinor() < 1);
+    }
+
+    @Test(groups = HIVE_VIEWS)
+    public void testCastTimestampAsDecimal()
+    {
+        onHive().executeQuery("DROP TABLE IF EXISTS cast_timestamp_as_decimal");
+        onHive().executeQuery("CREATE TABLE cast_timestamp_as_decimal (a_timestamp TIMESTAMP)");
+        onHive().executeQuery("INSERT INTO cast_timestamp_as_decimal VALUES ('1990-01-02 12:13:14.123456789')");
+        onHive().executeQuery("DROP VIEW IF EXISTS cast_timestamp_as_decimal_view");
+        onHive().executeQuery("CREATE VIEW cast_timestamp_as_decimal_view AS SELECT CAST(a_timestamp as DECIMAL(10,0)) a_cast_timestamp FROM cast_timestamp_as_decimal");
+
+        String testQuery = "SELECT * FROM cast_timestamp_as_decimal_view";
+        if (getHiveVersionMajor() > 3 || (getHiveVersionMajor() == 3 && getHiveVersionMinor() >= 1)) {
+            assertViewQuery(
+                    testQuery,
+                    queryAssert -> queryAssert.containsOnly(row(new BigDecimal("631282394"))));
+        }
+        else {
+            // For Hive versions older than 3.1 semantics of cast timestamp to decimal is different and it takes into account timezone Hive VM uses.
+            // We cannot replicate the behaviour in Trino, hence test only documents different expected results.
+            assertThat(onTrino().executeQuery(testQuery)).containsOnly(row(new BigDecimal("631282394")));
+            assertThat(onHive().executeQuery(testQuery)).containsOnly(row(new BigDecimal("631261694")));
+        }
+
+        onHive().executeQuery("DROP VIEW cast_timestamp_as_decimal_view");
+        onHive().executeQuery("DROP TABLE cast_timestamp_as_decimal");
     }
 }

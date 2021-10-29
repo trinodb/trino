@@ -17,6 +17,11 @@ env:
   MAVEN_FAST_INSTALL: "-B --strict-checksums -V --quiet -T C1 -DskipTests -Dair.check.skip-all"
   MAVEN_TEST: "-B --strict-checksums -Dair.check.skip-all --fail-at-end"
   RETRY: .github/bin/retry
+  # Testcontainers kills image pulls if they don't make progress for > 30s and retries for 2m before failing. This means
+  # that if an image doesn't download all it's layers within ~2m then any other concurrent pull will be killed because
+  # the Docker daemon only downloads 3 layers concurrently which prevents the other pull from making any progress.
+  # This value should be greater than the time taken for the longest image pull.
+  TESTCONTAINERS_PULL_PAUSE_TIMEOUT: 600
 
 # Cancel previous PR builds.
 concurrency:
@@ -33,7 +38,7 @@ jobs:
       matrix:
         java-version:
           - 11
-          - 16
+          - 17
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v2
@@ -117,6 +122,7 @@ jobs:
           - config-empty
           - config-hdp3
           # TODO: config-cdh5
+          # TODO: config-apache-hive3
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v2
@@ -233,6 +239,7 @@ jobs:
             !:trino-raptor-legacy,
             !:trino-accumulo,
             !:trino-cassandra,
+            !:trino-clickhouse,
             !:trino-hive,!:trino-orc,!:trino-parquet,
             !:trino-mongodb,!:trino-kafka,!:trino-elasticsearch,
             !:trino-redis,
@@ -264,6 +271,7 @@ jobs:
           - ":trino-raptor-legacy"
           - ":trino-accumulo"
           - ":trino-cassandra"
+          - ":trino-clickhouse"
           - ":trino-hive,:trino-orc"
           - ":trino-hive,:trino-parquet -P test-parquet"
           - ":trino-mongodb,:trino-kafka,:trino-elasticsearch"
@@ -287,11 +295,19 @@ jobs:
           $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -am -pl $(echo '${{ matrix.modules }}' | cut -d' ' -f1)
       - name: Maven Tests
         run: $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }}
+      - name: Sanitize artifact name
+        if: always()
+        run: |
+          # Generate a valid artifact name and make it available to next steps as
+          # an environment variable ARTIFACT_NAME
+          # ", :, <, >, |, *, ?, \, / are not allowed in artifact names but we only use : so we remove it
+          name=$(echo -n "${{ matrix.modules }}" | sed -e 's/[:]//g')
+          echo "ARTIFACT_NAME=$name" >> $GITHUB_ENV
       - name: Upload test results
         uses: actions/upload-artifact@v2
         if: failure()
         with:
-          name: result ${{ matrix.modules }}
+          name: result ${{ env.ARTIFACT_NAME }}
           path: |
             **/target/surefire-reports
             **/target/checkstyle-*
@@ -352,7 +368,7 @@ jobs:
           fi
       - name: Cloud BigQuery Case Insensitive Mapping Tests
         env:
-          BIGQUERY_CREDENTIALS_KEY: ${{ secrets.BIGQUERY_CREDENTIALS_KEY }}
+          BIGQUERY_CREDENTIALS_KEY: ${{ secrets.BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY }}
         run: |
           if [ "${BIGQUERY_CREDENTIALS_KEY}" != "" ]; then
             $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests-case-insensitive-mapping -Dbigquery.credentials-key="${BIGQUERY_CREDENTIALS_KEY}"
@@ -375,12 +391,15 @@ jobs:
           - default
           - hdp3
           - cdh5
+          # TODO: config-apache-hive3
         suite:
           - suite-1
           - suite-2
           - suite-3
           # suite-4 does not exist
           - suite-5
+        jdk:
+          - 11
         exclude:
           - config: cdh5
             ignore exclusion if: >-
@@ -411,21 +430,43 @@ jobs:
           # this suite is not meant to be run with different configs
           - config: default
             suite: suite-6-non-generic
+            jdk: 11
           # this suite is not meant to be run with different configs
           - config: default
             suite: suite-7-non-generic
+            jdk: 11
           # this suite is not meant to be run with different configs
           - config: default
             suite: suite-8-non-generic
+            jdk: 11
           # this suite is not meant to be run with different configs
           - config: default
             suite: suite-tpcds
+            jdk: 11
           # this suite is not meant to be run with different configs
           - config: default
             suite: suite-oauth2
+            jdk: 11
+          # this suite is not meant to be run with different configs
+          - config: default
+            suite: suite-ldap
+            jdk: 11
           # this suite is not meant to be run with different configs
           - config: default
             suite: suite-compatibility
+            jdk: 11
+          # this suite is designed specifically for apache-hive3. TODO remove the suite once we can run all regular tests on apache-hive3.
+          - config: apache-hive3
+            suite: suite-hms-only
+            jdk: 11
+          # suite-1 does not contain Kerberos/encrypted Hive environments
+          - config: hdp3
+            suite: suite-1
+            jdk: 17
+          # suite-2 contains Kerberos/encrypted Hive environments
+          - config: hdp3
+            suite: suite-2
+            jdk: 17
     # PT Launcher's timeout defaults to 2h, account for preparation steps (compilation) and add some margin
     timeout-minutes: 140
     steps:
@@ -445,8 +486,9 @@ jobs:
           rm -rf ~/.m2/repository
       - name: Product Tests
         run: |
-          bin/ptl suite run \
-            --suite ${{ matrix.suite }} --config config-${{ matrix.config }} --bind=off --logs-dir logs/ --timeout 2h
+          testing/bin/ptl suite run \
+            --suite ${{ matrix.suite }} --config config-${{ matrix.config }} --bind=off --logs-dir logs/ --timeout 2h \
+            --trino-jdk-version zulu_${{ matrix.jdk }}
       - name: Upload test results
         uses: actions/upload-artifact@v2
         if: failure()

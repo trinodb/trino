@@ -84,7 +84,6 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ROW_LEVEL_DELET
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TOPN_PUSHDOWN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR;
 import static io.trino.testing.assertions.Assert.assertEventually;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -459,9 +458,8 @@ public abstract class BaseJdbcConnectorTest
         List<String> rows = Stream.of("a", "b", "A", "B", " a ", "a", "b", " b ", "ą")
                 .map(value -> format("'%1$s', '%1$s'", value))
                 .collect(toImmutableList());
-        String tableName = "distinct_strings" + randomTableSuffix();
 
-        try (TestTable testTable = new TestTable(getQueryRunner()::execute, tableName, "(t_char CHAR(5), t_varchar VARCHAR(5))", rows)) {
+        try (TestTable testTable = new TestTable(getQueryRunner()::execute, "distinct_strings", "(t_char CHAR(5), t_varchar VARCHAR(5))", rows)) {
             if (!(hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN) && hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY))) {
                 // disabling hash generation to prevent extra projections in the plan which make it hard to write matchers for isNotFullyPushedDown
                 Session optimizeHashGenerationDisabled = Session.builder(getSession())
@@ -574,7 +572,7 @@ public abstract class BaseJdbcConnectorTest
                 throw new SkipException("Unable to CREATE TABLE to test aggregation pushdown");
             }
 
-            try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_variance_pushdown", ImmutableList.of())) {
+            try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_var_pushdown", ImmutableList.of())) {
                 assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isNotFullyPushedDown(AggregationNode.class);
                 assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isNotFullyPushedDown(AggregationNode.class);
                 assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isNotFullyPushedDown(AggregationNode.class);
@@ -582,7 +580,7 @@ public abstract class BaseJdbcConnectorTest
             }
         }
 
-        try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_variance_pushdown", ImmutableList.of())) {
+        try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_var_pushdown", ImmutableList.of())) {
             assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
@@ -600,7 +598,7 @@ public abstract class BaseJdbcConnectorTest
             assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
         }
 
-        try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_variance_pushdown",
+        try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_var_pushdown",
                 ImmutableList.of("1, 1, 1, 1", "2, 2, 2, 2", "4, 4, 4, 4", "5, 5, 5, 5"))) {
             // Test non-whole number results
             assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
@@ -618,7 +616,7 @@ public abstract class BaseJdbcConnectorTest
                 throw new SkipException("Unable to CREATE TABLE to test aggregation pushdown");
             }
 
-            try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_covariance_pushdown", ImmutableList.of())) {
+            try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_covar_pushdown", ImmutableList.of())) {
                 assertThat(query("SELECT covar_pop(t_double, u_double), covar_pop(v_real, w_real) FROM " + testTable.getName())).isNotFullyPushedDown(AggregationNode.class);
                 assertThat(query("SELECT covar_samp(t_double, u_double), covar_samp(v_real, w_real) FROM " + testTable.getName())).isNotFullyPushedDown(AggregationNode.class);
                 return;
@@ -1023,7 +1021,7 @@ public abstract class BaseJdbcConnectorTest
         PlanMatchPattern partitionedJoinOverTableScans = node(JoinNode.class,
                 exchange(ExchangeNode.Scope.REMOTE, ExchangeNode.Type.REPARTITION,
                         node(TableScanNode.class)),
-                exchange(ExchangeNode.Scope.LOCAL, ExchangeNode.Type.REPARTITION,
+                exchange(ExchangeNode.Scope.LOCAL,
                         exchange(ExchangeNode.Scope.REMOTE, ExchangeNode.Type.REPARTITION,
                                 node(TableScanNode.class))));
 
@@ -1060,7 +1058,7 @@ public abstract class BaseJdbcConnectorTest
         PlanMatchPattern broadcastJoinOverTableScans =
                 node(JoinNode.class,
                         node(TableScanNode.class),
-                        exchange(ExchangeNode.Scope.LOCAL, ExchangeNode.Type.GATHER,
+                        exchange(ExchangeNode.Scope.LOCAL,
                                 exchange(ExchangeNode.Scope.REMOTE, ExchangeNode.Type.REPLICATE,
                                         node(TableScanNode.class))));
 
@@ -1079,10 +1077,10 @@ public abstract class BaseJdbcConnectorTest
 
         String notDistinctOperator = "IS NOT DISTINCT FROM";
         List<String> nonEqualities = Stream.concat(
-                Stream.of(JoinCondition.Operator.values())
-                        .filter(operator -> operator != JoinCondition.Operator.EQUAL)
-                        .map(JoinCondition.Operator::getValue),
-                Stream.of(notDistinctOperator))
+                        Stream.of(JoinCondition.Operator.values())
+                                .filter(operator -> operator != JoinCondition.Operator.EQUAL)
+                                .map(JoinCondition.Operator::getValue),
+                        Stream.of(notDistinctOperator))
                 .collect(toImmutableList());
 
         try (TestTable nationLowercaseTable = new TestTable(
@@ -1214,7 +1212,7 @@ public abstract class BaseJdbcConnectorTest
         }
     }
 
-    private QueryAssert assertConditionallyPushedDown(
+    protected QueryAssert assertConditionallyPushedDown(
             Session session,
             @Language("SQL") String query,
             boolean condition,
@@ -1229,7 +1227,7 @@ public abstract class BaseJdbcConnectorTest
         }
     }
 
-    private void assertConditionallyOrderedPushedDown(
+    protected void assertConditionallyOrderedPushedDown(
             Session session,
             @Language("SQL") String query,
             boolean condition,
@@ -1363,7 +1361,8 @@ public abstract class BaseJdbcConnectorTest
     public void testDeleteWithBigintEqualityPredicate()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete", "AS SELECT * FROM region")) {
+        // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_bigint", "AS SELECT * FROM region")) {
             assertUpdate("DELETE FROM " + table.getName() + " WHERE regionkey = 1", 1);
             assertQuery(
                     "SELECT regionkey, name FROM " + table.getName(),
@@ -1379,7 +1378,8 @@ public abstract class BaseJdbcConnectorTest
     public void testDeleteWithVarcharEqualityPredicate()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete", "(col varchar(1))", ImmutableList.of("'a'", "'A'", "null"))) {
+        // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_varchar", "(col varchar(1))", ImmutableList.of("'a'", "'A'", "null"))) {
             if (!hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY)) {
                 assertQueryFails("DELETE FROM " + table.getName() + " WHERE col = 'A'", "Unsupported delete");
                 return;
@@ -1394,7 +1394,8 @@ public abstract class BaseJdbcConnectorTest
     public void testDeleteWithVarcharInequalityPredicate()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete", "(col varchar(1))", ImmutableList.of("'a'", "'A'", "null"))) {
+        // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_varchar", "(col varchar(1))", ImmutableList.of("'a'", "'A'", "null"))) {
             if (!hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY)) {
                 assertQueryFails("DELETE FROM " + table.getName() + " WHERE col != 'A'", "Unsupported delete");
                 return;
@@ -1409,7 +1410,8 @@ public abstract class BaseJdbcConnectorTest
     public void testDeleteWithVarcharGreaterAndLowerPredicate()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete", "(col varchar(1))", ImmutableList.of("'0'", "'a'", "'A'", "'b'", "null"))) {
+        // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_varchar", "(col varchar(1))", ImmutableList.of("'0'", "'a'", "'A'", "'b'", "null"))) {
             if (!hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY)) {
                 assertQueryFails("DELETE FROM " + table.getName() + " WHERE col < 'A'", "Unsupported delete");
                 assertQueryFails("DELETE FROM " + table.getName() + " WHERE col > 'A'", "Unsupported delete");
@@ -1436,6 +1438,14 @@ public abstract class BaseJdbcConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
         assertThatThrownBy(super::testDeleteWithSubquery)
+                .hasStackTraceContaining("TrinoException: Unsupported delete");
+    }
+
+    @Override
+    public void testExplainAnalyzeWithDeleteWithSubquery()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
+        assertThatThrownBy(super::testExplainAnalyzeWithDeleteWithSubquery)
                 .hasStackTraceContaining("TrinoException: Unsupported delete");
     }
 
@@ -1485,7 +1495,7 @@ public abstract class BaseJdbcConnectorTest
 
         try (TestTable table = new TestTable(
                 getQueryRunner()::execute,
-                "test_write_batch_size",
+                "write_batch_size",
                 "(a varchar(36), b bigint)")) {
             String values = String.join(",", buildRowsForInsert(numberOfRows));
             assertUpdate(session, "INSERT INTO " + table.getName() + " (a, b) VALUES " + values, numberOfRows);
@@ -1506,16 +1516,11 @@ public abstract class BaseJdbcConnectorTest
     public static Object[][] batchSizeAndTotalNumberOfRowsToInsertDataProvider()
     {
         return new Object[][] {
-                {100, 64},
-                {100, 100},
-                {100, 512},
-                {100, 1000},
-                {1000, 100},
-                {1000, 1000},
-                {1000, 5000},
-                {10000, 1000},
-                {10000, 5000},
-                {10000, 15000},
+                {10, 8},  // number of rows < batch size
+                {10, 10}, // number of rows = batch size
+                {10, 11}, // number of rows > batch size
+                {10, 50}, // number of rows = n * batch size
+                {10, 52}, // number of rows > n * batch size
         };
     }
 }

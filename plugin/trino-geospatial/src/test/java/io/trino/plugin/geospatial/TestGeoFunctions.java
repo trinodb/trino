@@ -33,7 +33,6 @@ import java.util.stream.Collectors;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.geospatial.KdbTree.buildKdbTree;
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
-import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -47,7 +46,7 @@ public class TestGeoFunctions
         extends AbstractTestFunctions
 {
     @BeforeClass
-    protected void registerFunctions()
+    public void registerFunctions()
     {
         functionAssertions.installPlugin(new GeoPlugin());
     }
@@ -494,9 +493,9 @@ public class TestGeoFunctions
         assertLineInterpolatePoint("LINESTRING (0 0, 1 0, 1 9)", 0.5, "POINT (1 4)");
         assertLineInterpolatePoint("LINESTRING (0 0, 1 0, 1 9)", 1.0, "POINT (1 9)");
 
-        assertInvalidFunction("line_interpolate_point(ST_GeometryFromText('LINESTRING (0 0, 1 0, 1 9)'), -0.5)", INVALID_FUNCTION_ARGUMENT, "fraction must be between 0 and 1");
-        assertInvalidFunction("line_interpolate_point(ST_GeometryFromText('LINESTRING (0 0, 1 0, 1 9)'), 2.0)", INVALID_FUNCTION_ARGUMENT, "fraction must be between 0 and 1");
-        assertInvalidFunction("line_interpolate_point(ST_GeometryFromText('POLYGON ((0 0, 1 1, 0 1, 1 0, 0 0))'), 0.2)", INVALID_FUNCTION_ARGUMENT, "line_interpolate_point only applies to LINE_STRING. Input type is: POLYGON");
+        assertInvalidFunction("line_interpolate_point(ST_GeometryFromText('LINESTRING (0 0, 1 0, 1 9)'), -0.5)", "fraction must be between 0 and 1");
+        assertInvalidFunction("line_interpolate_point(ST_GeometryFromText('LINESTRING (0 0, 1 0, 1 9)'), 2.0)", "fraction must be between 0 and 1");
+        assertInvalidFunction("line_interpolate_point(ST_GeometryFromText('POLYGON ((0 0, 1 1, 0 1, 1 0, 0 0))'), 0.2)", "line_interpolate_point only applies to LINE_STRING. Input type is: POLYGON");
     }
 
     @Test
@@ -510,9 +509,9 @@ public class TestGeoFunctions
         assertLineInterpolatePoints("LINESTRING (0 0, 1 1, 10 10)", 0.5, "5.000000000000001 5.000000000000001", "10 10");
         assertLineInterpolatePoints("LINESTRING (0 0, 1 1, 10 10)", 1, "10 10");
 
-        assertInvalidFunction("line_interpolate_points(ST_GeometryFromText('LINESTRING (0 0, 1 0, 1 9)'), -0.5)", INVALID_FUNCTION_ARGUMENT, "fraction must be between 0 and 1");
-        assertInvalidFunction("line_interpolate_points(ST_GeometryFromText('LINESTRING (0 0, 1 0, 1 9)'), 2.0)", INVALID_FUNCTION_ARGUMENT, "fraction must be between 0 and 1");
-        assertInvalidFunction("line_interpolate_points(ST_GeometryFromText('POLYGON ((0 0, 1 1, 0 1, 1 0, 0 0))'), 0.2)", INVALID_FUNCTION_ARGUMENT, "line_interpolate_point only applies to LINE_STRING. Input type is: POLYGON");
+        assertInvalidFunction("line_interpolate_points(ST_GeometryFromText('LINESTRING (0 0, 1 0, 1 9)'), -0.5)", "fraction must be between 0 and 1");
+        assertInvalidFunction("line_interpolate_points(ST_GeometryFromText('LINESTRING (0 0, 1 0, 1 9)'), 2.0)", "fraction must be between 0 and 1");
+        assertInvalidFunction("line_interpolate_points(ST_GeometryFromText('POLYGON ((0 0, 1 1, 0 1, 1 0, 0 0))'), 0.2)", "line_interpolate_point only applies to LINE_STRING. Input type is: POLYGON");
     }
 
     private void assertLineInterpolatePoint(String wkt, double fraction, String expectedPoint)
@@ -984,9 +983,9 @@ public class TestGeoFunctions
     @Test
     public void testInvalidWKT()
     {
-        assertInvalidFunction("ST_LineFromText('LINESTRING (0 0, 1)')", INVALID_FUNCTION_ARGUMENT, "Invalid WKT: LINESTRING (0 0, 1)");
-        assertInvalidFunction("ST_GeometryFromText('POLYGON(0 0)')", INVALID_FUNCTION_ARGUMENT, "Invalid WKT: POLYGON(0 0)");
-        assertInvalidFunction("ST_Polygon('POLYGON(-1 1, 1 -1)')", INVALID_FUNCTION_ARGUMENT, "Invalid WKT: POLYGON(-1 1, 1 -1)");
+        assertInvalidFunction("ST_LineFromText('LINESTRING (0 0, 1)')", "Invalid WKT: LINESTRING (0 0, 1)");
+        assertInvalidFunction("ST_GeometryFromText('POLYGON(0 0)')", "Invalid WKT: POLYGON(0 0)");
+        assertInvalidFunction("ST_Polygon('POLYGON(-1 1, 1 -1)')", "Invalid WKT: POLYGON(-1 1, 1 -1)");
     }
 
     @Test
@@ -1197,7 +1196,7 @@ public class TestGeoFunctions
         assertFunction("ST_LineString(array[ST_GeometryFromText('POINT (1 2)'), ST_GeometryFromText('POINT (3 4)')])", GEOMETRY, "LINESTRING (1 2, 3 4)");
 
         // Duplicate consecutive points throws exception
-        assertInvalidFunction("ST_LineString(array[ST_Point(1, 2), ST_Point(1, 2)])", INVALID_FUNCTION_ARGUMENT, "Invalid input to ST_LineString: consecutive duplicate points at index 2");
+        assertInvalidFunction("ST_LineString(array[ST_Point(1, 2), ST_Point(1, 2)])", "Invalid input to ST_LineString: consecutive duplicate points at index 2");
         assertFunction("ST_LineString(array[ST_Point(1, 2), ST_Point(3, 4), ST_Point(1, 2)])", GEOMETRY, "LINESTRING (1 2, 3 4, 1 2)");
 
         // Single point
@@ -1207,19 +1206,19 @@ public class TestGeoFunctions
         assertFunction("ST_LineString(array[])", GEOMETRY, "LINESTRING EMPTY");
 
         // Only points can be passed
-        assertInvalidFunction("ST_LineString(array[ST_Point(7,8), ST_GeometryFromText('LINESTRING (1 2, 3 4)')])", INVALID_FUNCTION_ARGUMENT, "ST_LineString takes only an array of valid points, LineString was passed");
+        assertInvalidFunction("ST_LineString(array[ST_Point(7,8), ST_GeometryFromText('LINESTRING (1 2, 3 4)')])", "ST_LineString takes only an array of valid points, LineString was passed");
 
         // Nulls points are invalid
-        assertInvalidFunction("ST_LineString(array[NULL])", INVALID_FUNCTION_ARGUMENT, "Invalid input to ST_LineString: null point at index 1");
-        assertInvalidFunction("ST_LineString(array[ST_Point(1,2), NULL])", INVALID_FUNCTION_ARGUMENT, "Invalid input to ST_LineString: null point at index 2");
-        assertInvalidFunction("ST_LineString(array[ST_Point(1, 2), NULL, ST_Point(3, 4)])", INVALID_FUNCTION_ARGUMENT, "Invalid input to ST_LineString: null point at index 2");
-        assertInvalidFunction("ST_LineString(array[ST_Point(1, 2), NULL, ST_Point(3, 4), NULL])", INVALID_FUNCTION_ARGUMENT, "Invalid input to ST_LineString: null point at index 2");
+        assertInvalidFunction("ST_LineString(array[NULL])", "Invalid input to ST_LineString: null point at index 1");
+        assertInvalidFunction("ST_LineString(array[ST_Point(1,2), NULL])", "Invalid input to ST_LineString: null point at index 2");
+        assertInvalidFunction("ST_LineString(array[ST_Point(1, 2), NULL, ST_Point(3, 4)])", "Invalid input to ST_LineString: null point at index 2");
+        assertInvalidFunction("ST_LineString(array[ST_Point(1, 2), NULL, ST_Point(3, 4), NULL])", "Invalid input to ST_LineString: null point at index 2");
 
         // Empty points are invalid
-        assertInvalidFunction("ST_LineString(array[ST_GeometryFromText('POINT EMPTY')])", INVALID_FUNCTION_ARGUMENT, "Invalid input to ST_LineString: empty point at index 1");
-        assertInvalidFunction("ST_LineString(array[ST_Point(1,2), ST_GeometryFromText('POINT EMPTY')])", INVALID_FUNCTION_ARGUMENT, "Invalid input to ST_LineString: empty point at index 2");
-        assertInvalidFunction("ST_LineString(array[ST_Point(1,2), ST_GeometryFromText('POINT EMPTY'), ST_Point(3,4)])", INVALID_FUNCTION_ARGUMENT, "Invalid input to ST_LineString: empty point at index 2");
-        assertInvalidFunction("ST_LineString(array[ST_Point(1,2), ST_GeometryFromText('POINT EMPTY'), ST_Point(3,4), ST_GeometryFromText('POINT EMPTY')])", INVALID_FUNCTION_ARGUMENT, "Invalid input to ST_LineString: empty point at index 2");
+        assertInvalidFunction("ST_LineString(array[ST_GeometryFromText('POINT EMPTY')])", "Invalid input to ST_LineString: empty point at index 1");
+        assertInvalidFunction("ST_LineString(array[ST_Point(1,2), ST_GeometryFromText('POINT EMPTY')])", "Invalid input to ST_LineString: empty point at index 2");
+        assertInvalidFunction("ST_LineString(array[ST_Point(1,2), ST_GeometryFromText('POINT EMPTY'), ST_Point(3,4)])", "Invalid input to ST_LineString: empty point at index 2");
+        assertInvalidFunction("ST_LineString(array[ST_Point(1,2), ST_GeometryFromText('POINT EMPTY'), ST_Point(3,4), ST_GeometryFromText('POINT EMPTY')])", "Invalid input to ST_LineString: empty point at index 2");
     }
 
     @Test
@@ -1274,7 +1273,6 @@ public class TestGeoFunctions
                         Arrays.stream(pointWkts)
                                 .map(wkt -> wkt == null ? "null" : format("ST_GeometryFromText('%s')", wkt))
                                 .collect(Collectors.joining(","))),
-                INVALID_FUNCTION_ARGUMENT,
                 format("Invalid input to ST_MultiPoint: %s", errorMessage));
     }
 

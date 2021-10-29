@@ -14,18 +14,23 @@
 package io.trino.operator.window.matcher;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.memory.context.SimpleLocalMemoryContext;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.window.PagesWindowIndex;
 import io.trino.operator.window.pattern.LabelEvaluator;
+import io.trino.operator.window.pattern.PhysicalValuePointer;
 import io.trino.spi.Page;
 import io.trino.spi.function.WindowIndex;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
 import io.trino.sql.planner.rowpattern.ir.IrRowPattern;
 import org.assertj.core.api.AbstractAssert;
 import org.assertj.core.api.AssertProvider;
+import org.assertj.core.util.CanIgnoreReturnValue;
 
+import java.util.List;
 import java.util.Map;
 
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class MatchAssert
@@ -42,7 +47,8 @@ public class MatchAssert
     public static AssertProvider<MatchAssert> match(IrRowPattern pattern, String input, Map<IrLabel, Integer> labelMapping)
     {
         Program program = IrRowPatternToProgramRewriter.rewrite(pattern, labelMapping);
-        Matcher matcher = new Matcher(program);
+        List<List<PhysicalValuePointer>> dummyPointers = ImmutableList.of(ImmutableList.of(), ImmutableList.of(), ImmutableList.of(), ImmutableList.of(), ImmutableList.of());
+        Matcher matcher = new Matcher(program, dummyPointers);
 
         int[] mappedInput = new int[input.length()];
         char[] chars = input.toCharArray();
@@ -50,32 +56,35 @@ public class MatchAssert
             mappedInput[i] = labelMapping.get(new IrLabel(String.valueOf(chars[i])));
         }
 
-        return () -> new MatchAssert(matcher.run(identityEvaluator(mappedInput)), labelMapping);
+        return () -> new MatchAssert(matcher.run(identityEvaluator(mappedInput), new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "dummy")), labelMapping);
     }
 
+    @CanIgnoreReturnValue
     public MatchAssert hasLabels(char[] expectedLabels)
     {
         int[] mappedExpected = new int[expectedLabels.length];
         for (int i = 0; i < expectedLabels.length; i++) {
             mappedExpected[i] = labelMapping.get(new IrLabel(String.valueOf(expectedLabels[i])));
         }
-        return satisfies(actual -> assertThat(actual.isMatched()))
+        return satisfies(actual -> assertThat(actual.isMatched()).isTrue())
                 .satisfies(actual -> assertThat(actual.getLabels().toArray())
                         .as("Matched labels")
                         .isEqualTo(mappedExpected));
     }
 
+    @CanIgnoreReturnValue
     public MatchAssert hasCaptures(int[] expectedCaptures)
     {
-        return satisfies(actual -> assertThat(actual.isMatched()))
+        return satisfies(actual -> assertThat(actual.isMatched()).isTrue())
                 .satisfies(actual -> assertThat(actual.getExclusions().toArray())
                         .as("Captured exclusions")
                         .isEqualTo(expectedCaptures));
     }
 
+    @CanIgnoreReturnValue
     public MatchAssert isNoMatch()
     {
-        return satisfies(actual -> assertThat(!actual.isMatched()));
+        return satisfies(actual -> assertThat(actual.isMatched()).isFalse());
     }
 
     private static LabelEvaluator identityEvaluator(int[] input)

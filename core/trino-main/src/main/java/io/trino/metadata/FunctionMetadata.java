@@ -23,7 +23,7 @@ public class FunctionMetadata
 {
     private final FunctionId functionId;
     private final Signature signature;
-    private final String actualName;
+    private final String canonicalName;
     private final boolean nullable;
     private final List<FunctionArgumentDefinition> argumentDefinitions;
     private final boolean hidden;
@@ -56,7 +56,7 @@ public class FunctionMetadata
 
     public FunctionMetadata(
             Signature signature,
-            String actualName,
+            String canonicalName,
             boolean nullable,
             List<FunctionArgumentDefinition> argumentDefinitions,
             boolean hidden,
@@ -66,16 +66,9 @@ public class FunctionMetadata
             boolean deprecated)
     {
         this(
-                FunctionId.toFunctionId(
-                        new Signature(
-                                actualName,
-                                signature.getTypeVariableConstraints(),
-                                signature.getLongVariableConstraints(),
-                                signature.getReturnType(),
-                                signature.getArgumentTypes(),
-                                signature.isVariableArity())),
+                FunctionId.toFunctionId(signature),
                 signature,
-                actualName,
+                canonicalName,
                 nullable,
                 argumentDefinitions,
                 hidden,
@@ -88,7 +81,7 @@ public class FunctionMetadata
     public FunctionMetadata(
             FunctionId functionId,
             Signature signature,
-            String actualName,
+            String canonicalName,
             boolean nullable,
             List<FunctionArgumentDefinition> argumentDefinitions,
             boolean hidden,
@@ -99,7 +92,7 @@ public class FunctionMetadata
     {
         this.functionId = requireNonNull(functionId, "functionId is null");
         this.signature = requireNonNull(signature, "signature is null");
-        this.actualName = requireNonNull(actualName, "actualName is null");
+        this.canonicalName = requireNonNull(canonicalName, "canonicalName is null");
         this.nullable = nullable;
         this.argumentDefinitions = ImmutableList.copyOf(requireNonNull(argumentDefinitions, "argumentDefinitions is null"));
         this.hidden = hidden;
@@ -110,8 +103,8 @@ public class FunctionMetadata
     }
 
     /**
-     * Returns {@link FunctionId} under which function is to be registered. It is based on the {@link #getActualName()},
-     * which is either the canonical function name or an alias.
+     * Unique id of this function.
+     * For aliased functions, each alias must have a different alias.
      */
     public FunctionId getFunctionId()
     {
@@ -119,7 +112,8 @@ public class FunctionMetadata
     }
 
     /**
-     * Returns function {@link Signature} with canonical name of the function.
+     * Signature of a matching call site.
+     * For aliased functions, the signature must use the alias name.
      */
     public Signature getSignature()
     {
@@ -127,12 +121,11 @@ public class FunctionMetadata
     }
 
     /**
-     * Returns the name under which function is registered. Typically same as {@code getSignature().getName()}
-     * unless this is an alias.
+     * For aliased functions, the canonical name of the function.
      */
-    public String getActualName()
+    public String getCanonicalName()
     {
-        return actualName;
+        return canonicalName;
     }
 
     public boolean isNullable()

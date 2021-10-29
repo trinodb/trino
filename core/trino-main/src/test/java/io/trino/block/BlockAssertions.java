@@ -15,6 +15,7 @@ package io.trino.block;
 
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DictionaryBlock;
@@ -22,6 +23,7 @@ import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
@@ -60,6 +62,8 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingConnectorSession.SESSION;
@@ -157,6 +161,21 @@ public final class BlockAssertions
         }
         if (type == VARCHAR) {
             return createRandomStringBlock(positionCount, nullRate, MAX_STRING_SIZE);
+        }
+        if (type instanceof CharType) {
+            return createRandomCharsBlock((CharType) type, positionCount, nullRate);
+        }
+        if (type == DOUBLE) {
+            return createRandomDoublesBlock(positionCount, nullRate);
+        }
+        if (type == TINYINT) {
+            return createRandomTinyintsBlock(positionCount, nullRate);
+        }
+        if (type == UUID) {
+            return createRandomUUIDsBlock(positionCount, nullRate);
+        }
+        if (type == VARBINARY) {
+            return createRandomVarbinariesBlock(positionCount, nullRate);
         }
 
         return createRandomBlockForNestedType(type, positionCount, nullRate);
@@ -259,6 +278,31 @@ public final class BlockAssertions
                 generateListWithNulls(positionCount, nullRate, () -> generateRandomStringWithLength(maxStringLength)));
     }
 
+    private static Block createRandomVarbinariesBlock(int positionCount, float nullRate)
+    {
+        return createSlicesBlock(VARBINARY, generateListWithNulls(positionCount, nullRate, () -> Slices.wrappedLongArray(RANDOM.nextLong(), RANDOM.nextLong())));
+    }
+
+    private static Block createRandomUUIDsBlock(int positionCount, float nullRate)
+    {
+        return createSlicesBlock(UUID, generateListWithNulls(positionCount, nullRate, () -> Slices.wrappedLongArray(RANDOM.nextLong(), RANDOM.nextLong())));
+    }
+
+    private static Block createRandomTinyintsBlock(int positionCount, float nullRate)
+    {
+        return createTypedLongsBlock(TINYINT, generateListWithNulls(positionCount, nullRate, () -> (long) (byte) RANDOM.nextLong()));
+    }
+
+    public static Block createRandomDoublesBlock(int positionCount, float nullRate)
+    {
+        return createDoublesBlock(generateListWithNulls(positionCount, nullRate, RANDOM::nextDouble));
+    }
+
+    public static Block createRandomCharsBlock(CharType charType, int positionCount, float nullRate)
+    {
+        return createCharsBlock(charType, generateListWithNulls(positionCount, nullRate, () -> generateRandomStringWithLength(charType.getLength())));
+    }
+
     public static <T> List<T> generateListWithNulls(int positionCount, float nullRate, Supplier<T> valueSupplier)
     {
         List<T> result = new ArrayList<>(positionCount);
@@ -301,18 +345,12 @@ public final class BlockAssertions
 
     public static Block createSlicesBlock(Iterable<Slice> values)
     {
-        BlockBuilder builder = VARBINARY.createBlockBuilder(null, 100);
+        return createSlicesBlock(VARBINARY, values);
+    }
 
-        for (Slice value : values) {
-            if (value == null) {
-                builder.appendNull();
-            }
-            else {
-                VARBINARY.writeSlice(builder, value);
-            }
-        }
-
-        return builder.build();
+    public static Block createSlicesBlock(Type type, Iterable<Slice> values)
+    {
+        return createBlock(type, type::writeSlice, values);
     }
 
     public static Block createStringSequenceBlock(int start, int end)
@@ -435,6 +473,11 @@ public final class BlockAssertions
         return builder.build();
     }
 
+    public static Block createCharsBlock(CharType charType, List<String> values)
+    {
+        return createBlock(charType, charType::writeString, values);
+    }
+
     public static Block createIntsBlock(Integer... values)
     {
         requireNonNull(values, "values is null");
@@ -444,18 +487,7 @@ public final class BlockAssertions
 
     public static Block createIntsBlock(Iterable<Integer> values)
     {
-        BlockBuilder builder = INTEGER.createBlockBuilder(null, 100);
-
-        for (Integer value : values) {
-            if (value == null) {
-                builder.appendNull();
-            }
-            else {
-                INTEGER.writeLong(builder, value);
-            }
-        }
-
-        return builder.build();
+        return createBlock(INTEGER, (ValueWriter<Integer>) INTEGER::writeLong, values);
     }
 
     public static Block createRowBlock(List<Type> fieldTypes, Object[]... rows)
@@ -535,18 +567,7 @@ public final class BlockAssertions
 
     public static Block createTypedLongsBlock(Type type, Iterable<Long> values)
     {
-        BlockBuilder builder = type.createBlockBuilder(null, 100);
-
-        for (Long value : values) {
-            if (value == null) {
-                builder.appendNull();
-            }
-            else {
-                type.writeLong(builder, value);
-            }
-        }
-
-        return builder.build();
+        return createBlock(type, type::writeLong, values);
     }
 
     public static Block createLongSequenceBlock(int start, int end)
@@ -660,18 +681,7 @@ public final class BlockAssertions
 
     public static Block createDoublesBlock(Iterable<Double> values)
     {
-        BlockBuilder builder = DOUBLE.createBlockBuilder(null, 100);
-
-        for (Double value : values) {
-            if (value == null) {
-                builder.appendNull();
-            }
-            else {
-                DOUBLE.writeDouble(builder, value);
-            }
-        }
-
-        return builder.build();
+        return createBlock(DOUBLE, DOUBLE::writeDouble, values);
     }
 
     public static Block createDoubleSequenceBlock(int start, int end)
@@ -778,6 +788,27 @@ public final class BlockAssertions
         BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, 1);
         BIGINT.writeLong(blockBuilder, value);
         return new RunLengthEncodedBlock(blockBuilder.build(), positionCount);
+    }
+
+    private static <T> Block createBlock(Type type, ValueWriter<T> valueWriter, Iterable<T> values)
+    {
+        BlockBuilder builder = type.createBlockBuilder(null, 100);
+
+        for (T value : values) {
+            if (value == null) {
+                builder.appendNull();
+            }
+            else {
+                valueWriter.write(builder, value);
+            }
+        }
+
+        return builder.build();
+    }
+
+    private interface ValueWriter<T>
+    {
+        void write(BlockBuilder builder, T value);
     }
 
     private static Set<Integer> chooseNullPositions(int positionCount, float nullRate)

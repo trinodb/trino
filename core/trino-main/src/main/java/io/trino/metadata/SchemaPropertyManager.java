@@ -16,7 +16,7 @@ package io.trino.metadata;
 import static io.trino.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 
 public class SchemaPropertyManager
-        extends AbstractPropertyManager
+        extends AbstractCatalogPropertyManager
 {
     public SchemaPropertyManager()
     {

@@ -35,6 +35,7 @@ import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.filter2.predicate.FilterApi;
 import org.apache.parquet.filter2.predicate.FilterPredicate;
+import org.apache.parquet.filter2.predicate.Operators;
 import org.apache.parquet.filter2.predicate.UserDefinedPredicate;
 import org.apache.parquet.hadoop.metadata.ColumnPath;
 import org.apache.parquet.internal.column.columnindex.ColumnIndex;
@@ -156,14 +157,13 @@ public class TupleDomainParquetPredicate
             }
 
             ColumnIndex columnIndex = columnIndexStore.getColumnIndex(ColumnPath.get(column.getPath()));
-            if (columnIndex == null || isEmptyColumnIndex(columnIndex)) {
+            if (columnIndex == null) {
                 continue;
             }
-            else {
-                Domain domain = getDomain(effectivePredicateDomain.getType(), numberOfRows, columnIndex, id, column);
-                if (effectivePredicateDomain.intersect(domain).isNone()) {
-                    return false;
-                }
+
+            Domain domain = getDomain(effectivePredicateDomain.getType(), numberOfRows, columnIndex, id, column);
+            if (!effectivePredicateDomain.overlaps(domain)) {
+                return false;
             }
         }
 
@@ -357,17 +357,20 @@ public class TupleDomainParquetPredicate
             return Domain.all(type);
         }
 
-        String columnName = descriptor.getPrimitiveType().getName();
+        List<ByteBuffer> maxValues = columnIndex.getMaxValues();
+        List<ByteBuffer> minValues = columnIndex.getMinValues();
+        List<Long> nullCounts = columnIndex.getNullCounts();
+        List<Boolean> nullPages = columnIndex.getNullPages();
 
-        if (isCorruptedColumnIndex(columnIndex)) {
+        String columnName = descriptor.getPrimitiveType().getName();
+        if (isCorruptedColumnIndex(minValues, maxValues, nullCounts, nullPages)) {
             throw corruptionException(columnName, id, columnIndex, null);
         }
-
-        if (isEmptyColumnIndex(columnIndex)) {
+        if (maxValues.isEmpty()) {
             return Domain.all(type);
         }
 
-        long totalNullCount = columnIndex.getNullCounts().stream()
+        long totalNullCount = nullCounts.stream()
                 .mapToLong(value -> value)
                 .sum();
         boolean hasNullValue = totalNullCount > 0;
@@ -377,14 +380,14 @@ public class TupleDomainParquetPredicate
         }
 
         try {
-            int pageCount = columnIndex.getMinValues().size();
+            int pageCount = minValues.size();
             ColumnIndexValueConverter converter = new ColumnIndexValueConverter();
             Function<ByteBuffer, Object> converterFunction = converter.getConverter(descriptor.getPrimitiveType());
             List<Object> min = new ArrayList<>();
             List<Object> max = new ArrayList<>();
             for (int i = 0; i < pageCount; i++) {
-                min.add(converterFunction.apply(columnIndex.getMinValues().get(i)));
-                max.add(converterFunction.apply(columnIndex.getMaxValues().get(i)));
+                min.add(converterFunction.apply(minValues.get(i)));
+                max.add(converterFunction.apply(maxValues.get(i)));
             }
 
             return getDomain(type, min, max, hasNullValue, timeZone);
@@ -444,22 +447,19 @@ public class TupleDomainParquetPredicate
         return new ParquetCorruptionException(cause, format("Corrupted statistics for column \"%s\" in Parquet file \"%s\". Corrupted column index: [%s]", column, id, columnIndex));
     }
 
-    private boolean isCorruptedColumnIndex(ColumnIndex columnIndex)
+    private static boolean isCorruptedColumnIndex(
+            List<ByteBuffer> minValues,
+            List<ByteBuffer> maxValues,
+            List<Long> nullCounts,
+            List<Boolean> nullPages)
     {
-        if (columnIndex.getMaxValues() == null
-                || columnIndex.getMinValues() == null
-                || columnIndex.getNullCounts() == null
-                || columnIndex.getNullPages() == null) {
+        if (maxValues == null || minValues == null || nullCounts == null || nullPages == null) {
             return true;
         }
 
-        if (columnIndex.getMaxValues().size() != columnIndex.getMinValues().size()
-                || columnIndex.getMaxValues().size() != columnIndex.getNullPages().size()
-                || columnIndex.getMaxValues().size() != columnIndex.getNullCounts().size()) {
-            return true;
-        }
-
-        return false;
+        return maxValues.size() != minValues.size()
+                || maxValues.size() != nullPages.size()
+                || maxValues.size() != nullCounts.size();
     }
 
     public static long asLong(Object value)
@@ -469,12 +469,6 @@ public class TupleDomainParquetPredicate
         }
 
         throw new IllegalArgumentException("Can't convert value to long: " + value.getClass().getName());
-    }
-
-    // Caller should verify isCorruptedColumnIndex is false first
-    private boolean isEmptyColumnIndex(ColumnIndex columnIndex)
-    {
-        return columnIndex.getMaxValues().size() == 0;
     }
 
     private FilterPredicate convertToParquetFilter(DateTimeZone timeZone)
@@ -491,7 +485,9 @@ public class TupleDomainParquetPredicate
                 continue;
             }
 
-            FilterPredicate columnFilter = FilterApi.userDefined(FilterApi.intColumn(ColumnPath.get(column.getPath()).toDotString()), new DomainUserDefinedPredicate(domain, timeZone));
+            FilterPredicate columnFilter = FilterApi.userDefined(
+                    new TrinoIntColumn(ColumnPath.get(column.getPath())),
+                    new DomainUserDefinedPredicate(domain, timeZone));
             if (filter == null) {
                 filter = columnFilter;
             }
@@ -537,7 +533,7 @@ public class TupleDomainParquetPredicate
             }
 
             Domain domain = getDomain(columnDomain.getType(), ImmutableList.of(statistic.getMin()), ImmutableList.of(statistic.getMax()), true, timeZone);
-            return columnDomain.intersect(domain).isNone();
+            return !columnDomain.overlaps(domain);
         }
 
         @Override
@@ -603,6 +599,19 @@ public class TupleDomainParquetPredicate
                 default:
                     return (i) -> dictionary.decodeToBinary(i);
             }
+        }
+    }
+
+    // FilterApi#intColumn splits column name on ".". If column name contains a "." this leads to
+    // ColumnIndexFilter#calculateRowRanges failing to detect that column as part of the projection
+    // and treating it like a column with only NULL values.
+    private static final class TrinoIntColumn
+            extends Operators.Column<Integer>
+            implements Operators.SupportsLtGt
+    {
+        TrinoIntColumn(ColumnPath columnPath)
+        {
+            super(columnPath, Integer.class);
         }
     }
 }

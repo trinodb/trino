@@ -56,6 +56,7 @@ Authentication type                   Property
 Password (file, LDAP, Salesforce)     ``http-server.authentication.password.user-mapping.pattern``
 OAuth2                                ``http-server.authentication.oauth2.user-mapping.pattern``
 Certificate                           ``http-server.authentication.certificate.user-mapping.pattern``
+Header                                ``http-server.authentication.header.user-mapping.pattern``
 JSON Web Token                        ``http-server.authentication.jwt.user-mapping.pattern``
 Kerberos                              ``http-server.authentication.krb5.user-mapping.pattern``
 Insecure                              ``http-server.authentication.insecure.user-mapping.pattern``
@@ -117,6 +118,7 @@ Authentication type                   Property
 Password (file, LDAP, Salesforce)     ``http-server.authentication.password.user-mapping.file``
 OAuth2                                ``http-server.authentication.oauth2.user-mapping.file``
 Certificate                           ``http-server.authentication.certificate.user-mapping.file``
+Header                                ``http-server.authentication.header.user-mapping.pattern``
 JSON Web Token                        ``http-server.authentication.jwt.user-mapping.file``
 Kerberos                              ``http-server.authentication.krb5.user-mapping.file``
 Insecure                              ``http-server.authentication.insecure.user-mapping.file``

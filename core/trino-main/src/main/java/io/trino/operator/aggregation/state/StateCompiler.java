@@ -15,7 +15,6 @@ package io.trino.operator.aggregation.state;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.ClassDefinition;
@@ -590,7 +589,6 @@ public final class StateCompiler
     private static List<StateField> enumerateFields(Class<?> clazz, Map<String, Type> fieldTypes)
     {
         ImmutableList.Builder<StateField> builder = ImmutableList.builder();
-        Set<Class<?>> primitiveClasses = ImmutableSet.of(byte.class, boolean.class, long.class, double.class, int.class);
         for (Method method : clazz.getMethods()) {
             if (method.getName().equals("getEstimatedSize")) {
                 continue;
@@ -609,18 +607,13 @@ public final class StateCompiler
         }
 
         // We need this ordering because the serializer and deserializer are on different machines, and so the ordering of fields must be stable
+        // NOTE min_max_by depends on this exact ordering, so any changes here will break it
+        // TODO remove this when transition from state classes to multiple intermediates is complete
         Ordering<StateField> ordering = new Ordering<>()
         {
             @Override
             public int compare(StateField left, StateField right)
             {
-                if (primitiveClasses.contains(left.getType()) && !primitiveClasses.contains(right.getType())) {
-                    return -1;
-                }
-                if (primitiveClasses.contains(right.getType()) && !primitiveClasses.contains(left.getType())) {
-                    return 1;
-                }
-                // If they're the category, just sort by name
                 return left.getName().compareTo(right.getName());
             }
         };

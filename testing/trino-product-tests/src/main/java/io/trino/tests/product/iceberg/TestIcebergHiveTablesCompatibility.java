@@ -18,6 +18,7 @@ import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
+import static io.trino.tests.product.TestGroups.HMS_ONLY;
 import static io.trino.tests.product.TestGroups.ICEBERG;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
 import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
@@ -26,7 +27,7 @@ import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 public class TestIcebergHiveTablesCompatibility
         extends ProductTest
 {
-    @Test(groups = {ICEBERG, STORAGE_FORMATS})
+    @Test(groups = {ICEBERG, STORAGE_FORMATS, HMS_ONLY})
     public void testIcebergSelectFromHiveTable()
     {
         String tableName = "test_iceberg_select_from_hive_" + randomTableSuffix();
@@ -41,7 +42,7 @@ public class TestIcebergHiveTablesCompatibility
         onTrino().executeQuery("DROP TABLE hive.default." + tableName);
     }
 
-    @Test(groups = {ICEBERG, STORAGE_FORMATS})
+    @Test(groups = {ICEBERG, STORAGE_FORMATS, HMS_ONLY})
     public void testHiveSelectFromIcebergTable()
     {
         String tableName = "test_hive_select_from_iceberg_" + randomTableSuffix();

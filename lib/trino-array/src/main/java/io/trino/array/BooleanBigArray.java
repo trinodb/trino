@@ -94,6 +94,11 @@ public final class BooleanBigArray
         grow(length);
     }
 
+    public long getCapacity()
+    {
+        return capacity;
+    }
+
     /**
      * Fills the entire big array with the specified value.
      */

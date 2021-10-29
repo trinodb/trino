@@ -324,7 +324,7 @@ P
 
 - :func:`parse_datetime`
 - :func:`parse_duration`
-- :func:`parse_presto_data_size`
+- :func:`parse_data_size`
 - :func:`percent_rank`
 - :func:`pi`
 - :func:`position`

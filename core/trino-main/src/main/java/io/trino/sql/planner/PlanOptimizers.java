@@ -48,6 +48,7 @@ import io.trino.sql.planner.iterative.rule.DesugarLambdaExpression;
 import io.trino.sql.planner.iterative.rule.DesugarLike;
 import io.trino.sql.planner.iterative.rule.DesugarTryExpression;
 import io.trino.sql.planner.iterative.rule.DetermineJoinDistributionType;
+import io.trino.sql.planner.iterative.rule.DeterminePreferredTableExecutePartitioning;
 import io.trino.sql.planner.iterative.rule.DeterminePreferredWritePartitioning;
 import io.trino.sql.planner.iterative.rule.DetermineSemiJoinDistributionType;
 import io.trino.sql.planner.iterative.rule.DetermineTableScanNodePartitioning;
@@ -181,6 +182,7 @@ import io.trino.sql.planner.iterative.rule.RemoveAggregationInSemiJoin;
 import io.trino.sql.planner.iterative.rule.RemoveDuplicateConditions;
 import io.trino.sql.planner.iterative.rule.RemoveEmptyDelete;
 import io.trino.sql.planner.iterative.rule.RemoveEmptyExceptBranches;
+import io.trino.sql.planner.iterative.rule.RemoveEmptyTableExecute;
 import io.trino.sql.planner.iterative.rule.RemoveEmptyUnionBranches;
 import io.trino.sql.planner.iterative.rule.RemoveFullSample;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantDistinctLimit;
@@ -252,12 +254,13 @@ import java.util.Map;
 import java.util.Set;
 
 import static io.trino.SystemSessionProperties.isIterativeRuleBasedColumnPruning;
+import static java.util.Objects.requireNonNull;
 
 public class PlanOptimizers
         implements PlanOptimizersFactory
 {
     private final List<PlanOptimizer> optimizers;
-    private final RuleStatsRecorder ruleStats = new RuleStatsRecorder();
+    private final RuleStatsRecorder ruleStats;
     private final OptimizerStatsRecorder optimizerStats = new OptimizerStatsRecorder();
 
     @Inject
@@ -274,7 +277,8 @@ public class PlanOptimizers
             @EstimatedExchanges CostCalculator estimatedExchangesCostCalculator,
             CostComparator costComparator,
             TaskCountEstimator taskCountEstimator,
-            NodePartitioningManager nodePartitioningManager)
+            NodePartitioningManager nodePartitioningManager,
+            RuleStatsRecorder ruleStats)
     {
         this(metadata,
                 typeOperators,
@@ -289,7 +293,8 @@ public class PlanOptimizers
                 estimatedExchangesCostCalculator,
                 costComparator,
                 taskCountEstimator,
-                nodePartitioningManager);
+                nodePartitioningManager,
+                ruleStats);
     }
 
     public PlanOptimizers(
@@ -306,8 +311,10 @@ public class PlanOptimizers
             CostCalculator estimatedExchangesCostCalculator,
             CostComparator costComparator,
             TaskCountEstimator taskCountEstimator,
-            NodePartitioningManager nodePartitioningManager)
+            NodePartitioningManager nodePartitioningManager,
+            RuleStatsRecorder ruleStats)
     {
+        this.ruleStats = requireNonNull(ruleStats, "ruleStats is null");
         ImmutableList.Builder<PlanOptimizer> builder = ImmutableList.builder();
 
         Set<Rule<?>> columnPruningRules = ImmutableSet.of(
@@ -709,7 +716,7 @@ public class PlanOptimizers
                                 new EvaluateEmptyIntersect(),
                                 new RemoveEmptyExceptBranches(),
                                 new PushdownLimitIntoRowNumber(),
-                                new PushdownLimitIntoWindow(metadata),
+                                new PushdownLimitIntoWindow(),
                                 new PushdownFilterIntoRowNumber(metadata, typeOperators),
                                 new PushdownFilterIntoWindow(metadata, typeOperators),
                                 new ReplaceWindowWithRowNumber(metadata))),
@@ -781,7 +788,9 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        ImmutableSet.of(new DeterminePreferredWritePartitioning())),
+                        ImmutableSet.of(
+                                new DeterminePreferredWritePartitioning(),
+                                new DeterminePreferredTableExecutePartitioning())),
                 // Because ReorderJoins runs only once,
                 // PredicatePushDown, columnPruningOptimizer and RemoveRedundantIdentityProjections
                 // need to run beforehand in order to produce an optimal join order
@@ -878,7 +887,9 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         costCalculator,
-                        ImmutableSet.of(new RemoveEmptyDelete()))); // Run RemoveEmptyDelete after table scan is removed by PickTableLayout/AddExchanges
+                        ImmutableSet.of(
+                                new RemoveEmptyDelete(),
+                                new RemoveEmptyTableExecute()))); // Run RemoveEmptyDelete and RemoveEmptyTableExecute after table scan is removed by PickTableLayout/AddExchanges
 
         // Run predicate push down one more time in case we can leverage new information from layouts' effective predicate
         // and to pushdown dynamic filters
@@ -892,7 +903,7 @@ public class PlanOptimizers
                 costCalculator,
                 ImmutableSet.<Rule<?>>builder()
                         .addAll(simplifyOptimizerRules) // Should be always run after PredicatePushDown
-                        .add(new RemoveRedundantTableScanPredicate(metadata, typeOperators))
+                        .add(new RemoveRedundantTableScanPredicate(metadata, typeOperators, typeAnalyzer))
                         .build()));
         builder.add(pushProjectionIntoTableScanOptimizer);
         // Projection pushdown rules may push reducing projections (e.g. dereferences) below filters for potential

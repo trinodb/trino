@@ -14,11 +14,13 @@
 package io.trino.operator.aggregation;
 
 import io.trino.metadata.Metadata;
+import io.trino.metadata.ResolvedFunction;
 import io.trino.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
 
 import java.util.Collections;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.block.BlockAssertions.createBooleansBlock;
 import static io.trino.block.BlockAssertions.createStringsBlock;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
@@ -30,15 +32,13 @@ import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 public class TestListagg
 {
     private static final Metadata metadata = createTestMetadataManager();
-    private static final InternalAggregationFunction listagg = metadata.getAggregateFunctionImplementation(
-            metadata.resolveFunction(
-                    QualifiedName.of("listagg"),
-                    fromTypes(VARCHAR, VARCHAR, BOOLEAN, VARCHAR, BOOLEAN)));
+    private static final ResolvedFunction listagg = metadata.resolveFunction(TEST_SESSION, QualifiedName.of("listagg"), fromTypes(VARCHAR, VARCHAR, BOOLEAN, VARCHAR, BOOLEAN));
 
     @Test
     public void testEmpty()
     {
         assertAggregation(
+                metadata,
                 listagg,
                 null,
                 createStringsBlock(new String[] {null}),
@@ -52,6 +52,7 @@ public class TestListagg
     public void testOnlyNullValues()
     {
         assertAggregation(
+                metadata,
                 listagg,
                 null,
                 createStringsBlock(null, null, null),
@@ -65,6 +66,7 @@ public class TestListagg
     public void testOneValue()
     {
         assertAggregation(
+                metadata,
                 listagg,
                 "value",
                 createStringsBlock("value"),
@@ -78,6 +80,7 @@ public class TestListagg
     public void testTwoValues()
     {
         assertAggregation(
+                metadata,
                 listagg,
                 "value1,value2",
                 createStringsBlock("value1", "value2"),
@@ -91,6 +94,7 @@ public class TestListagg
     public void testTwoValuesMixedWithNullValues()
     {
         assertAggregation(
+                metadata,
                 listagg,
                 "value1,value2",
                 createStringsBlock(null, "value1", null, "value2", null),
@@ -104,6 +108,7 @@ public class TestListagg
     public void testTwoValuesWithDefaultDelimiter()
     {
         assertAggregation(
+                metadata,
                 listagg,
                 "value1value2",
                 createStringsBlock("value1", "value2"),

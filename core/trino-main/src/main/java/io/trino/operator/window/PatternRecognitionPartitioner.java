@@ -13,6 +13,7 @@
  */
 package io.trino.operator.window;
 
+import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.operator.PagesHashStrategy;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesIndexComparator;
@@ -80,7 +81,8 @@ public class PatternRecognitionPartitioner
             List<WindowFunction> windowFunctions,
             List<FrameInfo> frames,
             PagesHashStrategy peerGroupHashStrategy,
-            Map<FrameBoundKey, PagesIndexComparator> frameBoundComparators)
+            Map<FrameBoundKey, PagesIndexComparator> frameBoundComparators,
+            AggregatedMemoryContext memoryContext)
     {
         return new PatternRecognitionPartition(
                 pagesIndex,
@@ -89,6 +91,7 @@ public class PatternRecognitionPartitioner
                 outputChannels,
                 windowFunctions,
                 peerGroupHashStrategy,
+                memoryContext,
                 measures,
                 commonBaseFrame,
                 rowsPerMatch,

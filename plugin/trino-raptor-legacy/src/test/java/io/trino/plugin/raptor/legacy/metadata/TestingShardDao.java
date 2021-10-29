@@ -13,34 +13,27 @@
  */
 package io.trino.plugin.raptor.legacy.metadata;
 
-import io.trino.plugin.raptor.legacy.util.UuidUtil.UuidArgumentFactory;
-import io.trino.plugin.raptor.legacy.util.UuidUtil.UuidMapperFactory;
-import org.skife.jdbi.v2.sqlobject.Bind;
-import org.skife.jdbi.v2.sqlobject.GetGeneratedKeys;
-import org.skife.jdbi.v2.sqlobject.SqlQuery;
-import org.skife.jdbi.v2.sqlobject.SqlUpdate;
-import org.skife.jdbi.v2.sqlobject.customizers.Mapper;
-import org.skife.jdbi.v2.sqlobject.customizers.RegisterArgumentFactory;
-import org.skife.jdbi.v2.sqlobject.customizers.RegisterMapperFactory;
+import org.jdbi.v3.sqlobject.config.RegisterConstructorMapper;
+import org.jdbi.v3.sqlobject.statement.GetGeneratedKeys;
+import org.jdbi.v3.sqlobject.statement.SqlQuery;
+import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 
 import java.util.Set;
 import java.util.UUID;
 
-@RegisterArgumentFactory(UuidArgumentFactory.class)
-@RegisterMapperFactory(UuidMapperFactory.class)
+@RegisterConstructorMapper(ShardNode.class)
 interface TestingShardDao
         extends H2ShardDao
 {
     @SqlQuery("SELECT shard_uuid FROM shards WHERE table_id = :tableId")
-    Set<UUID> getShards(@Bind("tableId") long tableId);
+    Set<UUID> getShards(long tableId);
 
     @SqlQuery("SELECT s.shard_uuid, n.node_identifier\n" +
             "FROM shards s\n" +
             "JOIN shard_nodes sn ON (s.shard_id = sn.shard_id)\n" +
             "JOIN nodes n ON (sn.node_id = n.node_id)\n" +
             "WHERE s.table_id = :tableId")
-    @Mapper(ShardNode.Mapper.class)
-    Set<ShardNode> getShardNodes(@Bind("tableId") long tableId);
+    Set<ShardNode> getShardNodes(long tableId);
 
     @SqlQuery("SELECT node_identifier FROM nodes")
     Set<String> getAllNodesInUse();
@@ -49,15 +42,15 @@ interface TestingShardDao
             "VALUES (:shardUuid, :tableId, :bucketNumber, CURRENT_TIMESTAMP, :rowCount, :compressedSize, :uncompressedSize, :xxhash64)")
     @GetGeneratedKeys
     long insertShard(
-            @Bind("shardUuid") UUID shardUuid,
-            @Bind("tableId") long tableId,
-            @Bind("bucketNumber") Integer bucketNumber,
-            @Bind("rowCount") long rowCount,
-            @Bind("compressedSize") long compressedSize,
-            @Bind("uncompressedSize") long uncompressedSize,
-            @Bind("xxhash64") long xxhash64);
+            UUID shardUuid,
+            long tableId,
+            Integer bucketNumber,
+            long rowCount,
+            long compressedSize,
+            long uncompressedSize,
+            long xxhash64);
 
     @SqlUpdate("INSERT INTO shard_nodes (shard_id, node_id)\n" +
             "VALUES (:shardId, :nodeId)\n")
-    void insertShardNode(@Bind("shardId") long shardId, @Bind("nodeId") int nodeId);
+    void insertShardNode(long shardId, int nodeId);
 }

@@ -15,16 +15,26 @@ package io.trino.tests.product.iceberg;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
+import io.airlift.concurrent.MoreFutures;
 import io.trino.tempto.ProductTest;
+import io.trino.tempto.query.QueryExecutionException;
+import io.trino.tempto.query.QueryExecutor;
 import io.trino.tempto.query.QueryResult;
+import io.trino.tests.product.hive.Engine;
 import org.assertj.core.api.Assertions;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 import java.sql.Date;
+import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -36,6 +46,7 @@ import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.TestGroups.ICEBERG;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
 import static io.trino.tests.product.iceberg.TestIcebergSparkCompatibility.CreateMode.CREATE_TABLE_AND_INSERT;
 import static io.trino.tests.product.iceberg.TestIcebergSparkCompatibility.CreateMode.CREATE_TABLE_AS_SELECT;
 import static io.trino.tests.product.iceberg.TestIcebergSparkCompatibility.CreateMode.CREATE_TABLE_WITH_NO_DATA_AND_INSERT;
@@ -43,6 +54,8 @@ import static io.trino.tests.product.utils.QueryExecutors.onSpark;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
+import static java.util.Locale.ENGLISH;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertTrue;
 
 public class TestIcebergSparkCompatibility
@@ -78,6 +91,8 @@ public class TestIcebergSparkCompatibility
         String trinoTableName = trinoTableName(baseTableName);
         String sparkTableName = sparkTableName(baseTableName);
 
+        onSpark().executeQuery("DROP TABLE IF EXISTS " + sparkTableName);
+
         onSpark().executeQuery(format(
                 "CREATE TABLE %s (" +
                         "  _string STRING" +
@@ -90,6 +105,7 @@ public class TestIcebergSparkCompatibility
                         ", _boolean BOOLEAN" +
                         ", _timestamp TIMESTAMP" +
                         ", _date DATE" +
+                        ", _binary BINARY" +
                         ") USING ICEBERG " +
                         "TBLPROPERTIES ('write.format.default'='%s')",
                 sparkTableName,
@@ -111,6 +127,7 @@ public class TestIcebergSparkCompatibility
                         ", true" +
                         ", TIMESTAMP '2020-06-28 14:16:00.456'" +
                         ", DATE '1950-06-28'" +
+                        ", X'000102f0feff'" +
                         ")",
                 sparkTableName));
 
@@ -124,7 +141,8 @@ public class TestIcebergSparkCompatibility
                 new BigDecimal("1234567890123456789.0123456789012345678"),
                 true,
                 Timestamp.valueOf("2020-06-28 14:16:00.456"),
-                Date.valueOf("1950-06-28"));
+                Date.valueOf("1950-06-28"),
+                new byte[] {00, 01, 02, -16, -2, -1});
 
         assertThat(onSpark().executeQuery(
                 "SELECT " +
@@ -138,6 +156,7 @@ public class TestIcebergSparkCompatibility
                         ", _boolean" +
                         ", _timestamp" +
                         ", _date" +
+                        ", _binary" +
                         " FROM " + sparkTableName))
                 .containsOnly(row);
 
@@ -153,6 +172,7 @@ public class TestIcebergSparkCompatibility
                         ", _boolean" +
                         ", CAST(_timestamp AS TIMESTAMP)" + // TODO test the value without a CAST from timestamp with time zone to timestamp
                         ", _date" +
+                        ", _binary" +
                         " FROM " + trinoTableName))
                 .containsOnly(row);
 
@@ -178,6 +198,7 @@ public class TestIcebergSparkCompatibility
                 //", TIMESTAMP '2020-06-28 14:16:00.456' _timestamp " +
                 ", TIMESTAMP '2021-08-03 08:32:21.123456 Europe/Warsaw' _timestamptz " +
                 ", DATE '1950-06-28' _date " +
+                ", X'000102f0feff' _binary " +
                 //", TIME '01:23:45.123456' _time " +
                 "";
 
@@ -196,6 +217,7 @@ public class TestIcebergSparkCompatibility
                                 //", _timestamp TIMESTAMP" -- per https://iceberg.apache.org/spark-writes/ Iceberg's timestamp is currently not supported with Spark
                                 ", _timestamptz timestamp(6) with time zone" +
                                 ", _date DATE" +
+                                ", _binary VARBINARY" +
                                 //", _time time(6)" + -- per https://iceberg.apache.org/spark-writes/ Iceberg's time is currently not supported with Spark
                                 ") WITH (format = '%s')",
                         trinoTableName,
@@ -228,7 +250,8 @@ public class TestIcebergSparkCompatibility
                 true,
                 //"2020-06-28 14:16:00.456",
                 "2021-08-03 06:32:21.123456 UTC", // Iceberg's timestamptz stores point in time, without zone
-                "1950-06-28"
+                "1950-06-28",
+                new byte[] {00, 01, 02, -16, -2, -1}
                 // "01:23:45.123456"
                 /**/);
         assertThat(onTrino().executeQuery(
@@ -244,6 +267,7 @@ public class TestIcebergSparkCompatibility
                         // _timestamp OR CAST(_timestamp AS varchar)
                         ", CAST(_timestamptz AS varchar)" +
                         ", CAST(_date AS varchar)" +
+                        ", _binary" +
                         //", CAST(_time AS varchar)" +
                         " FROM " + trinoTableName))
                 .containsOnly(row);
@@ -261,6 +285,7 @@ public class TestIcebergSparkCompatibility
                         // _timestamp OR CAST(_timestamp AS string)
                         ", CAST(_timestamptz AS string) || ' UTC'" + // Iceberg timestamptz is mapped to Spark timestamp and gets represented without time zone
                         ", CAST(_date AS string)" +
+                        ", _binary" +
                         // ", CAST(_time AS string)" +
                         " FROM " + sparkTableName))
                 .containsOnly(row);
@@ -278,6 +303,26 @@ public class TestIcebergSparkCompatibility
                         new Object[] {storageFormat, CREATE_TABLE_AS_SELECT},
                         new Object[] {storageFormat, CREATE_TABLE_WITH_NO_DATA_AND_INSERT}))
                 .toArray(Object[][]::new);
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
+    public void testSparkReadTrinoUuid(StorageFormat storageFormat)
+    {
+        String tableName = "test_spark_read_trino_uuid_" + storageFormat;
+        String trinoTableName = trinoTableName(tableName);
+        String sparkTableName = sparkTableName(tableName);
+
+        onTrino().executeQuery(format(
+                "CREATE TABLE %s AS SELECT UUID '406caec7-68b9-4778-81b2-a12ece70c8b1' u",
+                trinoTableName));
+
+        assertQueryFailure(() -> onSpark().executeQuery("SELECT * FROM " + sparkTableName))
+                // TODO Iceberg Spark integration needs yet to gain support
+                //  once this is supported, merge this test with testSparkReadingTrinoData()
+                .isInstanceOf(SQLException.class)
+                .hasMessageStartingWith("Error running query: java.lang.ClassCastException: class [B cannot be cast to class org.apache.spark.unsafe.types.UTF8String");
+
+        onTrino().executeQuery("DROP TABLE " + trinoTableName);
     }
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
@@ -562,9 +607,8 @@ public class TestIcebergSparkCompatibility
                         row("a_struct", "row(renamed bigint, keep bigint, CaseSensitive bigint, drop_and_add bigint, added bigint)"),
                         row("a_partition", "bigint"));
 
-        // TODO support Row (JAVA_OBJECT) in Tempto and switch to QueryAssert
-        Assertions.assertThat(onTrino().executeQuery(format("SELECT quite_renamed_col, keep_col, drop_and_add_col, add_col, casesensitivecol, a_struct, a_partition FROM %s", trinoTableName)).rows())
-                .containsOnly(asList(
+        assertThat(onTrino().executeQuery(format("SELECT quite_renamed_col, keep_col, drop_and_add_col, add_col, casesensitivecol, a_struct, a_partition FROM %s", trinoTableName)))
+                .containsOnly(row(
                         2L, // quite_renamed_col
                         3L, // keep_col
                         null, // drop_and_add_col; dropping and re-adding changes id
@@ -746,6 +790,76 @@ public class TestIcebergSparkCompatibility
             assertThat(onTrino().executeQuery("SELECT count(*) FROM " + trinoTableName + " WHERE part_col = '" + trinoValue + "'"))
                     .withFailMessage("Trino query with predicate containing '" + value + "' contained no matches, expected one")
                     .containsOnly(row(1));
+        }
+    }
+
+    /**
+     * @see TestIcebergInsert#testIcebergConcurrentInsert()
+     */
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, timeOut = 60_000)
+    public void testTrinoSparkConcurrentInsert()
+            throws Exception
+    {
+        int insertsPerEngine = 7;
+
+        String baseTableName = "trino_spark_insert_concurrent_" + randomTableSuffix();
+        String trinoTableName = trinoTableName(baseTableName);
+        String sparkTableName = sparkTableName(baseTableName);
+        onTrino().executeQuery("CREATE TABLE " + trinoTableName + "(e varchar, a bigint)");
+
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            CyclicBarrier barrier = new CyclicBarrier(2);
+            QueryExecutor onTrino = onTrino();
+            QueryExecutor onSpark = onSpark();
+            List<Row> allInserted = executor.invokeAll(
+                    Stream.of(Engine.TRINO, Engine.SPARK)
+                            .map(engine -> (Callable<List<Row>>) () -> {
+                                List<Row> inserted = new ArrayList<>();
+                                for (int i = 0; i < insertsPerEngine; i++) {
+                                    barrier.await(20, SECONDS);
+                                    String engineName = engine.name().toLowerCase(ENGLISH);
+                                    long value = i;
+                                    switch (engine) {
+                                        case TRINO:
+                                            try {
+                                                onTrino.executeQuery(format("INSERT INTO %s VALUES ('%s', %d)", trinoTableName, engineName, value));
+                                            }
+                                            catch (QueryExecutionException queryExecutionException) {
+                                                // failed to insert
+                                                continue; // next loop iteration
+                                            }
+                                            break;
+                                        case SPARK:
+                                            onSpark.executeQuery(format("INSERT INTO %s VALUES ('%s', %d)", sparkTableName, engineName, value));
+                                            break;
+                                        default:
+                                            throw new UnsupportedOperationException("Unexpected engine: " + engine);
+                                    }
+
+                                    inserted.add(row(engineName, value));
+                                }
+                                return inserted;
+                            })
+                            .collect(toImmutableList())).stream()
+                    .map(MoreFutures::getDone)
+                    .flatMap(List::stream)
+                    .collect(toImmutableList());
+
+            // At least one INSERT per round should succeed
+            Assertions.assertThat(allInserted).hasSizeBetween(insertsPerEngine, insertsPerEngine * 2);
+
+            // All Spark inserts should succeed (and not be obliterated)
+            assertThat(onTrino().executeQuery("SELECT count(*) FROM " + trinoTableName + " WHERE e = 'spark'"))
+                    .containsOnly(row(insertsPerEngine));
+
+            assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName))
+                    .containsOnly(allInserted);
+
+            onTrino().executeQuery("DROP TABLE " + trinoTableName);
+        }
+        finally {
+            executor.shutdownNow();
         }
     }
 

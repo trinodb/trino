@@ -55,13 +55,11 @@ public class PushdownFilterIntoRowNumber
     private static final Pattern<FilterNode> PATTERN = filter().with(source().matching(rowNumber().capturedAs(CHILD)));
 
     private final Metadata metadata;
-    private final DomainTranslator domainTranslator;
     private final TypeOperators typeOperators;
 
     public PushdownFilterIntoRowNumber(Metadata metadata, TypeOperators typeOperators)
     {
         this.metadata = metadata;
-        this.domainTranslator = new DomainTranslator(metadata);
         this.typeOperators = typeOperators;
     }
 
@@ -111,7 +109,7 @@ public class PushdownFilterIntoRowNumber
         Expression newPredicate = ExpressionUtils.combineConjuncts(
                 metadata,
                 extractionResult.getRemainingExpression(),
-                domainTranslator.toPredicate(newTupleDomain));
+                new DomainTranslator(session, metadata).toPredicate(newTupleDomain));
 
         if (newPredicate.equals(BooleanLiteral.TRUE_LITERAL)) {
             return Result.ofPlanNode(source);

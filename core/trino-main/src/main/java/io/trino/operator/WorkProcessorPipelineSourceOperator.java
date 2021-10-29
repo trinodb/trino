@@ -17,6 +17,7 @@ import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.errorprone.annotations.FormatMethod;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -555,6 +556,7 @@ public class WorkProcessorPipelineSourceOperator
         }
     }
 
+    @FormatMethod
     private static Throwable handleOperatorCloseError(Throwable inFlightException, Throwable newException, String message, Object... args)
     {
         if (newException instanceof Error) {

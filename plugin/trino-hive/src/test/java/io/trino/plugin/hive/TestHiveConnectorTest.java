@@ -59,6 +59,7 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.ResultWithQueryId;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
+import io.trino.testing.sql.TrinoSqlExecutor;
 import io.trino.type.TypeDeserializer;
 import org.apache.hadoop.fs.Path;
 import org.intellij.lang.annotations.Language;
@@ -92,6 +93,7 @@ import java.util.stream.Stream;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.Sets.intersection;
 import static com.google.common.io.Files.asCharSink;
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -111,6 +113,7 @@ import static io.trino.plugin.hive.HiveColumnHandle.PATH_COLUMN_NAME;
 import static io.trino.plugin.hive.HiveQueryRunner.HIVE_CATALOG;
 import static io.trino.plugin.hive.HiveQueryRunner.TPCH_SCHEMA;
 import static io.trino.plugin.hive.HiveQueryRunner.createBucketedSession;
+import static io.trino.plugin.hive.HiveTableProperties.AUTO_PURGE;
 import static io.trino.plugin.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
@@ -147,16 +150,18 @@ import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.
 import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.Assert.assertEquals;
-import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
+import static java.lang.String.join;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Collections.nCopies;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.toSet;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.data.Offset.offset;
@@ -189,7 +194,9 @@ public class TestHiveConnectorTest
                 .setHiveProperties(ImmutableMap.of(
                         "hive.allow-register-partition-procedure", "true",
                         // Reduce writer sort buffer size to ensure SortingFileWriter gets used
-                        "hive.writer-sort-buffer-size", "1MB"))
+                        "hive.writer-sort-buffer-size", "1MB",
+                        // Make weighted split scheduling more conservative to avoid OOMs in test
+                        "hive.minimum-assigned-split-weight", "0.5"))
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
 
@@ -212,6 +219,9 @@ public class TestHiveConnectorTest
                 return true;
 
             case SUPPORTS_DELETE:
+                return true;
+
+            case SUPPORTS_MULTI_STATEMENT_WRITES:
                 return true;
 
             default:
@@ -248,6 +258,13 @@ public class TestHiveConnectorTest
     }
 
     @Override
+    public void testExplainAnalyzeWithDeleteWithSubquery()
+    {
+        assertThatThrownBy(super::testExplainAnalyzeWithDeleteWithSubquery)
+                .hasStackTraceContaining("Deletes must match whole partitions for non-transactional tables");
+    }
+
+    @Override
     public void testDeleteWithVarcharPredicate()
     {
         assertThatThrownBy(super::testDeleteWithVarcharPredicate)
@@ -261,14 +278,15 @@ public class TestHiveConnectorTest
                 .hasStackTraceContaining("Deletes must match whole partitions for non-transactional tables");
     }
 
-    @Test
-    public void testRequiredPartitionFilter()
+    @Test(dataProvider = "queryPartitionFilterRequiredSchemasDataProvider")
+    public void testRequiredPartitionFilter(String queryPartitionFilterRequiredSchemas)
     {
         Session session = Session.builder(getSession())
                 .setIdentity(Identity.forUser("hive")
                         .withConnectorRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
                         .build())
                 .setCatalogSessionProperty("hive", "query_partition_filter_required", "true")
+                .setCatalogSessionProperty("hive", "query_partition_filter_required_schemas", queryPartitionFilterRequiredSchemas)
                 .build();
 
         assertUpdate(session, "CREATE TABLE test_required_partition_filter(id integer, a varchar, b varchar, ds varchar) WITH (partitioned_by = ARRAY['ds'])");
@@ -307,14 +325,15 @@ public class TestHiveConnectorTest
         assertUpdate(session, "DROP TABLE test_required_partition_filter");
     }
 
-    @Test
-    public void testRequiredPartitionFilterInferred()
+    @Test(dataProvider = "queryPartitionFilterRequiredSchemasDataProvider")
+    public void testRequiredPartitionFilterInferred(String queryPartitionFilterRequiredSchemas)
     {
         Session session = Session.builder(getSession())
                 .setIdentity(Identity.forUser("hive")
                         .withConnectorRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
                         .build())
                 .setCatalogSessionProperty("hive", "query_partition_filter_required", "true")
+                .setCatalogSessionProperty("hive", "query_partition_filter_required_schemas", queryPartitionFilterRequiredSchemas)
                 .build();
 
         assertUpdate(session, "CREATE TABLE test_partition_filter_inferred_left(id integer, a varchar, b varchar, ds varchar) WITH (partitioned_by = ARRAY['ds'])");
@@ -337,6 +356,71 @@ public class TestHiveConnectorTest
 
         assertUpdate(session, "DROP TABLE test_partition_filter_inferred_left");
         assertUpdate(session, "DROP TABLE test_partition_filter_inferred_right");
+    }
+
+    @DataProvider
+    public Object[][] queryPartitionFilterRequiredSchemasDataProvider()
+    {
+        return new Object[][]{
+                {"[]"},
+                {"[\"tpch\"]"}
+        };
+    }
+
+    @Test
+    public void testRequiredPartitionFilterAppliedOnDifferentSchema()
+    {
+        String schemaName = "schema_" + randomTableSuffix();
+        Session session = Session.builder(getSession())
+                .setIdentity(Identity.forUser("hive")
+                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .build())
+                .setCatalogSessionProperty("hive", "query_partition_filter_required", "true")
+                .setCatalogSessionProperty("hive", "query_partition_filter_required_schemas", format("[\"%s\"]", schemaName))
+                .build();
+
+        getQueryRunner().execute("CREATE SCHEMA " + schemaName);
+
+        try (TestTable table = new TestTable(
+                new TrinoSqlExecutor(getQueryRunner(), session),
+                "test_required_partition_filter_",
+                "(id integer, a varchar, b varchar) WITH (partitioned_by = ARRAY['b'])",
+                ImmutableList.of("1, '1', 'b'"))) {
+            // no partition filter
+            assertQuery(session, format("SELECT id FROM %s WHERE a = '1'", table.getName()), "SELECT 1");
+            computeActual(session, format("EXPLAIN SELECT id FROM %s WHERE a = '1'", table.getName()));
+            computeActual(session, format("EXPLAIN ANALYZE SELECT id FROM %s WHERE a = '1'", table.getName()));
+
+            // partition filter that gets removed by planner
+            assertQuery(session, format("SELECT id FROM %s WHERE b IS NOT NULL OR true", table.getName()), "SELECT 1");
+
+            // Join on non-partition column
+            assertUpdate(session, format("CREATE TABLE %s.%s_right (id integer, a varchar, b varchar, ds varchar) WITH (partitioned_by = ARRAY['ds'])", schemaName, table.getName()));
+
+            assertUpdate(session, format("INSERT INTO %s.%s_right (id, a, ds) VALUES (1, 'a', '1')", schemaName, table.getName()), 1);
+
+            assertQueryFails(
+                    session,
+                    format("SELECT count(*) FROM %2$s l JOIN %s.%2$s_right r ON l.id = r.id WHERE r.a = 'a'", schemaName, table.getName()),
+                    format("Filter required on %s\\.%s_right for at least one partition column: ds", schemaName, table.getName()));
+
+            assertQuery(session, format("SELECT count(*) FROM %2$s l JOIN %s.%2$s_right r ON l.id = r.id WHERE r.ds = '1'", schemaName, table.getName()), "SELECT 1");
+
+            assertUpdate(session, format("DROP TABLE %s.%s_right", schemaName, table.getName()));
+        }
+        getQueryRunner().execute("DROP SCHEMA " + schemaName);
+    }
+
+    @Test
+    public void testInvalidValueForQueryPartitionFilterRequiredSchemas()
+    {
+        assertQueryFails(
+                "SET SESSION hive.query_partition_filter_required_schemas = ARRAY['tpch', null]",
+                "line 1:1: Invalid null or empty value in query_partition_filter_required_schemas property");
+
+        assertQueryFails(
+                "SET SESSION hive.query_partition_filter_required_schemas = ARRAY['tpch', '']",
+                "line 1:1: Invalid null or empty value in query_partition_filter_required_schemas property");
     }
 
     @Test
@@ -1696,6 +1780,44 @@ public class TestHiveConnectorTest
     }
 
     @Test
+    public void testTargetMaxFileSizePartitioned()
+    {
+        @Language("SQL") String createTableSql = "" +
+                "CREATE TABLE test_max_file_size WITH (partitioned_by = ARRAY['returnflag']) AS " +
+                "SELECT orderkey, partkey, suppkey, linenumber, quantity, extendedprice, discount, tax, linestatus, shipdate, commitdate, receiptdate, shipinstruct, shipmode, comment, returnflag " +
+                "FROM tpch.sf1.lineitem LIMIT 1000000";
+        @Language("SQL") String selectFileInfo = "SELECT distinct \"$path\", \"$file_size\" FROM test_max_file_size";
+
+        // verify the default behavior is one file per node per partition
+        Session session = Session.builder(getSession())
+                .setSystemProperty("task_writer_count", "1")
+                .build();
+        assertUpdate(session, createTableSql, 1000000);
+        assertThat(computeActual(selectFileInfo).getRowCount()).isEqualTo(9);
+        assertUpdate("DROP TABLE test_max_file_size");
+
+        // Write table with small limit and verify we get multiple files per node near the expected size
+        // Writer writes chunks of rows that are about 40k
+        // We use TEXTFILE in this test because is has a very consistent and predictable size
+        DataSize maxSize = DataSize.of(40, Unit.KILOBYTE);
+        session = Session.builder(getSession())
+                .setSystemProperty("task_writer_count", "1")
+                .setCatalogSessionProperty("hive", "target_max_file_size", maxSize.toString())
+                .setCatalogSessionProperty("hive", "hive_storage_format", "TEXTFILE")
+                .build();
+
+        assertUpdate(session, createTableSql, 1000000);
+        MaterializedResult result = computeActual(selectFileInfo);
+        assertThat(result.getRowCount()).isGreaterThan(9);
+        for (MaterializedRow row : result) {
+            // allow up to a larger delta due to the very small max size and the relatively large writer chunk size
+            assertThat((Long) row.getField(1)).isLessThan(maxSize.toBytes() * 3);
+        }
+
+        assertUpdate("DROP TABLE test_max_file_size");
+    }
+
+    @Test
     public void testPropertiesTable()
     {
         @Language("SQL") String createTable = "" +
@@ -1714,7 +1836,7 @@ public class TestHiveConnectorTest
         String queryId = (String) computeScalar("SELECT query_id FROM system.runtime.queries WHERE query LIKE 'CREATE TABLE test_show_properties%'");
         String nodeVersion = (String) computeScalar("SELECT node_version FROM system.runtime.nodes WHERE coordinator");
         assertQuery("SELECT * FROM \"test_show_properties$properties\"",
-                "SELECT 'workaround for potential lack of HIVE-12730', 'ship_priority,order_status', '0.5', '" + queryId + "', '" + nodeVersion + "', 'false'");
+                "SELECT 'workaround for potential lack of HIVE-12730', 'false', 'ship_priority,order_status', '0.5', '" + queryId + "', '" + nodeVersion + "', 'false'");
         assertUpdate("DROP TABLE test_show_properties");
     }
 
@@ -2865,6 +2987,13 @@ public class TestHiveConnectorTest
 
     @Test
     @Override
+    public void testInsertHighestUnicodeCharacter()
+    {
+        throw new SkipException("Covered by testInsertUnicode");
+    }
+
+    @Test
+    @Override
     public void testInsertUnicode()
     {
         testWithAllStorageFormats(this::testInsertUnicode);
@@ -2875,6 +3004,7 @@ public class TestHiveConnectorTest
         assertUpdate(session, "DROP TABLE IF EXISTS test_insert_unicode");
         assertUpdate(session, "CREATE TABLE test_insert_unicode(test varchar) WITH (format = '" + storageFormat + "')");
 
+        // Test with U+10FFF to cover testInsertHighestUnicodeCharacter
         assertUpdate("INSERT INTO test_insert_unicode(test) VALUES 'Hello', U&'hello\\6d4B\\8Bd5\\+10FFFFworld\\7F16\\7801' ", 2);
         assertThat(computeActual("SELECT test FROM test_insert_unicode").getOnlyColumnAsSet())
                 .containsExactlyInAnyOrder("Hello", "hello测试􏿿world编码");
@@ -4426,13 +4556,15 @@ public class TestHiveConnectorTest
         // TODO: replace this with a simple query stats check once we find a way to wait until all pending updates to query stats have been applied
         // (might be fixed by https://github.com/trinodb/trino/issues/5172)
         ExponentialSleeper sleeper = new ExponentialSleeper();
-        assertEventually(new Duration(30, SECONDS), () -> {
-            ResultWithQueryId<MaterializedResult> result = queryRunner.executeWithQueryId(
-                    session,
-                    format("SELECT * FROM test_parquet_timestamp_predicate_pushdown WHERE t = %s", formatTimestamp(value)));
-            sleeper.sleep();
-            assertThat(getQueryInfo(queryRunner, result).getQueryStats().getProcessedInputDataSize().toBytes()).isGreaterThan(0);
-        });
+        assertQueryStats(
+                session,
+                format("SELECT * FROM test_parquet_timestamp_predicate_pushdown WHERE t = %s", formatTimestamp(value)),
+                queryStats -> {
+                    sleeper.sleep();
+                    assertThat(queryStats.getProcessedInputDataSize().toBytes()).isGreaterThan(0);
+                },
+                results -> {},
+                new Duration(30, SECONDS));
     }
 
     @Test(dataProvider = "timestampPrecisionAndValues")
@@ -4462,18 +4594,84 @@ public class TestHiveConnectorTest
         // TODO: replace this with a simple query stats check once we find a way to wait until all pending updates to query stats have been applied
         // (might be fixed by https://github.com/trinodb/trino/issues/5172)
         ExponentialSleeper sleeper = new ExponentialSleeper();
-        assertEventually(new Duration(30, SECONDS), () -> {
-            ResultWithQueryId<MaterializedResult> result = queryRunner.executeWithQueryId(
-                    session,
-                    format("SELECT * FROM test_orc_timestamp_predicate_pushdown WHERE t = %s", formatTimestamp(value)));
-            sleeper.sleep();
-            assertThat(getQueryInfo(queryRunner, result).getQueryStats().getProcessedInputDataSize().toBytes()).isGreaterThan(0);
-        });
+        assertQueryStats(
+                session,
+                format("SELECT * FROM test_orc_timestamp_predicate_pushdown WHERE t = %s", formatTimestamp(value)),
+                queryStats -> {
+                    sleeper.sleep();
+                    assertThat(queryStats.getProcessedInputDataSize().toBytes()).isGreaterThan(0);
+                },
+                results -> {},
+                new Duration(30, SECONDS));
     }
 
     private static String formatTimestamp(LocalDateTime timestamp)
     {
         return format("TIMESTAMP '%s'", TIMESTAMP_FORMATTER.format(timestamp));
+    }
+
+    @Test
+    public void testParquetShortDecimalPredicatePushdown()
+    {
+        assertUpdate("DROP TABLE IF EXISTS test_parquet_decimal_predicate_pushdown");
+        assertUpdate("CREATE TABLE test_parquet_decimal_predicate_pushdown (decimal_t DECIMAL(5, 3)) WITH (format = 'PARQUET')");
+        assertUpdate("INSERT INTO test_parquet_decimal_predicate_pushdown VALUES DECIMAL '12.345'", 1);
+
+        assertQuery("SELECT * FROM test_parquet_decimal_predicate_pushdown", "VALUES 12.345");
+        assertQuery("SELECT count(*) FROM test_parquet_decimal_predicate_pushdown WHERE decimal_t = DECIMAL '12.345'", "VALUES 1");
+
+        assertNoDataRead("SELECT * FROM test_parquet_decimal_predicate_pushdown WHERE decimal_t < DECIMAL '12.345'");
+        assertNoDataRead("SELECT * FROM test_parquet_decimal_predicate_pushdown WHERE decimal_t > DECIMAL '12.345'");
+        assertNoDataRead("SELECT * FROM test_parquet_decimal_predicate_pushdown WHERE decimal_t != DECIMAL '12.345'");
+    }
+
+    @Test
+    public void testParquetLongDecimalPredicatePushdown()
+    {
+        assertUpdate("DROP TABLE IF EXISTS test_parquet_long_decimal_predicate_pushdown");
+        assertUpdate("CREATE TABLE test_parquet_long_decimal_predicate_pushdown (decimal_t DECIMAL(20, 3)) WITH (format = 'PARQUET')");
+        assertUpdate("INSERT INTO test_parquet_long_decimal_predicate_pushdown VALUES DECIMAL '12345678900000000.345'", 1);
+
+        assertQuery("SELECT * FROM test_parquet_long_decimal_predicate_pushdown", "VALUES 12345678900000000.345");
+        assertQuery("SELECT count(*) FROM test_parquet_long_decimal_predicate_pushdown WHERE decimal_t = DECIMAL '12345678900000000.345'", "VALUES 1");
+
+        assertNoDataRead("SELECT * FROM test_parquet_long_decimal_predicate_pushdown WHERE decimal_t < DECIMAL '12345678900000000.345'");
+        assertNoDataRead("SELECT * FROM test_parquet_long_decimal_predicate_pushdown WHERE decimal_t > DECIMAL '12345678900000000.345'");
+        assertNoDataRead("SELECT * FROM test_parquet_long_decimal_predicate_pushdown WHERE decimal_t != DECIMAL '12345678900000000.345'");
+    }
+
+    @Test
+    public void testParquetDictionaryPredicatePushdown()
+    {
+        testParquetDictionaryPredicatePushdown(getSession());
+    }
+
+    @Test
+    public void testParquetDictionaryPredicatePushdownWithOptimizedWriter()
+    {
+        testParquetDictionaryPredicatePushdown(
+                Session.builder(getSession())
+                        .setCatalogSessionProperty("hive", "experimental_parquet_optimized_writer_enabled", "true")
+                        .build());
+    }
+
+    private void testParquetDictionaryPredicatePushdown(Session session)
+    {
+        String tableName = "test_parquet_dictionary_pushdown";
+        assertUpdate(session, "DROP TABLE IF EXISTS " + tableName);
+        assertUpdate(session, "CREATE TABLE " + tableName + " (n BIGINT) WITH (format = 'PARQUET')");
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES 1, 1, 2, 2, 4, 4, 5, 5", 8);
+        assertNoDataRead("SELECT * FROM " + tableName + " WHERE n = 3");
+    }
+
+    private void assertNoDataRead(@Language("SQL") String sql)
+    {
+        assertQueryStats(
+                getSession(),
+                sql,
+                queryStats -> assertThat(queryStats.getProcessedInputDataSize().toBytes()).isEqualTo(0),
+                results -> assertThat(results.getRowCount()).isEqualTo(0),
+                new Duration(5, SECONDS));
     }
 
     private QueryInfo getQueryInfo(DistributedQueryRunner queryRunner, ResultWithQueryId<MaterializedResult> queryResult)
@@ -7275,17 +7473,7 @@ public class TestHiveConnectorTest
                 "WITH (avro_schema_url = 'dummy_schema',\n" +
                 "      bucket_count = 2, bucketed_by=ARRAY['dummy'])";
 
-        assertQueryFails(createSql, "Bucketing/Partitioning columns not supported when Avro schema url is set");
-    }
-
-    @Test
-    public void testPartitionedTablesFailWithAvroSchemaUrl()
-    {
-        @Language("SQL") String createSql = "CREATE TABLE create_avro (dummy VARCHAR)\n" +
-                "WITH (avro_schema_url = 'dummy_schema',\n" +
-                "      partitioned_by=ARRAY['dummy'])";
-
-        assertQueryFails(createSql, "Bucketing/Partitioning columns not supported when Avro schema url is set");
+        assertQueryFails(createSql, "Bucketing columns not supported when Avro schema url is set");
     }
 
     @Test
@@ -7575,18 +7763,193 @@ public class TestHiveConnectorTest
     }
 
     @Test
+    public void testOptimize()
+    {
+        String tableName = "test_optimize_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation WITH NO DATA", 0);
+
+        insertNationNTimes(tableName, 10);
+        assertNationNTimes(tableName, 10);
+
+        Set<String> initialFiles = getTableFiles(tableName);
+        assertThat(initialFiles).hasSize(10);
+
+        // OPTIMIZE must be explicitly enabled
+        assertThatThrownBy(() -> computeActual("ALTER TABLE " + tableName + " EXECUTE optimize(file_size_threshold => '10kB')"))
+                .hasMessage("OPTIMIZE procedure must be explicitly enabled via non_transactional_optimize_enabled session property");
+        assertNationNTimes(tableName, 10);
+        assertThat(getTableFiles(tableName)).hasSameElementsAs(initialFiles);
+
+        Session optimizeEnabledSession = optimizeEnabledSession();
+
+        assertUpdate(optimizeEnabledSession, "ALTER TABLE " + tableName + " EXECUTE optimize(file_size_threshold => '10kB')");
+        assertNationNTimes(tableName, 10);
+
+        Set<String> compactedFiles = getTableFiles(tableName);
+        // we expect at most 3 files due to write parallelism
+        assertThat(compactedFiles).hasSizeLessThanOrEqualTo(3);
+        assertThat(intersection(initialFiles, compactedFiles)).isEmpty();
+
+        // compact with low threshold; nothing should change
+        assertUpdate(optimizeEnabledSession, "ALTER TABLE " + tableName + " EXECUTE optimize(file_size_threshold => '10B')");
+
+        assertThat(getTableFiles(tableName)).hasSameElementsAs(compactedFiles);
+    }
+
+    @Test
+    public void testOptimizeWithWriterScaling()
+    {
+        String tableName = "test_optimize_witer_scaling" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation WITH NO DATA", 0);
+
+        insertNationNTimes(tableName, 4);
+        assertNationNTimes(tableName, 4);
+
+        Set<String> initialFiles = getTableFiles(tableName);
+        assertThat(initialFiles).hasSize(4);
+
+        Session writerScalingSession = Session.builder(optimizeEnabledSession())
+                .setSystemProperty("scale_writers", "true")
+                .setSystemProperty("writer_min_size", "100GB")
+                .build();
+
+        assertUpdate(writerScalingSession, "ALTER TABLE " + tableName + " EXECUTE optimize(file_size_threshold => '10kB')");
+        assertNationNTimes(tableName, 4);
+
+        Set<String> compactedFiles = getTableFiles(tableName);
+        assertThat(compactedFiles).hasSize(1);
+        assertThat(intersection(initialFiles, compactedFiles)).isEmpty();
+    }
+
+    @Test
+    public void testOptimizeWithPartitioning()
+    {
+        int insertCount = 4;
+        int partitionsCount = 5;
+
+        String tableName = "test_optimize_with_partitioning_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + "(" +
+                "  nationkey BIGINT, " +
+                "  name VARCHAR, " +
+                "  comment VARCHAR, " +
+                "  regionkey BIGINT" +
+                ")" +
+                "WITH (partitioned_by = ARRAY['regionkey'])");
+
+        insertNationNTimes(tableName, insertCount);
+        assertNationNTimes(tableName, insertCount);
+
+        Set<String> initialFiles = getTableFiles(tableName);
+        assertThat(initialFiles).hasSize(insertCount * partitionsCount);
+
+        Session optimizeEnabledSession = optimizeEnabledSession();
+        Session writerScalingSession = Session.builder(optimizeEnabledSession)
+                .setSystemProperty("scale_writers", "true")
+                .setSystemProperty("writer_min_size", "100GB")
+                .build();
+
+        // optimize with unsupported WHERE
+        assertThatThrownBy(() -> computeActual(optimizeEnabledSession, "ALTER TABLE " + tableName + " EXECUTE optimize(file_size_threshold => '10kB') WHERE nationkey = 1"))
+                .hasMessageContaining("Unexpected FilterNode found in plan; probably connector was not able to handle provided WHERE expression");
+        assertNationNTimes(tableName, insertCount);
+        assertThat(getTableFiles(tableName)).hasSameElementsAs(initialFiles);
+
+        // optimize using predicate on on partition key but not matching any partitions
+        assertUpdate(writerScalingSession, "ALTER TABLE " + tableName + " EXECUTE optimize(file_size_threshold => '10kB') WHERE regionkey > 5");
+        assertNationNTimes(tableName, insertCount);
+        assertThat(getTableFiles(tableName)).hasSameElementsAs(initialFiles);
+
+        // optimize two partitions; also use positional argument
+        assertUpdate(writerScalingSession, "ALTER TABLE " + tableName + " EXECUTE optimize('10kB') WHERE regionkey IN (1,2)");
+        assertNationNTimes(tableName, insertCount);
+        assertThat(getTableFiles(tableName)).hasSize(2 + 3 * insertCount);
+
+        // optimize one more partition; default file_size_threshold
+        assertUpdate(writerScalingSession, "ALTER TABLE " + tableName + " EXECUTE optimize WHERE regionkey > 3");
+        assertNationNTimes(tableName, insertCount);
+        assertThat(getTableFiles(tableName)).hasSize(3 + 2 * insertCount);
+
+        // optimize remaining partitions
+        assertUpdate(writerScalingSession, "ALTER TABLE " + tableName + " EXECUTE optimize(file_size_threshold => '10kB')");
+        assertNationNTimes(tableName, insertCount);
+
+        Set<String> compactedFiles = getTableFiles(tableName);
+        assertThat(compactedFiles).hasSize(partitionsCount);
+        assertThat(intersection(initialFiles, compactedFiles)).isEmpty();
+    }
+
+    @Test
+    public void testOptimizeWithBucketing()
+    {
+        int insertCount = 4;
+        String tableName = "test_optimize_with_bucketing_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + "(" +
+                "  nationkey BIGINT, " +
+                "  name VARCHAR, " +
+                "  comment VARCHAR, " +
+                "  regionkey BIGINT" +
+                ")" +
+                "WITH (bucketed_by = ARRAY['regionkey'], bucket_count = 4)");
+
+        insertNationNTimes(tableName, insertCount);
+        assertNationNTimes(tableName, insertCount);
+        Set<String> initialFiles = getTableFiles(tableName);
+
+        assertThatThrownBy(() -> computeActual(optimizeEnabledSession(), "ALTER TABLE " + tableName + " EXECUTE optimize(file_size_threshold => '10kB')"))
+                .hasMessageMatching("Optimizing bucketed Hive table .* is not supported");
+
+        assertThat(getTableFiles(tableName)).hasSameElementsAs(initialFiles);
+        assertNationNTimes(tableName, insertCount);
+    }
+
+    @Test
+    public void testOptimizeHiveInformationSchema()
+    {
+        assertThatThrownBy(() -> computeActual(optimizeEnabledSession(), "ALTER TABLE information_schema.tables EXECUTE optimize(file_size_threshold => '10kB')"))
+                .hasMessage("This connector does not support table procedures");
+    }
+
+    @Test
+    public void testOptimizeHiveSystemTable()
+    {
+        String tableName = "test_optimize_system_table_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + "(a bigint, b bigint) WITH (partitioned_by = ARRAY['b'])");
+
+        assertQuery("SELECT count(*) FROM " + tableName, "SELECT 0");
+
+        assertThatThrownBy(() -> computeActual(optimizeEnabledSession(), format("ALTER TABLE \"%s$partitions\" EXECUTE optimize(file_size_threshold => '10kB')", tableName)))
+                .hasMessage("This connector does not support table procedures");
+    }
+
+    private Session optimizeEnabledSession()
+    {
+        return Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "non_transactional_optimize_enabled", "true")
+                .build();
+    }
+
+    private void insertNationNTimes(String tableName, int times)
+    {
+        assertUpdate("INSERT INTO " + tableName + "(nationkey, name, regionkey, comment) " + join(" UNION ALL ", nCopies(times, "SELECT * FROM tpch.sf1.nation")), times * 25);
+    }
+
+    private void assertNationNTimes(String tableName, int times)
+    {
+        String verifyQuery = join(" UNION ALL ", nCopies(times, "SELECT * FROM nation"));
+        assertQuery("SELECT nationkey, name, regionkey, comment FROM " + tableName, verifyQuery);
+    }
+
+    private Set<String> getTableFiles(String tableName)
+    {
+        return computeActual("SELECT DISTINCT \"$path\" FROM " + tableName).getOnlyColumn()
+                .map(String.class::cast)
+                .collect(toSet());
+    }
+
+    @Test
     public void testTimestampPrecisionInsert()
     {
-        testWithAllStorageFormats((session, storageFormat) -> {
-            if (isNativeParquetWriter(session, storageFormat)) {
-                // TODO (https://github.com/trinodb/trino/issues/5357) Implement variable precision timestamp handling for optimized Parquet writer
-                assertThatThrownBy(() -> testTimestampPrecisionInsert(session, storageFormat))
-                        .hasMessage("Unsupported primitive type: timestamp(9)")
-                        .hasStackTraceContaining("at io.trino.parquet.writer.ParquetSchemaConverter.getPrimitiveType");
-                return;
-            }
-            testTimestampPrecisionInsert(session, storageFormat);
-        });
+        testWithAllStorageFormats(this::testTimestampPrecisionInsert);
     }
 
     private void testTimestampPrecisionInsert(Session session, HiveStorageFormat storageFormat)
@@ -7613,16 +7976,7 @@ public class TestHiveConnectorTest
     @Test
     public void testTimestampPrecisionCtas()
     {
-        testWithAllStorageFormats((session, storageFormat) -> {
-            if (isNativeParquetWriter(session, storageFormat)) {
-                // TODO (https://github.com/trinodb/trino/issues/5357) Implement variable precision timestamp handling for optimized Parquet writer
-                assertThatThrownBy(() -> testTimestampPrecisionCtas(session, storageFormat))
-                        .hasMessage("Unsupported primitive type: timestamp(9)")
-                        .hasStackTraceContaining("at io.trino.parquet.writer.ParquetSchemaConverter.getPrimitiveType");
-                return;
-            }
-            testTimestampPrecisionCtas(session, storageFormat);
-        });
+        testWithAllStorageFormats((session, storageFormat) -> testTimestampPrecisionCtas(session, storageFormat));
     }
 
     private void testTimestampPrecisionCtas(Session session, HiveStorageFormat storageFormat)
@@ -7715,18 +8069,18 @@ public class TestHiveConnectorTest
 
         assertThat(query(defaultSession, "SELECT ts FROM " + prestoViewNameDefault)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123'");
 
-        // TODO(https://github.com/prestosql/presto/issues/6295) Presto view schema is fixed on creation
+        // TODO(https://github.com/trinodb/trino/issues/6295) Presto view schema is fixed on creation
         // should be: assertThat(query(defaultSession, "SELECT ts  FROM hive_timestamp_nanos.tpch." + prestoViewNameDefault)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123456789'")
         assertThat(query(defaultSession, "SELECT ts  FROM hive_timestamp_nanos.tpch." + prestoViewNameDefault)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123'");
 
         assertThat(query(millisSession, "SELECT ts FROM " + prestoViewNameDefault)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123'");
         assertThat(query(millisSession, "SELECT ts FROM hive_timestamp_nanos.tpch." + prestoViewNameDefault)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123'");
 
-        // TODO(https://github.com/prestosql/presto/issues/6295) Presto view schema is fixed on creation
+        // TODO(https://github.com/trinodb/trino/issues/6295) Presto view schema is fixed on creation
         // should be: assertThat(query(nanosSessions, "SELECT ts FROM " + prestoViewNameDefault)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123456789'")
         assertThat(query(nanosSessions, "SELECT ts FROM " + prestoViewNameDefault)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123'");
 
-        // TODO(https://github.com/prestosql/presto/issues/6295) Presto view schema is fixed on creation
+        // TODO(https://github.com/trinodb/trino/issues/6295) Presto view schema is fixed on creation
         // should be: assertThat(query(nanosSessions, "SELECT ts FROM hive_timestamp_nanos.tpch." + prestoViewNameDefault)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123456789'")
         assertThat(query(nanosSessions, "SELECT ts FROM hive_timestamp_nanos.tpch." + prestoViewNameDefault)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123'");
 
@@ -7734,27 +8088,27 @@ public class TestHiveConnectorTest
         String prestoViewNameNanos = "presto_view_ts_nanos_" + randomTableSuffix();
         assertUpdate(nanosSessions, "CREATE VIEW " + prestoViewNameNanos + " AS SELECT *  FROM " + tableName);
 
-        // TODO(https://github.com/prestosql/presto/issues/6295) Presto view schema is fixed on creation
+        // TODO(https://github.com/trinodb/trino/issues/6295) Presto view schema is fixed on creation
         // should be: assertThat(query(defaultSession, "SELECT ts FROM " + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123'")
         assertThat(query(defaultSession, "SELECT ts FROM " + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123000000'");
 
-        // TODO(https://github.com/prestosql/presto/issues/6295) Presto view schema is fixed on creation
+        // TODO(https://github.com/trinodb/trino/issues/6295) Presto view schema is fixed on creation
         // should be: assertThat(query(defaultSession, "SELECT ts FROM hive_timestamp_nanos.tpch." + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123456789'")
         assertThat(query(defaultSession, "SELECT ts FROM hive_timestamp_nanos.tpch." + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123000000'");
 
-        // TODO(https://github.com/prestosql/presto/issues/6295) Presto view schema is fixed on creation
+        // TODO(https://github.com/trinodb/trino/issues/6295) Presto view schema is fixed on creation
         // should be: assertThat(query(millisSession, "SELECT ts FROM " + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123'")
         assertThat(query(millisSession, "SELECT ts FROM " + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123000000'");
 
-        // TODO(https://github.com/prestosql/presto/issues/6295) Presto view schema is fixed on creation
+        // TODO(https://github.com/trinodb/trino/issues/6295) Presto view schema is fixed on creation
         // should be: assertThat(query(millisSession, "SELECT ts FROM hive_timestamp_nanos.tpch." + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123'")
         assertThat(query(millisSession, "SELECT ts FROM hive_timestamp_nanos.tpch." + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123000000'");
 
-        // TODO(https://github.com/prestosql/presto/issues/6295) Presto view schema is fixed on creation
+        // TODO(https://github.com/trinodb/trino/issues/6295) Presto view schema is fixed on creation
         // should be: assertThat(query(nanosSessions, "SELECT ts FROM " + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123456789'")
         assertThat(query(nanosSessions, "SELECT ts FROM " + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123000000'");
 
-        // TODO(https://github.com/prestosql/presto/issues/6295) Presto view schema is fixed on creation
+        // TODO(https://github.com/trinodb/trino/issues/6295) Presto view schema is fixed on creation
         // should be: assertThat(query(nanosSessions, "SELECT ts FROM hive_timestamp_nanos.tpch." + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123456789'")
         assertThat(query(nanosSessions, "SELECT ts FROM hive_timestamp_nanos.tpch." + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123000000'");
     }
@@ -7837,6 +8191,37 @@ public class TestHiveConnectorTest
         String query = "CREATE TABLE copy_orders AS SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN " + query);
         assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan(query, DISTRIBUTED));
+    }
+
+    @Test
+    public void testAutoPurgeProperty()
+    {
+        String tableName = "test_auto_purge_property";
+        @Language("SQL") String createTableSql = format("" +
+                        "CREATE TABLE %s " +
+                        "AS " +
+                        "SELECT * FROM tpch.tiny.customer",
+                tableName);
+        assertUpdate(createTableSql, 1500L);
+
+        TableMetadata tableMetadataDefaults = getTableMetadata(catalog, TPCH_SCHEMA, tableName);
+        assertEquals(tableMetadataDefaults.getMetadata().getProperties().get(AUTO_PURGE), null);
+
+        assertUpdate("DROP TABLE " + tableName);
+
+        @Language("SQL") String createTableSqlWithAutoPurge = format("" +
+                        "CREATE TABLE %s " +
+                        "WITH (" +
+                        "   auto_purge = true" +
+                        ") AS " +
+                        "SELECT * FROM tpch.tiny.customer",
+                tableName);
+        assertUpdate(createTableSqlWithAutoPurge, 1500L);
+
+        TableMetadata tableMetadataWithPurge = getTableMetadata(catalog, TPCH_SCHEMA, tableName);
+        assertEquals(tableMetadataWithPurge.getMetadata().getProperties().get(AUTO_PURGE), true);
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     private static final Set<HiveStorageFormat> NAMED_COLUMN_ONLY_FORMATS = ImmutableSet.of(HiveStorageFormat.AVRO, HiveStorageFormat.JSON);

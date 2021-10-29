@@ -24,7 +24,6 @@ import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.Connector;
-import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorMetadata;
@@ -64,6 +63,7 @@ import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.TopNApplicationResult;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.procedure.Procedure;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.TrinoPrincipal;
@@ -119,8 +119,9 @@ public class MockConnector
     private final BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableProperties> getTableProperties;
     private final Supplier<Iterable<EventListener>> eventListeners;
     private final MockConnectorFactory.ListRoleGrants roleGrants;
-    private final MockConnectorAccessControl accessControl;
+    private final Optional<MockConnectorAccessControl> accessControl;
     private final Function<SchemaTableName, List<List<?>>> data;
+    private final Set<Procedure> procedures;
 
     MockConnector(
             Function<ConnectorSession, List<String>> listSchemaNames,
@@ -144,7 +145,9 @@ public class MockConnector
             BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableProperties> getTableProperties,
             Supplier<Iterable<EventListener>> eventListeners,
             MockConnectorFactory.ListRoleGrants roleGrants,
-            MockConnectorAccessControl accessControl, Function<SchemaTableName, List<List<?>>> data)
+            Optional<MockConnectorAccessControl> accessControl,
+            Function<SchemaTableName, List<List<?>>> data,
+            Set<Procedure> procedures)
     {
         this.listSchemaNames = requireNonNull(listSchemaNames, "listSchemaNames is null");
         this.listTables = requireNonNull(listTables, "listTables is null");
@@ -169,6 +172,7 @@ public class MockConnector
         this.roleGrants = requireNonNull(roleGrants, "roleGrants is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.data = requireNonNull(data, "data is null");
+        this.procedures = requireNonNull(procedures, "procedures is null");
     }
 
     @Override
@@ -215,9 +219,15 @@ public class MockConnector
     }
 
     @Override
-    public ConnectorAccessControl getAccessControl()
+    public MockConnectorAccessControl getAccessControl()
     {
-        return accessControl;
+        return accessControl.orElseThrow(() -> new UnsupportedOperationException("Access control for mock connector is not set"));
+    }
+
+    @Override
+    public Set<Procedure> getProcedures()
+    {
+        return procedures;
     }
 
     private class MockConnectorMetadata
@@ -374,6 +384,9 @@ public class MockConnector
         public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTableName) {}
 
         @Override
+        public void setTableProperties(ConnectorSession session, ConnectorTableHandle tableHandle, Map<String, Object> properties) {}
+
+        @Override
         public void setTableComment(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<String> comment) {}
 
         @Override
@@ -419,6 +432,9 @@ public class MockConnector
             checkArgument(view != null, "Materialized view %s does not exist", viewName);
             return new MaterializedViewFreshness(view.getStorageTable().isPresent());
         }
+
+        @Override
+        public void renameMaterializedView(ConnectorSession session, SchemaTableName source, SchemaTableName target) {}
 
         @Override
         public boolean delegateMaterializedViewRefreshToConnector(ConnectorSession session, SchemaTableName viewName)
@@ -580,25 +596,25 @@ public class MockConnector
         @Override
         public void grantSchemaPrivileges(ConnectorSession session, String schemaName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
         {
-            accessControl.grantSchemaPrivileges(schemaName, privileges, grantee, grantOption);
+            getAccessControl().grantSchemaPrivileges(schemaName, privileges, grantee, grantOption);
         }
 
         @Override
         public void revokeSchemaPrivileges(ConnectorSession session, String schemaName, Set<Privilege> privileges, TrinoPrincipal revokee, boolean grantOption)
         {
-            accessControl.revokeSchemaPrivileges(schemaName, privileges, revokee, grantOption);
+            getAccessControl().revokeSchemaPrivileges(schemaName, privileges, revokee, grantOption);
         }
 
         @Override
         public void grantTablePrivileges(ConnectorSession session, SchemaTableName tableName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
         {
-            accessControl.grantTablePrivileges(tableName, privileges, grantee, grantOption);
+            getAccessControl().grantTablePrivileges(tableName, privileges, grantee, grantOption);
         }
 
         @Override
         public void revokeTablePrivileges(ConnectorSession session, SchemaTableName tableName, Set<Privilege> privileges, TrinoPrincipal revokee, boolean grantOption)
         {
-            accessControl.revokeTablePrivileges(tableName, privileges, revokee, grantOption);
+            getAccessControl().revokeTablePrivileges(tableName, privileges, revokee, grantOption);
         }
     }
 

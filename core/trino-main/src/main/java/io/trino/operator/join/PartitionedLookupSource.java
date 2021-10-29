@@ -110,12 +110,6 @@ public class PartitionedLookupSource
     }
 
     @Override
-    public int getChannelCount()
-    {
-        return lookupSources[0].getChannelCount();
-    }
-
-    @Override
     public long getJoinPositionCount()
     {
         return Arrays.stream(lookupSources)

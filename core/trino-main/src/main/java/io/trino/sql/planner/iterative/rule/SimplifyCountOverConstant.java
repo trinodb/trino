@@ -40,6 +40,7 @@ import static io.trino.matching.Capture.newCapture;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
 import static io.trino.sql.planner.plan.Patterns.project;
 import static io.trino.sql.planner.plan.Patterns.source;
+import static java.util.Objects.requireNonNull;
 
 public class SimplifyCountOverConstant
         implements Rule<AggregationNode>
@@ -49,11 +50,11 @@ public class SimplifyCountOverConstant
     private static final Pattern<AggregationNode> PATTERN = aggregation()
             .with(source().matching(project().capturedAs(CHILD)));
 
-    private final ResolvedFunction countFunction;
+    private final Metadata metadata;
 
     public SimplifyCountOverConstant(Metadata metadata)
     {
-        countFunction = metadata.resolveFunction(QualifiedName.of("count"), ImmutableList.of());
+        this.metadata = requireNonNull(metadata, "metadata is null");
     }
 
     @Override
@@ -69,6 +70,8 @@ public class SimplifyCountOverConstant
 
         boolean changed = false;
         Map<Symbol, AggregationNode.Aggregation> aggregations = new LinkedHashMap<>(parent.getAggregations());
+
+        ResolvedFunction countFunction = metadata.resolveFunction(context.getSession(), QualifiedName.of("count"), ImmutableList.of());
 
         for (Entry<Symbol, AggregationNode.Aggregation> entry : parent.getAggregations().entrySet()) {
             Symbol symbol = entry.getKey();

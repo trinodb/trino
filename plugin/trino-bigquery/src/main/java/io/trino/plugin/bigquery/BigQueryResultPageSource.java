@@ -292,7 +292,7 @@ public class BigQueryResultPageSource
         return () -> new AvroBinaryIterator(avroSchema, buffer);
     }
 
-    static class AvroBinaryIterator
+    private static class AvroBinaryIterator
             implements Iterator<GenericRecord>
     {
         GenericDatumReader<GenericRecord> reader;

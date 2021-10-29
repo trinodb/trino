@@ -15,15 +15,14 @@ package io.trino.plugin.oracle;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
-import io.trino.execution.QueryInfo;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.testing.MaterializedResult;
-import io.trino.testing.ResultWithQueryId;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
+import io.trino.testing.sql.TestView;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -78,13 +77,6 @@ public abstract class BaseOracleConnectorTest
     }
 
     @Override
-    public void testCreateSchema()
-    {
-        // schema creation is not supported
-        assertQueryFails("CREATE SCHEMA test_schema_create", "This connector does not support creating schemas");
-    }
-
-    @Override
     protected String dataMappingTableName(String trinoTypeName)
     {
         return "tmp_trino_" + System.nanoTime();
@@ -110,7 +102,7 @@ public abstract class BaseOracleConnectorTest
     {
         return new TestTable(
                 onRemoteDatabase(),
-                "test_default_columns",
+                "test_default_cols",
                 "(col_required decimal(20,0) NOT NULL," +
                         "col_nullable decimal(20,0)," +
                         "col_default decimal(20,0) DEFAULT 43," +
@@ -125,64 +117,6 @@ public abstract class BaseOracleConnectorTest
                 onRemoteDatabase(),
                 "test_unsupported_col",
                 "(one NUMBER(19), two NUMBER, three VARCHAR2(10 CHAR))");
-    }
-
-    @Test
-    @Override
-    public void testSymbolAliasing()
-    {
-        // Replace tablename to less than 30chars, max size naming on oracle
-        String tableName = "symbol_aliasing" + System.currentTimeMillis();
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 foo_1, 2 foo_2_4", 1);
-        assertQuery("SELECT foo_1, foo_2_4 FROM " + tableName, "SELECT 1, 2");
-        assertUpdate("DROP TABLE " + tableName);
-    }
-
-    @Test
-    @Override
-    public void testRenameColumn()
-    {
-        // Replace tablename to less than 30chars, max size naming on oracle
-        String tableName = "test_renamecol_" + System.currentTimeMillis();
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 'some value' x", 1);
-
-        assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN x TO y");
-        assertQuery("SELECT y FROM " + tableName, "VALUES 'some value'");
-
-        assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN y TO Z"); // 'Z' is upper-case, not delimited
-        assertQuery(
-                "SELECT z FROM " + tableName, // 'z' is lower-case, not delimited
-                "VALUES 'some value'");
-
-        // There should be exactly one column
-        assertQuery("SELECT * FROM " + tableName, "VALUES 'some value'");
-
-        assertUpdate("DROP TABLE " + tableName);
-    }
-
-    @Test
-    @Override
-    public void testWrittenStats()
-    {
-        // Replace tablename to fetch max size naming on oracle
-        String tableName = "written_stats_" + System.currentTimeMillis();
-        String sql = "CREATE TABLE " + tableName + " AS SELECT * FROM nation";
-        ResultWithQueryId<MaterializedResult> resultResultWithQueryId = getDistributedQueryRunner().executeWithQueryId(getSession(), sql);
-        QueryInfo queryInfo = getDistributedQueryRunner().getCoordinator().getQueryManager().getFullQueryInfo(resultResultWithQueryId.getQueryId());
-
-        assertEquals(queryInfo.getQueryStats().getOutputPositions(), 1L);
-        assertEquals(queryInfo.getQueryStats().getWrittenPositions(), 25L);
-        assertTrue(queryInfo.getQueryStats().getLogicalWrittenDataSize().toBytes() > 0L);
-
-        sql = "INSERT INTO " + tableName + " SELECT * FROM nation LIMIT 10";
-        resultResultWithQueryId = getDistributedQueryRunner().executeWithQueryId(getSession(), sql);
-        queryInfo = getDistributedQueryRunner().getCoordinator().getQueryManager().getFullQueryInfo(resultResultWithQueryId.getQueryId());
-
-        assertEquals(queryInfo.getQueryStats().getOutputPositions(), 1L);
-        assertEquals(queryInfo.getQueryStats().getWrittenPositions(), 10L);
-        assertTrue(queryInfo.getQueryStats().getLogicalWrittenDataSize().toBytes() > 0L);
-
-        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -364,7 +298,7 @@ public abstract class BaseOracleConnectorTest
     @Test
     public void testViews()
     {
-        try (TestView view = new TestView(onRemoteDatabase(), getUser() + ".test_view", "AS SELECT 'O' as status FROM dual")) {
+        try (TestView view = new TestView(onRemoteDatabase(), getUser() + ".test_view", "SELECT 'O' as status FROM dual")) {
             assertQuery("SELECT status FROM " + view.getName(), "SELECT 'O'");
         }
     }
@@ -462,7 +396,8 @@ public abstract class BaseOracleConnectorTest
 
     private void predicatePushdownTest(String oracleType, String oracleLiteral, String operator, String filterLiteral)
     {
-        String tableName = "test_pdown_" + oracleType.replaceAll("[^a-zA-Z0-9]", "");
+        String tableName = ("test_pdown_" + oracleType.replaceAll("[^a-zA-Z0-9]", ""))
+                .replaceFirst("^(.{18}).*", "$1__");
         try (TestTable table = new TestTable(onRemoteDatabase(), getUser() + "." + tableName, format("(c %s)", oracleType))) {
             onRemoteDatabase().execute(format("INSERT INTO %s VALUES (%s)", table.getName(), oracleLiteral));
 

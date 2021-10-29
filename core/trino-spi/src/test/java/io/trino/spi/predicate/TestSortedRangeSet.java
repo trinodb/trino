@@ -91,6 +91,10 @@ public class TestSortedRangeSet
         assertTrue(rangeSet.containsValue(10L));
         assertFalse(rangeSet.containsValue(9L));
         assertEquals(rangeSet.toString(), "SortedRangeSet[type=bigint, ranges=1, {[10]}]");
+
+        assertEquals(
+                SortedRangeSet.of(Range.equal(VARCHAR, utf8Slice("LARGE PLATED NICKEL"))).toString(),
+                "SortedRangeSet[type=varchar, ranges=1, {[LARGE PLATED NICKEL]}]");
     }
 
     @Test
@@ -269,6 +273,9 @@ public class TestSortedRangeSet
         assertFalse(SortedRangeSet.none(BIGINT).contains(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L))));
         assertFalse(SortedRangeSet.none(BIGINT).contains(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L), Range.lessThan(BIGINT, 0L))));
 
+        ValueSet valueSet = SortedRangeSet.of(BIGINT, 0L);
+        assertTrue(valueSet.contains(valueSet));
+
         assertFalse(SortedRangeSet.of(BIGINT, 0L).contains(SortedRangeSet.all(BIGINT)));
         assertTrue(SortedRangeSet.of(BIGINT, 0L).contains(SortedRangeSet.none(BIGINT)));
         assertTrue(SortedRangeSet.of(BIGINT, 0L).contains(SortedRangeSet.of(BIGINT, 0L)));
@@ -281,6 +288,21 @@ public class TestSortedRangeSet
         assertTrue(SortedRangeSet.of(Range.greaterThanOrEqual(BIGINT, 0L)).contains(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L))));
         assertFalse(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L)).contains(SortedRangeSet.of(Range.greaterThanOrEqual(BIGINT, 0L))));
         assertFalse(SortedRangeSet.of(Range.lessThan(BIGINT, 0L)).contains(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L))));
+
+        Range rangeA = Range.range(BIGINT, 0L, true, 2L, true);
+        Range rangeB = Range.range(BIGINT, 4L, true, 6L, true);
+        Range rangeC = Range.range(BIGINT, 8L, true, 10L, true);
+        assertFalse(SortedRangeSet.of(rangeA, rangeB).contains(SortedRangeSet.of(rangeC)));
+        assertFalse(SortedRangeSet.of(rangeB, rangeC).contains(SortedRangeSet.of(rangeA)));
+        assertFalse(SortedRangeSet.of(rangeA, rangeC).contains(SortedRangeSet.of(rangeB)));
+        assertFalse(SortedRangeSet.of(rangeA, rangeB).contains(SortedRangeSet.of(rangeB, rangeC)));
+        assertTrue(SortedRangeSet.of(rangeA, rangeB, rangeC).contains(SortedRangeSet.of(rangeA)));
+        assertTrue(SortedRangeSet.of(rangeA, rangeB, rangeC).contains(SortedRangeSet.of(rangeB)));
+        assertTrue(SortedRangeSet.of(rangeA, rangeB, rangeC).contains(SortedRangeSet.of(rangeC)));
+        assertTrue(SortedRangeSet.of(rangeA, rangeB, rangeC).contains(
+                SortedRangeSet.of(Range.equal(BIGINT, 4L), Range.equal(BIGINT, 6L), Range.equal(BIGINT, 9L))));
+        assertFalse(SortedRangeSet.of(rangeA, rangeB, rangeC).contains(
+                SortedRangeSet.of(Range.equal(BIGINT, 1L), Range.range(BIGINT, 6L, true, 10L, true))));
     }
 
     @Test

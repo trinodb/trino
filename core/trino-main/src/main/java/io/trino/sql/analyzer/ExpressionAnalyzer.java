@@ -97,7 +97,7 @@ import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.LikePredicate;
-import io.trino.sql.tree.LogicalBinaryExpression;
+import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.MeasureDefinition;
 import io.trino.sql.tree.Node;
@@ -681,10 +681,11 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        protected Type visitLogicalBinaryExpression(LogicalBinaryExpression node, StackableAstVisitorContext<Context> context)
+        protected Type visitLogicalExpression(LogicalExpression node, StackableAstVisitorContext<Context> context)
         {
-            coerceType(context, node.getLeft(), BOOLEAN, "Left side of logical expression");
-            coerceType(context, node.getRight(), BOOLEAN, "Right side of logical expression");
+            for (Expression term : node.getTerms()) {
+                coerceType(context, term, BOOLEAN, "Logical expression term");
+            }
 
             return setExpressionType(node, BOOLEAN);
         }
@@ -1000,7 +1001,7 @@ public class ExpressionAnalyzer
 
             if (!JSON.equals(type)) {
                 try {
-                    metadata.getCoercion(VARCHAR, type);
+                    metadata.getCoercion(session, VARCHAR, type);
                 }
                 catch (IllegalArgumentException e) {
                     throw semanticException(INVALID_LITERAL, node, "No literal form for type %s", type);
@@ -1134,7 +1135,7 @@ public class ExpressionAnalyzer
 
             ResolvedFunction function;
             try {
-                function = metadata.resolveFunction(node.getName(), argumentTypes);
+                function = metadata.resolveFunction(session, node.getName(), argumentTypes);
             }
             catch (TrinoException e) {
                 if (e.getLocation().isPresent()) {
@@ -1421,7 +1422,7 @@ public class ExpressionAnalyzer
                 operatorType = ADD;
             }
             try {
-                function = metadata.resolveOperator(operatorType, ImmutableList.of(sortKeyType, offsetValueType));
+                function = metadata.resolveOperator(session, operatorType, ImmutableList.of(sortKeyType, offsetValueType));
             }
             catch (TrinoException e) {
                 ErrorCode errorCode = e.getErrorCode();
@@ -1785,7 +1786,7 @@ public class ExpressionAnalyzer
 
             for (int i = 1; i < arguments.size(); i++) {
                 try {
-                    metadata.resolveFunction(QualifiedName.of(FormatFunction.NAME), fromTypes(arguments.get(0), RowType.anonymous(arguments.subList(1, arguments.size()))));
+                    metadata.resolveFunction(session, QualifiedName.of(FormatFunction.NAME), fromTypes(arguments.get(0), RowType.anonymous(arguments.subList(1, arguments.size()))));
                 }
                 catch (TrinoException e) {
                     ErrorCode errorCode = e.getErrorCode();
@@ -1950,7 +1951,7 @@ public class ExpressionAnalyzer
             Type value = process(node.getExpression(), context);
             if (!value.equals(UNKNOWN) && !node.isTypeOnly()) {
                 try {
-                    metadata.getCoercion(value, type);
+                    metadata.getCoercion(session, value, type);
                 }
                 catch (OperatorNotFoundException e) {
                     throw semanticException(TYPE_MISMATCH, node, "Cannot cast %s to %s", value, type);
@@ -2281,7 +2282,7 @@ public class ExpressionAnalyzer
 
             BoundSignature operatorSignature;
             try {
-                operatorSignature = metadata.resolveOperator(operatorType, argumentTypes.build()).getSignature();
+                operatorSignature = metadata.resolveOperator(session, operatorType, argumentTypes.build()).getSignature();
             }
             catch (OperatorNotFoundException e) {
                 throw semanticException(TYPE_MISMATCH, node, e, "%s", e.getMessage());
@@ -2551,9 +2552,9 @@ public class ExpressionAnalyzer
             Iterable<Expression> expressions,
             Map<NodeRef<Parameter>, Expression> parameters,
             WarningCollector warningCollector,
-            boolean isDescribe)
+            QueryType queryType)
     {
-        Analysis analysis = new Analysis(null, parameters, isDescribe);
+        Analysis analysis = new Analysis(null, parameters, queryType);
         ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, groupProvider, accessControl, types, warningCollector);
         for (Expression expression : expressions) {
             analyzer.analyze(

@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.primitives.Ints;
 import io.trino.RowPageBuilder;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.aggregation.groupby.AggregationTestInput;
 import io.trino.operator.aggregation.groupby.AggregationTestInputBuilder;
 import io.trino.operator.aggregation.groupby.AggregationTestOutput;
@@ -41,6 +42,7 @@ import java.util.Optional;
 import java.util.Random;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -176,16 +178,21 @@ public class TestMultimapAggAggregation
     private static <K, V> void testMultimapAgg(Type keyType, List<K> expectedKeys, Type valueType, List<V> expectedValues)
     {
         checkState(expectedKeys.size() == expectedValues.size(), "expectedKeys and expectedValues should have equal size");
-        InternalAggregationFunction aggFunc = getInternalAggregationFunction(keyType, valueType);
+        ResolvedFunction aggFunc = getResolvedFunction(keyType, valueType);
         testMultimapAgg(aggFunc, keyType, expectedKeys, valueType, expectedValues);
     }
 
     private static InternalAggregationFunction getInternalAggregationFunction(Type keyType, Type valueType)
     {
-        return metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of(MultimapAggregationFunction.NAME), fromTypes(keyType, valueType)));
+        return metadata.getAggregateFunctionImplementation(getResolvedFunction(keyType, valueType));
     }
 
-    private static <K, V> void testMultimapAgg(InternalAggregationFunction aggFunc, Type keyType, List<K> expectedKeys, Type valueType, List<V> expectedValues)
+    private static ResolvedFunction getResolvedFunction(Type keyType, Type valueType)
+    {
+        return metadata.resolveFunction(TEST_SESSION, QualifiedName.of(MultimapAggregationFunction.NAME), fromTypes(keyType, valueType));
+    }
+
+    private static <K, V> void testMultimapAgg(ResolvedFunction aggFunc, Type keyType, List<K> expectedKeys, Type valueType, List<V> expectedValues)
     {
         Map<K, List<V>> map = new HashMap<>();
         for (int i = 0; i < expectedKeys.size(); i++) {
@@ -200,7 +207,7 @@ public class TestMultimapAggAggregation
             builder.row(expectedKeys.get(i), expectedValues.get(i));
         }
 
-        assertAggregation(aggFunc, map.isEmpty() ? null : map, builder.build());
+        assertAggregation(metadata, aggFunc, map.isEmpty() ? null : map, builder.build());
     }
 
     private static <K, V> void testMultimapAggWithGroupBy(

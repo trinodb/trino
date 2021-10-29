@@ -78,7 +78,7 @@ public class TestHiveIgnoreAbsentPartitions
     {
         String tableName = "unpartitioned_absent_table_data";
 
-        assertThat(query("DROP TABLE IF EXISTS " + tableName));
+        query("DROP TABLE IF EXISTS " + tableName);
 
         assertThat(query(format("CREATE TABLE %s AS SELECT * FROM (VALUES 1,2,3) t(dummy_col)", tableName))).containsOnly(row(3));
         assertThat(query("SELECT count(*) FROM " + tableName)).containsOnly(row(3));
@@ -93,6 +93,6 @@ public class TestHiveIgnoreAbsentPartitions
         query("SET SESSION hive.ignore_absent_partitions = true");
         assertQueryFailure(() -> query("SELECT count(*) FROM " + tableName)).hasMessageContaining("Partition location does not exist");
 
-        assertThat(query("DROP TABLE " + tableName));
+        query("DROP TABLE " + tableName);
     }
 }

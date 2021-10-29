@@ -78,6 +78,7 @@ public class TestPinotIntegrationSmokeTest
     private static final String TOO_MANY_ROWS_TABLE = "too_many_rows";
     private static final String TOO_MANY_BROKER_ROWS_TABLE = "too_many_broker_rows";
     private static final String JSON_TABLE = "my_table";
+    private static final String RESERVED_KEYWORD_TABLE = "reserved_keyword";
 
     // Use a recent value for updated_at to ensure Pinot doesn't clean up records older than retentionTimeValue as defined in the table specs
     private static final Instant initialUpdatedAt = Instant.now().minus(Duration.ofDays(1)).truncatedTo(SECONDS);
@@ -233,6 +234,19 @@ public class TestPinotIntegrationSmokeTest
 
         pinot.createSchema(getClass().getClassLoader().getResourceAsStream("schema.json"), JSON_TABLE);
         pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("realtimeSpec.json"), JSON_TABLE);
+
+        // Create a table having reserved keyword column names
+        kafka.createTopic(RESERVED_KEYWORD_TABLE);
+        Schema reservedKeywordAvroSchema = SchemaBuilder.record(RESERVED_KEYWORD_TABLE).fields()
+                .name("date").type().optional().stringType()
+                .name("updatedAt").type().optional().longType()
+                .endRecord();
+        ImmutableList.Builder<ProducerRecord<String, GenericRecord>> reservedKeywordRecordsBuilder = ImmutableList.builder();
+        reservedKeywordRecordsBuilder.add(new ProducerRecord<>(RESERVED_KEYWORD_TABLE, "key0", new GenericRecordBuilder(reservedKeywordAvroSchema).set("date", "2021-09-30").set("updatedAt", initialUpdatedAt.plusMillis(1000).toEpochMilli()).build()));
+        reservedKeywordRecordsBuilder.add(new ProducerRecord<>(RESERVED_KEYWORD_TABLE, "key1", new GenericRecordBuilder(reservedKeywordAvroSchema).set("date", "2021-10-01").set("updatedAt", initialUpdatedAt.plusMillis(2000).toEpochMilli()).build()));
+        kafka.sendMessages(reservedKeywordRecordsBuilder.build().stream(), schemaRegistryAwareProducer(kafka));
+        pinot.createSchema(getClass().getClassLoader().getResourceAsStream("reserved_keyword_schema.json"), RESERVED_KEYWORD_TABLE);
+        pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("reserved_keyword_realtimeSpec.json"), RESERVED_KEYWORD_TABLE);
 
         Map<String, String> pinotProperties = ImmutableMap.<String, String>builder()
                 .put("pinot.controller-urls", pinot.getControllerConnectString())
@@ -604,12 +618,43 @@ public class TestPinotIntegrationSmokeTest
     }
 
     @Test
+    public void testReservedKeywordColumnNames()
+    {
+        assertQuery("SELECT date FROM " + RESERVED_KEYWORD_TABLE + " WHERE date = '2021-09-30'", "VALUES '2021-09-30'");
+        assertQuery("SELECT date FROM " + RESERVED_KEYWORD_TABLE + " WHERE date IN ('2021-09-30', '2021-10-01')", "VALUES '2021-09-30', '2021-10-01'");
+
+        assertThat(query("SELECT date FROM  \"SELECT \"\"date\"\" FROM " + RESERVED_KEYWORD_TABLE + "\""))
+                .matches("VALUES VARCHAR '2021-09-30', VARCHAR '2021-10-01'")
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT date FROM  \"SELECT \"\"date\"\" FROM " + RESERVED_KEYWORD_TABLE + " WHERE \"\"date\"\" = '2021-09-30'\""))
+                .matches("VALUES VARCHAR '2021-09-30'")
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT date FROM  \"SELECT \"\"date\"\" FROM " + RESERVED_KEYWORD_TABLE + " WHERE \"\"date\"\" IN ('2021-09-30', '2021-10-01')\""))
+                .matches("VALUES VARCHAR '2021-09-30', VARCHAR '2021-10-01'")
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT date FROM  \"SELECT \"\"date\"\" FROM " + RESERVED_KEYWORD_TABLE + " ORDER BY \"\"date\"\"\""))
+                .matches("VALUES VARCHAR '2021-09-30', VARCHAR '2021-10-01'")
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT date, \"count(*)\" FROM  \"SELECT \"\"date\"\", COUNT(*) FROM " + RESERVED_KEYWORD_TABLE + " GROUP BY \"\"date\"\"\""))
+                .matches("VALUES (VARCHAR '2021-09-30', BIGINT '1'), (VARCHAR '2021-10-01', BIGINT '1')")
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT \"count(*)\" FROM  \"SELECT COUNT(*) FROM " + RESERVED_KEYWORD_TABLE + " ORDER BY COUNT(*)\""))
+                .matches("VALUES BIGINT '2'")
+                .isFullyPushedDown();
+    }
+
+    @Test
     public void testLimitForSegmentQueries()
     {
         // The connector will not allow segment queries to return more than MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES.
         // This is not a pinot error, it is enforced by the connector to avoid stressing pinot servers.
         assertQueryFails("SELECT string_col, updated_at_seconds FROM " + TOO_MANY_ROWS_TABLE,
-                format("Segment query returned '%2$s' rows per split, maximum allowed is '%1$s' rows. with query \"SELECT string_col, updated_at_seconds FROM too_many_rows_REALTIME  LIMIT %2$s\"", MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES, MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES + 1));
+                format("Segment query returned '%2$s' rows per split, maximum allowed is '%1$s' rows. with query \"SELECT \"string_col\", \"updated_at_seconds\" FROM too_many_rows_REALTIME  LIMIT %2$s\"", MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES, MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES + 1));
 
         // Verify the row count is greater than the max rows per segment limit
         assertQuery("SELECT \"count(*)\" FROM \"SELECT COUNT(*) FROM " + TOO_MANY_ROWS_TABLE + "\"", format("VALUES(%s)", MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES + 1));
@@ -642,16 +687,16 @@ public class TestPinotIntegrationSmokeTest
         assertQueryFails("SELECT string_col, updated_at_seconds" +
                         "  FROM  \"SELECT updated_at_seconds, string_col FROM " + TOO_MANY_BROKER_ROWS_TABLE +
                         "  LIMIT " + (MAX_ROWS_PER_SPLIT_FOR_BROKER_QUERIES + 1) + "\"",
-                "Broker query returned '13' rows, maximum allowed is '12' rows. with query \"select updated_at_seconds, string_col from too_many_broker_rows limit 13\"");
+                "Broker query returned '13' rows, maximum allowed is '12' rows. with query \"select \"updated_at_seconds\", \"string_col\" from too_many_broker_rows limit 13\"");
 
         // Pinot issue preventing Integer.MAX_VALUE from being a limit: https://github.com/apache/incubator-pinot/issues/7110
         assertQueryFails("SELECT * FROM \"SELECT string_col, long_col FROM " + ALL_TYPES_TABLE + " LIMIT " + Integer.MAX_VALUE + "\"",
-                "Unexpected response status: 500 for request \\{\"sql\" : \"select string_col, long_col from alltypes limit 2147483647\" \\} to url http://localhost:\\d+/query/sql, with headers \\{Accept=\\[application/json\\], Content-Type=\\[application/json\\]\\}, full response null");
+                "Unexpected response status: 500 for request \\{\"sql\":\"select \\\\\"string_col\\\\\", \\\\\"long_col\\\\\" from alltypes limit 2147483647\"\\} to url http://localhost:\\d+/query/sql, with headers \\{Accept=\\[application/json\\], Content-Type=\\[application/json\\]\\}, full response null");
 
         // Pinot broker requests do not handle limits greater than Integer.MAX_VALUE
         // Note that -2147483648 is due to an integer overflow in Pinot: https://github.com/apache/pinot/issues/7242
         assertQueryFails("SELECT * FROM \"SELECT string_col, long_col FROM " + ALL_TYPES_TABLE + " LIMIT " + ((long) Integer.MAX_VALUE + 1) + "\"",
-                "Query select string_col, long_col from alltypes limit -2147483648 encountered exception org.apache.pinot.common.response.broker.QueryProcessingException@\\w+ with query \"select string_col, long_col from alltypes limit -2147483648\"");
+                "Query select \"string_col\", \"long_col\" from alltypes limit -2147483648 encountered exception org.apache.pinot.common.response.broker.QueryProcessingException@\\w+ with query \"select \"string_col\", \"long_col\" from alltypes limit -2147483648\"");
 
         List<String> tooManyBrokerRowsTableValues = new ArrayList<>();
         for (int i = 0; i < MAX_ROWS_PER_SPLIT_FOR_BROKER_QUERIES; i++) {

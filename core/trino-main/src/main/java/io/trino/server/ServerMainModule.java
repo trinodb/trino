@@ -44,6 +44,7 @@ import io.trino.execution.MemoryRevokingScheduler;
 import io.trino.execution.NodeTaskMap;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.SqlTaskManager;
+import io.trino.execution.TableExecuteContextManager;
 import io.trino.execution.TaskManagementExecutor;
 import io.trino.execution.TaskManager;
 import io.trino.execution.TaskManagerConfig;
@@ -77,6 +78,7 @@ import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.StaticCatalogStore;
 import io.trino.metadata.StaticCatalogStoreConfig;
 import io.trino.metadata.SystemSecurityMetadata;
+import io.trino.metadata.TableProceduresPropertyManager;
 import io.trino.metadata.TablePropertyManager;
 import io.trino.operator.ExchangeClientConfig;
 import io.trino.operator.ExchangeClientFactory;
@@ -142,9 +144,11 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 
 import java.util.List;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -231,6 +235,9 @@ public class ServerMainModule
         // analyze properties
         binder.bind(AnalyzePropertyManager.class).in(Scopes.SINGLETON);
 
+        // table procedures properties
+        binder.bind(TableProceduresPropertyManager.class).in(Scopes.SINGLETON);
+
         // node manager
         discoveryBinder(binder).bindSelector("trino");
         binder.bind(DiscoveryNodeManager.class).in(Scopes.SINGLETON);
@@ -269,6 +276,7 @@ public class ServerMainModule
         binder.bind(TaskManagementExecutor.class).in(Scopes.SINGLETON);
         binder.bind(SqlTaskManager.class).in(Scopes.SINGLETON);
         binder.bind(TaskManager.class).to(Key.get(SqlTaskManager.class));
+        binder.bind(TableExecuteContextManager.class).in(Scopes.SINGLETON);
 
         // memory revoking scheduler
         binder.bind(MemoryRevokingScheduler.class).in(Scopes.SINGLETON);
@@ -349,7 +357,10 @@ public class ServerMainModule
         configBinder(binder).bindConfig(StaticCatalogStoreConfig.class);
         binder.bind(MetadataManager.class).in(Scopes.SINGLETON);
         binder.bind(Metadata.class).to(MetadataManager.class).in(Scopes.SINGLETON);
-        binder.bind(SystemSecurityMetadata.class).to(DisabledSystemSecurityMetadata.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, SystemSecurityMetadata.class)
+                .setDefault()
+                .to(DisabledSystemSecurityMetadata.class)
+                .in(Scopes.SINGLETON);
         binder.bind(TypeOperatorsCache.class).in(Scopes.SINGLETON);
         newExporter(binder).export(TypeOperatorsCache.class).as(factory -> factory.generatedNameOf(TypeOperators.class));
         binder.bind(BlockTypeOperators.class).in(Scopes.SINGLETON);
@@ -456,6 +467,19 @@ public class ServerMainModule
     public static TypeOperators createTypeOperators(TypeOperatorsCache typeOperatorsCache)
     {
         return new TypeOperators(typeOperatorsCache);
+    }
+
+    @Provides
+    @Singleton
+    @ForStartup
+    public static Executor createStartupExecutor(ServerConfig config)
+    {
+        if (!config.isConcurrentStartup()) {
+            return directExecutor();
+        }
+        return new BoundedExecutor(
+                newCachedThreadPool(daemonThreadsNamed("startup-%s")),
+                Runtime.getRuntime().availableProcessors());
     }
 
     @Provides
