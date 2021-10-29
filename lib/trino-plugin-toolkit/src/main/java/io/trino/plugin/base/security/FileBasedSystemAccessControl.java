@@ -366,7 +366,7 @@ public class FileBasedSystemAccessControl
             return true;
         }
         for (QueryAccessRule rule : queryAccessRules.get()) {
-            Optional<Set<QueryAccessRule.AccessMode>> accessMode = rule.match(identity.getUser(), identity.getEnabledRoles());
+            Optional<Set<QueryAccessRule.AccessMode>> accessMode = rule.match(identity.getUser(), identity.getEnabledRoles(), identity.getGroups());
             if (accessMode.isPresent()) {
                 return accessMode.get().contains(requiredAccess);
             }
