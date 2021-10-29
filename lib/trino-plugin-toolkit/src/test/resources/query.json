@@ -13,6 +13,10 @@
       "allow": ["kill"]
     },
     {
+      "group": "contractors",
+      "allow": ["execute", "view"]
+    },
+    {
       "user": "\u0194\u0194\u0194",
       "allow": ["execute", "view", "kill"]
     }

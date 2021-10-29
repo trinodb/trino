@@ -339,6 +339,8 @@ owned by any user. If no rule matches, query management is denied. Each rule is 
 of the following fields:
 
 * ``user`` (optional): regex to match against user name. Defaults to ``.*``.
+* ``role`` (optional): regex to match against role names. Defaults to ``.*``.
+* ``group`` (optional): regex to match against group names. Defaults to ``.*``.
 * ``owner`` (optional): regex to match against the query owner name. Defaults to ``.*``.
 * ``allow`` (required): set of query permissions granted to user. Values: ``execute``, ``view``, ``kill``
 
@@ -347,8 +349,8 @@ of the following fields:
     Users always have permission to view or kill their own queries.
 
 For example, if you want to allow the role ``admin`` full query access, allow the user ``alice``
-to execute and kill queries, any user to execute queries, and deny all other access, you can use
-the following rules:
+to execute and kill queries, allow members of the group ``contractors`` to view all queries, allow any
+user to execute queries, and deny all other access, you can use the following rules:
 
 .. literalinclude:: query-access.json
     :language: json

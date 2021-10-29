@@ -9,6 +9,10 @@
       "allow": ["execute", "kill"]
     },
     {
+      "group": "contractors",
+      "allow": ["execute", "view"]
+    },
+    {
       "allow": ["execute"]
     }
   ]
