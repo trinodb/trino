@@ -331,7 +331,7 @@ class AstBuilder
 
         List<Property> properties = ImmutableList.of();
         if (context.properties() != null) {
-            properties = visit(context.properties().property(), Property.class);
+            properties = visit(context.properties().propertyAssignments().property(), Property.class);
         }
 
         return new CreateSchema(
@@ -385,7 +385,7 @@ class AstBuilder
 
         List<Property> properties = ImmutableList.of();
         if (context.properties() != null) {
-            properties = visit(context.properties().property(), Property.class);
+            properties = visit(context.properties().propertyAssignments().property(), Property.class);
         }
 
         return new CreateTableAsSelect(
@@ -408,7 +408,7 @@ class AstBuilder
         }
         List<Property> properties = ImmutableList.of();
         if (context.properties() != null) {
-            properties = visit(context.properties().property(), Property.class);
+            properties = visit(context.properties().propertyAssignments().property(), Property.class);
         }
         return new CreateTable(
                 getLocation(context),
@@ -429,7 +429,7 @@ class AstBuilder
 
         List<Property> properties = ImmutableList.of();
         if (context.properties() != null) {
-            properties = visit(context.properties().property(), Property.class);
+            properties = visit(context.properties().propertyAssignments().property(), Property.class);
         }
 
         return new CreateMaterializedView(
@@ -571,8 +571,8 @@ class AstBuilder
     public Node visitSetTableProperties(SqlBaseParser.SetTablePropertiesContext context)
     {
         List<Property> properties = ImmutableList.of();
-        if (context.properties() != null) {
-            properties = visit(context.properties().property(), Property.class);
+        if (context.propertyAssignments() != null) {
+            properties = visit(context.propertyAssignments().property(), Property.class);
         }
 
         return new SetProperties(getLocation(context), SetProperties.Type.TABLE, getQualifiedName(context.qualifiedName()), properties);
@@ -619,7 +619,7 @@ class AstBuilder
     {
         List<Property> properties = ImmutableList.of();
         if (context.properties() != null) {
-            properties = visit(context.properties().property(), Property.class);
+            properties = visit(context.properties().propertyAssignments().property(), Property.class);
         }
         return new Analyze(
                 getLocation(context),
@@ -2296,7 +2296,7 @@ class AstBuilder
 
         List<Property> properties = ImmutableList.of();
         if (context.properties() != null) {
-            properties = visit(context.properties().property(), Property.class);
+            properties = visit(context.properties().propertyAssignments().property(), Property.class);
         }
 
         boolean nullable = context.NOT() == null;
