@@ -99,7 +99,7 @@ public class TestAccessControl
         assertAccessDenied("INSERT INTO orders SELECT * FROM orders", "Cannot insert into table .*.orders.*", privilege("orders", INSERT_TABLE));
         assertAccessDenied("DELETE FROM orders", "Cannot delete from table .*.orders.*", privilege("orders", DELETE_TABLE));
         assertAccessDenied("CREATE TABLE foo AS SELECT * FROM orders", "Cannot create table .*.foo.*", privilege("foo", CREATE_TABLE));
-        assertAccessDenied("ALTER TABLE orders SET PROPERTIES (field_length = 32)", "Cannot set table properties to .*.orders.*", privilege("orders", SET_TABLE_PROPERTIES));
+        assertAccessDenied("ALTER TABLE orders SET PROPERTIES field_length = 32", "Cannot set table properties to .*.orders.*", privilege("orders", SET_TABLE_PROPERTIES));
         assertAccessDenied("SELECT * FROM nation", "Cannot select from columns \\[nationkey, regionkey, name, comment] in table .*.nation.*", privilege("nation.nationkey", SELECT_COLUMN));
         assertAccessDenied("SELECT * FROM (SELECT * FROM nation)", "Cannot select from columns \\[nationkey, regionkey, name, comment] in table .*.nation.*", privilege("nation.nationkey", SELECT_COLUMN));
         assertAccessDenied("SELECT name FROM (SELECT * FROM nation)", "Cannot select from columns \\[nationkey, regionkey, name, comment] in table .*.nation.*", privilege("nation.nationkey", SELECT_COLUMN));
@@ -306,8 +306,8 @@ public class TestAccessControl
     @Test
     public void testSetTableProperties()
     {
-        assertAccessDenied("ALTER TABLE orders SET PROPERTIES (field_length = 32)", "Cannot set table properties to .*.orders.*", privilege("orders", SET_TABLE_PROPERTIES));
-        assertThatThrownBy(() -> getQueryRunner().execute(getSession(), "ALTER TABLE orders SET PROPERTIES (field_length = 32)"))
+        assertAccessDenied("ALTER TABLE orders SET PROPERTIES field_length = 32", "Cannot set table properties to .*.orders.*", privilege("orders", SET_TABLE_PROPERTIES));
+        assertThatThrownBy(() -> getQueryRunner().execute(getSession(), "ALTER TABLE orders SET PROPERTIES field_length = 32"))
                 .hasMessageContaining("This connector does not support setting table properties");
     }
 
@@ -337,7 +337,7 @@ public class TestAccessControl
         assertAccessDenied("CREATE TABLE foo (pk bigint)", "Cannot create table .*.foo.*", privilege("foo", CREATE_TABLE));
         assertAccessDenied("DROP TABLE orders", "Cannot drop table .*.orders.*", privilege("orders", DROP_TABLE));
         assertAccessDenied("ALTER TABLE orders RENAME TO foo", "Cannot rename table .*.orders.* to .*.foo.*", privilege("orders", RENAME_TABLE));
-        assertAccessDenied("ALTER TABLE orders SET PROPERTIES (field_length = 32)", "Cannot set table properties to .*.orders.*", privilege("orders", SET_TABLE_PROPERTIES));
+        assertAccessDenied("ALTER TABLE orders SET PROPERTIES field_length = 32", "Cannot set table properties to .*.orders.*", privilege("orders", SET_TABLE_PROPERTIES));
         assertAccessDenied("ALTER TABLE orders ADD COLUMN foo bigint", "Cannot add a column to table .*.orders.*", privilege("orders", ADD_COLUMN));
         assertAccessDenied("ALTER TABLE orders DROP COLUMN foo", "Cannot drop a column from table .*.orders.*", privilege("orders", DROP_COLUMN));
         assertAccessDenied("ALTER TABLE orders RENAME COLUMN orderkey TO foo", "Cannot rename a column in table .*.orders.*", privilege("orders", RENAME_COLUMN));
