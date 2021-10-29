@@ -341,16 +341,20 @@ of the following fields:
 * ``user`` (optional): regex to match against user name. Defaults to ``.*``.
 * ``role`` (optional): regex to match against role names. Defaults to ``.*``.
 * ``group`` (optional): regex to match against group names. Defaults to ``.*``.
-* ``owner`` (optional): regex to match against the query owner name. Defaults to ``.*``.
+* ``queryOwner`` (optional): regex to match against the query owner name. Defaults to ``.*``.
 * ``allow`` (required): set of query permissions granted to user. Values: ``execute``, ``view``, ``kill``
 
 .. note::
 
     Users always have permission to view or kill their own queries.
 
+    A rule that includes ``owner`` may not include the ``execute`` access mode. Queries are only owned
+    by a user once their execution has begun.
+
 For example, if you want to allow the role ``admin`` full query access, allow the user ``alice``
-to execute and kill queries, allow members of the group ``contractors`` to view all queries, allow any
-user to execute queries, and deny all other access, you can use the following rules:
+to execute and kill queries, allow members of the group ``contractors`` to view queries owned by
+users ``alice`` or ``dave``, allow any user to execute queries, and deny all other access, you can
+use the following rules:
 
 .. literalinclude:: query-access.json
     :language: json
