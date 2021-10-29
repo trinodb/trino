@@ -327,7 +327,7 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanExecuteQuery(SystemSecurityContext context)
     {
-        if (!canAccessQuery(context.getIdentity(), QueryAccessRule.AccessMode.EXECUTE)) {
+        if (!canAccessQuery(context.getIdentity(), Optional.empty(), QueryAccessRule.AccessMode.EXECUTE)) {
             denyViewQuery();
         }
     }
@@ -335,7 +335,7 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanViewQueryOwnedBy(SystemSecurityContext context, String queryOwner)
     {
-        if (!canAccessQuery(context.getIdentity(), QueryAccessRule.AccessMode.VIEW)) {
+        if (!canAccessQuery(context.getIdentity(), Optional.of(queryOwner), QueryAccessRule.AccessMode.VIEW)) {
             denyViewQuery();
         }
     }
@@ -348,25 +348,25 @@ public class FileBasedSystemAccessControl
         }
         Identity identity = context.getIdentity();
         return queryOwners.stream()
-                .filter(owner -> canAccessQuery(identity, QueryAccessRule.AccessMode.VIEW))
+                .filter(owner -> canAccessQuery(identity, Optional.of(owner), QueryAccessRule.AccessMode.VIEW))
                 .collect(toImmutableSet());
     }
 
     @Override
     public void checkCanKillQueryOwnedBy(SystemSecurityContext context, String queryOwner)
     {
-        if (!canAccessQuery(context.getIdentity(), QueryAccessRule.AccessMode.KILL)) {
+        if (!canAccessQuery(context.getIdentity(), Optional.of(queryOwner), QueryAccessRule.AccessMode.KILL)) {
             denyViewQuery();
         }
     }
 
-    private boolean canAccessQuery(Identity identity, QueryAccessRule.AccessMode requiredAccess)
+    private boolean canAccessQuery(Identity identity, Optional<String> queryOwner, QueryAccessRule.AccessMode requiredAccess)
     {
         if (queryAccessRules.isEmpty()) {
             return true;
         }
         for (QueryAccessRule rule : queryAccessRules.get()) {
-            Optional<Set<QueryAccessRule.AccessMode>> accessMode = rule.match(identity.getUser(), identity.getEnabledRoles(), identity.getGroups());
+            Optional<Set<QueryAccessRule.AccessMode>> accessMode = rule.match(identity.getUser(), identity.getEnabledRoles(), identity.getGroups(), queryOwner);
             if (accessMode.isPresent()) {
                 return accessMode.get().contains(requiredAccess);
             }
