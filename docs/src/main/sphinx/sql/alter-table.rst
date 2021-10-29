@@ -14,7 +14,7 @@ Synopsis
     ALTER TABLE [ IF EXISTS ] name DROP COLUMN [ IF EXISTS ] column_name
     ALTER TABLE [ IF EXISTS ] name RENAME COLUMN [ IF EXISTS ] old_name TO new_name
     ALTER TABLE name SET AUTHORIZATION ( user | USER user | ROLE role )
-    ALTER TABLE SET PROPERTIES ( property_name = expression [, ...] )
+    ALTER TABLE name SET PROPERTIES property_name = expression [, ...]
     ALTER TABLE name EXECUTE command [ ( parameter => expression [, ... ] ) ]
         [ WHERE expression ]
 
@@ -84,7 +84,7 @@ Allow everyone with role public to drop and alter table ``people``::
 
 Set table properties (``x=y``) to table ``users``::
 
-    ALTER TABLE people SET PROPERTIES (x = 'y')
+    ALTER TABLE people SET PROPERTIES x = 'y'
 
 Collapse files in a table that are over 10 megabytes in size, as supported by
 the Hive connector::
