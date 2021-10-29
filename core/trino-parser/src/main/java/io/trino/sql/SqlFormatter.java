@@ -1324,9 +1324,8 @@ public final class SqlFormatter
         {
             builder.append("ALTER TABLE ");
             builder.append(node.getName())
-                    .append(" SET PROPERTIES ( ");
+                    .append(" SET PROPERTIES ");
             builder.append(joinProperties(node.getProperties()));
-            builder.append(" )");
 
             return null;
         }
