@@ -1175,48 +1175,6 @@ public class FileHiveMetastore
         }
     }
 
-    private Path getDatabaseMetadataDirectory(String databaseName)
-    {
-        return new Path(catalogDirectory, databaseName);
-    }
-
-    private Path getTableMetadataDirectory(Table table)
-    {
-        return getTableMetadataDirectory(table.getDatabaseName(), table.getTableName());
-    }
-
-    private Path getTableMetadataDirectory(String databaseName, String tableName)
-    {
-        return new Path(getDatabaseMetadataDirectory(databaseName), tableName);
-    }
-
-    private Path getPartitionMetadataDirectory(Table table, List<String> values)
-    {
-        String partitionName = makePartitionName(table.getPartitionColumns(), values);
-        return getPartitionMetadataDirectory(table, partitionName);
-    }
-
-    private Path getPartitionMetadataDirectory(Table table, String partitionName)
-    {
-        Path tableMetadataDirectory = getTableMetadataDirectory(table);
-        return new Path(tableMetadataDirectory, partitionName);
-    }
-
-    private Path getPermissionsDirectory(Table table)
-    {
-        return new Path(getTableMetadataDirectory(table), TRINO_PERMISSIONS_DIRECTORY_NAME);
-    }
-
-    private static Path getPermissionsPath(Path permissionsDirectory, HivePrincipal grantee)
-    {
-        return new Path(permissionsDirectory, grantee.getType().toString().toLowerCase(Locale.US) + "_" + grantee.getName());
-    }
-
-    private static Path getSchemaPath(Path metadataDirectory)
-    {
-        return new Path(metadataDirectory, TRINO_SCHEMA_FILE_NAME);
-    }
-
     private List<Path> getChildSchemaDirectories(Path metadataDirectory)
     {
         try {
@@ -1242,16 +1200,6 @@ public class FileHiveMetastore
         catch (IOException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
-    }
-
-    private Path getRolesFile()
-    {
-        return new Path(catalogDirectory, ROLES_FILE_NAME);
-    }
-
-    private Path getRoleGrantsFile()
-    {
-        return new Path(catalogDirectory, ROLE_GRANTS_FILE_NAME);
     }
 
     private Set<HivePrivilegeInfo> readPermissionsFile(Path permissionFilePath)
@@ -1373,6 +1321,58 @@ public class FileHiveMetastore
         catch (IOException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, "Could not delete " + type + " schema", e);
         }
+    }
+
+    private Path getDatabaseMetadataDirectory(String databaseName)
+    {
+        return new Path(catalogDirectory, databaseName);
+    }
+
+    private Path getTableMetadataDirectory(Table table)
+    {
+        return getTableMetadataDirectory(table.getDatabaseName(), table.getTableName());
+    }
+
+    private Path getTableMetadataDirectory(String databaseName, String tableName)
+    {
+        return new Path(getDatabaseMetadataDirectory(databaseName), tableName);
+    }
+
+    private Path getPartitionMetadataDirectory(Table table, List<String> values)
+    {
+        String partitionName = makePartitionName(table.getPartitionColumns(), values);
+        return getPartitionMetadataDirectory(table, partitionName);
+    }
+
+    private Path getPartitionMetadataDirectory(Table table, String partitionName)
+    {
+        Path tableMetadataDirectory = getTableMetadataDirectory(table);
+        return new Path(tableMetadataDirectory, partitionName);
+    }
+
+    private Path getPermissionsDirectory(Table table)
+    {
+        return new Path(getTableMetadataDirectory(table), TRINO_PERMISSIONS_DIRECTORY_NAME);
+    }
+
+    private static Path getPermissionsPath(Path permissionsDirectory, HivePrincipal grantee)
+    {
+        return new Path(permissionsDirectory, grantee.getType().toString().toLowerCase(Locale.US) + "_" + grantee.getName());
+    }
+
+    private Path getRolesFile()
+    {
+        return new Path(catalogDirectory, ROLES_FILE_NAME);
+    }
+
+    private Path getRoleGrantsFile()
+    {
+        return new Path(catalogDirectory, ROLE_GRANTS_FILE_NAME);
+    }
+
+    private static Path getSchemaPath(Path metadataDirectory)
+    {
+        return new Path(metadataDirectory, TRINO_SCHEMA_FILE_NAME);
     }
 
     private static boolean isChildDirectory(Path parentDirectory, Path childDirectory)
