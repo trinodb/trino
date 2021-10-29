@@ -10,7 +10,8 @@
     },
     {
       "group": "contractors",
-      "allow": ["execute", "view"]
+      "queryOwner": "alice|dave",
+      "allow": ["view"]
     },
     {
       "allow": ["execute"]
