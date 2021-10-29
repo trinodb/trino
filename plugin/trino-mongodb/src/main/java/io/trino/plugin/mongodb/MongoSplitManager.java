@@ -14,6 +14,7 @@
 package io.trino.plugin.mongodb;
 
 import com.google.common.collect.ImmutableList;
+import com.mongodb.connection.ServerDescription;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
@@ -36,11 +37,20 @@ public class MongoSplitManager
     private final List<HostAddress> addresses;
 
     @Inject
-    public MongoSplitManager(MongoClientConfig config)
+    public MongoSplitManager(MongoClientConfig config, MongoSession session)
     {
-        this.addresses = config.getSeeds().stream()
-                .map(s -> fromParts(s.getHost(), s.getPort()))
-                .collect(toList());
+        if (config.getSeeds().isEmpty()) {
+            List<ServerDescription> descriptions = session.getClient().getClusterDescription().getServerDescriptions();
+
+            this.addresses = descriptions.stream()
+                    .map(s -> fromParts(s.getAddress().getHost(), s.getAddress().getPort()))
+                    .collect(toList());
+        }
+        else {
+            this.addresses = config.getSeeds().stream()
+                    .map(s -> fromParts(s.getHost(), s.getPort()))
+                    .collect(toList());
+        }
     }
 
     @Override

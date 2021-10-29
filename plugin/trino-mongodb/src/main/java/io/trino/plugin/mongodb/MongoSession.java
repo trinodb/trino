@@ -144,6 +144,11 @@ public class MongoSession
         client.close();
     }
 
+    public MongoClient getClient()
+    {
+        return client;
+    }
+
     public List<String> getAllSchemas()
     {
         return ImmutableList.copyOf(client.listDatabaseNames()).stream()

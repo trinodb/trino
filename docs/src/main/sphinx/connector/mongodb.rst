@@ -44,7 +44,7 @@ The following configuration properties are available:
 Property Name                              Description
 ========================================== ==============================================================
 ``mongodb.seeds``                          List of all MongoDB servers
-``mongodb.connection-uri``              The connection uri that the driver uses to connect to a MongoDB deployment
+``mongodb.connection-uri``                 The connection uri that the driver uses to connect to a MongoDB deployment
 ``mongodb.schema-collection``              A collection which contains schema information
 ``mongodb.case-insensitive-name-matching`` Match database and collection names case insensitively
 ``mongodb.credentials``                    List of credentials
