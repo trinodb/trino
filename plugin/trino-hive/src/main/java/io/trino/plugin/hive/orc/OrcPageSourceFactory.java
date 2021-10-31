@@ -124,11 +124,17 @@ public class OrcPageSourceFactory
     private final HdfsEnvironment hdfsEnvironment;
     private final FileFormatDataSourceStats stats;
     private final DateTimeZone legacyTimeZone;
+    private final int domainCompactionThreshold;
 
     @Inject
     public OrcPageSourceFactory(OrcReaderConfig config, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats, HiveConfig hiveConfig)
     {
-        this(config.toOrcReaderOptions(), hdfsEnvironment, stats, requireNonNull(hiveConfig, "hiveConfig is null").getOrcLegacyDateTimeZone());
+        this(
+                config.toOrcReaderOptions(),
+                hdfsEnvironment,
+                stats,
+                requireNonNull(hiveConfig, "hiveConfig is null").getOrcLegacyDateTimeZone(),
+                requireNonNull(hiveConfig, "hiveConfig is null").getDomainCompactionThreshold());
     }
 
     public OrcPageSourceFactory(
@@ -137,10 +143,21 @@ public class OrcPageSourceFactory
             FileFormatDataSourceStats stats,
             DateTimeZone legacyTimeZone)
     {
+        this(orcReaderOptions, hdfsEnvironment, stats, legacyTimeZone, 0);
+    }
+
+    public OrcPageSourceFactory(
+            OrcReaderOptions orcReaderOptions,
+            HdfsEnvironment hdfsEnvironment,
+            FileFormatDataSourceStats stats,
+            DateTimeZone legacyTimeZone,
+            int domainCompactionThreshold)
+    {
         this.orcReaderOptions = requireNonNull(orcReaderOptions, "orcReaderOptions is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.legacyTimeZone = legacyTimeZone;
+        this.domainCompactionThreshold = domainCompactionThreshold;
     }
 
     @Override
@@ -204,7 +221,7 @@ public class OrcPageSourceFactory
         return Optional.of(new ReaderPageSource(orcPageSource, readerColumns));
     }
 
-    private static ConnectorPageSource createOrcPageSource(
+    private ConnectorPageSource createOrcPageSource(
             HdfsEnvironment hdfsEnvironment,
             ConnectorIdentity identity,
             Configuration configuration,
@@ -312,7 +329,8 @@ public class OrcPageSourceFactory
             }
 
             TupleDomainOrcPredicateBuilder predicateBuilder = TupleDomainOrcPredicate.builder()
-                    .setBloomFiltersEnabled(options.isBloomFiltersEnabled());
+                    .setBloomFiltersEnabled(options.isBloomFiltersEnabled())
+                    .setDomainCompactionThreshold(domainCompactionThreshold);
             Map<HiveColumnHandle, Domain> effectivePredicateDomains = effectivePredicate.getDomains()
                     .orElseThrow(() -> new IllegalArgumentException("Effective predicate is none"));
             List<ColumnAdaptation> columnAdaptations = new ArrayList<>(columns.size());

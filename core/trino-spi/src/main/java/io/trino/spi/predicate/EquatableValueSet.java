@@ -27,6 +27,7 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.StringJoiner;
 import java.util.function.Consumer;
@@ -340,6 +341,15 @@ public class EquatableValueSet
                 .add("values=" + getValuesCount())
                 .add(formatValues(session, limit))
                 .toString();
+    }
+
+    @Override
+    public Optional<Collection<Object>> tryExpandRanges(int valuesLimit)
+    {
+        if (inclusive() && getValuesCount() <= valuesLimit) {
+            return Optional.of(getValues());
+        }
+        return Optional.empty();
     }
 
     @Override
