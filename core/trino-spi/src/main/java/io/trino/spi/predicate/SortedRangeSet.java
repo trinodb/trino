@@ -471,6 +471,12 @@ public final class SortedRangeSet
             {
                 return SortedRangeSet.this.getSpan();
             }
+
+            @Override
+            public ValueSet getCompactedRanges()
+            {
+                return SortedRangeSet.this.compact();
+            }
         };
     }
 
@@ -955,6 +961,40 @@ public final class SortedRangeSet
             }
         }
         return Optional.of(Collections.unmodifiableList(result));
+    }
+
+    /// Return smaller representation of this a discrete value set.
+    ValueSet compact()
+    {
+        if (!isDiscreteSet() || isNone()) {
+            return this; // TODO: support also non-discrete sets
+        }
+        Type type = getType();
+        List<Range> ranges = getRanges().getOrderedRanges();
+        List<Range> result = new ArrayList<>();
+
+        Range current = ranges.get(0);
+        for (Range next : ranges.subList(1, ranges.size())) {
+            Object nextValue = next.getSingleValue();
+            if (areConsecutive(type, current.getHighBoundedValue(), nextValue)) {
+                // extend current range to include the new value
+                current = Range.range(type, current.getLowBoundedValue(), true, nextValue, true);
+                continue;
+            }
+            // not consecutive values - flush the current range, and start collecting a new one
+            result.add(current);
+            current = Range.equal(type, nextValue);
+        }
+        result.add(current);  // flush last range
+        return ValueSet.ofRanges(result);
+    }
+
+    private static boolean areConsecutive(Type type, Object low, Object high)
+    {
+        return type
+                .getDiscreteValues(new Type.Range(low, high))
+                .map(stream -> stream.skip(1).allMatch(high::equals))
+                .orElse(false);
     }
 
     private String formatRanges(ConnectorSession session, int limit)

@@ -20,6 +20,7 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.Type;
@@ -30,6 +31,7 @@ import io.trino.testing.MaterializedResult;
 import io.trino.type.BlockTypeOperators;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
@@ -37,6 +39,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 
@@ -57,15 +60,19 @@ import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.block.BlockAssertions.createSequenceBlockOfReal;
 import static io.trino.block.BlockAssertions.createStringsBlock;
+import static io.trino.block.BlockAssertions.createTypedLongsBlock;
 import static io.trino.operator.OperatorAssertion.toMaterializedResult;
 import static io.trino.operator.OperatorAssertion.toPages;
 import static io.trino.spi.predicate.Range.equal;
 import static io.trino.spi.predicate.Range.range;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
@@ -192,7 +199,9 @@ public class TestDynamicFilterSourceOperator
         operatorFactory.noMoreOperators();
         assertEquals(partitions.build(), ImmutableList.of(
                 TupleDomain.withColumnDomains(ImmutableMap.of(
-                        new DynamicFilterId("0"), Domain.multipleValues(BIGINT, ImmutableList.of(1L, 2L, 3L, 5L))))));
+                        new DynamicFilterId("0"), Domain.create(
+                                ValueSet.ofRanges(Range.range(BIGINT, 1L, true, 3L, true), Range.equal(BIGINT, 5L)),
+                                false)))));
 
         verifyPassthrough(op2,
                 ImmutableList.of(BIGINT),
@@ -201,9 +210,13 @@ public class TestDynamicFilterSourceOperator
 
         assertEquals(partitions.build(), ImmutableList.of(
                 TupleDomain.withColumnDomains(ImmutableMap.of(
-                        new DynamicFilterId("0"), Domain.multipleValues(BIGINT, ImmutableList.of(1L, 2L, 3L, 5L)))),
+                        new DynamicFilterId("0"), Domain.create(
+                                ValueSet.ofRanges(Range.range(BIGINT, 1L, true, 3L, true), Range.equal(BIGINT, 5L)),
+                                false))),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
-                        new DynamicFilterId("0"), Domain.multipleValues(BIGINT, ImmutableList.of(1L, 2L, 3L, 4L))))));
+                        new DynamicFilterId("0"), Domain.create(
+                                ValueSet.ofRanges(Range.range(BIGINT, 1L, true, 4L, true)),
+                                false)))));
     }
 
     @Test
@@ -272,7 +285,7 @@ public class TestDynamicFilterSourceOperator
 
         assertEquals(partitions.build(), ImmutableList.of(
                 TupleDomain.withColumnDomains(ImmutableMap.of(
-                        new DynamicFilterId("0"), Domain.create(ValueSet.of(INTEGER, 1L, 2L, 3L, 4L, 5L), false)))));
+                        new DynamicFilterId("0"), Domain.create(ValueSet.ofRanges(Range.range(INTEGER, 1L, true, 5L, true)), false)))));
     }
 
     @Test
@@ -417,13 +430,13 @@ public class TestDynamicFilterSourceOperator
         List<TupleDomain<DynamicFilterId>> expectedTupleDomains = ImmutableList.of(
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         new DynamicFilterId("0"), Domain.create(
-                                ValueSet.copyOf(BIGINT, LongStream.rangeClosed(0L, 100L).boxed().collect(toImmutableList())),
+                                ValueSet.ofRanges(Range.range(BIGINT, 0L, true, 100L, true)),
                                 false),
                         new DynamicFilterId("1"), Domain.create(
-                                ValueSet.copyOf(BIGINT, LongStream.rangeClosed(100L, 200L).boxed().collect(toImmutableList())),
+                                ValueSet.ofRanges(Range.range(BIGINT, 100L, true, 200L, true)),
                                 false),
                         new DynamicFilterId("2"), Domain.create(
-                                ValueSet.copyOf(BIGINT, LongStream.rangeClosed(200L, 300L).boxed().collect(toImmutableList())),
+                                ValueSet.ofRanges(Range.range(BIGINT, 200L, true, 300L, true)),
                                 false))));
         assertDynamicFilters(maxDistinctValues, ImmutableList.of(BIGINT, BIGINT, BIGINT), ImmutableList.of(largePage), expectedTupleDomains);
     }
@@ -552,6 +565,46 @@ public class TestDynamicFilterSourceOperator
                 ImmutableList.of(BIGINT),
                 ImmutableList.of(new Page(createLongSequenceBlock(0, (2 * maxDistinctValues) + 1))),
                 ImmutableList.of(TupleDomain.all()));
+    }
+
+    @DataProvider
+    public Object[][] denseType()
+    {
+        return new Object[][] {{BIGINT}, {INTEGER}, {SMALLINT}, {TINYINT}, {createDecimalType(3)}};
+    }
+
+    @Test(dataProvider = "denseType")
+    public void testCollectCompactedDomain(Type type)
+    {
+        int maxDistinctValues = 100;
+        List<Long> values = LongStream.range(0, 10).boxed().collect(Collectors.toList());
+        assertDynamicFilters(
+                maxDistinctValues,
+                DataSize.of(10, KILOBYTE),
+                2 * maxDistinctValues,
+                ImmutableList.of(type),
+                ImmutableList.of(new Page(createTypedLongsBlock(type, values))),
+                ImmutableList.of(TupleDomain.withColumnDomains(ImmutableMap.of(
+                        new DynamicFilterId("0"),
+                        Domain.create(ValueSet.ofRanges(
+                                Range.range(type, 0L, true, 9L, true)), false)))));
+    }
+
+    @Test
+    public void testCollectUncompactedDomain()
+    {
+        Type type = REAL; // doesn't support consecutive values' compaction
+        int maxDistinctValues = 100;
+        List<Long> values = LongStream.range(0, 10).boxed().collect(Collectors.toList());
+        assertDynamicFilters(
+                maxDistinctValues,
+                DataSize.of(10, KILOBYTE),
+                2 * maxDistinctValues,
+                ImmutableList.of(type),
+                ImmutableList.of(new Page(createTypedLongsBlock(type, values))),
+                ImmutableList.of(TupleDomain.withColumnDomains(ImmutableMap.of(
+                        new DynamicFilterId("0"),
+                        Domain.multipleValues(type, values)))));
     }
 
     @Test

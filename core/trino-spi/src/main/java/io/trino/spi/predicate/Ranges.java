@@ -28,4 +28,9 @@ public interface Ranges
      * @return Single range encompassing all of allowed the ranges
      */
     Range getSpan();
+
+    /**
+     * Try to return a more compact representation (if possible).
+     */
+    ValueSet getCompactedRanges();
 }

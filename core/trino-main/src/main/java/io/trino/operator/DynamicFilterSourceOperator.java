@@ -21,6 +21,7 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.Ranges;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.Type;
@@ -413,7 +414,12 @@ public class DynamicFilterSourceOperator
         }
 
         // Inner and right join doesn't match rows with null key column values.
-        return Domain.create(ValueSet.copyOf(type, values.build()), false);
+        ValueSet valueSet = ValueSet.copyOf(type, values.build());
+        ValueSet compactedSet = valueSet.getValuesProcessor().transform(
+                Ranges::getCompactedRanges,
+                discreteValues -> valueSet,
+                allOrNone -> valueSet);
+        return Domain.create(compactedSet, false);
     }
 
     @Override

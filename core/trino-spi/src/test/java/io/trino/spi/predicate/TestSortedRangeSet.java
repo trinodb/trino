@@ -744,6 +744,41 @@ public class TestSortedRangeSet
                 .isEqualTo(Optional.empty());
     }
 
+    @Test(dataProvider = "denseTypes")
+    public void testCompactForDenseType(Type type)
+    {
+        ValueSet values = ValueSet.ofRanges(
+                Range.equal(type, 0L),
+                Range.equal(type, 1L),
+                Range.equal(type, 3L),
+                Range.equal(type, 4L),
+                Range.equal(type, 5L),
+                Range.equal(type, 7L));
+        assertEquals(
+                values.getRanges().getCompactedRanges(),
+                ValueSet.ofRanges(List.of(
+                        Range.range(type, 0L, true, 1L, true),
+                        Range.range(type, 3L, true, 5L, true),
+                        Range.range(type, 7L, true, 7L, true))));
+    }
+
+    @Test
+    public void testCompactForReal()
+    {
+        ValueSet values = ValueSet.ofRanges(
+                Range.equal(REAL, 0L),
+                Range.equal(REAL, 1L),
+                Range.equal(REAL, 2L));
+        assertEquals(values.getRanges().getCompactedRanges(), values);
+    }
+
+    @Test
+    public void testCompactForNonDiscreteSet()
+    {
+        ValueSet values = ValueSet.ofRanges(Range.range(INTEGER, 0L, true, 10L, true));
+        assertEquals(values.getRanges().getCompactedRanges(), values);
+    }
+
     private void assertUnion(SortedRangeSet first, SortedRangeSet second, SortedRangeSet expected)
     {
         assertEquals(first.union(second), expected);
