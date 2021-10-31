@@ -1742,13 +1742,13 @@ public class TestSqlParser
     @Test
     public void testInsertInto()
     {
-        QualifiedName table = QualifiedName.of("a");
+        QualifiedName table = QualifiedName.of("a", "b/c", "d");
         Query query = simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t")));
 
-        assertStatement("INSERT INTO a SELECT * FROM t",
+        assertStatement("INSERT INTO a.\"b/c\".d SELECT * FROM t",
                 new Insert(table, Optional.empty(), query));
 
-        assertStatement("INSERT INTO a (c1, c2) SELECT * FROM t",
+        assertStatement("INSERT INTO a.\"b/c\".d (c1, c2) SELECT * FROM t",
                 new Insert(table, Optional.of(ImmutableList.of(identifier("c1"), identifier("c2"))), query));
     }
 
