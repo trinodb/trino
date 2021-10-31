@@ -19,8 +19,10 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -177,6 +179,15 @@ public class AllOrNoneValueSet
     {
         // type is not accounted for as the instances are cached (by TypeRegistry) and shared
         return INSTANCE_SIZE;
+    }
+
+    @Override
+    public Optional<Collection<Object>> tryExpandRanges(int valuesLimit)
+    {
+        if (this.isNone()) {
+            return Optional.of(List.of());
+        }
+        return Optional.empty();
     }
 
     @Override
