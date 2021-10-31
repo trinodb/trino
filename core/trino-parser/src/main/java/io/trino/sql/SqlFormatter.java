@@ -1300,7 +1300,7 @@ public final class SqlFormatter
             if (node.isExists()) {
                 builder.append("IF EXISTS ");
             }
-            builder.append(node.getTableName());
+            builder.append(formatName(node.getTableName()));
 
             return null;
         }
