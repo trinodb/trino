@@ -22,8 +22,12 @@ import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
 import org.testng.annotations.Test;
 
+import java.util.List;
+import java.util.Optional;
+
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.HyperLogLogType.HYPER_LOG_LOG;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -150,5 +154,15 @@ public class TestAllOrNoneValueSet
 
         AllOrNoneValueSet none = AllOrNoneValueSet.none(HYPER_LOG_LOG);
         assertEquals(none, mapper.readValue(mapper.writeValueAsString(none), AllOrNoneValueSet.class));
+    }
+
+    @Test
+    public void testExpandRanges()
+    {
+        // HyperLogLogType is non-comparable and non-orderable
+        assertThat(ValueSet.all(HYPER_LOG_LOG).tryExpandRanges(10)).isEqualTo(Optional.empty());
+        assertThat(ValueSet.none(HYPER_LOG_LOG).tryExpandRanges(10)).isEqualTo(Optional.of(List.of()));
+        assertThat(ValueSet.none(HYPER_LOG_LOG).tryExpandRanges(1)).isEqualTo(Optional.of(List.of()));
+        assertThat(ValueSet.none(HYPER_LOG_LOG).tryExpandRanges(0)).isEqualTo(Optional.of(List.of()));
     }
 }
