@@ -1719,10 +1719,12 @@ public class TestSqlParser
         assertStatement("DROP TABLE a", new DropTable(QualifiedName.of("a"), false));
         assertStatement("DROP TABLE a.b", new DropTable(QualifiedName.of("a", "b"), false));
         assertStatement("DROP TABLE a.b.c", new DropTable(QualifiedName.of("a", "b", "c"), false));
+        assertStatement("DROP TABLE a.\"b/y\".c", new DropTable(QualifiedName.of("a", "b/y", "c"), false));
 
         assertStatement("DROP TABLE IF EXISTS a", new DropTable(QualifiedName.of("a"), true));
         assertStatement("DROP TABLE IF EXISTS a.b", new DropTable(QualifiedName.of("a", "b"), true));
         assertStatement("DROP TABLE IF EXISTS a.b.c", new DropTable(QualifiedName.of("a", "b", "c"), true));
+        assertStatement("DROP TABLE IF EXISTS a.\"b/y\".c", new DropTable(QualifiedName.of("a", "b/y", "c"), true));
     }
 
     @Test
