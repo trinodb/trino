@@ -1747,7 +1747,8 @@ public class TestHiveConnectorTest
     @Test
     public void testTargetMaxFileSize()
     {
-        @Language("SQL") String createTableSql = "CREATE TABLE test_max_file_size AS SELECT * FROM tpch.sf1.lineitem LIMIT 1000000";
+        // We use TEXTFILE in this test because is has a very consistent and predictable size
+        @Language("SQL") String createTableSql = "CREATE TABLE test_max_file_size WITH (format = 'TEXTFILE') AS SELECT * FROM tpch.sf1.lineitem LIMIT 1000000";
         @Language("SQL") String selectFileInfo = "SELECT distinct \"$path\", \"$file_size\" FROM test_max_file_size";
 
         // verify the default behavior is one file per node
@@ -1759,13 +1760,11 @@ public class TestHiveConnectorTest
         assertUpdate("DROP TABLE test_max_file_size");
 
         // Write table with small limit and verify we get multiple files per node near the expected size
-        // Writer writes chunks of rows that are about 40k
-        // We use TEXTFILE in this test because is has a very consistent and predictable size
-        DataSize maxSize = DataSize.of(40, Unit.KILOBYTE);
+        // Writer writes chunks of rows that are about 1MB
+        DataSize maxSize = DataSize.of(1, Unit.MEGABYTE);
         session = Session.builder(getSession())
                 .setSystemProperty("task_writer_count", "1")
                 .setCatalogSessionProperty("hive", "target_max_file_size", maxSize.toString())
-                .setCatalogSessionProperty("hive", "hive_storage_format", "TEXTFILE")
                 .build();
 
         assertUpdate(session, createTableSql, 1000000);
@@ -1782,8 +1781,9 @@ public class TestHiveConnectorTest
     @Test
     public void testTargetMaxFileSizePartitioned()
     {
+        // We use TEXTFILE in this test because is has a very consistent and predictable size
         @Language("SQL") String createTableSql = "" +
-                "CREATE TABLE test_max_file_size WITH (partitioned_by = ARRAY['returnflag']) AS " +
+                "CREATE TABLE test_max_file_size WITH (partitioned_by = ARRAY['returnflag'], format = 'TEXTFILE') AS " +
                 "SELECT orderkey, partkey, suppkey, linenumber, quantity, extendedprice, discount, tax, linestatus, shipdate, commitdate, receiptdate, shipinstruct, shipmode, comment, returnflag " +
                 "FROM tpch.sf1.lineitem LIMIT 1000000";
         @Language("SQL") String selectFileInfo = "SELECT distinct \"$path\", \"$file_size\" FROM test_max_file_size";
@@ -1797,13 +1797,11 @@ public class TestHiveConnectorTest
         assertUpdate("DROP TABLE test_max_file_size");
 
         // Write table with small limit and verify we get multiple files per node near the expected size
-        // Writer writes chunks of rows that are about 40k
-        // We use TEXTFILE in this test because is has a very consistent and predictable size
-        DataSize maxSize = DataSize.of(40, Unit.KILOBYTE);
+        // Writer writes chunks of rows that are about 1MB
+        DataSize maxSize = DataSize.of(1, Unit.MEGABYTE);
         session = Session.builder(getSession())
                 .setSystemProperty("task_writer_count", "1")
                 .setCatalogSessionProperty("hive", "target_max_file_size", maxSize.toString())
-                .setCatalogSessionProperty("hive", "hive_storage_format", "TEXTFILE")
                 .build();
 
         assertUpdate(session, createTableSql, 1000000);
