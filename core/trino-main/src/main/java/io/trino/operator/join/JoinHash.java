@@ -156,7 +156,7 @@ public final class JoinHash
     @Override
     public boolean supportsCaching()
     {
-        return true;
+        return pagesHash.getPositionCount() > 1000;
     }
 
     @Override
