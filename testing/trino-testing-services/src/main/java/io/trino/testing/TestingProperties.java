@@ -13,6 +13,8 @@
  */
 package io.trino.testing;
 
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.io.Resources;
 
 import java.io.IOException;
@@ -24,29 +26,29 @@ import static java.util.Objects.requireNonNull;
 
 public class TestingProperties
 {
-    public static final TestingProperties INSTANCE = new TestingProperties("trino-testing.properties");
-
-    private Properties properties = new Properties();
-
-    public TestingProperties(String resourceName)
-    {
+    private static Supplier<Properties> properties = Suppliers.memoize(() -> {
+        Properties properties = new Properties();
         try {
-            try (InputStream stream = Resources.getResource(resourceName).openStream()) {
+            try (InputStream stream = Resources.getResource("trino-testing.properties").openStream()) {
                 properties.load(stream);
             }
+
+            return properties;
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    });
+
+    private TestingProperties() {}
+
+    public static String getProjectVersion()
+    {
+        return requireNonNull(properties.get().getProperty("project.version"), "project.version is null");
     }
 
-    public String getProjectVersion()
+    public static String getDockerImagesVersion()
     {
-        return requireNonNull(properties.getProperty("project.version"), "project.version is null");
-    }
-
-    public String getDockerImagesVersion()
-    {
-        return requireNonNull(properties.getProperty("docker.images.version"), "docker.images.version is null");
+        return requireNonNull(properties.get().getProperty("docker.images.version"), "docker.images.version is null");
     }
 }

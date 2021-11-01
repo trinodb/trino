@@ -151,7 +151,7 @@ public class Launcher
         @Override
         public String[] getVersion()
         {
-            return new String[] {spec.name() + " " + TestingProperties.INSTANCE.getProjectVersion()};
+            return new String[] {spec.name() + " " + TestingProperties.getProjectVersion()};
         }
     }
 
@@ -162,13 +162,13 @@ public class Launcher
         protected Object[][] getContents()
         {
             return new Object[][] {
-                    {"project.version", TestingProperties.INSTANCE.getProjectVersion()},
+                    {"project.version", TestingProperties.getProjectVersion()},
                     {"product-tests.module", "testing/trino-product-tests"},
                     {"product-tests.name", "trino-product-tests"},
                     {"server.module", "core/trino-server"},
                     {"server.name", "trino-server"},
                     {"launcher.bin", "testing/trino-product-tests-launcher/bin/run-launcher"},
-                    {"cli.bin", format("client/trino-cli/target/trino-cli-%s-executable.jar", TestingProperties.INSTANCE.getProjectVersion())}
+                    {"cli.bin", format("client/trino-cli/target/trino-cli-%s-executable.jar", TestingProperties.getProjectVersion())}
             };
         }
     }
