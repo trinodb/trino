@@ -70,7 +70,7 @@ public class SuiteCompatibility
     private static List<String> testedTrinoDockerImages()
     {
         try {
-            String currentVersionString = TestingProperties.INSTANCE.getProjectVersion();
+            String currentVersionString = TestingProperties.getProjectVersion();
             Matcher matcher = Pattern.compile("(\\d+)(?:-SNAPSHOT)?").matcher(currentVersionString);
             checkState(matcher.matches());
             int currentVersion = parseInt(matcher.group(1));

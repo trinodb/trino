@@ -27,8 +27,8 @@ import java.util.Set;
 public class HiveHadoop
         extends BaseTestContainer
 {
-    public static final String DEFAULT_IMAGE = "ghcr.io/trinodb/testing/hdp2.6-hive:" + TestingProperties.INSTANCE.getDockerImagesVersion();
-    public static final String HIVE3_IMAGE = "ghcr.io/trinodb/testing/hdp3.1-hive:" + TestingProperties.INSTANCE.getDockerImagesVersion();
+    public static final String DEFAULT_IMAGE = "ghcr.io/trinodb/testing/hdp2.6-hive:" + TestingProperties.getDockerImagesVersion();
+    public static final String HIVE3_IMAGE = "ghcr.io/trinodb/testing/hdp3.1-hive:" + TestingProperties.getDockerImagesVersion();
 
     public static final String HOST_NAME = "hadoop-master";
 
