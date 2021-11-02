@@ -22,9 +22,9 @@ import io.trino.spi.type.Type;
 public interface GenericBooleanState
         extends AccumulatorState
 {
-    boolean getBoolean();
+    boolean getValue();
 
-    void setBoolean(boolean value);
+    void setValue(boolean value);
 
     @InitialBooleanValue(true)
     boolean isNull();
@@ -37,7 +37,7 @@ public interface GenericBooleanState
             out.appendNull();
         }
         else {
-            type.writeBoolean(out, state.getBoolean());
+            type.writeBoolean(out, state.getValue());
         }
     }
 }

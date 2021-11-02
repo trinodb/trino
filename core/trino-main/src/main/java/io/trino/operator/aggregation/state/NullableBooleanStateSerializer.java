@@ -36,7 +36,7 @@ public class NullableBooleanStateSerializer
             out.appendNull();
         }
         else {
-            BOOLEAN.writeBoolean(out, state.getBoolean());
+            BOOLEAN.writeBoolean(out, state.getValue());
         }
     }
 
@@ -44,6 +44,6 @@ public class NullableBooleanStateSerializer
     public void deserialize(Block block, int index, NullableBooleanState state)
     {
         state.setNull(false);
-        state.setBoolean(BOOLEAN.getBoolean(block, index));
+        state.setValue(BOOLEAN.getBoolean(block, index));
     }
 }

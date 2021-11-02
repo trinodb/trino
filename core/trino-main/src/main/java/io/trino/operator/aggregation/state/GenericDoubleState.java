@@ -22,9 +22,9 @@ import io.trino.spi.type.Type;
 public interface GenericDoubleState
         extends AccumulatorState
 {
-    double getDouble();
+    double getValue();
 
-    void setDouble(double value);
+    void setValue(double value);
 
     @InitialBooleanValue(true)
     boolean isNull();
@@ -37,7 +37,7 @@ public interface GenericDoubleState
             out.appendNull();
         }
         else {
-            type.writeDouble(out, state.getDouble());
+            type.writeDouble(out, state.getValue());
         }
     }
 }

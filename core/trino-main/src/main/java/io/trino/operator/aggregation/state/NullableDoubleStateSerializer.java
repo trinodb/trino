@@ -36,7 +36,7 @@ public class NullableDoubleStateSerializer
             out.appendNull();
         }
         else {
-            DOUBLE.writeDouble(out, state.getDouble());
+            DOUBLE.writeDouble(out, state.getValue());
         }
     }
 
@@ -44,6 +44,6 @@ public class NullableDoubleStateSerializer
     public void deserialize(Block block, int index, NullableDoubleState state)
     {
         state.setNull(false);
-        state.setDouble(DOUBLE.getDouble(block, index));
+        state.setValue(DOUBLE.getDouble(block, index));
     }
 }
