@@ -75,7 +75,6 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.not;
 import static io.trino.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static io.trino.sql.gen.BytecodeUtils.invoke;
 import static io.trino.sql.gen.BytecodeUtils.loadConstant;
-import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.trino.util.CompilerUtils.defineClass;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static java.lang.String.format;
@@ -98,26 +97,33 @@ public final class AccumulatorCompiler
         List<Boolean> argumentNullable = functionNullability.getArgumentNullable()
                 .subList(0, functionNullability.getArgumentNullable().size() - metadata.getLambdaInterfaces().size());
 
-        Class<? extends Accumulator> accumulatorClass = generateAccumulatorClass(
+        Constructor<? extends Accumulator> accumulatorConstructor = generateAccumulatorClass(
                 boundSignature,
                 Accumulator.class,
                 metadata,
                 argumentNullable,
                 classLoader);
 
-        Class<? extends GroupedAccumulator> groupedAccumulatorClass = generateAccumulatorClass(
+        Constructor<? extends GroupedAccumulator> groupedAccumulatorConstructor = generateAccumulatorClass(
                 boundSignature,
                 GroupedAccumulator.class,
                 metadata,
                 argumentNullable,
                 classLoader);
 
+        List<Type> intermediateTypes = metadata.getAccumulatorStateDescriptors().stream()
+                .map(stateDescriptor -> stateDescriptor.getSerializer().getSerializedType())
+                .collect(toImmutableList());
+        Type intermediateType = (intermediateTypes.size() == 1) ? getOnlyElement(intermediateTypes) : RowType.anonymous(intermediateTypes);
+
         return new GenericAccumulatorFactoryBinder(
-                accumulatorClass,
-                groupedAccumulatorClass);
+                intermediateType,
+                boundSignature.getReturnType(),
+                accumulatorConstructor,
+                groupedAccumulatorConstructor);
     }
 
-    private static <T> Class<? extends T> generateAccumulatorClass(
+    private static <T> Constructor<? extends T> generateAccumulatorClass(
             BoundSignature boundSignature,
             Class<T> accumulatorInterface,
             AggregationMetadata metadata,
@@ -188,15 +194,6 @@ public final class AccumulatorCompiler
                 grouped);
         generateGetEstimatedSize(definition, stateFields);
 
-        generateGetIntermediateType(
-                definition,
-                callSiteBinder,
-                stateDescriptors.stream()
-                        .map(stateDescriptor -> stateDescriptor.getSerializer().getSerializedType())
-                        .collect(toImmutableList()));
-
-        generateGetFinalType(definition, callSiteBinder, boundSignature.getReturnType());
-
         generateAddIntermediateAsCombine(
                 definition,
                 stateFieldAndDescriptors,
@@ -222,7 +219,14 @@ public final class AccumulatorCompiler
         if (grouped) {
             generatePrepareFinal(definition);
         }
-        return defineClass(definition, accumulatorInterface, callSiteBinder.getBindings(), classLoader);
+
+        Class<? extends T> accumulatorClass = defineClass(definition, accumulatorInterface, callSiteBinder.getBindings(), classLoader);
+        try {
+            return accumulatorClass.getConstructor(List.class, Optional.class, List.class);
+        }
+        catch (NoSuchMethodException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public static Constructor<? extends WindowAccumulator> generateWindowAccumulatorClass(
@@ -322,31 +326,6 @@ public final class AccumulatorCompiler
         initializeStateFields(method, stateFieldAndDescriptors, callSiteBinder, false);
         initializeLambdaProviderFields(method, lambdaProviderFields, lambdaProviders);
         body.ret();
-    }
-
-    private static void generateGetIntermediateType(ClassDefinition definition, CallSiteBinder callSiteBinder, List<Type> type)
-    {
-        MethodDefinition methodDefinition = definition.declareMethod(a(PUBLIC), "getIntermediateType", type(Type.class));
-
-        if (type.size() == 1) {
-            methodDefinition.getBody()
-                    .append(constantType(callSiteBinder, getOnlyElement(type)))
-                    .retObject();
-        }
-        else {
-            methodDefinition.getBody()
-                    .append(constantType(callSiteBinder, RowType.anonymous(type)))
-                    .retObject();
-        }
-    }
-
-    private static void generateGetFinalType(ClassDefinition definition, CallSiteBinder callSiteBinder, Type type)
-    {
-        MethodDefinition methodDefinition = definition.declareMethod(a(PUBLIC), "getFinalType", type(Type.class));
-
-        methodDefinition.getBody()
-                .append(constantType(callSiteBinder, type))
-                .retObject();
     }
 
     private static void generateGetEstimatedSize(ClassDefinition definition, List<FieldDefinition> stateFields)

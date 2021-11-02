@@ -238,7 +238,7 @@ public class TestHistogram
         TestingAggregationFunction function = getInternalDefaultVarCharAggregation();
         GroupedAccumulator groupedAccumulator = function.bind(Ints.asList(new int[] {}), Optional.empty())
                 .createGroupedAccumulator();
-        BlockBuilder blockBuilder = groupedAccumulator.getFinalType().createBlockBuilder(null, 1000);
+        BlockBuilder blockBuilder = function.getFinalType().createBlockBuilder(null, 1000);
 
         groupedAccumulator.evaluateFinal(0, blockBuilder);
         assertTrue(blockBuilder.isNull(0));
@@ -320,7 +320,7 @@ public class TestHistogram
                     aggregationFunction);
             AggregationTestInput test1 = testInputBuilder.build();
 
-            test1.runPagesOnAccumulatorWithAssertion(j, groupedAccumulator, new AggregationTestOutput(expectedValues));
+            test1.runPagesOnAccumulatorWithAssertion(j, aggregationFunction.getFinalType(), groupedAccumulator, new AggregationTestOutput(expectedValues));
         }
     }
 
@@ -335,14 +335,14 @@ public class TestHistogram
         AggregationTestInput test1 = testBuilder1.build();
         GroupedAccumulator groupedAccumulator = test1.createGroupedAccumulator();
 
-        test1.runPagesOnAccumulatorWithAssertion(0L, groupedAccumulator, aggregationTestOutput1);
+        test1.runPagesOnAccumulatorWithAssertion(0L, aggregationFunction.getFinalType(), groupedAccumulator, aggregationTestOutput1);
 
         AggregationTestOutput aggregationTestOutput2 = new AggregationTestOutput(ImmutableMap.of("b", 1L, "c", 1L, "d", 1L));
         AggregationTestInputBuilder testbuilder2 = new AggregationTestInputBuilder(
                 new Block[] {block2},
                 aggregationFunction);
         AggregationTestInput test2 = testbuilder2.build();
-        test2.runPagesOnAccumulatorWithAssertion(255L, groupedAccumulator, aggregationTestOutput2);
+        test2.runPagesOnAccumulatorWithAssertion(255L, aggregationFunction.getFinalType(), groupedAccumulator, aggregationTestOutput2);
     }
 
     private static void testSharedGroupByWithDistinctValuesPerGroupRunner(TestingAggregationFunction aggregationFunction)
@@ -356,14 +356,14 @@ public class TestHistogram
         AggregationTestInput test1 = testInputBuilder1.build();
         GroupedAccumulator groupedAccumulator = test1.createGroupedAccumulator();
 
-        test1.runPagesOnAccumulatorWithAssertion(0L, groupedAccumulator, aggregationTestOutput1);
+        test1.runPagesOnAccumulatorWithAssertion(0L, aggregationFunction.getFinalType(), groupedAccumulator, aggregationTestOutput1);
 
         AggregationTestOutput aggregationTestOutput2 = new AggregationTestOutput(ImmutableMap.of("d", 1L, "e", 1L, "f", 1L));
         AggregationTestInputBuilder testBuilder2 = new AggregationTestInputBuilder(
                 new Block[] {block2},
                 aggregationFunction);
         AggregationTestInput test2 = testBuilder2.build();
-        test2.runPagesOnAccumulatorWithAssertion(255L, groupedAccumulator, aggregationTestOutput2);
+        test2.runPagesOnAccumulatorWithAssertion(255L, aggregationFunction.getFinalType(), groupedAccumulator, aggregationTestOutput2);
     }
 
     private static void testSharedGroupByWithOverlappingValuesRunner(TestingAggregationFunction aggregationFunction)
@@ -386,7 +386,7 @@ public class TestHistogram
                 .build());
         AggregationTestInput test1 = testInputBuilder1.build();
 
-        test1.runPagesOnAccumulatorWithAssertion(0L, test1.createGroupedAccumulator(), aggregationTestOutput1);
+        test1.runPagesOnAccumulatorWithAssertion(0L, aggregationFunction.getFinalType(), test1.createGroupedAccumulator(), aggregationTestOutput1);
     }
 
     private static TestingAggregationFunction getInternalDefaultVarCharAggregation()

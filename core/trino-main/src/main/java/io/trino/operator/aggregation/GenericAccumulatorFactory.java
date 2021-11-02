@@ -19,6 +19,7 @@ import io.trino.Session;
 import io.trino.operator.GroupByIdBlock;
 import io.trino.operator.MarkDistinctHash;
 import io.trino.operator.PagesIndex;
+import io.trino.operator.PagesIndex.Factory;
 import io.trino.operator.UpdateMemory;
 import io.trino.operator.Work;
 import io.trino.spi.Page;
@@ -51,6 +52,8 @@ import static java.util.Objects.requireNonNull;
 public class GenericAccumulatorFactory
         implements AccumulatorFactory
 {
+    private final Type intermediateType;
+    private final Type finalType;
     private final Constructor<? extends Accumulator> accumulatorConstructor;
     private final Constructor<? extends GroupedAccumulator> groupedAccumulatorConstructor;
     private final List<LambdaProvider> lambdaProviders;
@@ -71,6 +74,8 @@ public class GenericAccumulatorFactory
     private final PagesIndex.Factory pagesIndexFactory;
 
     public GenericAccumulatorFactory(
+            Type intermediateType,
+            Type finalType,
             Constructor<? extends Accumulator> accumulatorConstructor,
             Constructor<? extends GroupedAccumulator> groupedAccumulatorConstructor,
             List<LambdaProvider> lambdaProviders,
@@ -79,12 +84,14 @@ public class GenericAccumulatorFactory
             List<Type> sourceTypes,
             List<Integer> orderByChannels,
             List<SortOrder> orderings,
-            PagesIndex.Factory pagesIndexFactory,
+            Factory pagesIndexFactory,
             @Nullable JoinCompiler joinCompiler,
             @Nullable BlockTypeOperators blockTypeOperators,
             @Nullable Session session,
             boolean distinct)
     {
+        this.intermediateType = requireNonNull(intermediateType, "intermediateType is null");
+        this.finalType = requireNonNull(finalType, "finalType is null");
         this.accumulatorConstructor = requireNonNull(accumulatorConstructor, "accumulatorConstructor is null");
         this.groupedAccumulatorConstructor = requireNonNull(groupedAccumulatorConstructor, "groupedAccumulatorConstructor is null");
         this.lambdaProviders = ImmutableList.copyOf(requireNonNull(lambdaProviders, "lambdaProviders is null"));
@@ -101,6 +108,18 @@ public class GenericAccumulatorFactory
         this.blockTypeOperators = blockTypeOperators;
         this.session = session;
         this.distinct = distinct;
+    }
+
+    @Override
+    public Type getIntermediateType()
+    {
+        return intermediateType;
+    }
+
+    @Override
+    public Type getFinalType()
+    {
+        return finalType;
     }
 
     @Override
@@ -253,18 +272,6 @@ public class GenericAccumulatorFactory
         }
 
         @Override
-        public Type getFinalType()
-        {
-            return accumulator.getFinalType();
-        }
-
-        @Override
-        public Type getIntermediateType()
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
         public Accumulator copy()
         {
             return accumulator.copy();
@@ -382,18 +389,6 @@ public class GenericAccumulatorFactory
         }
 
         @Override
-        public Type getFinalType()
-        {
-            return accumulator.getFinalType();
-        }
-
-        @Override
-        public Type getIntermediateType()
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
         public void addInput(GroupByIdBlock groupIdsBlock, Page page)
         {
             Page withGroup = page.prependColumn(groupIdsBlock);
@@ -477,18 +472,6 @@ public class GenericAccumulatorFactory
         }
 
         @Override
-        public Type getFinalType()
-        {
-            return accumulator.getFinalType();
-        }
-
-        @Override
-        public Type getIntermediateType()
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
         public Accumulator copy()
         {
             return accumulator.copy();
@@ -553,18 +536,6 @@ public class GenericAccumulatorFactory
         public long getEstimatedSize()
         {
             return pagesIndex.getEstimatedSize().toBytes() + accumulator.getEstimatedSize();
-        }
-
-        @Override
-        public Type getFinalType()
-        {
-            return accumulator.getFinalType();
-        }
-
-        @Override
-        public Type getIntermediateType()
-        {
-            throw new UnsupportedOperationException();
         }
 
         @Override

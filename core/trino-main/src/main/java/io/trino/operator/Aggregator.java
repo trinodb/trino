@@ -24,12 +24,17 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 class Aggregator
 {
+    private final Type intermediateType;
+    private final Type finalType;
     private final Accumulator aggregation;
     private final AggregationNode.Step step;
     private final int intermediateChannel;
 
     Aggregator(AccumulatorFactory accumulatorFactory, AggregationNode.Step step)
     {
+        intermediateType = accumulatorFactory.getIntermediateType();
+        finalType = accumulatorFactory.getFinalType();
+
         if (step.isInputRaw()) {
             intermediateChannel = -1;
             aggregation = accumulatorFactory.createAccumulator();
@@ -45,10 +50,10 @@ class Aggregator
     public Type getType()
     {
         if (step.isOutputPartial()) {
-            return aggregation.getIntermediateType();
+            return intermediateType;
         }
         else {
-            return aggregation.getFinalType();
+            return finalType;
         }
     }
 

@@ -169,7 +169,7 @@ public class TestMultimapAggAggregation
     {
         TestingAggregationFunction aggregationFunction = getAggregationFunction(BIGINT, BIGINT);
         GroupedAccumulator groupedAccumulator = aggregationFunction.bind(Ints.asList(), Optional.empty()).createGroupedAccumulator();
-        BlockBuilder blockBuilder = groupedAccumulator.getFinalType().createBlockBuilder(null, 1);
+        BlockBuilder blockBuilder = aggregationFunction.getFinalType().createBlockBuilder(null, 1);
         groupedAccumulator.evaluateFinal(0, blockBuilder);
         assertTrue(blockBuilder.isNull(0));
     }
@@ -225,6 +225,6 @@ public class TestMultimapAggAggregation
                 aggregationFunction).build();
 
         AggregationTestOutput testOutput = new AggregationTestOutput(outputBuilder.build().asMap());
-        input.runPagesOnAccumulatorWithAssertion(groupId, groupedAccumulator, testOutput);
+        input.runPagesOnAccumulatorWithAssertion(groupId, aggregationFunction.getFinalType(), groupedAccumulator, testOutput);
     }
 }

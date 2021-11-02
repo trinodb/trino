@@ -82,12 +82,12 @@ public class TestSpatialPartitioningInternalAggregation
 
         Accumulator accumulator = accumulatorFactory.createAccumulator();
         accumulator.addInput(page);
-        String aggregation = (String) BlockAssertions.getOnlyValue(accumulator.getFinalType(), getFinalBlock(accumulator));
+        String aggregation = (String) BlockAssertions.getOnlyValue(function.getFinalType(), getFinalBlock(function.getFinalType(), accumulator));
         assertEquals(aggregation, expectedValue);
 
         GroupedAccumulator groupedAggregation = accumulatorFactory.createGroupedAccumulator();
         groupedAggregation.addInput(createGroupByIdBlock(0, page.getPositionCount()), page);
-        String groupValue = (String) getGroupValue(groupedAggregation, 0);
+        String groupValue = (String) getGroupValue(function.getFinalType(), groupedAggregation, 0);
         assertEquals(groupValue, expectedValue);
     }
 
