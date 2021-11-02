@@ -19,7 +19,7 @@ import com.google.common.primitives.Ints;
 import io.trino.operator.GroupByIdBlock;
 import io.trino.operator.aggregation.AggregationTestUtils;
 import io.trino.operator.aggregation.GroupedAccumulator;
-import io.trino.operator.aggregation.InternalAggregationFunction;
+import io.trino.operator.aggregation.TestingAggregationFunction;
 import io.trino.spi.Page;
 
 import java.util.Optional;
@@ -28,17 +28,17 @@ import java.util.function.Supplier;
 public class AggregationTestInput
 {
     private final Page[] pages;
-    private final InternalAggregationFunction function;
+    private final TestingAggregationFunction function;
     private final int[] args;
 
     private final int offset;
     private final boolean isReversed;
 
-    public AggregationTestInput(InternalAggregationFunction function, Page[] pages, int offset, boolean isReversed)
+    public AggregationTestInput(TestingAggregationFunction function, Page[] pages, int offset, boolean isReversed)
     {
         this.pages = pages;
         this.function = function;
-        args = GroupByAggregationTestUtils.createArgs(function);
+        args = GroupByAggregationTestUtils.createArgs(function.getParameterTypes().size());
         this.offset = offset;
         this.isReversed = isReversed;
     }

@@ -19,7 +19,7 @@ import io.trino.RowPagesBuilder;
 import io.trino.jmh.Benchmarks;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.HashAggregationOperator.HashAggregationOperatorFactory;
-import io.trino.operator.aggregation.InternalAggregationFunction;
+import io.trino.operator.aggregation.TestingAggregationFunction;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -84,8 +84,8 @@ public class BenchmarkHashAndStreamingAggregationOperators
     private static final JoinCompiler JOIN_COMPILER = new JoinCompiler(TYPE_OPERATORS);
 
     private static final TestingFunctionResolution FUNCTION_RESOLUTION = new TestingFunctionResolution();
-    private static final InternalAggregationFunction LONG_SUM = FUNCTION_RESOLUTION.getAggregateFunctionImplementation(QualifiedName.of("sum"), fromTypes(BIGINT));
-    private static final InternalAggregationFunction COUNT = FUNCTION_RESOLUTION.getAggregateFunctionImplementation(QualifiedName.of("count"), ImmutableList.of());
+    private static final TestingAggregationFunction LONG_SUM = FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of("sum"), fromTypes(BIGINT));
+    private static final TestingAggregationFunction COUNT = FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of("count"), ImmutableList.of());
 
     @State(Thread)
     public static class Context

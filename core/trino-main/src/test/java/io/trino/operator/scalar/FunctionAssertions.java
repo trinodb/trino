@@ -28,6 +28,7 @@ import io.trino.execution.Lifespan;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.Split;
 import io.trino.metadata.TableHandle;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.DriverContext;
 import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.FilterAndProjectOperator;
@@ -215,6 +216,7 @@ public final class FunctionAssertions
     private final LocalQueryRunner runner;
     private final TransactionManager transactionManager;
     private final Metadata metadata;
+    private final TestingFunctionResolution testingFunctionResolution;
     private final ExpressionCompiler compiler;
 
     public FunctionAssertions()
@@ -235,12 +237,18 @@ public final class FunctionAssertions
                 .build();
         transactionManager = runner.getTransactionManager();
         metadata = runner.getMetadata();
+        testingFunctionResolution = new TestingFunctionResolution(transactionManager, metadata);
         compiler = runner.getExpressionCompiler();
     }
 
     public Metadata getMetadata()
     {
         return metadata;
+    }
+
+    public TestingFunctionResolution getFunctionResolution()
+    {
+        return testingFunctionResolution;
     }
 
     public TypeOperators getTypeOperators()
