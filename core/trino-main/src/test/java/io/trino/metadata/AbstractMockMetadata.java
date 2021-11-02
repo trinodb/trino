@@ -22,7 +22,7 @@ import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.metadata.ResolvedFunction.ResolvedFunctionDecoder;
-import io.trino.operator.aggregation.InternalAggregationFunction;
+import io.trino.operator.aggregation.AggregationMetadata;
 import io.trino.operator.window.WindowFunctionSupplier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockEncodingSerde;
@@ -847,7 +847,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public InternalAggregationFunction getAggregateFunctionImplementation(ResolvedFunction resolvedFunction)
+    public AggregationMetadata getAggregateFunctionImplementation(ResolvedFunction resolvedFunction)
     {
         throw new UnsupportedOperationException();
     }
