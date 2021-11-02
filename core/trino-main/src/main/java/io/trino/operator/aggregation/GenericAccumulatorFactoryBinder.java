@@ -28,12 +28,10 @@ public class GenericAccumulatorFactoryBinder
         implements AccumulatorFactoryBinder
 {
     private final Constructor<? extends Accumulator> accumulatorConstructor;
-    private final boolean accumulatorHasRemoveInput;
     private final Constructor<? extends GroupedAccumulator> groupedAccumulatorConstructor;
 
     public GenericAccumulatorFactoryBinder(
             Class<? extends Accumulator> accumulatorClass,
-            boolean accumulatorHasRemoveInput,
             Class<? extends GroupedAccumulator> groupedAccumulatorClass)
     {
         try {
@@ -41,8 +39,6 @@ public class GenericAccumulatorFactoryBinder
                     List.class,     /* List<Integer> inputChannel */
                     Optional.class, /* Optional<Integer> maskChannel */
                     List.class      /* List<LambdaProvider> lambdaProviders */);
-
-            this.accumulatorHasRemoveInput = accumulatorHasRemoveInput;
 
             groupedAccumulatorConstructor = groupedAccumulatorClass.getConstructor(
                     List.class,     /* List<Integer> inputChannel */
@@ -70,7 +66,6 @@ public class GenericAccumulatorFactoryBinder
     {
         return new GenericAccumulatorFactory(
                 accumulatorConstructor,
-                accumulatorHasRemoveInput,
                 groupedAccumulatorConstructor,
                 lambdaProviders,
                 argumentChannels,

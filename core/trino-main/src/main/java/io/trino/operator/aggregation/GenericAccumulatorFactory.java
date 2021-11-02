@@ -26,7 +26,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.SortOrder;
-import io.trino.spi.function.WindowIndex;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.type.BlockTypeOperators;
@@ -60,7 +59,6 @@ public class GenericAccumulatorFactory
     private final List<Type> sourceTypes;
     private final List<Integer> orderByChannels;
     private final List<SortOrder> orderings;
-    private final boolean accumulatorHasRemoveInput;
 
     @Nullable
     private final JoinCompiler joinCompiler;
@@ -74,7 +72,6 @@ public class GenericAccumulatorFactory
 
     public GenericAccumulatorFactory(
             Constructor<? extends Accumulator> accumulatorConstructor,
-            boolean accumulatorHasRemoveInput,
             Constructor<? extends GroupedAccumulator> groupedAccumulatorConstructor,
             List<LambdaProvider> lambdaProviders,
             List<Integer> inputChannels,
@@ -89,7 +86,6 @@ public class GenericAccumulatorFactory
             boolean distinct)
     {
         this.accumulatorConstructor = requireNonNull(accumulatorConstructor, "accumulatorConstructor is null");
-        this.accumulatorHasRemoveInput = accumulatorHasRemoveInput;
         this.groupedAccumulatorConstructor = requireNonNull(groupedAccumulatorConstructor, "groupedAccumulatorConstructor is null");
         this.lambdaProviders = ImmutableList.copyOf(requireNonNull(lambdaProviders, "lambdaProviders is null"));
         this.maskChannel = requireNonNull(maskChannel, "maskChannel is null");
@@ -111,12 +107,6 @@ public class GenericAccumulatorFactory
     public List<Integer> getInputChannels()
     {
         return inputChannels;
-    }
-
-    @Override
-    public boolean hasRemoveInput()
-    {
-        return accumulatorHasRemoveInput;
     }
 
     @Override
@@ -303,18 +293,6 @@ public class GenericAccumulatorFactory
 
             // 3. feed a Page with a new mask to the underlying aggregation
             accumulator.addInput(filtered.prependColumn(distinctMask));
-        }
-
-        @Override
-        public void addInput(WindowIndex index, List<Integer> channels, int startPosition, int endPosition)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void removeInput(WindowIndex index, List<Integer> channels, int startPosition, int endPosition)
-        {
-            throw new UnsupportedOperationException();
         }
 
         @Override
@@ -520,18 +498,6 @@ public class GenericAccumulatorFactory
         public void addInput(Page page)
         {
             pagesIndex.addPage(page);
-        }
-
-        @Override
-        public void addInput(WindowIndex index, List<Integer> channels, int startPosition, int endPosition)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void removeInput(WindowIndex index, List<Integer> channels, int startPosition, int endPosition)
-        {
-            throw new UnsupportedOperationException();
         }
 
         @Override

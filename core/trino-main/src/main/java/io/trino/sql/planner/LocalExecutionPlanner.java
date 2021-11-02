@@ -123,6 +123,7 @@ import io.trino.operator.output.TaskOutputOperator.TaskOutputFactory;
 import io.trino.operator.project.CursorProcessor;
 import io.trino.operator.project.PageProcessor;
 import io.trino.operator.project.PageProjection;
+import io.trino.operator.window.AggregationWindowFunctionSupplier;
 import io.trino.operator.window.FrameInfo;
 import io.trino.operator.window.PartitionerSupplier;
 import io.trino.operator.window.PatternRecognitionPartitionerSupplier;
@@ -300,7 +301,6 @@ import static io.trino.operator.join.JoinUtils.isBuildSideReplicated;
 import static io.trino.operator.join.NestedLoopBuildOperator.NestedLoopBuildOperatorFactory;
 import static io.trino.operator.join.NestedLoopJoinOperator.NestedLoopJoinOperatorFactory;
 import static io.trino.operator.unnest.UnnestOperator.UnnestOperatorFactory;
-import static io.trino.operator.window.AggregateWindowFunction.supplier;
 import static io.trino.operator.window.pattern.PhysicalValuePointer.CLASSIFIER;
 import static io.trino.operator.window.pattern.PhysicalValuePointer.MATCH_NUMBER;
 import static io.trino.spi.StandardErrorCode.COMPILER_ERROR;
@@ -1157,11 +1157,10 @@ public class LocalExecutionPlanner
         {
             if (resolvedFunction.getFunctionKind() == FunctionKind.AGGREGATE) {
                 AggregationMetadata aggregationMetadata = metadata.getAggregateFunctionImplementation(resolvedFunction);
-                InternalAggregationFunction aggregateFunctionImplementation = new InternalAggregationFunction(
+                return new AggregationWindowFunctionSupplier(
                         resolvedFunction.getSignature(),
                         aggregationMetadata,
                         resolvedFunction.getFunctionNullability());
-                return supplier(resolvedFunction.getSignature().toSignature(), aggregateFunctionImplementation);
             }
             return metadata.getWindowFunctionImplementation(resolvedFunction);
         }
@@ -1566,8 +1565,9 @@ public class LocalExecutionPlanner
                     }
 
                     matchAggregations.add(new MatchAggregationInstantiator(
-                            pointer.getFunction().getSignature().getName(),
-                            new InternalAggregationFunction(pointer.getFunction().getSignature(), aggregationMetadata, pointer.getFunction().getFunctionNullability()),
+                            pointer.getFunction().getSignature(),
+                            aggregationMetadata,
+                            pointer.getFunction().getFunctionNullability(),
                             valueChannels,
                             lambdaProviders,
                             new SetEvaluatorSupplier(pointer.getSetDescriptor(), mapping)));

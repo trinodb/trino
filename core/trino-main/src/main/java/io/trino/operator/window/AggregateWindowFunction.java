@@ -14,51 +14,35 @@
 package io.trino.operator.window;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.metadata.Signature;
-import io.trino.operator.aggregation.Accumulator;
-import io.trino.operator.aggregation.AccumulatorFactory;
-import io.trino.operator.aggregation.InternalAggregationFunction;
-import io.trino.operator.aggregation.LambdaProvider;
+import io.trino.operator.aggregation.WindowAccumulator;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.WindowFunction;
 import io.trino.spi.function.WindowIndex;
 
 import java.util.List;
-import java.util.Optional;
+import java.util.function.Supplier;
 
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
-public class AggregateWindowFunction
+class AggregateWindowFunction
         implements WindowFunction
 {
     private final List<Integer> argumentChannels;
-    private final AccumulatorFactory accumulatorFactory;
-    private final boolean accumulatorHasRemoveInput;
+    private final Supplier<WindowAccumulator> accumulatorFactory;
+    private final boolean hasRemoveInput;
 
     private WindowIndex windowIndex;
-    private Accumulator accumulator;
+    private WindowAccumulator accumulator;
     private int currentStart;
     private int currentEnd;
 
-    private AggregateWindowFunction(InternalAggregationFunction function, List<Integer> argumentChannels, List<LambdaProvider> lambdaProviders)
+    public AggregateWindowFunction(Supplier<WindowAccumulator> accumulatorFactory, boolean hasRemoveInput, List<Integer> argumentChannels)
     {
-        this.argumentChannels = ImmutableList.copyOf(argumentChannels);
-        this.accumulatorFactory = function.bind(
-                argumentChannels,
-                Optional.empty(),
-                ImmutableList.of(),
-                ImmutableList.of(),
-                ImmutableList.of(),
-                null,
-                false,
-                null,
-                null,
-                lambdaProviders,
-                null);
-
-        this.accumulatorHasRemoveInput = accumulatorFactory.hasRemoveInput();
+        this.accumulatorFactory = requireNonNull(accumulatorFactory, "accumulatorFactory is null");
+        this.hasRemoveInput = hasRemoveInput;
+        this.argumentChannels = ImmutableList.copyOf(requireNonNull(argumentChannels, "argumentChannels is null"));
     }
 
     @Override
@@ -89,7 +73,7 @@ public class AggregateWindowFunction
 
     private void buildNewFrame(int frameStart, int frameEnd)
     {
-        if (accumulatorHasRemoveInput) {
+        if (hasRemoveInput) {
             // Note that all the start/end intervals are inclusive on both ends!
             if (currentStart < 0) {
                 currentStart = 0;
@@ -140,28 +124,9 @@ public class AggregateWindowFunction
     private void resetAccumulator()
     {
         if (currentStart >= 0) {
-            accumulator = accumulatorFactory.createAccumulator();
+            accumulator = accumulatorFactory.get();
             currentStart = -1;
             currentEnd = -1;
         }
-    }
-
-    public static WindowFunctionSupplier supplier(Signature signature, InternalAggregationFunction function)
-    {
-        requireNonNull(function, "function is null");
-        return new WindowFunctionSupplier()
-        {
-            @Override
-            public List<Class<?>> getLambdaInterfaces()
-            {
-                return function.getLambdaInterfaces();
-            }
-
-            @Override
-            public WindowFunction createWindowFunction(List<Integer> inputs, boolean ignoreNulls, List<LambdaProvider> lambdaProviders)
-            {
-                return new AggregateWindowFunction(function, inputs, lambdaProviders);
-            }
-        };
     }
 }

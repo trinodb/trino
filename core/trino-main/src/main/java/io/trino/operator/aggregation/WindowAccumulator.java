@@ -13,21 +13,20 @@
  */
 package io.trino.operator.aggregation;
 
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.WindowIndex;
+
 import java.util.List;
 
-public interface AccumulatorFactory
+public interface WindowAccumulator
 {
-    List<Integer> getInputChannels();
+    long getEstimatedSize();
 
-    Accumulator createAccumulator();
+    WindowAccumulator copy();
 
-    Accumulator createIntermediateAccumulator();
+    void addInput(WindowIndex index, List<Integer> channels, int startPosition, int endPosition);
 
-    GroupedAccumulator createGroupedAccumulator();
+    void removeInput(WindowIndex index, List<Integer> channels, int startPosition, int endPosition);
 
-    GroupedAccumulator createGroupedIntermediateAccumulator();
-
-    boolean hasOrderBy();
-
-    boolean hasDistinct();
+    void evaluateFinal(BlockBuilder blockBuilder);
 }
