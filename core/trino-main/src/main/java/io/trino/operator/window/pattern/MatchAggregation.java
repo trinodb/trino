@@ -77,9 +77,9 @@ public class MatchAggregation
     private int rowsFromMemoryReport;
     private Block resultOnEmpty;
 
-    private MatchAggregation(InternalAggregationFunction function, List<Integer> argumentChannels, List<LambdaProvider> lambdaProviders, SetEvaluator setEvaluator, AggregatedMemoryContext memoryContextSupplier)
+    private MatchAggregation(String name, InternalAggregationFunction function, List<Integer> argumentChannels, List<LambdaProvider> lambdaProviders, SetEvaluator setEvaluator, AggregatedMemoryContext memoryContextSupplier)
     {
-        this.name = function.name();
+        this.name = requireNonNull(name, "name is null");
         this.argumentChannels = ImmutableList.copyOf(argumentChannels);
         this.accumulatorFactory = function.bind(
                 argumentChannels,
@@ -194,13 +194,15 @@ public class MatchAggregation
 
     public static class MatchAggregationInstantiator
     {
+        private final String name;
         private final InternalAggregationFunction function;
         private final List<Integer> argumentChannels;
         private final List<LambdaProvider> lambdaProviders;
         private final SetEvaluatorSupplier setEvaluatorSupplier;
 
-        public MatchAggregationInstantiator(InternalAggregationFunction function, List<Integer> argumentChannels, List<LambdaProvider> lambdaProviders, SetEvaluatorSupplier setEvaluatorSupplier)
+        public MatchAggregationInstantiator(String name, InternalAggregationFunction function, List<Integer> argumentChannels, List<LambdaProvider> lambdaProviders, SetEvaluatorSupplier setEvaluatorSupplier)
         {
+            this.name = requireNonNull(name, "name is null");
             this.function = requireNonNull(function, "function is null");
             this.argumentChannels = requireNonNull(argumentChannels, "argumentChannels is null");
             this.lambdaProviders = requireNonNull(lambdaProviders, "lambdaProviders is null");
@@ -210,7 +212,7 @@ public class MatchAggregation
         public MatchAggregation get(AggregatedMemoryContext memoryContextSupplier)
         {
             requireNonNull(memoryContextSupplier, "memoryContextSupplier is null");
-            return new MatchAggregation(function, argumentChannels, lambdaProviders, setEvaluatorSupplier.get(), memoryContextSupplier);
+            return new MatchAggregation(name, function, argumentChannels, lambdaProviders, setEvaluatorSupplier.get(), memoryContextSupplier);
         }
     }
 }

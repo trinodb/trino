@@ -141,6 +141,7 @@ public class TestingFunctionResolution
         return inTransaction(session -> {
             ResolvedFunction resolvedFunction = metadata.resolveFunction(session, name, parameterTypes);
             return new TestingAggregationFunction(
+                    resolvedFunction.getSignature(),
                     metadata.getAggregationFunctionMetadata(resolvedFunction),
                     metadata.getAggregateFunctionImplementation(resolvedFunction));
         });
