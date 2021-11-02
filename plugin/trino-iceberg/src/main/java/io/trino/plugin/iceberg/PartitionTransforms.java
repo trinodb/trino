@@ -223,8 +223,7 @@ public final class PartitionTransforms
                 continue;
             }
             long value = DATE.getLong(block, position);
-            value = function.applyAsLong(value);
-            INTEGER.writeLong(builder, value);
+            INTEGER.writeLong(builder, function.applyAsLong(value));
         }
         return builder.build();
     }
@@ -259,8 +258,7 @@ public final class PartitionTransforms
             }
             long epochMicros = TIMESTAMP_MICROS.getLong(block, position);
             long epochMillis = floorDiv(epochMicros, MICROSECONDS_PER_MILLISECOND);
-            epochMillis = function.applyAsLong(epochMillis);
-            INTEGER.writeLong(builder, epochMillis);
+            INTEGER.writeLong(builder, function.applyAsLong(epochMillis));
         }
         return builder.build();
     }
@@ -294,8 +292,7 @@ public final class PartitionTransforms
                 continue;
             }
             long epochMillis = getTimestampTz(block, position).getEpochMillis();
-            epochMillis = function.applyAsLong(epochMillis);
-            INTEGER.writeLong(builder, epochMillis);
+            INTEGER.writeLong(builder, function.applyAsLong(epochMillis));
         }
         return builder.build();
     }
@@ -400,8 +397,8 @@ public final class PartitionTransforms
                 continue;
             }
             long value = INTEGER.getLong(block, position);
-            value -= ((value % width) + width) % width;
-            INTEGER.writeLong(builder, value);
+            long truncated = value - ((value % width) + width) % width;
+            INTEGER.writeLong(builder, truncated);
         }
         return builder.build();
     }
@@ -415,8 +412,8 @@ public final class PartitionTransforms
                 continue;
             }
             long value = BIGINT.getLong(block, position);
-            value -= ((value % width) + width) % width;
-            BIGINT.writeLong(builder, value);
+            long truncated = value - ((value % width) + width) % width;
+            BIGINT.writeLong(builder, truncated);
         }
         return builder.build();
     }
@@ -432,8 +429,8 @@ public final class PartitionTransforms
             }
             // TODO: write optimized implementation
             BigDecimal value = readBigDecimal(type, block, position);
-            value = truncateDecimal(value, unscaledWidth);
-            type.writeLong(builder, encodeShortScaledValue(value, type.getScale()));
+            BigDecimal truncated = truncateDecimal(value, unscaledWidth);
+            type.writeLong(builder, encodeShortScaledValue(truncated, type.getScale()));
         }
         return builder.build();
     }
@@ -449,8 +446,8 @@ public final class PartitionTransforms
             }
             // TODO: write optimized implementation
             BigDecimal value = readBigDecimal(type, block, position);
-            value = truncateDecimal(value, unscaledWidth);
-            type.writeSlice(builder, encodeScaledValue(value, type.getScale()));
+            BigDecimal truncated = truncateDecimal(value, unscaledWidth);
+            type.writeSlice(builder, encodeScaledValue(truncated, type.getScale()));
         }
         return builder.build();
     }
@@ -475,8 +472,8 @@ public final class PartitionTransforms
                 continue;
             }
             Slice value = VARCHAR.getSlice(block, position);
-            value = truncateVarchar(value, max);
-            VARCHAR.writeSlice(builder, value);
+            Slice truncated = truncateVarchar(value, max);
+            VARCHAR.writeSlice(builder, truncated);
         }
         return builder.build();
     }
@@ -502,10 +499,8 @@ public final class PartitionTransforms
                 continue;
             }
             Slice value = VARBINARY.getSlice(block, position);
-            if (value.length() > max) {
-                value = value.slice(0, max);
-            }
-            VARBINARY.writeSlice(builder, value);
+            Slice truncated = (value.length() <= max) ? value : value.slice(0, max);
+            VARBINARY.writeSlice(builder, truncated);
         }
         return builder.build();
     }
