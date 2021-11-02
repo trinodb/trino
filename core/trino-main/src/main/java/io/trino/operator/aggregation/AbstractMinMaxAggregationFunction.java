@@ -14,7 +14,6 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.bytecode.DynamicClassLoader;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.metadata.AggregationFunctionMetadata;
 import io.trino.metadata.BoundSignature;
@@ -129,8 +128,6 @@ public abstract class AbstractMinMaxAggregationFunction
 
     protected InternalAggregationFunction generateAggregation(Type type, MethodHandle compareMethodHandle)
     {
-        DynamicClassLoader classLoader = new DynamicClassLoader(AbstractMinMaxAggregationFunction.class.getClassLoader());
-
         List<Type> inputTypes = ImmutableList.of(type);
 
         MethodHandle inputFunction;
@@ -142,7 +139,7 @@ public abstract class AbstractMinMaxAggregationFunction
             accumulatorStateDescriptor = new AccumulatorStateDescriptor<>(
                     GenericLongState.class,
                     new GenericLongStateSerializer(type),
-                    StateCompiler.generateStateFactory(GenericLongState.class, classLoader));
+                    StateCompiler.generateStateFactory(GenericLongState.class));
             inputFunction = LONG_INPUT_FUNCTION.bindTo(compareMethodHandle);
             combineFunction = LONG_COMBINE_FUNCTION.bindTo(compareMethodHandle);
             outputFunction = LONG_OUTPUT_FUNCTION.bindTo(type);
@@ -151,7 +148,7 @@ public abstract class AbstractMinMaxAggregationFunction
             accumulatorStateDescriptor = new AccumulatorStateDescriptor<>(
                     GenericDoubleState.class,
                     new GenericDoubleStateSerializer(type),
-                    StateCompiler.generateStateFactory(GenericDoubleState.class, classLoader));
+                    StateCompiler.generateStateFactory(GenericDoubleState.class));
             inputFunction = DOUBLE_INPUT_FUNCTION.bindTo(compareMethodHandle);
             combineFunction = DOUBLE_COMBINE_FUNCTION.bindTo(compareMethodHandle);
             outputFunction = DOUBLE_OUTPUT_FUNCTION.bindTo(type);
@@ -160,7 +157,7 @@ public abstract class AbstractMinMaxAggregationFunction
             accumulatorStateDescriptor = new AccumulatorStateDescriptor<>(
                     GenericBooleanState.class,
                     new GenericBooleanStateSerializer(type),
-                    StateCompiler.generateStateFactory(GenericBooleanState.class, classLoader));
+                    StateCompiler.generateStateFactory(GenericBooleanState.class));
             inputFunction = BOOLEAN_INPUT_FUNCTION.bindTo(compareMethodHandle);
             combineFunction = BOOLEAN_COMBINE_FUNCTION.bindTo(compareMethodHandle);
             outputFunction = BOOLEAN_OUTPUT_FUNCTION.bindTo(type);
@@ -170,7 +167,7 @@ public abstract class AbstractMinMaxAggregationFunction
             accumulatorStateDescriptor = new AccumulatorStateDescriptor<>(
                     BlockPositionState.class,
                     new BlockPositionStateSerializer(type),
-                    StateCompiler.generateStateFactory(BlockPositionState.class, classLoader));
+                    StateCompiler.generateStateFactory(BlockPositionState.class));
             inputFunction = BLOCK_POSITION_INPUT_FUNCTION.bindTo(compareMethodHandle);
             combineFunction = BLOCK_POSITION_COMBINE_FUNCTION.bindTo(compareMethodHandle);
             outputFunction = BLOCK_POSITION_OUTPUT_FUNCTION.bindTo(type);

@@ -14,7 +14,6 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.bytecode.DynamicClassLoader;
 import io.trino.metadata.AggregationFunctionMetadata;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
@@ -101,8 +100,6 @@ public class ArbitraryAggregationFunction
 
     private static InternalAggregationFunction generateAggregation(Type type)
     {
-        DynamicClassLoader classLoader = new DynamicClassLoader(ArbitraryAggregationFunction.class.getClassLoader());
-
         List<Type> inputTypes = ImmutableList.of(type);
 
         MethodHandle inputFunction;
@@ -114,7 +111,7 @@ public class ArbitraryAggregationFunction
             accumulatorStateDescriptor = new AccumulatorStateDescriptor<>(
                     GenericLongState.class,
                     new GenericLongStateSerializer(type),
-                    StateCompiler.generateStateFactory(GenericLongState.class, classLoader));
+                    StateCompiler.generateStateFactory(GenericLongState.class));
             inputFunction = LONG_INPUT_FUNCTION;
             combineFunction = LONG_COMBINE_FUNCTION;
             outputFunction = LONG_OUTPUT_FUNCTION;
@@ -123,7 +120,7 @@ public class ArbitraryAggregationFunction
             accumulatorStateDescriptor = new AccumulatorStateDescriptor<>(
                     GenericDoubleState.class,
                     new GenericDoubleStateSerializer(type),
-                    StateCompiler.generateStateFactory(GenericDoubleState.class, classLoader));
+                    StateCompiler.generateStateFactory(GenericDoubleState.class));
             inputFunction = DOUBLE_INPUT_FUNCTION;
             combineFunction = DOUBLE_COMBINE_FUNCTION;
             outputFunction = DOUBLE_OUTPUT_FUNCTION;
@@ -132,7 +129,7 @@ public class ArbitraryAggregationFunction
             accumulatorStateDescriptor = new AccumulatorStateDescriptor<>(
                     GenericBooleanState.class,
                     new GenericBooleanStateSerializer(type),
-                    StateCompiler.generateStateFactory(GenericBooleanState.class, classLoader));
+                    StateCompiler.generateStateFactory(GenericBooleanState.class));
             inputFunction = BOOLEAN_INPUT_FUNCTION;
             combineFunction = BOOLEAN_COMBINE_FUNCTION;
             outputFunction = BOOLEAN_OUTPUT_FUNCTION;
@@ -142,7 +139,7 @@ public class ArbitraryAggregationFunction
             accumulatorStateDescriptor = new AccumulatorStateDescriptor<>(
                     BlockPositionState.class,
                     new BlockPositionStateSerializer(type),
-                    StateCompiler.generateStateFactory(BlockPositionState.class, classLoader));
+                    StateCompiler.generateStateFactory(BlockPositionState.class));
             inputFunction = BLOCK_POSITION_INPUT_FUNCTION;
             combineFunction = BLOCK_POSITION_COMBINE_FUNCTION;
             outputFunction = BLOCK_POSITION_OUTPUT_FUNCTION;

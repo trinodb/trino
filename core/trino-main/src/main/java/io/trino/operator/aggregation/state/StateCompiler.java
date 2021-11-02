@@ -151,15 +151,10 @@ public final class StateCompiler
 
     public static <T extends AccumulatorState> AccumulatorStateSerializer<T> generateStateSerializer(Class<T> clazz)
     {
-        return generateStateSerializer(clazz, new DynamicClassLoader(clazz.getClassLoader()));
+        return generateStateSerializer(clazz, ImmutableMap.of());
     }
 
-    public static <T extends AccumulatorState> AccumulatorStateSerializer<T> generateStateSerializer(Class<T> clazz, DynamicClassLoader classLoader)
-    {
-        return generateStateSerializer(clazz, ImmutableMap.of(), classLoader);
-    }
-
-    public static <T extends AccumulatorState> AccumulatorStateSerializer<T> generateStateSerializer(Class<T> clazz, Map<String, Type> fieldTypes, DynamicClassLoader classLoader)
+    public static <T extends AccumulatorState> AccumulatorStateSerializer<T> generateStateSerializer(Class<T> clazz, Map<String, Type> fieldTypes)
     {
         AccumulatorStateMetadata metadata = getMetadataAnnotation(clazz);
         if (metadata != null && metadata.stateSerializerClass() != AccumulatorStateSerializer.class) {
@@ -188,7 +183,7 @@ public final class StateCompiler
         generateSerialize(definition, callSiteBinder, clazz, fields);
         generateDeserialize(definition, callSiteBinder, clazz, fields);
 
-        Class<?> serializerClass = defineClass(definition, AccumulatorStateSerializer.class, callSiteBinder.getBindings(), classLoader);
+        Class<?> serializerClass = defineClass(definition, AccumulatorStateSerializer.class, callSiteBinder.getBindings(), new DynamicClassLoader(clazz.getClassLoader()));
         try {
             //noinspection unchecked
             return (AccumulatorStateSerializer<T>) serializerClass.getConstructor().newInstance();
@@ -360,15 +355,10 @@ public final class StateCompiler
 
     public static <T extends AccumulatorState> AccumulatorStateFactory<T> generateStateFactory(Class<T> clazz)
     {
-        return generateStateFactory(clazz, new DynamicClassLoader(clazz.getClassLoader()));
+        return generateStateFactory(clazz, ImmutableMap.of());
     }
 
-    public static <T extends AccumulatorState> AccumulatorStateFactory<T> generateStateFactory(Class<T> clazz, DynamicClassLoader classLoader)
-    {
-        return generateStateFactory(clazz, ImmutableMap.of(), classLoader);
-    }
-
-    public static <T extends AccumulatorState> AccumulatorStateFactory<T> generateStateFactory(Class<T> clazz, Map<String, Type> fieldTypes, DynamicClassLoader classLoader)
+    public static <T extends AccumulatorState> AccumulatorStateFactory<T> generateStateFactory(Class<T> clazz, Map<String, Type> fieldTypes)
     {
         AccumulatorStateMetadata metadata = getMetadataAnnotation(clazz);
         if (metadata != null && metadata.stateFactoryClass() != AccumulatorStateFactory.class) {
@@ -381,6 +371,7 @@ public final class StateCompiler
             }
         }
 
+        DynamicClassLoader classLoader = new DynamicClassLoader(clazz.getClassLoader());
         Class<? extends T> singleStateClass = generateSingleStateClass(clazz, fieldTypes, classLoader);
         Class<? extends T> groupedStateClass = generateGroupedStateClass(clazz, fieldTypes, classLoader);
 
