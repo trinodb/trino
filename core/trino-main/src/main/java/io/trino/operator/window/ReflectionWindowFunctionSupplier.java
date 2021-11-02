@@ -15,22 +15,18 @@ package io.trino.operator.window;
 
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
-import io.trino.metadata.Signature;
 import io.trino.operator.aggregation.LambdaProvider;
-import io.trino.spi.function.Description;
 import io.trino.spi.function.ValueWindowFunction;
 import io.trino.spi.function.WindowFunction;
-import io.trino.spi.type.Type;
 
-import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Constructor;
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public class ReflectionWindowFunctionSupplier<T extends WindowFunction>
-        extends AbstractWindowFunctionSupplier
+public class ReflectionWindowFunctionSupplier
+        implements WindowFunctionSupplier
 {
     private enum ConstructorType
     {
@@ -39,22 +35,18 @@ public class ReflectionWindowFunctionSupplier<T extends WindowFunction>
         INPUTS_IGNORE_NULLS
     }
 
-    private final Constructor<T> constructor;
+    private final int argumentCount;
+    private final Constructor<? extends WindowFunction> constructor;
     private final ConstructorType constructorType;
 
-    public ReflectionWindowFunctionSupplier(String name, Type returnType, List<? extends Type> argumentTypes, Class<T> type)
+    public ReflectionWindowFunctionSupplier(int argumentCount, Class<? extends WindowFunction> type)
     {
-        this(new Signature(name, returnType.getTypeSignature(), Lists.transform(argumentTypes, Type::getTypeSignature)), type);
-    }
-
-    public ReflectionWindowFunctionSupplier(Signature signature, Class<T> type)
-    {
-        super(signature, getDescription(requireNonNull(type, "type is null")), ImmutableList.of());
+        this.argumentCount = argumentCount;
         try {
-            Constructor<T> constructor;
+            Constructor<? extends WindowFunction> constructor;
             ConstructorType constructorType;
 
-            if (signature.getArgumentTypes().isEmpty()) {
+            if (argumentCount == 0) {
                 constructor = type.getConstructor();
                 constructorType = ConstructorType.NO_INPUTS;
             }
@@ -83,27 +75,30 @@ public class ReflectionWindowFunctionSupplier<T extends WindowFunction>
     }
 
     @Override
-    protected T newWindowFunction(List<Integer> inputs, boolean ignoreNulls, List<LambdaProvider> lambdaProviders)
+    public List<Class<?>> getLambdaInterfaces()
     {
+        return ImmutableList.of();
+    }
+
+    @Override
+    public WindowFunction createWindowFunction(List<Integer> argumentChannels, boolean ignoreNulls, List<LambdaProvider> lambdaProviders)
+    {
+        requireNonNull(argumentChannels, "inputs is null");
+        checkArgument(argumentChannels.size() == argumentCount, "Expected %s arguments, but got %s", argumentCount, argumentChannels.size());
+
         try {
             switch (constructorType) {
                 case NO_INPUTS:
                     return constructor.newInstance();
                 case INPUTS:
-                    return constructor.newInstance(inputs);
+                    return constructor.newInstance(argumentChannels);
                 case INPUTS_IGNORE_NULLS:
-                    return constructor.newInstance(inputs, ignoreNulls);
+                    return constructor.newInstance(argumentChannels, ignoreNulls);
             }
             throw new VerifyException("Unhandled constructor type: " + constructorType);
         }
         catch (ReflectiveOperationException e) {
             throw new RuntimeException(e);
         }
-    }
-
-    private static String getDescription(AnnotatedElement annotatedElement)
-    {
-        Description description = annotatedElement.getAnnotation(Description.class);
-        return (description == null) ? null : description.value();
     }
 }
