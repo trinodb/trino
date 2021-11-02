@@ -775,7 +775,12 @@ public abstract class AbstractMockMetadata
         String nameSuffix = name.getSuffix();
         if (nameSuffix.equals("rand") && parameterTypes.isEmpty()) {
             BoundSignature boundSignature = new BoundSignature(nameSuffix, DOUBLE, ImmutableList.of());
-            return new ResolvedFunction(boundSignature, toFunctionId(boundSignature.toSignature()), ImmutableMap.of(), ImmutableSet.of());
+            return new ResolvedFunction(
+                    boundSignature,
+                    toFunctionId(boundSignature.toSignature()),
+                    new FunctionNullability(false, ImmutableList.of()),
+                    ImmutableMap.of(),
+                    ImmutableSet.of());
         }
         throw new TrinoException(FUNCTION_NOT_FOUND, name + "(" + Joiner.on(", ").join(parameterTypes) + ")");
     }
@@ -810,7 +815,7 @@ public abstract class AbstractMockMetadata
     {
         BoundSignature signature = resolvedFunction.getSignature();
         if (signature.getName().equals("rand") && signature.getArgumentTypes().isEmpty()) {
-            return new FunctionMetadata(signature.toSignature(), false, ImmutableList.of(), false, false, "", SCALAR);
+            return new FunctionMetadata(signature.toSignature(), new FunctionNullability(false, ImmutableList.of()), false, false, "", SCALAR);
         }
         throw new TrinoException(FUNCTION_NOT_FOUND, signature.toString());
     }

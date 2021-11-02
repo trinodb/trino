@@ -20,7 +20,7 @@ import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.scalar.ArraySubscriptOperator;
@@ -1025,16 +1025,16 @@ public class ExpressionInterpreter
             }
 
             ResolvedFunction resolvedFunction = metadata.decodeFunction(node.getName());
-            FunctionMetadata functionMetadata = metadata.getFunctionMetadata(resolvedFunction);
+            FunctionNullability functionNullability = resolvedFunction.getFunctionNullability();
             for (int i = 0; i < argumentValues.size(); i++) {
                 Object value = argumentValues.get(i);
-                if (value == null && !functionMetadata.getArgumentDefinitions().get(i).isNullable()) {
+                if (value == null && !functionNullability.isArgumentNullable(i)) {
                     return null;
                 }
             }
 
             // do not optimize non-deterministic functions
-            if (optimize && (!functionMetadata.isDeterministic() ||
+            if (optimize && (!metadata.getFunctionMetadata(resolvedFunction).isDeterministic() ||
                     hasUnresolvedValue(argumentValues) ||
                     isDynamicFilter(node) ||
                     resolvedFunction.getSignature().getName().equals("fail"))) {

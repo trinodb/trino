@@ -17,9 +17,9 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.trino.array.ObjectBigArray;
 import io.trino.metadata.AggregationFunctionMetadata;
-import io.trino.metadata.FunctionArgumentDefinition;
 import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlAggregationFunction;
 import io.trino.operator.aggregation.AccumulatorCompiler;
@@ -100,10 +100,7 @@ public class MultimapAggregationFunction
                                 mapType(new TypeSignature("K"), arrayType(new TypeSignature("V"))),
                                 ImmutableList.of(new TypeSignature("K"), new TypeSignature("V")),
                                 false),
-                        true,
-                        ImmutableList.of(
-                                new FunctionArgumentDefinition(false),
-                                new FunctionArgumentDefinition(true)),
+                        new FunctionNullability(true, ImmutableList.of(false, true)),
                         false,
                         true,
                         "Aggregates all the rows (key/value pairs) into a single multimap",

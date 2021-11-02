@@ -15,9 +15,9 @@ package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.metadata.FunctionArgumentDefinition;
 import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.operator.aggregation.TypedSet;
@@ -78,8 +78,7 @@ public final class MapConcatFunction
                         mapType(new TypeSignature("K"), new TypeSignature("V")),
                         ImmutableList.of(mapType(new TypeSignature("K"), new TypeSignature("V"))),
                         true),
-                false,
-                ImmutableList.of(new FunctionArgumentDefinition(false)),
+                new FunctionNullability(false, ImmutableList.of(false)),
                 false,
                 true,
                 DESCRIPTION,

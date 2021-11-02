@@ -2520,12 +2520,13 @@ public final class MetadataManager
 
     private ResolvedFunction resolve(Session session, FunctionBinding functionBinding)
     {
+        FunctionMetadata functionMetadata = getFunctionMetadata(functionBinding.getFunctionId(), functionBinding.getBoundSignature());
         FunctionDependencyDeclaration declaration = functions.getFunctionDependencies(functionBinding);
-        return resolve(session, functionBinding, declaration);
+        return resolve(session, functionBinding, functionMetadata, declaration);
     }
 
     @VisibleForTesting
-    public ResolvedFunction resolve(Session session, FunctionBinding functionBinding, FunctionDependencyDeclaration declaration)
+    public ResolvedFunction resolve(Session session, FunctionBinding functionBinding, FunctionMetadata functionMetadata, FunctionDependencyDeclaration declaration)
     {
         Map<TypeSignature, Type> dependentTypes = declaration.getTypeDependencies().stream()
                 .map(typeSignature -> applyBoundVariables(typeSignature, functionBinding))
@@ -2584,6 +2585,7 @@ public final class MetadataManager
         return new ResolvedFunction(
                 functionBinding.getBoundSignature(),
                 functionBinding.getFunctionId(),
+                functionMetadata.getFunctionNullability(),
                 dependentTypes,
                 functions.build());
     }
@@ -2599,27 +2601,29 @@ public final class MetadataManager
     @Override
     public FunctionMetadata getFunctionMetadata(ResolvedFunction resolvedFunction)
     {
-        FunctionMetadata functionMetadata = functions.get(resolvedFunction.getFunctionId());
+        return getFunctionMetadata(resolvedFunction.getFunctionId(), resolvedFunction.getSignature());
+    }
+
+    private FunctionMetadata getFunctionMetadata(FunctionId functionId, BoundSignature signature)
+    {
+        FunctionMetadata functionMetadata = functions.get(functionId);
 
         // specialize function metadata to resolvedFunction
-        List<FunctionArgumentDefinition> argumentDefinitions;
+        List<Boolean> argumentNullability = functionMetadata.getFunctionNullability().getArgumentNullable();
         if (functionMetadata.getSignature().isVariableArity()) {
-            List<FunctionArgumentDefinition> fixedArguments = functionMetadata.getArgumentDefinitions().subList(0, functionMetadata.getArgumentDefinitions().size() - 1);
-            int variableArgumentCount = resolvedFunction.getSignature().getArgumentTypes().size() - fixedArguments.size();
-            argumentDefinitions = ImmutableList.<FunctionArgumentDefinition>builder()
-                    .addAll(fixedArguments)
-                    .addAll(nCopies(variableArgumentCount, functionMetadata.getArgumentDefinitions().get(functionMetadata.getArgumentDefinitions().size() - 1)))
+            List<Boolean> fixedArgumentNullability = argumentNullability.subList(0, argumentNullability.size() - 1);
+            int variableArgumentCount = signature.getArgumentTypes().size() - fixedArgumentNullability.size();
+            argumentNullability = ImmutableList.<Boolean>builder()
+                    .addAll(fixedArgumentNullability)
+                    .addAll(nCopies(variableArgumentCount, argumentNullability.get(argumentNullability.size() - 1)))
                     .build();
         }
-        else {
-            argumentDefinitions = functionMetadata.getArgumentDefinitions();
-        }
+
         return new FunctionMetadata(
                 functionMetadata.getFunctionId(),
-                resolvedFunction.getSignature().toSignature(),
+                signature.toSignature(),
                 functionMetadata.getCanonicalName(),
-                functionMetadata.isNullable(),
-                argumentDefinitions,
+                new FunctionNullability(functionMetadata.getFunctionNullability().isReturnNullable(), argumentNullability),
                 functionMetadata.isHidden(),
                 functionMetadata.isDeterministic(),
                 functionMetadata.getDescription(),

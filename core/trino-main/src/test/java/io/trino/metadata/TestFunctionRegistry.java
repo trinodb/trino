@@ -348,8 +348,7 @@ public class TestFunctionRegistry
                 Signature signature = functionSignature.name(TEST_FUNCTION_NAME).build();
                 FunctionMetadata functionMetadata = new FunctionMetadata(
                         signature,
-                        false,
-                        nCopies(signature.getArgumentTypes().size(), new FunctionArgumentDefinition(false)),
+                        new FunctionNullability(false, nCopies(signature.getArgumentTypes().size(), false)),
                         false,
                         false,
                         "testing function that does nothing",

@@ -16,9 +16,9 @@ package io.trino.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.metadata.FunctionArgumentDefinition;
 import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.type.Type;
@@ -58,10 +58,7 @@ public final class ApplyFunction
                                 new TypeSignature("T"),
                                 functionType(new TypeSignature("T"), new TypeSignature("U"))),
                         false),
-                true,
-                ImmutableList.of(
-                        new FunctionArgumentDefinition(true),
-                        new FunctionArgumentDefinition(false)),
+                new FunctionNullability(true, ImmutableList.of(true, false)),
                 true,
                 true,
                 "lambda apply function",

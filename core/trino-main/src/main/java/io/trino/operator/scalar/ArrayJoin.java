@@ -16,11 +16,11 @@ package io.trino.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.metadata.FunctionArgumentDefinition;
 import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.FunctionDependencies;
 import io.trino.metadata.FunctionDependencyDeclaration;
 import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.PageBuilder;
@@ -96,11 +96,7 @@ public final class ArrayJoin
                             VARCHAR.getTypeSignature(),
                             ImmutableList.of(arrayType(new TypeSignature("T")), VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()),
                             false),
-                    false,
-                    ImmutableList.of(
-                            new FunctionArgumentDefinition(false),
-                            new FunctionArgumentDefinition(false),
-                            new FunctionArgumentDefinition(false)),
+                    new FunctionNullability(false, ImmutableList.of(false, false, false)),
                     false,
                     true,
                     DESCRIPTION,
@@ -130,10 +126,7 @@ public final class ArrayJoin
                         VARCHAR.getTypeSignature(),
                         ImmutableList.of(arrayType(new TypeSignature("T")), VARCHAR.getTypeSignature()),
                         false),
-                false,
-                ImmutableList.of(
-                        new FunctionArgumentDefinition(false),
-                        new FunctionArgumentDefinition(false)),
+                new FunctionNullability(false, ImmutableList.of(false, false)),
                 false,
                 true,
                 DESCRIPTION,

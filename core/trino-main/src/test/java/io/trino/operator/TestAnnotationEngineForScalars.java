@@ -94,7 +94,7 @@ public class TestAnnotationEngineForScalars
         assertTrue(functionMetadata.isDeterministic());
         assertFalse(functionMetadata.isHidden());
         assertEquals(functionMetadata.getDescription(), "Simple scalar with single implementation based on class");
-        assertFalse(functionMetadata.getArgumentDefinitions().get(0).isNullable());
+        assertFalse(functionMetadata.getFunctionNullability().isArgumentNullable(0));
 
         assertImplementationCount(scalar, 1, 0, 0);
 
@@ -186,8 +186,8 @@ public class TestAnnotationEngineForScalars
         assertTrue(functionMetadata.isDeterministic());
         assertFalse(functionMetadata.isHidden());
         assertEquals(functionMetadata.getDescription(), "Simple scalar with nullable primitive");
-        assertFalse(functionMetadata.getArgumentDefinitions().get(0).isNullable());
-        assertTrue(functionMetadata.getArgumentDefinitions().get(1).isNullable());
+        assertFalse(functionMetadata.getFunctionNullability().isArgumentNullable(0));
+        assertTrue(functionMetadata.getFunctionNullability().isArgumentNullable(1));
 
         FunctionBinding functionBinding = new FunctionBinding(
                 functionMetadata.getFunctionId(),
@@ -230,8 +230,8 @@ public class TestAnnotationEngineForScalars
         assertTrue(functionMetadata.isDeterministic());
         assertFalse(functionMetadata.isHidden());
         assertEquals(functionMetadata.getDescription(), "Simple scalar with nullable complex type");
-        assertFalse(functionMetadata.getArgumentDefinitions().get(0).isNullable());
-        assertTrue(functionMetadata.getArgumentDefinitions().get(1).isNullable());
+        assertFalse(functionMetadata.getFunctionNullability().isArgumentNullable(0));
+        assertTrue(functionMetadata.getFunctionNullability().isArgumentNullable(1));
 
         FunctionBinding functionBinding = new FunctionBinding(
                 functionMetadata.getFunctionId(),

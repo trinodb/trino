@@ -71,8 +71,7 @@ public class ParametricAggregation
                 new FunctionMetadata(
                         signature,
                         details.getName(),
-                        true,
-                        implementations.getArgumentDefinitions(),
+                        implementations.getFunctionNullability(),
                         details.isHidden(),
                         true,
                         details.getDescription().orElse(""),
@@ -82,7 +81,7 @@ public class ParametricAggregation
                         details.isOrderSensitive(),
                         details.isDecomposable() ? Optional.of(getSerializedType(stateClass).getTypeSignature()) : Optional.empty()));
         this.stateClass = requireNonNull(stateClass, "stateClass is null");
-        checkArgument(implementations.isNullable(), "currently aggregates are required to be nullable");
+        checkArgument(implementations.getFunctionNullability().isReturnNullable(), "currently aggregates are required to be nullable");
         this.implementations = requireNonNull(implementations, "implementations is null");
     }
 

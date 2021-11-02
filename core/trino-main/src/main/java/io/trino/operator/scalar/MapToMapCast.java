@@ -19,7 +19,7 @@ import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.FunctionDependencies;
 import io.trino.metadata.FunctionDependencyDeclaration;
-import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.SqlOperator;
 import io.trino.operator.aggregation.TypedSet;
 import io.trino.spi.TrinoException;
@@ -127,8 +127,8 @@ public final class MapToMapCast
     private MethodHandle buildProcessor(FunctionDependencies functionDependencies, Type fromType, Type toType, boolean isKey)
     {
         // Get block position cast, with optional connector session
-        FunctionMetadata functionMetadata = functionDependencies.getCastMetadata(fromType, toType);
-        InvocationConvention invocationConvention = new InvocationConvention(ImmutableList.of(BLOCK_POSITION), functionMetadata.isNullable() ? NULLABLE_RETURN : FAIL_ON_NULL, true, false);
+        FunctionNullability functionNullability = functionDependencies.getCastNullability(fromType, toType);
+        InvocationConvention invocationConvention = new InvocationConvention(ImmutableList.of(BLOCK_POSITION), functionNullability.isReturnNullable() ? NULLABLE_RETURN : FAIL_ON_NULL, true, false);
         MethodHandle cast = functionDependencies.getCastInvoker(fromType, toType, invocationConvention).getMethodHandle();
         // Normalize cast to have connector session as first argument
         if (cast.type().parameterArray()[0] != ConnectorSession.class) {
@@ -138,7 +138,7 @@ public final class MapToMapCast
         cast = permuteArguments(cast, methodType(cast.type().returnType(), Block.class, int.class, ConnectorSession.class), 2, 0, 1);
 
         // If the key cast function is nullable, check the result is not null
-        if (isKey && functionMetadata.isNullable()) {
+        if (isKey && functionNullability.isReturnNullable()) {
             cast = compose(nullChecker(cast.type().returnType()), cast);
         }
 
