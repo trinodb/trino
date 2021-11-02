@@ -97,18 +97,17 @@ public abstract class AbstractMinMaxNAggregationFunction
     }
 
     @Override
-    public InternalAggregationFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
+    public AggregationMetadata specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
         Type type = boundSignature.getArgumentTypes().get(0);
         MethodHandle compare = getMinMaxCompare(functionDependencies, type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION), min);
         return generateAggregation(compare, type);
     }
 
-    protected InternalAggregationFunction generateAggregation(MethodHandle compare, Type type)
+    protected AggregationMetadata generateAggregation(MethodHandle compare, Type type)
     {
         List<Type> inputTypes = ImmutableList.of(type, BIGINT);
         MinMaxNStateSerializer stateSerializer = new MinMaxNStateSerializer(compare, type);
-        Type intermediateType = stateSerializer.getSerializedType();
         ArrayType outputType = new ArrayType(type);
 
         List<ParameterMetadata> inputParameterMetadata = ImmutableList.of(
@@ -117,9 +116,13 @@ public abstract class AbstractMinMaxNAggregationFunction
                 new ParameterMetadata(INPUT_CHANNEL, BIGINT),
                 new ParameterMetadata(BLOCK_INDEX));
 
-        String name = getFunctionMetadata().getSignature().getName();
-        AggregationMetadata metadata = new AggregationMetadata(
-                generateAggregationName(name, type.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
+        String name = generateAggregationName(
+                getFunctionMetadata().getSignature().getName(),
+                type.getTypeSignature(),
+                inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList()));
+
+        return new AggregationMetadata(
+                name,
                 inputParameterMetadata,
                 INPUT_FUNCTION.bindTo(compare).bindTo(type),
                 Optional.empty(),
@@ -130,9 +133,6 @@ public abstract class AbstractMinMaxNAggregationFunction
                         stateSerializer,
                         new MinMaxNStateFactory())),
                 outputType);
-
-        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata);
-        return new InternalAggregationFunction(name, inputTypes, ImmutableList.of(intermediateType), outputType, factory);
     }
 
     public static void input(MethodHandle compare, Type type, MinMaxNState state, Block block, long n, int blockIndex)

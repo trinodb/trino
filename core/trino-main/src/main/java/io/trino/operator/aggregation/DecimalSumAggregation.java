@@ -84,14 +84,14 @@ public class DecimalSumAggregation
     }
 
     @Override
-    public InternalAggregationFunction specialize(BoundSignature boundSignature)
+    public AggregationMetadata specialize(BoundSignature boundSignature)
     {
         Type inputType = getOnlyElement(boundSignature.getArgumentTypes());
         Type outputType = boundSignature.getReturnType();
         return generateAggregation(inputType, outputType);
     }
 
-    private static InternalAggregationFunction generateAggregation(Type inputType, Type outputType)
+    private static AggregationMetadata generateAggregation(Type inputType, Type outputType)
     {
         checkArgument(inputType instanceof DecimalType, "type must be Decimal");
         List<Type> inputTypes = ImmutableList.of(inputType);
@@ -106,7 +106,7 @@ public class DecimalSumAggregation
             inputFunction = LONG_DECIMAL_INPUT_FUNCTION;
         }
 
-        AggregationMetadata metadata = new AggregationMetadata(
+        return new AggregationMetadata(
                 generateAggregationName(NAME, outputType.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 createInputParameterMetadata(inputType),
                 inputFunction,
@@ -118,10 +118,6 @@ public class DecimalSumAggregation
                         stateSerializer,
                         new LongDecimalWithOverflowStateFactory())),
                 outputType);
-
-        Type intermediateType = stateSerializer.getSerializedType();
-        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata);
-        return new InternalAggregationFunction(NAME, inputTypes, ImmutableList.of(intermediateType), outputType, factory);
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type type)

@@ -13,7 +13,6 @@
  */
 package io.trino.operator.aggregation;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.MoreCollectors;
@@ -42,29 +41,11 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.operator.ParametricFunctionHelpers.signatureWithName;
 import static io.trino.operator.aggregation.AggregationImplementation.Parser.parseImplementation;
 import static io.trino.operator.annotations.FunctionsParserHelper.parseDescription;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class AggregationFromAnnotationsParser
 {
     private AggregationFromAnnotationsParser() {}
-
-    // This function should only be used for function matching for testing purposes.
-    // General purpose function matching is done through FunctionRegistry.
-    @VisibleForTesting
-    public static ParametricAggregation parseFunctionDefinitionWithTypesConstraint(Class<?> clazz, TypeSignature returnType, List<TypeSignature> argumentTypes)
-    {
-        requireNonNull(returnType, "returnType is null");
-        requireNonNull(argumentTypes, "argumentTypes is null");
-        for (ParametricAggregation aggregation : parseFunctionDefinitions(clazz)) {
-            Signature signature = aggregation.getFunctionMetadata().getSignature();
-            if (signature.getReturnType().equals(returnType) &&
-                    signature.getArgumentTypes().equals(argumentTypes)) {
-                return aggregation;
-            }
-        }
-        throw new IllegalArgumentException(format("No method with return type %s and arguments %s", returnType, argumentTypes));
-    }
 
     public static List<ParametricAggregation> parseFunctionDefinitions(Class<?> aggregationDefinition)
     {

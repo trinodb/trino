@@ -110,7 +110,7 @@ public class ParametricAggregation
     }
 
     @Override
-    public InternalAggregationFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
+    public AggregationMetadata specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
         // Bind variables
         Signature signature = getFunctionMetadata().getSignature();
@@ -140,8 +140,7 @@ public class ParametricAggregation
         // Generate Aggregation name
         String aggregationName = generateAggregationName(signature.getName(), outputType.getTypeSignature(), signaturesFromTypes(inputTypes));
 
-        // Collect all collected data in Metadata
-        AggregationMetadata aggregationMetadata = new AggregationMetadata(
+        return new AggregationMetadata(
                 aggregationName,
                 parametersMetadata,
                 inputHandle,
@@ -150,14 +149,6 @@ public class ParametricAggregation
                 outputHandle,
                 ImmutableList.of(accumulatorStateDescriptor),
                 outputType);
-
-        // Create specialized InternalAggregationFunction for Trino
-        return new InternalAggregationFunction(
-                signature.getName(),
-                inputTypes,
-                ImmutableList.of(accumulatorStateDescriptor.getSerializer().getSerializedType()),
-                outputType,
-                new LazyAccumulatorFactoryBinder(aggregationMetadata));
     }
 
     private static <T extends AccumulatorState> AccumulatorStateDescriptor<T> generateAccumulatorStateDescriptor(Class<T> stateClass)
