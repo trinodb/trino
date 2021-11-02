@@ -20,12 +20,13 @@ import io.trino.spi.type.Type;
 
 @AccumulatorStateMetadata(stateSerializerClass = NullableBooleanStateSerializer.class)
 public interface NullableBooleanState
-        extends AccumulatorState
+        extends AccumulatorState, NullableState
 {
     boolean getValue();
 
     void setValue(boolean value);
 
+    @Override
     @InitialBooleanValue(true)
     boolean isNull();
 
