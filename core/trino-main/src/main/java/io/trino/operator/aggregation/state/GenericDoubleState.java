@@ -31,6 +31,12 @@ public interface GenericDoubleState
 
     void setNull(boolean value);
 
+    default void set(GenericDoubleState state)
+    {
+        setValue(state.getValue());
+        setNull(state.isNull());
+    }
+
     static void write(Type type, GenericDoubleState state, BlockBuilder out)
     {
         if (state.isNull()) {

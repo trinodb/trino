@@ -38,6 +38,12 @@ public interface BlockPositionState
         return block == null || block.isNull(getPosition());
     }
 
+    default void set(BlockPositionState state)
+    {
+        setBlock(state.getBlock());
+        setPosition(state.getPosition());
+    }
+
     static void write(Type type, BlockPositionState state, BlockBuilder out)
     {
         if (state.getBlock() == null) {

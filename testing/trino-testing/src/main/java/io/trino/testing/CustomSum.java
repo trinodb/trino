@@ -40,8 +40,7 @@ public final class CustomSum
     public static void combine(@AggregationState NullableLongState state, @AggregationState NullableLongState otherState)
     {
         if (state.isNull()) {
-            state.setNull(false);
-            state.setValue(otherState.getValue());
+            state.set(otherState);
             return;
         }
 

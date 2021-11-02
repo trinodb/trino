@@ -32,6 +32,12 @@ public interface NullableDoubleState
 
     void setNull(boolean value);
 
+    default void set(NullableDoubleState state)
+    {
+        setValue(state.getValue());
+        setNull(state.isNull());
+    }
+
     static void write(Type type, NullableDoubleState state, BlockBuilder out)
     {
         if (state.isNull()) {
