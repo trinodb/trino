@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.AggregationFunctionMetadata;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
@@ -29,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class StatisticAggregations
@@ -66,7 +68,10 @@ public class StatisticAggregations
             Aggregation originalAggregation = entry.getValue();
             ResolvedFunction resolvedFunction = originalAggregation.getResolvedFunction();
             AggregationFunctionMetadata functionMetadata = metadata.getAggregationFunctionMetadata(resolvedFunction);
-            Type intermediateType = metadata.getType(functionMetadata.getIntermediateType().orElseThrow(() -> new IllegalArgumentException("aggregation is not decomposable")));
+            List<Type> intermediateTypes = functionMetadata.getIntermediateTypes().stream()
+                    .map(metadata::getType)
+                    .collect(toImmutableList());
+            Type intermediateType = intermediateTypes.size() == 1 ? intermediateTypes.get(0) : RowType.anonymous(intermediateTypes);
             Symbol partialSymbol = symbolAllocator.newSymbol(resolvedFunction.getSignature().getName(), intermediateType);
             mappings.put(entry.getKey(), partialSymbol);
             partialAggregation.put(partialSymbol, new Aggregation(

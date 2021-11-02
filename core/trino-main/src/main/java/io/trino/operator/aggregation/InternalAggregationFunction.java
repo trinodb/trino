@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.operator.PagesIndex;
 import io.trino.spi.connector.SortOrder;
-import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.type.BlockTypeOperators;
@@ -27,14 +26,13 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
 public final class InternalAggregationFunction
 {
     private final String name;
     private final List<Type> parameterTypes;
-    private final List<Type> intermediateType;
+    private final List<Type> intermediateTypes;
     private final Type finalType;
     private final List<Class<?>> lambdaInterfaces;
     private final AccumulatorFactoryBinder factory;
@@ -42,14 +40,14 @@ public final class InternalAggregationFunction
     public InternalAggregationFunction(
             String name,
             List<Type> parameterTypes,
-            List<Type> intermediateType,
+            List<Type> intermediateTypes,
             Type finalType,
             AccumulatorFactoryBinder factory)
     {
         this(
                 name,
                 parameterTypes,
-                intermediateType,
+                intermediateTypes,
                 finalType,
                 factory,
                 ImmutableList.of());
@@ -66,7 +64,7 @@ public final class InternalAggregationFunction
         this.name = requireNonNull(name, "name is null");
         checkArgument(!name.isEmpty(), "name is empty");
         this.parameterTypes = ImmutableList.copyOf(requireNonNull(parameterTypes, "parameterTypes is null"));
-        this.intermediateType = requireNonNull(intermediateType, "intermediateType is null");
+        this.intermediateTypes = ImmutableList.copyOf(requireNonNull(intermediateType, "intermediateType is null"));
         this.finalType = requireNonNull(finalType, "finalType is null");
         this.factory = requireNonNull(factory, "factory is null");
         this.lambdaInterfaces = ImmutableList.copyOf(lambdaInterfaces);
@@ -90,15 +88,9 @@ public final class InternalAggregationFunction
     }
 
     @VisibleForTesting
-    public Optional<Type> getIntermediateType()
+    public List<Type> getIntermediateTypes()
     {
-        if (intermediateType.isEmpty()) {
-            return Optional.empty();
-        }
-        if (intermediateType.size() == 1) {
-            return Optional.of(getOnlyElement(intermediateType));
-        }
-        return Optional.of(RowType.anonymous(intermediateType));
+        return intermediateTypes;
     }
 
     public List<Class<?>> getLambdaInterfaces()

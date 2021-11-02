@@ -138,7 +138,12 @@ public class TestingFunctionResolution
 
     public TestingAggregationFunction getAggregateFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
     {
-        return inTransaction(session -> new TestingAggregationFunction(metadata.getAggregateFunctionImplementation(metadata.resolveFunction(session, name, parameterTypes))));
+        return inTransaction(session -> {
+            ResolvedFunction resolvedFunction = metadata.resolveFunction(session, name, parameterTypes);
+            return new TestingAggregationFunction(
+                    metadata.getAggregationFunctionMetadata(resolvedFunction),
+                    metadata.getAggregateFunctionImplementation(resolvedFunction));
+        });
     }
 
     private <T> T inTransaction(Function<Session, T> transactionSessionConsumer)
