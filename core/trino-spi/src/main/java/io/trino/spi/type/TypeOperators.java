@@ -22,7 +22,6 @@ import io.trino.spi.function.InvocationConvention.InvocationReturnConvention;
 import io.trino.spi.function.OperatorMethodHandle;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.ScalarFunctionAdapter;
-import io.trino.spi.function.ScalarFunctionAdapter.NullAdaptationPolicy;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -50,6 +49,7 @@ import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static io.trino.spi.function.ScalarFunctionAdapter.NullAdaptationPolicy.RETURN_NULL_ON_NULL;
 import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.collectArguments;
 import static java.lang.invoke.MethodHandles.dropArguments;
@@ -63,7 +63,7 @@ import static java.util.stream.Collectors.toUnmodifiableList;
 
 public class TypeOperators
 {
-    private final ScalarFunctionAdapter functionAdapter = new ScalarFunctionAdapter(NullAdaptationPolicy.UNSUPPORTED);
+    private final ScalarFunctionAdapter functionAdapter = new ScalarFunctionAdapter(RETURN_NULL_ON_NULL);
     private final BiFunction<Object, Supplier<Object>, Object> cache;
 
     public TypeOperators()
