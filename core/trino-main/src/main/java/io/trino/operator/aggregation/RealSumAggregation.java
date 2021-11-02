@@ -46,8 +46,7 @@ public final class RealSumAggregation
             if (otherState.isNull()) {
                 return;
             }
-            state.setNull(false);
-            state.setValue(otherState.getValue());
+            state.set(otherState);
             return;
         }
 

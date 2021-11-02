@@ -32,6 +32,12 @@ public interface NullableBooleanState
 
     void setNull(boolean value);
 
+    default void set(NullableBooleanState state)
+    {
+        setValue(state.getValue());
+        setNull(state.isNull());
+    }
+
     static void write(Type type, NullableBooleanState state, BlockBuilder out)
     {
         if (state.isNull()) {
