@@ -29,6 +29,8 @@ import org.apache.iceberg.PartitionField;
 import org.joda.time.DateTimeField;
 import org.joda.time.chrono.ISOChronology;
 
+import javax.annotation.Nullable;
+
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.function.Function;
@@ -56,6 +58,7 @@ import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_HOUR;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -163,7 +166,7 @@ public final class PartitionTransforms
 
     private static ColumnTransform identity(Type type)
     {
-        return new ColumnTransform(type, Function.identity());
+        return new ColumnTransform(type, Function.identity(), ValueTransform.identity(type));
     }
 
     @VisibleForTesting
@@ -172,7 +175,15 @@ public final class PartitionTransforms
         Hasher hasher = getBucketingHash(type);
         return new ColumnTransform(
                 INTEGER,
-                block -> bucketBlock(block, count, hasher));
+                block -> bucketBlock(block, count, hasher),
+                (block, position) -> {
+                    if (block.isNull(position)) {
+                        return null;
+                    }
+                    int hash = hasher.hash(block, position);
+                    int bucket = (hash & Integer.MAX_VALUE) % count;
+                    return (long) bucket;
+                });
     }
 
     private static Hasher getBucketingHash(Type type)
@@ -215,79 +226,101 @@ public final class PartitionTransforms
 
     private static ColumnTransform yearsFromDate()
     {
+        LongUnaryOperator transform = value -> epochYear(DAYS.toMillis(value));
         return new ColumnTransform(
                 INTEGER,
-                block -> transformBlock(DATE, INTEGER, block, value -> epochYear(DAYS.toMillis(value))));
+                block -> transformBlock(DATE, INTEGER, block, transform),
+                ValueTransform.from(DATE, transform));
     }
 
     private static ColumnTransform monthsFromDate()
     {
+        LongUnaryOperator transform = value -> epochMonth(DAYS.toMillis(value));
         return new ColumnTransform(
                 INTEGER,
-                block -> transformBlock(DATE, INTEGER, block, value -> epochMonth(DAYS.toMillis(value))));
+                block -> transformBlock(DATE, INTEGER, block, transform),
+                ValueTransform.from(DATE, transform));
     }
 
     private static ColumnTransform daysFromDate()
     {
+        LongUnaryOperator transform = LongUnaryOperator.identity();
         return new ColumnTransform(
                 INTEGER,
-                block -> transformBlock(DATE, INTEGER, block, LongUnaryOperator.identity()));
+                block -> transformBlock(DATE, INTEGER, block, transform),
+                ValueTransform.from(DATE, transform));
     }
 
     private static ColumnTransform yearsFromTimestamp()
     {
+        LongUnaryOperator transform = epochMicros -> epochYear(floorDiv(epochMicros, MICROSECONDS_PER_MILLISECOND));
         return new ColumnTransform(
                 INTEGER,
-                block -> transformBlock(TIMESTAMP_MICROS, INTEGER, block, epochMicros -> epochYear(floorDiv(epochMicros, MICROSECONDS_PER_MILLISECOND))));
+                block -> transformBlock(TIMESTAMP_MICROS, INTEGER, block, transform),
+                ValueTransform.from(TIMESTAMP_MICROS, transform));
     }
 
     private static ColumnTransform monthsFromTimestamp()
     {
+        LongUnaryOperator transform = epochMicros -> epochMonth(floorDiv(epochMicros, MICROSECONDS_PER_MILLISECOND));
         return new ColumnTransform(
                 INTEGER,
-                block -> transformBlock(TIMESTAMP_MICROS, INTEGER, block, epochMicros -> epochMonth(floorDiv(epochMicros, MICROSECONDS_PER_MILLISECOND))));
+                block -> transformBlock(TIMESTAMP_MICROS, INTEGER, block, transform),
+                ValueTransform.from(TIMESTAMP_MICROS, transform));
     }
 
     private static ColumnTransform daysFromTimestamp()
     {
+        LongUnaryOperator transform = epochMicros -> epochDay(floorDiv(epochMicros, MICROSECONDS_PER_MILLISECOND));
         return new ColumnTransform(
                 INTEGER,
-                block -> transformBlock(TIMESTAMP_MICROS, INTEGER, block, epochMicros -> epochDay(floorDiv(epochMicros, MICROSECONDS_PER_MILLISECOND))));
+                block -> transformBlock(TIMESTAMP_MICROS, INTEGER, block, transform),
+                ValueTransform.from(TIMESTAMP_MICROS, transform));
     }
 
     private static ColumnTransform hoursFromTimestamp()
     {
+        LongUnaryOperator transform = epochMicros -> epochHour(floorDiv(epochMicros, MICROSECONDS_PER_MILLISECOND));
         return new ColumnTransform(
                 INTEGER,
-                block -> transformBlock(TIMESTAMP_MICROS, INTEGER, block, epochMicros -> epochHour(floorDiv(epochMicros, MICROSECONDS_PER_MILLISECOND))));
+                block -> transformBlock(TIMESTAMP_MICROS, INTEGER, block, transform),
+                ValueTransform.from(TIMESTAMP_MICROS, transform));
     }
 
     private static ColumnTransform yearsFromTimestampWithTimeZone()
     {
+        ToLongFunction<LongTimestampWithTimeZone> transform = value -> epochYear(value.getEpochMillis());
         return new ColumnTransform(
                 INTEGER,
-                block -> extractTimestampWithTimeZone(block, value -> epochYear(value.getEpochMillis())));
+                block -> extractTimestampWithTimeZone(block, transform),
+                ValueTransform.fromTimestampTzTransform(transform));
     }
 
     private static ColumnTransform monthsFromTimestampWithTimeZone()
     {
+        ToLongFunction<LongTimestampWithTimeZone> transform = value -> epochMonth(value.getEpochMillis());
         return new ColumnTransform(
                 INTEGER,
-                block -> extractTimestampWithTimeZone(block, value -> epochMonth(value.getEpochMillis())));
+                block -> extractTimestampWithTimeZone(block, transform),
+                ValueTransform.fromTimestampTzTransform(transform));
     }
 
     private static ColumnTransform daysFromTimestampWithTimeZone()
     {
+        ToLongFunction<LongTimestampWithTimeZone> transform = value -> epochDay(value.getEpochMillis());
         return new ColumnTransform(
                 INTEGER,
-                block -> extractTimestampWithTimeZone(block, value -> epochDay(value.getEpochMillis())));
+                block -> extractTimestampWithTimeZone(block, transform),
+                ValueTransform.fromTimestampTzTransform(transform));
     }
 
     private static ColumnTransform hoursFromTimestampWithTimeZone()
     {
+        ToLongFunction<LongTimestampWithTimeZone> transform = value -> epochHour(value.getEpochMillis());
         return new ColumnTransform(
                 INTEGER,
-                block -> extractTimestampWithTimeZone(block, value -> epochHour(value.getEpochMillis())));
+                block -> extractTimestampWithTimeZone(block, transform),
+                ValueTransform.fromTimestampTzTransform(transform));
     }
 
     private static Block extractTimestampWithTimeZone(Block block, ToLongFunction<LongTimestampWithTimeZone> function)
@@ -397,7 +430,13 @@ public final class PartitionTransforms
     {
         return new ColumnTransform(
                 INTEGER,
-                block -> truncateInteger(block, width));
+                block -> truncateInteger(block, width),
+                (block, position) -> {
+                    if (block.isNull(position)) {
+                        return null;
+                    }
+                    return truncateInteger(block, position, width);
+                });
     }
 
     private static Block truncateInteger(Block block, int width)
@@ -408,18 +447,28 @@ public final class PartitionTransforms
                 builder.appendNull();
                 continue;
             }
-            long value = INTEGER.getLong(block, position);
-            long truncated = value - ((value % width) + width) % width;
-            INTEGER.writeLong(builder, truncated);
+            INTEGER.writeLong(builder, truncateInteger(block, position, width));
         }
         return builder.build();
+    }
+
+    private static long truncateInteger(Block block, int position, int width)
+    {
+        long value = INTEGER.getLong(block, position);
+        return value - ((value % width) + width) % width;
     }
 
     private static ColumnTransform truncateBigint(int width)
     {
         return new ColumnTransform(
                 BIGINT,
-                block -> truncateBigint(block, width));
+                block -> truncateBigint(block, width),
+                (block, position) -> {
+                    if (block.isNull(position)) {
+                        return null;
+                    }
+                    return truncateBigint(block, position, width);
+                });
     }
 
     private static Block truncateBigint(Block block, int width)
@@ -430,59 +479,85 @@ public final class PartitionTransforms
                 builder.appendNull();
                 continue;
             }
-            long value = BIGINT.getLong(block, position);
-            long truncated = value - ((value % width) + width) % width;
-            BIGINT.writeLong(builder, truncated);
+            BIGINT.writeLong(builder, truncateBigint(block, position, width));
         }
         return builder.build();
+    }
+
+    private static long truncateBigint(Block block, int position, int width)
+    {
+        long value = BIGINT.getLong(block, position);
+        return value - ((value % width) + width) % width;
     }
 
     private static ColumnTransform truncateShortDecimal(Type type, int width, DecimalType decimal)
     {
+        BigInteger unscaledWidth = BigInteger.valueOf(width);
         return new ColumnTransform(
                 type,
-                block -> truncateShortDecimal(decimal, block, width));
+                block -> truncateShortDecimal(decimal, block, unscaledWidth),
+                (block, position) -> {
+                    if (block.isNull(position)) {
+                        return null;
+                    }
+                    return truncateShortDecimal(decimal, block, position, unscaledWidth);
+                });
     }
 
-    private static Block truncateShortDecimal(DecimalType type, Block block, int width)
+    private static Block truncateShortDecimal(DecimalType type, Block block, BigInteger unscaledWidth)
     {
-        BigInteger unscaledWidth = BigInteger.valueOf(width);
         BlockBuilder builder = type.createBlockBuilder(null, block.getPositionCount());
         for (int position = 0; position < block.getPositionCount(); position++) {
             if (block.isNull(position)) {
                 builder.appendNull();
                 continue;
             }
-            // TODO: write optimized implementation
-            BigDecimal value = readBigDecimal(type, block, position);
-            BigDecimal truncated = truncateDecimal(value, unscaledWidth);
-            type.writeLong(builder, encodeShortScaledValue(truncated, type.getScale()));
+            type.writeLong(builder, truncateShortDecimal(type, block, position, unscaledWidth));
         }
         return builder.build();
+    }
+
+    private static long truncateShortDecimal(DecimalType type, Block block, int position, BigInteger unscaledWidth)
+    {
+        // TODO: write optimized implementation
+        BigDecimal value = readBigDecimal(type, block, position);
+        BigDecimal truncated = truncateDecimal(value, unscaledWidth);
+        return encodeShortScaledValue(truncated, type.getScale());
     }
 
     private static ColumnTransform truncateLongDecimal(Type type, int width, DecimalType decimal)
     {
+        BigInteger unscaledWidth = BigInteger.valueOf(width);
         return new ColumnTransform(
                 type,
-                block -> truncateLongDecimal(decimal, block, width));
+                block -> truncateLongDecimal(decimal, block, unscaledWidth),
+                (block, position) -> {
+                    if (block.isNull(position)) {
+                        return null;
+                    }
+                    return truncateLongDecimal(decimal, block, position, unscaledWidth);
+                });
     }
 
-    private static Block truncateLongDecimal(DecimalType type, Block block, int width)
+    private static Block truncateLongDecimal(DecimalType type, Block block, BigInteger unscaledWidth)
     {
-        BigInteger unscaledWidth = BigInteger.valueOf(width);
         BlockBuilder builder = type.createBlockBuilder(null, block.getPositionCount());
         for (int position = 0; position < block.getPositionCount(); position++) {
             if (block.isNull(position)) {
                 builder.appendNull();
                 continue;
             }
-            // TODO: write optimized implementation
-            BigDecimal value = readBigDecimal(type, block, position);
-            BigDecimal truncated = truncateDecimal(value, unscaledWidth);
-            type.writeSlice(builder, encodeScaledValue(truncated, type.getScale()));
+            type.writeSlice(builder, truncateLongDecimal(type, block, position, unscaledWidth));
         }
         return builder.build();
+    }
+
+    private static Slice truncateLongDecimal(DecimalType type, Block block, int position, BigInteger unscaledWidth)
+    {
+        // TODO: write optimized implementation
+        BigDecimal value = readBigDecimal(type, block, position);
+        BigDecimal truncated = truncateDecimal(value, unscaledWidth);
+        return encodeScaledValue(truncated, type.getScale());
     }
 
     private static BigDecimal truncateDecimal(BigDecimal value, BigInteger unscaledWidth)
@@ -500,10 +575,16 @@ public final class PartitionTransforms
     {
         return new ColumnTransform(
                 VARCHAR,
-                block -> truncateVarchar(block, width));
+                block -> truncateVarchar(block, width),
+                (block, position) -> {
+                    if (block.isNull(position)) {
+                        return null;
+                    }
+                    return truncateVarchar(VARCHAR.getSlice(block, position), width);
+                });
     }
 
-    private static Block truncateVarchar(Block block, int max)
+    private static Block truncateVarchar(Block block, int width)
     {
         BlockBuilder builder = VARCHAR.createBlockBuilder(null, block.getPositionCount());
         for (int position = 0; position < block.getPositionCount(); position++) {
@@ -512,8 +593,7 @@ public final class PartitionTransforms
                 continue;
             }
             Slice value = VARCHAR.getSlice(block, position);
-            Slice truncated = truncateVarchar(value, max);
-            VARCHAR.writeSlice(builder, truncated);
+            VARCHAR.writeSlice(builder, truncateVarchar(value, width));
         }
         return builder.build();
     }
@@ -534,10 +614,16 @@ public final class PartitionTransforms
     {
         return new ColumnTransform(
                 VARBINARY,
-                block -> truncateVarbinary(block, width));
+                block -> truncateVarbinary(block, width),
+                (block, position) -> {
+                    if (block.isNull(position)) {
+                        return null;
+                    }
+                    return truncateVarbinary(VARBINARY.getSlice(block, position), width);
+                });
     }
 
-    private static Block truncateVarbinary(Block block, int max)
+    private static Block truncateVarbinary(Block block, int width)
     {
         BlockBuilder builder = VARBINARY.createBlockBuilder(null, block.getPositionCount());
         for (int position = 0; position < block.getPositionCount(); position++) {
@@ -546,10 +632,17 @@ public final class PartitionTransforms
                 continue;
             }
             Slice value = VARBINARY.getSlice(block, position);
-            Slice truncated = (value.length() <= max) ? value : value.slice(0, max);
-            VARBINARY.writeSlice(builder, truncated);
+            VARBINARY.writeSlice(builder, truncateVarbinary(value, width));
         }
         return builder.build();
+    }
+
+    private static Slice truncateVarbinary(Slice value, int width)
+    {
+        if (value.length() <= width) {
+            return value;
+        }
+        return value.slice(0, width);
     }
 
     private static ColumnTransform voidTransform(Type type)
@@ -557,7 +650,8 @@ public final class PartitionTransforms
         Block nullBlock = nativeValueToBlock(type, null);
         return new ColumnTransform(
                 type,
-                block -> new RunLengthEncodedBlock(nullBlock, block.getPositionCount()));
+                block -> new RunLengthEncodedBlock(nullBlock, block.getPositionCount()),
+                (block, position) -> null);
     }
 
     private static Block transformBlock(Type sourceType, FixedWidthType resultType, Block block, LongUnaryOperator function)
@@ -608,12 +702,14 @@ public final class PartitionTransforms
     public static class ColumnTransform
     {
         private final Type type;
-        private final Function<Block, Block> transform;
+        private final Function<Block, Block> blockTransform;
+        private final ValueTransform valueTransform;
 
-        public ColumnTransform(Type type, Function<Block, Block> transform)
+        public ColumnTransform(Type type, Function<Block, Block> blockTransform, ValueTransform valueTransform)
         {
             this.type = requireNonNull(type, "type is null");
-            this.transform = requireNonNull(transform, "transform is null");
+            this.blockTransform = requireNonNull(blockTransform, "transform is null");
+            this.valueTransform = requireNonNull(valueTransform, "valueTransform is null");
         }
 
         public Type getType()
@@ -621,9 +717,45 @@ public final class PartitionTransforms
             return type;
         }
 
-        public Function<Block, Block> getTransform()
+        public Function<Block, Block> getBlockTransform()
         {
-            return transform;
+            return blockTransform;
         }
+
+        public ValueTransform getValueTransform()
+        {
+            return valueTransform;
+        }
+    }
+
+    public interface ValueTransform
+    {
+        static ValueTransform identity(Type type)
+        {
+            return (block, position) -> readNativeValue(type, block, position);
+        }
+
+        static ValueTransform from(Type sourceType, LongUnaryOperator transform)
+        {
+            return (block, position) -> {
+                if (block.isNull(position)) {
+                    return null;
+                }
+                return transform.applyAsLong(sourceType.getLong(block, position));
+            };
+        }
+
+        static ValueTransform fromTimestampTzTransform(ToLongFunction<LongTimestampWithTimeZone> transform)
+        {
+            return (block, position) -> {
+                if (block.isNull(position)) {
+                    return null;
+                }
+                return transform.applyAsLong(getTimestampTz(block, position));
+            };
+        }
+
+        @Nullable
+        Object apply(Block block, int position);
     }
 }

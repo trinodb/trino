@@ -397,7 +397,7 @@ public class IcebergPageSink
                     checkArgument(channel != null, "partition field not found: %s", field);
                     Type inputType = handles.get(channel).getType();
                     ColumnTransform transform = getColumnTransform(field, inputType);
-                    return new PartitionColumn(field, channel, inputType, transform.getType(), transform.getTransform());
+                    return new PartitionColumn(field, channel, inputType, transform.getType(), transform.getBlockTransform());
                 })
                 .collect(toImmutableList());
     }
