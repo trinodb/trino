@@ -15,7 +15,7 @@ package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.jmh.Benchmarks;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionListBuilder;
 import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.FunctionNullability;
@@ -214,11 +214,11 @@ public class BenchmarkArrayFilter
         }
 
         @Override
-        protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
+        protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
         {
-            Type type = functionBinding.getTypeVariable("T");
+            Type type = ((ArrayType) boundSignature.getReturnType()).getElementType();
             return new ChoicesScalarFunctionImplementation(
-                    functionBinding,
+                    boundSignature,
                     FAIL_ON_NULL,
                     ImmutableList.of(NEVER_NULL, NEVER_NULL),
                     METHOD_HANDLE.bindTo(type));

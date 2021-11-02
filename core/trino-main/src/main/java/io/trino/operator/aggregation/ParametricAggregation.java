@@ -24,6 +24,7 @@ import io.trino.metadata.FunctionDependencyDeclaration;
 import io.trino.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
 import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.Signature;
+import io.trino.metadata.SignatureBinder;
 import io.trino.metadata.SqlAggregationFunction;
 import io.trino.operator.ParametricImplementationsGroup;
 import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
@@ -111,17 +112,17 @@ public class ParametricAggregation
     }
 
     @Override
-    public InternalAggregationFunction specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    public InternalAggregationFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
         // Bind variables
         Signature signature = getFunctionMetadata().getSignature();
 
         // Find implementation matching arguments
-        AggregationImplementation concreteImplementation = findMatchingImplementation(functionBinding.getBoundSignature());
+        AggregationImplementation concreteImplementation = findMatchingImplementation(boundSignature);
 
         // Build argument and return Types from signatures
-        List<Type> inputTypes = functionBinding.getBoundSignature().getArgumentTypes();
-        Type outputType = functionBinding.getBoundSignature().getReturnType();
+        List<Type> inputTypes = boundSignature.getArgumentTypes();
+        Type outputType = boundSignature.getReturnType();
 
         // Create classloader for additional aggregation dependencies
         Class<?> definitionClass = concreteImplementation.getDefinitionClass();
@@ -132,6 +133,8 @@ public class ParametricAggregation
         AccumulatorStateFactory<?> stateFactory = StateCompiler.generateStateFactory(stateClass, classLoader);
 
         // Bind provided dependencies to aggregation method handlers
+        FunctionMetadata metadata = getFunctionMetadata();
+        FunctionBinding functionBinding = SignatureBinder.bindFunction(metadata.getFunctionId(), metadata.getSignature(), boundSignature);
         MethodHandle inputHandle = bindDependencies(concreteImplementation.getInputFunction(), concreteImplementation.getInputDependencies(), functionBinding, functionDependencies);
         Optional<MethodHandle> removeInputHandle = concreteImplementation.getRemoveInputFunction().map(
                 removeInputFunction -> bindDependencies(removeInputFunction, concreteImplementation.getRemoveInputDependencies(), functionBinding, functionDependencies));

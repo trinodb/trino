@@ -16,7 +16,7 @@ package io.trino.operator.aggregation;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.trino.metadata.AggregationFunctionMetadata;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
@@ -96,14 +96,14 @@ public class MapAggregationFunction
     }
 
     @Override
-    public InternalAggregationFunction specialize(FunctionBinding functionBinding)
+    public InternalAggregationFunction specialize(BoundSignature boundSignature)
     {
-        Type keyType = functionBinding.getTypeVariable("K");
+        MapType outputType = (MapType) boundSignature.getReturnType();
+        Type keyType = outputType.getKeyType();
         BlockPositionEqual keyEqual = blockTypeOperators.getEqualOperator(keyType);
         BlockPositionHashCode keyHashCode = blockTypeOperators.getHashCodeOperator(keyType);
 
-        Type valueType = functionBinding.getTypeVariable("V");
-        MapType outputType = (MapType) functionBinding.getBoundSignature().getReturnType();
+        Type valueType = outputType.getValueType();
         return generateAggregation(keyType, keyEqual, keyHashCode, valueType, outputType);
     }
 

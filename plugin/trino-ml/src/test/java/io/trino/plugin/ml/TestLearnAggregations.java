@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.trino.RowPageBuilder;
 import io.trino.metadata.BoundSignature;
-import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.FunctionDependencies;
 import io.trino.metadata.MetadataManager;
 import io.trino.operator.aggregation.Accumulator;
@@ -71,12 +70,8 @@ public class TestLearnAggregations
                 LearnClassifierAggregation.class,
                 BIGINT_CLASSIFIER.getTypeSignature(),
                 inputTypes);
-        FunctionBinding functionBinding = new FunctionBinding(
-                aggregation.getFunctionMetadata().getFunctionId(),
-                new BoundSignature(aggregation.getFunctionMetadata().getSignature().getName(), BIGINT_CLASSIFIER, ImmutableList.of(BIGINT, mapType)),
-                ImmutableMap.of(),
-                ImmutableMap.of());
-        InternalAggregationFunction aggregationFunction = aggregation.specialize(functionBinding, NO_FUNCTION_DEPENDENCIES);
+        BoundSignature signature = new BoundSignature(aggregation.getFunctionMetadata().getSignature().getName(), BIGINT_CLASSIFIER, ImmutableList.of(BIGINT, mapType));
+        InternalAggregationFunction aggregationFunction = aggregation.specialize(signature, NO_FUNCTION_DEPENDENCIES);
         assertLearnClassifer(aggregationFunction.bind(ImmutableList.of(0, 1), Optional.empty()).createAccumulator());
     }
 
@@ -88,15 +83,11 @@ public class TestLearnAggregations
                 LearnLibSvmClassifierAggregation.class,
                 BIGINT_CLASSIFIER.getTypeSignature(),
                 ImmutableList.of(BIGINT.getTypeSignature(), mapType.getTypeSignature(), VarcharType.getParametrizedVarcharSignature("x")));
-        FunctionBinding functionBinding = new FunctionBinding(
-                aggregation.getFunctionMetadata().getFunctionId(),
-                new BoundSignature(
-                        aggregation.getFunctionMetadata().getSignature().getName(),
-                        BIGINT_CLASSIFIER,
-                        ImmutableList.of(BIGINT, mapType, VARCHAR)),
-                ImmutableMap.of(),
-                ImmutableMap.of("x", (long) Integer.MAX_VALUE));
-        InternalAggregationFunction aggregationFunction = aggregation.specialize(functionBinding, NO_FUNCTION_DEPENDENCIES);
+        BoundSignature signature = new BoundSignature(
+                aggregation.getFunctionMetadata().getSignature().getName(),
+                BIGINT_CLASSIFIER,
+                ImmutableList.of(BIGINT, mapType, VARCHAR));
+        InternalAggregationFunction aggregationFunction = aggregation.specialize(signature, NO_FUNCTION_DEPENDENCIES);
         assertLearnClassifer(aggregationFunction.bind(ImmutableList.of(0, 1, 2), Optional.empty()).createAccumulator());
     }
 

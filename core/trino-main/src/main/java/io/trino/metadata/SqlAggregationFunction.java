@@ -49,12 +49,12 @@ public abstract class SqlAggregationFunction
         return aggregationFunctionMetadata;
     }
 
-    public InternalAggregationFunction specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    public InternalAggregationFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
-        return specialize(functionBinding);
+        return specialize(boundSignature);
     }
 
-    protected InternalAggregationFunction specialize(FunctionBinding functionBinding)
+    protected InternalAggregationFunction specialize(BoundSignature boundSignature)
     {
         throw new UnsupportedOperationException();
     }

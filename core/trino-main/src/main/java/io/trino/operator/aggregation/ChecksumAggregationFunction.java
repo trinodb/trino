@@ -17,7 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.trino.metadata.AggregationFunctionMetadata;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
@@ -85,9 +85,9 @@ public class ChecksumAggregationFunction
     }
 
     @Override
-    public InternalAggregationFunction specialize(FunctionBinding functionBinding)
+    public InternalAggregationFunction specialize(BoundSignature boundSignature)
     {
-        Type valueType = functionBinding.getTypeVariable("T");
+        Type valueType = boundSignature.getArgumentTypes().get(0);
         BlockPositionXxHash64 xxHash64Operator = blockTypeOperators.getXxHash64Operator(valueType);
         return generateAggregation(valueType, xxHash64Operator);
     }

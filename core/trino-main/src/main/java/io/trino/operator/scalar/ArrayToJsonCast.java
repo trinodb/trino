@@ -18,18 +18,17 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.SqlOperator;
 import io.trino.spi.block.Block;
 import io.trino.spi.function.OperatorType;
-import io.trino.spi.type.Type;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.TypeSignature;
 import io.trino.util.JsonUtil.JsonGeneratorWriter;
 
 import java.io.IOException;
 import java.lang.invoke.MethodHandle;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.metadata.Signature.castableToTypeParameter;
 import static io.trino.operator.scalar.JsonOperators.JSON_FACTORY;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
@@ -64,17 +63,15 @@ public class ArrayToJsonCast
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
+    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
     {
-        checkArgument(functionBinding.getArity() == 1, "Expected arity to be 1");
-        Type type = functionBinding.getTypeVariable("T");
-        Type arrayType = functionBinding.getBoundSignature().getArgumentTypes().get(0);
+        ArrayType arrayType = (ArrayType) boundSignature.getArgumentTypes().get(0);
         checkCondition(canCastToJson(arrayType), INVALID_CAST_ARGUMENT, "Cannot cast %s to JSON", arrayType);
 
-        JsonGeneratorWriter writer = JsonGeneratorWriter.createJsonGeneratorWriter(type, legacyRowToJson);
+        JsonGeneratorWriter writer = JsonGeneratorWriter.createJsonGeneratorWriter(arrayType.getElementType(), legacyRowToJson);
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(writer);
         return new ChoicesScalarFunctionImplementation(
-                functionBinding,
+                boundSignature,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL),
                 methodHandle);

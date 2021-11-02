@@ -14,7 +14,7 @@
 package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionDependencies;
 import io.trino.metadata.FunctionDependencyDeclaration;
 import io.trino.metadata.FunctionMetadata;
@@ -69,10 +69,10 @@ public class TryCastFunction
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    public ScalarFunctionImplementation specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
-        Type fromType = functionBinding.getTypeVariable("F");
-        Type toType = functionBinding.getTypeVariable("T");
+        Type fromType = boundSignature.getArgumentType(0);
+        Type toType = boundSignature.getReturnType();
 
         Class<?> returnType = wrap(toType.getJavaType());
 
@@ -85,7 +85,7 @@ public class TryCastFunction
         MethodHandle tryCastHandle = catchException(coercion, RuntimeException.class, exceptionHandler);
 
         return new ChoicesScalarFunctionImplementation(
-                functionBinding,
+                boundSignature,
                 NULLABLE_RETURN,
                 ImmutableList.of(NEVER_NULL),
                 tryCastHandle);

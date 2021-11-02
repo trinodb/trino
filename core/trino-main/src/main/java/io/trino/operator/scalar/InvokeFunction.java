@@ -16,7 +16,7 @@ package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
@@ -63,11 +63,11 @@ public final class InvokeFunction
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
+    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
     {
-        Type returnType = functionBinding.getTypeVariable("T");
+        Type returnType = boundSignature.getReturnType();
         return new ChoicesScalarFunctionImplementation(
-                functionBinding,
+                boundSignature,
                 NULLABLE_RETURN,
                 ImmutableList.of(FUNCTION),
                 ImmutableList.of(InvokeLambda.class),

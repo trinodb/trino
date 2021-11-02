@@ -2647,21 +2647,21 @@ public final class MetadataManager
     public WindowFunctionSupplier getWindowFunctionImplementation(ResolvedFunction resolvedFunction)
     {
         FunctionDependencies functionDependencies = new FunctionDependencies(this, resolvedFunction.getTypeDependencies(), resolvedFunction.getFunctionDependencies());
-        return functions.getWindowFunctionImplementation(toFunctionBinding(resolvedFunction), functionDependencies);
+        return functions.getWindowFunctionImplementation(resolvedFunction.getFunctionId(), resolvedFunction.getSignature(), functionDependencies);
     }
 
     @Override
     public InternalAggregationFunction getAggregateFunctionImplementation(ResolvedFunction resolvedFunction)
     {
         FunctionDependencies functionDependencies = new FunctionDependencies(this, resolvedFunction.getTypeDependencies(), resolvedFunction.getFunctionDependencies());
-        return functions.getAggregateFunctionImplementation(toFunctionBinding(resolvedFunction), functionDependencies);
+        return functions.getAggregateFunctionImplementation(resolvedFunction.getFunctionId(), resolvedFunction.getSignature(), functionDependencies);
     }
 
     @Override
     public FunctionInvoker getScalarFunctionInvoker(ResolvedFunction resolvedFunction, InvocationConvention invocationConvention)
     {
         FunctionDependencies functionDependencies = new FunctionDependencies(this, resolvedFunction.getTypeDependencies(), resolvedFunction.getFunctionDependencies());
-        FunctionInvoker functionInvoker = functions.getScalarFunctionInvoker(toFunctionBinding(resolvedFunction), functionDependencies, invocationConvention);
+        FunctionInvoker functionInvoker = functions.getScalarFunctionInvoker(resolvedFunction.getFunctionId(), resolvedFunction.getSignature(), functionDependencies, invocationConvention);
         verifyMethodHandleSignature(resolvedFunction.getSignature(), functionInvoker, invocationConvention);
         return functionInvoker;
     }

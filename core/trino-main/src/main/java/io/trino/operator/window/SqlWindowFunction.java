@@ -13,7 +13,7 @@
  */
 package io.trino.operator.window;
 
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionDependencies;
 import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.FunctionNullability;
@@ -52,12 +52,12 @@ public class SqlWindowFunction
         return functionMetadata;
     }
 
-    public WindowFunctionSupplier specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    public WindowFunctionSupplier specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
-        return specialize(functionBinding);
+        return specialize(boundSignature);
     }
 
-    public WindowFunctionSupplier specialize(FunctionBinding functionBinding)
+    public WindowFunctionSupplier specialize(BoundSignature boundSignature)
     {
         return supplier;
     }

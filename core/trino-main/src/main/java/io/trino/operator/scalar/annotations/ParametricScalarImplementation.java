@@ -200,7 +200,7 @@ public class ParametricScalarImplementation
                     boundMethodHandle.asType(javaMethodType(choice, boundSignature)),
                     boundConstructor));
         }
-        return Optional.of(new ChoicesScalarFunctionImplementation(functionBinding, implementationChoices));
+        return Optional.of(new ChoicesScalarFunctionImplementation(boundSignature, implementationChoices));
     }
 
     @Override

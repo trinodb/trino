@@ -25,7 +25,7 @@ import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.ForLoop;
 import io.airlift.bytecode.control.IfStatement;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
@@ -115,19 +115,21 @@ public final class MapTransformKeysFunction
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
+    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
     {
-        Type keyType = functionBinding.getTypeVariable("K1");
-        Type transformedKeyType = functionBinding.getTypeVariable("K2");
-        Type valueType = functionBinding.getTypeVariable("V");
-        MapType resultMapType = (MapType) functionBinding.getBoundSignature().getReturnType();
+        MapType inputMapType = (MapType) boundSignature.getArgumentType(0);
+        Type inputKeyType = inputMapType.getKeyType();
+        MapType outputMapType = (MapType) boundSignature.getReturnType();
+        Type outputKeyType = outputMapType.getKeyType();
+        Type valueType = outputMapType.getValueType();
+
         return new ChoicesScalarFunctionImplementation(
-                functionBinding,
+                boundSignature,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, FUNCTION),
                 ImmutableList.of(BinaryFunctionInterface.class),
-                generateTransformKey(keyType, transformedKeyType, valueType, resultMapType),
-                Optional.of(STATE_FACTORY.bindTo(resultMapType)));
+                generateTransformKey(inputKeyType, outputKeyType, valueType, outputMapType),
+                Optional.of(STATE_FACTORY.bindTo(outputMapType)));
     }
 
     @UsedByGeneratedCode

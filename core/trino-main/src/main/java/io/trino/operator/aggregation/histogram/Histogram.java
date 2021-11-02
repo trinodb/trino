@@ -16,7 +16,7 @@ package io.trino.operator.aggregation.histogram;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.trino.metadata.AggregationFunctionMetadata;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
@@ -85,12 +85,12 @@ public class Histogram
     }
 
     @Override
-    public InternalAggregationFunction specialize(FunctionBinding functionBinding)
+    public InternalAggregationFunction specialize(BoundSignature boundSignature)
     {
-        Type keyType = functionBinding.getTypeVariable("K");
+        Type keyType = boundSignature.getArgumentTypes().get(0);
         BlockPositionEqual keyEqual = blockTypeOperators.getEqualOperator(keyType);
         BlockPositionHashCode keyHashCode = blockTypeOperators.getHashCodeOperator(keyType);
-        Type outputType = functionBinding.getBoundSignature().getReturnType();
+        Type outputType = boundSignature.getReturnType();
         return generateAggregation(NAME, keyType, keyEqual, keyHashCode, outputType);
     }
 

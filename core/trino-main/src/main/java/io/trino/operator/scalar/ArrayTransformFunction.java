@@ -24,7 +24,7 @@ import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.ForLoop;
 import io.airlift.bytecode.control.IfStatement;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
@@ -93,13 +93,13 @@ public final class ArrayTransformFunction
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
+    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
     {
-        Type inputType = functionBinding.getTypeVariable("T");
-        Type outputType = functionBinding.getTypeVariable("U");
+        Type inputType = ((ArrayType) boundSignature.getArgumentTypes().get(0)).getElementType();
+        Type outputType = ((ArrayType) boundSignature.getReturnType()).getElementType();
         Class<?> generatedClass = generateTransform(inputType, outputType);
         return new ChoicesScalarFunctionImplementation(
-                functionBinding,
+                boundSignature,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, FUNCTION),
                 ImmutableList.of(UnaryFunctionInterface.class),

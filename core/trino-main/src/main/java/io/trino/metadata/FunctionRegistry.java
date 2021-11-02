@@ -274,9 +274,11 @@ import javax.annotation.concurrent.ThreadSafe;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
@@ -374,14 +376,15 @@ import static io.trino.type.DecimalSaturatedFloorCasts.INTEGER_TO_DECIMAL_SATURA
 import static io.trino.type.DecimalSaturatedFloorCasts.SMALLINT_TO_DECIMAL_SATURATED_FLOOR_CAST;
 import static io.trino.type.DecimalSaturatedFloorCasts.TINYINT_TO_DECIMAL_SATURATED_FLOOR_CAST;
 import static io.trino.type.DecimalToDecimalCasts.DECIMAL_TO_DECIMAL_CAST;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.HOURS;
 
 @ThreadSafe
 public class FunctionRegistry
 {
-    private final Cache<FunctionBinding, ScalarFunctionImplementation> specializedScalarCache;
-    private final Cache<FunctionBinding, InternalAggregationFunction> specializedAggregationCache;
-    private final Cache<FunctionBinding, WindowFunctionSupplier> specializedWindowCache;
+    private final Cache<FunctionKey, ScalarFunctionImplementation> specializedScalarCache;
+    private final Cache<FunctionKey, InternalAggregationFunction> specializedAggregationCache;
+    private final Cache<FunctionKey, WindowFunctionSupplier> specializedWindowCache;
     private volatile FunctionMap functions = new FunctionMap();
 
     public FunctionRegistry(
@@ -832,15 +835,15 @@ public class FunctionRegistry
         return aggregationFunction.getAggregationMetadata();
     }
 
-    public WindowFunctionSupplier getWindowFunctionImplementation(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    public WindowFunctionSupplier getWindowFunctionImplementation(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
-        SqlFunction function = functions.get(functionBinding.getFunctionId());
+        SqlFunction function = functions.get(functionId);
         try {
             if (function instanceof SqlAggregationFunction) {
-                InternalAggregationFunction aggregationFunction = specializedAggregationCache.get(functionBinding, () -> specializedAggregation(functionBinding, functionDependencies));
+                InternalAggregationFunction aggregationFunction = specializedAggregationCache.get(new FunctionKey(functionId, boundSignature), () -> specializedAggregation(functionId, boundSignature, functionDependencies));
                 return supplier(function.getFunctionMetadata().getSignature(), aggregationFunction);
             }
-            return specializedWindowCache.get(functionBinding, () -> specializeWindow(functionBinding, functionDependencies));
+            return specializedWindowCache.get(new FunctionKey(functionId, boundSignature), () -> specializeWindow(functionId, boundSignature, functionDependencies));
         }
         catch (ExecutionException | UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), TrinoException.class);
@@ -848,16 +851,16 @@ public class FunctionRegistry
         }
     }
 
-    private WindowFunctionSupplier specializeWindow(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    private WindowFunctionSupplier specializeWindow(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
-        SqlWindowFunction function = (SqlWindowFunction) functions.get(functionBinding.getFunctionId());
-        return function.specialize(functionBinding, functionDependencies);
+        SqlWindowFunction function = (SqlWindowFunction) functions.get(functionId);
+        return function.specialize(boundSignature, functionDependencies);
     }
 
-    public InternalAggregationFunction getAggregateFunctionImplementation(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    public InternalAggregationFunction getAggregateFunctionImplementation(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
         try {
-            return specializedAggregationCache.get(functionBinding, () -> specializedAggregation(functionBinding, functionDependencies));
+            return specializedAggregationCache.get(new FunctionKey(functionId, boundSignature), () -> specializedAggregation(functionId, boundSignature, functionDependencies));
         }
         catch (ExecutionException | UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), TrinoException.class);
@@ -865,26 +868,27 @@ public class FunctionRegistry
         }
     }
 
-    private InternalAggregationFunction specializedAggregation(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    private InternalAggregationFunction specializedAggregation(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
-        SqlAggregationFunction function = (SqlAggregationFunction) functions.get(functionBinding.getFunctionId());
-        return function.specialize(functionBinding, functionDependencies);
+        SqlAggregationFunction function = (SqlAggregationFunction) functions.get(functionId);
+        return function.specialize(boundSignature, functionDependencies);
     }
 
     public FunctionDependencyDeclaration getFunctionDependencies(FunctionBinding functionBinding)
     {
         SqlFunction function = functions.get(functionBinding.getFunctionId());
-        return function.getFunctionDependencies(functionBinding);
+        return function.getFunctionDependencies(functionBinding.getBoundSignature());
     }
 
     public FunctionInvoker getScalarFunctionInvoker(
-            FunctionBinding functionBinding,
+            FunctionId functionId,
+            BoundSignature boundSignature,
             FunctionDependencies functionDependencies,
             InvocationConvention invocationConvention)
     {
         ScalarFunctionImplementation scalarFunctionImplementation;
         try {
-            scalarFunctionImplementation = specializedScalarCache.get(functionBinding, () -> specializeScalarFunction(functionBinding, functionDependencies));
+            scalarFunctionImplementation = specializedScalarCache.get(new FunctionKey(functionId, boundSignature), () -> specializeScalarFunction(functionId, boundSignature, functionDependencies));
         }
         catch (ExecutionException | UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), TrinoException.class);
@@ -893,10 +897,10 @@ public class FunctionRegistry
         return scalarFunctionImplementation.getScalarFunctionInvoker(invocationConvention);
     }
 
-    private ScalarFunctionImplementation specializeScalarFunction(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    private ScalarFunctionImplementation specializeScalarFunction(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
-        SqlScalarFunction function = (SqlScalarFunction) functions.get(functionBinding.getFunctionId());
-        return function.specialize(functionBinding, functionDependencies);
+        SqlScalarFunction function = (SqlScalarFunction) functions.get(functionId);
+        return function.specialize(boundSignature, functionDependencies);
     }
 
     private static class FunctionMap
@@ -950,6 +954,57 @@ public class FunctionRegistry
             SqlFunction sqlFunction = functions.get(functionId);
             checkArgument(sqlFunction != null, "Unknown function implementation: %s", functionId);
             return sqlFunction;
+        }
+    }
+
+    private static class FunctionKey
+    {
+        private final FunctionId functionId;
+        private final BoundSignature boundSignature;
+
+        public FunctionKey(FunctionId functionId, BoundSignature boundSignature)
+        {
+            this.functionId = requireNonNull(functionId, "functionId is null");
+            this.boundSignature = requireNonNull(boundSignature, "boundSignature is null");
+        }
+
+        public FunctionId getFunctionId()
+        {
+            return functionId;
+        }
+
+        public BoundSignature getBoundSignature()
+        {
+            return boundSignature;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            FunctionKey that = (FunctionKey) o;
+            return functionId.equals(that.functionId) &&
+                    boundSignature.equals(that.boundSignature);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(functionId, boundSignature);
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("functionId", functionId)
+                    .add("boundSignature", boundSignature)
+                    .toString();
         }
     }
 }

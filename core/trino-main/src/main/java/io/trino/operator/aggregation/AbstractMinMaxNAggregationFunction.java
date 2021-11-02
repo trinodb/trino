@@ -16,7 +16,7 @@ package io.trino.operator.aggregation;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.trino.metadata.AggregationFunctionMetadata;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionDependencies;
 import io.trino.metadata.FunctionDependencyDeclaration;
 import io.trino.metadata.FunctionMetadata;
@@ -92,15 +92,15 @@ public abstract class AbstractMinMaxNAggregationFunction
     }
 
     @Override
-    public FunctionDependencyDeclaration getFunctionDependencies(FunctionBinding functionBinding)
+    public FunctionDependencyDeclaration getFunctionDependencies(BoundSignature boundSignature)
     {
-        return MinMaxCompare.getMinMaxCompareFunctionDependencies(functionBinding.getTypeVariable("E").getTypeSignature(), min);
+        return MinMaxCompare.getMinMaxCompareFunctionDependencies(boundSignature.getArgumentTypes().get(0).getTypeSignature(), min);
     }
 
     @Override
-    public InternalAggregationFunction specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    public InternalAggregationFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
-        Type type = functionBinding.getTypeVariable("E");
+        Type type = boundSignature.getArgumentTypes().get(0);
         MethodHandle compare = getMinMaxCompare(functionDependencies, type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION), min);
         return generateAggregation(compare, type);
     }

@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.airlift.slice.Slice;
 import io.trino.metadata.AggregationFunctionMetadata;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
@@ -100,9 +100,9 @@ public class DecimalAverageAggregation
     }
 
     @Override
-    public InternalAggregationFunction specialize(FunctionBinding functionBinding)
+    public InternalAggregationFunction specialize(BoundSignature boundSignature)
     {
-        Type type = getOnlyElement(functionBinding.getBoundSignature().getArgumentTypes());
+        Type type = getOnlyElement(boundSignature.getArgumentTypes());
         return generateAggregation(type);
     }
 

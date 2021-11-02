@@ -16,7 +16,7 @@ package io.trino.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
@@ -67,9 +67,9 @@ public final class ConcatFunction
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
+    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
     {
-        int arity = functionBinding.getArity();
+        int arity = boundSignature.getArity();
 
         if (arity < 2) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "There must be two or more concatenation arguments");
@@ -83,7 +83,7 @@ public final class ConcatFunction
         MethodHandle customMethodHandle = arrayMethodHandle.asCollector(Slice[].class, arity);
 
         return new ChoicesScalarFunctionImplementation(
-                functionBinding,
+                boundSignature,
                 FAIL_ON_NULL,
                 nCopies(arity, NEVER_NULL),
                 customMethodHandle);

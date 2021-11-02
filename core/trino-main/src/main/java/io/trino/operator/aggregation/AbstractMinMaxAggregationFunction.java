@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.metadata.AggregationFunctionMetadata;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionDependencies;
 import io.trino.metadata.FunctionDependencyDeclaration;
 import io.trino.metadata.FunctionMetadata;
@@ -114,9 +114,9 @@ public abstract class AbstractMinMaxAggregationFunction
     }
 
     @Override
-    public InternalAggregationFunction specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    public InternalAggregationFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
-        Type type = functionBinding.getTypeVariable("E");
+        Type type = boundSignature.getArgumentTypes().get(0);
         InvocationConvention invocationConvention;
         if (type.getJavaType().isPrimitive()) {
             invocationConvention = simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL);

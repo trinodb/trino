@@ -16,7 +16,7 @@ package io.trino.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.SqlOperator;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -59,9 +59,9 @@ public class ArraySubscriptOperator
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
+    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
     {
-        Type elementType = functionBinding.getTypeVariable("E");
+        Type elementType = boundSignature.getReturnType();
 
         MethodHandle methodHandle;
         if (elementType.getJavaType() == boolean.class) {
@@ -83,7 +83,7 @@ public class ArraySubscriptOperator
         methodHandle = methodHandle.bindTo(elementType);
         requireNonNull(methodHandle, "methodHandle is null");
         return new ChoicesScalarFunctionImplementation(
-                functionBinding,
+                boundSignature,
                 NULLABLE_RETURN,
                 ImmutableList.of(NEVER_NULL, NEVER_NULL),
                 methodHandle);

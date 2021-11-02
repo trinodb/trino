@@ -15,7 +15,7 @@ package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
@@ -63,9 +63,9 @@ public class ArrayToElementConcatFunction
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
+    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
     {
-        Type type = functionBinding.getTypeVariable("E");
+        Type type = boundSignature.getArgumentTypes().get(1);
         MethodHandle methodHandle;
         if (type.getJavaType() == boolean.class) {
             methodHandle = METHOD_HANDLE_BOOLEAN;
@@ -85,7 +85,7 @@ public class ArrayToElementConcatFunction
         methodHandle = methodHandle.bindTo(type);
 
         return new ChoicesScalarFunctionImplementation(
-                functionBinding,
+                boundSignature,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, NEVER_NULL),
                 methodHandle);
