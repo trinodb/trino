@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.primitives.Primitives;
+import io.trino.plugin.iceberg.PartitionTransforms.ColumnTransform;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Decimals;
@@ -276,7 +277,8 @@ public class TestIcebergBucketing
     private Integer computeTrinoBucket(Type icebergType, Object icebergValue, int bucketCount)
     {
         io.trino.spi.type.Type trinoType = toTrinoType(icebergType, TYPE_MANAGER);
-        Function<Block, Block> bucketTransform = PartitionTransforms.bucket(trinoType, bucketCount).getTransform();
+        ColumnTransform transform = PartitionTransforms.bucket(trinoType, bucketCount);
+        Function<Block, Block> blockTransform = transform.getBlockTransform();
 
         BlockBuilder blockBuilder = trinoType.createBlockBuilder(null, 1);
 
@@ -285,9 +287,15 @@ public class TestIcebergBucketing
         writeNativeValue(trinoType, blockBuilder, trinoValue);
         Block block = blockBuilder.build();
 
-        Block bucketBlock = bucketTransform.apply(block);
+        Block bucketBlock = blockTransform.apply(block);
         verify(bucketBlock.getPositionCount() == 1);
-        return bucketBlock.isNull(0) ? null : bucketBlock.getInt(0, 0);
+        Integer trinoBucketWithBlock = bucketBlock.isNull(0) ? null : bucketBlock.getInt(0, 0);
+
+        Long trinoBucketWithValue = (Long) transform.getValueTransform().apply(block, 0);
+        Integer trinoBucketWithValueAsInteger = trinoBucketWithValue == null ? null : toIntExact(trinoBucketWithValue);
+        assertEquals(trinoBucketWithValueAsInteger, trinoBucketWithBlock);
+
+        return trinoBucketWithBlock;
     }
 
     private static Object toTrinoValue(Type icebergType, Object icebergValue)
