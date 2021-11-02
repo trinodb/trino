@@ -426,7 +426,7 @@ public interface ConnectorMetadata
     }
 
     /**
-     * Get the physical layout for a inserting into an existing table.
+     * Get the physical layout for inserting into an existing table.
      */
     default Optional<ConnectorNewTableLayout> getInsertLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
