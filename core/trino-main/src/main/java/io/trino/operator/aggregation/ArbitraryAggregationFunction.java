@@ -92,13 +92,13 @@ public class ArbitraryAggregationFunction
     }
 
     @Override
-    public InternalAggregationFunction specialize(BoundSignature boundSignature)
+    public AggregationMetadata specialize(BoundSignature boundSignature)
     {
         Type valueType = boundSignature.getReturnType();
         return generateAggregation(valueType);
     }
 
-    private static InternalAggregationFunction generateAggregation(Type type)
+    private static AggregationMetadata generateAggregation(Type type)
     {
         List<Type> inputTypes = ImmutableList.of(type);
 
@@ -146,9 +146,8 @@ public class ArbitraryAggregationFunction
         }
         inputFunction = inputFunction.bindTo(type);
 
-        Type intermediateType = accumulatorStateDescriptor.getSerializer().getSerializedType();
         List<ParameterMetadata> inputParameterMetadata = createInputParameterMetadata(type);
-        AggregationMetadata metadata = new AggregationMetadata(
+        return new AggregationMetadata(
                 generateAggregationName(NAME, type.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 inputParameterMetadata,
                 inputFunction,
@@ -157,9 +156,6 @@ public class ArbitraryAggregationFunction
                 outputFunction.bindTo(type),
                 ImmutableList.of(accumulatorStateDescriptor),
                 type);
-
-        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata);
-        return new InternalAggregationFunction(NAME, inputTypes, ImmutableList.of(intermediateType), type, factory);
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type value)

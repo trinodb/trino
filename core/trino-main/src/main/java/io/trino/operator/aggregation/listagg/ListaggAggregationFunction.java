@@ -23,12 +23,9 @@ import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlAggregationFunction;
-import io.trino.operator.aggregation.AccumulatorCompiler;
 import io.trino.operator.aggregation.AggregationMetadata;
 import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
 import io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata;
-import io.trino.operator.aggregation.GenericAccumulatorFactoryBinder;
-import io.trino.operator.aggregation.InternalAggregationFunction;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -104,19 +101,18 @@ public class ListaggAggregationFunction
     }
 
     @Override
-    public InternalAggregationFunction specialize(BoundSignature boundSignature)
+    public AggregationMetadata specialize(BoundSignature boundSignature)
     {
         return generateAggregation(VARCHAR);
     }
 
-    private static InternalAggregationFunction generateAggregation(Type type)
+    private static AggregationMetadata generateAggregation(Type type)
     {
         AccumulatorStateSerializer<ListaggAggregationState> stateSerializer = new ListaggAggregationStateSerializer(type);
         AccumulatorStateFactory<ListaggAggregationState> stateFactory = new ListaggAggregationStateFactory(type);
 
         List<Type> inputTypes = ImmutableList.of(VARCHAR, VARCHAR, BOOLEAN, VARCHAR, BOOLEAN);
         Type outputType = VARCHAR;
-        Type intermediateType = stateSerializer.getSerializedType();
         List<ParameterMetadata> inputParameterMetadata = ImmutableList.of(
                 new ParameterMetadata(STATE),
                 new ParameterMetadata(NULLABLE_BLOCK_INPUT_CHANNEL, type),
@@ -130,7 +126,7 @@ public class ListaggAggregationFunction
         MethodHandle combineFunction = COMBINE_FUNCTION.bindTo(type);
         MethodHandle outputFunction = OUTPUT_FUNCTION.bindTo(type);
 
-        AggregationMetadata metadata = new AggregationMetadata(
+        return new AggregationMetadata(
                 generateAggregationName(NAME, type.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 inputParameterMetadata,
                 inputFunction,
@@ -142,9 +138,6 @@ public class ListaggAggregationFunction
                         stateSerializer,
                         stateFactory)),
                 outputType);
-
-        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata);
-        return new InternalAggregationFunction(NAME, inputTypes, ImmutableList.of(intermediateType), outputType, factory);
     }
 
     public static void input(Type type, ListaggAggregationState state, Block value, int position, Slice separator, boolean overflowError, Slice overflowFiller, boolean showOverflowEntryCount)

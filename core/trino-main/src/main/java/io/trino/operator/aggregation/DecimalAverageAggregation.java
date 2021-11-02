@@ -97,13 +97,13 @@ public class DecimalAverageAggregation
     }
 
     @Override
-    public InternalAggregationFunction specialize(BoundSignature boundSignature)
+    public AggregationMetadata specialize(BoundSignature boundSignature)
     {
         Type type = getOnlyElement(boundSignature.getArgumentTypes());
         return generateAggregation(type);
     }
 
-    private static InternalAggregationFunction generateAggregation(Type type)
+    private static AggregationMetadata generateAggregation(Type type)
     {
         checkArgument(type instanceof DecimalType, "type must be Decimal");
         List<Type> inputTypes = ImmutableList.of(type);
@@ -122,7 +122,7 @@ public class DecimalAverageAggregation
         }
         outputFunction = outputFunction.bindTo(type);
 
-        AggregationMetadata metadata = new AggregationMetadata(
+        return new AggregationMetadata(
                 generateAggregationName(NAME, type.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 createInputParameterMetadata(type),
                 inputFunction,
@@ -134,10 +134,6 @@ public class DecimalAverageAggregation
                         stateSerializer,
                         new LongDecimalWithOverflowAndLongStateFactory())),
                 type);
-
-        Type intermediateType = stateSerializer.getSerializedType();
-        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata);
-        return new InternalAggregationFunction(NAME, inputTypes, ImmutableList.of(intermediateType), type, factory);
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type type)

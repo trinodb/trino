@@ -110,7 +110,7 @@ public abstract class AbstractMinMaxAggregationFunction
     }
 
     @Override
-    public InternalAggregationFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
+    public AggregationMetadata specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
         Type type = boundSignature.getArgumentTypes().get(0);
         InvocationConvention invocationConvention;
@@ -126,7 +126,7 @@ public abstract class AbstractMinMaxAggregationFunction
         return generateAggregation(type, compareMethodHandle);
     }
 
-    protected InternalAggregationFunction generateAggregation(Type type, MethodHandle compareMethodHandle)
+    protected AggregationMetadata generateAggregation(Type type, MethodHandle compareMethodHandle)
     {
         List<Type> inputTypes = ImmutableList.of(type);
 
@@ -173,9 +173,8 @@ public abstract class AbstractMinMaxAggregationFunction
             outputFunction = BLOCK_POSITION_OUTPUT_FUNCTION.bindTo(type);
         }
 
-        Type intermediateType = accumulatorStateDescriptor.getSerializer().getSerializedType();
         String name = getFunctionMetadata().getSignature().getName();
-        AggregationMetadata metadata = new AggregationMetadata(
+        return new AggregationMetadata(
                 generateAggregationName(name, type.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 createParameterMetadata(type),
                 inputFunction,
@@ -184,9 +183,6 @@ public abstract class AbstractMinMaxAggregationFunction
                 outputFunction,
                 ImmutableList.of(accumulatorStateDescriptor),
                 type);
-
-        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata);
-        return new InternalAggregationFunction(name, inputTypes, ImmutableList.of(intermediateType), type, factory);
     }
 
     private static List<ParameterMetadata> createParameterMetadata(Type type)

@@ -31,11 +31,8 @@ import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlAggregationFunction;
-import io.trino.operator.aggregation.AccumulatorCompiler;
 import io.trino.operator.aggregation.AggregationMetadata;
 import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
-import io.trino.operator.aggregation.GenericAccumulatorFactoryBinder;
-import io.trino.operator.aggregation.InternalAggregationFunction;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AccumulatorState;
@@ -129,19 +126,17 @@ public abstract class AbstractMinMaxBy
     }
 
     @Override
-    public InternalAggregationFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
+    public AggregationMetadata specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
         Type keyType = boundSignature.getArgumentType(1);
         Type valueType = boundSignature.getArgumentType(0);
         return generateAggregation(valueType, keyType, functionDependencies);
     }
 
-    private InternalAggregationFunction generateAggregation(Type valueType, Type keyType, FunctionDependencies functionDependencies)
+    private AggregationMetadata generateAggregation(Type valueType, Type keyType, FunctionDependencies functionDependencies)
     {
         Class<? extends AccumulatorState> stateClass = getStateClass(keyType.getJavaType(), valueType.getJavaType());
         AccumulatorStateDescriptor<?> accumulatorStateDescriptor = generateAccumulatorStateDescriptor(valueType, keyType, stateClass);
-
-        Type intermediateType = accumulatorStateDescriptor.getSerializer().getSerializedType();
 
         List<Type> inputTypes = ImmutableList.of(valueType, keyType);
 
@@ -161,7 +156,7 @@ public abstract class AbstractMinMaxBy
         MethodHandle combineMethod = methodHandle(generatedClass, "combine", stateClass, stateClass);
         MethodHandle outputMethod = methodHandle(generatedClass, "output", stateClass, BlockBuilder.class);
         String name = getFunctionMetadata().getSignature().getName();
-        AggregationMetadata aggregationMetadata = new AggregationMetadata(
+        return new AggregationMetadata(
                 generateAggregationName(name, valueType.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 createInputParameterMetadata(valueType, keyType),
                 inputMethod,
@@ -170,8 +165,6 @@ public abstract class AbstractMinMaxBy
                 outputMethod,
                 ImmutableList.of(accumulatorStateDescriptor),
                 valueType);
-        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(aggregationMetadata);
-        return new InternalAggregationFunction(name, inputTypes, ImmutableList.of(intermediateType), valueType, factory);
     }
 
     private static <T extends AccumulatorState> AccumulatorStateDescriptor<?> generateAccumulatorStateDescriptor(Type valueType, Type keyType, Class<T> stateClass)

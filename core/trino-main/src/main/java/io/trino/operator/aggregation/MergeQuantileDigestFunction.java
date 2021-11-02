@@ -84,19 +84,18 @@ public final class MergeQuantileDigestFunction
     }
 
     @Override
-    public InternalAggregationFunction specialize(BoundSignature boundSignature)
+    public AggregationMetadata specialize(BoundSignature boundSignature)
     {
         QuantileDigestType outputType = (QuantileDigestType) boundSignature.getReturnType();
         Type valueType = outputType.getValueType();
         return generateAggregation(valueType, outputType);
     }
 
-    private static InternalAggregationFunction generateAggregation(Type valueType, QuantileDigestType type)
+    private static AggregationMetadata generateAggregation(Type valueType, QuantileDigestType type)
     {
         QuantileDigestStateSerializer stateSerializer = new QuantileDigestStateSerializer(valueType);
-        Type intermediateType = stateSerializer.getSerializedType();
 
-        AggregationMetadata metadata = new AggregationMetadata(
+        return new AggregationMetadata(
                 generateAggregationName(NAME, type.getTypeSignature(), ImmutableList.of(type.getTypeSignature())),
                 createInputParameterMetadata(type),
                 INPUT_FUNCTION.bindTo(type),
@@ -108,9 +107,6 @@ public final class MergeQuantileDigestFunction
                         stateSerializer,
                         new QuantileDigestStateFactory())),
                 type);
-
-        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata);
-        return new InternalAggregationFunction(NAME, ImmutableList.of(type), ImmutableList.of(intermediateType), type, factory);
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type valueType)

@@ -20,11 +20,8 @@ import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlAggregationFunction;
-import io.trino.operator.aggregation.AccumulatorCompiler;
 import io.trino.operator.aggregation.AggregationMetadata;
 import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
-import io.trino.operator.aggregation.GenericAccumulatorFactoryBinder;
-import io.trino.operator.aggregation.InternalAggregationFunction;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
@@ -84,7 +81,7 @@ public class Histogram
     }
 
     @Override
-    public InternalAggregationFunction specialize(BoundSignature boundSignature)
+    public AggregationMetadata specialize(BoundSignature boundSignature)
     {
         Type keyType = boundSignature.getArgumentTypes().get(0);
         BlockPositionEqual keyEqual = blockTypeOperators.getEqualOperator(keyType);
@@ -93,7 +90,7 @@ public class Histogram
         return generateAggregation(NAME, keyType, keyEqual, keyHashCode, outputType);
     }
 
-    private static InternalAggregationFunction generateAggregation(
+    private static AggregationMetadata generateAggregation(
             String functionName,
             Type keyType,
             BlockPositionEqual keyEqual,
@@ -102,11 +99,10 @@ public class Histogram
     {
         List<Type> inputTypes = ImmutableList.of(keyType);
         HistogramStateSerializer stateSerializer = new HistogramStateSerializer(outputType);
-        Type intermediateType = stateSerializer.getSerializedType();
         MethodHandle inputFunction = INPUT_FUNCTION.bindTo(keyType);
         MethodHandle outputFunction = OUTPUT_FUNCTION.bindTo(outputType);
 
-        AggregationMetadata metadata = new AggregationMetadata(
+        return new AggregationMetadata(
                 generateAggregationName(functionName, outputType.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 createInputParameterMetadata(keyType),
                 inputFunction,
@@ -118,9 +114,6 @@ public class Histogram
                         stateSerializer,
                         new HistogramStateFactory(keyType, keyEqual, keyHashCode, EXPECTED_SIZE_FOR_HASHING))),
                 outputType);
-
-        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata);
-        return new InternalAggregationFunction(functionName, inputTypes, ImmutableList.of(intermediateType), outputType, factory);
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type keyType)
