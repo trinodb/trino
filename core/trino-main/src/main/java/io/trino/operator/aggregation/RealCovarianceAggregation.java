@@ -23,8 +23,6 @@ import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 
-import static io.trino.operator.aggregation.AggregationUtils.getCovariancePopulation;
-import static io.trino.operator.aggregation.AggregationUtils.getCovarianceSample;
 import static io.trino.spi.type.RealType.REAL;
 import static java.lang.Float.intBitsToFloat;
 
@@ -53,7 +51,7 @@ public final class RealCovarianceAggregation
             out.appendNull();
         }
         else {
-            double result = getCovarianceSample(state);
+            double result = state.getCovarianceSample();
             REAL.writeLong(out, Float.floatToRawIntBits((float) result));
         }
     }
@@ -66,7 +64,7 @@ public final class RealCovarianceAggregation
             out.appendNull();
         }
         else {
-            double result = getCovariancePopulation(state);
+            double result = state.getCovariancePopulation();
             REAL.writeLong(out, Float.floatToRawIntBits((float) result));
         }
     }

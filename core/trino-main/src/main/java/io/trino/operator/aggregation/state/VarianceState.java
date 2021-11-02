@@ -15,6 +15,8 @@ package io.trino.operator.aggregation.state;
 
 import io.trino.spi.function.AccumulatorState;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 public interface VarianceState
         extends AccumulatorState
 {
@@ -29,4 +31,30 @@ public interface VarianceState
     double getM2();
 
     void setM2(double value);
+
+    default void update(double value)
+    {
+        setCount(getCount() + 1);
+        double delta = value - getMean();
+        setMean(getMean() + delta / getCount());
+        setM2(getM2() + delta * (value - getMean()));
+    }
+
+    default void merge(VarianceState otherState)
+    {
+        long count = otherState.getCount();
+        double mean = otherState.getMean();
+        double m2 = otherState.getM2();
+
+        checkArgument(count >= 0, "count is negative");
+        if (count == 0) {
+            return;
+        }
+        long newCount = count + getCount();
+        double newMean = ((count * mean) + (getCount() * getMean())) / (double) newCount;
+        double delta = mean - getMean();
+        setM2(getM2() + m2 + delta * delta * count * getCount() / (double) newCount);
+        setCount(newCount);
+        setMean(newMean);
+    }
 }
