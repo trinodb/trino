@@ -17,7 +17,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
-import io.trino.operator.aggregation.InternalAggregationFunction;
+import io.trino.operator.aggregation.AggregationMetadata;
 import io.trino.operator.window.WindowFunctionSupplier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockEncodingSerde;
@@ -671,7 +671,7 @@ public interface Metadata
 
     WindowFunctionSupplier getWindowFunctionImplementation(ResolvedFunction resolvedFunction);
 
-    InternalAggregationFunction getAggregateFunctionImplementation(ResolvedFunction resolvedFunction);
+    AggregationMetadata getAggregateFunctionImplementation(ResolvedFunction resolvedFunction);
 
     FunctionInvoker getScalarFunctionInvoker(ResolvedFunction resolvedFunction, InvocationConvention invocationConvention);
 
