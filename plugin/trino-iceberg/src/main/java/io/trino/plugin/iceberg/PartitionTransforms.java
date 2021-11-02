@@ -32,7 +32,6 @@ import org.joda.time.chrono.ISOChronology;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.function.Function;
-import java.util.function.IntUnaryOperator;
 import java.util.function.LongUnaryOperator;
 import java.util.function.ToLongFunction;
 import java.util.regex.Matcher;
@@ -307,71 +306,124 @@ public final class PartitionTransforms
 
     private static Block bucketInteger(Block block, int count)
     {
-        return bucketBlock(block, count, position -> bucketHash(INTEGER.getLong(block, position)));
+        return bucketBlock(block, count, PartitionTransforms::hashInteger);
+    }
+
+    private static int hashInteger(Block block, int position)
+    {
+        return bucketHash(INTEGER.getLong(block, position));
     }
 
     private static Block bucketBigint(Block block, int count)
     {
-        return bucketBlock(block, count, position -> bucketHash(BIGINT.getLong(block, position)));
+        return bucketBlock(block, count, PartitionTransforms::hashBigint);
+    }
+
+    private static int hashBigint(Block block, int position)
+    {
+        return bucketHash(BIGINT.getLong(block, position));
     }
 
     private static Block bucketShortDecimal(DecimalType decimal, Block block, int count)
     {
-        return bucketBlock(block, count, position -> {
+        return bucketBlock(block, count, hashShortDecimal(decimal));
+    }
+
+    private static Hasher hashShortDecimal(DecimalType decimal)
+    {
+        return (block, position) -> {
             // TODO: write optimized implementation
             BigDecimal value = readBigDecimal(decimal, block, position);
             return bucketHash(Slices.wrappedBuffer(value.unscaledValue().toByteArray()));
-        });
+        };
     }
 
     private static Block bucketLongDecimal(DecimalType decimal, Block block, int count)
     {
-        return bucketBlock(block, count, position -> {
+        return bucketBlock(block, count, hashLongDecimal(decimal));
+    }
+
+    private static Hasher hashLongDecimal(DecimalType decimal)
+    {
+        return (block, position) -> {
             // TODO: write optimized implementation
             BigDecimal value = readBigDecimal(decimal, block, position);
             return bucketHash(Slices.wrappedBuffer(value.unscaledValue().toByteArray()));
-        });
+        };
     }
 
     private static Block bucketDate(Block block, int count)
     {
-        return bucketBlock(block, count, position -> bucketHash(DATE.getLong(block, position)));
+        return bucketBlock(block, count, PartitionTransforms::hashDate);
+    }
+
+    private static int hashDate(Block block, int position)
+    {
+        return bucketHash(DATE.getLong(block, position));
     }
 
     private static Block bucketTime(Block block, int count)
     {
-        return bucketBlock(block, count, position -> {
-            long picos = TIME_MICROS.getLong(block, position);
-            return bucketHash(picos / PICOSECONDS_PER_MICROSECOND);
-        });
+        return bucketBlock(block, count, PartitionTransforms::hashTime);
+    }
+
+    private static int hashTime(Block block, int position)
+    {
+        long picos = TIME_MICROS.getLong(block, position);
+        return bucketHash(picos / PICOSECONDS_PER_MICROSECOND);
     }
 
     private static Block bucketTimestamp(Block block, int count)
     {
-        return bucketBlock(block, count, position -> bucketHash(((Type) TIMESTAMP_MICROS).getLong(block, position)));
+        return bucketBlock(block, count, PartitionTransforms::hashTimestamp);
+    }
+
+    private static int hashTimestamp(Block block, int position)
+    {
+        return bucketHash(TIMESTAMP_MICROS.getLong(block, position));
     }
 
     private static Block bucketTimestampWithTimeZone(Block block, int count)
     {
-        return bucketBlock(block, count, position -> bucketHash(timestampTzToMicros(getTimestampTz(block, position))));
+        return bucketBlock(block, count, PartitionTransforms::hashTimestampWithTimeZone);
+    }
+
+    private static int hashTimestampWithTimeZone(Block block, int position)
+    {
+        return bucketHash(timestampTzToMicros(getTimestampTz(block, position)));
     }
 
     private static Block bucketVarchar(Block block, int count)
     {
-        return bucketBlock(block, count, position -> bucketHash(VARCHAR.getSlice(block, position)));
+        return bucketBlock(block, count, PartitionTransforms::hashVarchar);
+    }
+
+    private static int hashVarchar(Block block, int position)
+    {
+        return bucketHash(VARCHAR.getSlice(block, position));
     }
 
     private static Block bucketVarbinary(Block block, int count)
     {
-        return bucketBlock(block, count, position -> bucketHash(VARBINARY.getSlice(block, position)));
+        return bucketBlock(block, count, PartitionTransforms::hashVarbinary);
+    }
+
+    private static int hashVarbinary(Block block, int position)
+    {
+        return bucketHash(VARBINARY.getSlice(block, position));
     }
 
     private static Block bucketUuid(Block block, int count)
     {
-        return bucketBlock(block, count, position -> bucketHash(UUID.getSlice(block, position)));
+        return bucketBlock(block, count, PartitionTransforms::hashUuid);
     }
 
-    private static Block bucketBlock(Block block, int count, IntUnaryOperator hasher)
+    private static int hashUuid(Block block, int position)
+    {
+        return bucketHash(UUID.getSlice(block, position));
+    }
+
+    private static Block bucketBlock(Block block, int count, Hasher hasher)
     {
         BlockBuilder builder = INTEGER.createFixedSizeBlockBuilder(block.getPositionCount());
         for (int position = 0; position < block.getPositionCount(); position++) {
@@ -379,7 +431,7 @@ public final class PartitionTransforms
                 builder.appendNull();
                 continue;
             }
-            int hash = hasher.applyAsInt(position);
+            int hash = hasher.hash(block, position);
             int bucket = (hash & Integer.MAX_VALUE) % count;
             INTEGER.writeLong(builder, bucket);
         }
@@ -601,6 +653,11 @@ public final class PartitionTransforms
     static long epochHour(long epochMilli)
     {
         return floorDiv(epochMilli, MILLISECONDS_PER_HOUR);
+    }
+
+    private interface Hasher
+    {
+        int hash(Block block, int position);
     }
 
     public static class ColumnTransform
