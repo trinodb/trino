@@ -43,7 +43,6 @@ import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
-import static io.trino.operator.aggregation.AggregationUtils.generateAggregationName;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.TypeSignature.functionType;
 import static io.trino.util.Reflection.methodHandle;
@@ -141,9 +140,7 @@ public class ReduceAggregationFunction
             throw new TrinoException(NOT_SUPPORTED, format("State type not supported for %s: %s", NAME, stateType.getDisplayName()));
         }
 
-        String name = getFunctionMetadata().getSignature().getName();
         return new AggregationMetadata(
-                generateAggregationName(name, inputType.getTypeSignature(), ImmutableList.of(inputType.getTypeSignature())),
                 createInputParameterMetadata(inputType, stateType),
                 inputMethodHandle.asType(
                         inputMethodHandle.type()
@@ -152,7 +149,6 @@ public class ReduceAggregationFunction
                 combineMethodHandle,
                 outputMethodHandle,
                 ImmutableList.of(stateDescriptor),
-                inputType,
                 ImmutableList.of(BinaryFunctionInterface.class, BinaryFunctionInterface.class));
     }
 

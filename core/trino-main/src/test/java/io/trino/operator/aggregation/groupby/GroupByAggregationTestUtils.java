@@ -49,13 +49,4 @@ public final class GroupByAggregationTestUtils
             return new Page[] {new Page(blockArray1), new Page(blockArray2)};
         }
     }
-
-    public static int[] createArgs(int parameterCount)
-    {
-        int[] args = new int[parameterCount];
-        for (int i = 0; i < args.length; i++) {
-            args[i] = i;
-        }
-        return args;
-    }
 }

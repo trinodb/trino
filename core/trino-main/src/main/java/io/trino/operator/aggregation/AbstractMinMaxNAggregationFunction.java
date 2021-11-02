@@ -38,7 +38,6 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.metadata.Signature.orderableTypeParameter;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata;
@@ -46,7 +45,6 @@ import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadat
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
-import static io.trino.operator.aggregation.AggregationUtils.generateAggregationName;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -106,7 +104,6 @@ public abstract class AbstractMinMaxNAggregationFunction
 
     protected AggregationMetadata generateAggregation(MethodHandle compare, Type type)
     {
-        List<Type> inputTypes = ImmutableList.of(type, BIGINT);
         MinMaxNStateSerializer stateSerializer = new MinMaxNStateSerializer(compare, type);
         ArrayType outputType = new ArrayType(type);
 
@@ -116,13 +113,7 @@ public abstract class AbstractMinMaxNAggregationFunction
                 new ParameterMetadata(INPUT_CHANNEL, BIGINT),
                 new ParameterMetadata(BLOCK_INDEX));
 
-        String name = generateAggregationName(
-                getFunctionMetadata().getSignature().getName(),
-                type.getTypeSignature(),
-                inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList()));
-
         return new AggregationMetadata(
-                name,
                 inputParameterMetadata,
                 INPUT_FUNCTION.bindTo(compare).bindTo(type),
                 Optional.empty(),
@@ -131,8 +122,7 @@ public abstract class AbstractMinMaxNAggregationFunction
                 ImmutableList.of(new AccumulatorStateDescriptor<>(
                         MinMaxNState.class,
                         stateSerializer,
-                        new MinMaxNStateFactory())),
-                outputType);
+                        new MinMaxNStateFactory())));
     }
 
     public static void input(MethodHandle compare, Type type, MinMaxNState state, Block block, long n, int blockIndex)

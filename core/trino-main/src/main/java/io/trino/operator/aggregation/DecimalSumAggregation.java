@@ -35,7 +35,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.trino.metadata.FunctionKind.AGGREGATE;
@@ -43,7 +42,6 @@ import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadat
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
-import static io.trino.operator.aggregation.AggregationUtils.generateAggregationName;
 import static io.trino.spi.type.TypeSignatureParameter.numericParameter;
 import static io.trino.spi.type.TypeSignatureParameter.typeVariable;
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.SIGN_LONG_MASK;
@@ -87,14 +85,12 @@ public class DecimalSumAggregation
     public AggregationMetadata specialize(BoundSignature boundSignature)
     {
         Type inputType = getOnlyElement(boundSignature.getArgumentTypes());
-        Type outputType = boundSignature.getReturnType();
-        return generateAggregation(inputType, outputType);
+        return generateAggregation(inputType);
     }
 
-    private static AggregationMetadata generateAggregation(Type inputType, Type outputType)
+    private static AggregationMetadata generateAggregation(Type inputType)
     {
         checkArgument(inputType instanceof DecimalType, "type must be Decimal");
-        List<Type> inputTypes = ImmutableList.of(inputType);
         MethodHandle inputFunction;
         Class<LongDecimalWithOverflowState> stateInterface = LongDecimalWithOverflowState.class;
         LongDecimalWithOverflowStateSerializer stateSerializer = new LongDecimalWithOverflowStateSerializer();
@@ -107,7 +103,6 @@ public class DecimalSumAggregation
         }
 
         return new AggregationMetadata(
-                generateAggregationName(NAME, outputType.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 createInputParameterMetadata(inputType),
                 inputFunction,
                 Optional.empty(),
@@ -116,8 +111,7 @@ public class DecimalSumAggregation
                 ImmutableList.of(new AccumulatorStateDescriptor<>(
                         stateInterface,
                         stateSerializer,
-                        new LongDecimalWithOverflowStateFactory())),
-                outputType);
+                        new LongDecimalWithOverflowStateFactory())));
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type type)

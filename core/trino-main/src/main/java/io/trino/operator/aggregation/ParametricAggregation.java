@@ -33,7 +33,6 @@ import io.trino.operator.annotations.ImplementationDependency;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Collection;
@@ -42,10 +41,8 @@ import java.util.Optional;
 import java.util.StringJoiner;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.operator.ParametricFunctionHelpers.bindDependencies;
-import static io.trino.operator.aggregation.AggregationUtils.generateAggregationName;
 import static io.trino.operator.aggregation.state.StateCompiler.generateStateFactory;
 import static io.trino.operator.aggregation.state.StateCompiler.generateStateSerializer;
 import static io.trino.operator.aggregation.state.StateCompiler.getSerializedType;
@@ -112,15 +109,11 @@ public class ParametricAggregation
     @Override
     public AggregationMetadata specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
-        // Bind variables
-        Signature signature = getFunctionMetadata().getSignature();
-
         // Find implementation matching arguments
         AggregationImplementation concreteImplementation = findMatchingImplementation(boundSignature);
 
         // Build argument and return Types from signatures
         List<Type> inputTypes = boundSignature.getArgumentTypes();
-        Type outputType = boundSignature.getReturnType();
 
         // Build state factory and serializer
         AccumulatorStateDescriptor<?> accumulatorStateDescriptor = generateAccumulatorStateDescriptor(stateClass);
@@ -137,18 +130,13 @@ public class ParametricAggregation
         // Build metadata of input parameters
         List<ParameterMetadata> parametersMetadata = buildParameterMetadata(concreteImplementation.getInputParameterMetadataTypes(), inputTypes);
 
-        // Generate Aggregation name
-        String aggregationName = generateAggregationName(signature.getName(), outputType.getTypeSignature(), signaturesFromTypes(inputTypes));
-
         return new AggregationMetadata(
-                aggregationName,
                 parametersMetadata,
                 inputHandle,
                 removeInputHandle,
                 combineHandle,
                 outputHandle,
-                ImmutableList.of(accumulatorStateDescriptor),
-                outputType);
+                ImmutableList.of(accumulatorStateDescriptor));
     }
 
     private static <T extends AccumulatorState> AccumulatorStateDescriptor<T> generateAccumulatorStateDescriptor(Class<T> stateClass)
@@ -192,14 +180,6 @@ public class ParametricAggregation
             throw new TrinoException(FUNCTION_IMPLEMENTATION_MISSING, format("Unsupported type parameters (%s) for %s", boundSignature, getFunctionMetadata().getSignature()));
         }
         return foundImplementation.get();
-    }
-
-    private static List<TypeSignature> signaturesFromTypes(List<Type> types)
-    {
-        return types
-                .stream()
-                .map(Type::getTypeSignature)
-                .collect(toImmutableList());
     }
 
     private static List<ParameterMetadata> buildParameterMetadata(List<ParameterType> parameterMetadataTypes, List<Type> inputTypes)

@@ -33,11 +33,13 @@ public class TestingAggregationFunction
     private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
 
     private final InternalAggregationFunction function;
+    private final List<Type> parameterTypes;
     private final List<TypeSignature> intermediateTypes;
     private final Type finalType;
 
     public TestingAggregationFunction(BoundSignature signature, AggregationFunctionMetadata aggregationFunctionMetadata, InternalAggregationFunction function)
     {
+        this.parameterTypes = signature.getArgumentTypes();
         this.intermediateTypes = requireNonNull(aggregationFunctionMetadata, "aggregationFunctionMetadata is null").getIntermediateTypes();
         this.finalType = signature.getReturnType();
         this.function = requireNonNull(function, "function is null");
@@ -45,12 +47,12 @@ public class TestingAggregationFunction
 
     public int getParameterCount()
     {
-        return function.getParameterTypes().size();
+        return parameterTypes.size();
     }
 
     public List<Type> getParameterTypes()
     {
-        return function.getParameterTypes();
+        return parameterTypes;
     }
 
     public List<TypeSignature> getIntermediateType()

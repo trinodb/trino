@@ -21,7 +21,6 @@ import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.aggregation.groupby.AggregationTestInput;
 import io.trino.operator.aggregation.groupby.AggregationTestInputBuilder;
 import io.trino.operator.aggregation.groupby.AggregationTestOutput;
-import io.trino.operator.aggregation.groupby.GroupByAggregationTestUtils;
 import io.trino.operator.aggregation.histogram.Histogram;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -293,7 +292,8 @@ public class TestHistogram
         int numGroups = 50000;
         int itemCount = 30;
         Random random = new Random();
-        GroupedAccumulator groupedAccumulator = createGroupedAccumulator(aggregationFunction);
+        GroupedAccumulator groupedAccumulator = aggregationFunction.bind(ImmutableList.of(0), Optional.empty())
+                .createGroupedAccumulator();
 
         for (int j = 0; j < numGroups; j++) {
             Map<String, Long> expectedValues = new HashMap<>();
@@ -322,14 +322,6 @@ public class TestHistogram
 
             test1.runPagesOnAccumulatorWithAssertion(j, groupedAccumulator, new AggregationTestOutput(expectedValues));
         }
-    }
-
-    private static GroupedAccumulator createGroupedAccumulator(TestingAggregationFunction function)
-    {
-        int[] args = GroupByAggregationTestUtils.createArgs(function.getParameterTypes().size());
-
-        return function.bind(Ints.asList(args), Optional.empty())
-                .createGroupedAccumulator();
     }
 
     private static void testSharedGroupByWithOverlappingValuesPerGroupRunner(TestingAggregationFunction aggregationFunction)

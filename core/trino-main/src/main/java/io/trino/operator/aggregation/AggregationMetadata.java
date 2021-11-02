@@ -30,18 +30,13 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_BLOCK_INPUT_CHANNEL;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.inputChannelParameterType;
 import static java.util.Objects.requireNonNull;
 
 public class AggregationMetadata
 {
     private static final Set<Class<?>> SUPPORTED_PRIMITIVE_TYPES = ImmutableSet.of(long.class, double.class, boolean.class);
 
-    private final String name;
     private final List<ParameterMetadata> valueInputMetadata;
     private final List<Class<?>> lambdaInterfaces;
     private final MethodHandle inputFunction;
@@ -49,44 +44,35 @@ public class AggregationMetadata
     private final MethodHandle combineFunction;
     private final MethodHandle outputFunction;
     private final List<AccumulatorStateDescriptor<?>> accumulatorStateDescriptors;
-    private final Type outputType;
 
     public AggregationMetadata(
-            String name,
             List<ParameterMetadata> valueInputMetadata,
             MethodHandle inputFunction,
             Optional<MethodHandle> removeInputFunction,
             MethodHandle combineFunction,
             MethodHandle outputFunction,
-            List<AccumulatorStateDescriptor<?>> accumulatorStateDescriptors,
-            Type outputType)
+            List<AccumulatorStateDescriptor<?>> accumulatorStateDescriptors)
     {
         this(
-                name,
                 valueInputMetadata,
                 inputFunction,
                 removeInputFunction,
                 combineFunction,
                 outputFunction,
                 accumulatorStateDescriptors,
-                outputType,
                 ImmutableList.of());
     }
 
     public AggregationMetadata(
-            String name,
             List<ParameterMetadata> valueInputMetadata,
             MethodHandle inputFunction,
             Optional<MethodHandle> removeInputFunction,
             MethodHandle combineFunction,
             MethodHandle outputFunction,
             List<AccumulatorStateDescriptor<?>> accumulatorStateDescriptors,
-            Type outputType,
             List<Class<?>> lambdaInterfaces)
     {
-        this.outputType = requireNonNull(outputType, "outputType is null");
         this.valueInputMetadata = ImmutableList.copyOf(requireNonNull(valueInputMetadata, "valueInputMetadata is null"));
-        this.name = requireNonNull(name, "name is null");
         this.inputFunction = requireNonNull(inputFunction, "inputFunction is null");
         this.removeInputFunction = requireNonNull(removeInputFunction, "removeInputFunction is null");
         this.combineFunction = requireNonNull(combineFunction, "combineFunction is null");
@@ -99,11 +85,6 @@ public class AggregationMetadata
         verifyExactOutputFunction(outputFunction, accumulatorStateDescriptors);
     }
 
-    public Type getOutputType()
-    {
-        return outputType;
-    }
-
     public List<ParameterMetadata> getValueInputMetadata()
     {
         return valueInputMetadata;
@@ -112,11 +93,6 @@ public class AggregationMetadata
     public List<Class<?>> getLambdaInterfaces()
     {
         return lambdaInterfaces;
-    }
-
-    public String getName()
-    {
-        return name;
     }
 
     public MethodHandle getInputFunction()
@@ -226,20 +202,6 @@ public class AggregationMetadata
                 sqlTypeDisplayName);
     }
 
-    public static int countInputChannels(List<ParameterMetadata> metadatas)
-    {
-        int parameters = 0;
-        for (ParameterMetadata metadata : metadatas) {
-            if (metadata.getParameterType() == INPUT_CHANNEL ||
-                    metadata.getParameterType() == BLOCK_INPUT_CHANNEL ||
-                    metadata.getParameterType() == NULLABLE_BLOCK_INPUT_CHANNEL) {
-                parameters++;
-            }
-        }
-
-        return parameters;
-    }
-
     public static class ParameterMetadata
     {
         private final ParameterType parameterType;
@@ -256,21 +218,6 @@ public class AggregationMetadata
                     "sqlType must be provided only for input channels");
             this.parameterType = parameterType;
             this.sqlType = sqlType;
-        }
-
-        public static ParameterMetadata fromSqlType(Type sqlType, boolean isBlock, boolean isNullable, String methodName)
-        {
-            return new ParameterMetadata(inputChannelParameterType(isNullable, isBlock, methodName), sqlType);
-        }
-
-        public static ParameterMetadata forBlockIndexParameter()
-        {
-            return new ParameterMetadata(BLOCK_INDEX);
-        }
-
-        public static ParameterMetadata forStateParameter()
-        {
-            return new ParameterMetadata(STATE);
         }
 
         public ParameterType getParameterType()

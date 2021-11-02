@@ -45,7 +45,6 @@ import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadat
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
-import static io.trino.operator.aggregation.AggregationUtils.generateAggregationName;
 import static io.trino.spi.type.StandardTypes.QDIGEST;
 import static io.trino.spi.type.TypeSignature.parametricType;
 import static io.trino.util.MoreMath.nearlyEqual;
@@ -96,7 +95,6 @@ public final class MergeQuantileDigestFunction
         QuantileDigestStateSerializer stateSerializer = new QuantileDigestStateSerializer(valueType);
 
         return new AggregationMetadata(
-                generateAggregationName(NAME, type.getTypeSignature(), ImmutableList.of(type.getTypeSignature())),
                 createInputParameterMetadata(type),
                 INPUT_FUNCTION.bindTo(type),
                 Optional.empty(),
@@ -105,8 +103,7 @@ public final class MergeQuantileDigestFunction
                 ImmutableList.of(new AccumulatorStateDescriptor<>(
                         QuantileDigestState.class,
                         stateSerializer,
-                        new QuantileDigestStateFactory())),
-                type);
+                        new QuantileDigestStateFactory())));
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type valueType)

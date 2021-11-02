@@ -29,7 +29,6 @@ import io.trino.metadata.Signature;
 import io.trino.metadata.SqlAggregationFunction;
 import io.trino.operator.aggregation.AggregationImplementation;
 import io.trino.operator.aggregation.AggregationMetadata;
-import io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import io.trino.operator.aggregation.ParametricAggregation;
 import io.trino.operator.aggregation.state.NullableDoubleState;
 import io.trino.operator.aggregation.state.NullableLongState;
@@ -92,7 +91,7 @@ public class TestAnnotationEngineForAggregates
         extends TestAnnotationEngine
 {
     private static final MetadataManager METADATA = createTestMetadataManager();
-    protected static final FunctionDependencies NO_FUNCTION_DEPENDENCIES = new FunctionDependencies(METADATA, ImmutableMap.of(), ImmutableSet.of());
+    private static final FunctionDependencies NO_FUNCTION_DEPENDENCIES = new FunctionDependencies(METADATA, ImmutableMap.of(), ImmutableSet.of());
 
     @AggregationFunction("simple_exact_aggregate")
     @Description("Simple exact aggregate description")
@@ -142,8 +141,7 @@ public class TestAnnotationEngineForAggregates
         AggregationFunctionMetadata aggregationMetadata = aggregation.getAggregationMetadata();
         assertFalse(aggregationMetadata.isOrderSensitive());
         assertFalse(aggregationMetadata.getIntermediateTypes().isEmpty());
-        AggregationMetadata specialized = aggregation.specialize(boundSignature, NO_FUNCTION_DEPENDENCIES);
-        assertEquals(specialized.getOutputType(), DoubleType.DOUBLE);
+        aggregation.specialize(boundSignature, NO_FUNCTION_DEPENDENCIES);
     }
 
     @AggregationFunction("simple_exact_aggregate_aggregation_state_moved")
@@ -222,8 +220,7 @@ public class TestAnnotationEngineForAggregates
         AggregationFunctionMetadata aggregationMetadata = aggregation.getAggregationMetadata();
         assertFalse(aggregationMetadata.isOrderSensitive());
         assertFalse(aggregationMetadata.getIntermediateTypes().isEmpty());
-        AggregationMetadata specialized = aggregation.specialize(boundSignature, NO_FUNCTION_DEPENDENCIES);
-        assertEquals(specialized.getOutputType(), DoubleType.DOUBLE);
+        aggregation.specialize(boundSignature, NO_FUNCTION_DEPENDENCIES);
     }
 
     @AggregationFunction(value = "custom_decomposable_aggregate", decomposable = false)
@@ -272,8 +269,7 @@ public class TestAnnotationEngineForAggregates
         AggregationFunctionMetadata aggregationMetadata = aggregation.getAggregationMetadata();
         assertFalse(aggregationMetadata.isOrderSensitive());
         assertTrue(aggregationMetadata.getIntermediateTypes().isEmpty());
-        AggregationMetadata specialized = aggregation.specialize(boundSignature, NO_FUNCTION_DEPENDENCIES);
-        assertEquals(specialized.getOutputType(), DoubleType.DOUBLE);
+        aggregation.specialize(boundSignature, NO_FUNCTION_DEPENDENCIES);
     }
 
     @AggregationFunction("simple_generic_implementations")
@@ -356,14 +352,7 @@ public class TestAnnotationEngineForAggregates
         AggregationFunctionMetadata aggregationMetadata = aggregation.getAggregationMetadata();
         assertFalse(aggregationMetadata.isOrderSensitive());
         assertFalse(aggregationMetadata.getIntermediateTypes().isEmpty());
-        AggregationMetadata specialized = aggregation.specialize(boundSignature, NO_FUNCTION_DEPENDENCIES);
-        assertEquals(specialized.getOutputType(), DoubleType.DOUBLE);
-        assertEquals(
-                specialized.getValueInputMetadata().stream()
-                        .filter(parameter -> parameter.getParameterType() != STATE)
-                        .map(ParameterMetadata::getSqlType)
-                        .collect(toImmutableList()),
-                ImmutableList.of(DoubleType.DOUBLE));
+        aggregation.specialize(boundSignature, NO_FUNCTION_DEPENDENCIES);
     }
 
     @AggregationFunction("block_input_aggregate")
@@ -421,8 +410,7 @@ public class TestAnnotationEngineForAggregates
         AggregationFunctionMetadata aggregationMetadata = aggregation.getAggregationMetadata();
         assertFalse(aggregationMetadata.isOrderSensitive());
         assertFalse(aggregationMetadata.getIntermediateTypes().isEmpty());
-        AggregationMetadata specialized = aggregation.specialize(boundSignature, NO_FUNCTION_DEPENDENCIES);
-        assertEquals(specialized.getOutputType(), DoubleType.DOUBLE);
+        aggregation.specialize(boundSignature, NO_FUNCTION_DEPENDENCIES);
     }
 
     @AggregationFunction("implicit_specialized_aggregate")
@@ -513,8 +501,7 @@ public class TestAnnotationEngineForAggregates
         AggregationFunctionMetadata aggregationMetadata = aggregation.getAggregationMetadata();
         assertFalse(aggregationMetadata.isOrderSensitive());
         assertFalse(aggregationMetadata.getIntermediateTypes().isEmpty());
-        AggregationMetadata specialized = aggregation.specialize(boundSignature, NO_FUNCTION_DEPENDENCIES);
-        assertEquals(specialized.getOutputType(), DoubleType.DOUBLE);
+        aggregation.specialize(boundSignature, NO_FUNCTION_DEPENDENCIES);
     }
 
     @AggregationFunction("explicit_specialized_aggregate")
@@ -605,8 +592,7 @@ public class TestAnnotationEngineForAggregates
         AggregationFunctionMetadata aggregationMetadata = aggregation.getAggregationMetadata();
         assertFalse(aggregationMetadata.isOrderSensitive());
         assertFalse(aggregationMetadata.getIntermediateTypes().isEmpty());
-        AggregationMetadata specialized = aggregation.specialize(boundSignature, NO_FUNCTION_DEPENDENCIES);
-        assertEquals(specialized.getOutputType(), DoubleType.DOUBLE);
+        aggregation.specialize(boundSignature, NO_FUNCTION_DEPENDENCIES);
     }
 
     @AggregationFunction("multi_output_aggregate")
@@ -691,8 +677,7 @@ public class TestAnnotationEngineForAggregates
         AggregationFunctionMetadata aggregationMetadata = aggregation1.getAggregationMetadata();
         assertFalse(aggregationMetadata.isOrderSensitive());
         assertFalse(aggregationMetadata.getIntermediateTypes().isEmpty());
-        AggregationMetadata specialized = aggregation1.specialize(boundSignature, NO_FUNCTION_DEPENDENCIES);
-        assertEquals(specialized.getOutputType(), DoubleType.DOUBLE);
+        aggregation1.specialize(boundSignature, NO_FUNCTION_DEPENDENCIES);
     }
 
     @AggregationFunction("inject_operator_aggregate")
@@ -766,8 +751,7 @@ public class TestAnnotationEngineForAggregates
         assertTrue(implementation.getInputParameterMetadataTypes().equals(expectedMetadataTypes));
 
         BoundSignature boundSignature = new BoundSignature(aggregation.getFunctionMetadata().getSignature().getName(), DoubleType.DOUBLE, ImmutableList.of(DoubleType.DOUBLE));
-        AggregationMetadata specialized = specializeAggregationFunction(boundSignature, aggregation);
-        assertEquals(specialized.getOutputType(), DoubleType.DOUBLE);
+        specializeAggregationFunction(boundSignature, aggregation);
     }
 
     @AggregationFunction("inject_type_aggregate")
@@ -834,8 +818,7 @@ public class TestAnnotationEngineForAggregates
         assertTrue(implementation.getInputParameterMetadataTypes().equals(expectedMetadataTypes));
 
         BoundSignature boundSignature = new BoundSignature(aggregation.getFunctionMetadata().getSignature().getName(), DoubleType.DOUBLE, ImmutableList.of(DoubleType.DOUBLE));
-        AggregationMetadata specialized = specializeAggregationFunction(boundSignature, aggregation);
-        assertEquals(specialized.getOutputType(), DoubleType.DOUBLE);
+        specializeAggregationFunction(boundSignature, aggregation);
     }
 
     @AggregationFunction("inject_literal_aggregate")
@@ -902,8 +885,7 @@ public class TestAnnotationEngineForAggregates
         AggregationFunctionMetadata aggregationMetadata = aggregation.getAggregationMetadata();
         assertFalse(aggregationMetadata.isOrderSensitive());
         assertFalse(aggregationMetadata.getIntermediateTypes().isEmpty());
-        AggregationMetadata specialized = aggregation.specialize(boundSignature, NO_FUNCTION_DEPENDENCIES);
-        assertEquals(specialized.getOutputType(), createVarcharType(17));
+        aggregation.specialize(boundSignature, NO_FUNCTION_DEPENDENCIES);
     }
 
     @AggregationFunction("parametric_aggregate_long_constraint")
@@ -969,8 +951,7 @@ public class TestAnnotationEngineForAggregates
         AggregationFunctionMetadata aggregationMetadata = aggregation.getAggregationMetadata();
         assertFalse(aggregationMetadata.isOrderSensitive());
         assertFalse(aggregationMetadata.getIntermediateTypes().isEmpty());
-        AggregationMetadata specialized = aggregation.specialize(boundSignature, NO_FUNCTION_DEPENDENCIES);
-        assertEquals(specialized.getOutputType(), createVarcharType(30));
+        aggregation.specialize(boundSignature, NO_FUNCTION_DEPENDENCIES);
     }
 
     @AggregationFunction("fixed_type_parameter_injection")
@@ -1094,14 +1075,7 @@ public class TestAnnotationEngineForAggregates
         assertEquals(implementationDouble.getInputParameterMetadataTypes(), ImmutableList.of(STATE, INPUT_CHANNEL, INPUT_CHANNEL));
 
         BoundSignature boundSignature = new BoundSignature(aggregation.getFunctionMetadata().getSignature().getName(), DoubleType.DOUBLE, ImmutableList.of(DoubleType.DOUBLE, DoubleType.DOUBLE));
-        AggregationMetadata specialized = specializeAggregationFunction(boundSignature, aggregation);
-        assertEquals(specialized.getOutputType(), DoubleType.DOUBLE);
-        assertEquals(
-                specialized.getValueInputMetadata().stream()
-                        .filter(parameter -> parameter.getParameterType() != STATE)
-                        .map(ParameterMetadata::getSqlType)
-                        .collect(toImmutableList()),
-                ImmutableList.of(DoubleType.DOUBLE, DoubleType.DOUBLE));
+        specializeAggregationFunction(boundSignature, aggregation);
     }
 
     @AggregationFunction
@@ -1181,7 +1155,7 @@ public class TestAnnotationEngineForAggregates
                 ImmutableSet.of("aggregation"));
     }
 
-    private static AggregationMetadata specializeAggregationFunction(BoundSignature boundSignature, SqlAggregationFunction aggregation)
+    private static void specializeAggregationFunction(BoundSignature boundSignature, SqlAggregationFunction aggregation)
     {
         FunctionMetadata functionMetadata = aggregation.getFunctionMetadata();
         FunctionBinding functionBinding = MetadataManager.toFunctionBinding(functionMetadata.getFunctionId(), boundSignature, functionMetadata.getSignature());
@@ -1192,6 +1166,6 @@ public class TestAnnotationEngineForAggregates
 
         ResolvedFunction resolvedFunction = METADATA.resolve(TEST_SESSION, functionBinding, functionMetadata, aggregation.getFunctionDependencies(boundSignature));
         FunctionDependencies functionDependencies = new FunctionDependencies(METADATA, resolvedFunction.getTypeDependencies(), resolvedFunction.getFunctionDependencies());
-        return aggregation.specialize(boundSignature, functionDependencies);
+        aggregation.specialize(boundSignature, functionDependencies);
     }
 }
