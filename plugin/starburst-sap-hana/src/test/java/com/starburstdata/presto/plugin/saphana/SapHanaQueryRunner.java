@@ -45,9 +45,9 @@ public final class SapHanaQueryRunner
     {
         DistributedQueryRunner queryRunner = null;
         try {
-            queryRunner = StarburstDistributedQueryRunner.builder(createSession())
-                    .setExtraProperties(extraProperties)
-                    .build();
+            DistributedQueryRunner.Builder builder = StarburstDistributedQueryRunner.builder(createSession());
+            extraProperties.forEach(builder::addExtraProperty);
+            queryRunner = builder.build();
 
             queryRunner.installPlugin(new JmxPlugin());
             queryRunner.createCatalog("jmx", "jmx");
