@@ -111,13 +111,13 @@ public class BenchmarkGroupedTypedHistogram
                 groupByIdBlocks[j] = groupByIdBlock;
             }
 
-            InternalAggregationFunction aggregationFunction = getInternalAggregationFunctionVarChar();
+            TestingAggregationFunction aggregationFunction = getInternalAggregationFunctionVarChar();
             groupedAccumulator = createGroupedAccumulator(aggregationFunction);
         }
 
-        private GroupedAccumulator createGroupedAccumulator(InternalAggregationFunction function)
+        private GroupedAccumulator createGroupedAccumulator(TestingAggregationFunction function)
         {
-            int[] args = GroupByAggregationTestUtils.createArgs(function);
+            int[] args = GroupByAggregationTestUtils.createArgs(function.getParameterTypes().size());
 
             return function.bind(Ints.asList(args), Optional.empty())
                     .createGroupedAccumulator();
@@ -138,10 +138,10 @@ public class BenchmarkGroupedTypedHistogram
         return groupedAccumulator;
     }
 
-    private static InternalAggregationFunction getInternalAggregationFunctionVarChar()
+    private static TestingAggregationFunction getInternalAggregationFunctionVarChar()
     {
         TestingFunctionResolution functionResolution = new TestingFunctionResolution();
-        return functionResolution.getAggregateFunctionImplementation(QualifiedName.of(Histogram.NAME), fromTypes(VARCHAR));
+        return functionResolution.getAggregateFunction(QualifiedName.of(Histogram.NAME), fromTypes(VARCHAR));
     }
 
     public static void main(String[] args)

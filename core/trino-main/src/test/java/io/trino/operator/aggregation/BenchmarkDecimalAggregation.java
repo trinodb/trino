@@ -15,8 +15,7 @@ package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.jmh.Benchmarks;
-import io.trino.metadata.Metadata;
-import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.GroupByIdBlock;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -43,8 +42,6 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
-import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -118,17 +115,17 @@ public class BenchmarkDecimalAggregation
         @Setup
         public void setup()
         {
-            Metadata metadata = createTestMetadataManager();
+            TestingFunctionResolution functionResolution = new TestingFunctionResolution();
 
             switch (type) {
                 case "SHORT": {
                     DecimalType type = createDecimalType(14, 3);
-                    values = createValues(metadata, type, type::writeLong);
+                    values = createValues(functionResolution, type, type::writeLong);
                     break;
                 }
                 case "LONG": {
                     DecimalType type = createDecimalType(30, 10);
-                    values = createValues(metadata, type, (builder, value) -> type.writeSlice(builder, UnscaledDecimal128Arithmetic.unscaledDecimal(value)));
+                    values = createValues(functionResolution, type, (builder, value) -> type.writeSlice(builder, UnscaledDecimal128Arithmetic.unscaledDecimal(value)));
                     break;
                 }
             }
@@ -151,10 +148,9 @@ public class BenchmarkDecimalAggregation
             return builder.build();
         }
 
-        private Page createValues(Metadata metadata, DecimalType type, ValueWriter writer)
+        private Page createValues(TestingFunctionResolution functionResolution, DecimalType type, ValueWriter writer)
         {
-            ResolvedFunction resolvedFunction = metadata.resolveFunction(TEST_SESSION, QualifiedName.of(function), fromTypes(type));
-            InternalAggregationFunction implementation = metadata.getAggregateFunctionImplementation(resolvedFunction);
+            TestingAggregationFunction implementation = functionResolution.getAggregateFunction(QualifiedName.of(function), fromTypes(type));
             factory = implementation.bind(ImmutableList.of(0), Optional.empty());
             accumulator = factory.createGroupedAccumulator();
 

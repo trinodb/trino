@@ -16,15 +16,14 @@ package io.trino.operator.aggregation;
 import com.google.common.base.Joiner;
 import com.google.common.primitives.Floats;
 import io.airlift.stats.QuantileDigest;
-import io.trino.metadata.Metadata;
-import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.scalar.AbstractTestFunctions;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.SqlVarbinary;
 import io.trino.spi.type.StandardTypes;
-import io.trino.spi.type.Type;
+import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
 
@@ -35,7 +34,6 @@ import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.block.BlockAssertions.createBlockOfReals;
 import static io.trino.block.BlockAssertions.createDoubleSequenceBlock;
 import static io.trino.block.BlockAssertions.createDoublesBlock;
@@ -43,7 +41,6 @@ import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.block.BlockAssertions.createRLEBlock;
 import static io.trino.block.BlockAssertions.createSequenceBlockOfReal;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static io.trino.operator.aggregation.FloatingPointBitsConverterUtil.doubleToSortableLong;
 import static io.trino.operator.aggregation.FloatingPointBitsConverterUtil.floatToSortableInt;
@@ -62,7 +59,8 @@ public class TestQuantileDigestAggregationFunction
         extends AbstractTestFunctions
 {
     private static final Joiner ARRAY_JOINER = Joiner.on(",");
-    private static final Metadata METADATA = createTestMetadataManager();
+    private static final TestingFunctionResolution FUNCTION_RESOLUTION = new TestingFunctionResolution();
+    private static final QualifiedName NAME = QualifiedName.of("qdigest_agg");
 
     @Test
     public void testDoublesWithWeights()
@@ -166,29 +164,24 @@ public class TestQuantileDigestAggregationFunction
                 LongStream.range(-1000, 1000).toArray());
     }
 
-    private ResolvedFunction getAggregationFunction(Type... types)
-    {
-        return METADATA.resolveFunction(TEST_SESSION, QualifiedName.of("qdigest_agg"), fromTypes(types));
-    }
-
     private void testAggregationBigint(Block inputBlock, Block weightsBlock, double maxError, long... inputs)
     {
         // Test without weights and accuracy
         testAggregationBigints(
-                getAggregationFunction(BIGINT),
+                fromTypes(BIGINT),
                 new Page(inputBlock),
                 maxError,
                 inputs);
 
         // Test with weights and without accuracy
         testAggregationBigints(
-                getAggregationFunction(BIGINT, BIGINT),
+                fromTypes(BIGINT, BIGINT),
                 new Page(inputBlock, weightsBlock),
                 maxError,
                 inputs);
         // Test with weights and accuracy
         testAggregationBigints(
-                getAggregationFunction(BIGINT, BIGINT, DOUBLE),
+                fromTypes(BIGINT, BIGINT, DOUBLE),
                 new Page(inputBlock, weightsBlock, createRLEBlock(maxError, inputBlock.getPositionCount())),
                 maxError,
                 inputs);
@@ -198,19 +191,19 @@ public class TestQuantileDigestAggregationFunction
     {
         // Test without weights and accuracy
         testAggregationReal(
-                getAggregationFunction(REAL),
+                fromTypes(REAL),
                 new Page(longsBlock),
                 maxError,
                 inputs);
         // Test with weights and without accuracy
         testAggregationReal(
-                getAggregationFunction(REAL, BIGINT),
+                fromTypes(REAL, BIGINT),
                 new Page(longsBlock, weightsBlock),
                 maxError,
                 inputs);
         // Test with weights and accuracy
         testAggregationReal(
-                getAggregationFunction(REAL, BIGINT, DOUBLE),
+                fromTypes(REAL, BIGINT, DOUBLE),
                 new Page(longsBlock, weightsBlock, createRLEBlock(maxError, longsBlock.getPositionCount())),
                 maxError,
                 inputs);
@@ -220,30 +213,31 @@ public class TestQuantileDigestAggregationFunction
     {
         // Test without weights and accuracy
         testAggregationDoubles(
-                getAggregationFunction(DOUBLE),
+                fromTypes(DOUBLE),
                 new Page(longsBlock),
                 maxError,
                 inputs);
         // Test with weights and without accuracy
         testAggregationDoubles(
-                getAggregationFunction(DOUBLE, BIGINT),
+                fromTypes(DOUBLE, BIGINT),
                 new Page(longsBlock, weightsBlock),
                 maxError,
                 inputs);
         // Test with weights and accuracy
         testAggregationDoubles(
-                getAggregationFunction(DOUBLE, BIGINT, DOUBLE),
+                fromTypes(DOUBLE, BIGINT, DOUBLE),
                 new Page(longsBlock, weightsBlock, createRLEBlock(maxError, longsBlock.getPositionCount())),
                 maxError,
                 inputs);
     }
 
-    private void testAggregationBigints(ResolvedFunction function, Page page, double maxError, long... inputs)
+    private void testAggregationBigints(List<TypeSignatureProvider> parameterTypes, Page page, double maxError, long... inputs)
     {
         // aggregate level
         assertAggregation(
-                METADATA,
-                function,
+                FUNCTION_RESOLUTION,
+                NAME,
+                parameterTypes,
                 QDIGEST_EQUALITY,
                 "test multiple positions",
                 page,
@@ -252,15 +246,16 @@ public class TestQuantileDigestAggregationFunction
         // test scalars
         List<Long> rows = Arrays.stream(inputs).sorted().boxed().collect(Collectors.toList());
 
-        SqlVarbinary returned = (SqlVarbinary) AggregationTestUtils.aggregation(METADATA.getAggregateFunctionImplementation(function), page);
+        SqlVarbinary returned = (SqlVarbinary) AggregationTestUtils.aggregation(FUNCTION_RESOLUTION.getAggregateFunction(NAME, parameterTypes), page);
         assertPercentileWithinError(StandardTypes.BIGINT, returned, maxError, rows, 0.1, 0.5, 0.9, 0.99);
     }
 
-    private void testAggregationDoubles(ResolvedFunction function, Page page, double maxError, double... inputs)
+    private void testAggregationDoubles(List<TypeSignatureProvider> parameterTypes, Page page, double maxError, double... inputs)
     {
         assertAggregation(
-                METADATA,
-                function,
+                FUNCTION_RESOLUTION,
+                NAME,
+                parameterTypes,
                 QDIGEST_EQUALITY,
                 "test multiple positions",
                 page,
@@ -269,15 +264,16 @@ public class TestQuantileDigestAggregationFunction
         // test scalars
         List<Double> rows = Arrays.stream(inputs).sorted().boxed().collect(Collectors.toList());
 
-        SqlVarbinary returned = (SqlVarbinary) AggregationTestUtils.aggregation(METADATA.getAggregateFunctionImplementation(function), page);
+        SqlVarbinary returned = (SqlVarbinary) AggregationTestUtils.aggregation(FUNCTION_RESOLUTION.getAggregateFunction(NAME, parameterTypes), page);
         assertPercentileWithinError(StandardTypes.DOUBLE, returned, maxError, rows, 0.1, 0.5, 0.9, 0.99);
     }
 
-    private void testAggregationReal(ResolvedFunction function, Page page, double maxError, float... inputs)
+    private void testAggregationReal(List<TypeSignatureProvider> parameterTypes, Page page, double maxError, float... inputs)
     {
         assertAggregation(
-                METADATA,
-                function,
+                FUNCTION_RESOLUTION,
+                NAME,
+                parameterTypes,
                 QDIGEST_EQUALITY,
                 "test multiple positions",
                 page,
@@ -286,7 +282,7 @@ public class TestQuantileDigestAggregationFunction
         // test scalars
         List<Double> rows = Floats.asList(inputs).stream().sorted().map(Float::doubleValue).collect(Collectors.toList());
 
-        SqlVarbinary returned = (SqlVarbinary) AggregationTestUtils.aggregation(METADATA.getAggregateFunctionImplementation(function), page);
+        SqlVarbinary returned = (SqlVarbinary) AggregationTestUtils.aggregation(FUNCTION_RESOLUTION.getAggregateFunction(NAME, parameterTypes), page);
         assertPercentileWithinError(StandardTypes.REAL, returned, maxError, rows, 0.1, 0.5, 0.9, 0.99);
     }
 

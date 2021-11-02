@@ -92,7 +92,6 @@ public class MatchAggregation
                 null,
                 null,
                 lambdaProviders,
-                false,
                 null);
 
         this.setEvaluator = setEvaluator;

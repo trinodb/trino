@@ -40,7 +40,7 @@ public class TestCountNullAggregation
     @BeforeClass
     public void setup()
     {
-        metadata.addFunctions(new FunctionListBuilder().aggregates(CountNull.class).getFunctions());
+        functionResolution.addFunctions(new FunctionListBuilder().aggregates(CountNull.class).getFunctions());
     }
 
     @Override
