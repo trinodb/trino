@@ -778,6 +778,7 @@ public abstract class AbstractMockMetadata
             return new ResolvedFunction(
                     boundSignature,
                     toFunctionId(boundSignature.toSignature()),
+                    SCALAR,
                     new FunctionNullability(false, ImmutableList.of()),
                     ImmutableMap.of(),
                     ImmutableSet.of());
