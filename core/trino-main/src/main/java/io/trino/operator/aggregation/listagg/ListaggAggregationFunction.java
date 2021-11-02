@@ -25,7 +25,6 @@ import io.trino.metadata.Signature;
 import io.trino.metadata.SqlAggregationFunction;
 import io.trino.operator.aggregation.AggregationMetadata;
 import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
-import io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -37,14 +36,14 @@ import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.TypeSignatureParameter;
 
 import java.lang.invoke.MethodHandle;
-import java.util.List;
 import java.util.Optional;
 
 import static io.trino.metadata.FunctionKind.AGGREGATE;
-import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.BLOCK_INDEX;
-import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.NULLABLE_BLOCK_INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.STATE;
+import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.BLOCK_INDEX;
+import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.INPUT_CHANNEL;
+import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.NULLABLE_BLOCK_INPUT_CHANNEL;
+import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.STATE;
+import static io.trino.operator.aggregation.AggregationFunctionAdapter.normalizeInputMethod;
 import static io.trino.spi.StandardErrorCode.EXCEEDED_FUNCTION_MEMORY_LIMIT;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
@@ -105,7 +104,9 @@ public class ListaggAggregationFunction
         AccumulatorStateSerializer<ListaggAggregationState> stateSerializer = new ListaggAggregationStateSerializer(type);
         AccumulatorStateFactory<ListaggAggregationState> stateFactory = new ListaggAggregationStateFactory(type);
 
-        List<AggregationParameterKind> inputParameterKinds = ImmutableList.of(
+        MethodHandle inputFunction = normalizeInputMethod(
+                INPUT_FUNCTION.bindTo(type),
+                boundSignature,
                 STATE,
                 NULLABLE_BLOCK_INPUT_CHANNEL,
                 INPUT_CHANNEL,
@@ -113,14 +114,10 @@ public class ListaggAggregationFunction
                 INPUT_CHANNEL,
                 INPUT_CHANNEL,
                 BLOCK_INDEX);
-
-        MethodHandle inputFunction = INPUT_FUNCTION.bindTo(type);
         MethodHandle combineFunction = COMBINE_FUNCTION.bindTo(type);
         MethodHandle outputFunction = OUTPUT_FUNCTION.bindTo(type);
 
         return new AggregationMetadata(
-                boundSignature,
-                inputParameterKinds,
                 inputFunction,
                 Optional.empty(),
                 combineFunction,

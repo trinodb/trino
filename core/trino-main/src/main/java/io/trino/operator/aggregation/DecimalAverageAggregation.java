@@ -42,9 +42,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.trino.metadata.FunctionKind.AGGREGATE;
-import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.BLOCK_INDEX;
-import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.BLOCK_INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.STATE;
 import static io.trino.spi.type.Decimals.writeShortDecimal;
 import static io.trino.spi.type.TypeSignatureParameter.typeVariable;
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.SIGN_LONG_MASK;
@@ -113,8 +110,6 @@ public class DecimalAverageAggregation
         outputFunction = outputFunction.bindTo(type);
 
         return new AggregationMetadata(
-                boundSignature,
-                ImmutableList.of(STATE, BLOCK_INPUT_CHANNEL, BLOCK_INDEX),
                 inputFunction,
                 Optional.empty(),
                 COMBINE_FUNCTION,
