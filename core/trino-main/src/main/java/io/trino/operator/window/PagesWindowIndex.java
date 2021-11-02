@@ -14,11 +14,9 @@
 package io.trino.operator.window;
 
 import io.airlift.slice.Slice;
-import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.operator.PagesIndex;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.function.WindowIndex;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -27,7 +25,7 @@ import static com.google.common.base.Preconditions.checkPositionIndex;
 import static java.util.Objects.requireNonNull;
 
 public class PagesWindowIndex
-        implements WindowIndex
+        implements InternalWindowIndex
 {
     private final PagesIndex pagesIndex;
     private final int start;
@@ -99,13 +97,13 @@ public class PagesWindowIndex
         pagesIndex.appendTo(channel, position(position), output);
     }
 
-    @UsedByGeneratedCode
+    @Override
     public Block getRawBlock(int channel, int position)
     {
         return pagesIndex.getRawBlock(channel, position(position));
     }
 
-    @UsedByGeneratedCode
+    @Override
     public int getRawBlockPosition(int position)
     {
         return pagesIndex.getRawBlockPosition(position(position));
