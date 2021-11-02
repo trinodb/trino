@@ -16,10 +16,7 @@ package io.trino.operator.aggregation;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.function.WindowIndex;
 import io.trino.spi.type.Type;
-
-import java.util.List;
 
 public interface Accumulator
 {
@@ -29,16 +26,9 @@ public interface Accumulator
 
     Type getIntermediateType();
 
-    default Accumulator copy()
-    {
-        throw new UnsupportedOperationException("copy not implemented for " + getClass());
-    }
+    Accumulator copy();
 
     void addInput(Page page);
-
-    void addInput(WindowIndex index, List<Integer> channels, int startPosition, int endPosition);
-
-    void removeInput(WindowIndex index, List<Integer> channels, int startPosition, int endPosition);
 
     void addIntermediate(Block block);
 

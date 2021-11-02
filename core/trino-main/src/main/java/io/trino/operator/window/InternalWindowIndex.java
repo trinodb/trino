@@ -11,23 +11,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator.aggregation;
+package io.trino.operator.window;
 
-import java.util.List;
+import io.trino.annotation.UsedByGeneratedCode;
+import io.trino.spi.block.Block;
+import io.trino.spi.function.WindowIndex;
 
-public interface AccumulatorFactory
+public interface InternalWindowIndex
+        extends WindowIndex
 {
-    List<Integer> getInputChannels();
+    @UsedByGeneratedCode
+    Block getRawBlock(int channel, int position);
 
-    Accumulator createAccumulator();
-
-    Accumulator createIntermediateAccumulator();
-
-    GroupedAccumulator createGroupedAccumulator();
-
-    GroupedAccumulator createGroupedIntermediateAccumulator();
-
-    boolean hasOrderBy();
-
-    boolean hasDistinct();
+    @UsedByGeneratedCode
+    int getRawBlockPosition(int position);
 }
