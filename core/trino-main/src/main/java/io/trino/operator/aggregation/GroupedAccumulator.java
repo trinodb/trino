@@ -18,11 +18,13 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 
+import java.util.Optional;
+
 public interface GroupedAccumulator
 {
     long getEstimatedSize();
 
-    void addInput(GroupByIdBlock groupIdsBlock, Page page);
+    void addInput(GroupByIdBlock groupIdsBlock, Page page, Optional<Block> mask);
 
     void addIntermediate(GroupByIdBlock groupIdsBlock, Block block);
 

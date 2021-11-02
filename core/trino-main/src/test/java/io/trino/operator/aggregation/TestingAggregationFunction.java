@@ -20,23 +20,27 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinCompiler;
+import io.trino.sql.planner.plan.AggregationNode.Step;
 import io.trino.type.BlockTypeOperators;
 
 import java.util.List;
-import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.operator.aggregation.AccumulatorCompiler.generateAccumulatorFactory;
 
 public class TestingAggregationFunction
 {
     private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
 
-    private final InternalAggregationFunction function;
     private final List<Type> parameterTypes;
     private final Type intermediateType;
     private final Type finalType;
+
+    private final AccumulatorFactory factory;
+    private final DistinctAccumulatorFactory distinctFactory;
 
     public TestingAggregationFunction(BoundSignature signature, FunctionNullability functionNullability, AggregationMetadata aggregationMetadata)
     {
@@ -46,7 +50,13 @@ public class TestingAggregationFunction
                 .collect(toImmutableList());
         intermediateType = (intermediateTypes.size() == 1) ? getOnlyElement(intermediateTypes) : RowType.anonymous(intermediateTypes);
         this.finalType = signature.getReturnType();
-        this.function = new InternalAggregationFunction(signature, aggregationMetadata, functionNullability);
+        this.factory = generateAccumulatorFactory(signature, aggregationMetadata, functionNullability, ImmutableList.of());
+        distinctFactory = new DistinctAccumulatorFactory(
+                factory,
+                parameterTypes,
+                new JoinCompiler(TYPE_OPERATORS),
+                new BlockTypeOperators(TYPE_OPERATORS),
+                TEST_SESSION);
     }
 
     public int getParameterCount()
@@ -69,27 +79,25 @@ public class TestingAggregationFunction
         return finalType;
     }
 
-    public AccumulatorFactory bind(List<Integer> inputChannels, Optional<Integer> maskChannel)
+    public AggregatorFactory createAggregatorFactory(Step step, List<Integer> inputChannels, OptionalInt maskChannel)
     {
-        return function.bind(inputChannels, maskChannel);
+        return createAggregatorFactory(step, inputChannels, maskChannel, factory);
     }
 
-    public AccumulatorFactory bindDistinct(
-            List<Integer> inputChannels,
-            List<Type> sourceTypes,
-            Optional<Integer> maskChannel)
+    public AggregatorFactory createDistinctAggregatorFactory(Step step, List<Integer> inputChannels, OptionalInt maskChannel)
     {
-        return function.bind(
+        return createAggregatorFactory(step, inputChannels, maskChannel, distinctFactory);
+    }
+
+    private AggregatorFactory createAggregatorFactory(Step step, List<Integer> inputChannels, OptionalInt maskChannel, AccumulatorFactory distinctFactory)
+    {
+        return new AggregatorFactory(
+                distinctFactory,
+                step,
+                intermediateType,
+                finalType,
                 inputChannels,
                 maskChannel,
-                sourceTypes,
-                ImmutableList.of(),
-                ImmutableList.of(),
-                null,
-                true, // distinct
-                new JoinCompiler(TYPE_OPERATORS),
-                new BlockTypeOperators(TYPE_OPERATORS),
-                ImmutableList.of(),
-                TEST_SESSION);
+                true);
     }
 }
