@@ -78,6 +78,7 @@ import static io.trino.operator.aggregation.AggregationMetadata.AggregationParam
 import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.NULLABLE_BLOCK_INPUT_CHANNEL;
 import static io.trino.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static io.trino.sql.gen.BytecodeUtils.invoke;
+import static io.trino.sql.gen.BytecodeUtils.loadConstant;
 import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.trino.util.CompilerUtils.defineClass;
 import static io.trino.util.CompilerUtils.makeClassName;
@@ -108,7 +109,6 @@ public final class AccumulatorCompiler
                 classLoader);
 
         return new GenericAccumulatorFactoryBinder(
-                metadata.getAccumulatorStateDescriptors(),
                 accumulatorClass,
                 metadata.getRemoveInputFunction().isPresent(),
                 groupedAccumulatorClass);
@@ -134,6 +134,7 @@ public final class AccumulatorCompiler
         List<StateFieldAndDescriptor> stateFieldAndDescriptors = new ArrayList<>();
         for (int i = 0; i < stateDescriptors.size(); i++) {
             stateFieldAndDescriptors.add(new StateFieldAndDescriptor(
+                    stateDescriptors.get(i),
                     definition.declareField(a(PRIVATE, FINAL), "stateSerializer_" + i, AccumulatorStateSerializer.class),
                     definition.declareField(a(PRIVATE, FINAL), "stateFactory_" + i, AccumulatorStateFactory.class),
                     definition.declareField(a(PRIVATE, FINAL), "state_" + i, grouped ? GroupedAccumulatorState.class : AccumulatorState.class)));
@@ -164,6 +165,7 @@ public final class AccumulatorCompiler
                 inputChannelFields,
                 maskChannelField,
                 lambdaProviderFields,
+                callSiteBinder,
                 grouped);
 
         generatePrivateConstructor(definition);
@@ -986,15 +988,13 @@ public final class AccumulatorCompiler
             List<FieldDefinition> inputChannelFields,
             FieldDefinition maskChannelField,
             List<FieldDefinition> lambdaProviderFields,
-            boolean grouped)
+            CallSiteBinder callSiteBinder, boolean grouped)
     {
-        Parameter stateDescriptors = arg("stateDescriptors", type(List.class, AccumulatorStateDescriptor.class));
         Parameter inputChannels = arg("inputChannels", type(List.class, Integer.class));
         Parameter maskChannel = arg("maskChannel", type(Optional.class, Integer.class));
         Parameter lambdaProviders = arg("lambdaProviders", type(List.class, LambdaProvider.class));
         MethodDefinition method = definition.declareConstructor(
                 a(PUBLIC),
-                stateDescriptors,
                 inputChannels,
                 maskChannel,
                 lambdaProviders);
@@ -1006,17 +1006,14 @@ public final class AccumulatorCompiler
                 .append(thisVariable)
                 .invokeConstructor(Object.class);
 
-        for (int i = 0; i < stateFieldAndDescriptors.size(); i++) {
+        for (StateFieldAndDescriptor fieldAndDescriptor : stateFieldAndDescriptors) {
+            AccumulatorStateDescriptor<?> accumulatorStateDescriptor = fieldAndDescriptor.getAccumulatorStateDescriptor();
             body.append(thisVariable.setField(
-                    stateFieldAndDescriptors.get(i).getStateSerializerField(),
-                    stateDescriptors.invoke("get", Object.class, constantInt(i))
-                            .cast(AccumulatorStateDescriptor.class)
-                            .invoke("getSerializer", AccumulatorStateSerializer.class)));
+                    fieldAndDescriptor.getStateSerializerField(),
+                    loadConstant(callSiteBinder, accumulatorStateDescriptor.getSerializer(), AccumulatorStateSerializer.class)));
             body.append(thisVariable.setField(
-                    stateFieldAndDescriptors.get(i).getStateFactoryField(),
-                    stateDescriptors.invoke("get", Object.class, constantInt(i))
-                            .cast(AccumulatorStateDescriptor.class)
-                            .invoke("getFactory", AccumulatorStateFactory.class)));
+                    fieldAndDescriptor.getStateFactoryField(),
+                    loadConstant(callSiteBinder, accumulatorStateDescriptor.getFactory(), AccumulatorStateFactory.class)));
         }
         for (int i = 0; i < lambdaProviderFields.size(); i++) {
             body.append(thisVariable.setField(
@@ -1165,15 +1162,22 @@ public final class AccumulatorCompiler
 
     private static class StateFieldAndDescriptor
     {
+        private final AccumulatorStateDescriptor<?> accumulatorStateDescriptor;
         private final FieldDefinition stateSerializerField;
         private final FieldDefinition stateFactoryField;
         private final FieldDefinition stateField;
 
-        private StateFieldAndDescriptor(FieldDefinition stateSerializerField, FieldDefinition stateFactoryField, FieldDefinition stateField)
+        private StateFieldAndDescriptor(AccumulatorStateDescriptor<?> accumulatorStateDescriptor, FieldDefinition stateSerializerField, FieldDefinition stateFactoryField, FieldDefinition stateField)
         {
+            this.accumulatorStateDescriptor = accumulatorStateDescriptor;
             this.stateSerializerField = requireNonNull(stateSerializerField, "stateSerializerField is null");
             this.stateFactoryField = requireNonNull(stateFactoryField, "stateFactoryField is null");
             this.stateField = requireNonNull(stateField, "stateField is null");
+        }
+
+        public AccumulatorStateDescriptor<?> getAccumulatorStateDescriptor()
+        {
+            return accumulatorStateDescriptor;
         }
 
         private FieldDefinition getStateSerializerField()
