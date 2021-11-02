@@ -37,6 +37,7 @@ import io.trino.spi.block.ColumnarRow;
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateFactory;
 import io.trino.spi.function.AccumulatorStateSerializer;
+import io.trino.spi.function.GroupedAccumulatorState;
 import io.trino.spi.function.WindowIndex;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
@@ -45,6 +46,8 @@ import io.trino.sql.gen.CallSiteBinder;
 import io.trino.sql.gen.CompilerOperations;
 
 import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -82,8 +85,13 @@ public final class AccumulatorCompiler
 {
     private AccumulatorCompiler() {}
 
-    public static GenericAccumulatorFactoryBinder generateAccumulatorFactoryBinder(AggregationMetadata metadata, DynamicClassLoader classLoader)
+    public static GenericAccumulatorFactoryBinder generateAccumulatorFactoryBinder(AggregationMetadata metadata)
     {
+        // change types used in Aggregation methods to types used in the core Trino engine to simplify code generation
+        metadata = normalizeAggregationMethods(metadata);
+
+        DynamicClassLoader classLoader = new DynamicClassLoader(AccumulatorCompiler.class.getClassLoader());
+
         Class<? extends Accumulator> accumulatorClass = generateAccumulatorClass(
                 Accumulator.class,
                 metadata,
@@ -122,8 +130,7 @@ public final class AccumulatorCompiler
             stateFieldAndDescriptors.add(new StateFieldAndDescriptor(
                     definition.declareField(a(PRIVATE, FINAL), "stateSerializer_" + i, AccumulatorStateSerializer.class),
                     definition.declareField(a(PRIVATE, FINAL), "stateFactory_" + i, AccumulatorStateFactory.class),
-                    definition.declareField(a(PRIVATE, FINAL), "state_" + i, grouped ? stateDescriptors.get(i).getFactory().getGroupedStateClass() : stateDescriptors.get(i).getFactory().getSingleStateClass()),
-                    stateDescriptors.get(i)));
+                    definition.declareField(a(PRIVATE, FINAL), "state_" + i, grouped ? GroupedAccumulatorState.class : AccumulatorState.class)));
         }
         List<FieldDefinition> stateFields = stateFieldAndDescriptors.stream()
                 .map(StateFieldAndDescriptor::getStateField)
@@ -164,7 +171,6 @@ public final class AccumulatorCompiler
                 inputChannelFields,
                 maskChannelField,
                 metadata.getValueInputMetadata(),
-                metadata.getLambdaInterfaces(),
                 lambdaProviderFields,
                 metadata.getInputFunction(),
                 callSiteBinder,
@@ -173,7 +179,6 @@ public final class AccumulatorCompiler
                 definition,
                 stateFields,
                 metadata.getValueInputMetadata(),
-                metadata.getLambdaInterfaces(),
                 lambdaProviderFields,
                 metadata.getInputFunction(),
                 "addInput",
@@ -183,7 +188,6 @@ public final class AccumulatorCompiler
                         definition,
                         stateFields,
                         metadata.getValueInputMetadata(),
-                        metadata.getLambdaInterfaces(),
                         lambdaProviderFields,
                         removeInputFunction,
                         "removeInput",
@@ -202,7 +206,6 @@ public final class AccumulatorCompiler
         generateAddIntermediateAsCombine(
                 definition,
                 stateFieldAndDescriptors,
-                metadata.getLambdaInterfaces(),
                 lambdaProviderFields,
                 metadata.getCombineFunction(),
                 callSiteBinder,
@@ -275,7 +278,6 @@ public final class AccumulatorCompiler
             List<FieldDefinition> inputChannelFields,
             FieldDefinition maskChannelField,
             List<ParameterMetadata> parameterMetadatas,
-            List<Class<?>> lambdaInterfaces,
             List<FieldDefinition> lambdaProviderFields,
             MethodHandle inputFunction,
             CallSiteBinder callSiteBinder,
@@ -323,7 +325,6 @@ public final class AccumulatorCompiler
                 inputFunction,
                 scope,
                 parameterVariables,
-                lambdaInterfaces,
                 lambdaProviderFields,
                 masksBlock,
                 callSiteBinder,
@@ -337,7 +338,6 @@ public final class AccumulatorCompiler
             ClassDefinition definition,
             List<FieldDefinition> stateField,
             List<ParameterMetadata> parameterMetadatas,
-            List<Class<?>> lambdaInterfaces,
             List<FieldDefinition> lambdaProviderFields,
             MethodHandle inputFunction,
             String generatedFunctionName,
@@ -369,7 +369,6 @@ public final class AccumulatorCompiler
                         scope,
                         inputFunction.type().parameterArray(),
                         parameterMetadatas,
-                        lambdaInterfaces,
                         lambdaProviderFields,
                         stateField,
                         index,
@@ -420,7 +419,6 @@ public final class AccumulatorCompiler
             Scope scope,
             Class<?>[] parameterTypes,
             List<ParameterMetadata> parameterMetadatas,
-            List<Class<?>> lambdaInterfaces,
             List<FieldDefinition> lambdaProviderFields,
             List<FieldDefinition> stateField,
             Variable index,
@@ -429,7 +427,7 @@ public final class AccumulatorCompiler
     {
         int inputChannel = 0;
         int stateIndex = 0;
-        verify(parameterTypes.length == parameterMetadatas.size() + lambdaInterfaces.size());
+        verify(parameterTypes.length == parameterMetadatas.size() + lambdaProviderFields.size());
         List<BytecodeExpression> expressions = new ArrayList<>();
 
         for (int i = 0; i < parameterMetadatas.size(); i++) {
@@ -482,10 +480,9 @@ public final class AccumulatorCompiler
             }
         }
 
-        for (int i = 0; i < lambdaInterfaces.size(); i++) {
-            expressions.add(scope.getThis().getField(lambdaProviderFields.get(i))
-                    .invoke("getLambda", Object.class)
-                    .cast(lambdaInterfaces.get(i)));
+        for (FieldDefinition lambdaProviderField : lambdaProviderFields) {
+            expressions.add(scope.getThis().getField(lambdaProviderField)
+                    .invoke("getLambda", Object.class));
         }
 
         return expressions;
@@ -497,7 +494,6 @@ public final class AccumulatorCompiler
             MethodHandle inputFunction,
             Scope scope,
             List<Variable> parameterVariables,
-            List<Class<?>> lambdaInterfaces,
             List<FieldDefinition> lambdaProviderFields,
             Variable masksBlock,
             CallSiteBinder callSiteBinder,
@@ -520,7 +516,6 @@ public final class AccumulatorCompiler
                 positionVariable,
                 parameterVariables,
                 parameterMetadatas,
-                lambdaInterfaces,
                 lambdaProviderFields,
                 inputFunction,
                 callSiteBinder,
@@ -585,7 +580,6 @@ public final class AccumulatorCompiler
             Variable position,
             List<Variable> parameterVariables,
             List<ParameterMetadata> parameterMetadatas,
-            List<Class<?>> lambdaInterfaces,
             List<FieldDefinition> lambdaProviderFields,
             MethodHandle inputFunction,
             CallSiteBinder callSiteBinder,
@@ -602,7 +596,7 @@ public final class AccumulatorCompiler
         Class<?>[] parameters = inputFunction.type().parameterArray();
         int inputChannel = 0;
         int stateIndex = 0;
-        verify(parameters.length == parameterMetadatas.size() + lambdaInterfaces.size());
+        verify(parameters.length == parameterMetadatas.size() + lambdaProviderFields.size());
         for (int i = 0; i < parameterMetadatas.size(); i++) {
             ParameterMetadata parameterMetadata = parameterMetadatas.get(i);
             switch (parameterMetadata.getParameterType()) {
@@ -628,10 +622,9 @@ public final class AccumulatorCompiler
                     throw new IllegalArgumentException("Unsupported parameter type: " + parameterMetadata.getParameterType());
             }
         }
-        for (int i = 0; i < lambdaInterfaces.size(); i++) {
-            block.append(scope.getThis().getField(lambdaProviderFields.get(i))
-                    .invoke("getLambda", Object.class)
-                    .cast(lambdaInterfaces.get(i)));
+        for (FieldDefinition lambdaProviderField : lambdaProviderFields) {
+            block.append(scope.getThis().getField(lambdaProviderField)
+                    .invoke("getLambda", Object.class));
         }
 
         block.append(invoke(callSiteBinder.bind(inputFunction), "input"));
@@ -685,7 +678,6 @@ public final class AccumulatorCompiler
     private static void generateAddIntermediateAsCombine(
             ClassDefinition definition,
             List<StateFieldAndDescriptor> stateFieldAndDescriptors,
-            List<Class<?>> lambdaInterfaces,
             List<FieldDefinition> lambdaProviderFields,
             MethodHandle combineFunction,
             CallSiteBinder callSiteBinder,
@@ -699,7 +691,7 @@ public final class AccumulatorCompiler
         int stateCount = stateFieldAndDescriptors.size();
         List<Variable> scratchStates = new ArrayList<>();
         for (int i = 0; i < stateCount; i++) {
-            Class<?> scratchStateClass = stateFieldAndDescriptors.get(i).getStateDescriptor().getFactory().getSingleStateClass();
+            Class<?> scratchStateClass = AccumulatorState.class;
             scratchStates.add(scope.declareVariable(scratchStateClass, "scratchState_" + i));
         }
 
@@ -757,10 +749,9 @@ public final class AccumulatorCompiler
             loopBody.append(thisVariable.getField(stateSerializerField).invoke("deserialize", void.class, block.get(i), position, scratchStates.get(i).cast(AccumulatorState.class)));
             loopBody.append(scratchStates.get(i));
         }
-        for (int i = 0; i < lambdaInterfaces.size(); i++) {
-            loopBody.append(scope.getThis().getField(lambdaProviderFields.get(i))
-                    .invoke("getLambda", Object.class)
-                    .cast(lambdaInterfaces.get(i)));
+        for (FieldDefinition lambdaProviderField : lambdaProviderFields) {
+            loopBody.append(scope.getThis().getField(lambdaProviderField)
+                    .invoke("getLambda", Object.class));
         }
         loopBody.append(invoke(callSiteBinder.bind(combineFunction), "combine"));
 
@@ -1119,20 +1110,46 @@ public final class AccumulatorCompiler
                 .cast(variable.getType());
     }
 
+    private static AggregationMetadata normalizeAggregationMethods(AggregationMetadata metadata)
+    {
+        // change aggregations state variables to simply AccumulatorState to avoid any class loader issues in generated code
+        int stateParameterCount = metadata.getAccumulatorStateDescriptors().size();
+        int lambdaParameterCount = metadata.getLambdaInterfaces().size();
+        return new AggregationMetadata(
+                metadata.getName(),
+                metadata.getValueInputMetadata(),
+                castStateParameters(metadata.getInputFunction(), stateParameterCount, lambdaParameterCount),
+                metadata.getRemoveInputFunction().map(removeFunction -> castStateParameters(removeFunction, stateParameterCount, lambdaParameterCount)),
+                castStateParameters(metadata.getCombineFunction(), stateParameterCount * 2, lambdaParameterCount),
+                castStateParameters(metadata.getOutputFunction(), stateParameterCount, 0),
+                metadata.getAccumulatorStateDescriptors(),
+                metadata.getOutputType(),
+                metadata.getLambdaInterfaces());
+    }
+
+    private static MethodHandle castStateParameters(MethodHandle inputFunction, int stateParameterCount, int lambdaParameterCount)
+    {
+        Class<?>[] parameterTypes = inputFunction.type().parameterArray();
+        for (int i = 0; i < stateParameterCount; i++) {
+            parameterTypes[i] = AccumulatorState.class;
+        }
+        for (int i = parameterTypes.length - lambdaParameterCount; i < parameterTypes.length; i++) {
+            parameterTypes[i] = Object.class;
+        }
+        return MethodHandles.explicitCastArguments(inputFunction, MethodType.methodType(inputFunction.type().returnType(), parameterTypes));
+    }
+
     private static class StateFieldAndDescriptor
     {
         private final FieldDefinition stateSerializerField;
         private final FieldDefinition stateFactoryField;
         private final FieldDefinition stateField;
 
-        private final AccumulatorStateDescriptor stateDescriptor;
-
-        private StateFieldAndDescriptor(FieldDefinition stateSerializerField, FieldDefinition stateFactoryField, FieldDefinition stateField, AccumulatorStateDescriptor stateDescriptor)
+        private StateFieldAndDescriptor(FieldDefinition stateSerializerField, FieldDefinition stateFactoryField, FieldDefinition stateField)
         {
             this.stateSerializerField = requireNonNull(stateSerializerField, "stateSerializerField is null");
             this.stateFactoryField = requireNonNull(stateFactoryField, "stateFactoryField is null");
             this.stateField = requireNonNull(stateField, "stateField is null");
-            this.stateDescriptor = requireNonNull(stateDescriptor, "stateDescriptor is null");
         }
 
         private FieldDefinition getStateSerializerField()
@@ -1148,11 +1165,6 @@ public final class AccumulatorCompiler
         private FieldDefinition getStateField()
         {
             return stateField;
-        }
-
-        private AccumulatorStateDescriptor getStateDescriptor()
-        {
-            return stateDescriptor;
         }
     }
 }

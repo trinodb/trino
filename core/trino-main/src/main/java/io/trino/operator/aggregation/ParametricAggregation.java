@@ -162,7 +162,7 @@ public class ParametricAggregation
                 inputTypes,
                 ImmutableList.of(accumulatorStateDescriptor.getSerializer().getSerializedType()),
                 outputType,
-                new LazyAccumulatorFactoryBinder(aggregationMetadata, classLoader));
+                new LazyAccumulatorFactoryBinder(aggregationMetadata));
     }
 
     private static <T extends AccumulatorState> AccumulatorStateDescriptor<T> generateAccumulatorStateDescriptor(Class<T> stateClass, DynamicClassLoader classLoader)

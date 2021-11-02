@@ -158,7 +158,7 @@ public class ReduceAggregationFunction
                 inputType,
                 ImmutableList.of(BinaryFunctionInterface.class, BinaryFunctionInterface.class));
 
-        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
+        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata);
         return new InternalAggregationFunction(
                 name,
                 ImmutableList.of(inputType),

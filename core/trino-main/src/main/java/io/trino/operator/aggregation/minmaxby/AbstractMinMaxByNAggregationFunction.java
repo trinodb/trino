@@ -14,7 +14,6 @@
 package io.trino.operator.aggregation.minmaxby;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.bytecode.DynamicClassLoader;
 import io.trino.metadata.AggregationFunctionMetadata;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionDependencies;
@@ -23,7 +22,6 @@ import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlAggregationFunction;
-import io.trino.operator.aggregation.AbstractMinMaxNAggregationFunction;
 import io.trino.operator.aggregation.AccumulatorCompiler;
 import io.trino.operator.aggregation.AggregationMetadata;
 import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
@@ -174,8 +172,6 @@ public abstract class AbstractMinMaxByNAggregationFunction
 
     protected InternalAggregationFunction generateAggregation(MethodHandle keyComparisonMethod, Type valueType, Type keyType)
     {
-        DynamicClassLoader classLoader = new DynamicClassLoader(AbstractMinMaxNAggregationFunction.class.getClassLoader());
-
         List<Type> inputTypes = ImmutableList.of(valueType, keyType, BIGINT);
         MinMaxByNStateSerializer stateSerializer = new MinMaxByNStateSerializer(keyComparisonMethod, keyType, valueType);
         Type intermediateType = stateSerializer.getSerializedType();
@@ -201,7 +197,7 @@ public abstract class AbstractMinMaxByNAggregationFunction
                         new MinMaxByNStateFactory())),
                 outputType);
 
-        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
+        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata);
         return new InternalAggregationFunction(name, inputTypes, ImmutableList.of(intermediateType), outputType, factory);
     }
 }

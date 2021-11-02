@@ -14,7 +14,6 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.bytecode.DynamicClassLoader;
 import io.trino.metadata.AggregationFunctionMetadata;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
@@ -95,7 +94,6 @@ public class DecimalSumAggregation
     private static InternalAggregationFunction generateAggregation(Type inputType, Type outputType)
     {
         checkArgument(inputType instanceof DecimalType, "type must be Decimal");
-        DynamicClassLoader classLoader = new DynamicClassLoader(DecimalSumAggregation.class.getClassLoader());
         List<Type> inputTypes = ImmutableList.of(inputType);
         MethodHandle inputFunction;
         Class<LongDecimalWithOverflowState> stateInterface = LongDecimalWithOverflowState.class;
@@ -122,7 +120,7 @@ public class DecimalSumAggregation
                 outputType);
 
         Type intermediateType = stateSerializer.getSerializedType();
-        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
+        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata);
         return new InternalAggregationFunction(NAME, inputTypes, ImmutableList.of(intermediateType), outputType, factory);
     }
 

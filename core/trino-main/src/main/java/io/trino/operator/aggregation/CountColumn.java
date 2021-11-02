@@ -107,7 +107,7 @@ public class CountColumn
                         stateFactory)),
                 BIGINT);
 
-        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
+        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata);
         return new InternalAggregationFunction(NAME, inputTypes, ImmutableList.of(intermediateType), BIGINT, factory);
     }
 
