@@ -14,7 +14,6 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.bytecode.DynamicClassLoader;
 import io.trino.operator.aggregation.TestAccumulatorCompiler.LongTimestampAggregation.State;
 import io.trino.operator.aggregation.state.StateCompiler;
 import io.trino.spi.block.BlockBuilder;
@@ -39,14 +38,12 @@ public class TestAccumulatorCompiler
     @Test
     public void testAccumulatorCompilerForTypeSpecificObjectParameter()
     {
-        DynamicClassLoader classLoader = new DynamicClassLoader(TestAccumulatorCompiler.class.getClassLoader());
-
         TimestampType parameterType = TimestampType.TIMESTAMP_NANOS;
         assertThat(parameterType.getJavaType()).isEqualTo(LongTimestamp.class);
 
         Class<State> stateInterface = State.class;
-        AccumulatorStateSerializer<State> stateSerializer = StateCompiler.generateStateSerializer(stateInterface, classLoader);
-        AccumulatorStateFactory<State> stateFactory = StateCompiler.generateStateFactory(stateInterface, classLoader);
+        AccumulatorStateSerializer<State> stateSerializer = StateCompiler.generateStateSerializer(stateInterface);
+        AccumulatorStateFactory<State> stateFactory = StateCompiler.generateStateFactory(stateInterface);
 
         MethodHandle inputFunction = methodHandle(LongTimestampAggregation.class, "input", State.class, LongTimestamp.class);
         MethodHandle combineFunction = methodHandle(LongTimestampAggregation.class, "combine", State.class, State.class);

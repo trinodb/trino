@@ -15,7 +15,6 @@ package io.trino.operator.aggregation;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import io.airlift.bytecode.DynamicClassLoader;
 import io.trino.metadata.AggregationFunctionMetadata;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionBinding;
@@ -123,12 +122,8 @@ public class ParametricAggregation
         List<Type> inputTypes = boundSignature.getArgumentTypes();
         Type outputType = boundSignature.getReturnType();
 
-        // Create classloader for additional aggregation dependencies
-        Class<?> definitionClass = concreteImplementation.getDefinitionClass();
-        DynamicClassLoader classLoader = new DynamicClassLoader(definitionClass.getClassLoader(), getClass().getClassLoader());
-
         // Build state factory and serializer
-        AccumulatorStateDescriptor<?> accumulatorStateDescriptor = generateAccumulatorStateDescriptor(stateClass, classLoader);
+        AccumulatorStateDescriptor<?> accumulatorStateDescriptor = generateAccumulatorStateDescriptor(stateClass);
 
         // Bind provided dependencies to aggregation method handlers
         FunctionMetadata metadata = getFunctionMetadata();
@@ -165,12 +160,12 @@ public class ParametricAggregation
                 new LazyAccumulatorFactoryBinder(aggregationMetadata));
     }
 
-    private static <T extends AccumulatorState> AccumulatorStateDescriptor<T> generateAccumulatorStateDescriptor(Class<T> stateClass, DynamicClassLoader classLoader)
+    private static <T extends AccumulatorState> AccumulatorStateDescriptor<T> generateAccumulatorStateDescriptor(Class<T> stateClass)
     {
         return new AccumulatorStateDescriptor<>(
                 stateClass,
-                generateStateSerializer(stateClass, classLoader),
-                generateStateFactory(stateClass, classLoader));
+                generateStateSerializer(stateClass),
+                generateStateFactory(stateClass));
     }
 
     public Class<?> getStateClass()

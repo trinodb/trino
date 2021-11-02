@@ -14,7 +14,6 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.bytecode.DynamicClassLoader;
 import io.trino.metadata.AggregationFunctionMetadata;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
@@ -86,10 +85,8 @@ public class CountColumn
 
     private static InternalAggregationFunction generateAggregation(Type type)
     {
-        DynamicClassLoader classLoader = new DynamicClassLoader(CountColumn.class.getClassLoader());
-
-        AccumulatorStateSerializer<LongState> stateSerializer = StateCompiler.generateStateSerializer(LongState.class, classLoader);
-        AccumulatorStateFactory<LongState> stateFactory = StateCompiler.generateStateFactory(LongState.class, classLoader);
+        AccumulatorStateSerializer<LongState> stateSerializer = StateCompiler.generateStateSerializer(LongState.class);
+        AccumulatorStateFactory<LongState> stateFactory = StateCompiler.generateStateFactory(LongState.class);
         Type intermediateType = stateSerializer.getSerializedType();
 
         List<Type> inputTypes = ImmutableList.of(type);

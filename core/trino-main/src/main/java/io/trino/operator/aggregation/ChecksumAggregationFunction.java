@@ -15,7 +15,6 @@ package io.trino.operator.aggregation;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import io.airlift.bytecode.DynamicClassLoader;
 import io.trino.metadata.AggregationFunctionMetadata;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
@@ -94,9 +93,7 @@ public class ChecksumAggregationFunction
 
     private static InternalAggregationFunction generateAggregation(Type type, BlockPositionXxHash64 xxHash64Operator)
     {
-        DynamicClassLoader classLoader = new DynamicClassLoader(ChecksumAggregationFunction.class.getClassLoader());
-
-        AccumulatorStateSerializer<NullableLongState> stateSerializer = StateCompiler.generateStateSerializer(NullableLongState.class, classLoader);
+        AccumulatorStateSerializer<NullableLongState> stateSerializer = StateCompiler.generateStateSerializer(NullableLongState.class);
         AggregationMetadata metadata = new AggregationMetadata(
                 generateAggregationName(NAME, type.getTypeSignature(), ImmutableList.of(type.getTypeSignature())),
                 createInputParameterMetadata(type),
@@ -107,7 +104,7 @@ public class ChecksumAggregationFunction
                 ImmutableList.of(new AccumulatorStateDescriptor<>(
                         NullableLongState.class,
                         stateSerializer,
-                        StateCompiler.generateStateFactory(NullableLongState.class, classLoader))),
+                        StateCompiler.generateStateFactory(NullableLongState.class))),
                 VARBINARY);
 
         GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata);

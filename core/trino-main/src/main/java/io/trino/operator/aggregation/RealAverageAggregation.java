@@ -14,7 +14,6 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.bytecode.DynamicClassLoader;
 import io.trino.metadata.AggregationFunctionMetadata;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
@@ -83,11 +82,10 @@ public class RealAverageAggregation
     @Override
     public InternalAggregationFunction specialize(BoundSignature boundSignature)
     {
-        DynamicClassLoader classLoader = new DynamicClassLoader(AverageAggregations.class.getClassLoader());
         Class<LongState> longStateInterface = LongState.class;
         Class<DoubleState> doubleStateInterface = DoubleState.class;
-        AccumulatorStateSerializer<LongState> longStateSerializer = StateCompiler.generateStateSerializer(longStateInterface, classLoader);
-        AccumulatorStateSerializer<DoubleState> doubleStateSerializer = StateCompiler.generateStateSerializer(doubleStateInterface, classLoader);
+        AccumulatorStateSerializer<LongState> longStateSerializer = StateCompiler.generateStateSerializer(longStateInterface);
+        AccumulatorStateSerializer<DoubleState> doubleStateSerializer = StateCompiler.generateStateSerializer(doubleStateInterface);
 
         AggregationMetadata aggregationMetadata = new AggregationMetadata(
                 generateAggregationName(NAME, REAL.getTypeSignature(), ImmutableList.of(REAL.getTypeSignature())),
@@ -100,11 +98,11 @@ public class RealAverageAggregation
                         new AccumulatorStateDescriptor<>(
                                 longStateInterface,
                                 longStateSerializer,
-                                StateCompiler.generateStateFactory(longStateInterface, classLoader)),
+                                StateCompiler.generateStateFactory(longStateInterface)),
                         new AccumulatorStateDescriptor<>(
                                 doubleStateInterface,
                                 doubleStateSerializer,
-                                StateCompiler.generateStateFactory(doubleStateInterface, classLoader))),
+                                StateCompiler.generateStateFactory(doubleStateInterface))),
                 REAL);
 
         GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(aggregationMetadata);
