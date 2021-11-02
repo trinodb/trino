@@ -50,6 +50,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreCase;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.metadata.FunctionId.toFunctionId;
+import static io.trino.metadata.FunctionKind.SCALAR;
 import static io.trino.metadata.LiteralFunction.LITERAL_FUNCTION_NAME;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.operator.scalar.JoniRegexpCasts.castVarcharToJoniRegexp;
@@ -88,6 +89,7 @@ public class TestLiteralEncoder
     private final ResolvedFunction literalFunction = new ResolvedFunction(
             new BoundSignature(LITERAL_FUNCTION_NAME, VARBINARY, ImmutableList.of(VARBINARY)),
             new LiteralFunction(metadata::getBlockEncodingSerde).getFunctionMetadata().getFunctionId(),
+            SCALAR,
             new FunctionNullability(false, ImmutableList.of(false)),
             ImmutableMap.of(),
             ImmutableSet.of());
@@ -95,6 +97,7 @@ public class TestLiteralEncoder
     private final ResolvedFunction base64Function = new ResolvedFunction(
             new BoundSignature("from_base64", VARBINARY, ImmutableList.of(VARCHAR)),
             toFunctionId(new Signature("from_base64", VARBINARY.getTypeSignature(), ImmutableList.of(new TypeSignature("varchar", typeVariable("x"))))),
+            SCALAR,
             new FunctionNullability(false, ImmutableList.of(false)),
             ImmutableMap.of(),
             ImmutableSet.of());

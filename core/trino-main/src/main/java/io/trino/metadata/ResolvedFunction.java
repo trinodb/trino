@@ -50,6 +50,7 @@ public class ResolvedFunction
     private static final String PREFIX = "@";
     private final BoundSignature signature;
     private final FunctionId functionId;
+    private final FunctionKind functionKind;
     private final FunctionNullability functionNullability;
     private final Map<TypeSignature, Type> typeDependencies;
     private final Set<ResolvedFunction> functionDependencies;
@@ -58,12 +59,14 @@ public class ResolvedFunction
     public ResolvedFunction(
             @JsonProperty("signature") BoundSignature signature,
             @JsonProperty("id") FunctionId functionId,
+            @JsonProperty("functionKind") FunctionKind functionKind,
             @JsonProperty("nullability") FunctionNullability functionNullability,
             @JsonProperty("typeDependencies") Map<TypeSignature, Type> typeDependencies,
             @JsonProperty("functionDependencies") Set<ResolvedFunction> functionDependencies)
     {
         this.signature = requireNonNull(signature, "signature is null");
         this.functionId = requireNonNull(functionId, "functionId is null");
+        this.functionKind = requireNonNull(functionKind, "functionKind is null");
         this.functionNullability = requireNonNull(functionNullability, "nullability is null");
         this.typeDependencies = ImmutableMap.copyOf(requireNonNull(typeDependencies, "typeDependencies is null"));
         this.functionDependencies = ImmutableSet.copyOf(requireNonNull(functionDependencies, "functionDependencies is null"));
@@ -80,6 +83,12 @@ public class ResolvedFunction
     public FunctionId getFunctionId()
     {
         return functionId;
+    }
+
+    @JsonProperty("functionKind")
+    public FunctionKind getFunctionKind()
+    {
+        return functionKind;
     }
 
     @JsonProperty
@@ -143,6 +152,7 @@ public class ResolvedFunction
         ResolvedFunction that = (ResolvedFunction) o;
         return Objects.equals(signature, that.signature) &&
                 Objects.equals(functionId, that.functionId) &&
+                Objects.equals(functionKind, that.functionKind) &&
                 Objects.equals(typeDependencies, that.typeDependencies) &&
                 Objects.equals(functionDependencies, that.functionDependencies);
     }
@@ -150,7 +160,7 @@ public class ResolvedFunction
     @Override
     public int hashCode()
     {
-        return Objects.hash(signature, functionId, typeDependencies, functionDependencies);
+        return Objects.hash(signature, functionId, functionKind, typeDependencies, functionDependencies);
     }
 
     @Override
