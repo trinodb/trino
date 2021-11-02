@@ -16,11 +16,13 @@ package io.trino.operator.annotations;
 import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.FunctionDependencies;
 import io.trino.metadata.FunctionInvoker;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.InvocationConvention;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandleProxies;
 
+import static java.lang.invoke.MethodHandles.dropArguments;
 import static java.util.Objects.requireNonNull;
 
 public abstract class ScalarImplementationDependency
@@ -44,6 +46,9 @@ public abstract class ScalarImplementationDependency
     public Object resolve(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
     {
         MethodHandle methodHandle = getInvoker(functionBinding, functionDependencies, invocationConvention).getMethodHandle();
+        if (invocationConvention.supportsSession() && !methodHandle.type().parameterType(0).equals(ConnectorSession.class)) {
+            methodHandle = dropArguments(methodHandle, 0, ConnectorSession.class);
+        }
         if (type == MethodHandle.class) {
             return methodHandle;
         }

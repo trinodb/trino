@@ -104,6 +104,7 @@ import io.trino.operator.scalar.ArrayShuffleFunction;
 import io.trino.operator.scalar.ArraySliceFunction;
 import io.trino.operator.scalar.ArraySortComparatorFunction;
 import io.trino.operator.scalar.ArraySortFunction;
+import io.trino.operator.scalar.ArrayToArrayCast;
 import io.trino.operator.scalar.ArrayUnionFunction;
 import io.trino.operator.scalar.ArraysOverlapFunction;
 import io.trino.operator.scalar.BitwiseFunctions;
@@ -304,7 +305,6 @@ import static io.trino.operator.scalar.ArrayJoin.ARRAY_JOIN;
 import static io.trino.operator.scalar.ArrayJoin.ARRAY_JOIN_WITH_NULL_REPLACEMENT;
 import static io.trino.operator.scalar.ArrayReduceFunction.ARRAY_REDUCE_FUNCTION;
 import static io.trino.operator.scalar.ArraySubscriptOperator.ARRAY_SUBSCRIPT;
-import static io.trino.operator.scalar.ArrayToArrayCast.ARRAY_TO_ARRAY_CAST;
 import static io.trino.operator.scalar.ArrayToElementConcatFunction.ARRAY_TO_ELEMENT_CONCAT_FUNCTION;
 import static io.trino.operator.scalar.ArrayToJsonCast.ARRAY_TO_JSON;
 import static io.trino.operator.scalar.ArrayToJsonCast.LEGACY_ARRAY_TO_JSON;
@@ -569,7 +569,7 @@ public class FunctionRegistry
                 .functions(ZIP_WITH_FUNCTION, MAP_ZIP_WITH_FUNCTION)
                 .functions(ZIP_FUNCTIONS)
                 .functions(ARRAY_JOIN, ARRAY_JOIN_WITH_NULL_REPLACEMENT)
-                .functions(ARRAY_TO_ARRAY_CAST)
+                .scalar(ArrayToArrayCast.class)
                 .functions(ARRAY_TO_ELEMENT_CONCAT_FUNCTION, ELEMENT_TO_ARRAY_CONCAT_FUNCTION)
                 .function(MAP_ELEMENT_AT)
                 .function(new MapConcatFunction(blockTypeOperators))
