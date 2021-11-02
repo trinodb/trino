@@ -16,6 +16,7 @@ package io.trino.operator.aggregation;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
+import io.trino.metadata.BoundSignature;
 import io.trino.operator.PagesIndex;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
@@ -25,72 +26,28 @@ import io.trino.type.BlockTypeOperators;
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.operator.aggregation.AccumulatorCompiler.generateAccumulatorFactoryBinder;
 import static java.util.Objects.requireNonNull;
 
 public final class InternalAggregationFunction
 {
-    private final String name;
     private final List<Type> parameterTypes;
-    private final List<Type> intermediateTypes;
-    private final Type finalType;
     private final List<Class<?>> lambdaInterfaces;
     private final AccumulatorFactoryBinder factory;
 
-    public InternalAggregationFunction(
-            String name,
-            List<Type> parameterTypes,
-            List<Type> intermediateTypes,
-            Type finalType,
-            AccumulatorFactoryBinder factory)
+    public InternalAggregationFunction(BoundSignature boundSignature, AggregationMetadata aggregationMetadata)
     {
-        this(
-                name,
-                parameterTypes,
-                intermediateTypes,
-                finalType,
-                factory,
-                ImmutableList.of());
-    }
-
-    public InternalAggregationFunction(
-            String name,
-            List<Type> parameterTypes,
-            List<Type> intermediateType,
-            Type finalType,
-            AccumulatorFactoryBinder factory,
-            List<Class<?>> lambdaInterfaces)
-    {
-        this.name = requireNonNull(name, "name is null");
-        checkArgument(!name.isEmpty(), "name is empty");
-        this.parameterTypes = ImmutableList.copyOf(requireNonNull(parameterTypes, "parameterTypes is null"));
-        this.intermediateTypes = ImmutableList.copyOf(requireNonNull(intermediateType, "intermediateType is null"));
-        this.finalType = requireNonNull(finalType, "finalType is null");
-        this.factory = requireNonNull(factory, "factory is null");
-        this.lambdaInterfaces = ImmutableList.copyOf(lambdaInterfaces);
-    }
-
-    public String name()
-    {
-        return name;
+        requireNonNull(boundSignature, "boundSignature is null");
+        requireNonNull(aggregationMetadata, "aggregationMetadata is null");
+        this.parameterTypes = boundSignature.getArgumentTypes();
+        this.factory = generateAccumulatorFactoryBinder(aggregationMetadata);
+        this.lambdaInterfaces = ImmutableList.copyOf(aggregationMetadata.getLambdaInterfaces());
     }
 
     @VisibleForTesting
     public List<Type> getParameterTypes()
     {
         return parameterTypes;
-    }
-
-    @VisibleForTesting
-    public Type getFinalType()
-    {
-        return finalType;
-    }
-
-    @VisibleForTesting
-    public List<Type> getIntermediateTypes()
-    {
-        return intermediateTypes;
     }
 
     public List<Class<?>> getLambdaInterfaces()
@@ -128,11 +85,5 @@ public final class InternalAggregationFunction
             Session session)
     {
         return factory.bind(inputChannels, maskChannel, sourceTypes, orderByChannels, orderings, pagesIndexFactory, distinct, joinCompiler, blockTypeOperators, lambdaProviders, session);
-    }
-
-    @VisibleForTesting
-    public AccumulatorFactoryBinder getAccumulatorFactoryBinder()
-    {
-        return factory;
     }
 }

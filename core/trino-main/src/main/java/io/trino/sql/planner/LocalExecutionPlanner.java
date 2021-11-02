@@ -1546,7 +1546,12 @@ public class LocalExecutionPlanner
                         }
                     }
 
-                    matchAggregations.add(new MatchAggregationInstantiator(internalAggregationFunction, valueChannels, lambdaProviders, new SetEvaluatorSupplier(pointer.getSetDescriptor(), mapping)));
+                    matchAggregations.add(new MatchAggregationInstantiator(
+                            pointer.getFunction().getSignature().getName(),
+                            internalAggregationFunction,
+                            valueChannels,
+                            lambdaProviders,
+                            new SetEvaluatorSupplier(pointer.getSetDescriptor(), mapping)));
                     labelDependencies.add(new MatchAggregationLabelDependency(
                             pointer.getSetDescriptor().getLabels().stream()
                                     .map(mapping::get)
