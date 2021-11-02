@@ -21,6 +21,8 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.FixedWidthType;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import org.apache.iceberg.PartitionField;
@@ -32,6 +34,7 @@ import java.math.BigInteger;
 import java.util.function.Function;
 import java.util.function.IntUnaryOperator;
 import java.util.function.LongUnaryOperator;
+import java.util.function.ToLongFunction;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -215,109 +218,80 @@ public final class PartitionTransforms
     {
         return new ColumnTransform(
                 INTEGER,
-                block -> extractDate(block, value -> epochYear(DAYS.toMillis(value))));
+                block -> transformBlock(DATE, INTEGER, block, value -> epochYear(DAYS.toMillis(value))));
     }
 
     private static ColumnTransform monthsFromDate()
     {
         return new ColumnTransform(
                 INTEGER,
-                block -> extractDate(block, value -> epochMonth(DAYS.toMillis(value))));
+                block -> transformBlock(DATE, INTEGER, block, value -> epochMonth(DAYS.toMillis(value))));
     }
 
     private static ColumnTransform daysFromDate()
     {
         return new ColumnTransform(
                 INTEGER,
-                block -> extractDate(block, LongUnaryOperator.identity()));
-    }
-
-    private static Block extractDate(Block block, LongUnaryOperator function)
-    {
-        BlockBuilder builder = INTEGER.createFixedSizeBlockBuilder(block.getPositionCount());
-        for (int position = 0; position < block.getPositionCount(); position++) {
-            if (block.isNull(position)) {
-                builder.appendNull();
-                continue;
-            }
-            long value = DATE.getLong(block, position);
-            INTEGER.writeLong(builder, function.applyAsLong(value));
-        }
-        return builder.build();
+                block -> transformBlock(DATE, INTEGER, block, LongUnaryOperator.identity()));
     }
 
     private static ColumnTransform yearsFromTimestamp()
     {
         return new ColumnTransform(
                 INTEGER,
-                block -> extractTimestamp(block, PartitionTransforms::epochYear));
+                block -> transformBlock(TIMESTAMP_MICROS, INTEGER, block, epochMicros -> epochYear(floorDiv(epochMicros, MICROSECONDS_PER_MILLISECOND))));
     }
 
     private static ColumnTransform monthsFromTimestamp()
     {
         return new ColumnTransform(
                 INTEGER,
-                block -> extractTimestamp(block, PartitionTransforms::epochMonth));
+                block -> transformBlock(TIMESTAMP_MICROS, INTEGER, block, epochMicros -> epochMonth(floorDiv(epochMicros, MICROSECONDS_PER_MILLISECOND))));
     }
 
     private static ColumnTransform daysFromTimestamp()
     {
         return new ColumnTransform(
                 INTEGER,
-                block -> extractTimestamp(block, PartitionTransforms::epochDay));
+                block -> transformBlock(TIMESTAMP_MICROS, INTEGER, block, epochMicros -> epochDay(floorDiv(epochMicros, MICROSECONDS_PER_MILLISECOND))));
     }
 
     private static ColumnTransform hoursFromTimestamp()
     {
         return new ColumnTransform(
                 INTEGER,
-                block -> extractTimestamp(block, PartitionTransforms::epochHour));
-    }
-
-    private static Block extractTimestamp(Block block, LongUnaryOperator function)
-    {
-        BlockBuilder builder = INTEGER.createFixedSizeBlockBuilder(block.getPositionCount());
-        for (int position = 0; position < block.getPositionCount(); position++) {
-            if (block.isNull(position)) {
-                builder.appendNull();
-                continue;
-            }
-            long epochMicros = TIMESTAMP_MICROS.getLong(block, position);
-            long epochMillis = floorDiv(epochMicros, MICROSECONDS_PER_MILLISECOND);
-            INTEGER.writeLong(builder, function.applyAsLong(epochMillis));
-        }
-        return builder.build();
+                block -> transformBlock(TIMESTAMP_MICROS, INTEGER, block, epochMicros -> epochHour(floorDiv(epochMicros, MICROSECONDS_PER_MILLISECOND))));
     }
 
     private static ColumnTransform yearsFromTimestampWithTimeZone()
     {
         return new ColumnTransform(
                 INTEGER,
-                block -> extractTimestampWithTimeZone(block, PartitionTransforms::epochYear));
+                block -> extractTimestampWithTimeZone(block, value -> epochYear(value.getEpochMillis())));
     }
 
     private static ColumnTransform monthsFromTimestampWithTimeZone()
     {
         return new ColumnTransform(
                 INTEGER,
-                block -> extractTimestampWithTimeZone(block, PartitionTransforms::epochMonth));
+                block -> extractTimestampWithTimeZone(block, value -> epochMonth(value.getEpochMillis())));
     }
 
     private static ColumnTransform daysFromTimestampWithTimeZone()
     {
         return new ColumnTransform(
                 INTEGER,
-                block -> extractTimestampWithTimeZone(block, PartitionTransforms::epochDay));
+                block -> extractTimestampWithTimeZone(block, value -> epochDay(value.getEpochMillis())));
     }
 
     private static ColumnTransform hoursFromTimestampWithTimeZone()
     {
         return new ColumnTransform(
                 INTEGER,
-                block -> extractTimestampWithTimeZone(block, PartitionTransforms::epochHour));
+                block -> extractTimestampWithTimeZone(block, value -> epochHour(value.getEpochMillis())));
     }
 
-    private static Block extractTimestampWithTimeZone(Block block, LongUnaryOperator function)
+    private static Block extractTimestampWithTimeZone(Block block, ToLongFunction<LongTimestampWithTimeZone> function)
     {
         BlockBuilder builder = INTEGER.createFixedSizeBlockBuilder(block.getPositionCount());
         for (int position = 0; position < block.getPositionCount(); position++) {
@@ -325,8 +299,8 @@ public final class PartitionTransforms
                 builder.appendNull();
                 continue;
             }
-            long epochMillis = getTimestampTz(block, position).getEpochMillis();
-            INTEGER.writeLong(builder, function.applyAsLong(epochMillis));
+            LongTimestampWithTimeZone value = getTimestampTz(block, position);
+            INTEGER.writeLong(builder, function.applyAsLong(value));
         }
         return builder.build();
     }
@@ -587,6 +561,20 @@ public final class PartitionTransforms
         return new ColumnTransform(
                 type,
                 block -> new RunLengthEncodedBlock(nullBlock, block.getPositionCount()));
+    }
+
+    private static Block transformBlock(Type sourceType, FixedWidthType resultType, Block block, LongUnaryOperator function)
+    {
+        BlockBuilder builder = resultType.createFixedSizeBlockBuilder(block.getPositionCount());
+        for (int position = 0; position < block.getPositionCount(); position++) {
+            if (block.isNull(position)) {
+                builder.appendNull();
+                continue;
+            }
+            long value = sourceType.getLong(block, position);
+            resultType.writeLong(builder, function.applyAsLong(value));
+        }
+        return builder.build();
     }
 
     @VisibleForTesting
