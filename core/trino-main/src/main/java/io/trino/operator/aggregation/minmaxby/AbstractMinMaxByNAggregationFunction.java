@@ -101,7 +101,21 @@ public abstract class AbstractMinMaxByNAggregationFunction
         Type keyType = boundSignature.getArgumentTypes().get(1);
         Type valueType = boundSignature.getArgumentTypes().get(0);
         MethodHandle keyComparisonMethod = getMinMaxCompare(functionDependencies, keyType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION), min);
-        return generateAggregation(keyComparisonMethod, valueType, keyType);
+
+        MinMaxByNStateSerializer stateSerializer = new MinMaxByNStateSerializer(keyComparisonMethod, keyType, valueType);
+        ArrayType outputType = new ArrayType(valueType);
+
+        return new AggregationMetadata(
+                boundSignature,
+                ImmutableList.of(STATE, NULLABLE_BLOCK_INPUT_CHANNEL, BLOCK_INPUT_CHANNEL, BLOCK_INDEX, INPUT_CHANNEL),
+                INPUT_FUNCTION.bindTo(keyComparisonMethod).bindTo(valueType).bindTo(keyType),
+                Optional.empty(),
+                COMBINE_FUNCTION,
+                OUTPUT_FUNCTION.bindTo(outputType),
+                ImmutableList.of(new AccumulatorStateDescriptor<>(
+                        MinMaxByNState.class,
+                        stateSerializer,
+                        new MinMaxByNStateFactory())));
     }
 
     public static void input(MethodHandle keyComparisonMethod, Type valueType, Type keyType, MinMaxByNState state, Block value, Block key, int blockIndex, long n)
@@ -159,22 +173,5 @@ public abstract class AbstractMinMaxByNAggregationFunction
             elementType.appendTo(reversedBlockBuilder, i, arrayBlockBuilder);
         }
         out.closeEntry();
-    }
-
-    protected AggregationMetadata generateAggregation(MethodHandle keyComparisonMethod, Type valueType, Type keyType)
-    {
-        MinMaxByNStateSerializer stateSerializer = new MinMaxByNStateSerializer(keyComparisonMethod, keyType, valueType);
-        ArrayType outputType = new ArrayType(valueType);
-
-        return new AggregationMetadata(
-                ImmutableList.of(STATE, NULLABLE_BLOCK_INPUT_CHANNEL, BLOCK_INPUT_CHANNEL, BLOCK_INDEX, INPUT_CHANNEL),
-                INPUT_FUNCTION.bindTo(keyComparisonMethod).bindTo(valueType).bindTo(keyType),
-                Optional.empty(),
-                COMBINE_FUNCTION,
-                OUTPUT_FUNCTION.bindTo(outputType),
-                ImmutableList.of(new AccumulatorStateDescriptor<>(
-                        MinMaxByNState.class,
-                        stateSerializer,
-                        new MinMaxByNStateFactory())));
     }
 }

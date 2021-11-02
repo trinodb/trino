@@ -83,20 +83,12 @@ public class Histogram
         BlockPositionEqual keyEqual = blockTypeOperators.getEqualOperator(keyType);
         BlockPositionHashCode keyHashCode = blockTypeOperators.getHashCodeOperator(keyType);
         Type outputType = boundSignature.getReturnType();
-        return generateAggregation(keyType, keyEqual, keyHashCode, outputType);
-    }
-
-    private static AggregationMetadata generateAggregation(
-            Type keyType,
-            BlockPositionEqual keyEqual,
-            BlockPositionHashCode keyHashCode,
-            Type outputType)
-    {
         HistogramStateSerializer stateSerializer = new HistogramStateSerializer(outputType);
         MethodHandle inputFunction = INPUT_FUNCTION.bindTo(keyType);
         MethodHandle outputFunction = OUTPUT_FUNCTION.bindTo(outputType);
 
         return new AggregationMetadata(
+                boundSignature,
                 ImmutableList.of(STATE, BLOCK_INPUT_CHANNEL, BLOCK_INDEX),
                 inputFunction,
                 Optional.empty(),

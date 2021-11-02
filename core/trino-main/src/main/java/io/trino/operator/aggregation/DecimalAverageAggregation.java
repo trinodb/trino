@@ -96,11 +96,6 @@ public class DecimalAverageAggregation
     public AggregationMetadata specialize(BoundSignature boundSignature)
     {
         Type type = getOnlyElement(boundSignature.getArgumentTypes());
-        return generateAggregation(type);
-    }
-
-    private static AggregationMetadata generateAggregation(Type type)
-    {
         checkArgument(type instanceof DecimalType, "type must be Decimal");
         MethodHandle inputFunction;
         MethodHandle outputFunction;
@@ -118,6 +113,7 @@ public class DecimalAverageAggregation
         outputFunction = outputFunction.bindTo(type);
 
         return new AggregationMetadata(
+                boundSignature,
                 ImmutableList.of(STATE, BLOCK_INPUT_CHANNEL, BLOCK_INDEX),
                 inputFunction,
                 Optional.empty(),

@@ -121,11 +121,6 @@ public abstract class AbstractMinMaxAggregationFunction
 
         MethodHandle compareMethodHandle = getMinMaxCompare(functionDependencies, type, invocationConvention, min);
 
-        return generateAggregation(type, compareMethodHandle);
-    }
-
-    protected AggregationMetadata generateAggregation(Type type, MethodHandle compareMethodHandle)
-    {
         MethodHandle inputFunction;
         MethodHandle combineFunction;
         MethodHandle outputFunction;
@@ -170,6 +165,7 @@ public abstract class AbstractMinMaxAggregationFunction
         }
 
         return new AggregationMetadata(
+                boundSignature,
                 createInputParameterKinds(type),
                 inputFunction,
                 Optional.empty(),

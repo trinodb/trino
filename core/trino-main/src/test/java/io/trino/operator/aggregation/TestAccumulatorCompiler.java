@@ -49,7 +49,9 @@ public class TestAccumulatorCompiler
         MethodHandle inputFunction = methodHandle(LongTimestampAggregation.class, "input", State.class, LongTimestamp.class);
         MethodHandle combineFunction = methodHandle(LongTimestampAggregation.class, "combine", State.class, State.class);
         MethodHandle outputFunction = methodHandle(LongTimestampAggregation.class, "output", State.class, BlockBuilder.class);
+        BoundSignature signature = new BoundSignature("longTimestampAggregation", RealType.REAL, ImmutableList.of(TimestampType.TIMESTAMP_PICOS));
         AggregationMetadata metadata = new AggregationMetadata(
+                signature,
                 ImmutableList.of(STATE, INPUT_CHANNEL),
                 inputFunction,
                 Optional.empty(),
@@ -59,7 +61,6 @@ public class TestAccumulatorCompiler
                         stateInterface,
                         stateSerializer,
                         stateFactory)));
-        BoundSignature signature = new BoundSignature("longTimestampAggregation", RealType.REAL, ImmutableList.of(TimestampType.TIMESTAMP_PICOS));
 
         // test if we can compile aggregation
         assertThat(AccumulatorCompiler.generateAccumulatorFactoryBinder(signature, metadata)).isNotNull();

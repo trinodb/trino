@@ -101,11 +101,7 @@ public class ListaggAggregationFunction
     @Override
     public AggregationMetadata specialize(BoundSignature boundSignature)
     {
-        return generateAggregation(VARCHAR);
-    }
-
-    private static AggregationMetadata generateAggregation(Type type)
-    {
+        Type type = VARCHAR;
         AccumulatorStateSerializer<ListaggAggregationState> stateSerializer = new ListaggAggregationStateSerializer(type);
         AccumulatorStateFactory<ListaggAggregationState> stateFactory = new ListaggAggregationStateFactory(type);
 
@@ -123,6 +119,7 @@ public class ListaggAggregationFunction
         MethodHandle outputFunction = OUTPUT_FUNCTION.bindTo(type);
 
         return new AggregationMetadata(
+                boundSignature,
                 inputParameterKinds,
                 inputFunction,
                 Optional.empty(),
