@@ -29,8 +29,8 @@ import org.testng.annotations.Test;
 import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.INPUT_CHANNEL;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.STATE;
 import static io.trino.util.Reflection.methodHandle;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -50,9 +50,7 @@ public class TestAccumulatorCompiler
         MethodHandle combineFunction = methodHandle(LongTimestampAggregation.class, "combine", State.class, State.class);
         MethodHandle outputFunction = methodHandle(LongTimestampAggregation.class, "output", State.class, BlockBuilder.class);
         AggregationMetadata metadata = new AggregationMetadata(
-                ImmutableList.of(
-                        new AggregationMetadata.ParameterMetadata(STATE),
-                        new AggregationMetadata.ParameterMetadata(INPUT_CHANNEL, parameterType)),
+                ImmutableList.of(STATE, INPUT_CHANNEL),
                 inputFunction,
                 Optional.empty(),
                 combineFunction,

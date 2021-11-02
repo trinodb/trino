@@ -21,6 +21,7 @@ import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlAggregationFunction;
+import io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind;
 import io.trino.operator.aggregation.state.QuantileDigestState;
 import io.trino.operator.aggregation.state.QuantileDigestStateFactory;
 import io.trino.operator.aggregation.state.QuantileDigestStateSerializer;
@@ -38,9 +39,8 @@ import java.util.stream.Collectors;
 import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.metadata.Signature.comparableTypeParameter;
 import static io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.INPUT_CHANNEL;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.STATE;
 import static io.trino.operator.aggregation.FloatingPointBitsConverterUtil.doubleToSortableLong;
 import static io.trino.operator.aggregation.FloatingPointBitsConverterUtil.floatToSortableInt;
 import static io.trino.operator.scalar.QuantileDigestFunctions.DEFAULT_ACCURACY;
@@ -105,7 +105,10 @@ public final class QuantileDigestAggregationFunction
         QuantileDigestStateSerializer stateSerializer = new QuantileDigestStateSerializer(valueType);
 
         return new AggregationMetadata(
-                createInputParameterMetadata(getInputTypes(valueType, arity)),
+                ImmutableList.<AggregationParameterKind>builder()
+                        .add(STATE)
+                        .addAll(getInputTypes(valueType, arity).stream().map(valueType1 -> INPUT_CHANNEL).collect(Collectors.toList()))
+                        .build(),
                 getMethodHandle(valueType, arity),
                 Optional.empty(),
                 COMBINE_FUNCTION,
@@ -163,14 +166,6 @@ public final class QuantileDigestAggregationFunction
             default:
                 throw new IllegalArgumentException(format("Unsupported number of arguments: %s", arity));
         }
-    }
-
-    private static List<ParameterMetadata> createInputParameterMetadata(List<Type> valueTypes)
-    {
-        return ImmutableList.<ParameterMetadata>builder()
-                .add(new ParameterMetadata(STATE))
-                .addAll(valueTypes.stream().map(valueType -> new ParameterMetadata(INPUT_CHANNEL, valueType)).collect(Collectors.toList()))
-                .build();
     }
 
     public static void inputDouble(QuantileDigestState state, double value, long weight, double accuracy)
