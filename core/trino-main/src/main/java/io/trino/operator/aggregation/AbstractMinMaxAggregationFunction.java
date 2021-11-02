@@ -36,9 +36,6 @@ import io.trino.operator.aggregation.state.GenericLongStateSerializer;
 import io.trino.operator.aggregation.state.StateCompiler;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.function.AccumulatorState;
-import io.trino.spi.function.AccumulatorStateFactory;
-import io.trino.spi.function.AccumulatorStateSerializer;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
@@ -139,42 +136,47 @@ public abstract class AbstractMinMaxAggregationFunction
         MethodHandle inputFunction;
         MethodHandle combineFunction;
         MethodHandle outputFunction;
-        Class<? extends AccumulatorState> stateInterface;
-        AccumulatorStateSerializer<?> stateSerializer;
 
+        AccumulatorStateDescriptor<?> accumulatorStateDescriptor;
         if (type.getJavaType() == long.class) {
-            stateInterface = GenericLongState.class;
-            stateSerializer = new GenericLongStateSerializer(type);
+            accumulatorStateDescriptor = new AccumulatorStateDescriptor<>(
+                    GenericLongState.class,
+                    new GenericLongStateSerializer(type),
+                    StateCompiler.generateStateFactory(GenericLongState.class, classLoader));
             inputFunction = LONG_INPUT_FUNCTION.bindTo(compareMethodHandle);
             combineFunction = LONG_COMBINE_FUNCTION.bindTo(compareMethodHandle);
             outputFunction = LONG_OUTPUT_FUNCTION.bindTo(type);
         }
         else if (type.getJavaType() == double.class) {
-            stateInterface = GenericDoubleState.class;
-            stateSerializer = new GenericDoubleStateSerializer(type);
+            accumulatorStateDescriptor = new AccumulatorStateDescriptor<>(
+                    GenericDoubleState.class,
+                    new GenericDoubleStateSerializer(type),
+                    StateCompiler.generateStateFactory(GenericDoubleState.class, classLoader));
             inputFunction = DOUBLE_INPUT_FUNCTION.bindTo(compareMethodHandle);
             combineFunction = DOUBLE_COMBINE_FUNCTION.bindTo(compareMethodHandle);
             outputFunction = DOUBLE_OUTPUT_FUNCTION.bindTo(type);
         }
         else if (type.getJavaType() == boolean.class) {
-            stateInterface = GenericBooleanState.class;
-            stateSerializer = new GenericBooleanStateSerializer(type);
+            accumulatorStateDescriptor = new AccumulatorStateDescriptor<>(
+                    GenericBooleanState.class,
+                    new GenericBooleanStateSerializer(type),
+                    StateCompiler.generateStateFactory(GenericBooleanState.class, classLoader));
             inputFunction = BOOLEAN_INPUT_FUNCTION.bindTo(compareMethodHandle);
             combineFunction = BOOLEAN_COMBINE_FUNCTION.bindTo(compareMethodHandle);
             outputFunction = BOOLEAN_OUTPUT_FUNCTION.bindTo(type);
         }
         else {
-            // native container type is Slice or Block
-            stateInterface = BlockPositionState.class;
-            stateSerializer = new BlockPositionStateSerializer(type);
+            // native container type is Object
+            accumulatorStateDescriptor = new AccumulatorStateDescriptor<>(
+                    BlockPositionState.class,
+                    new BlockPositionStateSerializer(type),
+                    StateCompiler.generateStateFactory(BlockPositionState.class, classLoader));
             inputFunction = BLOCK_POSITION_INPUT_FUNCTION.bindTo(compareMethodHandle);
             combineFunction = BLOCK_POSITION_COMBINE_FUNCTION.bindTo(compareMethodHandle);
             outputFunction = BLOCK_POSITION_OUTPUT_FUNCTION.bindTo(type);
         }
 
-        AccumulatorStateFactory<?> stateFactory = StateCompiler.generateStateFactory(stateInterface, classLoader);
-
-        Type intermediateType = stateSerializer.getSerializedType();
+        Type intermediateType = accumulatorStateDescriptor.getSerializer().getSerializedType();
         String name = getFunctionMetadata().getSignature().getName();
         AggregationMetadata metadata = new AggregationMetadata(
                 generateAggregationName(name, type.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
@@ -183,10 +185,7 @@ public abstract class AbstractMinMaxAggregationFunction
                 Optional.empty(),
                 combineFunction,
                 outputFunction,
-                ImmutableList.of(new AccumulatorStateDescriptor(
-                        stateInterface,
-                        stateSerializer,
-                        stateFactory)),
+                ImmutableList.of(accumulatorStateDescriptor),
                 type);
 
         GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);

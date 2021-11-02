@@ -117,7 +117,7 @@ public final class QuantileDigestAggregationFunction
                 Optional.empty(),
                 COMBINE_FUNCTION,
                 OUTPUT_FUNCTION.bindTo(stateSerializer),
-                ImmutableList.of(new AccumulatorStateDescriptor(
+                ImmutableList.of(new AccumulatorStateDescriptor<>(
                         QuantileDigestState.class,
                         stateSerializer,
                         new QuantileDigestStateFactory())),

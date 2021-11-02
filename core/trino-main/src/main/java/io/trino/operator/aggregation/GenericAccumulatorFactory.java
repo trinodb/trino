@@ -53,7 +53,7 @@ import static java.util.Objects.requireNonNull;
 public class GenericAccumulatorFactory
         implements AccumulatorFactory
 {
-    private final List<AccumulatorStateDescriptor> stateDescriptors;
+    private final List<AccumulatorStateDescriptor<?>> stateDescriptors;
     private final Constructor<? extends Accumulator> accumulatorConstructor;
     private final Constructor<? extends GroupedAccumulator> groupedAccumulatorConstructor;
     private final List<LambdaProvider> lambdaProviders;
@@ -75,7 +75,7 @@ public class GenericAccumulatorFactory
     private final PagesIndex.Factory pagesIndexFactory;
 
     public GenericAccumulatorFactory(
-            List<AccumulatorStateDescriptor> stateDescriptors,
+            List<AccumulatorStateDescriptor<?>> stateDescriptors,
             Constructor<? extends Accumulator> accumulatorConstructor,
             boolean accumulatorHasRemoveInput,
             Constructor<? extends GroupedAccumulator> groupedAccumulatorConstructor,

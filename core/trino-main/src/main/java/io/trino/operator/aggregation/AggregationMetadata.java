@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateFactory;
 import io.trino.spi.function.AccumulatorStateSerializer;
 import io.trino.spi.type.Type;
@@ -47,7 +48,7 @@ public class AggregationMetadata
     private final Optional<MethodHandle> removeInputFunction;
     private final MethodHandle combineFunction;
     private final MethodHandle outputFunction;
-    private final List<AccumulatorStateDescriptor> accumulatorStateDescriptors;
+    private final List<AccumulatorStateDescriptor<?>> accumulatorStateDescriptors;
     private final Type outputType;
 
     public AggregationMetadata(
@@ -57,7 +58,7 @@ public class AggregationMetadata
             Optional<MethodHandle> removeInputFunction,
             MethodHandle combineFunction,
             MethodHandle outputFunction,
-            List<AccumulatorStateDescriptor> accumulatorStateDescriptors,
+            List<AccumulatorStateDescriptor<?>> accumulatorStateDescriptors,
             Type outputType)
     {
         this(
@@ -79,7 +80,7 @@ public class AggregationMetadata
             Optional<MethodHandle> removeInputFunction,
             MethodHandle combineFunction,
             MethodHandle outputFunction,
-            List<AccumulatorStateDescriptor> accumulatorStateDescriptors,
+            List<AccumulatorStateDescriptor<?>> accumulatorStateDescriptors,
             Type outputType,
             List<Class<?>> lambdaInterfaces)
     {
@@ -138,12 +139,12 @@ public class AggregationMetadata
         return outputFunction;
     }
 
-    public List<AccumulatorStateDescriptor> getAccumulatorStateDescriptors()
+    public List<AccumulatorStateDescriptor<?>> getAccumulatorStateDescriptors()
     {
         return accumulatorStateDescriptors;
     }
 
-    private static void verifyInputFunctionSignature(MethodHandle method, List<ParameterMetadata> dataChannelMetadata, List<Class<?>> lambdaInterfaces, List<AccumulatorStateDescriptor> stateDescriptors)
+    private static void verifyInputFunctionSignature(MethodHandle method, List<ParameterMetadata> dataChannelMetadata, List<Class<?>> lambdaInterfaces, List<AccumulatorStateDescriptor<?>> stateDescriptors)
     {
         Class<?>[] parameters = method.type().parameterArray();
         checkArgument(parameters.length > 0, "Aggregation input function must have at least one parameter");
@@ -183,7 +184,7 @@ public class AggregationMetadata
         }
     }
 
-    private static void verifyCombineFunction(MethodHandle method, List<Class<?>> lambdaInterfaces, List<AccumulatorStateDescriptor> stateDescriptors)
+    private static void verifyCombineFunction(MethodHandle method, List<Class<?>> lambdaInterfaces, List<AccumulatorStateDescriptor<?>> stateDescriptors)
     {
         Class<?>[] parameterTypes = method.type().parameterArray();
         checkArgument(
@@ -202,7 +203,7 @@ public class AggregationMetadata
         }
     }
 
-    private static void verifyExactOutputFunction(MethodHandle method, List<AccumulatorStateDescriptor> stateDescriptors)
+    private static void verifyExactOutputFunction(MethodHandle method, List<AccumulatorStateDescriptor<?>> stateDescriptors)
     {
         if (method == null) {
             return;
@@ -312,30 +313,30 @@ public class AggregationMetadata
         }
     }
 
-    public static class AccumulatorStateDescriptor
+    public static class AccumulatorStateDescriptor<T extends AccumulatorState>
     {
-        private final Class<?> stateInterface;
-        private final AccumulatorStateSerializer<?> serializer;
-        private final AccumulatorStateFactory<?> factory;
+        private final Class<T> stateInterface;
+        private final AccumulatorStateSerializer<T> serializer;
+        private final AccumulatorStateFactory<T> factory;
 
-        public AccumulatorStateDescriptor(Class<?> stateInterface, AccumulatorStateSerializer<?> serializer, AccumulatorStateFactory<?> factory)
+        public AccumulatorStateDescriptor(Class<T> stateInterface, AccumulatorStateSerializer<T> serializer, AccumulatorStateFactory<T> factory)
         {
             this.stateInterface = requireNonNull(stateInterface, "stateInterface is null");
             this.serializer = requireNonNull(serializer, "serializer is null");
             this.factory = requireNonNull(factory, "factory is null");
         }
 
-        public Class<?> getStateInterface()
+        public Class<T> getStateInterface()
         {
             return stateInterface;
         }
 
-        public AccumulatorStateSerializer<?> getSerializer()
+        public AccumulatorStateSerializer<T> getSerializer()
         {
             return serializer;
         }
 
-        public AccumulatorStateFactory<?> getFactory()
+        public AccumulatorStateFactory<T> getFactory()
         {
             return factory;
         }

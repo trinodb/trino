@@ -135,7 +135,7 @@ public final class StateCompiler
     public static Type getSerializedType(Class<?> clazz, Map<String, Type> fieldTypes)
     {
         AccumulatorStateMetadata metadata = getMetadataAnnotation(clazz);
-        if (metadata != null && metadata.stateSerializerClass() != void.class) {
+        if (metadata != null && metadata.stateSerializerClass() != AccumulatorStateSerializer.class) {
             try {
                 AccumulatorStateSerializer<?> stateSerializer = (AccumulatorStateSerializer<?>) metadata.stateSerializerClass().getConstructor().newInstance();
                 return stateSerializer.getSerializedType();
@@ -149,21 +149,22 @@ public final class StateCompiler
         return getSerializedType(fields);
     }
 
-    public static <T> AccumulatorStateSerializer<T> generateStateSerializer(Class<T> clazz)
+    public static <T extends AccumulatorState> AccumulatorStateSerializer<T> generateStateSerializer(Class<T> clazz)
     {
         return generateStateSerializer(clazz, new DynamicClassLoader(clazz.getClassLoader()));
     }
 
-    public static <T> AccumulatorStateSerializer<T> generateStateSerializer(Class<T> clazz, DynamicClassLoader classLoader)
+    public static <T extends AccumulatorState> AccumulatorStateSerializer<T> generateStateSerializer(Class<T> clazz, DynamicClassLoader classLoader)
     {
         return generateStateSerializer(clazz, ImmutableMap.of(), classLoader);
     }
 
-    public static <T> AccumulatorStateSerializer<T> generateStateSerializer(Class<T> clazz, Map<String, Type> fieldTypes, DynamicClassLoader classLoader)
+    public static <T extends AccumulatorState> AccumulatorStateSerializer<T> generateStateSerializer(Class<T> clazz, Map<String, Type> fieldTypes, DynamicClassLoader classLoader)
     {
         AccumulatorStateMetadata metadata = getMetadataAnnotation(clazz);
-        if (metadata != null && metadata.stateSerializerClass() != void.class) {
+        if (metadata != null && metadata.stateSerializerClass() != AccumulatorStateSerializer.class) {
             try {
+                //noinspection unchecked
                 return (AccumulatorStateSerializer<T>) metadata.stateSerializerClass().getConstructor().newInstance();
             }
             catch (InstantiationException | IllegalAccessException | NoSuchMethodException | InvocationTargetException e) {
@@ -189,6 +190,7 @@ public final class StateCompiler
 
         Class<?> serializerClass = defineClass(definition, AccumulatorStateSerializer.class, callSiteBinder.getBindings(), classLoader);
         try {
+            //noinspection unchecked
             return (AccumulatorStateSerializer<T>) serializerClass.getConstructor().newInstance();
         }
         catch (ReflectiveOperationException e) {
@@ -236,11 +238,11 @@ public final class StateCompiler
         return null;
     }
 
-    private static <T> void generateDeserialize(ClassDefinition definition, CallSiteBinder binder, Class<T> clazz, List<StateField> fields)
+    private static <T extends AccumulatorState> void generateDeserialize(ClassDefinition definition, CallSiteBinder binder, Class<T> clazz, List<StateField> fields)
     {
         Parameter block = arg("block", Block.class);
         Parameter index = arg("index", int.class);
-        Parameter state = arg("state", Object.class);
+        Parameter state = arg("state", AccumulatorState.class);
         MethodDefinition method = definition.declareMethod(a(PUBLIC), "deserialize", type(void.class), block, index, state);
         BytecodeBlock deserializerBody = method.getBody();
         Scope scope = method.getScope();
@@ -288,7 +290,7 @@ public final class StateCompiler
 
     private static <T> void generateSerialize(ClassDefinition definition, CallSiteBinder binder, Class<T> clazz, List<StateField> fields)
     {
-        Parameter state = arg("state", Object.class);
+        Parameter state = arg("state", AccumulatorState.class);
         Parameter out = arg("out", BlockBuilder.class);
         MethodDefinition method = definition.declareMethod(a(PUBLIC), "serialize", type(void.class), state, out);
         Scope scope = method.getScope();
@@ -356,21 +358,22 @@ public final class StateCompiler
         }
     }
 
-    public static <T> AccumulatorStateFactory<T> generateStateFactory(Class<T> clazz)
+    public static <T extends AccumulatorState> AccumulatorStateFactory<T> generateStateFactory(Class<T> clazz)
     {
         return generateStateFactory(clazz, new DynamicClassLoader(clazz.getClassLoader()));
     }
 
-    public static <T> AccumulatorStateFactory<T> generateStateFactory(Class<T> clazz, DynamicClassLoader classLoader)
+    public static <T extends AccumulatorState> AccumulatorStateFactory<T> generateStateFactory(Class<T> clazz, DynamicClassLoader classLoader)
     {
         return generateStateFactory(clazz, ImmutableMap.of(), classLoader);
     }
 
-    public static <T> AccumulatorStateFactory<T> generateStateFactory(Class<T> clazz, Map<String, Type> fieldTypes, DynamicClassLoader classLoader)
+    public static <T extends AccumulatorState> AccumulatorStateFactory<T> generateStateFactory(Class<T> clazz, Map<String, Type> fieldTypes, DynamicClassLoader classLoader)
     {
         AccumulatorStateMetadata metadata = getMetadataAnnotation(clazz);
-        if (metadata != null && metadata.stateFactoryClass() != void.class) {
+        if (metadata != null && metadata.stateFactoryClass() != AccumulatorStateFactory.class) {
             try {
+                //noinspection unchecked
                 return (AccumulatorStateFactory<T>) metadata.stateFactoryClass().getConstructor().newInstance();
             }
             catch (InstantiationException | IllegalAccessException | NoSuchMethodException | InvocationTargetException e) {
@@ -391,7 +394,7 @@ public final class StateCompiler
         definition.declareDefaultConstructor(a(PUBLIC));
 
         // Generate single state creation method
-        definition.declareMethod(a(PUBLIC), "createSingleState", type(Object.class))
+        definition.declareMethod(a(PUBLIC), "createSingleState", type(AccumulatorState.class))
                 .getBody()
                 .newObject(singleStateClass)
                 .dup()
@@ -399,7 +402,7 @@ public final class StateCompiler
                 .retObject();
 
         // Generate grouped state creation method
-        definition.declareMethod(a(PUBLIC), "createGroupedState", type(Object.class))
+        definition.declareMethod(a(PUBLIC), "createGroupedState", type(AccumulatorState.class))
                 .getBody()
                 .newObject(groupedStateClass)
                 .dup()
@@ -419,6 +422,7 @@ public final class StateCompiler
 
         Class<?> factoryClass = defineClass(definition, AccumulatorStateFactory.class, classLoader);
         try {
+            //noinspection unchecked
             return (AccumulatorStateFactory<T>) factoryClass.getConstructor().newInstance();
         }
         catch (ReflectiveOperationException e) {
@@ -785,7 +789,7 @@ public final class StateCompiler
             this.type = requireNonNull(type, "type is null");
             this.getterName = requireNonNull(getterName, "getterName is null");
             this.initialValue = initialValue;
-            checkArgument(sqlType != null, "sqlType is null");
+            requireNonNull(sqlType, "sqlType is null");
             if (sqlType.isPresent()) {
                 checkArgument(
                         type.isAssignableFrom(sqlType.get().getJavaType()) ||

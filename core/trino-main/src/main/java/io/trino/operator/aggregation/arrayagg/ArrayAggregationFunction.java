@@ -29,9 +29,6 @@ import io.trino.operator.aggregation.GenericAccumulatorFactoryBinder;
 import io.trino.operator.aggregation.InternalAggregationFunction;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.function.AccumulatorState;
-import io.trino.spi.function.AccumulatorStateFactory;
-import io.trino.spi.function.AccumulatorStateSerializer;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
@@ -91,8 +88,8 @@ public class ArrayAggregationFunction
     {
         DynamicClassLoader classLoader = new DynamicClassLoader(ArrayAggregationFunction.class.getClassLoader());
 
-        AccumulatorStateSerializer<?> stateSerializer = new ArrayAggregationStateSerializer(type);
-        AccumulatorStateFactory<?> stateFactory = new ArrayAggregationStateFactory(type);
+        ArrayAggregationStateSerializer stateSerializer = new ArrayAggregationStateSerializer(type);
+        ArrayAggregationStateFactory stateFactory = new ArrayAggregationStateFactory(type);
 
         List<Type> inputTypes = ImmutableList.of(type);
         Type outputType = new ArrayType(type);
@@ -102,7 +99,6 @@ public class ArrayAggregationFunction
         MethodHandle inputFunction = INPUT_FUNCTION.bindTo(type);
         MethodHandle combineFunction = COMBINE_FUNCTION.bindTo(type);
         MethodHandle outputFunction = OUTPUT_FUNCTION.bindTo(type);
-        Class<? extends AccumulatorState> stateInterface = ArrayAggregationState.class;
 
         AggregationMetadata metadata = new AggregationMetadata(
                 generateAggregationName(NAME, type.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
@@ -111,8 +107,8 @@ public class ArrayAggregationFunction
                 Optional.empty(),
                 combineFunction,
                 outputFunction,
-                ImmutableList.of(new AccumulatorStateDescriptor(
-                        stateInterface,
+                ImmutableList.of(new AccumulatorStateDescriptor<>(
+                        ArrayAggregationState.class,
                         stateSerializer,
                         stateFactory)),
                 outputType);

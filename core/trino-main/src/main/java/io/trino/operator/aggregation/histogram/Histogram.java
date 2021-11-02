@@ -115,7 +115,7 @@ public class Histogram
                 Optional.empty(),
                 COMBINE_FUNCTION,
                 outputFunction,
-                ImmutableList.of(new AccumulatorStateDescriptor(
+                ImmutableList.of(new AccumulatorStateDescriptor<>(
                         HistogramState.class,
                         stateSerializer,
                         new HistogramStateFactory(keyType, keyEqual, keyHashCode, EXPECTED_SIZE_FOR_HASHING))),

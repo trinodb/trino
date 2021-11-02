@@ -101,7 +101,7 @@ public class CountColumn
                 Optional.of(REMOVE_INPUT_FUNCTION),
                 COMBINE_FUNCTION,
                 OUTPUT_FUNCTION,
-                ImmutableList.of(new AccumulatorStateDescriptor(
+                ImmutableList.of(new AccumulatorStateDescriptor<>(
                         LongState.class,
                         stateSerializer,
                         stateFactory)),

@@ -33,7 +33,6 @@ import io.trino.operator.aggregation.InternalAggregationFunction;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateFactory;
 import io.trino.spi.function.AccumulatorStateSerializer;
 import io.trino.spi.type.StandardTypes;
@@ -115,8 +114,8 @@ public class ListaggAggregationFunction
     {
         DynamicClassLoader classLoader = new DynamicClassLoader(ListaggAggregationFunction.class.getClassLoader());
 
-        AccumulatorStateSerializer<?> stateSerializer = new ListaggAggregationStateSerializer(type);
-        AccumulatorStateFactory<?> stateFactory = new ListaggAggregationStateFactory(type);
+        AccumulatorStateSerializer<ListaggAggregationState> stateSerializer = new ListaggAggregationStateSerializer(type);
+        AccumulatorStateFactory<ListaggAggregationState> stateFactory = new ListaggAggregationStateFactory(type);
 
         List<Type> inputTypes = ImmutableList.of(VARCHAR, VARCHAR, BOOLEAN, VARCHAR, BOOLEAN);
         Type outputType = VARCHAR;
@@ -133,7 +132,6 @@ public class ListaggAggregationFunction
         MethodHandle inputFunction = INPUT_FUNCTION.bindTo(type);
         MethodHandle combineFunction = COMBINE_FUNCTION.bindTo(type);
         MethodHandle outputFunction = OUTPUT_FUNCTION.bindTo(type);
-        Class<? extends AccumulatorState> stateInterface = ListaggAggregationState.class;
 
         AggregationMetadata metadata = new AggregationMetadata(
                 generateAggregationName(NAME, type.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
@@ -142,8 +140,8 @@ public class ListaggAggregationFunction
                 Optional.empty(),
                 combineFunction,
                 outputFunction,
-                ImmutableList.of(new AccumulatorStateDescriptor(
-                        stateInterface,
+                ImmutableList.of(new AccumulatorStateDescriptor<>(
+                        ListaggAggregationState.class,
                         stateSerializer,
                         stateFactory)),
                 outputType);

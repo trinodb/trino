@@ -108,13 +108,13 @@ public class ReduceAggregationFunction
         MethodHandle inputMethodHandle;
         MethodHandle combineMethodHandle;
         MethodHandle outputMethodHandle;
-        AccumulatorStateDescriptor stateDescriptor;
+        AccumulatorStateDescriptor<?> stateDescriptor;
 
         if (stateType.getJavaType() == long.class) {
             inputMethodHandle = LONG_STATE_INPUT_FUNCTION;
             combineMethodHandle = LONG_STATE_COMBINE_FUNCTION;
             outputMethodHandle = LONG_STATE_OUTPUT_FUNCTION.bindTo(stateType);
-            stateDescriptor = new AccumulatorStateDescriptor(
+            stateDescriptor = new AccumulatorStateDescriptor<>(
                     GenericLongState.class,
                     new GenericLongStateSerializer(stateType),
                     StateCompiler.generateStateFactory(GenericLongState.class, classLoader));
@@ -123,7 +123,7 @@ public class ReduceAggregationFunction
             inputMethodHandle = DOUBLE_STATE_INPUT_FUNCTION;
             combineMethodHandle = DOUBLE_STATE_COMBINE_FUNCTION;
             outputMethodHandle = DOUBLE_STATE_OUTPUT_FUNCTION.bindTo(stateType);
-            stateDescriptor = new AccumulatorStateDescriptor(
+            stateDescriptor = new AccumulatorStateDescriptor<>(
                     GenericDoubleState.class,
                     new GenericDoubleStateSerializer(stateType),
                     StateCompiler.generateStateFactory(GenericDoubleState.class, classLoader));
@@ -132,7 +132,7 @@ public class ReduceAggregationFunction
             inputMethodHandle = BOOLEAN_STATE_INPUT_FUNCTION;
             combineMethodHandle = BOOLEAN_STATE_COMBINE_FUNCTION;
             outputMethodHandle = BOOLEAN_STATE_OUTPUT_FUNCTION.bindTo(stateType);
-            stateDescriptor = new AccumulatorStateDescriptor(
+            stateDescriptor = new AccumulatorStateDescriptor<>(
                     GenericBooleanState.class,
                     new GenericBooleanStateSerializer(stateType),
                     StateCompiler.generateStateFactory(GenericBooleanState.class, classLoader));

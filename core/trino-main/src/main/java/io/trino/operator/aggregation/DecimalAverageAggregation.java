@@ -29,8 +29,6 @@ import io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateFa
 import io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateSerializer;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.function.AccumulatorState;
-import io.trino.spi.function.AccumulatorStateSerializer;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Type;
@@ -113,8 +111,8 @@ public class DecimalAverageAggregation
         List<Type> inputTypes = ImmutableList.of(type);
         MethodHandle inputFunction;
         MethodHandle outputFunction;
-        Class<? extends AccumulatorState> stateInterface = LongDecimalWithOverflowAndLongState.class;
-        AccumulatorStateSerializer<?> stateSerializer = new LongDecimalWithOverflowAndLongStateSerializer();
+        Class<LongDecimalWithOverflowAndLongState> stateInterface = LongDecimalWithOverflowAndLongState.class;
+        LongDecimalWithOverflowAndLongStateSerializer stateSerializer = new LongDecimalWithOverflowAndLongStateSerializer();
 
         if (((DecimalType) type).isShort()) {
             inputFunction = SHORT_DECIMAL_INPUT_FUNCTION;
@@ -133,7 +131,7 @@ public class DecimalAverageAggregation
                 Optional.empty(),
                 COMBINE_FUNCTION,
                 outputFunction,
-                ImmutableList.of(new AccumulatorStateDescriptor(
+                ImmutableList.of(new AccumulatorStateDescriptor<>(
                         stateInterface,
                         stateSerializer,
                         new LongDecimalWithOverflowAndLongStateFactory())),
