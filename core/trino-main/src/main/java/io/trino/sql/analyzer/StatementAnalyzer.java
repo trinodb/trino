@@ -26,7 +26,6 @@ import io.trino.connector.CatalogName;
 import io.trino.execution.Column;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.FunctionKind;
-import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.NewTableLayout;
@@ -3943,7 +3942,7 @@ class StatementAnalyzer
             }
 
             for (Expression expression : orderByExpressions) {
-                if (!DeterminismEvaluator.isDeterministic(expression, this::getFunctionMetadata)) {
+                if (!DeterminismEvaluator.isDeterministic(expression, this::getResolvedFunction)) {
                     throw semanticException(EXPRESSION_NOT_IN_DISTINCT, expression, "Non deterministic ORDER BY expression is not supported with SELECT DISTINCT");
                 }
             }
@@ -3987,11 +3986,11 @@ class StatementAnalyzer
             return aliases.build();
         }
 
-        private FunctionMetadata getFunctionMetadata(FunctionCall functionCall)
+        private ResolvedFunction getResolvedFunction(FunctionCall functionCall)
         {
             ResolvedFunction resolvedFunction = analysis.getResolvedFunction(functionCall);
             verify(resolvedFunction != null, "function has not been analyzed yet: %s", functionCall);
-            return metadata.getFunctionMetadata(resolvedFunction);
+            return resolvedFunction;
         }
 
         private List<Expression> analyzeOrderBy(Node node, List<SortItem> sortItems, Scope orderByScope)

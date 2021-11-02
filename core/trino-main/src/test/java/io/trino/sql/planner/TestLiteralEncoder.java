@@ -90,6 +90,7 @@ public class TestLiteralEncoder
             new BoundSignature(LITERAL_FUNCTION_NAME, VARBINARY, ImmutableList.of(VARBINARY)),
             new LiteralFunction(metadata::getBlockEncodingSerde).getFunctionMetadata().getFunctionId(),
             SCALAR,
+            true,
             new FunctionNullability(false, ImmutableList.of(false)),
             ImmutableMap.of(),
             ImmutableSet.of());
@@ -98,6 +99,7 @@ public class TestLiteralEncoder
             new BoundSignature("from_base64", VARBINARY, ImmutableList.of(VARCHAR)),
             toFunctionId(new Signature("from_base64", VARBINARY.getTypeSignature(), ImmutableList.of(new TypeSignature("varchar", typeVariable("x"))))),
             SCALAR,
+            true,
             new FunctionNullability(false, ImmutableList.of(false)),
             ImmutableMap.of(),
             ImmutableSet.of());

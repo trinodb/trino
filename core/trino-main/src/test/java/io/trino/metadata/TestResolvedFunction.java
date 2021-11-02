@@ -57,6 +57,7 @@ public class TestResolvedFunction
                         .argumentTypes(new TypeSignature("y"), new TypeSignature("z"))
                         .build()),
                 SCALAR,
+                true,
                 new FunctionNullability(false, ImmutableList.of(false, false)),
                 ImmutableSet.of(createVarcharType(11), createVarcharType(12), createVarcharType(13)).stream()
                         .collect(toImmutableMap(Type::getTypeSignature, Function.identity())),

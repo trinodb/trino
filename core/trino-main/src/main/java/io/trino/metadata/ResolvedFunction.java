@@ -51,6 +51,7 @@ public class ResolvedFunction
     private final BoundSignature signature;
     private final FunctionId functionId;
     private final FunctionKind functionKind;
+    private final boolean deterministic;
     private final FunctionNullability functionNullability;
     private final Map<TypeSignature, Type> typeDependencies;
     private final Set<ResolvedFunction> functionDependencies;
@@ -60,6 +61,7 @@ public class ResolvedFunction
             @JsonProperty("signature") BoundSignature signature,
             @JsonProperty("id") FunctionId functionId,
             @JsonProperty("functionKind") FunctionKind functionKind,
+            @JsonProperty("deterministic") boolean deterministic,
             @JsonProperty("nullability") FunctionNullability functionNullability,
             @JsonProperty("typeDependencies") Map<TypeSignature, Type> typeDependencies,
             @JsonProperty("functionDependencies") Set<ResolvedFunction> functionDependencies)
@@ -67,6 +69,7 @@ public class ResolvedFunction
         this.signature = requireNonNull(signature, "signature is null");
         this.functionId = requireNonNull(functionId, "functionId is null");
         this.functionKind = requireNonNull(functionKind, "functionKind is null");
+        this.deterministic = deterministic;
         this.functionNullability = requireNonNull(functionNullability, "nullability is null");
         this.typeDependencies = ImmutableMap.copyOf(requireNonNull(typeDependencies, "typeDependencies is null"));
         this.functionDependencies = ImmutableSet.copyOf(requireNonNull(functionDependencies, "functionDependencies is null"));
@@ -89,6 +92,12 @@ public class ResolvedFunction
     public FunctionKind getFunctionKind()
     {
         return functionKind;
+    }
+
+    @JsonProperty
+    public boolean isDeterministic()
+    {
+        return deterministic;
     }
 
     @JsonProperty
@@ -153,6 +162,7 @@ public class ResolvedFunction
         return Objects.equals(signature, that.signature) &&
                 Objects.equals(functionId, that.functionId) &&
                 Objects.equals(functionKind, that.functionKind) &&
+                deterministic == that.deterministic &&
                 Objects.equals(typeDependencies, that.typeDependencies) &&
                 Objects.equals(functionDependencies, that.functionDependencies);
     }
@@ -160,7 +170,7 @@ public class ResolvedFunction
     @Override
     public int hashCode()
     {
-        return Objects.hash(signature, functionId, functionKind, typeDependencies, functionDependencies);
+        return Objects.hash(signature, functionId, functionKind, deterministic, typeDependencies, functionDependencies);
     }
 
     @Override
