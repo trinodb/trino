@@ -387,6 +387,18 @@ public class PagesIndex
         return block.getSingleValueBlock(blockPosition);
     }
 
+    public Block getRawBlock(int channel, int position)
+    {
+        long pageAddress = valueAddresses.getLong(position);
+        return channels[channel].get(decodeSliceIndex(pageAddress));
+    }
+
+    public int getRawBlockPosition(int position)
+    {
+        long pageAddress = valueAddresses.getLong(position);
+        return decodePosition(pageAddress);
+    }
+
     public void sort(List<Integer> sortChannels, List<SortOrder> sortOrders)
     {
         sort(sortChannels, sortOrders, 0, getPositionCount());
