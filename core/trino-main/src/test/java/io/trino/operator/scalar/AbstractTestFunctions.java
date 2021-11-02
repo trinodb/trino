@@ -107,7 +107,7 @@ public abstract class AbstractTestFunctions
                 expectedResult);
     }
 
-    protected void assertInvalidFunction(String projection, ErrorCodeSupplier errorCode, String message)
+    protected void assertInvalidFunction(@Language("SQL") String projection, ErrorCodeSupplier errorCode, String message)
     {
         functionAssertions.assertInvalidFunction(projection, errorCode, message);
     }

@@ -36,7 +36,7 @@ import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.cost.StatsUtil.toStatsRepresentation;
+import static io.trino.spi.statistics.StatsUtil.toStatsRepresentation;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static io.trino.sql.planner.plan.Patterns.values;
@@ -76,7 +76,7 @@ public class ValuesStatsRule
                     RowType.anonymous(node.getOutputSymbols().stream()
                             .map(types::get)
                             .collect(toImmutableList())));
-            statsBuilder.addSymbolStatistics(symbol, buildSymbolStatistics(symbolValues, session, types.get(symbol)));
+            statsBuilder.addSymbolStatistics(symbol, buildSymbolStatistics(symbolValues, types.get(symbol)));
         }
 
         return Optional.of(statsBuilder.build());
@@ -100,7 +100,7 @@ public class ValuesStatsRule
                 .collect(toList());
     }
 
-    private SymbolStatsEstimate buildSymbolStatistics(List<Object> values, Session session, Type type)
+    private SymbolStatsEstimate buildSymbolStatistics(List<Object> values, Type type)
     {
         List<Object> nonNullValues = values.stream()
                 .filter(Objects::nonNull)
@@ -111,7 +111,7 @@ public class ValuesStatsRule
         }
 
         double[] valuesAsDoubles = nonNullValues.stream()
-                .map(value -> toStatsRepresentation(metadata, session, type, value))
+                .map(value -> toStatsRepresentation(type, value))
                 .filter(OptionalDouble::isPresent)
                 .mapToDouble(OptionalDouble::getAsDouble)
                 .toArray();

@@ -29,11 +29,9 @@ import io.trino.plugin.raptor.legacy.metadata.ShardManager;
 import io.trino.plugin.raptor.legacy.storage.BucketBalancer.BucketAssignment;
 import io.trino.plugin.raptor.legacy.storage.BucketBalancer.ClusterState;
 import io.trino.spi.Node;
-import io.trino.spi.type.TypeOperators;
 import io.trino.testing.TestingNodeManager;
-import io.trino.type.InternalTypeManager;
-import org.skife.jdbi.v2.DBI;
-import org.skife.jdbi.v2.Handle;
+import org.jdbi.v3.core.Handle;
+import org.jdbi.v3.core.Jdbi;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -41,13 +39,12 @@ import org.testng.annotations.Test;
 import java.net.URI;
 import java.util.List;
 import java.util.OptionalLong;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.airlift.testing.Assertions.assertLessThanOrEqual;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.plugin.raptor.legacy.DatabaseTesting.createTestingJdbi;
 import static io.trino.plugin.raptor.legacy.metadata.Distribution.serializeColumnTypes;
 import static io.trino.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static io.trino.plugin.raptor.legacy.metadata.TestDatabaseShardManager.createShardManager;
@@ -60,7 +57,7 @@ public class TestBucketBalancer
 {
     private static final List<String> AVAILABLE_WORKERS = ImmutableList.of("node1", "node2", "node3", "node4", "node5");
 
-    private DBI dbi;
+    private Jdbi dbi;
     private Handle dummyHandle;
     private ShardManager shardManager;
     private TestingNodeManager nodeManager;
@@ -70,8 +67,7 @@ public class TestBucketBalancer
     @BeforeMethod
     public void setup()
     {
-        dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime() + ThreadLocalRandom.current().nextLong());
-        dbi.registerMapper(new Distribution.Mapper(new InternalTypeManager(createTestMetadataManager(), new TypeOperators())));
+        dbi = createTestingJdbi();
         dummyHandle = dbi.open();
         createTablesWithRetry(dbi);
 

@@ -10,7 +10,7 @@ Requirements
 
 To connect to MongoDB, you need:
 
-* MongoDB 3.4 or higher.
+* MongoDB 4.0 or higher.
 * Network access from the Trino coordinator and workers to MongoDB.
   Port 27017 is the default port.
 

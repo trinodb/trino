@@ -53,6 +53,7 @@ import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.RENAME_TABLE;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SET_SESSION;
+import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SET_TABLE_PROPERTIES;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SET_USER;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SHOW_COLUMNS;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SHOW_CREATE_TABLE;
@@ -98,6 +99,7 @@ public class TestAccessControl
         assertAccessDenied("INSERT INTO orders SELECT * FROM orders", "Cannot insert into table .*.orders.*", privilege("orders", INSERT_TABLE));
         assertAccessDenied("DELETE FROM orders", "Cannot delete from table .*.orders.*", privilege("orders", DELETE_TABLE));
         assertAccessDenied("CREATE TABLE foo AS SELECT * FROM orders", "Cannot create table .*.foo.*", privilege("foo", CREATE_TABLE));
+        assertAccessDenied("ALTER TABLE orders SET PROPERTIES field_length = 32", "Cannot set table properties to .*.orders.*", privilege("orders", SET_TABLE_PROPERTIES));
         assertAccessDenied("SELECT * FROM nation", "Cannot select from columns \\[nationkey, regionkey, name, comment] in table .*.nation.*", privilege("nation.nationkey", SELECT_COLUMN));
         assertAccessDenied("SELECT * FROM (SELECT * FROM nation)", "Cannot select from columns \\[nationkey, regionkey, name, comment] in table .*.nation.*", privilege("nation.nationkey", SELECT_COLUMN));
         assertAccessDenied("SELECT name FROM (SELECT * FROM nation)", "Cannot select from columns \\[nationkey, regionkey, name, comment] in table .*.nation.*", privilege("nation.nationkey", SELECT_COLUMN));
@@ -302,6 +304,14 @@ public class TestAccessControl
     }
 
     @Test
+    public void testSetTableProperties()
+    {
+        assertAccessDenied("ALTER TABLE orders SET PROPERTIES field_length = 32", "Cannot set table properties to .*.orders.*", privilege("orders", SET_TABLE_PROPERTIES));
+        assertThatThrownBy(() -> getQueryRunner().execute(getSession(), "ALTER TABLE orders SET PROPERTIES field_length = 32"))
+                .hasMessageContaining("This connector does not support setting table properties");
+    }
+
+    @Test
     public void testDeleteAccessControl()
     {
         assertAccessDenied("DELETE FROM orders WHERE orderkey < 12", "Cannot select from columns \\[orderkey] in table or view .*." + "orders" + ".*", privilege("orders" + ".orderkey", SELECT_COLUMN));
@@ -327,6 +337,7 @@ public class TestAccessControl
         assertAccessDenied("CREATE TABLE foo (pk bigint)", "Cannot create table .*.foo.*", privilege("foo", CREATE_TABLE));
         assertAccessDenied("DROP TABLE orders", "Cannot drop table .*.orders.*", privilege("orders", DROP_TABLE));
         assertAccessDenied("ALTER TABLE orders RENAME TO foo", "Cannot rename table .*.orders.* to .*.foo.*", privilege("orders", RENAME_TABLE));
+        assertAccessDenied("ALTER TABLE orders SET PROPERTIES field_length = 32", "Cannot set table properties to .*.orders.*", privilege("orders", SET_TABLE_PROPERTIES));
         assertAccessDenied("ALTER TABLE orders ADD COLUMN foo bigint", "Cannot add a column to table .*.orders.*", privilege("orders", ADD_COLUMN));
         assertAccessDenied("ALTER TABLE orders DROP COLUMN foo", "Cannot drop a column from table .*.orders.*", privilege("orders", DROP_COLUMN));
         assertAccessDenied("ALTER TABLE orders RENAME COLUMN orderkey TO foo", "Cannot rename a column in table .*.orders.*", privilege("orders", RENAME_COLUMN));
@@ -409,6 +420,22 @@ public class TestAccessControl
         assertQuery(session, "SHOW ROLES IN mock", "VALUES 'alice_role'");
         assertQuery(session, "SHOW ROLE GRANTS IN mock", "VALUES 'alice_role'");
         assertQuery(session, "SHOW CURRENT ROLES FROM mock", "VALUES 'alice_role'");
+        assertQuery(session, "SELECT * FROM mock.information_schema.applicable_roles", "SELECT 'alice', 'USER', 'alice_role', 'NO'");
+    }
+
+    @Test
+    public void testShowRolesWithLegacyCatalogRoles()
+    {
+        Session session = testSessionBuilder()
+                .setCatalog("mock")
+                .setIdentity(Identity.forUser("alice")
+                        .withConnectorRoles(ImmutableMap.of("mock", new SelectedRole(ROLE, Optional.of("alice_role"))))
+                        .build())
+                .setSystemProperty("legacy_catalog_roles", "true")
+                .build();
+        assertQuery(session, "SHOW ROLES", "VALUES 'alice_role'");
+        assertQuery(session, "SHOW ROLE GRANTS", "VALUES 'alice_role'");
+        assertQuery(session, "SHOW CURRENT ROLES", "VALUES 'alice_role'");
         assertQuery(session, "SELECT * FROM mock.information_schema.applicable_roles", "SELECT 'alice', 'USER', 'alice_role', 'NO'");
     }
 

@@ -60,7 +60,7 @@ import io.trino.spi.connector.ViewNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.type.Type;
-import org.skife.jdbi.v2.IDBI;
+import org.jdbi.v3.core.Jdbi;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -134,19 +134,19 @@ public class RaptorMetadata
     private static final JsonCodec<ConnectorViewDefinition> VIEW_CODEC =
             new JsonCodecFactory(new ObjectMapperProvider()).jsonCodec(ConnectorViewDefinition.class);
 
-    private final IDBI dbi;
+    private final Jdbi dbi;
     private final MetadataDao dao;
     private final ShardManager shardManager;
     private final LongConsumer beginDeleteForTableId;
 
     private final AtomicReference<Long> currentTransactionId = new AtomicReference<>();
 
-    public RaptorMetadata(IDBI dbi, ShardManager shardManager)
+    public RaptorMetadata(Jdbi dbi, ShardManager shardManager)
     {
         this(dbi, shardManager, tableId -> {});
     }
 
-    public RaptorMetadata(IDBI dbi, ShardManager shardManager, LongConsumer beginDeleteForTableId)
+    public RaptorMetadata(Jdbi dbi, ShardManager shardManager, LongConsumer beginDeleteForTableId)
     {
         this.dbi = requireNonNull(dbi, "dbi is null");
         this.dao = onDemandDao(dbi, MetadataDao.class);
@@ -466,7 +466,7 @@ public class RaptorMetadata
     public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTableName)
     {
         RaptorTableHandle table = (RaptorTableHandle) tableHandle;
-        runTransaction(dbi, (handle, status) -> {
+        runTransaction(dbi, handle -> {
             MetadataDao dao = handle.attach(MetadataDao.class);
             dao.renameTable(table.getTableId(), newTableName.getSchemaName(), newTableName.getTableName());
             return null;
@@ -660,7 +660,7 @@ public class RaptorMetadata
         long transactionId = table.getTransactionId();
         long updateTime = session.getStart().toEpochMilli();
 
-        long newTableId = runTransaction(dbi, (dbiHandle, status) -> {
+        long newTableId = runTransaction(dbi, dbiHandle -> {
             MetadataDao dao = dbiHandle.attach(MetadataDao.class);
 
             Long distributionId = table.getDistributionId().isPresent() ? table.getDistributionId().getAsLong() : null;

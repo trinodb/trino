@@ -54,8 +54,6 @@ import static io.trino.sql.tree.WindowFrame.Type.ROWS;
 public class TestMergePatternRecognitionNodes
         extends BaseRuleTest
 {
-    private static final ResolvedFunction LAG = createTestMetadataManager().resolveFunction(QualifiedName.of("lag"), fromTypes(BIGINT));
-
     @Test
     public void testSpecificationsDoNotMatch()
     {
@@ -85,6 +83,8 @@ public class TestMergePatternRecognitionNodes
     @Test
     public void testParentDependsOnSourceCreatedOutputs()
     {
+        ResolvedFunction lag = createTestMetadataManager().resolveFunction(tester().getSession(), QualifiedName.of("lag"), fromTypes(BIGINT));
+
         // parent node's measure depends on child node's measure output
         tester().assertThat(new MergePatternRecognitionNodesWithoutProject())
                 .on(p -> p.patternRecognition(parentBuilder -> parentBuilder
@@ -109,7 +109,7 @@ public class TestMergePatternRecognitionNodes
                         .pattern(new IrLabel("X"))
                         .addVariableDefinition(new IrLabel("X"), "true")
                         .source(p.patternRecognition(childBuilder -> childBuilder
-                                .addWindowFunction(p.symbol("function"), new WindowNode.Function(LAG, ImmutableList.of(p.symbol("a").toSymbolReference()), DEFAULT_FRAME, false))
+                                .addWindowFunction(p.symbol("function"), new WindowNode.Function(lag, ImmutableList.of(p.symbol("a").toSymbolReference()), DEFAULT_FRAME, false))
                                 .rowsPerMatch(WINDOW)
                                 .frame(new WindowNode.Frame(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))
                                 .pattern(new IrLabel("X"))
@@ -120,13 +120,13 @@ public class TestMergePatternRecognitionNodes
         // parent node's window function depends on child node's window function output
         tester().assertThat(new MergePatternRecognitionNodesWithoutProject())
                 .on(p -> p.patternRecognition(parentBuilder -> parentBuilder
-                        .addWindowFunction(p.symbol("dependent"), new WindowNode.Function(LAG, ImmutableList.of(p.symbol("function").toSymbolReference()), DEFAULT_FRAME, false))
+                        .addWindowFunction(p.symbol("dependent"), new WindowNode.Function(lag, ImmutableList.of(p.symbol("function").toSymbolReference()), DEFAULT_FRAME, false))
                         .rowsPerMatch(WINDOW)
                         .frame(new WindowNode.Frame(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))
                         .pattern(new IrLabel("X"))
                         .addVariableDefinition(new IrLabel("X"), "true")
                         .source(p.patternRecognition(childBuilder -> childBuilder
-                                .addWindowFunction(p.symbol("function"), new WindowNode.Function(LAG, ImmutableList.of(p.symbol("a").toSymbolReference()), DEFAULT_FRAME, false))
+                                .addWindowFunction(p.symbol("function"), new WindowNode.Function(lag, ImmutableList.of(p.symbol("a").toSymbolReference()), DEFAULT_FRAME, false))
                                 .rowsPerMatch(WINDOW)
                                 .frame(new WindowNode.Frame(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))
                                 .pattern(new IrLabel("X"))
@@ -137,7 +137,7 @@ public class TestMergePatternRecognitionNodes
         // parent node's window function depends on child node's measure output
         tester().assertThat(new MergePatternRecognitionNodesWithoutProject())
                 .on(p -> p.patternRecognition(parentBuilder -> parentBuilder
-                        .addWindowFunction(p.symbol("dependent"), new WindowNode.Function(LAG, ImmutableList.of(p.symbol("measure").toSymbolReference()), DEFAULT_FRAME, false))
+                        .addWindowFunction(p.symbol("dependent"), new WindowNode.Function(lag, ImmutableList.of(p.symbol("measure").toSymbolReference()), DEFAULT_FRAME, false))
                         .rowsPerMatch(WINDOW)
                         .frame(new WindowNode.Frame(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))
                         .pattern(new IrLabel("X"))
@@ -210,12 +210,14 @@ public class TestMergePatternRecognitionNodes
     @Test
     public void testMergeWithoutProject()
     {
+        ResolvedFunction lag = createTestMetadataManager().resolveFunction(tester().getSession(), QualifiedName.of("lag"), fromTypes(BIGINT));
+
         tester().assertThat(new MergePatternRecognitionNodesWithoutProject())
                 .on(p -> p.patternRecognition(parentBuilder -> parentBuilder
                         .partitionBy(ImmutableList.of(p.symbol("c")))
                         .orderBy(new OrderingScheme(ImmutableList.of(p.symbol("d")), ImmutableMap.of(p.symbol("d"), ASC_NULLS_LAST)))
                         .addMeasure(p.symbol("parent_measure"), "LAST(X.b)", BIGINT)
-                        .addWindowFunction(p.symbol("parent_function"), new WindowNode.Function(LAG, ImmutableList.of(p.symbol("a").toSymbolReference()), DEFAULT_FRAME, false))
+                        .addWindowFunction(p.symbol("parent_function"), new WindowNode.Function(lag, ImmutableList.of(p.symbol("a").toSymbolReference()), DEFAULT_FRAME, false))
                         .rowsPerMatch(WINDOW)
                         .frame(new WindowNode.Frame(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))
                         .skipTo(LAST, new IrLabel("X"))
@@ -227,7 +229,7 @@ public class TestMergePatternRecognitionNodes
                                 .partitionBy(ImmutableList.of(p.symbol("c")))
                                 .orderBy(new OrderingScheme(ImmutableList.of(p.symbol("d")), ImmutableMap.of(p.symbol("d"), ASC_NULLS_LAST)))
                                 .addMeasure(p.symbol("child_measure"), "FIRST(X.a)", BIGINT)
-                                .addWindowFunction(p.symbol("child_function"), new WindowNode.Function(LAG, ImmutableList.of(p.symbol("b").toSymbolReference()), DEFAULT_FRAME, false))
+                                .addWindowFunction(p.symbol("child_function"), new WindowNode.Function(lag, ImmutableList.of(p.symbol("b").toSymbolReference()), DEFAULT_FRAME, false))
                                 .rowsPerMatch(WINDOW)
                                 .frame(new WindowNode.Frame(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))
                                 .skipTo(LAST, new IrLabel("X"))

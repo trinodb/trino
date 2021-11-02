@@ -64,6 +64,7 @@ import static io.trino.jdbc.ConnectionProperties.EXTRA_CREDENTIALS;
 import static io.trino.jdbc.ConnectionProperties.HTTP_PROXY;
 import static io.trino.jdbc.ConnectionProperties.KERBEROS_CONFIG_PATH;
 import static io.trino.jdbc.ConnectionProperties.KERBEROS_CREDENTIAL_CACHE_PATH;
+import static io.trino.jdbc.ConnectionProperties.KERBEROS_DELEGATION;
 import static io.trino.jdbc.ConnectionProperties.KERBEROS_KEYTAB_PATH;
 import static io.trino.jdbc.ConnectionProperties.KERBEROS_PRINCIPAL;
 import static io.trino.jdbc.ConnectionProperties.KERBEROS_REMOTE_SERVICE_NAME;
@@ -295,7 +296,8 @@ public final class TrinoDriverUri
                         KERBEROS_CONFIG_PATH.getValue(properties),
                         KERBEROS_KEYTAB_PATH.getValue(properties),
                         Optional.ofNullable(KERBEROS_CREDENTIAL_CACHE_PATH.getValue(properties)
-                                .orElseGet(() -> defaultCredentialCachePath().map(File::new).orElse(null))));
+                                .orElseGet(() -> defaultCredentialCachePath().map(File::new).orElse(null))),
+                        KERBEROS_DELEGATION.getRequiredValue(properties));
             }
 
             if (ACCESS_TOKEN.getValue(properties).isPresent()) {

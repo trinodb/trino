@@ -9,6 +9,11 @@
       "allow": ["execute", "kill"]
     },
     {
+      "group": "contractors",
+      "queryOwner": "alice|dave",
+      "allow": ["view"]
+    },
+    {
       "allow": ["execute"]
     }
   ]

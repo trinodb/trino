@@ -14,6 +14,7 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.Session;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.plugin.hive.s3.S3HiveQueryRunner;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -29,6 +30,7 @@ import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public abstract class BaseTestHiveInsertOverwrite
         extends AbstractTestQueryFramework
@@ -73,6 +75,20 @@ public abstract class BaseTestHiveInsertOverwrite
                 "CREATE SCHEMA hive.%1$s WITH (location='s3a://%2$s/%1$s')",
                 HIVE_TEST_SCHEMA,
                 bucketName));
+    }
+
+    @Test
+    public void testInsertOverwriteInTransaction()
+    {
+        String testTable = getTestTableName();
+        computeActual(getCreateTableStatement(testTable, "partitioned_by=ARRAY['regionkey']"));
+        assertThatThrownBy(
+                () -> newTransaction()
+                        .execute(getSession(), session -> {
+                            getQueryRunner().execute(session, createInsertStatement(testTable));
+                        }))
+                .hasMessage("Overwriting existing partition in non auto commit context doesn't support DIRECT_TO_TARGET_EXISTING_DIRECTORY write mode");
+        computeActual(format("DROP TABLE %s", testTable));
     }
 
     @Test
@@ -150,12 +166,23 @@ public abstract class BaseTestHiveInsertOverwrite
 
     protected void assertInsertFailure(String testTable, String expectedMessageRegExp)
     {
+        assertInsertFailure(getSession(), testTable, expectedMessageRegExp);
+    }
+
+    protected void assertInsertFailure(Session session, String testTable, String expectedMessageRegExp)
+    {
         assertQueryFails(
-                format("INSERT INTO %s " +
-                                "SELECT name, comment, nationkey, regionkey " +
-                                "FROM tpch.tiny.nation",
-                        testTable),
+                session,
+                createInsertStatement(testTable),
                 expectedMessageRegExp);
+    }
+
+    private String createInsertStatement(String testTable)
+    {
+        return format("INSERT INTO %s " +
+                        "SELECT name, comment, nationkey, regionkey " +
+                        "FROM tpch.tiny.nation",
+                testTable);
     }
 
     protected void assertOverwritePartition(String testTable)

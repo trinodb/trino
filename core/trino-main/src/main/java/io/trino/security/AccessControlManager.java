@@ -427,6 +427,19 @@ public class AccessControlManager
     }
 
     @Override
+    public void checkCanCreateTable(SecurityContext securityContext, QualifiedObjectName tableName, Map<String, Object> properties)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(tableName, "tableName is null");
+
+        checkCanAccessCatalog(securityContext, tableName.getCatalogName());
+
+        systemAuthorizationCheck(control -> control.checkCanCreateTable(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName(), properties));
+
+        catalogAuthorizationCheck(tableName.getCatalogName(), securityContext, (control, context) -> control.checkCanCreateTable(context, tableName.asSchemaTableName(), properties));
+    }
+
+    @Override
     public void checkCanDropTable(SecurityContext securityContext, QualifiedObjectName tableName)
     {
         requireNonNull(securityContext, "securityContext is null");
@@ -451,6 +464,20 @@ public class AccessControlManager
         systemAuthorizationCheck(control -> control.checkCanRenameTable(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName(), newTableName.asCatalogSchemaTableName()));
 
         catalogAuthorizationCheck(tableName.getCatalogName(), securityContext, (control, context) -> control.checkCanRenameTable(context, tableName.asSchemaTableName(), newTableName.asSchemaTableName()));
+    }
+
+    @Override
+    public void checkCanSetTableProperties(SecurityContext securityContext, QualifiedObjectName tableName, Map<String, Object> properties)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(tableName, "tableName is null");
+        requireNonNull(properties, "properties is null");
+
+        checkCanAccessCatalog(securityContext, tableName.getCatalogName());
+
+        systemAuthorizationCheck(control -> control.checkCanSetTableProperties(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName(), properties));
+
+        catalogAuthorizationCheck(tableName.getCatalogName(), securityContext, (control, context) -> control.checkCanSetTableProperties(context, tableName.asSchemaTableName(), properties));
     }
 
     @Override
@@ -753,6 +780,20 @@ public class AccessControlManager
     }
 
     @Override
+    public void checkCanRenameMaterializedView(SecurityContext securityContext, QualifiedObjectName viewName, QualifiedObjectName newViewName)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(viewName, "viewName is null");
+        requireNonNull(newViewName, "newViewName is null");
+
+        checkCanAccessCatalog(securityContext, viewName.getCatalogName());
+
+        systemAuthorizationCheck(control -> control.checkCanRenameMaterializedView(securityContext.toSystemSecurityContext(), viewName.asCatalogSchemaTableName(), newViewName.asCatalogSchemaTableName()));
+
+        catalogAuthorizationCheck(viewName.getCatalogName(), securityContext, (control, context) -> control.checkCanRenameMaterializedView(context, viewName.asSchemaTableName(), newViewName.asSchemaTableName()));
+    }
+
+    @Override
     public void checkCanGrantExecuteFunctionPrivilege(SecurityContext securityContext, String functionName, Identity grantee, boolean grantOption)
     {
         requireNonNull(securityContext, "securityContext is null");
@@ -1035,6 +1076,27 @@ public class AccessControlManager
         requireNonNull(functionName, "functionName is null");
 
         systemAuthorizationCheck(control -> control.checkCanExecuteFunction(context.toSystemSecurityContext(), functionName));
+    }
+
+    @Override
+    public void checkCanExecuteTableProcedure(SecurityContext securityContext, QualifiedObjectName tableName, String procedureName)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(procedureName, "procedureName is null");
+        requireNonNull(tableName, "tableName is null");
+
+        systemAuthorizationCheck(control -> control.checkCanExecuteTableProcedure(
+                securityContext.toSystemSecurityContext(),
+                tableName.asCatalogSchemaTableName(),
+                procedureName));
+
+        catalogAuthorizationCheck(
+                tableName.getCatalogName(),
+                securityContext,
+                (control, context) -> control.checkCanExecuteTableProcedure(
+                        context,
+                        tableName.asSchemaTableName(),
+                        procedureName));
     }
 
     @Override

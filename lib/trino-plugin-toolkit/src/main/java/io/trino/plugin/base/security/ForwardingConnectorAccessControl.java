@@ -22,6 +22,7 @@ import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.Type;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
@@ -101,6 +102,12 @@ public abstract class ForwardingConnectorAccessControl
     }
 
     @Override
+    public void checkCanCreateTable(ConnectorSecurityContext context, SchemaTableName tableName, Map<String, Object> properties)
+    {
+        delegate().checkCanCreateTable(context, tableName, properties);
+    }
+
+    @Override
     public void checkCanDropTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         delegate().checkCanDropTable(context, tableName);
@@ -110,6 +117,12 @@ public abstract class ForwardingConnectorAccessControl
     public void checkCanRenameTable(ConnectorSecurityContext context, SchemaTableName tableName, SchemaTableName newTableName)
     {
         delegate().checkCanRenameTable(context, tableName, newTableName);
+    }
+
+    @Override
+    public void checkCanSetTableProperties(ConnectorSecurityContext context, SchemaTableName tableName, Map<String, Object> properties)
+    {
+        delegate().checkCanSetTableProperties(context, tableName, properties);
     }
 
     @Override
@@ -245,6 +258,12 @@ public abstract class ForwardingConnectorAccessControl
     }
 
     @Override
+    public void checkCanRenameMaterializedView(ConnectorSecurityContext context, SchemaTableName viewName, SchemaTableName newViewName)
+    {
+        delegate().checkCanRenameMaterializedView(context, viewName, newViewName);
+    }
+
+    @Override
     public void checkCanSetCatalogSessionProperty(ConnectorSecurityContext context, String propertyName)
     {
         delegate().checkCanSetCatalogSessionProperty(context, propertyName);
@@ -340,6 +359,12 @@ public abstract class ForwardingConnectorAccessControl
     public void checkCanExecuteProcedure(ConnectorSecurityContext context, SchemaRoutineName procedure)
     {
         delegate().checkCanExecuteProcedure(context, procedure);
+    }
+
+    @Override
+    public void checkCanExecuteTableProcedure(ConnectorSecurityContext context, SchemaTableName tableName, String procedure)
+    {
+        delegate().checkCanExecuteTableProcedure(context, tableName, procedure);
     }
 
     @Override

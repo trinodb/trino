@@ -124,6 +124,10 @@ public final class Environment
             container.reset();
         }
 
+        for (DockerContainer container : containers) {
+            log.info("Will start container '%s' from image '%s'", container.getLogicalName(), container.getDockerImageName());
+        }
+
         // Create new network when environment tries to start
         try (Network network = createNetwork(name)) {
             attachNetwork(containers, network);

@@ -916,7 +916,8 @@ public class JoinCompiler
                 .invoke("get", Object.class, rightBlockIndex)
                 .cast(Block.class);
 
-        MethodHandle comparisonOperator = typeOperators.getComparisonOperator(types.get(index), simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
+        // choice of placing unordered values first or last does not matter for this code
+        MethodHandle comparisonOperator = typeOperators.getComparisonUnorderedLastOperator(types.get(index), simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
         BytecodeNode comparison = invokeDynamic(
                 BOOTSTRAP_METHOD,
                 ImmutableList.of(callSiteBinder.bind(comparisonOperator).getBindingId()),

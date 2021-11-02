@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.metadata.AggregationFunctionMetadata;
 import io.trino.metadata.FunctionArgumentDefinition;
 import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.FunctionMetadata;
@@ -55,6 +56,7 @@ import static io.trino.spi.StandardErrorCode.EXCEEDED_FUNCTION_MEMORY_LIMIT;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.TypeSignature.arrayType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.util.Reflection.methodHandle;
 import static java.lang.String.format;
@@ -64,7 +66,7 @@ public class ListaggAggregationFunction
 {
     public static final ListaggAggregationFunction LISTAGG = new ListaggAggregationFunction();
     public static final String NAME = "listagg";
-    private static final MethodHandle INPUT_FUNCTION = methodHandle(ListaggAggregationFunction.class, "input", Type.class, ListaggAggregationState.class, Block.class, Slice.class, boolean.class, Slice.class, boolean.class, int.class);
+    private static final MethodHandle INPUT_FUNCTION = methodHandle(ListaggAggregationFunction.class, "input", Type.class, ListaggAggregationState.class, Block.class, int.class, Slice.class, boolean.class, Slice.class, boolean.class);
     private static final MethodHandle COMBINE_FUNCTION = methodHandle(ListaggAggregationFunction.class, "combine", Type.class, ListaggAggregationState.class, ListaggAggregationState.class);
     private static final MethodHandle OUTPUT_FUNCTION = methodHandle(ListaggAggregationFunction.class, "output", Type.class, ListaggAggregationState.class, BlockBuilder.class);
 
@@ -98,14 +100,13 @@ public class ListaggAggregationFunction
                         true,
                         "concatenates the input values with the specified separator",
                         AGGREGATE),
-                true,
-                true);
-    }
-
-    @Override
-    public List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
-    {
-        return ImmutableList.of(new ListaggAggregationStateSerializer(VARCHAR).getSerializedType().getTypeSignature());
+                new AggregationFunctionMetadata(
+                        true,
+                        VARCHAR.getTypeSignature(),
+                        BOOLEAN.getTypeSignature(),
+                        VARCHAR.getTypeSignature(),
+                        BOOLEAN.getTypeSignature(),
+                        arrayType(VARCHAR.getTypeSignature())));
     }
 
     @Override
@@ -127,11 +128,11 @@ public class ListaggAggregationFunction
         List<ParameterMetadata> inputParameterMetadata = ImmutableList.of(
                 new ParameterMetadata(STATE),
                 new ParameterMetadata(NULLABLE_BLOCK_INPUT_CHANNEL, type),
+                new ParameterMetadata(BLOCK_INDEX),
                 new ParameterMetadata(INPUT_CHANNEL, VARCHAR),
                 new ParameterMetadata(INPUT_CHANNEL, BOOLEAN),
                 new ParameterMetadata(INPUT_CHANNEL, VARCHAR),
-                new ParameterMetadata(INPUT_CHANNEL, BOOLEAN),
-                new ParameterMetadata(BLOCK_INDEX));
+                new ParameterMetadata(INPUT_CHANNEL, BOOLEAN));
 
         MethodHandle inputFunction = INPUT_FUNCTION.bindTo(type);
         MethodHandle combineFunction = COMBINE_FUNCTION.bindTo(type);
@@ -155,7 +156,7 @@ public class ListaggAggregationFunction
         return new InternalAggregationFunction(NAME, inputTypes, ImmutableList.of(intermediateType), outputType, factory);
     }
 
-    public static void input(Type type, ListaggAggregationState state, Block value, Slice separator, boolean overflowError, Slice overflowFiller, boolean showOverflowEntryCount, int position)
+    public static void input(Type type, ListaggAggregationState state, Block value, int position, Slice separator, boolean overflowError, Slice overflowFiller, boolean showOverflowEntryCount)
     {
         if (state.isEmpty()) {
             if (overflowFiller.length() > MAX_OVERFLOW_FILLER_LENGTH) {

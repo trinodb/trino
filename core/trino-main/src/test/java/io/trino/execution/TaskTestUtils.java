@@ -150,7 +150,8 @@ public final class TaskTestUtils
                 new OrderingCompiler(typeOperators),
                 new DynamicFilterConfig(),
                 typeOperators,
-                blockTypeOperators);
+                blockTypeOperators,
+                new TableExecuteContextManager());
     }
 
     public static TaskInfo updateTask(SqlTask sqlTask, List<TaskSource> taskSources, OutputBuffers outputBuffers)

@@ -55,6 +55,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static java.util.Collections.synchronizedSet;
@@ -236,6 +237,17 @@ public class TestingMetadata
             }
             throw new TrinoException(ALREADY_EXISTS, "Materialized view already exists: " + viewName);
         }
+    }
+
+    @Override
+    public void renameMaterializedView(ConnectorSession session, SchemaTableName source, SchemaTableName target)
+    {
+        // TODO: use locking to do this properly
+        ConnectorMaterializedViewDefinition materializedView = getMaterializedView(session, source).orElseThrow();
+        if (materializedViews.putIfAbsent(target, materializedView) != null) {
+            throw new IllegalArgumentException("Target materialized view already exists: " + target);
+        }
+        materializedViews.remove(source, materializedView);
     }
 
     @Override
@@ -440,6 +452,16 @@ public class TestingMetadata
         public int hashCode()
         {
             return Objects.hash(name, ordinalPosition, type);
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .addValue(ordinalPosition)
+                    .add("name", name)
+                    .add("type", type)
+                    .toString();
         }
     }
 }

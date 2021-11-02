@@ -346,4 +346,10 @@ public class TestHiveAlluxioMetastore
     {
         // Alluxio metastore does not support create operations
     }
+
+    @Override
+    public void testNewDirectoryPermissions()
+    {
+        // Alluxio metastore does not support create operations
+    }
 }

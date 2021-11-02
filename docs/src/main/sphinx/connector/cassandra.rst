@@ -223,9 +223,10 @@ SET<?>            VARCHAR
 SMALLINT          SMALLINT
 TEXT              VARCHAR
 TIMESTAMP         TIMESTAMP(3) WITH TIME ZONE
-TIMEUUID          VARCHAR
+TIMEUUID          UUID
 TINYINT           TINYINT
 TUPLE             ROW with anonymous fields
+UUID              UUID
 VARCHAR           VARCHAR
 VARIANT           VARCHAR
 ================  ======

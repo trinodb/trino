@@ -25,10 +25,7 @@ import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.Decimals;
 import io.trino.spi.type.RowType;
-import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeUtils;
 import org.apache.iceberg.DataFile;
@@ -45,9 +42,6 @@ import org.apache.iceberg.util.StructLikeWrapper;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.math.BigDecimal;
-import java.nio.ByteBuffer;
-import java.nio.CharBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -56,15 +50,12 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.iceberg.IcebergTypes.convertIcebergValueToTrino;
 import static io.trino.plugin.iceberg.IcebergUtil.getIdentityPartitions;
 import static io.trino.plugin.iceberg.IcebergUtil.primitiveFieldTypes;
 import static io.trino.plugin.iceberg.Partition.convertBounds;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
-import static io.trino.plugin.iceberg.util.Timestamps.timestampTzFromMicros;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.Decimals.isShortDecimal;
-import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toSet;
 
@@ -223,7 +214,7 @@ public class PartitionTable
 
             // add data for partition columns
             for (int i = 0; i < partitionColumnTypes.size(); i++) {
-                row.add(convert(partition.getValues().get(i, partitionColumnClass.get(i)), partitionTypes.get(i)));
+                row.add(convertIcebergValueToTrino(partitionTypes.get(i), partition.getValues().get(i, partitionColumnClass.get(i))));
             }
 
             // add the top level metrics.
@@ -239,8 +230,8 @@ public class PartitionTable
                 }
                 Integer fieldId = nonPartitionPrimitiveColumns.get(i).fieldId();
                 Type.PrimitiveType type = idToTypeMapping.get(fieldId);
-                Object min = convert(partition.getMinValues().get(fieldId), type);
-                Object max = convert(partition.getMaxValues().get(fieldId), type);
+                Object min = convertIcebergValueToTrino(type, partition.getMinValues().get(fieldId));
+                Object max = convertIcebergValueToTrino(type, partition.getMaxValues().get(fieldId));
                 Long nullCount = partition.getNullCounts().get(fieldId);
                 row.add(getColumnMetricBlock(columnMetricTypes.get(i), min, max, nullCount));
             }
@@ -273,52 +264,5 @@ public class PartitionTable
 
         rowBlockBuilder.closeEntry();
         return columnMetricType.getObject(rowBlockBuilder, 0);
-    }
-
-    /**
-     * Convert value from Iceberg representation to Trino representation.
-     */
-    public static Object convert(Object value, Type type)
-    {
-        if (value == null) {
-            return null;
-        }
-        if (type instanceof Types.StringType) {
-            // Partition values are passed as String, but min/max values are passed as a CharBuffer
-            if (value instanceof CharBuffer) {
-                value = new String(((CharBuffer) value).array());
-            }
-            return utf8Slice(((String) value));
-        }
-        if (type instanceof Types.BinaryType) {
-            // TODO the client sees the bytearray's tostring ouput instead of seeing actual bytes, needs to be fixed.
-            return ((ByteBuffer) value).array().clone();
-        }
-        if (type instanceof Types.TimestampType) {
-            long epochMicros = (long) value;
-            if (((Types.TimestampType) type).shouldAdjustToUTC()) {
-                return timestampTzFromMicros(epochMicros, TimeZoneKey.UTC_KEY);
-            }
-            return epochMicros;
-        }
-        if (type instanceof Types.TimeType) {
-            return Math.multiplyExact((Long) value, PICOSECONDS_PER_MICROSECOND);
-        }
-        if (type instanceof Types.FloatType) {
-            return Float.floatToIntBits((Float) value);
-        }
-        if (type instanceof Types.IntegerType || type instanceof Types.DateType) {
-            return ((Integer) value).longValue();
-        }
-        if (type instanceof Types.DecimalType) {
-            Types.DecimalType icebergDecimalType = (Types.DecimalType) type;
-            DecimalType trinoDecimalType = DecimalType.createDecimalType(icebergDecimalType.precision(), icebergDecimalType.scale());
-            if (isShortDecimal(trinoDecimalType)) {
-                return Decimals.encodeShortScaledValue((BigDecimal) value, trinoDecimalType.getScale());
-            }
-            return Decimals.encodeScaledValue((BigDecimal) value, trinoDecimalType.getScale());
-        }
-        // TODO implement explicit conversion for all supported types
-        return value;
     }
 }

@@ -26,6 +26,7 @@ import io.trino.spi.type.Type;
 
 import javax.inject.Inject;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -115,6 +116,11 @@ public class LegacyAccessControl
     }
 
     @Override
+    public void checkCanCreateTable(ConnectorSecurityContext context, SchemaTableName tableName, Map<String, Object> properties)
+    {
+    }
+
+    @Override
     public void checkCanDropTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         if (!allowDropTable) {
@@ -138,6 +144,11 @@ public class LegacyAccessControl
         if (!allowRenameTable) {
             denyRenameTable(tableName.toString(), newTableName.toString());
         }
+    }
+
+    @Override
+    public void checkCanSetTableProperties(ConnectorSecurityContext context, SchemaTableName tableName, Map<String, Object> properties)
+    {
     }
 
     @Override
@@ -268,6 +279,11 @@ public class LegacyAccessControl
     }
 
     @Override
+    public void checkCanRenameMaterializedView(ConnectorSecurityContext context, SchemaTableName viewName, SchemaTableName newViewName)
+    {
+    }
+
+    @Override
     public void checkCanSetCatalogSessionProperty(ConnectorSecurityContext context, String propertyName)
     {
     }
@@ -347,6 +363,11 @@ public class LegacyAccessControl
 
     @Override
     public void checkCanExecuteProcedure(ConnectorSecurityContext context, SchemaRoutineName procedure)
+    {
+    }
+
+    @Override
+    public void checkCanExecuteTableProcedure(ConnectorSecurityContext context, SchemaTableName tableName, String procedure)
     {
     }
 

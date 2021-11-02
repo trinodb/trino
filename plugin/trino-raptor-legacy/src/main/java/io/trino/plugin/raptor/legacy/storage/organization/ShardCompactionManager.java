@@ -28,7 +28,7 @@ import io.trino.plugin.raptor.legacy.metadata.TableColumn;
 import io.trino.plugin.raptor.legacy.storage.StorageManagerConfig;
 import io.trino.spi.NodeManager;
 import io.trino.spi.type.Type;
-import org.skife.jdbi.v2.IDBI;
+import org.jdbi.v3.core.Jdbi;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -76,10 +76,10 @@ public class ShardCompactionManager
     private final Duration compactionDiscoveryInterval;
     private final DataSize maxShardSize;
     private final long maxShardRows;
-    private final IDBI dbi;
+    private final Jdbi dbi;
 
     @Inject
-    public ShardCompactionManager(@ForMetadata IDBI dbi,
+    public ShardCompactionManager(@ForMetadata Jdbi dbi,
             NodeManager nodeManager,
             ShardManager shardManager,
             ShardOrganizer organizer,
@@ -96,7 +96,7 @@ public class ShardCompactionManager
     }
 
     public ShardCompactionManager(
-            IDBI dbi,
+            Jdbi dbi,
             String currentNodeIdentifier,
             ShardManager shardManager,
             ShardOrganizer organizer,

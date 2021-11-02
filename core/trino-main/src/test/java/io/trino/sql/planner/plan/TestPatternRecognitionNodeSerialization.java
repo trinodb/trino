@@ -49,6 +49,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -145,7 +146,7 @@ public class TestPatternRecognitionNodeSerialization
                 TypeSignature.class, new TypeSignatureKeyDeserializer()));
         JsonCodec<PatternRecognitionNode> codec = new JsonCodecFactory(provider).jsonCodec(PatternRecognitionNode.class);
 
-        ResolvedFunction rankFunction = createTestMetadataManager().resolveFunction(QualifiedName.of("rank"), ImmutableList.of());
+        ResolvedFunction rankFunction = createTestMetadataManager().resolveFunction(TEST_SESSION, QualifiedName.of("rank"), ImmutableList.of());
 
         // test remaining fields inside PatternRecognitionNode specific to pattern recognition:
         // windowFunctions, measures, commonBaseFrame, rowsPerMatch, skipToLabel, skipToPosition, initial, pattern, subsets, variableDefinitions

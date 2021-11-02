@@ -35,9 +35,9 @@ import static java.util.Objects.requireNonNull;
 
 public final class DesugarArrayConstructorRewriter
 {
-    public static Expression rewrite(Expression expression, Map<NodeRef<Expression>, Type> expressionTypes, Metadata metadata)
+    private static Expression rewrite(Expression expression, Map<NodeRef<Expression>, Type> expressionTypes, Metadata metadata, Session session)
     {
-        return ExpressionTreeRewriter.rewriteWith(new Visitor(expressionTypes, metadata), expression);
+        return ExpressionTreeRewriter.rewriteWith(new Visitor(expressionTypes, metadata, session), expression);
     }
 
     private DesugarArrayConstructorRewriter() {}
@@ -52,7 +52,7 @@ public final class DesugarArrayConstructorRewriter
         }
         Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, typeProvider, expression);
 
-        return rewrite(expression, expressionTypes, metadata);
+        return rewrite(expression, expressionTypes, metadata, session);
     }
 
     private static class Visitor
@@ -60,11 +60,13 @@ public final class DesugarArrayConstructorRewriter
     {
         private final Map<NodeRef<Expression>, Type> expressionTypes;
         private final Metadata metadata;
+        private final Session session;
 
-        public Visitor(Map<NodeRef<Expression>, Type> expressionTypes, Metadata metadata)
+        public Visitor(Map<NodeRef<Expression>, Type> expressionTypes, Metadata metadata, Session session)
         {
             this.expressionTypes = ImmutableMap.copyOf(requireNonNull(expressionTypes, "expressionTypes is null"));
             this.metadata = metadata;
+            this.session = session;
         }
 
         @Override
@@ -72,7 +74,7 @@ public final class DesugarArrayConstructorRewriter
         {
             ArrayConstructor rewritten = treeRewriter.defaultRewrite(node, context);
             checkCondition(node.getValues().size() <= 254, TOO_MANY_ARGUMENTS, "Too many arguments for array constructor");
-            return new FunctionCallBuilder(metadata)
+            return FunctionCallBuilder.resolve(session, metadata)
                     .setName(QualifiedName.of(ArrayConstructor.ARRAY_CONSTRUCTOR))
                     .setArguments(getTypes(node.getValues()), rewritten.getValues())
                     .build();

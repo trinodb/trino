@@ -900,6 +900,19 @@ public class TestHiveTransactionalTable
         });
     }
 
+    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
+    public void testDeleteOverManySplits()
+    {
+        withTemporaryTable("delete_select", true, false, NONE, tableName -> {
+            onTrino().executeQuery(format("CREATE TABLE %s WITH (transactional = true) AS SELECT * FROM tpch.sf10.orders", tableName));
+
+            log.info("About to delete selected rows");
+            onTrino().executeQuery(format("DELETE FROM %s WHERE clerk = 'Clerk#000004942'", tableName));
+
+            verifySelectForTrinoAndHive("SELECT COUNT(*) FROM " + tableName, "clerk = 'Clerk#000004942'", row(0));
+        });
+    }
+
     @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
     public void testCorrectSelectCountStar(Engine inserter, Engine deleter)
     {
@@ -1416,7 +1429,6 @@ public class TestHiveTransactionalTable
     @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
     public void testAcidUpdateWithSubqueryPredicate()
     {
-        // TODO support UPDATE with correlated subquery in assignment
         withTemporaryTable("test_update_subquery", true, false, NONE, tableName -> {
             onTrino().executeQuery(format("CREATE TABLE %s (column1 INT, column2 varchar) WITH (transactional = true)", tableName));
             onTrino().executeQuery(format("INSERT INTO %s VALUES (1, 'x')", tableName));
@@ -1436,16 +1448,17 @@ public class TestHiveTransactionalTable
             });
 
             // WHERE with correlated subquery
-            assertQueryFailure(() -> onTrino().executeQuery(format("UPDATE %s SET column2 = 'row updated yet again' WHERE column2 = (SELECT name FROM tpch.tiny.region WHERE regionkey = column1)", tableName)))
-                    // TODO (https://github.com/trinodb/trino/issues/3325) support correlated UPDATE
-                    .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Invalid descendant for DeleteNode or UpdateNode: io.trino.sql.planner.plan.MarkDistinctNode");
+            onTrino().executeQuery(format("UPDATE %s SET column2 = 'row updated yet again' WHERE column2 = (SELECT name FROM tpch.tiny.region WHERE regionkey = column1)", tableName));
+            verifySelectForTrinoAndHive("SELECT * FROM " + tableName, "true", row(1, "row updated"), row(2, "another row updated"));
+
+            onTrino().executeQuery(format("UPDATE %s SET column2 = 'row updated yet again' WHERE column2 != (SELECT name FROM tpch.tiny.region WHERE regionkey = column1)", tableName));
+            verifySelectForTrinoAndHive("SELECT * FROM " + tableName, "true", row(1, "row updated yet again"), row(2, "row updated yet again"));
         });
     }
 
     @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
     public void testAcidUpdateWithSubqueryAssignment()
     {
-        // TODO support UPDATE with correlated subquery in assignment
         withTemporaryTable("test_update_subquery", true, false, NONE, tableName -> {
             onTrino().executeQuery(format("CREATE TABLE %s (column1 INT, column2 varchar) WITH (transactional = true)", tableName));
             onTrino().executeQuery(format("INSERT INTO %s VALUES (1, 'x')", tableName));
@@ -1461,14 +1474,15 @@ public class TestHiveTransactionalTable
 
                 // UPDATE while reading from another transactional table. Multiple transactional could interfere with ConnectorMetadata.beginQuery
                 onTrino().executeQuery(format("UPDATE %s SET column2 = (SELECT min(name) FROM %s)", tableName, secondTable));
-                // TODO (https://github.com/trinodb/trino/issues/8268) verifySelectForTrinoAndHive("SELECT * FROM " + tableName, "true", row(1, "AFRICA"), row(2, "AFRICA"));
-                verifySelect("onTrino", onTrino(), "SELECT * FROM " + tableName, "true", row(1, "AFRICA"), row(2, "AFRICA"));
+                verifySelectForTrinoAndHive("SELECT * FROM " + tableName, "true", row(1, "AFRICA"), row(2, "AFRICA"));
+
+                onTrino().executeQuery(format("UPDATE %s SET column2 = (SELECT name FROM %s WHERE column1 = regionkey + 1)", tableName, secondTable));
+                verifySelectForTrinoAndHive("SELECT * FROM " + tableName, "true", row(1, "AFRICA"), row(2, "AMERICA"));
             });
 
             // SET with correlated subquery
-            assertQueryFailure(() -> onTrino().executeQuery(format("UPDATE %s SET column2 = (SELECT name FROM tpch.tiny.region WHERE column1 = regionkey)", tableName)))
-                    // TODO (https://github.com/trinodb/trino/issues/3325) support correlated UPDATE
-                    .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Invalid descendant for DeleteNode or UpdateNode: io.trino.sql.planner.plan.MarkDistinctNode");
+            onTrino().executeQuery(format("UPDATE %s SET column2 = (SELECT name FROM tpch.tiny.region WHERE column1 = regionkey)", tableName));
+            verifySelectForTrinoAndHive("SELECT * FROM " + tableName, "true", row(1, "AMERICA"), row(2, "ASIA"));
         });
     }
 

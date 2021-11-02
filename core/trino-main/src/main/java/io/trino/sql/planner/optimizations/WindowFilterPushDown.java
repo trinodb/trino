@@ -63,13 +63,11 @@ public class WindowFilterPushDown
 {
     private final Metadata metadata;
     private final TypeOperators typeOperators;
-    private final DomainTranslator domainTranslator;
 
     public WindowFilterPushDown(Metadata metadata, TypeOperators typeOperators)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
-        this.domainTranslator = new DomainTranslator(metadata);
     }
 
     @Override
@@ -81,7 +79,7 @@ public class WindowFilterPushDown
         requireNonNull(symbolAllocator, "symbolAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
 
-        return SimplePlanRewriter.rewriteWith(new Rewriter(idAllocator, metadata, typeOperators, domainTranslator, session, types), plan, null);
+        return SimplePlanRewriter.rewriteWith(new Rewriter(idAllocator, metadata, typeOperators, session, types), plan, null);
     }
 
     private static class Rewriter
@@ -90,28 +88,27 @@ public class WindowFilterPushDown
         private final PlanNodeIdAllocator idAllocator;
         private final Metadata metadata;
         private final TypeOperators typeOperators;
-        private final DomainTranslator domainTranslator;
         private final Session session;
         private final TypeProvider types;
         private final FunctionId rowNumberFunctionId;
         private final FunctionId rankFunctionId;
+        private final DomainTranslator domainTranslator;
 
         private Rewriter(
                 PlanNodeIdAllocator idAllocator,
                 Metadata metadata,
                 TypeOperators typeOperators,
-                DomainTranslator domainTranslator,
                 Session session,
                 TypeProvider types)
         {
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
-            this.domainTranslator = requireNonNull(domainTranslator, "domainTranslator is null");
             this.session = requireNonNull(session, "session is null");
             this.types = requireNonNull(types, "types is null");
-            rowNumberFunctionId = metadata.resolveFunction(QualifiedName.of("row_number"), ImmutableList.of()).getFunctionId();
-            rankFunctionId = metadata.resolveFunction(QualifiedName.of("rank"), ImmutableList.of()).getFunctionId();
+            rowNumberFunctionId = metadata.resolveFunction(session, QualifiedName.of("row_number"), ImmutableList.of()).getFunctionId();
+            rankFunctionId = metadata.resolveFunction(session, QualifiedName.of("rank"), ImmutableList.of()).getFunctionId();
+            domainTranslator = new DomainTranslator(session, metadata);
         }
 
         @Override

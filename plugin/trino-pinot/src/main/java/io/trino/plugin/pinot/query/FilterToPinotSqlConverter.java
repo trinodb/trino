@@ -28,6 +28,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -201,6 +202,7 @@ public class FilterToPinotSqlConverter
     private String formatIdentifier(Identifier identifier)
     {
         PinotColumnHandle pinotColumnHandle = (PinotColumnHandle) requireNonNull(columnHandles.get(identifier.getName()), "Column not found");
-        return pinotColumnHandle.getColumnName();
+        checkArgument(!pinotColumnHandle.getColumnName().contains("\""), "Column name contains double quotes: '%s'", pinotColumnHandle.getColumnName());
+        return format("\"%s\"", pinotColumnHandle.getColumnName());
     }
 }

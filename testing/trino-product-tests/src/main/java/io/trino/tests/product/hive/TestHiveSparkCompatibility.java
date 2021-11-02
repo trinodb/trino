@@ -198,6 +198,140 @@ public class TestHiveSparkCompatibility
     }
 
     @Test(groups = {HIVE_SPARK, PROFILE_SPECIFIC_TESTS})
+    public void testReadTrinoCreatedOrcTable()
+    {
+        testReadTrinoCreatedTable("using_orc", "ORC");
+    }
+
+    @Test(groups = {HIVE_SPARK, PROFILE_SPECIFIC_TESTS})
+    public void testReadTrinoCreatedParquetTable()
+    {
+        testReadTrinoCreatedTable("using_parquet", "PARQUET");
+    }
+
+    @Test(groups = {HIVE_SPARK, PROFILE_SPECIFIC_TESTS})
+    public void testReadTrinoCreatedParquetTableWithNativeWriter()
+    {
+        onTrino().executeQuery("SET SESSION " + TRINO_CATALOG + ".experimental_parquet_optimized_writer_enabled = true");
+        testReadTrinoCreatedTable("using_native_parquet", "PARQUET");
+    }
+
+    private void testReadTrinoCreatedTable(String tableName, String tableFormat)
+    {
+        String sparkTableName = "trino_created_table_" + tableName + "_" + randomTableSuffix();
+        String trinoTableName = format("%s.default.%s", TRINO_CATALOG, sparkTableName);
+
+        // Spark timestamps are in microsecond precision
+        onTrino().executeQuery("SET SESSION hive.timestamp_precision = 'MICROSECONDS'");
+        onTrino().executeQuery(format(
+                "CREATE TABLE %s ( " +
+                        "   a_boolean boolean, " +
+                        "   a_tinyint tinyint, " +
+                        "   a_smallint smallint, " +
+                        "   an_integer integer, " +
+                        "   a_bigint bigint, " +
+                        "   a_real real, " +
+                        "   a_double double, " +
+                        "   a_short_decimal decimal(11, 4), " +
+                        "   a_long_decimal decimal(26, 7), " +
+                        "   a_string varchar, " +
+                        // TODO binary
+                        "   a_date date, " +
+                        "   a_timestamp_seconds timestamp(6), " +
+                        "   a_timestamp_millis timestamp(6), " +
+                        "   a_timestamp_micros timestamp(6), " +
+                        // TODO interval
+                        // TODO array
+                        // TODO struct
+                        // TODO map
+                        "   a_dummy varchar " +
+                        ") " +
+                        "WITH ( " +
+                        "   format = '%s' " +
+                        ")",
+                trinoTableName,
+                tableFormat));
+
+        // nulls
+        onTrino().executeQuery("INSERT INTO " + trinoTableName + " VALUES (" + join(",", nCopies(15, "NULL")) + ")");
+        // positive values
+        onTrino().executeQuery(
+                "INSERT INTO " + trinoTableName + " VALUES (" +
+                        "true, " + // a_boolean
+                        "127, " + // a_tinyint
+                        "32767, " + // a_smallint
+                        "1000000000, " + // an_integer
+                        "1000000000000000, " + // a_bigint
+                        "10000000.123, " + // a_real
+                        "100000000000.123, " + // a_double
+                        "CAST('1234567.8901' AS decimal(11, 4)), " + // a_short_decimal
+                        "CAST('1234567890123456789.0123456' AS decimal(26, 7)), " + // a_short_decimal
+                        "'some string', " + // a_string
+                        "DATE '2005-09-10', " +  // a_date
+                        "TIMESTAMP '2005-09-10 13:00:00', " + // a_timestamp_seconds
+                        "TIMESTAMP '2005-09-10 13:00:00.123', " + // a_timestamp_millis
+                        "TIMESTAMP '2005-09-10 13:00:00.123456', " + // a_timestamp_micros
+                        "'dummy')");
+        // negative values
+        onTrino().executeQuery(
+                "INSERT INTO " + trinoTableName + " VALUES (" +
+                        "false, " + // a_boolean
+                        "-128, " + // a_tinyint
+                        "-32768, " + // a_smallint
+                        "-1000000012, " + // an_integer
+                        "-1000000000000012, " + // a_bigint
+                        "-10000000.123, " + // a_real
+                        "-100000000000.123, " + // a_double
+                        "CAST('-1234567.8901' AS decimal(11, 4)), " + // a_short_decimal
+                        "CAST('-1234567890123456789.0123456' AS decimal(26, 7)), " + // a_short_decimal
+                        "'', " + // a_string
+                        "DATE '1965-09-10', " + // a_date
+                        "TIMESTAMP '1965-09-10 13:00:00', " + // a_timestamp_seconds
+                        "TIMESTAMP '1965-09-10 13:00:00.123', " + // a_timestamp_millis
+                        "TIMESTAMP '1965-09-10 13:00:00.123456', " + // a_timestamp_micros
+                        "'dummy')");
+
+        List<Row> expected = List.of(
+                row(nCopies(15, null).toArray()),
+                row(
+                        true, // a_boolean
+                        (byte) 127, // a_tinyint
+                        (short) 32767, // a_smallint
+                        1000000000, // an_integer
+                        1000000000000000L, // a_bigint
+                        10000000.123F, // a_real
+                        100000000000.123, // a_double
+                        new BigDecimal("1234567.8901"), // a_short_decimal
+                        new BigDecimal("1234567890123456789.0123456"), // a_long_decimal
+                        "some string", // a_string
+                        java.sql.Date.valueOf(LocalDate.of(2005, 9, 10)), // a_date
+                        java.sql.Timestamp.valueOf(LocalDateTime.of(2005, 9, 10, 13, 0, 0)), // a_timestamp_seconds
+                        java.sql.Timestamp.valueOf(LocalDateTime.of(2005, 9, 10, 13, 0, 0, 123_000_000)), // a_timestamp_millis
+                        java.sql.Timestamp.valueOf(LocalDateTime.of(2005, 9, 10, 13, 0, 0, 123_456_000)), // a_timestamp_micros
+                        "dummy"),
+                row(
+                        false, // a_bigint
+                        (byte) -128, // a_tinyint
+                        (short) -32768, // a_smallint
+                        -1000000012, // an_integer
+                        -1000000000000012L, // a_bigint
+                        -10000000.123F, // a_real
+                        -100000000000.123, // a_double
+                        new BigDecimal("-1234567.8901"), // a_short_decimal
+                        new BigDecimal("-1234567890123456789.0123456"), // a_long_decimal
+                        "", // a_string
+                        java.sql.Date.valueOf(LocalDate.of(1965, 9, 10)), // a_date
+                        java.sql.Timestamp.valueOf(LocalDateTime.of(1965, 9, 10, 13, 0, 0)), // a_timestamp_seconds
+                        java.sql.Timestamp.valueOf(LocalDateTime.of(1965, 9, 10, 13, 0, 0, 123_000_000)), // a_timestamp_millis
+                        java.sql.Timestamp.valueOf(LocalDateTime.of(1965, 9, 10, 13, 0, 0, 123_456_000)), // a_timestamp_micros
+                        "dummy"));
+        assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName)).containsOnly(expected);
+        assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).containsOnly(expected);
+
+        onTrino().executeQuery("DROP TABLE " + trinoTableName);
+    }
+
+    @Test(groups = {HIVE_SPARK, PROFILE_SPECIFIC_TESTS})
     public void testReadSparkBucketedTable()
     {
         // Spark tables can be created using native Spark code or by going through Hive code

@@ -231,7 +231,7 @@ public class KuduClientSession
             return client.openTable(rawName);
         }
         catch (KuduException e) {
-            log.debug("Error on doOpenTable: " + e, e);
+            log.debug(e, "Error on doOpenTable");
             if (!listSchemaNames().contains(schemaTableName.getSchemaName())) {
                 throw new SchemaNotFoundException(schemaTableName.getSchemaName());
             }

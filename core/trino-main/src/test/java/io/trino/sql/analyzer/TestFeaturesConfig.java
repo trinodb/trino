@@ -77,7 +77,6 @@ public class TestFeaturesConfig
                 .setMemoryRevokingThreshold(0.9)
                 .setMemoryRevokingTarget(0.5)
                 .setOptimizeMixedDistinctAggregations(false)
-                .setUnwrapCasts(true)
                 .setIterativeOptimizerTimeout(new Duration(3, MINUTES))
                 .setEnableStatsCalculator(true)
                 .setStatisticsPrecalculationForPushdownEnabled(false)
@@ -114,7 +113,8 @@ public class TestFeaturesConfig
                 .setUseTableScanNodePartitioning(true)
                 .setTableScanNodePartitioningMinBucketToTaskRatio(0.5)
                 .setMergeProjectWithValues(true)
-                .setLegacyCatalogRoles(false));
+                .setLegacyCatalogRoles(false)
+                .setDisableSetPropertiesSecurityCheckForCreateDdl(false));
     }
 
     @Test
@@ -149,7 +149,6 @@ public class TestFeaturesConfig
                 .put("optimizer.optimize-metadata-queries", "true")
                 .put("optimizer.optimize-hash-generation", "false")
                 .put("optimizer.optimize-mixed-distinct-aggregations", "true")
-                .put("optimizer.unwrap-casts", "false")
                 .put("optimizer.push-table-write-through-union", "false")
                 .put("optimizer.dictionary-aggregation", "true")
                 .put("optimizer.push-aggregation-through-outer-join", "false")
@@ -194,6 +193,7 @@ public class TestFeaturesConfig
                 .put("optimizer.table-scan-node-partitioning-min-bucket-to-task-ratio", "0.0")
                 .put("optimizer.merge-project-with-values", "false")
                 .put("deprecated.legacy-catalog-roles", "true")
+                .put("deprecated.disable-set-properties-security-check-for-create-ddl", "true")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -224,7 +224,6 @@ public class TestFeaturesConfig
                 .setOptimizeMetadataQueries(true)
                 .setOptimizeHashGeneration(false)
                 .setOptimizeMixedDistinctAggregations(true)
-                .setUnwrapCasts(false)
                 .setPushTableWriteThroughUnion(false)
                 .setDictionaryAggregation(true)
                 .setPushAggregationThroughOuterJoin(false)
@@ -269,7 +268,8 @@ public class TestFeaturesConfig
                 .setUseTableScanNodePartitioning(false)
                 .setTableScanNodePartitioningMinBucketToTaskRatio(0.0)
                 .setMergeProjectWithValues(false)
-                .setLegacyCatalogRoles(true);
+                .setLegacyCatalogRoles(true)
+                .setDisableSetPropertiesSecurityCheckForCreateDdl(true);
         assertFullMapping(properties, expected);
     }
 }

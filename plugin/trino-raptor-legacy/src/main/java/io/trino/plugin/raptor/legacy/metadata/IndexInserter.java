@@ -15,8 +15,7 @@ package io.trino.plugin.raptor.legacy.metadata;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import org.skife.jdbi.v2.DBI;
-import org.skife.jdbi.v2.util.BooleanMapper;
+import org.jdbi.v3.core.Jdbi;
 
 import java.sql.Connection;
 import java.sql.JDBCType;
@@ -52,11 +51,10 @@ class IndexInserter
     public IndexInserter(Connection connection, long tableId, List<ColumnInfo> columns)
             throws SQLException
     {
-        this.bucketed = DBI.open(connection)
-                .createQuery("SELECT distribution_id IS NOT NULL FROM tables WHERE table_id = ?")
-                .bind(0, tableId)
-                .map(BooleanMapper.FIRST)
-                .first();
+        this.bucketed = Jdbi.open(connection)
+                .select("SELECT distribution_id IS NOT NULL FROM tables WHERE table_id = ?", tableId)
+                .mapTo(boolean.class)
+                .one();
 
         ImmutableList.Builder<ColumnInfo> columnBuilder = ImmutableList.builder();
         ImmutableMap.Builder<Long, Integer> indexBuilder = ImmutableMap.builder();

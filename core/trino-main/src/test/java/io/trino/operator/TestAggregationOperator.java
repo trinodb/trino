@@ -15,7 +15,7 @@ package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.block.BlockAssertions;
-import io.trino.metadata.Metadata;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.AggregationOperator.AggregationOperatorFactory;
 import io.trino.operator.aggregation.AccumulatorFactory;
 import io.trino.operator.aggregation.InternalAggregationFunction;
@@ -43,7 +43,6 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.operator.OperatorAssertion.assertOperatorEquals;
 import static io.trino.operator.OperatorAssertion.toPages;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -64,18 +63,13 @@ import static org.testng.Assert.assertTrue;
 @Test(singleThreaded = true)
 public class TestAggregationOperator
 {
-    private static final Metadata metadata = createTestMetadataManager();
+    private static final TestingFunctionResolution FUNCTION_RESOLUTION = new TestingFunctionResolution();
 
-    private static final InternalAggregationFunction LONG_AVERAGE = metadata.getAggregateFunctionImplementation(
-            metadata.resolveFunction(QualifiedName.of("avg"), fromTypes(BIGINT)));
-    private static final InternalAggregationFunction DOUBLE_SUM = metadata.getAggregateFunctionImplementation(
-            metadata.resolveFunction(QualifiedName.of("sum"), fromTypes(DOUBLE)));
-    private static final InternalAggregationFunction LONG_SUM = metadata.getAggregateFunctionImplementation(
-            metadata.resolveFunction(QualifiedName.of("sum"), fromTypes(BIGINT)));
-    private static final InternalAggregationFunction REAL_SUM = metadata.getAggregateFunctionImplementation(
-            metadata.resolveFunction(QualifiedName.of("sum"), fromTypes(REAL)));
-    private static final InternalAggregationFunction COUNT = metadata.getAggregateFunctionImplementation(
-            metadata.resolveFunction(QualifiedName.of("count"), ImmutableList.of()));
+    private static final InternalAggregationFunction LONG_AVERAGE = FUNCTION_RESOLUTION.getAggregateFunctionImplementation(QualifiedName.of("avg"), fromTypes(BIGINT));
+    private static final InternalAggregationFunction DOUBLE_SUM = FUNCTION_RESOLUTION.getAggregateFunctionImplementation(QualifiedName.of("sum"), fromTypes(DOUBLE));
+    private static final InternalAggregationFunction LONG_SUM = FUNCTION_RESOLUTION.getAggregateFunctionImplementation(QualifiedName.of("sum"), fromTypes(BIGINT));
+    private static final InternalAggregationFunction REAL_SUM = FUNCTION_RESOLUTION.getAggregateFunctionImplementation(QualifiedName.of("sum"), fromTypes(REAL));
+    private static final InternalAggregationFunction COUNT = FUNCTION_RESOLUTION.getAggregateFunctionImplementation(QualifiedName.of("count"), ImmutableList.of());
 
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
@@ -173,10 +167,8 @@ public class TestAggregationOperator
     @Test
     public void testAggregation()
     {
-        InternalAggregationFunction countVarcharColumn = metadata.getAggregateFunctionImplementation(
-                metadata.resolveFunction(QualifiedName.of("count"), fromTypes(VARCHAR)));
-        InternalAggregationFunction maxVarcharColumn = metadata.getAggregateFunctionImplementation(
-                metadata.resolveFunction(QualifiedName.of("max"), fromTypes(VARCHAR)));
+        InternalAggregationFunction countVarcharColumn = FUNCTION_RESOLUTION.getAggregateFunctionImplementation(QualifiedName.of("count"), fromTypes(VARCHAR));
+        InternalAggregationFunction maxVarcharColumn = FUNCTION_RESOLUTION.getAggregateFunctionImplementation(QualifiedName.of("max"), fromTypes(VARCHAR));
         List<Page> input = rowPagesBuilder(VARCHAR, BIGINT, VARCHAR, BIGINT, REAL, DOUBLE, VARCHAR)
                 .addSequencePage(100, 0, 0, 300, 500, 400, 500, 500)
                 .build();

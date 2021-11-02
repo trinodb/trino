@@ -198,7 +198,7 @@ public class S3TableConfigClient
                     log.info("Put table description into the map from %s", summary.getKey());
                 }
                 catch (IOException iox) {
-                    log.error("Problem reading input stream from object.", iox);
+                    log.error(iox, "Problem reading input stream from object.");
                     throw new RuntimeException(iox);
                 }
             }

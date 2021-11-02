@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.errorprone.annotations.FormatMethod;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.execution.ScheduledSplit;
@@ -609,6 +610,7 @@ public class Driver
         return Optional.empty();
     }
 
+    @FormatMethod
     private static Throwable addSuppressedException(Throwable inFlightException, Throwable newException, String message, Object... args)
     {
         if (newException instanceof Error) {

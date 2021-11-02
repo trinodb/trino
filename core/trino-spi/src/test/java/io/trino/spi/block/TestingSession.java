@@ -37,6 +37,12 @@ public final class TestingSession
         }
 
         @Override
+        public boolean isAutoCommitContext()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public Optional<String> getSource()
         {
             return Optional.of("TestSource");

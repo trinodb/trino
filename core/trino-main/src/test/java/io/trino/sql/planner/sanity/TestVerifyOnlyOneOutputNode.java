@@ -26,6 +26,8 @@ import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import org.testng.annotations.Test;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 public class TestVerifyOnlyOneOutputNode
 {
     private final PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
@@ -45,7 +47,7 @@ public class TestVerifyOnlyOneOutputNode
         new VerifyOnlyOneOutputNode().validate(root, null, null, typeOperators, null, null, WarningCollector.NOOP);
     }
 
-    @Test(expectedExceptions = IllegalStateException.class)
+    @Test
     public void testValidateFailed()
     {
         // random plan with 2 output nodes
@@ -62,6 +64,8 @@ public class TestVerifyOnlyOneOutputNode
                                 ImmutableList.of(),
                                 false),
                         ImmutableList.of(), ImmutableList.of());
-        new VerifyOnlyOneOutputNode().validate(root, null, null, typeOperators, null, null, WarningCollector.NOOP);
+        assertThatThrownBy(() -> new VerifyOnlyOneOutputNode().validate(root, null, null, typeOperators, null, null, WarningCollector.NOOP))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Expected plan to have single instance of OutputNode");
     }
 }

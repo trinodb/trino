@@ -31,6 +31,8 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
 
 import javax.inject.Inject;
@@ -132,7 +134,8 @@ public class BigQuerySplitManager
             }
             else {
                 // no filters, so we can take the value from the table info when the object is TABLE
-                TableInfo tableInfo = bigQueryClient.getTable(remoteTableId);
+                TableInfo tableInfo = bigQueryClient.getTable(remoteTableId)
+                        .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(remoteTableId.getDataset(), remoteTableId.getTable())));
                 if (tableInfo.getDefinition().getType() == TABLE) {
                     numberOfRows = tableInfo.getNumRows().longValue();
                 }

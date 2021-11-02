@@ -282,7 +282,7 @@ class QueryPlanner
         // 1. append window to count rows
         NodeAndMappings checkConvergenceStep = copy(recursionStep, mappings);
         Symbol countSymbol = symbolAllocator.newSymbol("count", BIGINT);
-        ResolvedFunction function = metadata.resolveFunction(QualifiedName.of("count"), ImmutableList.of());
+        ResolvedFunction function = metadata.resolveFunction(session, QualifiedName.of("count"), ImmutableList.of());
         WindowNode.Function countFunction = new WindowNode.Function(function, ImmutableList.of(), DEFAULT_FRAME, false);
 
         WindowNode windowNode = new WindowNode(
@@ -295,7 +295,7 @@ class QueryPlanner
                 0);
 
         // 2. append filter to fail on non-empty result
-        ResolvedFunction fail = metadata.resolveFunction(QualifiedName.of("fail"), fromTypes(VARCHAR));
+        ResolvedFunction fail = metadata.resolveFunction(session, QualifiedName.of("fail"), fromTypes(VARCHAR));
         String recursionLimitExceededMessage = format("Recursion depth limit exceeded (%s). Use 'max_recursion_depth' session property to modify the limit.", maxRecursionDepth);
         Expression predicate = new IfExpression(
                 new ComparisonExpression(
@@ -1057,7 +1057,7 @@ class QueryPlanner
         // First, append filter to validate offset values. They mustn't be negative or null.
         Symbol offsetSymbol = coercions.get(frameOffset.get());
         Expression zeroOffset = zeroOfType(symbolAllocator.getTypes().get(offsetSymbol));
-        ResolvedFunction fail = metadata.resolveFunction(QualifiedName.of("fail"), fromTypes(VARCHAR));
+        ResolvedFunction fail = metadata.resolveFunction(session, QualifiedName.of("fail"), fromTypes(VARCHAR));
         Expression predicate = new IfExpression(
                 new ComparisonExpression(
                         GREATER_THAN_OR_EQUAL,
@@ -1163,7 +1163,7 @@ class QueryPlanner
 
         // Append filter to validate offset values. They mustn't be negative or null.
         Expression zeroOffset = zeroOfType(offsetType);
-        ResolvedFunction fail = metadata.resolveFunction(QualifiedName.of("fail"), fromTypes(VARCHAR));
+        ResolvedFunction fail = metadata.resolveFunction(session, QualifiedName.of("fail"), fromTypes(VARCHAR));
         Expression predicate = new IfExpression(
                 new ComparisonExpression(GREATER_THAN_OR_EQUAL, offsetSymbol.toSymbolReference(), zeroOffset),
                 TRUE_LITERAL,

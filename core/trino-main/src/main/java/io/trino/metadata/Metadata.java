@@ -23,6 +23,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
+import io.trino.spi.connector.BeginTableExecuteResult;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
@@ -96,6 +97,18 @@ public interface Metadata
     Optional<SystemTable> getSystemTable(Session session, QualifiedObjectName tableName);
 
     Optional<TableHandle> getTableHandleForStatisticsCollection(Session session, QualifiedObjectName tableName, Map<String, Object> analyzeProperties);
+
+    Optional<TableExecuteHandle> getTableHandleForExecute(
+            Session session,
+            TableHandle tableHandle,
+            String procedureName,
+            Map<String, Object> executeProperties);
+
+    Optional<NewTableLayout> getLayoutForTableExecute(Session session, TableExecuteHandle tableExecuteHandle);
+
+    BeginTableExecuteResult<TableExecuteHandle, TableHandle> beginTableExecute(Session session, TableExecuteHandle handle, TableHandle updatedSourceTableHandle);
+
+    void finishTableExecute(Session session, TableExecuteHandle handle, Collection<Slice> fragments, List<Object> tableExecuteState);
 
     @Deprecated
     Optional<TableLayoutResult> getLayout(Session session, TableHandle tableHandle, Constraint constraint, Optional<Set<ColumnHandle>> desiredColumns);
@@ -199,6 +212,11 @@ public interface Metadata
      * Rename the specified table.
      */
     void renameTable(Session session, TableHandle tableHandle, QualifiedObjectName newTableName);
+
+    /**
+     * Set properties to the specified table.
+     */
+    void setTableProperties(Session session, TableHandle tableHandle, Map<String, Object> properties);
 
     /**
      * Comments to the specified table.
@@ -371,9 +389,9 @@ public interface Metadata
     /**
      * Gets all the loaded catalogs
      *
-     * @return Map of catalog name to connector id
+     * @return Map of catalog name to connector
      */
-    Map<String, CatalogName> getCatalogNames(Session session);
+    Map<String, Catalog> getCatalogs(Session session);
 
     /**
      * Get the names that match the specified table prefix (never null).
@@ -606,19 +624,19 @@ public interface Metadata
 
     ResolvedFunction decodeFunction(QualifiedName name);
 
-    ResolvedFunction resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes);
+    ResolvedFunction resolveFunction(Session session, QualifiedName name, List<TypeSignatureProvider> parameterTypes);
 
-    ResolvedFunction resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
+    ResolvedFunction resolveOperator(Session session, OperatorType operatorType, List<? extends Type> argumentTypes)
             throws OperatorNotFoundException;
 
-    default ResolvedFunction getCoercion(Type fromType, Type toType)
+    default ResolvedFunction getCoercion(Session session, Type fromType, Type toType)
     {
-        return getCoercion(CAST, fromType, toType);
+        return getCoercion(session, CAST, fromType, toType);
     }
 
-    ResolvedFunction getCoercion(OperatorType operatorType, Type fromType, Type toType);
+    ResolvedFunction getCoercion(Session session, OperatorType operatorType, Type fromType, Type toType);
 
-    ResolvedFunction getCoercion(QualifiedName name, Type fromType, Type toType);
+    ResolvedFunction getCoercion(Session session, QualifiedName name, Type fromType, Type toType);
 
     /**
      * Is the named function an aggregation function?  This does not need type parameters
@@ -637,6 +655,8 @@ public interface Metadata
     FunctionInvoker getScalarFunctionInvoker(ResolvedFunction resolvedFunction, InvocationConvention invocationConvention);
 
     ProcedureRegistry getProcedureRegistry();
+
+    TableProceduresRegistry getTableProcedureRegistry();
 
     //
     // Blocks
@@ -659,6 +679,8 @@ public interface Metadata
     ColumnPropertyManager getColumnPropertyManager();
 
     AnalyzePropertyManager getAnalyzePropertyManager();
+
+    TableProceduresPropertyManager getTableProceduresPropertyManager();
 
     /**
      * Creates the specified materialized view with the specified view definition.
@@ -690,6 +712,11 @@ public interface Metadata
      * The method is used by the engine to determine if a materialized view is current with respect to the tables it depends on.
      */
     MaterializedViewFreshness getMaterializedViewFreshness(Session session, QualifiedObjectName name);
+
+    /**
+     * Rename the specified materialized view.
+     */
+    void renameMaterializedView(Session session, QualifiedObjectName existingViewName, QualifiedObjectName newViewName);
 
     /**
      * Returns the result of redirecting the table scan on a given table to a different table.

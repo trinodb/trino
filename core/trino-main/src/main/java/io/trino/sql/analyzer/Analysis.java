@@ -26,6 +26,7 @@ import com.google.common.collect.Streams;
 import io.trino.metadata.NewTableLayout;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TableExecuteHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.security.AccessControl;
 import io.trino.security.SecurityContext;
@@ -96,6 +97,9 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.sql.analyzer.QueryType.DESCRIBE;
+import static io.trino.sql.analyzer.QueryType.EXPLAIN;
+import static java.lang.Boolean.FALSE;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.unmodifiableMap;
@@ -202,8 +206,7 @@ public class Analysis
     private Optional<TableHandle> analyzeTarget = Optional.empty();
     private Optional<List<ColumnMetadata>> updatedColumns = Optional.empty();
 
-    // for describe input and describe output
-    private final boolean isDescribe;
+    private final QueryType queryType;
 
     // for recursive view detection
     private final Deque<Table> tablesForView = new ArrayDeque<>();
@@ -213,11 +216,13 @@ public class Analysis
     private final Multimap<Field, SourceColumn> originColumnDetails = ArrayListMultimap.create();
     private final Multimap<NodeRef<Expression>, Field> fieldLineage = ArrayListMultimap.create();
 
-    public Analysis(@Nullable Statement root, Map<NodeRef<Parameter>, Expression> parameters, boolean isDescribe)
+    private Optional<TableExecuteHandle> tableExecuteHandle = Optional.empty();
+
+    public Analysis(@Nullable Statement root, Map<NodeRef<Parameter>, Expression> parameters, QueryType queryType)
     {
         this.root = root;
         this.parameters = ImmutableMap.copyOf(requireNonNull(parameters, "parameters is null"));
-        this.isDescribe = isDescribe;
+        this.queryType = requireNonNull(queryType, "queryType is null");
     }
 
     public Statement getStatement()
@@ -238,23 +243,25 @@ public class Analysis
         });
     }
 
-    public void setUpdateType(String updateType, QualifiedObjectName targetName, Optional<Table> targetTable, Optional<List<OutputColumn>> targetColumns)
+    public void setUpdateType(String updateType)
     {
-        this.updateType = updateType;
-        this.target = Optional.of(new UpdateTarget(targetName, targetTable, targetColumns));
+        if (queryType != EXPLAIN) {
+            this.updateType = updateType;
+        }
     }
 
-    public void resetUpdateType()
+    public void setUpdateTarget(QualifiedObjectName targetName, Optional<Table> targetTable, Optional<List<OutputColumn>> targetColumns)
     {
-        this.updateType = null;
-        this.target = Optional.empty();
+        this.target = Optional.of(new UpdateTarget(targetName, targetTable, targetColumns));
     }
 
     public boolean isUpdateTarget(Table table)
     {
-        return ("DELETE".equals(updateType) || "UPDATE".equals(updateType)) &&
-                target.orElseThrow(() -> new IllegalStateException("Update target not set"))
-                        .getTable().orElseThrow(() -> new IllegalStateException("Table reference not set in update target")) == table; // intentional comparison by reference
+        requireNonNull(table, "table is null");
+        return target
+                .flatMap(UpdateTarget::getTable)
+                .map(tableReference -> tableReference == table) // intentional comparison by reference
+                .orElse(FALSE);
     }
 
     public boolean isSkipMaterializedViewRefresh()
@@ -840,9 +847,14 @@ public class Analysis
         return parameters;
     }
 
+    public QueryType getQueryType()
+    {
+        return queryType;
+    }
+
     public boolean isDescribe()
     {
-        return isDescribe;
+        return queryType == DESCRIBE;
     }
 
     public void setJoinUsing(Join node, JoinUsingAnalysis analysis)
@@ -1103,6 +1115,18 @@ public class Analysis
     public PredicateCoercions getPredicateCoercions(Expression expression)
     {
         return predicateCoercions.get(NodeRef.of(expression));
+    }
+
+    public void setTableExecuteHandle(TableExecuteHandle tableExecuteHandle)
+    {
+        requireNonNull(tableExecuteHandle, "tableExecuteHandle is null");
+        checkState(this.tableExecuteHandle.isEmpty(), "tableExecuteHandle already set");
+        this.tableExecuteHandle = Optional.of(tableExecuteHandle);
+    }
+
+    public Optional<TableExecuteHandle> getTableExecuteHandle()
+    {
+        return tableExecuteHandle;
     }
 
     @Immutable

@@ -16,6 +16,7 @@ package io.trino.operator.aggregation;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
+import io.trino.metadata.AggregationFunctionMetadata;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.FunctionDependencies;
@@ -40,6 +41,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.StringJoiner;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -57,12 +59,13 @@ public class ParametricAggregation
         extends SqlAggregationFunction
 {
     private final ParametricImplementationsGroup<AggregationImplementation> implementations;
+    private final Class<?> stateClass;
 
     public ParametricAggregation(
             Signature signature,
             AggregationHeader details,
-            ParametricImplementationsGroup<AggregationImplementation> implementations,
-            boolean deprecated)
+            Class<?> stateClass,
+            ParametricImplementationsGroup<AggregationImplementation> implementations)
     {
         super(
                 new FunctionMetadata(
@@ -74,10 +77,11 @@ public class ParametricAggregation
                         true,
                         details.getDescription().orElse(""),
                         AGGREGATE,
-                        deprecated),
-                details.isDecomposable(),
-                details.isOrderSensitive());
-        requireNonNull(details, "details is null");
+                        details.isDeprecated()),
+                new AggregationFunctionMetadata(
+                        details.isOrderSensitive(),
+                        details.isDecomposable() ? Optional.of(getSerializedType(stateClass).getTypeSignature()) : Optional.empty()));
+        this.stateClass = requireNonNull(stateClass, "stateClass is null");
         checkArgument(implementations.isNullable(), "currently aggregates are required to be nullable");
         this.implementations = requireNonNull(implementations, "implementations is null");
     }
@@ -108,17 +112,6 @@ public class ParametricAggregation
     }
 
     @Override
-    public List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
-    {
-        // Find implementation matching arguments
-        AggregationImplementation concreteImplementation = findMatchingImplementation(functionBinding.getBoundSignature());
-
-        // Use state compiler to extract intermediate types
-        Type serializedType = getSerializedType(concreteImplementation.getStateClass());
-        return ImmutableList.of(serializedType.getTypeSignature());
-    }
-
-    @Override
     public InternalAggregationFunction specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
     {
         // Bind variables
@@ -136,7 +129,6 @@ public class ParametricAggregation
         DynamicClassLoader classLoader = new DynamicClassLoader(definitionClass.getClassLoader(), getClass().getClassLoader());
 
         // Build state factory and serializer
-        Class<?> stateClass = concreteImplementation.getStateClass();
         AccumulatorStateSerializer<?> stateSerializer = generateStateSerializer(stateClass, classLoader);
         AccumulatorStateFactory<?> stateFactory = StateCompiler.generateStateFactory(stateClass, classLoader);
 
@@ -174,6 +166,11 @@ public class ParametricAggregation
                 ImmutableList.of(stateSerializer.getSerializedType()),
                 outputType,
                 new LazyAccumulatorFactoryBinder(aggregationMetadata, classLoader));
+    }
+
+    public Class<?> getStateClass()
+    {
+        return stateClass;
     }
 
     @VisibleForTesting
@@ -234,5 +231,13 @@ public class ParametricAggregation
         }
 
         return builder.build();
+    }
+
+    @Override
+    public String toString()
+    {
+        return new StringJoiner(", ", ParametricAggregation.class.getSimpleName() + "[", "]")
+                .add("signature=" + implementations.getSignature())
+                .toString();
     }
 }

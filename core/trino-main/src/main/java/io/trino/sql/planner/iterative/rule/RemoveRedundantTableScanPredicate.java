@@ -61,7 +61,6 @@ public class RemoveRedundantTableScanPredicate
                     tableScan().capturedAs(TABLE_SCAN)));
 
     private final Metadata metadata;
-    private final DomainTranslator domainTranslator;
     private final TypeAnalyzer typeAnalyzer;
     private final TypeOperators typeOperators;
 
@@ -69,7 +68,6 @@ public class RemoveRedundantTableScanPredicate
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
-        this.domainTranslator = new DomainTranslator(metadata);
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
     }
 
@@ -151,7 +149,7 @@ public class RemoveRedundantTableScanPredicate
                 session,
                 symbolAllocator,
                 typeAnalyzer,
-                domainTranslator.toPredicate(unenforcedDomain.transformKeys(assignments::get)),
+                new DomainTranslator(session, metadata).toPredicate(unenforcedDomain.transformKeys(assignments::get)),
                 nonDeterministicPredicate,
                 decomposedPredicate.getRemainingExpression());
 

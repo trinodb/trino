@@ -85,6 +85,7 @@ import static io.trino.spi.security.AccessDeniedException.denyInsertTable;
 import static io.trino.spi.security.AccessDeniedException.denyReadSystemInformationAccess;
 import static io.trino.spi.security.AccessDeniedException.denyRefreshMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyRenameColumn;
+import static io.trino.spi.security.AccessDeniedException.denyRenameMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyRenameSchema;
 import static io.trino.spi.security.AccessDeniedException.denyRenameTable;
 import static io.trino.spi.security.AccessDeniedException.denyRenameView;
@@ -96,6 +97,7 @@ import static io.trino.spi.security.AccessDeniedException.denySetCatalogSessionP
 import static io.trino.spi.security.AccessDeniedException.denySetSchemaAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denySetSystemSessionProperty;
 import static io.trino.spi.security.AccessDeniedException.denySetTableAuthorization;
+import static io.trino.spi.security.AccessDeniedException.denySetTableProperties;
 import static io.trino.spi.security.AccessDeniedException.denySetUser;
 import static io.trino.spi.security.AccessDeniedException.denySetViewAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denyShowColumns;
@@ -325,7 +327,7 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanExecuteQuery(SystemSecurityContext context)
     {
-        if (!canAccessQuery(context.getIdentity(), QueryAccessRule.AccessMode.EXECUTE)) {
+        if (!canAccessQuery(context.getIdentity(), Optional.empty(), QueryAccessRule.AccessMode.EXECUTE)) {
             denyViewQuery();
         }
     }
@@ -333,7 +335,7 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanViewQueryOwnedBy(SystemSecurityContext context, String queryOwner)
     {
-        if (!canAccessQuery(context.getIdentity(), QueryAccessRule.AccessMode.VIEW)) {
+        if (!canAccessQuery(context.getIdentity(), Optional.of(queryOwner), QueryAccessRule.AccessMode.VIEW)) {
             denyViewQuery();
         }
     }
@@ -346,25 +348,25 @@ public class FileBasedSystemAccessControl
         }
         Identity identity = context.getIdentity();
         return queryOwners.stream()
-                .filter(owner -> canAccessQuery(identity, QueryAccessRule.AccessMode.VIEW))
+                .filter(owner -> canAccessQuery(identity, Optional.of(owner), QueryAccessRule.AccessMode.VIEW))
                 .collect(toImmutableSet());
     }
 
     @Override
     public void checkCanKillQueryOwnedBy(SystemSecurityContext context, String queryOwner)
     {
-        if (!canAccessQuery(context.getIdentity(), QueryAccessRule.AccessMode.KILL)) {
+        if (!canAccessQuery(context.getIdentity(), Optional.of(queryOwner), QueryAccessRule.AccessMode.KILL)) {
             denyViewQuery();
         }
     }
 
-    private boolean canAccessQuery(Identity identity, QueryAccessRule.AccessMode requiredAccess)
+    private boolean canAccessQuery(Identity identity, Optional<String> queryOwner, QueryAccessRule.AccessMode requiredAccess)
     {
         if (queryAccessRules.isEmpty()) {
             return true;
         }
         for (QueryAccessRule rule : queryAccessRules.get()) {
-            Optional<Set<QueryAccessRule.AccessMode>> accessMode = rule.match(identity.getUser(), identity.getEnabledRoles());
+            Optional<Set<QueryAccessRule.AccessMode>> accessMode = rule.match(identity.getUser(), identity.getEnabledRoles(), identity.getGroups(), queryOwner);
             if (accessMode.isPresent()) {
                 return accessMode.get().contains(requiredAccess);
             }
@@ -507,6 +509,15 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
+    public void checkCanCreateTable(SystemSecurityContext context, CatalogSchemaTableName table, Map<String, Object> properties)
+    {
+        // check if user will be an owner of the table after creation
+        if (!checkTablePermission(context, table, OWNERSHIP)) {
+            denyCreateTable(table.toString());
+        }
+    }
+
+    @Override
     public void checkCanDropTable(SystemSecurityContext context, CatalogSchemaTableName table)
     {
         if (!checkTablePermission(context, table, OWNERSHIP)) {
@@ -520,6 +531,14 @@ public class FileBasedSystemAccessControl
         // check if user is an owner current table and will be an owner of the renamed table
         if (!checkTablePermission(context, table, OWNERSHIP) || !checkTablePermission(context, newTable, OWNERSHIP)) {
             denyRenameTable(table.toString(), newTable.toString());
+        }
+    }
+
+    @Override
+    public void checkCanSetTableProperties(SystemSecurityContext context, CatalogSchemaTableName table, Map<String, Object> properties)
+    {
+        if (!checkTablePermission(context, table, OWNERSHIP)) {
+            denySetTableProperties(table.toString());
         }
     }
 
@@ -757,6 +776,15 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
+    public void checkCanRenameMaterializedView(SystemSecurityContext context, CatalogSchemaTableName view, CatalogSchemaTableName newView)
+    {
+        // check if user owns the existing materialized view, and if they will be an owner of the materialized view after the rename
+        if (!checkTablePermission(context, view, OWNERSHIP) || !checkTablePermission(context, newView, OWNERSHIP)) {
+            denyRenameMaterializedView(view.toString(), newView.toString());
+        }
+    }
+
+    @Override
     public void checkCanGrantExecuteFunctionPrivilege(SystemSecurityContext context, String functionName, TrinoPrincipal grantee, boolean grantOption)
     {
     }
@@ -877,6 +905,11 @@ public class FileBasedSystemAccessControl
 
     @Override
     public void checkCanExecuteFunction(SystemSecurityContext systemSecurityContext, String functionName)
+    {
+    }
+
+    @Override
+    public void checkCanExecuteTableProcedure(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName table, String procedure)
     {
     }
 

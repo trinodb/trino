@@ -17,7 +17,6 @@ import io.trino.metadata.Metadata;
 import io.trino.spi.type.Type;
 import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
-import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.SymbolsExtractor;
@@ -25,7 +24,7 @@ import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.ExpressionRewriter;
 import io.trino.sql.tree.ExpressionTreeRewriter;
-import io.trino.sql.tree.LogicalBinaryExpression;
+import io.trino.sql.tree.LogicalExpression;
 import org.testng.annotations.Test;
 
 import java.util.Comparator;
@@ -40,8 +39,8 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
-import static io.trino.sql.ExpressionUtils.binaryExpression;
 import static io.trino.sql.ExpressionUtils.extractPredicates;
+import static io.trino.sql.ExpressionUtils.logicalExpression;
 import static io.trino.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static io.trino.sql.planner.iterative.rule.SimplifyExpressions.rewrite;
 import static java.util.stream.Collectors.toList;
@@ -51,7 +50,6 @@ public class TestSimplifyExpressions
 {
     private static final SqlParser SQL_PARSER = new SqlParser();
     private static final Metadata METADATA = createTestMetadataManager();
-    private static final LiteralEncoder LITERAL_ENCODER = new LiteralEncoder(METADATA);
 
     @Test
     public void testPushesDownNegations()
@@ -120,12 +118,21 @@ public class TestSimplifyExpressions
                         " OR (A51 AND A52) OR (A53 AND A54) OR (A55 AND A56) OR (A57 AND A58) OR (A59 AND A60)");
     }
 
+    @Test
+    public void testMultipleNulls()
+    {
+        assertSimplifies("null AND null AND null AND false", "false");
+        assertSimplifies("null AND null AND null AND B1", "null AND B1");
+        assertSimplifies("null OR null OR null OR true", "true");
+        assertSimplifies("null OR null OR null OR B1", "null OR B1");
+    }
+
     private static void assertSimplifies(String expression, String expected)
     {
         ParsingOptions parsingOptions = new ParsingOptions();
         Expression actualExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expression, parsingOptions));
         Expression expectedExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expected, parsingOptions));
-        Expression rewritten = rewrite(actualExpression, TEST_SESSION, new SymbolAllocator(booleanSymbolTypeMapFor(actualExpression)), METADATA, LITERAL_ENCODER, new TypeAnalyzer(SQL_PARSER, METADATA));
+        Expression rewritten = rewrite(actualExpression, TEST_SESSION, new SymbolAllocator(booleanSymbolTypeMapFor(actualExpression)), METADATA, new TypeAnalyzer(SQL_PARSER, METADATA));
         assertEquals(
                 normalize(rewritten),
                 normalize(expectedExpression));
@@ -194,7 +201,7 @@ public class TestSimplifyExpressions
         ParsingOptions parsingOptions = new ParsingOptions();
         Expression actualExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expression, parsingOptions));
         Expression expectedExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expected, parsingOptions));
-        Expression rewritten = rewrite(actualExpression, TEST_SESSION, new SymbolAllocator(numericAndBooleanSymbolTypeMapFor(actualExpression)), METADATA, LITERAL_ENCODER, new TypeAnalyzer(SQL_PARSER, METADATA));
+        Expression rewritten = rewrite(actualExpression, TEST_SESSION, new SymbolAllocator(numericAndBooleanSymbolTypeMapFor(actualExpression)), METADATA, new TypeAnalyzer(SQL_PARSER, METADATA));
         assertEquals(
                 normalize(rewritten),
                 normalize(expectedExpression));
@@ -230,13 +237,13 @@ public class TestSimplifyExpressions
             extends ExpressionRewriter<Void>
     {
         @Override
-        public Expression rewriteLogicalBinaryExpression(LogicalBinaryExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+        public Expression rewriteLogicalExpression(LogicalExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
             List<Expression> predicates = extractPredicates(node.getOperator(), node).stream()
                     .map(p -> treeRewriter.rewrite(p, context))
                     .sorted(Comparator.comparing(Expression::toString))
                     .collect(toList());
-            return binaryExpression(node.getOperator(), predicates);
+            return logicalExpression(node.getOperator(), predicates);
         }
     }
 }

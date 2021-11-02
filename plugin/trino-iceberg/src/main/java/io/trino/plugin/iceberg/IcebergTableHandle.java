@@ -130,6 +130,6 @@ public class IcebergTableHandle
     @Override
     public String toString()
     {
-        return getSchemaTableNameWithType() + "@" + snapshotId;
+        return getSchemaTableNameWithType() + snapshotId.map(v -> "@" + v).orElse("");
     }
 }

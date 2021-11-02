@@ -14,6 +14,7 @@
 package io.trino.plugin.kudu;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Ints;
 import io.trino.Session;
 import io.trino.execution.Lifespan;
@@ -43,6 +44,7 @@ import org.testng.annotations.Test;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -111,6 +113,12 @@ public class TestKuduIntegrationDynamicFilter
     private static class IncompleteDynamicFilter
             implements DynamicFilter
     {
+        @Override
+        public Set<ColumnHandle> getColumnsCovered()
+        {
+            return ImmutableSet.of();
+        }
+
         @Override
         public CompletableFuture<?> isBlocked()
         {

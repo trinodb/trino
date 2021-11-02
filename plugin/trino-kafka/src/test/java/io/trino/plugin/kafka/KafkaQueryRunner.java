@@ -145,7 +145,7 @@ public final class KafkaQueryRunner
                 long start = System.nanoTime();
                 log.info("Running import for %s", table.getTableName());
                 queryRunner.execute(format("INSERT INTO %1$s SELECT * FROM tpch.tiny.%1$s", table.getTableName()));
-                log.info("Imported %s in %s", 0, table.getTableName(), nanosSince(start).convertToMostSuccinctTimeUnit());
+                log.info("Imported %s in %s", table.getTableName(), nanosSince(start).convertToMostSuccinctTimeUnit());
             }
             log.info("Loading complete in %s", nanosSince(startTime).toString(SECONDS));
         }

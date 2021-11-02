@@ -15,7 +15,7 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.Metadata;
-import io.trino.metadata.MetadataManager;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import io.trino.sql.tree.Expression;
@@ -34,14 +34,16 @@ import static org.testng.Assert.assertTrue;
 
 public class TestDeterminismEvaluator
 {
-    private final Metadata metadata = MetadataManager.createTestMetadataManager();
+    private final TestingFunctionResolution functionResolution = new TestingFunctionResolution();
 
     @Test
     public void testSanity()
     {
+        Metadata metadata = functionResolution.getMetadata();
         assertFalse(DeterminismEvaluator.isDeterministic(function("rand"), metadata));
         assertFalse(DeterminismEvaluator.isDeterministic(function("random"), metadata));
-        assertFalse(DeterminismEvaluator.isDeterministic(function("shuffle", ImmutableList.of(new ArrayType(VARCHAR)), ImmutableList.of(new NullLiteral())), metadata));
+        assertFalse(DeterminismEvaluator.isDeterministic(function("shuffle", ImmutableList.of(new ArrayType(VARCHAR)), ImmutableList.of(new NullLiteral())),
+                metadata));
         assertFalse(DeterminismEvaluator.isDeterministic(function("uuid"), metadata));
         assertTrue(DeterminismEvaluator.isDeterministic(function("abs", ImmutableList.of(DOUBLE), ImmutableList.of(input("symbol"))), metadata));
         assertFalse(DeterminismEvaluator.isDeterministic(function("abs", ImmutableList.of(DOUBLE), ImmutableList.of(function("rand"))), metadata));
@@ -60,8 +62,8 @@ public class TestDeterminismEvaluator
 
     private FunctionCall function(String name, List<Type> types, List<Expression> arguments)
     {
-        return new FunctionCallBuilder(metadata)
-                .setName(QualifiedName.of(name))
+        return functionResolution
+                .functionCallBuilder(QualifiedName.of(name))
                 .setArguments(types, arguments)
                 .build();
     }

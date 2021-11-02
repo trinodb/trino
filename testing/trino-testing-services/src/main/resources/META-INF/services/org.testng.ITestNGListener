@@ -6,3 +6,4 @@ io.trino.testng.services.ReportMultiThreadedBeforeOrAfterMethod
 io.trino.testng.services.LogTestDurationListener
 io.trino.testng.services.RetryAnnotationTransformer
 io.trino.testng.services.FlakyAnnotationVerifier
+io.trino.testng.services.ProgressLoggingListener

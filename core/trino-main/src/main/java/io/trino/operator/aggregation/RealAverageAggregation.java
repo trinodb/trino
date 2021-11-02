@@ -15,6 +15,7 @@ package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
+import io.trino.metadata.AggregationFunctionMetadata;
 import io.trino.metadata.FunctionArgumentDefinition;
 import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.FunctionMetadata;
@@ -28,7 +29,6 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateSerializer;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
@@ -41,6 +41,8 @@ import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadat
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static io.trino.operator.aggregation.AggregationUtils.generateAggregationName;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.util.Reflection.methodHandle;
 import static java.lang.Float.floatToIntBits;
@@ -74,16 +76,10 @@ public class RealAverageAggregation
                         true,
                         "Returns the average value of the argument",
                         AGGREGATE),
-                true,
-                false);
-    }
-
-    @Override
-    public List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
-    {
-        return ImmutableList.of(
-                StateCompiler.getSerializedType(LongState.class).getTypeSignature(),
-                StateCompiler.getSerializedType(DoubleState.class).getTypeSignature());
+                new AggregationFunctionMetadata(
+                        false,
+                        BIGINT.getTypeSignature(),
+                        DOUBLE.getTypeSignature()));
     }
 
     @Override

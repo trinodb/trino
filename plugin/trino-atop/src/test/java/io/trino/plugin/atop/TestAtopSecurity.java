@@ -29,6 +29,7 @@ import java.nio.file.Path;
 
 import static io.trino.plugin.atop.LocalAtopQueryRunner.createQueryRunner;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestAtopSecurity
 {
@@ -57,11 +58,13 @@ public class TestAtopSecurity
         queryRunner.execute(admin, "SELECT * FROM disks");
     }
 
-    @Test(expectedExceptions = AccessDeniedException.class)
+    @Test
     public void testNonAdminCannotRead()
     {
         Session bob = getSession("bob");
-        queryRunner.execute(bob, "SELECT * FROM disks");
+        assertThatThrownBy(() -> queryRunner.execute(bob, "SELECT * FROM disks"))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessageMatching("Access Denied:.*");
     }
 
     private Session getSession(String user)

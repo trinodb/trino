@@ -40,4 +40,6 @@ public interface HiveMaterializedViewMetadata
     boolean delegateMaterializedViewRefreshToConnector(ConnectorSession session, SchemaTableName viewName);
 
     CompletableFuture<?> refreshMaterializedView(ConnectorSession session, SchemaTableName viewName);
+
+    void renameMaterializedView(ConnectorSession session, SchemaTableName existingViewName, SchemaTableName newViewName);
 }

@@ -40,10 +40,24 @@ public class TestIcebergPlugin
         factory.create(
                 "test",
                 Map.of(
-                        "hive.metastore", "thrift",
+                        "iceberg.catalog.type", "HIVE_METASTORE",
                         "hive.metastore.uri", "thrift://foo:1234"),
                 new TestingConnectorContext())
                 .shutdown();
+    }
+
+    @Test
+    public void testHiveMetastoreRejected()
+    {
+        ConnectorFactory factory = getConnectorFactory();
+
+        assertThatThrownBy(() -> factory.create(
+                "test",
+                Map.of(
+                        "hive.metastore", "thrift",
+                        "hive.metastore.uri", "thrift://foo:1234"),
+                new TestingConnectorContext()))
+                .hasMessageContaining("Error: Configuration property 'hive.metastore' was not used");
     }
 
     @Test
@@ -53,14 +67,14 @@ public class TestIcebergPlugin
 
         assertThatThrownBy(() -> factory.create(
                 "test",
-                Map.of("hive.metastore", "glue"),
+                Map.of("iceberg.catalog.type", "glue"),
                 new TestingConnectorContext()))
                 .hasMessageContaining("Explicit bindings are required and HiveMetastore is not explicitly bound");
 
         assertThatThrownBy(() -> factory.create(
                 "test",
                 Map.of(
-                        "hive.metastore", "glue",
+                        "iceberg.catalog.type", "glue",
                         "hive.metastore.uri", "thrift://foo:1234"),
                 new TestingConnectorContext()))
                 .hasMessageContaining("Error: Configuration property 'hive.metastore.uri' was not used");
@@ -75,7 +89,7 @@ public class TestIcebergPlugin
         factory.create(
                 "test",
                 Map.of(
-                        "hive.metastore", "thrift",
+                        "iceberg.catalog.type", "HIVE_METASTORE",
                         "hive.metastore.uri", "thrift://foo:1234",
                         "hive.metastore-recording-path", "/tmp"),
                 new TestingConnectorContext())
@@ -85,7 +99,7 @@ public class TestIcebergPlugin
         assertThatThrownBy(() -> factory.create(
                 "test",
                 Map.of(
-                        "hive.metastore", "glue",
+                        "iceberg.catalog.type", "glue",
                         "hive.metastore.glue.region", "us-east-2",
                         "hive.metastore-recording-path", "/tmp"),
                 new TestingConnectorContext()))

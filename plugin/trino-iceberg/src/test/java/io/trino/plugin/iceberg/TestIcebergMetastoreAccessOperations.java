@@ -35,6 +35,7 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -83,7 +84,7 @@ public class TestIcebergMetastoreAccessOperations
                         .setCatalogDirectory(baseDir.toURI().toString())
                         .setMetastoreUser("test"));
         metastore = new CountingAccessFileHiveMetastore(hiveMetastore);
-        queryRunner.installPlugin(new TestingIcebergPlugin(metastore));
+        queryRunner.installPlugin(new TestingIcebergPlugin(Optional.of(metastore), Optional.empty()));
         queryRunner.createCatalog("iceberg", "iceberg");
 
         queryRunner.execute("CREATE SCHEMA test_schema");

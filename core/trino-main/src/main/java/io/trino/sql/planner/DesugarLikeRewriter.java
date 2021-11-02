@@ -34,9 +34,9 @@ import static java.util.Objects.requireNonNull;
 
 public final class DesugarLikeRewriter
 {
-    public static Expression rewrite(Expression expression, Map<NodeRef<Expression>, Type> expressionTypes, Metadata metadata)
+    public static Expression rewrite(Expression expression, Map<NodeRef<Expression>, Type> expressionTypes, Metadata metadata, Session session)
     {
-        return ExpressionTreeRewriter.rewriteWith(new Visitor(expressionTypes, metadata), expression);
+        return ExpressionTreeRewriter.rewriteWith(new Visitor(expressionTypes, metadata, session), expression);
     }
 
     private DesugarLikeRewriter() {}
@@ -51,7 +51,7 @@ public final class DesugarLikeRewriter
         }
         Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, typeProvider, expression);
 
-        return rewrite(expression, expressionTypes, metadata);
+        return rewrite(expression, expressionTypes, metadata, session);
     }
 
     private static class Visitor
@@ -59,11 +59,13 @@ public final class DesugarLikeRewriter
     {
         private final Map<NodeRef<Expression>, Type> expressionTypes;
         private final Metadata metadata;
+        private final Session session;
 
-        public Visitor(Map<NodeRef<Expression>, Type> expressionTypes, Metadata metadata)
+        public Visitor(Map<NodeRef<Expression>, Type> expressionTypes, Metadata metadata, Session session)
         {
             this.expressionTypes = ImmutableMap.copyOf(requireNonNull(expressionTypes, "expressionTypes is null"));
             this.metadata = metadata;
+            this.session = session;
         }
 
         @Override
@@ -73,20 +75,20 @@ public final class DesugarLikeRewriter
 
             FunctionCall patternCall;
             if (rewritten.getEscape().isPresent()) {
-                patternCall = new FunctionCallBuilder(metadata)
+                patternCall = FunctionCallBuilder.resolve(session, metadata)
                         .setName(QualifiedName.of(LIKE_PATTERN_FUNCTION_NAME))
                         .addArgument(getType(node.getPattern()), rewritten.getPattern())
                         .addArgument(getType(node.getEscape().get()), rewritten.getEscape().get())
                         .build();
             }
             else {
-                patternCall = new FunctionCallBuilder(metadata)
+                patternCall = FunctionCallBuilder.resolve(session, metadata)
                         .setName(QualifiedName.of(LIKE_PATTERN_FUNCTION_NAME))
                         .addArgument(getType(node.getPattern()), rewritten.getPattern())
                         .build();
             }
 
-            return new FunctionCallBuilder(metadata)
+            return FunctionCallBuilder.resolve(session, metadata)
                     .setName(QualifiedName.of("LIKE"))
                     .addArgument(getType(node.getValue()), rewritten.getValue())
                     .addArgument(LIKE_PATTERN, patternCall)

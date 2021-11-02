@@ -27,6 +27,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarcharType;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
@@ -58,6 +59,7 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
@@ -176,6 +178,9 @@ public class CassandraPageSink
         }
         else if (VARBINARY.equals(type)) {
             values.add(type.getSlice(block, position).toByteBuffer());
+        }
+        else if (UuidType.UUID.equals(type)) {
+            values.add(trinoUuidToJavaUuid(type.getSlice(block, position)));
         }
         else {
             throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());

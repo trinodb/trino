@@ -49,7 +49,7 @@ import javax.inject.Inject;
 import java.util.Map;
 import java.util.OptionalDouble;
 
-import static io.trino.cost.StatsUtil.toStatsRepresentation;
+import static io.trino.spi.statistics.StatsUtil.toStatsRepresentation;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
 import static io.trino.sql.planner.LiteralInterpreter.evaluate;
 import static io.trino.util.MoreMath.max;
@@ -115,9 +115,9 @@ public class ScalarStatsCalculator
         {
             ExpressionAnalyzer analyzer = createConstantAnalyzer(metadata, new AllowAllAccessControl(), session, ImmutableMap.of(), WarningCollector.NOOP);
             Type type = analyzer.analyze(node, Scope.create());
-            Object value = evaluate(metadata, session.toConnectorSession(), analyzer.getExpressionTypes(), node);
+            Object value = evaluate(metadata, session, analyzer.getExpressionTypes(), node);
 
-            OptionalDouble doubleValue = toStatsRepresentation(metadata, session, type, value);
+            OptionalDouble doubleValue = toStatsRepresentation(type, value);
             SymbolStatsEstimate.Builder estimate = SymbolStatsEstimate.builder()
                     .setNullsFraction(0)
                     .setDistinctValuesCount(1);

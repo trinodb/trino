@@ -19,6 +19,8 @@ import io.trino.spi.connector.ConnectorSplitSource;
 
 import javax.inject.Inject;
 
+import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 import static java.util.Objects.requireNonNull;
@@ -41,6 +43,14 @@ public class ClassLoaderSafeConnectorSplitSource
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.getNextBatch(partitionHandle, maxSize);
+        }
+    }
+
+    @Override
+    public Optional<List<Object>> getTableExecuteSplitsInfo()
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getTableExecuteSplitsInfo();
         }
     }
 

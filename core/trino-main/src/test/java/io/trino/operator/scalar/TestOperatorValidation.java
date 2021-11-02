@@ -20,14 +20,17 @@ import io.trino.spi.type.StandardTypes;
 import org.testng.annotations.Test;
 
 import static io.trino.spi.function.OperatorType.ADD;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @SuppressWarnings("UtilityClassWithoutPrivateConstructor")
 public class TestOperatorValidation
 {
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "ADD operator must have exactly 2 argument.*")
+    @Test
     public void testInvalidArgumentCount()
     {
-        extractScalars(InvalidArgumentCount.class);
+        assertThatThrownBy(() -> extractScalars(InvalidArgumentCount.class))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageMatching("ADD operator must have exactly 2 argument.*");
     }
 
     public static final class InvalidArgumentCount

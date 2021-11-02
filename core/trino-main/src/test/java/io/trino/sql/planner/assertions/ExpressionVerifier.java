@@ -34,7 +34,7 @@ import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.LikePredicate;
-import io.trino.sql.tree.LogicalBinaryExpression;
+import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NotExpression;
@@ -427,17 +427,25 @@ public final class ExpressionVerifier
     }
 
     @Override
-    protected Boolean visitLogicalBinaryExpression(LogicalBinaryExpression actual, Node expectedExpression)
+    protected Boolean visitLogicalExpression(LogicalExpression actual, Node expectedExpression)
     {
-        if (!(expectedExpression instanceof LogicalBinaryExpression)) {
+        if (!(expectedExpression instanceof LogicalExpression)) {
             return false;
         }
 
-        LogicalBinaryExpression expected = (LogicalBinaryExpression) expectedExpression;
+        LogicalExpression expected = (LogicalExpression) expectedExpression;
 
-        return actual.getOperator() == expected.getOperator() &&
-                process(actual.getLeft(), expected.getLeft()) &&
-                process(actual.getRight(), expected.getRight());
+        if (actual.getTerms().size() != expected.getTerms().size() || actual.getOperator() != expected.getOperator()) {
+            return false;
+        }
+
+        for (int i = 0; i < actual.getTerms().size(); i++) {
+            if (!process(actual.getTerms().get(i), expected.getTerms().get(i))) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     @Override
