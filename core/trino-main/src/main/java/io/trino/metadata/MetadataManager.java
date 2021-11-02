@@ -2585,6 +2585,7 @@ public final class MetadataManager
         return new ResolvedFunction(
                 functionBinding.getBoundSignature(),
                 functionBinding.getFunctionId(),
+                functionMetadata.getKind(),
                 functionMetadata.getFunctionNullability(),
                 dependentTypes,
                 functions.build());
