@@ -14,7 +14,7 @@
 package io.trino.testing;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
@@ -60,11 +60,11 @@ public class StatefulSleepingSum
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
+    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
     {
         int args = 4;
         return new ChoicesScalarFunctionImplementation(
-                functionBinding,
+                boundSignature,
                 FAIL_ON_NULL,
                 nCopies(args, NEVER_NULL),
                 methodHandle(StatefulSleepingSum.class, "statefulSleepingSum", State.class, double.class, long.class, long.class, long.class),

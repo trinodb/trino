@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.trino.array.ObjectBigArray;
 import io.trino.metadata.AggregationFunctionMetadata;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
@@ -112,14 +112,14 @@ public class MultimapAggregationFunction
     }
 
     @Override
-    public InternalAggregationFunction specialize(FunctionBinding functionBinding)
+    public InternalAggregationFunction specialize(BoundSignature boundSignature)
     {
-        Type keyType = functionBinding.getTypeVariable("K");
+        Type keyType = boundSignature.getArgumentType(0);
         BlockPositionEqual keyEqual = blockTypeOperators.getEqualOperator(keyType);
         BlockPositionHashCode keyHashCode = blockTypeOperators.getHashCodeOperator(keyType);
 
-        Type valueType = functionBinding.getTypeVariable("V");
-        Type outputType = functionBinding.getBoundSignature().getReturnType();
+        Type valueType = boundSignature.getArgumentType(1);
+        Type outputType = boundSignature.getReturnType();
         return generateAggregation(keyType, keyEqual, keyHashCode, valueType, outputType);
     }
 

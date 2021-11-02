@@ -25,7 +25,7 @@ import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.ForLoop;
 import io.airlift.bytecode.control.IfStatement;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
@@ -98,11 +98,11 @@ public final class MapFilterFunction
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
+    public ScalarFunctionImplementation specialize(BoundSignature boundSignature)
     {
-        MapType mapType = (MapType) functionBinding.getBoundSignature().getReturnType();
+        MapType mapType = (MapType) boundSignature.getReturnType();
         return new ChoicesScalarFunctionImplementation(
-                functionBinding,
+                boundSignature,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, FUNCTION),
                 ImmutableList.of(BinaryFunctionInterface.class),

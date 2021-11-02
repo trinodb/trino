@@ -16,7 +16,7 @@ package io.trino.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionDependencies;
 import io.trino.metadata.FunctionDependencyDeclaration;
 import io.trino.metadata.FunctionNullability;
@@ -27,6 +27,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.InvocationConvention;
+import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.type.BlockTypeOperators;
@@ -103,21 +104,22 @@ public final class MapToMapCast
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    public ScalarFunctionImplementation specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
-        checkArgument(functionBinding.getArity() == 1, "Expected arity to be 1");
-        Type fromKeyType = functionBinding.getTypeVariable("FK");
-        Type fromValueType = functionBinding.getTypeVariable("FV");
-        Type toKeyType = functionBinding.getTypeVariable("TK");
-        Type toValueType = functionBinding.getTypeVariable("TV");
-        Type toMapType = functionBinding.getBoundSignature().getReturnType();
+        checkArgument(boundSignature.getArity() == 1, "Expected arity to be 1");
+        MapType fromMapType = (MapType) boundSignature.getArgumentType(0);
+        Type fromKeyType = fromMapType.getKeyType();
+        Type fromValueType = fromMapType.getValueType();
+        MapType toMapType = (MapType) boundSignature.getReturnType();
+        Type toKeyType = toMapType.getKeyType();
+        Type toValueType = toMapType.getValueType();
 
         MethodHandle keyProcessor = buildProcessor(functionDependencies, fromKeyType, toKeyType, true);
         MethodHandle valueProcessor = buildProcessor(functionDependencies, fromValueType, toValueType, false);
         BlockPositionEqual keyEqual = blockTypeOperators.getEqualOperator(toKeyType);
         BlockPositionHashCode keyHashCode = blockTypeOperators.getHashCodeOperator(toKeyType);
         MethodHandle target = MethodHandles.insertArguments(METHOD_HANDLE, 0, keyProcessor, valueProcessor, toMapType, keyEqual, keyHashCode);
-        return new ChoicesScalarFunctionImplementation(functionBinding, NULLABLE_RETURN, ImmutableList.of(NEVER_NULL), target);
+        return new ChoicesScalarFunctionImplementation(boundSignature, NULLABLE_RETURN, ImmutableList.of(NEVER_NULL), target);
     }
 
     /**

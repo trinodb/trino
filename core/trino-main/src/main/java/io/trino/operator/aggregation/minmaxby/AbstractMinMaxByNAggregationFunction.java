@@ -16,7 +16,7 @@ package io.trino.operator.aggregation.minmaxby;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.trino.metadata.AggregationFunctionMetadata;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionDependencies;
 import io.trino.metadata.FunctionDependencyDeclaration;
 import io.trino.metadata.FunctionMetadata;
@@ -101,16 +101,16 @@ public abstract class AbstractMinMaxByNAggregationFunction
     }
 
     @Override
-    public FunctionDependencyDeclaration getFunctionDependencies(FunctionBinding functionBinding)
+    public FunctionDependencyDeclaration getFunctionDependencies(BoundSignature boundSignature)
     {
-        return MinMaxCompare.getMinMaxCompareFunctionDependencies(functionBinding.getTypeVariable("K").getTypeSignature(), min);
+        return MinMaxCompare.getMinMaxCompareFunctionDependencies(boundSignature.getArgumentTypes().get(1).getTypeSignature(), min);
     }
 
     @Override
-    public InternalAggregationFunction specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    public InternalAggregationFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
-        Type keyType = functionBinding.getTypeVariable("K");
-        Type valueType = functionBinding.getTypeVariable("V");
+        Type keyType = boundSignature.getArgumentTypes().get(1);
+        Type valueType = boundSignature.getArgumentTypes().get(0);
         MethodHandle keyComparisonMethod = getMinMaxCompare(functionDependencies, keyType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION), min);
         return generateAggregation(keyComparisonMethod, valueType, keyType);
     }

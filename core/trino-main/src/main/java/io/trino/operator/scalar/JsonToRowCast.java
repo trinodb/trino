@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.SqlOperator;
 import io.trino.metadata.TypeVariableConstraint;
 import io.trino.spi.TrinoException;
@@ -34,7 +34,6 @@ import io.trino.util.JsonUtil.BlockBuilderAppender;
 
 import java.lang.invoke.MethodHandle;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
@@ -67,16 +66,15 @@ public class JsonToRowCast
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
+    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
     {
-        checkArgument(functionBinding.getArity() == 1, "Expected arity to be 1");
-        RowType rowType = (RowType) functionBinding.getTypeVariable("T");
+        RowType rowType = (RowType) boundSignature.getReturnType();
         checkCondition(canCastFromJson(rowType), INVALID_CAST_ARGUMENT, "Cannot cast JSON to %s", rowType);
 
         BlockBuilderAppender fieldAppender = createBlockBuilderAppender(rowType);
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(rowType).bindTo(fieldAppender);
         return new ChoicesScalarFunctionImplementation(
-                functionBinding,
+                boundSignature,
                 NULLABLE_RETURN,
                 ImmutableList.of(NEVER_NULL),
                 methodHandle);

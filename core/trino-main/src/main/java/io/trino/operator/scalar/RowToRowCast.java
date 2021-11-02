@@ -24,7 +24,7 @@ import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionDependencies;
 import io.trino.metadata.FunctionDependencyDeclaration;
 import io.trino.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
@@ -46,7 +46,6 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Objects;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.bytecode.Access.FINAL;
 import static io.airlift.bytecode.Access.PUBLIC;
 import static io.airlift.bytecode.Access.STATIC;
@@ -121,10 +120,10 @@ public class RowToRowCast
     }
 
     @Override
-    public FunctionDependencyDeclaration getFunctionDependencies(FunctionBinding functionBinding)
+    public FunctionDependencyDeclaration getFunctionDependencies(BoundSignature boundSignature)
     {
-        List<Type> toTypes = functionBinding.getTypeVariable("T").getTypeParameters();
-        List<Type> fromTypes = functionBinding.getTypeVariable("F").getTypeParameters();
+        List<Type> toTypes = boundSignature.getReturnType().getTypeParameters();
+        List<Type> fromTypes = boundSignature.getArgumentType(0).getTypeParameters();
 
         FunctionDependencyDeclarationBuilder builder = FunctionDependencyDeclaration.builder();
         for (int i = 0; i < toTypes.size(); i++) {
@@ -136,18 +135,17 @@ public class RowToRowCast
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    public ScalarFunctionImplementation specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
-        checkArgument(functionBinding.getArity() == 1, "Expected arity to be 1");
-        Type fromType = functionBinding.getTypeVariable("F");
-        Type toType = functionBinding.getTypeVariable("T");
+        Type fromType = boundSignature.getArgumentType(0);
+        Type toType = boundSignature.getReturnType();
         if (fromType.getTypeParameters().size() != toType.getTypeParameters().size()) {
             throw new TrinoException(StandardErrorCode.INVALID_FUNCTION_ARGUMENT, "the size of fromType and toType must match");
         }
         Class<?> castOperatorClass = generateRowCast(fromType, toType, functionDependencies);
         MethodHandle methodHandle = methodHandle(castOperatorClass, "castRow", ConnectorSession.class, Block.class);
         return new ChoicesScalarFunctionImplementation(
-                functionBinding,
+                boundSignature,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL),
                 methodHandle);

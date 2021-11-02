@@ -16,7 +16,7 @@ package io.trino.operator.aggregation;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.trino.metadata.AggregationFunctionMetadata;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
@@ -87,10 +87,10 @@ public class DecimalSumAggregation
     }
 
     @Override
-    public InternalAggregationFunction specialize(FunctionBinding functionBinding)
+    public InternalAggregationFunction specialize(BoundSignature boundSignature)
     {
-        Type inputType = getOnlyElement(functionBinding.getBoundSignature().getArgumentTypes());
-        Type outputType = functionBinding.getBoundSignature().getReturnType();
+        Type inputType = getOnlyElement(boundSignature.getArgumentTypes());
+        Type outputType = boundSignature.getReturnType();
         return generateAggregation(inputType, outputType);
     }
 

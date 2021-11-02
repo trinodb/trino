@@ -14,7 +14,7 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
@@ -55,10 +55,10 @@ public final class GenericLongFunction
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
+    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
     {
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(longUnaryOperator);
-        return new ChoicesScalarFunctionImplementation(functionBinding, FAIL_ON_NULL, ImmutableList.of(NEVER_NULL), methodHandle);
+        return new ChoicesScalarFunctionImplementation(boundSignature, FAIL_ON_NULL, ImmutableList.of(NEVER_NULL), methodHandle);
     }
 
     public static long apply(LongUnaryOperator longUnaryOperator, long value)
