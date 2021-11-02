@@ -38,7 +38,6 @@ import java.lang.invoke.MethodHandles;
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.metadata.Signature.comparableTypeParameter;
 import static io.trino.metadata.Signature.typeVariable;
@@ -47,7 +46,6 @@ import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadat
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_BLOCK_INPUT_CHANNEL;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
-import static io.trino.operator.aggregation.AggregationUtils.generateAggregationName;
 import static io.trino.operator.aggregation.TypedSet.createEqualityTypedSet;
 import static io.trino.spi.type.TypeSignature.arrayType;
 import static io.trino.spi.type.TypeSignature.mapType;
@@ -115,17 +113,14 @@ public class MultimapAggregationFunction
         BlockPositionHashCode keyHashCode = blockTypeOperators.getHashCodeOperator(keyType);
 
         Type valueType = boundSignature.getArgumentType(1);
-        Type outputType = boundSignature.getReturnType();
-        return generateAggregation(keyType, keyEqual, keyHashCode, valueType, outputType);
+        return generateAggregation(keyType, keyEqual, keyHashCode, valueType);
     }
 
-    private AggregationMetadata generateAggregation(Type keyType, BlockPositionEqual keyEqual, BlockPositionHashCode keyHashCode, Type valueType, Type outputType)
+    private AggregationMetadata generateAggregation(Type keyType, BlockPositionEqual keyEqual, BlockPositionHashCode keyHashCode, Type valueType)
     {
-        List<Type> inputTypes = ImmutableList.of(keyType, valueType);
         MultimapAggregationStateSerializer stateSerializer = new MultimapAggregationStateSerializer(keyType, valueType);
 
         return new AggregationMetadata(
-                generateAggregationName(NAME, outputType.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 createInputParameterMetadata(keyType, valueType),
                 INPUT_FUNCTION,
                 Optional.empty(),
@@ -134,8 +129,7 @@ public class MultimapAggregationFunction
                 ImmutableList.of(new AccumulatorStateDescriptor<>(
                         MultimapAggregationState.class,
                         stateSerializer,
-                        new MultimapAggregationStateFactory(keyType, valueType))),
-                outputType);
+                        new MultimapAggregationStateFactory(keyType, valueType))));
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type keyType, Type valueType)

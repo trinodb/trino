@@ -40,13 +40,11 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_BLOCK_INPUT_CHANNEL;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
-import static io.trino.operator.aggregation.AggregationUtils.generateAggregationName;
 import static io.trino.spi.StandardErrorCode.EXCEEDED_FUNCTION_MEMORY_LIMIT;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
@@ -111,8 +109,6 @@ public class ListaggAggregationFunction
         AccumulatorStateSerializer<ListaggAggregationState> stateSerializer = new ListaggAggregationStateSerializer(type);
         AccumulatorStateFactory<ListaggAggregationState> stateFactory = new ListaggAggregationStateFactory(type);
 
-        List<Type> inputTypes = ImmutableList.of(VARCHAR, VARCHAR, BOOLEAN, VARCHAR, BOOLEAN);
-        Type outputType = VARCHAR;
         List<ParameterMetadata> inputParameterMetadata = ImmutableList.of(
                 new ParameterMetadata(STATE),
                 new ParameterMetadata(NULLABLE_BLOCK_INPUT_CHANNEL, type),
@@ -127,7 +123,6 @@ public class ListaggAggregationFunction
         MethodHandle outputFunction = OUTPUT_FUNCTION.bindTo(type);
 
         return new AggregationMetadata(
-                generateAggregationName(NAME, type.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 inputParameterMetadata,
                 inputFunction,
                 Optional.empty(),
@@ -136,8 +131,7 @@ public class ListaggAggregationFunction
                 ImmutableList.of(new AccumulatorStateDescriptor<>(
                         ListaggAggregationState.class,
                         stateSerializer,
-                        stateFactory)),
-                outputType);
+                        stateFactory)));
     }
 
     public static void input(Type type, ListaggAggregationState state, Block value, int position, Slice separator, boolean overflowError, Slice overflowFiller, boolean showOverflowEntryCount)

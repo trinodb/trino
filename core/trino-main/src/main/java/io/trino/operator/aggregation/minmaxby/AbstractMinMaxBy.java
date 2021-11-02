@@ -53,7 +53,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.bytecode.Access.FINAL;
 import static io.airlift.bytecode.Access.PRIVATE;
 import static io.airlift.bytecode.Access.PUBLIC;
@@ -73,7 +72,6 @@ import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadat
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_BLOCK_INPUT_CHANNEL;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
-import static io.trino.operator.aggregation.AggregationUtils.generateAggregationName;
 import static io.trino.operator.aggregation.minmaxby.TwoNullableValueStateMapping.getStateClass;
 import static io.trino.operator.aggregation.minmaxby.TwoNullableValueStateMapping.getStateSerializer;
 import static io.trino.operator.aggregation.state.StateCompiler.generateStateFactory;
@@ -138,8 +136,6 @@ public abstract class AbstractMinMaxBy
         Class<? extends AccumulatorState> stateClass = getStateClass(keyType.getJavaType(), valueType.getJavaType());
         AccumulatorStateDescriptor<?> accumulatorStateDescriptor = generateAccumulatorStateDescriptor(valueType, keyType, stateClass);
 
-        List<Type> inputTypes = ImmutableList.of(valueType, keyType);
-
         CallSiteBinder binder = new CallSiteBinder();
         MethodHandle compareMethod = MinMaxCompare.getMinMaxCompare(functionDependencies, keyType, simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL), min);
 
@@ -155,16 +151,13 @@ public abstract class AbstractMinMaxBy
         MethodHandle inputMethod = methodHandle(generatedClass, "input", stateClass, Block.class, Block.class, int.class);
         MethodHandle combineMethod = methodHandle(generatedClass, "combine", stateClass, stateClass);
         MethodHandle outputMethod = methodHandle(generatedClass, "output", stateClass, BlockBuilder.class);
-        String name = getFunctionMetadata().getSignature().getName();
         return new AggregationMetadata(
-                generateAggregationName(name, valueType.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 createInputParameterMetadata(valueType, keyType),
                 inputMethod,
                 Optional.empty(),
                 combineMethod,
                 outputMethod,
-                ImmutableList.of(accumulatorStateDescriptor),
-                valueType);
+                ImmutableList.of(accumulatorStateDescriptor));
     }
 
     private static <T extends AccumulatorState> AccumulatorStateDescriptor<?> generateAccumulatorStateDescriptor(Type valueType, Type keyType, Class<T> stateClass)

@@ -34,14 +34,12 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.metadata.Signature.comparableTypeParameter;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
-import static io.trino.operator.aggregation.AggregationUtils.generateAggregationName;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.util.Reflection.methodHandle;
@@ -87,23 +85,20 @@ public class Histogram
         BlockPositionEqual keyEqual = blockTypeOperators.getEqualOperator(keyType);
         BlockPositionHashCode keyHashCode = blockTypeOperators.getHashCodeOperator(keyType);
         Type outputType = boundSignature.getReturnType();
-        return generateAggregation(NAME, keyType, keyEqual, keyHashCode, outputType);
+        return generateAggregation(keyType, keyEqual, keyHashCode, outputType);
     }
 
     private static AggregationMetadata generateAggregation(
-            String functionName,
             Type keyType,
             BlockPositionEqual keyEqual,
             BlockPositionHashCode keyHashCode,
             Type outputType)
     {
-        List<Type> inputTypes = ImmutableList.of(keyType);
         HistogramStateSerializer stateSerializer = new HistogramStateSerializer(outputType);
         MethodHandle inputFunction = INPUT_FUNCTION.bindTo(keyType);
         MethodHandle outputFunction = OUTPUT_FUNCTION.bindTo(outputType);
 
         return new AggregationMetadata(
-                generateAggregationName(functionName, outputType.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 createInputParameterMetadata(keyType),
                 inputFunction,
                 Optional.empty(),
@@ -112,8 +107,7 @@ public class Histogram
                 ImmutableList.of(new AccumulatorStateDescriptor<>(
                         HistogramState.class,
                         stateSerializer,
-                        new HistogramStateFactory(keyType, keyEqual, keyHashCode, EXPECTED_SIZE_FOR_HASHING))),
-                outputType);
+                        new HistogramStateFactory(keyType, keyEqual, keyHashCode, EXPECTED_SIZE_FOR_HASHING))));
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type keyType)

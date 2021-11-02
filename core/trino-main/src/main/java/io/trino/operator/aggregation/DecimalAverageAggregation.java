@@ -40,7 +40,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.trino.metadata.FunctionKind.AGGREGATE;
@@ -48,7 +47,6 @@ import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadat
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
-import static io.trino.operator.aggregation.AggregationUtils.generateAggregationName;
 import static io.trino.spi.type.Decimals.writeShortDecimal;
 import static io.trino.spi.type.TypeSignatureParameter.typeVariable;
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.SIGN_LONG_MASK;
@@ -106,7 +104,6 @@ public class DecimalAverageAggregation
     private static AggregationMetadata generateAggregation(Type type)
     {
         checkArgument(type instanceof DecimalType, "type must be Decimal");
-        List<Type> inputTypes = ImmutableList.of(type);
         MethodHandle inputFunction;
         MethodHandle outputFunction;
         Class<LongDecimalWithOverflowAndLongState> stateInterface = LongDecimalWithOverflowAndLongState.class;
@@ -123,7 +120,6 @@ public class DecimalAverageAggregation
         outputFunction = outputFunction.bindTo(type);
 
         return new AggregationMetadata(
-                generateAggregationName(NAME, type.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 createInputParameterMetadata(type),
                 inputFunction,
                 Optional.empty(),
@@ -132,8 +128,7 @@ public class DecimalAverageAggregation
                 ImmutableList.of(new AccumulatorStateDescriptor<>(
                         stateInterface,
                         stateSerializer,
-                        new LongDecimalWithOverflowAndLongStateFactory())),
-                type);
+                        new LongDecimalWithOverflowAndLongStateFactory())));
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type type)

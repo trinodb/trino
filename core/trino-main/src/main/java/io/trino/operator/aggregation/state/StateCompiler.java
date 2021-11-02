@@ -400,17 +400,6 @@ public final class StateCompiler
                 .invokeConstructor(groupedStateClass)
                 .retObject();
 
-        // Generate getters for state class
-        definition.declareMethod(a(PUBLIC), "getSingleStateClass", type(Class.class, singleStateClass))
-                .getBody()
-                .push(singleStateClass)
-                .retObject();
-
-        definition.declareMethod(a(PUBLIC), "getGroupedStateClass", type(Class.class, groupedStateClass))
-                .getBody()
-                .push(groupedStateClass)
-                .retObject();
-
         Class<?> factoryClass = defineClass(definition, AccumulatorStateFactory.class, classLoader);
         try {
             //noinspection unchecked

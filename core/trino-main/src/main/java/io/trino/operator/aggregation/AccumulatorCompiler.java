@@ -28,6 +28,7 @@ import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.airlift.bytecode.expression.BytecodeExpressions;
 import io.airlift.slice.Slice;
+import io.trino.metadata.BoundSignature;
 import io.trino.operator.GroupByIdBlock;
 import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
 import io.trino.spi.Page;
@@ -72,7 +73,9 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
 import static io.airlift.bytecode.expression.BytecodeExpressions.not;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata;
-import static io.trino.operator.aggregation.AggregationMetadata.countInputChannels;
+import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
+import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
+import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_BLOCK_INPUT_CHANNEL;
 import static io.trino.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static io.trino.sql.gen.BytecodeUtils.invoke;
 import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
@@ -85,7 +88,7 @@ public final class AccumulatorCompiler
 {
     private AccumulatorCompiler() {}
 
-    public static GenericAccumulatorFactoryBinder generateAccumulatorFactoryBinder(AggregationMetadata metadata)
+    public static GenericAccumulatorFactoryBinder generateAccumulatorFactoryBinder(BoundSignature boundSignature, AggregationMetadata metadata)
     {
         // change types used in Aggregation methods to types used in the core Trino engine to simplify code generation
         metadata = normalizeAggregationMethods(metadata);
@@ -93,11 +96,13 @@ public final class AccumulatorCompiler
         DynamicClassLoader classLoader = new DynamicClassLoader(AccumulatorCompiler.class.getClassLoader());
 
         Class<? extends Accumulator> accumulatorClass = generateAccumulatorClass(
+                boundSignature,
                 Accumulator.class,
                 metadata,
                 classLoader);
 
         Class<? extends GroupedAccumulator> groupedAccumulatorClass = generateAccumulatorClass(
+                boundSignature,
                 GroupedAccumulator.class,
                 metadata,
                 classLoader);
@@ -110,6 +115,7 @@ public final class AccumulatorCompiler
     }
 
     private static <T> Class<? extends T> generateAccumulatorClass(
+            BoundSignature boundSignature,
             Class<T> accumulatorInterface,
             AggregationMetadata metadata,
             DynamicClassLoader classLoader)
@@ -118,7 +124,7 @@ public final class AccumulatorCompiler
 
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                makeClassName(metadata.getName() + accumulatorInterface.getSimpleName()),
+                makeClassName(boundSignature.getName() + accumulatorInterface.getSimpleName()),
                 type(Object.class),
                 type(accumulatorInterface));
 
@@ -201,7 +207,7 @@ public final class AccumulatorCompiler
                         .map(stateDescriptor -> stateDescriptor.getSerializer().getSerializedType())
                         .collect(toImmutableList()));
 
-        generateGetFinalType(definition, callSiteBinder, metadata.getOutputType());
+        generateGetFinalType(definition, callSiteBinder, boundSignature.getReturnType());
 
         generateAddIntermediateAsCombine(
                 definition,
@@ -1110,20 +1116,32 @@ public final class AccumulatorCompiler
                 .cast(variable.getType());
     }
 
+    private static int countInputChannels(List<ParameterMetadata> metadatas)
+    {
+        int parameters = 0;
+        for (ParameterMetadata metadata : metadatas) {
+            if (metadata.getParameterType() == INPUT_CHANNEL ||
+                    metadata.getParameterType() == BLOCK_INPUT_CHANNEL ||
+                    metadata.getParameterType() == NULLABLE_BLOCK_INPUT_CHANNEL) {
+                parameters++;
+            }
+        }
+
+        return parameters;
+    }
+
     private static AggregationMetadata normalizeAggregationMethods(AggregationMetadata metadata)
     {
         // change aggregations state variables to simply AccumulatorState to avoid any class loader issues in generated code
         int stateParameterCount = metadata.getAccumulatorStateDescriptors().size();
         int lambdaParameterCount = metadata.getLambdaInterfaces().size();
         return new AggregationMetadata(
-                metadata.getName(),
                 metadata.getValueInputMetadata(),
                 castStateParameters(metadata.getInputFunction(), stateParameterCount, lambdaParameterCount),
                 metadata.getRemoveInputFunction().map(removeFunction -> castStateParameters(removeFunction, stateParameterCount, lambdaParameterCount)),
                 castStateParameters(metadata.getCombineFunction(), stateParameterCount * 2, lambdaParameterCount),
                 castStateParameters(metadata.getOutputFunction(), stateParameterCount, 0),
                 metadata.getAccumulatorStateDescriptors(),
-                metadata.getOutputType(),
                 metadata.getLambdaInterfaces());
     }
 

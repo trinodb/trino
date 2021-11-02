@@ -24,6 +24,7 @@ import io.trino.spi.Page;
 
 import java.util.Optional;
 import java.util.function.Supplier;
+import java.util.stream.IntStream;
 
 public class AggregationTestInput
 {
@@ -38,7 +39,7 @@ public class AggregationTestInput
     {
         this.pages = pages;
         this.function = function;
-        args = GroupByAggregationTestUtils.createArgs(function.getParameterTypes().size());
+        args = IntStream.range(0, pages[0].getChannelCount()).toArray();
         this.offset = offset;
         this.isReversed = isReversed;
     }

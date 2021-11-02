@@ -26,19 +26,14 @@ import io.trino.operator.aggregation.state.LongState;
 import io.trino.operator.aggregation.state.StateCompiler;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AccumulatorStateSerializer;
-import io.trino.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
-import java.util.List;
 import java.util.Optional;
 
 import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
-import static io.trino.operator.aggregation.AggregationUtils.generateAggregationName;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
@@ -88,7 +83,6 @@ public class RealAverageAggregation
         AccumulatorStateSerializer<DoubleState> doubleStateSerializer = StateCompiler.generateStateSerializer(doubleStateInterface);
 
         return new AggregationMetadata(
-                generateAggregationName(NAME, REAL.getTypeSignature(), ImmutableList.of(REAL.getTypeSignature())),
                 ImmutableList.of(new ParameterMetadata(STATE), new ParameterMetadata(STATE), new ParameterMetadata(INPUT_CHANNEL, REAL)),
                 INPUT_FUNCTION,
                 Optional.of(REMOVE_INPUT_FUNCTION),
@@ -102,13 +96,7 @@ public class RealAverageAggregation
                         new AccumulatorStateDescriptor<>(
                                 doubleStateInterface,
                                 doubleStateSerializer,
-                                StateCompiler.generateStateFactory(doubleStateInterface))),
-                REAL);
-    }
-
-    private static List<ParameterMetadata> createInputParameterMetadata(Type value)
-    {
-        return ImmutableList.of(new ParameterMetadata(STATE), new ParameterMetadata(BLOCK_INPUT_CHANNEL, value), new ParameterMetadata(BLOCK_INDEX));
+                                StateCompiler.generateStateFactory(doubleStateInterface))));
     }
 
     public static void input(LongState count, DoubleState sum, long value)

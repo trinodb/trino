@@ -35,14 +35,12 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.metadata.Signature.comparableTypeParameter;
 import static io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
-import static io.trino.operator.aggregation.AggregationUtils.generateAggregationName;
 import static io.trino.operator.aggregation.FloatingPointBitsConverterUtil.doubleToSortableLong;
 import static io.trino.operator.aggregation.FloatingPointBitsConverterUtil.floatToSortableInt;
 import static io.trino.operator.scalar.QuantileDigestFunctions.DEFAULT_ACCURACY;
@@ -99,17 +97,15 @@ public final class QuantileDigestAggregationFunction
     {
         QuantileDigestType outputType = (QuantileDigestType) boundSignature.getReturnType();
         Type valueType = outputType.getValueType();
-        return generateAggregation(valueType, outputType, boundSignature.getArity());
+        return generateAggregation(valueType, boundSignature.getArity());
     }
 
-    private static AggregationMetadata generateAggregation(Type valueType, QuantileDigestType outputType, int arity)
+    private static AggregationMetadata generateAggregation(Type valueType, int arity)
     {
-        List<Type> inputTypes = getInputTypes(valueType, arity);
         QuantileDigestStateSerializer stateSerializer = new QuantileDigestStateSerializer(valueType);
 
         return new AggregationMetadata(
-                generateAggregationName(NAME, outputType.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
-                createInputParameterMetadata(inputTypes),
+                createInputParameterMetadata(getInputTypes(valueType, arity)),
                 getMethodHandle(valueType, arity),
                 Optional.empty(),
                 COMBINE_FUNCTION,
@@ -117,8 +113,7 @@ public final class QuantileDigestAggregationFunction
                 ImmutableList.of(new AccumulatorStateDescriptor<>(
                         QuantileDigestState.class,
                         stateSerializer,
-                        new QuantileDigestStateFactory())),
-                outputType);
+                        new QuantileDigestStateFactory())));
     }
 
     private static List<Type> getInputTypes(Type valueType, int arity)

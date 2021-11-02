@@ -39,7 +39,6 @@ import java.util.concurrent.ThreadLocalRandom;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.io.BaseEncoding.base16;
 import static io.airlift.testing.Assertions.assertLessThan;
-import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static java.util.Collections.shuffle;
 import static org.testng.Assert.assertEquals;
@@ -192,9 +191,7 @@ public abstract class AbstractTestApproximateSetGeneric
             return new Page(0);
         }
         else {
-            return new Page(values.size(),
-                    createBlock(getValueType(), values),
-                    createBlock(DOUBLE, ImmutableList.copyOf(Collections.nCopies(values.size(), STD_ERROR))));
+            return new Page(values.size(), createBlock(getValueType(), values));
         }
     }
 

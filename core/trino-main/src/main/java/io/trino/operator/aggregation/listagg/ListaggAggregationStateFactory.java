@@ -33,20 +33,8 @@ public class ListaggAggregationStateFactory
     }
 
     @Override
-    public Class<? extends ListaggAggregationState> getSingleStateClass()
-    {
-        return SingleListaggAggregationState.class;
-    }
-
-    @Override
     public ListaggAggregationState createGroupedState()
     {
         return new GroupListaggAggregationState(type);
-    }
-
-    @Override
-    public Class<? extends ListaggAggregationState> getGroupedStateClass()
-    {
-        return GroupListaggAggregationState.class;
     }
 }

@@ -34,21 +34,9 @@ public class LongDecimalWithOverflowStateFactory
     }
 
     @Override
-    public Class<? extends LongDecimalWithOverflowState> getSingleStateClass()
-    {
-        return SingleLongDecimalWithOverflowState.class;
-    }
-
-    @Override
     public LongDecimalWithOverflowState createGroupedState()
     {
         return new GroupedLongDecimalWithOverflowState();
-    }
-
-    @Override
-    public Class<? extends LongDecimalWithOverflowState> getGroupedStateClass()
-    {
-        return GroupedLongDecimalWithOverflowState.class;
     }
 
     public static class GroupedLongDecimalWithOverflowState

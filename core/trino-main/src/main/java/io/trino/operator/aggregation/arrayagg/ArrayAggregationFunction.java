@@ -25,7 +25,6 @@ import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescrip
 import io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 
@@ -33,13 +32,11 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_BLOCK_INPUT_CHANNEL;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
-import static io.trino.operator.aggregation.AggregationUtils.generateAggregationName;
 import static io.trino.spi.type.TypeSignature.arrayType;
 import static io.trino.util.Reflection.methodHandle;
 
@@ -85,8 +82,6 @@ public class ArrayAggregationFunction
         ArrayAggregationStateSerializer stateSerializer = new ArrayAggregationStateSerializer(type);
         ArrayAggregationStateFactory stateFactory = new ArrayAggregationStateFactory(type);
 
-        List<Type> inputTypes = ImmutableList.of(type);
-        Type outputType = new ArrayType(type);
         List<ParameterMetadata> inputParameterMetadata = createInputParameterMetadata(type);
 
         MethodHandle inputFunction = INPUT_FUNCTION.bindTo(type);
@@ -94,7 +89,6 @@ public class ArrayAggregationFunction
         MethodHandle outputFunction = OUTPUT_FUNCTION.bindTo(type);
 
         return new AggregationMetadata(
-                generateAggregationName(NAME, type.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 inputParameterMetadata,
                 inputFunction,
                 Optional.empty(),
@@ -103,8 +97,7 @@ public class ArrayAggregationFunction
                 ImmutableList.of(new AccumulatorStateDescriptor<>(
                         ArrayAggregationState.class,
                         stateSerializer,
-                        stateFactory)),
-                outputType);
+                        stateFactory)));
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type value)
