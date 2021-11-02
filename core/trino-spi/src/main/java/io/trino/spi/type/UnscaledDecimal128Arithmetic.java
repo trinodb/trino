@@ -1333,7 +1333,7 @@ public final class UnscaledDecimal128Arithmetic
                 getRawLong(divisor, 0), getRawLong(divisor, 1));
     }
 
-    private static Slice divideRoundUp(long dividendLow, long dividendHigh, int dividendScaleFactor, long divisorLow, long divisorHigh)
+    public static Slice divideRoundUp(long dividendLow, long dividendHigh, int dividendScaleFactor, long divisorLow, long divisorHigh)
     {
         Slice quotient = unscaledDecimal();
         Slice remainder = unscaledDecimal();
