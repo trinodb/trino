@@ -116,10 +116,10 @@ class SnowflakeQueryRunner
                 PUBLIC_DB,
                 "CREATE VIEW IF NOT EXISTS public.user_context (user, role) AS SELECT current_user(), current_role();",
                 "GRANT SELECT ON VIEW USER_CONTEXT TO ROLE \"PUBLIC\";");
-        DistributedQueryRunner queryRunner = StarburstDistributedQueryRunner.builder(createSession(useOktaCredentials))
-                .setNodeCount(nodeCount)
-                .setExtraProperties(extraProperties)
-                .build();
+        DistributedQueryRunner.Builder builder = StarburstDistributedQueryRunner.builder(createSession(useOktaCredentials))
+                .setNodeCount(nodeCount);
+        extraProperties.forEach(builder::addExtraProperty);
+        DistributedQueryRunner queryRunner = builder.build();
 
         try {
             queryRunner.installPlugin(new TpchPlugin());

@@ -77,10 +77,9 @@ public final class SynapseQueryRunner
             throws Exception
     {
         Session session = createSession(USERNAME, catalogName);
-        DistributedQueryRunner queryRunner = StarburstDistributedQueryRunner
-                .builder(session)
-                .setExtraProperties(extraProperties)
-                .build();
+        DistributedQueryRunner.Builder builder = StarburstDistributedQueryRunner.builder(session);
+        extraProperties.forEach(builder::addExtraProperty);
+        DistributedQueryRunner queryRunner = builder.build();
         try {
             queryRunner.installPlugin(new JmxPlugin());
             queryRunner.createCatalog("jmx", "jmx");
