@@ -233,14 +233,6 @@ public class TestAnnotationEngineForAggregates
             // noop this is only for annotation testing puproses
         }
 
-        @CombineFunction
-        public static void combine(
-                @AggregationState NullableDoubleState combine1,
-                @AggregationState NullableDoubleState combine2)
-        {
-            // noop this is only for annotation testing puproses
-        }
-
         @OutputFunction(DOUBLE)
         public static void output(
                 @AggregationState NullableDoubleState state,

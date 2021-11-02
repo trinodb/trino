@@ -104,7 +104,7 @@ public class MapUnionAggregation
         return new AggregationMetadata(
                 inputFunction,
                 Optional.empty(),
-                COMBINE_FUNCTION,
+                Optional.of(COMBINE_FUNCTION),
                 OUTPUT_FUNCTION,
                 ImmutableList.of(new AccumulatorStateDescriptor<>(
                         KeyValuePairsState.class,

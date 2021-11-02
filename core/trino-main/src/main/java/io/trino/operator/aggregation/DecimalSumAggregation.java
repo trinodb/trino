@@ -95,7 +95,7 @@ public class DecimalSumAggregation
         return new AggregationMetadata(
                 inputFunction,
                 Optional.empty(),
-                COMBINE_FUNCTION,
+                Optional.of(COMBINE_FUNCTION),
                 LONG_DECIMAL_OUTPUT_FUNCTION,
                 ImmutableList.of(new AccumulatorStateDescriptor<>(
                         stateInterface,

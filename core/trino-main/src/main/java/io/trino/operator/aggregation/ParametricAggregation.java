@@ -120,7 +120,16 @@ public class ParametricAggregation
         MethodHandle inputHandle = bindDependencies(concreteImplementation.getInputFunction(), concreteImplementation.getInputDependencies(), functionBinding, functionDependencies);
         Optional<MethodHandle> removeInputHandle = concreteImplementation.getRemoveInputFunction().map(
                 removeInputFunction -> bindDependencies(removeInputFunction, concreteImplementation.getRemoveInputDependencies(), functionBinding, functionDependencies));
-        MethodHandle combineHandle = bindDependencies(concreteImplementation.getCombineFunction(), concreteImplementation.getCombineDependencies(), functionBinding, functionDependencies);
+
+        Optional<MethodHandle> combineHandle = concreteImplementation.getCombineFunction();
+        if (getAggregationMetadata().isDecomposable()) {
+            checkArgument(combineHandle.isPresent(), "Decomposable method %s does not have a combine method", boundSignature.getName());
+            combineHandle = combineHandle.map(combineFunction -> bindDependencies(combineFunction, concreteImplementation.getCombineDependencies(), functionBinding, functionDependencies));
+        }
+        else {
+            checkArgument(concreteImplementation.getCombineFunction().isEmpty(), "Decomposable method %s does not have a combine method", boundSignature.getName());
+        }
+
         MethodHandle outputHandle = bindDependencies(concreteImplementation.getOutputFunction(), concreteImplementation.getOutputDependencies(), functionBinding, functionDependencies);
 
         List<AggregationParameterKind> inputParameterKinds = concreteImplementation.getInputParameterKinds();

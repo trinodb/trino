@@ -65,6 +65,7 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantLong;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantNull;
+import static io.airlift.bytecode.expression.BytecodeExpressions.constantString;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeDynamic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
@@ -183,10 +184,10 @@ public final class AccumulatorCompiler
                 grouped);
 
         if (grouped) {
-            generateGroupedEvaluateIntermediate(definition, stateFieldAndDescriptors);
+            generateGroupedEvaluateIntermediate(definition, stateFieldAndDescriptors, true);
         }
         else {
-            generateEvaluateIntermediate(definition, stateFieldAndDescriptors);
+            generateEvaluateIntermediate(definition, stateFieldAndDescriptors, true);
         }
 
         if (grouped) {
@@ -600,11 +601,17 @@ public final class AccumulatorCompiler
             ClassDefinition definition,
             List<StateFieldAndDescriptor> stateFieldAndDescriptors,
             List<FieldDefinition> lambdaProviderFields,
-            MethodHandle combineFunction,
+            Optional<MethodHandle> combineFunction,
             CallSiteBinder callSiteBinder,
             boolean grouped)
     {
         MethodDefinition method = declareAddIntermediate(definition, grouped);
+        if (combineFunction.isEmpty()) {
+            method.getBody()
+                    .append(newInstance(UnsupportedOperationException.class, constantString("Aggregation is not decomposable")))
+                    .throwObject();
+            return;
+        }
         Scope scope = method.getScope();
         BytecodeBlock body = method.getBody();
         Variable thisVariable = method.getThis();
@@ -674,7 +681,7 @@ public final class AccumulatorCompiler
             loopBody.append(scope.getThis().getField(lambdaProviderField)
                     .invoke("getLambda", Object.class));
         }
-        loopBody.append(invoke(callSiteBinder.bind(combineFunction), "combine"));
+        loopBody.append(invoke(callSiteBinder.bind(combineFunction.get()), "combine"));
 
         if (grouped) {
             // skip rows with null group id
@@ -754,11 +761,18 @@ public final class AccumulatorCompiler
         return block;
     }
 
-    private static void generateGroupedEvaluateIntermediate(ClassDefinition definition, List<StateFieldAndDescriptor> stateFieldAndDescriptors)
+    private static void generateGroupedEvaluateIntermediate(ClassDefinition definition, List<StateFieldAndDescriptor> stateFieldAndDescriptors, boolean decomposable)
     {
         Parameter groupId = arg("groupId", int.class);
         Parameter out = arg("out", BlockBuilder.class);
         MethodDefinition method = definition.declareMethod(a(PUBLIC), "evaluateIntermediate", type(void.class), groupId, out);
+
+        if (!decomposable) {
+            method.getBody()
+                    .append(newInstance(UnsupportedOperationException.class, constantString("Aggregation is not decomposable")))
+                    .throwObject();
+            return;
+        }
 
         Variable thisVariable = method.getThis();
         BytecodeBlock body = method.getBody();
@@ -787,7 +801,7 @@ public final class AccumulatorCompiler
         }
     }
 
-    private static void generateEvaluateIntermediate(ClassDefinition definition, List<StateFieldAndDescriptor> stateFieldAndDescriptors)
+    private static void generateEvaluateIntermediate(ClassDefinition definition, List<StateFieldAndDescriptor> stateFieldAndDescriptors, boolean decomposable)
     {
         Parameter out = arg("out", BlockBuilder.class);
         MethodDefinition method = definition.declareMethod(
@@ -795,6 +809,13 @@ public final class AccumulatorCompiler
                 "evaluateIntermediate",
                 type(void.class),
                 out);
+
+        if (!decomposable) {
+            method.getBody()
+                    .append(newInstance(UnsupportedOperationException.class, constantString("Aggregation is not decomposable")))
+                    .throwObject();
+            return;
+        }
 
         Variable thisVariable = method.getThis();
         BytecodeBlock body = method.getBody();
@@ -1003,7 +1024,7 @@ public final class AccumulatorCompiler
         return new AggregationMetadata(
                 castStateParameters(metadata.getInputFunction(), stateParameterCount, lambdaParameterCount),
                 metadata.getRemoveInputFunction().map(removeFunction -> castStateParameters(removeFunction, stateParameterCount, lambdaParameterCount)),
-                castStateParameters(metadata.getCombineFunction(), stateParameterCount * 2, lambdaParameterCount),
+                metadata.getCombineFunction().map(combineFunction -> castStateParameters(combineFunction, stateParameterCount * 2, lambdaParameterCount)),
                 castStateParameters(metadata.getOutputFunction(), stateParameterCount, 0),
                 metadata.getAccumulatorStateDescriptors(),
                 metadata.getLambdaInterfaces());

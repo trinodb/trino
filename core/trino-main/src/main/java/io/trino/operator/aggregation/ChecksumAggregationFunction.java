@@ -84,7 +84,7 @@ public class ChecksumAggregationFunction
         return new AggregationMetadata(
                 INPUT_FUNCTION.bindTo(xxHash64Operator),
                 Optional.empty(),
-                COMBINE_FUNCTION,
+                Optional.of(COMBINE_FUNCTION),
                 OUTPUT_FUNCTION,
                 ImmutableList.of(new AccumulatorStateDescriptor<>(
                         NullableLongState.class,

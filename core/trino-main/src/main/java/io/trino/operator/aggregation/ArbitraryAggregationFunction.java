@@ -136,7 +136,7 @@ public class ArbitraryAggregationFunction
         return new AggregationMetadata(
                 inputFunction,
                 Optional.empty(),
-                combineFunction,
+                Optional.of(combineFunction),
                 outputFunction.bindTo(type),
                 ImmutableList.of(accumulatorStateDescriptor));
     }

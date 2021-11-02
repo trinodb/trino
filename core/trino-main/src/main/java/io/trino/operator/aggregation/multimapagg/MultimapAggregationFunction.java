@@ -113,7 +113,7 @@ public class MultimapAggregationFunction
         return new AggregationMetadata(
                 INPUT_FUNCTION,
                 Optional.empty(),
-                COMBINE_FUNCTION,
+                Optional.of(COMBINE_FUNCTION),
                 MethodHandles.insertArguments(OUTPUT_FUNCTION, 0, keyType, keyEqual, keyHashCode, valueType),
                 ImmutableList.of(new AccumulatorStateDescriptor<>(
                         MultimapAggregationState.class,
