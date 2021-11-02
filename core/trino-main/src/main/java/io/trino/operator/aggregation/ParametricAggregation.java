@@ -30,11 +30,9 @@ import io.trino.operator.ParametricImplementationsGroup;
 import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
 import io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType;
-import io.trino.operator.aggregation.state.StateCompiler;
 import io.trino.operator.annotations.ImplementationDependency;
 import io.trino.spi.TrinoException;
-import io.trino.spi.function.AccumulatorStateFactory;
-import io.trino.spi.function.AccumulatorStateSerializer;
+import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 
@@ -49,6 +47,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.operator.ParametricFunctionHelpers.bindDependencies;
 import static io.trino.operator.aggregation.AggregationUtils.generateAggregationName;
+import static io.trino.operator.aggregation.state.StateCompiler.generateStateFactory;
 import static io.trino.operator.aggregation.state.StateCompiler.generateStateSerializer;
 import static io.trino.operator.aggregation.state.StateCompiler.getSerializedType;
 import static io.trino.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_CALL;
@@ -60,12 +59,12 @@ public class ParametricAggregation
         extends SqlAggregationFunction
 {
     private final ParametricImplementationsGroup<AggregationImplementation> implementations;
-    private final Class<?> stateClass;
+    private final Class<? extends AccumulatorState> stateClass;
 
     public ParametricAggregation(
             Signature signature,
             AggregationHeader details,
-            Class<?> stateClass,
+            Class<? extends AccumulatorState> stateClass,
             ParametricImplementationsGroup<AggregationImplementation> implementations)
     {
         super(
@@ -129,8 +128,7 @@ public class ParametricAggregation
         DynamicClassLoader classLoader = new DynamicClassLoader(definitionClass.getClassLoader(), getClass().getClassLoader());
 
         // Build state factory and serializer
-        AccumulatorStateSerializer<?> stateSerializer = generateStateSerializer(stateClass, classLoader);
-        AccumulatorStateFactory<?> stateFactory = StateCompiler.generateStateFactory(stateClass, classLoader);
+        AccumulatorStateDescriptor<?> accumulatorStateDescriptor = generateAccumulatorStateDescriptor(stateClass, classLoader);
 
         // Bind provided dependencies to aggregation method handlers
         FunctionMetadata metadata = getFunctionMetadata();
@@ -155,19 +153,24 @@ public class ParametricAggregation
                 removeInputHandle,
                 combineHandle,
                 outputHandle,
-                ImmutableList.of(new AccumulatorStateDescriptor(
-                        stateClass,
-                        stateSerializer,
-                        stateFactory)),
+                ImmutableList.of(accumulatorStateDescriptor),
                 outputType);
 
         // Create specialized InternalAggregationFunction for Trino
         return new InternalAggregationFunction(
                 signature.getName(),
                 inputTypes,
-                ImmutableList.of(stateSerializer.getSerializedType()),
+                ImmutableList.of(accumulatorStateDescriptor.getSerializer().getSerializedType()),
                 outputType,
                 new LazyAccumulatorFactoryBinder(aggregationMetadata, classLoader));
+    }
+
+    private static <T extends AccumulatorState> AccumulatorStateDescriptor<T> generateAccumulatorStateDescriptor(Class<T> stateClass, DynamicClassLoader classLoader)
+    {
+        return new AccumulatorStateDescriptor<>(
+                stateClass,
+                generateStateSerializer(stateClass, classLoader),
+                generateStateFactory(stateClass, classLoader));
     }
 
     public Class<?> getStateClass()

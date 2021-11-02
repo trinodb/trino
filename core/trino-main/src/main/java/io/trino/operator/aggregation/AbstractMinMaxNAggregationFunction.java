@@ -128,7 +128,7 @@ public abstract class AbstractMinMaxNAggregationFunction
                 Optional.empty(),
                 COMBINE_FUNCTION,
                 OUTPUT_FUNCTION.bindTo(outputType),
-                ImmutableList.of(new AccumulatorStateDescriptor(
+                ImmutableList.of(new AccumulatorStateDescriptor<>(
                         MinMaxNState.class,
                         stateSerializer,
                         new MinMaxNStateFactory())),

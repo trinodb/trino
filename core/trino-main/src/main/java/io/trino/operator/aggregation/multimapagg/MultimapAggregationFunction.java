@@ -137,7 +137,7 @@ public class MultimapAggregationFunction
                 Optional.empty(),
                 COMBINE_FUNCTION,
                 MethodHandles.insertArguments(OUTPUT_FUNCTION, 0, keyType, keyEqual, keyHashCode, valueType),
-                ImmutableList.of(new AccumulatorStateDescriptor(
+                ImmutableList.of(new AccumulatorStateDescriptor<>(
                         MultimapAggregationState.class,
                         stateSerializer,
                         new MultimapAggregationStateFactory(keyType, valueType))),

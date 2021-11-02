@@ -27,8 +27,6 @@ import io.trino.operator.aggregation.state.LongDecimalWithOverflowStateFactory;
 import io.trino.operator.aggregation.state.LongDecimalWithOverflowStateSerializer;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.function.AccumulatorState;
-import io.trino.spi.function.AccumulatorStateSerializer;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
@@ -100,8 +98,8 @@ public class DecimalSumAggregation
         DynamicClassLoader classLoader = new DynamicClassLoader(DecimalSumAggregation.class.getClassLoader());
         List<Type> inputTypes = ImmutableList.of(inputType);
         MethodHandle inputFunction;
-        Class<? extends AccumulatorState> stateInterface = LongDecimalWithOverflowState.class;
-        AccumulatorStateSerializer<?> stateSerializer = new LongDecimalWithOverflowStateSerializer();
+        Class<LongDecimalWithOverflowState> stateInterface = LongDecimalWithOverflowState.class;
+        LongDecimalWithOverflowStateSerializer stateSerializer = new LongDecimalWithOverflowStateSerializer();
 
         if (((DecimalType) inputType).isShort()) {
             inputFunction = SHORT_DECIMAL_INPUT_FUNCTION;
@@ -117,7 +115,7 @@ public class DecimalSumAggregation
                 Optional.empty(),
                 COMBINE_FUNCTION,
                 LONG_DECIMAL_OUTPUT_FUNCTION,
-                ImmutableList.of(new AccumulatorStateDescriptor(
+                ImmutableList.of(new AccumulatorStateDescriptor<>(
                         stateInterface,
                         stateSerializer,
                         new LongDecimalWithOverflowStateFactory())),

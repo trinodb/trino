@@ -26,7 +26,6 @@ import io.trino.operator.aggregation.state.DoubleState;
 import io.trino.operator.aggregation.state.LongState;
 import io.trino.operator.aggregation.state.StateCompiler;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateSerializer;
 import io.trino.spi.type.Type;
 
@@ -85,10 +84,10 @@ public class RealAverageAggregation
     public InternalAggregationFunction specialize(BoundSignature boundSignature)
     {
         DynamicClassLoader classLoader = new DynamicClassLoader(AverageAggregations.class.getClassLoader());
-        Class<? extends AccumulatorState> longStateInterface = LongState.class;
-        Class<? extends AccumulatorState> doubleStateInterface = DoubleState.class;
-        AccumulatorStateSerializer<?> longStateSerializer = StateCompiler.generateStateSerializer(longStateInterface, classLoader);
-        AccumulatorStateSerializer<?> doubleStateSerializer = StateCompiler.generateStateSerializer(doubleStateInterface, classLoader);
+        Class<LongState> longStateInterface = LongState.class;
+        Class<DoubleState> doubleStateInterface = DoubleState.class;
+        AccumulatorStateSerializer<LongState> longStateSerializer = StateCompiler.generateStateSerializer(longStateInterface, classLoader);
+        AccumulatorStateSerializer<DoubleState> doubleStateSerializer = StateCompiler.generateStateSerializer(doubleStateInterface, classLoader);
 
         AggregationMetadata aggregationMetadata = new AggregationMetadata(
                 generateAggregationName(NAME, REAL.getTypeSignature(), ImmutableList.of(REAL.getTypeSignature())),
@@ -98,11 +97,11 @@ public class RealAverageAggregation
                 COMBINE_FUNCTION,
                 OUTPUT_FUNCTION,
                 ImmutableList.of(
-                        new AccumulatorStateDescriptor(
+                        new AccumulatorStateDescriptor<>(
                                 longStateInterface,
                                 longStateSerializer,
                                 StateCompiler.generateStateFactory(longStateInterface, classLoader)),
-                        new AccumulatorStateDescriptor(
+                        new AccumulatorStateDescriptor<>(
                                 doubleStateInterface,
                                 doubleStateSerializer,
                                 StateCompiler.generateStateFactory(doubleStateInterface, classLoader))),

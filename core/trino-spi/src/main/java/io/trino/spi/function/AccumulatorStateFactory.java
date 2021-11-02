@@ -13,7 +13,7 @@
  */
 package io.trino.spi.function;
 
-public interface AccumulatorStateFactory<T>
+public interface AccumulatorStateFactory<T extends AccumulatorState>
 {
     T createSingleState();
 

@@ -31,13 +31,13 @@ import static java.util.Objects.requireNonNull;
 public class GenericAccumulatorFactoryBinder
         implements AccumulatorFactoryBinder
 {
-    private final List<AccumulatorStateDescriptor> stateDescriptors;
+    private final List<AccumulatorStateDescriptor<?>> stateDescriptors;
     private final Constructor<? extends Accumulator> accumulatorConstructor;
     private final boolean accumulatorHasRemoveInput;
     private final Constructor<? extends GroupedAccumulator> groupedAccumulatorConstructor;
 
     public GenericAccumulatorFactoryBinder(
-            List<AccumulatorStateDescriptor> stateDescriptors,
+            List<AccumulatorStateDescriptor<?>> stateDescriptors,
             Class<? extends Accumulator> accumulatorClass,
             boolean accumulatorHasRemoveInput,
             Class<? extends GroupedAccumulator> groupedAccumulatorClass)
@@ -46,7 +46,7 @@ public class GenericAccumulatorFactoryBinder
 
         try {
             accumulatorConstructor = accumulatorClass.getConstructor(
-                    List.class,     /* List<AccumulatorStateDescriptor> stateDescriptors */
+                    List.class,     /* List<AccumulatorStateDescriptor<?> stateDescriptors */
                     List.class,     /* List<Integer> inputChannel */
                     Optional.class, /* Optional<Integer> maskChannel */
                     List.class      /* List<LambdaProvider> lambdaProviders */);
@@ -54,7 +54,7 @@ public class GenericAccumulatorFactoryBinder
             this.accumulatorHasRemoveInput = accumulatorHasRemoveInput;
 
             groupedAccumulatorConstructor = groupedAccumulatorClass.getConstructor(
-                    List.class,     /* List<AccumulatorStateDescriptor> stateDescriptors */
+                    List.class,     /* List<AccumulatorStateDescriptor<?> stateDescriptors */
                     List.class,     /* List<Integer> inputChannel */
                     Optional.class, /* Optional<Integer> maskChannel */
                     List.class      /* List<LambdaProvider> lambdaProviders */);
@@ -97,7 +97,7 @@ public class GenericAccumulatorFactoryBinder
     }
 
     @VisibleForTesting
-    public List<AccumulatorStateDescriptor> getStateDescriptors()
+    public List<AccumulatorStateDescriptor<?>> getStateDescriptors()
     {
         return stateDescriptors;
     }
