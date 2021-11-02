@@ -36,7 +36,7 @@ public class NullableLongStateSerializer
             out.appendNull();
         }
         else {
-            BIGINT.writeLong(out, state.getLong());
+            BIGINT.writeLong(out, state.getValue());
         }
     }
 
@@ -44,6 +44,6 @@ public class NullableLongStateSerializer
     public void deserialize(Block block, int index, NullableLongState state)
     {
         state.setNull(false);
-        state.setLong(BIGINT.getLong(block, index));
+        state.setValue(BIGINT.getLong(block, index));
     }
 }

@@ -91,21 +91,21 @@ public class CountColumn
 
     public static void input(LongState state, Block block, int index)
     {
-        state.setLong(state.getLong() + 1);
+        state.setValue(state.getValue() + 1);
     }
 
     public static void removeInput(LongState state, Block block, int index)
     {
-        state.setLong(state.getLong() - 1);
+        state.setValue(state.getValue() - 1);
     }
 
     public static void combine(LongState state, LongState otherState)
     {
-        state.setLong(state.getLong() + otherState.getLong());
+        state.setValue(state.getValue() + otherState.getValue());
     }
 
     public static void output(LongState state, BlockBuilder out)
     {
-        BIGINT.writeLong(out, state.getLong());
+        BIGINT.writeLong(out, state.getValue());
     }
 }

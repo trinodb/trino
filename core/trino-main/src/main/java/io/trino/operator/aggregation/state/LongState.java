@@ -18,7 +18,7 @@ import io.trino.spi.function.AccumulatorState;
 public interface LongState
         extends AccumulatorState
 {
-    long getLong();
+    long getValue();
 
-    void setLong(long value);
+    void setValue(long value);
 }

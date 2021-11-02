@@ -36,7 +36,7 @@ public final class RealSumAggregation
     public static void sum(@AggregationState NullableDoubleState state, @SqlType(StandardTypes.REAL) long value)
     {
         state.setNull(false);
-        state.setDouble(state.getDouble() + intBitsToFloat((int) value));
+        state.setValue(state.getValue() + intBitsToFloat((int) value));
     }
 
     @CombineFunction
@@ -47,12 +47,12 @@ public final class RealSumAggregation
                 return;
             }
             state.setNull(false);
-            state.setDouble(otherState.getDouble());
+            state.setValue(otherState.getValue());
             return;
         }
 
         if (!otherState.isNull()) {
-            state.setDouble(state.getDouble() + otherState.getDouble());
+            state.setValue(state.getValue() + otherState.getValue());
         }
     }
 
@@ -63,7 +63,7 @@ public final class RealSumAggregation
             out.appendNull();
         }
         else {
-            REAL.writeLong(out, floatToRawIntBits((float) state.getDouble()));
+            REAL.writeLong(out, floatToRawIntBits((float) state.getValue()));
         }
     }
 }

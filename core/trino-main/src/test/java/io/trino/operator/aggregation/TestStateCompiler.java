@@ -69,7 +69,7 @@ public class TestStateCompiler
         NullableLongState state = factory.createSingleState();
         NullableLongState deserializedState = factory.createSingleState();
 
-        state.setLong(2);
+        state.setValue(2);
         state.setNull(false);
 
         BlockBuilder builder = BIGINT.createBlockBuilder(null, 2);
@@ -80,9 +80,9 @@ public class TestStateCompiler
         Block block = builder.build();
 
         assertEquals(block.isNull(0), false);
-        assertEquals(BIGINT.getLong(block, 0), state.getLong());
+        assertEquals(BIGINT.getLong(block, 0), state.getValue());
         serializer.deserialize(block, 0, deserializedState);
-        assertEquals(deserializedState.getLong(), state.getLong());
+        assertEquals(deserializedState.getValue(), state.getValue());
 
         assertEquals(block.isNull(1), true);
     }
@@ -95,16 +95,16 @@ public class TestStateCompiler
         LongState state = factory.createSingleState();
         LongState deserializedState = factory.createSingleState();
 
-        state.setLong(2);
+        state.setValue(2);
 
         BlockBuilder builder = BIGINT.createBlockBuilder(null, 1);
         serializer.serialize(state, builder);
 
         Block block = builder.build();
 
-        assertEquals(BIGINT.getLong(block, 0), state.getLong());
+        assertEquals(BIGINT.getLong(block, 0), state.getValue());
         serializer.deserialize(block, 0, deserializedState);
-        assertEquals(deserializedState.getLong(), state.getLong());
+        assertEquals(deserializedState.getValue(), state.getValue());
     }
 
     @Test

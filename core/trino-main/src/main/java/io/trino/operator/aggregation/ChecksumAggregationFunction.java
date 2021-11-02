@@ -102,17 +102,17 @@ public class ChecksumAggregationFunction
     {
         state.setNull(false);
         if (block.isNull(position)) {
-            state.setLong(state.getLong() + PRIME64);
+            state.setValue(state.getValue() + PRIME64);
         }
         else {
-            state.setLong(state.getLong() + xxHash64Operator.xxHash64(block, position) * PRIME64);
+            state.setValue(state.getValue() + xxHash64Operator.xxHash64(block, position) * PRIME64);
         }
     }
 
     public static void combine(NullableLongState state, NullableLongState otherState)
     {
         state.setNull(state.isNull() && otherState.isNull());
-        state.setLong(state.getLong() + otherState.getLong());
+        state.setValue(state.getValue() + otherState.getValue());
     }
 
     public static void output(NullableLongState state, BlockBuilder out)
@@ -121,7 +121,7 @@ public class ChecksumAggregationFunction
             out.appendNull();
         }
         else {
-            VARBINARY.writeSlice(out, wrappedLongArray(state.getLong()));
+            VARBINARY.writeSlice(out, wrappedLongArray(state.getValue()));
         }
     }
 }
