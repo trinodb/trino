@@ -110,7 +110,7 @@ public class ChecksumAggregationFunction
                         StateCompiler.generateStateFactory(NullableLongState.class, classLoader))),
                 VARBINARY);
 
-        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
+        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata);
         return new InternalAggregationFunction(NAME, ImmutableList.of(type), ImmutableList.of(stateSerializer.getSerializedType()), VARBINARY, factory);
     }
 

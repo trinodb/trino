@@ -14,7 +14,6 @@
 package io.trino.operator.aggregation.arrayagg;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.bytecode.DynamicClassLoader;
 import io.trino.metadata.AggregationFunctionMetadata;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
@@ -86,8 +85,6 @@ public class ArrayAggregationFunction
 
     private static InternalAggregationFunction generateAggregation(Type type)
     {
-        DynamicClassLoader classLoader = new DynamicClassLoader(ArrayAggregationFunction.class.getClassLoader());
-
         ArrayAggregationStateSerializer stateSerializer = new ArrayAggregationStateSerializer(type);
         ArrayAggregationStateFactory stateFactory = new ArrayAggregationStateFactory(type);
 
@@ -113,7 +110,7 @@ public class ArrayAggregationFunction
                         stateFactory)),
                 outputType);
 
-        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
+        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata);
         return new InternalAggregationFunction(NAME, inputTypes, ImmutableList.of(intermediateType), outputType, factory);
     }
 

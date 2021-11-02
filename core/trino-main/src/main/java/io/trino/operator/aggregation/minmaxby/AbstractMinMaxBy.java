@@ -171,7 +171,7 @@ public abstract class AbstractMinMaxBy
                 outputMethod,
                 ImmutableList.of(accumulatorStateDescriptor),
                 valueType);
-        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(aggregationMetadata, classLoader);
+        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(aggregationMetadata);
         return new InternalAggregationFunction(name, inputTypes, ImmutableList.of(intermediateType), valueType, factory);
     }
 

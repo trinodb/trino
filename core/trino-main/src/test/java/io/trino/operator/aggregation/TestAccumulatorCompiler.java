@@ -67,7 +67,7 @@ public class TestAccumulatorCompiler
                 RealType.REAL);
 
         // test if we can compile aggregation
-        assertThat(AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader)).isNotNull();
+        assertThat(AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata)).isNotNull();
 
         // TODO test if aggregation actually works...
     }

@@ -14,7 +14,6 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.bytecode.DynamicClassLoader;
 import io.airlift.stats.QuantileDigest;
 import io.trino.metadata.AggregationFunctionMetadata;
 import io.trino.metadata.BoundSignature;
@@ -105,7 +104,6 @@ public final class QuantileDigestAggregationFunction
 
     private static InternalAggregationFunction generateAggregation(Type valueType, QuantileDigestType outputType, int arity)
     {
-        DynamicClassLoader classLoader = new DynamicClassLoader(QuantileDigestAggregationFunction.class.getClassLoader());
         List<Type> inputTypes = getInputTypes(valueType, arity);
         QuantileDigestStateSerializer stateSerializer = new QuantileDigestStateSerializer(valueType);
         Type intermediateType = stateSerializer.getSerializedType();
@@ -123,7 +121,7 @@ public final class QuantileDigestAggregationFunction
                         new QuantileDigestStateFactory())),
                 outputType);
 
-        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
+        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata);
         return new InternalAggregationFunction(NAME, inputTypes, ImmutableList.of(intermediateType), outputType, factory);
     }
 

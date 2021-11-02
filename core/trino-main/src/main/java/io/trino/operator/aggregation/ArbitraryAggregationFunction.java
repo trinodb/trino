@@ -161,7 +161,7 @@ public class ArbitraryAggregationFunction
                 ImmutableList.of(accumulatorStateDescriptor),
                 type);
 
-        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
+        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata);
         return new InternalAggregationFunction(NAME, inputTypes, ImmutableList.of(intermediateType), type, factory);
     }
 

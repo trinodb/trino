@@ -15,7 +15,6 @@ package io.trino.operator.aggregation;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import io.airlift.bytecode.DynamicClassLoader;
 import io.airlift.slice.Slice;
 import io.trino.metadata.AggregationFunctionMetadata;
 import io.trino.metadata.BoundSignature;
@@ -107,7 +106,6 @@ public class DecimalAverageAggregation
     private static InternalAggregationFunction generateAggregation(Type type)
     {
         checkArgument(type instanceof DecimalType, "type must be Decimal");
-        DynamicClassLoader classLoader = new DynamicClassLoader(DecimalAverageAggregation.class.getClassLoader());
         List<Type> inputTypes = ImmutableList.of(type);
         MethodHandle inputFunction;
         MethodHandle outputFunction;
@@ -138,7 +136,7 @@ public class DecimalAverageAggregation
                 type);
 
         Type intermediateType = stateSerializer.getSerializedType();
-        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
+        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata);
         return new InternalAggregationFunction(NAME, inputTypes, ImmutableList.of(intermediateType), type, factory);
     }
 

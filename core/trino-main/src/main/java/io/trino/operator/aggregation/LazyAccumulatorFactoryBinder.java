@@ -15,7 +15,6 @@ package io.trino.operator.aggregation;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
-import io.airlift.bytecode.DynamicClassLoader;
 import io.trino.Session;
 import io.trino.operator.PagesIndex;
 import io.trino.spi.connector.SortOrder;
@@ -32,9 +31,9 @@ public class LazyAccumulatorFactoryBinder
 {
     private final Supplier<AccumulatorFactoryBinder> binder;
 
-    public LazyAccumulatorFactoryBinder(AggregationMetadata metadata, DynamicClassLoader classLoader)
+    public LazyAccumulatorFactoryBinder(AggregationMetadata metadata)
     {
-        binder = Suppliers.memoize(() -> AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader));
+        binder = Suppliers.memoize(() -> AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata));
     }
 
     @VisibleForTesting
