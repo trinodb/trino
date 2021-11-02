@@ -17,13 +17,15 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 
+import java.util.Optional;
+
 public interface Accumulator
 {
     long getEstimatedSize();
 
     Accumulator copy();
 
-    void addInput(Page page);
+    void addInput(Page arguments, Optional<Block> mask);
 
     void addIntermediate(Block block);
 

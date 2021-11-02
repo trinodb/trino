@@ -14,10 +14,12 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.primitives.Ints;
+import io.trino.operator.GroupByIdBlock;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
+import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Step;
 
 import java.util.List;
@@ -27,16 +29,16 @@ import java.util.OptionalInt;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public class Aggregator
+public class GroupedAggregator
 {
-    private final Accumulator accumulator;
-    private final Step step;
+    private final GroupedAccumulator accumulator;
+    private AggregationNode.Step step;
     private final Type intermediateType;
     private final Type finalType;
     private final int[] inputChannels;
     private final OptionalInt maskChannel;
 
-    public Aggregator(Accumulator accumulator, Step step, Type intermediateType, Type finalType, List<Integer> inputChannels, OptionalInt maskChannel)
+    public GroupedAggregator(GroupedAccumulator accumulator, Step step, Type intermediateType, Type finalType, List<Integer> inputChannels, OptionalInt maskChannel)
     {
         this.accumulator = requireNonNull(accumulator, "accumulator is null");
         this.step = requireNonNull(step, "step is null");
@@ -45,6 +47,11 @@ public class Aggregator
         this.inputChannels = Ints.toArray(requireNonNull(inputChannels, "inputChannels is null"));
         this.maskChannel = requireNonNull(maskChannel, "maskChannel is null");
         checkArgument(step.isInputRaw() || inputChannels.size() == 1, "expected 1 input channel for intermediate aggregation");
+    }
+
+    public long getEstimatedSize()
+    {
+        return accumulator.getEstimatedSize();
     }
 
     public Type getType()
@@ -57,13 +64,13 @@ public class Aggregator
         }
     }
 
-    public void processPage(Page page)
+    public void processPage(GroupByIdBlock groupIds, Page page)
     {
         if (step.isInputRaw()) {
-            accumulator.addInput(page.getColumns(inputChannels), getMaskBlock(page));
+            accumulator.addInput(groupIds, page.getColumns(inputChannels), getMaskBlock(page));
         }
         else {
-            accumulator.addIntermediate(page.getBlock(inputChannels[0]));
+            accumulator.addIntermediate(groupIds, page.getBlock(inputChannels[0]));
         }
     }
 
@@ -75,18 +82,29 @@ public class Aggregator
         return Optional.of(page.getBlock(maskChannel.getAsInt()));
     }
 
-    public void evaluate(BlockBuilder blockBuilder)
+    public void prepareFinal()
+    {
+        accumulator.prepareFinal();
+    }
+
+    public void evaluate(int groupId, BlockBuilder output)
     {
         if (step.isOutputPartial()) {
-            accumulator.evaluateIntermediate(blockBuilder);
+            accumulator.evaluateIntermediate(groupId, output);
         }
         else {
-            accumulator.evaluateFinal(blockBuilder);
+            accumulator.evaluateFinal(groupId, output);
         }
     }
 
-    public long getEstimatedSize()
+    // todo this should return a new GroupedAggregator instead of modifying the existing object
+    public void setSpillOutput()
     {
-        return accumulator.getEstimatedSize();
+        step = AggregationNode.Step.partialOutput(step);
+    }
+
+    public Type getSpillType()
+    {
+        return intermediateType;
     }
 }

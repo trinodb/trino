@@ -18,7 +18,7 @@ import io.airlift.slice.Slice;
 import io.trino.RowPageBuilder;
 import io.trino.metadata.MetadataManager;
 import io.trino.metadata.TestingFunctionResolution;
-import io.trino.operator.aggregation.Accumulator;
+import io.trino.operator.aggregation.Aggregator;
 import io.trino.operator.aggregation.TestingAggregationFunction;
 import io.trino.plugin.ml.type.ClassifierParametricType;
 import io.trino.plugin.ml.type.ModelType;
@@ -31,7 +31,7 @@ import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Random;
 
 import static io.trino.metadata.FunctionExtractor.extractFunctions;
@@ -40,6 +40,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
+import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.testing.StructuralTestUtil.mapBlockOf;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
@@ -62,7 +63,7 @@ public class TestLearnAggregations
         TestingAggregationFunction aggregationFunction = FUNCTION_RESOLUTION.getAggregateFunction(
                 QualifiedName.of("learn_classifier"),
                 fromTypeSignatures(BIGINT.getTypeSignature(), mapType(BIGINT.getTypeSignature(), DOUBLE.getTypeSignature())));
-        assertLearnClassifier(aggregationFunction.getFinalType(), aggregationFunction.bind(ImmutableList.of(0, 1), Optional.empty()).createAccumulator());
+        assertLearnClassifier(aggregationFunction.createAggregatorFactory(SINGLE, ImmutableList.of(0, 1), OptionalInt.empty()).createAggregator());
     }
 
     @Test
@@ -71,16 +72,16 @@ public class TestLearnAggregations
         TestingAggregationFunction aggregationFunction = FUNCTION_RESOLUTION.getAggregateFunction(
                 QualifiedName.of("learn_libsvm_classifier"),
                 fromTypeSignatures(BIGINT.getTypeSignature(), mapType(BIGINT.getTypeSignature(), DOUBLE.getTypeSignature()), VARCHAR.getTypeSignature()));
-        assertLearnClassifier(aggregationFunction.getFinalType(), aggregationFunction.bind(ImmutableList.of(0, 1, 2), Optional.empty()).createAccumulator());
+        assertLearnClassifier(aggregationFunction.createAggregatorFactory(SINGLE, ImmutableList.of(0, 1, 2), OptionalInt.empty()).createAggregator());
     }
 
-    private static void assertLearnClassifier(Type finalType, Accumulator accumulator)
+    private static void assertLearnClassifier(Aggregator aggregator)
     {
-        accumulator.addInput(getPage());
-        BlockBuilder finalOut = finalType.createBlockBuilder(null, 1);
-        accumulator.evaluateFinal(finalOut);
+        aggregator.processPage(getPage());
+        BlockBuilder finalOut = aggregator.getType().createBlockBuilder(null, 1);
+        aggregator.evaluate(finalOut);
         Block block = finalOut.build();
-        Slice slice = finalType.getSlice(block, 0);
+        Slice slice = aggregator.getType().getSlice(block, 0);
         Model deserialized = ModelUtils.deserialize(slice);
         assertNotNull(deserialized, "deserialization failed");
         assertTrue(deserialized instanceof Classifier, "deserialized model is not a classifier");

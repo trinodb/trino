@@ -97,8 +97,10 @@ import io.trino.operator.WindowOperator.WindowOperatorFactory;
 import io.trino.operator.WorkProcessorPipelineSourceOperator;
 import io.trino.operator.aggregation.AccumulatorFactory;
 import io.trino.operator.aggregation.AggregationMetadata;
-import io.trino.operator.aggregation.InternalAggregationFunction;
+import io.trino.operator.aggregation.AggregatorFactory;
+import io.trino.operator.aggregation.DistinctAccumulatorFactory;
 import io.trino.operator.aggregation.LambdaProvider;
+import io.trino.operator.aggregation.OrderedAccumulatorFactory;
 import io.trino.operator.exchange.LocalExchange.LocalExchangeFactory;
 import io.trino.operator.exchange.LocalExchangeSinkOperator.LocalExchangeSinkOperatorFactory;
 import io.trino.operator.exchange.LocalExchangeSourceOperator.LocalExchangeSourceOperatorFactory;
@@ -297,6 +299,7 @@ import static io.trino.operator.TableWriterOperator.STATS_START_CHANNEL;
 import static io.trino.operator.TableWriterOperator.TableWriterOperatorFactory;
 import static io.trino.operator.WindowFunctionDefinition.window;
 import static io.trino.operator.WorkProcessorPipelineSourceOperator.toOperatorFactories;
+import static io.trino.operator.aggregation.AccumulatorCompiler.generateAccumulatorFactory;
 import static io.trino.operator.join.JoinUtils.isBuildSideReplicated;
 import static io.trino.operator.join.NestedLoopBuildOperator.NestedLoopBuildOperatorFactory;
 import static io.trino.operator.join.NestedLoopJoinOperator.NestedLoopJoinOperatorFactory;
@@ -3527,24 +3530,23 @@ public class LocalExecutionPlanner
                     .collect(toImmutableList());
         }
 
-        private AccumulatorFactory buildAccumulatorFactory(
+        private AggregatorFactory buildAggregatorFactory(
                 PhysicalOperation source,
-                Aggregation aggregation)
+                Aggregation aggregation,
+                Step step)
         {
-            AggregationMetadata aggregationMetadata = metadata.getAggregateFunctionImplementation(aggregation.getResolvedFunction());
-            InternalAggregationFunction internalAggregationFunction = new InternalAggregationFunction(
-                    aggregation.getResolvedFunction().getSignature(),
-                    aggregationMetadata,
-                    aggregation.getResolvedFunction().getFunctionNullability());
-
-            List<Integer> valueChannels = new ArrayList<>();
+            List<Integer> argumentChannels = new ArrayList<>();
             for (Expression argument : aggregation.getArguments()) {
                 if (!(argument instanceof LambdaExpression)) {
                     Symbol argumentSymbol = Symbol.from(argument);
-                    valueChannels.add(source.getLayout().get(argumentSymbol));
+                    argumentChannels.add(source.getLayout().get(argumentSymbol));
                 }
             }
 
+            OptionalInt maskChannel = aggregation.getMask().stream()
+                    .mapToInt(value -> source.getLayout().get(value))
+                    .findAny();
+            AggregationMetadata aggregationMetadata = metadata.getAggregateFunctionImplementation(aggregation.getResolvedFunction());
             List<LambdaExpression> lambdaExpressions = aggregation.getArguments().stream()
                     .filter(LambdaExpression.class::isInstance)
                     .map(LambdaExpression.class::cast)
@@ -3553,32 +3555,72 @@ public class LocalExecutionPlanner
                     .filter(FunctionType.class::isInstance)
                     .map(FunctionType.class::cast)
                     .collect(toImmutableList());
+            List<LambdaProvider> lambdaProviders = makeLambdaProviders(lambdaExpressions, aggregationMetadata.getLambdaInterfaces(), functionTypes);
 
-            List<LambdaProvider> lambdaProviders = makeLambdaProviders(lambdaExpressions, internalAggregationFunction.getLambdaInterfaces(), functionTypes);
+            AccumulatorFactory accumulatorFactory = generateAccumulatorFactory(
+                    aggregation.getResolvedFunction().getSignature(),
+                    aggregationMetadata,
+                    aggregation.getResolvedFunction().getFunctionNullability(),
+                    lambdaProviders);
 
-            Optional<Integer> maskChannel = aggregation.getMask().map(value -> source.getLayout().get(value));
-            List<SortOrder> sortOrders = ImmutableList.of();
-            List<Symbol> sortKeys = ImmutableList.of();
-            if (aggregation.getOrderingScheme().isPresent()) {
-                OrderingScheme orderingScheme = aggregation.getOrderingScheme().get();
-                sortKeys = orderingScheme.getOrderBy();
-                sortOrders = sortKeys.stream()
-                        .map(orderingScheme::getOrdering)
-                        .collect(toImmutableList());
+            if (aggregation.isDistinct()) {
+                accumulatorFactory = new DistinctAccumulatorFactory(
+                        accumulatorFactory,
+                        argumentChannels.stream()
+                                .map(channel -> source.getTypes().get(channel))
+                                .collect(toImmutableList()),
+                        joinCompiler,
+                        blockTypeOperators,
+                        session);
             }
 
-            return internalAggregationFunction.bind(
-                    valueChannels,
+            if (aggregation.getOrderingScheme().isPresent()) {
+                List<Integer> inputArgumentChannels = range(0, argumentChannels.size())
+                        .boxed()
+                        .collect(toImmutableList());
+
+                OrderingScheme orderingScheme = aggregation.getOrderingScheme().get();
+                List<Symbol> sortKeys = orderingScheme.getOrderBy();
+
+                List<SortOrder> sortOrders = sortKeys.stream()
+                        .map(orderingScheme::getOrdering)
+                        .collect(toImmutableList());
+
+                List<Integer> inputOrderByChannels = new ArrayList<>();
+                for (int orderByChannel : getChannelsForSymbols(sortKeys, source.getLayout())) {
+                    int inputChannel = argumentChannels.indexOf(orderByChannel);
+                    if (inputChannel < 0) {
+                        inputChannel = argumentChannels.size();
+                        argumentChannels.add(orderByChannel);
+                    }
+                    inputOrderByChannels.add(inputChannel);
+                }
+
+                accumulatorFactory = new OrderedAccumulatorFactory(
+                        accumulatorFactory,
+                        argumentChannels.stream()
+                                .map(channel -> source.getTypes().get(channel))
+                                .collect(toImmutableList()),
+                        inputArgumentChannels,
+                        inputOrderByChannels,
+                        sortOrders,
+                        pagesIndexFactory);
+            }
+
+            ImmutableList<Type> intermediateTypes = aggregationMetadata.getAccumulatorStateDescriptors().stream()
+                    .map(stateDescriptor -> stateDescriptor.getSerializer().getSerializedType())
+                    .collect(toImmutableList());
+            Type intermediateType = (intermediateTypes.size() == 1) ? getOnlyElement(intermediateTypes) : RowType.anonymous(intermediateTypes);
+            Type finalType = aggregation.getResolvedFunction().getSignature().getReturnType();
+
+            return new AggregatorFactory(
+                    accumulatorFactory,
+                    step,
+                    intermediateType,
+                    finalType,
+                    argumentChannels,
                     maskChannel,
-                    source.getTypes(),
-                    getChannelsForSymbols(sortKeys, source.getLayout()),
-                    sortOrders,
-                    pagesIndexFactory,
-                    aggregation.isDistinct(),
-                    joinCompiler,
-                    blockTypeOperators,
-                    lambdaProviders,
-                    session);
+                    !aggregation.isDistinct() && aggregation.getOrderingScheme().isEmpty());
         }
 
         private List<LambdaProvider> makeLambdaProviders(List<LambdaExpression> lambdaExpressions, List<Class<?>> lambdaInterfaces, List<FunctionType> functionTypes)
@@ -3661,15 +3703,15 @@ public class LocalExecutionPlanner
                 boolean useSystemMemory)
         {
             int outputChannel = startOutputChannel;
-            ImmutableList.Builder<AccumulatorFactory> accumulatorFactories = ImmutableList.builder();
+            ImmutableList.Builder<AggregatorFactory> aggregatorFactories = ImmutableList.builder();
             for (Map.Entry<Symbol, Aggregation> entry : aggregations.entrySet()) {
                 Symbol symbol = entry.getKey();
                 Aggregation aggregation = entry.getValue();
-                accumulatorFactories.add(buildAccumulatorFactory(source, aggregation));
+                aggregatorFactories.add(buildAggregatorFactory(source, aggregation, step));
                 outputMappings.put(symbol, outputChannel); // one aggregation per channel
                 outputChannel++;
             }
-            return new AggregationOperatorFactory(context.getNextOperatorId(), planNodeId, step, accumulatorFactories.build(), useSystemMemory);
+            return new AggregationOperatorFactory(context.getNextOperatorId(), planNodeId, aggregatorFactories.build(), useSystemMemory);
         }
 
         private PhysicalOperation planGroupByAggregation(
@@ -3723,12 +3765,12 @@ public class LocalExecutionPlanner
                 boolean useSystemMemory)
         {
             List<Symbol> aggregationOutputSymbols = new ArrayList<>();
-            List<AccumulatorFactory> accumulatorFactories = new ArrayList<>();
+            List<AggregatorFactory> aggregatorFactories = new ArrayList<>();
             for (Map.Entry<Symbol, Aggregation> entry : aggregations.entrySet()) {
                 Symbol symbol = entry.getKey();
                 Aggregation aggregation = entry.getValue();
 
-                accumulatorFactories.add(buildAccumulatorFactory(source, aggregation));
+                aggregatorFactories.add(buildAggregatorFactory(source, aggregation, step));
                 aggregationOutputSymbols.add(symbol);
             }
 
@@ -3767,7 +3809,7 @@ public class LocalExecutionPlanner
                         groupByTypes,
                         groupByChannels,
                         step,
-                        accumulatorFactories,
+                        aggregatorFactories,
                         joinCompiler);
             }
             else {
@@ -3780,7 +3822,7 @@ public class LocalExecutionPlanner
                         ImmutableList.copyOf(globalGroupingSets),
                         step,
                         hasDefaultOutput,
-                        accumulatorFactories,
+                        aggregatorFactories,
                         hashChannel,
                         groupIdChannel,
                         expectedGroups,

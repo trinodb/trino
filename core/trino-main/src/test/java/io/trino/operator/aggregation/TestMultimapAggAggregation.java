@@ -36,7 +36,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Random;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -45,6 +45,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.util.StructuralTestUtil.mapType;
 import static org.testng.Assert.assertTrue;
 
@@ -120,29 +121,26 @@ public class TestMultimapAggAggregation
     public void testMultiplePages()
     {
         TestingAggregationFunction aggFunction = getAggregationFunction(BIGINT, BIGINT);
-        GroupedAccumulator groupedAccumulator = aggFunction.bind(ImmutableList.of(0, 1), Optional.empty())
-                .createGroupedAccumulator();
+        GroupedAggregator groupedAggregator = aggFunction.createAggregatorFactory(SINGLE, ImmutableList.of(0, 1), OptionalInt.empty()).createGroupedAggregator();
 
-        testMultimapAggWithGroupBy(aggFunction, groupedAccumulator, 0, BIGINT, ImmutableList.of(1L, 1L), BIGINT, ImmutableList.of(2L, 3L));
+        testMultimapAggWithGroupBy(aggFunction, groupedAggregator, 0, BIGINT, ImmutableList.of(1L, 1L), BIGINT, ImmutableList.of(2L, 3L));
     }
 
     @Test
     public void testMultiplePagesAndGroups()
     {
         TestingAggregationFunction aggFunction = getAggregationFunction(BIGINT, BIGINT);
-        GroupedAccumulator groupedAccumulator = aggFunction.bind(ImmutableList.of(0, 1), Optional.empty())
-                .createGroupedAccumulator();
+        GroupedAggregator groupedAggregator = aggFunction.createAggregatorFactory(SINGLE, ImmutableList.of(0, 1), OptionalInt.empty()).createGroupedAggregator();
 
-        testMultimapAggWithGroupBy(aggFunction, groupedAccumulator, 0, BIGINT, ImmutableList.of(1L, 1L), BIGINT, ImmutableList.of(2L, 3L));
-        testMultimapAggWithGroupBy(aggFunction, groupedAccumulator, 300, BIGINT, ImmutableList.of(7L, 7L), BIGINT, ImmutableList.of(8L, 9L));
+        testMultimapAggWithGroupBy(aggFunction, groupedAggregator, 0, BIGINT, ImmutableList.of(1L, 1L), BIGINT, ImmutableList.of(2L, 3L));
+        testMultimapAggWithGroupBy(aggFunction, groupedAggregator, 300, BIGINT, ImmutableList.of(7L, 7L), BIGINT, ImmutableList.of(8L, 9L));
     }
 
     @Test
     public void testManyValues()
     {
         TestingAggregationFunction aggFunction = getAggregationFunction(BIGINT, BIGINT);
-        GroupedAccumulator groupedAccumulator = aggFunction.bind(ImmutableList.of(0, 1), Optional.empty())
-                .createGroupedAccumulator();
+        GroupedAggregator groupedAggregator = aggFunction.createAggregatorFactory(SINGLE, ImmutableList.of(0, 1), OptionalInt.empty()).createGroupedAggregator();
 
         int numGroups = 30000;
         int numKeys = 10;
@@ -160,7 +158,7 @@ public class TestMultimapAggAggregation
                     valueBuilder.add(value);
                 }
             }
-            testMultimapAggWithGroupBy(aggFunction, groupedAccumulator, group, BIGINT, keyBuilder.build(), BIGINT, valueBuilder.build());
+            testMultimapAggWithGroupBy(aggFunction, groupedAggregator, group, BIGINT, keyBuilder.build(), BIGINT, valueBuilder.build());
         }
     }
 
@@ -168,9 +166,9 @@ public class TestMultimapAggAggregation
     public void testEmptyStateOutputIsNull()
     {
         TestingAggregationFunction aggregationFunction = getAggregationFunction(BIGINT, BIGINT);
-        GroupedAccumulator groupedAccumulator = aggregationFunction.bind(Ints.asList(), Optional.empty()).createGroupedAccumulator();
+        GroupedAggregator groupedAggregator = aggregationFunction.createAggregatorFactory(SINGLE, Ints.asList(), OptionalInt.empty()).createGroupedAggregator();
         BlockBuilder blockBuilder = aggregationFunction.getFinalType().createBlockBuilder(null, 1);
-        groupedAccumulator.evaluateFinal(0, blockBuilder);
+        groupedAggregator.evaluate(0, blockBuilder);
         assertTrue(blockBuilder.isNull(0));
     }
 
@@ -205,7 +203,7 @@ public class TestMultimapAggAggregation
 
     private static <K, V> void testMultimapAggWithGroupBy(
             TestingAggregationFunction aggregationFunction,
-            GroupedAccumulator groupedAccumulator,
+            GroupedAggregator groupedAggregator,
             int groupId,
             Type keyType,
             List<K> expectedKeys,
@@ -225,6 +223,6 @@ public class TestMultimapAggAggregation
                 aggregationFunction).build();
 
         AggregationTestOutput testOutput = new AggregationTestOutput(outputBuilder.build().asMap());
-        input.runPagesOnAccumulatorWithAssertion(groupId, aggregationFunction.getFinalType(), groupedAccumulator, testOutput);
+        input.runPagesOnAggregatorWithAssertion(groupId, aggregationFunction.getFinalType(), groupedAggregator, testOutput);
     }
 }
