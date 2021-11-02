@@ -14,7 +14,6 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.bytecode.DynamicClassLoader;
 import io.trino.metadata.AggregationFunctionMetadata;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
@@ -103,8 +102,6 @@ public class ReduceAggregationFunction
 
     private InternalAggregationFunction generateAggregation(Type inputType, Type stateType)
     {
-        DynamicClassLoader classLoader = new DynamicClassLoader(ReduceAggregationFunction.class.getClassLoader());
-
         MethodHandle inputMethodHandle;
         MethodHandle combineMethodHandle;
         MethodHandle outputMethodHandle;
@@ -117,7 +114,7 @@ public class ReduceAggregationFunction
             stateDescriptor = new AccumulatorStateDescriptor<>(
                     GenericLongState.class,
                     new GenericLongStateSerializer(stateType),
-                    StateCompiler.generateStateFactory(GenericLongState.class, classLoader));
+                    StateCompiler.generateStateFactory(GenericLongState.class));
         }
         else if (stateType.getJavaType() == double.class) {
             inputMethodHandle = DOUBLE_STATE_INPUT_FUNCTION;
@@ -126,7 +123,7 @@ public class ReduceAggregationFunction
             stateDescriptor = new AccumulatorStateDescriptor<>(
                     GenericDoubleState.class,
                     new GenericDoubleStateSerializer(stateType),
-                    StateCompiler.generateStateFactory(GenericDoubleState.class, classLoader));
+                    StateCompiler.generateStateFactory(GenericDoubleState.class));
         }
         else if (stateType.getJavaType() == boolean.class) {
             inputMethodHandle = BOOLEAN_STATE_INPUT_FUNCTION;
@@ -135,7 +132,7 @@ public class ReduceAggregationFunction
             stateDescriptor = new AccumulatorStateDescriptor<>(
                     GenericBooleanState.class,
                     new GenericBooleanStateSerializer(stateType),
-                    StateCompiler.generateStateFactory(GenericBooleanState.class, classLoader));
+                    StateCompiler.generateStateFactory(GenericBooleanState.class));
         }
         else {
             // State with Slice or Block as native container type is intentionally not supported yet,
