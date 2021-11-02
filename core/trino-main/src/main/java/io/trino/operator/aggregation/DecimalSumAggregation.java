@@ -31,17 +31,15 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
-import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.trino.metadata.FunctionKind.AGGREGATE;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.BLOCK_INDEX;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.BLOCK_INPUT_CHANNEL;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.STATE;
 import static io.trino.spi.type.TypeSignatureParameter.numericParameter;
 import static io.trino.spi.type.TypeSignatureParameter.typeVariable;
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.SIGN_LONG_MASK;
@@ -103,7 +101,7 @@ public class DecimalSumAggregation
         }
 
         return new AggregationMetadata(
-                createInputParameterMetadata(inputType),
+                ImmutableList.of(STATE, BLOCK_INPUT_CHANNEL, BLOCK_INDEX),
                 inputFunction,
                 Optional.empty(),
                 COMBINE_FUNCTION,
@@ -112,11 +110,6 @@ public class DecimalSumAggregation
                         stateInterface,
                         stateSerializer,
                         new LongDecimalWithOverflowStateFactory())));
-    }
-
-    private static List<ParameterMetadata> createInputParameterMetadata(Type type)
-    {
-        return ImmutableList.of(new ParameterMetadata(STATE), new ParameterMetadata(BLOCK_INPUT_CHANNEL, type), new ParameterMetadata(BLOCK_INDEX));
     }
 
     public static void inputShortDecimal(LongDecimalWithOverflowState state, Block block, int position)

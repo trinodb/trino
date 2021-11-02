@@ -34,17 +34,16 @@ import io.trino.spi.type.TypeSignature;
 import io.trino.util.MinMaxCompare;
 
 import java.lang.invoke.MethodHandle;
-import java.util.List;
 import java.util.Optional;
 
 import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.metadata.Signature.orderableTypeParameter;
 import static io.trino.metadata.Signature.typeVariable;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_BLOCK_INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.BLOCK_INDEX;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.BLOCK_INPUT_CHANNEL;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.INPUT_CHANNEL;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.NULLABLE_BLOCK_INPUT_CHANNEL;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.STATE;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -167,15 +166,8 @@ public abstract class AbstractMinMaxByNAggregationFunction
         MinMaxByNStateSerializer stateSerializer = new MinMaxByNStateSerializer(keyComparisonMethod, keyType, valueType);
         ArrayType outputType = new ArrayType(valueType);
 
-        List<AggregationMetadata.ParameterMetadata> inputParameterMetadata = ImmutableList.of(
-                new AggregationMetadata.ParameterMetadata(STATE),
-                new AggregationMetadata.ParameterMetadata(NULLABLE_BLOCK_INPUT_CHANNEL, valueType),
-                new AggregationMetadata.ParameterMetadata(BLOCK_INPUT_CHANNEL, keyType),
-                new AggregationMetadata.ParameterMetadata(BLOCK_INDEX),
-                new AggregationMetadata.ParameterMetadata(INPUT_CHANNEL, BIGINT));
-
         return new AggregationMetadata(
-                inputParameterMetadata,
+                ImmutableList.of(STATE, NULLABLE_BLOCK_INPUT_CHANNEL, BLOCK_INPUT_CHANNEL, BLOCK_INDEX, INPUT_CHANNEL),
                 INPUT_FUNCTION.bindTo(keyComparisonMethod).bindTo(valueType).bindTo(keyType),
                 Optional.empty(),
                 COMBINE_FUNCTION,

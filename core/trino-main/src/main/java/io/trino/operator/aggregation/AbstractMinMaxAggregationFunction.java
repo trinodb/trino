@@ -24,6 +24,7 @@ import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlAggregationFunction;
 import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
+import io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind;
 import io.trino.operator.aggregation.state.BlockPositionState;
 import io.trino.operator.aggregation.state.BlockPositionStateSerializer;
 import io.trino.operator.aggregation.state.GenericBooleanState;
@@ -45,11 +46,10 @@ import java.util.Optional;
 
 import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.metadata.Signature.orderableTypeParameter;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.BLOCK_INDEX;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.BLOCK_INPUT_CHANNEL;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.INPUT_CHANNEL;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.STATE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -170,7 +170,7 @@ public abstract class AbstractMinMaxAggregationFunction
         }
 
         return new AggregationMetadata(
-                createParameterMetadata(type),
+                createInputParameterKinds(type),
                 inputFunction,
                 Optional.empty(),
                 combineFunction,
@@ -178,18 +178,18 @@ public abstract class AbstractMinMaxAggregationFunction
                 ImmutableList.of(accumulatorStateDescriptor));
     }
 
-    private static List<ParameterMetadata> createParameterMetadata(Type type)
+    private static List<AggregationParameterKind> createInputParameterKinds(Type type)
     {
         if (type.getJavaType().isPrimitive()) {
             return ImmutableList.of(
-                    new ParameterMetadata(STATE),
-                    new ParameterMetadata(INPUT_CHANNEL, type));
+                    STATE,
+                    INPUT_CHANNEL);
         }
         else {
             return ImmutableList.of(
-                    new ParameterMetadata(STATE),
-                    new ParameterMetadata(BLOCK_INPUT_CHANNEL, type),
-                    new ParameterMetadata(BLOCK_INDEX));
+                    STATE,
+                    BLOCK_INPUT_CHANNEL,
+                    BLOCK_INDEX);
         }
     }
 

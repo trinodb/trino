@@ -35,15 +35,13 @@ import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
-import java.util.List;
 import java.util.Optional;
 
 import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.metadata.Signature.comparableTypeParameter;
 import static io.trino.metadata.Signature.typeVariable;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.INPUT_CHANNEL;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.STATE;
 import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.util.Reflection.methodHandle;
 import static java.util.Objects.requireNonNull;
@@ -104,7 +102,7 @@ public class MapUnionAggregation
         KeyValuePairStateSerializer stateSerializer = new KeyValuePairStateSerializer(outputType, keyEqual, keyHashCode);
 
         return new AggregationMetadata(
-                createInputParameterMetadata(outputType),
+                ImmutableList.of(STATE, INPUT_CHANNEL),
                 MethodHandles.insertArguments(INPUT_FUNCTION, 0, keyType, keyEqual, keyHashCode, valueType),
                 Optional.empty(),
                 COMBINE_FUNCTION,
@@ -113,13 +111,6 @@ public class MapUnionAggregation
                         KeyValuePairsState.class,
                         stateSerializer,
                         new KeyValuePairsStateFactory(keyType, valueType))));
-    }
-
-    private static List<ParameterMetadata> createInputParameterMetadata(Type inputType)
-    {
-        return ImmutableList.of(
-                new ParameterMetadata(STATE),
-                new ParameterMetadata(INPUT_CHANNEL, inputType));
     }
 
     public static void input(

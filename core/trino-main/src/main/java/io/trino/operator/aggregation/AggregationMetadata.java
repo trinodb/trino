@@ -17,20 +17,16 @@ import com.google.common.collect.ImmutableList;
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateFactory;
 import io.trino.spi.function.AccumulatorStateSerializer;
-import io.trino.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static java.util.Objects.requireNonNull;
 
 public class AggregationMetadata
 {
-    private final List<ParameterMetadata> valueInputMetadata;
+    private final List<AggregationParameterKind> inputParameterKinds;
     private final List<Class<?>> lambdaInterfaces;
     private final MethodHandle inputFunction;
     private final Optional<MethodHandle> removeInputFunction;
@@ -39,7 +35,7 @@ public class AggregationMetadata
     private final List<AccumulatorStateDescriptor<?>> accumulatorStateDescriptors;
 
     public AggregationMetadata(
-            List<ParameterMetadata> valueInputMetadata,
+            List<AggregationParameterKind> inputParameterKinds,
             MethodHandle inputFunction,
             Optional<MethodHandle> removeInputFunction,
             MethodHandle combineFunction,
@@ -47,7 +43,7 @@ public class AggregationMetadata
             List<AccumulatorStateDescriptor<?>> accumulatorStateDescriptors)
     {
         this(
-                valueInputMetadata,
+                inputParameterKinds,
                 inputFunction,
                 removeInputFunction,
                 combineFunction,
@@ -57,7 +53,7 @@ public class AggregationMetadata
     }
 
     public AggregationMetadata(
-            List<ParameterMetadata> valueInputMetadata,
+            List<AggregationParameterKind> inputParameterKinds,
             MethodHandle inputFunction,
             Optional<MethodHandle> removeInputFunction,
             MethodHandle combineFunction,
@@ -65,7 +61,7 @@ public class AggregationMetadata
             List<AccumulatorStateDescriptor<?>> accumulatorStateDescriptors,
             List<Class<?>> lambdaInterfaces)
     {
-        this.valueInputMetadata = ImmutableList.copyOf(requireNonNull(valueInputMetadata, "valueInputMetadata is null"));
+        this.inputParameterKinds = ImmutableList.copyOf(requireNonNull(inputParameterKinds, "inputParameterKinds is null"));
         this.inputFunction = requireNonNull(inputFunction, "inputFunction is null");
         this.removeInputFunction = requireNonNull(removeInputFunction, "removeInputFunction is null");
         this.combineFunction = requireNonNull(combineFunction, "combineFunction is null");
@@ -74,9 +70,9 @@ public class AggregationMetadata
         this.lambdaInterfaces = ImmutableList.copyOf(requireNonNull(lambdaInterfaces, "lambdaInterfaces is null"));
     }
 
-    public List<ParameterMetadata> getValueInputMetadata()
+    public List<AggregationParameterKind> getInputParameterKinds()
     {
-        return valueInputMetadata;
+        return inputParameterKinds;
     }
 
     public List<Class<?>> getLambdaInterfaces()
@@ -109,62 +105,13 @@ public class AggregationMetadata
         return accumulatorStateDescriptors;
     }
 
-    public static class ParameterMetadata
+    public enum AggregationParameterKind
     {
-        private final ParameterType parameterType;
-        private final Type sqlType;
-
-        public ParameterMetadata(ParameterType parameterType)
-        {
-            this(parameterType, null);
-        }
-
-        public ParameterMetadata(ParameterType parameterType, Type sqlType)
-        {
-            checkArgument((sqlType == null) == (parameterType == BLOCK_INDEX || parameterType == STATE),
-                    "sqlType must be provided only for input channels");
-            this.parameterType = parameterType;
-            this.sqlType = sqlType;
-        }
-
-        public ParameterType getParameterType()
-        {
-            return parameterType;
-        }
-
-        public Type getSqlType()
-        {
-            return sqlType;
-        }
-
-        public enum ParameterType
-        {
-            INPUT_CHANNEL,
-            BLOCK_INPUT_CHANNEL,
-            NULLABLE_BLOCK_INPUT_CHANNEL,
-            BLOCK_INDEX,
-            STATE;
-
-            static ParameterType inputChannelParameterType(boolean isNullable, boolean isBlock, String methodName)
-            {
-                if (isBlock) {
-                    if (isNullable) {
-                        return NULLABLE_BLOCK_INPUT_CHANNEL;
-                    }
-                    else {
-                        return BLOCK_INPUT_CHANNEL;
-                    }
-                }
-                else {
-                    if (isNullable) {
-                        throw new IllegalArgumentException(methodName + " contains a parameter with @NullablePosition that is not @BlockPosition");
-                    }
-                    else {
-                        return INPUT_CHANNEL;
-                    }
-                }
-            }
-        }
+        INPUT_CHANNEL,
+        BLOCK_INPUT_CHANNEL,
+        NULLABLE_BLOCK_INPUT_CHANNEL,
+        BLOCK_INDEX,
+        STATE
     }
 
     public static class AccumulatorStateDescriptor<T extends AccumulatorState>

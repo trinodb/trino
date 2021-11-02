@@ -31,9 +31,8 @@ import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
 import static io.trino.metadata.FunctionKind.AGGREGATE;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.INPUT_CHANNEL;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.STATE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
@@ -83,7 +82,7 @@ public class RealAverageAggregation
         AccumulatorStateSerializer<DoubleState> doubleStateSerializer = StateCompiler.generateStateSerializer(doubleStateInterface);
 
         return new AggregationMetadata(
-                ImmutableList.of(new ParameterMetadata(STATE), new ParameterMetadata(STATE), new ParameterMetadata(INPUT_CHANNEL, REAL)),
+                ImmutableList.of(STATE, STATE, INPUT_CHANNEL),
                 INPUT_FUNCTION,
                 Optional.of(REMOVE_INPUT_FUNCTION),
                 COMBINE_FUNCTION,

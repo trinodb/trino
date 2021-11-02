@@ -25,7 +25,7 @@ import io.trino.metadata.Signature;
 import io.trino.metadata.SqlAggregationFunction;
 import io.trino.operator.aggregation.AggregationMetadata;
 import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
-import io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata;
+import io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -41,10 +41,10 @@ import java.util.List;
 import java.util.Optional;
 
 import static io.trino.metadata.FunctionKind.AGGREGATE;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_BLOCK_INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.BLOCK_INDEX;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.INPUT_CHANNEL;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.NULLABLE_BLOCK_INPUT_CHANNEL;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.STATE;
 import static io.trino.spi.StandardErrorCode.EXCEEDED_FUNCTION_MEMORY_LIMIT;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
@@ -59,7 +59,7 @@ public class ListaggAggregationFunction
 {
     public static final ListaggAggregationFunction LISTAGG = new ListaggAggregationFunction();
     public static final String NAME = "listagg";
-    private static final MethodHandle INPUT_FUNCTION = methodHandle(ListaggAggregationFunction.class, "input", Type.class, ListaggAggregationState.class, Block.class, int.class, Slice.class, boolean.class, Slice.class, boolean.class);
+    private static final MethodHandle INPUT_FUNCTION = methodHandle(ListaggAggregationFunction.class, "input", Type.class, ListaggAggregationState.class, Block.class, Slice.class, boolean.class, Slice.class, boolean.class, int.class);
     private static final MethodHandle COMBINE_FUNCTION = methodHandle(ListaggAggregationFunction.class, "combine", Type.class, ListaggAggregationState.class, ListaggAggregationState.class);
     private static final MethodHandle OUTPUT_FUNCTION = methodHandle(ListaggAggregationFunction.class, "output", Type.class, ListaggAggregationState.class, BlockBuilder.class);
 
@@ -109,21 +109,21 @@ public class ListaggAggregationFunction
         AccumulatorStateSerializer<ListaggAggregationState> stateSerializer = new ListaggAggregationStateSerializer(type);
         AccumulatorStateFactory<ListaggAggregationState> stateFactory = new ListaggAggregationStateFactory(type);
 
-        List<ParameterMetadata> inputParameterMetadata = ImmutableList.of(
-                new ParameterMetadata(STATE),
-                new ParameterMetadata(NULLABLE_BLOCK_INPUT_CHANNEL, type),
-                new ParameterMetadata(BLOCK_INDEX),
-                new ParameterMetadata(INPUT_CHANNEL, VARCHAR),
-                new ParameterMetadata(INPUT_CHANNEL, BOOLEAN),
-                new ParameterMetadata(INPUT_CHANNEL, VARCHAR),
-                new ParameterMetadata(INPUT_CHANNEL, BOOLEAN));
+        List<AggregationParameterKind> inputParameterKinds = ImmutableList.of(
+                STATE,
+                NULLABLE_BLOCK_INPUT_CHANNEL,
+                INPUT_CHANNEL,
+                INPUT_CHANNEL,
+                INPUT_CHANNEL,
+                INPUT_CHANNEL,
+                BLOCK_INDEX);
 
         MethodHandle inputFunction = INPUT_FUNCTION.bindTo(type);
         MethodHandle combineFunction = COMBINE_FUNCTION.bindTo(type);
         MethodHandle outputFunction = OUTPUT_FUNCTION.bindTo(type);
 
         return new AggregationMetadata(
-                inputParameterMetadata,
+                inputParameterKinds,
                 inputFunction,
                 Optional.empty(),
                 combineFunction,
@@ -134,7 +134,7 @@ public class ListaggAggregationFunction
                         stateFactory)));
     }
 
-    public static void input(Type type, ListaggAggregationState state, Block value, int position, Slice separator, boolean overflowError, Slice overflowFiller, boolean showOverflowEntryCount)
+    public static void input(Type type, ListaggAggregationState state, Block value, Slice separator, boolean overflowError, Slice overflowFiller, boolean showOverflowEntryCount, int position)
     {
         if (state.isEmpty()) {
             if (overflowFiller.length() > MAX_OVERFLOW_FILLER_LENGTH) {

@@ -33,16 +33,14 @@ import io.trino.type.BlockTypeOperators;
 import io.trino.type.BlockTypeOperators.BlockPositionXxHash64;
 
 import java.lang.invoke.MethodHandle;
-import java.util.List;
 import java.util.Optional;
 
 import static io.airlift.slice.Slices.wrappedLongArray;
 import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.metadata.Signature.comparableTypeParameter;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_BLOCK_INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.BLOCK_INDEX;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.NULLABLE_BLOCK_INPUT_CHANNEL;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.STATE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.util.Reflection.methodHandle;
@@ -87,14 +85,9 @@ public class ChecksumAggregationFunction
     {
         Type valueType = boundSignature.getArgumentTypes().get(0);
         BlockPositionXxHash64 xxHash64Operator = blockTypeOperators.getXxHash64Operator(valueType);
-        return generateAggregation(valueType, xxHash64Operator);
-    }
-
-    private static AggregationMetadata generateAggregation(Type type, BlockPositionXxHash64 xxHash64Operator)
-    {
         AccumulatorStateSerializer<NullableLongState> stateSerializer = StateCompiler.generateStateSerializer(NullableLongState.class);
         return new AggregationMetadata(
-                createInputParameterMetadata(type),
+                ImmutableList.of(STATE, NULLABLE_BLOCK_INPUT_CHANNEL, BLOCK_INDEX),
                 INPUT_FUNCTION.bindTo(xxHash64Operator),
                 Optional.empty(),
                 COMBINE_FUNCTION,
@@ -103,11 +96,6 @@ public class ChecksumAggregationFunction
                         NullableLongState.class,
                         stateSerializer,
                         StateCompiler.generateStateFactory(NullableLongState.class))));
-    }
-
-    private static List<ParameterMetadata> createInputParameterMetadata(Type type)
-    {
-        return ImmutableList.of(new ParameterMetadata(STATE), new ParameterMetadata(NULLABLE_BLOCK_INPUT_CHANNEL, type), new ParameterMetadata(BLOCK_INDEX));
     }
 
     public static void input(BlockPositionXxHash64 xxHash64Operator, NullableLongState state, Block block, int position)

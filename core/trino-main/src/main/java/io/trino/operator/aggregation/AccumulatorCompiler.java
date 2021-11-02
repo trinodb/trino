@@ -31,6 +31,7 @@ import io.airlift.slice.Slice;
 import io.trino.metadata.BoundSignature;
 import io.trino.operator.GroupByIdBlock;
 import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
+import io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -72,10 +73,9 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.invokeDynamic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
 import static io.airlift.bytecode.expression.BytecodeExpressions.not;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_BLOCK_INPUT_CHANNEL;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.BLOCK_INPUT_CHANNEL;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.INPUT_CHANNEL;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.NULLABLE_BLOCK_INPUT_CHANNEL;
 import static io.trino.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static io.trino.sql.gen.BytecodeUtils.invoke;
 import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
@@ -150,7 +150,7 @@ public final class AccumulatorCompiler
 
         FieldDefinition maskChannelField = definition.declareField(a(PRIVATE, FINAL), "maskChannel", int.class);
 
-        int inputChannelCount = countInputChannels(metadata.getValueInputMetadata());
+        int inputChannelCount = countInputChannels(metadata.getInputParameterKinds());
         ImmutableList.Builder<FieldDefinition> inputFieldsBuilder = ImmutableList.builderWithExpectedSize(inputChannelCount);
         for (int i = 0; i < inputChannelCount; i++) {
             inputFieldsBuilder.add(definition.declareField(a(PRIVATE, FINAL), "inputChannel" + i, int.class));
@@ -177,7 +177,7 @@ public final class AccumulatorCompiler
                 inputChannelFields,
                 maskChannelField,
                 boundSignature.getArgumentTypes(),
-                metadata.getValueInputMetadata(),
+                metadata.getInputParameterKinds(),
                 lambdaProviderFields,
                 metadata.getInputFunction(),
                 callSiteBinder,
@@ -185,7 +185,7 @@ public final class AccumulatorCompiler
         generateAddOrRemoveInputWindowIndex(
                 definition,
                 stateFields,
-                metadata.getValueInputMetadata(),
+                metadata.getInputParameterKinds(),
                 lambdaProviderFields,
                 metadata.getInputFunction(),
                 "addInput",
@@ -194,7 +194,7 @@ public final class AccumulatorCompiler
                 removeInputFunction -> generateAddOrRemoveInputWindowIndex(
                         definition,
                         stateFields,
-                        metadata.getValueInputMetadata(),
+                        metadata.getInputParameterKinds(),
                         lambdaProviderFields,
                         removeInputFunction,
                         "removeInput",
@@ -285,7 +285,7 @@ public final class AccumulatorCompiler
             List<FieldDefinition> inputChannelFields,
             FieldDefinition maskChannelField,
             List<Type> inputTypes,
-            List<ParameterMetadata> parameterMetadatas,
+            List<AggregationParameterKind> parameterKinds,
             List<FieldDefinition> lambdaProviderFields,
             MethodHandle inputFunction,
             CallSiteBinder callSiteBinder,
@@ -330,7 +330,7 @@ public final class AccumulatorCompiler
         BytecodeBlock block = generateInputForLoop(
                 stateField,
                 inputTypes,
-                parameterMetadatas,
+                parameterKinds,
                 inputFunction,
                 scope,
                 parameterVariables,
@@ -346,7 +346,7 @@ public final class AccumulatorCompiler
     private static void generateAddOrRemoveInputWindowIndex(
             ClassDefinition definition,
             List<FieldDefinition> stateField,
-            List<ParameterMetadata> parameterMetadatas,
+            List<AggregationParameterKind> parameterKinds,
             List<FieldDefinition> lambdaProviderFields,
             MethodHandle inputFunction,
             String generatedFunctionName,
@@ -377,7 +377,7 @@ public final class AccumulatorCompiler
                 getInvokeFunctionOnWindowIndexParameters(
                         scope,
                         inputFunction.type().parameterArray(),
-                        parameterMetadatas,
+                        parameterKinds,
                         lambdaProviderFields,
                         stateField,
                         index,
@@ -390,13 +390,13 @@ public final class AccumulatorCompiler
                         .condition(BytecodeExpressions.lessThanOrEqual(position, endPosition))
                         .update(position.increment())
                         .body(new IfStatement()
-                                .condition(anyParametersAreNull(parameterMetadatas, index, channels, position))
+                                .condition(anyParametersAreNull(parameterKinds, index, channels, position))
                                 .ifFalse(invokeInputFunction)))
                 .ret();
     }
 
     private static BytecodeExpression anyParametersAreNull(
-            List<ParameterMetadata> parameterMetadatas,
+            List<AggregationParameterKind> parameterKinds,
             Variable index,
             Variable channels,
             Variable position)
@@ -404,8 +404,8 @@ public final class AccumulatorCompiler
         int inputChannel = 0;
 
         BytecodeExpression isNull = constantFalse();
-        for (ParameterMetadata parameterMetadata : parameterMetadatas) {
-            switch (parameterMetadata.getParameterType()) {
+        for (AggregationParameterKind parameterKind : parameterKinds) {
+            switch (parameterKind) {
                 case BLOCK_INPUT_CHANNEL:
                 case INPUT_CHANNEL:
                     BytecodeExpression getChannel = channels.invoke("get", Object.class, constantInt(inputChannel)).cast(int.class);
@@ -427,7 +427,7 @@ public final class AccumulatorCompiler
     private static List<BytecodeExpression> getInvokeFunctionOnWindowIndexParameters(
             Scope scope,
             Class<?>[] parameterTypes,
-            List<ParameterMetadata> parameterMetadatas,
+            List<AggregationParameterKind> parameterKinds,
             List<FieldDefinition> lambdaProviderFields,
             List<FieldDefinition> stateField,
             Variable index,
@@ -436,14 +436,14 @@ public final class AccumulatorCompiler
     {
         int inputChannel = 0;
         int stateIndex = 0;
-        verify(parameterTypes.length == parameterMetadatas.size() + lambdaProviderFields.size());
+        verify(parameterTypes.length == parameterKinds.size() + lambdaProviderFields.size());
         List<BytecodeExpression> expressions = new ArrayList<>();
 
-        for (int i = 0; i < parameterMetadatas.size(); i++) {
-            ParameterMetadata parameterMetadata = parameterMetadatas.get(i);
+        for (int i = 0; i < parameterKinds.size(); i++) {
+            AggregationParameterKind parameterKind = parameterKinds.get(i);
             Class<?> parameterType = parameterTypes[i];
             BytecodeExpression getChannel = channels.invoke("get", Object.class, constantInt(inputChannel)).cast(int.class);
-            switch (parameterMetadata.getParameterType()) {
+            switch (parameterKind) {
                 case STATE:
                     expressions.add(scope.getThis().getField(stateField.get(stateIndex)));
                     stateIndex++;
@@ -485,7 +485,7 @@ public final class AccumulatorCompiler
                     inputChannel++;
                     break;
                 default:
-                    throw new IllegalArgumentException("Unsupported parameter type: " + parameterMetadata.getParameterType());
+                    throw new IllegalArgumentException("Unsupported parameter type: " + parameterKind);
             }
         }
 
@@ -500,7 +500,7 @@ public final class AccumulatorCompiler
     private static BytecodeBlock generateInputForLoop(
             List<FieldDefinition> stateField,
             List<Type> inputTypes,
-            List<ParameterMetadata> parameterMetadatas,
+            List<AggregationParameterKind> parameterKinds,
             MethodHandle inputFunction,
             Scope scope,
             List<Variable> parameterVariables,
@@ -526,7 +526,7 @@ public final class AccumulatorCompiler
                 positionVariable,
                 inputTypes,
                 parameterVariables,
-                parameterMetadatas,
+                parameterKinds,
                 lambdaProviderFields,
                 inputFunction,
                 callSiteBinder,
@@ -534,8 +534,8 @@ public final class AccumulatorCompiler
 
         //  Wrap with null checks
         List<Boolean> nullable = new ArrayList<>();
-        for (ParameterMetadata metadata : parameterMetadatas) {
-            switch (metadata.getParameterType()) {
+        for (AggregationParameterKind parameterKind : parameterKinds) {
+            switch (parameterKind) {
                 case INPUT_CHANNEL:
                 case BLOCK_INPUT_CHANNEL:
                     nullable.add(false);
@@ -591,7 +591,7 @@ public final class AccumulatorCompiler
             Variable position,
             List<Type> inputTypes,
             List<Variable> parameterVariables,
-            List<ParameterMetadata> parameterMetadatas,
+            List<AggregationParameterKind> parameterKinds,
             List<FieldDefinition> lambdaProviderFields,
             MethodHandle inputFunction,
             CallSiteBinder callSiteBinder,
@@ -608,10 +608,10 @@ public final class AccumulatorCompiler
         Class<?>[] parameters = inputFunction.type().parameterArray();
         int inputChannel = 0;
         int stateIndex = 0;
-        verify(parameters.length == parameterMetadatas.size() + lambdaProviderFields.size());
-        for (int i = 0; i < parameterMetadatas.size(); i++) {
-            ParameterMetadata parameterMetadata = parameterMetadatas.get(i);
-            switch (parameterMetadata.getParameterType()) {
+        verify(parameters.length == parameterKinds.size() + lambdaProviderFields.size());
+        for (int i = 0; i < parameterKinds.size(); i++) {
+            AggregationParameterKind parameterKind = parameterKinds.get(i);
+            switch (parameterKind) {
                 case STATE:
                     block.append(scope.getThis().getField(stateField.get(stateIndex)));
                     stateIndex++;
@@ -631,7 +631,7 @@ public final class AccumulatorCompiler
                     inputChannel++;
                     break;
                 default:
-                    throw new IllegalArgumentException("Unsupported parameter type: " + parameterMetadata.getParameterType());
+                    throw new IllegalArgumentException("Unsupported parameter type: " + parameterKind);
             }
         }
         for (FieldDefinition lambdaProviderField : lambdaProviderFields) {
@@ -1122,13 +1122,13 @@ public final class AccumulatorCompiler
                 .cast(variable.getType());
     }
 
-    private static int countInputChannels(List<ParameterMetadata> metadatas)
+    private static int countInputChannels(List<AggregationParameterKind> parameterKinds)
     {
         int parameters = 0;
-        for (ParameterMetadata metadata : metadatas) {
-            if (metadata.getParameterType() == INPUT_CHANNEL ||
-                    metadata.getParameterType() == BLOCK_INPUT_CHANNEL ||
-                    metadata.getParameterType() == NULLABLE_BLOCK_INPUT_CHANNEL) {
+        for (AggregationParameterKind parameterKind : parameterKinds) {
+            if (parameterKind == INPUT_CHANNEL ||
+                    parameterKind == BLOCK_INPUT_CHANNEL ||
+                    parameterKind == NULLABLE_BLOCK_INPUT_CHANNEL) {
                 parameters++;
             }
         }
@@ -1142,7 +1142,7 @@ public final class AccumulatorCompiler
         int stateParameterCount = metadata.getAccumulatorStateDescriptors().size();
         int lambdaParameterCount = metadata.getLambdaInterfaces().size();
         return new AggregationMetadata(
-                metadata.getValueInputMetadata(),
+                metadata.getInputParameterKinds(),
                 castStateParameters(metadata.getInputFunction(), stateParameterCount, lambdaParameterCount),
                 metadata.getRemoveInputFunction().map(removeFunction -> castStateParameters(removeFunction, stateParameterCount, lambdaParameterCount)),
                 castStateParameters(metadata.getCombineFunction(), stateParameterCount * 2, lambdaParameterCount),

@@ -48,7 +48,6 @@ import io.trino.util.MinMaxCompare;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Method;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -67,11 +66,10 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.or;
 import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.metadata.Signature.orderableTypeParameter;
 import static io.trino.metadata.Signature.typeVariable;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_BLOCK_INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.BLOCK_INDEX;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.BLOCK_INPUT_CHANNEL;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.NULLABLE_BLOCK_INPUT_CHANNEL;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.STATE;
 import static io.trino.operator.aggregation.minmaxby.TwoNullableValueStateMapping.getStateClass;
 import static io.trino.operator.aggregation.minmaxby.TwoNullableValueStateMapping.getStateSerializer;
 import static io.trino.operator.aggregation.state.StateCompiler.generateStateFactory;
@@ -152,7 +150,7 @@ public abstract class AbstractMinMaxBy
         MethodHandle combineMethod = methodHandle(generatedClass, "combine", stateClass, stateClass);
         MethodHandle outputMethod = methodHandle(generatedClass, "output", stateClass, BlockBuilder.class);
         return new AggregationMetadata(
-                createInputParameterMetadata(valueType, keyType),
+                ImmutableList.of(STATE, NULLABLE_BLOCK_INPUT_CHANNEL, BLOCK_INPUT_CHANNEL, BLOCK_INDEX),
                 inputMethod,
                 Optional.empty(),
                 combineMethod,
@@ -186,11 +184,6 @@ public abstract class AbstractMinMaxBy
         AccumulatorStateSerializer<?> stateSerializer = getStateSerializer(keyType, valueType);
         //noinspection unchecked,rawtypes
         return new AccumulatorStateDescriptor(stateClass, stateSerializer, stateFactory);
-    }
-
-    private static List<ParameterMetadata> createInputParameterMetadata(Type value, Type key)
-    {
-        return ImmutableList.of(new ParameterMetadata(STATE), new ParameterMetadata(NULLABLE_BLOCK_INPUT_CHANNEL, value), new ParameterMetadata(BLOCK_INPUT_CHANNEL, key), new ParameterMetadata(BLOCK_INDEX));
     }
 
     private static void generateInputMethod(ClassDefinition definition, CallSiteBinder binder, MethodHandle compareMethod, Type keyType, Type valueType, Class<?> stateClass)

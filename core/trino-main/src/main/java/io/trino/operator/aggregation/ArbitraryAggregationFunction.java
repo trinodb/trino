@@ -36,15 +36,13 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
-import java.util.List;
 import java.util.Optional;
 
 import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.metadata.Signature.typeVariable;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.BLOCK_INDEX;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.BLOCK_INPUT_CHANNEL;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.STATE;
 import static io.trino.util.Reflection.methodHandle;
 
 public class ArbitraryAggregationFunction
@@ -142,19 +140,13 @@ public class ArbitraryAggregationFunction
         }
         inputFunction = inputFunction.bindTo(type);
 
-        List<ParameterMetadata> inputParameterMetadata = createInputParameterMetadata(type);
         return new AggregationMetadata(
-                inputParameterMetadata,
+                ImmutableList.of(STATE, BLOCK_INPUT_CHANNEL, BLOCK_INDEX),
                 inputFunction,
                 Optional.empty(),
                 combineFunction,
                 outputFunction.bindTo(type),
                 ImmutableList.of(accumulatorStateDescriptor));
-    }
-
-    private static List<ParameterMetadata> createInputParameterMetadata(Type value)
-    {
-        return ImmutableList.of(new ParameterMetadata(STATE), new ParameterMetadata(BLOCK_INPUT_CHANNEL, value), new ParameterMetadata(BLOCK_INDEX));
     }
 
     public static void input(Type type, GenericDoubleState state, Block block, int position)
