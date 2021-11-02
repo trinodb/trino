@@ -91,10 +91,9 @@ public final class StarburstSqlServerQueryRunner
             throws Exception
     {
         Session session = createSession(sqlServer.getUsername());
-        DistributedQueryRunner queryRunner = StarburstDistributedQueryRunner
-                .builder(session)
-                .setExtraProperties(extraProperties)
-                .build();
+        DistributedQueryRunner.Builder builder = StarburstDistributedQueryRunner.builder(session);
+        extraProperties.forEach(builder::addExtraProperty);
+        DistributedQueryRunner queryRunner = builder.build();
         try {
             Session modifiedSession = sessionModifier.apply(session);
 
