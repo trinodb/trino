@@ -13,28 +13,36 @@
  */
 package io.trino.operator.window;
 
+import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.WindowFunction;
+import io.trino.spi.function.WindowIndex;
+
+import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
-public final class FramedWindowFunction
+public final class MappedWindowFunction
+        implements WindowFunction
 {
     private final WindowFunction function;
-    private final FrameInfo frame;
+    private final MappedWindowIndex mappedWindowIndex;
 
-    public FramedWindowFunction(WindowFunction windowFunction, FrameInfo frameInfo)
+    public MappedWindowFunction(WindowFunction windowFunction, List<Integer> argumentChannels)
     {
         this.function = requireNonNull(windowFunction, "windowFunction is null");
-        this.frame = requireNonNull(frameInfo, "frameInfo is null");
+        this.mappedWindowIndex = new MappedWindowIndex(argumentChannels);
     }
 
-    public WindowFunction getFunction()
+    @Override
+    public void reset(WindowIndex windowIndex)
     {
-        return function;
+        mappedWindowIndex.setDelegate((InternalWindowIndex) windowIndex);
+        function.reset(mappedWindowIndex);
     }
 
-    public FrameInfo getFrame()
+    @Override
+    public void processRow(BlockBuilder output, int peerGroupStart, int peerGroupEnd, int frameStart, int frameEnd)
     {
-        return frame;
+        function.processRow(output, peerGroupStart, peerGroupEnd, frameStart, frameEnd);
     }
 }

@@ -20,7 +20,7 @@ import java.util.List;
 
 public interface WindowFunctionSupplier
 {
-    WindowFunction createWindowFunction(List<Integer> argumentChannels, boolean ignoreNulls, List<LambdaProvider> lambdaProviders);
+    WindowFunction createWindowFunction(boolean ignoreNulls, List<LambdaProvider> lambdaProviders);
 
     List<Class<?>> getLambdaInterfaces();
 }
