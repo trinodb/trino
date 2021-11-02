@@ -49,9 +49,9 @@ public class AggregationWindowFunctionSupplier
     }
 
     @Override
-    public WindowFunction createWindowFunction(List<Integer> inputs, boolean ignoreNulls, List<LambdaProvider> lambdaProviders)
+    public WindowFunction createWindowFunction(boolean ignoreNulls, List<LambdaProvider> lambdaProviders)
     {
-        return new AggregateWindowFunction(() -> createWindowAccumulator(lambdaProviders), hasRemoveInput, inputs);
+        return new AggregateWindowFunction(() -> createWindowAccumulator(lambdaProviders), hasRemoveInput);
     }
 
     private WindowAccumulator createWindowAccumulator(List<LambdaProvider> lambdaProviders)

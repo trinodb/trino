@@ -391,7 +391,6 @@ public final class AccumulatorCompiler
         // TODO: implement masking based on maskChannel field once Window Functions support DISTINCT arguments to the functions.
 
         Parameter index = arg("index", WindowIndex.class);
-        Parameter channels = arg("channels", type(List.class, Integer.class));
         Parameter startPosition = arg("startPosition", int.class);
         Parameter endPosition = arg("endPosition", int.class);
 
@@ -399,7 +398,7 @@ public final class AccumulatorCompiler
                 a(PUBLIC),
                 generatedFunctionName,
                 type(void.class),
-                ImmutableList.of(index, channels, startPosition, endPosition));
+                ImmutableList.of(index, startPosition, endPosition));
         Scope scope = method.getScope();
 
         Variable position = scope.declareVariable(int.class, "position");
@@ -416,7 +415,6 @@ public final class AccumulatorCompiler
                         lambdaProviderFields,
                         stateField,
                         index,
-                        channels,
                         position));
 
         method.getBody()
@@ -425,7 +423,7 @@ public final class AccumulatorCompiler
                         .condition(BytecodeExpressions.lessThanOrEqual(position, endPosition))
                         .update(position.increment())
                         .body(new IfStatement()
-                                .condition(anyParametersAreNull(argumentNullable, index, channels, position))
+                                .condition(anyParametersAreNull(argumentNullable, index, position))
                                 .ifFalse(invokeInputFunction)))
                 .ret();
     }
@@ -433,14 +431,12 @@ public final class AccumulatorCompiler
     private static BytecodeExpression anyParametersAreNull(
             List<Boolean> argumentNullable,
             Variable index,
-            Variable channels,
             Variable position)
     {
         BytecodeExpression isNull = constantFalse();
         for (int inputChannel = 0; inputChannel < argumentNullable.size(); inputChannel++) {
             if (!argumentNullable.get(inputChannel)) {
-                BytecodeExpression getChannel = channels.invoke("get", Object.class, constantInt(inputChannel)).cast(int.class);
-                isNull = BytecodeExpressions.or(isNull, index.invoke("isNull", boolean.class, getChannel, position));
+                isNull = BytecodeExpressions.or(isNull, index.invoke("isNull", boolean.class, constantInt(inputChannel), position));
             }
         }
 
@@ -453,7 +449,6 @@ public final class AccumulatorCompiler
             List<FieldDefinition> lambdaProviderFields,
             List<FieldDefinition> stateField,
             Variable index,
-            Variable channels,
             Variable position)
     {
         List<BytecodeExpression> expressions = new ArrayList<>();
@@ -465,8 +460,7 @@ public final class AccumulatorCompiler
 
         // input parameters
         for (int i = 0; i < inputParameterCount; i++) {
-            BytecodeExpression getChannel = channels.invoke("get", Object.class, constantInt(i)).cast(int.class);
-            expressions.add(index.cast(InternalWindowIndex.class).invoke("getRawBlock", Block.class, getChannel, position));
+            expressions.add(index.cast(InternalWindowIndex.class).invoke("getRawBlock", Block.class, constantInt(i), position));
         }
 
         // position parameter

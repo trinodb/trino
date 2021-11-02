@@ -16,25 +16,20 @@ package io.trino.operator.window;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import io.trino.operator.aggregation.LambdaProvider;
-import io.trino.spi.function.ValueWindowFunction;
 import io.trino.spi.function.WindowFunction;
 
 import java.lang.reflect.Constructor;
 import java.util.List;
+import java.util.Optional;
+import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class ReflectionWindowFunctionSupplier
         implements WindowFunctionSupplier
 {
-    private enum ConstructorType
-    {
-        NO_INPUTS,
-        INPUTS,
-        INPUTS_IGNORE_NULLS
-    }
-
     private final int argumentCount;
     private final Constructor<? extends WindowFunction> constructor;
     private final ConstructorType constructorType;
@@ -42,36 +37,22 @@ public class ReflectionWindowFunctionSupplier
     public ReflectionWindowFunctionSupplier(int argumentCount, Class<? extends WindowFunction> type)
     {
         this.argumentCount = argumentCount;
-        try {
-            Constructor<? extends WindowFunction> constructor;
-            ConstructorType constructorType;
 
-            if (argumentCount == 0) {
-                constructor = type.getConstructor();
-                constructorType = ConstructorType.NO_INPUTS;
-            }
-            else if (ValueWindowFunction.class.isAssignableFrom(type)) {
-                try {
-                    constructor = type.getConstructor(List.class, boolean.class);
-                    constructorType = ConstructorType.INPUTS_IGNORE_NULLS;
-                }
-                catch (NoSuchMethodException e) {
-                    // Fallback to default constructor.
-                    constructor = type.getConstructor(List.class);
-                    constructorType = ConstructorType.INPUTS;
-                }
-            }
-            else {
-                constructor = type.getConstructor(List.class);
-                constructorType = ConstructorType.INPUTS;
-            }
+        Constructor<? extends WindowFunction> constructor = null;
+        ConstructorType constructorType = null;
 
-            this.constructor = constructor;
-            this.constructorType = constructorType;
+        for (ConstructorType constructorTypeValue : ConstructorType.values()) {
+            constructorType = constructorTypeValue;
+            constructor = constructorType.tryGetConstructor(type).orElse(null);
+            if (constructor != null) {
+                break;
+            }
         }
-        catch (NoSuchMethodException e) {
-            throw new RuntimeException(e);
-        }
+
+        checkArgument(constructor != null, "No constructor found for type: %s", type.getName());
+
+        this.constructor = constructor;
+        this.constructorType = constructorType;
     }
 
     @Override
@@ -81,15 +62,18 @@ public class ReflectionWindowFunctionSupplier
     }
 
     @Override
-    public WindowFunction createWindowFunction(List<Integer> argumentChannels, boolean ignoreNulls, List<LambdaProvider> lambdaProviders)
+    public WindowFunction createWindowFunction(boolean ignoreNulls, List<LambdaProvider> lambdaProviders)
     {
-        requireNonNull(argumentChannels, "inputs is null");
-        checkArgument(argumentChannels.size() == argumentCount, "Expected %s arguments, but got %s", argumentCount, argumentChannels.size());
+        requireNonNull(lambdaProviders, "lambdaProviders is null");
+        checkArgument(lambdaProviders.isEmpty(), "lambdaProviders is not empty");
 
+        List<Integer> argumentChannels = IntStream.range(0, argumentCount).boxed().collect(toImmutableList());
         try {
             switch (constructorType) {
                 case NO_INPUTS:
                     return constructor.newInstance();
+                case IGNORE_NULLS:
+                    return constructor.newInstance(ignoreNulls);
                 case INPUTS:
                     return constructor.newInstance(argumentChannels);
                 case INPUTS_IGNORE_NULLS:
@@ -99,6 +83,50 @@ public class ReflectionWindowFunctionSupplier
         }
         catch (ReflectiveOperationException e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    private enum ConstructorType
+    {
+        INPUTS_IGNORE_NULLS {
+            @Override
+            Optional<Constructor<? extends WindowFunction>> tryGetConstructor(Class<? extends WindowFunction> type)
+            {
+                return optionalConstructor(type, List.class, boolean.class);
+            }
+        },
+        INPUTS {
+            @Override
+            Optional<Constructor<? extends WindowFunction>> tryGetConstructor(Class<? extends WindowFunction> type)
+            {
+                return optionalConstructor(type, List.class);
+            }
+        },
+        IGNORE_NULLS {
+            @Override
+            Optional<Constructor<? extends WindowFunction>> tryGetConstructor(Class<? extends WindowFunction> type)
+            {
+                return optionalConstructor(type, boolean.class);
+            }
+        },
+        NO_INPUTS {
+            @Override
+            Optional<Constructor<? extends WindowFunction>> tryGetConstructor(Class<? extends WindowFunction> type)
+            {
+                return optionalConstructor(type);
+            }
+        };
+
+        abstract Optional<Constructor<? extends WindowFunction>> tryGetConstructor(Class<? extends WindowFunction> type);
+
+        private static Optional<Constructor<? extends WindowFunction>> optionalConstructor(Class<? extends WindowFunction> type, Class<?>... parameterTypes)
+        {
+            try {
+                return Optional.of(type.getConstructor(parameterTypes));
+            }
+            catch (NoSuchMethodException e) {
+                return Optional.empty();
+            }
         }
     }
 }

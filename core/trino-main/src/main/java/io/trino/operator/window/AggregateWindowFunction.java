@@ -13,13 +13,11 @@
  */
 package io.trino.operator.window;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.operator.aggregation.WindowAccumulator;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.WindowFunction;
 import io.trino.spi.function.WindowIndex;
 
-import java.util.List;
 import java.util.function.Supplier;
 
 import static java.lang.Math.max;
@@ -29,7 +27,6 @@ import static java.util.Objects.requireNonNull;
 class AggregateWindowFunction
         implements WindowFunction
 {
-    private final List<Integer> argumentChannels;
     private final Supplier<WindowAccumulator> accumulatorFactory;
     private final boolean hasRemoveInput;
 
@@ -38,11 +35,10 @@ class AggregateWindowFunction
     private int currentStart;
     private int currentEnd;
 
-    public AggregateWindowFunction(Supplier<WindowAccumulator> accumulatorFactory, boolean hasRemoveInput, List<Integer> argumentChannels)
+    public AggregateWindowFunction(Supplier<WindowAccumulator> accumulatorFactory, boolean hasRemoveInput)
     {
         this.accumulatorFactory = requireNonNull(accumulatorFactory, "accumulatorFactory is null");
         this.hasRemoveInput = hasRemoveInput;
-        this.argumentChannels = ImmutableList.copyOf(requireNonNull(argumentChannels, "argumentChannels is null"));
     }
 
     @Override
@@ -113,12 +109,12 @@ class AggregateWindowFunction
 
     private void accumulate(int start, int end)
     {
-        accumulator.addInput(windowIndex, argumentChannels, start, end);
+        accumulator.addInput(windowIndex, start, end);
     }
 
     private void remove(int start, int end)
     {
-        accumulator.removeInput(windowIndex, argumentChannels, start, end);
+        accumulator.removeInput(windowIndex, start, end);
     }
 
     private void resetAccumulator()
