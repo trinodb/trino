@@ -24,30 +24,26 @@ import java.lang.reflect.Constructor;
 import java.util.List;
 import java.util.Optional;
 
+import static java.util.Objects.requireNonNull;
+
 public class GenericAccumulatorFactoryBinder
         implements AccumulatorFactoryBinder
 {
+    private final Type intermediateType;
+    private final Type finalType;
     private final Constructor<? extends Accumulator> accumulatorConstructor;
     private final Constructor<? extends GroupedAccumulator> groupedAccumulatorConstructor;
 
     public GenericAccumulatorFactoryBinder(
-            Class<? extends Accumulator> accumulatorClass,
-            Class<? extends GroupedAccumulator> groupedAccumulatorClass)
+            Type intermediateType,
+            Type finalType,
+            Constructor<? extends Accumulator> accumulatorConstructor,
+            Constructor<? extends GroupedAccumulator> groupedAccumulatorConstructor)
     {
-        try {
-            accumulatorConstructor = accumulatorClass.getConstructor(
-                    List.class,     /* List<Integer> inputChannel */
-                    Optional.class, /* Optional<Integer> maskChannel */
-                    List.class      /* List<LambdaProvider> lambdaProviders */);
-
-            groupedAccumulatorConstructor = groupedAccumulatorClass.getConstructor(
-                    List.class,     /* List<Integer> inputChannel */
-                    Optional.class, /* Optional<Integer> maskChannel */
-                    List.class      /* List<LambdaProvider> lambdaProviders */);
-        }
-        catch (NoSuchMethodException e) {
-            throw new RuntimeException(e);
-        }
+        this.intermediateType = requireNonNull(intermediateType, "intermediateType is null");
+        this.finalType = requireNonNull(finalType, "finalType is null");
+        this.accumulatorConstructor = requireNonNull(accumulatorConstructor, "accumulatorConstructor is null");
+        this.groupedAccumulatorConstructor = requireNonNull(groupedAccumulatorConstructor, "groupedAccumulatorConstructor is null");
     }
 
     @Override
@@ -65,6 +61,8 @@ public class GenericAccumulatorFactoryBinder
             Session session)
     {
         return new GenericAccumulatorFactory(
+                intermediateType,
+                finalType,
                 accumulatorConstructor,
                 groupedAccumulatorConstructor,
                 lambdaProviders,

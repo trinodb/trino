@@ -46,7 +46,7 @@ public class TestEvaluateClassifierPredictions
                 fromTypes(BIGINT, BIGINT));
         Accumulator accumulator = aggregation.bind(ImmutableList.of(0, 1), Optional.empty()).createAccumulator();
         accumulator.addInput(getPage());
-        BlockBuilder finalOut = accumulator.getFinalType().createBlockBuilder(null, 1);
+        BlockBuilder finalOut = VARCHAR.createBlockBuilder(null, 1);
         accumulator.evaluateFinal(finalOut);
         Block block = finalOut.build();
 

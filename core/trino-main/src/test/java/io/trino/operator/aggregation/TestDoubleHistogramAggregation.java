@@ -21,6 +21,7 @@ import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.MapType;
+import io.trino.spi.type.Type;
 import io.trino.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
 
@@ -40,6 +41,8 @@ import static org.testng.Assert.assertTrue;
 public class TestDoubleHistogramAggregation
 {
     private final AccumulatorFactory factory;
+    private final Type intermediateType;
+    private final Type finalType;
     private final Page input;
 
     public TestDoubleHistogramAggregation()
@@ -47,6 +50,8 @@ public class TestDoubleHistogramAggregation
         TestingAggregationFunction function = new TestingFunctionResolution().getAggregateFunction(
                 QualifiedName.of("numeric_histogram"),
                 fromTypes(BIGINT, DOUBLE, DOUBLE));
+        intermediateType = function.getIntermediateType();
+        finalType = function.getFinalType();
         factory = function.bind(ImmutableList.of(0, 1, 2), Optional.empty());
 
         input = makeInput(10);
@@ -57,15 +62,15 @@ public class TestDoubleHistogramAggregation
     {
         Accumulator singleStep = factory.createAccumulator();
         singleStep.addInput(input);
-        Block expected = getFinalBlock(singleStep);
+        Block expected = getFinalBlock(finalType, singleStep);
 
         Accumulator partialStep = factory.createAccumulator();
         partialStep.addInput(input);
-        Block partialBlock = getIntermediateBlock(partialStep);
+        Block partialBlock = getIntermediateBlock(intermediateType, partialStep);
 
         Accumulator finalStep = factory.createAccumulator();
         finalStep.addIntermediate(partialBlock);
-        Block actual = getFinalBlock(finalStep);
+        Block actual = getFinalBlock(finalType, finalStep);
 
         assertEquals(extractSingleValue(actual), extractSingleValue(expected));
     }
@@ -75,17 +80,17 @@ public class TestDoubleHistogramAggregation
     {
         Accumulator singleStep = factory.createAccumulator();
         singleStep.addInput(input);
-        Block singleStepResult = getFinalBlock(singleStep);
+        Block singleStepResult = getFinalBlock(finalType, singleStep);
 
         Accumulator partialStep = factory.createAccumulator();
         partialStep.addInput(input);
-        Block intermediate = getIntermediateBlock(partialStep);
+        Block intermediate = getIntermediateBlock(intermediateType, partialStep);
 
         Accumulator finalStep = factory.createAccumulator();
 
         finalStep.addIntermediate(intermediate);
         finalStep.addIntermediate(intermediate);
-        Block actual = getFinalBlock(finalStep);
+        Block actual = getFinalBlock(finalType, finalStep);
 
         Map<Double, Double> expected = Maps.transformValues(extractSingleValue(singleStepResult), value -> value * 2);
 
@@ -96,7 +101,7 @@ public class TestDoubleHistogramAggregation
     public void testNull()
     {
         Accumulator accumulator = factory.createAccumulator();
-        Block result = getFinalBlock(accumulator);
+        Block result = getFinalBlock(finalType, accumulator);
 
         assertTrue(result.getPositionCount() == 1);
         assertTrue(result.isNull(0));
@@ -109,7 +114,7 @@ public class TestDoubleHistogramAggregation
         assertThatThrownBy(() -> singleStep.addInput(makeInput(0)))
                 .isInstanceOf(TrinoException.class)
                 .hasMessage("numeric_histogram bucket count must be greater than one");
-        getFinalBlock(singleStep);
+        getFinalBlock(finalType, singleStep);
     }
 
     private static Map<Double, Double> extractSingleValue(Block block)

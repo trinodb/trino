@@ -343,11 +343,15 @@ public class InMemoryHashAggregationBuilder
     private static class Aggregator
     {
         private final GroupedAccumulator aggregation;
+        private final Type intermediateType;
+        private final Type finalType;
         private AggregationNode.Step step;
         private final int intermediateChannel;
 
         private Aggregator(AccumulatorFactory accumulatorFactory, AggregationNode.Step step, Optional<Integer> overwriteIntermediateChannel)
         {
+            intermediateType = accumulatorFactory.getIntermediateType();
+            finalType = accumulatorFactory.getFinalType();
             if (step.isInputRaw()) {
                 this.intermediateChannel = -1;
                 this.aggregation = accumulatorFactory.createGroupedAccumulator();
@@ -372,10 +376,10 @@ public class InMemoryHashAggregationBuilder
         public Type getType()
         {
             if (step.isOutputPartial()) {
-                return aggregation.getIntermediateType();
+                return intermediateType;
             }
             else {
-                return aggregation.getFinalType();
+                return finalType;
             }
         }
 
@@ -411,7 +415,7 @@ public class InMemoryHashAggregationBuilder
 
         public Type getIntermediateType()
         {
-            return aggregation.getIntermediateType();
+            return intermediateType;
         }
     }
 

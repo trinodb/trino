@@ -143,7 +143,7 @@ public class TestArrayAggregation
         TestingAggregationFunction bigIntAgg = FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of("array_agg"), fromTypes(BIGINT));
         GroupedAccumulator groupedAccumulator = bigIntAgg.bind(Ints.asList(new int[] {}), Optional.empty())
                 .createGroupedAccumulator();
-        BlockBuilder blockBuilder = groupedAccumulator.getFinalType().createBlockBuilder(null, 1000);
+        BlockBuilder blockBuilder = bigIntAgg.getFinalType().createBlockBuilder(null, 1000);
 
         groupedAccumulator.evaluateFinal(0, blockBuilder);
         assertTrue(blockBuilder.isNull(0));
@@ -161,7 +161,7 @@ public class TestArrayAggregation
         AggregationTestOutput testOutput = new AggregationTestOutput(ImmutableList.of("hello", "world", "hello2", "world2", "hello3", "world3", "goodbye"));
         AggregationTestInput testInput = testInputBuilder.build();
 
-        testInput.runPagesOnAccumulatorWithAssertion(0L, testInput.createGroupedAccumulator(), testOutput);
+        testInput.runPagesOnAccumulatorWithAssertion(0L, varcharAgg.getFinalType(), testInput.createGroupedAccumulator(), testOutput);
     }
 
     @Test
@@ -178,14 +178,14 @@ public class TestArrayAggregation
         AggregationTestInput test1 = testInputBuilder1.build();
         GroupedAccumulator groupedAccumulator = test1.createGroupedAccumulator();
 
-        test1.runPagesOnAccumulatorWithAssertion(0L, groupedAccumulator, aggregationTestOutput1);
+        test1.runPagesOnAccumulatorWithAssertion(0L, varcharAgg.getFinalType(), groupedAccumulator, aggregationTestOutput1);
 
         AggregationTestOutput aggregationTestOutput2 = new AggregationTestOutput(ImmutableList.of("f", "g", "h", "i", "j"));
         AggregationTestInputBuilder testBuilder2 = new AggregationTestInputBuilder(
                 new Block[] {block2},
                 varcharAgg);
         AggregationTestInput test2 = testBuilder2.build();
-        test2.runPagesOnAccumulatorWithAssertion(255L, groupedAccumulator, aggregationTestOutput2);
+        test2.runPagesOnAccumulatorWithAssertion(255L, varcharAgg.getFinalType(), groupedAccumulator, aggregationTestOutput2);
     }
 
     @Test
@@ -216,7 +216,7 @@ public class TestArrayAggregation
                     varcharAgg);
             AggregationTestInput test1 = testInputBuilder.build();
 
-            test1.runPagesOnAccumulatorWithAssertion(j, groupedAccumulator, new AggregationTestOutput(expectedValues));
+            test1.runPagesOnAccumulatorWithAssertion(j, varcharAgg.getFinalType(), groupedAccumulator, new AggregationTestOutput(expectedValues));
         }
     }
 }

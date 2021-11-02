@@ -58,15 +58,15 @@ public class TestRealHistogramAggregation
     {
         Accumulator singleStep = factory.createAccumulator();
         singleStep.addInput(input);
-        Block expected = getFinalBlock(singleStep);
+        Block expected = getFinalBlock(factory.getFinalType(), singleStep);
 
         Accumulator partialStep = factory.createAccumulator();
         partialStep.addInput(input);
-        Block partialBlock = getIntermediateBlock(partialStep);
+        Block partialBlock = getIntermediateBlock(factory.getIntermediateType(), partialStep);
 
         Accumulator finalStep = factory.createAccumulator();
         finalStep.addIntermediate(partialBlock);
-        Block actual = getFinalBlock(finalStep);
+        Block actual = getFinalBlock(factory.getFinalType(), finalStep);
 
         assertEquals(extractSingleValue(actual), extractSingleValue(expected));
     }
@@ -76,17 +76,17 @@ public class TestRealHistogramAggregation
     {
         Accumulator singleStep = factory.createAccumulator();
         singleStep.addInput(input);
-        Block singleStepResult = getFinalBlock(singleStep);
+        Block singleStepResult = getFinalBlock(factory.getFinalType(), singleStep);
 
         Accumulator partialStep = factory.createAccumulator();
         partialStep.addInput(input);
-        Block intermediate = getIntermediateBlock(partialStep);
+        Block intermediate = getIntermediateBlock(factory.getIntermediateType(), partialStep);
 
         Accumulator finalStep = factory.createAccumulator();
 
         finalStep.addIntermediate(intermediate);
         finalStep.addIntermediate(intermediate);
-        Block actual = getFinalBlock(finalStep);
+        Block actual = getFinalBlock(factory.getFinalType(), finalStep);
 
         Map<Float, Float> expected = Maps.transformValues(extractSingleValue(singleStepResult), value -> value * 2);
 
@@ -97,7 +97,7 @@ public class TestRealHistogramAggregation
     public void testNull()
     {
         Accumulator accumulator = factory.createAccumulator();
-        Block result = getFinalBlock(accumulator);
+        Block result = getFinalBlock(factory.getFinalType(), accumulator);
 
         assertTrue(result.getPositionCount() == 1);
         assertTrue(result.isNull(0));
@@ -110,7 +110,7 @@ public class TestRealHistogramAggregation
         assertThatThrownBy(() -> singleStep.addInput(makeInput(0)))
                 .isInstanceOf(TrinoException.class)
                 .hasMessage("numeric_histogram bucket count must be greater than one");
-        getFinalBlock(singleStep);
+        getFinalBlock(factory.getFinalType(), singleStep);
     }
 
     private static Map<Float, Float> extractSingleValue(Block block)

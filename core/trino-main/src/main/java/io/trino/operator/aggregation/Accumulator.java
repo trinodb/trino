@@ -16,15 +16,10 @@ package io.trino.operator.aggregation;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.type.Type;
 
 public interface Accumulator
 {
     long getEstimatedSize();
-
-    Type getFinalType();
-
-    Type getIntermediateType();
 
     Accumulator copy();
 

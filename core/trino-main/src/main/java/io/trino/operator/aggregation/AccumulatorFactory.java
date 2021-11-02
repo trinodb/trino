@@ -13,10 +13,16 @@
  */
 package io.trino.operator.aggregation;
 
+import io.trino.spi.type.Type;
+
 import java.util.List;
 
 public interface AccumulatorFactory
 {
+    Type getIntermediateType();
+
+    Type getFinalType();
+
     List<Integer> getInputChannels();
 
     Accumulator createAccumulator();
