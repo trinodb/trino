@@ -166,49 +166,49 @@ public final class PartitionTransforms
         return new ColumnTransform(type, Function.identity());
     }
 
-    private static ColumnTransform bucket(Type type, int count)
+    @VisibleForTesting
+    static ColumnTransform bucket(Type type, int count)
     {
+        Hasher hasher = getBucketingHash(type);
         return new ColumnTransform(
                 INTEGER,
-                getBucketTransform(type, count));
+                block -> bucketBlock(block, count, hasher));
     }
 
-    public static Function<Block, Block> getBucketTransform(Type type, int count)
+    private static Hasher getBucketingHash(Type type)
     {
         if (type.equals(INTEGER)) {
-            return block -> bucketInteger(block, count);
+            return PartitionTransforms::hashInteger;
         }
         if (type.equals(BIGINT)) {
-            return block -> bucketBigint(block, count);
+            return PartitionTransforms::hashBigint;
         }
         if (isShortDecimal(type)) {
-            DecimalType decimal = (DecimalType) type;
-            return block -> bucketShortDecimal(decimal, block, count);
+            return hashShortDecimal((DecimalType) type);
         }
         if (isLongDecimal(type)) {
-            DecimalType decimal = (DecimalType) type;
-            return block -> bucketLongDecimal(decimal, block, count);
+            return hashLongDecimal((DecimalType) type);
         }
         if (type.equals(DATE)) {
-            return block -> bucketDate(block, count);
+            return PartitionTransforms::hashDate;
         }
         if (type.equals(TIME_MICROS)) {
-            return block -> bucketTime(block, count);
+            return PartitionTransforms::hashTime;
         }
         if (type.equals(TIMESTAMP_MICROS)) {
-            return block -> bucketTimestamp(block, count);
+            return PartitionTransforms::hashTimestamp;
         }
         if (type.equals(TIMESTAMP_TZ_MICROS)) {
-            return block -> bucketTimestampWithTimeZone(block, count);
+            return PartitionTransforms::hashTimestampWithTimeZone;
         }
         if (type instanceof VarcharType) {
-            return block -> bucketVarchar(block, count);
+            return PartitionTransforms::hashVarchar;
         }
         if (type.equals(VARBINARY)) {
-            return block -> bucketVarbinary(block, count);
+            return PartitionTransforms::hashVarbinary;
         }
         if (type.equals(UUID)) {
-            return block -> bucketUuid(block, count);
+            return PartitionTransforms::hashUuid;
         }
         throw new UnsupportedOperationException("Unsupported type for 'bucket': " + type);
     }
@@ -304,29 +304,14 @@ public final class PartitionTransforms
         return builder.build();
     }
 
-    private static Block bucketInteger(Block block, int count)
-    {
-        return bucketBlock(block, count, PartitionTransforms::hashInteger);
-    }
-
     private static int hashInteger(Block block, int position)
     {
         return bucketHash(INTEGER.getLong(block, position));
     }
 
-    private static Block bucketBigint(Block block, int count)
-    {
-        return bucketBlock(block, count, PartitionTransforms::hashBigint);
-    }
-
     private static int hashBigint(Block block, int position)
     {
         return bucketHash(BIGINT.getLong(block, position));
-    }
-
-    private static Block bucketShortDecimal(DecimalType decimal, Block block, int count)
-    {
-        return bucketBlock(block, count, hashShortDecimal(decimal));
     }
 
     private static Hasher hashShortDecimal(DecimalType decimal)
@@ -338,11 +323,6 @@ public final class PartitionTransforms
         };
     }
 
-    private static Block bucketLongDecimal(DecimalType decimal, Block block, int count)
-    {
-        return bucketBlock(block, count, hashLongDecimal(decimal));
-    }
-
     private static Hasher hashLongDecimal(DecimalType decimal)
     {
         return (block, position) -> {
@@ -352,19 +332,9 @@ public final class PartitionTransforms
         };
     }
 
-    private static Block bucketDate(Block block, int count)
-    {
-        return bucketBlock(block, count, PartitionTransforms::hashDate);
-    }
-
     private static int hashDate(Block block, int position)
     {
         return bucketHash(DATE.getLong(block, position));
-    }
-
-    private static Block bucketTime(Block block, int count)
-    {
-        return bucketBlock(block, count, PartitionTransforms::hashTime);
     }
 
     private static int hashTime(Block block, int position)
@@ -373,19 +343,9 @@ public final class PartitionTransforms
         return bucketHash(picos / PICOSECONDS_PER_MICROSECOND);
     }
 
-    private static Block bucketTimestamp(Block block, int count)
-    {
-        return bucketBlock(block, count, PartitionTransforms::hashTimestamp);
-    }
-
     private static int hashTimestamp(Block block, int position)
     {
         return bucketHash(TIMESTAMP_MICROS.getLong(block, position));
-    }
-
-    private static Block bucketTimestampWithTimeZone(Block block, int count)
-    {
-        return bucketBlock(block, count, PartitionTransforms::hashTimestampWithTimeZone);
     }
 
     private static int hashTimestampWithTimeZone(Block block, int position)
@@ -393,29 +353,14 @@ public final class PartitionTransforms
         return bucketHash(timestampTzToMicros(getTimestampTz(block, position)));
     }
 
-    private static Block bucketVarchar(Block block, int count)
-    {
-        return bucketBlock(block, count, PartitionTransforms::hashVarchar);
-    }
-
     private static int hashVarchar(Block block, int position)
     {
         return bucketHash(VARCHAR.getSlice(block, position));
     }
 
-    private static Block bucketVarbinary(Block block, int count)
-    {
-        return bucketBlock(block, count, PartitionTransforms::hashVarbinary);
-    }
-
     private static int hashVarbinary(Block block, int position)
     {
         return bucketHash(VARBINARY.getSlice(block, position));
-    }
-
-    private static Block bucketUuid(Block block, int count)
-    {
-        return bucketBlock(block, count, PartitionTransforms::hashUuid);
     }
 
     private static int hashUuid(Block block, int position)
