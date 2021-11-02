@@ -15,7 +15,7 @@
 package io.trino.operator.aggregation.groupby;
 
 import io.trino.block.BlockAssertions;
-import io.trino.operator.aggregation.GroupedAccumulator;
+import io.trino.operator.aggregation.GroupedAggregator;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
 
@@ -33,9 +33,9 @@ public class AggregationTestOutput
         this.expectedValue = expectedValue;
     }
 
-    public void validateAccumulator(Type finalType, GroupedAccumulator groupedAccumulator, long groupId)
+    public void validateAggregator(Type finalType, GroupedAggregator groupedAggregator, long groupId)
     {
-        createEqualAssertion(expectedValue, groupId).accept(getGroupValue(finalType, groupedAccumulator, (int) groupId), expectedValue);
+        createEqualAssertion(expectedValue, groupId).accept(getGroupValue(finalType, groupedAggregator, (int) groupId), expectedValue);
     }
 
     private static BiConsumer<Object, Object> createEqualAssertion(Object expectedValue, long groupId)
@@ -51,10 +51,10 @@ public class AggregationTestOutput
         return equalAssertion;
     }
 
-    private static Object getGroupValue(Type finalType, GroupedAccumulator groupedAggregation, int groupId)
+    private static Object getGroupValue(Type finalType, GroupedAggregator groupedAggregator, int groupId)
     {
         BlockBuilder out = finalType.createBlockBuilder(null, 1);
-        groupedAggregation.evaluateFinal(groupId, out);
+        groupedAggregator.evaluate(groupId, out);
         return BlockAssertions.getOnlyValue(finalType, out.build());
     }
 }

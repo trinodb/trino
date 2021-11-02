@@ -13,6 +13,7 @@
  */
 package io.trino.operator.aggregation;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.trino.block.BlockAssertions;
 import io.trino.metadata.TestingFunctionResolution;
@@ -30,13 +31,15 @@ import org.apache.commons.math3.util.Precision;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.BiFunction;
 import java.util.stream.IntStream;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
+import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
+import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
@@ -90,24 +93,24 @@ public final class AggregationTestUtils
         }
     }
 
-    public static Block getIntermediateBlock(Type intermediateType, Accumulator accumulator)
+    public static Block getIntermediateBlock(Type intermediateType, Aggregator aggregator)
     {
         BlockBuilder blockBuilder = intermediateType.createBlockBuilder(null, 1000);
-        accumulator.evaluateIntermediate(blockBuilder);
+        aggregator.evaluate(blockBuilder);
         return blockBuilder.build();
     }
 
-    public static Block getIntermediateBlock(Type intermediateType, GroupedAccumulator accumulator)
+    public static Block getIntermediateBlock(Type intermediateType, GroupedAggregator aggregator)
     {
         BlockBuilder blockBuilder = intermediateType.createBlockBuilder(null, 1000);
-        accumulator.evaluateIntermediate(0, blockBuilder);
+        aggregator.evaluate(0, blockBuilder);
         return blockBuilder.build();
     }
 
-    public static Block getFinalBlock(Type finalType, Accumulator accumulator)
+    public static Block getFinalBlock(Type finalType, Aggregator aggregator)
     {
         BlockBuilder blockBuilder = finalType.createBlockBuilder(null, 1000);
-        accumulator.evaluateFinal(blockBuilder);
+        aggregator.evaluate(blockBuilder);
         return blockBuilder.build();
     }
 
@@ -214,14 +217,14 @@ public final class AggregationTestUtils
 
     private static Object aggregation(TestingAggregationFunction function, int[] args, OptionalInt maskChannel, Page... pages)
     {
-        Accumulator aggregation = function.bind(Ints.asList(args), maskChannel.stream().boxed().findFirst()).createAccumulator();
+        Aggregator aggregator = function.createAggregatorFactory(SINGLE, Ints.asList(args), maskChannel).createAggregator();
         for (Page page : pages) {
             if (page.getPositionCount() > 0) {
-                aggregation.addInput(page);
+                aggregator.processPage(page);
             }
         }
 
-        Block block = getFinalBlock(function.getFinalType(), aggregation);
+        Block block = getFinalBlock(function.getFinalType(), aggregator);
         return BlockAssertions.getOnlyValue(function.getFinalType(), block);
     }
 
@@ -246,27 +249,27 @@ public final class AggregationTestUtils
 
     private static Object partialAggregation(TestingAggregationFunction function, int[] args, Page... pages)
     {
-        AccumulatorFactory factory = function.bind(Ints.asList(args), Optional.empty());
-        Accumulator finalAggregation = factory.createIntermediateAccumulator();
+        AggregatorFactory finalAggregatorFactory = function.createAggregatorFactory(FINAL, Ints.asList(0), OptionalInt.empty());
+        Aggregator finalAggregator = finalAggregatorFactory.createAggregator();
 
         // Test handling of empty intermediate blocks
-        Accumulator emptyAggregation = factory.createAccumulator();
-        Block emptyBlock = getIntermediateBlock(function.getIntermediateType(), emptyAggregation);
+        AggregatorFactory partialAggregatorFactory = function.createAggregatorFactory(PARTIAL, Ints.asList(args), OptionalInt.empty());
+        Block emptyBlock = getIntermediateBlock(function.getIntermediateType(), partialAggregatorFactory.createAggregator());
 
-        finalAggregation.addIntermediate(emptyBlock);
+        finalAggregator.processPage(new Page(emptyBlock));
 
         for (Page page : pages) {
-            Accumulator partialAggregation = factory.createAccumulator();
+            Aggregator partialAggregation = partialAggregatorFactory.createAggregator();
             if (page.getPositionCount() > 0) {
-                partialAggregation.addInput(page);
+                partialAggregation.processPage(page);
             }
             Block partialBlock = getIntermediateBlock(function.getIntermediateType(), partialAggregation);
-            finalAggregation.addIntermediate(partialBlock);
+            finalAggregator.processPage(new Page(partialBlock));
         }
 
-        finalAggregation.addIntermediate(emptyBlock);
+        finalAggregator.processPage(new Page(emptyBlock));
 
-        Block finalBlock = getFinalBlock(function.getFinalType(), finalAggregation);
+        Block finalBlock = getFinalBlock(function.getFinalType(), finalAggregator);
         return BlockAssertions.getOnlyValue(function.getFinalType(), finalBlock);
     }
 
@@ -296,16 +299,16 @@ public final class AggregationTestUtils
 
     public static Object groupedAggregation(TestingAggregationFunction function, int[] args, Page... pages)
     {
-        GroupedAccumulator groupedAggregation = function.bind(Ints.asList(args), Optional.empty()).createGroupedAccumulator();
+        GroupedAggregator groupedAggregator = function.createAggregatorFactory(SINGLE, Ints.asList(args), OptionalInt.empty()).createGroupedAggregator();
         for (Page page : pages) {
-            groupedAggregation.addInput(createGroupByIdBlock(0, page.getPositionCount()), page);
+            groupedAggregator.processPage(createGroupByIdBlock(0, page.getPositionCount()), page);
         }
-        Object groupValue = getGroupValue(function.getFinalType(), groupedAggregation, 0);
+        Object groupValue = getGroupValue(function.getFinalType(), groupedAggregator, 0);
 
         for (Page page : pages) {
-            groupedAggregation.addInput(createGroupByIdBlock(4000, page.getPositionCount()), page);
+            groupedAggregator.processPage(createGroupByIdBlock(4000, page.getPositionCount()), page);
         }
-        Object largeGroupValue = getGroupValue(function.getFinalType(), groupedAggregation, 4000);
+        Object largeGroupValue = getGroupValue(function.getFinalType(), groupedAggregator, 4000);
         assertEquals(largeGroupValue, groupValue, "Inconsistent results with large group id");
 
         return groupValue;
@@ -332,25 +335,25 @@ public final class AggregationTestUtils
 
     private static Object groupedPartialAggregation(TestingAggregationFunction function, int[] args, Page... pages)
     {
-        AccumulatorFactory factory = function.bind(Ints.asList(args), Optional.empty());
-        GroupedAccumulator finalAggregation = factory.createGroupedIntermediateAccumulator();
+        AggregatorFactory finalFactory = function.createAggregatorFactory(FINAL, ImmutableList.of(0), OptionalInt.empty());
+        GroupedAggregator finalAggregator = finalFactory.createGroupedAggregator();
 
         // Add an empty block to test the handling of empty intermediates
-        GroupedAccumulator emptyAggregation = factory.createGroupedAccumulator();
-        Block emptyBlock = getIntermediateBlock(function.getIntermediateType(), emptyAggregation);
+        AggregatorFactory partialFactory = function.createAggregatorFactory(PARTIAL, Ints.asList(args), OptionalInt.empty());
+        Block emptyBlock = getIntermediateBlock(function.getIntermediateType(), partialFactory.createGroupedAggregator());
 
-        finalAggregation.addIntermediate(createGroupByIdBlock(0, emptyBlock.getPositionCount()), emptyBlock);
+        finalAggregator.processPage(createGroupByIdBlock(0, emptyBlock.getPositionCount()), new Page(emptyBlock));
 
         for (Page page : pages) {
-            GroupedAccumulator partialAggregation = factory.createGroupedAccumulator();
-            partialAggregation.addInput(createGroupByIdBlock(0, page.getPositionCount()), page);
-            Block partialBlock = getIntermediateBlock(function.getIntermediateType(), partialAggregation);
-            finalAggregation.addIntermediate(createGroupByIdBlock(0, partialBlock.getPositionCount()), partialBlock);
+            GroupedAggregator partialAggregator = partialFactory.createGroupedAggregator();
+            partialAggregator.processPage(createGroupByIdBlock(0, page.getPositionCount()), page);
+            Block partialBlock = getIntermediateBlock(function.getIntermediateType(), partialAggregator);
+            finalAggregator.processPage(createGroupByIdBlock(0, partialBlock.getPositionCount()), new Page(partialBlock));
         }
 
-        finalAggregation.addIntermediate(createGroupByIdBlock(0, emptyBlock.getPositionCount()), emptyBlock);
+        finalAggregator.processPage(createGroupByIdBlock(0, emptyBlock.getPositionCount()), new Page(emptyBlock));
 
-        return getGroupValue(function.getFinalType(), finalAggregation, 0);
+        return getGroupValue(function.getFinalType(), finalAggregator, 0);
     }
 
     public static GroupByIdBlock createGroupByIdBlock(int groupId, int positions)
@@ -428,10 +431,10 @@ public final class AggregationTestUtils
         return (RunLengthEncodedBlock) RunLengthEncodedBlock.create(BOOLEAN, null, positionCount);
     }
 
-    public static Object getGroupValue(Type finalType, GroupedAccumulator groupedAggregation, int groupId)
+    public static Object getGroupValue(Type finalType, GroupedAggregator groupedAggregator, int groupId)
     {
         BlockBuilder out = finalType.createBlockBuilder(null, 1);
-        groupedAggregation.evaluateFinal(groupId, out);
+        groupedAggregator.evaluate(groupId, out);
         return BlockAssertions.getOnlyValue(finalType, out.build());
     }
 

@@ -13,18 +13,8 @@
  */
 package io.trino.operator.aggregation;
 
-import io.trino.spi.type.Type;
-
-import java.util.List;
-
 public interface AccumulatorFactory
 {
-    Type getIntermediateType();
-
-    Type getFinalType();
-
-    List<Integer> getInputChannels();
-
     Accumulator createAccumulator();
 
     Accumulator createIntermediateAccumulator();
@@ -32,8 +22,4 @@ public interface AccumulatorFactory
     GroupedAccumulator createGroupedAccumulator();
 
     GroupedAccumulator createGroupedIntermediateAccumulator();
-
-    boolean hasOrderBy();
-
-    boolean hasDistinct();
 }

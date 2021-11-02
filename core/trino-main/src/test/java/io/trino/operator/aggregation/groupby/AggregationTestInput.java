@@ -14,17 +14,18 @@
 
 package io.trino.operator.aggregation.groupby;
 
-import com.google.common.base.Suppliers;
 import com.google.common.primitives.Ints;
 import io.trino.operator.GroupByIdBlock;
 import io.trino.operator.aggregation.AggregationTestUtils;
-import io.trino.operator.aggregation.GroupedAccumulator;
+import io.trino.operator.aggregation.GroupedAggregator;
 import io.trino.operator.aggregation.TestingAggregationFunction;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
 
-import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.stream.IntStream;
+
+import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 
 public class AggregationTestInput
 {
@@ -42,15 +43,13 @@ public class AggregationTestInput
         this.offset = offset;
     }
 
-    public void runPagesOnAccumulatorWithAssertion(long groupId, Type finalType, GroupedAccumulator groupedAccumulator, AggregationTestOutput expectedValue)
+    public void runPagesOnAggregatorWithAssertion(long groupId, Type finalType, GroupedAggregator groupedAggregator, AggregationTestOutput expectedValue)
     {
-        GroupedAccumulator accumulator = Suppliers.ofInstance(groupedAccumulator).get();
-
         for (Page page : getPages()) {
-            accumulator.addInput(getGroupIdBlock(groupId, page), page);
+            groupedAggregator.processPage(getGroupIdBlock(groupId, page), page);
         }
 
-        expectedValue.validateAccumulator(finalType, accumulator, groupId);
+        expectedValue.validateAggregator(finalType, groupedAggregator, groupId);
     }
 
     private static GroupByIdBlock getGroupIdBlock(long groupId, Page page)
@@ -69,9 +68,9 @@ public class AggregationTestInput
         return pages;
     }
 
-    public GroupedAccumulator createGroupedAccumulator()
+    public GroupedAggregator createGroupedAggregator()
     {
-        return function.bind(Ints.asList(args), Optional.empty())
-                .createGroupedAccumulator();
+        return function.createAggregatorFactory(SINGLE, Ints.asList(args), OptionalInt.empty())
+                .createGroupedAggregator();
     }
 }

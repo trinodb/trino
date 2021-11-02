@@ -40,7 +40,7 @@ import io.trino.operator.OperatorFactory;
 import io.trino.operator.PageSourceOperator;
 import io.trino.operator.TaskContext;
 import io.trino.operator.TaskStats;
-import io.trino.operator.aggregation.InternalAggregationFunction;
+import io.trino.operator.aggregation.AggregationMetadata;
 import io.trino.operator.project.InputPageProjection;
 import io.trino.operator.project.PageProcessor;
 import io.trino.operator.project.PageProjection;
@@ -159,11 +159,8 @@ public abstract class AbstractOperatorBenchmark
     protected final BenchmarkAggregationFunction createAggregationFunction(String name, Type... argumentTypes)
     {
         ResolvedFunction resolvedFunction = localQueryRunner.getMetadata().resolveFunction(session, QualifiedName.of(name), fromTypes(argumentTypes));
-        InternalAggregationFunction aggregationFunction = new InternalAggregationFunction(
-                resolvedFunction.getSignature(),
-                localQueryRunner.getMetadata().getAggregateFunctionImplementation(resolvedFunction),
-                resolvedFunction.getFunctionNullability());
-        return new BenchmarkAggregationFunction(aggregationFunction);
+        AggregationMetadata aggregationMetadata = localQueryRunner.getMetadata().getAggregateFunctionImplementation(resolvedFunction);
+        return new BenchmarkAggregationFunction(resolvedFunction, aggregationMetadata);
     }
 
     protected final OperatorFactory createTableScanOperator(int operatorId, PlanNodeId planNodeId, String tableName, String... columnNames)
