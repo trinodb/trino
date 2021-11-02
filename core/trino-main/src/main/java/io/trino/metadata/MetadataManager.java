@@ -2635,12 +2635,14 @@ public final class MetadataManager
     public AggregationFunctionMetadata getAggregationFunctionMetadata(ResolvedFunction resolvedFunction)
     {
         AggregationFunctionMetadata aggregationFunctionMetadata = functions.getAggregationFunctionMetadata(resolvedFunction.getFunctionId());
-        return new AggregationFunctionMetadata(
-                aggregationFunctionMetadata.isOrderSensitive(),
-                aggregationFunctionMetadata.getIntermediateType().map(typeSignature -> {
-                    FunctionBinding functionBinding = toFunctionBinding(resolvedFunction);
-                    return applyBoundVariables(typeSignature, functionBinding);
-                }));
+        List<TypeSignature> intermediateTypes = aggregationFunctionMetadata.getIntermediateTypes();
+        if (!intermediateTypes.isEmpty()) {
+            FunctionBinding functionBinding = toFunctionBinding(resolvedFunction);
+            intermediateTypes = aggregationFunctionMetadata.getIntermediateTypes().stream()
+                    .map(typeSignature -> applyBoundVariables(typeSignature, functionBinding))
+                    .collect(toImmutableList());
+        }
+        return new AggregationFunctionMetadata(aggregationFunctionMetadata.isOrderSensitive(), intermediateTypes);
     }
 
     @Override

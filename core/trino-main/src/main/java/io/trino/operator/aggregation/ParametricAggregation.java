@@ -80,7 +80,7 @@ public class ParametricAggregation
                         details.isDeprecated()),
                 new AggregationFunctionMetadata(
                         details.isOrderSensitive(),
-                        details.isDecomposable() ? Optional.of(getSerializedType(stateClass).getTypeSignature()) : Optional.empty()));
+                        details.isDecomposable() ? ImmutableList.of(getSerializedType(stateClass).getTypeSignature()) : ImmutableList.of()));
         this.stateClass = requireNonNull(stateClass, "stateClass is null");
         checkArgument(implementations.getFunctionNullability().isReturnNullable(), "currently aggregates are required to be nullable");
         this.implementations = requireNonNull(implementations, "implementations is null");
@@ -161,7 +161,7 @@ public class ParametricAggregation
                         stateFactory)),
                 outputType);
 
-        // Create specialized InternalAggregregationFunction for Trino
+        // Create specialized InternalAggregationFunction for Trino
         return new InternalAggregationFunction(
                 signature.getName(),
                 inputTypes,

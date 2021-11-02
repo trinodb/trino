@@ -14,8 +14,10 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.metadata.AggregationFunctionMetadata;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
+import io.trino.spi.type.TypeSignature;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.type.BlockTypeOperators;
 
@@ -30,9 +32,11 @@ public class TestingAggregationFunction
     private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
 
     private final InternalAggregationFunction function;
+    private final List<TypeSignature> intermediateTypes;
 
-    public TestingAggregationFunction(InternalAggregationFunction function)
+    public TestingAggregationFunction(AggregationFunctionMetadata aggregationFunctionMetadata, InternalAggregationFunction function)
     {
+        this.intermediateTypes = requireNonNull(aggregationFunctionMetadata, "aggregationFunctionMetadata is null").getIntermediateTypes();
         this.function = requireNonNull(function, "function is null");
     }
 
@@ -44,6 +48,11 @@ public class TestingAggregationFunction
     public List<Type> getParameterTypes()
     {
         return function.getParameterTypes();
+    }
+
+    public List<TypeSignature> getIntermediateType()
+    {
+        return intermediateTypes;
     }
 
     public Type getFinalType()
