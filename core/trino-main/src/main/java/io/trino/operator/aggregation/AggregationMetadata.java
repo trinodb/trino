@@ -14,19 +14,14 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateFactory;
 import io.trino.spi.function.AccumulatorStateSerializer;
 import io.trino.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
@@ -35,8 +30,6 @@ import static java.util.Objects.requireNonNull;
 
 public class AggregationMetadata
 {
-    private static final Set<Class<?>> SUPPORTED_PRIMITIVE_TYPES = ImmutableSet.of(long.class, double.class, boolean.class);
-
     private final List<ParameterMetadata> valueInputMetadata;
     private final List<Class<?>> lambdaInterfaces;
     private final MethodHandle inputFunction;
@@ -79,10 +72,6 @@ public class AggregationMetadata
         this.outputFunction = requireNonNull(outputFunction, "outputFunction is null");
         this.accumulatorStateDescriptors = requireNonNull(accumulatorStateDescriptors, "accumulatorStateDescriptors is null");
         this.lambdaInterfaces = ImmutableList.copyOf(requireNonNull(lambdaInterfaces, "lambdaInterfaces is null"));
-
-        verifyInputFunctionSignature(inputFunction, valueInputMetadata, lambdaInterfaces, accumulatorStateDescriptors);
-        verifyCombineFunction(combineFunction, lambdaInterfaces, accumulatorStateDescriptors);
-        verifyExactOutputFunction(outputFunction, accumulatorStateDescriptors);
     }
 
     public List<ParameterMetadata> getValueInputMetadata()
@@ -118,88 +107,6 @@ public class AggregationMetadata
     public List<AccumulatorStateDescriptor<?>> getAccumulatorStateDescriptors()
     {
         return accumulatorStateDescriptors;
-    }
-
-    private static void verifyInputFunctionSignature(MethodHandle method, List<ParameterMetadata> dataChannelMetadata, List<Class<?>> lambdaInterfaces, List<AccumulatorStateDescriptor<?>> stateDescriptors)
-    {
-        Class<?>[] parameters = method.type().parameterArray();
-        checkArgument(parameters.length > 0, "Aggregation input function must have at least one parameter");
-        checkArgument(parameters.length == dataChannelMetadata.size() + lambdaInterfaces.size(), "Aggregation input function parameters count match parameter metadata");
-        checkArgument(dataChannelMetadata.stream().filter(m -> m.getParameterType() == STATE).count() == stateDescriptors.size(), "Number of state parameter in input function must be the same as size of stateDescriptors");
-        checkArgument(dataChannelMetadata.get(0).getParameterType() == STATE, "First parameter must be state");
-
-        // verify data channels
-        int stateIndex = 0;
-        for (int i = 0; i < dataChannelMetadata.size(); i++) {
-            ParameterMetadata metadata = dataChannelMetadata.get(i);
-            switch (metadata.getParameterType()) {
-                case STATE:
-                    checkArgument(stateDescriptors.get(stateIndex).getStateInterface() == parameters[i], "State argument must be of type %s", stateDescriptors.get(stateIndex).getStateInterface());
-                    stateIndex++;
-                    break;
-                case BLOCK_INPUT_CHANNEL:
-                case NULLABLE_BLOCK_INPUT_CHANNEL:
-                    checkArgument(parameters[i] == Block.class, "Parameter must be Block if it has @BlockPosition");
-                    break;
-                case INPUT_CHANNEL:
-                    checkArgument(!parameters[i].isPrimitive() || SUPPORTED_PRIMITIVE_TYPES.contains(parameters[i]), "Unsupported type: %s", parameters[i].getSimpleName());
-                    verifyMethodParameterType(method, i, metadata.getSqlType().getJavaType(), metadata.getSqlType().getDisplayName());
-                    break;
-                case BLOCK_INDEX:
-                    checkArgument(parameters[i] == int.class, "Block index parameter must be an int");
-                    break;
-                default:
-                    throw new IllegalArgumentException("Unsupported parameter: " + metadata.getParameterType());
-            }
-        }
-        checkArgument(stateIndex == stateDescriptors.size(), "Input function only has %s states, expected: %s", stateIndex, stateDescriptors.size());
-
-        // verify lambda channels
-        for (int i = 0; i < lambdaInterfaces.size(); i++) {
-            verifyMethodParameterType(method, i + dataChannelMetadata.size(), lambdaInterfaces.get(i), "function");
-        }
-    }
-
-    private static void verifyCombineFunction(MethodHandle method, List<Class<?>> lambdaInterfaces, List<AccumulatorStateDescriptor<?>> stateDescriptors)
-    {
-        Class<?>[] parameterTypes = method.type().parameterArray();
-        checkArgument(
-                parameterTypes.length == stateDescriptors.size() * 2 + lambdaInterfaces.size(),
-                "Number of arguments for combine function must be 2 times the size of states plus number of lambda channels.");
-
-        for (int i = 0; i < stateDescriptors.size() * 2; i++) {
-            checkArgument(
-                    parameterTypes[i].equals(stateDescriptors.get(i % stateDescriptors.size()).getStateInterface()),
-                    "Type for Parameter index %s is unexpected. Arguments for combine function must appear in the order of state1, state2, ..., otherState1, otherState2, ...",
-                    i);
-        }
-
-        for (int i = 0; i < lambdaInterfaces.size(); i++) {
-            verifyMethodParameterType(method, i + stateDescriptors.size() * 2, lambdaInterfaces.get(i), "function");
-        }
-    }
-
-    private static void verifyExactOutputFunction(MethodHandle method, List<AccumulatorStateDescriptor<?>> stateDescriptors)
-    {
-        if (method == null) {
-            return;
-        }
-        Class<?>[] parameterTypes = method.type().parameterArray();
-        checkArgument(parameterTypes.length == stateDescriptors.size() + 1, "Number of arguments for combine function must be exactly one plus than number of states.");
-        for (int i = 0; i < stateDescriptors.size(); i++) {
-            checkArgument(parameterTypes[i].equals(stateDescriptors.get(i).getStateInterface()), "Type for Parameter index %s is unexpected", i);
-        }
-        checkArgument(Arrays.stream(parameterTypes).filter(type -> type.equals(BlockBuilder.class)).count() == 1, "Output function must take exactly one BlockBuilder parameter");
-    }
-
-    private static void verifyMethodParameterType(MethodHandle method, int index, Class<?> javaType, String sqlTypeDisplayName)
-    {
-        checkArgument(method.type().parameterType(index).isAssignableFrom(javaType),
-                "Expected method %s parameter %s type to be %s (%s)",
-                method,
-                index,
-                javaType.getName(),
-                sqlTypeDisplayName);
     }
 
     public static class ParameterMetadata
