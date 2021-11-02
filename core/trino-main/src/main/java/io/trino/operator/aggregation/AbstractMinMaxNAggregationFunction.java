@@ -39,10 +39,11 @@ import java.util.Optional;
 
 import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.metadata.Signature.orderableTypeParameter;
-import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.BLOCK_INDEX;
-import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.BLOCK_INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.STATE;
+import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.BLOCK_INDEX;
+import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.BLOCK_INPUT_CHANNEL;
+import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.INPUT_CHANNEL;
+import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.STATE;
+import static io.trino.operator.aggregation.AggregationFunctionAdapter.normalizeInputMethod;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -100,10 +101,11 @@ public abstract class AbstractMinMaxNAggregationFunction
         MinMaxNStateSerializer stateSerializer = new MinMaxNStateSerializer(compare, type);
         ArrayType outputType = new ArrayType(type);
 
+        MethodHandle inputFunction = INPUT_FUNCTION.bindTo(compare).bindTo(type);
+        inputFunction = normalizeInputMethod(inputFunction, boundSignature, STATE, BLOCK_INPUT_CHANNEL, INPUT_CHANNEL, BLOCK_INDEX);
+
         return new AggregationMetadata(
-                boundSignature,
-                ImmutableList.of(STATE, BLOCK_INPUT_CHANNEL, INPUT_CHANNEL, BLOCK_INDEX),
-                INPUT_FUNCTION.bindTo(compare).bindTo(type),
+                inputFunction,
                 Optional.empty(),
                 COMBINE_FUNCTION,
                 OUTPUT_FUNCTION.bindTo(outputType),

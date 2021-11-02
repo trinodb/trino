@@ -161,7 +161,8 @@ public abstract class AbstractOperatorBenchmark
         ResolvedFunction resolvedFunction = localQueryRunner.getMetadata().resolveFunction(session, QualifiedName.of(name), fromTypes(argumentTypes));
         InternalAggregationFunction aggregationFunction = new InternalAggregationFunction(
                 resolvedFunction.getSignature(),
-                localQueryRunner.getMetadata().getAggregateFunctionImplementation(resolvedFunction));
+                localQueryRunner.getMetadata().getAggregateFunctionImplementation(resolvedFunction),
+                resolvedFunction.getFunctionNullability());
         return new BenchmarkAggregationFunction(aggregationFunction);
     }
 

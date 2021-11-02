@@ -1157,7 +1157,10 @@ public class LocalExecutionPlanner
         {
             if (resolvedFunction.getFunctionKind() == FunctionKind.AGGREGATE) {
                 AggregationMetadata aggregationMetadata = metadata.getAggregateFunctionImplementation(resolvedFunction);
-                InternalAggregationFunction aggregateFunctionImplementation = new InternalAggregationFunction(resolvedFunction.getSignature(), aggregationMetadata);
+                InternalAggregationFunction aggregateFunctionImplementation = new InternalAggregationFunction(
+                        resolvedFunction.getSignature(),
+                        aggregationMetadata,
+                        resolvedFunction.getFunctionNullability());
                 return supplier(resolvedFunction.getSignature().toSignature(), aggregateFunctionImplementation);
             }
             return metadata.getWindowFunctionImplementation(resolvedFunction);
@@ -1564,7 +1567,7 @@ public class LocalExecutionPlanner
 
                     matchAggregations.add(new MatchAggregationInstantiator(
                             pointer.getFunction().getSignature().getName(),
-                            new InternalAggregationFunction(pointer.getFunction().getSignature(), aggregationMetadata),
+                            new InternalAggregationFunction(pointer.getFunction().getSignature(), aggregationMetadata, pointer.getFunction().getFunctionNullability()),
                             valueChannels,
                             lambdaProviders,
                             new SetEvaluatorSupplier(pointer.getSetDescriptor(), mapping)));
@@ -3529,7 +3532,10 @@ public class LocalExecutionPlanner
                 Aggregation aggregation)
         {
             AggregationMetadata aggregationMetadata = metadata.getAggregateFunctionImplementation(aggregation.getResolvedFunction());
-            InternalAggregationFunction internalAggregationFunction = new InternalAggregationFunction(aggregation.getResolvedFunction().getSignature(), aggregationMetadata);
+            InternalAggregationFunction internalAggregationFunction = new InternalAggregationFunction(
+                    aggregation.getResolvedFunction().getSignature(),
+                    aggregationMetadata,
+                    aggregation.getResolvedFunction().getFunctionNullability());
 
             List<Integer> valueChannels = new ArrayList<>();
             for (Expression argument : aggregation.getArguments()) {

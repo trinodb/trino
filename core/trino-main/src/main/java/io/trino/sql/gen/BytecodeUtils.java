@@ -440,10 +440,15 @@ public final class BytecodeUtils
                 .ifFalse(notNull);
     }
 
-    public static BytecodeExpression invoke(Binding binding, String name)
+    public static BytecodeExpression invoke(Binding binding, String name, BytecodeExpression... parameters)
+    {
+        return invoke(binding, name, ImmutableList.copyOf(parameters));
+    }
+
+    public static BytecodeExpression invoke(Binding binding, String name, List<BytecodeExpression> parameters)
     {
         // ensure that name doesn't have a special characters
-        return invokeDynamic(BOOTSTRAP_METHOD, ImmutableList.of(binding.getBindingId()), sanitizeName(name), binding.getType());
+        return invokeDynamic(BOOTSTRAP_METHOD, ImmutableList.of(binding.getBindingId()), sanitizeName(name), binding.getType(), parameters);
     }
 
     public static BytecodeExpression invoke(Binding binding, BoundSignature signature)
