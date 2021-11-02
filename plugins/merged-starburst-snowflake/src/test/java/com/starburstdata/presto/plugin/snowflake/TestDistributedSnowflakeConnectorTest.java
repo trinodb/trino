@@ -64,7 +64,7 @@ public class TestDistributedSnowflakeConnectorTest
     @Test
     public void testLargeTableScan()
     {
-        // Use "CREATE TABLE TEST_DB.TEST_SCHEMA_2.sf10_lineitem AS SELECT * FROM SNOWFLAKE_SAMPLE_DATA.TPCH_SF10.lineitem" in Snowflake UI to create test table
+        // Use "CREATE TABLE TEST_DB.TPCH_SF10.lineitem AS SELECT * FROM SNOWFLAKE_SAMPLE_DATA.TPCH_SF10.lineitem" in Snowflake UI to create test table
         assertQuery("SELECT " +
                         "count(l_orderkey + 1), " +
                         "count(l_partkey + 1), " +
@@ -82,7 +82,7 @@ public class TestDistributedSnowflakeConnectorTest
                         "count(l_shipinstruct || 'F'), " +
                         "count(l_shipmode || 'F'), " +
                         "count(l_comment || 'F') " +
-                        "FROM sf10_lineitem",
+                        "FROM tpch_sf10.lineitem",
                 "VALUES (59986052, 59986052, 59986052, 59986052, 59986052, 59986052, 59986052, 59986052, " +
                         "59986052, 59986052, 59986052, 59986052, 59986052, 59986052, 59986052, 59986052)");
     }
