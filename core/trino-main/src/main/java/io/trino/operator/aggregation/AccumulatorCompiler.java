@@ -176,6 +176,7 @@ public final class AccumulatorCompiler
                 stateFields,
                 inputChannelFields,
                 maskChannelField,
+                boundSignature.getArgumentTypes(),
                 metadata.getValueInputMetadata(),
                 lambdaProviderFields,
                 metadata.getInputFunction(),
@@ -283,6 +284,7 @@ public final class AccumulatorCompiler
             List<FieldDefinition> stateField,
             List<FieldDefinition> inputChannelFields,
             FieldDefinition maskChannelField,
+            List<Type> inputTypes,
             List<ParameterMetadata> parameterMetadatas,
             List<FieldDefinition> lambdaProviderFields,
             MethodHandle inputFunction,
@@ -327,6 +329,7 @@ public final class AccumulatorCompiler
 
         BytecodeBlock block = generateInputForLoop(
                 stateField,
+                inputTypes,
                 parameterMetadatas,
                 inputFunction,
                 scope,
@@ -496,6 +499,7 @@ public final class AccumulatorCompiler
 
     private static BytecodeBlock generateInputForLoop(
             List<FieldDefinition> stateField,
+            List<Type> inputTypes,
             List<ParameterMetadata> parameterMetadatas,
             MethodHandle inputFunction,
             Scope scope,
@@ -520,6 +524,7 @@ public final class AccumulatorCompiler
                 scope,
                 stateField,
                 positionVariable,
+                inputTypes,
                 parameterVariables,
                 parameterMetadatas,
                 lambdaProviderFields,
@@ -584,6 +589,7 @@ public final class AccumulatorCompiler
             Scope scope,
             List<FieldDefinition> stateField,
             Variable position,
+            List<Type> inputTypes,
             List<Variable> parameterVariables,
             List<ParameterMetadata> parameterMetadatas,
             List<FieldDefinition> lambdaProviderFields,
@@ -621,7 +627,7 @@ public final class AccumulatorCompiler
                 case INPUT_CHANNEL:
                     BytecodeBlock getBlockBytecode = new BytecodeBlock()
                             .getVariable(parameterVariables.get(inputChannel));
-                    pushStackType(scope, block, parameterMetadata.getSqlType(), getBlockBytecode, parameters[i], callSiteBinder);
+                    pushStackType(scope, block, inputTypes.get(inputChannel), getBlockBytecode, parameters[i], callSiteBinder);
                     inputChannel++;
                     break;
                 default:
