@@ -292,7 +292,7 @@ public class PagesIndex
         elements[b] = temp;
     }
 
-    public int buildPage(int position, int[] outputChannels, PageBuilder pageBuilder)
+    private int buildPage(int position, int[] outputChannels, PageBuilder pageBuilder)
     {
         while (!pageBuilder.isFull() && position < positionCount) {
             long pageAddress = valueAddresses.getLong(position);
@@ -437,7 +437,7 @@ public class PagesIndex
         return createPagesHashStrategy(joinChannels, hashChannel, Optional.empty());
     }
 
-    public PagesHashStrategy createPagesHashStrategy(List<Integer> joinChannels, OptionalInt hashChannel, Optional<List<Integer>> outputChannels)
+    private PagesHashStrategy createPagesHashStrategy(List<Integer> joinChannels, OptionalInt hashChannel, Optional<List<Integer>> outputChannels)
     {
         try {
             return joinCompiler.compilePagesHashStrategyFactory(types, joinChannels, outputChannels)
@@ -538,7 +538,7 @@ public class PagesIndex
                 hashArraySizeSupplier);
     }
 
-    private List<Integer> rangeList(int endExclusive)
+    private static List<Integer> rangeList(int endExclusive)
     {
         return IntStream.range(0, endExclusive)
                 .boxed()
