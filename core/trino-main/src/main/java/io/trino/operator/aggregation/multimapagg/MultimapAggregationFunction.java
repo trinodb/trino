@@ -111,14 +111,11 @@ public class MultimapAggregationFunction
         BlockPositionHashCode keyHashCode = blockTypeOperators.getHashCodeOperator(keyType);
 
         Type valueType = boundSignature.getArgumentType(1);
-        return generateAggregation(keyType, keyEqual, keyHashCode, valueType);
-    }
 
-    private AggregationMetadata generateAggregation(Type keyType, BlockPositionEqual keyEqual, BlockPositionHashCode keyHashCode, Type valueType)
-    {
         MultimapAggregationStateSerializer stateSerializer = new MultimapAggregationStateSerializer(keyType, valueType);
 
         return new AggregationMetadata(
+                boundSignature,
                 ImmutableList.of(STATE, BLOCK_INPUT_CHANNEL, NULLABLE_BLOCK_INPUT_CHANNEL, BLOCK_INDEX),
                 INPUT_FUNCTION,
                 Optional.empty(),

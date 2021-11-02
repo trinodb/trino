@@ -92,7 +92,7 @@ public final class AccumulatorCompiler
     public static GenericAccumulatorFactoryBinder generateAccumulatorFactoryBinder(BoundSignature boundSignature, AggregationMetadata metadata)
     {
         // change types used in Aggregation methods to types used in the core Trino engine to simplify code generation
-        metadata = normalizeAggregationMethods(metadata);
+        metadata = normalizeAggregationMethods(boundSignature, metadata);
 
         DynamicClassLoader classLoader = new DynamicClassLoader(AccumulatorCompiler.class.getClassLoader());
 
@@ -1133,12 +1133,13 @@ public final class AccumulatorCompiler
         return parameters;
     }
 
-    private static AggregationMetadata normalizeAggregationMethods(AggregationMetadata metadata)
+    private static AggregationMetadata normalizeAggregationMethods(BoundSignature boundSignature, AggregationMetadata metadata)
     {
         // change aggregations state variables to simply AccumulatorState to avoid any class loader issues in generated code
         int stateParameterCount = metadata.getAccumulatorStateDescriptors().size();
         int lambdaParameterCount = metadata.getLambdaInterfaces().size();
         return new AggregationMetadata(
+                boundSignature,
                 metadata.getInputParameterKinds(),
                 castStateParameters(metadata.getInputFunction(), stateParameterCount, lambdaParameterCount),
                 metadata.getRemoveInputFunction().map(removeFunction -> castStateParameters(removeFunction, stateParameterCount, lambdaParameterCount)),

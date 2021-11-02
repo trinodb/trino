@@ -97,15 +97,11 @@ public abstract class AbstractMinMaxNAggregationFunction
     {
         Type type = boundSignature.getArgumentTypes().get(0);
         MethodHandle compare = getMinMaxCompare(functionDependencies, type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION), min);
-        return generateAggregation(compare, type);
-    }
-
-    protected AggregationMetadata generateAggregation(MethodHandle compare, Type type)
-    {
         MinMaxNStateSerializer stateSerializer = new MinMaxNStateSerializer(compare, type);
         ArrayType outputType = new ArrayType(type);
 
         return new AggregationMetadata(
+                boundSignature,
                 ImmutableList.of(STATE, BLOCK_INPUT_CHANNEL, INPUT_CHANNEL, BLOCK_INDEX),
                 INPUT_FUNCTION.bindTo(compare).bindTo(type),
                 Optional.empty(),

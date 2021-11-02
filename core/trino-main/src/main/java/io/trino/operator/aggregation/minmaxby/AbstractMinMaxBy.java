@@ -111,6 +111,7 @@ public abstract class AbstractMinMaxBy
             MethodHandle outputMethod = generateOutput(keyType, valueType);
 
             return new AggregationMetadata(
+                    boundSignature,
                     ImmutableList.of(STATE, STATE, NULLABLE_BLOCK_INPUT_CHANNEL, BLOCK_INPUT_CHANNEL, BLOCK_INDEX),
                     inputMethod,
                     Optional.empty(),

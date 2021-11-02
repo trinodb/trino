@@ -78,6 +78,7 @@ public class CountColumn
         AccumulatorStateFactory<LongState> stateFactory = StateCompiler.generateStateFactory(LongState.class);
 
         return new AggregationMetadata(
+                boundSignature,
                 ImmutableList.of(STATE, BLOCK_INPUT_CHANNEL, BLOCK_INDEX),
                 INPUT_FUNCTION,
                 Optional.of(REMOVE_INPUT_FUNCTION),

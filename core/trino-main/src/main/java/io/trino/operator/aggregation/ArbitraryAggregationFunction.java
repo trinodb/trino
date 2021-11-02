@@ -90,12 +90,8 @@ public class ArbitraryAggregationFunction
     @Override
     public AggregationMetadata specialize(BoundSignature boundSignature)
     {
-        Type valueType = boundSignature.getReturnType();
-        return generateAggregation(valueType);
-    }
+        Type type = boundSignature.getReturnType();
 
-    private static AggregationMetadata generateAggregation(Type type)
-    {
         MethodHandle inputFunction;
         MethodHandle combineFunction;
         MethodHandle outputFunction;
@@ -141,6 +137,7 @@ public class ArbitraryAggregationFunction
         inputFunction = inputFunction.bindTo(type);
 
         return new AggregationMetadata(
+                boundSignature,
                 ImmutableList.of(STATE, BLOCK_INPUT_CHANNEL, BLOCK_INDEX),
                 inputFunction,
                 Optional.empty(),

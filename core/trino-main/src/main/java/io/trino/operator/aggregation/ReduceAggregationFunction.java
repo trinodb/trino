@@ -94,11 +94,7 @@ public class ReduceAggregationFunction
     {
         Type inputType = boundSignature.getArgumentTypes().get(0);
         Type stateType = boundSignature.getArgumentTypes().get(1);
-        return generateAggregation(inputType, stateType);
-    }
 
-    private AggregationMetadata generateAggregation(Type inputType, Type stateType)
-    {
         MethodHandle inputMethodHandle;
         MethodHandle combineMethodHandle;
         MethodHandle outputMethodHandle;
@@ -139,6 +135,7 @@ public class ReduceAggregationFunction
         }
 
         return new AggregationMetadata(
+                boundSignature,
                 ImmutableList.of(STATE, INPUT_CHANNEL, INPUT_CHANNEL),
                 inputMethodHandle.asType(inputMethodHandle.type().changeParameterType(1, inputType.getJavaType())),
                 Optional.empty(),

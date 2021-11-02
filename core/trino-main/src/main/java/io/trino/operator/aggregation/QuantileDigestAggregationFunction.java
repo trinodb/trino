@@ -97,14 +97,12 @@ public final class QuantileDigestAggregationFunction
     {
         QuantileDigestType outputType = (QuantileDigestType) boundSignature.getReturnType();
         Type valueType = outputType.getValueType();
-        return generateAggregation(valueType, boundSignature.getArity());
-    }
+        int arity = boundSignature.getArity();
 
-    private static AggregationMetadata generateAggregation(Type valueType, int arity)
-    {
         QuantileDigestStateSerializer stateSerializer = new QuantileDigestStateSerializer(valueType);
 
         return new AggregationMetadata(
+                boundSignature,
                 ImmutableList.<AggregationParameterKind>builder()
                         .add(STATE)
                         .addAll(getInputTypes(valueType, arity).stream().map(valueType1 -> INPUT_CHANNEL).collect(Collectors.toList()))

@@ -82,6 +82,7 @@ public class RealAverageAggregation
         AccumulatorStateSerializer<DoubleState> doubleStateSerializer = StateCompiler.generateStateSerializer(doubleStateInterface);
 
         return new AggregationMetadata(
+                boundSignature,
                 ImmutableList.of(STATE, STATE, INPUT_CHANNEL),
                 INPUT_FUNCTION,
                 Optional.of(REMOVE_INPUT_FUNCTION),

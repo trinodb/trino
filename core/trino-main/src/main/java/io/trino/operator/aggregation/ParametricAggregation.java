@@ -121,6 +121,7 @@ public class ParametricAggregation
         MethodHandle outputHandle = bindDependencies(concreteImplementation.getOutputFunction(), concreteImplementation.getOutputDependencies(), functionBinding, functionDependencies);
 
         return new AggregationMetadata(
+                boundSignature,
                 concreteImplementation.getInputParameterKinds(),
                 inputHandle,
                 removeInputHandle,
