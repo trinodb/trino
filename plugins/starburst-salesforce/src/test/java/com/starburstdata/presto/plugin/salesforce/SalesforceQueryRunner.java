@@ -77,9 +77,9 @@ public final class SalesforceQueryRunner
 
         DistributedQueryRunner queryRunner = null;
         try {
-            queryRunner = StarburstDistributedQueryRunner.builder(createSession())
-                    .setExtraProperties(extraProperties)
-                    .build();
+            DistributedQueryRunner.Builder builder = StarburstDistributedQueryRunner.builder(createSession());
+            extraProperties.forEach(builder::addExtraProperty);
+            queryRunner = builder.build();
 
             connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
             connectorProperties.putIfAbsent("allow-drop-table", "true");
@@ -145,9 +145,9 @@ public final class SalesforceQueryRunner
     private static void copyTpchTablesIfNotExists(Map<String, String> extraProperties, Map<String, String> connectorProperties, Iterable<TpchTable<?>> tables)
             throws Exception
     {
-        try (DistributedQueryRunner queryRunner = StarburstDistributedQueryRunner.builder(createSession())
-                .setExtraProperties(extraProperties)
-                .build()) {
+        DistributedQueryRunner.Builder builder = StarburstDistributedQueryRunner.builder(createSession());
+        extraProperties.forEach(builder::addExtraProperty);
+        try (DistributedQueryRunner queryRunner = builder.build()) {
             connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
             connectorProperties.putIfAbsent("allow-drop-table", "true");
 
