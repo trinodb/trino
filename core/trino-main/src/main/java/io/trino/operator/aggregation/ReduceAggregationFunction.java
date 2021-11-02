@@ -16,7 +16,7 @@ package io.trino.operator.aggregation;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.trino.metadata.AggregationFunctionMetadata;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
@@ -94,10 +94,10 @@ public class ReduceAggregationFunction
     }
 
     @Override
-    public InternalAggregationFunction specialize(FunctionBinding functionBinding)
+    public InternalAggregationFunction specialize(BoundSignature boundSignature)
     {
-        Type inputType = functionBinding.getTypeVariable("T");
-        Type stateType = functionBinding.getTypeVariable("S");
+        Type inputType = boundSignature.getArgumentTypes().get(0);
+        Type stateType = boundSignature.getArgumentTypes().get(1);
         return generateAggregation(inputType, stateType);
     }
 

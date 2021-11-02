@@ -15,7 +15,7 @@ package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
@@ -24,6 +24,7 @@ import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.sql.gen.VarArgsToArrayAdapterGenerator;
@@ -70,25 +71,25 @@ public final class ArrayConcatFunction
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
+    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
     {
-        if (functionBinding.getArity() < 2) {
+        if (boundSignature.getArity() < 2) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "There must be two or more arguments to " + FUNCTION_NAME);
         }
 
-        Type elementType = functionBinding.getTypeVariable("E");
+        ArrayType arrayType = (ArrayType) boundSignature.getReturnType();
 
         VarArgsToArrayAdapterGenerator.MethodHandleAndConstructor methodHandleAndConstructor = generateVarArgsToArrayAdapter(
                 Block.class,
                 Block.class,
-                functionBinding.getArity(),
-                METHOD_HANDLE.bindTo(elementType),
-                USER_STATE_FACTORY.bindTo(elementType));
+                boundSignature.getArity(),
+                METHOD_HANDLE.bindTo(arrayType.getElementType()),
+                USER_STATE_FACTORY.bindTo(arrayType.getElementType()));
 
         return new ChoicesScalarFunctionImplementation(
-                functionBinding,
+                boundSignature,
                 FAIL_ON_NULL,
-                nCopies(functionBinding.getArity(), NEVER_NULL),
+                nCopies(boundSignature.getArity(), NEVER_NULL),
                 methodHandleAndConstructor.getMethodHandle(),
                 Optional.of(methodHandleAndConstructor.getConstructor()));
     }

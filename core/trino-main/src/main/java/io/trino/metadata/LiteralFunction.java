@@ -66,10 +66,10 @@ public class LiteralFunction
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
+    public ScalarFunctionImplementation specialize(BoundSignature boundSignature)
     {
-        Type parameterType = functionBinding.getTypeVariable("F");
-        Type type = functionBinding.getTypeVariable("T");
+        Type parameterType = boundSignature.getArgumentTypes().get(0);
+        Type type = boundSignature.getReturnType();
 
         MethodHandle methodHandle = null;
         if (parameterType.getJavaType() == type.getJavaType()) {
@@ -92,7 +92,7 @@ public class LiteralFunction
                 type.getJavaType());
 
         return new ChoicesScalarFunctionImplementation(
-                functionBinding,
+                boundSignature,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL),
                 methodHandle);

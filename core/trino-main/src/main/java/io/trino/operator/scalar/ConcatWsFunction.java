@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
@@ -109,9 +109,9 @@ public final class ConcatWsFunction
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(FunctionBinding binding)
+    public ScalarFunctionImplementation specialize(BoundSignature boundSignature)
     {
-        int valueCount = binding.getArity() - 1;
+        int valueCount = boundSignature.getArity() - 1;
         if (valueCount < 1) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "There must be two or more arguments");
         }
@@ -120,7 +120,7 @@ public final class ConcatWsFunction
         MethodHandle customMethodHandle = arrayMethodHandle.asCollector(Slice[].class, valueCount);
 
         return new ChoicesScalarFunctionImplementation(
-                binding,
+                boundSignature,
                 FAIL_ON_NULL,
                 ImmutableList.<InvocationConvention.InvocationArgumentConvention>builder()
                         .add(NEVER_NULL)

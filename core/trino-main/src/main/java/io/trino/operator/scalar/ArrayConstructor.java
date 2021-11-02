@@ -25,7 +25,7 @@ import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
@@ -88,11 +88,11 @@ public final class ArrayConstructor
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
+    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
     {
         ImmutableList.Builder<Class<?>> builder = ImmutableList.builder();
-        Type type = functionBinding.getTypeVariable("E");
-        for (int i = 0; i < functionBinding.getArity(); i++) {
+        Type type = boundSignature.getArgumentTypes().get(0);
+        for (int i = 0; i < boundSignature.getArity(); i++) {
             if (type.getJavaType().isPrimitive()) {
                 builder.add(Primitives.wrap(type.getJavaType()));
             }
@@ -111,7 +111,7 @@ public final class ArrayConstructor
             throw new RuntimeException(e);
         }
         return new ChoicesScalarFunctionImplementation(
-                functionBinding,
+                boundSignature,
                 FAIL_ON_NULL,
                 nCopies(stackTypes.size(), BOXED_NULLABLE),
                 methodHandle);
