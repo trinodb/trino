@@ -15,7 +15,6 @@ package io.trino.operator.aggregation.listagg;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import io.airlift.bytecode.DynamicClassLoader;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.metadata.AggregationFunctionMetadata;
@@ -112,8 +111,6 @@ public class ListaggAggregationFunction
 
     private static InternalAggregationFunction generateAggregation(Type type)
     {
-        DynamicClassLoader classLoader = new DynamicClassLoader(ListaggAggregationFunction.class.getClassLoader());
-
         AccumulatorStateSerializer<ListaggAggregationState> stateSerializer = new ListaggAggregationStateSerializer(type);
         AccumulatorStateFactory<ListaggAggregationState> stateFactory = new ListaggAggregationStateFactory(type);
 
@@ -146,7 +143,7 @@ public class ListaggAggregationFunction
                         stateFactory)),
                 outputType);
 
-        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
+        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata);
         return new InternalAggregationFunction(NAME, inputTypes, ImmutableList.of(intermediateType), outputType, factory);
     }
 

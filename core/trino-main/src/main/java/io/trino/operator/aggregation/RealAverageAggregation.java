@@ -107,7 +107,7 @@ public class RealAverageAggregation
                                 StateCompiler.generateStateFactory(doubleStateInterface, classLoader))),
                 REAL);
 
-        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(aggregationMetadata, classLoader);
+        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(aggregationMetadata);
         return new InternalAggregationFunction(
                 NAME,
                 ImmutableList.of(REAL),

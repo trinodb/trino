@@ -326,6 +326,7 @@ public class AggregationMetadata
             this.factory = requireNonNull(factory, "factory is null");
         }
 
+        // this is only used to verify method interfaces
         public Class<T> getStateInterface()
         {
             return stateInterface;

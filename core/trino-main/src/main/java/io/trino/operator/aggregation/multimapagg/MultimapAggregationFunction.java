@@ -14,7 +14,6 @@
 package io.trino.operator.aggregation.multimapagg;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.bytecode.DynamicClassLoader;
 import io.trino.array.ObjectBigArray;
 import io.trino.metadata.AggregationFunctionMetadata;
 import io.trino.metadata.BoundSignature;
@@ -125,7 +124,6 @@ public class MultimapAggregationFunction
 
     private InternalAggregationFunction generateAggregation(Type keyType, BlockPositionEqual keyEqual, BlockPositionHashCode keyHashCode, Type valueType, Type outputType)
     {
-        DynamicClassLoader classLoader = new DynamicClassLoader(MultimapAggregationFunction.class.getClassLoader());
         List<Type> inputTypes = ImmutableList.of(keyType, valueType);
         MultimapAggregationStateSerializer stateSerializer = new MultimapAggregationStateSerializer(keyType, valueType);
         Type intermediateType = stateSerializer.getSerializedType();
@@ -143,7 +141,7 @@ public class MultimapAggregationFunction
                         new MultimapAggregationStateFactory(keyType, valueType))),
                 outputType);
 
-        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
+        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata);
         return new InternalAggregationFunction(NAME, inputTypes, ImmutableList.of(intermediateType), outputType, factory);
     }
 

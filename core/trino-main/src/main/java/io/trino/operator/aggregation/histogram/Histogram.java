@@ -14,7 +14,6 @@
 package io.trino.operator.aggregation.histogram;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.bytecode.DynamicClassLoader;
 import io.trino.metadata.AggregationFunctionMetadata;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
@@ -101,7 +100,6 @@ public class Histogram
             BlockPositionHashCode keyHashCode,
             Type outputType)
     {
-        DynamicClassLoader classLoader = new DynamicClassLoader(Histogram.class.getClassLoader());
         List<Type> inputTypes = ImmutableList.of(keyType);
         HistogramStateSerializer stateSerializer = new HistogramStateSerializer(outputType);
         Type intermediateType = stateSerializer.getSerializedType();
@@ -121,7 +119,7 @@ public class Histogram
                         new HistogramStateFactory(keyType, keyEqual, keyHashCode, EXPECTED_SIZE_FOR_HASHING))),
                 outputType);
 
-        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
+        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata);
         return new InternalAggregationFunction(functionName, inputTypes, ImmutableList.of(intermediateType), outputType, factory);
     }
 
