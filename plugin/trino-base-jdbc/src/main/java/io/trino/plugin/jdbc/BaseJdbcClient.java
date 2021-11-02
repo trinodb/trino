@@ -288,15 +288,13 @@ public abstract class BaseJdbcClient
                 // Note: some databases (e.g. SQL Server) do not return column remarks/comment here.
                 Optional<String> comment = Optional.ofNullable(emptyToNull(resultSet.getString("REMARKS")));
                 // skip unsupported column types
-                if (columnMapping.isPresent()) {
-                    columns.add(JdbcColumnHandle.builder()
-                            .setColumnName(columnName)
-                            .setJdbcTypeHandle(typeHandle)
-                            .setColumnType(columnMapping.get().getType())
-                            .setNullable(nullable)
-                            .setComment(comment)
-                            .build());
-                }
+                columnMapping.ifPresent(mapping -> columns.add(JdbcColumnHandle.builder()
+                        .setColumnName(columnName)
+                        .setJdbcTypeHandle(typeHandle)
+                        .setColumnType(mapping.getType())
+                        .setNullable(nullable)
+                        .setComment(comment)
+                        .build()));
                 if (columnMapping.isEmpty()) {
                     UnsupportedTypeHandling unsupportedTypeHandling = getUnsupportedTypeHandling(session);
                     verify(
