@@ -13,10 +13,10 @@
  */
 package io.trino.operator.window;
 
-import io.trino.metadata.FunctionArgumentDefinition;
 import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.FunctionDependencies;
 import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlFunction;
 
@@ -38,8 +38,7 @@ public class SqlWindowFunction
         functionMetadata = new FunctionMetadata(
                 signature,
                 signature.getName(),
-                true,
-                nCopies(signature.getArgumentTypes().size(), new FunctionArgumentDefinition(true)),
+                new FunctionNullability(true, nCopies(signature.getArgumentTypes().size(), true)),
                 false,
                 true,
                 nullToEmpty(supplier.getDescription()),

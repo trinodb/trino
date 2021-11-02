@@ -15,9 +15,9 @@ package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.trino.metadata.FunctionArgumentDefinition;
 import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.block.Block;
@@ -55,10 +55,7 @@ public class ElementToArrayConcatFunction
                         arrayType(new TypeSignature("E")),
                         ImmutableList.of(new TypeSignature("E"), arrayType(new TypeSignature("E"))),
                         false),
-                false,
-                ImmutableList.of(
-                        new FunctionArgumentDefinition(false),
-                        new FunctionArgumentDefinition(false)),
+                new FunctionNullability(false, ImmutableList.of(false, false)),
                 false,
                 true,
                 "Concatenates an element to an array",

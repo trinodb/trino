@@ -24,11 +24,11 @@ import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.trino.metadata.AggregationFunctionMetadata;
-import io.trino.metadata.FunctionArgumentDefinition;
 import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.FunctionDependencies;
 import io.trino.metadata.FunctionDependencyDeclaration;
 import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlAggregationFunction;
 import io.trino.operator.aggregation.AccumulatorCompiler;
@@ -106,10 +106,7 @@ public abstract class AbstractMinMaxBy
                                 new TypeSignature("V"),
                                 ImmutableList.of(new TypeSignature("V"), new TypeSignature("K")),
                                 false),
-                        true,
-                        ImmutableList.of(
-                                new FunctionArgumentDefinition(true),
-                                new FunctionArgumentDefinition(false)),
+                        new FunctionNullability(true, ImmutableList.of(true, false)),
                         false,
                         true,
                         description,

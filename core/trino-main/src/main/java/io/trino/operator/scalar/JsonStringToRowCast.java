@@ -14,9 +14,9 @@
 package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.metadata.FunctionArgumentDefinition;
 import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.type.TypeSignature;
@@ -42,8 +42,7 @@ public final class JsonStringToRowCast
                         new TypeSignature("T"),
                         ImmutableList.of(VARCHAR.getTypeSignature()),
                         false),
-                true,
-                ImmutableList.of(new FunctionArgumentDefinition(false)),
+                new FunctionNullability(true, ImmutableList.of(false)),
                 true,
                 true,
                 "",

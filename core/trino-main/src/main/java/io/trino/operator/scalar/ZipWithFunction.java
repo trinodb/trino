@@ -14,9 +14,9 @@
 package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.metadata.FunctionArgumentDefinition;
 import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.PageBuilder;
@@ -64,11 +64,7 @@ public final class ZipWithFunction
                                 arrayType(new TypeSignature("U")),
                                 functionType(new TypeSignature("T"), new TypeSignature("U"), new TypeSignature("R"))),
                         false),
-                false,
-                ImmutableList.of(
-                        new FunctionArgumentDefinition(false),
-                        new FunctionArgumentDefinition(false),
-                        new FunctionArgumentDefinition(false)),
+                new FunctionNullability(false, ImmutableList.of(false, false, false)),
                 false,
                 false,
                 "Merge two arrays, element-wise, into a single array using the lambda function",

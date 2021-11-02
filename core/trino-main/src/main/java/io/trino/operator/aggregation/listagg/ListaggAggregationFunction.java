@@ -19,9 +19,9 @@ import io.airlift.bytecode.DynamicClassLoader;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.metadata.AggregationFunctionMetadata;
-import io.trino.metadata.FunctionArgumentDefinition;
 import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlAggregationFunction;
 import io.trino.operator.aggregation.AccumulatorCompiler;
@@ -89,13 +89,9 @@ public class ListaggAggregationFunction
                                         new TypeSignature(StandardTypes.VARCHAR, TypeSignatureParameter.typeVariable("f")),
                                         BOOLEAN.getTypeSignature()),
                                 false),
+                        new FunctionNullability(
                         true,
-                        ImmutableList.of(
-                                new FunctionArgumentDefinition(true),
-                                new FunctionArgumentDefinition(false),
-                                new FunctionArgumentDefinition(false),
-                                new FunctionArgumentDefinition(false),
-                                new FunctionArgumentDefinition(false)),
+                        ImmutableList.of(true, false, false, false, false)),
                         false,
                         true,
                         "concatenates the input values with the specified separator",

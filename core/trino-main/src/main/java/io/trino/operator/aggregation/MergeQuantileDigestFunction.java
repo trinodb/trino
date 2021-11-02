@@ -17,9 +17,9 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.airlift.stats.QuantileDigest;
 import io.trino.metadata.AggregationFunctionMetadata;
-import io.trino.metadata.FunctionArgumentDefinition;
 import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlAggregationFunction;
 import io.trino.operator.aggregation.state.QuantileDigestState;
@@ -74,8 +74,7 @@ public final class MergeQuantileDigestFunction
                                 parametricType("qdigest", new TypeSignature("T")),
                                 ImmutableList.of(parametricType("qdigest", new TypeSignature("T"))),
                                 false),
-                        true,
-                        ImmutableList.of(new FunctionArgumentDefinition(false)),
+                        new FunctionNullability(true, ImmutableList.of(false)),
                         false,
                         true,
                         "Merges the input quantile digests into a single quantile digest",

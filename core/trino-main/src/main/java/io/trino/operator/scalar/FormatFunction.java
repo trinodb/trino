@@ -16,12 +16,12 @@ package io.trino.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.metadata.FunctionArgumentDefinition;
 import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.FunctionDependencies;
 import io.trino.metadata.FunctionDependencyDeclaration;
 import io.trino.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
 import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.TrinoException;
@@ -96,8 +96,7 @@ public final class FormatFunction
                         .argumentTypes(VARCHAR.getTypeSignature(), new TypeSignature("T"))
                         .returnType(VARCHAR.getTypeSignature())
                         .build(),
-                false,
-                ImmutableList.of(new FunctionArgumentDefinition(false), new FunctionArgumentDefinition(false)),
+                new FunctionNullability(false, ImmutableList.of(false, false)),
                 true,
                 true,
                 "formats the input arguments using a format string",

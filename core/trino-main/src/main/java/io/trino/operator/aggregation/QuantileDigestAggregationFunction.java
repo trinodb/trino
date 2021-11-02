@@ -17,9 +17,9 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.airlift.stats.QuantileDigest;
 import io.trino.metadata.AggregationFunctionMetadata;
-import io.trino.metadata.FunctionArgumentDefinition;
 import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlAggregationFunction;
 import io.trino.operator.aggregation.state.QuantileDigestState;
@@ -85,8 +85,7 @@ public final class QuantileDigestAggregationFunction
                                 parametricType("qdigest", new TypeSignature("V")),
                                 ImmutableList.copyOf(typeSignatures),
                                 false),
-                        true,
-                        nCopies(typeSignatures.length, new FunctionArgumentDefinition(false)),
+                        new FunctionNullability(true, nCopies(typeSignatures.length, false)),
                         false,
                         true,
                         "Returns a qdigest from the set of reals, bigints or doubles",
