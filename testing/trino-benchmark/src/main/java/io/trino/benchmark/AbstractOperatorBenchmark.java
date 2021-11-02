@@ -27,6 +27,7 @@ import io.trino.memory.MemoryPool;
 import io.trino.memory.QueryContext;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.Split;
 import io.trino.metadata.TableHandle;
 import io.trino.operator.Driver;
@@ -60,6 +61,7 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.NodeRef;
+import io.trino.sql.tree.QualifiedName;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.transaction.TransactionId;
 
@@ -84,6 +86,7 @@ import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.spi.connector.DynamicFilter.EMPTY;
 import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.relational.SqlToRowExpressionTranslator.translate;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
@@ -149,6 +152,12 @@ public abstract class AbstractOperatorBenchmark
                 .map(allColumnHandles::get)
                 .map(columnHandle -> metadata.getColumnMetadata(session, tableHandle, columnHandle).getType())
                 .collect(toImmutableList());
+    }
+
+    protected final BenchmarkAggregationFunction createAggregationFunction(String name, Type... argumentTypes)
+    {
+        ResolvedFunction resolvedFunction = localQueryRunner.getMetadata().resolveFunction(session, QualifiedName.of(name), fromTypes(argumentTypes));
+        return new BenchmarkAggregationFunction(localQueryRunner.getMetadata().getAggregateFunctionImplementation(resolvedFunction));
     }
 
     protected final OperatorFactory createTableScanOperator(int operatorId, PlanNodeId planNodeId, String tableName, String... columnNames)
