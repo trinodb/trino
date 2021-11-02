@@ -90,7 +90,7 @@ public class MapUnionAggregation
     }
 
     @Override
-    public InternalAggregationFunction specialize(BoundSignature boundSignature)
+    public AggregationMetadata specialize(BoundSignature boundSignature)
     {
         MapType outputType = (MapType) boundSignature.getReturnType();
         Type keyType = outputType.getKeyType();
@@ -101,13 +101,12 @@ public class MapUnionAggregation
         return generateAggregation(keyType, keyEqual, keyHashCode, valueType, outputType);
     }
 
-    private static InternalAggregationFunction generateAggregation(Type keyType, BlockPositionEqual keyEqual, BlockPositionHashCode keyHashCode, Type valueType, MapType outputType)
+    private static AggregationMetadata generateAggregation(Type keyType, BlockPositionEqual keyEqual, BlockPositionHashCode keyHashCode, Type valueType, MapType outputType)
     {
         List<Type> inputTypes = ImmutableList.of(outputType);
         KeyValuePairStateSerializer stateSerializer = new KeyValuePairStateSerializer(outputType, keyEqual, keyHashCode);
-        Type intermediateType = stateSerializer.getSerializedType();
 
-        AggregationMetadata metadata = new AggregationMetadata(
+        return new AggregationMetadata(
                 generateAggregationName(NAME, outputType.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 createInputParameterMetadata(outputType),
                 MethodHandles.insertArguments(INPUT_FUNCTION, 0, keyType, keyEqual, keyHashCode, valueType),
@@ -119,9 +118,6 @@ public class MapUnionAggregation
                         stateSerializer,
                         new KeyValuePairsStateFactory(keyType, valueType))),
                 outputType);
-
-        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata);
-        return new InternalAggregationFunction(NAME, inputTypes, ImmutableList.of(intermediateType), outputType, factory);
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type inputType)

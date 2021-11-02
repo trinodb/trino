@@ -80,14 +80,14 @@ public class RealAverageAggregation
     }
 
     @Override
-    public InternalAggregationFunction specialize(BoundSignature boundSignature)
+    public AggregationMetadata specialize(BoundSignature boundSignature)
     {
         Class<LongState> longStateInterface = LongState.class;
         Class<DoubleState> doubleStateInterface = DoubleState.class;
         AccumulatorStateSerializer<LongState> longStateSerializer = StateCompiler.generateStateSerializer(longStateInterface);
         AccumulatorStateSerializer<DoubleState> doubleStateSerializer = StateCompiler.generateStateSerializer(doubleStateInterface);
 
-        AggregationMetadata aggregationMetadata = new AggregationMetadata(
+        return new AggregationMetadata(
                 generateAggregationName(NAME, REAL.getTypeSignature(), ImmutableList.of(REAL.getTypeSignature())),
                 ImmutableList.of(new ParameterMetadata(STATE), new ParameterMetadata(STATE), new ParameterMetadata(INPUT_CHANNEL, REAL)),
                 INPUT_FUNCTION,
@@ -104,16 +104,6 @@ public class RealAverageAggregation
                                 doubleStateSerializer,
                                 StateCompiler.generateStateFactory(doubleStateInterface))),
                 REAL);
-
-        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(aggregationMetadata);
-        return new InternalAggregationFunction(
-                NAME,
-                ImmutableList.of(REAL),
-                ImmutableList.of(
-                        longStateSerializer.getSerializedType(),
-                        doubleStateSerializer.getSerializedType()),
-                REAL,
-                factory);
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type value)

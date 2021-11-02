@@ -93,14 +93,14 @@ public class ReduceAggregationFunction
     }
 
     @Override
-    public InternalAggregationFunction specialize(BoundSignature boundSignature)
+    public AggregationMetadata specialize(BoundSignature boundSignature)
     {
         Type inputType = boundSignature.getArgumentTypes().get(0);
         Type stateType = boundSignature.getArgumentTypes().get(1);
         return generateAggregation(inputType, stateType);
     }
 
-    private InternalAggregationFunction generateAggregation(Type inputType, Type stateType)
+    private AggregationMetadata generateAggregation(Type inputType, Type stateType)
     {
         MethodHandle inputMethodHandle;
         MethodHandle combineMethodHandle;
@@ -142,7 +142,7 @@ public class ReduceAggregationFunction
         }
 
         String name = getFunctionMetadata().getSignature().getName();
-        AggregationMetadata metadata = new AggregationMetadata(
+        return new AggregationMetadata(
                 generateAggregationName(name, inputType.getTypeSignature(), ImmutableList.of(inputType.getTypeSignature())),
                 createInputParameterMetadata(inputType, stateType),
                 inputMethodHandle.asType(
@@ -153,15 +153,6 @@ public class ReduceAggregationFunction
                 outputMethodHandle,
                 ImmutableList.of(stateDescriptor),
                 inputType,
-                ImmutableList.of(BinaryFunctionInterface.class, BinaryFunctionInterface.class));
-
-        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata);
-        return new InternalAggregationFunction(
-                name,
-                ImmutableList.of(inputType),
-                ImmutableList.of(stateType),
-                stateType,
-                factory,
                 ImmutableList.of(BinaryFunctionInterface.class, BinaryFunctionInterface.class));
     }
 

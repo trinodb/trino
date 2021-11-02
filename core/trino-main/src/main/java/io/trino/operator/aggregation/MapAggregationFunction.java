@@ -95,7 +95,7 @@ public class MapAggregationFunction
     }
 
     @Override
-    public InternalAggregationFunction specialize(BoundSignature boundSignature)
+    public AggregationMetadata specialize(BoundSignature boundSignature)
     {
         MapType outputType = (MapType) boundSignature.getReturnType();
         Type keyType = outputType.getKeyType();
@@ -106,13 +106,12 @@ public class MapAggregationFunction
         return generateAggregation(keyType, keyEqual, keyHashCode, valueType, outputType);
     }
 
-    private static InternalAggregationFunction generateAggregation(Type keyType, BlockPositionEqual keyEqual, BlockPositionHashCode keyHashCode, Type valueType, MapType outputType)
+    private static AggregationMetadata generateAggregation(Type keyType, BlockPositionEqual keyEqual, BlockPositionHashCode keyHashCode, Type valueType, MapType outputType)
     {
         List<Type> inputTypes = ImmutableList.of(keyType, valueType);
         KeyValuePairStateSerializer stateSerializer = new KeyValuePairStateSerializer(outputType, keyEqual, keyHashCode);
-        Type intermediateType = stateSerializer.getSerializedType();
 
-        AggregationMetadata metadata = new AggregationMetadata(
+        return new AggregationMetadata(
                 generateAggregationName(NAME, outputType.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 createInputParameterMetadata(keyType, valueType),
                 MethodHandles.insertArguments(INPUT_FUNCTION, 0, keyType, keyEqual, keyHashCode, valueType),
@@ -124,9 +123,6 @@ public class MapAggregationFunction
                         stateSerializer,
                         new KeyValuePairsStateFactory(keyType, valueType))),
                 outputType);
-
-        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata);
-        return new InternalAggregationFunction(NAME, inputTypes, ImmutableList.of(intermediateType), outputType, factory);
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type keyType, Type valueType)

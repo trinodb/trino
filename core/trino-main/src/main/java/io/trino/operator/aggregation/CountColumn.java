@@ -77,21 +77,20 @@ public class CountColumn
     }
 
     @Override
-    public InternalAggregationFunction specialize(BoundSignature boundSignature)
+    public AggregationMetadata specialize(BoundSignature boundSignature)
     {
         Type type = boundSignature.getArgumentTypes().get(0);
         return generateAggregation(type);
     }
 
-    private static InternalAggregationFunction generateAggregation(Type type)
+    private static AggregationMetadata generateAggregation(Type type)
     {
         AccumulatorStateSerializer<LongState> stateSerializer = StateCompiler.generateStateSerializer(LongState.class);
         AccumulatorStateFactory<LongState> stateFactory = StateCompiler.generateStateFactory(LongState.class);
-        Type intermediateType = stateSerializer.getSerializedType();
 
         List<Type> inputTypes = ImmutableList.of(type);
 
-        AggregationMetadata metadata = new AggregationMetadata(
+        return new AggregationMetadata(
                 generateAggregationName(NAME, BIGINT.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 createInputParameterMetadata(type),
                 INPUT_FUNCTION,
@@ -103,9 +102,6 @@ public class CountColumn
                         stateSerializer,
                         stateFactory)),
                 BIGINT);
-
-        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata);
-        return new InternalAggregationFunction(NAME, inputTypes, ImmutableList.of(intermediateType), BIGINT, factory);
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type type)

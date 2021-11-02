@@ -22,11 +22,8 @@ import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlAggregationFunction;
-import io.trino.operator.aggregation.AccumulatorCompiler;
 import io.trino.operator.aggregation.AggregationMetadata;
 import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
-import io.trino.operator.aggregation.GenericAccumulatorFactoryBinder;
-import io.trino.operator.aggregation.InternalAggregationFunction;
 import io.trino.operator.aggregation.TypedKeyValueHeap;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -105,7 +102,7 @@ public abstract class AbstractMinMaxByNAggregationFunction
     }
 
     @Override
-    public InternalAggregationFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
+    public AggregationMetadata specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
         Type keyType = boundSignature.getArgumentTypes().get(1);
         Type valueType = boundSignature.getArgumentTypes().get(0);
@@ -170,11 +167,10 @@ public abstract class AbstractMinMaxByNAggregationFunction
         out.closeEntry();
     }
 
-    protected InternalAggregationFunction generateAggregation(MethodHandle keyComparisonMethod, Type valueType, Type keyType)
+    protected AggregationMetadata generateAggregation(MethodHandle keyComparisonMethod, Type valueType, Type keyType)
     {
         List<Type> inputTypes = ImmutableList.of(valueType, keyType, BIGINT);
         MinMaxByNStateSerializer stateSerializer = new MinMaxByNStateSerializer(keyComparisonMethod, keyType, valueType);
-        Type intermediateType = stateSerializer.getSerializedType();
         ArrayType outputType = new ArrayType(valueType);
 
         List<AggregationMetadata.ParameterMetadata> inputParameterMetadata = ImmutableList.of(
@@ -184,7 +180,7 @@ public abstract class AbstractMinMaxByNAggregationFunction
                 new AggregationMetadata.ParameterMetadata(BLOCK_INDEX),
                 new AggregationMetadata.ParameterMetadata(INPUT_CHANNEL, BIGINT));
 
-        AggregationMetadata metadata = new AggregationMetadata(
+        return new AggregationMetadata(
                 generateAggregationName(name, valueType.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 inputParameterMetadata,
                 INPUT_FUNCTION.bindTo(keyComparisonMethod).bindTo(valueType).bindTo(keyType),
@@ -196,8 +192,5 @@ public abstract class AbstractMinMaxByNAggregationFunction
                         stateSerializer,
                         new MinMaxByNStateFactory())),
                 outputType);
-
-        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata);
-        return new InternalAggregationFunction(name, inputTypes, ImmutableList.of(intermediateType), outputType, factory);
     }
 }

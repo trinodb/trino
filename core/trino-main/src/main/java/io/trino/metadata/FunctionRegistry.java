@@ -22,6 +22,8 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.trino.FeaturesConfig;
+import io.trino.operator.aggregation.AggregationMetadata;
+import io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import io.trino.operator.aggregation.ApproximateCountDistinctAggregation;
 import io.trino.operator.aggregation.ApproximateDoublePercentileAggregations;
 import io.trino.operator.aggregation.ApproximateDoublePercentileArrayAggregations;
@@ -282,9 +284,11 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.metadata.Signature.isOperatorName;
 import static io.trino.metadata.Signature.unmangleOperator;
+import static io.trino.operator.aggregation.AccumulatorCompiler.generateAccumulatorFactoryBinder;
 import static io.trino.operator.aggregation.ArbitraryAggregationFunction.ARBITRARY_AGGREGATION;
 import static io.trino.operator.aggregation.CountColumn.COUNT_COLUMN;
 import static io.trino.operator.aggregation.DecimalAverageAggregation.DECIMAL_AVERAGE_AGGREGATION;
@@ -870,8 +874,17 @@ public class FunctionRegistry
 
     private InternalAggregationFunction specializedAggregation(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
-        SqlAggregationFunction function = (SqlAggregationFunction) functions.get(functionId);
-        return function.specialize(boundSignature, functionDependencies);
+        AggregationMetadata aggregationMetadata = ((SqlAggregationFunction) functions.get(functionId)).specialize(boundSignature, functionDependencies);
+        return new InternalAggregationFunction(
+                aggregationMetadata.getName(),
+                boundSignature.getArgumentTypes(),
+                aggregationMetadata.getValueInputMetadata().stream()
+                        .map(ParameterMetadata::getSqlType)
+                        .filter(Objects::nonNull)
+                        .collect(toImmutableList()),
+                boundSignature.getReturnType(),
+                generateAccumulatorFactoryBinder(aggregationMetadata),
+                aggregationMetadata.getLambdaInterfaces());
     }
 
     public FunctionDependencyDeclaration getFunctionDependencies(FunctionBinding functionBinding)

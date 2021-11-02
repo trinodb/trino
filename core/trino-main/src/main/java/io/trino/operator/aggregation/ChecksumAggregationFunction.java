@@ -84,17 +84,17 @@ public class ChecksumAggregationFunction
     }
 
     @Override
-    public InternalAggregationFunction specialize(BoundSignature boundSignature)
+    public AggregationMetadata specialize(BoundSignature boundSignature)
     {
         Type valueType = boundSignature.getArgumentTypes().get(0);
         BlockPositionXxHash64 xxHash64Operator = blockTypeOperators.getXxHash64Operator(valueType);
         return generateAggregation(valueType, xxHash64Operator);
     }
 
-    private static InternalAggregationFunction generateAggregation(Type type, BlockPositionXxHash64 xxHash64Operator)
+    private static AggregationMetadata generateAggregation(Type type, BlockPositionXxHash64 xxHash64Operator)
     {
         AccumulatorStateSerializer<NullableLongState> stateSerializer = StateCompiler.generateStateSerializer(NullableLongState.class);
-        AggregationMetadata metadata = new AggregationMetadata(
+        return new AggregationMetadata(
                 generateAggregationName(NAME, type.getTypeSignature(), ImmutableList.of(type.getTypeSignature())),
                 createInputParameterMetadata(type),
                 INPUT_FUNCTION.bindTo(xxHash64Operator),
@@ -106,9 +106,6 @@ public class ChecksumAggregationFunction
                         stateSerializer,
                         StateCompiler.generateStateFactory(NullableLongState.class))),
                 VARBINARY);
-
-        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata);
-        return new InternalAggregationFunction(NAME, ImmutableList.of(type), ImmutableList.of(stateSerializer.getSerializedType()), VARBINARY, factory);
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type type)
