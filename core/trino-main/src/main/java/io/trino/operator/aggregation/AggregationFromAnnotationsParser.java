@@ -74,7 +74,7 @@ public final class AggregationFromAnnotationsParser
         ImmutableList.Builder<ParametricAggregation> functions = ImmutableList.builder();
 
         // There must be a single state class and combine function
-        Class<?> stateClass = getStateClass(aggregationDefinition);
+        Class<? extends AccumulatorState> stateClass = getStateClass(aggregationDefinition);
         Method combineFunction = getCombineFunction(aggregationDefinition, stateClass);
 
         // Each output function defines a new aggregation function
@@ -108,7 +108,7 @@ public final class AggregationFromAnnotationsParser
     private static List<ParametricAggregation> buildFunctions(
             String name,
             AggregationHeader header,
-            Class<?> stateClass,
+            Class<? extends AccumulatorState> stateClass,
             List<AggregationImplementation> exactImplementations,
             List<AggregationImplementation> nonExactImplementations)
     {
@@ -220,17 +220,17 @@ public final class AggregationFromAnnotationsParser
                 .collect(MoreCollectors.toOptional());
     }
 
-    private static Class<?> getStateClass(Class<?> clazz)
+    private static Class<? extends AccumulatorState> getStateClass(Class<?> clazz)
     {
-        ImmutableSet.Builder<Class<?>> builder = ImmutableSet.builder();
+        ImmutableSet.Builder<Class<? extends AccumulatorState>> builder = ImmutableSet.builder();
         for (Method inputFunction : FunctionsParserHelper.findPublicStaticMethodsWithAnnotation(clazz, InputFunction.class)) {
             checkArgument(inputFunction.getParameterTypes().length > 0, "Input function has no parameters");
             Class<?> stateClass = AggregationImplementation.Parser.findAggregationStateParamType(inputFunction);
 
             checkArgument(AccumulatorState.class.isAssignableFrom(stateClass), "stateClass is not a subclass of AccumulatorState");
-            builder.add(stateClass);
+            builder.add(stateClass.asSubclass(AccumulatorState.class));
         }
-        ImmutableSet<Class<?>> stateClasses = builder.build();
+        ImmutableSet<Class<? extends AccumulatorState>> stateClasses = builder.build();
         checkArgument(!stateClasses.isEmpty(), "No input functions found");
         checkArgument(stateClasses.size() == 1, "There must be exactly one @AccumulatorState in class %s", clazz.toGenericString());
 

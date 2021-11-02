@@ -116,7 +116,7 @@ public class MapUnionAggregation
                 Optional.empty(),
                 COMBINE_FUNCTION,
                 OUTPUT_FUNCTION,
-                ImmutableList.of(new AccumulatorStateDescriptor(
+                ImmutableList.of(new AccumulatorStateDescriptor<>(
                         KeyValuePairsState.class,
                         stateSerializer,
                         new KeyValuePairsStateFactory(keyType, valueType))),

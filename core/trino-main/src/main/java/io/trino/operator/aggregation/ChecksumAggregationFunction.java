@@ -104,7 +104,7 @@ public class ChecksumAggregationFunction
                 Optional.empty(),
                 COMBINE_FUNCTION,
                 OUTPUT_FUNCTION,
-                ImmutableList.of(new AccumulatorStateDescriptor(
+                ImmutableList.of(new AccumulatorStateDescriptor<>(
                         NullableLongState.class,
                         stateSerializer,
                         StateCompiler.generateStateFactory(NullableLongState.class, classLoader))),
