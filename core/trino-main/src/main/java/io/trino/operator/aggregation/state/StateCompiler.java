@@ -637,7 +637,8 @@ public final class StateCompiler
     {
         ImmutableList.Builder<StateField> builder = ImmutableList.builder();
         for (Method method : clazz.getMethods()) {
-            if (method.getName().equals("getEstimatedSize")) {
+            // ignore default methods
+            if (method.isDefault() || method.getName().equals("getEstimatedSize")) {
                 continue;
             }
             if (method.getName().startsWith("get")) {
@@ -708,7 +709,8 @@ public final class StateCompiler
         }
 
         for (Method method : clazz.getMethods()) {
-            if (Modifier.isStatic(method.getModifiers())) {
+            // ignore static and default methods
+            if (Modifier.isStatic(method.getModifiers()) || method.isDefault()) {
                 continue;
             }
 

@@ -294,7 +294,7 @@ public abstract class AbstractMinMaxAggregationFunction
 
     private static void compareAndUpdateState(MethodHandle methodHandle, BlockPositionState state, Block block, int position)
     {
-        if (state.getBlock() == null || state.getBlock().isNull(state.getPosition())) {
+        if (state.isNull()) {
             state.setBlock(block);
             state.setPosition(position);
             return;
