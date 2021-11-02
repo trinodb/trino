@@ -2703,7 +2703,7 @@ public abstract class BaseIcebergConnectorTest
     public void testLocalDynamicFilteringWithSelectiveBuildSizeJoin()
     {
         long fullTableScan = (Long) computeActual("SELECT count(*) FROM lineitem").getOnlyValue();
-        long numberOfFiles = (Long) computeActual("SELECT count(DISTINCT file_path) FROM \"lineitem$files\"").getOnlyValue();
+        long numberOfFiles = (Long) computeActual("SELECT count(*) FROM \"lineitem$files\"").getOnlyValue();
         Session session = Session.builder(getSession())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, FeaturesConfig.JoinDistributionType.BROADCAST.name())
                 .build();
@@ -2741,7 +2741,7 @@ public abstract class BaseIcebergConnectorTest
             // Insert separately to ensure two files with one value each
             assertUpdate("INSERT INTO " + tableName + " VALUES (1, " + sampleValue + ")", 1);
             assertUpdate("INSERT INTO " + tableName + " VALUES (2, " + highValue + ")", 1);
-            assertQuery("select count(distinct file_path) from \"" + tableName + "$files\"", "VALUES 2");
+            assertQuery("select count(*) from \"" + tableName + "$files\"", "VALUES 2");
 
             int expectedSplitCount = supportsIcebergFileStatistics(testSetup.getTrinoTypeName()) ? 1 : 2;
             verifySplitCount("SELECT row_id FROM " + tableName, 2);
