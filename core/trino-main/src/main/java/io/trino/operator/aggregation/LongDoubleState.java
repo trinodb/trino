@@ -11,16 +11,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator.aggregation.minmaxby;
+package io.trino.operator.aggregation;
 
-public interface DoubleDoubleState
-        extends TwoNullableValueState
+import io.trino.operator.aggregation.state.InitialBooleanValue;
+import io.trino.spi.function.AccumulatorState;
+
+public interface LongDoubleState
+        extends AccumulatorState
 {
-    double getFirst();
+    long getFirst();
 
-    void setFirst(double first);
+    void setFirst(long first);
+
+    @InitialBooleanValue(true)
+    boolean isFirstNull();
+
+    void setFirstNull(boolean firstNull);
 
     double getSecond();
 
     void setSecond(double second);
+
+    @InitialBooleanValue(true)
+    boolean isSecondNull();
+
+    void setSecondNull(boolean secondNull);
 }
