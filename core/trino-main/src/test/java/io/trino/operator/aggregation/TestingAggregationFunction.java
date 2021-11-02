@@ -15,6 +15,7 @@ package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.BoundSignature;
+import io.trino.metadata.FunctionNullability;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinCompiler;
@@ -33,11 +34,11 @@ public class TestingAggregationFunction
     private final List<Type> parameterTypes;
     private final Type finalType;
 
-    public TestingAggregationFunction(BoundSignature signature, AggregationMetadata aggregationMetadata)
+    public TestingAggregationFunction(BoundSignature signature, FunctionNullability functionNullability, AggregationMetadata aggregationMetadata)
     {
         this.parameterTypes = signature.getArgumentTypes();
         this.finalType = signature.getReturnType();
-        this.function = new InternalAggregationFunction(signature, aggregationMetadata);
+        this.function = new InternalAggregationFunction(signature, aggregationMetadata, functionNullability);
     }
 
     public int getParameterCount()

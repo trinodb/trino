@@ -21,7 +21,7 @@ import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlAggregationFunction;
-import io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind;
+import io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind;
 import io.trino.operator.aggregation.state.QuantileDigestState;
 import io.trino.operator.aggregation.state.QuantileDigestStateFactory;
 import io.trino.operator.aggregation.state.QuantileDigestStateSerializer;
@@ -38,9 +38,10 @@ import java.util.stream.Collectors;
 
 import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.metadata.Signature.comparableTypeParameter;
+import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.INPUT_CHANNEL;
+import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.STATE;
+import static io.trino.operator.aggregation.AggregationFunctionAdapter.normalizeInputMethod;
 import static io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
-import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.STATE;
 import static io.trino.operator.aggregation.FloatingPointBitsConverterUtil.doubleToSortableLong;
 import static io.trino.operator.aggregation.FloatingPointBitsConverterUtil.floatToSortableInt;
 import static io.trino.operator.scalar.QuantileDigestFunctions.DEFAULT_ACCURACY;
@@ -101,13 +102,14 @@ public final class QuantileDigestAggregationFunction
 
         QuantileDigestStateSerializer stateSerializer = new QuantileDigestStateSerializer(valueType);
 
+        MethodHandle inputFunction = getMethodHandle(valueType, arity);
+        inputFunction = normalizeInputMethod(inputFunction, boundSignature, ImmutableList.<AggregationParameterKind>builder()
+                .add(STATE)
+                .addAll(getInputTypes(valueType, arity).stream().map(ignored -> INPUT_CHANNEL).collect(Collectors.toList()))
+                .build());
+
         return new AggregationMetadata(
-                boundSignature,
-                ImmutableList.<AggregationParameterKind>builder()
-                        .add(STATE)
-                        .addAll(getInputTypes(valueType, arity).stream().map(valueType1 -> INPUT_CHANNEL).collect(Collectors.toList()))
-                        .build(),
-                getMethodHandle(valueType, arity),
+                inputFunction,
                 Optional.empty(),
                 COMBINE_FUNCTION,
                 OUTPUT_FUNCTION.bindTo(stateSerializer),

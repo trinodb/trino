@@ -15,7 +15,6 @@ package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.BoundSignature;
-import io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
 
@@ -28,11 +27,11 @@ import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.BLOCK_INDEX;
-import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.BLOCK_INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.NULLABLE_BLOCK_INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.STATE;
+import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.BLOCK_INDEX;
+import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.BLOCK_INPUT_CHANNEL;
+import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.INPUT_CHANNEL;
+import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.NULLABLE_BLOCK_INPUT_CHANNEL;
+import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.STATE;
 import static java.lang.invoke.MethodHandles.collectArguments;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.lang.invoke.MethodHandles.permuteArguments;
@@ -40,6 +39,15 @@ import static java.util.Objects.requireNonNull;
 
 public final class AggregationFunctionAdapter
 {
+    public enum AggregationParameterKind
+    {
+        INPUT_CHANNEL,
+        BLOCK_INPUT_CHANNEL,
+        NULLABLE_BLOCK_INPUT_CHANNEL,
+        BLOCK_INDEX,
+        STATE
+    }
+
     private static final MethodHandle BOOLEAN_TYPE_GETTER;
     private static final MethodHandle LONG_TYPE_GETTER;
     private static final MethodHandle DOUBLE_TYPE_GETTER;
@@ -59,23 +67,26 @@ public final class AggregationFunctionAdapter
 
     private AggregationFunctionAdapter() {}
 
-    public static List<AggregationParameterKind> normalizeInputParameterKinds(List<AggregationParameterKind> parameterKinds)
+    public static MethodHandle normalizeInputMethod(
+            MethodHandle inputMethod,
+            BoundSignature boundSignature,
+            AggregationParameterKind... parameterKinds)
     {
-        if (!parameterKinds.contains(BLOCK_INDEX) && parameterKinds.stream().anyMatch(kind -> kind == INPUT_CHANNEL)) {
-            parameterKinds = ImmutableList.<AggregationParameterKind>builder()
-                    .addAll(parameterKinds)
-                    .add(BLOCK_INDEX)
-                    .build();
-        }
-        return parameterKinds.stream()
-                .map(kind -> kind == INPUT_CHANNEL ? BLOCK_INPUT_CHANNEL : kind)
-                .collect(toImmutableList());
+        return normalizeInputMethod(inputMethod, boundSignature, ImmutableList.copyOf(parameterKinds));
     }
 
     public static MethodHandle normalizeInputMethod(
             MethodHandle inputMethod,
-            List<AggregationParameterKind> parameterKinds,
             BoundSignature boundSignature,
+            List<AggregationParameterKind> parameterKinds)
+    {
+        return normalizeInputMethod(inputMethod, boundSignature, parameterKinds, 0);
+    }
+
+    public static MethodHandle normalizeInputMethod(
+            MethodHandle inputMethod,
+            BoundSignature boundSignature,
+            List<AggregationParameterKind> parameterKinds,
             int lambdaCount)
     {
         requireNonNull(inputMethod, "inputMethod is null");

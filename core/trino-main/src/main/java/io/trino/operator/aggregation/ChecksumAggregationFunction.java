@@ -37,9 +37,6 @@ import java.util.Optional;
 import static io.airlift.slice.Slices.wrappedLongArray;
 import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.metadata.Signature.comparableTypeParameter;
-import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.BLOCK_INDEX;
-import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.NULLABLE_BLOCK_INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.STATE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.util.Reflection.methodHandle;
@@ -85,8 +82,6 @@ public class ChecksumAggregationFunction
         BlockPositionXxHash64 xxHash64Operator = blockTypeOperators.getXxHash64Operator(boundSignature.getArgumentTypes().get(0));
         AccumulatorStateSerializer<NullableLongState> stateSerializer = StateCompiler.generateStateSerializer(NullableLongState.class);
         return new AggregationMetadata(
-                boundSignature,
-                ImmutableList.of(STATE, NULLABLE_BLOCK_INPUT_CHANNEL, BLOCK_INDEX),
                 INPUT_FUNCTION.bindTo(xxHash64Operator),
                 Optional.empty(),
                 COMBINE_FUNCTION,

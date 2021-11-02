@@ -40,8 +40,9 @@ import java.util.Optional;
 import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.metadata.Signature.comparableTypeParameter;
 import static io.trino.metadata.Signature.typeVariable;
-import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.STATE;
+import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.INPUT_CHANNEL;
+import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.STATE;
+import static io.trino.operator.aggregation.AggregationFunctionAdapter.normalizeInputMethod;
 import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.util.Reflection.methodHandle;
 import static java.util.Objects.requireNonNull;
@@ -97,10 +98,11 @@ public class MapUnionAggregation
 
         KeyValuePairStateSerializer stateSerializer = new KeyValuePairStateSerializer(outputType, keyEqual, keyHashCode);
 
+        MethodHandle inputFunction = MethodHandles.insertArguments(INPUT_FUNCTION, 0, keyType, keyEqual, keyHashCode, valueType);
+        inputFunction = normalizeInputMethod(inputFunction, boundSignature, STATE, INPUT_CHANNEL);
+
         return new AggregationMetadata(
-                boundSignature,
-                ImmutableList.of(STATE, INPUT_CHANNEL),
-                MethodHandles.insertArguments(INPUT_FUNCTION, 0, keyType, keyEqual, keyHashCode, valueType),
+                inputFunction,
                 Optional.empty(),
                 COMBINE_FUNCTION,
                 OUTPUT_FUNCTION,

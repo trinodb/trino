@@ -14,7 +14,6 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.metadata.BoundSignature;
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateFactory;
 import io.trino.spi.function.AccumulatorStateSerializer;
@@ -23,23 +22,18 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Optional;
 
-import static io.trino.operator.aggregation.AggregationFunctionAdapter.normalizeInputMethod;
-import static io.trino.operator.aggregation.AggregationFunctionAdapter.normalizeInputParameterKinds;
 import static java.util.Objects.requireNonNull;
 
 public class AggregationMetadata
 {
-    private final List<AggregationParameterKind> inputParameterKinds;
-    private final List<Class<?>> lambdaInterfaces;
     private final MethodHandle inputFunction;
     private final Optional<MethodHandle> removeInputFunction;
     private final MethodHandle combineFunction;
     private final MethodHandle outputFunction;
     private final List<AccumulatorStateDescriptor<?>> accumulatorStateDescriptors;
+    private final List<Class<?>> lambdaInterfaces;
 
     public AggregationMetadata(
-            BoundSignature boundSignature,
-            List<AggregationParameterKind> inputParameterKinds,
             MethodHandle inputFunction,
             Optional<MethodHandle> removeInputFunction,
             MethodHandle combineFunction,
@@ -47,8 +41,6 @@ public class AggregationMetadata
             List<AccumulatorStateDescriptor<?>> accumulatorStateDescriptors)
     {
         this(
-                boundSignature,
-                inputParameterKinds,
                 inputFunction,
                 removeInputFunction,
                 combineFunction,
@@ -58,8 +50,6 @@ public class AggregationMetadata
     }
 
     public AggregationMetadata(
-            BoundSignature boundSignature,
-            List<AggregationParameterKind> inputParameterKinds,
             MethodHandle inputFunction,
             Optional<MethodHandle> removeInputFunction,
             MethodHandle combineFunction,
@@ -67,24 +57,12 @@ public class AggregationMetadata
             List<AccumulatorStateDescriptor<?>> accumulatorStateDescriptors,
             List<Class<?>> lambdaInterfaces)
     {
-        this.inputParameterKinds = normalizeInputParameterKinds(ImmutableList.copyOf(requireNonNull(inputParameterKinds, "inputParameterKinds is null")));
-        this.inputFunction = normalizeInputMethod(requireNonNull(inputFunction, "inputFunction is null"), inputParameterKinds, boundSignature, lambdaInterfaces.size());
-        this.removeInputFunction = requireNonNull(removeInputFunction, "removeInputFunction is null")
-                .map(function -> normalizeInputMethod(function, inputParameterKinds, boundSignature, lambdaInterfaces.size()));
+        this.inputFunction = requireNonNull(inputFunction, "inputFunction is null");
+        this.removeInputFunction = requireNonNull(removeInputFunction, "removeInputFunction is null");
         this.combineFunction = requireNonNull(combineFunction, "combineFunction is null");
         this.outputFunction = requireNonNull(outputFunction, "outputFunction is null");
         this.accumulatorStateDescriptors = requireNonNull(accumulatorStateDescriptors, "accumulatorStateDescriptors is null");
         this.lambdaInterfaces = ImmutableList.copyOf(requireNonNull(lambdaInterfaces, "lambdaInterfaces is null"));
-    }
-
-    public List<AggregationParameterKind> getInputParameterKinds()
-    {
-        return inputParameterKinds;
-    }
-
-    public List<Class<?>> getLambdaInterfaces()
-    {
-        return lambdaInterfaces;
     }
 
     public MethodHandle getInputFunction()
@@ -112,13 +90,9 @@ public class AggregationMetadata
         return accumulatorStateDescriptors;
     }
 
-    public enum AggregationParameterKind
+    public List<Class<?>> getLambdaInterfaces()
     {
-        INPUT_CHANNEL,
-        BLOCK_INPUT_CHANNEL,
-        NULLABLE_BLOCK_INPUT_CHANNEL,
-        BLOCK_INDEX,
-        STATE
+        return lambdaInterfaces;
     }
 
     public static class AccumulatorStateDescriptor<T extends AccumulatorState>

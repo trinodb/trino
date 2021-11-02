@@ -40,10 +40,6 @@ import java.util.Optional;
 import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.metadata.Signature.comparableTypeParameter;
 import static io.trino.metadata.Signature.typeVariable;
-import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.BLOCK_INDEX;
-import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.BLOCK_INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.NULLABLE_BLOCK_INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.STATE;
 import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.util.Reflection.methodHandle;
 import static java.util.Objects.requireNonNull;
@@ -102,8 +98,6 @@ public class MapAggregationFunction
         KeyValuePairStateSerializer stateSerializer = new KeyValuePairStateSerializer(outputType, keyEqual, keyHashCode);
 
         return new AggregationMetadata(
-                boundSignature,
-                ImmutableList.of(STATE, BLOCK_INPUT_CHANNEL, NULLABLE_BLOCK_INPUT_CHANNEL, BLOCK_INDEX),
                 MethodHandles.insertArguments(INPUT_FUNCTION, 0, keyType, keyEqual, keyHashCode, valueType),
                 Optional.empty(),
                 COMBINE_FUNCTION,
