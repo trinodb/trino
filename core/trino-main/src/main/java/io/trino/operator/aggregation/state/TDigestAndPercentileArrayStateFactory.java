@@ -33,21 +33,9 @@ public class TDigestAndPercentileArrayStateFactory
     }
 
     @Override
-    public Class<? extends TDigestAndPercentileArrayState> getSingleStateClass()
-    {
-        return SingleTDigestAndPercentileArrayState.class;
-    }
-
-    @Override
     public TDigestAndPercentileArrayState createGroupedState()
     {
         return new GroupedTDigestAndPercentileArrayState();
-    }
-
-    @Override
-    public Class<? extends TDigestAndPercentileArrayState> getGroupedStateClass()
-    {
-        return GroupedTDigestAndPercentileArrayState.class;
     }
 
     public static class GroupedTDigestAndPercentileArrayState

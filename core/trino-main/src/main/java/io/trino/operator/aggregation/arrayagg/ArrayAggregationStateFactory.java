@@ -33,20 +33,8 @@ public class ArrayAggregationStateFactory
     }
 
     @Override
-    public Class<? extends ArrayAggregationState> getSingleStateClass()
-    {
-        return SingleArrayAggregationState.class;
-    }
-
-    @Override
     public ArrayAggregationState createGroupedState()
     {
         return new GroupArrayAggregationState(type);
-    }
-
-    @Override
-    public Class<? extends ArrayAggregationState> getGroupedStateClass()
-    {
-        return GroupArrayAggregationState.class;
     }
 }

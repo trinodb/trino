@@ -19,7 +19,6 @@ import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.aggregation.groupby.AggregationTestInput;
 import io.trino.operator.aggregation.groupby.AggregationTestInputBuilder;
 import io.trino.operator.aggregation.groupby.AggregationTestOutput;
-import io.trino.operator.aggregation.groupby.GroupByAggregationTestUtils;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.ArrayType;
@@ -198,7 +197,8 @@ public class TestArrayAggregation
         int numGroups = 50000;
         int arraySize = 30;
         Random random = new Random();
-        GroupedAccumulator groupedAccumulator = createGroupedAccumulator(varcharAgg);
+        GroupedAccumulator groupedAccumulator = varcharAgg.bind(ImmutableList.of(0), Optional.empty())
+                .createGroupedAccumulator();
 
         for (int j = 0; j < numGroups; j++) {
             List<String> expectedValues = new ArrayList<>();
@@ -218,13 +218,5 @@ public class TestArrayAggregation
 
             test1.runPagesOnAccumulatorWithAssertion(j, groupedAccumulator, new AggregationTestOutput(expectedValues));
         }
-    }
-
-    private static GroupedAccumulator createGroupedAccumulator(TestingAggregationFunction function)
-    {
-        int[] args = GroupByAggregationTestUtils.createArgs(function.getParameterTypes().size());
-
-        return function.bind(Ints.asList(args), Optional.empty())
-                .createGroupedAccumulator();
     }
 }

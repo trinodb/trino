@@ -13,7 +13,6 @@
  */
 package io.trino.operator.aggregation;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.metadata.BoundSignature;
@@ -31,7 +30,6 @@ import static java.util.Objects.requireNonNull;
 
 public final class InternalAggregationFunction
 {
-    private final List<Type> parameterTypes;
     private final List<Class<?>> lambdaInterfaces;
     private final AccumulatorFactoryBinder factory;
 
@@ -39,15 +37,8 @@ public final class InternalAggregationFunction
     {
         requireNonNull(boundSignature, "boundSignature is null");
         requireNonNull(aggregationMetadata, "aggregationMetadata is null");
-        this.parameterTypes = boundSignature.getArgumentTypes();
-        this.factory = generateAccumulatorFactoryBinder(aggregationMetadata);
+        this.factory = generateAccumulatorFactoryBinder(boundSignature, aggregationMetadata);
         this.lambdaInterfaces = ImmutableList.copyOf(aggregationMetadata.getLambdaInterfaces());
-    }
-
-    @VisibleForTesting
-    public List<Type> getParameterTypes()
-    {
-        return parameterTypes;
     }
 
     public List<Class<?>> getLambdaInterfaces()

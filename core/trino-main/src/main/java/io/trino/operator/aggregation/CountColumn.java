@@ -34,14 +34,12 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
-import static io.trino.operator.aggregation.AggregationUtils.generateAggregationName;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.util.Reflection.methodHandle;
 
@@ -88,10 +86,7 @@ public class CountColumn
         AccumulatorStateSerializer<LongState> stateSerializer = StateCompiler.generateStateSerializer(LongState.class);
         AccumulatorStateFactory<LongState> stateFactory = StateCompiler.generateStateFactory(LongState.class);
 
-        List<Type> inputTypes = ImmutableList.of(type);
-
         return new AggregationMetadata(
-                generateAggregationName(NAME, BIGINT.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 createInputParameterMetadata(type),
                 INPUT_FUNCTION,
                 Optional.of(REMOVE_INPUT_FUNCTION),
@@ -100,8 +95,7 @@ public class CountColumn
                 ImmutableList.of(new AccumulatorStateDescriptor<>(
                         LongState.class,
                         stateSerializer,
-                        stateFactory)),
-                BIGINT);
+                        stateFactory)));
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type type)

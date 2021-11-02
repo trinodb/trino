@@ -37,7 +37,6 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.metadata.Signature.orderableTypeParameter;
 import static io.trino.metadata.Signature.typeVariable;
@@ -46,7 +45,6 @@ import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadat
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_BLOCK_INPUT_CHANNEL;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
-import static io.trino.operator.aggregation.AggregationUtils.generateAggregationName;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -57,7 +55,6 @@ import static io.trino.util.Failures.checkCondition;
 import static io.trino.util.MinMaxCompare.getMinMaxCompare;
 import static io.trino.util.Reflection.methodHandle;
 import static java.lang.Math.toIntExact;
-import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractMinMaxByNAggregationFunction
         extends SqlAggregationFunction
@@ -67,7 +64,6 @@ public abstract class AbstractMinMaxByNAggregationFunction
     private static final MethodHandle OUTPUT_FUNCTION = methodHandle(AbstractMinMaxByNAggregationFunction.class, "output", ArrayType.class, MinMaxByNState.class, BlockBuilder.class);
     private static final long MAX_NUMBER_OF_VALUES = 10_000;
 
-    private final String name;
     private final boolean min;
 
     protected AbstractMinMaxByNAggregationFunction(String name, boolean min, String description)
@@ -91,7 +87,6 @@ public abstract class AbstractMinMaxByNAggregationFunction
                         BIGINT.getTypeSignature(),
                         arrayType(new TypeSignature("K")),
                         arrayType(new TypeSignature("V"))));
-        this.name = requireNonNull(name, "name is null");
         this.min = min;
     }
 
@@ -169,7 +164,6 @@ public abstract class AbstractMinMaxByNAggregationFunction
 
     protected AggregationMetadata generateAggregation(MethodHandle keyComparisonMethod, Type valueType, Type keyType)
     {
-        List<Type> inputTypes = ImmutableList.of(valueType, keyType, BIGINT);
         MinMaxByNStateSerializer stateSerializer = new MinMaxByNStateSerializer(keyComparisonMethod, keyType, valueType);
         ArrayType outputType = new ArrayType(valueType);
 
@@ -181,7 +175,6 @@ public abstract class AbstractMinMaxByNAggregationFunction
                 new AggregationMetadata.ParameterMetadata(INPUT_CHANNEL, BIGINT));
 
         return new AggregationMetadata(
-                generateAggregationName(name, valueType.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 inputParameterMetadata,
                 INPUT_FUNCTION.bindTo(keyComparisonMethod).bindTo(valueType).bindTo(keyType),
                 Optional.empty(),
@@ -190,7 +183,6 @@ public abstract class AbstractMinMaxByNAggregationFunction
                 ImmutableList.of(new AccumulatorStateDescriptor<>(
                         MinMaxByNState.class,
                         stateSerializer,
-                        new MinMaxByNStateFactory())),
-                outputType);
+                        new MinMaxByNStateFactory())));
     }
 }

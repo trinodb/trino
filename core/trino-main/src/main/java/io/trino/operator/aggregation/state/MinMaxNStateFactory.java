@@ -29,21 +29,9 @@ public class MinMaxNStateFactory
     }
 
     @Override
-    public Class<? extends MinMaxNState> getSingleStateClass()
-    {
-        return SingleMinMaxNState.class;
-    }
-
-    @Override
     public MinMaxNState createGroupedState()
     {
         return new GroupedMinMaxNState();
-    }
-
-    @Override
-    public Class<? extends MinMaxNState> getGroupedStateClass()
-    {
-        return GroupedMinMaxNState.class;
     }
 
     public static class GroupedMinMaxNState

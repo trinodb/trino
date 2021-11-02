@@ -39,14 +39,12 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
-import static io.trino.operator.aggregation.AggregationUtils.generateAggregationName;
 import static io.trino.util.Reflection.methodHandle;
 
 public class ArbitraryAggregationFunction
@@ -100,8 +98,6 @@ public class ArbitraryAggregationFunction
 
     private static AggregationMetadata generateAggregation(Type type)
     {
-        List<Type> inputTypes = ImmutableList.of(type);
-
         MethodHandle inputFunction;
         MethodHandle combineFunction;
         MethodHandle outputFunction;
@@ -148,14 +144,12 @@ public class ArbitraryAggregationFunction
 
         List<ParameterMetadata> inputParameterMetadata = createInputParameterMetadata(type);
         return new AggregationMetadata(
-                generateAggregationName(NAME, type.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 inputParameterMetadata,
                 inputFunction,
                 Optional.empty(),
                 combineFunction,
                 outputFunction.bindTo(type),
-                ImmutableList.of(accumulatorStateDescriptor),
-                type);
+                ImmutableList.of(accumulatorStateDescriptor));
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type value)

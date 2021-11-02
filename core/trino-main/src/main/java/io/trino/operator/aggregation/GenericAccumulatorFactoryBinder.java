@@ -13,7 +13,6 @@
  */
 package io.trino.operator.aggregation;
 
-import com.google.common.annotations.VisibleForTesting;
 import io.trino.Session;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
@@ -94,11 +93,5 @@ public class GenericAccumulatorFactoryBinder
                 blockTypeOperators,
                 session,
                 distinct);
-    }
-
-    @VisibleForTesting
-    public List<AccumulatorStateDescriptor<?>> getStateDescriptors()
-    {
-        return stateDescriptors;
     }
 }

@@ -14,6 +14,7 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.metadata.BoundSignature;
 import io.trino.operator.aggregation.TestAccumulatorCompiler.LongTimestampAggregation.State;
 import io.trino.operator.aggregation.state.StateCompiler;
 import io.trino.spi.block.BlockBuilder;
@@ -49,7 +50,6 @@ public class TestAccumulatorCompiler
         MethodHandle combineFunction = methodHandle(LongTimestampAggregation.class, "combine", State.class, State.class);
         MethodHandle outputFunction = methodHandle(LongTimestampAggregation.class, "output", State.class, BlockBuilder.class);
         AggregationMetadata metadata = new AggregationMetadata(
-                "longTimestampAggregation",
                 ImmutableList.of(
                         new AggregationMetadata.ParameterMetadata(STATE),
                         new AggregationMetadata.ParameterMetadata(INPUT_CHANNEL, parameterType)),
@@ -60,17 +60,19 @@ public class TestAccumulatorCompiler
                 ImmutableList.of(new AggregationMetadata.AccumulatorStateDescriptor<>(
                         stateInterface,
                         stateSerializer,
-                        stateFactory)),
-                RealType.REAL);
+                        stateFactory)));
+        BoundSignature signature = new BoundSignature("longTimestampAggregation", RealType.REAL, ImmutableList.of(TimestampType.TIMESTAMP_PICOS));
 
         // test if we can compile aggregation
-        assertThat(AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata)).isNotNull();
+        assertThat(AccumulatorCompiler.generateAccumulatorFactoryBinder(signature, metadata)).isNotNull();
 
         // TODO test if aggregation actually works...
     }
 
-    public static class LongTimestampAggregation
+    public static final class LongTimestampAggregation
     {
+        private LongTimestampAggregation() {}
+
         public interface State
                 extends AccumulatorState {}
 

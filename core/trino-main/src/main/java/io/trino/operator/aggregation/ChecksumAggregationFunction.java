@@ -43,7 +43,6 @@ import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadat
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_BLOCK_INPUT_CHANNEL;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
-import static io.trino.operator.aggregation.AggregationUtils.generateAggregationName;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.util.Reflection.methodHandle;
@@ -95,7 +94,6 @@ public class ChecksumAggregationFunction
     {
         AccumulatorStateSerializer<NullableLongState> stateSerializer = StateCompiler.generateStateSerializer(NullableLongState.class);
         return new AggregationMetadata(
-                generateAggregationName(NAME, type.getTypeSignature(), ImmutableList.of(type.getTypeSignature())),
                 createInputParameterMetadata(type),
                 INPUT_FUNCTION.bindTo(xxHash64Operator),
                 Optional.empty(),
@@ -104,8 +102,7 @@ public class ChecksumAggregationFunction
                 ImmutableList.of(new AccumulatorStateDescriptor<>(
                         NullableLongState.class,
                         stateSerializer,
-                        StateCompiler.generateStateFactory(NullableLongState.class))),
-                VARBINARY);
+                        StateCompiler.generateStateFactory(NullableLongState.class))));
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type type)

@@ -43,7 +43,6 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.metadata.Signature.orderableTypeParameter;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata;
@@ -51,7 +50,6 @@ import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadat
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
-import static io.trino.operator.aggregation.AggregationUtils.generateAggregationName;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -128,8 +126,6 @@ public abstract class AbstractMinMaxAggregationFunction
 
     protected AggregationMetadata generateAggregation(Type type, MethodHandle compareMethodHandle)
     {
-        List<Type> inputTypes = ImmutableList.of(type);
-
         MethodHandle inputFunction;
         MethodHandle combineFunction;
         MethodHandle outputFunction;
@@ -173,16 +169,13 @@ public abstract class AbstractMinMaxAggregationFunction
             outputFunction = BLOCK_POSITION_OUTPUT_FUNCTION.bindTo(type);
         }
 
-        String name = getFunctionMetadata().getSignature().getName();
         return new AggregationMetadata(
-                generateAggregationName(name, type.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 createParameterMetadata(type),
                 inputFunction,
                 Optional.empty(),
                 combineFunction,
                 outputFunction,
-                ImmutableList.of(accumulatorStateDescriptor),
-                type);
+                ImmutableList.of(accumulatorStateDescriptor));
     }
 
     private static List<ParameterMetadata> createParameterMetadata(Type type)
