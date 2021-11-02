@@ -72,11 +72,6 @@ public class ArrayAggregationFunction
     public AggregationMetadata specialize(BoundSignature boundSignature)
     {
         Type type = boundSignature.getArgumentTypes().get(0);
-        return generateAggregation(type);
-    }
-
-    private static AggregationMetadata generateAggregation(Type type)
-    {
         ArrayAggregationStateSerializer stateSerializer = new ArrayAggregationStateSerializer(type);
         ArrayAggregationStateFactory stateFactory = new ArrayAggregationStateFactory(type);
 
@@ -85,6 +80,7 @@ public class ArrayAggregationFunction
         MethodHandle outputFunction = OUTPUT_FUNCTION.bindTo(type);
 
         return new AggregationMetadata(
+                boundSignature,
                 ImmutableList.of(STATE, NULLABLE_BLOCK_INPUT_CHANNEL, BLOCK_INDEX),
                 inputFunction,
                 Optional.empty(),

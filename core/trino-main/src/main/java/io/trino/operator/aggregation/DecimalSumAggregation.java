@@ -83,11 +83,6 @@ public class DecimalSumAggregation
     public AggregationMetadata specialize(BoundSignature boundSignature)
     {
         Type inputType = getOnlyElement(boundSignature.getArgumentTypes());
-        return generateAggregation(inputType);
-    }
-
-    private static AggregationMetadata generateAggregation(Type inputType)
-    {
         checkArgument(inputType instanceof DecimalType, "type must be Decimal");
         MethodHandle inputFunction;
         Class<LongDecimalWithOverflowState> stateInterface = LongDecimalWithOverflowState.class;
@@ -101,6 +96,7 @@ public class DecimalSumAggregation
         }
 
         return new AggregationMetadata(
+                boundSignature,
                 ImmutableList.of(STATE, BLOCK_INPUT_CHANNEL, BLOCK_INDEX),
                 inputFunction,
                 Optional.empty(),

@@ -14,6 +14,7 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.metadata.BoundSignature;
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateFactory;
 import io.trino.spi.function.AccumulatorStateSerializer;
@@ -22,6 +23,8 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Optional;
 
+import static io.trino.operator.aggregation.AggregationFunctionAdapter.normalizeInputMethod;
+import static io.trino.operator.aggregation.AggregationFunctionAdapter.normalizeInputParameterKinds;
 import static java.util.Objects.requireNonNull;
 
 public class AggregationMetadata
@@ -35,6 +38,7 @@ public class AggregationMetadata
     private final List<AccumulatorStateDescriptor<?>> accumulatorStateDescriptors;
 
     public AggregationMetadata(
+            BoundSignature boundSignature,
             List<AggregationParameterKind> inputParameterKinds,
             MethodHandle inputFunction,
             Optional<MethodHandle> removeInputFunction,
@@ -43,6 +47,7 @@ public class AggregationMetadata
             List<AccumulatorStateDescriptor<?>> accumulatorStateDescriptors)
     {
         this(
+                boundSignature,
                 inputParameterKinds,
                 inputFunction,
                 removeInputFunction,
@@ -53,6 +58,7 @@ public class AggregationMetadata
     }
 
     public AggregationMetadata(
+            BoundSignature boundSignature,
             List<AggregationParameterKind> inputParameterKinds,
             MethodHandle inputFunction,
             Optional<MethodHandle> removeInputFunction,
@@ -61,9 +67,10 @@ public class AggregationMetadata
             List<AccumulatorStateDescriptor<?>> accumulatorStateDescriptors,
             List<Class<?>> lambdaInterfaces)
     {
-        this.inputParameterKinds = ImmutableList.copyOf(requireNonNull(inputParameterKinds, "inputParameterKinds is null"));
-        this.inputFunction = requireNonNull(inputFunction, "inputFunction is null");
-        this.removeInputFunction = requireNonNull(removeInputFunction, "removeInputFunction is null");
+        this.inputParameterKinds = normalizeInputParameterKinds(ImmutableList.copyOf(requireNonNull(inputParameterKinds, "inputParameterKinds is null")));
+        this.inputFunction = normalizeInputMethod(requireNonNull(inputFunction, "inputFunction is null"), inputParameterKinds, boundSignature, lambdaInterfaces.size());
+        this.removeInputFunction = requireNonNull(removeInputFunction, "removeInputFunction is null")
+                .map(function -> normalizeInputMethod(function, inputParameterKinds, boundSignature, lambdaInterfaces.size()));
         this.combineFunction = requireNonNull(combineFunction, "combineFunction is null");
         this.outputFunction = requireNonNull(outputFunction, "outputFunction is null");
         this.accumulatorStateDescriptors = requireNonNull(accumulatorStateDescriptors, "accumulatorStateDescriptors is null");

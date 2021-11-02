@@ -85,16 +85,12 @@ public final class MergeQuantileDigestFunction
     {
         QuantileDigestType outputType = (QuantileDigestType) boundSignature.getReturnType();
         Type valueType = outputType.getValueType();
-        return generateAggregation(valueType, outputType);
-    }
-
-    private static AggregationMetadata generateAggregation(Type valueType, QuantileDigestType type)
-    {
         QuantileDigestStateSerializer stateSerializer = new QuantileDigestStateSerializer(valueType);
 
         return new AggregationMetadata(
+                boundSignature,
                 ImmutableList.of(STATE, BLOCK_INPUT_CHANNEL, BLOCK_INDEX),
-                INPUT_FUNCTION.bindTo(type),
+                INPUT_FUNCTION.bindTo(outputType),
                 Optional.empty(),
                 COMBINE_FUNCTION,
                 OUTPUT_FUNCTION.bindTo(stateSerializer),
