@@ -45,7 +45,6 @@ import java.util.function.Function;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
-import static io.trino.plugin.iceberg.PartitionTransforms.getBucketTransform;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
@@ -277,7 +276,7 @@ public class TestIcebergBucketing
     private Integer computeTrinoBucket(Type icebergType, Object icebergValue, int bucketCount)
     {
         io.trino.spi.type.Type trinoType = toTrinoType(icebergType, TYPE_MANAGER);
-        Function<Block, Block> bucketTransform = getBucketTransform(trinoType, bucketCount);
+        Function<Block, Block> bucketTransform = PartitionTransforms.bucket(trinoType, bucketCount).getTransform();
 
         BlockBuilder blockBuilder = trinoType.createBlockBuilder(null, 1);
 
