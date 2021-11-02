@@ -14,7 +14,6 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Ints;
 import io.trino.block.BlockAssertions;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
@@ -34,7 +33,6 @@ import java.util.List;
 
 import static io.trino.operator.aggregation.AccumulatorCompiler.generateWindowAccumulatorClass;
 import static io.trino.operator.aggregation.AggregationTestUtils.assertAggregation;
-import static io.trino.operator.aggregation.AggregationTestUtils.createArgs;
 import static io.trino.operator.aggregation.AggregationTestUtils.makeValidityAssertion;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -132,7 +130,6 @@ public abstract class AbstractTestAggregationFunction
         }
         Page inputPage = new Page(totalPositions, getSequenceBlocks(0, totalPositions));
 
-        List<Integer> channels = Ints.asList(createArgs(getFunctionParameterTypes().size()));
         PagesIndex pagesIndex = new PagesIndex.TestingFactory(false).newPagesIndex(getFunctionParameterTypes(), totalPositions);
         pagesIndex.addPage(inputPage);
         WindowIndex windowIndex = new PagesWindowIndex(pagesIndex, 0, totalPositions - 1);
@@ -148,18 +145,18 @@ public abstract class AbstractTestAggregationFunction
             if (aggregationMetadata.getRemoveInputFunction().isPresent()) {
                 for (int oldi = oldStart; oldi < oldStart + oldWidth; ++oldi) {
                     if (oldi < start || oldi >= start + width) {
-                        aggregation.removeInput(windowIndex, channels, oldi, oldi);
+                        aggregation.removeInput(windowIndex, oldi, oldi);
                     }
                 }
                 for (int newi = start; newi < start + width; ++newi) {
                     if (newi < oldStart || newi >= oldStart + oldWidth) {
-                        aggregation.addInput(windowIndex, channels, newi, newi);
+                        aggregation.addInput(windowIndex, newi, newi);
                     }
                 }
             }
             else {
                 aggregation = createWindowAccumulator(resolvedFunction, aggregationMetadata);
-                aggregation.addInput(windowIndex, channels, start, start + width - 1);
+                aggregation.addInput(windowIndex, start, start + width - 1);
             }
             oldStart = start;
             oldWidth = width;

@@ -16,17 +16,15 @@ package io.trino.operator.aggregation;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.WindowIndex;
 
-import java.util.List;
-
 public interface WindowAccumulator
 {
     long getEstimatedSize();
 
     WindowAccumulator copy();
 
-    void addInput(WindowIndex index, List<Integer> channels, int startPosition, int endPosition);
+    void addInput(WindowIndex index, int startPosition, int endPosition);
 
-    void removeInput(WindowIndex index, List<Integer> channels, int startPosition, int endPosition);
+    void removeInput(WindowIndex index, int startPosition, int endPosition);
 
     void evaluateFinal(BlockBuilder blockBuilder);
 }

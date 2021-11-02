@@ -13,7 +13,6 @@
  */
 package io.trino.operator.window.pattern;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.metadata.BoundSignature;
@@ -21,6 +20,7 @@ import io.trino.metadata.FunctionNullability;
 import io.trino.operator.aggregation.AggregationMetadata;
 import io.trino.operator.aggregation.LambdaProvider;
 import io.trino.operator.aggregation.WindowAccumulator;
+import io.trino.operator.window.MappedWindowIndex;
 import io.trino.operator.window.matcher.ArrayView;
 import io.trino.operator.window.pattern.SetEvaluator.SetEvaluatorSupplier;
 import io.trino.spi.TrinoException;
@@ -71,7 +71,7 @@ public class MatchAggregation
 
     private final BoundSignature boundSignature;
     private final Supplier<WindowAccumulator> accumulatorFactory;
-    private final List<Integer> argumentChannels;
+    private final MappedWindowIndex mappedWindowIndex;
     private final SetEvaluator setEvaluator;
     private final AggregatedMemoryContext memoryContextSupplier;
     private final LocalMemoryContext memoryContext;
@@ -84,7 +84,7 @@ public class MatchAggregation
     {
         this.boundSignature = requireNonNull(boundSignature, "boundSignature is null");
         this.accumulatorFactory = requireNonNull(accumulatorFactory, "accumulatorFactory is null");
-        this.argumentChannels = ImmutableList.copyOf(argumentChannels);
+        this.mappedWindowIndex = new MappedWindowIndex(argumentChannels);
         this.setEvaluator = setEvaluator;
         this.memoryContextSupplier = memoryContextSupplier;
         this.memoryContext = memoryContextSupplier.newLocalMemoryContext(MatchAggregation.class.getSimpleName());
@@ -92,10 +92,10 @@ public class MatchAggregation
     }
 
     // for copying when forking threads during pattern matching phase
-    private MatchAggregation(BoundSignature boundSignature, List<Integer> argumentChannels, Supplier<WindowAccumulator> accumulatorFactory, SetEvaluator setEvaluator, WindowAccumulator accumulator, AggregatedMemoryContext memoryContextSupplier)
+    private MatchAggregation(BoundSignature boundSignature, MappedWindowIndex mappedWindowIndex, Supplier<WindowAccumulator> accumulatorFactory, SetEvaluator setEvaluator, WindowAccumulator accumulator, AggregatedMemoryContext memoryContextSupplier)
     {
         this.boundSignature = boundSignature;
-        this.argumentChannels = argumentChannels;
+        this.mappedWindowIndex = mappedWindowIndex;
         this.accumulatorFactory = accumulatorFactory;
         this.setEvaluator = setEvaluator;
         this.memoryContextSupplier = memoryContextSupplier;
@@ -126,12 +126,14 @@ public class MatchAggregation
     public Block aggregate(int currentRow, ArrayView matchedLabels, long matchNumber, ProjectingPagesWindowIndex windowIndex, int partitionStart, int patternStart)
     {
         // new positions to aggregate since the last time this aggregation was run
+        mappedWindowIndex.setDelegate(windowIndex);
         ArrayView positions = setEvaluator.resolveNewPositions(currentRow, matchedLabels, partitionStart, patternStart);
         for (int i = 0; i < positions.length(); i++) {
             int position = positions.get(i); // position from partition start
             windowIndex.setLabelAndMatchNumber(position, matchedLabels.get(position + partitionStart - patternStart), matchNumber);
-            accumulator.addInput(windowIndex, argumentChannels, position, position);
+            accumulator.addInput(mappedWindowIndex, position, position);
         }
+        mappedWindowIndex.setDelegate(null);
 
         // report accumulator and SetEvaluator memory usage every time a new portion of `ROWS_UNTIL_MEMORY_REPORT` rows was aggregated
         rowsFromMemoryReport += positions.length();
@@ -180,7 +182,7 @@ public class MatchAggregation
             throw new TrinoException(NOT_SUPPORTED, format("aggregate function %s does not support copying", boundSignature.getName()), e);
         }
 
-        return new MatchAggregation(boundSignature, argumentChannels, accumulatorFactory, setEvaluator.copy(), accumulatorCopy, memoryContextSupplier);
+        return new MatchAggregation(boundSignature, mappedWindowIndex, accumulatorFactory, setEvaluator.copy(), accumulatorCopy, memoryContextSupplier);
     }
 
     public static class MatchAggregationInstantiator
