@@ -42,6 +42,7 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarcharType;
 import io.trino.testing.TestingConnectorContext;
 import io.trino.testing.TestingConnectorSession;
@@ -73,6 +74,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -208,7 +210,7 @@ public class TestCassandraConnector
 
                     assertEquals(cursor.getLong(columnIndex.get("typelong")), 1000 + rowId);
 
-                    assertEquals(cursor.getSlice(columnIndex.get("typeuuid")).toStringUtf8(), format("00000000-0000-0000-0000-%012d", rowId));
+                    assertEquals(trinoUuidToJavaUuid(cursor.getSlice(columnIndex.get("typeuuid"))).toString(), format("00000000-0000-0000-0000-%012d", rowId));
 
                     assertEquals(cursor.getLong(columnIndex.get("typetimestamp")), packDateTimeWithZone(DATE.getTime(), UTC_KEY));
 
@@ -288,6 +290,7 @@ public class TestCassandraConnector
         assertEquals(rowNumber, 2);
     }
 
+    @SuppressWarnings({"ResultOfMethodCallIgnored", "CheckReturnValue"}) // we only check if the values are valid, we don't need them otherwise
     private static void assertReadFields(RecordCursor cursor, List<ColumnMetadata> schema)
     {
         for (int columnIndex = 0; columnIndex < schema.size(); columnIndex++) {
@@ -331,6 +334,9 @@ public class TestCassandraConnector
                 }
                 else if (type instanceof RowType) {
                     cursor.getObject(columnIndex);
+                }
+                else if (UuidType.UUID.equals(type)) {
+                    cursor.getSlice(columnIndex);
                 }
                 else {
                     fail("Unknown primitive type " + type + " for column " + columnIndex);

@@ -49,6 +49,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestValidateLimitWithPresortedInput
         extends BasePlanTest
@@ -157,10 +158,10 @@ public class TestValidateLimitWithPresortedInput
                                                 ImmutableList.of(new LongLiteral("1")))))));
     }
 
-    @Test(expectedExceptions = VerifyException.class, expectedExceptionsMessageRegExp = "\\QExpected Limit input to be sorted by: [col_b], but was [S↑←(col_a)]\\E")
+    @Test
     public void testValidateFailed()
     {
-        validatePlan(
+        assertThatThrownBy(() -> validatePlan(
                 p -> p.limit(
                         10,
                         ImmutableList.of(),
@@ -171,14 +172,16 @@ public class TestValidateLimitWithPresortedInput
                                 ImmutableList.of(p.symbol(COLUMN_NAME_A, VARCHAR), p.symbol(COLUMN_NAME_B, VARCHAR)),
                                 ImmutableMap.of(
                                         p.symbol(COLUMN_NAME_A, VARCHAR), COLUMN_HANDLE_A,
-                                        p.symbol(COLUMN_NAME_B, VARCHAR), COLUMN_HANDLE_B))));
+                                        p.symbol(COLUMN_NAME_B, VARCHAR), COLUMN_HANDLE_B)))))
+                .isInstanceOf(VerifyException.class)
+                .hasMessageMatching("\\QExpected Limit input to be sorted by: [col_b], but was [S↑←(col_a)]\\E");
     }
 
     private void validatePlan(Function<PlanBuilder, PlanNode> planProvider)
     {
         LocalQueryRunner queryRunner = getQueryRunner();
         Metadata metadata = queryRunner.getMetadata();
-        PlanBuilder builder = new PlanBuilder(idAllocator, metadata);
+        PlanBuilder builder = new PlanBuilder(idAllocator, metadata, queryRunner.getDefaultSession());
         PlanNode planNode = planProvider.apply(builder);
         TypeProvider types = builder.getTypes();
 

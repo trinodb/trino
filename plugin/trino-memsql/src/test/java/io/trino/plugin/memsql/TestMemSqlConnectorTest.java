@@ -161,6 +161,13 @@ public class TestMemSqlConnectorTest
         throw new SkipException("MemSQL doesn't support utf8mb4");
     }
 
+    @Override
+    public void testInsertHighestUnicodeCharacter()
+    {
+        // MemSQL's utf8 encoding is 3 bytes and truncates strings upon encountering a 4 byte sequence
+        throw new SkipException("MemSQL doesn't support utf8mb4");
+    }
+
     @Test
     public void testDropTable()
     {

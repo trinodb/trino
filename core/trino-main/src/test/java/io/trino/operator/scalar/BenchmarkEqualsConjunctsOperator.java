@@ -14,7 +14,7 @@
 package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.metadata.Metadata;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
@@ -23,7 +23,6 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.ExpressionCompiler;
-import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.SpecialForm;
 import io.trino.sql.relational.SpecialForm.Form;
@@ -52,7 +51,6 @@ import static com.google.common.collect.Iterables.limit;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -74,16 +72,13 @@ public class BenchmarkEqualsConjunctsOperator
     private static final DriverYieldSignal SIGNAL = new DriverYieldSignal();
     private static final ConnectorSession SESSION = TEST_SESSION.toConnectorSession();
 
-    private Metadata metadata;
+    private final TestingFunctionResolution functionResolution = new TestingFunctionResolution();
     private PageProcessor compiledProcessor;
 
     @Setup
     public void setup()
     {
-        metadata = createTestMetadataManager();
-        ExpressionCompiler expressionCompiler = new ExpressionCompiler(
-                metadata,
-                new PageFunctionCompiler(metadata, 0));
+        ExpressionCompiler expressionCompiler = functionResolution.getExpressionCompiler();
         RowExpression projection = generateComplexComparisonProjection(FIELDS_COUNT, COMPARISONS_COUNT);
         compiledProcessor = expressionCompiler.compilePageProcessor(Optional.empty(), ImmutableList.of(projection)).get();
     }
@@ -110,7 +105,7 @@ public class BenchmarkEqualsConjunctsOperator
     private RowExpression createComparison(int leftField, int rightField)
     {
         return call(
-                metadata.resolveOperator(EQUAL, ImmutableList.of(BIGINT, BIGINT)),
+                functionResolution.resolveOperator(EQUAL, ImmutableList.of(BIGINT, BIGINT)),
                 field(leftField, BIGINT),
                 field(rightField, BIGINT));
     }

@@ -31,7 +31,7 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.transaction.IsolationLevel;
-import org.skife.jdbi.v2.IDBI;
+import org.jdbi.v3.core.Jdbi;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.concurrent.GuardedBy;
@@ -92,7 +92,7 @@ public class RaptorConnector
             RaptorTableProperties tableProperties,
             Set<SystemTable> systemTables,
             ConnectorAccessControl accessControl,
-            @ForMetadata IDBI dbi)
+            @ForMetadata Jdbi dbi)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadataFactory = requireNonNull(metadataFactory, "metadataFactory is null");

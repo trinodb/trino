@@ -19,13 +19,10 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
 import io.trino.spi.security.TrinoPrincipal;
-import io.trino.sql.analyzer.FeaturesConfig;
 import io.trino.sql.tree.CreateRole;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Identifier;
 import io.trino.transaction.TransactionManager;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;
@@ -41,14 +38,6 @@ import static java.util.Locale.ENGLISH;
 public class CreateRoleTask
         implements DataDefinitionTask<CreateRole>
 {
-    private final boolean legacyCatalogRoles;
-
-    @Inject
-    public CreateRoleTask(FeaturesConfig featuresConfig)
-    {
-        legacyCatalogRoles = featuresConfig.isLegacyCatalogRoles();
-    }
-
     @Override
     public String getName()
     {
@@ -66,7 +55,7 @@ public class CreateRoleTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
-        Optional<String> catalog = processRoleCommandCatalog(metadata, session, statement, statement.getCatalog().map(Identifier::getValue), legacyCatalogRoles);
+        Optional<String> catalog = processRoleCommandCatalog(metadata, session, statement, statement.getCatalog().map(Identifier::getValue));
         String role = statement.getName().getValue().toLowerCase(ENGLISH);
         Optional<TrinoPrincipal> grantor = statement.getGrantor().map(specification -> createPrincipal(session, specification));
         accessControl.checkCanCreateRole(session.toSecurityContext(), role, grantor, catalog);

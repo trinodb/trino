@@ -40,12 +40,14 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.DynamicFilters.createDynamicFilterExpression;
 import static io.trino.sql.ExpressionUtils.combineConjuncts;
 import static io.trino.sql.ExpressionUtils.combineDisjuncts;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestDynamicFiltersChecker
         extends BasePlanTest
@@ -62,7 +64,7 @@ public class TestDynamicFiltersChecker
     public void setup()
     {
         metadata = getQueryRunner().getMetadata();
-        builder = new PlanBuilder(new PlanNodeIdAllocator(), metadata);
+        builder = new PlanBuilder(new PlanNodeIdAllocator(), metadata, TEST_SESSION);
         CatalogName catalogName = getCurrentConnectorId();
         TableHandle lineitemTableHandle = new TableHandle(
                 catalogName,
@@ -81,7 +83,7 @@ public class TestDynamicFiltersChecker
         ordersTableScanNode = builder.tableScan(ordersTableHandle, ImmutableList.of(ordersOrderKeySymbol), ImmutableMap.of(ordersOrderKeySymbol, new TpchColumnHandle("orderkey", BIGINT)));
     }
 
-    @Test(expectedExceptions = VerifyException.class, expectedExceptionsMessageRegExp = "Dynamic filters \\[DF\\] present in join were not fully consumed by it's probe side.")
+    @Test
     public void testUnconsumedDynamicFilterInJoin()
     {
         PlanNode root = builder.join(
@@ -95,19 +97,21 @@ public class TestDynamicFiltersChecker
                 Optional.empty(),
                 Optional.empty(),
                 ImmutableMap.of(new DynamicFilterId("DF"), lineitemOrderKeySymbol));
-        validatePlan(root);
+        assertThatThrownBy(() -> validatePlan(root))
+                .isInstanceOf(VerifyException.class)
+                .hasMessageMatching("Dynamic filters \\[DF\\] present in join were not fully consumed by it's probe side.");
     }
 
-    @Test(expectedExceptions = VerifyException.class, expectedExceptionsMessageRegExp = "Dynamic filters \\[DF\\] present in join were consumed by it's build side.")
+    @Test
     public void testDynamicFilterConsumedOnBuildSide()
     {
         PlanNode root = builder.join(
                 INNER,
                 builder.filter(
-                        createDynamicFilterExpression(metadata, new DynamicFilterId("DF"), BIGINT, ordersOrderKeySymbol.toSymbolReference()),
+                        createDynamicFilterExpression(TEST_SESSION, metadata, new DynamicFilterId("DF"), BIGINT, ordersOrderKeySymbol.toSymbolReference()),
                         ordersTableScanNode),
                 builder.filter(
-                        createDynamicFilterExpression(metadata, new DynamicFilterId("DF"), BIGINT, ordersOrderKeySymbol.toSymbolReference()),
+                        createDynamicFilterExpression(TEST_SESSION, metadata, new DynamicFilterId("DF"), BIGINT, ordersOrderKeySymbol.toSymbolReference()),
                         lineitemTableScanNode),
                 ImmutableList.of(new JoinNode.EquiJoinClause(ordersOrderKeySymbol, lineitemOrderKeySymbol)),
                 ImmutableList.of(ordersOrderKeySymbol),
@@ -116,10 +120,12 @@ public class TestDynamicFiltersChecker
                 Optional.empty(),
                 Optional.empty(),
                 ImmutableMap.of(new DynamicFilterId("DF"), lineitemOrderKeySymbol));
-        validatePlan(root);
+        assertThatThrownBy(() -> validatePlan(root))
+                .isInstanceOf(VerifyException.class)
+                .hasMessageMatching("Dynamic filters \\[DF\\] present in join were consumed by it's build side.");
     }
 
-    @Test(expectedExceptions = VerifyException.class, expectedExceptionsMessageRegExp = "All consumed dynamic filters could not be matched with a join/semi-join.")
+    @Test
     public void testUnmatchedDynamicFilter()
     {
         PlanNode root = builder.output(
@@ -132,7 +138,7 @@ public class TestDynamicFiltersChecker
                                 combineConjuncts(
                                         metadata,
                                         expression("LINEITEM_OK > 0"),
-                                        createDynamicFilterExpression(metadata, new DynamicFilterId("DF"), BIGINT, lineitemOrderKeySymbol.toSymbolReference())),
+                                        createDynamicFilterExpression(TEST_SESSION, metadata, new DynamicFilterId("DF"), BIGINT, lineitemOrderKeySymbol.toSymbolReference())),
                                 lineitemTableScanNode),
                         ImmutableList.of(new JoinNode.EquiJoinClause(ordersOrderKeySymbol, lineitemOrderKeySymbol)),
                         ImmutableList.of(ordersOrderKeySymbol),
@@ -141,10 +147,12 @@ public class TestDynamicFiltersChecker
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableMap.of()));
-        validatePlan(root);
+        assertThatThrownBy(() -> validatePlan(root))
+                .isInstanceOf(VerifyException.class)
+                .hasMessageMatching("All consumed dynamic filters could not be matched with a join/semi-join.");
     }
 
-    @Test(expectedExceptions = VerifyException.class, expectedExceptionsMessageRegExp = "Dynamic filters \\[Descriptor\\{id=DF, input=\"ORDERS_OK\", operator=EQUAL, nullAllowed=false\\}\\] present in filter predicate whose source is not a table scan.")
+    @Test
     public void testDynamicFilterNotAboveTableScan()
     {
         PlanNode root = builder.output(
@@ -156,7 +164,7 @@ public class TestDynamicFiltersChecker
                                 combineConjuncts(
                                         metadata,
                                         expression("LINEITEM_OK > 0"),
-                                        createDynamicFilterExpression(metadata, new DynamicFilterId("DF"), BIGINT, ordersOrderKeySymbol.toSymbolReference())),
+                                        createDynamicFilterExpression(TEST_SESSION, metadata, new DynamicFilterId("DF"), BIGINT, ordersOrderKeySymbol.toSymbolReference())),
                                 builder.values(lineitemOrderKeySymbol)),
                         ordersTableScanNode,
                         ImmutableList.of(new JoinNode.EquiJoinClause(lineitemOrderKeySymbol, ordersOrderKeySymbol)),
@@ -166,10 +174,12 @@ public class TestDynamicFiltersChecker
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableMap.of(new DynamicFilterId("DF"), ordersOrderKeySymbol)));
-        validatePlan(root);
+        assertThatThrownBy(() -> validatePlan(root))
+                .isInstanceOf(VerifyException.class)
+                .hasMessageMatching("Dynamic filters \\[Descriptor\\{id=DF, input=\"ORDERS_OK\", operator=EQUAL, nullAllowed=false\\}\\] present in filter predicate whose source is not a table scan.");
     }
 
-    @Test(expectedExceptions = VerifyException.class, expectedExceptionsMessageRegExp = "All consumed dynamic filters could not be matched with a join/semi-join.")
+    @Test
     public void testUnmatchedNestedDynamicFilter()
     {
         PlanNode root = builder.output(
@@ -184,11 +194,11 @@ public class TestDynamicFiltersChecker
                                         combineDisjuncts(
                                                 metadata,
                                                 expression("LINEITEM_OK IS NULL"),
-                                                createDynamicFilterExpression(metadata, new DynamicFilterId("DF"), BIGINT, lineitemOrderKeySymbol.toSymbolReference())),
+                                                createDynamicFilterExpression(TEST_SESSION, metadata, new DynamicFilterId("DF"), BIGINT, lineitemOrderKeySymbol.toSymbolReference())),
                                         combineDisjuncts(
                                                 metadata,
                                                 expression("LINEITEM_OK IS NOT NULL"),
-                                                createDynamicFilterExpression(metadata, new DynamicFilterId("DF"), BIGINT, lineitemOrderKeySymbol.toSymbolReference()))),
+                                                createDynamicFilterExpression(TEST_SESSION, metadata, new DynamicFilterId("DF"), BIGINT, lineitemOrderKeySymbol.toSymbolReference()))),
                                 lineitemTableScanNode),
                         ImmutableList.of(new JoinNode.EquiJoinClause(ordersOrderKeySymbol, lineitemOrderKeySymbol)),
                         ImmutableList.of(ordersOrderKeySymbol),
@@ -197,17 +207,19 @@ public class TestDynamicFiltersChecker
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableMap.of()));
-        validatePlan(root);
+        assertThatThrownBy(() -> validatePlan(root))
+                .isInstanceOf(VerifyException.class)
+                .hasMessageMatching("All consumed dynamic filters could not be matched with a join/semi-join.");
     }
 
-    @Test(expectedExceptions = VerifyException.class, expectedExceptionsMessageRegExp = "Dynamic filter expression \\(\"LINEITEM_OK\" \\+ BIGINT '1'\\) must be a SymbolReference or a CAST of SymbolReference.")
+    @Test
     public void testUnsupportedDynamicFilterExpression()
     {
         PlanNode root = builder.output(ImmutableList.of(), ImmutableList.of(),
                 builder.join(
                         INNER,
                         builder.filter(
-                                createDynamicFilterExpression(metadata, new DynamicFilterId("DF"), BIGINT, expression("LINEITEM_OK + BIGINT'1'")),
+                                createDynamicFilterExpression(TEST_SESSION, metadata, new DynamicFilterId("DF"), BIGINT, expression("LINEITEM_OK + BIGINT'1'")),
                                 lineitemTableScanNode),
                         ordersTableScanNode,
                         ImmutableList.of(new JoinNode.EquiJoinClause(lineitemOrderKeySymbol, ordersOrderKeySymbol)),
@@ -217,17 +229,19 @@ public class TestDynamicFiltersChecker
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableMap.of(new DynamicFilterId("DF"), ordersOrderKeySymbol)));
-        validatePlan(root);
+        assertThatThrownBy(() -> validatePlan(root))
+                .isInstanceOf(VerifyException.class)
+                .hasMessageMatching("Dynamic filter expression \\(\"LINEITEM_OK\" \\+ BIGINT '1'\\) must be a SymbolReference or a CAST of SymbolReference.");
     }
 
-    @Test(expectedExceptions = VerifyException.class, expectedExceptionsMessageRegExp = "The expression CAST\\(\"LINEITEM_OK\" AS INT\\) within in a CAST in dynamic filter must be a SymbolReference.")
+    @Test
     public void testUnsupportedCastExpression()
     {
         PlanNode root = builder.output(ImmutableList.of(), ImmutableList.of(),
                 builder.join(
                         INNER,
                         builder.filter(
-                                createDynamicFilterExpression(metadata, new DynamicFilterId("DF"), BIGINT, expression("CAST(CAST(LINEITEM_OK AS INT) AS BIGINT)")),
+                                createDynamicFilterExpression(TEST_SESSION, metadata, new DynamicFilterId("DF"), BIGINT, expression("CAST(CAST(LINEITEM_OK AS INT) AS BIGINT)")),
                                 lineitemTableScanNode),
                         ordersTableScanNode,
                         ImmutableList.of(new JoinNode.EquiJoinClause(lineitemOrderKeySymbol, ordersOrderKeySymbol)),
@@ -237,10 +251,10 @@ public class TestDynamicFiltersChecker
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableMap.of(new DynamicFilterId("DF"), ordersOrderKeySymbol)));
-        validatePlan(root);
+        assertThatThrownBy(() -> validatePlan(root)).isInstanceOf(VerifyException.class).hasMessageMatching("The expression CAST\\(\"LINEITEM_OK\" AS INT\\) within in a CAST in dynamic filter must be a SymbolReference.");
     }
 
-    @Test(expectedExceptions = VerifyException.class, expectedExceptionsMessageRegExp = "The dynamic filter DF present in semi-join was not consumed by it's source side.")
+    @Test
     public void testUnconsumedDynamicFilterInSemiJoin()
     {
         PlanNode root = builder.semiJoin(
@@ -253,10 +267,12 @@ public class TestDynamicFiltersChecker
                 Optional.empty(),
                 Optional.empty(),
                 Optional.of(new DynamicFilterId("DF")));
-        validatePlan(root);
+        assertThatThrownBy(() -> validatePlan(root))
+                .isInstanceOf(VerifyException.class)
+                .hasMessage("The dynamic filter DF present in semi-join was not consumed by it's source side.");
     }
 
-    @Test(expectedExceptions = VerifyException.class, expectedExceptionsMessageRegExp = "The dynamic filter DF present in semi-join was consumed by it's filtering source side.")
+    @Test
     public void testDynamicFilterConsumedOnFilteringSourceSideInSemiJoin()
     {
         PlanNode root = builder.semiJoin(
@@ -264,13 +280,13 @@ public class TestDynamicFiltersChecker
                         combineConjuncts(
                                 metadata,
                                 expression("ORDERS_OK > 0"),
-                                createDynamicFilterExpression(metadata, new DynamicFilterId("DF"), BIGINT, lineitemOrderKeySymbol.toSymbolReference())),
+                                createDynamicFilterExpression(TEST_SESSION, metadata, new DynamicFilterId("DF"), BIGINT, lineitemOrderKeySymbol.toSymbolReference())),
                         ordersTableScanNode),
                 builder.filter(
                         combineConjuncts(
                                 metadata,
                                 expression("LINEITEM_OK > 0"),
-                                createDynamicFilterExpression(metadata, new DynamicFilterId("DF"), BIGINT, lineitemOrderKeySymbol.toSymbolReference())),
+                                createDynamicFilterExpression(TEST_SESSION, metadata, new DynamicFilterId("DF"), BIGINT, lineitemOrderKeySymbol.toSymbolReference())),
                         lineitemTableScanNode),
                 ordersOrderKeySymbol,
                 lineitemOrderKeySymbol,
@@ -279,10 +295,12 @@ public class TestDynamicFiltersChecker
                 Optional.empty(),
                 Optional.empty(),
                 Optional.of(new DynamicFilterId("DF")));
-        validatePlan(root);
+        assertThatThrownBy(() -> validatePlan(root))
+                .isInstanceOf(VerifyException.class)
+                .hasMessage("The dynamic filter DF present in semi-join was consumed by it's filtering source side.");
     }
 
-    @Test(expectedExceptions = VerifyException.class, expectedExceptionsMessageRegExp = "All consumed dynamic filters could not be matched with a join/semi-join.")
+    @Test
     public void testUnmatchedDynamicFilterInSemiJoin()
     {
         PlanNode root = builder.output(
@@ -293,7 +311,7 @@ public class TestDynamicFiltersChecker
                                 combineConjuncts(
                                         metadata,
                                         expression("ORDERS_OK > 0"),
-                                        createDynamicFilterExpression(metadata, new DynamicFilterId("DF"), BIGINT, ordersOrderKeySymbol.toSymbolReference())),
+                                        createDynamicFilterExpression(TEST_SESSION, metadata, new DynamicFilterId("DF"), BIGINT, ordersOrderKeySymbol.toSymbolReference())),
                                 ordersTableScanNode),
                         lineitemTableScanNode,
                         ordersOrderKeySymbol,
@@ -303,10 +321,12 @@ public class TestDynamicFiltersChecker
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty()));
-        validatePlan(root);
+        assertThatThrownBy(() -> validatePlan(root))
+                .isInstanceOf(VerifyException.class)
+                .hasMessage("All consumed dynamic filters could not be matched with a join/semi-join.");
     }
 
-    @Test(expectedExceptions = VerifyException.class, expectedExceptionsMessageRegExp = "Dynamic filters \\[Descriptor\\{id=DF, input=\"ORDERS_OK\", operator=EQUAL, nullAllowed=false\\}\\] present in filter predicate whose source is not a table scan.")
+    @Test
     public void testDynamicFilterNotAboveTableScanWithSemiJoin()
     {
         PlanNode root = builder.semiJoin(
@@ -314,7 +334,7 @@ public class TestDynamicFiltersChecker
                         combineConjuncts(
                                 metadata,
                                 expression("ORDERS_OK > 0"),
-                                createDynamicFilterExpression(metadata, new DynamicFilterId("DF"), BIGINT, ordersOrderKeySymbol.toSymbolReference())),
+                                createDynamicFilterExpression(TEST_SESSION, metadata, new DynamicFilterId("DF"), BIGINT, ordersOrderKeySymbol.toSymbolReference())),
                         builder.values(ordersOrderKeySymbol)),
                 lineitemTableScanNode,
                 ordersOrderKeySymbol,
@@ -324,7 +344,9 @@ public class TestDynamicFiltersChecker
                 Optional.empty(),
                 Optional.empty(),
                 Optional.of(new DynamicFilterId("DF")));
-        validatePlan(root);
+        assertThatThrownBy(() -> validatePlan(root))
+                .isInstanceOf(VerifyException.class)
+                .hasMessageMatching("Dynamic filters \\[Descriptor\\{id=DF, input=\"ORDERS_OK\", operator=EQUAL, nullAllowed=false\\}\\] present in filter predicate whose source is not a table scan.");
     }
 
     private void validatePlan(PlanNode root)

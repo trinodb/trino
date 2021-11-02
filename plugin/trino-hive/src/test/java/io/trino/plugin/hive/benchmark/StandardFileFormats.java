@@ -305,7 +305,8 @@ public final class StandardFileFormats
                     schemaConverter.getMessageType(),
                     schemaConverter.getPrimitiveTypes(),
                     ParquetWriterOptions.builder().build(),
-                    compressionCodec.getParquetCompressionCodec());
+                    compressionCodec.getParquetCompressionCodec(),
+                    "test-version");
         }
 
         @Override

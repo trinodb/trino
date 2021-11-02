@@ -535,14 +535,14 @@ public class EffectivePredicateExtractor
 
             ImmutableList.Builder<Expression> effectiveConjuncts = ImmutableList.builder();
             Set<Symbol> scope = ImmutableSet.copyOf(symbols);
-            for (Expression conjunct : EqualityInference.nonInferrableConjuncts(metadata, expression)) {
+            EqualityInference.nonInferrableConjuncts(metadata, expression).forEach(conjunct -> {
                 if (DeterminismEvaluator.isDeterministic(conjunct, metadata)) {
                     Expression rewritten = equalityInference.rewrite(conjunct, scope);
                     if (rewritten != null) {
                         effectiveConjuncts.add(rewritten);
                     }
                 }
-            }
+            });
 
             effectiveConjuncts.addAll(equalityInference.generateEqualitiesPartitionedBy(scope).getScopeEqualities());
 

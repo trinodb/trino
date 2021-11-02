@@ -39,6 +39,7 @@ import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_MATERIALIZED_VIEW;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.INSERT_TABLE;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.REFRESH_MATERIALIZED_VIEW;
+import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.RENAME_MATERIALIZED_VIEW;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.UPDATE_TABLE;
 import static io.trino.testing.TestingAccessControlManager.privilege;
@@ -206,6 +207,17 @@ public class TestIcebergMaterializedViews
                 "Cannot drop materialized view .*.materialized_view_drop_deny.*",
                 privilege("materialized_view_drop_deny", DROP_MATERIALIZED_VIEW));
         assertUpdate("DROP MATERIALIZED VIEW materialized_view_drop_deny");
+    }
+
+    @Test
+    public void testRenameDenyPermission()
+    {
+        assertUpdate("CREATE MATERIALIZED VIEW materialized_view_rename_deny AS SELECT * FROM base_table1");
+        assertAccessDenied(
+                "ALTER MATERIALIZED VIEW materialized_view_rename_deny RENAME TO materialized_view_rename_deny_new",
+                "Cannot rename materialized view .*.materialized_view_rename_deny.*",
+                privilege("materialized_view_rename_deny", RENAME_MATERIALIZED_VIEW));
+        assertUpdate("DROP MATERIALIZED VIEW materialized_view_rename_deny");
     }
 
     @Test

@@ -30,6 +30,6 @@ public final class NotPartitionedPartitionHandle
     @Override
     public int hashCode()
     {
-        return 0;
+        return getClass().hashCode();
     }
 }

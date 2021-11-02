@@ -77,6 +77,7 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.parquet.ParquetTypeUtils.getColumnIO;
 import static io.trino.parquet.ParquetTypeUtils.getDescriptors;
@@ -251,7 +252,7 @@ public class ParquetPageSourceFactory
                 Integer firstIndex = MetadataReader.findFirstNonHiddenColumnId(block);
                 if (firstIndex != null) {
                     long firstDataPage = block.getColumns().get(0).getFirstDataPageOffset();
-                    Optional<ColumnIndexStore> columnIndex = getColumnIndexStore(dataSource, block, descriptorsByPath, options);
+                    Optional<ColumnIndexStore> columnIndex = getColumnIndexStore(dataSource, block, descriptorsByPath, parquetTupleDomain, options);
                     if (start <= firstDataPage && firstDataPage < start + length
                             && predicateMatches(parquetPredicate, block, dataSource, descriptorsByPath, parquetTupleDomain, columnIndex)) {
                         blocks.add(block);
@@ -381,9 +382,10 @@ public class ParquetPageSourceFactory
             ParquetDataSource dataSource,
             BlockMetaData blockMetadata,
             Map<List<String>, RichColumnDescriptor> descriptorsByPath,
+            TupleDomain<ColumnDescriptor> parquetTupleDomain,
             ParquetReaderOptions options)
     {
-        if (!options.isUseColumnIndex()) {
+        if (!options.isUseColumnIndex() || parquetTupleDomain.isAll() || parquetTupleDomain.isNone()) {
             return Optional.empty();
         }
 
@@ -399,12 +401,18 @@ public class ParquetPageSourceFactory
             return Optional.empty();
         }
 
-        Set<ColumnPath> paths = new HashSet<>();
+        Set<ColumnPath> columnsReadPaths = new HashSet<>(descriptorsByPath.size());
         for (List<String> path : descriptorsByPath.keySet()) {
-            paths.add(ColumnPath.get(path.toArray(new String[0])));
+            columnsReadPaths.add(ColumnPath.get(path.toArray(new String[0])));
         }
 
-        return Optional.of(TrinoColumnIndexStore.create(dataSource, blockMetadata, paths));
+        Map<ColumnDescriptor, Domain> parquetDomains = parquetTupleDomain.getDomains()
+                .orElseThrow(() -> new IllegalStateException("Predicate other than none should have domains"));
+        Set<ColumnPath> columnsFilteredPaths = parquetDomains.keySet().stream()
+                .map(column -> ColumnPath.get(column.getPath()))
+                .collect(toImmutableSet());
+
+        return Optional.of(new TrinoColumnIndexStore(dataSource, blockMetadata, columnsReadPaths, columnsFilteredPaths));
     }
 
     public static TupleDomain<ColumnDescriptor> getParquetTupleDomain(

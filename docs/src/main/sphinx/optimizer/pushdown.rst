@@ -181,6 +181,50 @@ to perform the remaining query processing on a smaller amount of data.
 The specifics for the supported pushdown of table joins varies for each data
 source, and therefore for each connector.
 
+However, there are some generic conditions that must be met in order for a join
+to be pushed down:
+
+* all predicates that are part of the join must be possible to be pushed down
+* the tables in the join must be from the same catalog
+
+You can verify if pushdown for a specific join is performed by looking at the
+:doc:`EXPLAIN </sql/explain>`  plan of the query. The explain plan does not
+show a ``Join`` operator, if the join is pushed down to the data source by the
+connector::
+
+    EXPLAIN SELECT c.custkey, o.orderkey
+    FROM orders o JOIN customer c ON c.custkey = o.custkey;
+
+The following plan results from the PostgreSQL connector querying TPCH
+data in a PostgreSQL database. It does not show any ``Join`` operator as a
+result of the successful join push down.
+
+.. code-block:: text
+
+ Fragment 0 [SINGLE]
+     Output layout: [custkey, orderkey]
+     Output partitioning: SINGLE []
+     Stage Execution Strategy: UNGROUPED_EXECUTION
+     Output[custkey, orderkey]
+     │   Layout: [custkey:bigint, orderkey:bigint]
+     │   Estimates: {rows: ? (?), cpu: ?, memory: 0B, network: ?}
+     └─ RemoteSource[1]
+            Layout: [orderkey:bigint, custkey:bigint]
+
+ Fragment 1 [SOURCE]
+     Output layout: [orderkey, custkey]
+     Output partitioning: SINGLE []
+     Stage Execution Strategy: UNGROUPED_EXECUTION
+     TableScan[postgres:Query[SELECT l."orderkey" AS "orderkey_0", l."custkey" AS "custkey_1", r."custkey" AS "custkey_2" FROM (SELECT "orderkey", "custkey" FROM "tpch"."orders") l INNER JOIN (SELECT "custkey" FROM "tpch"."customer") r O
+         Layout: [orderkey:bigint, custkey:bigint]
+         Estimates: {rows: ? (?), cpu: ?, memory: 0B, network: 0B}
+         orderkey := orderkey_0:bigint:int8
+         custkey := custkey_1:bigint:int8
+
+It is typically beneficial to push down a join. Pushing down a join can also
+increase the row count compared to the size of the input to the join. This
+may impact performance.
+
 .. _limit-pushdown:
 
 Limit pushdown

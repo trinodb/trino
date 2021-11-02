@@ -116,6 +116,7 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetMaxRead
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isOrcBloomFiltersEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isOrcNestedLazy;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isUseFileSizeFromMetadata;
+import static io.trino.plugin.iceberg.IcebergSplitManager.ICEBERG_DOMAIN_COMPACTION_THRESHOLD;
 import static io.trino.plugin.iceberg.TypeConverter.ICEBERG_BINARY_TYPE;
 import static io.trino.plugin.iceberg.TypeConverter.ORC_ICEBERG_ID_KEY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -165,12 +166,15 @@ public class IcebergPageSourceProvider
                 .map(IcebergColumnHandle.class::cast)
                 .collect(toImmutableList());
 
-        Map<Integer, String> partitionKeys = split.getPartitionKeys();
+        Map<Integer, Optional<String>> partitionKeys = split.getPartitionKeys();
 
         List<IcebergColumnHandle> regularColumns = columns.stream()
                 .map(IcebergColumnHandle.class::cast)
                 .filter(column -> !partitionKeys.containsKey(column.getId()))
                 .collect(toImmutableList());
+        TupleDomain<IcebergColumnHandle> effectivePredicate = table.getUnenforcedPredicate()
+                .intersect(dynamicFilter.getCurrentPredicate().transformKeys(IcebergColumnHandle.class::cast))
+                .simplify(ICEBERG_DOMAIN_COMPACTION_THRESHOLD);
 
         HdfsContext hdfsContext = new HdfsContext(session);
         ConnectorPageSource dataPageSource = createDataPageSource(
@@ -182,9 +186,9 @@ public class IcebergPageSourceProvider
                 split.getFileSize(),
                 split.getFileFormat(),
                 regularColumns,
-                table.getUnenforcedPredicate());
+                effectivePredicate);
 
-        return new IcebergPageSource(icebergColumns, partitionKeys, dataPageSource, session.getTimeZoneKey());
+        return new IcebergPageSource(icebergColumns, partitionKeys, dataPageSource);
     }
 
     private ConnectorPageSource createDataPageSource(
@@ -411,13 +415,14 @@ public class IcebergPageSourceProvider
                 ColumnIdentity identity,
                 ImmutableMap.Builder<Integer, Map<String, Integer>> fieldNameToIdMappingForTableColumns)
         {
+            List<ColumnIdentity> children = identity.getChildren();
             fieldNameToIdMappingForTableColumns.put(
                     identity.getId(),
-                    identity.getChildren().stream()
+                    children.stream()
                             // Lower casing is required here because ORC StructColumnReader does the same before mapping
                             .collect(toImmutableMap(child -> child.getName().toLowerCase(ENGLISH), ColumnIdentity::getId)));
 
-            for (ColumnIdentity child : identity.getChildren()) {
+            for (ColumnIdentity child : children) {
                 populateMapping(child, fieldNameToIdMappingForTableColumns);
             }
         }

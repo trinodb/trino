@@ -26,6 +26,7 @@ import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.Type;
 
 import java.security.Principal;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
@@ -171,6 +172,12 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public void checkCanCreateTable(SystemSecurityContext context, CatalogSchemaTableName table, Map<String, Object> properties)
+    {
+        delegate().checkCanCreateTable(context, table, properties);
+    }
+
+    @Override
     public void checkCanDropTable(SystemSecurityContext context, CatalogSchemaTableName table)
     {
         delegate().checkCanDropTable(context, table);
@@ -180,6 +187,12 @@ public abstract class ForwardingSystemAccessControl
     public void checkCanRenameTable(SystemSecurityContext context, CatalogSchemaTableName table, CatalogSchemaTableName newTable)
     {
         delegate().checkCanRenameTable(context, table, newTable);
+    }
+
+    @Override
+    public void checkCanSetTableProperties(SystemSecurityContext context, CatalogSchemaTableName table, Map<String, Object> properties)
+    {
+        delegate().checkCanSetTableProperties(context, table, properties);
     }
 
     @Override
@@ -315,6 +328,12 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public void checkCanRenameMaterializedView(SystemSecurityContext context, CatalogSchemaTableName view, CatalogSchemaTableName newView)
+    {
+        delegate().checkCanRenameMaterializedView(context, view, newView);
+    }
+
+    @Override
     public void checkCanGrantExecuteFunctionPrivilege(SystemSecurityContext context, String functionName, TrinoPrincipal grantee, boolean grantOption)
     {
         delegate().checkCanGrantExecuteFunctionPrivilege(context, functionName, grantee, grantOption);
@@ -408,6 +427,12 @@ public abstract class ForwardingSystemAccessControl
     public void checkCanExecuteFunction(SystemSecurityContext systemSecurityContext, String functionName)
     {
         delegate().checkCanExecuteFunction(systemSecurityContext, functionName);
+    }
+
+    @Override
+    public void checkCanExecuteTableProcedure(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName table, String procedure)
+    {
+        delegate().checkCanExecuteTableProcedure(systemSecurityContext, table, procedure);
     }
 
     @Override

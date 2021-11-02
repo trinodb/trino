@@ -15,7 +15,7 @@ package io.trino.tests.product.launcher.suite.suites;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.io.Resources;
+import io.trino.testing.TestingProperties;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.EnvironmentDefaults;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeCompatibility;
@@ -32,7 +32,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
 import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class SuiteCompatibility
         extends Suite
@@ -71,7 +70,7 @@ public class SuiteCompatibility
     private static List<String> testedTrinoDockerImages()
     {
         try {
-            String currentVersionString = Resources.toString(Resources.getResource("presto-product-tests-launcher-version.txt"), UTF_8).trim();
+            String currentVersionString = TestingProperties.getProjectVersion();
             Matcher matcher = Pattern.compile("(\\d+)(?:-SNAPSHOT)?").matcher(currentVersionString);
             checkState(matcher.matches());
             int currentVersion = parseInt(matcher.group(1));

@@ -22,7 +22,7 @@ import com.google.inject.util.Providers;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.configuration.ConfigurationAwareModule;
-import io.trino.plugin.raptor.legacy.RaptorConnectorId;
+import io.trino.plugin.base.CatalogName;
 import org.weakref.jmx.MBeanExporter;
 
 import javax.annotation.Nullable;
@@ -77,7 +77,7 @@ public class BackupModule
             @Nullable BackupStore store,
             LifeCycleManager lifeCycleManager,
             MBeanExporter exporter,
-            RaptorConnectorId connectorId,
+            CatalogName catalogName,
             BackupConfig config)
     {
         if (store == null) {
@@ -86,14 +86,14 @@ public class BackupModule
 
         BackupStore proxy = new TimeoutBackupStore(
                 store,
-                connectorId.toString(),
+                catalogName.toString(),
                 config.getTimeout(),
                 config.getTimeoutThreads());
 
         lifeCycleManager.addInstance(proxy);
 
         BackupStore managed = new ManagedBackupStore(proxy);
-        exporter.exportWithGeneratedName(managed, BackupStore.class, connectorId.toString());
+        exporter.exportWithGeneratedName(managed, BackupStore.class, catalogName.toString());
 
         return Optional.of(managed);
     }

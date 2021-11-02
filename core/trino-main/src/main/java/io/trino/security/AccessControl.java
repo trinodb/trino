@@ -27,6 +27,7 @@ import io.trino.spi.type.Type;
 
 import java.security.Principal;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -163,8 +164,17 @@ public interface AccessControl
      * Check if identity is allowed to create the specified table.
      *
      * @throws AccessDeniedException if not allowed
+     * @deprecated use {@link #checkCanCreateTable(SecurityContext context, QualifiedObjectName tableName, Map properties)}
      */
+    @Deprecated
     void checkCanCreateTable(SecurityContext context, QualifiedObjectName tableName);
+
+    /**
+     * Check if identity is allowed to create the specified table with properties.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanCreateTable(SecurityContext context, QualifiedObjectName tableName, Map<String, Object> properties);
 
     /**
      * Check if identity is allowed to drop the specified table.
@@ -179,6 +189,13 @@ public interface AccessControl
      * @throws AccessDeniedException if not allowed
      */
     void checkCanRenameTable(SecurityContext context, QualifiedObjectName tableName, QualifiedObjectName newTableName);
+
+    /**
+     * Check if identity is allowed to set properties to the specified table.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanSetTableProperties(SecurityContext context, QualifiedObjectName tableName, Map<String, Object> properties);
 
     /**
      * Check if identity is allowed to comment the specified table.
@@ -335,6 +352,13 @@ public interface AccessControl
     void checkCanDropMaterializedView(SecurityContext context, QualifiedObjectName materializedViewName);
 
     /**
+     * Check if identity is allowed to rename the specified materialized view.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanRenameMaterializedView(SecurityContext context, QualifiedObjectName viewName, QualifiedObjectName newViewName);
+
+    /**
      * Check if identity is allowed to create a view that executes the function.
      *
      * @throws AccessDeniedException if not allowed
@@ -480,6 +504,13 @@ public interface AccessControl
      * @throws AccessDeniedException if not allowed
      */
     void checkCanExecuteFunction(SecurityContext context, String functionName);
+
+    /**
+     * Check if identity is allowed to execute given table procedure on given table
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanExecuteTableProcedure(SecurityContext context, QualifiedObjectName tableName, String procedureName);
 
     default List<ViewExpression> getRowFilters(SecurityContext context, QualifiedObjectName tableName)
     {

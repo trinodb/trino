@@ -459,7 +459,8 @@ public class TestJdbcVendorCompatibility
 
         OracleReferenceDriver()
         {
-            oracleServer = new OracleContainer("wnameless/oracle-xe-11g-r2");
+            oracleServer = new OracleContainer("gvenzl/oracle-xe:11.2.0.2-full")
+                    .usingSid();
             oracleServer.start();
         }
 

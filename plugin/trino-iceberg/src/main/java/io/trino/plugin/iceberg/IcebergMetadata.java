@@ -264,7 +264,7 @@ public class IcebergMetadata
 
             Iterable<TupleDomain<ColumnHandle>> discreteTupleDomain = Iterables.transform(files, fileScan -> {
                 // Extract partition values in the data file
-                Map<Integer, String> partitionColumnValueStrings = getPartitionKeys(fileScan);
+                Map<Integer, Optional<String>> partitionColumnValueStrings = getPartitionKeys(fileScan);
                 Map<ColumnHandle, NullableValue> partitionValues = partitionSourceIds.stream()
                         .filter(partitionColumnValueStrings::containsKey)
                         .collect(toImmutableMap(
@@ -273,9 +273,8 @@ public class IcebergMetadata
                                     IcebergColumnHandle column = columns.get(columnId);
                                     Object prestoValue = deserializePartitionValue(
                                             column.getType(),
-                                            partitionColumnValueStrings.get(columnId),
-                                            column.getName(),
-                                            session.getTimeZoneKey());
+                                            partitionColumnValueStrings.get(columnId).orElse(null),
+                                            column.getName());
 
                                     return NullableValue.of(column.getType(), prestoValue);
                                 }));
@@ -819,6 +818,16 @@ public class IcebergMetadata
     public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
     {
         return catalog.getMaterializedView(session, viewName);
+    }
+
+    @Override
+    public void renameMaterializedView(ConnectorSession session, SchemaTableName source, SchemaTableName target)
+    {
+        // TODO (https://github.com/trinodb/trino/issues/9594) support rename across schemas
+        if (!source.getSchemaName().equals(target.getSchemaName())) {
+            throw new TrinoException(NOT_SUPPORTED, "Materialized View rename across schemas is not supported");
+        }
+        catalog.renameMaterializedView(session, source, target);
     }
 
     public Optional<TableToken> getTableToken(ConnectorSession session, ConnectorTableHandle tableHandle)

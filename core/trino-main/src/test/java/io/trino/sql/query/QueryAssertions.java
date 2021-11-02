@@ -100,12 +100,6 @@ public class QueryAssertions
         return query(runner.getDefaultSession(), query);
     }
 
-    @Deprecated
-    public AssertProvider<QueryAssert> query(@Language("SQL") String query, Session session)
-    {
-        return query(session, query);
-    }
-
     public AssertProvider<QueryAssert> query(Session session, @Language("SQL") String query)
     {
         return newQueryAssert(query, runner, session);
@@ -261,15 +255,25 @@ public class QueryAssertions
         static AssertProvider<QueryAssert> newQueryAssert(String query, QueryRunner runner, Session session)
         {
             MaterializedResult result = runner.execute(session, query);
-            return () -> new QueryAssert(runner, session, query, result);
+            return () -> new QueryAssert(runner, session, query, result, false, false, false);
         }
 
-        public QueryAssert(QueryRunner runner, Session session, String query, MaterializedResult actual)
+        private QueryAssert(
+                QueryRunner runner,
+                Session session,
+                String query,
+                MaterializedResult actual,
+                boolean ordered,
+                boolean skipTypesCheck,
+                boolean skipResultsCorrectnessCheckForPushdown)
         {
             super(actual, Object.class);
             this.runner = requireNonNull(runner, "runner is null");
             this.session = requireNonNull(session, "session is null");
             this.query = requireNonNull(query, "query is null");
+            this.ordered = ordered;
+            this.skipTypesCheck = skipTypesCheck;
+            this.skipResultsCorrectnessCheckForPushdown = skipResultsCorrectnessCheckForPushdown;
         }
 
         public QueryAssert projected(int... columns)
@@ -288,7 +292,10 @@ public class QueryAssertions
                                     .collect(toImmutableList()),
                             IntStream.of(columns)
                                     .mapToObj(actual.getTypes()::get)
-                                    .collect(toImmutableList())));
+                                    .collect(toImmutableList())),
+                    ordered,
+                    skipTypesCheck,
+                    skipResultsCorrectnessCheckForPushdown);
         }
 
         public QueryAssert matches(BiFunction<Session, QueryRunner, MaterializedResult> evaluator)

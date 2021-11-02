@@ -23,7 +23,7 @@ import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.IfExpression;
 import io.trino.sql.tree.IsNullPredicate;
-import io.trino.sql.tree.LogicalBinaryExpression;
+import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullIfExpression;
 import io.trino.sql.tree.NullLiteral;
@@ -42,8 +42,6 @@ import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.plan.Patterns.filter;
 import static io.trino.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
-import static io.trino.sql.tree.LogicalBinaryExpression.Operator.AND;
-import static io.trino.sql.tree.LogicalBinaryExpression.Operator.OR;
 
 /**
  * Simplify conditional expressions in filter predicate.
@@ -129,7 +127,7 @@ public class SimplifyFilterPredicate
 
         if (expression instanceof NullIfExpression) {
             NullIfExpression nullIfExpression = (NullIfExpression) expression;
-            return Optional.of(new LogicalBinaryExpression(AND, nullIfExpression.getFirst(), isFalseOrNullPredicate(nullIfExpression.getSecond())));
+            return Optional.of(LogicalExpression.and(nullIfExpression.getFirst(), isFalseOrNullPredicate(nullIfExpression.getSecond())));
         }
 
         if (expression instanceof SearchedCaseExpression) {
@@ -234,6 +232,6 @@ public class SimplifyFilterPredicate
 
     private static Expression isFalseOrNullPredicate(Expression expression)
     {
-        return new LogicalBinaryExpression(OR, new IsNullPredicate(expression), new NotExpression(expression));
+        return LogicalExpression.or(new IsNullPredicate(expression), new NotExpression(expression));
     }
 }

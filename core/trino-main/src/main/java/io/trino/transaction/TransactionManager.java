@@ -16,6 +16,7 @@ package io.trino.transaction;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
+import io.trino.metadata.Catalog;
 import io.trino.metadata.CatalogMetadata;
 import io.trino.security.AccessControl;
 import io.trino.spi.connector.ConnectorTransactionHandle;
@@ -45,7 +46,7 @@ public interface TransactionManager
 
     TransactionId beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommitContext);
 
-    Map<String, CatalogName> getCatalogNames(TransactionId transactionId);
+    Map<String, Catalog> getCatalogs(TransactionId transactionId);
 
     Optional<CatalogMetadata> getOptionalCatalogMetadata(TransactionId transactionId, String catalogName);
 

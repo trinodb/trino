@@ -37,6 +37,7 @@ import io.trino.operator.PipelineContext;
 import io.trino.operator.PipelineExecutionStrategy;
 import io.trino.operator.StageExecutionDescriptor;
 import io.trino.operator.TaskContext;
+import io.trino.spi.SplitWeight;
 import io.trino.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import io.trino.sql.planner.plan.PlanNodeId;
 
@@ -371,7 +372,7 @@ public class SqlTaskExecution
         DriverSplitRunnerFactory partitionedDriverFactory = driverRunnerFactoriesWithSplitLifeCycle.get(planNodeId);
         PendingSplitsForPlanNode pendingSplitsForPlanNode = pendingSplitsByPlanNode.get(planNodeId);
 
-        partitionedDriverFactory.splitsAdded(scheduledSplits.size());
+        partitionedDriverFactory.splitsAdded(scheduledSplits.size(), SplitWeight.rawValueSum(scheduledSplits, scheduledSplit -> scheduledSplit.getSplit().getSplitWeight()));
         for (ScheduledSplit scheduledSplit : scheduledSplits) {
             Lifespan lifespan = scheduledSplit.getSplit().getLifespan();
             checkLifespan(partitionedDriverFactory.getPipelineExecutionStrategy(), lifespan);
@@ -933,7 +934,8 @@ public class SqlTaskExecution
             status.incrementPendingCreation(pipelineContext.getPipelineId(), lifespan);
             // create driver context immediately so the driver existence is recorded in the stats
             // the number of drivers is used to balance work across nodes
-            DriverContext driverContext = pipelineContext.addDriverContext(lifespan);
+            long splitWeight = partitionedSplit == null ? 0 : partitionedSplit.getSplit().getSplitWeight().getRawValue();
+            DriverContext driverContext = pipelineContext.addDriverContext(lifespan, splitWeight);
             return new DriverSplitRunner(this, driverContext, partitionedSplit, lifespan);
         }
 
@@ -1003,9 +1005,9 @@ public class SqlTaskExecution
             return driverFactory.getDriverInstances();
         }
 
-        public void splitsAdded(int count)
+        public void splitsAdded(int count, long weightSum)
         {
-            pipelineContext.splitsAdded(count);
+            pipelineContext.splitsAdded(count, weightSum);
         }
     }
 

@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.accumulo;
 
+import io.trino.testing.TestingProperties;
 import org.apache.accumulo.core.client.AccumuloException;
 import org.apache.accumulo.core.client.AccumuloSecurityException;
 import org.apache.accumulo.core.client.Connector;
@@ -46,7 +47,7 @@ public class TestingAccumuloServer
 
     private TestingAccumuloServer()
     {
-        accumuloContainer = new FixedHostPortGenericContainer<>("ghcr.io/trinodb/testing/accumulo");
+        accumuloContainer = new FixedHostPortGenericContainer<>("ghcr.io/trinodb/testing/accumulo:" + TestingProperties.getDockerImagesVersion());
         accumuloContainer.withFixedExposedPort(ACCUMULO_MASTER_PORT, ACCUMULO_MASTER_PORT);
         accumuloContainer.withFixedExposedPort(ACCUMULO_TSERVER_PORT, ACCUMULO_TSERVER_PORT);
         accumuloContainer.withExposedPorts(ZOOKEEPER_PORT);

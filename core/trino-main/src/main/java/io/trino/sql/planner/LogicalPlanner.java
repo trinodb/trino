@@ -29,6 +29,7 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.NewTableLayout;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TableExecuteHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
 import io.trino.spi.TrinoException;
@@ -51,6 +52,7 @@ import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.DeleteNode;
 import io.trino.sql.planner.plan.ExplainAnalyzeNode;
+import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.PlanNode;
@@ -58,6 +60,7 @@ import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.RefreshMaterializedViewNode;
 import io.trino.sql.planner.plan.StatisticAggregations;
 import io.trino.sql.planner.plan.StatisticsWriterNode;
+import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
@@ -86,6 +89,8 @@ import io.trino.sql.tree.RefreshMaterializedView;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.Statement;
 import io.trino.sql.tree.StringLiteral;
+import io.trino.sql.tree.Table;
+import io.trino.sql.tree.TableExecute;
 import io.trino.sql.tree.Update;
 import io.trino.type.TypeCoercion;
 import io.trino.type.UnknownType;
@@ -108,6 +113,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Streams.zip;
 import static io.trino.SystemSessionProperties.isCollectPlanStatisticsForAllQueries;
+import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.statistics.TableStatisticType.ROW_COUNT;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -117,6 +123,7 @@ import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
+import static io.trino.sql.planner.PlanBuilder.newPlanBuilder;
 import static io.trino.sql.planner.QueryPlanner.visibleFields;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
@@ -186,7 +193,7 @@ public class LogicalPlanner
         this.typeCoercion = new TypeCoercion(metadata::getType);
         this.typeOperators = typeOperators;
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
-        this.statisticsAggregationPlanner = new StatisticsAggregationPlanner(symbolAllocator, metadata);
+        this.statisticsAggregationPlanner = new StatisticsAggregationPlanner(symbolAllocator, metadata, session);
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
@@ -279,6 +286,9 @@ public class LogicalPlanner
         }
         if (statement instanceof ExplainAnalyze) {
             return createExplainAnalyzePlan(analysis, (ExplainAnalyze) statement);
+        }
+        if (statement instanceof TableExecute) {
+            return createTableExecutePlan(analysis, (TableExecute) statement);
         }
         throw new TrinoException(NOT_SUPPORTED, "Unsupported statement type " + statement.getClass().getSimpleName());
     }
@@ -637,8 +647,8 @@ public class LogicalPlanner
         }
 
         checkState(fromType instanceof VarcharType || fromType instanceof CharType, "inserting non-character value to column of character type");
-        ResolvedFunction spaceTrimmedLength = metadata.resolveFunction(QualifiedName.of("$space_trimmed_length"), fromTypes(VARCHAR));
-        ResolvedFunction fail = metadata.resolveFunction(QualifiedName.of("fail"), fromTypes(VARCHAR));
+        ResolvedFunction spaceTrimmedLength = metadata.resolveFunction(session, QualifiedName.of("$space_trimmed_length"), fromTypes(VARCHAR));
+        ResolvedFunction fail = metadata.resolveFunction(session, QualifiedName.of("fail"), fromTypes(VARCHAR));
 
         return new IfExpression(
                 // check if the trimmed value fits in the target type
@@ -718,8 +728,17 @@ public class LogicalPlanner
 
     private RelationPlan createRelationPlan(Analysis analysis, Query query)
     {
-        return new RelationPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), metadata, Optional.empty(), session, ImmutableMap.of())
-                .process(query, null);
+        return getRelationPlanner(analysis).process(query, null);
+    }
+
+    private RelationPlan createRelationPlan(Analysis analysis, Table table)
+    {
+        return getRelationPlanner(analysis).process(table, null);
+    }
+
+    private RelationPlanner getRelationPlanner(Analysis analysis)
+    {
+        return new RelationPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), metadata, Optional.empty(), session, ImmutableMap.of());
     }
 
     private static Map<NodeRef<LambdaArgumentDeclaration>, Symbol> buildLambdaDeclarationToSymbolMap(Analysis analysis, SymbolAllocator symbolAllocator)
@@ -748,6 +767,83 @@ public class LogicalPlanner
         }
 
         return result;
+    }
+
+    private RelationPlan createTableExecutePlan(Analysis analysis, TableExecute statement)
+    {
+        Table table = statement.getTable();
+        TableHandle tableHandle = analysis.getTableHandle(table);
+        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, table.getName());
+        TableExecuteHandle executeHandle = analysis.getTableExecuteHandle().orElseThrow();
+
+        RelationPlan tableScanPlan = createRelationPlan(analysis, table);
+        PlanBuilder sourcePlanBuilder = newPlanBuilder(tableScanPlan, analysis, ImmutableMap.of(), ImmutableMap.of());
+        if (statement.getWhere().isPresent()) {
+            SubqueryPlanner subqueryPlanner = new SubqueryPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), metadata, typeCoercion, Optional.empty(), session, ImmutableMap.of());
+            Expression whereExpression = statement.getWhere().get();
+            sourcePlanBuilder = subqueryPlanner.handleSubqueries(sourcePlanBuilder, whereExpression, analysis.getSubqueries(statement));
+            sourcePlanBuilder = sourcePlanBuilder.withNewRoot(new FilterNode(idAllocator.getNextId(), sourcePlanBuilder.getRoot(), sourcePlanBuilder.rewrite(whereExpression)));
+        }
+
+        PlanNode sourcePlanRoot = sourcePlanBuilder.getRoot();
+
+        TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
+        List<String> columnNames = tableMetadata.getColumns().stream()
+                .filter(column -> !column.isHidden()) // todo this filter is redundant
+                .map(ColumnMetadata::getName)
+                .collect(toImmutableList());
+
+        TableWriterNode.TableExecuteTarget tableExecuteTarget = new TableWriterNode.TableExecuteTarget(executeHandle, Optional.empty(), tableName.asSchemaTableName());
+
+        Optional<NewTableLayout> layout = metadata.getLayoutForTableExecute(session, executeHandle);
+
+        List<Symbol> symbols = visibleFields(tableScanPlan);
+
+        // todo extract common method to be used here and in createTableWriterPlan()
+        Optional<PartitioningScheme> partitioningScheme = Optional.empty();
+        Optional<PartitioningScheme> preferredPartitioningScheme = Optional.empty();
+        if (layout.isPresent()) {
+            List<Symbol> partitionFunctionArguments = new ArrayList<>();
+            layout.get().getPartitionColumns().stream()
+                    .mapToInt(columnNames::indexOf)
+                    .mapToObj(symbols::get)
+                    .forEach(partitionFunctionArguments::add);
+
+            List<Symbol> outputLayout = new ArrayList<>(symbols);
+
+            Optional<PartitioningHandle> partitioningHandle = layout.get().getPartitioning();
+            if (partitioningHandle.isPresent()) {
+                partitioningScheme = Optional.of(new PartitioningScheme(
+                        Partitioning.create(partitioningHandle.get(), partitionFunctionArguments),
+                        outputLayout));
+            }
+            else {
+                // empty connector partitioning handle means evenly partitioning on partitioning columns
+                preferredPartitioningScheme = Optional.of(new PartitioningScheme(
+                        Partitioning.create(FIXED_HASH_DISTRIBUTION, partitionFunctionArguments),
+                        outputLayout));
+            }
+        }
+
+        verify(columnNames.size() == symbols.size(), "columnNames.size() != symbols.size(): %s and %s", columnNames, symbols);
+        TableFinishNode commitNode = new TableFinishNode(
+                idAllocator.getNextId(),
+                new TableExecuteNode(
+                        idAllocator.getNextId(),
+                        sourcePlanRoot,
+                        tableExecuteTarget,
+                        symbolAllocator.newSymbol("partialrows", BIGINT),
+                        symbolAllocator.newSymbol("fragment", VARBINARY),
+                        symbols,
+                        columnNames,
+                        partitioningScheme,
+                        preferredPartitioningScheme),
+                tableExecuteTarget,
+                symbolAllocator.newSymbol("rows", BIGINT),
+                Optional.empty(),
+                Optional.empty());
+
+        return new RelationPlan(commitNode, analysis.getRootScope(), commitNode.getOutputSymbols(), Optional.empty());
     }
 
     private static class Key

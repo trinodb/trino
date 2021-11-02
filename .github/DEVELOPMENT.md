@@ -158,8 +158,17 @@ Update the following inspections:
 
 Enable errorprone ([Error Prone Installation#IDEA](https://errorprone.info/docs/installation#intellij-idea)):
 - Install ``Error Prone Compiler`` plugin from marketplace,
+- Check the `errorprone-compiler` profile in the Maven tab
+
+This should be enough - IDEA should automatically copy the compiler options from the POMs to each module. If that doesn't work, you can do it manually:
+
 - In ``Java Compiler`` tab, select ``Javac with error-prone`` as the compiler,
-- Update ``Additional command line parameters`` with ``-XepExcludedPaths:.*/target/generated-(|test-)sources/.* -XepDisableAllChecks -Xep:MissingOverride:ERROR ......`` (for current recommended list of command line parameters, see the top level ``pom.xml``, the definition of the ``errorprone-compiler`` profile.
+- Update ``Additional command line parameters`` and copy the contents of ``compilerArgs`` in the top-level POM (except for ``-Xplugin:ErrorProne``) there
+  - Remove the XML comments...
+  - ...except the ones which denote checks which fail in IDEA, which you should "unwrap"
+- Remove everything from the list under ``Override compiler parameters per-module``
+
+Note that the version of errorprone used by the IDEA plugin might be older than the one configured in the `pom.xml` and you might need to disable some checks that are not yet supported by that older version. When in doubt, always check with the full Maven build (``./mvnw clean install -DskipTests -Perrorprone-compiler``).
 
 ### Language injection in IDE
 

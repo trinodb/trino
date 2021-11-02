@@ -121,7 +121,6 @@ public final class SystemSessionProperties
     public static final String IGNORE_STATS_CALCULATOR_FAILURES = "ignore_stats_calculator_failures";
     public static final String MAX_DRIVERS_PER_TASK = "max_drivers_per_task";
     public static final String DEFAULT_FILTER_FACTOR_ENABLED = "default_filter_factor_enabled";
-    public static final String UNWRAP_CASTS = "unwrap_casts";
     public static final String SKIP_REDUNDANT_SORT = "skip_redundant_sort";
     public static final String ALLOW_PUSHDOWN_INTO_CONNECTORS = "allow_pushdown_into_connectors";
     public static final String PREDICATE_PUSHDOWN_USE_TABLE_PROPERTIES = "predicate_pushdown_use_table_properties";
@@ -143,6 +142,7 @@ public final class SystemSessionProperties
     public static final String MAX_UNACKNOWLEDGED_SPLITS_PER_TASK = "max_unacknowledged_splits_per_task";
     public static final String MERGE_PROJECT_WITH_VALUES = "merge_project_with_values";
     public static final String TIME_ZONE_ID = "time_zone_id";
+    public static final String LEGACY_CATALOG_ROLES = "legacy_catalog_roles";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -542,11 +542,6 @@ public final class SystemSessionProperties
                         featuresConfig.isDefaultFilterFactorEnabled(),
                         false),
                 booleanProperty(
-                        UNWRAP_CASTS,
-                        "Enable optimization to unwrap CAST expression",
-                        featuresConfig.isUnwrapCasts(),
-                        false),
-                booleanProperty(
                         SKIP_REDUNDANT_SORT,
                         "Skip redundant sort operations",
                         featuresConfig.isSkipRedundantSort(),
@@ -660,6 +655,11 @@ public final class SystemSessionProperties
                                 getTimeZoneKey(value);
                             }
                         },
+                        true),
+                booleanProperty(
+                        LEGACY_CATALOG_ROLES,
+                        "Enable legacy role management syntax that assumed all roles are catalog scoped",
+                        featuresConfig.isLegacyCatalogRoles(),
                         true));
     }
 
@@ -1064,11 +1064,6 @@ public final class SystemSessionProperties
         return session.getSystemProperty(DEFAULT_FILTER_FACTOR_ENABLED, Boolean.class);
     }
 
-    public static boolean isUnwrapCasts(Session session)
-    {
-        return session.getSystemProperty(UNWRAP_CASTS, Boolean.class);
-    }
-
     public static boolean isSkipRedundantSort(Session session)
     {
         return session.getSystemProperty(SKIP_REDUNDANT_SORT, Boolean.class);
@@ -1172,5 +1167,10 @@ public final class SystemSessionProperties
     public static Optional<String> getTimeZoneId(Session session)
     {
         return Optional.ofNullable(session.getSystemProperty(TIME_ZONE_ID, String.class));
+    }
+
+    public static boolean isLegacyCatalogRoles(Session session)
+    {
+        return session.getSystemProperty(LEGACY_CATALOG_ROLES, Boolean.class);
     }
 }

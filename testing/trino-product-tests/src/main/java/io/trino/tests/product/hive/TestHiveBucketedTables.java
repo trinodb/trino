@@ -379,16 +379,24 @@ public class TestHiveBucketedTables
 
             String newTableName = "new_" + tableName;
 
-            // TODO Trino should reject if the user specifies to bucket on unsupported column type (https://github.com/trinodb/trino/issues/9094)
-            onTrino().executeQuery(format("CREATE TABLE %s (LIKE %s INCLUDING PROPERTIES)", newTableName, tableName));
+            assertQueryFailure(() -> onTrino().executeQuery(format("CREATE TABLE %s (LIKE %s INCLUDING PROPERTIES)", newTableName, tableName)))
+                    .hasMessageMatching("Query failed \\(#\\w+\\): Cannot create a table bucketed on an unsupported type");
 
-            assertQueryFailure(() -> onTrino().executeQuery("SELECT \"$bucket\" FROM " + newTableName))
-                    .hasMessageMatching("Query failed \\(#\\w+\\):\\Q line 1:8: Column '$bucket' cannot be resolved");
-
-            assertQueryFailure(() -> onTrino().executeQuery(format("INSERT INTO %s(n_integer) VALUES (1)", newTableName)))
-                    .hasMessageMatching("Query failed \\(#\\w+\\): Cannot write to a table bucketed on an unsupported type");
-
-            onTrino().executeQuery("DROP TABLE " + newTableName);
+            assertQueryFailure(() -> onTrino().executeQuery(format("CREATE TABLE %s (" +
+                                    "n_integer       integer," +
+                                    "n_decimal       decimal(9, 2)," +
+                                    "n_timestamp     timestamp(3)," +
+                                    "n_char          char(10)," +
+                                    "n_binary        varbinary," +
+                                    "n_union         ROW(tag tinyint, field0 integer, field1 varchar)," +
+                                    "n_struct        ROW(field1 integer, field2 varchar)) " +
+                                    "WITH (" +
+                                    "   bucketed_by = ARRAY['%s']," +
+                                    "   bucket_count = 2" +
+                                    ")",
+                            newTableName,
+                            columnToBeBucketed)))
+                    .hasMessageMatching("Query failed \\(#\\w+\\): Cannot create a table bucketed on an unsupported type");
 
             assertQueryFailure(() -> onTrino()
                     .executeQuery(format(
@@ -396,7 +404,7 @@ public class TestHiveBucketedTables
                             newTableName,
                             bucketingType.getTrinoTableProperties(columnToBeBucketed, 2).stream().collect(joining(",")),
                             tableName)))
-                    .hasMessageMatching("Query failed \\(#\\w+\\): Cannot write to a table bucketed on an unsupported type");
+                    .hasMessageMatching("Query failed \\(#\\w+\\): Cannot create a table bucketed on an unsupported type");
         }
     }
 

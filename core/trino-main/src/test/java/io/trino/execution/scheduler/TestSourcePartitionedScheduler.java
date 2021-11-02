@@ -26,9 +26,11 @@ import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.MockRemoteTaskFactory;
 import io.trino.execution.MockRemoteTaskFactory.MockRemoteTask;
 import io.trino.execution.NodeTaskMap;
+import io.trino.execution.PartitionedSplitsInfo;
 import io.trino.execution.RemoteTask;
 import io.trino.execution.SqlStageExecution;
 import io.trino.execution.StageId;
+import io.trino.execution.TableExecuteContextManager;
 import io.trino.execution.TableInfo;
 import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
 import io.trino.failuredetector.NoOpFailureDetector;
@@ -194,7 +196,8 @@ public class TestSourcePartitionedScheduler
         }
 
         for (RemoteTask remoteTask : stage.getAllTasks()) {
-            assertEquals(remoteTask.getPartitionedSplitCount(), 20);
+            PartitionedSplitsInfo splitsInfo = remoteTask.getPartitionedSplitsInfo();
+            assertEquals(splitsInfo.getCount(), 20);
         }
 
         stage.abort();
@@ -231,7 +234,8 @@ public class TestSourcePartitionedScheduler
         }
 
         for (RemoteTask remoteTask : stage.getAllTasks()) {
-            assertEquals(remoteTask.getPartitionedSplitCount(), 20);
+            PartitionedSplitsInfo splitsInfo = remoteTask.getPartitionedSplitsInfo();
+            assertEquals(splitsInfo.getCount(), 20);
         }
 
         stage.abort();
@@ -263,7 +267,8 @@ public class TestSourcePartitionedScheduler
         }
 
         for (RemoteTask remoteTask : stage.getAllTasks()) {
-            assertEquals(remoteTask.getPartitionedSplitCount(), 20);
+            PartitionedSplitsInfo splitsInfo = remoteTask.getPartitionedSplitsInfo();
+            assertEquals(splitsInfo.getCount(), 20);
         }
 
         // todo rewrite MockRemoteTask to fire a tate transition when splits are cleared, and then validate blocked future completes
@@ -295,7 +300,8 @@ public class TestSourcePartitionedScheduler
         }
 
         for (RemoteTask remoteTask : stage.getAllTasks()) {
-            assertEquals(remoteTask.getPartitionedSplitCount(), 20);
+            PartitionedSplitsInfo splitsInfo = remoteTask.getPartitionedSplitsInfo();
+            assertEquals(splitsInfo.getCount(), 20);
         }
 
         stage.abort();
@@ -340,6 +346,7 @@ public class TestSourcePartitionedScheduler
                     new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(session, Optional.of(CONNECTOR_ID)), stage::getAllTasks),
                     2,
                     new DynamicFilterService(metadata, typeOperators, new DynamicFilterConfig()),
+                    new TableExecuteContextManager(),
                     () -> false);
             scheduler.schedule();
         }).hasErrorCode(NO_NODES_AVAILABLE);
@@ -367,7 +374,8 @@ public class TestSourcePartitionedScheduler
         assertEquals(scheduleResult.getNewTasks().size(), 3);
         assertEquals(firstStage.getAllTasks().size(), 3);
         for (RemoteTask remoteTask : firstStage.getAllTasks()) {
-            assertEquals(remoteTask.getPartitionedSplitCount(), 5);
+            PartitionedSplitsInfo splitsInfo = remoteTask.getPartitionedSplitsInfo();
+            assertEquals(splitsInfo.getCount(), 5);
         }
 
         // Add new node
@@ -385,7 +393,7 @@ public class TestSourcePartitionedScheduler
         assertEquals(scheduleResult.getNewTasks().size(), 1);
         assertEquals(secondStage.getAllTasks().size(), 1);
         RemoteTask task = secondStage.getAllTasks().get(0);
-        assertEquals(task.getPartitionedSplitCount(), 5);
+        assertEquals(task.getPartitionedSplitsInfo().getCount(), 5);
 
         firstStage.abort();
         secondStage.abort();
@@ -414,6 +422,7 @@ public class TestSourcePartitionedScheduler
                 new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(session, Optional.of(CONNECTOR_ID)), stage::getAllTasks),
                 500,
                 new DynamicFilterService(metadata, typeOperators, new DynamicFilterConfig()),
+                new TableExecuteContextManager(),
                 () -> false);
 
         // the queues of 3 running nodes should be full
@@ -421,6 +430,10 @@ public class TestSourcePartitionedScheduler
         assertEquals(scheduleResult.getBlockedReason().get(), SPLIT_QUEUES_FULL);
         assertEquals(scheduleResult.getNewTasks().size(), 3);
         assertEquals(scheduleResult.getSplitsScheduled(), 300);
+        for (RemoteTask remoteTask : scheduleResult.getNewTasks()) {
+            PartitionedSplitsInfo splitsInfo = remoteTask.getPartitionedSplitsInfo();
+            assertEquals(splitsInfo.getCount(), 100);
+        }
 
         // new node added - the pending splits should go to it since the child tasks are not blocked
         nodeManager.addNode(CONNECTOR_ID, new InternalNode("other4", URI.create("http://127.0.0.4:14"), NodeVersion.UNKNOWN, false));
@@ -453,6 +466,7 @@ public class TestSourcePartitionedScheduler
                 new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(session, Optional.of(CONNECTOR_ID)), stage::getAllTasks),
                 400,
                 new DynamicFilterService(metadata, typeOperators, new DynamicFilterConfig()),
+                new TableExecuteContextManager(),
                 () -> true);
 
         // the queues of 3 running nodes should be full
@@ -460,6 +474,10 @@ public class TestSourcePartitionedScheduler
         assertEquals(scheduleResult.getBlockedReason().get(), SPLIT_QUEUES_FULL);
         assertEquals(scheduleResult.getNewTasks().size(), 3);
         assertEquals(scheduleResult.getSplitsScheduled(), 300);
+        for (RemoteTask remoteTask : scheduleResult.getNewTasks()) {
+            PartitionedSplitsInfo splitsInfo = remoteTask.getPartitionedSplitsInfo();
+            assertEquals(splitsInfo.getCount(), 100);
+        }
 
         // new node added but 1 child's output buffer is overutilized - so lockdown the tasks
         nodeManager.addNode(CONNECTOR_ID, new InternalNode("other4", URI.create("http://127.0.0.4:14"), NodeVersion.UNKNOWN, false));
@@ -490,6 +508,7 @@ public class TestSourcePartitionedScheduler
                 new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(session, Optional.of(CONNECTOR_ID)), stage::getAllTasks),
                 2,
                 dynamicFilterService,
+                new TableExecuteContextManager(),
                 () -> true);
 
         SymbolAllocator symbolAllocator = new SymbolAllocator();
@@ -514,7 +533,7 @@ public class TestSourcePartitionedScheduler
 
     private static void assertPartitionedSplitCount(SqlStageExecution stage, int expectedPartitionedSplitCount)
     {
-        assertEquals(stage.getAllTasks().stream().mapToInt(RemoteTask::getPartitionedSplitCount).sum(), expectedPartitionedSplitCount);
+        assertEquals(stage.getAllTasks().stream().mapToInt(remoteTask -> remoteTask.getPartitionedSplitsInfo().getCount()).sum(), expectedPartitionedSplitCount);
     }
 
     private static void assertEffectivelyFinished(ScheduleResult scheduleResult, StageScheduler scheduler)
@@ -555,6 +574,7 @@ public class TestSourcePartitionedScheduler
                 placementPolicy,
                 splitBatchSize,
                 new DynamicFilterService(metadata, typeOperators, new DynamicFilterConfig()),
+                new TableExecuteContextManager(),
                 () -> false);
     }
 
@@ -575,7 +595,7 @@ public class TestSourcePartitionedScheduler
         FilterNode filterNode = new FilterNode(
                 new PlanNodeId("filter_node_id"),
                 tableScan,
-                createDynamicFilterExpression(createTestMetadataManager(), DYNAMIC_FILTER_ID, VARCHAR, symbol.toSymbolReference()));
+                createDynamicFilterExpression(TEST_SESSION, createTestMetadataManager(), DYNAMIC_FILTER_ID, VARCHAR, symbol.toSymbolReference()));
 
         RemoteSourceNode remote = new RemoteSourceNode(new PlanNodeId("remote_id"), new PlanFragmentId("plan_fragment_id"), ImmutableList.of(buildSymbol), Optional.empty(), REPLICATE);
         PlanFragment testFragment = new PlanFragment(

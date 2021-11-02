@@ -15,8 +15,8 @@ package io.trino.plugin.iceberg.util;
 
 import io.trino.spi.block.Block;
 import io.trino.spi.type.LongTimestampWithTimeZone;
-import io.trino.spi.type.TimeZoneKey;
 
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
@@ -34,11 +34,11 @@ public final class Timestamps
                 roundDiv(timestamp.getPicosOfMilli(), PICOSECONDS_PER_MICROSECOND);
     }
 
-    public static LongTimestampWithTimeZone timestampTzFromMicros(long epochMicros, TimeZoneKey timeZoneKey)
+    public static LongTimestampWithTimeZone timestampTzFromMicros(long epochMicros)
     {
         long epochMillis = floorDiv(epochMicros, MICROSECONDS_PER_MILLISECOND);
         int picosOfMillis = floorMod(epochMicros, MICROSECONDS_PER_MILLISECOND) * PICOSECONDS_PER_MICROSECOND;
-        return LongTimestampWithTimeZone.fromEpochMillisAndFraction(epochMillis, picosOfMillis, timeZoneKey);
+        return LongTimestampWithTimeZone.fromEpochMillisAndFraction(epochMillis, picosOfMillis, UTC_KEY);
     }
 
     public static LongTimestampWithTimeZone getTimestampTz(Block block, int position)

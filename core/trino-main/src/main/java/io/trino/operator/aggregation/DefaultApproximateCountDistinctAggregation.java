@@ -13,7 +13,6 @@
  */
 package io.trino.operator.aggregation;
 
-import io.trino.operator.aggregation.state.BooleanDistinctState;
 import io.trino.operator.aggregation.state.HyperLogLogState;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -94,32 +93,14 @@ public final class DefaultApproximateCountDistinctAggregation
         ApproximateCountDistinctAggregation.input(methodHandle, state, value, DEFAULT_STANDARD_ERROR);
     }
 
-    @InputFunction
-    public static void input(BooleanDistinctState state, @SqlType(StandardTypes.BOOLEAN) boolean value)
-    {
-        ApproximateCountDistinctAggregation.input(state, value, DEFAULT_STANDARD_ERROR);
-    }
-
     @CombineFunction
     public static void combineState(@AggregationState HyperLogLogState state, @AggregationState HyperLogLogState otherState)
     {
         ApproximateCountDistinctAggregation.combineState(state, otherState);
     }
 
-    @CombineFunction
-    public static void combineState(BooleanDistinctState state, BooleanDistinctState otherState)
-    {
-        ApproximateCountDistinctAggregation.combineState(state, otherState);
-    }
-
     @OutputFunction(StandardTypes.BIGINT)
     public static void evaluateFinal(@AggregationState HyperLogLogState state, BlockBuilder out)
-    {
-        ApproximateCountDistinctAggregation.evaluateFinal(state, out);
-    }
-
-    @OutputFunction(StandardTypes.BIGINT)
-    public static void evaluateFinal(BooleanDistinctState state, BlockBuilder out)
     {
         ApproximateCountDistinctAggregation.evaluateFinal(state, out);
     }

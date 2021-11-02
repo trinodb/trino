@@ -100,7 +100,6 @@ public class BenchmarkHashBuildAndJoinOperators
     public static class BuildContext
     {
         protected static final int ROWS_PER_PAGE = 1024;
-        protected static final int BUILD_ROWS_NUMBER = 8_000_000;
 
         @Param({"varchar", "bigint", "all"})
         protected String hashColumns = "bigint";
@@ -110,6 +109,9 @@ public class BenchmarkHashBuildAndJoinOperators
 
         @Param({"1", "5"})
         protected int buildRowsRepetition = 1;
+
+        @Param({"10", "100", "10000", "100000", "1000000", "8000000"})
+        protected int buildRowsNumber = 8_000_000;
 
         protected ExecutorService executor;
         protected ScheduledExecutorService scheduledExecutor;
@@ -169,10 +171,10 @@ public class BenchmarkHashBuildAndJoinOperators
         {
             RowPagesBuilder buildPagesBuilder = rowPagesBuilder(buildHashEnabled, hashChannels, ImmutableList.of(VARCHAR, BIGINT, BIGINT));
 
-            int maxValue = BUILD_ROWS_NUMBER / buildRowsRepetition + 40;
+            int maxValue = buildRowsNumber / buildRowsRepetition + 40;
             int rows = 0;
-            while (rows < BUILD_ROWS_NUMBER) {
-                int newRows = Math.min(BUILD_ROWS_NUMBER - rows, ROWS_PER_PAGE);
+            while (rows < buildRowsNumber) {
+                int newRows = Math.min(buildRowsNumber - rows, ROWS_PER_PAGE);
                 buildPagesBuilder.addSequencePage(newRows, (rows + 20) % maxValue, (rows + 30) % maxValue, (rows + 40) % maxValue);
                 buildPagesBuilder.pageBreak();
                 rows += newRows;
@@ -269,9 +271,9 @@ public class BenchmarkHashBuildAndJoinOperators
             while (remainingRows > 0) {
                 double roll = random.nextDouble();
 
-                int columnA = 20 + remainingRows;
-                int columnB = 30 + remainingRows;
-                int columnC = 40 + remainingRows;
+                int columnA = 20 + (remainingRows % buildRowsNumber);
+                int columnB = 30 + (remainingRows % buildRowsNumber);
+                int columnC = 40 + (remainingRows % buildRowsNumber);
 
                 int rowsCount = 1;
                 if (matchRate < 1) {

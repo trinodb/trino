@@ -17,7 +17,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import io.airlift.slice.Slice;
 import io.trino.Session;
-import io.trino.SystemSessionProperties;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.OperatorNotFoundException;
 import io.trino.metadata.ResolvedFunction;
@@ -143,11 +142,7 @@ public class UnwrapCastInComparison
             TypeProvider types,
             Expression expression)
     {
-        if (SystemSessionProperties.isUnwrapCasts(session)) {
-            return ExpressionTreeRewriter.rewriteWith(new Visitor(metadata, typeOperators, typeAnalyzer, session, types), expression);
-        }
-
-        return expression;
+        return ExpressionTreeRewriter.rewriteWith(new Visitor(metadata, typeOperators, typeAnalyzer, session, types), expression);
     }
 
     private static class Visitor
@@ -169,7 +164,7 @@ public class UnwrapCastInComparison
             this.session = requireNonNull(session, "session is null");
             this.types = requireNonNull(types, "types is null");
             this.functionInvoker = new InterpretedFunctionInvoker(metadata);
-            this.literalEncoder = new LiteralEncoder(metadata);
+            this.literalEncoder = new LiteralEncoder(session, metadata);
         }
 
         @Override
@@ -248,7 +243,7 @@ public class UnwrapCastInComparison
                 }
             }
 
-            ResolvedFunction sourceToTarget = metadata.getCoercion(sourceType, targetType);
+            ResolvedFunction sourceToTarget = metadata.getCoercion(session, sourceType, targetType);
 
             Optional<Type.Range> sourceRange = sourceType.getRange();
             if (sourceRange.isPresent()) {
@@ -337,7 +332,7 @@ public class UnwrapCastInComparison
 
             ResolvedFunction targetToSource;
             try {
-                targetToSource = metadata.getCoercion(targetType, sourceType);
+                targetToSource = metadata.getCoercion(session, targetType, sourceType);
             }
             catch (OperatorNotFoundException e) {
                 // Without a cast between target -> source, there's nothing more we can do
@@ -516,7 +511,8 @@ public class UnwrapCastInComparison
         {
             requireNonNull(first, "first is null");
             requireNonNull(second, "second is null");
-            MethodHandle comparisonOperator = typeOperators.getComparisonOperator(type, InvocationConvention.simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
+            // choice of placing unordered values first or last does not matter for this code
+            MethodHandle comparisonOperator = typeOperators.getComparisonUnorderedLastOperator(type, InvocationConvention.simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
             try {
                 return (int) (long) comparisonOperator.invoke(first, second);
             }
