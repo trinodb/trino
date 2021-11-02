@@ -83,6 +83,8 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static io.trino.SystemSessionProperties.PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS;
+import static io.trino.SystemSessionProperties.USE_PREFERRED_WRITE_PARTITIONING;
 import static io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
@@ -96,6 +98,7 @@ import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.assertions.Assert.assertEventually;
+import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static io.trino.tpch.TpchTable.LINE_ITEM;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
@@ -2725,6 +2728,77 @@ public abstract class BaseIcebergConnectorTest
             // Assert some lineitem rows were filtered out on file level
             assertThat(probeStats.getInputPositions()).isLessThan(fullTableScan);
         });
+    }
+
+    @Test(dataProvider = "repartitioningDataProvider")
+    public void testRepartitionDataOnCtas(String partitioning, int expectedFiles)
+    {
+        testRepartitionData(true, partitioning, expectedFiles);
+    }
+
+    @Test(dataProvider = "repartitioningDataProvider")
+    public void testRepartitionDataOnInsert(String partitioning, int expectedFiles)
+    {
+        testRepartitionData(false, partitioning, expectedFiles);
+    }
+
+    private void testRepartitionData(boolean ctas, String partitioning, int expectedFiles)
+    {
+        String tableName = "repartition_" +
+                (ctas ? "ctas" : "insert") +
+                "_" + partitioning.replaceAll("[^a-zA-Z0-9]", "") +
+                "_" + randomTableSuffix();
+
+        // Even if connector returns ConnectorNewTableLayout with partitioning defined, engine can still choose to ignore it.
+        Session obeyConnectorPartitioning = Session.builder(getSession())
+                .setSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, "true")
+                .setSystemProperty(PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS, "1")
+                .build();
+
+        long rowCount = (long) computeScalar("SELECT count(*) FROM orders");
+
+        if (ctas) {
+            assertUpdate(
+                    obeyConnectorPartitioning,
+                    "CREATE TABLE " + tableName + " WITH (partitioning = ARRAY[" + partitioning + "]) " +
+                            "AS SELECT * FROM tpch.tiny.orders",
+                    rowCount);
+        }
+        else {
+            assertUpdate(
+                    "CREATE TABLE " + tableName + " WITH (partitioning = ARRAY[" + partitioning + "]) " +
+                            "AS SELECT * FROM tpch.tiny.orders WITH NO DATA",
+                    0);
+            // Use source table big enough so that there will be multiple pages being written.
+            assertUpdate(obeyConnectorPartitioning, "INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.orders", rowCount);
+        }
+
+        // verify written data
+        assertThat(query("TABLE " + tableName))
+                .matches("TABLE orders");
+
+        // verify data files, i.e. repartitioning took place
+        assertThat(query("SELECT count(*) FROM \"" + tableName + "$files\""))
+                .matches("VALUES BIGINT '" + expectedFiles + "'");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @DataProvider
+    public Object[][] repartitioningDataProvider()
+    {
+        return new Object[][] {
+                // identity partitioning column
+                {"'orderstatus'", 3},
+                // bucketing
+                {"'bucket(custkey, 13)'", 13},
+                // varchar-based
+                {"'truncate(comment, 1)'", 35},
+                // complex; would exceed 100 open writers limit in IcebergPageSink without write repartitioning
+                {"'bucket(custkey, 4)', 'truncate(comment, 1)'", 131},
+                // same column multiple times
+                {"'truncate(comment, 1)', 'orderstatus', 'bucket(comment, 2)'", 180},
+        };
     }
 
     @Test(dataProvider = "testDataMappingSmokeTestDataProvider")
