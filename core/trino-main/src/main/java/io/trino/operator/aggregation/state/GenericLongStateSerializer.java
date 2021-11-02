@@ -43,7 +43,7 @@ public class GenericLongStateSerializer
             out.appendNull();
         }
         else {
-            serializedType.writeLong(out, state.getLong());
+            serializedType.writeLong(out, state.getValue());
         }
     }
 
@@ -51,6 +51,6 @@ public class GenericLongStateSerializer
     public void deserialize(Block block, int index, GenericLongState state)
     {
         state.setNull(false);
-        state.setLong(serializedType.getLong(block, index));
+        state.setValue(serializedType.getLong(block, index));
     }
 }

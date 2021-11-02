@@ -220,19 +220,19 @@ public abstract class AbstractMinMaxAggregationFunction
     @UsedByGeneratedCode
     public static void combine(MethodHandle methodHandle, GenericLongState state, GenericLongState otherState)
     {
-        compareAndUpdateState(methodHandle, state, otherState.getLong());
+        compareAndUpdateState(methodHandle, state, otherState.getValue());
     }
 
     @UsedByGeneratedCode
     public static void combine(MethodHandle methodHandle, GenericDoubleState state, GenericDoubleState otherState)
     {
-        compareAndUpdateState(methodHandle, state, otherState.getDouble());
+        compareAndUpdateState(methodHandle, state, otherState.getValue());
     }
 
     @UsedByGeneratedCode
     public static void combine(MethodHandle methodHandle, GenericBooleanState state, GenericBooleanState otherState)
     {
-        compareAndUpdateState(methodHandle, state, otherState.getBoolean());
+        compareAndUpdateState(methodHandle, state, otherState.getValue());
     }
 
     @UsedByGeneratedCode
@@ -245,12 +245,12 @@ public abstract class AbstractMinMaxAggregationFunction
     {
         if (state.isNull()) {
             state.setNull(false);
-            state.setLong(value);
+            state.setValue(value);
             return;
         }
         try {
-            if ((boolean) methodHandle.invokeExact(value, state.getLong())) {
-                state.setLong(value);
+            if ((boolean) methodHandle.invokeExact(value, state.getValue())) {
+                state.setValue(value);
             }
         }
         catch (Throwable t) {
@@ -262,12 +262,12 @@ public abstract class AbstractMinMaxAggregationFunction
     {
         if (state.isNull()) {
             state.setNull(false);
-            state.setDouble(value);
+            state.setValue(value);
             return;
         }
         try {
-            if ((boolean) methodHandle.invokeExact(value, state.getDouble())) {
-                state.setDouble(value);
+            if ((boolean) methodHandle.invokeExact(value, state.getValue())) {
+                state.setValue(value);
             }
         }
         catch (Throwable t) {
@@ -279,12 +279,12 @@ public abstract class AbstractMinMaxAggregationFunction
     {
         if (state.isNull()) {
             state.setNull(false);
-            state.setBoolean(value);
+            state.setValue(value);
             return;
         }
         try {
-            if ((boolean) methodHandle.invokeExact(value, state.getBoolean())) {
-                state.setBoolean(value);
+            if ((boolean) methodHandle.invokeExact(value, state.getValue())) {
+                state.setValue(value);
             }
         }
         catch (Throwable t) {
@@ -294,7 +294,7 @@ public abstract class AbstractMinMaxAggregationFunction
 
     private static void compareAndUpdateState(MethodHandle methodHandle, BlockPositionState state, Block block, int position)
     {
-        if (state.getBlock() == null) {
+        if (state.getBlock() == null || state.getBlock().isNull(state.getPosition())) {
             state.setBlock(block);
             state.setPosition(position);
             return;

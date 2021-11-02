@@ -152,56 +152,56 @@ public class ReduceAggregationFunction
     {
         if (state.isNull()) {
             state.setNull(false);
-            state.setLong(initialStateValue);
+            state.setValue(initialStateValue);
         }
-        state.setLong((long) inputFunction.apply(state.getLong(), value));
+        state.setValue((long) inputFunction.apply(state.getValue(), value));
     }
 
     public static void input(GenericDoubleState state, Object value, double initialStateValue, BinaryFunctionInterface inputFunction, BinaryFunctionInterface combineFunction)
     {
         if (state.isNull()) {
             state.setNull(false);
-            state.setDouble(initialStateValue);
+            state.setValue(initialStateValue);
         }
-        state.setDouble((double) inputFunction.apply(state.getDouble(), value));
+        state.setValue((double) inputFunction.apply(state.getValue(), value));
     }
 
     public static void input(GenericBooleanState state, Object value, boolean initialStateValue, BinaryFunctionInterface inputFunction, BinaryFunctionInterface combineFunction)
     {
         if (state.isNull()) {
             state.setNull(false);
-            state.setBoolean(initialStateValue);
+            state.setValue(initialStateValue);
         }
-        state.setBoolean((boolean) inputFunction.apply(state.getBoolean(), value));
+        state.setValue((boolean) inputFunction.apply(state.getValue(), value));
     }
 
     public static void combine(GenericLongState state, GenericLongState otherState, BinaryFunctionInterface inputFunction, BinaryFunctionInterface combineFunction)
     {
         if (state.isNull()) {
             state.setNull(false);
-            state.setLong(otherState.getLong());
+            state.setValue(otherState.getValue());
             return;
         }
-        state.setLong((long) combineFunction.apply(state.getLong(), otherState.getLong()));
+        state.setValue((long) combineFunction.apply(state.getValue(), otherState.getValue()));
     }
 
     public static void combine(GenericDoubleState state, GenericDoubleState otherState, BinaryFunctionInterface inputFunction, BinaryFunctionInterface combineFunction)
     {
         if (state.isNull()) {
             state.setNull(false);
-            state.setDouble(otherState.getDouble());
+            state.setValue(otherState.getValue());
             return;
         }
-        state.setDouble((double) combineFunction.apply(state.getDouble(), otherState.getDouble()));
+        state.setValue((double) combineFunction.apply(state.getValue(), otherState.getValue()));
     }
 
     public static void combine(GenericBooleanState state, GenericBooleanState otherState, BinaryFunctionInterface inputFunction, BinaryFunctionInterface combineFunction)
     {
         if (state.isNull()) {
             state.setNull(false);
-            state.setBoolean(otherState.getBoolean());
+            state.setValue(otherState.getValue());
             return;
         }
-        state.setBoolean((boolean) combineFunction.apply(state.getBoolean(), otherState.getBoolean()));
+        state.setValue((boolean) combineFunction.apply(state.getValue(), otherState.getValue()));
     }
 }

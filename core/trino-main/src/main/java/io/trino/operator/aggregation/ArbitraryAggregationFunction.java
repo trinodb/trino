@@ -155,7 +155,7 @@ public class ArbitraryAggregationFunction
             return;
         }
         state.setNull(false);
-        state.setDouble(type.getDouble(block, position));
+        state.setValue(type.getDouble(block, position));
     }
 
     public static void input(Type type, GenericLongState state, Block block, int position)
@@ -164,7 +164,7 @@ public class ArbitraryAggregationFunction
             return;
         }
         state.setNull(false);
-        state.setLong(type.getLong(block, position));
+        state.setValue(type.getLong(block, position));
     }
 
     public static void input(Type type, GenericBooleanState state, Block block, int position)
@@ -173,7 +173,7 @@ public class ArbitraryAggregationFunction
             return;
         }
         state.setNull(false);
-        state.setBoolean(type.getBoolean(block, position));
+        state.setValue(type.getBoolean(block, position));
     }
 
     public static void input(Type type, BlockPositionState state, Block block, int position)
@@ -191,7 +191,7 @@ public class ArbitraryAggregationFunction
             return;
         }
         state.setNull(false);
-        state.setLong(otherState.getLong());
+        state.setValue(otherState.getValue());
     }
 
     public static void combine(GenericDoubleState state, GenericDoubleState otherState)
@@ -200,7 +200,7 @@ public class ArbitraryAggregationFunction
             return;
         }
         state.setNull(false);
-        state.setDouble(otherState.getDouble());
+        state.setValue(otherState.getValue());
     }
 
     public static void combine(GenericBooleanState state, GenericBooleanState otherState)
@@ -209,7 +209,7 @@ public class ArbitraryAggregationFunction
             return;
         }
         state.setNull(false);
-        state.setBoolean(otherState.getBoolean());
+        state.setValue(otherState.getValue());
     }
 
     public static void combine(BlockPositionState state, BlockPositionState otherState)

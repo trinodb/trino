@@ -100,29 +100,29 @@ public class RealAverageAggregation
 
     public static void input(LongState count, DoubleState sum, long value)
     {
-        count.setLong(count.getLong() + 1);
-        sum.setDouble(sum.getDouble() + intBitsToFloat((int) value));
+        count.setValue(count.getValue() + 1);
+        sum.setValue(sum.getValue() + intBitsToFloat((int) value));
     }
 
     public static void removeInput(LongState count, DoubleState sum, long value)
     {
-        count.setLong(count.getLong() - 1);
-        sum.setDouble(sum.getDouble() - intBitsToFloat((int) value));
+        count.setValue(count.getValue() - 1);
+        sum.setValue(sum.getValue() - intBitsToFloat((int) value));
     }
 
     public static void combine(LongState count, DoubleState sum, LongState otherCount, DoubleState otherSum)
     {
-        count.setLong(count.getLong() + otherCount.getLong());
-        sum.setDouble(sum.getDouble() + otherSum.getDouble());
+        count.setValue(count.getValue() + otherCount.getValue());
+        sum.setValue(sum.getValue() + otherSum.getValue());
     }
 
     public static void output(LongState count, DoubleState sum, BlockBuilder out)
     {
-        if (count.getLong() == 0) {
+        if (count.getValue() == 0) {
             out.appendNull();
         }
         else {
-            REAL.writeLong(out, floatToIntBits((float) (sum.getDouble() / count.getLong())));
+            REAL.writeLong(out, floatToIntBits((float) (sum.getValue() / count.getValue())));
         }
     }
 }
