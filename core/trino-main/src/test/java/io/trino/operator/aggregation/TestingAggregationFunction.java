@@ -15,6 +15,7 @@ package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.AggregationFunctionMetadata;
+import io.trino.metadata.BoundSignature;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.TypeSignature;
@@ -33,10 +34,12 @@ public class TestingAggregationFunction
 
     private final InternalAggregationFunction function;
     private final List<TypeSignature> intermediateTypes;
+    private final Type finalType;
 
-    public TestingAggregationFunction(AggregationFunctionMetadata aggregationFunctionMetadata, InternalAggregationFunction function)
+    public TestingAggregationFunction(BoundSignature signature, AggregationFunctionMetadata aggregationFunctionMetadata, InternalAggregationFunction function)
     {
         this.intermediateTypes = requireNonNull(aggregationFunctionMetadata, "aggregationFunctionMetadata is null").getIntermediateTypes();
+        this.finalType = signature.getReturnType();
         this.function = requireNonNull(function, "function is null");
     }
 
@@ -57,7 +60,7 @@ public class TestingAggregationFunction
 
     public Type getFinalType()
     {
-        return function.getFinalType();
+        return finalType;
     }
 
     public AccumulatorFactory bind(List<Integer> inputChannels, Optional<Integer> maskChannel)
