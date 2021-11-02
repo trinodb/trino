@@ -29,9 +29,9 @@ import io.trino.metadata.Signature;
 import io.trino.metadata.SqlAggregationFunction;
 import io.trino.operator.aggregation.AggregationImplementation;
 import io.trino.operator.aggregation.ParametricAggregation;
+import io.trino.operator.aggregation.state.LongState;
 import io.trino.operator.aggregation.state.NullableDoubleState;
 import io.trino.operator.aggregation.state.NullableLongState;
-import io.trino.operator.aggregation.state.SliceState;
 import io.trino.operator.aggregation.state.TriStateBooleanState;
 import io.trino.operator.aggregation.state.VarianceState;
 import io.trino.operator.annotations.LiteralImplementationDependency;
@@ -819,7 +819,7 @@ public class TestAnnotationEngineForAggregates
         @LiteralParameters("x")
         public static void input(
                 @LiteralParameter("x") Long varcharSize,
-                @AggregationState SliceState state,
+                @AggregationState LongState state,
                 @SqlType("varchar(x)") Slice slice)
         {
             // noop this is only for annotation testing puproses
@@ -828,8 +828,8 @@ public class TestAnnotationEngineForAggregates
         @CombineFunction
         public static void combine(
                 @LiteralParameter("x") Long varcharSize,
-                @AggregationState SliceState combine1,
-                @AggregationState SliceState combine2)
+                @AggregationState LongState combine1,
+                @AggregationState LongState combine2)
         {
             // noop this is only for annotation testing puproses
         }
@@ -837,7 +837,7 @@ public class TestAnnotationEngineForAggregates
         @OutputFunction("varchar(x)")
         public static void output(
                 @LiteralParameter("x") Long varcharSize,
-                @AggregationState SliceState state,
+                @AggregationState LongState state,
                 BlockBuilder out)
         {
             // noop this is only for annotation testing puproses
@@ -885,7 +885,7 @@ public class TestAnnotationEngineForAggregates
         @LiteralParameters({"x", "y", "z"})
         @Constraint(variable = "z", expression = "x + y")
         public static void input(
-                @AggregationState SliceState state,
+                @AggregationState LongState state,
                 @SqlType("varchar(x)") Slice slice1,
                 @SqlType("varchar(y)") Slice slice2)
         {
@@ -894,15 +894,15 @@ public class TestAnnotationEngineForAggregates
 
         @CombineFunction
         public static void combine(
-                @AggregationState SliceState combine1,
-                @AggregationState SliceState combine2)
+                @AggregationState LongState combine1,
+                @AggregationState LongState combine2)
         {
             // noop this is only for annotation testing puproses
         }
 
         @OutputFunction("varchar(z)")
         public static void output(
-                @AggregationState SliceState state,
+                @AggregationState LongState state,
                 BlockBuilder out)
         {
             // noop this is only for annotation testing puproses
