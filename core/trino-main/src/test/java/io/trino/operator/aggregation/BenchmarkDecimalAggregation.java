@@ -21,6 +21,7 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Type;
 import io.trino.spi.type.UnscaledDecimal128Arithmetic;
 import io.trino.sql.tree.QualifiedName;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -73,7 +74,7 @@ public class BenchmarkDecimalAggregation
     {
         GroupedAccumulator accumulator = data.getAccumulatorFactory().createGroupedAccumulator();
         accumulator.addInput(data.getGroupIds(), data.getValues());
-        BlockBuilder builder = accumulator.getIntermediateType().createBlockBuilder(null, data.getGroupCount());
+        BlockBuilder builder = data.getIntermediateType().createBlockBuilder(null, data.getGroupCount());
         for (int groupId = 0; groupId < data.getGroupCount(); groupId++) {
             accumulator.evaluateIntermediate(groupId, builder);
         }
@@ -87,7 +88,7 @@ public class BenchmarkDecimalAggregation
         // Add the intermediate input multiple times to invoke the combine behavior
         accumulator.addIntermediate(data.getGroupIds(), data.getIntermediateValues());
         accumulator.addIntermediate(data.getGroupIds(), data.getIntermediateValues());
-        BlockBuilder builder = accumulator.getFinalType().createBlockBuilder(null, data.getGroupCount());
+        BlockBuilder builder = data.getFinalType().createBlockBuilder(null, data.getGroupCount());
         for (int groupId = 0; groupId < data.getGroupCount(); groupId++) {
             accumulator.evaluateFinal(groupId, builder);
         }
@@ -108,6 +109,8 @@ public class BenchmarkDecimalAggregation
 
         private AccumulatorFactory factory;
         private GroupedAccumulator accumulator;
+        private Type intermediateType;
+        private Type finalType;
         private GroupByIdBlock groupIds;
         private Page values;
         private Block intermediateValues;
@@ -141,7 +144,7 @@ public class BenchmarkDecimalAggregation
         private Block createIntermediateValues(GroupedAccumulator accumulator, GroupByIdBlock groupIds, Page inputPage)
         {
             accumulator.addInput(groupIds, inputPage);
-            BlockBuilder builder = accumulator.getIntermediateType().createBlockBuilder(null, toIntExact(groupIds.getGroupCount()));
+            BlockBuilder builder = intermediateType.createBlockBuilder(null, toIntExact(groupIds.getGroupCount()));
             for (int groupId = 0; groupId < groupIds.getGroupCount(); groupId++) {
                 accumulator.evaluateIntermediate(groupId, builder);
             }
@@ -153,6 +156,8 @@ public class BenchmarkDecimalAggregation
             TestingAggregationFunction implementation = functionResolution.getAggregateFunction(QualifiedName.of(function), fromTypes(type));
             factory = implementation.bind(ImmutableList.of(0), Optional.empty());
             accumulator = factory.createGroupedAccumulator();
+            intermediateType = implementation.getIntermediateType();
+            finalType = implementation.getFinalType();
 
             BlockBuilder builder = type.createBlockBuilder(null, ELEMENT_COUNT);
             for (int i = 0; i < ELEMENT_COUNT; i++) {
@@ -169,6 +174,16 @@ public class BenchmarkDecimalAggregation
         public GroupedAccumulator getAccumulator()
         {
             return accumulator;
+        }
+
+        public Type getIntermediateType()
+        {
+            return intermediateType;
+        }
+
+        public Type getFinalType()
+        {
+            return finalType;
         }
 
         public Page getValues()

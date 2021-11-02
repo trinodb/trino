@@ -62,7 +62,7 @@ public class TestLearnAggregations
         TestingAggregationFunction aggregationFunction = FUNCTION_RESOLUTION.getAggregateFunction(
                 QualifiedName.of("learn_classifier"),
                 fromTypeSignatures(BIGINT.getTypeSignature(), mapType(BIGINT.getTypeSignature(), DOUBLE.getTypeSignature())));
-        assertLearnClassifer(aggregationFunction.bind(ImmutableList.of(0, 1), Optional.empty()).createAccumulator());
+        assertLearnClassifier(aggregationFunction.getFinalType(), aggregationFunction.bind(ImmutableList.of(0, 1), Optional.empty()).createAccumulator());
     }
 
     @Test
@@ -71,16 +71,16 @@ public class TestLearnAggregations
         TestingAggregationFunction aggregationFunction = FUNCTION_RESOLUTION.getAggregateFunction(
                 QualifiedName.of("learn_libsvm_classifier"),
                 fromTypeSignatures(BIGINT.getTypeSignature(), mapType(BIGINT.getTypeSignature(), DOUBLE.getTypeSignature()), VARCHAR.getTypeSignature()));
-        assertLearnClassifer(aggregationFunction.bind(ImmutableList.of(0, 1, 2), Optional.empty()).createAccumulator());
+        assertLearnClassifier(aggregationFunction.getFinalType(), aggregationFunction.bind(ImmutableList.of(0, 1, 2), Optional.empty()).createAccumulator());
     }
 
-    private static void assertLearnClassifer(Accumulator accumulator)
+    private static void assertLearnClassifier(Type finalType, Accumulator accumulator)
     {
         accumulator.addInput(getPage());
-        BlockBuilder finalOut = accumulator.getFinalType().createBlockBuilder(null, 1);
+        BlockBuilder finalOut = finalType.createBlockBuilder(null, 1);
         accumulator.evaluateFinal(finalOut);
         Block block = finalOut.build();
-        Slice slice = accumulator.getFinalType().getSlice(block, 0);
+        Slice slice = finalType.getSlice(block, 0);
         Model deserialized = ModelUtils.deserialize(slice);
         assertNotNull(deserialized, "deserialization failed");
         assertTrue(deserialized instanceof Classifier, "deserialized model is not a classifier");

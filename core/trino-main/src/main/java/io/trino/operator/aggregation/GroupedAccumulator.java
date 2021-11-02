@@ -17,15 +17,10 @@ import io.trino.operator.GroupByIdBlock;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.type.Type;
 
 public interface GroupedAccumulator
 {
     long getEstimatedSize();
-
-    Type getFinalType();
-
-    Type getIntermediateType();
 
     void addInput(GroupByIdBlock groupIdsBlock, Page page);
 

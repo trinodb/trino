@@ -16,6 +16,7 @@ package io.trino.operator.aggregation;
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionNullability;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinCompiler;
@@ -24,6 +25,8 @@ import io.trino.type.BlockTypeOperators;
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 
 public class TestingAggregationFunction
@@ -32,11 +35,16 @@ public class TestingAggregationFunction
 
     private final InternalAggregationFunction function;
     private final List<Type> parameterTypes;
+    private final Type intermediateType;
     private final Type finalType;
 
     public TestingAggregationFunction(BoundSignature signature, FunctionNullability functionNullability, AggregationMetadata aggregationMetadata)
     {
         this.parameterTypes = signature.getArgumentTypes();
+        List<Type> intermediateTypes = aggregationMetadata.getAccumulatorStateDescriptors().stream()
+                .map(stateDescriptor -> stateDescriptor.getSerializer().getSerializedType())
+                .collect(toImmutableList());
+        intermediateType = (intermediateTypes.size() == 1) ? getOnlyElement(intermediateTypes) : RowType.anonymous(intermediateTypes);
         this.finalType = signature.getReturnType();
         this.function = new InternalAggregationFunction(signature, aggregationMetadata, functionNullability);
     }
@@ -49,6 +57,11 @@ public class TestingAggregationFunction
     public List<Type> getParameterTypes()
     {
         return parameterTypes;
+    }
+
+    public Type getIntermediateType()
+    {
+        return intermediateType;
     }
 
     public Type getFinalType()
