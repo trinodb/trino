@@ -16,6 +16,7 @@ package io.trino.operator.aggregation;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
+import io.airlift.slice.Slice;
 import io.trino.metadata.AggregationFunctionMetadata;
 import io.trino.metadata.FunctionArgumentDefinition;
 import io.trino.metadata.FunctionBinding;
@@ -31,6 +32,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateSerializer;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 
@@ -50,13 +52,14 @@ import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadat
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static io.trino.operator.aggregation.AggregationUtils.generateAggregationName;
-import static io.trino.spi.type.Decimals.writeBigDecimal;
 import static io.trino.spi.type.Decimals.writeShortDecimal;
 import static io.trino.spi.type.TypeSignatureParameter.typeVariable;
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.SIGN_LONG_MASK;
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.UNSCALED_DECIMAL_128_SLICE_LENGTH;
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.addWithOverflow;
+import static io.trino.spi.type.UnscaledDecimal128Arithmetic.divideRoundUp;
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimalToBigInteger;
+import static io.trino.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimalToUnscaledLong;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.util.Reflection.methodHandle;
 import static java.math.BigDecimal.ROUND_HALF_UP;
@@ -228,7 +231,7 @@ public class DecimalAverageAggregation
             out.appendNull();
         }
         else {
-            writeShortDecimal(out, average(state, type).unscaledValue().longValueExact());
+            writeShortDecimal(out, unscaledDecimalToUnscaledLong(average(state, type)));
         }
     }
 
@@ -238,22 +241,23 @@ public class DecimalAverageAggregation
             out.appendNull();
         }
         else {
-            writeBigDecimal(type, out, average(state, type));
+            type.writeSlice(out, average(state, type));
         }
     }
 
     @VisibleForTesting
-    public static BigDecimal average(LongDecimalWithOverflowAndLongState state, DecimalType type)
+    public static Slice average(LongDecimalWithOverflowAndLongState state, DecimalType type)
     {
         long[] decimal = state.getDecimalArray();
         int offset = state.getDecimalArrayOffset();
-        BigDecimal sum = new BigDecimal(unscaledDecimalToBigInteger(decimal[offset], decimal[offset + 1]), type.getScale());
-        BigDecimal count = BigDecimal.valueOf(state.getLong());
 
         long overflow = state.getOverflow();
         if (overflow != 0) {
+            BigDecimal sum = new BigDecimal(unscaledDecimalToBigInteger(decimal[offset], decimal[offset + 1]), type.getScale());
+            BigDecimal count = BigDecimal.valueOf(state.getLong());
             sum = sum.add(new BigDecimal(OVERFLOW_MULTIPLIER.multiply(BigInteger.valueOf(overflow))));
+            return Decimals.encodeScaledValue(sum.divide(count, type.getScale(), ROUND_HALF_UP), type.getScale());
         }
-        return sum.divide(count, type.getScale(), ROUND_HALF_UP);
+        return divideRoundUp(decimal[offset], decimal[offset + 1], 0, state.getLong(), 0);
     }
 }
