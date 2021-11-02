@@ -149,10 +149,16 @@ public class AggregateWindowFunction
     public static WindowFunctionSupplier supplier(Signature signature, InternalAggregationFunction function)
     {
         requireNonNull(function, "function is null");
-        return new AbstractWindowFunctionSupplier(signature, null, function.getLambdaInterfaces())
+        return new WindowFunctionSupplier()
         {
             @Override
-            protected WindowFunction newWindowFunction(List<Integer> inputs, boolean ignoreNulls, List<LambdaProvider> lambdaProviders)
+            public List<Class<?>> getLambdaInterfaces()
+            {
+                return function.getLambdaInterfaces();
+            }
+
+            @Override
+            public WindowFunction createWindowFunction(List<Integer> inputs, boolean ignoreNulls, List<LambdaProvider> lambdaProviders)
             {
                 return new AggregateWindowFunction(function, inputs, lambdaProviders);
             }
