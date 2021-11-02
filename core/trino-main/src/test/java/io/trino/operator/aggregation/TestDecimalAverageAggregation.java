@@ -13,6 +13,7 @@
  */
 package io.trino.operator.aggregation;
 
+import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongState;
@@ -22,20 +23,30 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.UnscaledDecimal128Arithmetic;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.math.MathContext;
+import java.util.List;
 
 import static io.trino.operator.aggregation.DecimalAverageAggregation.average;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
+import static io.trino.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimalToBigInteger;
+import static java.math.BigInteger.ONE;
+import static java.math.BigInteger.TEN;
+import static java.math.BigInteger.ZERO;
+import static java.math.RoundingMode.HALF_UP;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
 public class TestDecimalAverageAggregation
 {
     private static final BigInteger TWO = new BigInteger("2");
+    private static final BigInteger ONE_HUNDRED = new BigInteger("100");
+    private static final BigInteger TWO_HUNDRED = new BigInteger("200");
     private static final DecimalType TYPE = createDecimalType(38, 0);
 
     private LongDecimalWithOverflowAndLongState state;
@@ -61,7 +72,7 @@ public class TestDecimalAverageAggregation
         assertEquals(state.getOverflow(), 1);
         assertEquals(getDecimalSlice(state), unscaledDecimal(0));
 
-        assertEquals(average(state, TYPE), new BigDecimal(TWO.pow(126)));
+        assertAverageEquals(TWO.pow(126));
     }
 
     @Test
@@ -79,7 +90,7 @@ public class TestDecimalAverageAggregation
         assertEquals(state.getOverflow(), -1);
         assertEquals(UnscaledDecimal128Arithmetic.compare(getDecimalSlice(state), unscaledDecimal(0)), 0);
 
-        assertEquals(average(state, TYPE), new BigDecimal(TWO.pow(126).negate()));
+        assertAverageEquals(TWO.pow(126).negate());
     }
 
     @Test
@@ -99,7 +110,7 @@ public class TestDecimalAverageAggregation
         assertEquals(state.getOverflow(), 0);
         assertEquals(getDecimalSlice(state), unscaledDecimal(TWO.pow(125).negate()));
 
-        assertEquals(average(state, TYPE), new BigDecimal(TWO.pow(125).negate().divide(BigInteger.valueOf(6))));
+        assertAverageEquals(TWO.pow(125).negate().divide(BigInteger.valueOf(6)));
     }
 
     @Test
@@ -125,7 +136,7 @@ public class TestDecimalAverageAggregation
                 .add(TWO.pow(125))
                 .divide(BigInteger.valueOf(4));
 
-        assertEquals(average(state, TYPE), new BigDecimal(expectedAverage));
+        assertAverageEquals(expectedAverage);
     }
 
     @Test
@@ -152,14 +163,77 @@ public class TestDecimalAverageAggregation
                 .negate()
                 .divide(BigInteger.valueOf(4));
 
-        assertEquals(average(state, TYPE), new BigDecimal(expectedAverage));
+        assertAverageEquals(expectedAverage);
+    }
+
+    @Test(dataProvider = "testNoOverflowDataProvider")
+    public void testNoOverflow(List<BigInteger> numbers)
+    {
+        testNoOverflow(createDecimalType(38, 0), numbers);
+        testNoOverflow(createDecimalType(38, 2), numbers);
+    }
+
+    private void testNoOverflow(DecimalType type, List<BigInteger> numbers)
+    {
+        LongDecimalWithOverflowAndLongState state = new LongDecimalWithOverflowAndLongStateFactory().createSingleState();
+        for (BigInteger number : numbers) {
+            addToState(type, state, number);
+        }
+
+        assertEquals(state.getOverflow(), 0);
+        BigInteger sum = numbers.stream().reduce(BigInteger.ZERO, BigInteger::add);
+        assertEquals(getDecimalSlice(state), unscaledDecimal(sum));
+
+        BigDecimal expectedAverage = new BigDecimal(sum, type.getScale()).divide(BigDecimal.valueOf(numbers.size()), type.getScale(), HALF_UP);
+        assertEquals(decodeBigDecimal(type, average(state, type)), expectedAverage);
+    }
+
+    @DataProvider
+    public static Object[][] testNoOverflowDataProvider()
+    {
+        return new Object[][] {
+                {ImmutableList.of(TEN.pow(37), ZERO)},
+                {ImmutableList.of(TEN.pow(37).negate(), ZERO)},
+                {ImmutableList.of(TWO, ONE)},
+                {ImmutableList.of(ZERO, ONE)},
+                {ImmutableList.of(TWO.negate(), ONE.negate())},
+                {ImmutableList.of(ONE.negate(), ZERO)},
+                {ImmutableList.of(ONE.negate(), ZERO, ZERO)},
+                {ImmutableList.of(TWO.negate(), ZERO, ZERO)},
+                {ImmutableList.of(TWO.negate(), ZERO)},
+                {ImmutableList.of(TWO_HUNDRED, ONE_HUNDRED)},
+                {ImmutableList.of(ZERO, ONE_HUNDRED)},
+                {ImmutableList.of(TWO_HUNDRED.negate(), ONE_HUNDRED.negate())},
+                {ImmutableList.of(ONE_HUNDRED.negate(), ZERO)}
+        };
+    }
+
+    private static BigDecimal decodeBigDecimal(DecimalType type, Slice average)
+    {
+        BigInteger unscaledVal = unscaledDecimalToBigInteger(average);
+        return new BigDecimal(unscaledVal, type.getScale(), new MathContext(type.getPrecision()));
+    }
+
+    private void assertAverageEquals(BigInteger expectedAverage)
+    {
+        assertAverageEquals(expectedAverage, TYPE);
+    }
+
+    private void assertAverageEquals(BigInteger expectedAverage, DecimalType type)
+    {
+        assertEquals(unscaledDecimalToBigInteger(average(state, type)), expectedAverage);
     }
 
     private static void addToState(LongDecimalWithOverflowAndLongState state, BigInteger value)
     {
-        BlockBuilder blockBuilder = TYPE.createFixedSizeBlockBuilder(1);
-        TYPE.writeSlice(blockBuilder, unscaledDecimal(value));
-        if (TYPE.isShort()) {
+        addToState(TYPE, state, value);
+    }
+
+    private static void addToState(DecimalType type, LongDecimalWithOverflowAndLongState state, BigInteger value)
+    {
+        BlockBuilder blockBuilder = type.createFixedSizeBlockBuilder(1);
+        type.writeSlice(blockBuilder, unscaledDecimal(value));
+        if (type.isShort()) {
             DecimalAverageAggregation.inputShortDecimal(state, blockBuilder.build(), 0);
         }
         else {
