@@ -2586,6 +2586,7 @@ public final class MetadataManager
                 functionBinding.getBoundSignature(),
                 functionBinding.getFunctionId(),
                 functionMetadata.getKind(),
+                functionMetadata.isDeterministic(),
                 functionMetadata.getFunctionNullability(),
                 dependentTypes,
                 functions.build());
