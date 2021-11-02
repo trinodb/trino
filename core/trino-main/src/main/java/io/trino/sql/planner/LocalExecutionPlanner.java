@@ -40,6 +40,7 @@ import io.trino.execution.TaskManagerConfig;
 import io.trino.execution.buffer.OutputBuffer;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.index.IndexManager;
+import io.trino.metadata.FunctionKind;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableExecuteHandle;
@@ -298,6 +299,7 @@ import static io.trino.operator.join.JoinUtils.isBuildSideReplicated;
 import static io.trino.operator.join.NestedLoopBuildOperator.NestedLoopBuildOperatorFactory;
 import static io.trino.operator.join.NestedLoopJoinOperator.NestedLoopJoinOperatorFactory;
 import static io.trino.operator.unnest.UnnestOperator.UnnestOperatorFactory;
+import static io.trino.operator.window.AggregateWindowFunction.supplier;
 import static io.trino.operator.window.pattern.PhysicalValuePointer.CLASSIFIER;
 import static io.trino.operator.window.pattern.PhysicalValuePointer.MATCH_NUMBER;
 import static io.trino.spi.StandardErrorCode.COMPILER_ERROR;
@@ -1096,7 +1098,7 @@ public class LocalExecutionPlanner
                     }
                 }
                 Symbol symbol = entry.getKey();
-                WindowFunctionSupplier windowFunctionSupplier = metadata.getWindowFunctionImplementation(resolvedFunction);
+                WindowFunctionSupplier windowFunctionSupplier = getWindowFunctionImplementation(resolvedFunction);
                 Type type = resolvedFunction.getSignature().getReturnType();
 
                 List<LambdaExpression> lambdaExpressions = function.getArguments().stream()
@@ -1148,6 +1150,15 @@ public class LocalExecutionPlanner
                     new RegularPartitionerSupplier());
 
             return new PhysicalOperation(operatorFactory, outputMappings.build(), context, source);
+        }
+
+        private WindowFunctionSupplier getWindowFunctionImplementation(ResolvedFunction resolvedFunction)
+        {
+            if (resolvedFunction.getFunctionKind() == FunctionKind.AGGREGATE) {
+                InternalAggregationFunction aggregateFunctionImplementation = metadata.getAggregateFunctionImplementation(resolvedFunction);
+                return supplier(resolvedFunction.getSignature().toSignature(), aggregateFunctionImplementation);
+            }
+            return metadata.getWindowFunctionImplementation(resolvedFunction);
         }
 
         @Override
@@ -1222,7 +1233,7 @@ public class LocalExecutionPlanner
                         arguments.add(source.getLayout().get(argumentSymbol));
                     }
                 }
-                WindowFunctionSupplier windowFunctionSupplier = metadata.getWindowFunctionImplementation(resolvedFunction);
+                WindowFunctionSupplier windowFunctionSupplier = getWindowFunctionImplementation(resolvedFunction);
                 Type type = resolvedFunction.getSignature().getReturnType();
 
                 List<LambdaExpression> lambdaExpressions = function.getArguments().stream()
