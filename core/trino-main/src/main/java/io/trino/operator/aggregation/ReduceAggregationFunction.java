@@ -178,8 +178,7 @@ public class ReduceAggregationFunction
     public static void combine(GenericLongState state, GenericLongState otherState, BinaryFunctionInterface inputFunction, BinaryFunctionInterface combineFunction)
     {
         if (state.isNull()) {
-            state.setNull(false);
-            state.setValue(otherState.getValue());
+            state.set(otherState);
             return;
         }
         state.setValue((long) combineFunction.apply(state.getValue(), otherState.getValue()));
@@ -188,8 +187,7 @@ public class ReduceAggregationFunction
     public static void combine(GenericDoubleState state, GenericDoubleState otherState, BinaryFunctionInterface inputFunction, BinaryFunctionInterface combineFunction)
     {
         if (state.isNull()) {
-            state.setNull(false);
-            state.setValue(otherState.getValue());
+            state.set(otherState);
             return;
         }
         state.setValue((double) combineFunction.apply(state.getValue(), otherState.getValue()));
@@ -198,8 +196,7 @@ public class ReduceAggregationFunction
     public static void combine(GenericBooleanState state, GenericBooleanState otherState, BinaryFunctionInterface inputFunction, BinaryFunctionInterface combineFunction)
     {
         if (state.isNull()) {
-            state.setNull(false);
-            state.setValue(otherState.getValue());
+            state.set(otherState);
             return;
         }
         state.setValue((boolean) combineFunction.apply(state.getValue(), otherState.getValue()));

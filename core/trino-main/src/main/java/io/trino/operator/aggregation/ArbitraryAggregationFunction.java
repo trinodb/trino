@@ -190,8 +190,7 @@ public class ArbitraryAggregationFunction
         if (!state.isNull()) {
             return;
         }
-        state.setNull(false);
-        state.setValue(otherState.getValue());
+        state.set(otherState);
     }
 
     public static void combine(GenericDoubleState state, GenericDoubleState otherState)
@@ -199,8 +198,7 @@ public class ArbitraryAggregationFunction
         if (!state.isNull()) {
             return;
         }
-        state.setNull(false);
-        state.setValue(otherState.getValue());
+        state.set(otherState);
     }
 
     public static void combine(GenericBooleanState state, GenericBooleanState otherState)
@@ -208,8 +206,7 @@ public class ArbitraryAggregationFunction
         if (!state.isNull()) {
             return;
         }
-        state.setNull(false);
-        state.setValue(otherState.getValue());
+        state.set(otherState);
     }
 
     public static void combine(BlockPositionState state, BlockPositionState otherState)
@@ -217,7 +214,6 @@ public class ArbitraryAggregationFunction
         if (state.getBlock() != null) {
             return;
         }
-        state.setBlock(otherState.getBlock());
-        state.setPosition(otherState.getPosition());
+        state.set(otherState);
     }
 }

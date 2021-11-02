@@ -45,8 +45,7 @@ public final class BitwiseAndAggregation
     public static void combine(@AggregationState NullableLongState state, @AggregationState NullableLongState otherState)
     {
         if (state.isNull()) {
-            state.setNull(otherState.isNull());
-            state.setValue(otherState.getValue());
+            state.set(otherState);
         }
         else if (!otherState.isNull()) {
             state.setValue(state.getValue() & otherState.getValue());

@@ -41,8 +41,7 @@ public final class IntervalDayToSecondSumAggregation
     public static void combine(NullableLongState state, NullableLongState otherState)
     {
         if (state.isNull()) {
-            state.setNull(false);
-            state.setValue(otherState.getValue());
+            state.set(otherState);
             return;
         }
 

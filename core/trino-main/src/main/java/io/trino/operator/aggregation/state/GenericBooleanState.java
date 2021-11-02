@@ -31,6 +31,12 @@ public interface GenericBooleanState
 
     void setNull(boolean value);
 
+    default void set(GenericBooleanState state)
+    {
+        setValue(state.getValue());
+        setNull(state.isNull());
+    }
+
     static void write(Type type, GenericBooleanState state, BlockBuilder out)
     {
         if (state.isNull()) {

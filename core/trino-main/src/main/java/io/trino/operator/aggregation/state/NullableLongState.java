@@ -32,6 +32,12 @@ public interface NullableLongState
 
     void setNull(boolean value);
 
+    default void set(NullableLongState state)
+    {
+        setValue(state.getValue());
+        setNull(state.isNull());
+    }
+
     static void write(Type type, NullableLongState state, BlockBuilder out)
     {
         if (state.isNull()) {

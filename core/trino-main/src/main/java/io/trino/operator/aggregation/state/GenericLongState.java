@@ -31,6 +31,12 @@ public interface GenericLongState
 
     void setNull(boolean value);
 
+    default void set(GenericLongState state)
+    {
+        setValue(state.getValue());
+        setNull(state.isNull());
+    }
+
     static void write(Type type, GenericLongState state, BlockBuilder out)
     {
         if (state.isNull()) {
