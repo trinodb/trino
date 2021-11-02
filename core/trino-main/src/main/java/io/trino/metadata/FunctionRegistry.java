@@ -343,7 +343,6 @@ import static io.trino.operator.scalar.RowToRowCast.ROW_TO_ROW_CAST;
 import static io.trino.operator.scalar.TryCastFunction.TRY_CAST;
 import static io.trino.operator.scalar.ZipFunction.ZIP_FUNCTIONS;
 import static io.trino.operator.scalar.ZipWithFunction.ZIP_WITH_FUNCTION;
-import static io.trino.operator.window.AggregateWindowFunction.supplier;
 import static io.trino.type.DecimalCasts.BIGINT_TO_DECIMAL_CAST;
 import static io.trino.type.DecimalCasts.BOOLEAN_TO_DECIMAL_CAST;
 import static io.trino.type.DecimalCasts.DECIMAL_TO_BIGINT_CAST;
@@ -838,12 +837,7 @@ public class FunctionRegistry
 
     public WindowFunctionSupplier getWindowFunctionImplementation(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
-        SqlFunction function = functions.get(functionId);
         try {
-            if (function instanceof SqlAggregationFunction) {
-                InternalAggregationFunction aggregationFunction = specializedAggregationCache.get(new FunctionKey(functionId, boundSignature), () -> specializedAggregation(functionId, boundSignature, functionDependencies));
-                return supplier(function.getFunctionMetadata().getSignature(), aggregationFunction);
-            }
             return specializedWindowCache.get(new FunctionKey(functionId, boundSignature), () -> specializeWindow(functionId, boundSignature, functionDependencies));
         }
         catch (ExecutionException | UncheckedExecutionException e) {
