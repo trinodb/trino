@@ -96,6 +96,7 @@ import io.trino.operator.WindowFunctionDefinition;
 import io.trino.operator.WindowOperator.WindowOperatorFactory;
 import io.trino.operator.WorkProcessorPipelineSourceOperator;
 import io.trino.operator.aggregation.AccumulatorFactory;
+import io.trino.operator.aggregation.AggregationMetadata;
 import io.trino.operator.aggregation.InternalAggregationFunction;
 import io.trino.operator.aggregation.LambdaProvider;
 import io.trino.operator.exchange.LocalExchange.LocalExchangeFactory;
@@ -1155,7 +1156,8 @@ public class LocalExecutionPlanner
         private WindowFunctionSupplier getWindowFunctionImplementation(ResolvedFunction resolvedFunction)
         {
             if (resolvedFunction.getFunctionKind() == FunctionKind.AGGREGATE) {
-                InternalAggregationFunction aggregateFunctionImplementation = metadata.getAggregateFunctionImplementation(resolvedFunction);
+                AggregationMetadata aggregationMetadata = metadata.getAggregateFunctionImplementation(resolvedFunction);
+                InternalAggregationFunction aggregateFunctionImplementation = new InternalAggregationFunction(resolvedFunction.getSignature(), aggregationMetadata);
                 return supplier(resolvedFunction.getSignature().toSignature(), aggregateFunctionImplementation);
             }
             return metadata.getWindowFunctionImplementation(resolvedFunction);
@@ -1495,7 +1497,7 @@ public class LocalExecutionPlanner
 
                     boolean classifierInvolved = false;
 
-                    InternalAggregationFunction internalAggregationFunction = metadata.getAggregateFunctionImplementation(pointer.getFunction());
+                    AggregationMetadata aggregationMetadata = metadata.getAggregateFunctionImplementation(pointer.getFunction());
 
                     ImmutableList.Builder<Map.Entry<Expression, Type>> builder = ImmutableList.builder();
                     List<Type> signatureTypes = pointer.getFunction().getSignature().getArgumentTypes();
@@ -1517,7 +1519,7 @@ public class LocalExecutionPlanner
                             .collect(toImmutableList());
 
                     // TODO when we support lambda arguments: lambda cannot have runtime-evaluated symbols -- add check in the Analyzer
-                    List<LambdaProvider> lambdaProviders = makeLambdaProviders(lambdaExpressions, internalAggregationFunction.getLambdaInterfaces(), functionTypes);
+                    List<LambdaProvider> lambdaProviders = makeLambdaProviders(lambdaExpressions, aggregationMetadata.getLambdaInterfaces(), functionTypes);
 
                     // handle non-lambda arguments
                     List<Integer> valueChannels = new ArrayList<>();
@@ -1562,7 +1564,7 @@ public class LocalExecutionPlanner
 
                     matchAggregations.add(new MatchAggregationInstantiator(
                             pointer.getFunction().getSignature().getName(),
-                            internalAggregationFunction,
+                            new InternalAggregationFunction(pointer.getFunction().getSignature(), aggregationMetadata),
                             valueChannels,
                             lambdaProviders,
                             new SetEvaluatorSupplier(pointer.getSetDescriptor(), mapping)));
@@ -3526,7 +3528,8 @@ public class LocalExecutionPlanner
                 PhysicalOperation source,
                 Aggregation aggregation)
         {
-            InternalAggregationFunction internalAggregationFunction = metadata.getAggregateFunctionImplementation(aggregation.getResolvedFunction());
+            AggregationMetadata aggregationMetadata = metadata.getAggregateFunctionImplementation(aggregation.getResolvedFunction());
+            InternalAggregationFunction internalAggregationFunction = new InternalAggregationFunction(aggregation.getResolvedFunction().getSignature(), aggregationMetadata);
 
             List<Integer> valueChannels = new ArrayList<>();
             for (Expression argument : aggregation.getArguments()) {
