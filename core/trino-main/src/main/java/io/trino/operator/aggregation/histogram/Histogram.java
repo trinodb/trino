@@ -87,7 +87,7 @@ public class Histogram
         return new AggregationMetadata(
                 inputFunction,
                 Optional.empty(),
-                COMBINE_FUNCTION,
+                Optional.of(COMBINE_FUNCTION),
                 outputFunction,
                 ImmutableList.of(new AccumulatorStateDescriptor<>(
                         HistogramState.class,

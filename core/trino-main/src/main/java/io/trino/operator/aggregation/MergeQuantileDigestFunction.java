@@ -87,7 +87,7 @@ public final class MergeQuantileDigestFunction
         return new AggregationMetadata(
                 INPUT_FUNCTION.bindTo(outputType),
                 Optional.empty(),
-                COMBINE_FUNCTION,
+                Optional.of(COMBINE_FUNCTION),
                 OUTPUT_FUNCTION.bindTo(stateSerializer),
                 ImmutableList.of(new AccumulatorStateDescriptor<>(
                         QuantileDigestState.class,

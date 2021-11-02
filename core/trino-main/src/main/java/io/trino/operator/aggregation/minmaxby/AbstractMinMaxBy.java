@@ -109,7 +109,7 @@ public abstract class AbstractMinMaxBy
             return new AggregationMetadata(
                     inputMethod,
                     Optional.empty(),
-                    combineMethod,
+                    Optional.of(combineMethod),
                     outputMethod,
                     ImmutableList.of(
                             getAccumulatorStateDescriptor(keyType),

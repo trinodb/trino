@@ -100,7 +100,7 @@ public class MapAggregationFunction
         return new AggregationMetadata(
                 MethodHandles.insertArguments(INPUT_FUNCTION, 0, keyType, keyEqual, keyHashCode, valueType),
                 Optional.empty(),
-                COMBINE_FUNCTION,
+                Optional.of(COMBINE_FUNCTION),
                 OUTPUT_FUNCTION,
                 ImmutableList.of(new AccumulatorStateDescriptor<>(
                         KeyValuePairsState.class,

@@ -141,7 +141,7 @@ public class ReduceAggregationFunction
         return new AggregationMetadata(
                 inputMethodHandle,
                 Optional.empty(),
-                combineMethodHandle,
+                Optional.of(combineMethodHandle),
                 outputMethodHandle,
                 ImmutableList.of(stateDescriptor),
                 ImmutableList.of(BinaryFunctionInterface.class, BinaryFunctionInterface.class));

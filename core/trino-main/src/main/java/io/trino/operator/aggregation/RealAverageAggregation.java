@@ -88,7 +88,7 @@ public class RealAverageAggregation
         return new AggregationMetadata(
                 inputFunction,
                 Optional.of(removeFunction),
-                COMBINE_FUNCTION,
+                Optional.of(COMBINE_FUNCTION),
                 OUTPUT_FUNCTION,
                 ImmutableList.of(
                         new AccumulatorStateDescriptor<>(
