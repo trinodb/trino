@@ -122,6 +122,7 @@ import io.trino.sql.planner.iterative.rule.PruneSemiJoinFilteringSourceColumns;
 import io.trino.sql.planner.iterative.rule.PruneSortColumns;
 import io.trino.sql.planner.iterative.rule.PruneSpatialJoinChildrenColumns;
 import io.trino.sql.planner.iterative.rule.PruneSpatialJoinColumns;
+import io.trino.sql.planner.iterative.rule.PruneTableExecuteSourceColumns;
 import io.trino.sql.planner.iterative.rule.PruneTableScanColumns;
 import io.trino.sql.planner.iterative.rule.PruneTableWriterSourceColumns;
 import io.trino.sql.planner.iterative.rule.PruneTopNColumns;
@@ -356,6 +357,7 @@ public class PlanOptimizers
                 new PruneSortColumns(),
                 new PruneSpatialJoinChildrenColumns(),
                 new PruneSpatialJoinColumns(),
+                new PruneTableExecuteSourceColumns(),
                 new PruneTableScanColumns(metadata),
                 new PruneTableWriterSourceColumns(),
                 new PruneTopNColumns(),
