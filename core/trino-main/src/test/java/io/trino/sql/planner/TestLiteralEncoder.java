@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.BoundSignature;
+import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.LiteralFunction;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
@@ -87,12 +88,14 @@ public class TestLiteralEncoder
     private final ResolvedFunction literalFunction = new ResolvedFunction(
             new BoundSignature(LITERAL_FUNCTION_NAME, VARBINARY, ImmutableList.of(VARBINARY)),
             new LiteralFunction(metadata::getBlockEncodingSerde).getFunctionMetadata().getFunctionId(),
+            new FunctionNullability(false, ImmutableList.of(false)),
             ImmutableMap.of(),
             ImmutableSet.of());
 
     private final ResolvedFunction base64Function = new ResolvedFunction(
             new BoundSignature("from_base64", VARBINARY, ImmutableList.of(VARCHAR)),
             toFunctionId(new Signature("from_base64", VARBINARY.getTypeSignature(), ImmutableList.of(new TypeSignature("varchar", typeVariable("x"))))),
+            new FunctionNullability(false, ImmutableList.of(false)),
             ImmutableMap.of(),
             ImmutableSet.of());
 

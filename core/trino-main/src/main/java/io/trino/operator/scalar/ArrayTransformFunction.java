@@ -24,9 +24,9 @@ import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.ForLoop;
 import io.airlift.bytecode.control.IfStatement;
-import io.trino.metadata.FunctionArgumentDefinition;
 import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.PageBuilder;
@@ -85,10 +85,7 @@ public final class ArrayTransformFunction
                                 arrayType(new TypeSignature("T")),
                                 functionType(new TypeSignature("T"), new TypeSignature("U"))),
                         false),
-                false,
-                ImmutableList.of(
-                        new FunctionArgumentDefinition(false),
-                        new FunctionArgumentDefinition(false)),
+                new FunctionNullability(false, ImmutableList.of(false, false)),
                 false,
                 false,
                 "Apply lambda to each element of the array",

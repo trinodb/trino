@@ -27,9 +27,9 @@ import io.airlift.bytecode.control.ForLoop;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.control.TryCatch;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.metadata.FunctionArgumentDefinition;
 import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.ErrorCodeSupplier;
@@ -97,10 +97,7 @@ public final class MapTransformValuesFunction
                                 mapType(new TypeSignature("K"), new TypeSignature("V1")),
                                 functionType(new TypeSignature("K"), new TypeSignature("V1"), new TypeSignature("V2"))),
                         false),
-                false,
-                ImmutableList.of(
-                        new FunctionArgumentDefinition(false),
-                        new FunctionArgumentDefinition(false)),
+                new FunctionNullability(false, ImmutableList.of(false, false)),
                 false,
                 false,
                 "Apply lambda to each entry of the map and transform the value",

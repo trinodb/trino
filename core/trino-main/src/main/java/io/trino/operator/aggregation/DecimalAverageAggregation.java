@@ -18,9 +18,9 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.airlift.slice.Slice;
 import io.trino.metadata.AggregationFunctionMetadata;
-import io.trino.metadata.FunctionArgumentDefinition;
 import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlAggregationFunction;
 import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
@@ -89,8 +89,7 @@ public class DecimalAverageAggregation
                                 NAME,
                                 new TypeSignature("decimal", typeVariable("p"), typeVariable("s")),
                                 ImmutableList.of(new TypeSignature("decimal", typeVariable("p"), typeVariable("s")))),
-                        true,
-                        ImmutableList.of(new FunctionArgumentDefinition(false)),
+                        new FunctionNullability(true, ImmutableList.of(false)),
                         false,
                         true,
                         "Calculates the average value",

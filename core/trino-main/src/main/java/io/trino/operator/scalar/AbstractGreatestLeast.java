@@ -24,11 +24,11 @@ import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.airlift.bytecode.instruction.LabelNode;
-import io.trino.metadata.FunctionArgumentDefinition;
 import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.FunctionDependencies;
 import io.trino.metadata.FunctionDependencyDeclaration;
 import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.type.Type;
@@ -87,8 +87,7 @@ public abstract class AbstractGreatestLeast
                         new TypeSignature("E"),
                         ImmutableList.of(new TypeSignature("E")),
                         true),
-                true,
-                ImmutableList.of(new FunctionArgumentDefinition(true)),
+                new FunctionNullability(true, ImmutableList.of(true)),
                 false,
                 true,
                 description,

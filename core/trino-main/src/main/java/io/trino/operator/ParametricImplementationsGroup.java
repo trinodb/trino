@@ -15,7 +15,7 @@ package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.metadata.FunctionArgumentDefinition;
+import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.spi.type.TypeSignature;
 
@@ -48,8 +48,7 @@ public class ParametricImplementationsGroup<T extends ParametricImplementation>
     private final List<T> genericImplementations;
 
     private final Signature signature;
-    private final boolean nullable;
-    private final List<FunctionArgumentDefinition> argumentDefinitions;
+    private final FunctionNullability functionNullability;
 
     public ParametricImplementationsGroup(
             Map<Signature, T> exactImplementations,
@@ -68,25 +67,18 @@ public class ParametricImplementationsGroup<T extends ParametricImplementation>
                 .addAll(genericImplementations)
                 .build();
         checkArgument(!allImplementations.isEmpty(), "No implementations provided");
-        this.nullable = allImplementations.get(0).isNullable();
-        this.argumentDefinitions = allImplementations.get(0).getArgumentDefinitions();
+        this.functionNullability = allImplementations.get(0).getFunctionNullability();
 
-        checkArgument(allImplementations.stream().allMatch(choice -> choice.isNullable() == nullable), "all implementations must have the same nullable flag: %s", signature);
         checkArgument(
                 allImplementations.stream()
-                        .map(T::getArgumentDefinitions)
-                        .allMatch(argumentDefinitions::equals),
-                "all implementations must have the argument definitions: %s", signature);
+                        .map(T::getFunctionNullability)
+                        .allMatch(functionNullability::equals),
+                "all implementations must have the nullability: %s", signature);
     }
 
-    public boolean isNullable()
+    public FunctionNullability getFunctionNullability()
     {
-        return nullable;
-    }
-
-    public List<FunctionArgumentDefinition> getArgumentDefinitions()
-    {
-        return argumentDefinitions;
+        return functionNullability;
     }
 
     @SafeVarargs

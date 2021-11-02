@@ -13,10 +13,7 @@
  */
 package io.trino.metadata;
 
-import com.google.common.collect.ImmutableList;
-
-import java.util.List;
-
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class FunctionMetadata
@@ -24,8 +21,7 @@ public class FunctionMetadata
     private final FunctionId functionId;
     private final Signature signature;
     private final String canonicalName;
-    private final boolean nullable;
-    private final List<FunctionArgumentDefinition> argumentDefinitions;
+    private final FunctionNullability functionNullability;
     private final boolean hidden;
     private final boolean deterministic;
     private final String description;
@@ -34,8 +30,7 @@ public class FunctionMetadata
 
     public FunctionMetadata(
             Signature signature,
-            boolean nullable,
-            List<FunctionArgumentDefinition> argumentDefinitions,
+            FunctionNullability functionNullability,
             boolean hidden,
             boolean deterministic,
             String description,
@@ -45,8 +40,7 @@ public class FunctionMetadata
                 FunctionId.toFunctionId(signature),
                 signature,
                 signature.getName(),
-                nullable,
-                argumentDefinitions,
+                functionNullability,
                 hidden,
                 deterministic,
                 description,
@@ -57,8 +51,7 @@ public class FunctionMetadata
     public FunctionMetadata(
             Signature signature,
             String canonicalName,
-            boolean nullable,
-            List<FunctionArgumentDefinition> argumentDefinitions,
+            FunctionNullability functionNullability,
             boolean hidden,
             boolean deterministic,
             String description,
@@ -69,8 +62,7 @@ public class FunctionMetadata
                 FunctionId.toFunctionId(signature),
                 signature,
                 canonicalName,
-                nullable,
-                argumentDefinitions,
+                functionNullability,
                 hidden,
                 deterministic,
                 description,
@@ -82,8 +74,7 @@ public class FunctionMetadata
             FunctionId functionId,
             Signature signature,
             String canonicalName,
-            boolean nullable,
-            List<FunctionArgumentDefinition> argumentDefinitions,
+            FunctionNullability functionNullability,
             boolean hidden,
             boolean deterministic,
             String description,
@@ -93,8 +84,9 @@ public class FunctionMetadata
         this.functionId = requireNonNull(functionId, "functionId is null");
         this.signature = requireNonNull(signature, "signature is null");
         this.canonicalName = requireNonNull(canonicalName, "canonicalName is null");
-        this.nullable = nullable;
-        this.argumentDefinitions = ImmutableList.copyOf(requireNonNull(argumentDefinitions, "argumentDefinitions is null"));
+        this.functionNullability = requireNonNull(functionNullability, "functionNullability is null");
+        checkArgument(functionNullability.getArgumentNullable().size() == signature.getArgumentTypes().size(), "signature and functionNullability must have same argument count");
+
         this.hidden = hidden;
         this.deterministic = deterministic;
         this.description = requireNonNull(description, "description is null");
@@ -128,14 +120,9 @@ public class FunctionMetadata
         return canonicalName;
     }
 
-    public boolean isNullable()
+    public FunctionNullability getFunctionNullability()
     {
-        return nullable;
-    }
-
-    public List<FunctionArgumentDefinition> getArgumentDefinitions()
-    {
-        return argumentDefinitions;
+        return functionNullability;
     }
 
     public boolean isHidden()

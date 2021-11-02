@@ -15,9 +15,9 @@ package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.metadata.FunctionArgumentDefinition;
 import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.block.Block;
@@ -79,8 +79,7 @@ public final class ZipFunction
                                 .map(name -> arrayType(new TypeSignature(name)))
                                 .collect(toImmutableList()),
                         false),
-                false,
-                nCopies(typeParameters.size(), new FunctionArgumentDefinition(false)),
+                new FunctionNullability(false, nCopies(typeParameters.size(), false)),
                 false,
                 true,
                 "Merges the given arrays, element-wise, into a single array of rows.",

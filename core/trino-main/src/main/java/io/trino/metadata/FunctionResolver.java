@@ -318,10 +318,10 @@ public class FunctionResolver
             return true;
         }
 
-        List<FunctionArgumentDefinition> argumentDefinitions = function.getArgumentDefinitions();
+        FunctionNullability functionNullability = function.getFunctionNullability();
         for (int i = 0; i < parameterTypes.size(); i++) {
             // if the argument value will always be null and the function argument is not nullable, the function will always return null
-            if (parameterTypes.get(i).equals(UNKNOWN) && !argumentDefinitions.get(i).isNullable()) {
+            if (parameterTypes.get(i).equals(UNKNOWN) && !functionNullability.isArgumentNullable(i)) {
                 return true;
             }
         }

@@ -18,6 +18,7 @@ import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 
@@ -45,8 +46,7 @@ public final class VersionFunction
                         VARCHAR.getTypeSignature(),
                         ImmutableList.of(),
                         false),
-                false,
-                ImmutableList.of(),
+                new FunctionNullability(false, ImmutableList.of()),
                 true,
                 true,
                 "Return server version",

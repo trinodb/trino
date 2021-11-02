@@ -16,9 +16,9 @@ package io.trino.operator.aggregation;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.trino.metadata.AggregationFunctionMetadata;
-import io.trino.metadata.FunctionArgumentDefinition;
 import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlAggregationFunction;
 import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
@@ -84,10 +84,7 @@ public class MapAggregationFunction
                                 mapType(new TypeSignature("K"), new TypeSignature("V")),
                                 ImmutableList.of(new TypeSignature("K"), new TypeSignature("V")),
                                 false),
-                        true,
-                        ImmutableList.of(
-                                new FunctionArgumentDefinition(false),
-                                new FunctionArgumentDefinition(true)),
+                        new FunctionNullability(true, ImmutableList.of(false, true)),
                         false,
                         true,
                         "Aggregates all the rows (key/value pairs) into a single map",

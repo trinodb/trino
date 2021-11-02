@@ -25,6 +25,7 @@ import io.trino.metadata.AbstractMockMetadata;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionInvoker;
 import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableHandle;
@@ -1208,7 +1209,12 @@ public class TestEffectivePredicateExtractor
     private static ResolvedFunction fakeFunction(String name)
     {
         BoundSignature boundSignature = new BoundSignature(name, UNKNOWN, ImmutableList.of());
-        return new ResolvedFunction(boundSignature, toFunctionId(boundSignature.toSignature()), ImmutableMap.of(), ImmutableSet.of());
+        return new ResolvedFunction(
+                boundSignature,
+                toFunctionId(boundSignature.toSignature()),
+                new FunctionNullability(false, ImmutableList.of()),
+                ImmutableMap.of(),
+                ImmutableSet.of());
     }
 
     private Set<Expression> normalizeConjuncts(Expression... conjuncts)

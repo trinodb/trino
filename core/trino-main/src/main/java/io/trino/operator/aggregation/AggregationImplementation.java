@@ -16,7 +16,7 @@ package io.trino.operator.aggregation;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.BoundSignature;
-import io.trino.metadata.FunctionArgumentDefinition;
+import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.LongVariableConstraint;
 import io.trino.metadata.Signature;
 import io.trino.metadata.TypeVariableConstraint;
@@ -103,7 +103,7 @@ public class AggregationImplementation
     private final List<ImplementationDependency> combineDependencies;
     private final List<ImplementationDependency> outputDependencies;
     private final List<ParameterType> inputParameterMetadataTypes;
-    private final ImmutableList<FunctionArgumentDefinition> argumentDefinitions;
+    private final FunctionNullability functionNullability;
 
     public AggregationImplementation(
             Signature signature,
@@ -131,11 +131,12 @@ public class AggregationImplementation
         this.outputDependencies = requireNonNull(outputDependencies, "outputDependencies cannot be null");
         this.combineDependencies = requireNonNull(combineDependencies, "combineDependencies cannot be null");
         this.inputParameterMetadataTypes = requireNonNull(inputParameterMetadataTypes, "inputParameterMetadataTypes cannot be null");
-        this.argumentDefinitions = inputParameterMetadataTypes.stream()
-                .filter(parameterType -> parameterType != BLOCK_INDEX && parameterType != STATE)
-                .map(NULLABLE_BLOCK_INPUT_CHANNEL::equals)
-                .map(FunctionArgumentDefinition::new)
-                .collect(toImmutableList());
+        this.functionNullability = new FunctionNullability(
+                true,
+                inputParameterMetadataTypes.stream()
+                        .filter(parameterType -> parameterType != BLOCK_INDEX && parameterType != STATE)
+                        .map(NULLABLE_BLOCK_INPUT_CHANNEL::equals)
+                        .collect(toImmutableList()));
     }
 
     @Override
@@ -151,16 +152,9 @@ public class AggregationImplementation
     }
 
     @Override
-    public final boolean isNullable()
+    public FunctionNullability getFunctionNullability()
     {
-        // for now all aggregation functions are considered nullable
-        return true;
-    }
-
-    @Override
-    public List<FunctionArgumentDefinition> getArgumentDefinitions()
-    {
-        return argumentDefinitions;
+        return functionNullability;
     }
 
     public Class<?> getDefinitionClass()
