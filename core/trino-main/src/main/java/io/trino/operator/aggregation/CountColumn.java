@@ -77,7 +77,7 @@ public class CountColumn
         return new AggregationMetadata(
                 INPUT_FUNCTION,
                 Optional.of(REMOVE_INPUT_FUNCTION),
-                COMBINE_FUNCTION,
+                Optional.of(COMBINE_FUNCTION),
                 OUTPUT_FUNCTION,
                 ImmutableList.of(new AccumulatorStateDescriptor<>(
                         LongState.class,

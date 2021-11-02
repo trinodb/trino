@@ -111,7 +111,7 @@ public final class QuantileDigestAggregationFunction
         return new AggregationMetadata(
                 inputFunction,
                 Optional.empty(),
-                COMBINE_FUNCTION,
+                Optional.of(COMBINE_FUNCTION),
                 OUTPUT_FUNCTION.bindTo(stateSerializer),
                 ImmutableList.of(new AccumulatorStateDescriptor<>(
                         QuantileDigestState.class,

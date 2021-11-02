@@ -107,7 +107,7 @@ public abstract class AbstractMinMaxNAggregationFunction
         return new AggregationMetadata(
                 inputFunction,
                 Optional.empty(),
-                COMBINE_FUNCTION,
+                Optional.of(COMBINE_FUNCTION),
                 OUTPUT_FUNCTION.bindTo(outputType),
                 ImmutableList.of(new AccumulatorStateDescriptor<>(
                         MinMaxNState.class,

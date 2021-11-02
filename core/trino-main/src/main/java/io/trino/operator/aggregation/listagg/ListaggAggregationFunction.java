@@ -120,7 +120,7 @@ public class ListaggAggregationFunction
         return new AggregationMetadata(
                 inputFunction,
                 Optional.empty(),
-                combineFunction,
+                Optional.of(combineFunction),
                 outputFunction,
                 ImmutableList.of(new AccumulatorStateDescriptor<>(
                         ListaggAggregationState.class,

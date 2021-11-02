@@ -28,7 +28,7 @@ public class AggregationMetadata
 {
     private final MethodHandle inputFunction;
     private final Optional<MethodHandle> removeInputFunction;
-    private final MethodHandle combineFunction;
+    private final Optional<MethodHandle> combineFunction;
     private final MethodHandle outputFunction;
     private final List<AccumulatorStateDescriptor<?>> accumulatorStateDescriptors;
     private final List<Class<?>> lambdaInterfaces;
@@ -36,7 +36,7 @@ public class AggregationMetadata
     public AggregationMetadata(
             MethodHandle inputFunction,
             Optional<MethodHandle> removeInputFunction,
-            MethodHandle combineFunction,
+            Optional<MethodHandle> combineFunction,
             MethodHandle outputFunction,
             List<AccumulatorStateDescriptor<?>> accumulatorStateDescriptors)
     {
@@ -52,7 +52,7 @@ public class AggregationMetadata
     public AggregationMetadata(
             MethodHandle inputFunction,
             Optional<MethodHandle> removeInputFunction,
-            MethodHandle combineFunction,
+            Optional<MethodHandle> combineFunction,
             MethodHandle outputFunction,
             List<AccumulatorStateDescriptor<?>> accumulatorStateDescriptors,
             List<Class<?>> lambdaInterfaces)
@@ -75,7 +75,7 @@ public class AggregationMetadata
         return removeInputFunction;
     }
 
-    public MethodHandle getCombineFunction()
+    public Optional<MethodHandle> getCombineFunction()
     {
         return combineFunction;
     }
