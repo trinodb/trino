@@ -14,6 +14,7 @@
 package io.trino.operator.window;
 
 import io.airlift.slice.Slice;
+import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.operator.PagesIndex;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -96,6 +97,18 @@ public class PagesWindowIndex
     public void appendTo(int channel, int position, BlockBuilder output)
     {
         pagesIndex.appendTo(channel, position(position), output);
+    }
+
+    @UsedByGeneratedCode
+    public Block getRawBlock(int channel, int position)
+    {
+        return pagesIndex.getRawBlock(channel, position(position));
+    }
+
+    @UsedByGeneratedCode
+    public int getRawBlockPosition(int position)
+    {
+        return pagesIndex.getRawBlockPosition(position(position));
     }
 
     private int position(int position)

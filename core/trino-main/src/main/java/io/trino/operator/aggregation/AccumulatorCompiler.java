@@ -31,6 +31,7 @@ import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionNullability;
 import io.trino.operator.GroupByIdBlock;
 import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
+import io.trino.operator.window.PagesWindowIndex;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -431,17 +432,12 @@ public final class AccumulatorCompiler
         // input parameters
         for (int i = 0; i < inputParameterCount; i++) {
             BytecodeExpression getChannel = channels.invoke("get", Object.class, constantInt(i)).cast(int.class);
-            expressions.add(index.invoke(
-                    "getSingleValueBlock",
-                    Block.class,
-                    getChannel,
-                    position));
+            expressions.add(index.cast(PagesWindowIndex.class).invoke("getRawBlock", Block.class, getChannel, position));
         }
 
         // position parameter
         if (inputParameterCount > 0) {
-            // index.getSingleValueBlock(channel, position) always generates a page with only one position
-            expressions.add(constantInt(0));
+            expressions.add(index.cast(PagesWindowIndex.class).invoke("getRawBlockPosition", int.class, position));
         }
 
         // lambda parameters
