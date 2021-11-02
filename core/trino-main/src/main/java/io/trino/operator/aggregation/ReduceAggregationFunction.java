@@ -21,7 +21,6 @@ import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlAggregationFunction;
 import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
-import io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import io.trino.operator.aggregation.state.GenericBooleanState;
 import io.trino.operator.aggregation.state.GenericBooleanStateSerializer;
 import io.trino.operator.aggregation.state.GenericDoubleState;
@@ -36,13 +35,12 @@ import io.trino.spi.type.TypeSignature;
 import io.trino.sql.gen.lambda.BinaryFunctionInterface;
 
 import java.lang.invoke.MethodHandle;
-import java.util.List;
 import java.util.Optional;
 
 import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.metadata.Signature.typeVariable;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.INPUT_CHANNEL;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.STATE;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.TypeSignature.functionType;
 import static io.trino.util.Reflection.methodHandle;
@@ -141,23 +139,13 @@ public class ReduceAggregationFunction
         }
 
         return new AggregationMetadata(
-                createInputParameterMetadata(inputType, stateType),
-                inputMethodHandle.asType(
-                        inputMethodHandle.type()
-                                .changeParameterType(1, inputType.getJavaType())),
+                ImmutableList.of(STATE, INPUT_CHANNEL, INPUT_CHANNEL),
+                inputMethodHandle.asType(inputMethodHandle.type().changeParameterType(1, inputType.getJavaType())),
                 Optional.empty(),
                 combineMethodHandle,
                 outputMethodHandle,
                 ImmutableList.of(stateDescriptor),
                 ImmutableList.of(BinaryFunctionInterface.class, BinaryFunctionInterface.class));
-    }
-
-    private static List<ParameterMetadata> createInputParameterMetadata(Type inputType, Type stateType)
-    {
-        return ImmutableList.of(
-                new ParameterMetadata(STATE),
-                new ParameterMetadata(INPUT_CHANNEL, inputType),
-                new ParameterMetadata(INPUT_CHANNEL, stateType));
     }
 
     public static void input(GenericLongState state, Object value, long initialStateValue, BinaryFunctionInterface inputFunction, BinaryFunctionInterface combineFunction)

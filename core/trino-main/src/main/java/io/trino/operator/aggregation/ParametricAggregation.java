@@ -27,16 +27,12 @@ import io.trino.metadata.SignatureBinder;
 import io.trino.metadata.SqlAggregationFunction;
 import io.trino.operator.ParametricImplementationsGroup;
 import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
-import io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata;
-import io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType;
 import io.trino.operator.annotations.ImplementationDependency;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.AccumulatorState;
-import io.trino.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Collection;
-import java.util.List;
 import java.util.Optional;
 import java.util.StringJoiner;
 
@@ -112,9 +108,6 @@ public class ParametricAggregation
         // Find implementation matching arguments
         AggregationImplementation concreteImplementation = findMatchingImplementation(boundSignature);
 
-        // Build argument and return Types from signatures
-        List<Type> inputTypes = boundSignature.getArgumentTypes();
-
         // Build state factory and serializer
         AccumulatorStateDescriptor<?> accumulatorStateDescriptor = generateAccumulatorStateDescriptor(stateClass);
 
@@ -127,11 +120,8 @@ public class ParametricAggregation
         MethodHandle combineHandle = bindDependencies(concreteImplementation.getCombineFunction(), concreteImplementation.getCombineDependencies(), functionBinding, functionDependencies);
         MethodHandle outputHandle = bindDependencies(concreteImplementation.getOutputFunction(), concreteImplementation.getOutputDependencies(), functionBinding, functionDependencies);
 
-        // Build metadata of input parameters
-        List<ParameterMetadata> parametersMetadata = buildParameterMetadata(concreteImplementation.getInputParameterMetadataTypes(), inputTypes);
-
         return new AggregationMetadata(
-                parametersMetadata,
+                concreteImplementation.getInputParameterKinds(),
                 inputHandle,
                 removeInputHandle,
                 combineHandle,
@@ -180,28 +170,6 @@ public class ParametricAggregation
             throw new TrinoException(FUNCTION_IMPLEMENTATION_MISSING, format("Unsupported type parameters (%s) for %s", boundSignature, getFunctionMetadata().getSignature()));
         }
         return foundImplementation.get();
-    }
-
-    private static List<ParameterMetadata> buildParameterMetadata(List<ParameterType> parameterMetadataTypes, List<Type> inputTypes)
-    {
-        ImmutableList.Builder<ParameterMetadata> builder = ImmutableList.builder();
-        int inputId = 0;
-
-        for (ParameterType parameterMetadataType : parameterMetadataTypes) {
-            switch (parameterMetadataType) {
-                case STATE:
-                case BLOCK_INDEX:
-                    builder.add(new ParameterMetadata(parameterMetadataType));
-                    break;
-                case INPUT_CHANNEL:
-                case BLOCK_INPUT_CHANNEL:
-                case NULLABLE_BLOCK_INPUT_CHANNEL:
-                    builder.add(new ParameterMetadata(parameterMetadataType, inputTypes.get(inputId++)));
-                    break;
-            }
-        }
-
-        return builder.build();
     }
 
     @Override

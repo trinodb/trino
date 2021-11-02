@@ -31,15 +31,13 @@ import io.trino.type.BlockTypeOperators.BlockPositionEqual;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
 
 import java.lang.invoke.MethodHandle;
-import java.util.List;
 import java.util.Optional;
 
 import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.metadata.Signature.comparableTypeParameter;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.BLOCK_INDEX;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.BLOCK_INPUT_CHANNEL;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.STATE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.util.Reflection.methodHandle;
@@ -99,7 +97,7 @@ public class Histogram
         MethodHandle outputFunction = OUTPUT_FUNCTION.bindTo(outputType);
 
         return new AggregationMetadata(
-                createInputParameterMetadata(keyType),
+                ImmutableList.of(STATE, BLOCK_INPUT_CHANNEL, BLOCK_INDEX),
                 inputFunction,
                 Optional.empty(),
                 COMBINE_FUNCTION,
@@ -108,13 +106,6 @@ public class Histogram
                         HistogramState.class,
                         stateSerializer,
                         new HistogramStateFactory(keyType, keyEqual, keyHashCode, EXPECTED_SIZE_FOR_HASHING))));
-    }
-
-    private static List<ParameterMetadata> createInputParameterMetadata(Type keyType)
-    {
-        return ImmutableList.of(new ParameterMetadata(STATE),
-                new ParameterMetadata(BLOCK_INPUT_CHANNEL, keyType),
-                new ParameterMetadata(BLOCK_INDEX));
     }
 
     public static void input(Type type, HistogramState state, Block key, int position)

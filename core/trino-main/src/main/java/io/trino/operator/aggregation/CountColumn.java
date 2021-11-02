@@ -27,19 +27,16 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AccumulatorStateFactory;
 import io.trino.spi.function.AccumulatorStateSerializer;
-import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
-import java.util.List;
 import java.util.Optional;
 
 import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.metadata.Signature.typeVariable;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.BLOCK_INDEX;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.BLOCK_INPUT_CHANNEL;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.STATE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.util.Reflection.methodHandle;
 
@@ -77,17 +74,11 @@ public class CountColumn
     @Override
     public AggregationMetadata specialize(BoundSignature boundSignature)
     {
-        Type type = boundSignature.getArgumentTypes().get(0);
-        return generateAggregation(type);
-    }
-
-    private static AggregationMetadata generateAggregation(Type type)
-    {
         AccumulatorStateSerializer<LongState> stateSerializer = StateCompiler.generateStateSerializer(LongState.class);
         AccumulatorStateFactory<LongState> stateFactory = StateCompiler.generateStateFactory(LongState.class);
 
         return new AggregationMetadata(
-                createInputParameterMetadata(type),
+                ImmutableList.of(STATE, BLOCK_INPUT_CHANNEL, BLOCK_INDEX),
                 INPUT_FUNCTION,
                 Optional.of(REMOVE_INPUT_FUNCTION),
                 COMBINE_FUNCTION,
@@ -96,11 +87,6 @@ public class CountColumn
                         LongState.class,
                         stateSerializer,
                         stateFactory)));
-    }
-
-    private static List<ParameterMetadata> createInputParameterMetadata(Type type)
-    {
-        return ImmutableList.of(new ParameterMetadata(STATE), new ParameterMetadata(BLOCK_INPUT_CHANNEL, type), new ParameterMetadata(BLOCK_INDEX));
     }
 
     public static void input(LongState state, Block block, int index)

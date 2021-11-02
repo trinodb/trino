@@ -21,7 +21,7 @@ import io.trino.metadata.LongVariableConstraint;
 import io.trino.metadata.Signature;
 import io.trino.metadata.TypeVariableConstraint;
 import io.trino.operator.ParametricImplementation;
-import io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType;
+import io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind;
 import io.trino.operator.annotations.FunctionsParserHelper;
 import io.trino.operator.annotations.ImplementationDependency;
 import io.trino.spi.block.Block;
@@ -50,10 +50,11 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.operator.ParametricFunctionHelpers.signatureWithName;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_BLOCK_INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.inputChannelParameterType;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.BLOCK_INDEX;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.BLOCK_INPUT_CHANNEL;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.INPUT_CHANNEL;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.NULLABLE_BLOCK_INPUT_CHANNEL;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.STATE;
 import static io.trino.operator.annotations.FunctionsParserHelper.containsAnnotation;
 import static io.trino.operator.annotations.FunctionsParserHelper.createTypeVariableConstraints;
 import static io.trino.operator.annotations.FunctionsParserHelper.parseLiteralParameters;
@@ -102,7 +103,7 @@ public class AggregationImplementation
     private final List<ImplementationDependency> removeInputDependencies;
     private final List<ImplementationDependency> combineDependencies;
     private final List<ImplementationDependency> outputDependencies;
-    private final List<ParameterType> inputParameterMetadataTypes;
+    private final List<AggregationParameterKind> inputParameterKinds;
     private final FunctionNullability functionNullability;
 
     public AggregationImplementation(
@@ -117,7 +118,7 @@ public class AggregationImplementation
             List<ImplementationDependency> removeInputDependencies,
             List<ImplementationDependency> combineDependencies,
             List<ImplementationDependency> outputDependencies,
-            List<ParameterType> inputParameterMetadataTypes)
+            List<AggregationParameterKind> inputParameterKinds)
     {
         this.signature = requireNonNull(signature, "signature cannot be null");
         this.definitionClass = requireNonNull(definitionClass, "definition class cannot be null");
@@ -130,10 +131,10 @@ public class AggregationImplementation
         this.removeInputDependencies = requireNonNull(removeInputDependencies, "removeInputDependencies cannot be null");
         this.outputDependencies = requireNonNull(outputDependencies, "outputDependencies cannot be null");
         this.combineDependencies = requireNonNull(combineDependencies, "combineDependencies cannot be null");
-        this.inputParameterMetadataTypes = requireNonNull(inputParameterMetadataTypes, "inputParameterMetadataTypes cannot be null");
+        this.inputParameterKinds = requireNonNull(inputParameterKinds, "inputParameterKinds cannot be null");
         this.functionNullability = new FunctionNullability(
                 true,
-                inputParameterMetadataTypes.stream()
+                inputParameterKinds.stream()
                         .filter(parameterType -> parameterType != BLOCK_INDEX && parameterType != STATE)
                         .map(NULLABLE_BLOCK_INPUT_CHANNEL::equals)
                         .collect(toImmutableList()));
@@ -202,9 +203,9 @@ public class AggregationImplementation
         return combineDependencies;
     }
 
-    public List<ParameterType> getInputParameterMetadataTypes()
+    public List<AggregationParameterKind> getInputParameterKinds()
     {
-        return inputParameterMetadataTypes;
+        return inputParameterKinds;
     }
 
     public boolean areTypesAssignable(BoundSignature boundSignature)
@@ -244,7 +245,7 @@ public class AggregationImplementation
                 removeInputDependencies,
                 combineDependencies,
                 outputDependencies,
-                inputParameterMetadataTypes);
+                inputParameterKinds);
     }
 
     public static final class Parser
@@ -259,7 +260,7 @@ public class AggregationImplementation
         private final List<ImplementationDependency> removeInputDependencies;
         private final List<ImplementationDependency> combineDependencies;
         private final List<ImplementationDependency> outputDependencies;
-        private final List<ParameterType> parameterMetadataTypes;
+        private final List<AggregationParameterKind> inputParameterKinds;
 
         private final List<LongVariableConstraint> longVariableConstraints;
         private final List<TypeVariableConstraint> typeVariableConstraints;
@@ -293,8 +294,8 @@ public class AggregationImplementation
             outputDependencies = parseImplementationDependencies(outputFunction);
             combineDependencies = parseImplementationDependencies(combineFunction);
 
-            // parse metadata types
-            parameterMetadataTypes = parseParameterMetadataTypes(inputFunction);
+            // parse input parameters
+            inputParameterKinds = parseInputParameterKinds(inputFunction);
 
             // parse constraints
             longVariableConstraints = FunctionsParserHelper.parseLongVariableConstraints(inputFunction);
@@ -343,7 +344,7 @@ public class AggregationImplementation
                     removeInputDependencies,
                     combineDependencies,
                     outputDependencies,
-                    parameterMetadataTypes);
+                    inputParameterKinds);
         }
 
         public static AggregationImplementation parseImplementation(
@@ -357,9 +358,9 @@ public class AggregationImplementation
             return new Parser(aggregationDefinition, name, inputFunction, removeInputFunction, outputFunction, combineFunction).get();
         }
 
-        private static List<ParameterType> parseParameterMetadataTypes(Method method)
+        private static List<AggregationParameterKind> parseInputParameterKinds(Method method)
         {
-            ImmutableList.Builder<ParameterType> builder = ImmutableList.builder();
+            ImmutableList.Builder<AggregationParameterKind> builder = ImmutableList.builder();
 
             Annotation[][] annotations = method.getParameterAnnotations();
             String methodName = method.getDeclaringClass() + "." + method.getName();
@@ -386,7 +387,7 @@ public class AggregationImplementation
                 else if (baseTypeAnnotation instanceof SqlType) {
                     boolean isParameterBlock = isParameterBlock(annotations[i]);
                     boolean isParameterNullable = isParameterNullable(annotations[i]);
-                    builder.add(inputChannelParameterType(isParameterNullable, isParameterBlock, methodName));
+                    builder.add(getInputParameterKind(isParameterNullable, isParameterBlock, methodName));
                 }
                 else if (baseTypeAnnotation instanceof BlockIndex) {
                     builder.add(BLOCK_INDEX);
@@ -396,6 +397,26 @@ public class AggregationImplementation
                 }
             }
             return builder.build();
+        }
+
+        static AggregationParameterKind getInputParameterKind(boolean isNullable, boolean isBlock, String methodName)
+        {
+            if (isBlock) {
+                if (isNullable) {
+                    return NULLABLE_BLOCK_INPUT_CHANNEL;
+                }
+                else {
+                    return BLOCK_INPUT_CHANNEL;
+                }
+            }
+            else {
+                if (isNullable) {
+                    throw new IllegalArgumentException(methodName + " contains a parameter with @NullablePosition that is not @BlockPosition");
+                }
+                else {
+                    return INPUT_CHANNEL;
+                }
+            }
         }
 
         private static Annotation baseTypeAnnotation(Annotation[] annotations, String methodName)
