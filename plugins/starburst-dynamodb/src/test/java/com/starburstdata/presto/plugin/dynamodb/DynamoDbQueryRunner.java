@@ -81,9 +81,9 @@ public final class DynamoDbQueryRunner
             throws Exception
     {
         // Create QueryRunner with writes enabled to create TPC-H tables
-        try (DistributedQueryRunner queryRunner = StarburstDistributedQueryRunner.builder(createSession())
-                .setExtraProperties(extraProperties)
-                .build()) {
+        DistributedQueryRunner.Builder builder = StarburstDistributedQueryRunner.builder(createSession());
+        extraProperties.forEach(builder::addExtraProperty);
+        try (DistributedQueryRunner queryRunner = builder.build()) {
             connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
             queryRunner.installPlugin(new TestingDynamoDbPlugin(true));
             queryRunner.createCatalog("dynamodb", "dynamodb", connectorProperties);
@@ -95,9 +95,9 @@ public final class DynamoDbQueryRunner
         // Create query runner to be returned with given enableWrites flag
         DistributedQueryRunner queryRunner = null;
         try {
-            queryRunner = StarburstDistributedQueryRunner.builder(createSession())
-                    .setExtraProperties(extraProperties)
-                    .build();
+            builder = StarburstDistributedQueryRunner.builder(createSession());
+            extraProperties.forEach(builder::addExtraProperty);
+            queryRunner = builder.build();
 
             connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
             connectorProperties.putIfAbsent("allow-drop-table", "true");
