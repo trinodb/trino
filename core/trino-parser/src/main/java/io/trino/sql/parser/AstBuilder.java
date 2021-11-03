@@ -113,6 +113,12 @@ import io.trino.sql.tree.Join;
 import io.trino.sql.tree.JoinCriteria;
 import io.trino.sql.tree.JoinOn;
 import io.trino.sql.tree.JoinUsing;
+import io.trino.sql.tree.JsonExists;
+import io.trino.sql.tree.JsonPathInvocation;
+import io.trino.sql.tree.JsonPathParameter;
+import io.trino.sql.tree.JsonPathParameter.JsonFormat;
+import io.trino.sql.tree.JsonQuery;
+import io.trino.sql.tree.JsonValue;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.Lateral;
@@ -263,6 +269,22 @@ import static io.trino.sql.tree.AnchorPattern.Type.PARTITION_END;
 import static io.trino.sql.tree.AnchorPattern.Type.PARTITION_START;
 import static io.trino.sql.tree.DescriptorArgument.descriptorArgument;
 import static io.trino.sql.tree.DescriptorArgument.nullDescriptorArgument;
+import static io.trino.sql.tree.JsonExists.ErrorBehavior.ERROR;
+import static io.trino.sql.tree.JsonExists.ErrorBehavior.FALSE;
+import static io.trino.sql.tree.JsonExists.ErrorBehavior.TRUE;
+import static io.trino.sql.tree.JsonExists.ErrorBehavior.UNKNOWN;
+import static io.trino.sql.tree.JsonPathParameter.JsonFormat.JSON;
+import static io.trino.sql.tree.JsonPathParameter.JsonFormat.UTF16;
+import static io.trino.sql.tree.JsonPathParameter.JsonFormat.UTF32;
+import static io.trino.sql.tree.JsonPathParameter.JsonFormat.UTF8;
+import static io.trino.sql.tree.JsonQuery.ArrayWrapperBehavior.CONDITIONAL;
+import static io.trino.sql.tree.JsonQuery.ArrayWrapperBehavior.UNCONDITIONAL;
+import static io.trino.sql.tree.JsonQuery.ArrayWrapperBehavior.WITHOUT;
+import static io.trino.sql.tree.JsonQuery.EmptyOrErrorBehavior.EMPTY_ARRAY;
+import static io.trino.sql.tree.JsonQuery.EmptyOrErrorBehavior.EMPTY_OBJECT;
+import static io.trino.sql.tree.JsonQuery.QuotesBehavior.KEEP;
+import static io.trino.sql.tree.JsonQuery.QuotesBehavior.OMIT;
+import static io.trino.sql.tree.JsonValue.EmptyOrErrorBehavior.DEFAULT;
 import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.ALL_OMIT_EMPTY;
 import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.ALL_SHOW_EMPTY;
 import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.ALL_WITH_UNMATCHED;
@@ -2245,6 +2267,209 @@ class AstBuilder
                 return Trim.Specification.TRAILING;
         }
         throw new IllegalArgumentException("Unsupported trim specification: " + token.getText());
+    }
+
+    @Override
+    public Node visitJsonExists(SqlBaseParser.JsonExistsContext context)
+    {
+        JsonPathInvocation jsonPathInvocation = (JsonPathInvocation) visit(context.jsonPathInvocation());
+
+        SqlBaseParser.JsonExistsErrorBehaviorContext errorBehaviorContext = context.jsonExistsErrorBehavior();
+        JsonExists.ErrorBehavior errorBehavior;
+        if (errorBehaviorContext == null || errorBehaviorContext.FALSE() != null) {
+            errorBehavior = FALSE;
+        }
+        else if (errorBehaviorContext.TRUE() != null) {
+            errorBehavior = TRUE;
+        }
+        else if (errorBehaviorContext.UNKNOWN() != null) {
+            errorBehavior = UNKNOWN;
+        }
+        else if (errorBehaviorContext.ERROR() != null) {
+            errorBehavior = ERROR;
+        }
+        else {
+            throw parseError("Unexpected error behavior: " + errorBehaviorContext.getText(), errorBehaviorContext);
+        }
+
+        return new JsonExists(
+                Optional.of(getLocation(context)),
+                jsonPathInvocation,
+                errorBehavior);
+    }
+
+    @Override
+    public Node visitJsonValue(SqlBaseParser.JsonValueContext context)
+    {
+        JsonPathInvocation jsonPathInvocation = (JsonPathInvocation) visit(context.jsonPathInvocation());
+
+        Optional<DataType> returnedType = visitIfPresent(context.type(), DataType.class);
+
+        SqlBaseParser.JsonValueBehaviorContext emptyBehaviorContext = context.emptyBehavior;
+        JsonValue.EmptyOrErrorBehavior emptyBehavior;
+        Optional<Expression> emptyDefault = Optional.empty();
+        if (emptyBehaviorContext == null || emptyBehaviorContext.NULL() != null) {
+            emptyBehavior = JsonValue.EmptyOrErrorBehavior.NULL;
+        }
+        else if (emptyBehaviorContext.ERROR() != null) {
+            emptyBehavior = JsonValue.EmptyOrErrorBehavior.ERROR;
+        }
+        else if (emptyBehaviorContext.DEFAULT() != null) {
+            emptyBehavior = DEFAULT;
+            emptyDefault = visitIfPresent(emptyBehaviorContext.expression(), Expression.class);
+        }
+        else {
+            throw parseError("Unexpected empty behavior: " + emptyBehaviorContext.getText(), emptyBehaviorContext);
+        }
+
+        SqlBaseParser.JsonValueBehaviorContext errorBehaviorContext = context.errorBehavior;
+        JsonValue.EmptyOrErrorBehavior errorBehavior;
+        Optional<Expression> errorDefault = Optional.empty();
+        if (errorBehaviorContext == null || errorBehaviorContext.NULL() != null) {
+            errorBehavior = JsonValue.EmptyOrErrorBehavior.NULL;
+        }
+        else if (errorBehaviorContext.ERROR() != null) {
+            errorBehavior = JsonValue.EmptyOrErrorBehavior.ERROR;
+        }
+        else if (errorBehaviorContext.DEFAULT() != null) {
+            errorBehavior = DEFAULT;
+            errorDefault = visitIfPresent(errorBehaviorContext.expression(), Expression.class);
+        }
+        else {
+            throw parseError("Unexpected error behavior: " + errorBehaviorContext.getText(), errorBehaviorContext);
+        }
+
+        return new JsonValue(
+                Optional.of(getLocation(context)),
+                jsonPathInvocation,
+                returnedType,
+                emptyBehavior,
+                emptyDefault,
+                errorBehavior,
+                errorDefault);
+    }
+
+    @Override
+    public Node visitJsonQuery(SqlBaseParser.JsonQueryContext context)
+    {
+        JsonPathInvocation jsonPathInvocation = (JsonPathInvocation) visit(context.jsonPathInvocation());
+
+        Optional<DataType> returnedType = visitIfPresent(context.type(), DataType.class);
+
+        Optional<JsonFormat> jsonOutputFormat = Optional.empty();
+        if (context.FORMAT() != null) {
+            jsonOutputFormat = Optional.of(getJsonFormat(context.jsonRepresentation()));
+        }
+
+        SqlBaseParser.JsonQueryWrapperBehaviorContext wrapperBehaviorContext = context.jsonQueryWrapperBehavior();
+        JsonQuery.ArrayWrapperBehavior wrapperBehavior;
+        if (wrapperBehaviorContext == null || wrapperBehaviorContext.WITHOUT() != null) {
+            wrapperBehavior = WITHOUT;
+        }
+        else if (wrapperBehaviorContext.CONDITIONAL() != null) {
+            wrapperBehavior = CONDITIONAL;
+        }
+        else {
+            wrapperBehavior = UNCONDITIONAL;
+        }
+
+        Optional<JsonQuery.QuotesBehavior> quotesBehavior = Optional.empty();
+        if (context.KEEP() != null) {
+            quotesBehavior = Optional.of(KEEP);
+        }
+        else if (context.OMIT() != null) {
+            quotesBehavior = Optional.of(OMIT);
+        }
+
+        SqlBaseParser.JsonQueryBehaviorContext emptyBehaviorContext = context.emptyBehavior;
+        JsonQuery.EmptyOrErrorBehavior emptyBehavior;
+        if (emptyBehaviorContext == null || emptyBehaviorContext.NULL() != null) {
+            emptyBehavior = JsonQuery.EmptyOrErrorBehavior.NULL;
+        }
+        else if (emptyBehaviorContext.ERROR() != null) {
+            emptyBehavior = JsonQuery.EmptyOrErrorBehavior.ERROR;
+        }
+        else if (emptyBehaviorContext.ARRAY() != null) {
+            emptyBehavior = EMPTY_ARRAY;
+        }
+        else if (emptyBehaviorContext.OBJECT() != null) {
+            emptyBehavior = EMPTY_OBJECT;
+        }
+        else {
+            throw parseError("Unexpected empty behavior: " + emptyBehaviorContext.getText(), emptyBehaviorContext);
+        }
+
+        SqlBaseParser.JsonQueryBehaviorContext errorBehaviorContext = context.errorBehavior;
+        JsonQuery.EmptyOrErrorBehavior errorBehavior;
+        if (errorBehaviorContext == null || errorBehaviorContext.NULL() != null) {
+            errorBehavior = JsonQuery.EmptyOrErrorBehavior.NULL;
+        }
+        else if (errorBehaviorContext.ERROR() != null) {
+            errorBehavior = JsonQuery.EmptyOrErrorBehavior.ERROR;
+        }
+        else if (errorBehaviorContext.ARRAY() != null) {
+            errorBehavior = EMPTY_ARRAY;
+        }
+        else if (errorBehaviorContext.OBJECT() != null) {
+            errorBehavior = EMPTY_OBJECT;
+        }
+        else {
+            throw parseError("Unexpected error behavior: " + errorBehaviorContext.getText(), errorBehaviorContext);
+        }
+
+        return new JsonQuery(
+                Optional.of(getLocation(context)),
+                jsonPathInvocation,
+                returnedType,
+                jsonOutputFormat,
+                wrapperBehavior,
+                quotesBehavior,
+                emptyBehavior,
+                errorBehavior);
+    }
+
+    @Override
+    public Node visitJsonPathInvocation(SqlBaseParser.JsonPathInvocationContext context)
+    {
+        Expression jsonInput = (Expression) visit(context.jsonValueExpression().expression());
+
+        JsonFormat inputFormat;
+        if (context.jsonValueExpression().FORMAT() == null) {
+            inputFormat = JSON; // default
+        }
+        else {
+            inputFormat = getJsonFormat(context.jsonValueExpression().jsonRepresentation());
+        }
+
+        StringLiteral jsonPath = (StringLiteral) visit(context.path);
+        List<JsonPathParameter> pathParameters = visit(context.jsonArgument(), JsonPathParameter.class);
+
+        return new JsonPathInvocation(Optional.of(getLocation(context)), jsonInput, inputFormat, jsonPath, pathParameters);
+    }
+
+    private JsonFormat getJsonFormat(SqlBaseParser.JsonRepresentationContext context)
+    {
+        if (context.UTF8() != null) {
+            return UTF8;
+        }
+        if (context.UTF16() != null) {
+            return UTF16;
+        }
+        if (context.UTF32() != null) {
+            return UTF32;
+        }
+        return JSON;
+    }
+
+    @Override
+    public Node visitJsonArgument(SqlBaseParser.JsonArgumentContext context)
+    {
+        return new JsonPathParameter(
+                Optional.of(getLocation(context)),
+                (Identifier) visit(context.identifier()),
+                (Expression) visit(context.jsonValueExpression().expression()),
+                Optional.ofNullable(context.jsonValueExpression().jsonRepresentation())
+                        .map(this::getJsonFormat));
     }
 
     @Override
