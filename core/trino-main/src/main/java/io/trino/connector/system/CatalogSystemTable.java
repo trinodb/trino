@@ -15,7 +15,7 @@ package io.trino.connector.system;
 
 import io.trino.FullConnectorSession;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
+import io.trino.metadata.Catalog;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
 import io.trino.spi.connector.ConnectorSession;
@@ -32,7 +32,7 @@ import javax.inject.Inject;
 
 import java.util.Map;
 
-import static io.trino.metadata.MetadataListing.listCatalogs;
+import static io.trino.metadata.MetadataListing.getCatalogs;
 import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static io.trino.spi.connector.SystemTable.Distribution.SINGLE_COORDINATOR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
@@ -46,6 +46,7 @@ public class CatalogSystemTable
     public static final ConnectorTableMetadata CATALOG_TABLE = tableMetadataBuilder(CATALOG_TABLE_NAME)
             .column("catalog_name", createUnboundedVarcharType())
             .column("connector_id", createUnboundedVarcharType())
+            .column("connector_name", createUnboundedVarcharType())
             .build();
     private final Metadata metadata;
     private final AccessControl accessControl;
@@ -74,8 +75,11 @@ public class CatalogSystemTable
     {
         Session session = ((FullConnectorSession) connectorSession).getSession();
         Builder table = InMemoryRecordSet.builder(CATALOG_TABLE);
-        for (Map.Entry<String, CatalogName> entry : listCatalogs(session, metadata, accessControl).entrySet()) {
-            table.addRow(entry.getKey(), entry.getValue().toString());
+        for (Map.Entry<String, Catalog> entry : getCatalogs(session, metadata, accessControl).entrySet()) {
+            table.addRow(
+                    entry.getKey(),
+                    entry.getValue().getConnectorCatalogName().toString(),
+                    entry.getValue().getConnectorName());
         }
         return table.build().cursor();
     }

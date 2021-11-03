@@ -22,6 +22,8 @@ import com.google.cloud.bigquery.storage.v1beta1.Storage;
 import com.google.cloud.bigquery.storage.v1beta1.TableReferenceProto;
 import io.airlift.units.Duration;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.TableNotFoundException;
 
 import java.util.List;
 import java.util.Optional;
@@ -52,7 +54,8 @@ public class ReadSessionCreator
 
     public Storage.ReadSession create(TableId remoteTable, List<String> selectedFields, Optional<String> filter, int parallelism)
     {
-        TableInfo tableDetails = bigQueryClient.getTable(remoteTable);
+        TableInfo tableDetails = bigQueryClient.getTable(remoteTable)
+                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(remoteTable.getDataset(), remoteTable.getTable())));
 
         TableInfo actualTable = getActualTable(tableDetails, selectedFields);
 

@@ -71,9 +71,11 @@ import org.apache.hadoop.hive.metastore.api.InvalidInputException;
 import org.apache.hadoop.hive.metastore.api.InvalidObjectException;
 import org.apache.hadoop.hive.metastore.api.InvalidOperationException;
 import org.apache.hadoop.hive.metastore.api.LockComponent;
+import org.apache.hadoop.hive.metastore.api.LockLevel;
 import org.apache.hadoop.hive.metastore.api.LockRequest;
 import org.apache.hadoop.hive.metastore.api.LockResponse;
 import org.apache.hadoop.hive.metastore.api.LockState;
+import org.apache.hadoop.hive.metastore.api.LockType;
 import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.metastore.api.NoSuchLockException;
 import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
@@ -1666,7 +1668,23 @@ public class ThriftHiveMetastore
             request.addLockComponent(createLockComponentForOperation(partition.getTableName(), operation, isDynamicPartitionWrite, Optional.of(partition.getPartitionId())));
         }
 
-        LockRequest lockRequest = request.build();
+        acquireLock(identity, format("hive transaction %s for query %s", transactionId, queryId), request.build());
+    }
+
+    @Override
+    public long acquireTableExclusiveLock(HiveIdentity identity, String queryId, String dbName, String tableName)
+    {
+        LockComponent lockComponent = new LockComponent(LockType.EXCLUSIVE, LockLevel.TABLE, dbName);
+        lockComponent.setTablename(tableName);
+        LockRequest lockRequest = new LockRequestBuilder(queryId)
+                .addLockComponent(lockComponent)
+                .setUser(identity.getUsername().get())
+                .build();
+        return acquireLock(identity, format("query %s", queryId), lockRequest);
+    }
+
+    private long acquireLock(HiveIdentity identity, String context, LockRequest lockRequest)
+    {
         try {
             LockResponse response = retry()
                     .stopOn(NoSuchTxnException.class, TxnAbortedException.class, MetaException.class)
@@ -1676,16 +1694,15 @@ public class ThriftHiveMetastore
                         }
                     }));
 
+            long lockId = response.getLockid();
             long waitStart = nanoTime();
             while (response.getState() == LockState.WAITING) {
-                long lockId = response.getLockid();
-
                 if (Duration.nanosSince(waitStart).compareTo(maxWaitForLock) > 0) {
                     // timed out
-                    throw new TrinoException(HIVE_TABLE_LOCK_NOT_ACQUIRED, format("Timed out waiting for lock %d in hive transaction %s for query %s", lockId, transactionId, queryId));
+                    throw unlockSuppressing(identity, lockId, new TrinoException(HIVE_TABLE_LOCK_NOT_ACQUIRED, format("Timed out waiting for lock %d for %s", lockId, context)));
                 }
 
-                log.debug("Waiting for lock %d in hive transaction %s for query %s", lockId, transactionId, queryId);
+                log.debug("Waiting for lock %d for %s", lockId, context);
 
                 response = retry()
                         .stopOn(NoSuchTxnException.class, NoSuchLockException.class, TxnAbortedException.class, MetaException.class)
@@ -1697,8 +1714,42 @@ public class ThriftHiveMetastore
             }
 
             if (response.getState() != LockState.ACQUIRED) {
-                throw new TrinoException(HIVE_TABLE_LOCK_NOT_ACQUIRED, "Could not acquire lock. Lock in state " + response.getState());
+                throw unlockSuppressing(identity, lockId, new TrinoException(HIVE_TABLE_LOCK_NOT_ACQUIRED, "Could not acquire lock. Lock in state " + response.getState()));
             }
+
+            return response.getLockid();
+        }
+        catch (TException e) {
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
+        }
+        catch (Exception e) {
+            throw propagate(e);
+        }
+    }
+
+    private <T extends Exception> T unlockSuppressing(HiveIdentity identity, long lockId, T exception)
+    {
+        try {
+            releaseTableLock(identity, lockId);
+        }
+        catch (RuntimeException e) {
+            exception.addSuppressed(e);
+        }
+        return exception;
+    }
+
+    @Override
+    public void releaseTableLock(HiveIdentity identity, long lockId)
+    {
+        try {
+            retry()
+                    .stopOn(NoSuchTxnException.class, NoSuchLockException.class, TxnAbortedException.class, MetaException.class)
+                    .run("unlock", stats.getUnlock().wrap(() -> {
+                        try (ThriftMetastoreClient metastoreClient = createMetastoreClient(identity)) {
+                            metastoreClient.unlock(lockId);
+                        }
+                        return null;
+                    }));
         }
         catch (TException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);

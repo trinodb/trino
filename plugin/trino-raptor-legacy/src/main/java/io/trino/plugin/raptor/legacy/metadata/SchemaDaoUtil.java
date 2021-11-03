@@ -15,9 +15,9 @@ package io.trino.plugin.raptor.legacy.metadata;
 
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
-import org.skife.jdbi.v2.Handle;
-import org.skife.jdbi.v2.IDBI;
-import org.skife.jdbi.v2.exceptions.UnableToObtainConnectionException;
+import org.jdbi.v3.core.ConnectionException;
+import org.jdbi.v3.core.Handle;
+import org.jdbi.v3.core.Jdbi;
 
 import java.util.concurrent.TimeUnit;
 
@@ -27,7 +27,7 @@ public final class SchemaDaoUtil
 
     private SchemaDaoUtil() {}
 
-    public static void createTablesWithRetry(IDBI dbi)
+    public static void createTablesWithRetry(Jdbi dbi)
     {
         Duration delay = new Duration(2, TimeUnit.SECONDS);
         while (true) {
@@ -35,7 +35,7 @@ public final class SchemaDaoUtil
                 createTables(handle.attach(SchemaDao.class));
                 return;
             }
-            catch (UnableToObtainConnectionException e) {
+            catch (ConnectionException e) {
                 log.warn("Failed to connect to database. Will retry again in %s. Exception: %s", delay, e.getMessage());
                 sleep(delay);
             }

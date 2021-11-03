@@ -55,7 +55,9 @@ public class TaskStatus
     private final Set<Lifespan> completedDriverGroups;
 
     private final int queuedPartitionedDrivers;
+    private final long queuedPartitionedSplitsWeight;
     private final int runningPartitionedDrivers;
+    private final long runningPartitionedSplitsWeight;
     private final boolean outputBufferOverutilized;
     private final DataSize physicalWrittenDataSize;
     private final DataSize memoryReservation;
@@ -88,7 +90,9 @@ public class TaskStatus
             @JsonProperty("revocableMemoryReservation") DataSize revocableMemoryReservation,
             @JsonProperty("fullGcCount") long fullGcCount,
             @JsonProperty("fullGcTime") Duration fullGcTime,
-            @JsonProperty("dynamicFiltersVersion") long dynamicFiltersVersion)
+            @JsonProperty("dynamicFiltersVersion") long dynamicFiltersVersion,
+            @JsonProperty("queuedPartitionedSplitsWeight") long queuedPartitionedSplitsWeight,
+            @JsonProperty("runningPartitionedSplitsWeight") long runningPartitionedSplitsWeight)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.taskInstanceId = requireNonNull(taskInstanceId, "taskInstanceId is null");
@@ -102,9 +106,13 @@ public class TaskStatus
 
         checkArgument(queuedPartitionedDrivers >= 0, "queuedPartitionedDrivers must be positive");
         this.queuedPartitionedDrivers = queuedPartitionedDrivers;
+        checkArgument(queuedPartitionedSplitsWeight >= 0, "queuedPartitionedSplitsWeight must be positive");
+        this.queuedPartitionedSplitsWeight = queuedPartitionedSplitsWeight;
 
         checkArgument(runningPartitionedDrivers >= 0, "runningPartitionedDrivers must be positive");
         this.runningPartitionedDrivers = runningPartitionedDrivers;
+        checkArgument(runningPartitionedSplitsWeight >= 0, "runningPartitionedSplitsWeight must be positive");
+        this.runningPartitionedSplitsWeight = runningPartitionedSplitsWeight;
 
         this.outputBufferOverutilized = outputBufferOverutilized;
 
@@ -230,6 +238,18 @@ public class TaskStatus
         return dynamicFiltersVersion;
     }
 
+    @JsonProperty
+    public long getQueuedPartitionedSplitsWeight()
+    {
+        return queuedPartitionedSplitsWeight;
+    }
+
+    @JsonProperty
+    public long getRunningPartitionedSplitsWeight()
+    {
+        return runningPartitionedSplitsWeight;
+    }
+
     @Override
     public String toString()
     {
@@ -259,7 +279,9 @@ public class TaskStatus
                 DataSize.ofBytes(0),
                 0,
                 new Duration(0, MILLISECONDS),
-                INITIAL_DYNAMIC_FILTERS_VERSION);
+                INITIAL_DYNAMIC_FILTERS_VERSION,
+                0L,
+                0L);
     }
 
     public static TaskStatus failWith(TaskStatus taskStatus, TaskState state, List<ExecutionFailureInfo> exceptions)
@@ -282,6 +304,8 @@ public class TaskStatus
                 taskStatus.getRevocableMemoryReservation(),
                 taskStatus.getFullGcCount(),
                 taskStatus.getFullGcTime(),
-                taskStatus.getDynamicFiltersVersion());
+                taskStatus.getDynamicFiltersVersion(),
+                taskStatus.getQueuedPartitionedSplitsWeight(),
+                taskStatus.getRunningPartitionedSplitsWeight());
     }
 }

@@ -22,6 +22,7 @@ import io.trino.spi.type.Type;
 
 import java.security.Principal;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -45,6 +46,7 @@ import static io.trino.spi.security.AccessDeniedException.denyDropView;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteFunction;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteProcedure;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteQuery;
+import static io.trino.spi.security.AccessDeniedException.denyExecuteTableProcedure;
 import static io.trino.spi.security.AccessDeniedException.denyGrantExecuteFunctionPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyGrantRoles;
 import static io.trino.spi.security.AccessDeniedException.denyGrantSchemaPrivilege;
@@ -54,6 +56,7 @@ import static io.trino.spi.security.AccessDeniedException.denyInsertTable;
 import static io.trino.spi.security.AccessDeniedException.denyKillQuery;
 import static io.trino.spi.security.AccessDeniedException.denyRefreshMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyRenameColumn;
+import static io.trino.spi.security.AccessDeniedException.denyRenameMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyRenameSchema;
 import static io.trino.spi.security.AccessDeniedException.denyRenameTable;
 import static io.trino.spi.security.AccessDeniedException.denyRevokeRoles;
@@ -64,6 +67,7 @@ import static io.trino.spi.security.AccessDeniedException.denySetCatalogSessionP
 import static io.trino.spi.security.AccessDeniedException.denySetSchemaAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denySetSystemSessionProperty;
 import static io.trino.spi.security.AccessDeniedException.denySetTableAuthorization;
+import static io.trino.spi.security.AccessDeniedException.denySetTableProperties;
 import static io.trino.spi.security.AccessDeniedException.denySetUser;
 import static io.trino.spi.security.AccessDeniedException.denySetViewAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denyShowColumns;
@@ -282,8 +286,20 @@ public interface SystemAccessControl
      * Check if identity is allowed to create the specified table in a catalog.
      *
      * @throws AccessDeniedException if not allowed
+     * @deprecated use {@link #checkCanCreateTable(SystemSecurityContext context, CatalogSchemaTableName table, Map properties)} instead
      */
+    @Deprecated
     default void checkCanCreateTable(SystemSecurityContext context, CatalogSchemaTableName table)
+    {
+        denyCreateTable(table.toString());
+    }
+
+    /**
+     * Check if identity is allowed to create the specified table with properties in a catalog.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanCreateTable(SystemSecurityContext context, CatalogSchemaTableName table, Map<String, Object> properties)
     {
         denyCreateTable(table.toString());
     }
@@ -306,6 +322,16 @@ public interface SystemAccessControl
     default void checkCanRenameTable(SystemSecurityContext context, CatalogSchemaTableName table, CatalogSchemaTableName newTable)
     {
         denyRenameTable(table.toString(), newTable.toString());
+    }
+
+    /**
+     * Check if identity is allowed to alter properties to the specified table in a catalog.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanSetTableProperties(SystemSecurityContext context, CatalogSchemaTableName table, Map<String, Object> properties)
+    {
+        denySetTableProperties(table.toString());
     }
 
     /**
@@ -533,6 +559,16 @@ public interface SystemAccessControl
     }
 
     /**
+     * Check if identity is allowed to rename the specified materialized view in a catalog.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanRenameMaterializedView(SystemSecurityContext context, CatalogSchemaTableName view, CatalogSchemaTableName newView)
+    {
+        denyRenameMaterializedView(view.toString(), newView.toString());
+    }
+
+    /**
      * Check if identity is allowed to grant an access to the function execution to grantee.
      *
      * @throws AccessDeniedException if not allowed
@@ -691,6 +727,16 @@ public interface SystemAccessControl
     default void checkCanExecuteFunction(SystemSecurityContext systemSecurityContext, String functionName)
     {
         denyExecuteFunction(functionName);
+    }
+
+    /**
+     * Check if identity is allowed to execute the specified table procedure on specified table
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanExecuteTableProcedure(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName table, String procedure)
+    {
+        denyExecuteTableProcedure(table.toString(), procedure);
     }
 
     /**

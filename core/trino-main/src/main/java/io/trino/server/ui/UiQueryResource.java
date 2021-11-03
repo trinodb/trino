@@ -71,17 +71,17 @@ public class UiQueryResource
 
     @ResourceSecurity(WEB_UI)
     @GET
-    public List<BasicQueryInfo> getAllQueryInfo(@QueryParam("state") String stateFilter, @Context HttpServletRequest servletRequest, @Context HttpHeaders httpHeaders)
+    public List<TrimmedBasicQueryInfo> getAllQueryInfo(@QueryParam("state") String stateFilter, @Context HttpServletRequest servletRequest, @Context HttpHeaders httpHeaders)
     {
         QueryState expectedState = stateFilter == null ? null : QueryState.valueOf(stateFilter.toUpperCase(Locale.ENGLISH));
 
         List<BasicQueryInfo> queries = dispatchManager.getQueries();
         queries = filterQueries(sessionContextFactory.extractAuthorizedIdentity(servletRequest, httpHeaders, alternateHeaderName), queries, accessControl);
 
-        ImmutableList.Builder<BasicQueryInfo> builder = new ImmutableList.Builder<>();
+        ImmutableList.Builder<TrimmedBasicQueryInfo> builder = new ImmutableList.Builder<>();
         for (BasicQueryInfo queryInfo : queries) {
             if (stateFilter == null || queryInfo.getState() == expectedState) {
-                builder.add(queryInfo);
+                builder.add(new TrimmedBasicQueryInfo(queryInfo));
             }
         }
         return builder.build();

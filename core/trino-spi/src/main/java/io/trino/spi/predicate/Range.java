@@ -48,7 +48,8 @@ public final class Range
     {
         requireNonNull(type, "type is null");
         this.type = type;
-        MethodHandle comparisonOperator = TUPLE_DOMAIN_TYPE_OPERATORS.getComparisonOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
+        // choice of placing unordered values first or last does not matter for this code
+        MethodHandle comparisonOperator = TUPLE_DOMAIN_TYPE_OPERATORS.getComparisonUnorderedLastOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
 
         requireNonNull(lowValue, "lowValue is null");
         requireNonNull(highValue, "highValue is null");

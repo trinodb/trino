@@ -19,11 +19,11 @@ import io.trino.cost.CostComparator;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.cost.SymbolStatsEstimate;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import io.trino.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
 import io.trino.sql.parser.SqlParser;
-import io.trino.sql.planner.FunctionCallBuilder;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
@@ -358,7 +358,7 @@ public class TestReorderJoins
                                 Optional.of(new ComparisonExpression(
                                         LESS_THAN,
                                         p.symbol("A1").toSymbolReference(),
-                                        new FunctionCallBuilder(tester.getMetadata()).setName(QualifiedName.of("random")).build()))))
+                                        new TestingFunctionResolution().functionCallBuilder(QualifiedName.of("random")).build()))))
                 .doesNotFire();
     }
 

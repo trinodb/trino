@@ -212,7 +212,10 @@ public abstract class AbstractTestType
             assertTrue(blockTypeOperators.generateBlockPositionOrdering(type, DESC_NULLS_LAST).order(block, position, expectedBlock, 0) == 0);
         }
         else {
-            assertThatThrownBy(() -> typeOperators.getComparisonOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL)))
+            assertThatThrownBy(() -> typeOperators.getComparisonUnorderedLastOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL)))
+                    .isInstanceOf(UnsupportedOperationException.class)
+                    .hasMessageContaining("is not orderable");
+            assertThatThrownBy(() -> typeOperators.getComparisonUnorderedFirstOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL)))
                     .isInstanceOf(UnsupportedOperationException.class)
                     .hasMessageContaining("is not orderable");
         }

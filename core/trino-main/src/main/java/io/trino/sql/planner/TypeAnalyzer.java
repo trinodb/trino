@@ -30,6 +30,7 @@ import javax.inject.Inject;
 import java.util.Map;
 
 import static io.trino.sql.analyzer.ExpressionAnalyzer.analyzeExpressions;
+import static io.trino.sql.analyzer.QueryType.OTHERS;
 
 /**
  * This class is to facilitate obtaining the type of an expression and its subexpressions
@@ -59,7 +60,7 @@ public class TypeAnalyzer
                 expressions,
                 ImmutableMap.of(),
                 WarningCollector.NOOP,
-                false)
+                OTHERS)
                 .getExpressionTypes();
     }
 

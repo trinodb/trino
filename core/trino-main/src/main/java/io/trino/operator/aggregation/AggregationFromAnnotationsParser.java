@@ -28,19 +28,18 @@ import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.RemoveInputFunction;
 import io.trino.spi.type.TypeSignature;
 
-import javax.annotation.Nullable;
-
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.operator.ParametricFunctionHelpers.signatureWithName;
 import static io.trino.operator.aggregation.AggregationImplementation.Parser.parseImplementation;
 import static io.trino.operator.annotations.FunctionsParserHelper.parseDescription;
 import static java.lang.String.format;
@@ -71,101 +70,111 @@ public final class AggregationFromAnnotationsParser
     {
         AggregationFunction aggregationAnnotation = aggregationDefinition.getAnnotation(AggregationFunction.class);
         requireNonNull(aggregationAnnotation, "aggregationAnnotation is null");
-        boolean deprecated = aggregationDefinition.getAnnotationsByType(Deprecated.class).length > 0;
 
-        ImmutableList.Builder<ParametricAggregation> builder = ImmutableList.builder();
+        ImmutableList.Builder<ParametricAggregation> functions = ImmutableList.builder();
 
-        for (Class<?> stateClass : getStateClasses(aggregationDefinition)) {
-            Method combineFunction = getCombineFunction(aggregationDefinition, stateClass);
-            for (Method outputFunction : getOutputFunctions(aggregationDefinition, stateClass)) {
-                for (Method inputFunction : getInputFunctions(aggregationDefinition, stateClass)) {
-                    Optional<Method> removeInputFunction = getRemoveInputFunction(aggregationDefinition, inputFunction);
-                    for (AggregationHeader header : parseHeaders(aggregationDefinition, outputFunction)) {
-                        AggregationImplementation onlyImplementation = parseImplementation(aggregationDefinition, header, stateClass, inputFunction, removeInputFunction, outputFunction, combineFunction);
-                        ParametricImplementationsGroup<AggregationImplementation> implementations = ParametricImplementationsGroup.of(onlyImplementation);
-                        builder.add(new ParametricAggregation(implementations.getSignature(), header, implementations, deprecated));
-                    }
-                }
-            }
-        }
+        // There must be a single state class and combine function
+        Class<?> stateClass = getStateClass(aggregationDefinition);
+        Method combineFunction = getCombineFunction(aggregationDefinition, stateClass);
 
-        return builder.build();
-    }
+        // Each output function defines a new aggregation function
+        for (Method outputFunction : getOutputFunctions(aggregationDefinition, stateClass)) {
+            AggregationHeader header = parseHeader(aggregationDefinition, outputFunction);
 
-    public static ParametricAggregation parseFunctionDefinition(Class<?> aggregationDefinition)
-    {
-        ParametricImplementationsGroup.Builder<AggregationImplementation> implementationsBuilder = ParametricImplementationsGroup.builder();
-        AggregationHeader header = parseHeader(aggregationDefinition);
-        boolean deprecated = aggregationDefinition.getAnnotationsByType(Deprecated.class).length > 0;
-
-        for (Class<?> stateClass : getStateClasses(aggregationDefinition)) {
-            Method combineFunction = getCombineFunction(aggregationDefinition, stateClass);
-            Method outputFunction = getOnlyElement(getOutputFunctions(aggregationDefinition, stateClass));
+            // Input functions can have either an exact signature, or generic/calculate signature
+            List<AggregationImplementation> exactImplementations = new ArrayList<>();
+            List<AggregationImplementation> nonExactImplementations = new ArrayList<>();
             for (Method inputFunction : getInputFunctions(aggregationDefinition, stateClass)) {
                 Optional<Method> removeInputFunction = getRemoveInputFunction(aggregationDefinition, inputFunction);
-                AggregationImplementation implementation = parseImplementation(aggregationDefinition, header, stateClass, inputFunction, removeInputFunction, outputFunction, combineFunction);
-                implementationsBuilder.addImplementation(implementation);
+                AggregationImplementation implementation = parseImplementation(aggregationDefinition, header.getName(), inputFunction, removeInputFunction, outputFunction, combineFunction);
+                if (isGenericOrCalculated(implementation.getSignature())) {
+                    exactImplementations.add(implementation);
+                }
+                else {
+                    nonExactImplementations.add(implementation);
+                }
+            }
+
+            // register a set functions for the canonical name, and each alias
+            functions.addAll(buildFunctions(header.getName(), header, stateClass, exactImplementations, nonExactImplementations));
+            for (String alias : getAliases(aggregationDefinition.getAnnotation(AggregationFunction.class), outputFunction)) {
+                functions.addAll(buildFunctions(alias, header, stateClass, exactImplementations, nonExactImplementations));
             }
         }
 
-        ParametricImplementationsGroup<AggregationImplementation> implementations = implementationsBuilder.build();
-        return new ParametricAggregation(implementations.getSignature(), header, implementations, deprecated);
+        return functions.build();
     }
 
-    private static AggregationHeader parseHeader(AnnotatedElement aggregationDefinition)
+    private static List<ParametricAggregation> buildFunctions(
+            String name,
+            AggregationHeader header,
+            Class<?> stateClass,
+            List<AggregationImplementation> exactImplementations,
+            List<AggregationImplementation> nonExactImplementations)
+    {
+        ImmutableList.Builder<ParametricAggregation> functions = ImmutableList.builder();
+
+        // create a separate function for each exact implementation
+        for (AggregationImplementation exactImplementation : exactImplementations) {
+            functions.add(new ParametricAggregation(
+                    signatureWithName(name, exactImplementation.getSignature()),
+                    header,
+                    stateClass,
+                    ParametricImplementationsGroup.of(exactImplementation).withAlias(name)));
+        }
+
+        // if there are non-exact functions, create a single generic/calculated function using these implementations
+        if (!nonExactImplementations.isEmpty()) {
+            ParametricImplementationsGroup.Builder<AggregationImplementation> implementationsBuilder = ParametricImplementationsGroup.builder();
+            nonExactImplementations.forEach(implementationsBuilder::addImplementation);
+            ParametricImplementationsGroup<AggregationImplementation> implementations = implementationsBuilder.build();
+            functions.add(new ParametricAggregation(
+                    signatureWithName(name, implementations.getSignature()),
+                    header,
+                    stateClass,
+                    implementations.withAlias(name)));
+        }
+
+        return functions.build();
+    }
+
+    private static boolean isGenericOrCalculated(Signature signature)
+    {
+        return signature.getTypeVariableConstraints().isEmpty()
+                && signature.getArgumentTypes().stream().noneMatch(TypeSignature::isCalculated)
+                && !signature.getReturnType().isCalculated();
+    }
+
+    private static AggregationHeader parseHeader(AnnotatedElement aggregationDefinition, AnnotatedElement outputFunction)
     {
         AggregationFunction aggregationAnnotation = aggregationDefinition.getAnnotation(AggregationFunction.class);
         requireNonNull(aggregationAnnotation, "aggregationAnnotation is null");
+        String name = getName(aggregationAnnotation, outputFunction);
         return new AggregationHeader(
-                aggregationAnnotation.value(),
-                aggregationAnnotation.value(),
-                parseDescription(aggregationDefinition),
+                name,
+                parseDescription(aggregationDefinition, outputFunction),
                 aggregationAnnotation.decomposable(),
                 aggregationAnnotation.isOrderSensitive(),
-                aggregationAnnotation.hidden());
+                aggregationAnnotation.hidden(),
+                aggregationDefinition.getAnnotationsByType(Deprecated.class).length > 0);
     }
 
-    private static List<AggregationHeader> parseHeaders(AnnotatedElement aggregationDefinition, AnnotatedElement toParse)
+    private static String getName(AggregationFunction aggregationAnnotation, AnnotatedElement outputFunction)
     {
-        AggregationFunction aggregationAnnotation = aggregationDefinition.getAnnotation(AggregationFunction.class);
-
-        return getNames(toParse, aggregationAnnotation).stream()
-                .map(aggregationFunctionName ->
-                        new AggregationHeader(
-                                aggregationFunctionName.getActualName(),
-                                aggregationFunctionName.getCanonicalName(),
-                                parseDescription(aggregationDefinition, toParse),
-                                aggregationAnnotation.decomposable(),
-                                aggregationAnnotation.isOrderSensitive(),
-                                aggregationAnnotation.hidden()))
-                .collect(toImmutableList());
-    }
-
-    private static List<AggregationFunctionName> getNames(@Nullable AnnotatedElement outputFunction, AggregationFunction aggregationAnnotation)
-    {
-        List<AggregationFunctionName> defaultNames = ImmutableList.<AggregationFunctionName>builder()
-                .add(new AggregationFunctionName(aggregationAnnotation.value(), aggregationAnnotation.value()))
-                .addAll(Stream.of(aggregationAnnotation.alias())
-                        .map(alias -> new AggregationFunctionName(alias, aggregationAnnotation.value()))
-                        .collect(toImmutableList()))
-                .build();
-
-        if (outputFunction == null) {
-            return defaultNames;
-        }
-
         AggregationFunction annotation = outputFunction.getAnnotation(AggregationFunction.class);
-        if (annotation == null) {
-            return defaultNames;
+        if (annotation != null && !annotation.value().isEmpty()) {
+            return emptyToNull(annotation.value());
         }
-        else {
-            return ImmutableList.<AggregationFunctionName>builder()
-                    .add(new AggregationFunctionName(annotation.value(), annotation.value()))
-                    .addAll(Stream.of(annotation.alias())
-                            .map(alias -> new AggregationFunctionName(alias, annotation.value()))
-                            .collect(toImmutableList()))
-                    .build();
+        return emptyToNull(aggregationAnnotation.value());
+    }
+
+    private static List<String> getAliases(AggregationFunction aggregationAnnotation, AnnotatedElement outputFunction)
+    {
+        AggregationFunction annotation = outputFunction.getAnnotation(AggregationFunction.class);
+        if (annotation != null && annotation.alias().length > 0) {
+            return ImmutableList.copyOf(annotation.alias());
         }
+        return ImmutableList.copyOf(aggregationAnnotation.alias());
     }
 
     private static Method getCombineFunction(Class<?> clazz, Class<?> stateClass)
@@ -211,7 +220,7 @@ public final class AggregationFromAnnotationsParser
                 .collect(MoreCollectors.toOptional());
     }
 
-    private static Set<Class<?>> getStateClasses(Class<?> clazz)
+    private static Class<?> getStateClass(Class<?> clazz)
     {
         ImmutableSet.Builder<Class<?>> builder = ImmutableSet.builder();
         for (Method inputFunction : FunctionsParserHelper.findPublicStaticMethodsWithAnnotation(clazz, InputFunction.class)) {
@@ -223,29 +232,8 @@ public final class AggregationFromAnnotationsParser
         }
         ImmutableSet<Class<?>> stateClasses = builder.build();
         checkArgument(!stateClasses.isEmpty(), "No input functions found");
+        checkArgument(stateClasses.size() == 1, "There must be exactly one @AccumulatorState in class %s", clazz.toGenericString());
 
-        return stateClasses;
-    }
-
-    private static class AggregationFunctionName
-    {
-        private String actualName;
-        private String canonicalName;
-
-        public AggregationFunctionName(String actualName, String canonicalName)
-        {
-            this.actualName = actualName;
-            this.canonicalName = canonicalName;
-        }
-
-        public String getActualName()
-        {
-            return actualName;
-        }
-
-        public String getCanonicalName()
-        {
-            return canonicalName;
-        }
+        return getOnlyElement(stateClasses);
     }
 }

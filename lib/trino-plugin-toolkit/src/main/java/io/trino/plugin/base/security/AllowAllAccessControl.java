@@ -22,6 +22,7 @@ import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.Type;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -75,6 +76,11 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanCreateTable(ConnectorSecurityContext context, SchemaTableName tableName, Map<String, Object> properties)
+    {
+    }
+
+    @Override
     public void checkCanDropTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
     }
@@ -86,6 +92,11 @@ public class AllowAllAccessControl
 
     @Override
     public void checkCanSetTableComment(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+    }
+
+    @Override
+    public void checkCanSetTableProperties(ConnectorSecurityContext context, SchemaTableName tableName, Map<String, Object> properties)
     {
     }
 
@@ -197,6 +208,11 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanRenameMaterializedView(ConnectorSecurityContext context, SchemaTableName viewName, SchemaTableName newViewName)
+    {
+    }
+
+    @Override
     public void checkCanSetCatalogSessionProperty(ConnectorSecurityContext context, String propertyName)
     {
     }
@@ -276,6 +292,11 @@ public class AllowAllAccessControl
 
     @Override
     public void checkCanExecuteProcedure(ConnectorSecurityContext context, SchemaRoutineName procedure)
+    {
+    }
+
+    @Override
+    public void checkCanExecuteTableProcedure(ConnectorSecurityContext context, SchemaTableName tableName, String procedure)
     {
     }
 

@@ -15,9 +15,8 @@ package io.trino.metadata;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
+import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -58,6 +57,7 @@ import io.trino.spi.block.VariableWidthBlockEncoding;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.Assignment;
+import io.trino.spi.connector.BeginTableExecuteResult;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
@@ -71,6 +71,7 @@ import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorResolvedIndex;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableExecuteHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableLayoutHandle;
@@ -148,6 +149,7 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -182,7 +184,8 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
-import static io.trino.spi.function.OperatorType.COMPARISON;
+import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_FIRST;
+import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
@@ -209,12 +212,14 @@ public final class MetadataManager
     private final TypeOperators typeOperators;
     private final FunctionResolver functionResolver;
     private final ProcedureRegistry procedures;
+    private final TableProceduresRegistry tableProcedures;
     private final SessionPropertyManager sessionPropertyManager;
     private final SchemaPropertyManager schemaPropertyManager;
     private final TablePropertyManager tablePropertyManager;
     private final MaterializedViewPropertyManager materializedViewPropertyManager;
     private final ColumnPropertyManager columnPropertyManager;
     private final AnalyzePropertyManager analyzePropertyManager;
+    private final TableProceduresPropertyManager tableProceduresPropertyManager;
     private final SystemSecurityMetadata systemSecurityMetadata;
     private final TransactionManager transactionManager;
     private final TypeRegistry typeRegistry;
@@ -224,8 +229,8 @@ public final class MetadataManager
 
     private final ResolvedFunctionDecoder functionDecoder;
 
-    private final LoadingCache<OperatorCacheKey, ResolvedFunction> operatorCache;
-    private final LoadingCache<CoercionCacheKey, ResolvedFunction> coercionCache;
+    private final Cache<OperatorCacheKey, ResolvedFunction> operatorCache;
+    private final Cache<CoercionCacheKey, ResolvedFunction> coercionCache;
 
     @Inject
     public MetadataManager(
@@ -236,6 +241,7 @@ public final class MetadataManager
             MaterializedViewPropertyManager materializedViewPropertyManager,
             ColumnPropertyManager columnPropertyManager,
             AnalyzePropertyManager analyzePropertyManager,
+            TableProceduresPropertyManager tableProceduresPropertyManager,
             SystemSecurityMetadata systemSecurityMetadata,
             TransactionManager transactionManager,
             TypeOperators typeOperators,
@@ -248,12 +254,14 @@ public final class MetadataManager
         functionResolver = new FunctionResolver(this);
 
         this.procedures = new ProcedureRegistry();
+        this.tableProcedures = new TableProceduresRegistry();
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.schemaPropertyManager = requireNonNull(schemaPropertyManager, "schemaPropertyManager is null");
         this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
         this.materializedViewPropertyManager = requireNonNull(materializedViewPropertyManager, "materializedViewPropertyManager is null");
         this.columnPropertyManager = requireNonNull(columnPropertyManager, "columnPropertyManager is null");
         this.analyzePropertyManager = requireNonNull(analyzePropertyManager, "analyzePropertyManager is null");
+        this.tableProceduresPropertyManager = requireNonNull(tableProceduresPropertyManager, "tableProceduresPropertyManager is null");
         this.systemSecurityMetadata = requireNonNull(systemSecurityMetadata, "systemSecurityMetadata is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
@@ -281,20 +289,11 @@ public final class MetadataManager
 
         operatorCache = CacheBuilder.newBuilder()
                 .maximumSize(1000)
-                .build(CacheLoader.from(key -> {
-                    String name = mangleOperatorName(key.getOperatorType());
-                    return resolveFunction(QualifiedName.of(name), fromTypes(key.getArgumentTypes()));
-                }));
+                .build();
 
         coercionCache = CacheBuilder.newBuilder()
                 .maximumSize(1000)
-                .build(CacheLoader.from(key -> {
-                    String name = mangleOperatorName(key.getOperatorType());
-                    Type fromType = key.getFromType();
-                    Type toType = key.getToType();
-                    Signature signature = new Signature(name, toType.getTypeSignature(), ImmutableList.of(fromType.getTypeSignature()));
-                    return resolve(functionResolver.resolveCoercion(functions.get(QualifiedName.of(name)), signature));
-                }));
+                .build();
     }
 
     public static MetadataManager createTestMetadataManager()
@@ -328,6 +327,7 @@ public final class MetadataManager
                 new MaterializedViewPropertyManager(),
                 new ColumnPropertyManager(),
                 new AnalyzePropertyManager(),
+                new TableProceduresPropertyManager(),
                 new DisabledSystemSecurityMetadata(),
                 transactionManager,
                 typeOperators,
@@ -426,6 +426,62 @@ public final class MetadataManager
             }
         }
         return Optional.empty();
+    }
+
+    @Override
+    public Optional<TableExecuteHandle> getTableHandleForExecute(Session session, TableHandle tableHandle, String procedure, Map<String, Object> executeProperties)
+    {
+        requireNonNull(session, "session is null");
+        requireNonNull(tableHandle, "tableHandle is null");
+        requireNonNull(procedure, "procedure is null");
+        requireNonNull(executeProperties, "executeProperties is null");
+
+        CatalogName catalogName = tableHandle.getCatalogName();
+        CatalogMetadata catalogMetadata = getCatalogMetadata(session, catalogName);
+        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
+
+        Optional<ConnectorTableExecuteHandle> executeHandle = metadata.getTableHandleForExecute(
+                session.toConnectorSession(catalogName),
+                tableHandle.getConnectorHandle(),
+                procedure,
+                executeProperties);
+
+        return executeHandle.map(handle -> new TableExecuteHandle(
+                catalogName,
+                tableHandle.getTransaction(),
+                handle));
+    }
+
+    @Override
+    public Optional<NewTableLayout> getLayoutForTableExecute(Session session, TableExecuteHandle tableExecuteHandle)
+    {
+        CatalogName catalogName = tableExecuteHandle.getCatalogName();
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
+        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+
+        return metadata.getLayoutForTableExecute(session.toConnectorSession(catalogName), tableExecuteHandle.getConnectorHandle())
+                .map(layout -> new NewTableLayout(catalogName, catalogMetadata.getTransactionHandleFor(catalogName), layout));
+    }
+
+    @Override
+    public BeginTableExecuteResult<TableExecuteHandle, TableHandle> beginTableExecute(Session session, TableExecuteHandle tableExecuteHandle, TableHandle sourceHandle)
+    {
+        CatalogName catalogName = tableExecuteHandle.getCatalogName();
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
+        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        BeginTableExecuteResult<ConnectorTableExecuteHandle, ConnectorTableHandle> connectorBeginResult = metadata.beginTableExecute(session.toConnectorSession(), tableExecuteHandle.getConnectorHandle(), sourceHandle.getConnectorHandle());
+
+        return new BeginTableExecuteResult<>(
+                tableExecuteHandle.withConnectorHandle(connectorBeginResult.getTableExecuteHandle()),
+                sourceHandle.withConnectorHandle(connectorBeginResult.getSourceHandle()));
+    }
+
+    @Override
+    public void finishTableExecute(Session session, TableExecuteHandle tableExecuteHandle, Collection<Slice> fragments, List<Object> tableExecuteState)
+    {
+        CatalogName catalogName = tableExecuteHandle.getCatalogName();
+        ConnectorMetadata metadata = getMetadata(session, catalogName);
+        metadata.finishTableExecute(session.toConnectorSession(catalogName), tableExecuteHandle.getConnectorHandle(), fragments, tableExecuteState);
     }
 
     @Override
@@ -652,7 +708,11 @@ public final class MetadataManager
             return true;
         }
 
-        return getTableHandle(session, name).isPresent();
+        // If the table is not redirected, table handle existence is checked.
+        // If the table is redirected, the target table handle is retrieved. If it does not exist, an
+        // exception is thrown. This behavior is currently inconsistent with the unfiltered case of table listing.
+        // TODO: the behavior may change with a different way to resolve relation names. https://github.com/trinodb/trino/issues/9400
+        return getRedirectionAwareTableHandle(session, name).getTableHandle().isPresent();
     }
 
     @Override
@@ -770,6 +830,14 @@ public final class MetadataManager
 
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
         metadata.renameTable(session.toConnectorSession(catalog), tableHandle.getConnectorHandle(), newTableName.asSchemaTableName());
+    }
+
+    @Override
+    public void setTableProperties(Session session, TableHandle tableHandle, Map<String, Object> properties)
+    {
+        CatalogName catalogName = tableHandle.getCatalogName();
+        ConnectorMetadata metadata = getMetadataForWrite(session, catalogName);
+        metadata.setTableProperties(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle(), properties);
     }
 
     @Override
@@ -1116,9 +1184,9 @@ public final class MetadataManager
     }
 
     @Override
-    public Map<String, CatalogName> getCatalogNames(Session session)
+    public Map<String, Catalog> getCatalogs(Session session)
     {
-        return transactionManager.getCatalogNames(session.getRequiredTransactionId());
+        return transactionManager.getCatalogs(session.getRequiredTransactionId());
     }
 
     @Override
@@ -1404,6 +1472,19 @@ public final class MetadataManager
     }
 
     @Override
+    public void renameMaterializedView(Session session, QualifiedObjectName source, QualifiedObjectName target)
+    {
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, target.getCatalogName());
+        CatalogName catalogName = catalogMetadata.getCatalogName();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        if (!source.getCatalogName().equals(catalogName.getCatalogName())) {
+            throw new TrinoException(SYNTAX_ERROR, "Cannot rename materialized views across catalogs");
+        }
+
+        metadata.renameMaterializedView(session.toConnectorSession(catalogName), source.asSchemaTableName(), target.asSchemaTableName());
+    }
+
+    @Override
     public Optional<TableScanRedirectApplicationResult> applyTableScanRedirect(Session session, TableHandle tableHandle)
     {
         CatalogName catalogName = tableHandle.getCatalogName();
@@ -1417,6 +1498,11 @@ public final class MetadataManager
     {
         requireNonNull(session, "session is null");
         requireNonNull(originalTableName, "originalTableName is null");
+
+        if (originalTableName.getCatalogName().isEmpty() || originalTableName.getSchemaName().isEmpty() || originalTableName.getObjectName().isEmpty()) {
+            // table cannot exist
+            return originalTableName;
+        }
 
         QualifiedObjectName tableName = originalTableName;
         Set<QualifiedObjectName> visitedTableNames = new LinkedHashSet<>();
@@ -2071,8 +2157,11 @@ public final class MetadataManager
                 }
             }
             if (type.isOrderable()) {
-                if (!hasComparisonMethod(type)) {
-                    missingOperators.put(type, COMPARISON);
+                if (!hasComparisonUnorderedLastMethod(type)) {
+                    missingOperators.put(type, COMPARISON_UNORDERED_LAST);
+                }
+                if (!hasComparisonUnorderedFirstMethod(type)) {
+                    missingOperators.put(type, COMPARISON_UNORDERED_FIRST);
                 }
                 if (!hasLessThanMethod(type)) {
                     missingOperators.put(type, LESS_THAN);
@@ -2150,10 +2239,21 @@ public final class MetadataManager
         }
     }
 
-    private boolean hasComparisonMethod(Type type)
+    private boolean hasComparisonUnorderedLastMethod(Type type)
     {
         try {
-            typeOperators.getComparisonOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
+            typeOperators.getComparisonUnorderedLastOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
+            return true;
+        }
+        catch (UnsupportedOperationException e) {
+            return false;
+        }
+    }
+
+    private boolean hasComparisonUnorderedFirstMethod(Type type)
+    {
+        try {
+            typeOperators.getComparisonUnorderedFirstOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
             return true;
         }
         catch (UnsupportedOperationException e) {
@@ -2207,18 +2307,24 @@ public final class MetadataManager
     }
 
     @Override
-    public ResolvedFunction resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
+    public ResolvedFunction resolveFunction(Session session, QualifiedName name, List<TypeSignatureProvider> parameterTypes)
     {
-        return functionDecoder.fromQualifiedName(name)
-                .orElseGet(() -> resolve(functionResolver.resolveFunction(functions.get(name), name, parameterTypes)));
+        return resolvedFunctionInternal(session, name, parameterTypes);
     }
 
     @Override
-    public ResolvedFunction resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
+    public ResolvedFunction resolveOperator(Session session, OperatorType operatorType, List<? extends Type> argumentTypes)
             throws OperatorNotFoundException
     {
         try {
-            return operatorCache.getUnchecked(new OperatorCacheKey(operatorType, argumentTypes));
+            // todo we should not be caching functions across session
+            return operatorCache.get(new OperatorCacheKey(operatorType, argumentTypes), () -> {
+                String name = mangleOperatorName(operatorType);
+                return resolvedFunctionInternal(session, QualifiedName.of(name), fromTypes(argumentTypes));
+            });
+        }
+        catch (ExecutionException e) {
+            throw new UncheckedExecutionException(e);
         }
         catch (UncheckedExecutionException e) {
             if (e.getCause() instanceof TrinoException) {
@@ -2232,12 +2338,27 @@ public final class MetadataManager
         }
     }
 
+    private ResolvedFunction resolvedFunctionInternal(Session session, QualifiedName name, List<TypeSignatureProvider> parameterTypes)
+    {
+        return functionDecoder.fromQualifiedName(name)
+                .orElseGet(() -> resolve(session, functionResolver.resolveFunction(session, functions.get(name), name, parameterTypes)));
+    }
+
     @Override
-    public ResolvedFunction getCoercion(OperatorType operatorType, Type fromType, Type toType)
+    public ResolvedFunction getCoercion(Session session, OperatorType operatorType, Type fromType, Type toType)
     {
         checkArgument(operatorType == OperatorType.CAST || operatorType == OperatorType.SATURATED_FLOOR_CAST);
         try {
-            return coercionCache.getUnchecked(new CoercionCacheKey(operatorType, fromType, toType));
+            // todo we should not be caching functions across session
+            return coercionCache.get(new CoercionCacheKey(operatorType, fromType, toType), () -> {
+                String name = mangleOperatorName(operatorType);
+                Signature signature = new Signature(name, toType.getTypeSignature(), ImmutableList.of(fromType.getTypeSignature()));
+                FunctionBinding functionBinding = functionResolver.resolveCoercion(session, functions.get(QualifiedName.of(name)), signature);
+                return resolve(session, functionBinding);
+            });
+        }
+        catch (ExecutionException e) {
+            throw new UncheckedExecutionException(e);
         }
         catch (UncheckedExecutionException e) {
             if (e.getCause() instanceof TrinoException) {
@@ -2252,19 +2373,23 @@ public final class MetadataManager
     }
 
     @Override
-    public ResolvedFunction getCoercion(QualifiedName name, Type fromType, Type toType)
+    public ResolvedFunction getCoercion(Session session, QualifiedName name, Type fromType, Type toType)
     {
-        return resolve(functionResolver.resolveCoercion(functions.get(name), new Signature(name.getSuffix(), toType.getTypeSignature(), ImmutableList.of(fromType.getTypeSignature()))));
+        FunctionBinding functionBinding = functionResolver.resolveCoercion(
+                session,
+                functions.get(name),
+                new Signature(name.getSuffix(), toType.getTypeSignature(), ImmutableList.of(fromType.getTypeSignature())));
+        return resolve(session, functionBinding);
     }
 
-    private ResolvedFunction resolve(FunctionBinding functionBinding)
+    private ResolvedFunction resolve(Session session, FunctionBinding functionBinding)
     {
         FunctionDependencyDeclaration declaration = functions.getFunctionDependencies(functionBinding);
-        return resolve(functionBinding, declaration);
+        return resolve(session, functionBinding, declaration);
     }
 
     @VisibleForTesting
-    public ResolvedFunction resolve(FunctionBinding functionBinding, FunctionDependencyDeclaration declaration)
+    public ResolvedFunction resolve(Session session, FunctionBinding functionBinding, FunctionDependencyDeclaration declaration)
     {
         Map<TypeSignature, Type> dependentTypes = declaration.getTypeDependencies().stream()
                 .map(typeSignature -> applyBoundVariables(typeSignature, functionBinding))
@@ -2275,7 +2400,7 @@ public final class MetadataManager
                 .map(functionDependency -> {
                     try {
                         List<TypeSignature> argumentTypes = applyBoundVariables(functionDependency.getArgumentTypes(), functionBinding);
-                        return resolveFunction(functionDependency.getName(), fromTypeSignatures(argumentTypes));
+                        return resolvedFunctionInternal(session, functionDependency.getName(), fromTypeSignatures(argumentTypes));
                     }
                     catch (TrinoException e) {
                         if (functionDependency.isOptional()) {
@@ -2291,7 +2416,7 @@ public final class MetadataManager
                 .map(operatorDependency -> {
                     try {
                         List<TypeSignature> argumentTypes = applyBoundVariables(operatorDependency.getArgumentTypes(), functionBinding);
-                        return resolveFunction(QualifiedName.of(mangleOperatorName(operatorDependency.getOperatorType())), fromTypeSignatures(argumentTypes));
+                        return resolvedFunctionInternal(session, QualifiedName.of(mangleOperatorName(operatorDependency.getOperatorType())), fromTypeSignatures(argumentTypes));
                     }
                     catch (TrinoException e) {
                         if (operatorDependency.isOptional()) {
@@ -2308,7 +2433,7 @@ public final class MetadataManager
                     try {
                         Type fromType = getType(applyBoundVariables(castDependency.getFromType(), functionBinding));
                         Type toType = getType(applyBoundVariables(castDependency.getToType(), functionBinding));
-                        return getCoercion(fromType, toType);
+                        return getCoercion(session, fromType, toType);
                     }
                     catch (TrinoException e) {
                         if (castDependency.isOptional()) {
@@ -2356,7 +2481,7 @@ public final class MetadataManager
         return new FunctionMetadata(
                 functionMetadata.getFunctionId(),
                 resolvedFunction.getSignature().toSignature(),
-                functionMetadata.getActualName(),
+                functionMetadata.getCanonicalName(),
                 functionMetadata.isNullable(),
                 argumentDefinitions,
                 functionMetadata.isHidden(),
@@ -2369,7 +2494,13 @@ public final class MetadataManager
     @Override
     public AggregationFunctionMetadata getAggregationFunctionMetadata(ResolvedFunction resolvedFunction)
     {
-        return functions.getAggregationFunctionMetadata(toFunctionBinding(resolvedFunction));
+        AggregationFunctionMetadata aggregationFunctionMetadata = functions.getAggregationFunctionMetadata(resolvedFunction.getFunctionId());
+        return new AggregationFunctionMetadata(
+                aggregationFunctionMetadata.isOrderSensitive(),
+                aggregationFunctionMetadata.getIntermediateType().map(typeSignature -> {
+                    FunctionBinding functionBinding = toFunctionBinding(resolvedFunction);
+                    return applyBoundVariables(typeSignature, functionBinding);
+                }));
     }
 
     @Override
@@ -2506,6 +2637,12 @@ public final class MetadataManager
         return procedures;
     }
 
+    @Override
+    public TableProceduresRegistry getTableProcedureRegistry()
+    {
+        return tableProcedures;
+    }
+
     //
     // Blocks
     //
@@ -2568,6 +2705,12 @@ public final class MetadataManager
     public AnalyzePropertyManager getAnalyzePropertyManager()
     {
         return analyzePropertyManager;
+    }
+
+    @Override
+    public TableProceduresPropertyManager getTableProceduresPropertyManager()
+    {
+        return tableProceduresPropertyManager;
     }
 
     //

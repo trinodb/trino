@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
+import java.util.function.Supplier;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -52,7 +53,10 @@ public class InternalHiveSplit
     private final List<InternalHiveBlock> blocks;
     private final String partitionName;
     private final OptionalInt bucketNumber;
-    private final int statementId;
+    // This supplier returns an unused statementId, to guarantee that created split
+    // files do not collide.  Successive calls return the the next sequential integer,
+    // starting with zero.
+    private final Supplier<Integer> statementIdSupplier;
     private final boolean splittable;
     private final boolean forceLocalScheduling;
     private final TableToPartitionMapping tableToPartitionMapping;
@@ -63,6 +67,7 @@ public class InternalHiveSplit
 
     private long start;
     private int currentBlockIndex;
+    private int statementId;
 
     public InternalHiveSplit(
             String partitionName,
@@ -75,7 +80,7 @@ public class InternalHiveSplit
             List<HivePartitionKey> partitionKeys,
             List<InternalHiveBlock> blocks,
             OptionalInt bucketNumber,
-            int statementId,
+            Supplier<Integer> statementIdSupplier,
             boolean splittable,
             boolean forceLocalScheduling,
             TableToPartitionMapping tableToPartitionMapping,
@@ -93,6 +98,7 @@ public class InternalHiveSplit
         requireNonNull(partitionKeys, "partitionKeys is null");
         requireNonNull(blocks, "blocks is null");
         requireNonNull(bucketNumber, "bucketNumber is null");
+        requireNonNull(statementIdSupplier, "statementIdSupplier is null");
         requireNonNull(tableToPartitionMapping, "tableToPartitionMapping is null");
         requireNonNull(bucketConversion, "bucketConversion is null");
         requireNonNull(bucketValidation, "bucketValidation is null");
@@ -108,7 +114,8 @@ public class InternalHiveSplit
         this.partitionKeys = ImmutableList.copyOf(partitionKeys);
         this.blocks = ImmutableList.copyOf(blocks);
         this.bucketNumber = bucketNumber;
-        this.statementId = statementId;
+        this.statementIdSupplier = statementIdSupplier;
+        this.statementId = statementIdSupplier.get();
         this.splittable = splittable;
         this.forceLocalScheduling = forceLocalScheduling;
         this.tableToPartitionMapping = tableToPartitionMapping;
@@ -211,6 +218,7 @@ public class InternalHiveSplit
 
     public void increaseStart(long value)
     {
+        statementId = statementIdSupplier.get();
         start += value;
         if (start == currentBlock().getEnd()) {
             currentBlockIndex++;

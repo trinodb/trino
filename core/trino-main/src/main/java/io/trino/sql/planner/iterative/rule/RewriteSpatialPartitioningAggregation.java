@@ -87,8 +87,8 @@ public class RewriteSpatialPartitioningAggregation
     @Override
     public Result apply(AggregationNode node, Captures captures, Context context)
     {
-        ResolvedFunction spatialPartitioningFunction = metadata.resolveFunction(QualifiedName.of(NAME), fromTypeSignatures(GEOMETRY_TYPE_SIGNATURE, INTEGER.getTypeSignature()));
-        ResolvedFunction stEnvelopeFunction = metadata.resolveFunction(QualifiedName.of("ST_Envelope"), fromTypeSignatures(GEOMETRY_TYPE_SIGNATURE));
+        ResolvedFunction spatialPartitioningFunction = metadata.resolveFunction(context.getSession(), QualifiedName.of(NAME), fromTypeSignatures(GEOMETRY_TYPE_SIGNATURE, INTEGER.getTypeSignature()));
+        ResolvedFunction stEnvelopeFunction = metadata.resolveFunction(context.getSession(), QualifiedName.of("ST_Envelope"), fromTypeSignatures(GEOMETRY_TYPE_SIGNATURE));
 
         ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
         Symbol partitionCountSymbol = context.getSymbolAllocator().newSymbol("partition_count", INTEGER);
@@ -103,7 +103,7 @@ public class RewriteSpatialPartitioningAggregation
                     envelopeAssignments.put(envelopeSymbol, geometry);
                 }
                 else {
-                    envelopeAssignments.put(envelopeSymbol, new FunctionCallBuilder(metadata)
+                    envelopeAssignments.put(envelopeSymbol, FunctionCallBuilder.resolve(context.getSession(), metadata)
                             .setName(QualifiedName.of("ST_Envelope"))
                             .addArgument(GEOMETRY_TYPE_SIGNATURE, geometry)
                             .build());

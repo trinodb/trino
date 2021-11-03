@@ -14,8 +14,8 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.aggregation.AbstractTestAggregationFunction;
-import io.trino.operator.aggregation.InternalAggregationFunction;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
@@ -25,8 +25,8 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.block.BlockAssertions.createBlockOfReals;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -36,19 +36,20 @@ import static java.lang.Float.floatToRawIntBits;
 public class TestRealAverageAggregation
         extends AbstractTestAggregationFunction
 {
-    private InternalAggregationFunction avgFunction;
+    private ResolvedFunction avgFunction;
 
     @BeforeClass
     public void setUp()
     {
-        avgFunction = createTestMetadataManager().getAggregateFunctionImplementation(
-                metadata.resolveFunction(QualifiedName.of("avg"), fromTypes(REAL)));
+        avgFunction = metadata.resolveFunction(TEST_SESSION, QualifiedName.of("avg"), fromTypes(REAL));
     }
 
     @Test
     public void averageOfNullIsNull()
     {
-        assertAggregation(avgFunction,
+        assertAggregation(
+                metadata,
+                avgFunction,
                 null,
                 createBlockOfReals(null, null));
     }
@@ -56,7 +57,9 @@ public class TestRealAverageAggregation
     @Test
     public void averageOfSingleValueEqualsThatValue()
     {
-        assertAggregation(avgFunction,
+        assertAggregation(
+                metadata,
+                avgFunction,
                 1.23f,
                 createBlockOfReals(1.23f));
     }
@@ -64,7 +67,9 @@ public class TestRealAverageAggregation
     @Test
     public void averageOfTwoMaxFloatsEqualsMaxFloat()
     {
-        assertAggregation(avgFunction,
+        assertAggregation(
+                metadata,
+                avgFunction,
                 Float.MAX_VALUE,
                 createBlockOfReals(Float.MAX_VALUE, Float.MAX_VALUE));
     }

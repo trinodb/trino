@@ -129,6 +129,11 @@ public interface JdbcClient
 
     void renameTable(ConnectorSession session, JdbcTableHandle handle, SchemaTableName newTableName);
 
+    default void setTableProperties(ConnectorSession session, JdbcTableHandle handle, Map<String, Object> properties)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting table properties");
+    }
+
     void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata);
 
     JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata);

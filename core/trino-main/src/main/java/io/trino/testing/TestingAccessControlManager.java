@@ -67,12 +67,14 @@ import static io.trino.spi.security.AccessDeniedException.denyInsertTable;
 import static io.trino.spi.security.AccessDeniedException.denyKillQuery;
 import static io.trino.spi.security.AccessDeniedException.denyRefreshMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyRenameColumn;
+import static io.trino.spi.security.AccessDeniedException.denyRenameMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyRenameSchema;
 import static io.trino.spi.security.AccessDeniedException.denyRenameTable;
 import static io.trino.spi.security.AccessDeniedException.denyRenameView;
 import static io.trino.spi.security.AccessDeniedException.denySelectColumns;
 import static io.trino.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
 import static io.trino.spi.security.AccessDeniedException.denySetSystemSessionProperty;
+import static io.trino.spi.security.AccessDeniedException.denySetTableProperties;
 import static io.trino.spi.security.AccessDeniedException.denySetUser;
 import static io.trino.spi.security.AccessDeniedException.denyShowColumns;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateTable;
@@ -100,11 +102,13 @@ import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.KILL_QUERY;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.REFRESH_MATERIALIZED_VIEW;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.RENAME_COLUMN;
+import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.RENAME_MATERIALIZED_VIEW;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.RENAME_SCHEMA;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.RENAME_TABLE;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.RENAME_VIEW;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SET_SESSION;
+import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SET_TABLE_PROPERTIES;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SET_USER;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SHOW_COLUMNS;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SHOW_CREATE_TABLE;
@@ -125,9 +129,14 @@ public class TestingAccessControlManager
     private BiPredicate<Identity, String> denyIdentityTable = IDENTITY_TABLE_TRUE;
 
     @Inject
+    public TestingAccessControlManager(TransactionManager transactionManager, EventListenerManager eventListenerManager, AccessControlConfig accessControlConfig)
+    {
+        super(transactionManager, eventListenerManager, accessControlConfig, DefaultSystemAccessControl.NAME);
+    }
+
     public TestingAccessControlManager(TransactionManager transactionManager, EventListenerManager eventListenerManager)
     {
-        super(transactionManager, eventListenerManager, new AccessControlConfig(), DefaultSystemAccessControl.NAME);
+        this(transactionManager, eventListenerManager, new AccessControlConfig());
     }
 
     public void loadSystemAccessControl(String name, Map<String, String> properties)
@@ -332,6 +341,20 @@ public class TestingAccessControlManager
     }
 
     @Override
+    public void checkCanCreateTable(SecurityContext context, QualifiedObjectName tableName, Map<String, Object> properties)
+    {
+        if (shouldDenyPrivilege(context.getIdentity().getUser(), tableName.getObjectName(), CREATE_TABLE)) {
+            denyCreateTable(tableName.toString());
+        }
+        if (shouldDenyPrivilege(context.getIdentity().getUser(), tableName.getObjectName(), SET_TABLE_PROPERTIES)) {
+            denySetTableProperties(tableName.toString());
+        }
+        if (denyPrivileges.isEmpty()) {
+            super.checkCanCreateTable(context, tableName, properties);
+        }
+    }
+
+    @Override
     public void checkCanDropTable(SecurityContext context, QualifiedObjectName tableName)
     {
         if (shouldDenyPrivilege(context.getIdentity().getUser(), tableName.getObjectName(), DROP_TABLE)) {
@@ -350,6 +373,17 @@ public class TestingAccessControlManager
         }
         if (denyPrivileges.isEmpty()) {
             super.checkCanRenameTable(context, tableName, newTableName);
+        }
+    }
+
+    @Override
+    public void checkCanSetTableProperties(SecurityContext context, QualifiedObjectName tableName, Map<String, Object> properties)
+    {
+        if (shouldDenyPrivilege(context.getIdentity().getUser(), tableName.getObjectName(), SET_TABLE_PROPERTIES)) {
+            denySetTableProperties(tableName.toString());
+        }
+        if (denyPrivileges.isEmpty()) {
+            super.checkCanSetTableProperties(context, tableName, properties);
         }
     }
 
@@ -527,6 +561,17 @@ public class TestingAccessControlManager
     }
 
     @Override
+    public void checkCanRenameMaterializedView(SecurityContext context, QualifiedObjectName viewName, QualifiedObjectName newViewName)
+    {
+        if (shouldDenyPrivilege(context.getIdentity().getUser(), viewName.getObjectName(), RENAME_MATERIALIZED_VIEW)) {
+            denyRenameMaterializedView(viewName.toString(), newViewName.toString());
+        }
+        if (denyPrivileges.isEmpty()) {
+            super.checkCanRenameMaterializedView(context, viewName, newViewName);
+        }
+    }
+
+    @Override
     public void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, String functionName, Identity grantee, boolean grantOption)
     {
         if (shouldDenyPrivilege(context.getIdentity().getUser(), functionName, GRANT_EXECUTE_FUNCTION)) {
@@ -642,10 +687,10 @@ public class TestingAccessControlManager
         EXECUTE_QUERY, VIEW_QUERY, KILL_QUERY,
         EXECUTE_FUNCTION,
         CREATE_SCHEMA, DROP_SCHEMA, RENAME_SCHEMA,
-        SHOW_CREATE_TABLE, CREATE_TABLE, DROP_TABLE, RENAME_TABLE, COMMENT_TABLE, COMMENT_COLUMN, INSERT_TABLE, DELETE_TABLE, UPDATE_TABLE, SHOW_COLUMNS,
+        SHOW_CREATE_TABLE, CREATE_TABLE, DROP_TABLE, RENAME_TABLE, COMMENT_TABLE, COMMENT_COLUMN, INSERT_TABLE, DELETE_TABLE, UPDATE_TABLE, SET_TABLE_PROPERTIES, SHOW_COLUMNS,
         ADD_COLUMN, DROP_COLUMN, RENAME_COLUMN, SELECT_COLUMN,
         CREATE_VIEW, RENAME_VIEW, DROP_VIEW, CREATE_VIEW_WITH_SELECT_COLUMNS,
-        CREATE_MATERIALIZED_VIEW, REFRESH_MATERIALIZED_VIEW, DROP_MATERIALIZED_VIEW,
+        CREATE_MATERIALIZED_VIEW, REFRESH_MATERIALIZED_VIEW, DROP_MATERIALIZED_VIEW, RENAME_MATERIALIZED_VIEW,
         GRANT_EXECUTE_FUNCTION,
         SET_SESSION
     }

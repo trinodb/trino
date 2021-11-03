@@ -21,6 +21,7 @@ import io.airlift.json.ObjectMapperProvider;
 import io.trino.plugin.base.TypeDeserializer;
 import io.trino.plugin.hive.HiveColumnHandle.ColumnType;
 import io.trino.spi.HostAddress;
+import io.trino.spi.SplitWeight;
 import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
 import org.apache.hadoop.fs.Path;
@@ -82,7 +83,8 @@ public class TestHiveSplit
                 Optional.empty(),
                 false,
                 Optional.of(acidInfo),
-                555534);
+                555534,
+                SplitWeight.fromProportion(2.0)); // some non-standard value
 
         String json = codec.toJson(expected);
         HiveSplit actual = codec.fromJson(json);
@@ -104,5 +106,6 @@ public class TestHiveSplit
         assertEquals(actual.isS3SelectPushdownEnabled(), expected.isS3SelectPushdownEnabled());
         assertEquals(actual.getAcidInfo().get(), expected.getAcidInfo().get());
         assertEquals(actual.getSplitNumber(), expected.getSplitNumber());
+        assertEquals(actual.getSplitWeight(), expected.getSplitWeight());
     }
 }

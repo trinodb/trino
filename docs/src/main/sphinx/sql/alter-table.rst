@@ -14,6 +14,9 @@ Synopsis
     ALTER TABLE [ IF EXISTS ] name DROP COLUMN [ IF EXISTS ] column_name
     ALTER TABLE [ IF EXISTS ] name RENAME COLUMN [ IF EXISTS ] old_name TO new_name
     ALTER TABLE name SET AUTHORIZATION ( user | USER user | ROLE role )
+    ALTER TABLE name SET PROPERTIES property_name = expression [, ...]
+    ALTER TABLE name EXECUTE command [ ( parameter => expression [, ... ] ) ]
+        [ WHERE expression ]
 
 Description
 -----------
@@ -25,6 +28,16 @@ The optional ``IF EXISTS`` (when used before the table name) clause causes the e
 The optional ``IF EXISTS`` (when used before the column name) clause causes the error to be suppressed if the column does not exists.
 
 The optional ``IF NOT EXISTS`` clause causes the error to be suppressed if the column already exists.
+
+.. _alter-table-execute:
+
+EXECUTE
+^^^^^^^
+
+The ``ALTER TABLE EXECUTE`` statement followed by a ``command`` and
+``parameters`` modifies the table according to the specified command and
+parameters. ``ALTER TABLE EXECUTE`` supports different commands on a
+per-connector basis.
 
 Examples
 --------
@@ -68,6 +81,15 @@ Change owner of table ``people`` to user ``alice``::
 Allow everyone with role public to drop and alter table ``people``::
 
     ALTER TABLE people SET AUTHORIZATION ROLE PUBLIC
+
+Set table properties (``x=y``) to table ``users``::
+
+    ALTER TABLE people SET PROPERTIES x = 'y'
+
+Collapse files in a table that are over 10 megabytes in size, as supported by
+the Hive connector::
+
+    ALTER TABLE hive.schema.test_table EXECUTE optimize(file_size_threshold => `10MB`)
 
 See also
 --------

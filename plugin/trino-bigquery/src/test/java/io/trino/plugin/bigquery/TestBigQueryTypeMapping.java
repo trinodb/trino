@@ -13,7 +13,11 @@
  */
 package io.trino.plugin.bigquery;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.RowType;
+import io.trino.spi.type.RowType.Field;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.datatype.CreateAndInsertDataSetup;
@@ -21,13 +25,21 @@ import io.trino.testing.datatype.DataSetup;
 import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.SqlExecutor;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.TimeType.createTimeType;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 
 public class TestBigQueryTypeMapping
         extends AbstractTestQueryFramework
@@ -47,6 +59,57 @@ public class TestBigQueryTypeMapping
         return BigQueryQueryRunner.createQueryRunner(
                 ImmutableMap.of(),
                 ImmutableMap.of());
+    }
+
+    @Test
+    public void testBoolean()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("boolean", "true", BOOLEAN, "true")
+                .addRoundTrip("boolean", "false", BOOLEAN, "false")
+                .addRoundTrip("boolean", "NULL", BOOLEAN, "CAST(NULL AS BOOLEAN)")
+                .execute(getQueryRunner(), bigqueryCreateAndInsert("test.boolean"));
+    }
+
+    @Test
+    public void testBytes()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("bytes", "NULL", VARBINARY, "CAST(NULL AS VARBINARY)")
+                .addRoundTrip("bytes", "b''", VARBINARY, "X''")
+                .addRoundTrip("bytes", "from_hex('68656C6C6F')", VARBINARY, "to_utf8('hello')")
+                .addRoundTrip("bytes", "from_hex('5069C4996B6E6120C582C4856B61207720E69DB1E4BAACE983BD')", VARBINARY, "to_utf8('Piękna łąka w 東京都')")
+                .addRoundTrip("bytes", "from_hex('4261672066756C6C206F6620F09F92B0')", VARBINARY, "to_utf8('Bag full of 💰')")
+                .addRoundTrip("bytes", "from_hex('0001020304050607080DF9367AA7000000')", VARBINARY, "X'0001020304050607080DF9367AA7000000'") // non-text
+                .addRoundTrip("bytes", "from_hex('000000000000')", VARBINARY, "X'000000000000'")
+                .addRoundTrip("bytes(10)", "from_hex('68656C6C6F')", VARBINARY, "to_utf8('hello')")
+                .addRoundTrip("bytes(4001)", "from_hex('68656C6C6F')", VARBINARY, "to_utf8('hello')")
+                .execute(getQueryRunner(), bigqueryCreateAndInsert("test.bytes"));
+    }
+
+    @Test(dataProvider = "bigqueryIntegerTypeProvider")
+    public void testInteger(String inputType)
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip(inputType, "-9223372036854775808", BIGINT, "-9223372036854775808")
+                .addRoundTrip(inputType, "9223372036854775807", BIGINT, "9223372036854775807")
+                .addRoundTrip(inputType, "0", BIGINT, "CAST(0 AS BIGINT)")
+                .addRoundTrip(inputType, "NULL", BIGINT, "CAST(NULL AS BIGINT)")
+                .execute(getQueryRunner(), bigqueryCreateAndInsert("test.integer"));
+    }
+
+    @DataProvider
+    public Object[][] bigqueryIntegerTypeProvider()
+    {
+        // INT, SMALLINT, INTEGER, BIGINT, TINYINT, and BYTEINT are aliases for INT64 in BigQuery
+        return new Object[][] {
+                {"INT64"},
+                {"INT"},
+                {"SMALLINT"},
+                {"SMALLINT"},
+                {"TINYINT"},
+                {"BYTEINT"},
+        };
     }
 
     @Test
@@ -91,6 +154,26 @@ public class TestBigQueryTypeMapping
                 .addRoundTrip("NUMERIC(10, 3)", "CAST(NULL AS NUMERIC)", createDecimalType(10, 3), "CAST(NULL AS DECIMAL(10, 3))")
                 .addRoundTrip("NUMERIC(38, 9)", "CAST(NULL AS NUMERIC)", createDecimalType(38, 9), "CAST(NULL AS DECIMAL(38, 9))")
                 .execute(getQueryRunner(), bigqueryCreateAndInsert("test.numeric"));
+    }
+
+    @Test
+    public void testDate()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("date", "NULL", DATE, "CAST(NULL AS DATE)")
+                .addRoundTrip("date", "DATE '0001-01-01'", DATE, "DATE '0001-01-01'")
+                .addRoundTrip("date", "DATE '0012-12-12'", DATE, "DATE '0012-12-12'")
+                .addRoundTrip("date", "DATE '1500-01-01'", DATE, "DATE '1500-01-01'")
+                .addRoundTrip("date", "DATE '1952-04-03'", DATE, "DATE '1952-04-03'")
+                .addRoundTrip("date", "DATE '1970-01-01'", DATE, "DATE '1970-01-01'")
+                .addRoundTrip("date", "DATE '1970-02-03'", DATE, "DATE '1970-02-03'")
+                .addRoundTrip("date", "DATE '1970-01-01'", DATE, "DATE '1970-01-01'")
+                .addRoundTrip("date", "DATE '1983-04-01'", DATE, "DATE '1983-04-01'")
+                .addRoundTrip("date", "DATE '1983-10-01'", DATE, "DATE '1983-10-01'")
+                .addRoundTrip("date", "DATE '2017-07-01'", DATE, "DATE '2017-07-01'")
+                .addRoundTrip("date", "DATE '2017-01-01'", DATE, "DATE '2017-01-01'")
+                .addRoundTrip("date", "DATE '9999-12-31'", DATE, "DATE '9999-12-31'")
+                .execute(getQueryRunner(), bigqueryCreateAndInsert("test.date"));
     }
 
     @Test
@@ -192,6 +275,69 @@ public class TestBigQueryTypeMapping
                 .addRoundTrip("TIMESTAMP", "TIMESTAMP '2021-09-07 23:59:59.999999-00:00'",
                         TIMESTAMP_TZ_MICROS, "TIMESTAMP '2021-09-07 23:59:59.999999 UTC'")
                 .execute(getQueryRunner(), bigqueryCreateAndInsert("test.timestamp_tz"));
+    }
+
+    @Test
+    public void testString()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("STRING", "NULL", VARCHAR, "CAST(NULL AS VARCHAR)")
+                .addRoundTrip("STRING", "'text_a'", VARCHAR, "VARCHAR 'text_a'")
+                .addRoundTrip("STRING", "'攻殻機動隊'", VARCHAR, "VARCHAR '攻殻機動隊'")
+                .addRoundTrip("STRING", "'😂'", VARCHAR, "VARCHAR '😂'")
+                .addRoundTrip("STRING", "'Ну, погоди!'", VARCHAR, "VARCHAR 'Ну, погоди!'")
+                .addRoundTrip("STRING(255)", "'text_b'", VARCHAR, "VARCHAR 'text_b'")
+                .addRoundTrip("STRING(4001)", "'text_c'", VARCHAR, "VARCHAR 'text_c'")
+                .execute(getQueryRunner(), bigqueryCreateAndInsert("test.string"));
+    }
+
+    @Test
+    public void testGeography()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("GEOGRAPHY", "ST_GeogPoint(0, 0)", VARCHAR, "VARCHAR 'POINT(0 0)'")
+                .addRoundTrip("GEOGRAPHY", "ST_GeogPoint(90, -90)", VARCHAR, "VARCHAR 'POINT(90 -90)'")
+                .addRoundTrip("GEOGRAPHY", "NULL", VARCHAR, "CAST(NULL AS VARCHAR)")
+                .execute(getQueryRunner(), bigqueryCreateAndInsert("test.geography"));
+    }
+
+    @Test
+    public void testArray()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("ARRAY<BOOLEAN>", "[true]", new ArrayType(BOOLEAN), "ARRAY[true]")
+                .addRoundTrip("ARRAY<INT64>", "[1]", new ArrayType(BIGINT), "ARRAY[BIGINT '1']")
+                .addRoundTrip("ARRAY<STRING>", "['string']", new ArrayType(VARCHAR), "ARRAY[VARCHAR 'string']")
+                .addRoundTrip("ARRAY<STRUCT<x INT64, y STRING>>",
+                        "[(1, 'string')]",
+                        new ArrayType(RowType.from(ImmutableList.of(new Field(Optional.of("x"), BIGINT), new Field(Optional.of("y"), VARCHAR)))),
+                        "ARRAY[CAST(ROW(1, 'string') AS ROW(x BIGINT, y VARCHAR))]")
+                .addRoundTrip("ARRAY<BOOLEAN>", "[]", new ArrayType(BOOLEAN), "CAST(ARRAY[] AS ARRAY<BOOLEAN>)")
+                .addRoundTrip("ARRAY<BOOLEAN>", "NULL", new ArrayType(BOOLEAN), "CAST(ARRAY[] AS ARRAY<BOOLEAN>)")
+                .execute(getQueryRunner(), bigqueryCreateAndInsert("test.array"));
+    }
+
+    @Test
+    public void testStruct()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("STRUCT<x INT64>",
+                        "STRUCT(1)",
+                        RowType.from(ImmutableList.of(new Field(Optional.of("x"), BIGINT))),
+                        "CAST(ROW(1) AS ROW(x BIGINT))")
+                .addRoundTrip("STRUCT<x INT64, y STRING>",
+                        "(1, 'string')",
+                        RowType.from(ImmutableList.of(new Field(Optional.of("x"), BIGINT), new Field(Optional.of("y"), VARCHAR))),
+                        "CAST(ROW(1, 'string') AS ROW(x BIGINT, y VARCHAR))")
+                .addRoundTrip("STRUCT<x STRUCT<y STRING>>",
+                        "STRUCT(STRUCT('nested' AS y) AS x)",
+                        RowType.from(ImmutableList.of(new Field(Optional.of("x"), RowType.from(ImmutableList.of(new Field(Optional.of("y"), VARCHAR)))))),
+                        "CAST(ROW(ROW('nested')) AS ROW(X ROW(Y VARCHAR)))")
+                .addRoundTrip("STRUCT<x INT64>",
+                        "NULL",
+                        RowType.from(ImmutableList.of(new Field(Optional.of("x"), BIGINT))),
+                        "CAST(NULL AS ROW(x BIGINT))")
+                .execute(getQueryRunner(), bigqueryCreateAndInsert("test.struct"));
     }
 
     private DataSetup bigqueryCreateAndInsert(String tableNamePrefix)

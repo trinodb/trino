@@ -41,6 +41,7 @@ import java.util.function.Consumer;
 
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
@@ -691,7 +692,7 @@ public class TestComparisonStatsCalculator
                 .symbolStats("z", equalTo(capNDV(zStats, rowCount)));
 
         rowCount = 897.0;
-        assertCalculate(new ComparisonExpression(NOT_EQUAL, new SymbolReference("u"), new Cast(new LongLiteral("10"), toSqlType(BIGINT))))
+        assertCalculate(new ComparisonExpression(NOT_EQUAL, new SymbolReference("u"), new Cast(new LongLiteral("10"), toSqlType(DOUBLE))))
                 .outputRowsCount(rowCount)
                 .symbolStats("u", equalTo(capNDV(updateNDV(zeroNullsFraction(uStats), -1), rowCount)))
                 .symbolStats("z", equalTo(capNDV(zStats, rowCount)));

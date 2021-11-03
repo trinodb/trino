@@ -95,6 +95,7 @@ public class TestSetRoleTask
         catalogManager.registerCatalog(new Catalog(
                 CATALOG_NAME,
                 catalogName,
+                "test",
                 testConnector,
                 SecurityManagement.CONNECTOR,
                 createInformationSchemaCatalogName(catalogName),
@@ -120,6 +121,7 @@ public class TestSetRoleTask
         catalogManager.registerCatalog(new Catalog(
                 SYSTEM_ROLE_CATALOG_NAME,
                 systemRoleCatalog,
+                "test",
                 systemRoleConnector,
                 SecurityManagement.SYSTEM,
                 createInformationSchemaCatalogName(systemRoleCatalog),
@@ -202,7 +204,7 @@ public class TestSetRoleTask
                 metadata,
                 WarningCollector.NOOP,
                 Optional.empty());
-        new SetRoleTask(new FeaturesConfig()).execute(setRole, transactionManager, metadata, accessControl, stateMachine, ImmutableList.of(), WarningCollector.NOOP);
+        new SetRoleTask().execute(setRole, transactionManager, metadata, accessControl, stateMachine, ImmutableList.of(), WarningCollector.NOOP);
         return stateMachine;
     }
 }

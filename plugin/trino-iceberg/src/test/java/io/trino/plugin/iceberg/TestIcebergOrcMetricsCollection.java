@@ -38,6 +38,7 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.util.Map;
+import java.util.Optional;
 
 import static io.trino.SystemSessionProperties.MAX_DRIVERS_PER_TASK;
 import static io.trino.SystemSessionProperties.TASK_CONCURRENCY;
@@ -80,7 +81,7 @@ public class TestIcebergOrcMetricsCollection
                         .setCatalogDirectory(baseDir.toURI().toString())
                         .setMetastoreUser("test"));
 
-        queryRunner.installPlugin(new TestingIcebergPlugin(metastore));
+        queryRunner.installPlugin(new TestingIcebergPlugin(Optional.of(metastore), Optional.empty()));
         queryRunner.createCatalog("iceberg", "iceberg");
 
         queryRunner.installPlugin(new TpchPlugin());

@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.SystemSessionProperties.isLegacyCatalogRoles;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.MISSING_CATALOG_NAME;
 import static io.trino.spi.StandardErrorCode.MISSING_SCHEMA_NAME;
@@ -216,8 +217,9 @@ public final class MetadataUtil
         }
     }
 
-    public static Optional<String> processRoleCommandCatalog(Metadata metadata, Session session, Node node, Optional<String> catalog, boolean legacyCatalogRoles)
+    public static Optional<String> processRoleCommandCatalog(Metadata metadata, Session session, Node node, Optional<String> catalog)
     {
+        boolean legacyCatalogRoles = isLegacyCatalogRoles(session);
         // old role commands use only supported catalog roles and used session catalog as the default
         if (catalog.isEmpty() && legacyCatalogRoles) {
             catalog = session.getCatalog();

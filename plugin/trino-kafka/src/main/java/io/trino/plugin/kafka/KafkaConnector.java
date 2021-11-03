@@ -14,6 +14,7 @@
 package io.trino.plugin.kafka;
 
 import io.airlift.bootstrap.LifeCycleManager;
+import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorPageSinkProvider;

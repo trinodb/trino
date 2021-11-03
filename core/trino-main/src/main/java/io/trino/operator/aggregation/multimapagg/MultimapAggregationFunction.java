@@ -16,6 +16,7 @@ package io.trino.operator.aggregation.multimapagg;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.trino.array.ObjectBigArray;
+import io.trino.metadata.AggregationFunctionMetadata;
 import io.trino.metadata.FunctionArgumentDefinition;
 import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.FunctionMetadata;
@@ -54,6 +55,8 @@ import static io.trino.operator.aggregation.AggregationUtils.generateAggregation
 import static io.trino.operator.aggregation.TypedSet.createEqualityTypedSet;
 import static io.trino.spi.type.TypeSignature.arrayType;
 import static io.trino.spi.type.TypeSignature.mapType;
+import static io.trino.spi.type.TypeSignature.rowType;
+import static io.trino.spi.type.TypeSignatureParameter.anonymousField;
 import static io.trino.type.TypeUtils.expectedValueSize;
 import static io.trino.util.Reflection.methodHandle;
 import static java.util.Objects.requireNonNull;
@@ -105,17 +108,10 @@ public class MultimapAggregationFunction
                         true,
                         "Aggregates all the rows (key/value pairs) into a single multimap",
                         AGGREGATE),
-                true,
-                true);
+                new AggregationFunctionMetadata(
+                        true,
+                        arrayType(rowType(anonymousField(new TypeSignature("V")), anonymousField(new TypeSignature("K"))))));
         this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
-    }
-
-    @Override
-    public List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
-    {
-        Type keyType = functionBinding.getTypeVariable("K");
-        Type valueType = functionBinding.getTypeVariable("V");
-        return ImmutableList.of(new MultimapAggregationStateSerializer(keyType, valueType).getSerializedType().getTypeSignature());
     }
 
     @Override

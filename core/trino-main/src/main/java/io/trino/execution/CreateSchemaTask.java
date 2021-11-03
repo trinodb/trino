@@ -96,7 +96,8 @@ public class CreateSchemaTask
                 session,
                 metadata,
                 accessControl,
-                parameterExtractor(statement, parameters));
+                parameterExtractor(statement, parameters),
+                true);
 
         TrinoPrincipal principal = getCreatePrincipal(statement, session, metadata, catalogName.getCatalogName());
         try {

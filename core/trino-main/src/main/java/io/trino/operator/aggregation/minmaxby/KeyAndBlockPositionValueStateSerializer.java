@@ -46,23 +46,22 @@ public abstract class KeyAndBlockPositionValueStateSerializer<T extends KeyAndBl
     @Override
     public Type getSerializedType()
     {
-        // Types are: firstNull, secondNull, firstField, secondField
-        return RowType.anonymous(ImmutableList.of(BOOLEAN, BOOLEAN, firstType, secondType));
+        // Order must match StateCompiler.generateStateSerializer, which is used for min_max_by with primitive arguments
+        // Types are:: field order is: first, firstNull, second, secondNull
+        return RowType.anonymous(ImmutableList.of(firstType, BOOLEAN, secondType, BOOLEAN));
     }
 
     @Override
     public void serialize(T state, BlockBuilder out)
     {
         BlockBuilder blockBuilder = out.beginBlockEntry();
-        BOOLEAN.writeBoolean(blockBuilder, state.isFirstNull());
-        BOOLEAN.writeBoolean(blockBuilder, state.isSecondNull());
-
         if (state.isFirstNull()) {
             blockBuilder.appendNull();
         }
         else {
             writeFirstField(blockBuilder, state);
         }
+        BOOLEAN.writeBoolean(blockBuilder, state.isFirstNull());
 
         if (state.isSecondNull()) {
             blockBuilder.appendNull();
@@ -70,6 +69,7 @@ public abstract class KeyAndBlockPositionValueStateSerializer<T extends KeyAndBl
         else {
             secondType.appendTo(state.getSecondBlock(), state.getSecondPosition(), blockBuilder);
         }
+        BOOLEAN.writeBoolean(blockBuilder, state.isSecondNull());
         out.closeEntry();
     }
 
@@ -79,16 +79,16 @@ public abstract class KeyAndBlockPositionValueStateSerializer<T extends KeyAndBl
         checkArgument(block instanceof AbstractRowBlock);
         ColumnarRow columnarRow = toColumnarRow(block);
 
-        state.setFirstNull(BOOLEAN.getBoolean(columnarRow.getField(0), index));
-        state.setSecondNull(BOOLEAN.getBoolean(columnarRow.getField(1), index));
+        state.setFirstNull(BOOLEAN.getBoolean(columnarRow.getField(1), index));
+        state.setSecondNull(BOOLEAN.getBoolean(columnarRow.getField(3), index));
 
         if (!state.isFirstNull()) {
-            readFirstField(columnarRow.getField(2), index, state);
+            readFirstField(columnarRow.getField(0), index, state);
         }
 
         if (!state.isSecondNull()) {
             state.setSecondPosition(index);
-            state.setSecondBlock(columnarRow.getField(3));
+            state.setSecondBlock(columnarRow.getField(2));
         }
     }
 }

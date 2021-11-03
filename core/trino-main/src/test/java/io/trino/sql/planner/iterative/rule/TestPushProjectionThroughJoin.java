@@ -34,6 +34,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.cost.PlanNodeStatsEstimate.unknown;
 import static io.trino.cost.StatsAndCosts.empty;
 import static io.trino.metadata.AbstractMockMetadata.dummyMetadata;
@@ -61,7 +62,7 @@ public class TestPushProjectionThroughJoin
     public void testPushesProjectionThroughJoin()
     {
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
-        PlanBuilder p = new PlanBuilder(idAllocator, dummyMetadata());
+        PlanBuilder p = new PlanBuilder(idAllocator, dummyMetadata(), TEST_SESSION);
         Symbol a0 = p.symbol("a0");
         Symbol a1 = p.symbol("a1");
         Symbol a2 = p.symbol("a2");
@@ -118,7 +119,7 @@ public class TestPushProjectionThroughJoin
     @Test
     public void testDoesNotPushStraddlingProjection()
     {
-        PlanBuilder p = new PlanBuilder(new PlanNodeIdAllocator(), dummyMetadata());
+        PlanBuilder p = new PlanBuilder(new PlanNodeIdAllocator(), dummyMetadata(), TEST_SESSION);
         Symbol a = p.symbol("a");
         Symbol b = p.symbol("b");
         Symbol c = p.symbol("c");
@@ -137,7 +138,7 @@ public class TestPushProjectionThroughJoin
     @Test
     public void testDoesNotPushProjectionThroughOuterJoin()
     {
-        PlanBuilder p = new PlanBuilder(new PlanNodeIdAllocator(), dummyMetadata());
+        PlanBuilder p = new PlanBuilder(new PlanNodeIdAllocator(), dummyMetadata(), TEST_SESSION);
         Symbol a = p.symbol("a");
         Symbol b = p.symbol("b");
         Symbol c = p.symbol("c");

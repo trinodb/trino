@@ -49,6 +49,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.operator.ParametricFunctionHelpers.signatureWithName;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_BLOCK_INPUT_CHANNEL;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
@@ -92,7 +93,6 @@ public class AggregationImplementation
     private final Signature signature;
 
     private final Class<?> definitionClass;
-    private final Class<?> stateClass;
     private final MethodHandle inputFunction;
     private final Optional<MethodHandle> removeInputFunction;
     private final MethodHandle outputFunction;
@@ -108,7 +108,6 @@ public class AggregationImplementation
     public AggregationImplementation(
             Signature signature,
             Class<?> definitionClass,
-            Class<?> stateClass,
             MethodHandle inputFunction,
             Optional<MethodHandle> removeInputFunction,
             MethodHandle outputFunction,
@@ -122,7 +121,6 @@ public class AggregationImplementation
     {
         this.signature = requireNonNull(signature, "signature cannot be null");
         this.definitionClass = requireNonNull(definitionClass, "definition class cannot be null");
-        this.stateClass = requireNonNull(stateClass, "stateClass cannot be null");
         this.inputFunction = requireNonNull(inputFunction, "inputFunction cannot be null");
         this.removeInputFunction = requireNonNull(removeInputFunction, "removeInputFunction cannot be null");
         this.outputFunction = requireNonNull(outputFunction, "outputFunction cannot be null");
@@ -168,11 +166,6 @@ public class AggregationImplementation
     public Class<?> getDefinitionClass()
     {
         return definitionClass;
-    }
-
-    public Class<?> getStateClass()
-    {
-        return stateClass;
     }
 
     public MethodHandle getInputFunction()
@@ -242,10 +235,27 @@ public class AggregationImplementation
         return true;
     }
 
+    @Override
+    public AggregationImplementation withAlias(String alias)
+    {
+        return new AggregationImplementation(
+                signatureWithName(alias, signature),
+                definitionClass,
+                inputFunction,
+                removeInputFunction,
+                outputFunction,
+                combineFunction,
+                argumentNativeContainerTypes,
+                inputDependencies,
+                removeInputDependencies,
+                combineDependencies,
+                outputDependencies,
+                inputParameterMetadataTypes);
+    }
+
     public static final class Parser
     {
         private final Class<?> aggregationDefinition;
-        private final Class<?> stateClass;
         private final MethodHandle inputHandle;
         private final Optional<MethodHandle> removeInputHandle;
         private final MethodHandle outputHandle;
@@ -262,14 +272,13 @@ public class AggregationImplementation
         private final List<TypeSignature> inputTypes;
         private final TypeSignature returnType;
 
-        private final AggregationHeader header;
+        private final String name;
         private final Set<String> literalParameters;
         private final List<TypeParameter> typeParameters;
 
         private Parser(
                 Class<?> aggregationDefinition,
-                AggregationHeader header,
-                Class<?> stateClass,
+                String name,
                 Method inputFunction,
                 Optional<Method> removeInputFunction,
                 Method outputFunction,
@@ -277,8 +286,7 @@ public class AggregationImplementation
         {
             // rewrite data passed directly
             this.aggregationDefinition = aggregationDefinition;
-            this.header = header;
-            this.stateClass = stateClass;
+            this.name = name;
 
             // parse declared literal and type parameters
             // it is required to declare all literal and type parameters in input function
@@ -323,7 +331,7 @@ public class AggregationImplementation
         private AggregationImplementation get()
         {
             Signature signature = new Signature(
-                    header.getCanonicalName(),
+                    name,
                     typeVariableConstraints,
                     longVariableConstraints,
                     returnType,
@@ -332,7 +340,6 @@ public class AggregationImplementation
 
             return new AggregationImplementation(signature,
                     aggregationDefinition,
-                    stateClass,
                     inputHandle,
                     removeInputHandle,
                     outputHandle,
@@ -347,14 +354,13 @@ public class AggregationImplementation
 
         public static AggregationImplementation parseImplementation(
                 Class<?> aggregationDefinition,
-                AggregationHeader header,
-                Class<?> stateClass,
+                String name,
                 Method inputFunction,
                 Optional<Method> removeInputFunction,
                 Method outputFunction,
                 Method combineFunction)
         {
-            return new Parser(aggregationDefinition, header, stateClass, inputFunction, removeInputFunction, outputFunction, combineFunction).get();
+            return new Parser(aggregationDefinition, name, inputFunction, removeInputFunction, outputFunction, combineFunction).get();
         }
 
         private static List<ParameterType> parseParameterMetadataTypes(Method method)

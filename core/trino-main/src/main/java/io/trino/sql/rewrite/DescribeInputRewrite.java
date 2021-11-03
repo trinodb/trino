@@ -53,6 +53,7 @@ import static io.trino.sql.QueryUtil.row;
 import static io.trino.sql.QueryUtil.selectList;
 import static io.trino.sql.QueryUtil.simpleQuery;
 import static io.trino.sql.QueryUtil.values;
+import static io.trino.sql.analyzer.QueryType.DESCRIBE;
 import static io.trino.type.TypeUtils.getDisplayLabel;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.util.Objects.requireNonNull;
@@ -123,7 +124,7 @@ final class DescribeInputRewrite
 
             // create  analysis for the query we are describing.
             Analyzer analyzer = new Analyzer(session, metadata, parser, groupProvider, accessControl, queryExplainer, parameters, parameterLookup, warningCollector, statsCalculator);
-            Analysis analysis = analyzer.analyze(statement, true);
+            Analysis analysis = analyzer.analyze(statement, DESCRIBE);
 
             // get all parameters in query
             List<Parameter> parameters = getParameters(statement);

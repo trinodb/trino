@@ -27,8 +27,8 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
-import org.skife.jdbi.v2.IDBI;
-import org.skife.jdbi.v2.exceptions.DBIException;
+import org.jdbi.v3.core.Jdbi;
+import org.jdbi.v3.core.JdbiException;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -91,7 +91,7 @@ public class ShardMetadataRecordCursor
     private static final List<ColumnMetadata> COLUMNS = SHARD_METADATA.getColumns();
     private static final List<Type> TYPES = COLUMNS.stream().map(ColumnMetadata::getType).collect(toList());
 
-    private final IDBI dbi;
+    private final Jdbi dbi;
     private final MetadataDao metadataDao;
 
     private final Iterator<Long> tableIds;
@@ -106,7 +106,7 @@ public class ShardMetadataRecordCursor
     private boolean closed;
     private long completedBytes;
 
-    public ShardMetadataRecordCursor(IDBI dbi, TupleDomain<Integer> tupleDomain)
+    public ShardMetadataRecordCursor(Jdbi dbi, TupleDomain<Integer> tupleDomain)
     {
         this.dbi = requireNonNull(dbi, "dbi is null");
         this.metadataDao = onDemandDao(dbi, MetadataDao.class);
@@ -190,7 +190,7 @@ public class ShardMetadataRecordCursor
                     ImmutableSet.of(getColumnIndex(SHARD_METADATA, XXHASH64)));
             return true;
         }
-        catch (SQLException | DBIException e) {
+        catch (SQLException | JdbiException e) {
             throw metadataError(e);
         }
     }
@@ -297,7 +297,7 @@ public class ShardMetadataRecordCursor
                     tupleDomain);
             return statement.executeQuery();
         }
-        catch (SQLException | DBIException e) {
+        catch (SQLException | JdbiException e) {
             close();
             throw metadataError(e);
         }
@@ -329,7 +329,7 @@ public class ShardMetadataRecordCursor
     }
 
     @VisibleForTesting
-    static Iterator<Long> getTableIds(IDBI dbi, TupleDomain<Integer> tupleDomain)
+    static Iterator<Long> getTableIds(Jdbi dbi, TupleDomain<Integer> tupleDomain)
     {
         Map<Integer, Domain> domains = tupleDomain.getDomains().get();
         Domain schemaNameDomain = domains.get(getColumnIndex(SHARD_METADATA, SCHEMA_NAME));
@@ -363,7 +363,7 @@ public class ShardMetadataRecordCursor
                 }
             }
         }
-        catch (SQLException | DBIException e) {
+        catch (SQLException | JdbiException e) {
             throw metadataError(e);
         }
         return tableIds.build().iterator();

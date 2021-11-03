@@ -48,7 +48,7 @@ public class TestPushdownFilterIntoWindow
 
     private void assertEliminateFilter(String rankingFunctionName)
     {
-        ResolvedFunction ranking = tester().getMetadata().resolveFunction(QualifiedName.of(rankingFunctionName), fromTypes());
+        ResolvedFunction ranking = tester().getMetadata().resolveFunction(tester().getSession(), QualifiedName.of(rankingFunctionName), fromTypes());
         tester().assertThat(new PushdownFilterIntoWindow(tester().getMetadata(), new TypeOperators()))
                 .on(p -> {
                     Symbol rankSymbol = p.symbol("rank_1");
@@ -76,7 +76,7 @@ public class TestPushdownFilterIntoWindow
 
     private void assertKeepFilter(String rankingFunctionName)
     {
-        ResolvedFunction ranking = tester().getMetadata().resolveFunction(QualifiedName.of(rankingFunctionName), fromTypes());
+        ResolvedFunction ranking = tester().getMetadata().resolveFunction(tester().getSession(), QualifiedName.of(rankingFunctionName), fromTypes());
         tester().assertThat(new PushdownFilterIntoWindow(tester().getMetadata(), new TypeOperators()))
                 .on(p -> {
                     Symbol rowNumberSymbol = p.symbol("row_number_1");
@@ -133,7 +133,7 @@ public class TestPushdownFilterIntoWindow
 
     private void assertNoUpperBound(String rankingFunctionName)
     {
-        ResolvedFunction ranking = tester().getMetadata().resolveFunction(QualifiedName.of(rankingFunctionName), fromTypes());
+        ResolvedFunction ranking = tester().getMetadata().resolveFunction(tester().getSession(), QualifiedName.of(rankingFunctionName), fromTypes());
         tester().assertThat(new PushdownFilterIntoWindow(tester().getMetadata(), new TypeOperators()))
                 .on(p -> {
                     Symbol rowNumberSymbol = p.symbol("row_number_1");

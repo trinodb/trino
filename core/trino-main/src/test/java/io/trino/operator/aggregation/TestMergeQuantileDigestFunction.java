@@ -99,7 +99,9 @@ public class TestMergeQuantileDigestFunction
     @Override
     public void testMultiplePositions()
     {
-        assertAggregation(getFunction(),
+        assertAggregation(
+                metadata,
+                getFunction(),
                 QDIGEST_EQUALITY,
                 "test multiple positions",
                 new Page(getSequenceBlocks(0, 5)),
@@ -110,10 +112,12 @@ public class TestMergeQuantileDigestFunction
     @Override
     public void testMixedNullAndNonNullPositions()
     {
-        assertAggregation(getFunction(),
+        assertAggregation(
+                metadata,
+                getFunction(),
                 QDIGEST_EQUALITY,
                 "test mixed null and nonnull position",
-                new Page(createAlternatingNullsBlock(getFunction().getParameterTypes(), getSequenceBlocks(0, 10))),
+                new Page(createAlternatingNullsBlock(getFunction().getSignature().getArgumentTypes(), getSequenceBlocks(0, 10))),
                 getExpectedValueIncludingNulls(0, 10, 20));
     }
 }

@@ -464,7 +464,7 @@ public class TestArbitraryOutputBuffer
         }
     }
 
-    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "No more buffers already set")
+    @Test
     public void testUseUndeclaredBufferAfterFinalBuffersSet()
     {
         ArbitraryOutputBuffer buffer = createArbitraryBuffer(
@@ -475,7 +475,9 @@ public class TestArbitraryOutputBuffer
         assertFalse(buffer.isFinished());
 
         // get a page from a buffer that was not declared, which will fail
-        buffer.get(SECOND, 0L, sizeOfPages(1));
+        assertThatThrownBy(() -> buffer.get(SECOND, 0L, sizeOfPages(1)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("No more buffers already set");
     }
 
     @Test

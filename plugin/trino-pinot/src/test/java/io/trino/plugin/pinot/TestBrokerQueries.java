@@ -169,6 +169,6 @@ public class TestBrokerQueries
                 LIMIT_FOR_BROKER_QUERIES);
         assertThatExceptionOfType(PinotException.class)
                 .isThrownBy(() -> pageSource.getNextPage())
-                .withFailMessage("Broker query returned '3' rows, maximum allowed is '2' rows. with query \"SELECT col_1, col_2, col_3 FROM test_table\"");
+                .withMessage("Broker query returned '3' rows, maximum allowed is '2' rows. with query \"SELECT col_1, col_2, col_3 FROM test_table\"");
     }
 }

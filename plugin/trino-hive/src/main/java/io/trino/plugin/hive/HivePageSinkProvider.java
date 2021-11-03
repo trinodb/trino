@@ -32,6 +32,7 @@ import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableExecuteHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.type.TypeManager;
 import org.joda.time.DateTimeZone;
@@ -119,6 +120,13 @@ public class HivePageSinkProvider
     {
         HiveWritableTableHandle handle = (HiveInsertTableHandle) tableHandle;
         return createPageSink(handle, false, session, ImmutableMap.of() /* for insert properties are taken from metastore */);
+    }
+
+    @Override
+    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle)
+    {
+        HiveTableExecuteHandle handle = (HiveTableExecuteHandle) tableExecuteHandle;
+        return createPageSink(handle, false, session, ImmutableMap.of());
     }
 
     private ConnectorPageSink createPageSink(HiveWritableTableHandle handle, boolean isCreateTable, ConnectorSession session, Map<String, String> additionalTableParameters)

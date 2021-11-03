@@ -15,6 +15,7 @@ package io.trino.type;
 
 import com.google.common.collect.ImmutableSet;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
@@ -23,7 +24,6 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 import java.util.Set;
 
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DateType.DATE;
@@ -57,7 +57,8 @@ import static org.testng.Assert.fail;
 
 public class TestTypeCoercion
 {
-    private final Metadata metadata = createTestMetadataManager();
+    private final TestingFunctionResolution functionResolution = new TestingFunctionResolution();
+    private final Metadata metadata = functionResolution.getMetadata();
     private final Type re2jType = metadata.getType(RE2J_REGEXP_SIGNATURE);
     private final TypeCoercion typeCoercion = new TypeCoercion(metadata::getType);
 
@@ -297,7 +298,7 @@ public class TestTypeCoercion
             for (Type resultType : types) {
                 if (typeCoercion.canCoerce(sourceType, resultType) && sourceType != UNKNOWN && resultType != UNKNOWN) {
                     try {
-                        metadata.getCoercion(sourceType, resultType);
+                        functionResolution.getCoercion(sourceType, resultType);
                     }
                     catch (Exception e) {
                         fail(format("'%s' -> '%s' coercion exists but there is no cast operator", sourceType, resultType), e);

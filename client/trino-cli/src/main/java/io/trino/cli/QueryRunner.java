@@ -78,6 +78,7 @@ public class QueryRunner
             Optional<String> kerberosKeytabPath,
             Optional<String> kerberosCredentialCachePath,
             boolean kerberosUseCanonicalHostname,
+            boolean delegatedKerberos,
             boolean externalAuthentication)
     {
         this.session = new AtomicReference<>(requireNonNull(session, "session is null"));
@@ -113,7 +114,8 @@ public class QueryRunner
                     kerberosPrincipal,
                     kerberosConfigPath.map(File::new),
                     kerberosKeytabPath.map(File::new),
-                    kerberosCredentialCachePath.map(File::new));
+                    kerberosCredentialCachePath.map(File::new),
+                    delegatedKerberos);
         }
 
         this.httpClient = builder.build();

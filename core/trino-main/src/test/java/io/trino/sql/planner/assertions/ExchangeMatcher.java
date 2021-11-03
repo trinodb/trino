@@ -37,15 +37,15 @@ final class ExchangeMatcher
         implements Matcher
 {
     private final ExchangeNode.Scope scope;
-    private final ExchangeNode.Type type;
+    private final Optional<ExchangeNode.Type> type;
     private final List<Ordering> orderBy;
     private final Set<String> partitionedBy;
     private final Optional<List<List<String>>> inputs;
 
-    public ExchangeMatcher(ExchangeNode.Scope scope, ExchangeNode.Type type, List<Ordering> orderBy, Set<String> partitionedBy, Optional<List<List<String>>> inputs)
+    public ExchangeMatcher(ExchangeNode.Scope scope, Optional<ExchangeNode.Type> type, List<Ordering> orderBy, Set<String> partitionedBy, Optional<List<List<String>>> inputs)
     {
-        this.scope = scope;
-        this.type = type;
+        this.scope = requireNonNull(scope, "scope is null");
+        this.type = requireNonNull(type, "type is null");
         this.orderBy = requireNonNull(orderBy, "orderBy is null");
         this.partitionedBy = requireNonNull(partitionedBy, "partitionedBy is null");
         this.inputs = requireNonNull(inputs, "inputs is null");
@@ -59,7 +59,7 @@ final class ExchangeMatcher
         }
 
         ExchangeNode exchangeNode = (ExchangeNode) node;
-        return exchangeNode.getScope() == scope && exchangeNode.getType() == type;
+        return exchangeNode.getScope() == scope && type.map(requiredType -> requiredType == exchangeNode.getType()).orElse(true);
     }
 
     @Override

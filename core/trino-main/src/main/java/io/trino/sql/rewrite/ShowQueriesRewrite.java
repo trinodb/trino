@@ -104,6 +104,7 @@ import static io.trino.metadata.MetadataListing.listSchemas;
 import static io.trino.metadata.MetadataUtil.createCatalogSchemaName;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
+import static io.trino.metadata.MetadataUtil.processRoleCommandCatalog;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_MATERIALIZED_VIEW_PROPERTY;
@@ -139,7 +140,7 @@ import static io.trino.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.CreateView.Security.DEFINER;
 import static io.trino.sql.tree.CreateView.Security.INVOKER;
-import static io.trino.sql.tree.LogicalBinaryExpression.and;
+import static io.trino.sql.tree.LogicalExpression.and;
 import static io.trino.sql.tree.ShowCreate.Type.MATERIALIZED_VIEW;
 import static io.trino.sql.tree.ShowCreate.Type.SCHEMA;
 import static io.trino.sql.tree.ShowCreate.Type.TABLE;
@@ -291,7 +292,12 @@ final class ShowQueriesRewrite
         @Override
         protected Node visitShowRoles(ShowRoles node, Void context)
         {
-            Optional<String> catalog = node.getCatalog().map(c -> c.getValue().toLowerCase(ENGLISH));
+            Optional<String> catalog = processRoleCommandCatalog(
+                    metadata,
+                    session,
+                    node,
+                    node.getCatalog()
+                            .map(c -> c.getValue().toLowerCase(ENGLISH)));
 
             if (node.isCurrent()) {
                 accessControl.checkCanShowCurrentRoles(session.toSecurityContext(), catalog);
@@ -314,7 +320,12 @@ final class ShowQueriesRewrite
         @Override
         protected Node visitShowRoleGrants(ShowRoleGrants node, Void context)
         {
-            Optional<String> catalog = node.getCatalog().map(c -> c.getValue().toLowerCase(ENGLISH));
+            Optional<String> catalog = processRoleCommandCatalog(
+                    metadata,
+                    session,
+                    node,
+                    node.getCatalog()
+                            .map(c -> c.getValue().toLowerCase(ENGLISH)));
             TrinoPrincipal principal = new TrinoPrincipal(PrincipalType.USER, session.getUser());
 
             accessControl.checkCanShowRoleGrants(session.toSecurityContext(), catalog);
@@ -325,7 +336,7 @@ final class ShowQueriesRewrite
             return singleColumnValues(rows, "Role Grants");
         }
 
-        private Query singleColumnValues(List<Expression> rows, String columnName)
+        private static Query singleColumnValues(List<Expression> rows, String columnName)
         {
             List<String> columns = ImmutableList.of(columnName);
             if (rows.isEmpty()) {
@@ -344,7 +355,7 @@ final class ShowQueriesRewrite
                 throw semanticException(MISSING_CATALOG_NAME, node, "Catalog must be specified when session catalog is not set");
             }
 
-            String catalog = node.getCatalog().map(Identifier::getValue).orElseGet(() -> session.getCatalog().get());
+            String catalog = node.getCatalog().map(Identifier::getValue).orElseGet(() -> session.getCatalog().orElseThrow());
             accessControl.checkCanShowSchemas(session.toSecurityContext(), catalog);
 
             Optional<Expression> predicate = Optional.empty();
@@ -642,7 +653,7 @@ final class ShowQueriesRewrite
             throw new UnsupportedOperationException("SHOW CREATE only supported for schemas, tables and views");
         }
 
-        private List<Property> buildProperties(
+        private static List<Property> buildProperties(
                 Object objectName,
                 Optional<String> columnName,
                 StandardErrorCode errorCode,
@@ -696,7 +707,7 @@ final class ShowQueriesRewrite
             List<Expression> rows = metadata.listFunctions().stream()
                     .filter(function -> !function.isHidden())
                     .map(function -> row(
-                            new StringLiteral(function.getActualName()),
+                            new StringLiteral(function.getSignature().getName()),
                             new StringLiteral(function.getSignature().getReturnType().toString()),
                             new StringLiteral(Joiner.on(", ").join(function.getSignature().getArgumentTypes())),
                             new StringLiteral(getFunctionType(function)),

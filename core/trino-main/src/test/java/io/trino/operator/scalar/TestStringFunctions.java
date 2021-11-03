@@ -598,10 +598,10 @@ public class TestStringFunctions
         assertInvalidFunction("SPLIT_PART(utf8(from_hex('CE')), '', 1)", "Invalid UTF-8 encoding");
     }
 
-    @Test(expectedExceptions = RuntimeException.class)
+    @Test
     public void testSplitPartInvalid()
     {
-        assertFunction("SPLIT_PART('abc-@-def-@-ghi', '-@-', 0)", VARCHAR, "");
+        assertInvalidFunction("SPLIT_PART('abc-@-def-@-ghi', '-@-', 0)", "Index must be greater than zero");
     }
 
     @Test

@@ -159,6 +159,7 @@ public class IcebergFileWriterFactory
                     parquetWriterOptions,
                     IntStream.range(0, fileColumnNames.size()).toArray(),
                     getCompressionCodec(session).getParquetCompressionCodec(),
+                    nodeVersion.toString(),
                     outputPath,
                     hdfsEnvironment,
                     hdfsContext);

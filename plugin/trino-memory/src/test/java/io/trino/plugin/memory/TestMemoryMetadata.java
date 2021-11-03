@@ -41,6 +41,7 @@ import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNull;
@@ -163,7 +164,7 @@ public class TestMemoryMetadata
         assertEquals(metadata.listTables(SESSION, Optional.of("default")), ImmutableList.of());
     }
 
-    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "View already exists: test\\.test_view")
+    @Test
     public void testCreateViewWithoutReplace()
     {
         SchemaTableName test = new SchemaTableName("test", "test_view");
@@ -174,7 +175,9 @@ public class TestMemoryMetadata
         catch (Exception e) {
             fail("should have succeeded");
         }
-        metadata.createView(SESSION, test, testingViewDefinition("test"), false);
+        assertThatThrownBy(() -> metadata.createView(SESSION, test, testingViewDefinition("test"), false))
+                .isInstanceOf(TrinoException.class)
+                .hasMessageMatching("View already exists: test\\.test_view");
     }
 
     @Test

@@ -460,7 +460,7 @@ public class PagesIndex
     public PagesIndexComparator createChannelComparator(int leftChannel, int rightChannel)
     {
         checkArgument(types.get(leftChannel).equals(types.get(rightChannel)), "comparing channels of different types: %s and %s", types.get(leftChannel), types.get(rightChannel));
-        return new SimpleChannelComparator(leftChannel, rightChannel, blockTypeOperators.getComparisonOperator(types.get(leftChannel)));
+        return new SimpleChannelComparator(leftChannel, rightChannel, blockTypeOperators.getComparisonUnorderedLastOperator(types.get(leftChannel)));
     }
 
     public LookupSourceSupplier createLookupSourceSupplier(

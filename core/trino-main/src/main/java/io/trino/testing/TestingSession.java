@@ -80,6 +80,7 @@ public final class TestingSession
         return new Catalog(
                 catalogName,
                 catalog,
+                "test",
                 createTestSessionConnector(),
                 SecurityManagement.CONNECTOR,
                 createInformationSchemaCatalogName(catalog),

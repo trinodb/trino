@@ -114,7 +114,8 @@ public class AddColumnTask
                 session,
                 metadata,
                 accessControl,
-                parameterExtractor(statement, parameters));
+                parameterExtractor(statement, parameters),
+                true);
 
         ColumnMetadata column = ColumnMetadata.builder()
                 .setName(element.getName().getValue())

@@ -21,6 +21,7 @@ import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.VarcharType;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.TestingSession;
 import io.trino.testing.datatype.CreateAndInsertDataSetup;
 import io.trino.testing.datatype.CreateAsSelectDataSetup;
 import io.trino.testing.datatype.DataSetup;
@@ -30,7 +31,6 @@ import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
-import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -62,6 +62,8 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
+import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
+import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
@@ -83,7 +85,9 @@ import static io.trino.type.JsonType.JSON;
 import static java.lang.String.format;
 import static java.math.RoundingMode.HALF_UP;
 import static java.math.RoundingMode.UNNECESSARY;
+import static java.time.ZoneOffset.UTC;
 import static java.util.Arrays.asList;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestMemSqlTypeMapping
         extends AbstractTestQueryFramework
@@ -574,18 +578,208 @@ public class TestMemSqlTypeMapping
                 .addRoundTrip(dateDataType, dateOfLocalTimeChangeBackwardAtMidnightInSomeZone);
     }
 
-    @Test
-    public void testDatetime()
+    @Test(dataProvider = "sessionZonesDataProvider")
+    public void testDatetime(ZoneId sessionZone)
     {
-        // TODO (https://github.com/trinodb/trino/issues/5450) MemSQL datetime is not correctly read (see comment in StandardColumnMappings.timestampColumnMappingUsingSqlTimestamp)
-        throw new SkipException("TODO");
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(getTimeZoneKey(sessionZone.getId()))
+                .build();
+
+        // TODO (https://github.com/trinodb/trino/issues/5450) Fix DST handling
+        SqlDataTypeTest.create()
+                // before epoch
+                .addRoundTrip("datetime", "CAST('1958-01-01 13:18:03' AS DATETIME)", createTimestampType(0), "TIMESTAMP '1958-01-01 13:18:03'")
+                // after epoch
+                .addRoundTrip("datetime", "CAST('2019-03-18 10:01:17' AS DATETIME)", createTimestampType(0), "TIMESTAMP '2019-03-18 10:01:17'")
+                // time doubled in JVM zone
+                .addRoundTrip("datetime", "CAST('2018-10-28 01:33:17' AS DATETIME)", createTimestampType(0), "TIMESTAMP '2018-10-28 01:33:17'")
+                // time double in Vilnius
+                .addRoundTrip("datetime", "CAST('2018-10-28 03:33:33' AS DATETIME)", createTimestampType(0), "TIMESTAMP '2018-10-28 03:33:33'")
+                // epoch
+//                .addRoundTrip("datetime", "CAST('1970-01-01 00:00:00' AS DATETIME)", createTimestampType(0), "TIMESTAMP '1970-01-01 00:00:00'")
+//                .addRoundTrip("datetime", "CAST('1970-01-01 00:13:42' AS DATETIME)", createTimestampType(0), "TIMESTAMP '1970-01-01 00:13:42'")
+//                .addRoundTrip("datetime", "CAST('2018-04-01 02:13:55' AS DATETIME)", createTimestampType(0), "TIMESTAMP '2018-04-01 02:13:55'")
+                // time gap in Vilnius
+                .addRoundTrip("datetime", "CAST('2018-03-25 03:17:17.000000' AS DATETIME)", createTimestampType(0), "TIMESTAMP '2018-03-25 03:17:17'")
+                // time gap in Kathmandu
+                .addRoundTrip("datetime", "CAST('1986-01-01 00:13:07.000000' AS DATETIME)", createTimestampType(0), "TIMESTAMP '1986-01-01 00:13:07'")
+
+                // same as above but with higher precision
+                .addRoundTrip("datetime(6)", "CAST('1958-01-01 13:18:03.123456' AS DATETIME(6))", createTimestampType(6), "TIMESTAMP '1958-01-01 13:18:03.123456'")
+                .addRoundTrip("datetime(6)", "CAST('2019-03-18 10:01:17.987654' AS DATETIME(6))", createTimestampType(6), "TIMESTAMP '2019-03-18 10:01:17.987654'")
+                .addRoundTrip("datetime(6)", "CAST('2018-10-28 01:33:17.456789' AS DATETIME(6))", createTimestampType(6), "TIMESTAMP '2018-10-28 01:33:17.456789'")
+                .addRoundTrip("datetime(6)", "CAST('2018-10-28 03:33:33.333333' AS DATETIME(6))", createTimestampType(6), "TIMESTAMP '2018-10-28 03:33:33.333333'")
+//                .addRoundTrip("datetime(6)", "CAST('1970-01-01 00:00:00.000000' AS DATETIME(6))", createTimestampType(6), "TIMESTAMP '1970-01-01 00:00:00.000000'")
+//                .addRoundTrip("datetime(6)", "CAST('1970-01-01 00:13:42.000001' AS DATETIME(6))", createTimestampType(6), "TIMESTAMP '1970-01-01 00:13:42.000001'")
+//                .addRoundTrip("datetime(6)", "CAST('2018-04-01 02:13:55.123456' AS DATETIME(6))", createTimestampType(6), "TIMESTAMP '2018-04-01 02:13:55.123456'")
+                .addRoundTrip("datetime(6)", "CAST('2018-03-25 03:17:17.000000' AS DATETIME(6))", createTimestampType(6), "TIMESTAMP '2018-03-25 03:17:17.000000'")
+                .addRoundTrip("datetime(6)", "CAST('1986-01-01 00:13:07.000000' AS DATETIME(6))", createTimestampType(6), "TIMESTAMP '1986-01-01 00:13:07.000000'")
+
+                // negative epoch
+                .addRoundTrip("datetime(6)", "CAST('1969-12-31 23:59:59.999995' AS DATETIME(6))", createTimestampType(6), "TIMESTAMP '1969-12-31 23:59:59.999995'")
+                .addRoundTrip("datetime(6)", "CAST('1969-12-31 23:59:59.999949' AS DATETIME(6))", createTimestampType(6), "TIMESTAMP '1969-12-31 23:59:59.999949'")
+                .addRoundTrip("datetime(6)", "CAST('1969-12-31 23:59:59.999994' AS DATETIME(6))", createTimestampType(6), "TIMESTAMP '1969-12-31 23:59:59.999994'")
+
+                // min value in MemSQL
+                .addRoundTrip("datetime", "CAST('1000-01-01 00:00:00' AS DATETIME)", createTimestampType(0), "TIMESTAMP '1000-01-01 00:00:00'")
+                .addRoundTrip("datetime(6)", "CAST('1000-01-01 00:00:00.000000' AS DATETIME(6))", createTimestampType(6), "TIMESTAMP '1000-01-01 00:00:00.000000'")
+
+                // max value in MemSQL
+                .addRoundTrip("datetime", "CAST('9999-12-31 23:59:59' AS DATETIME)", createTimestampType(0), "TIMESTAMP '9999-12-31 23:59:59'")
+                .addRoundTrip("datetime(6)", "CAST('9999-12-31 23:59:59.999999' AS DATETIME(6))", createTimestampType(6), "TIMESTAMP '9999-12-31 23:59:59.999999'")
+
+                // null
+                .addRoundTrip("datetime", "NULL", createTimestampType(0), "CAST(NULL AS TIMESTAMP(0))")
+                .addRoundTrip("datetime(6)", "NULL", createTimestampType(6), "CAST(NULL AS TIMESTAMP(6))")
+
+                .execute(getQueryRunner(), session, memSqlCreateAndInsert("tpch.test_datetime"));
     }
 
-    @Test
-    public void testTimestamp()
+    @Test(dataProvider = "sessionZonesDataProvider")
+    public void testTimestamp(ZoneId sessionZone)
     {
-        // TODO (https://github.com/trinodb/trino/issues/5450) MemSQL timestamp is not correctly read (see comment in StandardColumnMappings.timestampColumnMappingUsingSqlTimestamp)
-        throw new SkipException("TODO");
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(getTimeZoneKey(sessionZone.getId()))
+                .build();
+
+        // TODO (https://github.com/trinodb/trino/issues/5450) Fix DST handling
+        SqlDataTypeTest.create()
+                // before epoch doesn't exist because min timestamp value is 1970-01-01 in MemSQL
+                // after epoch
+                .addRoundTrip("timestamp", toTimestamp("2019-03-18 10:01:17"), createTimestampType(0), "TIMESTAMP '2019-03-18 10:01:17'")
+                // time doubled in JVM zone
+                .addRoundTrip("timestamp", toTimestamp("2018-10-28 01:33:17"), createTimestampType(0), "TIMESTAMP '2018-10-28 01:33:17'")
+                // time double in Vilnius
+                .addRoundTrip("timestamp", toTimestamp("2018-10-28 03:33:33"), createTimestampType(0), "TIMESTAMP '2018-10-28 03:33:33'")
+                // epoch
+//                .addRoundTrip("timestamp", toTimestamp("1970-01-01 00:00:00"), createTimestampType(0), "TIMESTAMP '1970-01-01 00:00:00'")
+//                .addRoundTrip("timestamp", toTimestamp("1970-01-01 00:13:42"), createTimestampType(0), "TIMESTAMP '1970-01-01 00:13:42'")
+//                .addRoundTrip("timestamp", toTimestamp("2018-04-01 02:13:55"), createTimestampType(0), "TIMESTAMP '2018-04-01 02:13:55'")
+                // time gap in Vilnius
+                .addRoundTrip("timestamp", toTimestamp("2018-03-25 03:17:17.000000"), createTimestampType(0), "TIMESTAMP '2018-03-25 03:17:17'")
+
+                // same as above but with higher precision
+                .addRoundTrip("timestamp(6)", toLongTimestamp("2019-03-18 10:01:17.987654"), createTimestampType(6), "TIMESTAMP '2019-03-18 10:01:17.987654'")
+                .addRoundTrip("timestamp(6)", toLongTimestamp("2018-10-28 01:33:17.456789"), createTimestampType(6), "TIMESTAMP '2018-10-28 01:33:17.456789'")
+                .addRoundTrip("timestamp(6)", toLongTimestamp("2018-10-28 03:33:33.333333"), createTimestampType(6), "TIMESTAMP '2018-10-28 03:33:33.333333'")
+//                .addRoundTrip("timestamp(6)", toLongTimestamp("1970-01-01 00:00:00.000000"), createTimestampType(6), "TIMESTAMP '1970-01-01 00:00:00.000000'")
+//                .addRoundTrip("timestamp(6)", toLongTimestamp("1970-01-01 00:13:42.000001"), createTimestampType(6), "TIMESTAMP '1970-01-01 00:13:42.000001'")
+//                .addRoundTrip("timestamp(6)", toLongTimestamp("2018-04-01 02:13:55.123456"), createTimestampType(6), "TIMESTAMP '2018-04-01 02:13:55.123456'")
+                .addRoundTrip("timestamp(6)", toLongTimestamp("2018-03-25 03:17:17.000000"), createTimestampType(6), "TIMESTAMP '2018-03-25 03:17:17.000000'")
+
+                // min value in MemSQL
+//                .addRoundTrip("timestamp", toTimestamp("1970-01-01 00:00:01"), createTimestampType(0), "TIMESTAMP '1970-01-01 00:00:01'")
+//                .addRoundTrip("timestamp(6)", toLongTimestamp("1970-01-01 00:00:01.000000"), createTimestampType(6), "TIMESTAMP '1970-01-01 00:00:01.000000'")
+
+                // max value in MemSQL
+                .addRoundTrip("timestamp", toTimestamp("2038-01-19 03:14:07"), createTimestampType(0), "TIMESTAMP '2038-01-19 03:14:07'")
+                .addRoundTrip("timestamp(6)", toLongTimestamp("2038-01-19 03:14:07.999999"), createTimestampType(6), "TIMESTAMP '2038-01-19 03:14:07.999999'")
+
+                // null
+                .addRoundTrip("timestamp", "NULL", createTimestampType(0), "CAST(NULL AS TIMESTAMP(0))")
+                .addRoundTrip("timestamp(6)", "NULL", createTimestampType(6), "CAST(NULL AS TIMESTAMP(6))")
+
+                .execute(getQueryRunner(), session, memSqlCreateAndInsert("tpch.test_timestamp"));
+    }
+
+    @Test(dataProvider = "sessionZonesDataProvider")
+    public void testTimestampWrite(ZoneId sessionZone)
+    {
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(getTimeZoneKey(sessionZone.getId()))
+                .build();
+
+        // TODO (https://github.com/trinodb/trino/issues/5450) Fix DST handling
+        SqlDataTypeTest.create()
+                // without precision
+                .addRoundTrip("TIMESTAMP '2021-10-21 12:34:56.123456'", "TIMESTAMP '2021-10-21 12:34:56.123456'")
+                // before epoch
+                .addRoundTrip("timestamp(0)", "TIMESTAMP '1958-01-01 13:18:03'", createTimestampType(0), "TIMESTAMP '1958-01-01 13:18:03'")
+                // after epoch
+                .addRoundTrip("timestamp(0)", "TIMESTAMP '2019-03-18 10:01:17'", createTimestampType(0), "TIMESTAMP '2019-03-18 10:01:17'")
+                // time doubled in JVM zone
+                .addRoundTrip("timestamp(0)", "TIMESTAMP '2018-10-28 01:33:17'", createTimestampType(0), "TIMESTAMP '2018-10-28 01:33:17'")
+                // time double in Vilnius
+                .addRoundTrip("timestamp(0)", "TIMESTAMP '2018-10-28 03:33:33'", createTimestampType(0), "TIMESTAMP '2018-10-28 03:33:33'")
+                // epoch
+//                .addRoundTrip("timestamp(0)", "TIMESTAMP '1970-01-01 00:00:00'", createTimestampType(0), "TIMESTAMP '1970-01-01 00:00:00'")
+//                .addRoundTrip("timestamp(0)", "TIMESTAMP '1970-01-01 00:13:42'", createTimestampType(0), "TIMESTAMP '1970-01-01 00:13:42'")
+//                .addRoundTrip("timestamp(0)", "TIMESTAMP '2018-04-01 02:13:55'", createTimestampType(0), "TIMESTAMP '2018-04-01 02:13:55'")
+                // time gap in Vilnius
+                .addRoundTrip("timestamp(0)", "TIMESTAMP '2018-03-25 03:17:17.000000'", createTimestampType(0), "TIMESTAMP '2018-03-25 03:17:17'")
+                // time gap in Kathmandu
+                .addRoundTrip("timestamp(0)", "TIMESTAMP '1986-01-01 00:13:07.000000'", createTimestampType(0), "TIMESTAMP '1986-01-01 00:13:07'")
+
+                // same as above but with higher precision
+                .addRoundTrip("timestamp(6)", "TIMESTAMP '1958-01-01 13:18:03.123456'", createTimestampType(6), "TIMESTAMP '1958-01-01 13:18:03.123456'")
+                .addRoundTrip("timestamp(6)", "TIMESTAMP '2019-03-18 10:01:17.987654'", createTimestampType(6), "TIMESTAMP '2019-03-18 10:01:17.987654'")
+                .addRoundTrip("timestamp(6)", "TIMESTAMP '2018-10-28 01:33:17.456789'", createTimestampType(6), "TIMESTAMP '2018-10-28 01:33:17.456789'")
+                .addRoundTrip("timestamp(6)", "TIMESTAMP '2018-10-28 03:33:33.333333'", createTimestampType(6), "TIMESTAMP '2018-10-28 03:33:33.333333'")
+//                .addRoundTrip("timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.000000'", createTimestampType(6), "TIMESTAMP '1970-01-01 00:00:00.000000'")
+//                .addRoundTrip("timestamp(6)", "TIMESTAMP '1970-01-01 00:13:42.000001'", createTimestampType(6), "TIMESTAMP '1970-01-01 00:13:42.000001'")
+//                .addRoundTrip("timestamp(6)", "TIMESTAMP '2018-04-01 02:13:55.123456'", createTimestampType(6), "TIMESTAMP '2018-04-01 02:13:55.123456'")
+                .addRoundTrip("timestamp(6)", "TIMESTAMP '2018-03-25 03:17:17.000000'", createTimestampType(6), "TIMESTAMP '2018-03-25 03:17:17.000000'")
+                .addRoundTrip("timestamp(6)", "TIMESTAMP '1986-01-01 00:13:07.000000'", createTimestampType(6), "TIMESTAMP '1986-01-01 00:13:07.000000'")
+
+                // negative epoch
+                .addRoundTrip("timestamp(6)", "TIMESTAMP '1969-12-31 23:59:59.999995'", createTimestampType(6), "TIMESTAMP '1969-12-31 23:59:59.999995'")
+                .addRoundTrip("timestamp(6)", "TIMESTAMP '1969-12-31 23:59:59.999949'", createTimestampType(6), "TIMESTAMP '1969-12-31 23:59:59.999949'")
+                .addRoundTrip("timestamp(6)", "TIMESTAMP '1969-12-31 23:59:59.999994'", createTimestampType(6), "TIMESTAMP '1969-12-31 23:59:59.999994'")
+
+                // min value in MemSQL
+                .addRoundTrip("timestamp(0)", "TIMESTAMP '1000-01-01 00:00:00'", createTimestampType(0), "TIMESTAMP '1000-01-01 00:00:00'")
+                .addRoundTrip("timestamp(6)", "TIMESTAMP '1000-01-01 00:00:00.000000'", createTimestampType(6), "TIMESTAMP '1000-01-01 00:00:00.000000'")
+
+                // max value in MemSQL
+                .addRoundTrip("timestamp(0)", "TIMESTAMP '9999-12-31 23:59:59'", createTimestampType(0), "TIMESTAMP '9999-12-31 23:59:59'")
+                .addRoundTrip("timestamp(6)", "TIMESTAMP '9999-12-31 23:59:59.999999'", createTimestampType(6), "TIMESTAMP '9999-12-31 23:59:59.999999'")
+
+                // null
+                .addRoundTrip("timestamp(0)", "NULL", createTimestampType(0), "CAST(NULL AS TIMESTAMP(0))")
+                .addRoundTrip("timestamp(6)", "NULL", createTimestampType(6), "CAST(NULL AS TIMESTAMP(6))")
+
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "tpch.test_datetime"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "tpch.test_datetime"));
+    }
+
+    @DataProvider
+    public Object[][] sessionZonesDataProvider()
+    {
+        return new Object[][] {
+                {UTC},
+                {ZoneId.systemDefault()},
+                // no DST in 1970, but has DST in later years (e.g. 2018)
+                {ZoneId.of("Europe/Vilnius")},
+                // minutes offset change since 1970-01-01, no DST
+                {ZoneId.of("Asia/Kathmandu")},
+                {ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId())},
+        };
+    }
+
+    @Test(dataProvider = "unsupportedDateTimePrecisions")
+    public void testUnsupportedDateTimePrecision(int precision)
+    {
+        // This test should be fixed if future MemSQL supports those precisions
+        assertThatThrownBy(() -> memSqlServer.execute(format("CREATE TABLE test_unsupported_timestamp_precision (col1 TIMESTAMP(%s))", precision)))
+                .hasMessageContaining("Feature 'TIMESTAMP type with precision other than 0 or 6' is not supported by MemSQL.");
+
+        assertThatThrownBy(() -> memSqlServer.execute(format("CREATE TABLE test_unsupported_datetime_precision (col1 DATETIME(%s))", precision)))
+                .hasMessageContaining("Feature 'DATETIME type with precision other than 0 or 6' is not supported by MemSQL.");
+    }
+
+    @DataProvider
+    public Object[][] unsupportedDateTimePrecisions()
+    {
+        return new Object[][] {
+                {1},
+                {2},
+                {3},
+                {4},
+                {5},
+                {7},
+                {8},
+                {9},
+        };
     }
 
     @Test
@@ -665,5 +859,15 @@ public class TestMemSqlTypeMapping
     private static DataType<Double> memSqlDoubleDataType()
     {
         return dataType("double precision", DOUBLE, Object::toString);
+    }
+
+    private static String toTimestamp(String value)
+    {
+        return format("TO_TIMESTAMP('%s', 'YYYY-MM-DD HH24:MI:SS')", value);
+    }
+
+    private static String toLongTimestamp(String value)
+    {
+        return format("TO_TIMESTAMP('%s', 'YYYY-MM-DD HH24:MI:SS.FF6')", value);
     }
 }

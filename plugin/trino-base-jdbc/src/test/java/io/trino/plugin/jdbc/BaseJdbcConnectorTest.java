@@ -1021,7 +1021,7 @@ public abstract class BaseJdbcConnectorTest
         PlanMatchPattern partitionedJoinOverTableScans = node(JoinNode.class,
                 exchange(ExchangeNode.Scope.REMOTE, ExchangeNode.Type.REPARTITION,
                         node(TableScanNode.class)),
-                exchange(ExchangeNode.Scope.LOCAL, ExchangeNode.Type.REPARTITION,
+                exchange(ExchangeNode.Scope.LOCAL,
                         exchange(ExchangeNode.Scope.REMOTE, ExchangeNode.Type.REPARTITION,
                                 node(TableScanNode.class))));
 
@@ -1058,7 +1058,7 @@ public abstract class BaseJdbcConnectorTest
         PlanMatchPattern broadcastJoinOverTableScans =
                 node(JoinNode.class,
                         node(TableScanNode.class),
-                        exchange(ExchangeNode.Scope.LOCAL, ExchangeNode.Type.GATHER,
+                        exchange(ExchangeNode.Scope.LOCAL,
                                 exchange(ExchangeNode.Scope.REMOTE, ExchangeNode.Type.REPLICATE,
                                         node(TableScanNode.class))));
 
@@ -1077,10 +1077,10 @@ public abstract class BaseJdbcConnectorTest
 
         String notDistinctOperator = "IS NOT DISTINCT FROM";
         List<String> nonEqualities = Stream.concat(
-                Stream.of(JoinCondition.Operator.values())
-                        .filter(operator -> operator != JoinCondition.Operator.EQUAL)
-                        .map(JoinCondition.Operator::getValue),
-                Stream.of(notDistinctOperator))
+                        Stream.of(JoinCondition.Operator.values())
+                                .filter(operator -> operator != JoinCondition.Operator.EQUAL)
+                                .map(JoinCondition.Operator::getValue),
+                        Stream.of(notDistinctOperator))
                 .collect(toImmutableList());
 
         try (TestTable nationLowercaseTable = new TestTable(
@@ -1442,6 +1442,14 @@ public abstract class BaseJdbcConnectorTest
     }
 
     @Override
+    public void testExplainAnalyzeWithDeleteWithSubquery()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
+        assertThatThrownBy(super::testExplainAnalyzeWithDeleteWithSubquery)
+                .hasStackTraceContaining("TrinoException: Unsupported delete");
+    }
+
+    @Override
     public void testDeleteWithSemiJoin()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
@@ -1508,16 +1516,11 @@ public abstract class BaseJdbcConnectorTest
     public static Object[][] batchSizeAndTotalNumberOfRowsToInsertDataProvider()
     {
         return new Object[][] {
-                {100, 64},
-                {100, 100},
-                {100, 512},
-                {100, 1000},
-                {1000, 100},
-                {1000, 1000},
-                {1000, 5000},
-                {10000, 1000},
-                {10000, 5000},
-                {10000, 15000},
+                {10, 8},  // number of rows < batch size
+                {10, 10}, // number of rows = batch size
+                {10, 11}, // number of rows > batch size
+                {10, 50}, // number of rows = n * batch size
+                {10, 52}, // number of rows > n * batch size
         };
     }
 }

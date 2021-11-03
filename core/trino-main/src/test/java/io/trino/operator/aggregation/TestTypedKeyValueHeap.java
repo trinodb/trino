@@ -16,10 +16,9 @@ package io.trino.operator.aggregation;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.TypeOperators;
-import io.trino.type.BlockTypeOperators;
-import io.trino.type.BlockTypeOperators.BlockPositionComparison;
 import org.testng.annotations.Test;
 
+import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
@@ -27,8 +26,12 @@ import java.util.List;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.util.MinMaxCompare.getMinMaxCompare;
 import static org.testng.Assert.assertEquals;
 
 public class TestTypedKeyValueHeap
@@ -36,9 +39,9 @@ public class TestTypedKeyValueHeap
     private static final int INPUT_SIZE = 1_000_000; // larger than COMPACT_THRESHOLD_* to guarantee coverage of compact
     private static final int OUTPUT_SIZE = 1_000;
 
-    private static final BlockTypeOperators TYPE_OPERATOR_FACTORY = new BlockTypeOperators(new TypeOperators());
-    private static final BlockPositionComparison MAX_ELEMENTS_COMPARATOR = TYPE_OPERATOR_FACTORY.getComparisonOperator(BIGINT);
-    private static final BlockPositionComparison MIN_ELEMENTS_COMPARATOR = TYPE_OPERATOR_FACTORY.getComparisonOperator(BIGINT).reversed();
+    private static final TypeOperators TYPE_OPERATOR_FACTORY = new TypeOperators();
+    private static final MethodHandle MAX_ELEMENTS_COMPARATOR = getMinMaxCompare(TYPE_OPERATOR_FACTORY, BIGINT, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION), false);
+    private static final MethodHandle MIN_ELEMENTS_COMPARATOR = getMinMaxCompare(TYPE_OPERATOR_FACTORY, BIGINT, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION), true);
 
     @Test
     public void testAscending()
@@ -81,14 +84,14 @@ public class TestTypedKeyValueHeap
                 IntStream.range(0, OUTPUT_SIZE).map(x -> OUTPUT_SIZE - 1 - x).mapToObj(key -> Integer.toString(key * 2)).iterator());
     }
 
-    private static void test(IntStream keyInputStream, Stream<String> valueInputStream, BlockPositionComparison comparison, Iterator<String> outputIterator)
+    private static void test(IntStream keyInputStream, Stream<String> valueInputStream, MethodHandle keyComparisonMethod, Iterator<String> outputIterator)
     {
         BlockBuilder keysBlockBuilder = BIGINT.createBlockBuilder(null, INPUT_SIZE);
         BlockBuilder valuesBlockBuilder = VARCHAR.createBlockBuilder(null, INPUT_SIZE);
         keyInputStream.forEach(x -> BIGINT.writeLong(keysBlockBuilder, x));
         valueInputStream.forEach(x -> VARCHAR.writeString(valuesBlockBuilder, x));
 
-        TypedKeyValueHeap heap = new TypedKeyValueHeap(comparison, BIGINT, VARCHAR, OUTPUT_SIZE);
+        TypedKeyValueHeap heap = new TypedKeyValueHeap(keyComparisonMethod, BIGINT, VARCHAR, OUTPUT_SIZE);
         heap.addAll(keysBlockBuilder, valuesBlockBuilder);
 
         BlockBuilder resultBlockBuilder = VARCHAR.createBlockBuilder(null, OUTPUT_SIZE);

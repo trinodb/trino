@@ -18,6 +18,7 @@ import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.Type;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -38,12 +39,14 @@ import static io.trino.spi.security.AccessDeniedException.denyDropSchema;
 import static io.trino.spi.security.AccessDeniedException.denyDropTable;
 import static io.trino.spi.security.AccessDeniedException.denyDropView;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteProcedure;
+import static io.trino.spi.security.AccessDeniedException.denyExecuteTableProcedure;
 import static io.trino.spi.security.AccessDeniedException.denyGrantRoles;
 import static io.trino.spi.security.AccessDeniedException.denyGrantSchemaPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyGrantTablePrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyInsertTable;
 import static io.trino.spi.security.AccessDeniedException.denyRefreshMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyRenameColumn;
+import static io.trino.spi.security.AccessDeniedException.denyRenameMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyRenameSchema;
 import static io.trino.spi.security.AccessDeniedException.denyRenameTable;
 import static io.trino.spi.security.AccessDeniedException.denyRenameView;
@@ -55,6 +58,7 @@ import static io.trino.spi.security.AccessDeniedException.denySetCatalogSessionP
 import static io.trino.spi.security.AccessDeniedException.denySetRole;
 import static io.trino.spi.security.AccessDeniedException.denySetSchemaAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denySetTableAuthorization;
+import static io.trino.spi.security.AccessDeniedException.denySetTableProperties;
 import static io.trino.spi.security.AccessDeniedException.denySetViewAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denyShowColumns;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateSchema;
@@ -156,8 +160,20 @@ public interface ConnectorAccessControl
      * Check if identity is allowed to create the specified table.
      *
      * @throws io.trino.spi.security.AccessDeniedException if not allowed
+     * @deprecated use {@link #checkCanCreateTable(ConnectorSecurityContext context, SchemaTableName tableName, Map properties)} instead
      */
+    @Deprecated
     default void checkCanCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+        denyCreateTable(tableName.toString());
+    }
+
+    /**
+     * Check if identity is allowed to create the specified table with properties.
+     *
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanCreateTable(ConnectorSecurityContext context, SchemaTableName tableName, Map<String, Object> properties)
     {
         denyCreateTable(tableName.toString());
     }
@@ -180,6 +196,16 @@ public interface ConnectorAccessControl
     default void checkCanRenameTable(ConnectorSecurityContext context, SchemaTableName tableName, SchemaTableName newTableName)
     {
         denyRenameTable(tableName.toString(), newTableName.toString());
+    }
+
+    /**
+     * Check if identity is allowed to set properties to the specified table.
+     *
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanSetTableProperties(ConnectorSecurityContext context, SchemaTableName tableName, Map<String, Object> properties)
+    {
+        denySetTableProperties(tableName.toString());
     }
 
     /**
@@ -407,6 +433,16 @@ public interface ConnectorAccessControl
     }
 
     /**
+     * Check if identity is allowed to rename the specified materialized view.
+     *
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanRenameMaterializedView(ConnectorSecurityContext context, SchemaTableName viewName, SchemaTableName newViewName)
+    {
+        denyRenameMaterializedView(viewName.toString(), newViewName.toString());
+    }
+
+    /**
      * Check if identity is allowed to set the specified property.
      *
      * @throws io.trino.spi.security.AccessDeniedException if not allowed
@@ -519,6 +555,11 @@ public interface ConnectorAccessControl
     default void checkCanExecuteProcedure(ConnectorSecurityContext context, SchemaRoutineName procedure)
     {
         denyExecuteProcedure(procedure.toString());
+    }
+
+    default void checkCanExecuteTableProcedure(ConnectorSecurityContext context, SchemaTableName tableName, String procedure)
+    {
+        denyExecuteTableProcedure(tableName.toString(), procedure);
     }
 
     /**

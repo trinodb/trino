@@ -632,6 +632,11 @@ public final class PlanMatchPattern
         return node(ExchangeNode.class, sources);
     }
 
+    public static PlanMatchPattern exchange(ExchangeNode.Scope scope, PlanMatchPattern... sources)
+    {
+        return exchange(scope, Optional.empty(), ImmutableList.of(), ImmutableSet.of(), Optional.empty(), sources);
+    }
+
     public static PlanMatchPattern exchange(ExchangeNode.Scope scope, ExchangeNode.Type type, PlanMatchPattern... sources)
     {
         return exchange(scope, type, ImmutableList.of(), sources);
@@ -650,6 +655,17 @@ public final class PlanMatchPattern
     public static PlanMatchPattern exchange(
             ExchangeNode.Scope scope,
             ExchangeNode.Type type,
+            List<Ordering> orderBy,
+            Set<String> partitionedBy,
+            Optional<List<List<String>>> inputs,
+            PlanMatchPattern... sources)
+    {
+        return exchange(scope, Optional.of(type), orderBy, partitionedBy, inputs, sources);
+    }
+
+    public static PlanMatchPattern exchange(
+            ExchangeNode.Scope scope,
+            Optional<ExchangeNode.Type> type,
             List<Ordering> orderBy,
             Set<String> partitionedBy,
             Optional<List<List<String>>> inputs,

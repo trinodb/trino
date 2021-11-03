@@ -14,6 +14,7 @@
 package io.trino.plugin.base.security;
 
 import com.google.common.collect.ImmutableSet;
+import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.base.security.TableAccessControlRule.TablePrivilege;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSecurityContext;
@@ -27,6 +28,7 @@ import io.trino.spi.type.Type;
 
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -63,6 +65,7 @@ import static io.trino.spi.security.AccessDeniedException.denyGrantTablePrivileg
 import static io.trino.spi.security.AccessDeniedException.denyInsertTable;
 import static io.trino.spi.security.AccessDeniedException.denyRefreshMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyRenameColumn;
+import static io.trino.spi.security.AccessDeniedException.denyRenameMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyRenameSchema;
 import static io.trino.spi.security.AccessDeniedException.denyRenameTable;
 import static io.trino.spi.security.AccessDeniedException.denyRenameView;
@@ -74,6 +77,7 @@ import static io.trino.spi.security.AccessDeniedException.denySetCatalogSessionP
 import static io.trino.spi.security.AccessDeniedException.denySetRole;
 import static io.trino.spi.security.AccessDeniedException.denySetSchemaAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denySetTableAuthorization;
+import static io.trino.spi.security.AccessDeniedException.denySetTableProperties;
 import static io.trino.spi.security.AccessDeniedException.denySetViewAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denyShowColumns;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateSchema;
@@ -93,9 +97,9 @@ public class FileBasedAccessControl
     private final List<SessionPropertyAccessControlRule> sessionPropertyRules;
     private final Set<AnySchemaPermissionsRule> anySchemaPermissionsRules;
 
-    public FileBasedAccessControl(String catalogName, FileBasedAccessControlConfig config)
+    public FileBasedAccessControl(CatalogName catalogName, FileBasedAccessControlConfig config)
     {
-        this.catalogName = requireNonNull(catalogName, "catalogName is null");
+        this.catalogName = requireNonNull(catalogName, "catalogName is null").toString();
 
         AccessControlRules rules = parseJson(Paths.get(config.getConfigFile()), AccessControlRules.class);
         checkArgument(!rules.hasRoleRules(), "File connector access control does not support role rules: %s", config.getConfigFile());
@@ -188,6 +192,15 @@ public class FileBasedAccessControl
     }
 
     @Override
+    public void checkCanCreateTable(ConnectorSecurityContext context, SchemaTableName tableName, Map<String, Object> properties)
+    {
+        // check if user will be an owner of the table after creation
+        if (!checkTablePermission(context, tableName, OWNERSHIP)) {
+            denyCreateTable(tableName.toString());
+        }
+    }
+
+    @Override
     public void checkCanDropTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         if (!checkTablePermission(context, tableName, OWNERSHIP)) {
@@ -252,6 +265,14 @@ public class FileBasedAccessControl
         // check if user owns the existing table, and if they will be an owner of the table after the rename
         if (!checkTablePermission(context, tableName, OWNERSHIP) || !checkTablePermission(context, newTableName, OWNERSHIP)) {
             denyRenameTable(tableName.toString(), newTableName.toString());
+        }
+    }
+
+    @Override
+    public void checkCanSetTableProperties(ConnectorSecurityContext context, SchemaTableName tableName, Map<String, Object> properties)
+    {
+        if (!checkTablePermission(context, tableName, OWNERSHIP)) {
+            denySetTableProperties(tableName.toString());
         }
     }
 
@@ -425,6 +446,15 @@ public class FileBasedAccessControl
     }
 
     @Override
+    public void checkCanRenameMaterializedView(ConnectorSecurityContext context, SchemaTableName viewName, SchemaTableName newViewName)
+    {
+        // check if user owns the existing materialized view, and if they will be an owner of the materialized view after the rename
+        if (!checkTablePermission(context, viewName, OWNERSHIP) || !checkTablePermission(context, newViewName, OWNERSHIP)) {
+            denyRenameMaterializedView(viewName.toString(), newViewName.toString());
+        }
+    }
+
+    @Override
     public void checkCanSetCatalogSessionProperty(ConnectorSecurityContext context, String propertyName)
     {
         if (!canSetSessionProperty(context, propertyName)) {
@@ -526,6 +556,11 @@ public class FileBasedAccessControl
 
     @Override
     public void checkCanExecuteProcedure(ConnectorSecurityContext context, SchemaRoutineName procedure)
+    {
+    }
+
+    @Override
+    public void checkCanExecuteTableProcedure(ConnectorSecurityContext context, SchemaTableName tableName, String procedure)
     {
     }
 

@@ -16,6 +16,7 @@ package io.trino.operator.aggregation;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.airlift.stats.QuantileDigest;
+import io.trino.metadata.AggregationFunctionMetadata;
 import io.trino.metadata.FunctionArgumentDefinition;
 import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.FunctionMetadata;
@@ -51,6 +52,7 @@ import static io.trino.operator.scalar.QuantileDigestFunctions.verifyAccuracy;
 import static io.trino.operator.scalar.QuantileDigestFunctions.verifyWeight;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.StandardTypes.QDIGEST;
 import static io.trino.spi.type.TypeSignature.parametricType;
 import static io.trino.util.Reflection.methodHandle;
 import static java.lang.Float.intBitsToFloat;
@@ -89,15 +91,9 @@ public final class QuantileDigestAggregationFunction
                         true,
                         "Returns a qdigest from the set of reals, bigints or doubles",
                         AGGREGATE),
-                true,
-                true);
-    }
-
-    @Override
-    public List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
-    {
-        Type valueType = functionBinding.getTypeVariable("V");
-        return ImmutableList.of(new QuantileDigestType(valueType).getTypeSignature());
+                new AggregationFunctionMetadata(
+                        true,
+                        parametricType(QDIGEST, new TypeSignature("V"))));
     }
 
     @Override

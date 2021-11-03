@@ -37,10 +37,7 @@ public class TestParquetPageSkipping
             throws Exception
     {
         return HiveQueryRunner.builder()
-                .setHiveProperties(ImmutableMap.of(
-                        // Reduce writer sort buffer size to ensure SortingFileWriter gets used
-                        "hive.writer-sort-buffer-size", "1MB",
-                        "parquet.use-column-index", "true"))
+                .setHiveProperties(ImmutableMap.of("parquet.use-column-index", "true"))
                 .build();
     }
 
@@ -118,6 +115,21 @@ public class TestParquetPageSkipping
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @Test
+    public void testFilteringOnColumnNameWithDot()
+    {
+        String nameInSql = "\"a.dot\"";
+        String tableName = "test_column_name_with_dot_" + randomTableSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + "(key varchar(50), " + nameInSql + " varchar(50)) WITH (format = 'PARQUET')");
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('null value', NULL), ('sample value', 'abc'), ('other value', 'xyz')", 3);
+
+        assertQuery("SELECT key FROM " + tableName + " WHERE " + nameInSql + " IS NULL", "VALUES ('null value')");
+        assertQuery("SELECT key FROM " + tableName + " WHERE " + nameInSql + " = 'abc'", "VALUES ('sample value')");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
     @Test(dataProvider = "dataType")
     public void testPageSkipping(String sortByColumn, String sortByColumnType, Object[][] valuesArray)
     {
@@ -129,14 +141,18 @@ public class TestParquetPageSkipping
             Object middleHighValue = values[2];
             Object highValue = values[3];
             assertColumnIndexResults(format("SELECT %s FROM %s WHERE %s = %s", sortByColumn, tableName, sortByColumn, middleLowValue));
-            assertThat(assertColumnIndexResults(format("SELECT %s FROM %s WHERE %s < %s ORDER BY %s", sortByColumn, tableName, sortByColumn, lowValue, sortByColumn))).isGreaterThan(0);
-            assertThat(assertColumnIndexResults(format("SELECT %s FROM %s WHERE %s > %s ORDER BY %s", sortByColumn, tableName, sortByColumn, highValue, sortByColumn))).isGreaterThan(0);
-            assertThat(assertColumnIndexResults(format("SELECT %s FROM %s WHERE %s BETWEEN %s AND %s ORDER BY %s", sortByColumn, tableName, sortByColumn, middleLowValue, middleHighValue, sortByColumn))).isGreaterThan(0);
+            assertThat(assertColumnIndexResults(format("SELECT %s FROM %s WHERE %s < %s", sortByColumn, tableName, sortByColumn, lowValue))).isGreaterThan(0);
+            assertThat(assertColumnIndexResults(format("SELECT %s FROM %s WHERE %s > %s", sortByColumn, tableName, sortByColumn, highValue))).isGreaterThan(0);
+            assertThat(assertColumnIndexResults(format("SELECT %s FROM %s WHERE %s BETWEEN %s AND %s", sortByColumn, tableName, sortByColumn, middleLowValue, middleHighValue))).isGreaterThan(0);
             // Tests synchronization of reading values across columns
-            assertColumnIndexResults(format("SELECT * FROM %s WHERE %s = %s ORDER BY orderkey", tableName, sortByColumn, middleLowValue));
-            assertThat(assertColumnIndexResults(format("SELECT * FROM %s WHERE %s < %s ORDER BY orderkey", tableName, sortByColumn, lowValue))).isGreaterThan(0);
-            assertThat(assertColumnIndexResults(format("SELECT * FROM %s WHERE %s > %s ORDER BY orderkey", tableName, sortByColumn, highValue))).isGreaterThan(0);
-            assertThat(assertColumnIndexResults(format("SELECT * FROM %s WHERE %s BETWEEN %s AND %s ORDER BY orderkey", tableName, sortByColumn, middleLowValue, middleHighValue))).isGreaterThan(0);
+            assertColumnIndexResults(format("SELECT * FROM %s WHERE %s = %s", tableName, sortByColumn, middleLowValue));
+            assertThat(assertColumnIndexResults(format("SELECT * FROM %s WHERE %s < %s", tableName, sortByColumn, lowValue))).isGreaterThan(0);
+            assertThat(assertColumnIndexResults(format("SELECT * FROM %s WHERE %s > %s", tableName, sortByColumn, highValue))).isGreaterThan(0);
+            assertThat(assertColumnIndexResults(format("SELECT * FROM %s WHERE %s BETWEEN %s AND %s", tableName, sortByColumn, middleLowValue, middleHighValue))).isGreaterThan(0);
+            // Nested data
+            assertColumnIndexResults(format("SELECT rvalues FROM %s WHERE %s IN (%s, %s, %s, %s)", tableName, sortByColumn, lowValue, middleLowValue, middleHighValue, highValue));
+            // Without nested data
+            assertColumnIndexResults(format("SELECT orderkey, orderdate FROM %s WHERE %s IN (%s, %s, %s, %s)", tableName, sortByColumn, lowValue, middleLowValue, middleHighValue, highValue));
         }
         assertUpdate("DROP TABLE " + tableName);
     }

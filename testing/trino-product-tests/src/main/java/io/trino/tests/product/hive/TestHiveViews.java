@@ -20,6 +20,8 @@ import io.trino.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequiremen
 import org.assertj.core.api.Assertions;
 import org.testng.annotations.Test;
 
+import java.math.BigDecimal;
+
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.query.QueryExecutor.query;
@@ -389,5 +391,31 @@ public class TestHiveViews
         // It appears from_utc_timestamp semantics in Hive changes some time on the way. The guess is that it happened
         // together with change of timestamp semantics at version 3.1.
         return getHiveVersionMajor() < 3 || (getHiveVersionMajor() == 3 && getHiveVersionMinor() < 1);
+    }
+
+    @Test(groups = HIVE_VIEWS)
+    public void testCastTimestampAsDecimal()
+    {
+        onHive().executeQuery("DROP TABLE IF EXISTS cast_timestamp_as_decimal");
+        onHive().executeQuery("CREATE TABLE cast_timestamp_as_decimal (a_timestamp TIMESTAMP)");
+        onHive().executeQuery("INSERT INTO cast_timestamp_as_decimal VALUES ('1990-01-02 12:13:14.123456789')");
+        onHive().executeQuery("DROP VIEW IF EXISTS cast_timestamp_as_decimal_view");
+        onHive().executeQuery("CREATE VIEW cast_timestamp_as_decimal_view AS SELECT CAST(a_timestamp as DECIMAL(10,0)) a_cast_timestamp FROM cast_timestamp_as_decimal");
+
+        String testQuery = "SELECT * FROM cast_timestamp_as_decimal_view";
+        if (getHiveVersionMajor() > 3 || (getHiveVersionMajor() == 3 && getHiveVersionMinor() >= 1)) {
+            assertViewQuery(
+                    testQuery,
+                    queryAssert -> queryAssert.containsOnly(row(new BigDecimal("631282394"))));
+        }
+        else {
+            // For Hive versions older than 3.1 semantics of cast timestamp to decimal is different and it takes into account timezone Hive VM uses.
+            // We cannot replicate the behaviour in Trino, hence test only documents different expected results.
+            assertThat(onTrino().executeQuery(testQuery)).containsOnly(row(new BigDecimal("631282394")));
+            assertThat(onHive().executeQuery(testQuery)).containsOnly(row(new BigDecimal("631261694")));
+        }
+
+        onHive().executeQuery("DROP VIEW cast_timestamp_as_decimal_view");
+        onHive().executeQuery("DROP TABLE cast_timestamp_as_decimal");
     }
 }
