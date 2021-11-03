@@ -384,6 +384,10 @@ Property Name                                      Description                  
                                                    for tables. It must be either 'skip' or an octal number,
                                                    with a leading 0. If set to 'skip', permissions of newly
                                                    created directories will not be set by Trino.
+
+``hive.query-partition-filter-required``           Set to ``true`` to force a query to use a partition filter.   ``false``
+                                                   You can use the ``query_partition_filter_required`` catalog 
+                                                   session property for temporary, catalog specific use.
 ================================================== ============================================================ ============
 
 ORC format configuration properties
