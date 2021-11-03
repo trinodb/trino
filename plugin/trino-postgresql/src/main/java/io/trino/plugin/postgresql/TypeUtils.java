@@ -75,7 +75,7 @@ final class TypeUtils
     static String getArrayElementPgTypeName(ConnectorSession session, PostgreSqlClient client, Type elementType)
     {
         if (DOUBLE.equals(elementType)) {
-            return "float";
+            return "float8";
         }
 
         if (REAL.equals(elementType)) {
