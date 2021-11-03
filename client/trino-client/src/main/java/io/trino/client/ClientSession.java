@@ -126,7 +126,6 @@ public class ClientSession
             checkArgument(!entry.getKey().isEmpty(), "Session property name is empty");
             checkArgument(entry.getKey().indexOf('=') < 0, "Session property name must not contain '=': %s", entry.getKey());
             checkArgument(charsetEncoder.canEncode(entry.getKey()), "Session property name is not US_ASCII: %s", entry.getKey());
-            checkArgument(charsetEncoder.canEncode(entry.getValue()), "Session property value is not US_ASCII: %s", entry.getValue());
         }
 
         // verify the extra credentials are valid
@@ -134,7 +133,6 @@ public class ClientSession
             checkArgument(!entry.getKey().isEmpty(), "Credential name is empty");
             checkArgument(entry.getKey().indexOf('=') < 0, "Credential name must not contain '=': %s", entry.getKey());
             checkArgument(charsetEncoder.canEncode(entry.getKey()), "Credential name is not US_ASCII: %s", entry.getKey());
-            checkArgument(charsetEncoder.canEncode(entry.getValue()), "Credential value is not US_ASCII: %s", entry.getValue());
         }
     }
 

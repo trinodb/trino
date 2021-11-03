@@ -279,7 +279,6 @@ public class ClientOptions
             checkArgument(!estimate.isEmpty(), "Resource estimate is empty");
             checkArgument(PRINTABLE_ASCII.matchesAllOf(resource), "Resource contains spaces or is not ASCII: %s", resource);
             checkArgument(resource.indexOf('=') < 0, "Resource must not contain '=': %s", resource);
-            checkArgument(PRINTABLE_ASCII.matchesAllOf(estimate), "Resource estimate contains spaces or is not ASCII: %s", resource);
         }
 
         @VisibleForTesting
@@ -370,7 +369,6 @@ public class ClientOptions
             checkArgument(PRINTABLE_ASCII.matchesAllOf(catalog.orElse("")), "Session property catalog contains spaces or is not ASCII: %s", name);
             checkArgument(name.indexOf('=') < 0, "Session property name must not contain '=': %s", name);
             checkArgument(PRINTABLE_ASCII.matchesAllOf(name), "Session property name contains spaces or is not ASCII: %s", name);
-            checkArgument(PRINTABLE_ASCII.matchesAllOf(value), "Session property value contains spaces or is not ASCII: %s", value);
         }
 
         public Optional<String> getCatalog()
