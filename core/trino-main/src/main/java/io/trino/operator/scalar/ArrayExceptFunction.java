@@ -60,7 +60,8 @@ public final class ArrayExceptFunction
         if (leftPositionCount == 0) {
             return leftArray;
         }
-        TypedSet typedSet = createEqualityTypedSet(type, elementEqual, elementHashCode, leftPositionCount + rightPositionCount, "array_except");
+
+        TypedSet typedSet = createEqualityTypedSet(type, elementEqual, elementHashCode, leftPositionCount, "array_except");
         BlockBuilder distinctElementBlockBuilder = type.createBlockBuilder(null, leftPositionCount);
         for (int i = 0; i < rightPositionCount; i++) {
             typedSet.add(rightArray, i);
