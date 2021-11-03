@@ -202,12 +202,6 @@ public class TestClientOptions
         new ClientSessionProperty("\u2603=value");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "\\QSession property value contains spaces or is not ASCII: ☃\\E")
-    public void testInvalidCharsetPropertyValue()
-    {
-        new ClientSessionProperty("name=\u2603");
-    }
-
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "\\QSession property catalog must not contain '=': name\\E")
     public void testEqualSignNoAllowedInPropertyCatalog()
     {
