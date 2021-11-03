@@ -190,7 +190,9 @@ Name                                                         Description
                                                              connections for the same authenticated user until the cache is
                                                              invalidated, such as when a client is restarted or when the classloader
                                                              reloads the JDBC driver. This is disabled by default, with a value of
-                                                             ``NONE``. To enable, set the value to ``MEMORY``.
+                                                             ``NONE``. To enable, set the value to ``MEMORY``. If the JDBC driver is used
+                                                             in a shared mode by different users, the first registered token is stored
+                                                             and authenticates all users.
 ``disableCompression``                                       Whether compression should be enabled.
 ``assumeLiteralNamesInMetadataCallsForNonConformingClients`` When enabled, the name patterns passed to ``DatabaseMetaData`` methods
                                                              are treated as literals. You can use this as a workaround for
