@@ -49,8 +49,8 @@ import io.trino.execution.TaskInfo;
 import io.trino.execution.buffer.PagesSerde;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.memory.context.SimpleLocalMemoryContext;
-import io.trino.operator.ExchangeClient;
-import io.trino.operator.ExchangeClientSupplier;
+import io.trino.operator.DirectExchangeClient;
+import io.trino.operator.DirectExchangeClientSupplier;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.Page;
 import io.trino.spi.QueryId;
@@ -130,7 +130,7 @@ class Query
     private final Optional<URI> queryInfoUrl;
 
     @GuardedBy("this")
-    private final ExchangeClient exchangeClient;
+    private final DirectExchangeClient exchangeClient;
 
     private final Executor resultsProcessorExecutor;
     private final ScheduledExecutorService timeoutExecutor;
@@ -194,12 +194,12 @@ class Query
             Slug slug,
             QueryManager queryManager,
             Optional<URI> queryInfoUrl,
-            ExchangeClientSupplier exchangeClientSupplier,
+            DirectExchangeClientSupplier directExchangeClientSupplier,
             Executor dataProcessorExecutor,
             ScheduledExecutorService timeoutExecutor,
             BlockEncodingSerde blockEncodingSerde)
     {
-        ExchangeClient exchangeClient = exchangeClientSupplier.get(
+        DirectExchangeClient exchangeClient = directExchangeClientSupplier.get(
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), Query.class.getSimpleName()),
                 queryManager::outputTaskFailed,
                 getRetryPolicy(session));
@@ -223,7 +223,7 @@ class Query
             Slug slug,
             QueryManager queryManager,
             Optional<URI> queryInfoUrl,
-            ExchangeClient exchangeClient,
+            DirectExchangeClient exchangeClient,
             Executor resultsProcessorExecutor,
             ScheduledExecutorService timeoutExecutor,
             BlockEncodingSerde blockEncodingSerde)

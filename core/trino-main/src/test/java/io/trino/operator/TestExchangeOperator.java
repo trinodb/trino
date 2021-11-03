@@ -74,7 +74,7 @@ public class TestExchangeOperator
     private ScheduledExecutorService scheduler;
     private ScheduledExecutorService scheduledExecutor;
     private HttpClient httpClient;
-    private ExchangeClientSupplier exchangeClientSupplier;
+    private DirectExchangeClientSupplier directExchangeClientSupplier;
     private ExecutorService pageBufferClientCallbackExecutor;
 
     @SuppressWarnings("resource")
@@ -86,10 +86,10 @@ public class TestExchangeOperator
         pageBufferClientCallbackExecutor = Executors.newSingleThreadExecutor();
         httpClient = new TestingHttpClient(new TestingExchangeHttpClientHandler(taskBuffers), scheduler);
 
-        exchangeClientSupplier = (systemMemoryUsageListener, taskFailureListener, retryPolicy) -> new ExchangeClient(
+        directExchangeClientSupplier = (systemMemoryUsageListener, taskFailureListener, retryPolicy) -> new DirectExchangeClient(
                 "localhost",
                 DataIntegrityVerification.ABORT,
-                new StreamingExchangeClientBuffer(scheduler, DataSize.of(32, MEGABYTE)),
+                new StreamingDirectExchangeBuffer(scheduler, DataSize.of(32, MEGABYTE)),
                 DataSize.of(10, MEGABYTE),
                 3,
                 new Duration(1, TimeUnit.MINUTES),
@@ -253,7 +253,7 @@ public class TestExchangeOperator
 
     private SourceOperator createExchangeOperator()
     {
-        ExchangeOperatorFactory operatorFactory = new ExchangeOperatorFactory(0, new PlanNodeId("test"), exchangeClientSupplier, SERDE_FACTORY, RetryPolicy.NONE);
+        ExchangeOperatorFactory operatorFactory = new ExchangeOperatorFactory(0, new PlanNodeId("test"), directExchangeClientSupplier, SERDE_FACTORY, RetryPolicy.NONE);
 
         DriverContext driverContext = createTaskContext(scheduler, scheduledExecutor, TEST_SESSION)
                 .addPipelineContext(0, true, true, false)

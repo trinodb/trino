@@ -47,7 +47,7 @@ import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
-public class ExchangeClient
+public class DirectExchangeClient
         implements Closeable
 {
     private final String selfAddress;
@@ -68,7 +68,7 @@ public class ExchangeClient
     private final Deque<HttpPageBufferClient> queuedClients = new LinkedList<>();
 
     private final Set<HttpPageBufferClient> completedClients = newConcurrentHashSet();
-    private final ExchangeClientBuffer buffer;
+    private final DirectExchangeBuffer buffer;
 
     @GuardedBy("this")
     private long successfulRequests;
@@ -81,12 +81,12 @@ public class ExchangeClient
     private final Executor pageBufferClientCallbackExecutor;
     private final TaskFailureListener taskFailureListener;
 
-    // ExchangeClientStatus.mergeWith assumes all clients have the same bufferCapacity.
+    // DirectExchangeClientStatus.mergeWith assumes all clients have the same bufferCapacity.
     // Please change that method accordingly when this assumption becomes not true.
-    public ExchangeClient(
+    public DirectExchangeClient(
             String selfAddress,
             DataIntegrityVerification dataIntegrityVerification,
-            ExchangeClientBuffer buffer,
+            DirectExchangeBuffer buffer,
             DataSize maxResponseSize,
             int concurrentRequestMultiplier,
             Duration maxErrorDuration,
@@ -111,7 +111,7 @@ public class ExchangeClient
         this.taskFailureListener = requireNonNull(taskFailureListener, "taskFailureListener is null");
     }
 
-    public ExchangeClientStatus getStatus()
+    public DirectExchangeClientStatus getStatus()
     {
         // The stats created by this method is only for diagnostics.
         // It does not guarantee a consistent view between different exchange clients.
@@ -122,7 +122,7 @@ public class ExchangeClient
         }
         List<PageBufferClientStatus> pageBufferClientStatus = pageBufferClientStatusBuilder.build();
         synchronized (this) {
-            return new ExchangeClientStatus(
+            return new DirectExchangeClientStatus(
                     buffer.getRetainedSizeInBytes(),
                     buffer.getMaxRetainedSizeInBytes(),
                     averageBytesPerRequest,
@@ -338,20 +338,20 @@ public class ExchangeClient
         {
             requireNonNull(client, "client is null");
             requireNonNull(pages, "pages is null");
-            return ExchangeClient.this.addPages(client, pages);
+            return DirectExchangeClient.this.addPages(client, pages);
         }
 
         @Override
         public void requestComplete(HttpPageBufferClient client)
         {
             requireNonNull(client, "client is null");
-            ExchangeClient.this.requestComplete(client);
+            DirectExchangeClient.this.requestComplete(client);
         }
 
         @Override
         public void clientFinished(HttpPageBufferClient client)
         {
-            ExchangeClient.this.clientFinished(client);
+            DirectExchangeClient.this.clientFinished(client);
         }
 
         @Override
@@ -359,7 +359,7 @@ public class ExchangeClient
         {
             requireNonNull(client, "client is null");
             requireNonNull(cause, "cause is null");
-            ExchangeClient.this.clientFailed(client, cause);
+            DirectExchangeClient.this.clientFailed(client, cause);
         }
     }
 

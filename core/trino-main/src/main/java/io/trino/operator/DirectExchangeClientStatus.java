@@ -23,8 +23,8 @@ import java.util.List;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class ExchangeClientStatus
-        implements Mergeable<ExchangeClientStatus>, OperatorInfo
+public class DirectExchangeClientStatus
+        implements Mergeable<DirectExchangeClientStatus>, OperatorInfo
 {
     private final long bufferedBytes;
     private final long maxBufferedBytes;
@@ -35,7 +35,7 @@ public class ExchangeClientStatus
     private final List<PageBufferClientStatus> pageBufferClientStatuses;
 
     @JsonCreator
-    public ExchangeClientStatus(
+    public DirectExchangeClientStatus(
             @JsonProperty("bufferedBytes") long bufferedBytes,
             @JsonProperty("maxBufferedBytes") long maxBufferedBytes,
             @JsonProperty("averageBytesPerRequest") long averageBytesPerRequest,
@@ -116,9 +116,9 @@ public class ExchangeClientStatus
     }
 
     @Override
-    public ExchangeClientStatus mergeWith(ExchangeClientStatus other)
+    public DirectExchangeClientStatus mergeWith(DirectExchangeClientStatus other)
     {
-        return new ExchangeClientStatus(
+        return new DirectExchangeClientStatus(
                 (bufferedBytes + other.bufferedBytes) / 2, // this is correct as long as all clients have the same buffer size (capacity)
                 Math.max(maxBufferedBytes, other.maxBufferedBytes),
                 mergeAvgs(averageBytesPerRequest, successfulRequestsCount, other.averageBytesPerRequest, other.successfulRequestsCount),

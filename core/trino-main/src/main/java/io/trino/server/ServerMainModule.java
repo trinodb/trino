@@ -86,9 +86,9 @@ import io.trino.metadata.TableProceduresPropertyManager;
 import io.trino.metadata.TableProceduresRegistry;
 import io.trino.metadata.TablePropertyManager;
 import io.trino.metadata.TypeRegistry;
-import io.trino.operator.ExchangeClientConfig;
-import io.trino.operator.ExchangeClientFactory;
-import io.trino.operator.ExchangeClientSupplier;
+import io.trino.operator.DirectExchangeClientConfig;
+import io.trino.operator.DirectExchangeClientFactory;
+import io.trino.operator.DirectExchangeClientSupplier;
 import io.trino.operator.ForExchange;
 import io.trino.operator.GroupByHashPageIndexerFactory;
 import io.trino.operator.OperatorFactories;
@@ -334,7 +334,7 @@ public class ServerMainModule
         jaxrsBinder(binder).bind(PagesResponseWriter.class);
 
         // exchange client
-        binder.bind(ExchangeClientSupplier.class).to(ExchangeClientFactory.class).in(Scopes.SINGLETON);
+        binder.bind(DirectExchangeClientSupplier.class).to(DirectExchangeClientFactory.class).in(Scopes.SINGLETON);
         httpClientBinder(binder).bindHttpClient("exchange", ForExchange.class)
                 .withTracing()
                 .withFilter(GenerateTraceTokenRequestFilter.class)
@@ -345,7 +345,7 @@ public class ServerMainModule
                     config.setMaxContentLength(DataSize.of(32, MEGABYTE));
                 });
 
-        configBinder(binder).bindConfig(ExchangeClientConfig.class);
+        configBinder(binder).bindConfig(DirectExchangeClientConfig.class);
         binder.bind(ExchangeExecutionMBean.class).in(Scopes.SINGLETON);
         newExporter(binder).export(ExchangeExecutionMBean.class).withGeneratedName();
 
@@ -508,7 +508,7 @@ public class ServerMainModule
     @Provides
     @Singleton
     @ForExchange
-    public static ScheduledExecutorService createExchangeExecutor(ExchangeClientConfig config)
+    public static ScheduledExecutorService createExchangeExecutor(DirectExchangeClientConfig config)
     {
         return newScheduledThreadPool(config.getClientThreads(), daemonThreadsNamed("exchange-client-%s"));
     }
