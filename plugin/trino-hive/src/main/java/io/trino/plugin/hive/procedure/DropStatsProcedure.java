@@ -98,7 +98,7 @@ public class DropStatsProcedure
 
     private void doDropStats(ConnectorSession session, ConnectorAccessControl accessControl, String schema, String table, List<?> partitionValues)
     {
-        TransactionalMetadata hiveMetadata = hiveMetadataFactory.create();
+        TransactionalMetadata hiveMetadata = hiveMetadataFactory.create(true);
         HiveTableHandle handle = (HiveTableHandle) hiveMetadata.getTableHandle(session, new SchemaTableName(schema, table));
         if (handle == null) {
             throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, format("Table '%s' does not exist", new SchemaTableName(schema, table)));

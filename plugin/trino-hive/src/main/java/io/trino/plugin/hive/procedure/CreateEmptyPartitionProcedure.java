@@ -105,7 +105,7 @@ public class CreateEmptyPartitionProcedure
 
     private void doCreateEmptyPartition(ConnectorSession session, ConnectorAccessControl accessControl, String schemaName, String tableName, List<String> partitionColumnNames, List<String> partitionValues)
     {
-        TransactionalMetadata hiveMetadata = hiveMetadataFactory.create();
+        TransactionalMetadata hiveMetadata = hiveMetadataFactory.create(true);
         HiveTableHandle tableHandle = (HiveTableHandle) hiveMetadata.getTableHandle(session, new SchemaTableName(schemaName, tableName));
         if (tableHandle == null) {
             throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, format("Table '%s' does not exist", new SchemaTableName(schemaName, tableName)));

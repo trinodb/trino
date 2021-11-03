@@ -210,12 +210,12 @@ public class HiveConnector
     }
 
     @Override
-    public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
+    public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
     {
         checkConnectorSupports(READ_UNCOMMITTED, isolationLevel);
         ConnectorTransactionHandle transaction = new HiveTransactionHandle();
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            transactionManager.put(transaction, metadataFactory.create());
+            transactionManager.put(transaction, metadataFactory.create(autoCommit));
         }
         return transaction;
     }
