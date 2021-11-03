@@ -80,12 +80,37 @@ public class TypedSet
             int expectedSize,
             String functionName)
     {
+        return createEqualityTypedSet(
+                elementType,
+                elementEqualOperator,
+                elementHashCodeOperator,
+                elementType.createBlockBuilder(null, expectedSize),
+                expectedSize,
+                functionName);
+    }
+
+    /**
+     * Create a {@code TypedSet} that compares its elements using SQL equality
+     * comparison.
+     *
+     * <p>The elements of the set will be written in the given {@code BlockBuilder}.
+     * If the {@code BlockBuilder} is modified by the caller, the set will stop
+     * functioning correctly.
+     */
+    public static TypedSet createEqualityTypedSet(
+            Type elementType,
+            BlockPositionEqual elementEqualOperator,
+            BlockPositionHashCode elementHashCodeOperator,
+            BlockBuilder elementBlock,
+            int expectedSize,
+            String functionName)
+    {
         return new TypedSet(
                 elementType,
                 elementEqualOperator,
                 null,
                 elementHashCodeOperator,
-                elementType.createBlockBuilder(null, expectedSize),
+                elementBlock,
                 expectedSize,
                 functionName,
                 false);
