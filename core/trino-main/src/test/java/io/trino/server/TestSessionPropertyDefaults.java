@@ -22,6 +22,7 @@ import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.security.Identity;
 import io.trino.spi.session.SessionPropertyConfigurationManagerFactory;
 import io.trino.spi.session.TestingSessionPropertyConfigurationManagerFactory;
+import io.trino.testing.AllowAllAccessControlManager;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -39,7 +40,7 @@ public class TestSessionPropertyDefaults
     @Test
     public void testApplyDefaultProperties()
     {
-        SessionPropertyDefaults sessionPropertyDefaults = new SessionPropertyDefaults(TEST_NODE_INFO);
+        SessionPropertyDefaults sessionPropertyDefaults = new SessionPropertyDefaults(TEST_NODE_INFO, new AllowAllAccessControlManager());
         SessionPropertyConfigurationManagerFactory factory = new TestingSessionPropertyConfigurationManagerFactory(
                 ImmutableMap.<String, String>builder()
                         .put(QUERY_MAX_MEMORY, "override")
