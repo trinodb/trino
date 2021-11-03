@@ -33,6 +33,7 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.SqlFunction;
 import io.trino.server.BasicQueryInfo;
+import io.trino.server.SessionPropertyDefaults;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.Plugin;
 import io.trino.spi.QueryId;
@@ -356,6 +357,11 @@ public class DistributedQueryRunner
     public TestingGroupProvider getGroupProvider()
     {
         return coordinator.getGroupProvider();
+    }
+
+    public SessionPropertyDefaults getSessionPropertyDefaults()
+    {
+        return coordinator.getSessionPropertyDefaults();
     }
 
     public TestingTrinoServer getCoordinator()
