@@ -209,9 +209,9 @@ public final class SessionPropertyManager
         decodePropertyValue(propertyName, propertyValue, propertyMetadata.getJavaType(), propertyMetadata);
     }
 
-    public void validateCatalogSessionProperty(CatalogName catalog, String catalogName, String propertyName, String propertyValue)
+    public void validateCatalogSessionProperty(CatalogName catalog, String propertyName, String propertyValue)
     {
-        String fullPropertyName = catalogName + "." + propertyName;
+        String fullPropertyName = catalog.getCatalogName() + "." + propertyName;
         PropertyMetadata<?> propertyMetadata = getConnectorSessionPropertyMetadata(catalog, propertyName)
                 .orElseThrow(() -> new TrinoException(INVALID_SESSION_PROPERTY, "Unknown session property " + fullPropertyName));
 
