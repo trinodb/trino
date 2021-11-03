@@ -164,6 +164,22 @@ public class TestMemoryConnectorTest
         assertThat(((Count<?>) metrics.getMetrics().get("finished")).getTotal()).isGreaterThan(0);
     }
 
+    @Test
+    public void testExplainCustomMetricsScanOnly()
+    {
+        assertExplainAnalyze(
+                "EXPLAIN ANALYZE VERBOSE SELECT partkey FROM part",
+                "'rows' = LongCount\\{total=2000}");
+    }
+
+    @Test
+    public void testExplainCustomMetricsScanFilter()
+    {
+        assertExplainAnalyze(
+                "EXPLAIN ANALYZE VERBOSE SELECT partkey FROM part WHERE partkey % 1000 > 0",
+                "'rows' = LongCount\\{total=2000}");
+    }
+
     private Metrics collectCustomMetrics(String sql)
     {
         DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();

@@ -15,6 +15,7 @@ package io.trino.sql.planner.planprinter;
 
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.spi.metrics.Metrics;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.Map;
@@ -34,7 +35,8 @@ public class WindowPlanNodeStats
             DataSize planNodeOutputDataSize,
             DataSize planNodeSpilledDataSize,
             Map<String, OperatorInputStats> operatorInputStats,
-            WindowOperatorStats windowOperatorStats)
+            WindowOperatorStats windowOperatorStats,
+            Metrics metrics)
     {
         super(
                 planNodeId,
@@ -45,7 +47,9 @@ public class WindowPlanNodeStats
                 planNodeOutputPositions,
                 planNodeOutputDataSize,
                 planNodeSpilledDataSize,
-                operatorInputStats);
+                operatorInputStats,
+                metrics,
+                Metrics.EMPTY);
         this.windowOperatorStats = windowOperatorStats;
     }
 
@@ -69,6 +73,7 @@ public class WindowPlanNodeStats
                 merged.getPlanNodeOutputDataSize(),
                 merged.getPlanNodeSpilledDataSize(),
                 merged.operatorInputStats,
-                windowOperatorStats);
+                windowOperatorStats,
+                merged.getMetrics());
     }
 }

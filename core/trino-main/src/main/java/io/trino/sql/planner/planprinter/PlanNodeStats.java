@@ -16,6 +16,7 @@ package io.trino.sql.planner.planprinter;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.spi.Mergeable;
+import io.trino.spi.metrics.Metrics;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.Map;
@@ -42,6 +43,8 @@ public class PlanNodeStats
     private final long planNodeOutputPositions;
     private final DataSize planNodeOutputDataSize;
     private final DataSize planNodeSpilledDataSize;
+    private final Metrics metrics;
+    private final Metrics connectorMetrics;
 
     protected final Map<String, OperatorInputStats> operatorInputStats;
 
@@ -54,7 +57,9 @@ public class PlanNodeStats
             long planNodeOutputPositions,
             DataSize planNodeOutputDataSize,
             DataSize planNodeSpilledDataSize,
-            Map<String, OperatorInputStats> operatorInputStats)
+            Map<String, OperatorInputStats> operatorInputStats,
+            Metrics metrics,
+            Metrics connectorMetrics)
     {
         this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
 
@@ -67,6 +72,8 @@ public class PlanNodeStats
         this.planNodeSpilledDataSize = requireNonNull(planNodeSpilledDataSize, "planNodeSpilledDataSize is null");
 
         this.operatorInputStats = requireNonNull(operatorInputStats, "operatorInputStats is null");
+        this.metrics = requireNonNull(metrics, "metrics is null");
+        this.connectorMetrics = requireNonNull(connectorMetrics, "connectorMetrics is null");
     }
 
     private static double computedStdDev(double sumSquared, double sum, long n)
@@ -122,6 +129,16 @@ public class PlanNodeStats
         return planNodeSpilledDataSize;
     }
 
+    public Metrics getMetrics()
+    {
+        return metrics;
+    }
+
+    public Metrics getConnectorMetrics()
+    {
+        return connectorMetrics;
+    }
+
     public Map<String, Double> getOperatorInputPositionsAverages()
     {
         return operatorInputStats.entrySet().stream()
@@ -160,6 +177,8 @@ public class PlanNodeStats
                 planNodeInputPositions, planNodeInputDataSize,
                 planNodeOutputPositions, planNodeOutputDataSize,
                 succinctBytes(this.planNodeSpilledDataSize.toBytes() + other.planNodeSpilledDataSize.toBytes()),
-                operatorInputStats);
+                operatorInputStats,
+                this.metrics.mergeWith(other.metrics),
+                this.connectorMetrics.mergeWith(other.connectorMetrics));
     }
 }
