@@ -68,7 +68,6 @@ public final class SessionRepresentation
     private final Map<String, SelectedRole> catalogRoles;
     private final Map<String, String> preparedStatements;
     private final String protocolName;
-    private final Optional<Boolean> transactionAutoCommitContext;
 
     @JsonCreator
     public SessionRepresentation(
@@ -98,8 +97,7 @@ public final class SessionRepresentation
             @JsonProperty("unprocessedCatalogProperties") Map<String, Map<String, String>> unprocessedCatalogProperties,
             @JsonProperty("catalogRoles") Map<String, SelectedRole> catalogRoles,
             @JsonProperty("preparedStatements") Map<String, String> preparedStatements,
-            @JsonProperty("protocolName") String protocolName,
-            @JsonProperty("transactionAutoCommitContext") Optional<Boolean> transactionAutoCommitContext)
+            @JsonProperty("protocolName") String protocolName)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
@@ -138,7 +136,6 @@ public final class SessionRepresentation
             unprocessedCatalogPropertiesBuilder.put(entry.getKey(), ImmutableMap.copyOf(entry.getValue()));
         }
         this.unprocessedCatalogProperties = unprocessedCatalogPropertiesBuilder.build();
-        this.transactionAutoCommitContext = requireNonNull(transactionAutoCommitContext, "transactionAutoCommitContext is null");
     }
 
     @JsonProperty
@@ -356,7 +353,6 @@ public final class SessionRepresentation
                 unprocessedCatalogProperties,
                 sessionPropertyManager,
                 preparedStatements,
-                createProtocolHeaders(protocolName),
-                transactionAutoCommitContext);
+                createProtocolHeaders(protocolName));
     }
 }
