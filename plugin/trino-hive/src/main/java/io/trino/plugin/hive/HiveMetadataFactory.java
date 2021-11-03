@@ -173,7 +173,7 @@ public class HiveMetadataFactory
     }
 
     @Override
-    public TransactionalMetadata create()
+    public TransactionalMetadata create(boolean autoCommit)
     {
         HiveMetastoreClosure hiveMetastoreClosure = new HiveMetastoreClosure(
                 memoizeMetastore(metastore, perTransactionCacheMaximumSize)); // per-transaction cache
@@ -192,6 +192,7 @@ public class HiveMetadataFactory
         return new HiveMetadata(
                 catalogName,
                 metastore,
+                autoCommit,
                 hdfsEnvironment,
                 partitionManager,
                 writesToNonManagedTablesEnabled,

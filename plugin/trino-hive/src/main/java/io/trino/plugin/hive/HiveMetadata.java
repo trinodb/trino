@@ -334,6 +334,7 @@ public class HiveMetadata
 
     private final CatalogName catalogName;
     private final SemiTransactionalHiveMetastore metastore;
+    private final boolean autoCommit;
     private final HdfsEnvironment hdfsEnvironment;
     private final HivePartitionManager partitionManager;
     private final TypeManager typeManager;
@@ -353,6 +354,7 @@ public class HiveMetadata
     public HiveMetadata(
             CatalogName catalogName,
             SemiTransactionalHiveMetastore metastore,
+            boolean autoCommit,
             HdfsEnvironment hdfsEnvironment,
             HivePartitionManager partitionManager,
             boolean writesToNonManagedTablesEnabled,
@@ -371,6 +373,7 @@ public class HiveMetadata
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
+        this.autoCommit = autoCommit;
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.partitionManager = requireNonNull(partitionManager, "partitionManager is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -1698,7 +1701,7 @@ public class HiveMetadata
             }
             // This check is required to prevent using partition overwrite operation during user managed transactions
             // Partition overwrite operation is nonatomic thus can't and shouldn't be used in non autocommit context.
-            if (!session.isAutoCommitContext()) {
+            if (!autoCommit) {
                 throw new TrinoException(NOT_SUPPORTED, "Overwriting existing partition in non auto commit context doesn't support DIRECT_TO_TARGET_EXISTING_DIRECTORY write mode");
             }
         }
