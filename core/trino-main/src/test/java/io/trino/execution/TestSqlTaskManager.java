@@ -32,8 +32,8 @@ import io.trino.memory.NodeMemoryConfig;
 import io.trino.memory.QueryContext;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.metadata.InternalNode;
-import io.trino.operator.ExchangeClient;
-import io.trino.operator.ExchangeClientSupplier;
+import io.trino.operator.DirectExchangeClient;
+import io.trino.operator.DirectExchangeClientSupplier;
 import io.trino.operator.RetryPolicy;
 import io.trino.spi.QueryId;
 import io.trino.spiller.LocalSpillManager;
@@ -336,11 +336,11 @@ public class TestSqlTaskManager
                 ImmutableMap.of());
     }
 
-    public static class MockExchangeClientSupplier
-            implements ExchangeClientSupplier
+    public static class MockDirectExchangeClientSupplier
+            implements DirectExchangeClientSupplier
     {
         @Override
-        public ExchangeClient get(LocalMemoryContext systemMemoryContext, TaskFailureListener taskFailureListener, RetryPolicy retryPolicy)
+        public DirectExchangeClient get(LocalMemoryContext systemMemoryContext, TaskFailureListener taskFailureListener, RetryPolicy retryPolicy)
         {
             throw new UnsupportedOperationException();
         }

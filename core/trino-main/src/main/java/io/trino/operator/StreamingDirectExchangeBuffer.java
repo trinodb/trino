@@ -37,10 +37,10 @@ import static io.trino.spi.StandardErrorCode.REMOTE_TASK_FAILED;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 
-public class StreamingExchangeClientBuffer
-        implements ExchangeClientBuffer
+public class StreamingDirectExchangeBuffer
+        implements DirectExchangeBuffer
 {
-    private static final Logger log = Logger.get(StreamingExchangeClientBuffer.class);
+    private static final Logger log = Logger.get(StreamingDirectExchangeBuffer.class);
 
     private final Executor executor;
     private final long bufferCapacityInBytes;
@@ -62,7 +62,7 @@ public class StreamingExchangeClientBuffer
     @GuardedBy("this")
     private boolean closed;
 
-    public StreamingExchangeClientBuffer(Executor executor, DataSize bufferCapacity)
+    public StreamingDirectExchangeBuffer(Executor executor, DataSize bufferCapacity)
     {
         this.executor = requireNonNull(executor, "executor is null");
         this.bufferCapacityInBytes = requireNonNull(bufferCapacity, "bufferCapacity is null").toBytes();

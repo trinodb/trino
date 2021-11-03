@@ -42,22 +42,22 @@ public class ExchangeOperator
     {
         private final int operatorId;
         private final PlanNodeId sourceId;
-        private final ExchangeClientSupplier exchangeClientSupplier;
+        private final DirectExchangeClientSupplier directExchangeClientSupplier;
         private final PagesSerdeFactory serdeFactory;
         private final RetryPolicy retryPolicy;
-        private ExchangeClient exchangeClient;
+        private DirectExchangeClient exchangeClient;
         private boolean closed;
 
         public ExchangeOperatorFactory(
                 int operatorId,
                 PlanNodeId sourceId,
-                ExchangeClientSupplier exchangeClientSupplier,
+                DirectExchangeClientSupplier directExchangeClientSupplier,
                 PagesSerdeFactory serdeFactory,
                 RetryPolicy retryPolicy)
         {
             this.operatorId = operatorId;
             this.sourceId = sourceId;
-            this.exchangeClientSupplier = exchangeClientSupplier;
+            this.directExchangeClientSupplier = directExchangeClientSupplier;
             this.serdeFactory = serdeFactory;
             this.retryPolicy = requireNonNull(retryPolicy, "retryPolicy is null");
         }
@@ -75,7 +75,7 @@ public class ExchangeOperator
             TaskContext taskContext = driverContext.getPipelineContext().getTaskContext();
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, sourceId, ExchangeOperator.class.getSimpleName());
             if (exchangeClient == null) {
-                exchangeClient = exchangeClientSupplier.get(driverContext.getPipelineContext().localSystemMemoryContext(), taskContext::sourceTaskFailed, retryPolicy);
+                exchangeClient = directExchangeClientSupplier.get(driverContext.getPipelineContext().localSystemMemoryContext(), taskContext::sourceTaskFailed, retryPolicy);
             }
 
             return new ExchangeOperator(
@@ -94,7 +94,7 @@ public class ExchangeOperator
 
     private final OperatorContext operatorContext;
     private final PlanNodeId sourceId;
-    private final ExchangeClient exchangeClient;
+    private final DirectExchangeClient exchangeClient;
     private final PagesSerde serde;
     private ListenableFuture<Void> isBlocked = NOT_BLOCKED;
 
@@ -102,7 +102,7 @@ public class ExchangeOperator
             OperatorContext operatorContext,
             PlanNodeId sourceId,
             PagesSerde serde,
-            ExchangeClient exchangeClient)
+            DirectExchangeClient exchangeClient)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.sourceId = requireNonNull(sourceId, "sourceId is null");

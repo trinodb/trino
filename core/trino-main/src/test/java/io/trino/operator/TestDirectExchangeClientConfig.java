@@ -27,12 +27,12 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDe
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.units.DataSize.Unit;
 
-public class TestExchangeClientConfig
+public class TestDirectExchangeClientConfig
 {
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(recordDefaults(ExchangeClientConfig.class)
+        assertRecordedDefaults(recordDefaults(DirectExchangeClientConfig.class)
                 .setMaxBufferSize(DataSize.of(32, Unit.MEGABYTE))
                 .setConcurrentRequestMultiplier(3)
                 .setMinErrorDuration(new Duration(5, TimeUnit.MINUTES))
@@ -57,7 +57,7 @@ public class TestExchangeClientConfig
                 .put("exchange.acknowledge-pages", "false")
                 .buildOrThrow();
 
-        ExchangeClientConfig expected = new ExchangeClientConfig()
+        DirectExchangeClientConfig expected = new DirectExchangeClientConfig()
                 .setMaxBufferSize(DataSize.of(1, Unit.GIGABYTE))
                 .setConcurrentRequestMultiplier(13)
                 .setMinErrorDuration(new Duration(33, TimeUnit.SECONDS))
