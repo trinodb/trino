@@ -336,7 +336,7 @@ public final class Session
                 accessControl.checkCanSetCatalogSessionProperty(new SecurityContext(transactionId, identity, queryId), catalogName, property.getKey());
 
                 // validate session property value
-                sessionPropertyManager.validateCatalogSessionProperty(catalog, catalogName, property.getKey(), property.getValue());
+                sessionPropertyManager.validateCatalogSessionProperty(catalog, property.getKey(), property.getValue());
             }
             connectorProperties.put(catalog, catalogProperties);
         }
