@@ -107,7 +107,7 @@ public class TestSetRoleTask
         Connector systemRoleConnector = new Connector()
         {
             @Override
-            public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
+            public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
             {
                 return new ConnectorTransactionHandle() {};
             }

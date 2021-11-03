@@ -89,7 +89,7 @@ public class TpchConnectorFactory
         return new Connector()
         {
             @Override
-            public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
+            public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
             {
                 return TpchTransactionHandle.INSTANCE;
             }

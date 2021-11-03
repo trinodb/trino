@@ -5328,7 +5328,7 @@ public class TestAnalyzer
             private final ConnectorMetadata metadata = new TestingMetadata();
 
             @Override
-            public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
+            public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
             {
                 return new ConnectorTransactionHandle() {};
             }
