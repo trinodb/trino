@@ -33,7 +33,6 @@ import static io.trino.parquet.ParquetCompressionUtils.decompress;
 
 class PageReader
 {
-    static final int INT_LENGTH = 4;
     private final long valueCount;
     private final LinkedList<DataPage> compressedPages;
     private final DictionaryPage compressedDictionaryPage;
@@ -42,8 +41,6 @@ class PageReader
     protected final CompressionCodecName codec;
 
     private final BlockCipher.Decryptor blockDecryptor;
-    private final String[] columnPath;
-
     private byte[] dataPageAAD;
     private byte[] dictionaryPageAAD;
 
@@ -56,7 +53,6 @@ class PageReader
                       DictionaryPage compressedDictionaryPage,
                       OffsetIndex offsetIndex,
                       long valueCount,
-                      String[] columnPath,
                       BlockCipher.Decryptor blockDecryptor,
                       byte[] fileAAD,
                       int rowGroupOrdinal,
@@ -69,7 +65,6 @@ class PageReader
         this.offsetIndex = offsetIndex;
         this.pageIndex = 0;
         this.blockDecryptor = blockDecryptor;
-        this.columnPath = columnPath;
         if (null != blockDecryptor) {
             dataPageAAD = AesCipher.createModuleAAD(fileAAD, ModuleCipherFactory.ModuleType.DataPage, rowGroupOrdinal, columnOrdinal, 0);
             dictionaryPageAAD = AesCipher.createModuleAAD(fileAAD, ModuleCipherFactory.ModuleType.DictionaryPage, rowGroupOrdinal, columnOrdinal, -1);

@@ -157,7 +157,7 @@ public class ParquetColumnChunk
         byte[] fileAad = (fileDecryptor == null) ? null : fileDecryptor.getFileAAD();
         BlockCipher.Decryptor dataDecryptor = (columnDecryptionSetup == null) ? null : columnDecryptionSetup.getDataDecryptor();
         return new PageReader(descriptor.getColumnChunkMetaData().getCodec(), pages, dictionaryPage, offsetIndex,
-                valueCount, descriptor.getColumnDescriptor().getPath(), dataDecryptor, fileAad, rowGroupOrdinal, columnOrdinal);
+                valueCount, dataDecryptor, fileAad, rowGroupOrdinal, columnOrdinal);
     }
 
     private boolean hasDictionaryPage(ColumnChunkMetaData columnChunkMetaData)

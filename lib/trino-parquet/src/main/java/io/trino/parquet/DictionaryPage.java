@@ -41,6 +41,7 @@ public class DictionaryPage
         this.encoding = requireNonNull(encoding, "encoding is null");
     }
 
+    @Override
     public Slice getSlice()
     {
         return slice;

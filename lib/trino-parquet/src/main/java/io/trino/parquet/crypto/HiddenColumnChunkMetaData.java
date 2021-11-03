@@ -32,31 +32,37 @@ public class HiddenColumnChunkMetaData
         this.filePath = filePath;
     }
 
+    @Override
     public long getFirstDataPageOffset()
     {
         throw new HiddenColumnException(this.path.toArray(), this.filePath);
     }
 
+    @Override
     public long getDictionaryPageOffset()
     {
         throw new HiddenColumnException(this.path.toArray(), this.filePath);
     }
 
+    @Override
     public long getValueCount()
     {
         throw new HiddenColumnException(this.path.toArray(), this.filePath);
     }
 
+    @Override
     public long getTotalUncompressedSize()
     {
         throw new HiddenColumnException(this.path.toArray(), this.filePath);
     }
 
+    @Override
     public long getTotalSize()
     {
         throw new HiddenColumnException(this.path.toArray(), this.filePath);
     }
 
+    @Override
     public Statistics getStatistics()
     {
         throw new HiddenColumnException(this.path.toArray(), this.filePath);

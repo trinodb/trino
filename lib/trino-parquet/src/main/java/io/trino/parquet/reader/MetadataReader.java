@@ -134,7 +134,7 @@ public final class MetadataReader
             throws IOException
     {
         if (encryptedFooterMode && (fileDecryptor == null || fileDecryptor.getDecryptionProperties() == null)) {
-            new IllegalArgumentException("fileDecryptionProperties cannot be null when encryptedFooterMode is true");
+            throw new IllegalArgumentException("fileDecryptionProperties cannot be null when encryptedFooterMode is true");
         }
         Decryptor footerDecryptor = null;
         byte[] aad = null;

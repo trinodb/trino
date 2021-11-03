@@ -209,7 +209,11 @@ public class TestColumnReader
                     new LinkedList<>(),
                     null,
                     null,
-                    pagesRowCount(pageRowRanges));
+                    pagesRowCount(pageRowRanges),
+                    null,
+                    null,
+                    -1,
+                    -1);
             this.pageRowRanges = new LinkedList<>(pageRowRanges);
         }
 
