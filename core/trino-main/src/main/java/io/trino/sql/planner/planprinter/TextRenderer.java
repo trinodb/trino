@@ -18,6 +18,8 @@ import io.airlift.units.DataSize;
 import io.trino.cost.PlanCostEstimate;
 import io.trino.cost.PlanNodeStatsAndCostSummary;
 import io.trino.cost.PlanNodeStatsEstimate;
+import io.trino.spi.metrics.Metric;
+import io.trino.spi.metrics.Metrics;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.planprinter.NodeRepresentation.TypedSymbol;
 
@@ -27,6 +29,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -135,6 +138,8 @@ public class TextRenderer
         }
         output.append("\n");
 
+        printMetrics(output, "connector metrics:", nodeStats.getConnectorMetrics());
+        printMetrics(output, "metrics:", nodeStats.getMetrics());
         printDistributions(output, nodeStats);
         printCollisions(output, nodeStats);
 
@@ -143,6 +148,16 @@ public class TextRenderer
         }
 
         return output.toString();
+    }
+
+    private void printMetrics(StringBuilder output, String label, Metrics metrics)
+    {
+        if (!verbose || metrics.getMetrics().isEmpty()) {
+            return;
+        }
+        output.append(label).append("\n");
+        Map<String, Metric<?>> sortedMap = new TreeMap<>(metrics.getMetrics());
+        sortedMap.forEach((name, metric) -> output.append(format("  '%s' = %s\n", name, metric)));
     }
 
     private void printDistributions(StringBuilder output, PlanNodeStats stats)
