@@ -580,7 +580,6 @@ final class ConnectionProperties
 
             checkArgument(PRINTABLE_ASCII.matchesAllOf(key), "%s key '%s' contains spaces or is not printable ASCII", mapName, key);
             // do not log value as it may contain sensitive information
-            checkArgument(PRINTABLE_ASCII.matchesAllOf(value), "%s value for key '%s' contains spaces or is not printable ASCII", mapName, key);
             return immutableEntry(key, value);
         }
     }
