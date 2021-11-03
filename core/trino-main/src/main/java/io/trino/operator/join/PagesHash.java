@@ -14,10 +14,10 @@
 package io.trino.operator.join;
 
 import io.airlift.units.DataSize;
+import io.trino.operator.HashArraySizeSupplier;
 import io.trino.operator.PagesHashStrategy;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
-import it.unimi.dsi.fastutil.HashCommon;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -53,13 +53,14 @@ public final class PagesHash
     public PagesHash(
             LongArrayList addresses,
             PagesHashStrategy pagesHashStrategy,
-            PositionLinks.FactoryBuilder positionLinks)
+            PositionLinks.FactoryBuilder positionLinks,
+            HashArraySizeSupplier hashArraySizeSupplier)
     {
         this.addresses = requireNonNull(addresses, "addresses is null");
         this.pagesHashStrategy = requireNonNull(pagesHashStrategy, "pagesHashStrategy is null");
 
         // reserve memory for the arrays
-        int hashSize = HashCommon.arraySize(addresses.size(), 0.75f);
+        int hashSize = hashArraySizeSupplier.getHashArraySize(addresses.size());
 
         mask = hashSize - 1;
         key = new int[hashSize];

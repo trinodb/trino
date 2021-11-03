@@ -142,6 +142,7 @@ public class FeaturesConfig
 
     private boolean legacyCatalogRoles;
     private boolean disableSetPropertiesSecurityCheckForCreateDdl;
+    private boolean incrementalHashArrayLoadFactorEnabled = true;
 
     public enum JoinReorderingStrategy
     {
@@ -1101,6 +1102,21 @@ public class FeaturesConfig
     public FeaturesConfig setDisableSetPropertiesSecurityCheckForCreateDdl(boolean disableSetPropertiesSecurityCheckForCreateDdl)
     {
         this.disableSetPropertiesSecurityCheckForCreateDdl = disableSetPropertiesSecurityCheckForCreateDdl;
+        return this;
+    }
+
+    @Deprecated
+    public boolean isIncrementalHashArrayLoadFactorEnabled()
+    {
+        return incrementalHashArrayLoadFactorEnabled;
+    }
+
+    @Deprecated
+    @Config("incremental-hash-array-load-factor.enabled")
+    @ConfigDescription("Use smaller load factor for small hash arrays in order to improve performance")
+    public FeaturesConfig setIncrementalHashArrayLoadFactorEnabled(boolean incrementalHashArrayLoadFactorEnabled)
+    {
+        this.incrementalHashArrayLoadFactorEnabled = incrementalHashArrayLoadFactorEnabled;
         return this;
     }
 }

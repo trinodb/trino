@@ -44,6 +44,7 @@ import java.util.concurrent.Future;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
+import static io.trino.operator.HashArraySizeSupplier.incrementalLoadFactorHashArraySizeSupplier;
 import static io.trino.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 import static io.trino.spiller.PartitioningSpillerFactory.unsupportedPartitioningSpillerFactory;
 import static java.util.Objects.requireNonNull;
@@ -101,7 +102,8 @@ public class HashJoinBenchmark
                     1_500_000,
                     new PagesIndex.TestingFactory(false),
                     false,
-                    SingleStreamSpillerFactory.unsupportedSingleStreamSpillerFactory());
+                    SingleStreamSpillerFactory.unsupportedSingleStreamSpillerFactory(),
+                    incrementalLoadFactorHashArraySizeSupplier(session));
 
             DriverContext driverContext = taskContext.addPipelineContext(0, false, false, false).addDriverContext();
             DriverFactory buildDriverFactory = new DriverFactory(0, false, false, ImmutableList.of(ordersTableScan, hashBuilder), OptionalInt.empty(), UNGROUPED_EXECUTION);

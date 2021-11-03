@@ -61,6 +61,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.trino.operator.HashArraySizeSupplier.defaultHashArraySizeSupplier;
 import static io.trino.operator.SyntheticAddress.decodePosition;
 import static io.trino.operator.SyntheticAddress.decodeSliceIndex;
 import static io.trino.operator.SyntheticAddress.encodeSyntheticAddress;
@@ -471,7 +472,7 @@ public class PagesIndex
             Optional<Integer> sortChannel,
             List<JoinFilterFunctionFactory> searchFunctionFactories)
     {
-        return createLookupSourceSupplier(session, joinChannels, hashChannel, filterFunctionFactory, sortChannel, searchFunctionFactories, Optional.empty());
+        return createLookupSourceSupplier(session, joinChannels, hashChannel, filterFunctionFactory, sortChannel, searchFunctionFactories, Optional.empty(), defaultHashArraySizeSupplier());
     }
 
     public PagesSpatialIndexSupplier createPagesSpatialIndex(
@@ -496,7 +497,8 @@ public class PagesIndex
             Optional<JoinFilterFunctionFactory> filterFunctionFactory,
             Optional<Integer> sortChannel,
             List<JoinFilterFunctionFactory> searchFunctionFactories,
-            Optional<List<Integer>> outputChannels)
+            Optional<List<Integer>> outputChannels,
+            HashArraySizeSupplier hashArraySizeSupplier)
     {
         List<List<Block>> channels = ImmutableList.copyOf(this.channels);
         if (!joinChannels.isEmpty()) {
@@ -512,7 +514,8 @@ public class PagesIndex
                     hashChannel,
                     filterFunctionFactory,
                     sortChannel,
-                    searchFunctionFactories);
+                    searchFunctionFactories,
+                    hashArraySizeSupplier);
         }
 
         // if compilation fails
@@ -532,7 +535,8 @@ public class PagesIndex
                 channels,
                 filterFunctionFactory,
                 sortChannel,
-                searchFunctionFactories);
+                searchFunctionFactories,
+                hashArraySizeSupplier);
     }
 
     private List<Integer> rangeList(int endExclusive)
