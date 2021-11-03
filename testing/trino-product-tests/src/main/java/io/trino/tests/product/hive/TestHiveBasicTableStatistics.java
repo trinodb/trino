@@ -26,6 +26,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.function.Consumer;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.tests.product.TestGroups.SKIP_ON_CDH;
@@ -199,10 +200,10 @@ public class TestHiveBasicTableStatistics
                 "WHERE n_regionkey = 1", tableName, transactional));
 
         try {
-            BasicStatistics tableStatistics = getBasicStatisticsForTable(onHive(), tableName);
+            BasicStatistics tableStatisticsBefore = getBasicStatisticsForTable(onHive(), tableName);
             // Metastore can auto-gather table statistics. This is not relevant for Trino, since we do not use table-level statistics in case of a partitioned table.
-            if (tableStatistics.getNumRows().isEmpty()) {
-                assertThatStatisticsAreNotPresent(tableStatistics);
+            if (tableStatisticsBefore.getNumRows().isEmpty()) {
+                assertThatStatisticsAreNotPresent(tableStatisticsBefore);
             }
 
             BasicStatistics partitionStatisticsBefore = getBasicStatisticsForPartition(onHive(), tableName, "n_regionkey=1");
@@ -210,14 +211,31 @@ public class TestHiveBasicTableStatistics
 
             // run ANALYZE
             onTrino().executeQuery(format("ANALYZE %s", tableName));
-            BasicStatistics partitionStatisticsAfter = getBasicStatisticsForPartition(onHive(), tableName, "n_regionkey=1");
-            assertThatStatisticsArePresent(partitionStatisticsAfter);
+            BasicStatistics partitionStatisticsAfterAnalyze = getBasicStatisticsForPartition(onHive(), tableName, "n_regionkey=1");
+            assertThatStatisticsArePresent(partitionStatisticsAfterAnalyze);
 
             // ANALYZE must not change the basic stats
-            assertThat(partitionStatisticsBefore.getNumRows().getAsLong()).isEqualTo(partitionStatisticsAfter.getNumRows().getAsLong());
-            assertThat(partitionStatisticsBefore.getNumFiles().getAsLong()).isEqualTo(partitionStatisticsAfter.getNumFiles().getAsLong());
-            assertThat(partitionStatisticsBefore.getRawDataSize().getAsLong()).isEqualTo(partitionStatisticsAfter.getRawDataSize().getAsLong());
-            assertThat(partitionStatisticsBefore.getTotalSize().getAsLong()).isEqualTo(partitionStatisticsAfter.getTotalSize().getAsLong());
+            assertThat(partitionStatisticsBefore.getNumRows().getAsLong()).isEqualTo(partitionStatisticsAfterAnalyze.getNumRows().getAsLong());
+            assertThat(partitionStatisticsBefore.getNumFiles().getAsLong()).isEqualTo(partitionStatisticsAfterAnalyze.getNumFiles().getAsLong());
+            assertThat(partitionStatisticsBefore.getRawDataSize().getAsLong()).isEqualTo(partitionStatisticsAfterAnalyze.getRawDataSize().getAsLong());
+            assertThat(partitionStatisticsBefore.getTotalSize().getAsLong()).isEqualTo(partitionStatisticsAfterAnalyze.getTotalSize().getAsLong());
+
+            // Insert more rows
+            onTrino().executeQuery(format("INSERT INTO %s (n_nationkey, n_name, n_comment, n_regionkey) VALUES (12, 'Utopia', 'Fun here', 1), (13, 'Perdition', 'Getting hot', 1)", tableName));
+
+            // ANALYZE again
+            onTrino().executeQuery(format("ANALYZE %s", tableName));
+
+            BasicStatistics partitionStatisticsAfterInsert = getBasicStatisticsForPartition(onHive(), tableName, "n_regionkey=1");
+
+            // Check that statistics were updated
+            assertThat(partitionStatisticsBefore.getNumRows().getAsLong() + 2).isEqualTo(partitionStatisticsAfterInsert.getNumRows().getAsLong());
+            assertThat(partitionStatisticsBefore.getNumFiles().getAsLong()).isLessThanOrEqualTo(partitionStatisticsAfterInsert.getNumFiles().getAsLong());
+
+            BasicStatistics tableStatisticsAfterInsert = getBasicStatisticsForTable(onHive(), tableName);
+
+            assertThat(tableStatisticsBefore.getNumRows().getAsLong() + 2).isEqualTo(tableStatisticsAfterInsert.getNumRows().getAsLong());
+            assertThat(tableStatisticsBefore.getNumFiles().getAsLong()).isLessThanOrEqualTo(tableStatisticsAfterInsert.getNumFiles().getAsLong());
         }
         finally {
             onTrino().executeQuery(format("DROP TABLE %s", tableName));
@@ -403,11 +421,153 @@ public class TestHiveBasicTableStatistics
         }
     }
 
+    @Test
+    public void testPartitionAnalyzeAroundInsert()
+    {
+        testPartitionModifyOperation("test_analyze_after_partition_insert", StatisticsChange.UNCHANGED, StatisticsChange.INCREASED, (tableName) ->
+                onTrino().executeQuery(format("INSERT INTO %s (n_nationkey, n_name, n_regionkey) VALUES (23, 'Insertia', 1)", tableName)));
+    }
+
+    @Test
+    public void testPartitionAnalyzeAroundUpdate()
+    {
+        testPartitionModifyOperation("test_analyze_after_partition_update", StatisticsChange.UNCHANGED, StatisticsChange.UNCHANGED, (tableName) ->
+                onTrino().executeQuery(format("UPDATE %s SET n_name = concat('formerly_', n_name) WHERE n_regionkey = 1", tableName)));
+    }
+
+    @Test
+    public void testPartitionAnalyzeAroundDelete()
+    {
+        testPartitionModifyOperation("test_analyze_after_partition_delete", StatisticsChange.DECREASED, StatisticsChange.DECREASED, (tableName) ->
+                onTrino().executeQuery(format("DELETE FROM %s WHERE n_nationkey = 1 AND n_regionkey = 1", tableName)));
+    }
+
+    @Test
+    public void testTableAnalyzeAroundInsert()
+    {
+        testTableModifyOperation("test_analyze_after_table_insert", StatisticsChange.INCREASED, (tableName) ->
+                onTrino().executeQuery(format("INSERT INTO %s (n_nationkey, n_name, n_regionkey) VALUES (23, 'Insertia', 1)", tableName)));
+    }
+
+    @Test
+    public void testTableAnalyzeAroundUpdate()
+    {
+        testTableModifyOperation("test_analyze_after_table_update", StatisticsChange.UNCHANGED, (tableName) ->
+                onTrino().executeQuery(format("UPDATE %s SET n_name = concat('formerly_', n_name) WHERE n_regionkey = 1", tableName)));
+    }
+
+    @Test
+    public void testTableAnalyzeAroundDelete()
+    {
+        testTableModifyOperation("test_analyze_after_table_delete", StatisticsChange.DECREASED, (tableName) ->
+                onTrino().executeQuery(format("DELETE FROM %s WHERE n_nationkey = 1 AND n_regionkey = 1", tableName)));
+    }
+
     private static void insertNationData(QueryExecutor executor, String tableName)
     {
         executor.executeQuery(format("" +
                 "INSERT INTO %s (n_nationkey, n_regionkey, n_name, n_comment) " +
                 "SELECT n_nationkey, n_regionkey, n_name, n_comment FROM nation", tableName));
+    }
+
+    private enum StatisticsChange
+    {
+        UNCHANGED,
+        INCREASED,
+        DECREASED,
+    }
+
+    private void testTableModifyOperation(String tableName, StatisticsChange statisticsChange, Consumer<String> operation)
+    {
+        onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
+
+        onTrino().executeQuery(format("" +
+                "CREATE TABLE %s (" +
+                "   n_nationkey bigint, " +
+                "   n_name varchar(25), " +
+                "   n_regionkey bigint)" +
+                "WITH ( " +
+                "   transactional = true)", tableName));
+
+        onTrino().executeQuery(format("INSERT INTO %s (n_nationkey, n_name, n_regionkey) VALUES (1, 'Finlandia', 1), (2, 'Utopia', 1)", tableName));
+
+        onTrino().executeQuery(format("ANALYZE %s", tableName));
+        BasicStatistics tableStatisticsAfterAnalyze = getBasicStatisticsForTable(onHive(), tableName);
+        assertThatStatisticsArePresent(tableStatisticsAfterAnalyze);
+
+        operation.accept(tableName);
+
+        BasicStatistics tableStatisticsAfterOperation = getBasicStatisticsForTable(onHive(), tableName);
+        assertThatStatisticsArePresent(tableStatisticsAfterOperation);
+
+        checkStatisticsChange(StatisticsChange.UNCHANGED, tableStatisticsAfterOperation, tableStatisticsAfterAnalyze);
+
+        onTrino().executeQuery(format("ANALYZE %s", tableName));
+
+        BasicStatistics statisticsAfterLastAnalyze = getBasicStatisticsForTable(onHive(), tableName);
+
+        checkStatisticsChange(statisticsChange, statisticsAfterLastAnalyze, tableStatisticsAfterAnalyze);
+    }
+
+    private void testPartitionModifyOperation(String tableName, StatisticsChange afterOperation, StatisticsChange afterAnalyze, Consumer<String> operation)
+    {
+        onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
+
+        onTrino().executeQuery(format("" +
+                "CREATE TABLE %s (" +
+                "   n_nationkey bigint, " +
+                "   n_name varchar(25), " +
+                "   n_regionkey bigint)" +
+                "WITH ( " +
+                "   transactional = true, " +
+                "   partitioned_by = ARRAY['n_regionkey'], " +
+                "   bucketed_by = ARRAY['n_nationkey'], " +
+                "   bucket_count = 10 " +
+                ")", tableName));
+
+        onTrino().executeQuery(format("INSERT INTO %s (n_nationkey, n_name, n_regionkey) VALUES (1, 'Finlandia', 1), (2, 'Utopia', 1)", tableName));
+
+        onTrino().executeQuery(format("ANALYZE %s", tableName));
+        BasicStatistics partitionStatisticsAfterAnalyze = getBasicStatisticsForPartition(onHive(), tableName, "n_regionkey=1");
+        assertThatStatisticsArePresent(partitionStatisticsAfterAnalyze);
+
+        operation.accept(tableName);
+
+        BasicStatistics partitionStatisticsAfterOperation = getBasicStatisticsForPartition(onHive(), tableName, "n_regionkey=1");
+        assertThatStatisticsArePresent(partitionStatisticsAfterOperation);
+
+        checkStatisticsChange(afterOperation, partitionStatisticsAfterOperation, partitionStatisticsAfterAnalyze);
+
+        onTrino().executeQuery(format("ANALYZE %s", tableName));
+
+        BasicStatistics statisticsAfterLastAnalyze = getBasicStatisticsForPartition(onHive(), tableName, "n_regionkey=1");
+
+        checkStatisticsChange(afterAnalyze, statisticsAfterLastAnalyze, partitionStatisticsAfterAnalyze);
+    }
+
+    // TODO: Add checking for column statistics
+    private void checkStatisticsChange(StatisticsChange statisticsChange, BasicStatistics statisticsAfterOperation, BasicStatistics statisticsAfterAnalyze)
+    {
+        switch (statisticsChange) {
+            case UNCHANGED:
+                assertThat(statisticsAfterOperation.getNumRows().getAsLong()).isEqualTo(statisticsAfterAnalyze.getNumRows().getAsLong());
+                assertThat(statisticsAfterOperation.getNumFiles().getAsLong()).isGreaterThanOrEqualTo(statisticsAfterAnalyze.getNumFiles().getAsLong());
+                assertThat(statisticsAfterOperation.getTotalSize().getAsLong()).isGreaterThanOrEqualTo(statisticsAfterAnalyze.getTotalSize().getAsLong());
+                assertThat(statisticsAfterOperation.getRawDataSize().getAsLong()).isGreaterThanOrEqualTo(statisticsAfterAnalyze.getRawDataSize().getAsLong());
+                break;
+            case INCREASED:
+                assertThat(statisticsAfterOperation.getNumRows().getAsLong()).isGreaterThan(statisticsAfterAnalyze.getNumRows().getAsLong());
+                assertThat(statisticsAfterOperation.getNumFiles().getAsLong()).isGreaterThanOrEqualTo(statisticsAfterAnalyze.getNumFiles().getAsLong());
+                assertThat(statisticsAfterOperation.getTotalSize().getAsLong()).isGreaterThanOrEqualTo(statisticsAfterAnalyze.getTotalSize().getAsLong());
+                assertThat(statisticsAfterOperation.getRawDataSize().getAsLong()).isGreaterThanOrEqualTo(statisticsAfterAnalyze.getRawDataSize().getAsLong());
+                break;
+            case DECREASED:
+                assertThat(statisticsAfterOperation.getNumRows().getAsLong()).isLessThanOrEqualTo(statisticsAfterAnalyze.getNumRows().getAsLong());
+                assertThat(statisticsAfterOperation.getNumFiles().getAsLong()).isGreaterThanOrEqualTo(statisticsAfterAnalyze.getNumFiles().getAsLong());
+                // The totalSize and rawDataSize do not decrease because Hive transactional tables add deletion files in order to remove rows
+                assertThat(statisticsAfterOperation.getTotalSize().getAsLong()).isGreaterThanOrEqualTo(statisticsAfterAnalyze.getTotalSize().getAsLong());
+                assertThat(statisticsAfterOperation.getRawDataSize().getAsLong()).isGreaterThanOrEqualTo(statisticsAfterAnalyze.getRawDataSize().getAsLong());
+        }
     }
 
     private static void assertThatStatisticsAreNonZero(BasicStatistics statistics)

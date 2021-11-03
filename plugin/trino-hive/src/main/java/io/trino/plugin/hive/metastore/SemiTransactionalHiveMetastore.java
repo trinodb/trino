@@ -1667,14 +1667,16 @@ public class SemiTransactionalHiveMetastore
             if (!targetPath.equals(currentPath)) {
                 asyncRename(hdfsEnvironment, renameExecutor, fileRenameCancelled, fileRenameFutures, context, currentPath, targetPath, tableAndMore.getFileNames().get());
             }
-            updateStatisticsOperations.add(new UpdateStatisticsOperation(
-                    tableAndMore.getIdentity(),
-                    table.getSchemaTableName(),
-                    Optional.empty(),
-                    tableAndMore.getStatisticsUpdate(),
-                    true));
-
-            if (isAcidTransactionRunning()) {
+            // TODO(https://github.com/trinodb/trino/issues/7190) update table statistics for transactional tables
+            if (!isAcidTransactionRunning()) {
+                updateStatisticsOperations.add(new UpdateStatisticsOperation(
+                        tableAndMore.getIdentity(),
+                        table.getSchemaTableName(),
+                        Optional.empty(),
+                        tableAndMore.getStatisticsUpdate(),
+                        true));
+            }
+            else {
                 AcidTransaction transaction = getCurrentAcidTransaction();
                 updateTableWriteId(tableAndMore.getIdentity(), table.getDatabaseName(), table.getTableName(), transaction.getAcidTransactionId(), transaction.getWriteId(), OptionalLong.empty());
             }
@@ -1739,23 +1741,25 @@ public class SemiTransactionalHiveMetastore
                 }
             }
 
-            // Decrement the row counts in the Partitions and PartitionStatistics
-            Map<String, PartitionStatistics> allPartitionStatistics = getPartitionStatistics(identity, databaseName, tableName, updatedPartitions.keySet());
-            allPartitionStatistics.forEach((partitionId, statistics) -> {
-                Long rowCount = partitionRowCounts.get(partitionId);
-                requireNonNull(rowCount, "rowCount is null");
-                PartitionStatistics updatedStatistics = statistics.withAdjustedRowCount(-rowCount);
-                requireNonNull(updatedStatistics, "updatedStatistics is null");
-                Partition updatedPartition = updatedPartitions.get(partitionId);
-                requireNonNull(updatedPartition, "updatedPartition is null");
-                Partition originalPartition = partitionsOptionalMap.get(partitionId).get();
-                alterPartitionOperations.add(new AlterPartitionOperation(
-                        identity,
-                        new PartitionWithStatistics(updatedPartition, partitionId, updatedStatistics),
-                        new PartitionWithStatistics(originalPartition, partitionId, statistics)));
-                updateStatisticsOperations.add(new UpdateStatisticsOperation(identity, table.getSchemaTableName(), Optional.of(partitionId), updatedStatistics, false));
-            });
-
+            // TODO(https://github.com/trinodb/trino/issues/7190) update table statistics for transactional tables
+            if (!transaction.isAcidTransactionRunning()) {
+                // Decrement the row counts in the Partitions and PartitionStatistics
+                Map<String, PartitionStatistics> allPartitionStatistics = getPartitionStatistics(identity, databaseName, tableName, updatedPartitions.keySet());
+                allPartitionStatistics.forEach((partitionId, statistics) -> {
+                    Long rowCount = partitionRowCounts.get(partitionId);
+                    requireNonNull(rowCount, "rowCount is null");
+                    PartitionStatistics updatedStatistics = statistics.withAdjustedRowCount(-rowCount);
+                    requireNonNull(updatedStatistics, "updatedStatistics is null");
+                    Partition updatedPartition = updatedPartitions.get(partitionId);
+                    requireNonNull(updatedPartition, "updatedPartition is null");
+                    Partition originalPartition = partitionsOptionalMap.get(partitionId).get();
+                    alterPartitionOperations.add(new AlterPartitionOperation(
+                            identity,
+                            new PartitionWithStatistics(updatedPartition, partitionId, updatedStatistics),
+                            new PartitionWithStatistics(originalPartition, partitionId, statistics)));
+                    updateStatisticsOperations.add(new UpdateStatisticsOperation(identity, table.getSchemaTableName(), Optional.of(partitionId), updatedStatistics, false));
+                });
+            }
             // Finally, tell the metastore what has changed
             long writeId = transaction.getWriteId();
             long transactionId = transaction.getAcidTransactionId();
@@ -1928,12 +1932,15 @@ public class SemiTransactionalHiveMetastore
                 asyncRename(hdfsEnvironment, renameExecutor, fileRenameCancelled, fileRenameFutures, hdfsContext, currentPath, targetPath, partitionAndMore.getFileNames());
             }
 
-            updateStatisticsOperations.add(new UpdateStatisticsOperation(
-                    partitionAndMore.getIdentity(),
-                    partition.getSchemaTableName(),
-                    Optional.of(getPartitionName(identity, partition.getDatabaseName(), partition.getTableName(), partition.getValues())),
-                    partitionAndMore.getStatisticsUpdate(),
-                    true));
+            // TODO(https://github.com/trinodb/trino/issues/7190) update table statistics for transactional tables
+            if (!isAcidTransactionRunning()) {
+                updateStatisticsOperations.add(new UpdateStatisticsOperation(
+                        partitionAndMore.getIdentity(),
+                        partition.getSchemaTableName(),
+                        Optional.of(getPartitionName(identity, partition.getDatabaseName(), partition.getTableName(), partition.getValues())),
+                        partitionAndMore.getStatisticsUpdate(),
+                        true));
+            }
         }
 
         private void executeCleanupTasksForAbort(Collection<DeclaredIntentionToWrite> declaredIntentionsToWrite)
