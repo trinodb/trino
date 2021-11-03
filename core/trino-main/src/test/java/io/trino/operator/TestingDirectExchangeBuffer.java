@@ -33,8 +33,8 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static java.util.Objects.requireNonNull;
 
-public class TestingExchangeClientBuffer
-        implements ExchangeClientBuffer
+public class TestingDirectExchangeBuffer
+        implements DirectExchangeBuffer
 {
     private ListenableFuture<Void> blocked = immediateVoidFuture();
     private final Set<TaskId> allTasks = new HashSet<>();
@@ -48,7 +48,7 @@ public class TestingExchangeClientBuffer
     private final Map<TaskId, SettableFuture<Void>> taskFinished = new HashMap<>();
     private final Map<TaskId, SettableFuture<Void>> taskFailed = new HashMap<>();
 
-    public TestingExchangeClientBuffer(DataSize bufferCapacity)
+    public TestingDirectExchangeBuffer(DataSize bufferCapacity)
     {
         this.remainingBufferCapacityInBytes = bufferCapacity.toBytes();
     }

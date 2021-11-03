@@ -49,7 +49,7 @@ public class MergeOperator
     {
         private final int operatorId;
         private final PlanNodeId sourceId;
-        private final ExchangeClientSupplier exchangeClientSupplier;
+        private final DirectExchangeClientSupplier directExchangeClientSupplier;
         private final PagesSerdeFactory serdeFactory;
         private final List<Type> types;
         private final List<Integer> outputChannels;
@@ -62,7 +62,7 @@ public class MergeOperator
         public MergeOperatorFactory(
                 int operatorId,
                 PlanNodeId sourceId,
-                ExchangeClientSupplier exchangeClientSupplier,
+                DirectExchangeClientSupplier directExchangeClientSupplier,
                 PagesSerdeFactory serdeFactory,
                 OrderingCompiler orderingCompiler,
                 List<Type> types,
@@ -72,7 +72,7 @@ public class MergeOperator
         {
             this.operatorId = operatorId;
             this.sourceId = requireNonNull(sourceId, "sourceId is null");
-            this.exchangeClientSupplier = requireNonNull(exchangeClientSupplier, "exchangeClientSupplier is null");
+            this.directExchangeClientSupplier = requireNonNull(directExchangeClientSupplier, "directExchangeClientSupplier is null");
             this.serdeFactory = requireNonNull(serdeFactory, "serdeFactory is null");
             this.types = requireNonNull(types, "types is null");
             this.outputChannels = requireNonNull(outputChannels, "outputChannels is null");
@@ -97,7 +97,7 @@ public class MergeOperator
             return new MergeOperator(
                     operatorContext,
                     sourceId,
-                    exchangeClientSupplier,
+                    directExchangeClientSupplier,
                     serdeFactory.createPagesSerde(),
                     orderingCompiler.compilePageWithPositionComparator(types, sortChannels, sortOrder),
                     outputChannels,
@@ -113,7 +113,7 @@ public class MergeOperator
 
     private final OperatorContext operatorContext;
     private final PlanNodeId sourceId;
-    private final ExchangeClientSupplier exchangeClientSupplier;
+    private final DirectExchangeClientSupplier directExchangeClientSupplier;
     private final PagesSerde pagesSerde;
     private final PageWithPositionComparator comparator;
     private final List<Integer> outputChannels;
@@ -130,7 +130,7 @@ public class MergeOperator
     public MergeOperator(
             OperatorContext operatorContext,
             PlanNodeId sourceId,
-            ExchangeClientSupplier exchangeClientSupplier,
+            DirectExchangeClientSupplier directExchangeClientSupplier,
             PagesSerde pagesSerde,
             PageWithPositionComparator comparator,
             List<Integer> outputChannels,
@@ -138,7 +138,7 @@ public class MergeOperator
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.sourceId = requireNonNull(sourceId, "sourceId is null");
-        this.exchangeClientSupplier = requireNonNull(exchangeClientSupplier, "exchangeClientSupplier is null");
+        this.directExchangeClientSupplier = requireNonNull(directExchangeClientSupplier, "directExchangeClientSupplier is null");
         this.pagesSerde = requireNonNull(pagesSerde, "pagesSerde is null");
         this.comparator = requireNonNull(comparator, "comparator is null");
         this.outputChannels = requireNonNull(outputChannels, "outputChannels is null");
@@ -159,11 +159,11 @@ public class MergeOperator
         checkState(!blockedOnSplits.isDone(), "noMoreSplits has been called already");
 
         TaskContext taskContext = operatorContext.getDriverContext().getPipelineContext().getTaskContext();
-        ExchangeClient exchangeClient = closer.register(exchangeClientSupplier.get(operatorContext.localSystemMemoryContext(), taskContext::sourceTaskFailed, RetryPolicy.NONE));
+        DirectExchangeClient client = closer.register(directExchangeClientSupplier.get(operatorContext.localSystemMemoryContext(), taskContext::sourceTaskFailed, RetryPolicy.NONE));
         RemoteSplit remoteSplit = (RemoteSplit) split.getConnectorSplit();
-        exchangeClient.addLocation(remoteSplit.getTaskId(), URI.create(remoteSplit.getLocation()));
-        exchangeClient.noMoreLocations();
-        pageProducers.add(exchangeClient.pages()
+        client.addLocation(remoteSplit.getTaskId(), URI.create(remoteSplit.getLocation()));
+        client.noMoreLocations();
+        pageProducers.add(client.pages()
                 .map(serializedPage -> {
                     Page page = pagesSerde.deserialize(serializedPage);
                     operatorContext.recordNetworkInput(serializedPage.length(), page.getPositionCount());

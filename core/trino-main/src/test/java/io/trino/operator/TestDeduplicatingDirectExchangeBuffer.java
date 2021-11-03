@@ -43,7 +43,7 @@ import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
-public class TestDeduplicationExchangeClientBuffer
+public class TestDeduplicatingDirectExchangeBuffer
 {
     private static final DataSize ONE_KB = DataSize.of(1, KILOBYTE);
 
@@ -51,7 +51,7 @@ public class TestDeduplicationExchangeClientBuffer
     public void testIsBlocked()
     {
         // immediate close
-        try (ExchangeClientBuffer buffer = new DeduplicationExchangeClientBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
+        try (DirectExchangeBuffer buffer = new DeduplicatingDirectExchangeBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
             ListenableFuture<Void> blocked = buffer.isBlocked();
             assertBlocked(blocked);
             buffer.close();
@@ -59,7 +59,7 @@ public class TestDeduplicationExchangeClientBuffer
         }
 
         // empty set of tasks
-        try (ExchangeClientBuffer buffer = new DeduplicationExchangeClientBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
+        try (DirectExchangeBuffer buffer = new DeduplicatingDirectExchangeBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
             ListenableFuture<Void> blocked = buffer.isBlocked();
             assertBlocked(blocked);
             buffer.noMoreTasks();
@@ -67,7 +67,7 @@ public class TestDeduplicationExchangeClientBuffer
         }
 
         // single task finishes before noMoreTasks
-        try (ExchangeClientBuffer buffer = new DeduplicationExchangeClientBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
+        try (DirectExchangeBuffer buffer = new DeduplicatingDirectExchangeBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
             ListenableFuture<Void> blocked = buffer.isBlocked();
             assertBlocked(blocked);
 
@@ -83,7 +83,7 @@ public class TestDeduplicationExchangeClientBuffer
         }
 
         // single task finishes after noMoreTasks
-        try (ExchangeClientBuffer buffer = new DeduplicationExchangeClientBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
+        try (DirectExchangeBuffer buffer = new DeduplicatingDirectExchangeBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
             ListenableFuture<Void> blocked = buffer.isBlocked();
             assertBlocked(blocked);
 
@@ -99,7 +99,7 @@ public class TestDeduplicationExchangeClientBuffer
         }
 
         // single task fails before noMoreTasks
-        try (ExchangeClientBuffer buffer = new DeduplicationExchangeClientBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
+        try (DirectExchangeBuffer buffer = new DeduplicatingDirectExchangeBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
             ListenableFuture<Void> blocked = buffer.isBlocked();
             assertBlocked(blocked);
 
@@ -115,7 +115,7 @@ public class TestDeduplicationExchangeClientBuffer
         }
 
         // single task fails after noMoreTasks
-        try (ExchangeClientBuffer buffer = new DeduplicationExchangeClientBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
+        try (DirectExchangeBuffer buffer = new DeduplicatingDirectExchangeBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
             ListenableFuture<Void> blocked = buffer.isBlocked();
             assertBlocked(blocked);
 
@@ -131,7 +131,7 @@ public class TestDeduplicationExchangeClientBuffer
         }
 
         // cancelled blocked future doesn't affect other blocked futures
-        try (ExchangeClientBuffer buffer = new DeduplicationExchangeClientBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
+        try (DirectExchangeBuffer buffer = new DeduplicatingDirectExchangeBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
             ListenableFuture<Void> blocked1 = buffer.isBlocked();
             ListenableFuture<Void> blocked2 = buffer.isBlocked();
             assertBlocked(blocked1);
@@ -218,7 +218,7 @@ public class TestDeduplicationExchangeClientBuffer
 
     private static List<Slice> pollPages(Multimap<TaskId, Slice> pages, Map<TaskId, RuntimeException> failures)
     {
-        try (ExchangeClientBuffer buffer = new DeduplicationExchangeClientBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
+        try (DirectExchangeBuffer buffer = new DeduplicatingDirectExchangeBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
             for (TaskId taskId : Sets.union(pages.keySet(), failures.keySet())) {
                 buffer.addTask(taskId);
             }
@@ -249,7 +249,7 @@ public class TestDeduplicationExchangeClientBuffer
     @Test
     public void testRemovePagesForPreviousAttempts()
     {
-        try (ExchangeClientBuffer buffer = new DeduplicationExchangeClientBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
+        try (DirectExchangeBuffer buffer = new DeduplicatingDirectExchangeBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
             assertEquals(buffer.getRetainedSizeInBytes(), 0);
 
             TaskId partition0Attempt0 = createTaskId(0, 0);
@@ -279,7 +279,7 @@ public class TestDeduplicationExchangeClientBuffer
     @Test
     public void testBufferOverflow()
     {
-        try (ExchangeClientBuffer buffer = new DeduplicationExchangeClientBuffer(directExecutor(), DataSize.of(100, BYTE), RetryPolicy.QUERY)) {
+        try (DirectExchangeBuffer buffer = new DeduplicatingDirectExchangeBuffer(directExecutor(), DataSize.of(100, BYTE), RetryPolicy.QUERY)) {
             TaskId task = createTaskId(0, 0);
 
             Slice page1 = utf8Slice("1234");
@@ -311,21 +311,21 @@ public class TestDeduplicationExchangeClientBuffer
     public void testIsFinished()
     {
         // close right away
-        try (ExchangeClientBuffer buffer = new DeduplicationExchangeClientBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
+        try (DirectExchangeBuffer buffer = new DeduplicatingDirectExchangeBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
             assertFalse(buffer.isFinished());
             buffer.close();
             assertTrue(buffer.isFinished());
         }
 
         // 0 tasks
-        try (ExchangeClientBuffer buffer = new DeduplicationExchangeClientBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
+        try (DirectExchangeBuffer buffer = new DeduplicatingDirectExchangeBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
             assertFalse(buffer.isFinished());
             buffer.noMoreTasks();
             assertTrue(buffer.isFinished());
         }
 
         // single task producing no results, finish before noMoreTasks
-        try (ExchangeClientBuffer buffer = new DeduplicationExchangeClientBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
+        try (DirectExchangeBuffer buffer = new DeduplicatingDirectExchangeBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
             assertFalse(buffer.isFinished());
 
             TaskId taskId = createTaskId(0, 0);
@@ -340,7 +340,7 @@ public class TestDeduplicationExchangeClientBuffer
         }
 
         // single task producing no results, finish after noMoreTasks
-        try (ExchangeClientBuffer buffer = new DeduplicationExchangeClientBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
+        try (DirectExchangeBuffer buffer = new DeduplicatingDirectExchangeBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
             assertFalse(buffer.isFinished());
 
             TaskId taskId = createTaskId(0, 0);
@@ -355,7 +355,7 @@ public class TestDeduplicationExchangeClientBuffer
         }
 
         // single task producing no results, fail before noMoreTasks
-        try (ExchangeClientBuffer buffer = new DeduplicationExchangeClientBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
+        try (DirectExchangeBuffer buffer = new DeduplicatingDirectExchangeBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
             assertFalse(buffer.isFinished());
 
             TaskId taskId = createTaskId(0, 0);
@@ -371,7 +371,7 @@ public class TestDeduplicationExchangeClientBuffer
         }
 
         // single task producing no results, fail after noMoreTasks
-        try (ExchangeClientBuffer buffer = new DeduplicationExchangeClientBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
+        try (DirectExchangeBuffer buffer = new DeduplicatingDirectExchangeBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
             assertFalse(buffer.isFinished());
 
             TaskId taskId = createTaskId(0, 0);
@@ -387,7 +387,7 @@ public class TestDeduplicationExchangeClientBuffer
         }
 
         // single task producing one page, fail after noMoreTasks
-        try (ExchangeClientBuffer buffer = new DeduplicationExchangeClientBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
+        try (DirectExchangeBuffer buffer = new DeduplicatingDirectExchangeBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
             assertFalse(buffer.isFinished());
 
             TaskId taskId = createTaskId(0, 0);
@@ -404,7 +404,7 @@ public class TestDeduplicationExchangeClientBuffer
         }
 
         // single task producing one page, finish after noMoreTasks
-        try (ExchangeClientBuffer buffer = new DeduplicationExchangeClientBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
+        try (DirectExchangeBuffer buffer = new DeduplicatingDirectExchangeBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
             assertFalse(buffer.isFinished());
 
             TaskId taskId = createTaskId(0, 0);
@@ -423,7 +423,7 @@ public class TestDeduplicationExchangeClientBuffer
         }
 
         // single task producing one page, finish before noMoreTasks
-        try (ExchangeClientBuffer buffer = new DeduplicationExchangeClientBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
+        try (DirectExchangeBuffer buffer = new DeduplicatingDirectExchangeBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
             assertFalse(buffer.isFinished());
 
             TaskId taskId = createTaskId(0, 0);
@@ -445,7 +445,7 @@ public class TestDeduplicationExchangeClientBuffer
     @Test
     public void testRemainingBufferCapacity()
     {
-        try (ExchangeClientBuffer buffer = new DeduplicationExchangeClientBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
+        try (DirectExchangeBuffer buffer = new DeduplicatingDirectExchangeBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
             assertFalse(buffer.isFinished());
 
             TaskId taskId = createTaskId(0, 0);
@@ -461,7 +461,7 @@ public class TestDeduplicationExchangeClientBuffer
     public void testRemoteTaskFailedError()
     {
         // fail before noMoreTasks
-        try (ExchangeClientBuffer buffer = new DeduplicationExchangeClientBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
+        try (DirectExchangeBuffer buffer = new DeduplicatingDirectExchangeBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
             TaskId taskId = createTaskId(0, 0);
             buffer.addTask(taskId);
             buffer.taskFailed(taskId, new TrinoException(REMOTE_TASK_FAILED, "Remote task failed"));
@@ -474,7 +474,7 @@ public class TestDeduplicationExchangeClientBuffer
         }
 
         // fail after noMoreTasks
-        try (ExchangeClientBuffer buffer = new DeduplicationExchangeClientBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
+        try (DirectExchangeBuffer buffer = new DeduplicatingDirectExchangeBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
             TaskId taskId = createTaskId(0, 0);
             buffer.addTask(taskId);
             buffer.noMoreTasks();
