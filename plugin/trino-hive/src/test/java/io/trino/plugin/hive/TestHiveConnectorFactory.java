@@ -51,7 +51,7 @@ public class TestHiveConnectorFactory
                 .build();
 
         Connector connector = new HiveConnectorFactory("hive").create("hive-test", config, new TestingConnectorContext());
-        ConnectorTransactionHandle transaction = connector.beginTransaction(READ_UNCOMMITTED, true);
+        ConnectorTransactionHandle transaction = connector.beginTransaction(READ_UNCOMMITTED, true, true);
         assertInstanceOf(connector.getMetadata(transaction), ClassLoaderSafeConnectorMetadata.class);
         assertInstanceOf(connector.getSplitManager(), ClassLoaderSafeConnectorSplitManager.class);
         assertInstanceOf(connector.getPageSourceProvider(), ConnectorPageSourceProvider.class);

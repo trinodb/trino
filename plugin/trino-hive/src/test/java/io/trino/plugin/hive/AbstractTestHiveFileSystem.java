@@ -270,7 +270,7 @@ public abstract class AbstractTestHiveFileSystem
 
     protected Transaction newTransaction()
     {
-        return new HiveTransaction(transactionManager, (HiveMetadata) metadataFactory.create());
+        return new HiveTransaction(transactionManager, (HiveMetadata) metadataFactory.create(false));
     }
 
     @Test

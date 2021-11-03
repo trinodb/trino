@@ -115,7 +115,7 @@ public class SyncPartitionMetadataProcedure
         SyncMode syncMode = toSyncMode(mode);
         HdfsContext hdfsContext = new HdfsContext(session);
         HiveIdentity identity = new HiveIdentity(session);
-        SemiTransactionalHiveMetastore metastore = hiveMetadataFactory.create().getMetastore();
+        SemiTransactionalHiveMetastore metastore = hiveMetadataFactory.create(true).getMetastore();
         SchemaTableName schemaTableName = new SchemaTableName(schemaName, tableName);
 
         Table table = metastore.getTable(identity, schemaName, tableName)
