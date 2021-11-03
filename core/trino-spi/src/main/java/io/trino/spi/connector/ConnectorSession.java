@@ -22,8 +22,6 @@ import java.util.Optional;
 
 public interface ConnectorSession
 {
-    boolean isAutoCommitContext();
-
     String getQueryId();
 
     Optional<String> getSource();

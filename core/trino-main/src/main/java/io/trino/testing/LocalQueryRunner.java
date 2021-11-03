@@ -455,8 +455,7 @@ public class LocalQueryRunner
                 defaultSession.getUnprocessedCatalogProperties(),
                 metadata.getSessionPropertyManager(),
                 defaultSession.getPreparedStatements(),
-                defaultSession.getProtocolHeaders(),
-                transactionId.map(tId -> transactionManager.getTransactionInfo(tId).isAutoCommitContext()));
+                defaultSession.getProtocolHeaders());
 
         dataDefinitionTask = ImmutableMap.<Class<? extends Statement>, DataDefinitionTask<?>>builder()
                 .put(CreateTable.class, new CreateTableTask(featuresConfig))
