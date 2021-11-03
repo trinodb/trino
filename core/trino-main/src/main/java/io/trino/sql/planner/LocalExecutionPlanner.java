@@ -274,6 +274,7 @@ import static io.trino.SystemSessionProperties.isSpillEnabled;
 import static io.trino.SystemSessionProperties.isSpillOrderBy;
 import static io.trino.SystemSessionProperties.isSpillWindowOperator;
 import static io.trino.operator.DistinctLimitOperator.DistinctLimitOperatorFactory;
+import static io.trino.operator.HashArraySizeSupplier.incrementalLoadFactorHashArraySizeSupplier;
 import static io.trino.operator.PipelineExecutionStrategy.GROUPED_EXECUTION;
 import static io.trino.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 import static io.trino.operator.TableFinishOperator.TableFinishOperatorFactory;
@@ -2561,6 +2562,7 @@ public class LocalExecutionPlanner
                 buildSource = createDynamicFilterSourceOperatorFactory(operatorId, localDynamicFilter.get(), node, buildSource, buildContext);
             }
 
+            int taskConcurrency = getTaskConcurrency(session);
             HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(
                     buildContext.getNextOperatorId(),
                     node.getId(),
@@ -2574,7 +2576,12 @@ public class LocalExecutionPlanner
                     10_000,
                     pagesIndexFactory,
                     spillEnabled && partitionCount > 1,
-                    singleStreamSpillerFactory);
+                    singleStreamSpillerFactory,
+                    incrementalLoadFactorHashArraySizeSupplier(
+                            session,
+                            // scale load factor in case partition count (and number of hash build operators)
+                            // is reduced (e.g. by plan rule) with respect to default task concurrency
+                            taskConcurrency / partitionCount));
 
             context.addDriverFactory(
                     buildContext.isInputDriver(),
