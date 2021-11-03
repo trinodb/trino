@@ -71,11 +71,15 @@ public class SessionPropertyDefaults
     public void loadConfigurationManager()
             throws IOException
     {
-        File configFile = CONFIG_FILE.getAbsoluteFile();
+        loadConfigurationManager(CONFIG_FILE.getAbsoluteFile());
+    }
+
+    public void loadConfigurationManager(File configFile)
+            throws IOException
+    {
         if (!configFile.exists()) {
             return;
         }
-
         Map<String, String> properties = new HashMap<>(loadPropertiesFrom(configFile.getPath()));
 
         String name = properties.remove(NAME_PROPERTY);
