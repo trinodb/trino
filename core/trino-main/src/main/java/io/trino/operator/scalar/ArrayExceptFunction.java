@@ -57,7 +57,7 @@ public final class ArrayExceptFunction
         int leftPositionCount = leftArray.getPositionCount();
         int rightPositionCount = rightArray.getPositionCount();
 
-        if (leftPositionCount == 0) {
+        if (leftPositionCount == 0 || rightPositionCount == 0) {
             return leftArray;
         }
 
