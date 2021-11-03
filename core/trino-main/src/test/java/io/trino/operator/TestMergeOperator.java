@@ -74,7 +74,7 @@ public class TestMergeOperator
     private ScheduledExecutorService executor;
     private PagesSerdeFactory serdeFactory;
     private HttpClient httpClient;
-    private ExchangeClientFactory exchangeClientFactory;
+    private DirectExchangeClientFactory exchangeClientFactory;
     private OrderingCompiler orderingCompiler;
 
     private LoadingCache<TaskId, TestingTaskBuffer> taskBuffers;
@@ -87,7 +87,7 @@ public class TestMergeOperator
 
         taskBuffers = CacheBuilder.newBuilder().build(CacheLoader.from(TestingTaskBuffer::new));
         httpClient = new TestingHttpClient(new TestingExchangeHttpClientHandler(taskBuffers), executor);
-        exchangeClientFactory = new ExchangeClientFactory(new NodeInfo("test"), new FeaturesConfig(), new ExchangeClientConfig(), httpClient, executor);
+        exchangeClientFactory = new DirectExchangeClientFactory(new NodeInfo("test"), new FeaturesConfig(), new DirectExchangeClientConfig(), httpClient, executor);
         orderingCompiler = new OrderingCompiler(new TypeOperators());
     }
 

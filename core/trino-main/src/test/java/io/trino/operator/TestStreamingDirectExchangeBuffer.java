@@ -32,7 +32,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
-public class TestStreamingExchangeClientBuffer
+public class TestStreamingDirectExchangeBuffer
 {
     private static final StageId STAGE_ID = new StageId(new QueryId("query"), 0);
     private static final TaskId TASK_0 = new TaskId(STAGE_ID, 0, 0);
@@ -44,7 +44,7 @@ public class TestStreamingExchangeClientBuffer
     @Test
     public void testHappyPath()
     {
-        try (StreamingExchangeClientBuffer buffer = new StreamingExchangeClientBuffer(directExecutor(), DataSize.of(1, KILOBYTE))) {
+        try (StreamingDirectExchangeBuffer buffer = new StreamingDirectExchangeBuffer(directExecutor(), DataSize.of(1, KILOBYTE))) {
             assertFalse(buffer.isFinished());
             assertFalse(buffer.isBlocked().isDone());
             assertNull(buffer.pollPage());
@@ -106,7 +106,7 @@ public class TestStreamingExchangeClientBuffer
     @Test
     public void testClose()
     {
-        StreamingExchangeClientBuffer buffer = new StreamingExchangeClientBuffer(directExecutor(), DataSize.of(1, KILOBYTE));
+        StreamingDirectExchangeBuffer buffer = new StreamingDirectExchangeBuffer(directExecutor(), DataSize.of(1, KILOBYTE));
         buffer.addTask(TASK_0);
         buffer.addTask(TASK_1);
 
@@ -125,7 +125,7 @@ public class TestStreamingExchangeClientBuffer
     public void testIsFinished()
     {
         // 0 tasks
-        try (StreamingExchangeClientBuffer buffer = new StreamingExchangeClientBuffer(directExecutor(), DataSize.of(1, KILOBYTE))) {
+        try (StreamingDirectExchangeBuffer buffer = new StreamingDirectExchangeBuffer(directExecutor(), DataSize.of(1, KILOBYTE))) {
             assertFalse(buffer.isFinished());
             assertFalse(buffer.isBlocked().isDone());
 
@@ -136,7 +136,7 @@ public class TestStreamingExchangeClientBuffer
         }
 
         // single task
-        try (StreamingExchangeClientBuffer buffer = new StreamingExchangeClientBuffer(directExecutor(), DataSize.of(1, KILOBYTE))) {
+        try (StreamingDirectExchangeBuffer buffer = new StreamingDirectExchangeBuffer(directExecutor(), DataSize.of(1, KILOBYTE))) {
             assertFalse(buffer.isFinished());
             assertFalse(buffer.isBlocked().isDone());
 
@@ -153,7 +153,7 @@ public class TestStreamingExchangeClientBuffer
         }
 
         // single failed task
-        try (StreamingExchangeClientBuffer buffer = new StreamingExchangeClientBuffer(directExecutor(), DataSize.of(1, KILOBYTE))) {
+        try (StreamingDirectExchangeBuffer buffer = new StreamingDirectExchangeBuffer(directExecutor(), DataSize.of(1, KILOBYTE))) {
             assertFalse(buffer.isFinished());
             assertFalse(buffer.isBlocked().isDone());
 
@@ -174,7 +174,7 @@ public class TestStreamingExchangeClientBuffer
     @Test
     public void testFutureCancellationDoesNotAffectOtherFutures()
     {
-        try (StreamingExchangeClientBuffer buffer = new StreamingExchangeClientBuffer(directExecutor(), DataSize.of(1, KILOBYTE))) {
+        try (StreamingDirectExchangeBuffer buffer = new StreamingDirectExchangeBuffer(directExecutor(), DataSize.of(1, KILOBYTE))) {
             assertFalse(buffer.isFinished());
 
             ListenableFuture<Void> blocked1 = buffer.isBlocked();

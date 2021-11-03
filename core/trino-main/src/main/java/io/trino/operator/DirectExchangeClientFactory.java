@@ -37,8 +37,8 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 
-public class ExchangeClientFactory
-        implements ExchangeClientSupplier
+public class DirectExchangeClientFactory
+        implements DirectExchangeClientSupplier
 {
     private final NodeInfo nodeInfo;
     private final DataIntegrityVerification dataIntegrityVerification;
@@ -53,10 +53,10 @@ public class ExchangeClientFactory
     private final ExecutorService pageBufferClientCallbackExecutor;
 
     @Inject
-    public ExchangeClientFactory(
+    public DirectExchangeClientFactory(
             NodeInfo nodeInfo,
             FeaturesConfig featuresConfig,
-            ExchangeClientConfig config,
+            DirectExchangeClientConfig config,
             @ForExchange HttpClient httpClient,
             @ForExchange ScheduledExecutorService scheduler)
     {
@@ -73,7 +73,7 @@ public class ExchangeClientFactory
                 scheduler);
     }
 
-    public ExchangeClientFactory(
+    public DirectExchangeClientFactory(
             NodeInfo nodeInfo,
             DataIntegrityVerification dataIntegrityVerification,
             DataSize maxBufferedBytes,
@@ -123,22 +123,22 @@ public class ExchangeClientFactory
     }
 
     @Override
-    public ExchangeClient get(LocalMemoryContext systemMemoryContext, TaskFailureListener taskFailureListener, RetryPolicy retryPolicy)
+    public DirectExchangeClient get(LocalMemoryContext systemMemoryContext, TaskFailureListener taskFailureListener, RetryPolicy retryPolicy)
     {
-        ExchangeClientBuffer buffer;
+        DirectExchangeBuffer buffer;
         switch (retryPolicy) {
             case TASK:
             case QUERY:
-                buffer = new DeduplicationExchangeClientBuffer(scheduler, maxBufferedBytes, retryPolicy);
+                buffer = new DeduplicatingDirectExchangeBuffer(scheduler, maxBufferedBytes, retryPolicy);
                 break;
             case NONE:
-                buffer = new StreamingExchangeClientBuffer(scheduler, maxBufferedBytes);
+                buffer = new StreamingDirectExchangeBuffer(scheduler, maxBufferedBytes);
                 break;
             default:
                 throw new IllegalArgumentException("unexpected retry policy: " + retryPolicy);
         }
 
-        return new ExchangeClient(
+        return new DirectExchangeClient(
                 nodeInfo.getExternalAddress(),
                 dataIntegrityVerification,
                 buffer,

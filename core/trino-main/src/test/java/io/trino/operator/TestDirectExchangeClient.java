@@ -83,7 +83,7 @@ import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
-public class TestExchangeClient
+public class TestDirectExchangeClient
 {
     private ScheduledExecutorService scheduler;
     private ExecutorService pageBufferClientCallbackExecutor;
@@ -123,10 +123,10 @@ public class TestExchangeClient
         pages.forEach(page -> processor.addPage(location, page));
         processor.setComplete(location);
 
-        TestingExchangeClientBuffer buffer = new TestingExchangeClientBuffer(DataSize.of(1, Unit.MEGABYTE));
+        TestingDirectExchangeBuffer buffer = new TestingDirectExchangeBuffer(DataSize.of(1, Unit.MEGABYTE));
 
         @SuppressWarnings("resource")
-        ExchangeClient exchangeClient = new ExchangeClient(
+        DirectExchangeClient exchangeClient = new DirectExchangeClient(
                 "localhost",
                 DataIntegrityVerification.ABORT,
                 buffer,
@@ -161,7 +161,7 @@ public class TestExchangeClient
         buffer.setFinished(true);
         assertTrue(exchangeClient.isFinished());
 
-        ExchangeClientStatus status = exchangeClient.getStatus();
+        DirectExchangeClientStatus status = exchangeClient.getStatus();
         assertEquals(status.getBufferedPages(), 0);
 
         // client should have sent only 3 requests: one to get all pages, one to acknowledge and one to get the done signal
@@ -189,10 +189,10 @@ public class TestExchangeClient
         processor.setComplete(location);
 
         @SuppressWarnings("resource")
-        ExchangeClient exchangeClient = new ExchangeClient(
+        DirectExchangeClient exchangeClient = new DirectExchangeClient(
                 "localhost",
                 DataIntegrityVerification.ABORT,
-                new StreamingExchangeClientBuffer(scheduler, DataSize.of(32, Unit.MEGABYTE)),
+                new StreamingDirectExchangeBuffer(scheduler, DataSize.of(32, Unit.MEGABYTE)),
                 maxResponseSize,
                 1,
                 new Duration(1, TimeUnit.MINUTES),
@@ -215,7 +215,7 @@ public class TestExchangeClient
         assertNull(getNextPage(exchangeClient));
         assertTrue(exchangeClient.isFinished());
 
-        ExchangeClientStatus status = exchangeClient.getStatus();
+        DirectExchangeClientStatus status = exchangeClient.getStatus();
         assertEquals(status.getBufferedPages(), 0);
 
         // client should have sent only 3 requests: one to get all pages, one to acknowledge and one to get the done signal
@@ -242,10 +242,10 @@ public class TestExchangeClient
         processor.addPage(location1, createSerializedPage("location-1-page-1"));
         processor.addPage(location1, createSerializedPage("location-1-page-2"));
 
-        TestingExchangeClientBuffer buffer = new TestingExchangeClientBuffer(DataSize.of(1, Unit.MEGABYTE));
+        TestingDirectExchangeBuffer buffer = new TestingDirectExchangeBuffer(DataSize.of(1, Unit.MEGABYTE));
 
         @SuppressWarnings("resource")
-        ExchangeClient exchangeClient = new ExchangeClient(
+        DirectExchangeClient exchangeClient = new DirectExchangeClient(
                 "localhost",
                 DataIntegrityVerification.ABORT,
                 buffer,
@@ -313,10 +313,10 @@ public class TestExchangeClient
         MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(maxResponseSize);
 
         @SuppressWarnings("resource")
-        ExchangeClient exchangeClient = new ExchangeClient(
+        DirectExchangeClient exchangeClient = new DirectExchangeClient(
                 "localhost",
                 DataIntegrityVerification.ABORT,
-                new StreamingExchangeClientBuffer(scheduler, DataSize.of(32, Unit.MEGABYTE)),
+                new StreamingDirectExchangeBuffer(scheduler, DataSize.of(32, Unit.MEGABYTE)),
                 maxResponseSize,
                 1,
                 new Duration(1, TimeUnit.MINUTES),
@@ -420,10 +420,10 @@ public class TestExchangeClient
         processor.addPage(locationP0A1, createSerializedPage("location-2-page-2"));
 
         @SuppressWarnings("resource")
-        ExchangeClient exchangeClient = new ExchangeClient(
+        DirectExchangeClient exchangeClient = new DirectExchangeClient(
                 "localhost",
                 DataIntegrityVerification.ABORT,
-                new DeduplicationExchangeClientBuffer(scheduler, DataSize.of(1, Unit.KILOBYTE), RetryPolicy.QUERY),
+                new DeduplicatingDirectExchangeBuffer(scheduler, DataSize.of(1, Unit.KILOBYTE), RetryPolicy.QUERY),
                 maxResponseSize,
                 1,
                 new Duration(1, SECONDS),
@@ -492,13 +492,13 @@ public class TestExchangeClient
         processor.addPage(location4, createSerializedPage("location-4-page-1"));
         processor.addPage(location4, createSerializedPage("location-4-page-2"));
 
-        TestingExchangeClientBuffer buffer = new TestingExchangeClientBuffer(DataSize.of(1, Unit.MEGABYTE));
+        TestingDirectExchangeBuffer buffer = new TestingDirectExchangeBuffer(DataSize.of(1, Unit.MEGABYTE));
 
         Set<TaskId> failedTasks = newConcurrentHashSet();
         CountDownLatch latch = new CountDownLatch(2);
 
         @SuppressWarnings("resource")
-        ExchangeClient exchangeClient = new ExchangeClient(
+        DirectExchangeClient exchangeClient = new DirectExchangeClient(
                 "localhost",
                 DataIntegrityVerification.ABORT,
                 buffer,
@@ -589,7 +589,7 @@ public class TestExchangeClient
         assertTrue(exchangeClient.isFinished());
     }
 
-    private static void assertTaskIsNotFinished(TestingExchangeClientBuffer buffer, TaskId task)
+    private static void assertTaskIsNotFinished(TestingDirectExchangeBuffer buffer, TaskId task)
     {
         assertThatThrownBy(() -> buffer.whenTaskFinished(task).get(50, MILLISECONDS))
                 .isInstanceOf(TimeoutException.class);
@@ -610,10 +610,10 @@ public class TestExchangeClient
         processor.setComplete(location);
 
         @SuppressWarnings("resource")
-        ExchangeClient exchangeClient = new ExchangeClient(
+        DirectExchangeClient exchangeClient = new DirectExchangeClient(
                 "localhost",
                 DataIntegrityVerification.ABORT,
-                new StreamingExchangeClientBuffer(scheduler, DataSize.ofBytes(1)),
+                new StreamingDirectExchangeBuffer(scheduler, DataSize.ofBytes(1)),
                 maxResponseSize,
                 1,
                 new Duration(1, TimeUnit.MINUTES),
@@ -685,7 +685,7 @@ public class TestExchangeClient
     public void testStreamingAbortOnDataCorruption()
     {
         URI location = URI.create("http://localhost:8080");
-        ExchangeClient exchangeClient = setUpDataCorruption(DataIntegrityVerification.ABORT, location);
+        DirectExchangeClient exchangeClient = setUpDataCorruption(DataIntegrityVerification.ABORT, location);
 
         assertThatThrownBy(() -> getNextPage(exchangeClient))
                 .isInstanceOf(TrinoException.class)
@@ -698,7 +698,7 @@ public class TestExchangeClient
     public void testStreamingRetryDataCorruption()
     {
         URI location = URI.create("http://localhost:8080");
-        ExchangeClient exchangeClient = setUpDataCorruption(DataIntegrityVerification.RETRY, location);
+        DirectExchangeClient exchangeClient = setUpDataCorruption(DataIntegrityVerification.RETRY, location);
 
         assertFalse(exchangeClient.isFinished());
         assertPageEquals(getNextPage(exchangeClient), createPage(1));
@@ -708,14 +708,14 @@ public class TestExchangeClient
         assertTrue(exchangeClient.isFinished());
         exchangeClient.close();
 
-        ExchangeClientStatus status = exchangeClient.getStatus();
+        DirectExchangeClientStatus status = exchangeClient.getStatus();
         assertEquals(status.getBufferedPages(), 0);
         assertEquals(status.getBufferedBytes(), 0);
 
         assertStatus(status.getPageBufferClientStatuses().get(0), location, "closed", 2, 4, 4, "not scheduled");
     }
 
-    private ExchangeClient setUpDataCorruption(DataIntegrityVerification dataIntegrityVerification, URI location)
+    private DirectExchangeClient setUpDataCorruption(DataIntegrityVerification dataIntegrityVerification, URI location)
     {
         DataSize maxResponseSize = DataSize.of(10, Unit.MEGABYTE);
 
@@ -761,10 +761,10 @@ public class TestExchangeClient
             }
         };
 
-        ExchangeClient exchangeClient = new ExchangeClient(
+        DirectExchangeClient exchangeClient = new DirectExchangeClient(
                 "localhost",
                 dataIntegrityVerification,
-                new StreamingExchangeClientBuffer(scheduler, DataSize.of(32, Unit.MEGABYTE)),
+                new StreamingDirectExchangeBuffer(scheduler, DataSize.of(32, Unit.MEGABYTE)),
                 maxResponseSize,
                 1,
                 new Duration(1, TimeUnit.MINUTES),
@@ -794,10 +794,10 @@ public class TestExchangeClient
         processor.addPage(location, createPage(3));
 
         @SuppressWarnings("resource")
-        ExchangeClient exchangeClient = new ExchangeClient(
+        DirectExchangeClient exchangeClient = new DirectExchangeClient(
                 "localhost",
                 DataIntegrityVerification.ABORT,
-                new StreamingExchangeClientBuffer(scheduler, DataSize.ofBytes(1)),
+                new StreamingDirectExchangeBuffer(scheduler, DataSize.ofBytes(1)),
                 maxResponseSize,
                 1,
                 new Duration(1, TimeUnit.MINUTES),
@@ -839,7 +839,7 @@ public class TestExchangeClient
         return new SerializedPage(utf8Slice(value), PageCodecMarker.MarkerSet.empty(), 1, value.length());
     }
 
-    private static SerializedPage getNextPage(ExchangeClient exchangeClient)
+    private static SerializedPage getNextPage(DirectExchangeClient exchangeClient)
     {
         ListenableFuture<SerializedPage> futurePage = Futures.transform(exchangeClient.isBlocked(), ignored -> exchangeClient.pollPage(), directExecutor());
         return tryGetFutureValue(futurePage, 100, TimeUnit.SECONDS).orElse(null);

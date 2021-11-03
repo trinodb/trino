@@ -24,7 +24,7 @@ import io.trino.operator.output.PartitionedOutputOperator.PartitionedOutputInfo;
         use = JsonTypeInfo.Id.NAME,
         property = "@type")
 @JsonSubTypes({
-        @JsonSubTypes.Type(value = ExchangeClientStatus.class, name = "exchangeClientStatus"),
+        @JsonSubTypes.Type(value = DirectExchangeClientStatus.class, name = "directExchangeClientStatus"),
         @JsonSubTypes.Type(value = LocalExchangeBufferInfo.class, name = "localExchangeBuffer"),
         @JsonSubTypes.Type(value = TableFinishInfo.class, name = "tableFinish"),
         @JsonSubTypes.Type(value = SplitOperatorInfo.class, name = "splitOperator"),

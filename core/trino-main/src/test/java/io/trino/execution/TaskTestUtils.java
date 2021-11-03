@@ -21,7 +21,7 @@ import io.trino.cost.StatsAndCosts;
 import io.trino.event.SplitMonitor;
 import io.trino.eventlistener.EventListenerConfig;
 import io.trino.eventlistener.EventListenerManager;
-import io.trino.execution.TestSqlTaskManager.MockExchangeClientSupplier;
+import io.trino.execution.TestSqlTaskManager.MockDirectExchangeClientSupplier;
 import io.trino.execution.buffer.OutputBuffers;
 import io.trino.execution.scheduler.NodeScheduler;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
@@ -129,7 +129,7 @@ public final class TaskTestUtils
                 new IndexManager(),
                 nodePartitioningManager,
                 new PageSinkManager(),
-                new MockExchangeClientSupplier(),
+                new MockDirectExchangeClientSupplier(),
                 new ExpressionCompiler(metadata, pageFunctionCompiler),
                 pageFunctionCompiler,
                 new JoinFilterFunctionCompiler(metadata),

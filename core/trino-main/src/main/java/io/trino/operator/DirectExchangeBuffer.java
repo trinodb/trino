@@ -20,7 +20,7 @@ import io.trino.execution.buffer.SerializedPage;
 import java.io.Closeable;
 import java.util.List;
 
-public interface ExchangeClientBuffer
+public interface DirectExchangeBuffer
         extends Closeable
 {
     /**

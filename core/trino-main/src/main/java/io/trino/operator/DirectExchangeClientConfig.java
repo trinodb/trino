@@ -26,7 +26,7 @@ import javax.validation.constraints.NotNull;
 
 import java.util.concurrent.TimeUnit;
 
-public class ExchangeClientConfig
+public class DirectExchangeClientConfig
 {
     private DataSize maxBufferSize = DataSize.of(32, Unit.MEGABYTE);
     private int concurrentRequestMultiplier = 3;
@@ -43,7 +43,7 @@ public class ExchangeClientConfig
     }
 
     @Config("exchange.max-buffer-size")
-    public ExchangeClientConfig setMaxBufferSize(DataSize maxBufferSize)
+    public DirectExchangeClientConfig setMaxBufferSize(DataSize maxBufferSize)
     {
         this.maxBufferSize = maxBufferSize;
         return this;
@@ -56,7 +56,7 @@ public class ExchangeClientConfig
     }
 
     @Config("exchange.concurrent-request-multiplier")
-    public ExchangeClientConfig setConcurrentRequestMultiplier(int concurrentRequestMultiplier)
+    public DirectExchangeClientConfig setConcurrentRequestMultiplier(int concurrentRequestMultiplier)
     {
         this.concurrentRequestMultiplier = concurrentRequestMultiplier;
         return this;
@@ -70,7 +70,7 @@ public class ExchangeClientConfig
 
     @Deprecated
     @Config("exchange.min-error-duration")
-    public ExchangeClientConfig setMinErrorDuration(Duration minErrorDuration)
+    public DirectExchangeClientConfig setMinErrorDuration(Duration minErrorDuration)
     {
         return this;
     }
@@ -83,7 +83,7 @@ public class ExchangeClientConfig
     }
 
     @Config("exchange.max-error-duration")
-    public ExchangeClientConfig setMaxErrorDuration(Duration maxErrorDuration)
+    public DirectExchangeClientConfig setMaxErrorDuration(Duration maxErrorDuration)
     {
         this.maxErrorDuration = maxErrorDuration;
         return this;
@@ -97,7 +97,7 @@ public class ExchangeClientConfig
     }
 
     @Config("exchange.max-response-size")
-    public ExchangeClientConfig setMaxResponseSize(DataSize maxResponseSize)
+    public DirectExchangeClientConfig setMaxResponseSize(DataSize maxResponseSize)
     {
         this.maxResponseSize = maxResponseSize;
         return this;
@@ -110,7 +110,7 @@ public class ExchangeClientConfig
     }
 
     @Config("exchange.client-threads")
-    public ExchangeClientConfig setClientThreads(int clientThreads)
+    public DirectExchangeClientConfig setClientThreads(int clientThreads)
     {
         this.clientThreads = clientThreads;
         return this;
@@ -123,7 +123,7 @@ public class ExchangeClientConfig
     }
 
     @Config("exchange.page-buffer-client.max-callback-threads")
-    public ExchangeClientConfig setPageBufferClientMaxCallbackThreads(int pageBufferClientMaxCallbackThreads)
+    public DirectExchangeClientConfig setPageBufferClientMaxCallbackThreads(int pageBufferClientMaxCallbackThreads)
     {
         this.pageBufferClientMaxCallbackThreads = pageBufferClientMaxCallbackThreads;
         return this;
@@ -135,7 +135,7 @@ public class ExchangeClientConfig
     }
 
     @Config("exchange.acknowledge-pages")
-    public ExchangeClientConfig setAcknowledgePages(boolean acknowledgePages)
+    public DirectExchangeClientConfig setAcknowledgePages(boolean acknowledgePages)
     {
         this.acknowledgePages = acknowledgePages;
         return this;
