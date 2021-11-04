@@ -42,6 +42,7 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordPageSource;
+import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
@@ -424,7 +425,7 @@ public class HivePageSourceProvider
     {
         private final ColumnMappingKind kind;
         private final HiveColumnHandle hiveColumnHandle;
-        private final Optional<String> prefilledValue;
+        private final Optional<NullableValue> prefilledValue;
         /**
          * ordinal of this column in the underlying page source or record cursor
          */
@@ -443,7 +444,7 @@ public class HivePageSourceProvider
             return new ColumnMapping(ColumnMappingKind.SYNTHESIZED, hiveColumnHandle, Optional.empty(), OptionalInt.of(index), baseTypeCoercionFrom);
         }
 
-        public static ColumnMapping prefilled(HiveColumnHandle hiveColumnHandle, String prefilledValue, Optional<HiveType> baseTypeCoercionFrom)
+        public static ColumnMapping prefilled(HiveColumnHandle hiveColumnHandle, NullableValue prefilledValue, Optional<HiveType> baseTypeCoercionFrom)
         {
             checkArgument(hiveColumnHandle.getColumnType() == PARTITION_KEY || hiveColumnHandle.getColumnType() == SYNTHESIZED);
             checkArgument(hiveColumnHandle.isBaseColumn(), "prefilled values not supported for projected columns");
@@ -465,7 +466,7 @@ public class HivePageSourceProvider
         private ColumnMapping(
                 ColumnMappingKind kind,
                 HiveColumnHandle hiveColumnHandle,
-                Optional<String> prefilledValue,
+                Optional<NullableValue> prefilledValue,
                 OptionalInt index,
                 Optional<HiveType> baseTypeCoercionFrom)
         {
@@ -481,7 +482,7 @@ public class HivePageSourceProvider
             return kind;
         }
 
-        public String getPrefilledValue()
+        public NullableValue getPrefilledValue()
         {
             checkState(kind == ColumnMappingKind.PREFILLED);
             return prefilledValue.get();
