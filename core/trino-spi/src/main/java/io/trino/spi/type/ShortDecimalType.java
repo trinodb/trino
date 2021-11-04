@@ -23,6 +23,9 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.ScalarOperator;
 
 import java.math.BigInteger;
+import java.util.Optional;
+import java.util.stream.LongStream;
+import java.util.stream.Stream;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
@@ -116,6 +119,12 @@ final class ShortDecimalType
     public void writeLong(BlockBuilder blockBuilder, long value)
     {
         blockBuilder.writeLong(value).closeEntry();
+    }
+
+    @Override
+    public Optional<Stream<?>> getDiscreteValues(Range range)
+    {
+        return Optional.of(LongStream.rangeClosed((long) range.getMin(), (long) range.getMax()).boxed());
     }
 
     @ScalarOperator(EQUAL)
