@@ -42,6 +42,7 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordPageSource;
+import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
@@ -73,6 +74,7 @@ import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
 import static io.trino.plugin.hive.HiveColumnHandle.isRowIdColumnHandle;
 import static io.trino.plugin.hive.HivePageSourceProvider.ColumnMapping.toColumnHandles;
+import static io.trino.plugin.hive.HivePageSourceProvider.ColumnMappingKind.PREFILLED;
 import static io.trino.plugin.hive.HiveUpdatablePageSource.ACID_ROW_STRUCT_COLUMN_ID;
 import static io.trino.plugin.hive.HiveUpdatablePageSource.ORIGINAL_FILE_PATH_MATCHER;
 import static io.trino.plugin.hive.orc.OrcTypeToHiveTypeTranslator.fromOrcTypeToHiveType;
@@ -178,6 +180,12 @@ public class HivePageSourceProvider
                 hiveSplit.getBucketNumber(),
                 hiveSplit.getEstimatedFileSize(),
                 hiveSplit.getFileModifiedTime());
+
+        // Perform dynamic partition pruning in case coordinator didn't prune split.
+        // This can happen when dynamic filters are collected after partition splits were listed.
+        if (shouldSkipSplit(columnMappings, dynamicFilter)) {
+            return new EmptyPageSource();
+        }
 
         Configuration configuration = hdfsEnvironment.getConfiguration(new HdfsContext(session), path);
 
@@ -385,6 +393,26 @@ public class HivePageSourceProvider
         return hiveBucketFilter.map(filter -> !filter.getBucketsToKeep().contains(hiveSplit.getBucketNumber().getAsInt())).orElse(false);
     }
 
+    private static boolean shouldSkipSplit(List<ColumnMapping> columnMappings, DynamicFilter dynamicFilter)
+    {
+        TupleDomain<ColumnHandle> predicate = dynamicFilter.getCurrentPredicate();
+        if (predicate.isNone()) {
+            return true;
+        }
+        Map<ColumnHandle, Domain> domains = predicate.getDomains().get();
+        for (ColumnMapping columnMapping : columnMappings) {
+            if (columnMapping.getKind() != PREFILLED) {
+                continue;
+            }
+            Object value = columnMapping.getPrefilledValue().getValue();
+            Domain allowedDomain = domains.get(columnMapping.getHiveColumnHandle());
+            if (allowedDomain != null && !allowedDomain.includesNullableValue(value)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private static ReaderProjectionsAdapter hiveProjectionsAdapter(List<HiveColumnHandle> expectedColumns, ReaderColumns readColumns)
     {
         return new ReaderProjectionsAdapter(
@@ -443,7 +471,7 @@ public class HivePageSourceProvider
         {
             checkArgument(hiveColumnHandle.getColumnType() == PARTITION_KEY || hiveColumnHandle.getColumnType() == SYNTHESIZED);
             checkArgument(hiveColumnHandle.isBaseColumn(), "prefilled values not supported for projected columns");
-            return new ColumnMapping(ColumnMappingKind.PREFILLED, hiveColumnHandle, Optional.of(prefilledValue), OptionalInt.empty(), baseTypeCoercionFrom);
+            return new ColumnMapping(PREFILLED, hiveColumnHandle, Optional.of(prefilledValue), OptionalInt.empty(), baseTypeCoercionFrom);
         }
 
         public static ColumnMapping interim(HiveColumnHandle hiveColumnHandle, int index, Optional<HiveType> baseTypeCoercionFrom)
@@ -479,7 +507,7 @@ public class HivePageSourceProvider
 
         public NullableValue getPrefilledValue()
         {
-            checkState(kind == ColumnMappingKind.PREFILLED);
+            checkState(kind == PREFILLED);
             return prefilledValue.get();
         }
 
