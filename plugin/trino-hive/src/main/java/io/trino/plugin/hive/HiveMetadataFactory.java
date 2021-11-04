@@ -62,6 +62,7 @@ public class HiveMetadataFactory
     private final HiveMaterializedViewMetadataFactory hiveMaterializedViewMetadataFactory;
     private final AccessControlMetadataFactory accessControlMetadataFactory;
     private final Optional<Duration> hiveTransactionHeartbeatInterval;
+    private final HiveTableRedirectionsProvider tableRedirectionsProvider;
     private final ScheduledExecutorService heartbeatService;
 
     @Inject
@@ -81,7 +82,8 @@ public class HiveMetadataFactory
             HiveRedirectionsProvider hiveRedirectionsProvider,
             Set<SystemTableProvider> systemTableProviders,
             HiveMaterializedViewMetadataFactory hiveMaterializedViewMetadataFactory,
-            AccessControlMetadataFactory accessControlMetadataFactory)
+            AccessControlMetadataFactory accessControlMetadataFactory,
+            HiveTableRedirectionsProvider tableRedirectionsProvider)
     {
         this(
                 catalogName,
@@ -108,7 +110,8 @@ public class HiveMetadataFactory
                 hiveRedirectionsProvider,
                 systemTableProviders,
                 hiveMaterializedViewMetadataFactory,
-                accessControlMetadataFactory);
+                accessControlMetadataFactory,
+                tableRedirectionsProvider);
     }
 
     public HiveMetadataFactory(
@@ -136,7 +139,8 @@ public class HiveMetadataFactory
             HiveRedirectionsProvider hiveRedirectionsProvider,
             Set<SystemTableProvider> systemTableProviders,
             HiveMaterializedViewMetadataFactory hiveMaterializedViewMetadataFactory,
-            AccessControlMetadataFactory accessControlMetadataFactory)
+            AccessControlMetadataFactory accessControlMetadataFactory,
+            HiveTableRedirectionsProvider tableRedirectionsProvider)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.skipDeletionForAlter = skipDeletionForAlter;
@@ -158,6 +162,7 @@ public class HiveMetadataFactory
         this.systemTableProviders = requireNonNull(systemTableProviders, "systemTableProviders is null");
         this.hiveMaterializedViewMetadataFactory = requireNonNull(hiveMaterializedViewMetadataFactory, "hiveMaterializedViewMetadataFactory is null");
         this.accessControlMetadataFactory = requireNonNull(accessControlMetadataFactory, "accessControlMetadataFactory is null");
+        this.tableRedirectionsProvider = requireNonNull(tableRedirectionsProvider, "tableRedirectionsProvider is null");
         this.hiveTransactionHeartbeatInterval = requireNonNull(hiveTransactionHeartbeatInterval, "hiveTransactionHeartbeatInterval is null");
 
         renameExecution = new BoundedExecutor(executorService, maxConcurrentFileRenames);
@@ -207,6 +212,7 @@ public class HiveMetadataFactory
                 hiveRedirectionsProvider,
                 systemTableProviders,
                 hiveMaterializedViewMetadataFactory.create(hiveMetastoreClosure),
-                accessControlMetadataFactory.create(metastore));
+                accessControlMetadataFactory.create(metastore),
+                tableRedirectionsProvider);
     }
 }

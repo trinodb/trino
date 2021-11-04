@@ -60,6 +60,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.BeginTableExecuteResult;
 import io.trino.spi.connector.CatalogSchemaName;
+import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
@@ -294,6 +295,7 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
 import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
+import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
 import static org.apache.hadoop.hive.ql.io.AcidUtils.OrcAcidVersion.writeVersionFile;
 import static org.apache.hadoop.hive.ql.io.AcidUtils.deltaSubdir;
 import static org.apache.hadoop.hive.ql.io.AcidUtils.isFullAcidTable;
@@ -350,6 +352,7 @@ public class HiveMetadata
     private final Set<SystemTableProvider> systemTableProviders;
     private final HiveMaterializedViewMetadata hiveMaterializedViewMetadata;
     private final AccessControlMetadata accessControlMetadata;
+    private final HiveTableRedirectionsProvider tableRedirectionsProvider;
 
     public HiveMetadata(
             CatalogName catalogName,
@@ -369,7 +372,8 @@ public class HiveMetadata
             HiveRedirectionsProvider hiveRedirectionsProvider,
             Set<SystemTableProvider> systemTableProviders,
             HiveMaterializedViewMetadata hiveMaterializedViewMetadata,
-            AccessControlMetadata accessControlMetadata)
+            AccessControlMetadata accessControlMetadata,
+            HiveTableRedirectionsProvider tableRedirectionsProvider)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
@@ -389,6 +393,7 @@ public class HiveMetadata
         this.systemTableProviders = requireNonNull(systemTableProviders, "systemTableProviders is null");
         this.hiveMaterializedViewMetadata = requireNonNull(hiveMaterializedViewMetadata, "hiveMaterializedViewMetadata is null");
         this.accessControlMetadata = requireNonNull(accessControlMetadata, "accessControlMetadata is null");
+        this.tableRedirectionsProvider = requireNonNull(tableRedirectionsProvider, "tableRedirectionsProvider is null");
     }
 
     @Override
@@ -3360,6 +3365,61 @@ public class HiveMetadata
     public CompletableFuture<?> refreshMaterializedView(ConnectorSession session, SchemaTableName name)
     {
         return hiveMaterializedViewMetadata.refreshMaterializedView(session, name);
+    }
+
+    @Override
+    public Optional<CatalogSchemaTableName> redirectTable(ConnectorSession session, SchemaTableName tableName)
+    {
+        requireNonNull(session, "session is null");
+        requireNonNull(tableName, "tableName is null");
+        if (isHiveSystemSchema(tableName.getSchemaName())) {
+            return Optional.empty();
+        }
+        // we need to chop off any "$partitions" and similar suffixes from table name while querying the metastore for the Table object
+        TableNameSplitResult tableNameSplit = splitTableName(tableName.getTableName());
+        Optional<Table> table = metastore.getTable(new HiveIdentity(session), tableName.getSchemaName(), tableNameSplit.getBaseTableName());
+        if (table.isEmpty() || VIRTUAL_VIEW.name().equals(table.get().getTableType())) {
+            return Optional.empty();
+        }
+
+        Optional<CatalogSchemaTableName> catalogSchemaTableName = tableRedirectionsProvider.redirectTable(session, table.get());
+
+        // stitch back the suffix we cut off.
+        return catalogSchemaTableName.map(name -> new CatalogSchemaTableName(
+                name.getCatalogName(),
+                new SchemaTableName(
+                        name.getSchemaTableName().getSchemaName(),
+                        name.getSchemaTableName().getTableName() + tableNameSplit.getSuffix().orElse(""))));
+    }
+
+    private static TableNameSplitResult splitTableName(String tableName)
+    {
+        int metadataMarkerIndex = tableName.lastIndexOf('$');
+        return metadataMarkerIndex <= 0 ? // marker not found or at the beginning of tableName
+                new TableNameSplitResult(tableName, Optional.empty()) :
+                new TableNameSplitResult(tableName.substring(0, metadataMarkerIndex), Optional.of(tableName.substring(metadataMarkerIndex)));
+    }
+
+    private static class TableNameSplitResult
+    {
+        private final String baseTableName;
+        private final Optional<String> suffix;
+
+        public TableNameSplitResult(String baseTableName, Optional<String> suffix)
+        {
+            this.baseTableName = requireNonNull(baseTableName, "baseTableName is null");
+            this.suffix = requireNonNull(suffix, "suffix is null");
+        }
+
+        public String getBaseTableName()
+        {
+            return baseTableName;
+        }
+
+        public Optional<String> getSuffix()
+        {
+            return suffix;
+        }
     }
 
     @SafeVarargs

@@ -228,6 +228,7 @@ import static io.trino.plugin.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.SORTED_BY_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
+import static io.trino.plugin.hive.HiveTableRedirectionsProvider.NO_REDIRECTIONS;
 import static io.trino.plugin.hive.HiveTestUtils.PAGE_SORTER;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.plugin.hive.HiveTestUtils.TYPE_MANAGER;
@@ -854,7 +855,8 @@ public abstract class AbstractTestHive
                                 ImmutableMap.of()));
                     }
                 },
-                SqlStandardAccessControlMetadata::new);
+                SqlStandardAccessControlMetadata::new,
+                NO_REDIRECTIONS);
         transactionManager = new HiveTransactionManager();
         splitManager = new HiveSplitManager(
                 transactionHandle -> transactionManager.get(transactionHandle).getMetastore(),
