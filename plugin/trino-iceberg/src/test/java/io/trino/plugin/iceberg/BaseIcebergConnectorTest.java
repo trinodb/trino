@@ -2566,7 +2566,7 @@ public abstract class BaseIcebergConnectorTest
                         }
                         else {
                             assertEqualsIgnoreOrder(result, computeActual("VALUES " +
-                                    "  ('a_boolean', NULL, 0e0, NULL, NULL, NULL), " +
+                                    "  ('a_boolean', NULL, 0e0, NULL, 'true', 'true'), " +
                                     "  ('an_integer', NULL, 0e0, NULL, '1', '1'), " +
                                     "  ('a_bigint', NULL, 0e0, NULL, '1', '1'), " +
                                     "  ('a_real', NULL, 0e0, NULL, '1.0', '1.0'), " +
