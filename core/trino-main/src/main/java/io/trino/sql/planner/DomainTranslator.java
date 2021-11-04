@@ -858,6 +858,11 @@ public final class DomainTranslator
             InListExpression valueList = (InListExpression) node.getValueList();
             checkState(!valueList.getValues().isEmpty(), "InListExpression should never be empty");
 
+            Optional<ExtractionResult> directExtractionResult = processSimpleInPredicate(node, complement);
+            if (directExtractionResult.isPresent()) {
+                return directExtractionResult.get();
+            }
+
             ImmutableList.Builder<Expression> disjuncts = ImmutableList.builder();
             for (Expression expression : valueList.getValues()) {
                 disjuncts.add(new ComparisonExpression(EQUAL, node.getValue(), expression));
@@ -873,6 +878,74 @@ public final class DomainTranslator
                 return new ExtractionResult(extractionResult.tupleDomain, originalPredicate);
             }
             return extractionResult;
+        }
+
+        private Optional<ExtractionResult> processSimpleInPredicate(InPredicate node, Boolean complement)
+        {
+            if (!(node.getValue() instanceof SymbolReference)) {
+                return Optional.empty();
+            }
+            Symbol symbol = Symbol.from(node.getValue());
+            Map<NodeRef<Expression>, Type> expressionTypes = analyzeExpression(node);
+            Type type = expressionTypes.get(NodeRef.of(node.getValue()));
+            InListExpression valueList = (InListExpression) node.getValueList();
+            List<Object> inValues = new ArrayList<>(valueList.getValues().size());
+            List<Expression> excludedExpressions = new ArrayList<>();
+
+            for (Expression expression : valueList.getValues()) {
+                Object value = new ExpressionInterpreter(expression, metadata, session, expressionTypes)
+                        .optimize(NoOpSymbolResolver.INSTANCE);
+                if (value == null || value instanceof NullLiteral) {
+                    if (!complement) {
+                        // in case of IN, NULL on the right results with NULL comparison result (effectively false in predicate context), so can be ignored, as the
+                        // comparison results are OR-ed
+                        continue;
+                    }
+                    // NOT IN is equivalent to NOT(s eq v1) AND NOT(s eq v2). When any right value is NULL, the comparison result is NULL, so AND's result can be at most
+                    // NULL (effectively false in predicate context)
+                    return Optional.of(new ExtractionResult(TupleDomain.none(), TRUE_LITERAL));
+                }
+                if (value instanceof Expression) {
+                    if (!complement) {
+                        // in case of IN, expression on the right side prevents determining the domain: any lhs value can be eligible
+                        return Optional.of(new ExtractionResult(TupleDomain.all(), node));
+                    }
+                    // in case of NOT IN, expression on the right side still allows determining values that are *not* part of the final domain
+                    excludedExpressions.add(((Expression) value));
+                    continue;
+                }
+                if (isFloatingPointNaN(type, value)) {
+                    // NaN can be ignored: it always compares to false, as if it was not among IN's values
+                    continue;
+                }
+                if (complement && (type instanceof RealType || type instanceof DoubleType)) {
+                    // in case of NOT IN with floating point, the NaN on the left passes the test (unless a NULL is found, and we exited earlier)
+                    // but this cannot currently be described with a Domain other than Domain.all
+                    excludedExpressions.add(expression);
+                }
+                else {
+                    inValues.add(value);
+                }
+            }
+
+            ValueSet valueSet = ValueSet.copyOf(type, inValues);
+            if (complement) {
+                valueSet = valueSet.complement();
+            }
+            TupleDomain<Symbol> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(symbol, Domain.create(valueSet, false)));
+
+            Expression remainingExpression;
+            if (excludedExpressions.isEmpty()) {
+                remainingExpression = TRUE_LITERAL;
+            }
+            else if (excludedExpressions.size() == 1) {
+                remainingExpression = new NotExpression(new ComparisonExpression(EQUAL, node.getValue(), getOnlyElement(excludedExpressions)));
+            }
+            else {
+                remainingExpression = new NotExpression(new InPredicate(node.getValue(), new InListExpression(excludedExpressions)));
+            }
+
+            return Optional.of(new ExtractionResult(tupleDomain, remainingExpression));
         }
 
         @Override
