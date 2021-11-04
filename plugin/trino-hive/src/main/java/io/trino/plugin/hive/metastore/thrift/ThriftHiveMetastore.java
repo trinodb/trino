@@ -1017,7 +1017,7 @@ public class ThriftHiveMetastore
                     .stopOnIllegalExceptions()
                     .run("dropDatabase", stats.getDropDatabase().wrap(() -> {
                         try (ThriftMetastoreClient client = createMetastoreClient(identity)) {
-                            client.dropDatabase(databaseName, true, false);
+                            client.dropDatabase(databaseName, false, false);
                         }
                         return null;
                     }));
