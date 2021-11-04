@@ -17,6 +17,8 @@ import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorSession;
 
 import java.util.Optional;
+import java.util.stream.LongStream;
+import java.util.stream.Stream;
 
 public final class IntegerType
         extends AbstractIntType
@@ -42,6 +44,12 @@ public final class IntegerType
     public Optional<Range> getRange()
     {
         return Optional.of(new Range((long) Integer.MIN_VALUE, (long) Integer.MAX_VALUE));
+    }
+
+    @Override
+    public Optional<Stream<?>> getDiscreteValues(Range range)
+    {
+        return Optional.of(LongStream.rangeClosed((long) range.getMin(), (long) range.getMax()).boxed());
     }
 
     @Override
