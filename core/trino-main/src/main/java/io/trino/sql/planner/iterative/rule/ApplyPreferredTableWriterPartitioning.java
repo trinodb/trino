@@ -17,30 +17,35 @@ import io.trino.Session;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.planner.iterative.Rule;
-import io.trino.sql.planner.plan.TableExecuteNode;
+import io.trino.sql.planner.plan.TableWriterNode;
 
 import java.util.Optional;
 
 import static io.trino.SystemSessionProperties.getPreferredWritePartitioningMinNumberOfPartitions;
 import static io.trino.SystemSessionProperties.isUsePreferredWritePartitioning;
 import static io.trino.cost.AggregationStatsRule.getRowsCount;
-import static io.trino.sql.planner.plan.Patterns.tableExecute;
+import static io.trino.sql.planner.plan.Patterns.tableWriterNode;
 import static java.lang.Double.isNaN;
 
 /**
- * Replaces {@link TableExecuteNode} with {@link TableExecuteNode#getPreferredPartitioningScheme()}
- * with a {@link TableExecuteNode} with {@link TableExecuteNode#getPartitioningScheme()} set.
+ * Rule verifies if preconditions for using preferred write partitioning are met:
+ *  - expected number of partitions to be written (based on table stat) is greater
+ *    than or equal to preferred_write_partitioning_min_number_of_partitions session property,
+ *  - use_preferred_write_partitioning is set to true.
+ *
+ * If precondition are met the {@link TableWriterNode} is modified to mark the intention to use preferred write partitioning:
+ * value of {@link TableWriterNode#getPreferredPartitioningScheme()} is set as result of {@link TableWriterNode#getPartitioningScheme()}.
  */
-public class DeterminePreferredTableExecutePartitioning
-        implements Rule<TableExecuteNode>
+public class ApplyPreferredTableWriterPartitioning
+        implements Rule<TableWriterNode>
 {
-    public static final Pattern<TableExecuteNode> TABLE_EXECUTE_NODE_WITH_PREFERRED_PARTITIONING = tableExecute()
+    public static final Pattern<TableWriterNode> WRITER_NODE_WITH_PREFERRED_PARTITIONING = tableWriterNode()
             .matching(node -> node.getPreferredPartitioningScheme().isPresent());
 
     @Override
-    public Pattern<TableExecuteNode> getPattern()
+    public Pattern<TableWriterNode> getPattern()
     {
-        return TABLE_EXECUTE_NODE_WITH_PREFERRED_PARTITIONING;
+        return WRITER_NODE_WITH_PREFERRED_PARTITIONING;
     }
 
     @Override
@@ -50,7 +55,7 @@ public class DeterminePreferredTableExecutePartitioning
     }
 
     @Override
-    public Result apply(TableExecuteNode node, Captures captures, Context context)
+    public Result apply(TableWriterNode node, Captures captures, Context context)
     {
         int minimumNumberOfPartitions = getPreferredWritePartitioningMinNumberOfPartitions(context.getSession());
         if (minimumNumberOfPartitions <= 1) {
@@ -69,9 +74,9 @@ public class DeterminePreferredTableExecutePartitioning
         return enable(node);
     }
 
-    private static Result enable(TableExecuteNode node)
+    private Result enable(TableWriterNode node)
     {
-        return Result.ofPlanNode(new TableExecuteNode(
+        return Result.ofPlanNode(new TableWriterNode(
                 node.getId(),
                 node.getSource(),
                 node.getTarget(),
@@ -79,7 +84,10 @@ public class DeterminePreferredTableExecutePartitioning
                 node.getFragmentSymbol(),
                 node.getColumns(),
                 node.getColumnNames(),
+                node.getNotNullColumnSymbols(),
                 node.getPreferredPartitioningScheme(),
-                Optional.empty()));
+                Optional.empty(),
+                node.getStatisticsAggregation(),
+                node.getStatisticsAggregationDescriptor()));
     }
 }

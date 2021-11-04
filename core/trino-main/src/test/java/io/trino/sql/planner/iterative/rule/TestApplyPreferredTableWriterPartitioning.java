@@ -43,7 +43,7 @@ import static io.trino.sql.planner.iterative.rule.test.RuleTester.defaultRuleTes
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.Double.NaN;
 
-public class TestDeterminePreferredWritePartitioning
+public class TestApplyPreferredTableWriterPartitioning
 {
     private static final String MOCK_CATALOG = "mock_catalog";
     private static final String TEST_SCHEMA = "test_schema";
@@ -163,7 +163,7 @@ public class TestDeterminePreferredWritePartitioning
 
     private RuleAssert assertPreferredPartitioning(PartitioningScheme preferredPartitioningScheme)
     {
-        return tester.assertThat(new DeterminePreferredWritePartitioning())
+        return tester.assertThat(new ApplyPreferredTableWriterPartitioning())
                 .on(builder -> builder.tableWriter(
                         ImmutableList.of(),
                         ImmutableList.of(),
