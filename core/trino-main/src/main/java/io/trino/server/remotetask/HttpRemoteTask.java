@@ -676,11 +676,7 @@ public final class HttpRemoteTask
             }
 
             // send cancel to task and ignore response
-            HttpUriBuilder uriBuilder = getHttpUriBuilder(taskStatus).addParameter("abort", "false");
-            Request request = prepareDelete()
-                    .setUri(uriBuilder.build())
-                    .build();
-            scheduleAsyncCleanupRequest(new Backoff(maxErrorDuration), request, "cancel");
+            scheduleAsyncCleanupRequest(new Backoff(maxErrorDuration), "cancel", false);
         }
     }
 
@@ -711,12 +707,7 @@ public final class HttpRemoteTask
 
         // The remote task is likely to get a delete from the PageBufferClient first.
         // We send an additional delete anyway to get the final TaskInfo
-        HttpUriBuilder uriBuilder = getHttpUriBuilder(getTaskStatus());
-        Request request = prepareDelete()
-                .setUri(uriBuilder.build())
-                .build();
-
-        scheduleAsyncCleanupRequest(new Backoff(maxErrorDuration), request, "cleanup");
+        scheduleAsyncCleanupRequest(new Backoff(maxErrorDuration), "cleanup", true);
     }
 
     @Override
@@ -726,32 +717,26 @@ public final class HttpRemoteTask
             return;
         }
 
-        abort(failWith(getTaskStatus(), ABORTED, ImmutableList.of()));
-    }
-
-    private synchronized void abort(TaskStatus status)
-    {
-        checkState(status.getState().isDone(), "cannot abort task with an incomplete status");
-
+        TaskStatus status = failWith(getTaskStatus(), ABORTED, ImmutableList.of());
         try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             taskStatusFetcher.updateTaskStatus(status);
-
             // send abort to task
-            HttpUriBuilder uriBuilder = getHttpUriBuilder(getTaskStatus());
-            Request request = prepareDelete()
-                    .setUri(uriBuilder.build())
-                    .build();
-            scheduleAsyncCleanupRequest(new Backoff(maxErrorDuration), request, "abort");
+            scheduleAsyncCleanupRequest(new Backoff(maxErrorDuration), "abort", true);
         }
     }
 
-    private void scheduleAsyncCleanupRequest(Backoff cleanupBackoff, Request request, String action)
+    private void scheduleAsyncCleanupRequest(Backoff cleanupBackoff, String action, boolean abort)
     {
         if (!aborting.compareAndSet(false, true)) {
             // Do not initiate another round of cleanup requests if one had been initiated.
             // Otherwise, we can get into an asynchronous recursion here. For example, when aborting a task after REMOTE_TASK_MISMATCH.
             return;
         }
+
+        HttpUriBuilder uriBuilder = getHttpUriBuilder(getTaskStatus()).addParameter("abort", "" + abort);
+        Request request = prepareDelete()
+                .setUri(uriBuilder.build())
+                .build();
         doScheduleAsyncCleanupRequest(cleanupBackoff, request, action);
     }
 
@@ -831,7 +816,12 @@ public final class HttpRemoteTask
             log.debug(cause, "Remote task %s failed with %s", taskStatus.getSelf(), cause);
         }
 
-        abort(failWith(getTaskStatus(), FAILED, ImmutableList.of(toFailure(cause))));
+        TaskStatus status = failWith(getTaskStatus(), FAILED, ImmutableList.of(toFailure(cause)));
+        taskStatusFetcher.updateTaskStatus(status);
+
+        try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
+            scheduleAsyncCleanupRequest(new Backoff(maxErrorDuration), "abort", true);
+        }
     }
 
     private HttpUriBuilder getHttpUriBuilder(TaskStatus taskStatus)
