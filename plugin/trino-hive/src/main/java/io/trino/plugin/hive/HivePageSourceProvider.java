@@ -168,6 +168,17 @@ public class HivePageSourceProvider
         Path path = new Path(hiveSplit.getPath());
         boolean originalFile = ORIGINAL_FILE_PATH_MATCHER.matcher(path.toString()).matches();
 
+        List<ColumnMapping> columnMappings = ColumnMapping.buildColumnMappings(
+                hiveSplit.getPartitionName(),
+                hiveSplit.getPartitionKeys(),
+                hiveColumns,
+                hiveSplit.getBucketConversion().map(BucketConversion::getBucketColumnHandles).orElse(ImmutableList.of()),
+                hiveSplit.getTableToPartitionMapping(),
+                path,
+                hiveSplit.getBucketNumber(),
+                hiveSplit.getEstimatedFileSize(),
+                hiveSplit.getFileModifiedTime());
+
         Configuration configuration = hdfsEnvironment.getConfiguration(new HdfsContext(session), path);
 
         TupleDomain<HiveColumnHandle> simplifiedDynamicFilter = dynamicFilter
@@ -183,20 +194,17 @@ public class HivePageSourceProvider
                 hiveSplit.getStart(),
                 hiveSplit.getLength(),
                 hiveSplit.getEstimatedFileSize(),
-                hiveSplit.getFileModifiedTime(),
                 hiveSplit.getSchema(),
                 hiveTable.getCompactEffectivePredicate().intersect(simplifiedDynamicFilter),
                 hiveColumns,
-                hiveSplit.getPartitionName(),
-                hiveSplit.getPartitionKeys(),
                 typeManager,
-                hiveSplit.getTableToPartitionMapping(),
                 hiveSplit.getBucketConversion(),
                 hiveSplit.getBucketValidation(),
                 hiveSplit.isS3SelectPushdownEnabled(),
                 hiveSplit.getAcidInfo(),
                 originalFile,
-                hiveTable.getTransaction());
+                hiveTable.getTransaction(),
+                columnMappings);
 
         if (pageSource.isPresent()) {
             ConnectorPageSource source = pageSource.get();
@@ -247,35 +255,22 @@ public class HivePageSourceProvider
             long start,
             long length,
             long estimatedFileSize,
-            long fileModifiedTime,
             Properties schema,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             List<HiveColumnHandle> columns,
-            String partitionName,
-            List<HivePartitionKey> partitionKeys,
             TypeManager typeManager,
-            TableToPartitionMapping tableToPartitionMapping,
             Optional<BucketConversion> bucketConversion,
             Optional<BucketValidation> bucketValidation,
             boolean s3SelectPushdownEnabled,
             Optional<AcidInfo> acidInfo,
             boolean originalFile,
-            AcidTransaction transaction)
+            AcidTransaction transaction,
+            List<ColumnMapping> columnMappings)
     {
         if (effectivePredicate.isNone()) {
             return Optional.of(new EmptyPageSource());
         }
 
-        List<ColumnMapping> columnMappings = ColumnMapping.buildColumnMappings(
-                partitionName,
-                partitionKeys,
-                columns,
-                bucketConversion.map(BucketConversion::getBucketColumnHandles).orElse(ImmutableList.of()),
-                tableToPartitionMapping,
-                path,
-                bucketNumber,
-                estimatedFileSize,
-                fileModifiedTime);
         List<ColumnMapping> regularAndInterimColumnMappings = ColumnMapping.extractRegularAndInterimColumnMappings(columnMappings);
 
         Optional<BucketAdaptation> bucketAdaptation = createBucketAdaptation(bucketConversion, bucketNumber, regularAndInterimColumnMappings);
