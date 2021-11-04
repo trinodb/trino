@@ -59,7 +59,7 @@ import static org.testng.Assert.assertEquals;
 @BenchmarkMode(Mode.AverageTime)
 public class BenchmarkDecimalAggregation
 {
-    private static final int ELEMENT_COUNT = 10_000;
+    private static final int ELEMENT_COUNT = 1_000_000;
 
     @Benchmark
     @OperationsPerInvocation(ELEMENT_COUNT)
@@ -71,6 +71,7 @@ public class BenchmarkDecimalAggregation
     }
 
     @Benchmark
+    @OperationsPerInvocation(ELEMENT_COUNT)
     public Block benchmarkEvaluateIntermediate(BenchmarkData data)
     {
         GroupedAccumulator accumulator = data.getAccumulatorFactory().createGroupedAccumulator();

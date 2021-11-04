@@ -375,7 +375,8 @@ public class TestAccessControlManager
     private static CatalogName registerBogusConnector(CatalogManager catalogManager, TransactionManager transactionManager, AccessControl accessControl, String catalogName)
     {
         CatalogName catalog = new CatalogName(catalogName);
-        Connector connector = new TpchConnectorFactory().create(catalogName, ImmutableMap.of(), new TestingConnectorContext());
+        TpchConnectorFactory factory = new TpchConnectorFactory();
+        Connector connector = factory.create(catalogName, ImmutableMap.of(), new TestingConnectorContext());
 
         InMemoryNodeManager nodeManager = new InMemoryNodeManager();
         Metadata metadata = createTestMetadataManager(catalogManager);
@@ -383,6 +384,7 @@ public class TestAccessControlManager
         catalogManager.registerCatalog(new Catalog(
                 catalogName,
                 catalog,
+                factory.getName(),
                 connector,
                 SecurityManagement.CONNECTOR,
                 createInformationSchemaCatalogName(catalog),

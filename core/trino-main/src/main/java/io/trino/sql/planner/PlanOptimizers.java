@@ -32,6 +32,8 @@ import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.iterative.RuleStats;
 import io.trino.sql.planner.iterative.rule.AddExchangesBelowPartialAggregationOverGroupIdRuleSet;
 import io.trino.sql.planner.iterative.rule.AddIntermediateAggregations;
+import io.trino.sql.planner.iterative.rule.ApplyPreferredTableExecutePartitioning;
+import io.trino.sql.planner.iterative.rule.ApplyPreferredTableWriterPartitioning;
 import io.trino.sql.planner.iterative.rule.ApplyTableScanRedirection;
 import io.trino.sql.planner.iterative.rule.CanonicalizeExpressions;
 import io.trino.sql.planner.iterative.rule.CreatePartialTopN;
@@ -48,7 +50,6 @@ import io.trino.sql.planner.iterative.rule.DesugarLambdaExpression;
 import io.trino.sql.planner.iterative.rule.DesugarLike;
 import io.trino.sql.planner.iterative.rule.DesugarTryExpression;
 import io.trino.sql.planner.iterative.rule.DetermineJoinDistributionType;
-import io.trino.sql.planner.iterative.rule.DeterminePreferredWritePartitioning;
 import io.trino.sql.planner.iterative.rule.DetermineSemiJoinDistributionType;
 import io.trino.sql.planner.iterative.rule.DetermineTableScanNodePartitioning;
 import io.trino.sql.planner.iterative.rule.EliminateCrossJoins;
@@ -121,6 +122,7 @@ import io.trino.sql.planner.iterative.rule.PruneSemiJoinFilteringSourceColumns;
 import io.trino.sql.planner.iterative.rule.PruneSortColumns;
 import io.trino.sql.planner.iterative.rule.PruneSpatialJoinChildrenColumns;
 import io.trino.sql.planner.iterative.rule.PruneSpatialJoinColumns;
+import io.trino.sql.planner.iterative.rule.PruneTableExecuteSourceColumns;
 import io.trino.sql.planner.iterative.rule.PruneTableScanColumns;
 import io.trino.sql.planner.iterative.rule.PruneTableWriterSourceColumns;
 import io.trino.sql.planner.iterative.rule.PruneTopNColumns;
@@ -181,6 +183,7 @@ import io.trino.sql.planner.iterative.rule.RemoveAggregationInSemiJoin;
 import io.trino.sql.planner.iterative.rule.RemoveDuplicateConditions;
 import io.trino.sql.planner.iterative.rule.RemoveEmptyDelete;
 import io.trino.sql.planner.iterative.rule.RemoveEmptyExceptBranches;
+import io.trino.sql.planner.iterative.rule.RemoveEmptyTableExecute;
 import io.trino.sql.planner.iterative.rule.RemoveEmptyUnionBranches;
 import io.trino.sql.planner.iterative.rule.RemoveFullSample;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantDistinctLimit;
@@ -354,6 +357,7 @@ public class PlanOptimizers
                 new PruneSortColumns(),
                 new PruneSpatialJoinChildrenColumns(),
                 new PruneSpatialJoinColumns(),
+                new PruneTableExecuteSourceColumns(),
                 new PruneTableScanColumns(metadata),
                 new PruneTableWriterSourceColumns(),
                 new PruneTopNColumns(),
@@ -786,7 +790,9 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        ImmutableSet.of(new DeterminePreferredWritePartitioning())),
+                        ImmutableSet.of(
+                                new ApplyPreferredTableWriterPartitioning(),
+                                new ApplyPreferredTableExecutePartitioning())),
                 // Because ReorderJoins runs only once,
                 // PredicatePushDown, columnPruningOptimizer and RemoveRedundantIdentityProjections
                 // need to run beforehand in order to produce an optimal join order
@@ -883,7 +889,9 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         costCalculator,
-                        ImmutableSet.of(new RemoveEmptyDelete()))); // Run RemoveEmptyDelete after table scan is removed by PickTableLayout/AddExchanges
+                        ImmutableSet.of(
+                                new RemoveEmptyDelete(),
+                                new RemoveEmptyTableExecute()))); // Run RemoveEmptyDelete and RemoveEmptyTableExecute after table scan is removed by PickTableLayout/AddExchanges
 
         // Run predicate push down one more time in case we can leverage new information from layouts' effective predicate
         // and to pushdown dynamic filters

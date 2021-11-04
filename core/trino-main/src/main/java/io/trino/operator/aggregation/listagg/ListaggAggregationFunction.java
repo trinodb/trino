@@ -66,7 +66,7 @@ public class ListaggAggregationFunction
 {
     public static final ListaggAggregationFunction LISTAGG = new ListaggAggregationFunction();
     public static final String NAME = "listagg";
-    private static final MethodHandle INPUT_FUNCTION = methodHandle(ListaggAggregationFunction.class, "input", Type.class, ListaggAggregationState.class, Block.class, Slice.class, boolean.class, Slice.class, boolean.class, int.class);
+    private static final MethodHandle INPUT_FUNCTION = methodHandle(ListaggAggregationFunction.class, "input", Type.class, ListaggAggregationState.class, Block.class, int.class, Slice.class, boolean.class, Slice.class, boolean.class);
     private static final MethodHandle COMBINE_FUNCTION = methodHandle(ListaggAggregationFunction.class, "combine", Type.class, ListaggAggregationState.class, ListaggAggregationState.class);
     private static final MethodHandle OUTPUT_FUNCTION = methodHandle(ListaggAggregationFunction.class, "output", Type.class, ListaggAggregationState.class, BlockBuilder.class);
 
@@ -128,11 +128,11 @@ public class ListaggAggregationFunction
         List<ParameterMetadata> inputParameterMetadata = ImmutableList.of(
                 new ParameterMetadata(STATE),
                 new ParameterMetadata(NULLABLE_BLOCK_INPUT_CHANNEL, type),
+                new ParameterMetadata(BLOCK_INDEX),
                 new ParameterMetadata(INPUT_CHANNEL, VARCHAR),
                 new ParameterMetadata(INPUT_CHANNEL, BOOLEAN),
                 new ParameterMetadata(INPUT_CHANNEL, VARCHAR),
-                new ParameterMetadata(INPUT_CHANNEL, BOOLEAN),
-                new ParameterMetadata(BLOCK_INDEX));
+                new ParameterMetadata(INPUT_CHANNEL, BOOLEAN));
 
         MethodHandle inputFunction = INPUT_FUNCTION.bindTo(type);
         MethodHandle combineFunction = COMBINE_FUNCTION.bindTo(type);
@@ -156,7 +156,7 @@ public class ListaggAggregationFunction
         return new InternalAggregationFunction(NAME, inputTypes, ImmutableList.of(intermediateType), outputType, factory);
     }
 
-    public static void input(Type type, ListaggAggregationState state, Block value, Slice separator, boolean overflowError, Slice overflowFiller, boolean showOverflowEntryCount, int position)
+    public static void input(Type type, ListaggAggregationState state, Block value, int position, Slice separator, boolean overflowError, Slice overflowFiller, boolean showOverflowEntryCount)
     {
         if (state.isEmpty()) {
             if (overflowFiller.length() > MAX_OVERFLOW_FILLER_LENGTH) {

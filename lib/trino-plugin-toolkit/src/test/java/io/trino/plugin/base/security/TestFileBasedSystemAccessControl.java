@@ -72,6 +72,7 @@ public class TestFileBasedSystemAccessControl
     private static final Optional<QueryId> queryId = Optional.empty();
 
     private static final Identity charlie = Identity.forUser("charlie").withGroups(ImmutableSet.of("guests")).build();
+    private static final Identity dave = Identity.forUser("dave").withGroups(ImmutableSet.of("contractors")).build();
     private static final Identity joe = Identity.ofUser("joe");
     private static final SystemSecurityContext ADMIN = new SystemSecurityContext(admin, queryId);
     private static final SystemSecurityContext BOB = new SystemSecurityContext(bob, queryId);
@@ -752,10 +753,42 @@ public class TestFileBasedSystemAccessControl
         assertEquals(accessControlManager.filterViewQueryOwnedBy(new SystemSecurityContext(bob, queryId), ImmutableSet.of("a", "b")), ImmutableSet.of());
         accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(bob, queryId), "any");
 
+        accessControlManager.checkCanExecuteQuery(new SystemSecurityContext(dave, queryId));
+        accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(dave, queryId), "alice");
+        accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(dave, queryId), "dave");
+        assertEquals(accessControlManager.filterViewQueryOwnedBy(new SystemSecurityContext(dave, queryId), ImmutableSet.of("alice", "bob", "dave", "admin")),
+                ImmutableSet.of("alice", "dave"));
+        assertThatThrownBy(() -> accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(dave, queryId), "alice"))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Access Denied: Cannot view query");
+        assertThatThrownBy(() -> accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(dave, queryId), "bob"))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Access Denied: Cannot view query");
+        assertThatThrownBy(() -> accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(dave, queryId), "bob"))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Access Denied: Cannot view query");
+        assertThatThrownBy(() -> accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(dave, queryId), "admin"))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Access Denied: Cannot view query");
+
+        Identity contractor = Identity.forUser("some-other-contractor").withGroups(ImmutableSet.of("contractors")).build();
+        accessControlManager.checkCanExecuteQuery(new SystemSecurityContext(contractor, queryId));
+        accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(contractor, queryId), "dave");
+        assertThatThrownBy(() -> accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(contractor, queryId), "dave"))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Access Denied: Cannot view query");
+
         accessControlManager.checkCanExecuteQuery(new SystemSecurityContext(nonAsciiUser, queryId));
         accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(nonAsciiUser, queryId), "any");
         assertEquals(accessControlManager.filterViewQueryOwnedBy(new SystemSecurityContext(nonAsciiUser, queryId), ImmutableSet.of("a", "b")), ImmutableSet.of("a", "b"));
         accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(nonAsciiUser, queryId), "any");
+    }
+
+    @Test
+    public void testInvalidQuery()
+    {
+        assertThatThrownBy(() -> newFileBasedSystemAccessControl("query-invalid.json"))
+                .getRootCause().hasMessage("A valid query rule cannot combine an queryOwner condition with access mode 'execute'");
     }
 
     @Test
@@ -793,6 +826,31 @@ public class TestFileBasedSystemAccessControl
                 .hasMessage("Access Denied: Cannot view query");
         assertEquals(accessControlManager.filterViewQueryOwnedBy(new SystemSecurityContext(bob, queryId), ImmutableSet.of("a", "b")), ImmutableSet.of());
         assertThatThrownBy(() -> accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(bob, queryId), "any"))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Access Denied: Cannot view query");
+
+        accessControlManager.checkCanExecuteQuery(new SystemSecurityContext(dave, queryId));
+        accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(dave, queryId), "alice");
+        accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(dave, queryId), "dave");
+        assertEquals(accessControlManager.filterViewQueryOwnedBy(new SystemSecurityContext(dave, queryId), ImmutableSet.of("alice", "bob", "dave", "admin")),
+                ImmutableSet.of("alice", "dave"));
+        assertThatThrownBy(() -> accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(dave, queryId), "alice"))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Access Denied: Cannot view query");
+        assertThatThrownBy(() -> accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(dave, queryId), "bob"))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Access Denied: Cannot view query");
+        assertThatThrownBy(() -> accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(dave, queryId), "bob"))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Access Denied: Cannot view query");
+        assertThatThrownBy(() -> accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(dave, queryId), "admin"))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Access Denied: Cannot view query");
+
+        Identity contractor = Identity.forUser("some-other-contractor").withGroups(ImmutableSet.of("contractors")).build();
+        accessControlManager.checkCanExecuteQuery(new SystemSecurityContext(contractor, queryId));
+        accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(contractor, queryId), "dave");
+        assertThatThrownBy(() -> accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(contractor, queryId), "dave"))
                 .isInstanceOf(AccessDeniedException.class)
                 .hasMessage("Access Denied: Cannot view query");
     }

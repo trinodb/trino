@@ -15,6 +15,7 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.testing.TempFile;
 import io.trino.connector.CatalogName;
 import io.trino.metadata.TableHandle;
@@ -23,6 +24,7 @@ import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
+import io.trino.spi.SplitWeight;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.DynamicFilter;
@@ -34,9 +36,11 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
@@ -107,7 +111,8 @@ public class TestNodeLocalDynamicSplitPruning
                 Optional.empty(),
                 false,
                 Optional.empty(),
-                0);
+                0,
+                SplitWeight.standard());
 
         TableHandle tableHandle = new TableHandle(
                 new CatalogName(HIVE_CATALOG_NAME),
@@ -171,6 +176,13 @@ public class TestNodeLocalDynamicSplitPruning
     {
         return new DynamicFilter()
         {
+            @Override
+            public Set<ColumnHandle> getColumnsCovered()
+            {
+                return tupleDomain.getDomains().map(Map::keySet)
+                        .orElseGet(ImmutableSet::of);
+            }
+
             @Override
             public CompletableFuture<?> isBlocked()
             {

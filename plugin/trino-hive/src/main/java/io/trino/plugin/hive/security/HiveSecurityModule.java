@@ -16,6 +16,7 @@ package io.trino.plugin.hive.security;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.plugin.base.security.ConnectorAccessControlModule;
 import io.trino.plugin.base.security.FileBasedAccessControlModule;
 import io.trino.plugin.base.security.ReadOnlySecurityModule;
 
@@ -25,26 +26,33 @@ import static io.airlift.configuration.ConfigurationAwareModule.combine;
 public class HiveSecurityModule
         extends AbstractConfigurationAwareModule
 {
+    public static final String LEGACY = "legacy";
+    public static final String FILE = "file";
+    public static final String READ_ONLY = "read-only";
+    public static final String SQL_STANDARD = "sql-standard";
+    public static final String ALLOW_ALL = "allow-all";
+
     @Override
     protected void setup(Binder binder)
     {
+        install(new ConnectorAccessControlModule());
         bindSecurityModule(
-                "legacy",
+                LEGACY,
                 combine(
                         new LegacySecurityModule(),
                         new StaticAccessControlMetadataModule()));
         bindSecurityModule(
-                "file",
+                FILE,
                 combine(
                         new FileBasedAccessControlModule(),
                         new StaticAccessControlMetadataModule()));
         bindSecurityModule(
-                "read-only",
+                READ_ONLY,
                 combine(
                         new ReadOnlySecurityModule(),
                         new StaticAccessControlMetadataModule()));
-        bindSecurityModule("sql-standard", new SqlStandardSecurityModule());
-        bindSecurityModule("allow-all", new AllowAllSecurityModule());
+        bindSecurityModule(SQL_STANDARD, new SqlStandardSecurityModule());
+        bindSecurityModule(ALLOW_ALL, new AllowAllSecurityModule());
     }
 
     private void bindSecurityModule(String name, Module module)

@@ -16,11 +16,13 @@ package io.trino.plugin.raptor.legacy.security;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.trino.plugin.base.security.AllowAllAccessControlModule;
+import io.trino.plugin.base.security.ConnectorAccessControlModule;
 import io.trino.plugin.base.security.FileBasedAccessControlModule;
 import io.trino.plugin.base.security.ReadOnlySecurityModule;
 
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
+import static io.trino.plugin.raptor.legacy.security.RaptorSecurity.FILE;
+import static io.trino.plugin.raptor.legacy.security.RaptorSecurity.READ_ONLY;
 
 public class RaptorSecurityModule
         extends AbstractConfigurationAwareModule
@@ -28,16 +30,16 @@ public class RaptorSecurityModule
     @Override
     protected void setup(Binder binder)
     {
-        bindSecurityModule("none", new AllowAllAccessControlModule());
-        bindSecurityModule("read-only", new ReadOnlySecurityModule());
-        bindSecurityModule("file", new FileBasedAccessControlModule());
+        install(new ConnectorAccessControlModule());
+        bindSecurityModule(READ_ONLY, new ReadOnlySecurityModule());
+        bindSecurityModule(FILE, new FileBasedAccessControlModule());
     }
 
-    private void bindSecurityModule(String name, Module module)
+    private void bindSecurityModule(RaptorSecurity raptorSecurity, Module module)
     {
         install(conditionalModule(
                 RaptorSecurityConfig.class,
-                security -> name.equalsIgnoreCase(security.getSecuritySystem()),
+                security -> raptorSecurity.equals(security.getSecuritySystem()),
                 module));
     }
 }

@@ -24,6 +24,9 @@ import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorSplitSource.ConnectorSplitBatch;
 
+import java.util.List;
+import java.util.Optional;
+
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static java.util.Objects.requireNonNull;
@@ -69,6 +72,12 @@ public class ConnectorAwareSplitSource
     public boolean isFinished()
     {
         return source.isFinished();
+    }
+
+    @Override
+    public Optional<List<Object>> getTableExecuteSplitsInfo()
+    {
+        return source.getTableExecuteSplitsInfo();
     }
 
     @Override

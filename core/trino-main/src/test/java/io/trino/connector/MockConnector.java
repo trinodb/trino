@@ -434,6 +434,9 @@ public class MockConnector
         }
 
         @Override
+        public void renameMaterializedView(ConnectorSession session, SchemaTableName source, SchemaTableName target) {}
+
+        @Override
         public boolean delegateMaterializedViewRefreshToConnector(ConnectorSession session, SchemaTableName viewName)
         {
             return delegateMaterializedViewRefreshToConnector.apply(session, viewName);

@@ -24,7 +24,6 @@ import io.airlift.http.client.Request;
 import io.airlift.log.Logger;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.SigningKeyResolver;
 import io.jsonwebtoken.impl.DefaultClaims;
 import io.trino.server.security.oauth2.OAuth2Client.OAuth2Response;
@@ -38,6 +37,7 @@ import javax.ws.rs.core.UriInfo;
 
 import java.io.IOException;
 import java.net.URI;
+import java.security.Key;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
@@ -56,6 +56,7 @@ import static com.google.common.net.HttpHeaders.AUTHORIZATION;
 import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
 import static io.airlift.json.JsonCodec.mapJsonCodec;
 import static io.jsonwebtoken.Claims.AUDIENCE;
+import static io.jsonwebtoken.security.Keys.hmacShaKeyFor;
 import static io.trino.server.security.oauth2.OAuth2CallbackResource.CALLBACK_ENDPOINT;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_LOCATION;
 import static java.lang.String.format;
@@ -88,7 +89,7 @@ public class OAuth2Service
 
     private final Set<String> scopes;
     private final TemporalAmount challengeTimeout;
-    private final byte[] stateHmac;
+    private final Key stateHmac;
 
     private final HttpClient httpClient;
     private final String issuer;
@@ -115,9 +116,9 @@ public class OAuth2Service
 
         this.scopes = oauth2Config.getScopes();
         this.challengeTimeout = Duration.ofMillis(oauth2Config.getChallengeTimeout().toMillis());
-        this.stateHmac = oauth2Config.getStateKey()
+        this.stateHmac = hmacShaKeyFor(oauth2Config.getStateKey()
                 .map(key -> sha256().hashString(key, UTF_8).asBytes())
-                .orElseGet(() -> secureRandomBytes(32));
+                .orElseGet(() -> secureRandomBytes(32)));
 
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.issuer = oauth2Config.getIssuer();
@@ -136,19 +137,28 @@ public class OAuth2Service
 
     public Response startOAuth2Challenge(UriInfo uriInfo)
     {
-        return startOAuth2Challenge(uriInfo, Optional.empty());
+        return startOAuth2Challenge(
+                uriInfo.getBaseUri().resolve(CALLBACK_ENDPOINT),
+                Optional.empty());
     }
 
     public Response startOAuth2Challenge(UriInfo uriInfo, String handlerState)
     {
-        return startOAuth2Challenge(uriInfo, Optional.of(handlerState));
+        return startOAuth2Challenge(
+                uriInfo.getBaseUri().resolve(CALLBACK_ENDPOINT),
+                Optional.of(handlerState));
     }
 
-    private Response startOAuth2Challenge(UriInfo uriInfo, Optional<String> handlerState)
+    public Response startOAuth2Challenge(URI callbackUri, String handlerState)
+    {
+        return startOAuth2Challenge(callbackUri, Optional.of(handlerState));
+    }
+
+    private Response startOAuth2Challenge(URI callbackUri, Optional<String> handlerState)
     {
         Instant challengeExpiration = now().plus(challengeTimeout);
         String state = Jwts.builder()
-                .signWith(SignatureAlgorithm.HS256, stateHmac)
+                .signWith(stateHmac)
                 .setAudience(STATE_AUDIENCE_UI)
                 .claim(HANDLER_STATE_CLAIM, handlerState.orElse(null))
                 .setExpiration(Date.from(challengeExpiration))
@@ -166,7 +176,7 @@ public class OAuth2Service
         Response.ResponseBuilder response = Response.seeOther(
                 client.getAuthorizationUri(
                         state,
-                        uriInfo.getBaseUri().resolve(CALLBACK_ENDPOINT),
+                        callbackUri,
                         nonce.map(OAuth2Service::hashNonce)));
         nonce.ifPresent(nce -> response.cookie(NonceCookie.create(nce, challengeExpiration)));
         return response.build();
@@ -269,9 +279,10 @@ public class OAuth2Service
             throws ChallengeFailedException
     {
         try {
-            return Jwts.parser()
+            return Jwts.parserBuilder()
                     .setSigningKey(stateHmac)
                     .requireAudience(STATE_AUDIENCE_UI)
+                    .build()
                     .parseClaimsJws(state)
                     .getBody();
         }
@@ -293,10 +304,11 @@ public class OAuth2Service
     {
         if (nonce.isPresent() && oauth2Response.getIdToken().isPresent()) {
             // validate ID token including nonce
-            Claims claims = Jwts.parser()
+            Claims claims = Jwts.parserBuilder()
                     .setSigningKeyResolver(signingKeyResolver)
                     .requireIssuer(issuer)
                     .require(NONCE, hashNonce(nonce.get()))
+                    .build()
                     .parseClaimsJws(oauth2Response.getIdToken().get())
                     .getBody();
             validateAudience(claims, false);
@@ -338,9 +350,10 @@ public class OAuth2Service
         }
 
         // validate access token is trusted by this server
-        Claims claims = Jwts.parser()
+        Claims claims = Jwts.parserBuilder()
                 .setSigningKeyResolver(signingKeyResolver)
                 .requireIssuer(accessTokenIssuer)
+                .build()
                 .parseClaimsJws(accessToken)
                 .getBody();
         validateAudience(claims, true);

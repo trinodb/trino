@@ -88,6 +88,14 @@ public class HiveLocationService
         }
     }
 
+    @Override
+    public LocationHandle forOptimize(SemiTransactionalHiveMetastore metastore, ConnectorSession session, Table table)
+    {
+        // For OPTIMIZE write result files directly to table directory; that is needed by the commit logic in HiveMetadata#finishTableExecute
+        Path targetPath = new Path(table.getStorage().getLocation());
+        return new LocationHandle(targetPath, targetPath, true, DIRECT_TO_TARGET_EXISTING_DIRECTORY);
+    }
+
     private boolean shouldUseTemporaryDirectory(ConnectorSession session, HdfsContext context, Path path, Optional<Path> externalLocation)
     {
         return isTemporaryStagingDirectoryEnabled(session)

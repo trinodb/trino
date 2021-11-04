@@ -34,6 +34,7 @@ import java.util.concurrent.ConcurrentMap;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.SystemSessionProperties.isAllowPushdownIntoConnectors;
 import static java.util.Objects.requireNonNull;
 
 public class SplitManager
@@ -69,6 +70,9 @@ public class SplitManager
     {
         CatalogName catalogName = table.getCatalogName();
         ConnectorSplitManager splitManager = getConnectorSplitManager(catalogName);
+        if (!isAllowPushdownIntoConnectors(session)) {
+            dynamicFilter = DynamicFilter.EMPTY;
+        }
 
         ConnectorSession connectorSession = session.toConnectorSession(catalogName);
 

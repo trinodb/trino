@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.units.Duration;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import org.apache.iceberg.FileFormat;
 
@@ -24,6 +25,7 @@ import javax.validation.constraints.NotNull;
 import static io.trino.plugin.hive.HiveCompressionCodec.GZIP;
 import static io.trino.plugin.iceberg.CatalogType.HIVE_METASTORE;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class IcebergConfig
 {
@@ -33,6 +35,8 @@ public class IcebergConfig
     private int maxPartitionsPerWriter = 100;
     private boolean uniqueTableLocation;
     private CatalogType catalogType = HIVE_METASTORE;
+    private Duration dynamicFilteringWaitTimeout = new Duration(0, SECONDS);
+    private boolean tableStatisticsEnabled = true;
 
     public CatalogType getCatalogType()
     {
@@ -118,5 +122,35 @@ public class IcebergConfig
     {
         this.uniqueTableLocation = uniqueTableLocation;
         return this;
+    }
+
+    @NotNull
+    public Duration getDynamicFilteringWaitTimeout()
+    {
+        return dynamicFilteringWaitTimeout;
+    }
+
+    @Config("iceberg.dynamic-filtering.wait-timeout")
+    @ConfigDescription("Duration to wait for completion of dynamic filters during split generation")
+    public IcebergConfig setDynamicFilteringWaitTimeout(Duration dynamicFilteringWaitTimeout)
+    {
+        this.dynamicFilteringWaitTimeout = dynamicFilteringWaitTimeout;
+        return this;
+    }
+
+    // In case of some queries / tables, retrieving table statistics from Iceberg
+    // can take 20+ seconds. This config allows the user / operator the option
+    // to opt out of retrieving table statistics in those cases to speed up query planning.
+    @Config("iceberg.table-statistics-enabled")
+    @ConfigDescription("Enable use of table statistics")
+    public IcebergConfig setTableStatisticsEnabled(boolean tableStatisticsEnabled)
+    {
+        this.tableStatisticsEnabled = tableStatisticsEnabled;
+        return this;
+    }
+
+    public boolean isTableStatisticsEnabled()
+    {
+        return tableStatisticsEnabled;
     }
 }

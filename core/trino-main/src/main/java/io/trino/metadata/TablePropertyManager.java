@@ -16,7 +16,7 @@ package io.trino.metadata;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 
 public class TablePropertyManager
-        extends AbstractPropertyManager
+        extends AbstractCatalogPropertyManager
 {
     public TablePropertyManager()
     {

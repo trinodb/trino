@@ -16,21 +16,19 @@ package io.trino.plugin.raptor.legacy.security;
 import io.airlift.configuration.Config;
 
 import javax.validation.constraints.NotNull;
-import javax.validation.constraints.Pattern;
 
 public class RaptorSecurityConfig
 {
-    private String securitySystem = "none";
+    private RaptorSecurity securitySystem = RaptorSecurity.ALLOW_ALL;
 
     @NotNull
-    @Pattern(regexp = "none|file|read-only", message = "must be either none, file or read-only")
-    public String getSecuritySystem()
+    public RaptorSecurity getSecuritySystem()
     {
         return securitySystem;
     }
 
     @Config("raptor.security")
-    public RaptorSecurityConfig setSecuritySystem(String securitySystem)
+    public RaptorSecurityConfig setSecuritySystem(RaptorSecurity securitySystem)
     {
         this.securitySystem = securitySystem;
         return this;

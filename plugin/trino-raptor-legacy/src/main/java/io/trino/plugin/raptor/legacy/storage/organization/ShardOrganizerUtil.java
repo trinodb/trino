@@ -22,7 +22,7 @@ import io.trino.plugin.raptor.legacy.metadata.ShardMetadata;
 import io.trino.plugin.raptor.legacy.metadata.Table;
 import io.trino.plugin.raptor.legacy.metadata.TableColumn;
 import io.trino.spi.type.Type;
-import org.skife.jdbi.v2.IDBI;
+import org.jdbi.v3.core.Jdbi;
 
 import java.sql.Connection;
 import java.sql.JDBCType;
@@ -55,7 +55,7 @@ public final class ShardOrganizerUtil
     private ShardOrganizerUtil() {}
 
     public static Collection<ShardIndexInfo> getOrganizationEligibleShards(
-            IDBI dbi,
+            Jdbi dbi,
             MetadataDao metadataDao,
             Table tableInfo,
             Collection<ShardMetadata> shards,

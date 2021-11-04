@@ -565,6 +565,7 @@ public class FunctionRegistry
                 .scalar(TryFunction.class)
                 .scalar(ConcatWsFunction.ConcatArrayWs.class)
                 .scalar(DynamicFilters.Function.class)
+                .scalar(DynamicFilters.NullableFunction.class)
                 .functions(ZIP_WITH_FUNCTION, MAP_ZIP_WITH_FUNCTION)
                 .functions(ZIP_FUNCTIONS)
                 .functions(ARRAY_JOIN, ARRAY_JOIN_WITH_NULL_REPLACEMENT)

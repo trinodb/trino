@@ -78,6 +78,7 @@ import io.trino.execution.SetPropertiesTask;
 import io.trino.execution.SetSessionTask;
 import io.trino.execution.SetTimeZoneTask;
 import io.trino.execution.StartTransactionTask;
+import io.trino.execution.TableExecuteContextManager;
 import io.trino.execution.TaskManagerConfig;
 import io.trino.execution.TaskSource;
 import io.trino.execution.resourcegroups.NoOpResourceGroupManager;
@@ -105,6 +106,7 @@ import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.Split;
 import io.trino.metadata.SqlFunction;
 import io.trino.metadata.TableHandle;
+import io.trino.metadata.TableProceduresPropertyManager;
 import io.trino.metadata.TablePropertyManager;
 import io.trino.operator.Driver;
 import io.trino.operator.DriverContext;
@@ -192,6 +194,7 @@ import io.trino.sql.tree.StartTransaction;
 import io.trino.sql.tree.Statement;
 import io.trino.testing.PageConsumerOperator.PageConsumerOutputFactory;
 import io.trino.transaction.InMemoryTransactionManager;
+import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
 import io.trino.transaction.TransactionManagerConfig;
 import io.trino.type.BlockTypeOperators;
@@ -350,6 +353,7 @@ public class LocalQueryRunner
                 new MaterializedViewPropertyManager(),
                 new ColumnPropertyManager(),
                 new AnalyzePropertyManager(),
+                new TableProceduresPropertyManager(),
                 new DisabledSystemSecurityMetadata(),
                 transactionManager,
                 typeOperators,
@@ -424,9 +428,10 @@ public class LocalQueryRunner
         connectorManager.createCatalog(GlobalSystemConnector.NAME, GlobalSystemConnector.NAME, ImmutableMap.of());
 
         // rewrite session to use managed SessionPropertyMetadata
+        Optional<TransactionId> transactionId = withInitialTransaction ? Optional.of(transactionManager.beginTransaction(false)) : defaultSession.getTransactionId();
         this.defaultSession = new Session(
                 defaultSession.getQueryId(),
-                withInitialTransaction ? Optional.of(transactionManager.beginTransaction(false)) : defaultSession.getTransactionId(),
+                transactionId,
                 defaultSession.isClientTransactionSupport(),
                 defaultSession.getIdentity(),
                 defaultSession.getSource(),
@@ -448,7 +453,8 @@ public class LocalQueryRunner
                 defaultSession.getUnprocessedCatalogProperties(),
                 metadata.getSessionPropertyManager(),
                 defaultSession.getPreparedStatements(),
-                defaultSession.getProtocolHeaders());
+                defaultSession.getProtocolHeaders(),
+                transactionId.map(tId -> transactionManager.getTransactionInfo(tId).isAutoCommitContext()));
 
         dataDefinitionTask = ImmutableMap.<Class<? extends Statement>, DataDefinitionTask<?>>builder()
                 .put(CreateTable.class, new CreateTableTask(featuresConfig))
@@ -804,6 +810,8 @@ public class LocalQueryRunner
             throw new AssertionError("Expected subplan to have no children");
         }
 
+        TableExecuteContextManager tableExecuteContextManager = new TableExecuteContextManager();
+        tableExecuteContextManager.registerTableExecuteContextForQuery(taskContext.getQueryContext().getQueryId());
         LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(
                 metadata,
                 new TypeAnalyzer(sqlParser, metadata),
@@ -827,7 +835,8 @@ public class LocalQueryRunner
                 new OrderingCompiler(typeOperators),
                 new DynamicFilterConfig(),
                 typeOperators,
-                blockTypeOperators);
+                blockTypeOperators,
+                tableExecuteContextManager);
 
         // plan query
         StageExecutionDescriptor stageExecutionDescriptor = subplan.getFragment().getStageExecutionDescriptor();

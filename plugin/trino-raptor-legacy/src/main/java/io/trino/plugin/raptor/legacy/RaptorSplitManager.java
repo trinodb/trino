@@ -32,7 +32,7 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.TupleDomain;
-import org.skife.jdbi.v2.ResultIterator;
+import org.jdbi.v3.core.result.ResultIterator;
 
 import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;

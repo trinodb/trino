@@ -53,6 +53,7 @@ import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.SortNode;
 import io.trino.sql.planner.plan.SpatialJoinNode;
 import io.trino.sql.planner.plan.StatisticsWriterNode;
+import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TopNNode;
@@ -583,20 +584,32 @@ public class AddLocalExchanges
         }
 
         //
-        // Table Writer
+        // Table Writer and Table Execute
         //
 
         @Override
         public PlanWithProperties visitTableWriter(TableWriterNode node, StreamPreferredProperties parentPreferences)
         {
+            return visitTableWriter(node, node.getPartitioningScheme(), node.getSource(), parentPreferences);
+        }
+
+        @Override
+        public PlanWithProperties visitTableExecute(TableExecuteNode node, StreamPreferredProperties parentPreferences)
+        {
+            return visitTableWriter(node, node.getPartitioningScheme(), node.getSource(), parentPreferences);
+        }
+
+        private PlanWithProperties visitTableWriter(PlanNode node, Optional<PartitioningScheme> partitioningSchemeOptional, PlanNode source, StreamPreferredProperties parentPreferences)
+        {
             if (getTaskWriterCount(session) == 1) {
                 return planAndEnforceChildren(node, singleStream(), defaultParallelism(session));
             }
-            if (node.getPartitioningScheme().isEmpty()) {
+            if (partitioningSchemeOptional.isEmpty()) {
                 return planAndEnforceChildren(node, fixedParallelism(), fixedParallelism());
             }
 
-            PartitioningScheme partitioningScheme = node.getPartitioningScheme().get();
+            PartitioningScheme partitioningScheme = partitioningSchemeOptional.get();
+
             if (partitioningScheme.getPartitioning().getHandle().equals(FIXED_HASH_DISTRIBUTION)) {
                 // arbitrary hash function on predefined set of partition columns
                 StreamPreferredProperties preference = partitionedOn(partitioningScheme.getPartitioning().getColumns());
@@ -608,14 +621,14 @@ public class AddLocalExchanges
             verify(
                     partitioningScheme.getPartitioning().getArguments().stream().noneMatch(Partitioning.ArgumentBinding::isConstant),
                     "Table writer partitioning has constant arguments");
-            PlanWithProperties source = node.getSource().accept(this, parentPreferences);
+            PlanWithProperties newSource = source.accept(this, parentPreferences);
             PlanWithProperties exchange = deriveProperties(
                     partitionedExchange(
                             idAllocator.getNextId(),
                             LOCAL,
-                            source.getNode(),
-                            node.getPartitioningScheme().get()),
-                    source.getProperties());
+                            newSource.getNode(),
+                            partitioningScheme),
+                    newSource.getProperties());
 
             return rebaseAndDeriveProperties(node, ImmutableList.of(exchange));
         }

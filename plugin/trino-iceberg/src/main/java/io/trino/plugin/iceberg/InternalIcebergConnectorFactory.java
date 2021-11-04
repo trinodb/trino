@@ -77,7 +77,7 @@ public final class InternalIcebergConnectorFactory
                     new ConnectorObjectNameGeneratorModule(catalogName, "io.trino.plugin.iceberg", "trino.plugin.iceberg"),
                     new JsonModule(),
                     new IcebergModule(),
-                    new IcebergMetastoreModule(metastore),
+                    new IcebergCatalogModule(metastore),
                     new HiveHdfsModule(),
                     new HiveS3Module(),
                     new HiveGcsModule(),
@@ -111,7 +111,7 @@ public final class InternalIcebergConnectorFactory
             Set<SessionPropertiesProvider> sessionPropertiesProviders = injector.getInstance(Key.get(new TypeLiteral<Set<SessionPropertiesProvider>>() {}));
             IcebergTableProperties icebergTableProperties = injector.getInstance(IcebergTableProperties.class);
             Set<Procedure> procedures = injector.getInstance(Key.get(new TypeLiteral<Set<Procedure>>() {}));
-            ConnectorAccessControl accessControl = injector.getInstance(ConnectorAccessControl.class);
+            Optional<ConnectorAccessControl> accessControl = injector.getInstance(Key.get(new TypeLiteral<Optional<ConnectorAccessControl>>() {}));
 
             return new IcebergConnector(
                     lifeCycleManager,

@@ -93,6 +93,7 @@ import java.util.stream.Stream;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.Sets.intersection;
 import static com.google.common.io.Files.asCharSink;
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -152,12 +153,15 @@ import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
+import static java.lang.String.join;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Collections.nCopies;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.toSet;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.data.Offset.offset;
@@ -190,7 +194,9 @@ public class TestHiveConnectorTest
                 .setHiveProperties(ImmutableMap.of(
                         "hive.allow-register-partition-procedure", "true",
                         // Reduce writer sort buffer size to ensure SortingFileWriter gets used
-                        "hive.writer-sort-buffer-size", "1MB"))
+                        "hive.writer-sort-buffer-size", "1MB",
+                        // Make weighted split scheduling more conservative to avoid OOMs in test
+                        "hive.minimum-assigned-split-weight", "0.5"))
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
 
@@ -355,7 +361,7 @@ public class TestHiveConnectorTest
     @DataProvider
     public Object[][] queryPartitionFilterRequiredSchemasDataProvider()
     {
-        return new Object[][]{
+        return new Object[][] {
                 {"[]"},
                 {"[\"tpch\"]"}
         };
@@ -1834,61 +1840,73 @@ public class TestHiveConnectorTest
         assertUpdate("DROP TABLE test_show_properties");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Partition keys must be the last columns in the table and in the same order as the table properties.*")
+    @Test
     public void testCreatePartitionedTableInvalidColumnOrdering()
     {
-        assertUpdate("" +
+        assertThatThrownBy(() -> getQueryRunner().execute("" +
                 "CREATE TABLE test_create_table_invalid_column_ordering\n" +
                 "(grape bigint, apple varchar, orange bigint, pear varchar)\n" +
-                "WITH (partitioned_by = ARRAY['apple'])");
+                "WITH (partitioned_by = ARRAY['apple'])"))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageMatching("Partition keys must be the last columns in the table and in the same order as the table properties.*");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Partition keys must be the last columns in the table and in the same order as the table properties.*")
+    @Test
     public void testCreatePartitionedTableAsInvalidColumnOrdering()
     {
-        assertUpdate("" +
+        assertThatThrownBy(() -> getQueryRunner().execute("" +
                 "CREATE TABLE test_create_table_as_invalid_column_ordering " +
                 "WITH (partitioned_by = ARRAY['SHIP_PRIORITY', 'ORDER_STATUS']) " +
                 "AS " +
                 "SELECT shippriority AS ship_priority, orderkey AS order_key, orderstatus AS order_status " +
-                "FROM tpch.tiny.orders");
+                "FROM tpch.tiny.orders"))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageMatching("Partition keys must be the last columns in the table and in the same order as the table properties.*");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Table contains only partition columns")
+    @Test
     public void testCreateTableOnlyPartitionColumns()
     {
-        assertUpdate("" +
+        assertThatThrownBy(() -> getQueryRunner().execute("" +
                 "CREATE TABLE test_create_table_only_partition_columns\n" +
                 "(grape bigint, apple varchar, orange bigint, pear varchar)\n" +
-                "WITH (partitioned_by = ARRAY['grape', 'apple', 'orange', 'pear'])");
+                "WITH (partitioned_by = ARRAY['grape', 'apple', 'orange', 'pear'])"))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("Table contains only partition columns");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Partition columns .* not present in schema")
+    @Test
     public void testCreateTableNonExistentPartitionColumns()
     {
-        assertUpdate("" +
+        assertThatThrownBy(() -> getQueryRunner().execute("" +
                 "CREATE TABLE test_create_table_nonexistent_partition_columns\n" +
                 "(grape bigint, apple varchar, orange bigint, pear varchar)\n" +
-                "WITH (partitioned_by = ARRAY['dragonfruit'])");
+                "WITH (partitioned_by = ARRAY['dragonfruit'])"))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageMatching("Partition columns .* not present in schema");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Unsupported type .* for partition: .*")
+    @Test
     public void testCreateTableUnsupportedPartitionType()
     {
-        assertUpdate("" +
+        assertThatThrownBy(() -> getQueryRunner().execute("" +
                 "CREATE TABLE test_create_table_unsupported_partition_type " +
                 "(foo bigint, bar ARRAY(varchar)) " +
-                "WITH (partitioned_by = ARRAY['bar'])");
+                "WITH (partitioned_by = ARRAY['bar'])"))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageMatching("Unsupported type .* for partition: .*");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Unsupported type .* for partition: a")
+    @Test
     public void testCreateTableUnsupportedPartitionTypeAs()
     {
-        assertUpdate("" +
+        assertThatThrownBy(() -> getQueryRunner().execute("" +
                 "CREATE TABLE test_create_table_unsupported_partition_type_as " +
                 "WITH (partitioned_by = ARRAY['a']) " +
                 "AS " +
-                "SELECT 123 x, ARRAY ['foo'] a");
+                "SELECT 123 x, ARRAY ['foo'] a"))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageMatching("Unsupported type .* for partition: a");
     }
 
     @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Unsupported Hive type: varchar\\(65536\\)\\. Supported VARCHAR types: VARCHAR\\(<=65535\\), VARCHAR\\.")
@@ -2981,6 +2999,13 @@ public class TestHiveConnectorTest
 
     @Test
     @Override
+    public void testInsertHighestUnicodeCharacter()
+    {
+        throw new SkipException("Covered by testInsertUnicode");
+    }
+
+    @Test
+    @Override
     public void testInsertUnicode()
     {
         testWithAllStorageFormats(this::testInsertUnicode);
@@ -2991,6 +3016,7 @@ public class TestHiveConnectorTest
         assertUpdate(session, "DROP TABLE IF EXISTS test_insert_unicode");
         assertUpdate(session, "CREATE TABLE test_insert_unicode(test varchar) WITH (format = '" + storageFormat + "')");
 
+        // Test with U+10FFF to cover testInsertHighestUnicodeCharacter
         assertUpdate("INSERT INTO test_insert_unicode(test) VALUES 'Hello', U&'hello\\6d4B\\8Bd5\\+10FFFFworld\\7F16\\7801' ", 2);
         assertThat(computeActual("SELECT test FROM test_insert_unicode").getOnlyColumnAsSet())
                 .containsExactlyInAnyOrder("Hello", "hello测试􏿿world编码");
@@ -4522,21 +4548,36 @@ public class TestHiveConnectorTest
     @Test(dataProvider = "timestampPrecisionAndValues")
     public void testParquetTimestampPredicatePushdown(HiveTimestampPrecision timestampPrecision, LocalDateTime value)
     {
-        Session session = withTimestampPrecision(getSession(), timestampPrecision);
-        assertUpdate("DROP TABLE IF EXISTS test_parquet_timestamp_predicate_pushdown");
-        assertUpdate("CREATE TABLE test_parquet_timestamp_predicate_pushdown (t TIMESTAMP) WITH (format = 'PARQUET')");
-        assertUpdate(session, format("INSERT INTO test_parquet_timestamp_predicate_pushdown VALUES (%s)", formatTimestamp(value)), 1);
-        assertQuery(session, "SELECT * FROM test_parquet_timestamp_predicate_pushdown", format("VALUES (%s)", formatTimestamp(value)));
+        doTestParquetTimestampPredicatePushdown(getSession(), timestampPrecision, value);
+    }
+
+    @Test(dataProvider = "timestampPrecisionAndValues")
+    public void testParquetTimestampPredicatePushdownOptimizedWriter(HiveTimestampPrecision timestampPrecision, LocalDateTime value)
+    {
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty("hive", "experimental_parquet_optimized_writer_enabled", "true")
+                .build();
+        doTestParquetTimestampPredicatePushdown(session, timestampPrecision, value);
+    }
+
+    private void doTestParquetTimestampPredicatePushdown(Session baseSession, HiveTimestampPrecision timestampPrecision, LocalDateTime value)
+    {
+        Session session = withTimestampPrecision(baseSession, timestampPrecision);
+        String tableName = "test_parquet_timestamp_predicate_pushdown_" + randomTableSuffix();
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        assertUpdate("CREATE TABLE " + tableName + " (t TIMESTAMP) WITH (format = 'PARQUET')");
+        assertUpdate(session, format("INSERT INTO %s VALUES (%s)", tableName, formatTimestamp(value)), 1);
+        assertQuery(session, "SELECT * FROM " + tableName, format("VALUES (%s)", formatTimestamp(value)));
 
         DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
         ResultWithQueryId<MaterializedResult> queryResult = queryRunner.executeWithQueryId(
                 session,
-                format("SELECT * FROM test_parquet_timestamp_predicate_pushdown WHERE t < %s", formatTimestamp(value)));
+                format("SELECT * FROM %s WHERE t < %s", tableName, formatTimestamp(value)));
         assertEquals(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputDataSize().toBytes(), 0);
 
         queryResult = queryRunner.executeWithQueryId(
                 session,
-                format("SELECT * FROM test_parquet_timestamp_predicate_pushdown WHERE t > %s", formatTimestamp(value)));
+                format("SELECT * FROM %s WHERE t > %s", tableName, formatTimestamp(value)));
         assertEquals(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputDataSize().toBytes(), 0);
 
         // TODO: replace this with a simple query stats check once we find a way to wait until all pending updates to query stats have been applied
@@ -4544,7 +4585,7 @@ public class TestHiveConnectorTest
         ExponentialSleeper sleeper = new ExponentialSleeper();
         assertQueryStats(
                 session,
-                format("SELECT * FROM test_parquet_timestamp_predicate_pushdown WHERE t = %s", formatTimestamp(value)),
+                format("SELECT * FROM %s WHERE t = %s", tableName, formatTimestamp(value)),
                 queryStats -> {
                     sleeper.sleep();
                     assertThat(queryStats.getProcessedInputDataSize().toBytes()).isGreaterThan(0);
@@ -7746,6 +7787,190 @@ public class TestHiveConnectorTest
                 session,
                 "CREATE TABLE test_invalid_precision_timestamp (ts TIMESTAMP(3))",
                 "\\QIncorrect timestamp precision for timestamp(3); the configured precision is " + HiveTimestampPrecision.MICROSECONDS);
+    }
+
+    @Test
+    public void testOptimize()
+    {
+        String tableName = "test_optimize_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation WITH NO DATA", 0);
+
+        insertNationNTimes(tableName, 10);
+        assertNationNTimes(tableName, 10);
+
+        Set<String> initialFiles = getTableFiles(tableName);
+        assertThat(initialFiles).hasSize(10);
+
+        // OPTIMIZE must be explicitly enabled
+        assertThatThrownBy(() -> computeActual("ALTER TABLE " + tableName + " EXECUTE optimize(file_size_threshold => '10kB')"))
+                .hasMessage("OPTIMIZE procedure must be explicitly enabled via non_transactional_optimize_enabled session property");
+        assertNationNTimes(tableName, 10);
+        assertThat(getTableFiles(tableName)).hasSameElementsAs(initialFiles);
+
+        Session optimizeEnabledSession = optimizeEnabledSession();
+
+        assertUpdate(optimizeEnabledSession, "ALTER TABLE " + tableName + " EXECUTE optimize(file_size_threshold => '10kB')");
+        assertNationNTimes(tableName, 10);
+
+        Set<String> compactedFiles = getTableFiles(tableName);
+        // we expect at most 3 files due to write parallelism
+        assertThat(compactedFiles).hasSizeLessThanOrEqualTo(3);
+        assertThat(intersection(initialFiles, compactedFiles)).isEmpty();
+
+        // compact with low threshold; nothing should change
+        assertUpdate(optimizeEnabledSession, "ALTER TABLE " + tableName + " EXECUTE optimize(file_size_threshold => '10B')");
+
+        assertThat(getTableFiles(tableName)).hasSameElementsAs(compactedFiles);
+    }
+
+    @Test
+    public void testOptimizeWithWriterScaling()
+    {
+        String tableName = "test_optimize_witer_scaling" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation WITH NO DATA", 0);
+
+        insertNationNTimes(tableName, 4);
+        assertNationNTimes(tableName, 4);
+
+        Set<String> initialFiles = getTableFiles(tableName);
+        assertThat(initialFiles).hasSize(4);
+
+        Session writerScalingSession = Session.builder(optimizeEnabledSession())
+                .setSystemProperty("scale_writers", "true")
+                .setSystemProperty("writer_min_size", "100GB")
+                .build();
+
+        assertUpdate(writerScalingSession, "ALTER TABLE " + tableName + " EXECUTE optimize(file_size_threshold => '10kB')");
+        assertNationNTimes(tableName, 4);
+
+        Set<String> compactedFiles = getTableFiles(tableName);
+        assertThat(compactedFiles).hasSize(1);
+        assertThat(intersection(initialFiles, compactedFiles)).isEmpty();
+    }
+
+    @Test
+    public void testOptimizeWithPartitioning()
+    {
+        int insertCount = 4;
+        int partitionsCount = 5;
+
+        String tableName = "test_optimize_with_partitioning_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + "(" +
+                "  nationkey BIGINT, " +
+                "  name VARCHAR, " +
+                "  comment VARCHAR, " +
+                "  regionkey BIGINT" +
+                ")" +
+                "WITH (partitioned_by = ARRAY['regionkey'])");
+
+        insertNationNTimes(tableName, insertCount);
+        assertNationNTimes(tableName, insertCount);
+
+        Set<String> initialFiles = getTableFiles(tableName);
+        assertThat(initialFiles).hasSize(insertCount * partitionsCount);
+
+        Session optimizeEnabledSession = optimizeEnabledSession();
+        Session writerScalingSession = Session.builder(optimizeEnabledSession)
+                .setSystemProperty("scale_writers", "true")
+                .setSystemProperty("writer_min_size", "100GB")
+                .build();
+
+        // optimize with unsupported WHERE
+        assertThatThrownBy(() -> computeActual(optimizeEnabledSession, "ALTER TABLE " + tableName + " EXECUTE optimize(file_size_threshold => '10kB') WHERE nationkey = 1"))
+                .hasMessageContaining("Unexpected FilterNode found in plan; probably connector was not able to handle provided WHERE expression");
+        assertNationNTimes(tableName, insertCount);
+        assertThat(getTableFiles(tableName)).hasSameElementsAs(initialFiles);
+
+        // optimize using predicate on on partition key but not matching any partitions
+        assertUpdate(writerScalingSession, "ALTER TABLE " + tableName + " EXECUTE optimize(file_size_threshold => '10kB') WHERE regionkey > 5");
+        assertNationNTimes(tableName, insertCount);
+        assertThat(getTableFiles(tableName)).hasSameElementsAs(initialFiles);
+
+        // optimize two partitions; also use positional argument
+        assertUpdate(writerScalingSession, "ALTER TABLE " + tableName + " EXECUTE optimize('10kB') WHERE regionkey IN (1,2)");
+        assertNationNTimes(tableName, insertCount);
+        assertThat(getTableFiles(tableName)).hasSize(2 + 3 * insertCount);
+
+        // optimize one more partition; default file_size_threshold
+        assertUpdate(writerScalingSession, "ALTER TABLE " + tableName + " EXECUTE optimize WHERE regionkey > 3");
+        assertNationNTimes(tableName, insertCount);
+        assertThat(getTableFiles(tableName)).hasSize(3 + 2 * insertCount);
+
+        // optimize remaining partitions
+        assertUpdate(writerScalingSession, "ALTER TABLE " + tableName + " EXECUTE optimize(file_size_threshold => '10kB')");
+        assertNationNTimes(tableName, insertCount);
+
+        Set<String> compactedFiles = getTableFiles(tableName);
+        assertThat(compactedFiles).hasSize(partitionsCount);
+        assertThat(intersection(initialFiles, compactedFiles)).isEmpty();
+    }
+
+    @Test
+    public void testOptimizeWithBucketing()
+    {
+        int insertCount = 4;
+        String tableName = "test_optimize_with_bucketing_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + "(" +
+                "  nationkey BIGINT, " +
+                "  name VARCHAR, " +
+                "  comment VARCHAR, " +
+                "  regionkey BIGINT" +
+                ")" +
+                "WITH (bucketed_by = ARRAY['regionkey'], bucket_count = 4)");
+
+        insertNationNTimes(tableName, insertCount);
+        assertNationNTimes(tableName, insertCount);
+        Set<String> initialFiles = getTableFiles(tableName);
+
+        assertThatThrownBy(() -> computeActual(optimizeEnabledSession(), "ALTER TABLE " + tableName + " EXECUTE optimize(file_size_threshold => '10kB')"))
+                .hasMessageMatching("Optimizing bucketed Hive table .* is not supported");
+
+        assertThat(getTableFiles(tableName)).hasSameElementsAs(initialFiles);
+        assertNationNTimes(tableName, insertCount);
+    }
+
+    @Test
+    public void testOptimizeHiveInformationSchema()
+    {
+        assertThatThrownBy(() -> computeActual(optimizeEnabledSession(), "ALTER TABLE information_schema.tables EXECUTE optimize(file_size_threshold => '10kB')"))
+                .hasMessage("This connector does not support table procedures");
+    }
+
+    @Test
+    public void testOptimizeHiveSystemTable()
+    {
+        String tableName = "test_optimize_system_table_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + "(a bigint, b bigint) WITH (partitioned_by = ARRAY['b'])");
+
+        assertQuery("SELECT count(*) FROM " + tableName, "SELECT 0");
+
+        assertThatThrownBy(() -> computeActual(optimizeEnabledSession(), format("ALTER TABLE \"%s$partitions\" EXECUTE optimize(file_size_threshold => '10kB')", tableName)))
+                .hasMessage("This connector does not support table procedures");
+    }
+
+    private Session optimizeEnabledSession()
+    {
+        return Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "non_transactional_optimize_enabled", "true")
+                .build();
+    }
+
+    private void insertNationNTimes(String tableName, int times)
+    {
+        assertUpdate("INSERT INTO " + tableName + "(nationkey, name, regionkey, comment) " + join(" UNION ALL ", nCopies(times, "SELECT * FROM tpch.sf1.nation")), times * 25);
+    }
+
+    private void assertNationNTimes(String tableName, int times)
+    {
+        String verifyQuery = join(" UNION ALL ", nCopies(times, "SELECT * FROM nation"));
+        assertQuery("SELECT nationkey, name, regionkey, comment FROM " + tableName, verifyQuery);
+    }
+
+    private Set<String> getTableFiles(String tableName)
+    {
+        return computeActual("SELECT DISTINCT \"$path\" FROM " + tableName).getOnlyColumn()
+                .map(String.class::cast)
+                .collect(toSet());
     }
 
     @Test

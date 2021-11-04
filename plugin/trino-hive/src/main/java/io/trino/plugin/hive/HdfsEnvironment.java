@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive;
 
-import com.google.common.primitives.Shorts;
 import io.trino.hadoop.HadoopNative;
 import io.trino.plugin.hive.authentication.GenericExceptionAction;
 import io.trino.plugin.hive.authentication.HdfsAuthentication;
@@ -29,9 +28,9 @@ import org.apache.hadoop.fs.permission.FsPermission;
 import javax.inject.Inject;
 
 import java.io.IOException;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static java.lang.Integer.parseUnsignedInt;
 import static java.util.Objects.requireNonNull;
 
 public class HdfsEnvironment
@@ -43,7 +42,7 @@ public class HdfsEnvironment
 
     private final HdfsConfiguration hdfsConfiguration;
     private final HdfsAuthentication hdfsAuthentication;
-    private final FsPermission newDirectoryPermissions;
+    private final Optional<FsPermission> newDirectoryPermissions;
     private final boolean newFileInheritOwnership;
     private final boolean verifyChecksum;
 
@@ -55,10 +54,10 @@ public class HdfsEnvironment
     {
         this.hdfsConfiguration = requireNonNull(hdfsConfiguration, "hdfsConfiguration is null");
         requireNonNull(config, "config is null");
-        this.newDirectoryPermissions = FsPermission.createImmutable(Shorts.checkedCast(parseUnsignedInt(config.getNewDirectoryPermissions(), 8)));
         this.newFileInheritOwnership = config.isNewFileInheritOwnership();
         this.verifyChecksum = config.isVerifyChecksum();
         this.hdfsAuthentication = requireNonNull(hdfsAuthentication, "hdfsAuthentication is null");
+        this.newDirectoryPermissions = config.getNewDirectoryFsPermissions();
     }
 
     public Configuration getConfiguration(HdfsContext context, Path path)
@@ -82,7 +81,7 @@ public class HdfsEnvironment
         });
     }
 
-    public FsPermission getNewDirectoryPermissions()
+    public Optional<FsPermission> getNewDirectoryPermissions()
     {
         return newDirectoryPermissions;
     }

@@ -46,6 +46,7 @@ import static io.trino.spi.security.AccessDeniedException.denyDropView;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteFunction;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteProcedure;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteQuery;
+import static io.trino.spi.security.AccessDeniedException.denyExecuteTableProcedure;
 import static io.trino.spi.security.AccessDeniedException.denyGrantExecuteFunctionPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyGrantRoles;
 import static io.trino.spi.security.AccessDeniedException.denyGrantSchemaPrivilege;
@@ -726,6 +727,16 @@ public interface SystemAccessControl
     default void checkCanExecuteFunction(SystemSecurityContext systemSecurityContext, String functionName)
     {
         denyExecuteFunction(functionName);
+    }
+
+    /**
+     * Check if identity is allowed to execute the specified table procedure on specified table
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanExecuteTableProcedure(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName table, String procedure)
+    {
+        denyExecuteTableProcedure(table.toString(), procedure);
     }
 
     /**

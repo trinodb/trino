@@ -18,7 +18,7 @@ import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
 import io.trino.plugin.atop.AtopConnectorConfig.AtopSecurity;
 import io.trino.plugin.base.CatalogNameModule;
-import io.trino.plugin.base.security.AllowAllAccessControlModule;
+import io.trino.plugin.base.security.ConnectorAccessControlModule;
 import io.trino.plugin.base.security.FileBasedAccessControlModule;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.Connector;
@@ -68,10 +68,7 @@ public class AtopConnectorFactory
                             context.getNodeManager(),
                             context.getNodeManager().getEnvironment()),
                     new CatalogNameModule(catalogName),
-                    conditionalModule(
-                            AtopConnectorConfig.class,
-                            config -> config.getSecurity() == AtopSecurity.NONE,
-                            new AllowAllAccessControlModule()),
+                    new ConnectorAccessControlModule(),
                     conditionalModule(
                             AtopConnectorConfig.class,
                             config -> config.getSecurity() == AtopSecurity.FILE,

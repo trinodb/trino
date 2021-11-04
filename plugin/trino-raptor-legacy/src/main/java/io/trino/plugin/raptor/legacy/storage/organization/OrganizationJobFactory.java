@@ -16,7 +16,7 @@ package io.trino.plugin.raptor.legacy.storage.organization;
 import io.trino.plugin.raptor.legacy.metadata.ForMetadata;
 import io.trino.plugin.raptor.legacy.metadata.MetadataDao;
 import io.trino.plugin.raptor.legacy.metadata.ShardManager;
-import org.skife.jdbi.v2.IDBI;
+import org.jdbi.v3.core.Jdbi;
 
 import javax.inject.Inject;
 
@@ -31,7 +31,7 @@ public class OrganizationJobFactory
     private final ShardCompactor compactor;
 
     @Inject
-    public OrganizationJobFactory(@ForMetadata IDBI dbi, ShardManager shardManager, ShardCompactor compactor)
+    public OrganizationJobFactory(@ForMetadata Jdbi dbi, ShardManager shardManager, ShardCompactor compactor)
     {
         requireNonNull(dbi, "dbi is null");
         this.metadataDao = onDemandDao(dbi, MetadataDao.class);

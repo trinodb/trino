@@ -70,7 +70,12 @@ statement
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         DROP COLUMN (IF EXISTS)? column=qualifiedName                  #dropColumn
     | ALTER TABLE tableName=qualifiedName SET AUTHORIZATION principal  #setTableAuthorization
-    | ALTER TABLE tableName=qualifiedName SET PROPERTIES properties    #setTableProperties
+    | ALTER TABLE tableName=qualifiedName
+        SET PROPERTIES propertyAssignments                             #setTableProperties
+    | ALTER TABLE tableName=qualifiedName
+        EXECUTE procedureName=identifier
+        ('(' (callArgument (',' callArgument)*)? ')')?
+        (WHERE where=booleanExpression)?                               #tableExecute
     | ANALYZE qualifiedName (WITH properties)?                         #analyze
     | CREATE (OR REPLACE)? MATERIALIZED VIEW
         (IF NOT EXISTS)? qualifiedName
@@ -181,7 +186,11 @@ likeClause
     ;
 
 properties
-    : '(' property (',' property)* ')'
+    : '(' propertyAssignments ')'
+    ;
+
+propertyAssignments
+    : property (',' property)*
     ;
 
 property

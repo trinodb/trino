@@ -280,7 +280,9 @@ public class SqlTask
         }
 
         int queuedPartitionedDrivers = 0;
+        long queuedPartitionedSplitsWeight = 0L;
         int runningPartitionedDrivers = 0;
+        long runningPartitionedSplitsWeight = 0L;
         DataSize physicalWrittenDataSize = DataSize.ofBytes(0);
         DataSize userMemoryReservation = DataSize.ofBytes(0);
         DataSize systemMemoryReservation = DataSize.ofBytes(0);
@@ -294,7 +296,9 @@ public class SqlTask
             TaskInfo taskInfo = taskHolder.getFinalTaskInfo();
             TaskStats taskStats = taskInfo.getStats();
             queuedPartitionedDrivers = taskStats.getQueuedPartitionedDrivers();
+            queuedPartitionedSplitsWeight = taskStats.getQueuedPartitionedSplitsWeight();
             runningPartitionedDrivers = taskStats.getRunningPartitionedDrivers();
+            runningPartitionedSplitsWeight = taskStats.getRunningPartitionedSplitsWeight();
             physicalWrittenDataSize = taskStats.getPhysicalWrittenDataSize();
             userMemoryReservation = taskStats.getUserMemoryReservation();
             systemMemoryReservation = taskStats.getSystemMemoryReservation();
@@ -308,7 +312,9 @@ public class SqlTask
             for (PipelineContext pipelineContext : taskContext.getPipelineContexts()) {
                 PipelineStatus pipelineStatus = pipelineContext.getPipelineStatus();
                 queuedPartitionedDrivers += pipelineStatus.getQueuedPartitionedDrivers();
+                queuedPartitionedSplitsWeight += pipelineStatus.getQueuedPartitionedSplitsWeight();
                 runningPartitionedDrivers += pipelineStatus.getRunningPartitionedDrivers();
+                runningPartitionedSplitsWeight += pipelineStatus.getRunningPartitionedSplitsWeight();
                 physicalWrittenBytes += pipelineContext.getPhysicalWrittenDataSize();
             }
             physicalWrittenDataSize = succinctBytes(physicalWrittenBytes);
@@ -338,7 +344,9 @@ public class SqlTask
                 revocableMemoryReservation,
                 fullGcCount,
                 fullGcTime,
-                dynamicFiltersVersion);
+                dynamicFiltersVersion,
+                queuedPartitionedSplitsWeight,
+                runningPartitionedSplitsWeight);
     }
 
     private TaskStats getTaskStats(TaskHolder taskHolder)

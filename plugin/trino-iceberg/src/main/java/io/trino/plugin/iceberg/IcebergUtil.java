@@ -16,9 +16,9 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceUtf8;
-import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
+import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
@@ -26,7 +26,6 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
-import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.UuidType;
@@ -54,8 +53,6 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -108,7 +105,7 @@ import static org.apache.iceberg.TableProperties.WRITE_LOCATION_PROVIDER_IMPL;
 import static org.apache.iceberg.types.Type.TypeID.BINARY;
 import static org.apache.iceberg.types.Type.TypeID.FIXED;
 
-final class IcebergUtil
+public final class IcebergUtil
 {
     private static final Pattern SIMPLE_NAME = Pattern.compile("[a-z][a-z0-9]*");
 
@@ -119,13 +116,11 @@ final class IcebergUtil
         return ICEBERG_TABLE_TYPE_VALUE.equalsIgnoreCase(table.getParameters().get(TABLE_TYPE_PROP));
     }
 
-    public static Table loadIcebergTable(HiveMetastore metastore, HiveTableOperationsProvider tableOperationsProvider, ConnectorSession session, SchemaTableName table)
+    public static Table loadIcebergTable(HiveMetastore metastore, IcebergTableOperationsProvider tableOperationsProvider, ConnectorSession session, SchemaTableName table)
     {
         TableOperations operations = tableOperationsProvider.createTableOperations(
                 metastore,
-                new HdfsContext(session),
-                session.getQueryId(),
-                new HiveIdentity(session),
+                session,
                 table.getSchemaName(),
                 table.getTableName(),
                 Optional.empty(),
@@ -135,16 +130,14 @@ final class IcebergUtil
 
     public static Table getIcebergTableWithMetadata(
             HiveMetastore metastore,
-            HiveTableOperationsProvider tableOperationsProvider,
+            IcebergTableOperationsProvider tableOperationsProvider,
             ConnectorSession session,
             SchemaTableName table,
             TableMetadata tableMetadata)
     {
-        HiveTableOperations operations = (HiveTableOperations) tableOperationsProvider.createTableOperations(
+        IcebergTableOperations operations = tableOperationsProvider.createTableOperations(
                 metastore,
-                new HdfsContext(session),
-                session.getQueryId(),
-                new HiveIdentity(session),
+                session,
                 table.getSchemaName(),
                 table.getTableName(),
                 Optional.empty(),
@@ -237,7 +230,7 @@ final class IcebergUtil
         return '"' + name.replace("\"", "\"\"") + '"';
     }
 
-    public static Object deserializePartitionValue(Type type, String valueString, String name, TimeZoneKey timeZoneKey)
+    public static Object deserializePartitionValue(Type type, String valueString, String name)
     {
         if (valueString == null) {
             return null;
@@ -275,7 +268,7 @@ final class IcebergUtil
                 return parseLong(valueString);
             }
             if (type.equals(TIMESTAMP_TZ_MICROS)) {
-                return timestampTzFromMicros(parseLong(valueString), timeZoneKey);
+                return timestampTzFromMicros(parseLong(valueString));
             }
             if (type instanceof VarcharType) {
                 Slice value = utf8Slice(valueString);
@@ -313,12 +306,16 @@ final class IcebergUtil
         throw new TrinoException(GENERIC_INTERNAL_ERROR, "Invalid partition type " + type.toString());
     }
 
-    public static Map<Integer, String> getPartitionKeys(FileScanTask scanTask)
+    /**
+     * Returns a map from fieldId to serialized partition value containing entries for all identity partitions.
+     * {@code null} partition values are represented with {@link Optional#empty}.
+     */
+    public static Map<Integer, Optional<String>> getPartitionKeys(FileScanTask scanTask)
     {
         StructLike partition = scanTask.file().partition();
         PartitionSpec spec = scanTask.spec();
         Map<PartitionField, Integer> fieldToIndex = getIdentityPartitions(spec);
-        Map<Integer, String> partitionKeys = new HashMap<>();
+        ImmutableMap.Builder<Integer, Optional<String>> partitionKeys = ImmutableMap.builder();
 
         fieldToIndex.forEach((field, index) -> {
             int id = field.sourceId();
@@ -327,7 +324,7 @@ final class IcebergUtil
             Object value = partition.get(index, javaClass);
 
             if (value == null) {
-                partitionKeys.put(id, null);
+                partitionKeys.put(id, Optional.empty());
             }
             else {
                 String partitionValue;
@@ -338,11 +335,11 @@ final class IcebergUtil
                 else {
                     partitionValue = value.toString();
                 }
-                partitionKeys.put(id, partitionValue);
+                partitionKeys.put(id, Optional.of(partitionValue));
             }
         });
 
-        return Collections.unmodifiableMap(partitionKeys);
+        return partitionKeys.build();
     }
 
     public static LocationProvider getLocationProvider(SchemaTableName schemaTableName, String tableLocation, Map<String, String> storageProperties)

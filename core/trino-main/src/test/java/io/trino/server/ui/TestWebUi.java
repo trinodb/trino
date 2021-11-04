@@ -26,7 +26,6 @@ import io.airlift.security.pem.PemReader;
 import io.jsonwebtoken.JwsHeader;
 import io.jsonwebtoken.JwtBuilder;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
 import io.trino.security.AccessControl;
 import io.trino.server.HttpRequestSessionContextFactory;
 import io.trino.server.security.PasswordAuthenticatorManager;
@@ -46,6 +45,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import javax.annotation.concurrent.GuardedBy;
+import javax.crypto.SecretKey;
 import javax.inject.Inject;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
@@ -68,6 +68,7 @@ import java.nio.file.Paths;
 import java.security.Principal;
 import java.security.PrivateKey;
 import java.time.ZonedDateTime;
+import java.util.Base64;
 import java.util.Date;
 import java.util.Optional;
 
@@ -81,6 +82,7 @@ import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
+import static io.jsonwebtoken.security.Keys.hmacShaKeyFor;
 import static io.trino.client.OkHttpUtil.setupSsl;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.server.HttpRequestSessionContextFactory.AUTHENTICATED_IDENTITY;
@@ -563,9 +565,9 @@ public class TestWebUi
 
             testNeverAuthorized(httpServerInfo.getHttpsUri(), client);
 
-            String hmac = Files.readString(Paths.get(HMAC_KEY));
+            SecretKey hmac = hmacShaKeyFor(Base64.getDecoder().decode(Files.readString(Paths.get(HMAC_KEY)).trim()));
             String token = Jwts.builder()
-                    .signWith(SignatureAlgorithm.HS256, hmac)
+                    .signWith(hmac)
                     .setSubject("test-user")
                     .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
                     .compact();
@@ -600,7 +602,7 @@ public class TestWebUi
             testNeverAuthorized(httpServerInfo.getHttpsUri(), client);
 
             String token = Jwts.builder()
-                    .signWith(SignatureAlgorithm.RS256, JWK_PRIVATE_KEY)
+                    .signWith(JWK_PRIVATE_KEY)
                     .setHeaderParam(JwsHeader.KEY_ID, "test-rsa")
                     .setSubject("test-user")
                     .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
@@ -706,7 +708,7 @@ public class TestWebUi
             throws Exception
     {
         String state = Jwts.builder()
-                .signWith(SignatureAlgorithm.HS256, Hashing.sha256().hashString(STATE_KEY, UTF_8).asBytes())
+                .signWith(hmacShaKeyFor(Hashing.sha256().hashString(STATE_KEY, UTF_8).asBytes()))
                 .setAudience("trino_oauth_ui")
                 .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(10).toInstant()))
                 .compact();
@@ -1034,7 +1036,7 @@ public class TestWebUi
     {
         Date tokenExpiration = Date.from(ZonedDateTime.now().plusMinutes(5).toInstant());
         return Jwts.builder()
-                .signWith(SignatureAlgorithm.RS256, JWK_PRIVATE_KEY)
+                .signWith(JWK_PRIVATE_KEY)
                 .setHeaderParam(JwsHeader.KEY_ID, "test-rsa")
                 .setIssuer(TOKEN_ISSUER)
                 .setAudience(OAUTH_CLIENT_ID)

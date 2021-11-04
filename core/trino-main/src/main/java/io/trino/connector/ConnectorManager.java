@@ -48,6 +48,7 @@ import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.SystemTable;
+import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.session.PropertyMetadata;
@@ -193,10 +194,10 @@ public class ConnectorManager
         requireNonNull(connectorName, "connectorName is null");
         InternalConnectorFactory connectorFactory = connectorFactories.get(connectorName);
         checkArgument(connectorFactory != null, "No factory for connector '%s'.  Available factories: %s", connectorName, connectorFactories.keySet());
-        return createCatalog(catalogName, connectorFactory, properties);
+        return createCatalog(catalogName, connectorName, connectorFactory, properties);
     }
 
-    private synchronized CatalogName createCatalog(String catalogName, InternalConnectorFactory connectorFactory, Map<String, String> properties)
+    private synchronized CatalogName createCatalog(String catalogName, String connectorName, InternalConnectorFactory connectorFactory, Map<String, String> properties)
     {
         checkState(!stopped.get(), "ConnectorManager is stopped");
         requireNonNull(catalogName, "catalogName is null");
@@ -207,12 +208,12 @@ public class ConnectorManager
         CatalogName catalog = new CatalogName(catalogName);
         checkState(!connectors.containsKey(catalog), "Catalog '%s' already exists", catalog);
 
-        createCatalog(catalog, connectorFactory, properties);
+        createCatalog(catalog, connectorName, connectorFactory, properties);
 
         return catalog;
     }
 
-    private synchronized void createCatalog(CatalogName catalogName, InternalConnectorFactory factory, Map<String, String> properties)
+    private synchronized void createCatalog(CatalogName catalogName, String connectorName, InternalConnectorFactory factory, Map<String, String> properties)
     {
         // create all connectors before adding, so a broken connector does not leave the system half updated
         MaterializedConnector connector = new MaterializedConnector(catalogName, createConnector(catalogName, factory, properties));
@@ -249,6 +250,7 @@ public class ConnectorManager
         Catalog catalog = new Catalog(
                 catalogName.getCatalogName(),
                 connector.getCatalogName(),
+                connectorName,
                 connector.getConnector(),
                 securityManagement,
                 informationSchemaConnector.getCatalogName(),
@@ -299,6 +301,8 @@ public class ConnectorManager
                 .ifPresent(partitioningProvider -> nodePartitioningManager.addPartitioningProvider(catalogName, partitioningProvider));
 
         metadataManager.getProcedureRegistry().addProcedures(catalogName, connector.getProcedures());
+        Set<TableProcedureMetadata> tableProcedures = connector.getTableProcedures();
+        metadataManager.getTableProcedureRegistry().addTableProcedures(catalogName, tableProcedures);
 
         connector.getAccessControl()
                 .ifPresent(accessControl -> accessControlManager.addCatalogAccessControl(catalogName, accessControl));
@@ -308,6 +312,9 @@ public class ConnectorManager
         metadataManager.getColumnPropertyManager().addProperties(catalogName, connector.getColumnProperties());
         metadataManager.getSchemaPropertyManager().addProperties(catalogName, connector.getSchemaProperties());
         metadataManager.getAnalyzePropertyManager().addProperties(catalogName, connector.getAnalyzeProperties());
+        for (TableProcedureMetadata tableProcedure : tableProcedures) {
+            metadataManager.getTableProceduresPropertyManager().addProperties(catalogName, tableProcedure.getName(), tableProcedure.getProperties());
+        }
         metadataManager.getSessionPropertyManager().addConnectorSessionProperties(catalogName, connector.getSessionProperties());
     }
 
@@ -332,12 +339,14 @@ public class ConnectorManager
         indexManager.removeIndexProvider(catalogName);
         nodePartitioningManager.removePartitioningProvider(catalogName);
         metadataManager.getProcedureRegistry().removeProcedures(catalogName);
+        metadataManager.getTableProcedureRegistry().removeProcedures(catalogName);
         accessControlManager.removeCatalogAccessControl(catalogName);
         metadataManager.getTablePropertyManager().removeProperties(catalogName);
         metadataManager.getMaterializedViewPropertyManager().removeProperties(catalogName);
         metadataManager.getColumnPropertyManager().removeProperties(catalogName);
         metadataManager.getSchemaPropertyManager().removeProperties(catalogName);
         metadataManager.getAnalyzePropertyManager().removeProperties(catalogName);
+        metadataManager.getTableProceduresPropertyManager().removeProperties(catalogName);
         metadataManager.getSessionPropertyManager().removeConnectorSessionProperties(catalogName);
 
         MaterializedConnector materializedConnector = connectors.remove(catalogName);
@@ -401,6 +410,7 @@ public class ConnectorManager
         private final Connector connector;
         private final Set<SystemTable> systemTables;
         private final Set<Procedure> procedures;
+        private final Set<TableProcedureMetadata> tableProcedures;
         private final Optional<ConnectorSplitManager> splitManager;
         private final Optional<ConnectorPageSourceProvider> pageSourceProvider;
         private final Optional<ConnectorPageSinkProvider> pageSinkProvider;
@@ -427,6 +437,10 @@ public class ConnectorManager
             Set<Procedure> procedures = connector.getProcedures();
             requireNonNull(procedures, format("Connector '%s' returned a null procedures set", catalogName));
             this.procedures = ImmutableSet.copyOf(procedures);
+
+            Set<TableProcedureMetadata> tableProcedures = connector.getTableProcedures();
+            requireNonNull(procedures, format("Connector '%s' returned a null table procedures set", catalogName));
+            this.tableProcedures = ImmutableSet.copyOf(tableProcedures);
 
             ConnectorSplitManager splitManager = null;
             try {
@@ -536,6 +550,11 @@ public class ConnectorManager
         public Set<Procedure> getProcedures()
         {
             return procedures;
+        }
+
+        public Set<TableProcedureMetadata> getTableProcedures()
+        {
+            return tableProcedures;
         }
 
         public Optional<ConnectorSplitManager> getSplitManager()

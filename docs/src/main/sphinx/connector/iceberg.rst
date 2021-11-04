@@ -97,6 +97,122 @@ supports the following features:
   :ref:`iceberg-materialized-views`
 * :ref:`sql-views-management`
 
+.. _iceberg-type-mapping:
+
+Type mapping
+------------
+
+Both Iceberg and Trino have types that are not supported by the Iceberg
+connector. The following sections explain their type mapping.
+
+Iceberg to Trino type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Trino supports selecting Iceberg data types. The following table shows the
+Iceberg to Trino type mapping:
+
+.. list-table:: Iceberg to Trino type mapping
+  :widths: 40, 60
+  :header-rows: 1
+
+  * - Iceberg type
+    - Trino type
+  * - ``BOOLEAN``
+    - ``BOOLEAN``
+  * - ``INT``
+    - ``INTEGER``
+  * - ``LONG``
+    - ``BIGINT``
+  * - ``FLOAT``
+    - ``REAL``
+  * - ``DOUBLE``
+    - ``DOUBLE``
+  * - ``DECIMAL(p,s)``
+    - ``DECIMAL(p,s)``
+  * - ``DATE``
+    - ``DATE``
+  * - ``TIME``
+    - ``TIME(6)``
+  * - ``TIMESTAMP``
+    - ``TIMESTAMP(6)``
+  * - ``TIMESTAMPTZ``
+    - ``TIMESTAMP(6) WITH TIME ZONE``
+  * - ``STRING``
+    - ``VARCHAR``
+  * - ``UUID``
+    - ``UUID``
+  * - ``BINARY``
+    - ``VARBINARY``
+  * - ``STRUCT(...)``
+    - ``ROW(...)``
+  * - ``LIST(e)``
+    - ``ARRAY(e)``
+  * - ``MAP(k,v)``
+    - ``MAP(k,v)``
+
+Trino to Iceberg type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Trino supports creating tables with the following types in Iceberg. The table
+shows the mappings from Trino to Iceberg data types:
+
+
+.. list-table:: Trino to Iceberg type mapping
+  :widths: 25, 30, 45
+  :header-rows: 1
+
+  * - Trino type
+    - Iceberg type
+    - Notes
+  * - ``BOOLEAN``
+    - ``BOOLEAN``
+    -
+  * - ``INTEGER``
+    - ``INT``
+    -
+  * - ``BIGINT``
+    - ``LONG``
+    -
+  * - ``REAL``
+    - ``FLOAT``
+    -
+  * - ``DOUBLE``
+    - ``DOUBLE``
+    -
+  * - ``DECIMAL(p,s)``
+    - ``DECIMAL(p,s)``
+    -
+  * - ``DATE``
+    - ``DATE``
+    -
+  * - ``TIME(6)``
+    - ``TIME``
+    - Other precisions not supported
+  * - ``TIMESTAMP(6)``
+    - ``TIMESTAMP``
+    - Other precisions not supported
+  * - ``TIMESTAMP(6) WITH TIME ZONE``
+    - ``TIMESTAMPTZ``
+    - Other precisions not supported
+  * - ``VARCHAR, VARCHAR(n)``
+    - ``STRING``
+    -
+  * - ``UUID``
+    - ``UUID``
+    -
+  * - ``VARBINARY``
+    - ``BINARY``
+    -
+  * - ``ROW(...)``
+    - ``STRUCT(...)``
+    - All fields must have a name
+  * - ``ARRAY(e)``
+    - ``LIST(e)``
+    -
+  * - ``MAP(k,v)``
+    - ``MAP(k,v)``
+    -
+
 .. _iceberg-tables:
 
 Partitioned tables
@@ -144,7 +260,7 @@ In this example, the table is partitioned by the month of ``order_date``, a hash
 .. _iceberg-delete:
 
 Deletion by partition
----------------------
+^^^^^^^^^^^^^^^^^^^^^
 
 For partitioned tables, the Iceberg connector supports the deletion of entire
 partitions if the ``WHERE`` clause specifies filters only on the identity-transformed

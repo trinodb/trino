@@ -205,6 +205,7 @@ public class TestTransactionManager
         catalogManager.registerCatalog(new Catalog(
                 catalogName,
                 catalog,
+                "test",
                 connector,
                 SecurityManagement.CONNECTOR,
                 createInformationSchemaCatalogName(catalog),

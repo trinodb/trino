@@ -101,10 +101,12 @@ public class TestHiveConfig
                 .setQueryPartitionFilterRequired(false)
                 .setQueryPartitionFilterRequiredSchemas("")
                 .setProjectionPushdownEnabled(true)
-                .setDynamicFilteringProbeBlockingTimeout(new Duration(0, TimeUnit.MINUTES))
+                .setDynamicFilteringWaitTimeout(new Duration(0, TimeUnit.MINUTES))
                 .setTimestampPrecision(HiveTimestampPrecision.DEFAULT_PRECISION)
                 .setOptimizeSymlinkListing(true)
-                .setLegacyHiveViewTranslation(false));
+                .setLegacyHiveViewTranslation(false)
+                .setSizeBasedSplitWeightsEnabled(true)
+                .setMinimumAssignedSplitWeight(0.05));
     }
 
     @Test
@@ -176,10 +178,12 @@ public class TestHiveConfig
                 .put("hive.query-partition-filter-required", "true")
                 .put("hive.query-partition-filter-required-schemas", "foo, bar")
                 .put("hive.projection-pushdown-enabled", "false")
-                .put("hive.dynamic-filtering-probe-blocking-timeout", "10s")
+                .put("hive.dynamic-filtering.wait-timeout", "10s")
                 .put("hive.timestamp-precision", "NANOSECONDS")
                 .put("hive.optimize-symlink-listing", "false")
                 .put("hive.legacy-hive-view-translation", "true")
+                .put("hive.size-based-split-weights-enabled", "false")
+                .put("hive.minimum-assigned-split-weight", "1.0")
                 .build();
 
         HiveConfig expected = new HiveConfig()
@@ -248,10 +252,12 @@ public class TestHiveConfig
                 .setQueryPartitionFilterRequired(true)
                 .setQueryPartitionFilterRequiredSchemas("foo, bar")
                 .setProjectionPushdownEnabled(false)
-                .setDynamicFilteringProbeBlockingTimeout(new Duration(10, TimeUnit.SECONDS))
+                .setDynamicFilteringWaitTimeout(new Duration(10, TimeUnit.SECONDS))
                 .setTimestampPrecision(HiveTimestampPrecision.NANOSECONDS)
                 .setOptimizeSymlinkListing(false)
-                .setLegacyHiveViewTranslation(true);
+                .setLegacyHiveViewTranslation(true)
+                .setSizeBasedSplitWeightsEnabled(false)
+                .setMinimumAssignedSplitWeight(1.0);
 
         assertFullMapping(properties, expected);
     }

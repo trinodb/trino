@@ -420,7 +420,28 @@ public final class TupleDomain<T>
      */
     public boolean overlaps(TupleDomain<T> other)
     {
-        return !this.intersect(other).isNone();
+        requireNonNull(other, "other is null");
+
+        if (this.isNone() || other.isNone()) {
+            return false;
+        }
+        if (this == other || this.isAll() || other.isAll()) {
+            return true;
+        }
+
+        Map<T, Domain> thisDomains = this.domains.orElseThrow();
+        Map<T, Domain> otherDomains = other.getDomains().orElseThrow();
+
+        for (Map.Entry<T, Domain> entry : otherDomains.entrySet()) {
+            Domain commonColumnDomain = thisDomains.get(entry.getKey());
+            if (commonColumnDomain != null) {
+                if (!commonColumnDomain.overlaps(entry.getValue())) {
+                    return false;
+                }
+            }
+        }
+        // All the common columns have overlapping domains
+        return true;
     }
 
     /**
@@ -429,7 +450,21 @@ public final class TupleDomain<T>
      */
     public boolean contains(TupleDomain<T> other)
     {
-        return other.isNone() || columnWiseUnion(this, other).equals(this);
+        if (other.isNone() || this == other) {
+            return true;
+        }
+        if (isNone()) {
+            return false;
+        }
+        Map<T, Domain> thisDomains = domains.orElseThrow();
+        Map<T, Domain> otherDomains = other.getDomains().orElseThrow();
+        for (Map.Entry<T, Domain> entry : thisDomains.entrySet()) {
+            Domain otherDomain = otherDomains.get(entry.getKey());
+            if (otherDomain == null || !entry.getValue().contains(otherDomain)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Override

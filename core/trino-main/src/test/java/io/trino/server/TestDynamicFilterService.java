@@ -184,6 +184,7 @@ public class TestDynamicFilterService
                         symbol3, new TestingColumnHandle("probeColumnB")),
                 symbolAllocator.getTypes());
 
+        assertEquals(dynamicFilter.getColumnsCovered(), Set.of(new TestingColumnHandle("probeColumnA"), new TestingColumnHandle("probeColumnB")), "columns covered");
         assertTrue(dynamicFilter.getCurrentPredicate().isAll());
         assertFalse(dynamicFilter.isComplete());
         assertTrue(dynamicFilter.isAwaitable());
@@ -275,6 +276,7 @@ public class TestDynamicFilterService
                         symbol2, new TestingColumnHandle("probeColumnA")),
                 symbolAllocator.getTypes());
 
+        assertEquals(dynamicFilterColumnA.getColumnsCovered(), Set.of(new TestingColumnHandle("probeColumnA")), "columns covered");
         assertTrue(dynamicFilterColumnA.isComplete());
         assertFalse(dynamicFilterColumnA.isAwaitable());
         assertTrue(dynamicFilterColumnA.isBlocked().isDone());
@@ -390,6 +392,7 @@ public class TestDynamicFilterService
                 ImmutableMap.of(symbol1, new TestingColumnHandle("probeColumnA")),
                 symbolAllocator.getTypes());
 
+        assertEquals(dynamicFilter.getColumnsCovered(), Set.of(new TestingColumnHandle("probeColumnA")), "columns covered");
         assertFalse(dynamicFilter.isComplete());
         assertTrue(dynamicFilter.getCurrentPredicate().isAll());
 
@@ -426,6 +429,8 @@ public class TestDynamicFilterService
                 ImmutableMap.of(
                         symbol1, new TestingColumnHandle("probeColumnA")),
                 symbolAllocator.getTypes());
+
+        assertEquals(dynamicFilter.getColumnsCovered(), Set.of(new TestingColumnHandle("probeColumnA")), "columns covered");
         assertTrue(dynamicFilter.getCurrentPredicate().isAll());
 
         // assert initial dynamic filtering stats
@@ -625,6 +630,8 @@ public class TestDynamicFilterService
                         symbol1, column1,
                         symbol2, column2),
                 symbolAllocator.getTypes());
+
+        assertEquals(dynamicFilter.getColumnsCovered(), Set.of(column1, column2), "columns covered");
 
         Domain domain = singleValue(INTEGER, 1L);
         dynamicFilterService.addTaskDynamicFilters(
