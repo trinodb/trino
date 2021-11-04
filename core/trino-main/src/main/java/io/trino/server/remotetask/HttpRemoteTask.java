@@ -774,6 +774,11 @@ public final class HttpRemoteTask
                     return;
                 }
 
+                // final task info is set
+                if (taskInfoFetcher.getTaskInfo().getTaskStatus().getState().isDone()) {
+                    return;
+                }
+
                 // reschedule
                 long delayNanos = cleanupBackoff.getBackoffDelayNanos();
                 if (delayNanos == 0) {
