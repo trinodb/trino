@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
+import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -64,6 +65,7 @@ public class InternalHiveSplit
     private final Optional<BucketValidation> bucketValidation;
     private final boolean s3SelectPushdownEnabled;
     private final Optional<AcidInfo> acidInfo;
+    private final BooleanSupplier partitionMatchSupplier;
 
     private long start;
     private int currentBlockIndex;
@@ -87,7 +89,8 @@ public class InternalHiveSplit
             Optional<BucketConversion> bucketConversion,
             Optional<BucketValidation> bucketValidation,
             boolean s3SelectPushdownEnabled,
-            Optional<AcidInfo> acidInfo)
+            Optional<AcidInfo> acidInfo,
+            BooleanSupplier partitionMatchSupplier)
     {
         checkArgument(start >= 0, "start must be positive");
         checkArgument(end >= 0, "length must be positive");
@@ -103,6 +106,7 @@ public class InternalHiveSplit
         requireNonNull(bucketConversion, "bucketConversion is null");
         requireNonNull(bucketValidation, "bucketValidation is null");
         requireNonNull(acidInfo, "acidInfo is null");
+        requireNonNull(partitionMatchSupplier, "partitionMatchSupplier is null");
 
         this.partitionName = partitionName;
         this.path = path;
@@ -123,6 +127,7 @@ public class InternalHiveSplit
         this.bucketValidation = bucketValidation;
         this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
         this.acidInfo = acidInfo;
+        this.partitionMatchSupplier = partitionMatchSupplier;
     }
 
     public String getPath()
@@ -243,6 +248,11 @@ public class InternalHiveSplit
     public Optional<AcidInfo> getAcidInfo()
     {
         return acidInfo;
+    }
+
+    public BooleanSupplier getPartitionMatchSupplier()
+    {
+        return partitionMatchSupplier;
     }
 
     @Override

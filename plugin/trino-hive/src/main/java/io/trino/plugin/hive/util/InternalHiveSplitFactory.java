@@ -226,7 +226,8 @@ public class InternalHiveSplitFactory
                 bucketConversion,
                 bucketValidation,
                 s3SelectPushdownEnabled && S3SelectPushdown.isCompressionCodecSupported(inputFormat, path),
-                acidInfo));
+                acidInfo,
+                partitionMatchSupplier));
     }
 
     private static void checkBlocks(Path path, List<InternalHiveBlock> blocks, long start, long length)
