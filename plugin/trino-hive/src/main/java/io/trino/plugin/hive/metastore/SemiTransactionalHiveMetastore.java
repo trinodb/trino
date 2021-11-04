@@ -41,9 +41,11 @@ import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.security.SqlStandardAccessControlMetadataMetastore;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.statistics.ColumnStatisticType;
@@ -366,7 +368,38 @@ public class SemiTransactionalHiveMetastore
 
     public synchronized void dropDatabase(HiveIdentity identity, String schemaName)
     {
-        setExclusive((delegate, hdfsEnvironment) -> delegate.dropDatabase(identity, schemaName));
+        HdfsContext context = new HdfsContext(
+                identity.getUsername()
+                        .map(ConnectorIdentity::ofUser)
+                        .orElseThrow(() -> new IllegalStateException("username is null")));
+
+        Optional<Path> location = delegate.getDatabase(schemaName)
+                .orElseThrow(() -> new SchemaNotFoundException(schemaName))
+                .getLocation()
+                .map(Path::new);
+
+        setExclusive((delegate, hdfsEnvironment) -> {
+            delegate.dropDatabase(identity, schemaName);
+
+            location.ifPresent(path -> {
+                try {
+                    FileSystem fs = hdfsEnvironment.getFileSystem(context, path);
+                    // If no files in schema directory, delete it
+                    if (!fs.listFiles(path, false).hasNext()) {
+                        log.debug("Deleting location of dropped schema (%s)", path);
+                        fs.delete(path, true);
+                    }
+                    else {
+                        log.info("Skipped deleting schema location with external files (%s)", path);
+                    }
+                }
+                catch (IOException e) {
+                    throw new TrinoException(
+                            HIVE_FILESYSTEM_ERROR,
+                            format("Error checking or deleting schema directory '%s'", path), e);
+                }
+            });
+        });
     }
 
     public synchronized void renameDatabase(HiveIdentity identity, String source, String target)
