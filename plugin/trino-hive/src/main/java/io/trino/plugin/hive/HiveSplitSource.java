@@ -354,6 +354,12 @@ class HiveSplitSource
             ImmutableList.Builder<ConnectorSplit> resultBuilder = ImmutableList.builder();
             int removedEstimatedSizeInBytes = 0;
             for (InternalHiveSplit internalSplit : internalSplits) {
+                // Dynamic filter may not have been ready when partition was loaded in BackgroundHiveSplitLoader.
+                // Perform one more dynamic filter check immediately before split is returned to the engine
+                if (!internalSplit.getPartitionMatchSupplier().getAsBoolean()) {
+                    continue;
+                }
+
                 long maxSplitBytes = maxSplitSize.toBytes();
                 if (remainingInitialSplits.get() > 0) {
                     if (remainingInitialSplits.getAndDecrement() > 0) {
