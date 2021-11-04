@@ -17,6 +17,8 @@ import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorSession;
 
 import java.util.Optional;
+import java.util.stream.LongStream;
+import java.util.stream.Stream;
 
 public final class BigintType
         extends AbstractLongType
@@ -55,5 +57,11 @@ public final class BigintType
     public Optional<Range> getRange()
     {
         return Optional.of(new Range(Long.MIN_VALUE, Long.MAX_VALUE));
+    }
+
+    @Override
+    public Optional<Stream<?>> getDiscreteValues(Range range)
+    {
+        return Optional.of(LongStream.rangeClosed((long) range.getMin(), (long) range.getMax()).boxed());
     }
 }
