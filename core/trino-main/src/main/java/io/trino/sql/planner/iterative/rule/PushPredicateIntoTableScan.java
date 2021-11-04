@@ -25,37 +25,29 @@ import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableLayoutResult;
 import io.trino.metadata.TableProperties;
 import io.trino.metadata.TableProperties.TablePartitioning;
-import io.trino.operator.scalar.TryFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
-import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.planner.DomainTranslator;
-import io.trino.sql.planner.ExpressionInterpreter;
-import io.trino.sql.planner.LookupSymbolResolver;
+import io.trino.sql.planner.LayoutConstraintEvaluator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
-import io.trino.sql.planner.SymbolsExtractor;
 import io.trino.sql.planner.TypeAnalyzer;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.NullLiteral;
 
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Sets.intersection;
 import static io.trino.SystemSessionProperties.isAllowPushdownIntoConnectors;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.metadata.TableLayoutResult.computeEnforced;
@@ -345,42 +337,5 @@ public class PushPredicateIntoTableScan
         expression = SimplifyExpressions.rewrite(expression, session, symbolAllocator, metadata, typeAnalyzer);
 
         return expression;
-    }
-
-    private static class LayoutConstraintEvaluator
-    {
-        private final Map<Symbol, ColumnHandle> assignments;
-        private final ExpressionInterpreter evaluator;
-        private final Set<ColumnHandle> arguments;
-
-        public LayoutConstraintEvaluator(Metadata metadata, TypeAnalyzer typeAnalyzer, Session session, TypeProvider types, Map<Symbol, ColumnHandle> assignments, Expression expression)
-        {
-            this.assignments = assignments;
-
-            evaluator = new ExpressionInterpreter(expression, metadata, session, typeAnalyzer.getTypes(session, types, expression));
-            arguments = SymbolsExtractor.extractUnique(expression).stream()
-                    .map(assignments::get)
-                    .collect(toImmutableSet());
-        }
-
-        public Set<ColumnHandle> getArguments()
-        {
-            return arguments;
-        }
-
-        private boolean isCandidate(Map<ColumnHandle, NullableValue> bindings)
-        {
-            if (intersection(bindings.keySet(), arguments).isEmpty()) {
-                return true;
-            }
-            LookupSymbolResolver inputs = new LookupSymbolResolver(assignments, bindings);
-
-            // Skip pruning if evaluation fails in a recoverable way. Failing here can cause
-            // spurious query failures for partitions that would otherwise be filtered out.
-            Object optimized = TryFunction.evaluate(() -> evaluator.optimize(inputs), true);
-
-            // If any conjuncts evaluate to FALSE or null, then the whole predicate will never be true and so the partition should be pruned
-            return !(Boolean.FALSE.equals(optimized) || optimized == null || optimized instanceof NullLiteral);
-        }
     }
 }
