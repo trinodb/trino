@@ -1015,7 +1015,10 @@ public class TestDomainTranslator
         assertUnsupportedPredicate(new InPredicate(C_BOOLEAN.toSymbolReference(), new InListExpression(ImmutableList.of(unprocessableExpression1(C_BOOLEAN)))));
         assertUnsupportedPredicate(
                 new InPredicate(C_BOOLEAN.toSymbolReference(), new InListExpression(ImmutableList.of(TRUE_LITERAL, unprocessableExpression1(C_BOOLEAN)))));
-        assertUnsupportedPredicate(not(new InPredicate(C_BOOLEAN.toSymbolReference(), new InListExpression(ImmutableList.of(unprocessableExpression1(C_BOOLEAN))))));
+        assertPredicateTranslates(
+                not(new InPredicate(C_BOOLEAN.toSymbolReference(), new InListExpression(ImmutableList.of(unprocessableExpression1(C_BOOLEAN))))),
+                tupleDomain(C_BOOLEAN, Domain.notNull(BOOLEAN)),
+                not(equal(C_BOOLEAN, unprocessableExpression1(C_BOOLEAN))));
     }
 
     @Test
@@ -1132,8 +1135,10 @@ public class TestDomainTranslator
                 TRUE_LITERAL);
 
         // NOT IN, with expression
-        assertUnsupportedPredicate(
-                not(in(symbol, List.of(otherSymbol))));
+        assertPredicateTranslates(
+                not(in(symbol, List.of(otherSymbol))),
+                tupleDomain(symbol, Domain.notNull(type)),
+                not(equal(symbol, otherSymbol)));
         assertPredicateTranslates(
                 not(in(symbol, List.of(oneExpression, otherSymbol, twoExpression))),
                 tupleDomain(symbol, Domain.create(
@@ -1143,10 +1148,8 @@ public class TestDomainTranslator
                                 Range.greaterThan(type, two)),
                         false)),
                 not(equal(symbol, otherSymbol)));
-        assertPredicateTranslates(
-                not(in(symbol, List.of(oneExpression, otherSymbol, twoExpression, nullExpression))),
-                TupleDomain.none(),
-                not(equal(symbol, otherSymbol))); // Note: remaining expression is redundant here
+        assertPredicateIsAlwaysFalse(
+                not(in(symbol, List.of(oneExpression, otherSymbol, twoExpression, nullExpression))));
     }
 
     private void testInPredicateWithFloatingPoint(Symbol symbol, Symbol symbol2, Type type, Object one, Object two, Object nan)
@@ -1182,10 +1185,8 @@ public class TestDomainTranslator
                 tupleDomain(symbol, Domain.multipleValues(type, List.of(one, two))));
 
         // IN, with null and NaN
-        assertPredicateTranslates(
-                in(symbol, List.of(nanExpression, nullExpression)),
-                TupleDomain.none(),
-                or(equal(symbol, nanExpression), equal(symbol, nullExpression))); // Note: remaining expression is redundant here
+        assertPredicateIsAlwaysFalse(
+                in(symbol, List.of(nanExpression, nullExpression)));
         assertPredicateTranslates(
                 in(symbol, List.of(oneExpression, nanExpression, twoExpression, nullExpression)),
                 tupleDomain(symbol, Domain.multipleValues(type, List.of(one, two))));
@@ -1203,20 +1204,22 @@ public class TestDomainTranslator
                 in(symbol, List.of(oneExpression, otherSymbol, nanExpression, twoExpression, nullExpression)));
 
         // NOT IN, single value
-        assertUnsupportedPredicate(
-                not(in(symbol, List.of(oneExpression))));
+        assertPredicateTranslates(
+                not(in(symbol, List.of(oneExpression))),
+                tupleDomain(symbol, Domain.notNull(type)),
+                not(equal(symbol, oneExpression)));
 
         // NOT IN, two values
-        assertUnsupportedPredicate(
+        assertPredicateTranslates(
+                not(in(symbol, List.of(oneExpression, twoExpression))),
+                tupleDomain(symbol, Domain.notNull(type)),
                 not(in(symbol, List.of(oneExpression, twoExpression))));
 
         // NOT IN, with null
         assertPredicateIsAlwaysFalse(
                 not(in(symbol, List.of(nullExpression))));
-        assertPredicateTranslates(
-                not(in(symbol, List.of(oneExpression, nullExpression, twoExpression))),
-                TupleDomain.none(),
-                and(not(equal(symbol, oneExpression)), not(equal(symbol, twoExpression)))); // Note: remaining expression is redundant here
+        assertPredicateIsAlwaysFalse(
+                not(in(symbol, List.of(oneExpression, nullExpression, twoExpression))));
 
         // NOT IN, with NaN
         assertPredicateTranslates(
@@ -1225,33 +1228,31 @@ public class TestDomainTranslator
         assertPredicateTranslates(
                 not(in(symbol, List.of(oneExpression, nanExpression, twoExpression))),
                 tupleDomain(symbol, Domain.notNull(type)),
-                and(not(equal(symbol, oneExpression)), not(equal(symbol, twoExpression))));
+                not(in(symbol, List.of(oneExpression, twoExpression))));
 
         // NOT IN, with null and NaN
         assertPredicateIsAlwaysFalse(
                 not(in(symbol, List.of(nanExpression, nullExpression))));
-        assertPredicateTranslates(
-                not(in(symbol, List.of(oneExpression, nanExpression, twoExpression, nullExpression))),
-                TupleDomain.none(),
-                and(not(equal(symbol, oneExpression)), not(equal(symbol, twoExpression)))); // Note: remaining expression is redundant here
+        assertPredicateIsAlwaysFalse(
+                not(in(symbol, List.of(oneExpression, nanExpression, twoExpression, nullExpression))));
 
         // NOT IN, with expression
-        assertUnsupportedPredicate(
-                not(in(symbol, List.of(otherSymbol))));
-        assertUnsupportedPredicate(
+        assertPredicateTranslates(
+                not(in(symbol, List.of(otherSymbol))),
+                tupleDomain(symbol, Domain.notNull(type)),
+                not(equal(symbol, otherSymbol)));
+        assertPredicateTranslates(
+                not(in(symbol, List.of(oneExpression, otherSymbol, twoExpression))),
+                tupleDomain(symbol, Domain.notNull(type)),
                 not(in(symbol, List.of(oneExpression, otherSymbol, twoExpression))));
         assertPredicateTranslates(
                 not(in(symbol, List.of(oneExpression, otherSymbol, twoExpression, nanExpression))),
                 tupleDomain(symbol, Domain.notNull(type)),
-                and(not(equal(symbol, oneExpression)), not(equal(symbol, otherSymbol)), not(equal(symbol, twoExpression))));
-        assertPredicateTranslates(
-                not(in(symbol, List.of(oneExpression, otherSymbol, twoExpression, nullExpression))),
-                TupleDomain.none(),
-                and(not(equal(symbol, oneExpression)), not(equal(symbol, otherSymbol)), not(equal(symbol, twoExpression)))); // Note: remaining expression is redundant here
-        assertPredicateTranslates(
-                not(in(symbol, List.of(oneExpression, otherSymbol, nanExpression, twoExpression, nullExpression))),
-                TupleDomain.none(),
-                and(not(equal(symbol, oneExpression)), not(equal(symbol, otherSymbol)), not(equal(symbol, twoExpression)))); // Note: remaining expression is redundant here
+                not(in(symbol, List.of(oneExpression, otherSymbol, twoExpression))));
+        assertPredicateIsAlwaysFalse(
+                not(in(symbol, List.of(oneExpression, otherSymbol, twoExpression, nullExpression))));
+        assertPredicateIsAlwaysFalse(
+                not(in(symbol, List.of(oneExpression, otherSymbol, nanExpression, twoExpression, nullExpression))));
     }
 
     @Test
