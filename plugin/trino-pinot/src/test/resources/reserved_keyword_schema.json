@@ -4,6 +4,10 @@
         {
             "name": "date",
             "dataType": "STRING"
+        },
+        {
+            "name": "as",
+            "dataType": "STRING"
         }
     ],
     "dateTimeFieldSpecs": [

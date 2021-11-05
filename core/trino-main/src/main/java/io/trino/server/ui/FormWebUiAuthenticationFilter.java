@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.Hashing;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
 import io.trino.server.security.AuthenticationException;
 import io.trino.server.security.Authenticator;
 import io.trino.spi.security.Identity;
@@ -33,6 +32,7 @@ import javax.ws.rs.core.UriInfo;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.security.Key;
 import java.security.SecureRandom;
 import java.time.ZonedDateTime;
 import java.util.Date;
@@ -42,6 +42,7 @@ import java.util.function.Function;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static io.jsonwebtoken.security.Keys.hmacShaKeyFor;
 import static io.trino.server.ServletSecurityUtils.sendWwwAuthenticate;
 import static io.trino.server.ServletSecurityUtils.setAuthenticatedIdentity;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -74,14 +75,15 @@ public class FormWebUiAuthenticationFilter
             FormAuthenticator formAuthenticator,
             @ForWebUi Optional<Authenticator> authenticator)
     {
-        byte[] hmac;
+        byte[] hmacBytes;
         if (config.getSharedSecret().isPresent()) {
-            hmac = Hashing.sha256().hashString(config.getSharedSecret().get(), UTF_8).asBytes();
+            hmacBytes = Hashing.sha256().hashString(config.getSharedSecret().get(), UTF_8).asBytes();
         }
         else {
-            hmac = new byte[32];
-            new SecureRandom().nextBytes(hmac);
+            hmacBytes = new byte[32];
+            new SecureRandom().nextBytes(hmacBytes);
         }
+        Key hmac = hmacShaKeyFor(hmacBytes);
 
         this.jwtParser = jwt -> parseJwt(hmac, jwt);
 
@@ -284,21 +286,22 @@ public class FormWebUiAuthenticationFilter
         return formAuthenticator.isLoginEnabled(secure) || authenticator.isPresent();
     }
 
-    private static String generateJwt(byte[] hmac, String username, long sessionTimeoutNanos)
+    private static String generateJwt(Key hmac, String username, long sessionTimeoutNanos)
     {
         return Jwts.builder()
-                .signWith(SignatureAlgorithm.HS256, hmac)
+                .signWith(hmac)
                 .setSubject(username)
                 .setExpiration(Date.from(ZonedDateTime.now().plusNanos(sessionTimeoutNanos).toInstant()))
                 .setAudience(TRINO_UI_AUDIENCE)
                 .compact();
     }
 
-    private static String parseJwt(byte[] hmac, String jwt)
+    private static String parseJwt(Key hmac, String jwt)
     {
-        return Jwts.parser()
+        return Jwts.parserBuilder()
                 .setSigningKey(hmac)
                 .requireAudience(TRINO_UI_AUDIENCE)
+                .build()
                 .parseClaimsJws(jwt)
                 .getBody()
                 .getSubject();

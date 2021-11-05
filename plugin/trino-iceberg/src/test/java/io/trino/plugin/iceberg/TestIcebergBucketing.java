@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.primitives.Primitives;
+import io.trino.plugin.iceberg.PartitionTransforms.ColumnTransform;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Decimals;
@@ -45,7 +46,6 @@ import java.util.function.Function;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
-import static io.trino.plugin.iceberg.PartitionTransforms.getBucketTransform;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
@@ -119,14 +119,8 @@ public class TestIcebergBucketing
         assertBucketAndHashEquals("string", "test string", 671244848);
         assertBucketAndHashEquals("string", "Trino rocks", 2131833594);
         assertBucketAndHashEquals("string", "\u5f3a\u5927\u7684Trino\u5f15\u64ce", 822296301); // 3-byte UTF-8 sequences (in Basic Plane, i.e. Plane 0)
-        // TODO https://github.com/apache/iceberg/issues/2837: Iceberg value is incorrect
-        assertThatThrownBy(() -> assertBucketAndHashEquals("string", "\uD83D\uDCB0", 661122892)) // 4-byte UTF-8 codepoint (non-BMP)
-                .isInstanceOf(AssertionError.class)
-                .hasMessage("icebergType=string, bucketCount=2147483647, icebergBucket=468848164, trinoBucket=661122892; expected [468848164] but found [661122892]");
-        // TODO https://github.com/apache/iceberg/issues/2837: Iceberg value is incorrect
-        assertThatThrownBy(() -> assertBucketAndHashEquals("string", "\uD843\uDFFC\uD843\uDFFD\uD843\uDFFE\uD843\uDFFF", 2094039023)) // 4 code points: 20FFC - 20FFF. 4-byte UTF-8 sequences in Supplementary Plane 2
-                .isInstanceOf(AssertionError.class)
-                .hasMessage("icebergType=string, bucketCount=2147483647, icebergBucket=775615312, trinoBucket=2094039023; expected [775615312] but found [2094039023]");
+        assertBucketAndHashEquals("string", "\uD83D\uDCB0", 661122892); // 4-byte UTF-8 codepoint (non-BMP)
+        assertBucketAndHashEquals("string", "\uD843\uDFFC\uD843\uDFFD\uD843\uDFFE\uD843\uDFFF", 2094039023); // 4 code points: 20FFC - 20FFF. 4-byte UTF-8 sequences in Supplementary Plane 2
 
         assertBucketAndHashEquals("binary", null, null);
         assertBucketAndHashEquals("binary", ByteBuffer.wrap(new byte[] {}), 0);
@@ -283,7 +277,8 @@ public class TestIcebergBucketing
     private Integer computeTrinoBucket(Type icebergType, Object icebergValue, int bucketCount)
     {
         io.trino.spi.type.Type trinoType = toTrinoType(icebergType, TYPE_MANAGER);
-        Function<Block, Block> bucketTransform = getBucketTransform(trinoType, bucketCount);
+        ColumnTransform transform = PartitionTransforms.bucket(trinoType, bucketCount);
+        Function<Block, Block> blockTransform = transform.getBlockTransform();
 
         BlockBuilder blockBuilder = trinoType.createBlockBuilder(null, 1);
 
@@ -292,9 +287,15 @@ public class TestIcebergBucketing
         writeNativeValue(trinoType, blockBuilder, trinoValue);
         Block block = blockBuilder.build();
 
-        Block bucketBlock = bucketTransform.apply(block);
+        Block bucketBlock = blockTransform.apply(block);
         verify(bucketBlock.getPositionCount() == 1);
-        return bucketBlock.isNull(0) ? null : bucketBlock.getInt(0, 0);
+        Integer trinoBucketWithBlock = bucketBlock.isNull(0) ? null : bucketBlock.getInt(0, 0);
+
+        Long trinoBucketWithValue = (Long) transform.getValueTransform().apply(block, 0);
+        Integer trinoBucketWithValueAsInteger = trinoBucketWithValue == null ? null : toIntExact(trinoBucketWithValue);
+        assertEquals(trinoBucketWithValueAsInteger, trinoBucketWithBlock);
+
+        return trinoBucketWithBlock;
     }
 
     private static Object toTrinoValue(Type icebergType, Object icebergValue)

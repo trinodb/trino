@@ -11,13 +11,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.kafka;
+package io.trino.plugin.base.security;
 
-import io.trino.spi.session.PropertyMetadata;
+import com.google.inject.Binder;
+import com.google.inject.Module;
+import io.trino.spi.connector.ConnectorAccessControl;
 
-import java.util.List;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 
-public interface SessionPropertiesProvider
+public class ConnectorAccessControlModule
+        implements Module
 {
-    List<PropertyMetadata<?>> getSessionProperties();
+    @Override
+    public void configure(Binder binder)
+    {
+        newOptionalBinder(binder, ConnectorAccessControl.class);
+    }
 }

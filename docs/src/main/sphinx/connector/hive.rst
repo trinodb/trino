@@ -442,58 +442,61 @@ Specific properties can be used to further configure the
 `Thrift <#thrift-metastore-configuration-properties>`__ or
 `Glue <#aws-glue-catalog-configuration-properties>`__ metastore.
 
-======================================= ============================================================ ============
-Property Name                                      Description                                       Default
-======================================= ============================================================ ============
-``hive.metastore``                      The type of Hive metastore to use. Trino currently supports  ``thrift``
+======================================= =============================================================
+Property Name                           Description
+======================================= =============================================================
+``hive.metastore``                      The type of Hive metastore to use. Trino currently supports
                                         the default Hive Thrift metastore (``thrift``), and the AWS
-                                        Glue Catalog (``glue``) as metadata sources.
+                                        Glue Catalog (``glue``) as metadata sources. Default is
+                                        ``thrift``.
 
-``hive.metastore-cache-ttl``            Duration how long cached metastore data should be considered ``0s``
-                                        valid.
+``hive.metastore-cache-ttl``            Duration how long cached metastore data should be considered
+                                        valid. Default is ``0s``.
 
-``hive.metastore-cache-maximum-size``   Maximum number of metastore data objects in the Hive         10000
-                                        metastore cache.
+``hive.metastore-cache-maximum-size``   Maximum number of metastore data objects in the Hive
+                                        metastore cache. Default is ``10000``.
 
 ``hive.metastore-refresh-interval``     Asynchronously refresh cached metastore data after access
                                         if it is older than this but is not yet expired, allowing
                                         subsequent accesses to see fresh data.
 
-``hive.metastore-refresh-max-threads``  Maximum threads used to refresh cached metastore data.        10
+``hive.metastore-refresh-max-threads``  Maximum threads used to refresh cached metastore data.
+                                        Default is ``10``.
 
-``hive.metastore-timeout``              Timeout for Hive metastore requests.                         ``10s``
+``hive.metastore-timeout``              Timeout for Hive metastore requests. Default is ``10s``.
 
-``hive.hide-delta-lake-tables``         Controls whether to hide Delta Lake tables in table          false
+``hive.hide-delta-lake-tables``         Controls whether to hide Delta Lake tables in table
                                         listings. Currently applies only when using the AWS Glue
-                                        metastore.
-======================================= ============================================================ ============
+                                        metastore. Default is ``false``.
+======================================= =============================================================
 
 Thrift metastore configuration properties
 -----------------------------------------
 
-=============================================================== ============================================================ ============
-Property Name                                                   Description                                                  Default
-=============================================================== ============================================================ ============
-``hive.metastore.uri``                                          The URI(s) of the Hive metastore to connect to using the
-                                                                Thrift protocol. If multiple URIs are provided, the first
-                                                                URI is used by default, and the rest of the URIs are
-                                                                fallback metastores. This property is required.
+=============================================================== =============================================================
+Property Name                                                   Description
+=============================================================== =============================================================
+``hive.metastore.uri``                                          The URIs of the Hive metastore to connect to using the
+                                                                Thrift protocol. If a comma-separated list of URIs is
+                                                                provided, the first URI is used by default, and the rest
+                                                                of the URIs are fallback metastores. This property is required.
                                                                 Example: ``thrift://192.0.2.3:9083`` or
                                                                 ``thrift://192.0.2.3:9083,thrift://192.0.2.4:9083``
 
 ``hive.metastore.username``                                     The username Trino uses to access the Hive metastore.
 
 ``hive.metastore.authentication.type``                          Hive metastore authentication type.
-                                                                Possible values are ``NONE`` or ``KERBEROS``
-                                                                (defaults to ``NONE``).
+                                                                Possible values are ``NONE`` or ``KERBEROS``.
+                                                                Default is ``NONE``.
 
 ``hive.metastore.thrift.impersonation.enabled``                 Enable Hive metastore end user impersonation.
 
-``hive.metastore.thrift.delegation-token.cache-ttl``            Time to live delegation token cache for metastore.           ``1h``
+``hive.metastore.thrift.delegation-token.cache-ttl``            Time to live delegation token cache for metastore.
+                                                                Default is ``1h``.
 
-``hive.metastore.thrift.delegation-token.cache-maximum-size``   Delegation token cache maximum size.                         1,000
+``hive.metastore.thrift.delegation-token.cache-maximum-size``   Delegation token cache maximum size. Default is ``1000``.
 
-``hive.metastore.thrift.client.ssl.enabled``                    Use SSL when connecting to metastore.                        ``false``
+``hive.metastore.thrift.client.ssl.enabled``                    Use SSL when connecting to metastore. Default is ``false``.
 
 ``hive.metastore.thrift.client.ssl.key``                        Path to private key and client certificate (key store).
 
@@ -511,7 +514,7 @@ Property Name                                                   Description     
 
 ``hive.metastore.client.keytab``                                Hive metastore client keytab location.
 
-=============================================================== ============================================================ ============
+=============================================================== =============================================================
 
 AWS Glue catalog configuration properties
 -----------------------------------------
@@ -825,8 +828,8 @@ in query and CPU time, if dynamic filtering is able to reduce the amount of scan
 
 For the Hive connector, a table scan can be delayed for a configured amount of
 time until the collection of dynamic filters by using the configuration property
-``hive.dynamic-filtering-probe-blocking-timeout`` in the catalog file or the catalog
-session property ``<hive-catalog>.dynamic_filtering_probe_blocking_timeout``.
+``hive.dynamic-filtering.wait-timeout`` in the catalog file or the catalog
+session property ``<hive-catalog>.dynamic_filtering_wait_timeout``.
 
 Schema evolution
 ----------------
@@ -957,9 +960,7 @@ Special columns
 ---------------
 
 In addition to the defined columns, the Hive connector automatically exposes
-metadata in a number of hidden columns in each table. You can use these columns
-in your SQL statements like any other column, e.g., they can be selected
-directly or used in conditional statements.
+metadata in a number of hidden columns in each table:
 
 * ``$bucket``: Bucket number for this row
 
@@ -970,6 +971,20 @@ directly or used in conditional statements.
 * ``$file_size``: Size of the file for this row
 
 * ``$partition``: Partition name for this row
+
+You can use these columns in your SQL statements like any other column. They
+can be selected directly, or used in conditional statements. For example, you
+can inspect the file size, location and partition for each record::
+
+    SELECT *, "$path", "$file_size", "$partition"
+    FROM hive.web.page_views;
+
+Retrieve all records that belong to files stored in the partition
+``ds=2016-08-09/country=US``::
+
+    SELECT *, "$path", "$file_size"
+    FROM hive.web.page_views
+    WHERE "$partition" = 'ds=2016-08-09/country=US'
 
 Special tables
 ----------------
@@ -1099,7 +1114,7 @@ Hive 3 related limitations
       CREATE TABLE <name>
       WITH (
           format='ORC',
-          transactional=true,
+          transactional=true
       )
       AS <query>
 

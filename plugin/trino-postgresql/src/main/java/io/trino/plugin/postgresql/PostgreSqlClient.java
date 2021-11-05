@@ -224,9 +224,7 @@ public class PostgreSqlClient
     private static final int ARRAY_RESULT_SET_VALUE_COLUMN = 2;
     private static final String DUPLICATE_TABLE_SQLSTATE = "42P07";
     private static final int POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION = 6;
-
-    // TODO: Since 42.2.23 the JDBC driver will return 0 as column size for decimal types with unspecified precision
-    private static final int PRECISION_OF_UNSPECIFIED_DECIMAL = 131089;
+    private static final int PRECISION_OF_UNSPECIFIED_DECIMAL = 0;
 
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss.SSSSSS");
 

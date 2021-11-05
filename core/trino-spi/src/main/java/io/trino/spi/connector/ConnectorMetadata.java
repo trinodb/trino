@@ -354,6 +354,16 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Truncates the specified table
+     *
+     * @throws RuntimeException if the table cannot be dropped or table handle is no longer valid
+     */
+    default void truncateTable(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support truncating tables");
+    }
+
+    /**
      * Rename the specified table
      */
     default void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTableName)
@@ -426,7 +436,7 @@ public interface ConnectorMetadata
     }
 
     /**
-     * Get the physical layout for a inserting into an existing table.
+     * Get the physical layout for inserting into an existing table.
      */
     default Optional<ConnectorNewTableLayout> getInsertLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
     {

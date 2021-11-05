@@ -21,6 +21,8 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.trino.plugin.raptor.legacy.security.RaptorSecurity.ALLOW_ALL;
+import static io.trino.plugin.raptor.legacy.security.RaptorSecurity.READ_ONLY;
 
 public class TestRaptorSecurityConfig
 {
@@ -28,7 +30,7 @@ public class TestRaptorSecurityConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(RaptorSecurityConfig.class)
-                .setSecuritySystem("none"));
+                .setSecuritySystem(ALLOW_ALL));
     }
 
     @Test
@@ -39,7 +41,7 @@ public class TestRaptorSecurityConfig
                 .build();
 
         RaptorSecurityConfig expected = new RaptorSecurityConfig()
-                .setSecuritySystem("read-only");
+                .setSecuritySystem(READ_ONLY);
 
         assertFullMapping(properties, expected);
     }

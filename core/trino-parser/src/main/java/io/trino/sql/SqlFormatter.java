@@ -122,6 +122,7 @@ import io.trino.sql.tree.TableExecute;
 import io.trino.sql.tree.TableSubquery;
 import io.trino.sql.tree.TransactionAccessMode;
 import io.trino.sql.tree.TransactionMode;
+import io.trino.sql.tree.TruncateTable;
 import io.trino.sql.tree.Union;
 import io.trino.sql.tree.Unnest;
 import io.trino.sql.tree.Update;
@@ -1300,7 +1301,7 @@ public final class SqlFormatter
             if (node.isExists()) {
                 builder.append("IF EXISTS ");
             }
-            builder.append(node.getTableName());
+            builder.append(formatName(node.getTableName()));
 
             return null;
         }
@@ -1324,9 +1325,8 @@ public final class SqlFormatter
         {
             builder.append("ALTER TABLE ");
             builder.append(node.getName())
-                    .append(" SET PROPERTIES ( ");
+                    .append(" SET PROPERTIES ");
             builder.append(joinProperties(node.getProperties()));
-            builder.append(" )");
 
             return null;
         }
@@ -1458,7 +1458,7 @@ public final class SqlFormatter
         protected Void visitInsert(Insert node, Integer indent)
         {
             builder.append("INSERT INTO ")
-                    .append(node.getTarget());
+                    .append(formatName(node.getTarget()));
 
             if (node.getColumns().isPresent()) {
                 builder.append(" (")
@@ -1496,6 +1496,15 @@ public final class SqlFormatter
                         .append(indentString(indent))
                         .append("WHERE ").append(formatExpression(node.getWhere().get()));
             }
+            return null;
+        }
+
+        @Override
+        protected Void visitTruncateTable(TruncateTable node, Integer indent)
+        {
+            builder.append("TRUNCATE TABLE ");
+            builder.append(formatName(node.getTableName()));
+
             return null;
         }
 

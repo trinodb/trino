@@ -345,4 +345,10 @@ public abstract class ForwardingJdbcClient
     {
         return delegate().delete(session, handle);
     }
+
+    @Override
+    public void truncateTable(ConnectorSession session, JdbcTableHandle handle)
+    {
+        delegate().truncateTable(session, handle);
+    }
 }

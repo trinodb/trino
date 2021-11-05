@@ -96,6 +96,9 @@ public class TestPhoenixConnectorTest
             case SUPPORTS_RENAME_SCHEMA:
                 return false;
 
+            case SUPPORTS_TRUNCATE:
+                return false;
+
             default:
                 return super.hasBehavior(connectorBehavior);
         }

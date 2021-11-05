@@ -32,7 +32,7 @@ public class TestHiveDynamicPartitionPruningTest
     {
         return HiveQueryRunner.builder()
                 .setExtraProperties(EXTRA_PROPERTIES)
-                .setHiveProperties(ImmutableMap.of("hive.dynamic-filtering-probe-blocking-timeout", "1h"))
+                .setHiveProperties(ImmutableMap.of("hive.dynamic-filtering.wait-timeout", "1h"))
                 .setInitialTables(REQUIRED_TABLES)
                 .build();
     }

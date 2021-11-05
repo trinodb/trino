@@ -83,6 +83,8 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static io.trino.SystemSessionProperties.PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS;
+import static io.trino.SystemSessionProperties.USE_PREFERRED_WRITE_PARTITIONING;
 import static io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
@@ -96,6 +98,7 @@ import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.assertions.Assert.assertEventually;
+import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static io.trino.tpch.TpchTable.LINE_ITEM;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
@@ -720,7 +723,7 @@ public abstract class BaseIcebergConnectorTest
                                 .collect(toOptional()).orElseThrow();
                         if (aSampleColumnStatsRow.getField(2) == null) {
                             assertEqualsIgnoreOrder(result, computeActual("VALUES " +
-                                    "  ('a_boolean', NULL, NULL, NULL, NULL, NULL), " +
+                                    "  ('a_boolean', NULL, NULL, NULL, 'true', 'true'), " +
                                     "  ('an_integer', NULL, NULL, NULL, '1', '1'), " +
                                     "  ('a_bigint', NULL, NULL, NULL, '1', '1'), " +
                                     "  ('a_real', NULL, NULL, NULL, '1.0', '1.0'), " +
@@ -741,7 +744,7 @@ public abstract class BaseIcebergConnectorTest
                         }
                         else {
                             assertEqualsIgnoreOrder(result, computeActual("VALUES " +
-                                    "  ('a_boolean', NULL, 0e0, NULL, NULL, NULL), " +
+                                    "  ('a_boolean', NULL, 0e0, NULL, 'true', 'true'), " +
                                     "  ('an_integer', NULL, 0e0, NULL, '1', '1'), " +
                                     "  ('a_bigint', NULL, 0e0, NULL, '1', '1'), " +
                                     "  ('a_real', NULL, 0e0, NULL, '1.0', '1.0'), " +
@@ -2225,7 +2228,7 @@ public abstract class BaseIcebergConnectorTest
                 .projected(0, 2, 3, 4, 5, 6) // ignore data size which is available for Parquet, but not for ORC
                 .skippingTypesCheck()
                 .matches("VALUES " +
-                        "  ('bool', NULL, 0e0, NULL, " + (format == ORC ? "NULL, NULL" : "'true', 'true'") + "), " +
+                        "  ('bool', NULL, 0e0, NULL, 'true', 'true'), " +
                         "  ('int', NULL, 0e0, NULL, '1', '1'), " +
                         "  ('arr', NULL, " + (format == ORC ? "0e0" : "NULL") + ", NULL, NULL, NULL), " +
                         "  ('big', NULL, 0e0, NULL, '1', '1'), " +
@@ -2566,7 +2569,7 @@ public abstract class BaseIcebergConnectorTest
                         }
                         else {
                             assertEqualsIgnoreOrder(result, computeActual("VALUES " +
-                                    "  ('a_boolean', NULL, 0e0, NULL, NULL, NULL), " +
+                                    "  ('a_boolean', NULL, 0e0, NULL, 'true', 'true'), " +
                                     "  ('an_integer', NULL, 0e0, NULL, '1', '1'), " +
                                     "  ('a_bigint', NULL, 0e0, NULL, '1', '1'), " +
                                     "  ('a_real', NULL, 0e0, NULL, '1.0', '1.0'), " +
@@ -2703,7 +2706,7 @@ public abstract class BaseIcebergConnectorTest
     public void testLocalDynamicFilteringWithSelectiveBuildSizeJoin()
     {
         long fullTableScan = (Long) computeActual("SELECT count(*) FROM lineitem").getOnlyValue();
-        long numberOfFiles = (Long) computeActual("SELECT count(DISTINCT file_path) FROM \"lineitem$files\"").getOnlyValue();
+        long numberOfFiles = (Long) computeActual("SELECT count(*) FROM \"lineitem$files\"").getOnlyValue();
         Session session = Session.builder(getSession())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, FeaturesConfig.JoinDistributionType.BROADCAST.name())
                 .build();
@@ -2727,6 +2730,77 @@ public abstract class BaseIcebergConnectorTest
         });
     }
 
+    @Test(dataProvider = "repartitioningDataProvider")
+    public void testRepartitionDataOnCtas(String partitioning, int expectedFiles)
+    {
+        testRepartitionData(true, partitioning, expectedFiles);
+    }
+
+    @Test(dataProvider = "repartitioningDataProvider")
+    public void testRepartitionDataOnInsert(String partitioning, int expectedFiles)
+    {
+        testRepartitionData(false, partitioning, expectedFiles);
+    }
+
+    private void testRepartitionData(boolean ctas, String partitioning, int expectedFiles)
+    {
+        String tableName = "repartition_" +
+                (ctas ? "ctas" : "insert") +
+                "_" + partitioning.replaceAll("[^a-zA-Z0-9]", "") +
+                "_" + randomTableSuffix();
+
+        // Even if connector returns ConnectorNewTableLayout with partitioning defined, engine can still choose to ignore it.
+        Session obeyConnectorPartitioning = Session.builder(getSession())
+                .setSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, "true")
+                .setSystemProperty(PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS, "1")
+                .build();
+
+        long rowCount = (long) computeScalar("SELECT count(*) FROM orders");
+
+        if (ctas) {
+            assertUpdate(
+                    obeyConnectorPartitioning,
+                    "CREATE TABLE " + tableName + " WITH (partitioning = ARRAY[" + partitioning + "]) " +
+                            "AS SELECT * FROM tpch.tiny.orders",
+                    rowCount);
+        }
+        else {
+            assertUpdate(
+                    "CREATE TABLE " + tableName + " WITH (partitioning = ARRAY[" + partitioning + "]) " +
+                            "AS SELECT * FROM tpch.tiny.orders WITH NO DATA",
+                    0);
+            // Use source table big enough so that there will be multiple pages being written.
+            assertUpdate(obeyConnectorPartitioning, "INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.orders", rowCount);
+        }
+
+        // verify written data
+        assertThat(query("TABLE " + tableName))
+                .matches("TABLE orders");
+
+        // verify data files, i.e. repartitioning took place
+        assertThat(query("SELECT count(*) FROM \"" + tableName + "$files\""))
+                .matches("VALUES BIGINT '" + expectedFiles + "'");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @DataProvider
+    public Object[][] repartitioningDataProvider()
+    {
+        return new Object[][] {
+                // identity partitioning column
+                {"'orderstatus'", 3},
+                // bucketing
+                {"'bucket(custkey, 13)'", 13},
+                // varchar-based
+                {"'truncate(comment, 1)'", 35},
+                // complex; would exceed 100 open writers limit in IcebergPageSink without write repartitioning
+                {"'bucket(custkey, 4)', 'truncate(comment, 1)'", 131},
+                // same column multiple times
+                {"'truncate(comment, 1)', 'orderstatus', 'bucket(comment, 2)'", 180},
+        };
+    }
+
     @Test(dataProvider = "testDataMappingSmokeTestDataProvider")
     @Flaky(issue = "https://github.com/trinodb/trino/issues/5172", match = "Couldn't find operator summary, probably due to query statistic collection error")
     public void testSplitPruningForFilterOnNonPartitionColumn(DataMappingTestSetup testSetup)
@@ -2741,7 +2815,7 @@ public abstract class BaseIcebergConnectorTest
             // Insert separately to ensure two files with one value each
             assertUpdate("INSERT INTO " + tableName + " VALUES (1, " + sampleValue + ")", 1);
             assertUpdate("INSERT INTO " + tableName + " VALUES (2, " + highValue + ")", 1);
-            assertQuery("select count(distinct file_path) from \"" + tableName + "$files\"", "VALUES 2");
+            assertQuery("select count(*) from \"" + tableName + "$files\"", "VALUES 2");
 
             int expectedSplitCount = supportsIcebergFileStatistics(testSetup.getTrinoTypeName()) ? 1 : 2;
             verifySplitCount("SELECT row_id FROM " + tableName, 2);

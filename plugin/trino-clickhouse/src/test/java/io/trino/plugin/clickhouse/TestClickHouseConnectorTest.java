@@ -348,7 +348,7 @@ public class TestClickHouseConnectorTest
                             "primary_key", "p1, p2",
                             "sample_by", ""));
 
-            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES (sample_by = 'p2')");
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES sample_by = 'p2'");
             assertThat(getTableProperties("tpch", table.getName()))
                     .containsExactlyEntriesOf(ImmutableMap.of(
                             "engine", "MergeTree",
@@ -367,7 +367,7 @@ public class TestClickHouseConnectorTest
                 "test_alter_table_properties",
                 "(p1 int NOT NULL, p2 int NOT NULL, x VARCHAR) WITH (engine = 'MergeTree', order_by = ARRAY['p1', 'p2'], primary_key = ARRAY['p1', 'p2'])")) {
             assertQueryFails(
-                    "ALTER TABLE " + table.getName() + " SET PROPERTIES (invalid_property = 'p2')",
+                    "ALTER TABLE " + table.getName() + " SET PROPERTIES invalid_property = 'p2'",
                     "Catalog 'clickhouse' does not support table property 'invalid_property'");
         }
     }

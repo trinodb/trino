@@ -25,6 +25,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Arrays.stream;
 import static java.util.Objects.requireNonNull;
@@ -35,22 +36,33 @@ public class QueryAccessRule
     private final Set<AccessMode> allow;
     private final Optional<Pattern> userRegex;
     private final Optional<Pattern> roleRegex;
+    private final Optional<Pattern> groupRegex;
+    private final Optional<Pattern> queryOwnerRegex;
 
     @JsonCreator
     public QueryAccessRule(
             @JsonProperty("allow") Set<AccessMode> allow,
             @JsonProperty("user") Optional<Pattern> userRegex,
-            @JsonProperty("role") Optional<Pattern> roleRegex)
+            @JsonProperty("role") Optional<Pattern> roleRegex,
+            @JsonProperty("group") Optional<Pattern> groupRegex,
+            @JsonProperty("queryOwner") Optional<Pattern> queryOwnerRegex)
     {
         this.allow = ImmutableSet.copyOf(requireNonNull(allow, "allow is null"));
         this.userRegex = requireNonNull(userRegex, "userRegex is null");
         this.roleRegex = requireNonNull(roleRegex, "roleRegex is null");
+        this.groupRegex = requireNonNull(groupRegex, "groupRegex is null");
+        this.queryOwnerRegex = requireNonNull(queryOwnerRegex, "ownerRegex is null");
+        checkState(
+                queryOwnerRegex.isEmpty() || !allow.contains(AccessMode.EXECUTE),
+                "A valid query rule cannot combine an queryOwner condition with access mode 'execute'");
     }
 
-    public Optional<Set<AccessMode>> match(String user, Set<String> roles)
+    public Optional<Set<AccessMode>> match(String user, Set<String> roles, Set<String> groups, Optional<String> queryOwner)
     {
         if (userRegex.map(regex -> regex.matcher(user).matches()).orElse(true) &&
-                roleRegex.map(regex -> roles.stream().anyMatch(role -> regex.matcher(role).matches())).orElse(true)) {
+                roleRegex.map(regex -> roles.stream().anyMatch(role -> regex.matcher(role).matches())).orElse(true) &&
+                groupRegex.map(regex -> groups.stream().anyMatch(role -> regex.matcher(role).matches())).orElse(true) &&
+                ((queryOwner.isEmpty() && queryOwnerRegex.isEmpty()) || (queryOwner.isPresent() && queryOwnerRegex.map(regex -> regex.matcher(queryOwner.get()).matches()).orElse(true)))) {
             return Optional.of(allow);
         }
         return Optional.empty();
@@ -64,6 +76,8 @@ public class QueryAccessRule
                 .add("allow", allow)
                 .add("userRegex", userRegex.orElse(null))
                 .add("roleRegex", roleRegex.orElse(null))
+                .add("groupRegex", groupRegex.orElse(null))
+                .add("ownerRegex", queryOwnerRegex.orElse(null))
                 .toString();
     }
 

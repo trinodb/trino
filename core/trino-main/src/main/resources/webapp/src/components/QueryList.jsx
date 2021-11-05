@@ -67,7 +67,7 @@ export class QueryListItem extends React.Component {
             }
         }
 
-        return truncateString(formattedQueryText, 300);
+        return formattedQueryText;
     }
 
     render() {
@@ -122,10 +122,10 @@ export class QueryListItem extends React.Component {
                 </span>
             </div>);
 
-        let user = (<span>{query.session.user}</span>);
-        if (query.session.principal) {
+        let user = (<span>{query.sessionUser}</span>);
+        if (query.sessionPrincipal) {
             user = (
-                <span>{query.session.user}<span className="glyphicon glyphicon-lock-inverse" style={GLYPHICON_DEFAULT}/></span>
+                <span>{query.sessionUser}<span className="glyphicon glyphicon-lock-inverse" style={GLYPHICON_DEFAULT}/></span>
             );
         }
 
@@ -153,7 +153,7 @@ export class QueryListItem extends React.Component {
                             <div className="col-xs-12">
                                 <span data-toggle="tooltip" data-placement="right" title="Source">
                                     <span className="glyphicon glyphicon-log-in" style={GLYPHICON_DEFAULT}/>&nbsp;&nbsp;
-                                    <span>{truncateString(query.session.source, 35)}</span>
+                                    <span>{truncateString(query.sessionSource, 35)}</span>
                                 </span>
                             </div>
                         </div>
@@ -188,7 +188,7 @@ export class QueryListItem extends React.Component {
                         </div>
                         <div className="row query-row-bottom">
                             <div className="col-xs-12">
-                                <pre className="query-snippet"><code className="sql">{QueryListItem.stripQueryTextWhitespace(query.query)}</code></pre>
+                                <pre className="query-snippet"><code className="sql">{QueryListItem.stripQueryTextWhitespace(query.queryTextPreview)}</code></pre>
                             </div>
                         </div>
                     </div>
@@ -302,15 +302,15 @@ export class QueryList extends React.Component {
                 const term = searchString.toLowerCase();
                 if (query.queryId.toLowerCase().indexOf(term) !== -1 ||
                     getHumanReadableState(query).toLowerCase().indexOf(term) !== -1 ||
-                    query.query.toLowerCase().indexOf(term) !== -1) {
+                    query.queryTextPreview.toLowerCase().indexOf(term) !== -1) {
                     return true;
                 }
 
-                if (query.session.user && query.session.user.toLowerCase().indexOf(term) !== -1) {
+                if (query.sessionUser && query.sessionUser.toLowerCase().indexOf(term) !== -1) {
                     return true;
                 }
 
-                if (query.session.source && query.session.source.toLowerCase().indexOf(term) !== -1) {
+                if (query.sessionSource && query.sessionSource.toLowerCase().indexOf(term) !== -1) {
                     return true;
                 }
 

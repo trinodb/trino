@@ -227,6 +227,7 @@ TIMEUUID          UUID
 TINYINT           TINYINT
 TUPLE             ROW with anonymous fields
 UUID              UUID
+UDT               ROW with field names
 VARCHAR           VARCHAR
 VARIANT           VARCHAR
 ================  ======
@@ -234,7 +235,7 @@ VARIANT           VARCHAR
 Any collection (LIST/MAP/SET) can be designated as FROZEN, and the value is
 mapped to VARCHAR. Additionally, blobs have the limitation that they cannot be empty.
 
-Types not mentioned in the table above are not supported (e.g. tuple or UDT).
+Types not mentioned in the table above are not supported.
 
 Partition keys can only be of the following types:
 

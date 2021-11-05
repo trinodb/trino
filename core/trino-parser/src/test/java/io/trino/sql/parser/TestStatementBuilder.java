@@ -176,6 +176,8 @@ public class TestStatementBuilder
         printStatement("delete from foo");
         printStatement("delete from foo where a = b");
 
+        printStatement("truncate table foo");
+
         printStatement("values ('a', 1, 2.2), ('b', 2, 3.3)");
 
         printStatement("table foo");
@@ -205,8 +207,8 @@ public class TestStatementBuilder
 
         printStatement("alter table a.b.c rename column x to y");
 
-        printStatement("alter table foo set properties (a='1')");
-        printStatement("alter table a.b.c set properties (a=true, b=123, c='x')");
+        printStatement("alter table foo set properties a='1'");
+        printStatement("alter table a.b.c set properties a=true, b=123, c='x'");
 
         printStatement("alter table a.b.c add column x bigint");
 

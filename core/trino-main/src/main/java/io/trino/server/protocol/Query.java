@@ -417,6 +417,8 @@ class Query
         QueryInfo queryInfo = queryManager.getFullQueryInfo(queryId);
         queryManager.recordHeartbeat(queryId);
 
+        closeExchangeClientIfNecessary(queryInfo);
+
         // fetch result data from exchange
         QueryResultRows resultRows = removePagesFromExchange(queryInfo, targetResultSize.toBytes());
 
@@ -426,14 +428,12 @@ class Query
             updateCount = updatedRowsCount.orElse(null);
         }
 
-        closeExchangeClientIfNecessary(queryInfo);
-
         // advance next token
         // only return a next if
         // (1) the query is not done AND the query state is not FAILED
         //   OR
         // (2)there is more data to send (due to buffering)
-        if ((!queryInfo.isFinalQueryInfo() && queryInfo.getState() != FAILED) || !exchangeClient.isClosed()) {
+        if (queryInfo.getState() != FAILED && (!queryInfo.isFinalQueryInfo() || !exchangeClient.isClosed() || (lastResult != null && lastResult.getData() != null))) {
             nextToken = OptionalLong.of(token + 1);
         }
         else {

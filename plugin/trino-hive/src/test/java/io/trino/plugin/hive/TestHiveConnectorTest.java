@@ -361,7 +361,7 @@ public class TestHiveConnectorTest
     @DataProvider
     public Object[][] queryPartitionFilterRequiredSchemasDataProvider()
     {
-        return new Object[][]{
+        return new Object[][] {
                 {"[]"},
                 {"[\"tpch\"]"}
         };
@@ -1747,7 +1747,8 @@ public class TestHiveConnectorTest
     @Test
     public void testTargetMaxFileSize()
     {
-        @Language("SQL") String createTableSql = "CREATE TABLE test_max_file_size AS SELECT * FROM tpch.sf1.lineitem LIMIT 1000000";
+        // We use TEXTFILE in this test because is has a very consistent and predictable size
+        @Language("SQL") String createTableSql = "CREATE TABLE test_max_file_size WITH (format = 'TEXTFILE') AS SELECT * FROM tpch.sf1.lineitem LIMIT 1000000";
         @Language("SQL") String selectFileInfo = "SELECT distinct \"$path\", \"$file_size\" FROM test_max_file_size";
 
         // verify the default behavior is one file per node
@@ -1759,13 +1760,11 @@ public class TestHiveConnectorTest
         assertUpdate("DROP TABLE test_max_file_size");
 
         // Write table with small limit and verify we get multiple files per node near the expected size
-        // Writer writes chunks of rows that are about 40k
-        // We use TEXTFILE in this test because is has a very consistent and predictable size
-        DataSize maxSize = DataSize.of(40, Unit.KILOBYTE);
+        // Writer writes chunks of rows that are about 1MB
+        DataSize maxSize = DataSize.of(1, Unit.MEGABYTE);
         session = Session.builder(getSession())
                 .setSystemProperty("task_writer_count", "1")
                 .setCatalogSessionProperty("hive", "target_max_file_size", maxSize.toString())
-                .setCatalogSessionProperty("hive", "hive_storage_format", "TEXTFILE")
                 .build();
 
         assertUpdate(session, createTableSql, 1000000);
@@ -1782,8 +1781,9 @@ public class TestHiveConnectorTest
     @Test
     public void testTargetMaxFileSizePartitioned()
     {
+        // We use TEXTFILE in this test because is has a very consistent and predictable size
         @Language("SQL") String createTableSql = "" +
-                "CREATE TABLE test_max_file_size WITH (partitioned_by = ARRAY['returnflag']) AS " +
+                "CREATE TABLE test_max_file_size WITH (partitioned_by = ARRAY['returnflag'], format = 'TEXTFILE') AS " +
                 "SELECT orderkey, partkey, suppkey, linenumber, quantity, extendedprice, discount, tax, linestatus, shipdate, commitdate, receiptdate, shipinstruct, shipmode, comment, returnflag " +
                 "FROM tpch.sf1.lineitem LIMIT 1000000";
         @Language("SQL") String selectFileInfo = "SELECT distinct \"$path\", \"$file_size\" FROM test_max_file_size";
@@ -1797,13 +1797,11 @@ public class TestHiveConnectorTest
         assertUpdate("DROP TABLE test_max_file_size");
 
         // Write table with small limit and verify we get multiple files per node near the expected size
-        // Writer writes chunks of rows that are about 40k
-        // We use TEXTFILE in this test because is has a very consistent and predictable size
-        DataSize maxSize = DataSize.of(40, Unit.KILOBYTE);
+        // Writer writes chunks of rows that are about 1MB
+        DataSize maxSize = DataSize.of(1, Unit.MEGABYTE);
         session = Session.builder(getSession())
                 .setSystemProperty("task_writer_count", "1")
                 .setCatalogSessionProperty("hive", "target_max_file_size", maxSize.toString())
-                .setCatalogSessionProperty("hive", "hive_storage_format", "TEXTFILE")
                 .build();
 
         assertUpdate(session, createTableSql, 1000000);
@@ -1840,61 +1838,73 @@ public class TestHiveConnectorTest
         assertUpdate("DROP TABLE test_show_properties");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Partition keys must be the last columns in the table and in the same order as the table properties.*")
+    @Test
     public void testCreatePartitionedTableInvalidColumnOrdering()
     {
-        assertUpdate("" +
+        assertThatThrownBy(() -> getQueryRunner().execute("" +
                 "CREATE TABLE test_create_table_invalid_column_ordering\n" +
                 "(grape bigint, apple varchar, orange bigint, pear varchar)\n" +
-                "WITH (partitioned_by = ARRAY['apple'])");
+                "WITH (partitioned_by = ARRAY['apple'])"))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageMatching("Partition keys must be the last columns in the table and in the same order as the table properties.*");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Partition keys must be the last columns in the table and in the same order as the table properties.*")
+    @Test
     public void testCreatePartitionedTableAsInvalidColumnOrdering()
     {
-        assertUpdate("" +
+        assertThatThrownBy(() -> getQueryRunner().execute("" +
                 "CREATE TABLE test_create_table_as_invalid_column_ordering " +
                 "WITH (partitioned_by = ARRAY['SHIP_PRIORITY', 'ORDER_STATUS']) " +
                 "AS " +
                 "SELECT shippriority AS ship_priority, orderkey AS order_key, orderstatus AS order_status " +
-                "FROM tpch.tiny.orders");
+                "FROM tpch.tiny.orders"))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageMatching("Partition keys must be the last columns in the table and in the same order as the table properties.*");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Table contains only partition columns")
+    @Test
     public void testCreateTableOnlyPartitionColumns()
     {
-        assertUpdate("" +
+        assertThatThrownBy(() -> getQueryRunner().execute("" +
                 "CREATE TABLE test_create_table_only_partition_columns\n" +
                 "(grape bigint, apple varchar, orange bigint, pear varchar)\n" +
-                "WITH (partitioned_by = ARRAY['grape', 'apple', 'orange', 'pear'])");
+                "WITH (partitioned_by = ARRAY['grape', 'apple', 'orange', 'pear'])"))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("Table contains only partition columns");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Partition columns .* not present in schema")
+    @Test
     public void testCreateTableNonExistentPartitionColumns()
     {
-        assertUpdate("" +
+        assertThatThrownBy(() -> getQueryRunner().execute("" +
                 "CREATE TABLE test_create_table_nonexistent_partition_columns\n" +
                 "(grape bigint, apple varchar, orange bigint, pear varchar)\n" +
-                "WITH (partitioned_by = ARRAY['dragonfruit'])");
+                "WITH (partitioned_by = ARRAY['dragonfruit'])"))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageMatching("Partition columns .* not present in schema");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Unsupported type .* for partition: .*")
+    @Test
     public void testCreateTableUnsupportedPartitionType()
     {
-        assertUpdate("" +
+        assertThatThrownBy(() -> getQueryRunner().execute("" +
                 "CREATE TABLE test_create_table_unsupported_partition_type " +
                 "(foo bigint, bar ARRAY(varchar)) " +
-                "WITH (partitioned_by = ARRAY['bar'])");
+                "WITH (partitioned_by = ARRAY['bar'])"))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageMatching("Unsupported type .* for partition: .*");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Unsupported type .* for partition: a")
+    @Test
     public void testCreateTableUnsupportedPartitionTypeAs()
     {
-        assertUpdate("" +
+        assertThatThrownBy(() -> getQueryRunner().execute("" +
                 "CREATE TABLE test_create_table_unsupported_partition_type_as " +
                 "WITH (partitioned_by = ARRAY['a']) " +
                 "AS " +
-                "SELECT 123 x, ARRAY ['foo'] a");
+                "SELECT 123 x, ARRAY ['foo'] a"))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageMatching("Unsupported type .* for partition: a");
     }
 
     @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Unsupported Hive type: varchar\\(65536\\)\\. Supported VARCHAR types: VARCHAR\\(<=65535\\), VARCHAR\\.")
@@ -4536,21 +4546,36 @@ public class TestHiveConnectorTest
     @Test(dataProvider = "timestampPrecisionAndValues")
     public void testParquetTimestampPredicatePushdown(HiveTimestampPrecision timestampPrecision, LocalDateTime value)
     {
-        Session session = withTimestampPrecision(getSession(), timestampPrecision);
-        assertUpdate("DROP TABLE IF EXISTS test_parquet_timestamp_predicate_pushdown");
-        assertUpdate("CREATE TABLE test_parquet_timestamp_predicate_pushdown (t TIMESTAMP) WITH (format = 'PARQUET')");
-        assertUpdate(session, format("INSERT INTO test_parquet_timestamp_predicate_pushdown VALUES (%s)", formatTimestamp(value)), 1);
-        assertQuery(session, "SELECT * FROM test_parquet_timestamp_predicate_pushdown", format("VALUES (%s)", formatTimestamp(value)));
+        doTestParquetTimestampPredicatePushdown(getSession(), timestampPrecision, value);
+    }
+
+    @Test(dataProvider = "timestampPrecisionAndValues")
+    public void testParquetTimestampPredicatePushdownOptimizedWriter(HiveTimestampPrecision timestampPrecision, LocalDateTime value)
+    {
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty("hive", "experimental_parquet_optimized_writer_enabled", "true")
+                .build();
+        doTestParquetTimestampPredicatePushdown(session, timestampPrecision, value);
+    }
+
+    private void doTestParquetTimestampPredicatePushdown(Session baseSession, HiveTimestampPrecision timestampPrecision, LocalDateTime value)
+    {
+        Session session = withTimestampPrecision(baseSession, timestampPrecision);
+        String tableName = "test_parquet_timestamp_predicate_pushdown_" + randomTableSuffix();
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        assertUpdate("CREATE TABLE " + tableName + " (t TIMESTAMP) WITH (format = 'PARQUET')");
+        assertUpdate(session, format("INSERT INTO %s VALUES (%s)", tableName, formatTimestamp(value)), 1);
+        assertQuery(session, "SELECT * FROM " + tableName, format("VALUES (%s)", formatTimestamp(value)));
 
         DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
         ResultWithQueryId<MaterializedResult> queryResult = queryRunner.executeWithQueryId(
                 session,
-                format("SELECT * FROM test_parquet_timestamp_predicate_pushdown WHERE t < %s", formatTimestamp(value)));
+                format("SELECT * FROM %s WHERE t < %s", tableName, formatTimestamp(value)));
         assertEquals(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputDataSize().toBytes(), 0);
 
         queryResult = queryRunner.executeWithQueryId(
                 session,
-                format("SELECT * FROM test_parquet_timestamp_predicate_pushdown WHERE t > %s", formatTimestamp(value)));
+                format("SELECT * FROM %s WHERE t > %s", tableName, formatTimestamp(value)));
         assertEquals(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputDataSize().toBytes(), 0);
 
         // TODO: replace this with a simple query stats check once we find a way to wait until all pending updates to query stats have been applied
@@ -4558,7 +4583,7 @@ public class TestHiveConnectorTest
         ExponentialSleeper sleeper = new ExponentialSleeper();
         assertQueryStats(
                 session,
-                format("SELECT * FROM test_parquet_timestamp_predicate_pushdown WHERE t = %s", formatTimestamp(value)),
+                format("SELECT * FROM %s WHERE t = %s", tableName, formatTimestamp(value)),
                 queryStats -> {
                     sleeper.sleep();
                     assertThat(queryStats.getProcessedInputDataSize().toBytes()).isGreaterThan(0);

@@ -93,6 +93,7 @@ import static io.trino.spi.security.AccessDeniedException.denyShowCreateSchema;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateTable;
 import static io.trino.spi.security.AccessDeniedException.denyShowRoleAuthorizationDescriptors;
 import static io.trino.spi.security.AccessDeniedException.denyShowRoles;
+import static io.trino.spi.security.AccessDeniedException.denyTruncateTable;
 import static io.trino.spi.security.AccessDeniedException.denyUpdateTableColumns;
 import static io.trino.spi.security.PrincipalType.ROLE;
 import static io.trino.spi.security.PrincipalType.USER;
@@ -317,6 +318,14 @@ public class SqlStandardAccessControl
     {
         if (!checkTablePermission(context, tableName, DELETE, false)) {
             denyDeleteTable(tableName.toString());
+        }
+    }
+
+    @Override
+    public void checkCanTruncateTable(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+        if (!checkTablePermission(context, tableName, DELETE, false)) {
+            denyTruncateTable(tableName.toString());
         }
     }
 

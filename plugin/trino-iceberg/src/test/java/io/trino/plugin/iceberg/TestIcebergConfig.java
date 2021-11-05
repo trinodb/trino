@@ -42,7 +42,8 @@ public class TestIcebergConfig
                 .setMaxPartitionsPerWriter(100)
                 .setUniqueTableLocation(false)
                 .setCatalogType(HIVE_METASTORE)
-                .setDynamicFilteringWaitTimeout(new Duration(0, MINUTES)));
+                .setDynamicFilteringWaitTimeout(new Duration(0, MINUTES))
+                .setTableStatisticsEnabled(true));
     }
 
     @Test
@@ -56,6 +57,7 @@ public class TestIcebergConfig
                 .put("iceberg.unique-table-location", "true")
                 .put("iceberg.catalog.type", "GLUE")
                 .put("iceberg.dynamic-filtering.wait-timeout", "1h")
+                .put("iceberg.table-statistics-enabled", "false")
                 .build();
 
         IcebergConfig expected = new IcebergConfig()
@@ -65,7 +67,8 @@ public class TestIcebergConfig
                 .setMaxPartitionsPerWriter(222)
                 .setUniqueTableLocation(true)
                 .setCatalogType(GLUE)
-                .setDynamicFilteringWaitTimeout(Duration.valueOf("1h"));
+                .setDynamicFilteringWaitTimeout(Duration.valueOf("1h"))
+                .setTableStatisticsEnabled(false);
 
         assertFullMapping(properties, expected);
     }

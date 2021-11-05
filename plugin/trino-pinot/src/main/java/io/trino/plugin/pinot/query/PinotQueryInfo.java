@@ -20,14 +20,14 @@ import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
-public final class PinotQuery
+public final class PinotQueryInfo
 {
     private final String table;
     private final String query;
     private final int groupByClauses;
 
     @JsonCreator
-    public PinotQuery(
+    public PinotQueryInfo(
             @JsonProperty("table") String table,
             @JsonProperty("query") String query,
             @JsonProperty("groupByClauses") int groupByClauses)
@@ -61,10 +61,10 @@ public final class PinotQuery
         if (this == other) {
             return true;
         }
-        if (!(other instanceof PinotQuery)) {
+        if (!(other instanceof PinotQueryInfo)) {
             return false;
         }
-        PinotQuery that = (PinotQuery) other;
+        PinotQueryInfo that = (PinotQueryInfo) other;
         return table.equals(that.table) &&
                 query.equals(that.query) &&
                 groupByClauses == that.groupByClauses;

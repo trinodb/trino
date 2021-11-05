@@ -59,6 +59,7 @@ statement
     | DROP TABLE (IF EXISTS)? qualifiedName                            #dropTable
     | INSERT INTO qualifiedName columnAliases? query                   #insertInto
     | DELETE FROM qualifiedName (WHERE booleanExpression)?             #delete
+    | TRUNCATE TABLE qualifiedName                                     #truncateTable
     | COMMENT ON TABLE qualifiedName IS (string | NULL)                #commentTable
     | COMMENT ON COLUMN qualifiedName IS (string | NULL)               #commentColumn
     | ALTER TABLE (IF EXISTS)? from=qualifiedName
@@ -70,7 +71,8 @@ statement
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         DROP COLUMN (IF EXISTS)? column=qualifiedName                  #dropColumn
     | ALTER TABLE tableName=qualifiedName SET AUTHORIZATION principal  #setTableAuthorization
-    | ALTER TABLE tableName=qualifiedName SET PROPERTIES properties    #setTableProperties
+    | ALTER TABLE tableName=qualifiedName
+        SET PROPERTIES propertyAssignments                             #setTableProperties
     | ALTER TABLE tableName=qualifiedName
         EXECUTE procedureName=identifier
         ('(' (callArgument (',' callArgument)*)? ')')?
@@ -185,7 +187,11 @@ likeClause
     ;
 
 properties
-    : '(' property (',' property)* ')'
+    : '(' propertyAssignments ')'
+    ;
+
+propertyAssignments
+    : property (',' property)*
     ;
 
 property

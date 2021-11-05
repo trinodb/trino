@@ -52,6 +52,7 @@ public class TestingScyllaServer
     public TestingScyllaServer(String version)
     {
         container = new GenericContainer<>("scylladb/scylla:" + version)
+                .withCommand("--smp", "1") // Limit SMP to run in a machine having many cores https://github.com/scylladb/scylla/issues/5638
                 .withExposedPorts(PORT);
         container.start();
 

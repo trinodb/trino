@@ -1479,7 +1479,8 @@ public abstract class AbstractTestEngineOnlyQueries
         assertDescribeOutputEmpty("ALTER TABLE foo ADD COLUMN y bigint");
         assertDescribeOutputEmpty("ALTER TABLE foo SET AUTHORIZATION bar");
         assertDescribeOutputEmpty("ALTER TABLE foo RENAME TO bar");
-        assertDescribeOutputEmpty("ALTER TABLE foo SET PROPERTIES ( x = 'y' )");
+        assertDescribeOutputEmpty("ALTER TABLE foo SET PROPERTIES x = 'y'");
+        assertDescribeOutputEmpty("TRUNCATE TABLE foo");
         assertDescribeOutputEmpty("DROP TABLE foo");
         assertDescribeOutputEmpty("CREATE VIEW foo AS SELECT * FROM nation");
         assertDescribeOutputEmpty("DROP VIEW foo");
@@ -5912,6 +5913,7 @@ public abstract class AbstractTestEngineOnlyQueries
         assertExplainDdl("CREATE TABLE foo (pk bigint)", "CREATE TABLE foo");
         assertExplainDdl("CREATE VIEW foo AS SELECT * FROM orders", "CREATE VIEW foo");
         assertExplainDdl("DROP TABLE orders");
+        assertExplainDdl("TRUNCATE TABLE orders");
         assertExplainDdl("DROP VIEW view");
         assertExplainDdl("ALTER TABLE orders RENAME TO new_name");
         assertExplainDdl("ALTER TABLE orders RENAME COLUMN orderkey TO new_column_name");
@@ -6171,6 +6173,14 @@ public abstract class AbstractTestEngineOnlyQueries
                 "ORDER BY orderkey " +
                 "LIMIT 1"))
                 .matches("VALUES (BIGINT '1', BIGINT '370')");
+
+        assertThat(query("SELECT " +
+                "         'name' as name, " +
+                "         'age' as age " +
+                "         FROM customer " +
+                "         ORDER BY age, name " +
+                "         LIMIT 1"))
+                .matches("VALUES ('name', 'age')");
     }
 
     private static ZonedDateTime zonedDateTime(String value)

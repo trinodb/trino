@@ -17,7 +17,7 @@ import io.trino.plugin.pinot.client.PinotClient;
 import io.trino.plugin.pinot.client.PinotClient.BrokerResultRow;
 import io.trino.plugin.pinot.decoders.Decoder;
 import io.trino.plugin.pinot.decoders.DecoderFactory;
-import io.trino.plugin.pinot.query.PinotQuery;
+import io.trino.plugin.pinot.query.PinotQueryInfo;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -39,7 +39,7 @@ import static java.util.Objects.requireNonNull;
 public class PinotBrokerPageSource
         implements ConnectorPageSource
 {
-    private final PinotQuery query;
+    private final PinotQueryInfo query;
     private final PinotClient pinotClient;
     private final ConnectorSession session;
     private final List<PinotColumnHandle> columnHandles;
@@ -56,7 +56,7 @@ public class PinotBrokerPageSource
 
     public PinotBrokerPageSource(
             ConnectorSession session,
-            PinotQuery query,
+            PinotQueryInfo query,
             List<PinotColumnHandle> columnHandles,
             PinotClient pinotClient,
             int limitForBrokerQueries)

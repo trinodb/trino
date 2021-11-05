@@ -32,6 +32,8 @@ import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.iterative.RuleStats;
 import io.trino.sql.planner.iterative.rule.AddExchangesBelowPartialAggregationOverGroupIdRuleSet;
 import io.trino.sql.planner.iterative.rule.AddIntermediateAggregations;
+import io.trino.sql.planner.iterative.rule.ApplyPreferredTableExecutePartitioning;
+import io.trino.sql.planner.iterative.rule.ApplyPreferredTableWriterPartitioning;
 import io.trino.sql.planner.iterative.rule.ApplyTableScanRedirection;
 import io.trino.sql.planner.iterative.rule.CanonicalizeExpressions;
 import io.trino.sql.planner.iterative.rule.CreatePartialTopN;
@@ -48,8 +50,6 @@ import io.trino.sql.planner.iterative.rule.DesugarLambdaExpression;
 import io.trino.sql.planner.iterative.rule.DesugarLike;
 import io.trino.sql.planner.iterative.rule.DesugarTryExpression;
 import io.trino.sql.planner.iterative.rule.DetermineJoinDistributionType;
-import io.trino.sql.planner.iterative.rule.DeterminePreferredTableExecutePartitioning;
-import io.trino.sql.planner.iterative.rule.DeterminePreferredWritePartitioning;
 import io.trino.sql.planner.iterative.rule.DetermineSemiJoinDistributionType;
 import io.trino.sql.planner.iterative.rule.DetermineTableScanNodePartitioning;
 import io.trino.sql.planner.iterative.rule.EliminateCrossJoins;
@@ -122,6 +122,7 @@ import io.trino.sql.planner.iterative.rule.PruneSemiJoinFilteringSourceColumns;
 import io.trino.sql.planner.iterative.rule.PruneSortColumns;
 import io.trino.sql.planner.iterative.rule.PruneSpatialJoinChildrenColumns;
 import io.trino.sql.planner.iterative.rule.PruneSpatialJoinColumns;
+import io.trino.sql.planner.iterative.rule.PruneTableExecuteSourceColumns;
 import io.trino.sql.planner.iterative.rule.PruneTableScanColumns;
 import io.trino.sql.planner.iterative.rule.PruneTableWriterSourceColumns;
 import io.trino.sql.planner.iterative.rule.PruneTopNColumns;
@@ -356,6 +357,7 @@ public class PlanOptimizers
                 new PruneSortColumns(),
                 new PruneSpatialJoinChildrenColumns(),
                 new PruneSpatialJoinColumns(),
+                new PruneTableExecuteSourceColumns(),
                 new PruneTableScanColumns(metadata),
                 new PruneTableWriterSourceColumns(),
                 new PruneTopNColumns(),
@@ -789,8 +791,8 @@ public class PlanOptimizers
                         statsCalculator,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(
-                                new DeterminePreferredWritePartitioning(),
-                                new DeterminePreferredTableExecutePartitioning())),
+                                new ApplyPreferredTableWriterPartitioning(),
+                                new ApplyPreferredTableExecutePartitioning())),
                 // Because ReorderJoins runs only once,
                 // PredicatePushDown, columnPruningOptimizer and RemoveRedundantIdentityProjections
                 // need to run beforehand in order to produce an optimal join order

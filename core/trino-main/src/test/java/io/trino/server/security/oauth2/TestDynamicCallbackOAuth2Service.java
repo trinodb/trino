@@ -91,8 +91,9 @@ public class TestDynamicCallbackOAuth2Service
 
         OAuth2AccessToken token = service.getAccessTokenClientCredentialsGrant();
 
-        Claims claims = Jwts.parser()
+        Claims claims = Jwts.parserBuilder()
                 .setSigningKeyResolver(signingKeyResolver)
+                .build()
                 .parseClaimsJws(token.getAccessToken())
                 .getBody();
         assertThat(claims.get("scp", List.class)).containsExactlyInAnyOrder("openid", "offline");

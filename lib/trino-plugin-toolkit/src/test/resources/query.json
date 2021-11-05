@@ -13,6 +13,15 @@
       "allow": ["kill"]
     },
     {
+      "group": "contractors",
+      "queryOwner": "alice|dave",
+      "allow": ["view"]
+    },
+    {
+      "group": "contractors",
+      "allow": ["execute"]
+    },
+    {
       "user": "\u0194\u0194\u0194",
       "allow": ["execute", "view", "kill"]
     }

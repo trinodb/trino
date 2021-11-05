@@ -13,7 +13,6 @@
  */
 package io.trino.server.remotetask;
 
-import com.google.common.base.Ticker;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
@@ -54,6 +53,7 @@ import io.trino.operator.TaskStats;
 import io.trino.server.DynamicFilterService;
 import io.trino.server.TaskUpdateRequest;
 import io.trino.spi.SplitWeight;
+import io.trino.spi.TrinoTransportException;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNode;
@@ -76,7 +76,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -102,9 +101,7 @@ import static io.trino.server.remotetask.RequestErrorTracker.logError;
 import static io.trino.util.Failures.toFailure;
 import static java.lang.Math.addExact;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
-import static java.util.concurrent.TimeUnit.SECONDS;
 
 public final class HttpRemoteTask
         implements RemoteTask
@@ -160,6 +157,7 @@ public final class HttpRemoteTask
     private final HttpClient httpClient;
     private final Executor executor;
     private final ScheduledExecutorService errorScheduledExecutor;
+    private final Duration maxErrorDuration;
 
     private final JsonCodec<TaskInfo> taskInfoCodec;
     private final JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec;
@@ -223,6 +221,7 @@ public final class HttpRemoteTask
             this.httpClient = httpClient;
             this.executor = executor;
             this.errorScheduledExecutor = errorScheduledExecutor;
+            this.maxErrorDuration = requireNonNull(maxErrorDuration, "maxErrorDuration is null");
             this.summarizeTaskInfo = summarizeTaskInfo;
             this.taskInfoCodec = taskInfoCodec;
             this.taskUpdateRequestCodec = taskUpdateRequestCodec;
@@ -282,6 +281,7 @@ public final class HttpRemoteTask
 
             this.taskInfoFetcher = new TaskInfoFetcher(
                     this::failTask,
+                    taskStatusFetcher,
                     initialTask,
                     httpClient,
                     taskInfoUpdateInterval,
@@ -678,11 +678,7 @@ public final class HttpRemoteTask
             }
 
             // send cancel to task and ignore response
-            HttpUriBuilder uriBuilder = getHttpUriBuilder(taskStatus).addParameter("abort", "false");
-            Request request = prepareDelete()
-                    .setUri(uriBuilder.build())
-                    .build();
-            scheduleAsyncCleanupRequest(createCleanupBackoff(), request, "cancel");
+            scheduleAsyncCleanupRequest(new Backoff(maxErrorDuration), "cancel", false);
         }
     }
 
@@ -713,12 +709,7 @@ public final class HttpRemoteTask
 
         // The remote task is likely to get a delete from the PageBufferClient first.
         // We send an additional delete anyway to get the final TaskInfo
-        HttpUriBuilder uriBuilder = getHttpUriBuilder(getTaskStatus());
-        Request request = prepareDelete()
-                .setUri(uriBuilder.build())
-                .build();
-
-        scheduleAsyncCleanupRequest(createCleanupBackoff(), request, "cleanup");
+        scheduleAsyncCleanupRequest(new Backoff(maxErrorDuration), "cleanup", true);
     }
 
     @Override
@@ -728,32 +719,26 @@ public final class HttpRemoteTask
             return;
         }
 
-        abort(failWith(getTaskStatus(), ABORTED, ImmutableList.of()));
-    }
-
-    private synchronized void abort(TaskStatus status)
-    {
-        checkState(status.getState().isDone(), "cannot abort task with an incomplete status");
-
+        TaskStatus status = failWith(getTaskStatus(), ABORTED, ImmutableList.of());
         try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             taskStatusFetcher.updateTaskStatus(status);
-
             // send abort to task
-            HttpUriBuilder uriBuilder = getHttpUriBuilder(getTaskStatus());
-            Request request = prepareDelete()
-                    .setUri(uriBuilder.build())
-                    .build();
-            scheduleAsyncCleanupRequest(createCleanupBackoff(), request, "abort");
+            scheduleAsyncCleanupRequest(new Backoff(maxErrorDuration), "abort", true);
         }
     }
 
-    private void scheduleAsyncCleanupRequest(Backoff cleanupBackoff, Request request, String action)
+    private void scheduleAsyncCleanupRequest(Backoff cleanupBackoff, String action, boolean abort)
     {
         if (!aborting.compareAndSet(false, true)) {
             // Do not initiate another round of cleanup requests if one had been initiated.
             // Otherwise, we can get into an asynchronous recursion here. For example, when aborting a task after REMOTE_TASK_MISMATCH.
             return;
         }
+
+        HttpUriBuilder uriBuilder = getHttpUriBuilder(getTaskStatus()).addParameter("abort", "" + abort);
+        Request request = prepareDelete()
+                .setUri(uriBuilder.build())
+                .build();
         doScheduleAsyncCleanupRequest(cleanupBackoff, request, action);
     }
 
@@ -790,6 +775,11 @@ public final class HttpRemoteTask
                     return;
                 }
 
+                // final task info is set
+                if (taskInfoFetcher.getTaskInfo().getTaskStatus().getState().isDone()) {
+                    return;
+                }
+
                 // reschedule
                 long delayNanos = cleanupBackoff.getBackoffDelayNanos();
                 if (delayNanos == 0) {
@@ -798,27 +788,6 @@ public final class HttpRemoteTask
                 else {
                     errorScheduledExecutor.schedule(() -> doScheduleAsyncCleanupRequest(cleanupBackoff, request, action), delayNanos, NANOSECONDS);
                 }
-            }
-
-            private void cleanUpLocally()
-            {
-                // Update the taskInfo with the new taskStatus.
-
-                // Generally, we send a cleanup request to the worker, and update the TaskInfo on
-                // the coordinator based on what we fetched from the worker. If we somehow cannot
-                // get the cleanup request to the worker, the TaskInfo that we fetch for the worker
-                // likely will not say the task is done however many times we try. In this case,
-                // we have to set the local query info directly so that we stop trying to fetch
-                // updated TaskInfo from the worker. This way, the task on the worker eventually
-                // expires due to lack of activity.
-
-                // This is required because the query state machine depends on TaskInfo (instead of task status)
-                // to transition its own state.
-                // TODO: Update the query state machine and stage state machine to depend on TaskStatus instead
-
-                // Since this TaskInfo is updated in the client the "complete" flag will not be set,
-                // indicating that the stats may not reflect the final stats on the worker.
-                updateTaskInfo(getTaskInfo().withTaskStatus(getTaskStatus()));
             }
         }, executor);
     }
@@ -833,7 +802,40 @@ public final class HttpRemoteTask
             log.debug(cause, "Remote task %s failed with %s", taskStatus.getSelf(), cause);
         }
 
-        abort(failWith(getTaskStatus(), FAILED, ImmutableList.of(toFailure(cause))));
+        TaskStatus status = failWith(getTaskStatus(), FAILED, ImmutableList.of(toFailure(cause)));
+        taskStatusFetcher.updateTaskStatus(status);
+
+        try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
+            if (cause instanceof TrinoTransportException) {
+                // task is unreachable
+                cleanUpLocally();
+            }
+            else {
+                // send abort to task
+                scheduleAsyncCleanupRequest(new Backoff(maxErrorDuration), "abort", true);
+            }
+        }
+    }
+
+    private void cleanUpLocally()
+    {
+        // Update the taskInfo with the new taskStatus.
+
+        // Generally, we send a cleanup request to the worker, and update the TaskInfo on
+        // the coordinator based on what we fetched from the worker. If we somehow cannot
+        // get the cleanup request to the worker, the TaskInfo that we fetch for the worker
+        // likely will not say the task is done however many times we try. In this case,
+        // we have to set the local query info directly so that we stop trying to fetch
+        // updated TaskInfo from the worker. This way, the task on the worker eventually
+        // expires due to lack of activity.
+
+        // This is required because the query state machine depends on TaskInfo (instead of task status)
+        // to transition its own state.
+        // TODO: Update the query state machine and stage state machine to depend on TaskStatus instead
+
+        // Since this TaskInfo is updated in the client the "complete" flag will not be set,
+        // indicating that the stats may not reflect the final stats on the worker.
+        updateTaskInfo(getTaskInfo().withTaskStatus(getTaskStatus()));
     }
 
     private HttpUriBuilder getHttpUriBuilder(TaskStatus taskStatus)
@@ -843,17 +845,6 @@ public final class HttpRemoteTask
             uriBuilder.addParameter("summarize");
         }
         return uriBuilder;
-    }
-
-    private static Backoff createCleanupBackoff()
-    {
-        return new Backoff(10, new Duration(10, TimeUnit.MINUTES), Ticker.systemTicker(), ImmutableList.<Duration>builder()
-                .add(new Duration(0, MILLISECONDS))
-                .add(new Duration(100, MILLISECONDS))
-                .add(new Duration(500, MILLISECONDS))
-                .add(new Duration(1, SECONDS))
-                .add(new Duration(10, SECONDS))
-                .build());
     }
 
     @Override

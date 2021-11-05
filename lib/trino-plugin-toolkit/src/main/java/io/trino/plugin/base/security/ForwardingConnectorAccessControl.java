@@ -204,6 +204,12 @@ public abstract class ForwardingConnectorAccessControl
     }
 
     @Override
+    public void checkCanTruncateTable(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+        delegate().checkCanTruncateTable(context, tableName);
+    }
+
+    @Override
     public void checkCanUpdateTableColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> updatedColumns)
     {
         delegate().checkCanUpdateTableColumns(context, tableName, updatedColumns);

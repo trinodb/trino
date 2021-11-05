@@ -11,19 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.base.security;
+package io.trino.plugin.raptor.legacy.security;
 
-import com.google.inject.Binder;
-import com.google.inject.Module;
-import com.google.inject.Scopes;
-import io.trino.spi.connector.ConnectorAccessControl;
-
-public class AllowAllAccessControlModule
-        implements Module
+public enum RaptorSecurity
 {
-    @Override
-    public void configure(Binder binder)
-    {
-        binder.bind(ConnectorAccessControl.class).to(AllowAllAccessControl.class).in(Scopes.SINGLETON);
-    }
+    ALLOW_ALL,
+    FILE,
+    READ_ONLY,
 }

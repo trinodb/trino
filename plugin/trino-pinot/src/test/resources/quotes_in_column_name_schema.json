@@ -1,0 +1,29 @@
+{
+    "schemaName": "quotes_in_column_name",
+    "dimensionFieldSpecs": [
+        {
+            "name": "qu\"ot\"ed",
+            "dataType": "STRING",
+            "transformFunction": "upper(non_quoted)"
+        },
+        {
+            "name": "double\"\"qu\"ot\"ed\"",
+            "dataType": "STRING",
+            "transformFunction": "lower(non_quoted)"
+        },
+        {
+            "name": "non_quoted",
+            "dataType": "STRING"
+        }
+    ],
+    "dateTimeFieldSpecs": [
+        {
+            "name": "updated_at_seconds",
+            "dataType": "LONG",
+            "defaultNullValue" : 0,
+            "format": "1:SECONDS:EPOCH",
+            "transformFunction": "toEpochSeconds(updatedAt)",
+            "granularity" : "1:SECONDS"
+        }
+    ]
+}

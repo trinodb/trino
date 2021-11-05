@@ -82,6 +82,7 @@ import static io.trino.spi.security.AccessDeniedException.denyShowRoleGrants;
 import static io.trino.spi.security.AccessDeniedException.denyShowRoles;
 import static io.trino.spi.security.AccessDeniedException.denyShowSchemas;
 import static io.trino.spi.security.AccessDeniedException.denyShowTables;
+import static io.trino.spi.security.AccessDeniedException.denyTruncateTable;
 import static io.trino.spi.security.AccessDeniedException.denyUpdateTableColumns;
 import static io.trino.spi.security.AccessDeniedException.denyViewQuery;
 import static io.trino.spi.security.AccessDeniedException.denyWriteSystemInformationAccess;
@@ -291,6 +292,12 @@ public class DenyAllAccessControl
     public void checkCanDeleteFromTable(SecurityContext context, QualifiedObjectName tableName)
     {
         denyDeleteTable(tableName.toString());
+    }
+
+    @Override
+    public void checkCanTruncateTable(SecurityContext context, QualifiedObjectName tableName)
+    {
+        denyTruncateTable(tableName.toString());
     }
 
     @Override
