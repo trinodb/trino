@@ -24,7 +24,6 @@ import io.trino.type.BlockTypeOperators;
 import java.util.List;
 import java.util.Optional;
 
-import static io.trino.SystemSessionProperties.isDictionaryAggregationEnabled;
 import static io.trino.operator.GroupByHash.createGroupByHash;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.util.Objects.requireNonNull;
@@ -90,11 +89,11 @@ public class ChannelSet
         {
             List<Type> types = ImmutableList.of(type);
             this.hash = createGroupByHash(
+                    operatorContext.getSession(),
                     types,
                     HASH_CHANNELS,
                     hashChannel,
                     expectedPositions,
-                    isDictionaryAggregationEnabled(operatorContext.getSession()),
                     joinCompiler,
                     blockTypeOperators,
                     this::updateMemoryReservation);
