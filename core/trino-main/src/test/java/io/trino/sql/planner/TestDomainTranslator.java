@@ -1683,28 +1683,29 @@ public class TestDomainTranslator
 
     private void assertPredicateIsAlwaysTrue(Expression expression)
     {
-        assertPredicateTranslates(expression, TupleDomain.all());
+        assertPredicateTranslates(expression, TupleDomain.all(), TRUE_LITERAL);
     }
 
     private void assertPredicateIsAlwaysFalse(Expression expression)
     {
-        ExtractionResult result = fromPredicate(expression);
-        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertTrue(result.getTupleDomain().isNone());
+        assertPredicateTranslates(expression, TupleDomain.none(), TRUE_LITERAL);
     }
 
     private void assertUnsupportedPredicate(Expression expression)
     {
-        ExtractionResult result = fromPredicate(expression);
-        assertEquals(result.getRemainingExpression(), expression);
-        assertEquals(result.getTupleDomain(), TupleDomain.all());
+        assertPredicateTranslates(expression, TupleDomain.all(), expression);
     }
 
     private void assertPredicateTranslates(Expression expression, TupleDomain<Symbol> tupleDomain)
     {
+        assertPredicateTranslates(expression, tupleDomain, TRUE_LITERAL);
+    }
+
+    private void assertPredicateTranslates(Expression expression, TupleDomain<Symbol> tupleDomain, Expression remainingExpression)
+    {
         ExtractionResult result = fromPredicate(expression);
-        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         assertEquals(result.getTupleDomain(), tupleDomain);
+        assertEquals(result.getRemainingExpression(), remainingExpression);
     }
 
     private void assertNoFullPushdown(Expression expression)
