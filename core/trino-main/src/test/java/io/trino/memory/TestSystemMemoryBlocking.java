@@ -21,7 +21,7 @@ import io.airlift.units.Duration;
 import io.trino.connector.CatalogName;
 import io.trino.execution.Lifespan;
 import io.trino.execution.ScheduledSplit;
-import io.trino.execution.TaskSource;
+import io.trino.execution.SplitAssignment;
 import io.trino.metadata.Split;
 import io.trino.operator.Driver;
 import io.trino.operator.DriverContext;
@@ -113,7 +113,7 @@ public class TestSystemMemoryBlocking
         assertSame(driver.getDriverContext(), driverContext);
         assertFalse(driver.isFinished());
         Split testSplit = new Split(new CatalogName("test"), new TestSplit(), Lifespan.taskWide());
-        driver.updateSource(new TaskSource(sourceId, ImmutableSet.of(new ScheduledSplit(0, sourceId, testSplit)), true));
+        driver.updateSplitAssignment(new SplitAssignment(sourceId, ImmutableSet.of(new ScheduledSplit(0, sourceId, testSplit)), true));
 
         ListenableFuture<Void> blocked = driver.processFor(new Duration(1, NANOSECONDS));
 

@@ -381,12 +381,12 @@ public class SqlTaskManager
             Session session,
             TaskId taskId,
             Optional<PlanFragment> fragment,
-            List<TaskSource> sources,
+            List<SplitAssignment> splitAssignments,
             OutputBuffers outputBuffers,
             Map<DynamicFilterId, Domain> dynamicFilterDomains)
     {
         try {
-            return versionEmbedder.embedVersion(() -> doUpdateTask(session, taskId, fragment, sources, outputBuffers, dynamicFilterDomains)).call();
+            return versionEmbedder.embedVersion(() -> doUpdateTask(session, taskId, fragment, splitAssignments, outputBuffers, dynamicFilterDomains)).call();
         }
         catch (Exception e) {
             throwIfUnchecked(e);
@@ -399,14 +399,14 @@ public class SqlTaskManager
             Session session,
             TaskId taskId,
             Optional<PlanFragment> fragment,
-            List<TaskSource> sources,
+            List<SplitAssignment> splitAssignments,
             OutputBuffers outputBuffers,
             Map<DynamicFilterId, Domain> dynamicFilterDomains)
     {
         requireNonNull(session, "session is null");
         requireNonNull(taskId, "taskId is null");
         requireNonNull(fragment, "fragment is null");
-        requireNonNull(sources, "sources is null");
+        requireNonNull(splitAssignments, "splitAssignments is null");
         requireNonNull(outputBuffers, "outputBuffers is null");
 
         SqlTask sqlTask = tasks.getUnchecked(taskId);
@@ -430,7 +430,7 @@ public class SqlTaskManager
         }
 
         sqlTask.recordHeartbeat();
-        return sqlTask.updateTask(session, fragment, sources, outputBuffers, dynamicFilterDomains);
+        return sqlTask.updateTask(session, fragment, splitAssignments, outputBuffers, dynamicFilterDomains);
     }
 
     @Override
