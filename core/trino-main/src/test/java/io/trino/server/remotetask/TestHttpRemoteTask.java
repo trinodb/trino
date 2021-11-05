@@ -255,6 +255,8 @@ public class TestHttpRemoteTask
         assertEventually(
                 new Duration(15, SECONDS),
                 () -> assertGreaterThanOrEqual(testingTaskResource.getStatusFetchCounter(), 3L));
+        assertEquals(testingTaskResource.getDynamicFiltersFetchCounter(), 1L, testingTaskResource.getDynamicFiltersFetchRequests().toString());
+
         future = dynamicFilter.isBlocked();
         testingTaskResource.setDynamicFilterDomains(new VersionedDynamicFilterDomains(
                 2L,
@@ -635,7 +637,13 @@ public class TestHttpRemoteTask
         {
             dynamicFiltersFetchCounter++;
             // keep incoming dynamicfilters request log for debugging purposes
-            dynamicFiltersFetchRequests.add(new DynamicFiltersFetchRequest(uriInfo.getRequestUri().toString(), taskId, currentDynamicFiltersVersion));
+            dynamicFiltersFetchRequests.add(new DynamicFiltersFetchRequest(
+                    uriInfo.getRequestUri().toString(),
+                    taskId,
+                    currentDynamicFiltersVersion,
+                    dynamicFilterDomains
+                            .map(VersionedDynamicFilterDomains::getVersion)
+                            .orElse(-1L)));
             return dynamicFilterDomains.orElse(null);
         }
 
@@ -772,12 +780,18 @@ public class TestHttpRemoteTask
             private final String uriInfo;
             private final TaskId taskId;
             private final Long currentDynamicFiltersVersion;
+            private final long storedDynamicFiltersVersion;
 
-            private DynamicFiltersFetchRequest(String uriInfo, TaskId taskId, Long currentDynamicFiltersVersion)
+            private DynamicFiltersFetchRequest(
+                    String uriInfo,
+                    TaskId taskId,
+                    Long currentDynamicFiltersVersion,
+                    long storedDynamicFiltersVersion)
             {
                 this.uriInfo = requireNonNull(uriInfo, "uriInfo is null");
                 this.taskId = requireNonNull(taskId, "taskId is null");
                 this.currentDynamicFiltersVersion = requireNonNull(currentDynamicFiltersVersion, "currentDynamicFiltersVersion is null");
+                this.storedDynamicFiltersVersion = storedDynamicFiltersVersion;
             }
 
             @Override
@@ -787,6 +801,7 @@ public class TestHttpRemoteTask
                         .add("uriInfo", uriInfo)
                         .add("taskId", taskId)
                         .add("currentDynamicFiltersVersion", currentDynamicFiltersVersion)
+                        .add("storedDynamicFiltersVersion", storedDynamicFiltersVersion)
                         .toString();
             }
         }
