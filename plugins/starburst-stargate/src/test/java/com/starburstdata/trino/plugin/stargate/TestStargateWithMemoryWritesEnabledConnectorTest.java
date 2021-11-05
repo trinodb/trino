@@ -65,6 +65,9 @@ public class TestStargateWithMemoryWritesEnabledConnectorTest
             case SUPPORTS_RENAME_SCHEMA:
                 return false;
 
+            case SUPPORTS_TRUNCATE:
+                return false;
+
             default:
                 return super.hasBehavior(connectorBehavior);
         }
@@ -74,6 +77,12 @@ public class TestStargateWithMemoryWritesEnabledConnectorTest
     protected TestTable createTableWithDefaultColumns()
     {
         throw new SkipException("not supported");
+    }
+
+    @Override
+    public void testTruncateTable()
+    {
+        throw new SkipException("Memory connector does not support truncate");
     }
 
     @Test
