@@ -425,7 +425,7 @@ public class SqlTask
     public TaskInfo updateTask(
             Session session,
             Optional<PlanFragment> fragment,
-            List<TaskSource> sources,
+            List<SplitAssignment> splitAssignments,
             OutputBuffers outputBuffers,
             Map<DynamicFilterId, Domain> dynamicFilterDomains)
     {
@@ -462,7 +462,7 @@ public class SqlTask
             }
 
             if (taskExecution != null) {
-                taskExecution.addSources(sources);
+                taskExecution.addSplitAssignments(splitAssignments);
                 taskExecution.getTaskContext().addDynamicFilter(dynamicFilterDomains);
             }
         }

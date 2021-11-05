@@ -59,9 +59,9 @@ import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.QueryPreparer;
 import io.trino.execution.QueryPreparer.PreparedQuery;
 import io.trino.execution.ScheduledSplit;
+import io.trino.execution.SplitAssignment;
 import io.trino.execution.TableExecuteContextManager;
 import io.trino.execution.TaskManagerConfig;
-import io.trino.execution.TaskSource;
 import io.trino.execution.resourcegroups.NoOpResourceGroupManager;
 import io.trino.execution.scheduler.NodeScheduler;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
@@ -885,8 +885,8 @@ public class LocalQueryRunner
                 subplan.getFragment().getPartitionedSources(),
                 outputFactory);
 
-        // generate sources
-        List<TaskSource> sources = new ArrayList<>();
+        // generate splitAssignments
+        List<SplitAssignment> splitAssignments = new ArrayList<>();
         long sequenceId = 0;
         for (TableScanNode tableScan : findTableScanNodes(subplan.getFragment().getRoot())) {
             TableHandle table = tableScan.getTable();
@@ -905,7 +905,7 @@ public class LocalQueryRunner
                 }
             }
 
-            sources.add(new TaskSource(tableScan.getId(), scheduledSplits.build(), true));
+            splitAssignments.add(new SplitAssignment(tableScan.getId(), scheduledSplits.build(), true));
         }
 
         // create drivers
@@ -924,16 +924,16 @@ public class LocalQueryRunner
             }
         }
 
-        // add sources to the drivers
+        // add split assignments to the drivers
         ImmutableSet<PlanNodeId> partitionedSources = ImmutableSet.copyOf(subplan.getFragment().getPartitionedSources());
-        for (TaskSource source : sources) {
-            DriverFactory driverFactory = driverFactoriesBySource.get(source.getPlanNodeId());
+        for (SplitAssignment splitAssignment : splitAssignments) {
+            DriverFactory driverFactory = driverFactoriesBySource.get(splitAssignment.getPlanNodeId());
             checkState(driverFactory != null);
             boolean partitioned = partitionedSources.contains(driverFactory.getSourceId().get());
-            for (ScheduledSplit split : source.getSplits()) {
+            for (ScheduledSplit split : splitAssignment.getSplits()) {
                 DriverContext driverContext = taskContext.addPipelineContext(driverFactory.getPipelineId(), driverFactory.isInputDriver(), driverFactory.isOutputDriver(), partitioned).addDriverContext();
                 Driver driver = driverFactory.createDriver(driverContext);
-                driver.updateSource(new TaskSource(split.getPlanNodeId(), ImmutableSet.of(split), true));
+                driver.updateSplitAssignment(new SplitAssignment(split.getPlanNodeId(), ImmutableSet.of(split), true));
                 drivers.add(driver);
             }
         }
