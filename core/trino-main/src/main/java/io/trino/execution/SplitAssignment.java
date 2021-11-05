@@ -24,7 +24,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public class TaskSource
+public class SplitAssignment
 {
     private final PlanNodeId planNodeId;
     private final Set<ScheduledSplit> splits;
@@ -32,7 +32,7 @@ public class TaskSource
     private final boolean noMoreSplits;
 
     @JsonCreator
-    public TaskSource(
+    public SplitAssignment(
             @JsonProperty("planNodeId") PlanNodeId planNodeId,
             @JsonProperty("splits") Set<ScheduledSplit> splits,
             @JsonProperty("noMoreSplitsForLifespan") Set<Lifespan> noMoreSplitsForLifespan,
@@ -44,7 +44,7 @@ public class TaskSource
         this.noMoreSplits = noMoreSplits;
     }
 
-    public TaskSource(PlanNodeId planNodeId, Set<ScheduledSplit> splits, boolean noMoreSplits)
+    public SplitAssignment(PlanNodeId planNodeId, Set<ScheduledSplit> splits, boolean noMoreSplits)
     {
         this(planNodeId, splits, ImmutableSet.of(), noMoreSplits);
     }
@@ -73,43 +73,43 @@ public class TaskSource
         return noMoreSplits;
     }
 
-    public TaskSource update(TaskSource source)
+    public SplitAssignment update(SplitAssignment assignment)
     {
-        checkArgument(planNodeId.equals(source.getPlanNodeId()), "Expected source %s, but got source %s", planNodeId, source.getPlanNodeId());
+        checkArgument(planNodeId.equals(assignment.getPlanNodeId()), "Expected assignment for node %s, but got assignment for node %s", planNodeId, assignment.getPlanNodeId());
 
-        if (isNewer(source)) {
-            // assure the new source is properly formed
-            // we know that either the new source one has new splits and/or it is marking the source as closed
-            checkArgument(!noMoreSplits || splits.containsAll(source.getSplits()), "Source %s has new splits, but no more splits already set", planNodeId);
+        if (isNewer(assignment)) {
+            // assure the new assignment is properly formed
+            // we know that either the new assignment one has new splits and/or it is marking the assignment as closed
+            checkArgument(!noMoreSplits || splits.containsAll(assignment.getSplits()), "Assignment %s has new splits, but no more splits already set", planNodeId);
 
             Set<ScheduledSplit> newSplits = ImmutableSet.<ScheduledSplit>builder()
                     .addAll(splits)
-                    .addAll(source.getSplits())
+                    .addAll(assignment.getSplits())
                     .build();
             Set<Lifespan> newNoMoreSplitsForDriverGroup = ImmutableSet.<Lifespan>builder()
                     .addAll(noMoreSplitsForLifespan)
-                    .addAll(source.getNoMoreSplitsForLifespan())
+                    .addAll(assignment.getNoMoreSplitsForLifespan())
                     .build();
 
-            return new TaskSource(
+            return new SplitAssignment(
                     planNodeId,
                     newSplits,
                     newNoMoreSplitsForDriverGroup,
-                    source.isNoMoreSplits());
+                    assignment.isNoMoreSplits());
         }
         else {
-            // the specified source is older than this one
+            // the specified assignment is older than this one
             return this;
         }
     }
 
-    private boolean isNewer(TaskSource source)
+    private boolean isNewer(SplitAssignment assignment)
     {
-        // the specified source is newer if it changes the no more
+        // the specified assignment is newer if it changes the no more
         // splits flag or if it contains new splits
-        return (!noMoreSplits && source.isNoMoreSplits()) ||
-                (!noMoreSplitsForLifespan.containsAll(source.getNoMoreSplitsForLifespan())) ||
-                (!splits.containsAll(source.getSplits()));
+        return (!noMoreSplits && assignment.isNoMoreSplits()) ||
+                (!noMoreSplitsForLifespan.containsAll(assignment.getNoMoreSplitsForLifespan())) ||
+                (!splits.containsAll(assignment.getSplits()));
     }
 
     @Override

@@ -151,7 +151,7 @@ public class TaskResource
         TaskInfo taskInfo = taskManager.updateTask(session,
                 taskId,
                 taskUpdateRequest.getFragment(),
-                taskUpdateRequest.getSources(),
+                taskUpdateRequest.getSplitAssignments(),
                 taskUpdateRequest.getOutputIds(),
                 taskUpdateRequest.getDynamicFilterDomains());
 

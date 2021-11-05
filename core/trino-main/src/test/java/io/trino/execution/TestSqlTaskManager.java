@@ -268,7 +268,7 @@ public class TestSqlTaskManager
                             .build(),
                     reduceLimitsId,
                     Optional.of(PLAN_FRAGMENT),
-                    ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), true)),
+                    ImmutableList.of(new SplitAssignment(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), true)),
                     createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds(),
                     ImmutableMap.of());
             assertTrue(reducesLimitsContext.isMemoryLimitsInitialized());
@@ -283,7 +283,7 @@ public class TestSqlTaskManager
                             .build(),
                     increaseLimitsId,
                     Optional.of(PLAN_FRAGMENT),
-                    ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), true)),
+                    ImmutableList.of(new SplitAssignment(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), true)),
                     createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds(),
                     ImmutableMap.of());
             assertTrue(attemptsIncreaseContext.isMemoryLimitsInitialized());
@@ -321,7 +321,7 @@ public class TestSqlTaskManager
         return sqlTaskManager.updateTask(TEST_SESSION,
                 taskId,
                 Optional.of(PLAN_FRAGMENT),
-                ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, splits, true)),
+                ImmutableList.of(new SplitAssignment(TABLE_SCAN_NODE_ID, splits, true)),
                 outputBuffers,
                 ImmutableMap.of());
     }

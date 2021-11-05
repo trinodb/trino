@@ -24,7 +24,7 @@ import com.google.errorprone.annotations.FormatMethod;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.execution.ScheduledSplit;
-import io.trino.execution.TaskSource;
+import io.trino.execution.SplitAssignment;
 import io.trino.metadata.Split;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
@@ -75,11 +75,11 @@ public class Driver
     private final Optional<DeleteOperator> deleteOperator;
     private final Optional<UpdateOperator> updateOperator;
 
-    // This variable acts as a staging area. When new splits (encapsulated in TaskSource) are
+    // This variable acts as a staging area. When new splits (encapsulated in SplitAssignment) are
     // provided to a Driver, the Driver will not process them right away. Instead, the splits are
     // added to this staging area. This staging area will be drained asynchronously. That's when
     // the new splits get processed.
-    private final AtomicReference<TaskSource> pendingTaskSourceUpdates = new AtomicReference<>();
+    private final AtomicReference<SplitAssignment> pendingSplitAssignmentUpdates = new AtomicReference<>();
     private final Map<Operator, ListenableFuture<Void>> revokingOperators = new HashMap<>();
 
     private final AtomicReference<State> state = new AtomicReference<>(State.ALIVE);
@@ -87,7 +87,7 @@ public class Driver
     private final DriverLock exclusiveLock = new DriverLock();
 
     @GuardedBy("exclusiveLock")
-    private TaskSource currentTaskSource;
+    private SplitAssignment currentSplitAssignment;
 
     private final AtomicReference<SettableFuture<Void>> driverBlockedFuture = new AtomicReference<>();
 
@@ -147,7 +147,7 @@ public class Driver
         this.deleteOperator = deleteOperator;
         this.updateOperator = updateOperator;
 
-        currentTaskSource = sourceOperator.map(operator -> new TaskSource(operator.getSourceId(), ImmutableSet.of(), false)).orElse(null);
+        currentSplitAssignment = sourceOperator.map(operator -> new SplitAssignment(operator.getSourceId(), ImmutableSet.of(), false)).orElse(null);
         // initially the driverBlockedFuture is not blocked (it is completed)
         SettableFuture<Void> future = SettableFuture.create();
         future.set(null);
@@ -209,15 +209,15 @@ public class Driver
         return finished;
     }
 
-    public void updateSource(TaskSource sourceUpdate)
+    public void updateSplitAssignment(SplitAssignment splitAssignment)
     {
-        checkLockNotHeld("Cannot update sources while holding the driver lock");
+        checkLockNotHeld("Cannot update assignments while holding the driver lock");
         checkArgument(
-                sourceOperator.isPresent() && sourceOperator.get().getSourceId().equals(sourceUpdate.getPlanNodeId()),
-                "sourceUpdate is for a plan node that is different from this Driver's source node");
+                sourceOperator.isPresent() && sourceOperator.get().getSourceId().equals(splitAssignment.getPlanNodeId()),
+                "splitAssignment is for a plan node that is different from this Driver's source node");
 
         // stage the new updates
-        pendingTaskSourceUpdates.updateAndGet(current -> current == null ? sourceUpdate : current.update(sourceUpdate));
+        pendingSplitAssignmentUpdates.updateAndGet(current -> current == null ? splitAssignment : current.update(splitAssignment));
 
         // attempt to get the lock and process the updates we staged above
         // updates will be processed in close if and only if we got the lock
@@ -234,21 +234,21 @@ public class Driver
             return;
         }
 
-        TaskSource sourceUpdate = pendingTaskSourceUpdates.getAndSet(null);
-        if (sourceUpdate == null) {
+        SplitAssignment splitAssignment = pendingSplitAssignmentUpdates.getAndSet(null);
+        if (splitAssignment == null) {
             return;
         }
 
-        // merge the current source and the specified source update
-        TaskSource newSource = currentTaskSource.update(sourceUpdate);
+        // merge the current assignment and the specified assignment
+        SplitAssignment newAssignment = currentSplitAssignment.update(splitAssignment);
 
         // if the update contains no new data, just return
-        if (newSource == currentTaskSource) {
+        if (newAssignment == currentSplitAssignment) {
             return;
         }
 
         // determine new splits to add
-        Set<ScheduledSplit> newSplits = Sets.difference(newSource.getSplits(), currentTaskSource.getSplits());
+        Set<ScheduledSplit> newSplits = Sets.difference(newAssignment.getSplits(), currentSplitAssignment.getSplits());
 
         // add new splits
         SourceOperator sourceOperator = this.sourceOperator.orElseThrow(VerifyException::new);
@@ -261,11 +261,11 @@ public class Driver
         }
 
         // set no more splits
-        if (newSource.isNoMoreSplits()) {
+        if (newAssignment.isNoMoreSplits()) {
             sourceOperator.noMoreSplits();
         }
 
-        currentTaskSource = newSource;
+        currentSplitAssignment = newAssignment;
     }
 
     public ListenableFuture<Void> processFor(Duration duration)
@@ -698,12 +698,12 @@ public class Driver
             }
         }
 
-        // If there are more source updates available, attempt to reacquire the lock and process them.
-        // This can happen if new sources are added while we're holding the lock here doing work.
+        // If there are more assignment updates available, attempt to reacquire the lock and process them.
+        // This can happen if new assignments are added while we're holding the lock here doing work.
         // NOTE: this is separate duplicate code to make debugging lock reacquisition easier
         // The first condition is for processing the pending updates if this driver is still ALIVE
         // The second condition is to destroy the driver if the state is NEED_DESTRUCTION
-        while (((pendingTaskSourceUpdates.get() != null && state.get() == State.ALIVE) || state.get() == State.NEED_DESTRUCTION)
+        while (((pendingSplitAssignmentUpdates.get() != null && state.get() == State.ALIVE) || state.get() == State.NEED_DESTRUCTION)
                 && exclusiveLock.tryLock()) {
             try {
                 try {

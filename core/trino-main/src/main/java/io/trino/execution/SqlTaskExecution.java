@@ -130,7 +130,7 @@ public class SqlTaskExecution
 
     // guarded for update only
     @GuardedBy("this")
-    private final ConcurrentMap<PlanNodeId, TaskSource> unpartitionedSources = new ConcurrentHashMap<>();
+    private final ConcurrentMap<PlanNodeId, SplitAssignment> unpartitionedSplitAssignments = new ConcurrentHashMap<>();
 
     @GuardedBy("this")
     private long maxAcknowledgedSplit = Long.MIN_VALUE;
@@ -283,17 +283,17 @@ public class SqlTaskExecution
         return taskContext;
     }
 
-    public void addSources(List<TaskSource> sources)
+    public void addSplitAssignments(List<SplitAssignment> splitAssignments)
     {
-        requireNonNull(sources, "sources is null");
-        checkState(!Thread.holdsLock(this), "Cannot add sources while holding a lock on the %s", getClass().getSimpleName());
+        requireNonNull(splitAssignments, "splitAssignments is null");
+        checkState(!Thread.holdsLock(this), "Cannot add split assignments while holding a lock on the %s", getClass().getSimpleName());
 
         try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
-            // update our record of sources and schedule drivers for new partitioned splits
-            Map<PlanNodeId, TaskSource> updatedUnpartitionedSources = updateSources(sources);
+            // update our record of split assignments and schedule drivers for new partitioned splits
+            Map<PlanNodeId, SplitAssignment> updatedUnpartitionedSources = updateSplitAssignments(splitAssignments);
 
             // tell existing drivers about the new splits; it is safe to update drivers
-            // multiple times and out of order because sources contain full record of
+            // multiple times and out of order because split assignments contain full record of
             // the unpartitioned splits
             for (WeakReference<Driver> driverReference : drivers) {
                 Driver driver = driverReference.get();
@@ -308,11 +308,11 @@ public class SqlTaskExecution
                 if (sourceId.isEmpty()) {
                     continue;
                 }
-                TaskSource sourceUpdate = updatedUnpartitionedSources.get(sourceId.get());
-                if (sourceUpdate == null) {
+                SplitAssignment splitAssignmentUpdate = updatedUnpartitionedSources.get(sourceId.get());
+                if (splitAssignmentUpdate == null) {
                     continue;
                 }
-                driver.updateSource(sourceUpdate);
+                driver.updateSplitAssignment(splitAssignmentUpdate);
             }
 
             // we may have transitioned to no more splits, so check for completion
@@ -320,14 +320,14 @@ public class SqlTaskExecution
         }
     }
 
-    private synchronized Map<PlanNodeId, TaskSource> updateSources(List<TaskSource> sources)
+    private synchronized Map<PlanNodeId, SplitAssignment> updateSplitAssignments(List<SplitAssignment> splitAssignments)
     {
-        Map<PlanNodeId, TaskSource> updatedUnpartitionedSources = new HashMap<>();
+        Map<PlanNodeId, SplitAssignment> updatedUnpartitionedSplitAssignments = new HashMap<>();
 
         // first remove any split that was already acknowledged
         long currentMaxAcknowledgedSplit = this.maxAcknowledgedSplit;
-        sources = sources.stream()
-                .map(source -> new TaskSource(
+        splitAssignments = splitAssignments.stream()
+                .map(source -> new SplitAssignment(
                         source.getPlanNodeId(),
                         source.getSplits().stream()
                                 .filter(scheduledSplit -> scheduledSplit.getSequenceId() > currentMaxAcknowledgedSplit)
@@ -338,13 +338,13 @@ public class SqlTaskExecution
                         source.isNoMoreSplits()))
                 .collect(toList());
 
-        // update task with new sources
-        for (TaskSource source : sources) {
-            if (driverRunnerFactoriesWithSplitLifeCycle.containsKey(source.getPlanNodeId())) {
-                schedulePartitionedSource(source);
+        // update task with new assignments
+        for (SplitAssignment assignment : splitAssignments) {
+            if (driverRunnerFactoriesWithSplitLifeCycle.containsKey(assignment.getPlanNodeId())) {
+                schedulePartitionedSource(assignment);
             }
             else {
-                scheduleUnpartitionedSource(source, updatedUnpartitionedSources);
+                scheduleUnpartitionedSource(assignment, updatedUnpartitionedSplitAssignments);
             }
         }
 
@@ -354,12 +354,12 @@ public class SqlTaskExecution
         }
 
         // update maxAcknowledgedSplit
-        maxAcknowledgedSplit = sources.stream()
+        maxAcknowledgedSplit = splitAssignments.stream()
                 .flatMap(source -> source.getSplits().stream())
                 .mapToLong(ScheduledSplit::getSequenceId)
                 .max()
                 .orElse(maxAcknowledgedSplit);
-        return updatedUnpartitionedSources;
+        return updatedUnpartitionedSplitAssignments;
     }
 
     @GuardedBy("this")
@@ -387,9 +387,9 @@ public class SqlTaskExecution
         }
     }
 
-    private synchronized void schedulePartitionedSource(TaskSource sourceUpdate)
+    private synchronized void schedulePartitionedSource(SplitAssignment splitAssignmentUpdate)
     {
-        mergeIntoPendingSplits(sourceUpdate.getPlanNodeId(), sourceUpdate.getSplits(), sourceUpdate.getNoMoreSplitsForLifespan(), sourceUpdate.isNoMoreSplits());
+        mergeIntoPendingSplits(splitAssignmentUpdate.getPlanNodeId(), splitAssignmentUpdate.getSplits(), splitAssignmentUpdate.getNoMoreSplitsForLifespan(), splitAssignmentUpdate.isNoMoreSplits());
 
         while (true) {
             // SchedulingLifespanManager tracks how far each Lifespan has been scheduled. Here is an example.
@@ -409,10 +409,10 @@ public class SqlTaskExecution
                 SchedulingLifespan schedulingLifespan = activeLifespans.next();
                 Lifespan lifespan = schedulingLifespan.getLifespan();
 
-                // Continue using the example from above. Let's say the sourceUpdate adds some new splits for source node B.
+                // Continue using the example from above. Let's say the splitAssignmentUpdate adds some new splits for source node B.
                 //
                 // For lifespan 30, it could start new drivers and assign a pending split to each.
-                // Pending splits could include both pre-existing pending splits, and the new ones from sourceUpdate.
+                // Pending splits could include both pre-existing pending splits, and the new ones from splitAssignmentUpdate.
                 // If there is enough driver slots to deplete pending splits, one of the below would happen.
                 // * If it is marked that all splits for node B in lifespan 30 has been received, SchedulingLifespanManager
                 //   will be updated so that lifespan 30 now processes source node C. It will immediately start processing them.
@@ -477,27 +477,27 @@ public class SqlTaskExecution
             }
         }
 
-        if (sourceUpdate.isNoMoreSplits()) {
-            schedulingLifespanManager.noMoreSplits(sourceUpdate.getPlanNodeId());
+        if (splitAssignmentUpdate.isNoMoreSplits()) {
+            schedulingLifespanManager.noMoreSplits(splitAssignmentUpdate.getPlanNodeId());
         }
     }
 
-    private synchronized void scheduleUnpartitionedSource(TaskSource sourceUpdate, Map<PlanNodeId, TaskSource> updatedUnpartitionedSources)
+    private synchronized void scheduleUnpartitionedSource(SplitAssignment splitAssignmentUpdate, Map<PlanNodeId, SplitAssignment> updatedUnpartitionedSources)
     {
         // create new source
-        TaskSource newSource;
-        TaskSource currentSource = unpartitionedSources.get(sourceUpdate.getPlanNodeId());
-        if (currentSource == null) {
-            newSource = sourceUpdate;
+        SplitAssignment newSplitAssignment;
+        SplitAssignment currentSplitAssignment = unpartitionedSplitAssignments.get(splitAssignmentUpdate.getPlanNodeId());
+        if (currentSplitAssignment == null) {
+            newSplitAssignment = splitAssignmentUpdate;
         }
         else {
-            newSource = currentSource.update(sourceUpdate);
+            newSplitAssignment = currentSplitAssignment.update(splitAssignmentUpdate);
         }
 
         // only record new source if something changed
-        if (newSource != currentSource) {
-            unpartitionedSources.put(sourceUpdate.getPlanNodeId(), newSource);
-            updatedUnpartitionedSources.put(sourceUpdate.getPlanNodeId(), newSource);
+        if (newSplitAssignment != currentSplitAssignment) {
+            unpartitionedSplitAssignments.put(splitAssignmentUpdate.getPlanNodeId(), newSplitAssignment);
+            updatedUnpartitionedSources.put(splitAssignmentUpdate.getPlanNodeId(), newSplitAssignment);
         }
     }
 
@@ -611,9 +611,9 @@ public class SqlTaskExecution
                 noMoreSplits.add(entry.getKey());
             }
         }
-        for (TaskSource taskSource : unpartitionedSources.values()) {
-            if (taskSource.isNoMoreSplits()) {
-                noMoreSplits.add(taskSource.getPlanNodeId());
+        for (SplitAssignment splitAssignment : unpartitionedSplitAssignments.values()) {
+            if (splitAssignment.isNoMoreSplits()) {
+                noMoreSplits.add(splitAssignment.getPlanNodeId());
             }
         }
         return noMoreSplits.build();
@@ -655,7 +655,7 @@ public class SqlTaskExecution
         return toStringHelper(this)
                 .add("taskId", taskId)
                 .add("remainingDrivers", status.getRemainingDriver())
-                .add("unpartitionedSources", unpartitionedSources)
+                .add("unpartitionedSplitAssignments", unpartitionedSplitAssignments)
                 .toString();
     }
 
@@ -947,15 +947,15 @@ public class SqlTaskExecution
 
             if (partitionedSplit != null) {
                 // TableScanOperator requires partitioned split to be added before the first call to process
-                driver.updateSource(new TaskSource(partitionedSplit.getPlanNodeId(), ImmutableSet.of(partitionedSplit), true));
+                driver.updateSplitAssignment(new SplitAssignment(partitionedSplit.getPlanNodeId(), ImmutableSet.of(partitionedSplit), true));
             }
 
             // add unpartitioned sources
             Optional<PlanNodeId> sourceId = driver.getSourceId();
             if (sourceId.isPresent()) {
-                TaskSource taskSource = unpartitionedSources.get(sourceId.get());
-                if (taskSource != null) {
-                    driver.updateSource(taskSource);
+                SplitAssignment splitAssignment = unpartitionedSplitAssignments.get(sourceId.get());
+                if (splitAssignment != null) {
+                    driver.updateSplitAssignment(splitAssignment);
                 }
             }
 
