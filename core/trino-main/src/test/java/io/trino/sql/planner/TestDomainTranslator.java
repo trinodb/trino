@@ -57,7 +57,6 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -98,6 +97,7 @@ import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static io.trino.type.ColorType.COLOR;
 import static java.lang.String.format;
+import static java.util.Arrays.asList;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
@@ -1045,17 +1045,17 @@ public class TestDomainTranslator
     public void testInPredicateWithNull()
     {
         assertPredicateTranslates(
-                in(C_BIGINT, Arrays.asList(1L, 2L, null)),
+                in(C_BIGINT, asList(1L, 2L, null)),
                 withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 1L), Range.equal(BIGINT, 2L)), false))));
 
-        assertPredicateIsAlwaysFalse(not(in(C_BIGINT, Arrays.asList(1L, 2L, null))));
-        assertPredicateIsAlwaysFalse(in(C_BIGINT, Arrays.asList(new Long[] {null})));
-        assertPredicateIsAlwaysFalse(not(in(C_BIGINT, Arrays.asList(new Long[] {null}))));
+        assertPredicateIsAlwaysFalse(not(in(C_BIGINT, asList(1L, 2L, null))));
+        assertPredicateIsAlwaysFalse(in(C_BIGINT, asList((Long) null)));
+        assertPredicateIsAlwaysFalse(not(in(C_BIGINT, asList((Long) null))));
 
-        assertUnsupportedPredicate(isNull(in(C_BIGINT, Arrays.asList(1L, 2L, null))));
-        assertUnsupportedPredicate(isNotNull(in(C_BIGINT, Arrays.asList(1L, 2L, null))));
-        assertUnsupportedPredicate(isNull(in(C_BIGINT, Arrays.asList(new Long[] {null}))));
-        assertUnsupportedPredicate(isNotNull(in(C_BIGINT, Arrays.asList(new Long[] {null}))));
+        assertUnsupportedPredicate(isNull(in(C_BIGINT, asList(1L, 2L, null))));
+        assertUnsupportedPredicate(isNotNull(in(C_BIGINT, asList(1L, 2L, null))));
+        assertUnsupportedPredicate(isNull(in(C_BIGINT, asList((Long) null))));
+        assertUnsupportedPredicate(isNotNull(in(C_BIGINT, asList((Long) null))));
     }
 
     @Test
