@@ -79,7 +79,7 @@ public final class TaskTestUtils
 
     public static final ScheduledSplit SPLIT = new ScheduledSplit(0, TABLE_SCAN_NODE_ID, new Split(CONNECTOR_ID, TestingSplit.createLocalSplit(), Lifespan.taskWide()));
 
-    public static final ImmutableList<TaskSource> EMPTY_SOURCES = ImmutableList.of();
+    public static final ImmutableList<SplitAssignment> EMPTY_SPLIT_ASSIGNMENTS = ImmutableList.of();
 
     public static final Symbol SYMBOL = new Symbol("column");
 
@@ -150,9 +150,9 @@ public final class TaskTestUtils
                 new ExchangeManagerRegistry(new HandleResolver()));
     }
 
-    public static TaskInfo updateTask(SqlTask sqlTask, List<TaskSource> taskSources, OutputBuffers outputBuffers)
+    public static TaskInfo updateTask(SqlTask sqlTask, List<SplitAssignment> splitAssignments, OutputBuffers outputBuffers)
     {
-        return sqlTask.updateTask(TEST_SESSION, Optional.of(PLAN_FRAGMENT), taskSources, outputBuffers, ImmutableMap.of());
+        return sqlTask.updateTask(TEST_SESSION, Optional.of(PLAN_FRAGMENT), splitAssignments, outputBuffers, ImmutableMap.of());
     }
 
     public static SplitMonitor createTestSplitMonitor()

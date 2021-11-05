@@ -85,14 +85,14 @@ public interface TaskManager
     void updateMemoryPoolAssignments(MemoryPoolAssignmentsRequest assignments);
 
     /**
-     * Updates the task plan, sources and output buffers.  If the task does not
+     * Updates the task plan, splitAssignments and output buffers.  If the task does not
      * already exist, it is created and then updated.
      */
     TaskInfo updateTask(
             Session session,
             TaskId taskId,
             Optional<PlanFragment> fragment,
-            List<TaskSource> sources,
+            List<SplitAssignment> splitAssignments,
             OutputBuffers outputBuffers,
             Map<DynamicFilterId, Domain> dynamicFilterDomains);
 
