@@ -25,7 +25,6 @@ import io.trino.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.TypeProvider;
 
-import java.util.List;
 import java.util.concurrent.Executor;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
@@ -65,7 +64,6 @@ public class SqlTaskExecutionFactory
             TaskStateMachine taskStateMachine,
             OutputBuffer outputBuffer,
             PlanFragment fragment,
-            List<TaskSource> sources,
             Runnable notifyStatusChanged)
     {
         TaskContext taskContext = queryContext.addTaskContext(
@@ -98,7 +96,6 @@ public class SqlTaskExecutionFactory
                 taskStateMachine,
                 taskContext,
                 outputBuffer,
-                sources,
                 localExecutionPlan,
                 taskExecutor,
                 taskNotificationExecutor,

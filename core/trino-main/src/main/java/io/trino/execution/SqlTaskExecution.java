@@ -147,7 +147,6 @@ public class SqlTaskExecution
             TaskStateMachine taskStateMachine,
             TaskContext taskContext,
             OutputBuffer outputBuffer,
-            List<TaskSource> sources,
             LocalExecutionPlan localExecutionPlan,
             TaskExecutor taskExecutor,
             Executor notificationExecutor,
@@ -165,7 +164,6 @@ public class SqlTaskExecution
             // The scheduleDriversForTaskLifeCycle method calls enqueueDriverSplitRunner, which registers a callback with access to this object.
             // The call back is accessed from another thread, so this code cannot be placed in the constructor.
             task.scheduleDriversForTaskLifeCycle();
-            task.addSources(sources);
             return task;
         }
     }
