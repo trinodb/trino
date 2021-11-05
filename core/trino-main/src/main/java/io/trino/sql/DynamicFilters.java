@@ -154,6 +154,24 @@ public final class DynamicFilters
         return Symbol.from(((Cast) dynamicFilterExpression).getExpression());
     }
 
+    public static Expression replaceDynamicFilterId(FunctionCall dynamicFilterFunctionCall, DynamicFilterId newId)
+    {
+        return new FunctionCall(
+                dynamicFilterFunctionCall.getLocation(),
+                dynamicFilterFunctionCall.getName(),
+                dynamicFilterFunctionCall.getWindow(),
+                dynamicFilterFunctionCall.getFilter(),
+                dynamicFilterFunctionCall.getOrderBy(),
+                dynamicFilterFunctionCall.isDistinct(),
+                dynamicFilterFunctionCall.getNullTreatment(),
+                dynamicFilterFunctionCall.getProcessingMode(),
+                ImmutableList.of(
+                        dynamicFilterFunctionCall.getArguments().get(0),
+                        dynamicFilterFunctionCall.getArguments().get(1),
+                        new StringLiteral(newId.toString()), // dynamic filter id is the 3rd argument
+                        dynamicFilterFunctionCall.getArguments().get(3)));
+    }
+
     public static boolean isDynamicFilter(Expression expression)
     {
         return getDescriptor(expression).isPresent();
