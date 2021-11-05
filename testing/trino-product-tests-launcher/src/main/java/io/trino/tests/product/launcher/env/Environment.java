@@ -171,7 +171,7 @@ public final class Environment
         Timeout<Object> timeout = Timeout.of(ofMinutes(5))
                 .withCancel(true);
 
-        RetryPolicy retry = new RetryPolicy()
+        RetryPolicy<Object> retry = new RetryPolicy<>()
                 .withMaxAttempts(3);
 
         FailsafeExecutor<Object> executor = Failsafe

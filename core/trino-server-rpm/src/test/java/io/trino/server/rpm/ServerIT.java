@@ -82,7 +82,7 @@ public class ServerIT
         }
     }
 
-    private static void assertPathDeleted(GenericContainer container, String path)
+    private static void assertPathDeleted(GenericContainer<?> container, String path)
             throws Exception
     {
         ExecResult actualResult = container.execInContainer(

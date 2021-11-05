@@ -208,7 +208,7 @@ public class HiveUpdateProcessor
             Block lastAcidBlock = acidBlock.getField(3);
             checkArgument(lastAcidBlock instanceof RowBlock, "The last block in the acidBlock must be a RowBlock, but instead was %s", lastAcidBlock);
             ColumnarRow nonUpdatedColumnRow = toColumnarRow(lastAcidBlock);
-            ImmutableList.Builder builder = ImmutableList.builder();
+            ImmutableList.Builder<Block> builder = ImmutableList.builder();
             for (int field = 0; field < nonUpdatedColumnRow.getFieldCount(); field++) {
                 builder.add(nonUpdatedColumnRow.getField(field));
             }

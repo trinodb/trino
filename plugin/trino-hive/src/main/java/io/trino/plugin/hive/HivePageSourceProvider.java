@@ -571,7 +571,7 @@ public class HivePageSourceProvider
                 else if (isRowIdColumnHandle(column)) {
                     baseColumnHiveIndices.add(column.getBaseHiveColumnIndex());
                     checkArgument(
-                            projectionsForColumn.computeIfAbsent(column.getBaseHiveColumnIndex(), index -> new HashSet()).add(column.getHiveColumnProjectionInfo()),
+                            projectionsForColumn.computeIfAbsent(column.getBaseHiveColumnIndex(), index -> new HashSet<>()).add(column.getHiveColumnProjectionInfo()),
                             "duplicate column in columns list");
 
                     if (baseTypeCoercionFrom.isEmpty()

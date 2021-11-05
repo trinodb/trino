@@ -69,10 +69,10 @@ public class DockerContainer
     private static final Logger log = Logger.get(DockerContainer.class);
     private static final long NANOSECONDS_PER_SECOND = 1_000 * 1_000 * 1_000L;
 
-    private static final Timeout asyncTimeout = Timeout.of(ofSeconds(30))
+    private static final Timeout<ExecResult> asyncTimeout = Timeout.<ExecResult>of(ofSeconds(30))
             .withCancel(true);
 
-    private static final FailsafeExecutor executor = Failsafe
+    private static final FailsafeExecutor<ExecResult> executor = Failsafe
             .with(asyncTimeout)
             .with(Executors.newCachedThreadPool(daemonThreadsNamed("docker-container-%d")));
 
@@ -257,7 +257,7 @@ public class DockerContainer
         log.info("Executing command '%s' in container %s", fullCommand, logicalName);
 
         try {
-            return (ExecResult) executor.getAsync(() -> execInContainer(command)).get();
+            return executor.getAsync(() -> execInContainer(command)).get();
         }
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();

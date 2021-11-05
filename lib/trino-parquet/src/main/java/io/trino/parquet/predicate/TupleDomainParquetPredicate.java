@@ -537,7 +537,7 @@ public class TupleDomainParquetPredicate
 
             FilterPredicate columnFilter = FilterApi.userDefined(
                     new TrinoIntColumn(ColumnPath.get(column.getPath())),
-                    new DomainUserDefinedPredicate(column, domain, timeZone));
+                    new DomainUserDefinedPredicate<>(column, domain, timeZone));
             if (filter == null) {
                 filter = columnFilter;
             }
