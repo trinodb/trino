@@ -20,6 +20,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Enums;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.type.Decimals;
 
 import java.util.Collections;
 import java.util.List;
@@ -39,7 +40,7 @@ public final class Conversions
         List<BigQueryColumnHandle> subColumns = subFields == null ?
                 Collections.emptyList() :
                 subFields.stream()
-                        .filter(subField -> isSupportedType(subField.getType()))
+                        .filter(Conversions::isSupportedType)
                         .map(Conversions::toColumnHandle)
                         .collect(Collectors.toList());
         return new BigQueryColumnHandle(
@@ -64,8 +65,18 @@ public final class Conversions
                 .build();
     }
 
-    public static boolean isSupportedType(LegacySQLTypeName type)
+    public static boolean isSupportedType(Field field)
     {
+        LegacySQLTypeName type = field.getType();
+        if (type == LegacySQLTypeName.BIGNUMERIC) {
+            // Skip BIGNUMERIC without parameters because the precision (77) and scale (38) is too large
+            if (field.getPrecision() == null && field.getScale() == null) {
+                return false;
+            }
+            if (field.getPrecision() != null && field.getPrecision() > Decimals.MAX_PRECISION) {
+                return false;
+            }
+        }
         return Enums.getIfPresent(BigQueryType.class, type.name()).isPresent();
     }
 

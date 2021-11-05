@@ -24,6 +24,7 @@ import io.trino.testing.datatype.CreateAndInsertDataSetup;
 import io.trino.testing.datatype.DataSetup;
 import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.SqlExecutor;
+import io.trino.testing.sql.TestTable;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -40,6 +41,7 @@ import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static java.lang.String.format;
 
 public class TestBigQueryTypeMapping
         extends AbstractTestQueryFramework
@@ -154,6 +156,56 @@ public class TestBigQueryTypeMapping
                 .addRoundTrip("NUMERIC(10, 3)", "CAST(NULL AS NUMERIC)", createDecimalType(10, 3), "CAST(NULL AS DECIMAL(10, 3))")
                 .addRoundTrip("NUMERIC(38, 9)", "CAST(NULL AS NUMERIC)", createDecimalType(38, 9), "CAST(NULL AS DECIMAL(38, 9))")
                 .execute(getQueryRunner(), bigqueryCreateAndInsert("test.numeric"));
+    }
+
+    @Test
+    public void testBigNumericMapping()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("BIGNUMERIC(3, 0)", "BIGNUMERIC '193'", createDecimalType(3, 0), "CAST(193 AS DECIMAL(3, 0))")
+                .addRoundTrip("BIGNUMERIC(3, 0)", "BIGNUMERIC '19'", createDecimalType(3, 0), "CAST(19 AS DECIMAL(3, 0))")
+                .addRoundTrip("BIGNUMERIC(3, 0)", "BIGNUMERIC '-193'", createDecimalType(3, 0), "CAST(-193 AS DECIMAL(3, 0))")
+                .addRoundTrip("BIGNUMERIC(3, 1)", "BIGNUMERIC '10.0'", createDecimalType(3, 1), "CAST(10.0 AS DECIMAL(3, 1))")
+                .addRoundTrip("BIGNUMERIC(3, 1)", "BIGNUMERIC '10.1'", createDecimalType(3, 1), "CAST(10.1 AS DECIMAL(3, 1))")
+                .addRoundTrip("BIGNUMERIC(3, 1)", "BIGNUMERIC '-10.1'", createDecimalType(3, 1), "CAST(-10.1 AS DECIMAL(3, 1))")
+                .addRoundTrip("BIGNUMERIC(4, 2)", "BIGNUMERIC '2'", createDecimalType(4, 2), "CAST(2 AS DECIMAL(4, 2))")
+                .addRoundTrip("BIGNUMERIC(4, 2)", "BIGNUMERIC '2.3'", createDecimalType(4, 2), "CAST(2.3 AS DECIMAL(4, 2))")
+                .addRoundTrip("BIGNUMERIC(24, 2)", "BIGNUMERIC '2'", createDecimalType(24, 2), "CAST(2 AS DECIMAL(24, 2))")
+                .addRoundTrip("BIGNUMERIC(24, 2)", "BIGNUMERIC '2.3'", createDecimalType(24, 2), "CAST(2.3 AS DECIMAL(24, 2))")
+                .addRoundTrip("BIGNUMERIC(24, 2)", "BIGNUMERIC '123456789.3'", createDecimalType(24, 2), "CAST(123456789.3 AS DECIMAL(24, 2))")
+                .addRoundTrip("BIGNUMERIC(24, 4)", "BIGNUMERIC '12345678901234567890.31'", createDecimalType(24, 4), "CAST(12345678901234567890.31 AS DECIMAL(24, 4))")
+                .addRoundTrip("BIGNUMERIC(29, 0)", "BIGNUMERIC '27182818284590452353602874713'", createDecimalType(29, 0), "CAST('27182818284590452353602874713' AS DECIMAL(29, 0))")
+                .addRoundTrip("BIGNUMERIC(29, 0)", "BIGNUMERIC '-27182818284590452353602874713'", createDecimalType(29, 0), "CAST('-27182818284590452353602874713' AS DECIMAL(29, 0))")
+                .addRoundTrip("BIGNUMERIC(30, 5)", "BIGNUMERIC '3141592653589793238462643.38327'", createDecimalType(30, 5), "CAST(3141592653589793238462643.38327 AS DECIMAL(30, 5))")
+                .addRoundTrip("BIGNUMERIC(30, 5)", "BIGNUMERIC '-3141592653589793238462643.38327'", createDecimalType(30, 5), "CAST(-3141592653589793238462643.38327 AS DECIMAL(30, 5))")
+                .addRoundTrip("BIGNUMERIC(38, 9)", "BIGNUMERIC '100000000020000000001234567.123456789'", createDecimalType(38, 9), "CAST(100000000020000000001234567.123456789 AS DECIMAL(38, 9))")
+                .addRoundTrip("BIGNUMERIC(38, 9)", "BIGNUMERIC '-100000000020000000001234567.123456789'", createDecimalType(38, 9), "CAST(-100000000020000000001234567.123456789 AS DECIMAL(38, 9))")
+                .addRoundTrip("BIGNUMERIC(10, 3)", "CAST(NULL AS BIGNUMERIC)", createDecimalType(10, 3), "CAST(NULL AS DECIMAL(10, 3))")
+                .addRoundTrip("BIGNUMERIC(38, 9)", "CAST(NULL AS BIGNUMERIC)", createDecimalType(38, 9), "CAST(NULL AS DECIMAL(38, 9))")
+                .addRoundTrip("BIGNUMERIC(1)", "BIGNUMERIC '1'", createDecimalType(1, 0), "CAST(1 AS DECIMAL(1, 0))")
+                .addRoundTrip("BIGNUMERIC(1)", "BIGNUMERIC '-1'", createDecimalType(1, 0), "CAST(-1 AS DECIMAL(1, 0))")
+                .addRoundTrip("BIGNUMERIC(38)", "BIGNUMERIC '10000000002000000000300000000012345678'", createDecimalType(38, 0), "CAST('10000000002000000000300000000012345678' AS DECIMAL(38, 0))")
+                .addRoundTrip("BIGNUMERIC(38)", "BIGNUMERIC '-10000000002000000000300000000012345678'", createDecimalType(38, 0), "CAST('-10000000002000000000300000000012345678' AS DECIMAL(38, 0))")
+                .execute(getQueryRunner(), bigqueryCreateAndInsert("test.bignumeric"));
+    }
+
+    @Test(dataProvider = "bigqueryUnsupportedBigNumericTypeProvider")
+    public void testUnsupportedBigNumericMapping(String unsupportedTypeName)
+    {
+        try (TestTable table = new TestTable(getBigQuerySqlExecutor(), "test.unsupported_bignumeric", format("(supported_column INT64, unsupported_column %s)", unsupportedTypeName))) {
+            assertQuery(
+                    "DESCRIBE " + table.getName(),
+                    "VALUES ('supported_column', 'bigint', '', '')");
+        }
+    }
+
+    @DataProvider
+    public Object[][] bigqueryUnsupportedBigNumericTypeProvider()
+    {
+        return new Object[][] {
+                {"BIGNUMERIC"},
+                {"BIGNUMERIC(40,2)"},
+        };
     }
 
     @Test
