@@ -26,6 +26,7 @@ import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Decimals;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.Type;
@@ -95,8 +96,8 @@ import static io.trino.sql.tree.ComparisonExpression.Operator.NOT_EQUAL;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static io.trino.type.ColorType.COLOR;
+import static java.lang.Float.floatToIntBits;
 import static java.lang.String.format;
-import static java.util.Arrays.asList;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
@@ -122,15 +123,19 @@ public class TestDomainTranslator
     private static final Symbol C_DECIMAL_26_5 = new Symbol("c_decimal_26_5");
     private static final Symbol C_DECIMAL_23_4 = new Symbol("c_decimal_23_4");
     private static final Symbol C_INTEGER = new Symbol("c_integer");
+    private static final Symbol C_INTEGER_1 = new Symbol("c_integer_1");
     private static final Symbol C_CHAR = new Symbol("c_char");
     private static final Symbol C_DECIMAL_21_3 = new Symbol("c_decimal_21_3");
+    private static final Symbol C_DECIMAL_21_3_1 = new Symbol("c_decimal_21_3_1");
     private static final Symbol C_DECIMAL_12_2 = new Symbol("c_decimal_12_2");
     private static final Symbol C_DECIMAL_6_1 = new Symbol("c_decimal_6_1");
+    private static final Symbol C_DECIMAL_6_1_1 = new Symbol("c_decimal_6_1_1");
     private static final Symbol C_DECIMAL_3_0 = new Symbol("c_decimal_3_0");
     private static final Symbol C_DECIMAL_2_0 = new Symbol("c_decimal_2_0");
     private static final Symbol C_SMALLINT = new Symbol("c_smallint");
     private static final Symbol C_TINYINT = new Symbol("c_tinyint");
     private static final Symbol C_REAL = new Symbol("c_real");
+    private static final Symbol C_REAL_1 = new Symbol("c_real_1");
 
     private static final TypeProvider TYPES = TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()
             .put(C_BIGINT, BIGINT)
@@ -149,15 +154,19 @@ public class TestDomainTranslator
             .put(C_DECIMAL_26_5, createDecimalType(26, 5))
             .put(C_DECIMAL_23_4, createDecimalType(23, 4))
             .put(C_INTEGER, INTEGER)
+            .put(C_INTEGER_1, INTEGER)
             .put(C_CHAR, createCharType(10))
             .put(C_DECIMAL_21_3, createDecimalType(21, 3))
+            .put(C_DECIMAL_21_3_1, createDecimalType(21, 3))
             .put(C_DECIMAL_12_2, createDecimalType(12, 2))
             .put(C_DECIMAL_6_1, createDecimalType(6, 1))
+            .put(C_DECIMAL_6_1_1, createDecimalType(6, 1))
             .put(C_DECIMAL_3_0, createDecimalType(3, 0))
             .put(C_DECIMAL_2_0, createDecimalType(2, 0))
             .put(C_SMALLINT, SMALLINT)
             .put(C_TINYINT, TINYINT)
             .put(C_REAL, REAL)
+            .put(C_REAL_1, REAL)
             .build());
 
     private static final long TIMESTAMP_VALUE = new DateTime(2013, 3, 30, 1, 5, 0, 0, DateTimeZone.UTC).getMillis();
@@ -1010,48 +1019,255 @@ public class TestDomainTranslator
     }
 
     @Test
-    public void testFromInPredicate()
+    public void testInPredicateWithBoolean()
     {
-        assertPredicateTranslates(
-                in(C_BIGINT, ImmutableList.of(1L)),
-                tupleDomain(C_BIGINT, Domain.singleValue(BIGINT, 1L)));
+        testInPredicate(C_BOOLEAN, C_BOOLEAN_1, BOOLEAN, false, true);
+    }
 
+    @Test
+    public void testInPredicateWithInteger()
+    {
+        testInPredicate(C_INTEGER, C_INTEGER_1, INTEGER, 1L, 2L);
+    }
+
+    @Test
+    public void testInPredicateWithBigint()
+    {
+        testInPredicate(C_BIGINT, C_BIGINT_1, BIGINT, 1L, 2L);
+    }
+
+    @Test
+    public void testInPredicateWithReal()
+    {
+        testInPredicateWithFloatingPoint(C_REAL, C_REAL_1, REAL, (long) floatToIntBits(1), (long) floatToIntBits(2), (long) floatToIntBits(Float.NaN));
+    }
+
+    @Test
+    public void testInPredicateWithDouble()
+    {
+        testInPredicateWithFloatingPoint(C_DOUBLE, C_DOUBLE_1, DOUBLE, 1., 2., Double.NaN);
+    }
+
+    @Test
+    public void testInPredicateWithShortDecimal()
+    {
+        testInPredicate(C_DECIMAL_6_1, C_DECIMAL_6_1_1, createDecimalType(6, 1), 10L, 20L);
+    }
+
+    @Test
+    public void testInPredicateWithLongDecimal()
+    {
+        testInPredicate(
+                C_DECIMAL_21_3,
+                C_DECIMAL_21_3_1,
+                createDecimalType(21, 3),
+                Decimals.encodeScaledValue(new BigDecimal("1"), 3),
+                Decimals.encodeScaledValue(new BigDecimal("2"), 3));
+    }
+
+    @Test
+    public void testInPredicateWithVarchar()
+    {
+        testInPredicate(
+                C_VARCHAR,
+                C_VARCHAR_1,
+                VARCHAR,
+                utf8Slice("first"),
+                utf8Slice("second"));
+    }
+
+    private void testInPredicate(Symbol symbol, Symbol symbol2, Type type, Object one, Object two)
+    {
+        Expression oneExpression = literalEncoder.toExpression(one, type);
+        Expression twoExpression = literalEncoder.toExpression(two, type);
+        Expression nullExpression = literalEncoder.toExpression(null, type);
+        Expression otherSymbol = symbol2.toSymbolReference();
+
+        // IN, single value
+        assertPredicateTranslates(
+                in(symbol, List.of(oneExpression)),
+                tupleDomain(symbol, Domain.singleValue(type, one)));
+
+        // IN, two values
+        assertPredicateTranslates(
+                in(symbol, List.of(oneExpression, twoExpression)),
+                tupleDomain(symbol, Domain.multipleValues(type, List.of(one, two))));
+
+        // IN, with null
+        assertPredicateIsAlwaysFalse(
+                in(symbol, List.of(nullExpression)));
+        assertPredicateTranslates(
+                in(symbol, List.of(oneExpression, nullExpression, twoExpression)),
+                tupleDomain(symbol, Domain.multipleValues(type, List.of(one, two))));
+
+        // IN, with expression
+        assertUnsupportedPredicate(
+                in(symbol, List.of(otherSymbol)));
+        assertUnsupportedPredicate(
+                in(symbol, List.of(oneExpression, otherSymbol, twoExpression)));
+        assertUnsupportedPredicate(
+                in(symbol, List.of(oneExpression, otherSymbol, twoExpression, nullExpression)));
+
+        // NOT IN, single value
+        assertPredicateTranslates(
+                not(in(symbol, List.of(oneExpression))),
+                tupleDomain(symbol, Domain.create(ValueSet.ofRanges(Range.lessThan(type, one), Range.greaterThan(type, one)), false)));
+
+        // NOT IN, two values
+        assertPredicateTranslates(
+                not(in(symbol, List.of(oneExpression, twoExpression))),
+                tupleDomain(symbol, Domain.create(
+                        ValueSet.ofRanges(
+                                Range.lessThan(type, one),
+                                Range.range(type, one, false, two, false),
+                                Range.greaterThan(type, two)),
+                        false)));
+
+        // NOT IN, with null
+        assertPredicateIsAlwaysFalse(
+                not(in(symbol, List.of(nullExpression))));
+        assertPredicateTranslates(
+                not(in(symbol, List.of(oneExpression, nullExpression, twoExpression))),
+                TupleDomain.none(),
+                TRUE_LITERAL);
+
+        // NOT IN, with expression
+        assertUnsupportedPredicate(
+                not(in(symbol, List.of(otherSymbol))));
+        assertPredicateTranslates(
+                not(in(symbol, List.of(oneExpression, otherSymbol, twoExpression))),
+                tupleDomain(symbol, Domain.create(
+                        ValueSet.ofRanges(
+                                Range.lessThan(type, one),
+                                Range.range(type, one, false, two, false),
+                                Range.greaterThan(type, two)),
+                        false)),
+                not(equal(symbol, otherSymbol)));
+        assertPredicateTranslates(
+                not(in(symbol, List.of(oneExpression, otherSymbol, twoExpression, nullExpression))),
+                TupleDomain.none(),
+                not(equal(symbol, otherSymbol))); // Note: remaining expression is redundant here
+    }
+
+    private void testInPredicateWithFloatingPoint(Symbol symbol, Symbol symbol2, Type type, Object one, Object two, Object nan)
+    {
+        Expression oneExpression = literalEncoder.toExpression(one, type);
+        Expression twoExpression = literalEncoder.toExpression(two, type);
+        Expression nanExpression = literalEncoder.toExpression(nan, type);
+        Expression nullExpression = literalEncoder.toExpression(null, type);
+        Expression otherSymbol = symbol2.toSymbolReference();
+
+        // IN, single value
+        assertPredicateTranslates(
+                in(symbol, List.of(oneExpression)),
+                tupleDomain(symbol, Domain.singleValue(type, one)));
+
+        // IN, two values
+        assertPredicateTranslates(
+                in(symbol, List.of(oneExpression, twoExpression)),
+                tupleDomain(symbol, Domain.multipleValues(type, List.of(one, two))));
+
+        // IN, with null
+        assertPredicateIsAlwaysFalse(
+                in(symbol, List.of(nullExpression)));
+        assertPredicateTranslates(
+                in(symbol, List.of(oneExpression, nullExpression, twoExpression)),
+                tupleDomain(symbol, Domain.multipleValues(type, List.of(one, two))));
+
+        // IN, with NaN
+        assertPredicateIsAlwaysFalse(
+                in(symbol, List.of(nanExpression)));
+        assertPredicateTranslates(
+                in(symbol, List.of(oneExpression, nanExpression, twoExpression)),
+                tupleDomain(symbol, Domain.multipleValues(type, List.of(one, two))));
+
+        // IN, with null and NaN
+        assertPredicateTranslates(
+                in(symbol, List.of(nanExpression, nullExpression)),
+                TupleDomain.none(),
+                or(equal(symbol, nanExpression), equal(symbol, nullExpression))); // Note: remaining expression is redundant here
+        assertPredicateTranslates(
+                in(symbol, List.of(oneExpression, nanExpression, twoExpression, nullExpression)),
+                tupleDomain(symbol, Domain.multipleValues(type, List.of(one, two))));
+
+        // IN, with expression
+        assertUnsupportedPredicate(
+                in(symbol, List.of(otherSymbol)));
+        assertUnsupportedPredicate(
+                in(symbol, List.of(oneExpression, otherSymbol, twoExpression)));
+        assertUnsupportedPredicate(
+                in(symbol, List.of(oneExpression, otherSymbol, twoExpression, nanExpression)));
+        assertUnsupportedPredicate(
+                in(symbol, List.of(oneExpression, otherSymbol, twoExpression, nullExpression)));
+        assertUnsupportedPredicate(
+                in(symbol, List.of(oneExpression, otherSymbol, nanExpression, twoExpression, nullExpression)));
+
+        // NOT IN, single value
+        assertUnsupportedPredicate(
+                not(in(symbol, List.of(oneExpression))));
+
+        // NOT IN, two values
+        assertUnsupportedPredicate(
+                not(in(symbol, List.of(oneExpression, twoExpression))));
+
+        // NOT IN, with null
+        assertPredicateIsAlwaysFalse(
+                not(in(symbol, List.of(nullExpression))));
+        assertPredicateTranslates(
+                not(in(symbol, List.of(oneExpression, nullExpression, twoExpression))),
+                TupleDomain.none(),
+                and(not(equal(symbol, oneExpression)), not(equal(symbol, twoExpression)))); // Note: remaining expression is redundant here
+
+        // NOT IN, with NaN
+        assertPredicateTranslates(
+                not(in(symbol, List.of(nanExpression))),
+                tupleDomain(symbol, Domain.notNull(type)));
+        assertPredicateTranslates(
+                not(in(symbol, List.of(oneExpression, nanExpression, twoExpression))),
+                tupleDomain(symbol, Domain.notNull(type)),
+                and(not(equal(symbol, oneExpression)), not(equal(symbol, twoExpression))));
+
+        // NOT IN, with null and NaN
+        assertPredicateIsAlwaysFalse(
+                not(in(symbol, List.of(nanExpression, nullExpression))));
+        assertPredicateTranslates(
+                not(in(symbol, List.of(oneExpression, nanExpression, twoExpression, nullExpression))),
+                TupleDomain.none(),
+                and(not(equal(symbol, oneExpression)), not(equal(symbol, twoExpression)))); // Note: remaining expression is redundant here
+
+        // NOT IN, with expression
+        assertUnsupportedPredicate(
+                not(in(symbol, List.of(otherSymbol))));
+        assertUnsupportedPredicate(
+                not(in(symbol, List.of(oneExpression, otherSymbol, twoExpression))));
+        assertPredicateTranslates(
+                not(in(symbol, List.of(oneExpression, otherSymbol, twoExpression, nanExpression))),
+                tupleDomain(symbol, Domain.notNull(type)),
+                and(not(equal(symbol, oneExpression)), not(equal(symbol, otherSymbol)), not(equal(symbol, twoExpression))));
+        assertPredicateTranslates(
+                not(in(symbol, List.of(oneExpression, otherSymbol, twoExpression, nullExpression))),
+                TupleDomain.none(),
+                and(not(equal(symbol, oneExpression)), not(equal(symbol, otherSymbol)), not(equal(symbol, twoExpression)))); // Note: remaining expression is redundant here
+        assertPredicateTranslates(
+                not(in(symbol, List.of(oneExpression, otherSymbol, nanExpression, twoExpression, nullExpression))),
+                TupleDomain.none(),
+                and(not(equal(symbol, oneExpression)), not(equal(symbol, otherSymbol)), not(equal(symbol, twoExpression)))); // Note: remaining expression is redundant here
+    }
+
+    @Test
+    public void testInPredicateWithEquitableType()
+    {
         assertPredicateTranslates(
                 in(C_COLOR, ImmutableList.of(colorLiteral(COLOR_VALUE_1))),
                 tupleDomain(C_COLOR, Domain.singleValue(COLOR, COLOR_VALUE_1)));
-
-        assertPredicateTranslates(
-                in(C_BIGINT, ImmutableList.of(1L, 2L)),
-                tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 1L), Range.equal(BIGINT, 2L)), false)));
 
         assertPredicateTranslates(
                 in(C_COLOR, ImmutableList.of(colorLiteral(COLOR_VALUE_1), colorLiteral(COLOR_VALUE_2))),
                 tupleDomain(C_COLOR, Domain.create(ValueSet.of(COLOR, COLOR_VALUE_1, COLOR_VALUE_2), false)));
 
         assertPredicateTranslates(
-                not(in(C_BIGINT, ImmutableList.of(1L, 2L))),
-                tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.lessThan(BIGINT, 1L), Range.range(BIGINT, 1L, false, 2L, false), Range.greaterThan(BIGINT, 2L)), false)));
-
-        assertPredicateTranslates(
                 not(in(C_COLOR, ImmutableList.of(colorLiteral(COLOR_VALUE_1), colorLiteral(COLOR_VALUE_2)))),
                 tupleDomain(C_COLOR, Domain.create(ValueSet.of(COLOR, COLOR_VALUE_1, COLOR_VALUE_2).complement(), false)));
-    }
-
-    @Test
-    public void testInPredicateWithNull()
-    {
-        assertPredicateTranslates(
-                in(C_BIGINT, asList(1L, 2L, null)),
-                tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 1L), Range.equal(BIGINT, 2L)), false)));
-
-        assertPredicateIsAlwaysFalse(not(in(C_BIGINT, asList(1L, 2L, null))));
-        assertPredicateIsAlwaysFalse(in(C_BIGINT, asList((Long) null)));
-        assertPredicateIsAlwaysFalse(not(in(C_BIGINT, asList((Long) null))));
-
-        assertUnsupportedPredicate(isNull(in(C_BIGINT, asList(1L, 2L, null))));
-        assertUnsupportedPredicate(isNotNull(in(C_BIGINT, asList(1L, 2L, null))));
-        assertUnsupportedPredicate(isNull(in(C_BIGINT, asList((Long) null))));
-        assertUnsupportedPredicate(isNotNull(in(C_BIGINT, asList((Long) null))));
     }
 
     @Test
