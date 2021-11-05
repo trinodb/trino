@@ -775,11 +775,10 @@ public class TestJdbcCompatibility
         return (Map<String, Object>) value;
     }
 
-    @SuppressWarnings("unchecked")
     private static Object getSingleElementFromMap(ResultSet resultSet, int columnIndex)
             throws SQLException
     {
-        Map map = (Map<String, Object>) resultSet.getObject(columnIndex);
+        Map<?, ?> map = (Map<?, ?>) resultSet.getObject(columnIndex);
         return map.get("timestamp");
     }
 

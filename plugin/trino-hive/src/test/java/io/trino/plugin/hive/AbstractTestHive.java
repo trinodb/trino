@@ -3474,7 +3474,7 @@ public abstract class AbstractTestHive
 
         assertTrue(projectionResult.isPresent(), "expected non-empty projection result");
 
-        ProjectionApplicationResult result = projectionResult.get();
+        ProjectionApplicationResult<ConnectorTableHandle> result = projectionResult.get();
 
         // Verify projections
         assertEquals(expectedProjections, result.getProjections());

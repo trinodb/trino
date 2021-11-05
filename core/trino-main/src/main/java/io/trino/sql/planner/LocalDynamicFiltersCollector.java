@@ -156,7 +156,7 @@ public class LocalDynamicFiltersCollector
         {
             this.columnsCovered = ImmutableSet.copyOf(requireNonNull(columnsCovered, "columnsCovered is null"));
             this.futuresLeft = predicateFutures.size();
-            this.isBlocked = predicateFutures.isEmpty() ? NOT_BLOCKED : new CompletableFuture();
+            this.isBlocked = predicateFutures.isEmpty() ? NOT_BLOCKED : new CompletableFuture<>();
             this.currentPredicate = TupleDomain.all();
             predicateFutures.stream().forEach(future -> addSuccessCallback(future, this::update, directExecutor()));
         }
@@ -170,7 +170,7 @@ public class LocalDynamicFiltersCollector
                 currentPredicate = currentPredicate.intersect(predicate);
                 currentFuture = isBlocked;
                 // create next blocking future (if needed)
-                isBlocked = isComplete() ? NOT_BLOCKED : new CompletableFuture();
+                isBlocked = isComplete() ? NOT_BLOCKED : new CompletableFuture<>();
             }
             // notify readers outside of lock since this may result in a callback
             verify(currentFuture.complete(null));

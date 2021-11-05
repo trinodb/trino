@@ -126,7 +126,7 @@ public class PinotMetadata
         executor.execute(() -> this.allTablesCache.refresh(ALL_TABLES_CACHE_KEY));
         this.maxRowsPerBrokerQuery = pinotConfig.getMaxRowsForBrokerQueries();
         this.implementCountDistinct = new ImplementCountDistinct();
-        this.aggregateFunctionRewriter = new AggregateFunctionRewriter(identity(), ImmutableSet.<AggregateFunctionRule>builder()
+        this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(identity(), ImmutableSet.<AggregateFunctionRule<AggregateExpression>>builder()
                 .add(new ImplementCountAll())
                 .add(new ImplementAvg())
                 .add(new ImplementMinMax())

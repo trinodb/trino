@@ -249,6 +249,7 @@ public final class HiveUtil
         configureCompressionCodecs(jobConf);
 
         try {
+            @SuppressWarnings({"rawtypes", "unchecked"}) // raw type on WritableComparable can't be fixed because Utilities#skipHeader takes them raw
             RecordReader<WritableComparable, Writable> recordReader = (RecordReader<WritableComparable, Writable>) inputFormat.getRecordReader(fileSplit, jobConf, Reporter.NULL);
 
             int headerCount = getHeaderCount(schema);

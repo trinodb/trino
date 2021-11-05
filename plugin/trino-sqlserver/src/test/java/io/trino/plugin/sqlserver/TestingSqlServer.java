@@ -85,10 +85,14 @@ public final class TestingSqlServer
 
     private static InitializedState createContainer(BiConsumer<SqlExecutor, String> databaseSetUp)
     {
-        String databaseName = "database_" + UUID.randomUUID().toString().replace("-", "");
-
-        MSSQLServerContainer<?> container = new MSSQLServerContainer(DOCKER_IMAGE_NAME)
+        class TestingMSSQLServerContainer
+                extends MSSQLServerContainer<TestingMSSQLServerContainer>
         {
+            TestingMSSQLServerContainer(DockerImageName dockerImageName)
+            {
+                super(dockerImageName);
+            }
+
             @Override
             public String getUsername()
             {
@@ -96,7 +100,10 @@ public final class TestingSqlServer
                 // so user name has to be overridden to match actual case
                 return super.getUsername().toLowerCase(ENGLISH);
             }
-        };
+        }
+
+        String databaseName = "database_" + UUID.randomUUID().toString().replace("-", "");
+        MSSQLServerContainer<?> container = new TestingMSSQLServerContainer(DOCKER_IMAGE_NAME);
         container.addEnv("ACCEPT_EULA", "yes");
         // enable case sensitive (see the CS below) collation for SQL identifiers
         container.addEnv("MSSQL_COLLATION", "Latin1_General_CS_AS");

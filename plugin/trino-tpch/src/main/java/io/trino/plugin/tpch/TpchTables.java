@@ -46,9 +46,9 @@ public final class TpchTables
             double scaleFactor,
             DecimalTypeMapping decimalTypeMapping)
     {
-        TpchTable table = TpchTable.getTable(tableName);
+        TpchTable<?> table = TpchTable.getTable(tableName);
         ConnectorPageSource pageSource = new RecordPageSource(
-                createTpchRecordSet(table, table.getColumns(), decimalTypeMapping, scaleFactor, 1, 1, TupleDomain.all()));
+                createTpchRecordSet(table, decimalTypeMapping, scaleFactor, 1, 1, TupleDomain.all()));
         return new AbstractIterator<>()
         {
             @Override

@@ -130,7 +130,7 @@ public abstract class BaseTestContainer
         stop();
     }
 
-    protected abstract static class Builder<SELF extends BaseTestContainer.Builder, BUILD extends BaseTestContainer>
+    protected abstract static class Builder<SELF extends BaseTestContainer.Builder<SELF, BUILD>, BUILD extends BaseTestContainer>
     {
         protected String image;
         protected String hostName;
