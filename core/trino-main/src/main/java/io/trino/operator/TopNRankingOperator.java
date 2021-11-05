@@ -32,7 +32,6 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.SystemSessionProperties.isDictionaryAggregationEnabled;
 import static io.trino.operator.GroupByHash.createGroupByHash;
 import static java.util.Objects.requireNonNull;
 
@@ -201,11 +200,11 @@ public class TopNRankingOperator
         if (!partitionChannels.isEmpty()) {
             checkArgument(expectedPositions > 0, "expectedPositions must be > 0");
             groupByHash = createGroupByHash(
+                    operatorContext.getSession(),
                     partitionTypes,
                     Ints.toArray(partitionChannels),
                     hashChannel,
                     expectedPositions,
-                    isDictionaryAggregationEnabled(operatorContext.getSession()),
                     joinCompiler,
                     blockTypeOperators,
                     this::updateMemoryReservation);

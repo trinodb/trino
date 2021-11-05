@@ -48,7 +48,6 @@ import java.util.Optional;
 import java.util.OptionalLong;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.SystemSessionProperties.isDictionaryAggregationEnabled;
 import static io.trino.operator.GroupByHash.createGroupByHash;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
@@ -106,11 +105,11 @@ public class InMemoryHashAggregationBuilder
             UpdateMemory updateMemory)
     {
         this.groupByHash = createGroupByHash(
+                operatorContext.getSession(),
                 groupByTypes,
                 Ints.toArray(groupByChannels),
                 hashChannel,
                 expectedGroups,
-                isDictionaryAggregationEnabled(operatorContext.getSession()),
                 joinCompiler,
                 blockTypeOperators,
                 updateMemory);
