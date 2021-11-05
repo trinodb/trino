@@ -397,6 +397,12 @@ public class DynamoDbJdbcClient
     }
 
     @Override
+    public void truncateTable(ConnectorSession session, JdbcTableHandle handle)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support truncating tables");
+    }
+
+    @Override
     public Optional<ColumnMapping> toColumnMapping(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
         // CData driver returns predicates where you compare to null as 'true', e.g. value != 123 is true when "value" is null

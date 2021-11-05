@@ -66,6 +66,7 @@ public class TestDynamoDbConnectorTest
             case SUPPORTS_CREATE_TABLE:
             case SUPPORTS_CREATE_TABLE_WITH_DATA:
             case SUPPORTS_INSERT:
+            case SUPPORTS_TRUNCATE:
                 return false;
             default:
                 return super.hasBehavior(connectorBehavior);
