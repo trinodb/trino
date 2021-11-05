@@ -33,7 +33,7 @@ public class DriverConnectionFactory
     private final Driver driver;
     private final String connectionUrl;
     private final Properties connectionProperties;
-    private final CredentialPropertiesProvider credentialPropertiesProvider;
+    private final CredentialPropertiesProvider<String, String> credentialPropertiesProvider;
 
     public DriverConnectionFactory(Driver driver, BaseJdbcConfig config, CredentialProvider credentialProvider)
     {
@@ -48,7 +48,7 @@ public class DriverConnectionFactory
         this(driver, connectionUrl, connectionProperties, new DefaultCredentialPropertiesProvider(credentialProvider));
     }
 
-    public DriverConnectionFactory(Driver driver, String connectionUrl, Properties connectionProperties, CredentialPropertiesProvider credentialPropertiesProvider)
+    public DriverConnectionFactory(Driver driver, String connectionUrl, Properties connectionProperties, CredentialPropertiesProvider<String, String> credentialPropertiesProvider)
     {
         this.driver = requireNonNull(driver, "driver is null");
         this.connectionUrl = requireNonNull(connectionUrl, "connectionUrl is null");
