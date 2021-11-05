@@ -84,8 +84,8 @@ public class TestIcebergSparkCompatibility
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
 
-    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
-    public void testTrinoReadingSparkData(StorageFormat storageFormat)
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormatsWithSpecVersion")
+    public void testTrinoReadingSparkData(StorageFormat storageFormat, int specVersion)
     {
         String baseTableName = "test_trino_reading_primitive_types_" + storageFormat;
         String trinoTableName = trinoTableName(baseTableName);
@@ -107,9 +107,10 @@ public class TestIcebergSparkCompatibility
                         ", _date DATE" +
                         ", _binary BINARY" +
                         ") USING ICEBERG " +
-                        "TBLPROPERTIES ('write.format.default'='%s')",
+                        "TBLPROPERTIES ('write.format.default'='%s', 'format-version' = %s)",
                 sparkTableName,
-                storageFormat));
+                storageFormat,
+                specVersion));
 
         // Validate queries on an empty table created by Spark
         assertThat(onTrino().executeQuery(format("SELECT * FROM %s", trinoTableName("\"" + baseTableName + "$snapshots\"")))).hasNoRows();
@@ -325,11 +326,11 @@ public class TestIcebergSparkCompatibility
         onTrino().executeQuery("DROP TABLE " + trinoTableName);
     }
 
-    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
-    public void testSparkCreatesTrinoDrops()
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "specVersions")
+    public void testSparkCreatesTrinoDrops(int specVersion)
     {
         String baseTableName = "test_spark_creates_trino_drops";
-        onSpark().executeQuery(format("CREATE TABLE %s (_string STRING, _bigint BIGINT) USING ICEBERG", sparkTableName(baseTableName)));
+        onSpark().executeQuery(format("CREATE TABLE %s (_string STRING, _bigint BIGINT) USING ICEBERG TBLPROPERTIES('format-version' = %s)", sparkTableName(baseTableName), specVersion));
         onTrino().executeQuery("DROP TABLE " + trinoTableName(baseTableName));
     }
 
@@ -360,17 +361,18 @@ public class TestIcebergSparkCompatibility
         onTrino().executeQuery("DROP TABLE " + trinoTableName);
     }
 
-    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
-    public void testTrinoReadsSparkPartitionedTable(StorageFormat storageFormat)
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormatsWithSpecVersion")
+    public void testTrinoReadsSparkPartitionedTable(StorageFormat storageFormat, int specVersion)
     {
         String baseTableName = "test_trino_reads_spark_partitioned_table_" + storageFormat;
         String trinoTableName = trinoTableName(baseTableName);
         String sparkTableName = sparkTableName(baseTableName);
 
         onSpark().executeQuery(format(
-                "CREATE TABLE %s (_string STRING, _bigint BIGINT) USING ICEBERG PARTITIONED BY (_string) TBLPROPERTIES ('write.format.default'='%s')",
+                "CREATE TABLE %s (_string STRING, _bigint BIGINT) USING ICEBERG PARTITIONED BY (_string) TBLPROPERTIES ('write.format.default'='%s', 'format-version' = %s)",
                 sparkTableName,
-                storageFormat));
+                storageFormat,
+                specVersion));
         onSpark().executeQuery(format("INSERT INTO %s VALUES ('a', 1001), ('b', 1002), ('c', 1003)", sparkTableName));
 
         Row row = row("b", 1002);
@@ -383,8 +385,8 @@ public class TestIcebergSparkCompatibility
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
 
-    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
-    public void testTrinoReadingCompositeSparkData(StorageFormat storageFormat)
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormatsWithSpecVersion")
+    public void testTrinoReadingCompositeSparkData(StorageFormat storageFormat, int specVersion)
     {
         String baseTableName = "test_trino_reading_spark_composites_" + storageFormat;
         String trinoTableName = trinoTableName(baseTableName);
@@ -397,8 +399,8 @@ public class TestIcebergSparkCompatibility
                         "  pets ARRAY<STRING>,\n" +
                         "  user_info STRUCT<name:STRING, surname:STRING, age:INT, gender:STRING>)" +
                         "  USING ICEBERG" +
-                        " TBLPROPERTIES ('write.format.default'='%s')",
-                sparkTableName, storageFormat));
+                        " TBLPROPERTIES ('write.format.default'='%s', 'format-version' = %s)",
+                sparkTableName, storageFormat, specVersion));
 
         onSpark().executeQuery(format(
                 "INSERT INTO TABLE %s SELECT 'Doc213', map('age', 28, 'children', 3), array('Dog', 'Cat', 'Pig'), \n" +
@@ -438,8 +440,8 @@ public class TestIcebergSparkCompatibility
         onTrino().executeQuery("DROP TABLE " + trinoTableName);
     }
 
-    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
-    public void testTrinoReadingNestedSparkData(StorageFormat storageFormat)
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormatsWithSpecVersion")
+    public void testTrinoReadingNestedSparkData(StorageFormat storageFormat, int specVersion)
     {
         String baseTableName = "test_trino_reading_nested_spark_data_" + storageFormat;
         String trinoTableName = trinoTableName(baseTableName);
@@ -451,9 +453,10 @@ public class TestIcebergSparkCompatibility
                         ", nested_map MAP<STRING, ARRAY<STRUCT<sname: STRING, snumber: INT>>>\n" +
                         ", nested_array ARRAY<MAP<STRING, ARRAY<STRUCT<mname: STRING, mnumber: INT>>>>\n" +
                         ", nested_struct STRUCT<name:STRING, complicated: ARRAY<MAP<STRING, ARRAY<STRUCT<mname: STRING, mnumber: INT>>>>>)\n" +
-                        " USING ICEBERG TBLPROPERTIES ('write.format.default'='%s')",
+                        " USING ICEBERG TBLPROPERTIES ('write.format.default'='%s', 'format-version' = %s)",
                 sparkTableName,
-                storageFormat));
+                storageFormat,
+                specVersion));
 
         onSpark().executeQuery(format(
                 "INSERT INTO TABLE %s SELECT" +
@@ -551,8 +554,8 @@ public class TestIcebergSparkCompatibility
         onTrino().executeQuery("DROP TABLE " + trinoTableName);
     }
 
-    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
-    public void testIdBasedFieldMapping(StorageFormat storageFormat)
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormatsWithSpecVersion")
+    public void testIdBasedFieldMapping(StorageFormat storageFormat, int specVersion)
     {
         String baseTableName = "test_schema_evolution_for_nested_fields_" + storageFormat;
         String trinoTableName = trinoTableName(baseTableName);
@@ -570,9 +573,10 @@ public class TestIcebergSparkCompatibility
                         "a_partition BIGINT) "
                         + " USING ICEBERG"
                         + " PARTITIONED BY (a_partition)"
-                        + " TBLPROPERTIES ('write.format.default' = '%s')",
+                        + " TBLPROPERTIES ('write.format.default' = '%s', 'format-version' = %s)",
                 sparkTableName,
-                storageFormat));
+                storageFormat,
+                specVersion));
 
         onSpark().executeQuery(format(
                 "INSERT INTO TABLE %s SELECT " +
@@ -642,13 +646,13 @@ public class TestIcebergSparkCompatibility
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
 
-    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
-    public void testTrinoShowingSparkCreatedTables()
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "specVersions")
+    public void testTrinoShowingSparkCreatedTables(int specVersion)
     {
         String sparkTable = "test_table_listing_for_spark";
         String trinoTable = "test_table_listing_for_trino";
 
-        onSpark().executeQuery(format("CREATE TABLE %s (_integer INTEGER ) USING ICEBERG", sparkTableName(sparkTable)));
+        onSpark().executeQuery(format("CREATE TABLE %s (_integer INTEGER ) USING ICEBERG TBLPROPERTIES('format-version' = %s)", sparkTableName(sparkTable), specVersion));
         onTrino().executeQuery(format("CREATE TABLE %s (_integer INTEGER )", trinoTableName(trinoTable)));
 
         assertThat(onTrino().executeQuery(format("SHOW TABLES FROM %s LIKE '%s'", TEST_SCHEMA_NAME, "test_table_listing_for_%")))
@@ -658,8 +662,8 @@ public class TestIcebergSparkCompatibility
         onTrino().executeQuery("DROP TABLE " + trinoTableName(trinoTable));
     }
 
-    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
-    public void testTrinoWritingDataWithObjectStorageLocationProvider(StorageFormat storageFormat)
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormatsWithSpecVersion")
+    public void testTrinoWritingDataWithObjectStorageLocationProvider(StorageFormat storageFormat, int specVersion)
     {
         String baseTableName = "test_object_storage_location_provider_" + storageFormat;
         String sparkTableName = sparkTableName(baseTableName);
@@ -669,8 +673,9 @@ public class TestIcebergSparkCompatibility
         onSpark().executeQuery(format("CREATE TABLE %s (_string STRING, _bigint BIGINT) USING ICEBERG TBLPROPERTIES (" +
                         "'write.object-storage.enabled'=true," +
                         "'write.object-storage.path'='%s'," +
-                        "'write.format.default' = '%s')",
-                sparkTableName, dataPath, storageFormat));
+                        "'write.format.default' = '%s'," +
+                        "'format-version' = %s)",
+                sparkTableName, dataPath, storageFormat, specVersion));
         onTrino().executeQuery(format("INSERT INTO %s VALUES ('a_string', 1000000000000000)", trinoTableName));
 
         Row result = row("a_string", 1000000000000000L);
@@ -889,11 +894,30 @@ public class TestIcebergSparkCompatibility
     }
 
     @DataProvider
+    public static Object[][] specVersions()
+    {
+        return new Object[][] {{1}, {2}};
+    }
+
+    @DataProvider
     public static Object[][] storageFormats()
     {
         return Stream.of(StorageFormat.values())
                 .filter(StorageFormat::isSupportedInTrino)
                 .map(storageFormat -> new Object[] {storageFormat})
+                .toArray(Object[][]::new);
+    }
+
+    @DataProvider
+    public static Object[][] storageFormatsWithSpecVersion()
+    {
+        List<StorageFormat> storageFormats = Stream.of(StorageFormat.values())
+                .filter(StorageFormat::isSupportedInTrino)
+                .collect(toImmutableList());
+        List<Integer> specVersions = ImmutableList.of(1, 2);
+
+        return storageFormats.stream()
+                .flatMap(storageFormat -> specVersions.stream().map(specVersion -> new Object[] {storageFormat, specVersion}))
                 .toArray(Object[][]::new);
     }
 
