@@ -229,10 +229,9 @@ public class DictionaryBlock
         boolean isSequentialIds = true;
         for (int i = 0; i < positionCount; i++) {
             int position = getId(i);
-            if (!used[position]) {
-                uniqueIds++;
-                used[position] = true;
-            }
+            // Avoid branching
+            uniqueIds += used[position] ? 0 : 1;
+            used[position] = true;
 
             isSequentialIds = isSequentialIds && previousPosition < position;
             previousPosition = position;
