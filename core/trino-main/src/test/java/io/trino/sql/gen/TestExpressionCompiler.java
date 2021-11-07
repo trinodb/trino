@@ -89,6 +89,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
@@ -1537,7 +1538,34 @@ public class TestExpressionCompiler
                         "extract(%s from from_unixtime(cast(%s as double) / 1000000, 'UTC'))",
                         field,
                         micros);
-                assertExecute(generateExpression(expressionPattern, micros), BIGINT, expected);
+
+                switch (field) {
+                    case YEAR:
+                    case YEAR_OF_WEEK:
+                    case YOW:
+                        assertExecute(generateExpression(expressionPattern, micros), INTEGER, expected == null ? null : expected.intValue());
+                        break;
+                    case QUARTER:
+                    case MONTH:
+                    case WEEK:
+                    case DAY:
+                    case DAY_OF_MONTH:
+                    case DAY_OF_WEEK:
+                    case DOW:
+                    case HOUR:
+                    case MINUTE:
+                    case SECOND:
+                    case TIMEZONE_MINUTE:
+                    case TIMEZONE_HOUR:
+                        assertExecute(generateExpression(expressionPattern, micros), TINYINT, expected == null ? null : expected.byteValue());
+                        break;
+                    case DAY_OF_YEAR:
+                    case DOY:
+                        assertExecute(generateExpression(expressionPattern, micros), SMALLINT, expected == null ? null : expected.shortValue());
+                        break;
+                    default:
+                        throw new UnsupportedOperationException("Unknown field: " + field);
+                }
             }
         }
 

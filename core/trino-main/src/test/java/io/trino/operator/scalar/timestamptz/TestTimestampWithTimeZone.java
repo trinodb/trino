@@ -2291,37 +2291,37 @@ public class TestTimestampWithTimeZone
     @Test
     public void testTimeZoneHour()
     {
-        assertThat(assertions.expression("timezone_hour(TIMESTAMP '2020-05-01 12:34:56 +07:09')")).isEqualTo(7L);
-        assertThat(assertions.expression("timezone_hour(TIMESTAMP '2020-05-01 12:34:56.1 +07:09')")).isEqualTo(7L);
-        assertThat(assertions.expression("timezone_hour(TIMESTAMP '2020-05-01 12:34:56.12 +07:09')")).isEqualTo(7L);
-        assertThat(assertions.expression("timezone_hour(TIMESTAMP '2020-05-01 12:34:56.123 +07:09')")).isEqualTo(7L);
-        assertThat(assertions.expression("timezone_hour(TIMESTAMP '2020-05-01 12:34:56.1234 +07:09')")).isEqualTo(7L);
-        assertThat(assertions.expression("timezone_hour(TIMESTAMP '2020-05-01 12:34:56.12345 +07:09')")).isEqualTo(7L);
-        assertThat(assertions.expression("timezone_hour(TIMESTAMP '2020-05-01 12:34:56.123456 +07:09')")).isEqualTo(7L);
-        assertThat(assertions.expression("timezone_hour(TIMESTAMP '2020-05-01 12:34:56.1234567 +07:09')")).isEqualTo(7L);
-        assertThat(assertions.expression("timezone_hour(TIMESTAMP '2020-05-01 12:34:56.12345678 +07:09')")).isEqualTo(7L);
-        assertThat(assertions.expression("timezone_hour(TIMESTAMP '2020-05-01 12:34:56.123456789 +07:09')")).isEqualTo(7L);
-        assertThat(assertions.expression("timezone_hour(TIMESTAMP '2020-05-01 12:34:56.1234567890 +07:09')")).isEqualTo(7L);
-        assertThat(assertions.expression("timezone_hour(TIMESTAMP '2020-05-01 12:34:56.12345678901 +07:09')")).isEqualTo(7L);
-        assertThat(assertions.expression("timezone_hour(TIMESTAMP '2020-05-01 12:34:56.123456789012 +07:09')")).isEqualTo(7L);
+        assertThat(assertions.expression("timezone_hour(TIMESTAMP '2020-05-01 12:34:56 +07:09')")).isEqualTo((byte) 7);
+        assertThat(assertions.expression("timezone_hour(TIMESTAMP '2020-05-01 12:34:56.1 +07:09')")).isEqualTo((byte) 7);
+        assertThat(assertions.expression("timezone_hour(TIMESTAMP '2020-05-01 12:34:56.12 +07:09')")).isEqualTo((byte) 7);
+        assertThat(assertions.expression("timezone_hour(TIMESTAMP '2020-05-01 12:34:56.123 +07:09')")).isEqualTo((byte) 7);
+        assertThat(assertions.expression("timezone_hour(TIMESTAMP '2020-05-01 12:34:56.1234 +07:09')")).isEqualTo((byte) 7);
+        assertThat(assertions.expression("timezone_hour(TIMESTAMP '2020-05-01 12:34:56.12345 +07:09')")).isEqualTo((byte) 7);
+        assertThat(assertions.expression("timezone_hour(TIMESTAMP '2020-05-01 12:34:56.123456 +07:09')")).isEqualTo((byte) 7);
+        assertThat(assertions.expression("timezone_hour(TIMESTAMP '2020-05-01 12:34:56.1234567 +07:09')")).isEqualTo((byte) 7);
+        assertThat(assertions.expression("timezone_hour(TIMESTAMP '2020-05-01 12:34:56.12345678 +07:09')")).isEqualTo((byte) 7);
+        assertThat(assertions.expression("timezone_hour(TIMESTAMP '2020-05-01 12:34:56.123456789 +07:09')")).isEqualTo((byte) 7);
+        assertThat(assertions.expression("timezone_hour(TIMESTAMP '2020-05-01 12:34:56.1234567890 +07:09')")).isEqualTo((byte) 7);
+        assertThat(assertions.expression("timezone_hour(TIMESTAMP '2020-05-01 12:34:56.12345678901 +07:09')")).isEqualTo((byte) 7);
+        assertThat(assertions.expression("timezone_hour(TIMESTAMP '2020-05-01 12:34:56.123456789012 +07:09')")).isEqualTo((byte) 7);
     }
 
     @Test
     public void testTimeZoneMinute()
     {
-        assertThat(assertions.expression("timezone_minute(TIMESTAMP '2020-05-01 12:34:56 +07:09')")).isEqualTo(9L);
-        assertThat(assertions.expression("timezone_minute(TIMESTAMP '2020-05-01 12:34:56.1 +07:09')")).isEqualTo(9L);
-        assertThat(assertions.expression("timezone_minute(TIMESTAMP '2020-05-01 12:34:56.12 +07:09')")).isEqualTo(9L);
-        assertThat(assertions.expression("timezone_minute(TIMESTAMP '2020-05-01 12:34:56.123 +07:09')")).isEqualTo(9L);
-        assertThat(assertions.expression("timezone_minute(TIMESTAMP '2020-05-01 12:34:56.1234 +07:09')")).isEqualTo(9L);
-        assertThat(assertions.expression("timezone_minute(TIMESTAMP '2020-05-01 12:34:56.12345 +07:09')")).isEqualTo(9L);
-        assertThat(assertions.expression("timezone_minute(TIMESTAMP '2020-05-01 12:34:56.123456 +07:09')")).isEqualTo(9L);
-        assertThat(assertions.expression("timezone_minute(TIMESTAMP '2020-05-01 12:34:56.1234567 +07:09')")).isEqualTo(9L);
-        assertThat(assertions.expression("timezone_minute(TIMESTAMP '2020-05-01 12:34:56.12345678 +07:09')")).isEqualTo(9L);
-        assertThat(assertions.expression("timezone_minute(TIMESTAMP '2020-05-01 12:34:56.123456789 +07:09')")).isEqualTo(9L);
-        assertThat(assertions.expression("timezone_minute(TIMESTAMP '2020-05-01 12:34:56.1234567890 +07:09')")).isEqualTo(9L);
-        assertThat(assertions.expression("timezone_minute(TIMESTAMP '2020-05-01 12:34:56.12345678901 +07:09')")).isEqualTo(9L);
-        assertThat(assertions.expression("timezone_minute(TIMESTAMP '2020-05-01 12:34:56.123456789012 +07:09')")).isEqualTo(9L);
+        assertThat(assertions.expression("timezone_minute(TIMESTAMP '2020-05-01 12:34:56 +07:09')")).isEqualTo((byte) 9);
+        assertThat(assertions.expression("timezone_minute(TIMESTAMP '2020-05-01 12:34:56.1 +07:09')")).isEqualTo((byte) 9);
+        assertThat(assertions.expression("timezone_minute(TIMESTAMP '2020-05-01 12:34:56.12 +07:09')")).isEqualTo((byte) 9);
+        assertThat(assertions.expression("timezone_minute(TIMESTAMP '2020-05-01 12:34:56.123 +07:09')")).isEqualTo((byte) 9);
+        assertThat(assertions.expression("timezone_minute(TIMESTAMP '2020-05-01 12:34:56.1234 +07:09')")).isEqualTo((byte) 9);
+        assertThat(assertions.expression("timezone_minute(TIMESTAMP '2020-05-01 12:34:56.12345 +07:09')")).isEqualTo((byte) 9);
+        assertThat(assertions.expression("timezone_minute(TIMESTAMP '2020-05-01 12:34:56.123456 +07:09')")).isEqualTo((byte) 9);
+        assertThat(assertions.expression("timezone_minute(TIMESTAMP '2020-05-01 12:34:56.1234567 +07:09')")).isEqualTo((byte) 9);
+        assertThat(assertions.expression("timezone_minute(TIMESTAMP '2020-05-01 12:34:56.12345678 +07:09')")).isEqualTo((byte) 9);
+        assertThat(assertions.expression("timezone_minute(TIMESTAMP '2020-05-01 12:34:56.123456789 +07:09')")).isEqualTo((byte) 9);
+        assertThat(assertions.expression("timezone_minute(TIMESTAMP '2020-05-01 12:34:56.1234567890 +07:09')")).isEqualTo((byte) 9);
+        assertThat(assertions.expression("timezone_minute(TIMESTAMP '2020-05-01 12:34:56.12345678901 +07:09')")).isEqualTo((byte) 9);
+        assertThat(assertions.expression("timezone_minute(TIMESTAMP '2020-05-01 12:34:56.123456789012 +07:09')")).isEqualTo((byte) 9);
     }
 
     @Test

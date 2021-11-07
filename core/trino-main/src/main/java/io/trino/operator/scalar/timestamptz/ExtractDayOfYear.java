@@ -32,7 +32,7 @@ public class ExtractDayOfYear
     private ExtractDayOfYear() {}
 
     @LiteralParameters("p")
-    @SqlType(StandardTypes.BIGINT)
+    @SqlType(StandardTypes.SMALLINT)
     public static long extract(@SqlType("timestamp(p) with time zone") long packedEpochMillis)
     {
         return unpackChronology(packedEpochMillis)
@@ -41,7 +41,7 @@ public class ExtractDayOfYear
     }
 
     @LiteralParameters("p")
-    @SqlType(StandardTypes.BIGINT)
+    @SqlType(StandardTypes.SMALLINT)
     public static long extract(@SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone timestamp)
     {
         return getChronology(getTimeZoneKey(timestamp.getTimeZoneKey()))

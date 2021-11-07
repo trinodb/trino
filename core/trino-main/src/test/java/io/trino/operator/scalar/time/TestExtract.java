@@ -39,97 +39,97 @@ public class TestExtract
     @Override
     public void testHour()
     {
-        assertThat(assertions.expression("EXTRACT(HOUR FROM TIME '12:34:56')")).matches("BIGINT '12'");
-        assertThat(assertions.expression("EXTRACT(HOUR FROM TIME '12:34:56.1')")).matches("BIGINT '12'");
-        assertThat(assertions.expression("EXTRACT(HOUR FROM TIME '12:34:56.12')")).matches("BIGINT '12'");
-        assertThat(assertions.expression("EXTRACT(HOUR FROM TIME '12:34:56.123')")).matches("BIGINT '12'");
-        assertThat(assertions.expression("EXTRACT(HOUR FROM TIME '12:34:56.1234')")).matches("BIGINT '12'");
-        assertThat(assertions.expression("EXTRACT(HOUR FROM TIME '12:34:56.12345')")).matches("BIGINT '12'");
-        assertThat(assertions.expression("EXTRACT(HOUR FROM TIME '12:34:56.123456')")).matches("BIGINT '12'");
-        assertThat(assertions.expression("EXTRACT(HOUR FROM TIME '12:34:56.1234567')")).matches("BIGINT '12'");
-        assertThat(assertions.expression("EXTRACT(HOUR FROM TIME '12:34:56.12345678')")).matches("BIGINT '12'");
-        assertThat(assertions.expression("EXTRACT(HOUR FROM TIME '12:34:56.123456789')")).matches("BIGINT '12'");
-        assertThat(assertions.expression("EXTRACT(HOUR FROM TIME '12:34:56.1234567890')")).matches("BIGINT '12'");
-        assertThat(assertions.expression("EXTRACT(HOUR FROM TIME '12:34:56.12345678901')")).matches("BIGINT '12'");
-        assertThat(assertions.expression("EXTRACT(HOUR FROM TIME '12:34:56.123456789012')")).matches("BIGINT '12'");
+        assertThat(assertions.expression("EXTRACT(HOUR FROM TIME '12:34:56')")).matches("TINYINT '12'");
+        assertThat(assertions.expression("EXTRACT(HOUR FROM TIME '12:34:56.1')")).matches("TINYINT '12'");
+        assertThat(assertions.expression("EXTRACT(HOUR FROM TIME '12:34:56.12')")).matches("TINYINT '12'");
+        assertThat(assertions.expression("EXTRACT(HOUR FROM TIME '12:34:56.123')")).matches("TINYINT '12'");
+        assertThat(assertions.expression("EXTRACT(HOUR FROM TIME '12:34:56.1234')")).matches("TINYINT '12'");
+        assertThat(assertions.expression("EXTRACT(HOUR FROM TIME '12:34:56.12345')")).matches("TINYINT '12'");
+        assertThat(assertions.expression("EXTRACT(HOUR FROM TIME '12:34:56.123456')")).matches("TINYINT '12'");
+        assertThat(assertions.expression("EXTRACT(HOUR FROM TIME '12:34:56.1234567')")).matches("TINYINT '12'");
+        assertThat(assertions.expression("EXTRACT(HOUR FROM TIME '12:34:56.12345678')")).matches("TINYINT '12'");
+        assertThat(assertions.expression("EXTRACT(HOUR FROM TIME '12:34:56.123456789')")).matches("TINYINT '12'");
+        assertThat(assertions.expression("EXTRACT(HOUR FROM TIME '12:34:56.1234567890')")).matches("TINYINT '12'");
+        assertThat(assertions.expression("EXTRACT(HOUR FROM TIME '12:34:56.12345678901')")).matches("TINYINT '12'");
+        assertThat(assertions.expression("EXTRACT(HOUR FROM TIME '12:34:56.123456789012')")).matches("TINYINT '12'");
 
-        assertThat(assertions.expression("hour(TIME '12:34:56')")).matches("BIGINT '12'");
-        assertThat(assertions.expression("hour(TIME '12:34:56.1')")).matches("BIGINT '12'");
-        assertThat(assertions.expression("hour(TIME '12:34:56.12')")).matches("BIGINT '12'");
-        assertThat(assertions.expression("hour(TIME '12:34:56.123')")).matches("BIGINT '12'");
-        assertThat(assertions.expression("hour(TIME '12:34:56.1234')")).matches("BIGINT '12'");
-        assertThat(assertions.expression("hour(TIME '12:34:56.12345')")).matches("BIGINT '12'");
-        assertThat(assertions.expression("hour(TIME '12:34:56.123456')")).matches("BIGINT '12'");
-        assertThat(assertions.expression("hour(TIME '12:34:56.1234567')")).matches("BIGINT '12'");
-        assertThat(assertions.expression("hour(TIME '12:34:56.12345678')")).matches("BIGINT '12'");
-        assertThat(assertions.expression("hour(TIME '12:34:56.123456789')")).matches("BIGINT '12'");
-        assertThat(assertions.expression("hour(TIME '12:34:56.1234567890')")).matches("BIGINT '12'");
-        assertThat(assertions.expression("hour(TIME '12:34:56.12345678901')")).matches("BIGINT '12'");
-        assertThat(assertions.expression("hour(TIME '12:34:56.123456789012')")).matches("BIGINT '12'");
+        assertThat(assertions.expression("hour(TIME '12:34:56')")).matches("TINYINT '12'");
+        assertThat(assertions.expression("hour(TIME '12:34:56.1')")).matches("TINYINT '12'");
+        assertThat(assertions.expression("hour(TIME '12:34:56.12')")).matches("TINYINT '12'");
+        assertThat(assertions.expression("hour(TIME '12:34:56.123')")).matches("TINYINT '12'");
+        assertThat(assertions.expression("hour(TIME '12:34:56.1234')")).matches("TINYINT '12'");
+        assertThat(assertions.expression("hour(TIME '12:34:56.12345')")).matches("TINYINT '12'");
+        assertThat(assertions.expression("hour(TIME '12:34:56.123456')")).matches("TINYINT '12'");
+        assertThat(assertions.expression("hour(TIME '12:34:56.1234567')")).matches("TINYINT '12'");
+        assertThat(assertions.expression("hour(TIME '12:34:56.12345678')")).matches("TINYINT '12'");
+        assertThat(assertions.expression("hour(TIME '12:34:56.123456789')")).matches("TINYINT '12'");
+        assertThat(assertions.expression("hour(TIME '12:34:56.1234567890')")).matches("TINYINT '12'");
+        assertThat(assertions.expression("hour(TIME '12:34:56.12345678901')")).matches("TINYINT '12'");
+        assertThat(assertions.expression("hour(TIME '12:34:56.123456789012')")).matches("TINYINT '12'");
     }
 
     @Override
     public void testMinute()
     {
-        assertThat(assertions.expression("EXTRACT(MINUTE FROM TIME '12:34:56')")).matches("BIGINT '34'");
-        assertThat(assertions.expression("EXTRACT(MINUTE FROM TIME '12:34:56.1')")).matches("BIGINT '34'");
-        assertThat(assertions.expression("EXTRACT(MINUTE FROM TIME '12:34:56.12')")).matches("BIGINT '34'");
-        assertThat(assertions.expression("EXTRACT(MINUTE FROM TIME '12:34:56.123')")).matches("BIGINT '34'");
-        assertThat(assertions.expression("EXTRACT(MINUTE FROM TIME '12:34:56.1234')")).matches("BIGINT '34'");
-        assertThat(assertions.expression("EXTRACT(MINUTE FROM TIME '12:34:56.12345')")).matches("BIGINT '34'");
-        assertThat(assertions.expression("EXTRACT(MINUTE FROM TIME '12:34:56.123456')")).matches("BIGINT '34'");
-        assertThat(assertions.expression("EXTRACT(MINUTE FROM TIME '12:34:56.1234567')")).matches("BIGINT '34'");
-        assertThat(assertions.expression("EXTRACT(MINUTE FROM TIME '12:34:56.12345678')")).matches("BIGINT '34'");
-        assertThat(assertions.expression("EXTRACT(MINUTE FROM TIME '12:34:56.123456789')")).matches("BIGINT '34'");
-        assertThat(assertions.expression("EXTRACT(MINUTE FROM TIME '12:34:56.1234567890')")).matches("BIGINT '34'");
-        assertThat(assertions.expression("EXTRACT(MINUTE FROM TIME '12:34:56.12345678901')")).matches("BIGINT '34'");
-        assertThat(assertions.expression("EXTRACT(MINUTE FROM TIME '12:34:56.123456789012')")).matches("BIGINT '34'");
+        assertThat(assertions.expression("EXTRACT(MINUTE FROM TIME '12:34:56')")).matches("TINYINT '34'");
+        assertThat(assertions.expression("EXTRACT(MINUTE FROM TIME '12:34:56.1')")).matches("TINYINT '34'");
+        assertThat(assertions.expression("EXTRACT(MINUTE FROM TIME '12:34:56.12')")).matches("TINYINT '34'");
+        assertThat(assertions.expression("EXTRACT(MINUTE FROM TIME '12:34:56.123')")).matches("TINYINT '34'");
+        assertThat(assertions.expression("EXTRACT(MINUTE FROM TIME '12:34:56.1234')")).matches("TINYINT '34'");
+        assertThat(assertions.expression("EXTRACT(MINUTE FROM TIME '12:34:56.12345')")).matches("TINYINT '34'");
+        assertThat(assertions.expression("EXTRACT(MINUTE FROM TIME '12:34:56.123456')")).matches("TINYINT '34'");
+        assertThat(assertions.expression("EXTRACT(MINUTE FROM TIME '12:34:56.1234567')")).matches("TINYINT '34'");
+        assertThat(assertions.expression("EXTRACT(MINUTE FROM TIME '12:34:56.12345678')")).matches("TINYINT '34'");
+        assertThat(assertions.expression("EXTRACT(MINUTE FROM TIME '12:34:56.123456789')")).matches("TINYINT '34'");
+        assertThat(assertions.expression("EXTRACT(MINUTE FROM TIME '12:34:56.1234567890')")).matches("TINYINT '34'");
+        assertThat(assertions.expression("EXTRACT(MINUTE FROM TIME '12:34:56.12345678901')")).matches("TINYINT '34'");
+        assertThat(assertions.expression("EXTRACT(MINUTE FROM TIME '12:34:56.123456789012')")).matches("TINYINT '34'");
 
-        assertThat(assertions.expression("minute(TIME '12:34:56')")).matches("BIGINT '34'");
-        assertThat(assertions.expression("minute(TIME '12:34:56.1')")).matches("BIGINT '34'");
-        assertThat(assertions.expression("minute(TIME '12:34:56.12')")).matches("BIGINT '34'");
-        assertThat(assertions.expression("minute(TIME '12:34:56.123')")).matches("BIGINT '34'");
-        assertThat(assertions.expression("minute(TIME '12:34:56.1234')")).matches("BIGINT '34'");
-        assertThat(assertions.expression("minute(TIME '12:34:56.12345')")).matches("BIGINT '34'");
-        assertThat(assertions.expression("minute(TIME '12:34:56.123456')")).matches("BIGINT '34'");
-        assertThat(assertions.expression("minute(TIME '12:34:56.1234567')")).matches("BIGINT '34'");
-        assertThat(assertions.expression("minute(TIME '12:34:56.12345678')")).matches("BIGINT '34'");
-        assertThat(assertions.expression("minute(TIME '12:34:56.123456789')")).matches("BIGINT '34'");
-        assertThat(assertions.expression("minute(TIME '12:34:56.1234567890')")).matches("BIGINT '34'");
-        assertThat(assertions.expression("minute(TIME '12:34:56.12345678901')")).matches("BIGINT '34'");
-        assertThat(assertions.expression("minute(TIME '12:34:56.123456789012')")).matches("BIGINT '34'");
+        assertThat(assertions.expression("minute(TIME '12:34:56')")).matches("TINYINT '34'");
+        assertThat(assertions.expression("minute(TIME '12:34:56.1')")).matches("TINYINT '34'");
+        assertThat(assertions.expression("minute(TIME '12:34:56.12')")).matches("TINYINT '34'");
+        assertThat(assertions.expression("minute(TIME '12:34:56.123')")).matches("TINYINT '34'");
+        assertThat(assertions.expression("minute(TIME '12:34:56.1234')")).matches("TINYINT '34'");
+        assertThat(assertions.expression("minute(TIME '12:34:56.12345')")).matches("TINYINT '34'");
+        assertThat(assertions.expression("minute(TIME '12:34:56.123456')")).matches("TINYINT '34'");
+        assertThat(assertions.expression("minute(TIME '12:34:56.1234567')")).matches("TINYINT '34'");
+        assertThat(assertions.expression("minute(TIME '12:34:56.12345678')")).matches("TINYINT '34'");
+        assertThat(assertions.expression("minute(TIME '12:34:56.123456789')")).matches("TINYINT '34'");
+        assertThat(assertions.expression("minute(TIME '12:34:56.1234567890')")).matches("TINYINT '34'");
+        assertThat(assertions.expression("minute(TIME '12:34:56.12345678901')")).matches("TINYINT '34'");
+        assertThat(assertions.expression("minute(TIME '12:34:56.123456789012')")).matches("TINYINT '34'");
     }
 
     @Override
     public void testSecond()
     {
-        assertThat(assertions.expression("EXTRACT(SECOND FROM TIME '12:34:56')")).matches("BIGINT '56'");
-        assertThat(assertions.expression("EXTRACT(SECOND FROM TIME '12:34:56.1')")).matches("BIGINT '56'");
-        assertThat(assertions.expression("EXTRACT(SECOND FROM TIME '12:34:56.12')")).matches("BIGINT '56'");
-        assertThat(assertions.expression("EXTRACT(SECOND FROM TIME '12:34:56.123')")).matches("BIGINT '56'");
-        assertThat(assertions.expression("EXTRACT(SECOND FROM TIME '12:34:56.1234')")).matches("BIGINT '56'");
-        assertThat(assertions.expression("EXTRACT(SECOND FROM TIME '12:34:56.12345')")).matches("BIGINT '56'");
-        assertThat(assertions.expression("EXTRACT(SECOND FROM TIME '12:34:56.123456')")).matches("BIGINT '56'");
-        assertThat(assertions.expression("EXTRACT(SECOND FROM TIME '12:34:56.1234567')")).matches("BIGINT '56'");
-        assertThat(assertions.expression("EXTRACT(SECOND FROM TIME '12:34:56.12345678')")).matches("BIGINT '56'");
-        assertThat(assertions.expression("EXTRACT(SECOND FROM TIME '12:34:56.123456789')")).matches("BIGINT '56'");
-        assertThat(assertions.expression("EXTRACT(SECOND FROM TIME '12:34:56.1234567890')")).matches("BIGINT '56'");
-        assertThat(assertions.expression("EXTRACT(SECOND FROM TIME '12:34:56.12345678901')")).matches("BIGINT '56'");
-        assertThat(assertions.expression("EXTRACT(SECOND FROM TIME '12:34:56.123456789012')")).matches("BIGINT '56'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM TIME '12:34:56')")).matches("TINYINT '56'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM TIME '12:34:56.1')")).matches("TINYINT '56'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM TIME '12:34:56.12')")).matches("TINYINT '56'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM TIME '12:34:56.123')")).matches("TINYINT '56'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM TIME '12:34:56.1234')")).matches("TINYINT '56'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM TIME '12:34:56.12345')")).matches("TINYINT '56'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM TIME '12:34:56.123456')")).matches("TINYINT '56'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM TIME '12:34:56.1234567')")).matches("TINYINT '56'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM TIME '12:34:56.12345678')")).matches("TINYINT '56'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM TIME '12:34:56.123456789')")).matches("TINYINT '56'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM TIME '12:34:56.1234567890')")).matches("TINYINT '56'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM TIME '12:34:56.12345678901')")).matches("TINYINT '56'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM TIME '12:34:56.123456789012')")).matches("TINYINT '56'");
 
-        assertThat(assertions.expression("second(TIME '12:34:56')")).matches("BIGINT '56'");
-        assertThat(assertions.expression("second(TIME '12:34:56.1')")).matches("BIGINT '56'");
-        assertThat(assertions.expression("second(TIME '12:34:56.12')")).matches("BIGINT '56'");
-        assertThat(assertions.expression("second(TIME '12:34:56.123')")).matches("BIGINT '56'");
-        assertThat(assertions.expression("second(TIME '12:34:56.1234')")).matches("BIGINT '56'");
-        assertThat(assertions.expression("second(TIME '12:34:56.12345')")).matches("BIGINT '56'");
-        assertThat(assertions.expression("second(TIME '12:34:56.123456')")).matches("BIGINT '56'");
-        assertThat(assertions.expression("second(TIME '12:34:56.1234567')")).matches("BIGINT '56'");
-        assertThat(assertions.expression("second(TIME '12:34:56.12345678')")).matches("BIGINT '56'");
-        assertThat(assertions.expression("second(TIME '12:34:56.123456789')")).matches("BIGINT '56'");
-        assertThat(assertions.expression("second(TIME '12:34:56.1234567890')")).matches("BIGINT '56'");
-        assertThat(assertions.expression("second(TIME '12:34:56.12345678901')")).matches("BIGINT '56'");
-        assertThat(assertions.expression("second(TIME '12:34:56.123456789012')")).matches("BIGINT '56'");
+        assertThat(assertions.expression("second(TIME '12:34:56')")).matches("TINYINT '56'");
+        assertThat(assertions.expression("second(TIME '12:34:56.1')")).matches("TINYINT '56'");
+        assertThat(assertions.expression("second(TIME '12:34:56.12')")).matches("TINYINT '56'");
+        assertThat(assertions.expression("second(TIME '12:34:56.123')")).matches("TINYINT '56'");
+        assertThat(assertions.expression("second(TIME '12:34:56.1234')")).matches("TINYINT '56'");
+        assertThat(assertions.expression("second(TIME '12:34:56.12345')")).matches("TINYINT '56'");
+        assertThat(assertions.expression("second(TIME '12:34:56.123456')")).matches("TINYINT '56'");
+        assertThat(assertions.expression("second(TIME '12:34:56.1234567')")).matches("TINYINT '56'");
+        assertThat(assertions.expression("second(TIME '12:34:56.12345678')")).matches("TINYINT '56'");
+        assertThat(assertions.expression("second(TIME '12:34:56.123456789')")).matches("TINYINT '56'");
+        assertThat(assertions.expression("second(TIME '12:34:56.1234567890')")).matches("TINYINT '56'");
+        assertThat(assertions.expression("second(TIME '12:34:56.12345678901')")).matches("TINYINT '56'");
+        assertThat(assertions.expression("second(TIME '12:34:56.123456789012')")).matches("TINYINT '56'");
     }
 
     @Test

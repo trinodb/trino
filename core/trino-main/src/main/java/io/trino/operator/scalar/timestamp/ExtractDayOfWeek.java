@@ -30,14 +30,14 @@ public class ExtractDayOfWeek
     private ExtractDayOfWeek() {}
 
     @LiteralParameters("p")
-    @SqlType(StandardTypes.BIGINT)
+    @SqlType(StandardTypes.TINYINT)
     public static long extract(@SqlType("timestamp(p)") long timestamp)
     {
         return ISOChronology.getInstanceUTC().dayOfWeek().get(scaleEpochMicrosToMillis(timestamp));
     }
 
     @LiteralParameters("p")
-    @SqlType(StandardTypes.BIGINT)
+    @SqlType(StandardTypes.TINYINT)
     public static long extract(@SqlType("timestamp(p)") LongTimestamp timestamp)
     {
         return extract(timestamp.getEpochMicros());

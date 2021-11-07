@@ -30,14 +30,14 @@ public final class TimeZoneMinute
     private TimeZoneMinute() {}
 
     @LiteralParameters("p")
-    @SqlType(StandardTypes.BIGINT)
+    @SqlType(StandardTypes.TINYINT)
     public static long extract(@SqlType("time(p) with time zone") long packedTime)
     {
         return unpackOffsetMinutes(packedTime) % MINUTES_PER_HOUR;
     }
 
     @LiteralParameters("p")
-    @SqlType(StandardTypes.BIGINT)
+    @SqlType(StandardTypes.TINYINT)
     public static long extract(@SqlType("time(p) with time zone") LongTimeWithTimeZone time)
     {
         return time.getOffsetMinutes() % MINUTES_PER_HOUR;

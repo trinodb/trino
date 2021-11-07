@@ -55,7 +55,7 @@ public class TimeFunctions
     @Description("Second of the minute of the given time")
     @ScalarFunction("second")
     @LiteralParameters("p")
-    @SqlType(StandardTypes.BIGINT)
+    @SqlType(StandardTypes.TINYINT)
     public static long second(@SqlType("time(p)") long time)
     {
         return (time / PICOSECONDS_PER_SECOND) % SECONDS_PER_MINUTE;
@@ -64,7 +64,7 @@ public class TimeFunctions
     @Description("Minute of the hour of the given time")
     @ScalarFunction("minute")
     @LiteralParameters("p")
-    @SqlType(StandardTypes.BIGINT)
+    @SqlType(StandardTypes.TINYINT)
     public static long minute(@SqlType("time(p)") long time)
     {
         return (time / PICOSECONDS_PER_MINUTE) % MINUTES_PER_HOUR;
@@ -73,7 +73,7 @@ public class TimeFunctions
     @Description("Hour of the day of the given time")
     @ScalarFunction("hour")
     @LiteralParameters("p")
-    @SqlType(StandardTypes.BIGINT)
+    @SqlType(StandardTypes.TINYINT)
     public static long hour(@SqlType("time(p)") long time)
     {
         return time / PICOSECONDS_PER_HOUR;

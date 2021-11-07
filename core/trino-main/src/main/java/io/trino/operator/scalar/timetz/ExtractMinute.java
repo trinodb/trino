@@ -32,14 +32,14 @@ public class ExtractMinute
     private ExtractMinute() {}
 
     @LiteralParameters("p")
-    @SqlType(StandardTypes.BIGINT)
+    @SqlType(StandardTypes.TINYINT)
     public static long extract(@SqlType("time(p) with time zone") long packedTime)
     {
         return (unpackTimeNanos(packedTime) / NANOSECONDS_PER_MINUTE) % MINUTES_PER_HOUR;
     }
 
     @LiteralParameters("p")
-    @SqlType(StandardTypes.BIGINT)
+    @SqlType(StandardTypes.TINYINT)
     public static long extract(@SqlType("time(p) with time zone") LongTimeWithTimeZone time)
     {
         return (time.getPicoseconds() / PICOSECONDS_PER_MINUTE) % MINUTES_PER_HOUR;

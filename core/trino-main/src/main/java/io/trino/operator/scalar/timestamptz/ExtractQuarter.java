@@ -33,14 +33,14 @@ public class ExtractQuarter
     private ExtractQuarter() {}
 
     @LiteralParameters("p")
-    @SqlType(StandardTypes.BIGINT)
+    @SqlType(StandardTypes.TINYINT)
     public static long extract(@SqlType("timestamp(p) with time zone") long packedEpochMillis)
     {
         return QUARTER_OF_YEAR.getField(unpackChronology(packedEpochMillis)).get(unpackMillisUtc(packedEpochMillis));
     }
 
     @LiteralParameters("p")
-    @SqlType(StandardTypes.BIGINT)
+    @SqlType(StandardTypes.TINYINT)
     public static long extract(@SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone timestamp)
     {
         return QUARTER_OF_YEAR.getField(getChronology(getTimeZoneKey(timestamp.getTimeZoneKey()))).get(timestamp.getEpochMillis());

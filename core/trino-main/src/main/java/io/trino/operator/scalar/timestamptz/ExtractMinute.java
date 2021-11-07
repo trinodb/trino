@@ -32,7 +32,7 @@ public class ExtractMinute
     private ExtractMinute() {}
 
     @LiteralParameters("p")
-    @SqlType(StandardTypes.BIGINT)
+    @SqlType(StandardTypes.TINYINT)
     public static long extract(@SqlType("timestamp(p) with time zone") long packedEpochMillis)
     {
         return unpackChronology(packedEpochMillis)
@@ -41,7 +41,7 @@ public class ExtractMinute
     }
 
     @LiteralParameters("p")
-    @SqlType(StandardTypes.BIGINT)
+    @SqlType(StandardTypes.TINYINT)
     public static long extract(@SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone timestamp)
     {
         return getChronology(getTimeZoneKey(timestamp.getTimeZoneKey()))

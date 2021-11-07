@@ -1996,62 +1996,70 @@ public class ExpressionAnalyzer
         {
             Type type = process(node.getExpression(), context);
             Extract.Field field = node.getField();
+            Type outputType;
 
-            switch (field) {
-                case YEAR:
-                case MONTH:
-                    if (!(type instanceof DateType) &&
-                            !(type instanceof TimestampType) &&
-                            !(type instanceof TimestampWithTimeZoneType) &&
-                            !(type.equals(INTERVAL_YEAR_MONTH))) {
-                        throw semanticException(TYPE_MISMATCH, node.getExpression(), "Cannot extract %s from %s", field, type);
-                    }
-                    break;
-                case DAY:
-                    if (!(type instanceof DateType) &&
-                            !(type instanceof TimestampType) &&
-                            !(type instanceof TimestampWithTimeZoneType) &&
-                            !(type.equals(INTERVAL_DAY_TIME))) {
-                        throw semanticException(TYPE_MISMATCH, node.getExpression(), "Cannot extract %s from %s", field, type);
-                    }
-                    break;
-                case QUARTER:
-                case WEEK:
-                case DAY_OF_MONTH:
-                case DAY_OF_WEEK:
-                case DOW:
-                case DAY_OF_YEAR:
-                case DOY:
-                case YEAR_OF_WEEK:
-                case YOW:
-                    if (!(type instanceof DateType) &&
-                            !(type instanceof TimestampType) &&
-                            !(type instanceof TimestampWithTimeZoneType)) {
-                        throw semanticException(TYPE_MISMATCH, node.getExpression(), "Cannot extract %s from %s", field, type);
-                    }
-                    break;
-                case HOUR:
-                case MINUTE:
-                case SECOND:
-                    if (!(type instanceof TimestampType) &&
-                            !(type instanceof TimestampWithTimeZoneType) &&
-                            !(type instanceof TimeType) &&
-                            !(type instanceof TimeWithTimeZoneType) &&
-                            !(type.equals(INTERVAL_DAY_TIME))) {
-                        throw semanticException(TYPE_MISMATCH, node.getExpression(), "Cannot extract %s from %s", field, type);
-                    }
-                    break;
-                case TIMEZONE_MINUTE:
-                case TIMEZONE_HOUR:
-                    if (!(type instanceof TimestampWithTimeZoneType) && !(type instanceof TimeWithTimeZoneType)) {
-                        throw semanticException(TYPE_MISMATCH, node.getExpression(), "Cannot extract %s from %s", field, type);
-                    }
-                    break;
-                default:
-                    throw new UnsupportedOperationException("Unknown field: " + field);
+            if (Extract.Field.YEAR.equals(field)) {
+                checkExtractYearOrMonth(node, type, field);
+                outputType = INTEGER;
+            }
+            else if (Extract.Field.MONTH.equals(field)) {
+                checkExtractYearOrMonth(node, type, field);
+                outputType = TINYINT;
+            }
+            else if (Extract.Field.DAY.equals(field)) {
+                if (!(type instanceof DateType) &&
+                        !(type instanceof TimestampType) &&
+                        !(type instanceof TimestampWithTimeZoneType) &&
+                        !(type.equals(INTERVAL_DAY_TIME))) {
+                    throw semanticException(TYPE_MISMATCH, node.getExpression(), "Cannot extract %s from %s", field, type);
+                }
+                outputType = TINYINT;
+            }
+            else if (Extract.Field.QUARTER.equals(field)) {
+                checkExtractYearSubdivision(node, type, field);
+                outputType = TINYINT;
+            }
+            else if (Extract.Field.WEEK.equals(field)) {
+                checkExtractYearSubdivision(node, type, field);
+                outputType = TINYINT;
+            }
+            else if (Extract.Field.DAY_OF_MONTH.equals(field)) {
+                checkExtractYearSubdivision(node, type, field);
+                outputType = TINYINT;
+            }
+            else if (Extract.Field.DAY_OF_WEEK.equals(field) || Extract.Field.DOW.equals(field)) {
+                checkExtractYearSubdivision(node, type, field);
+                outputType = TINYINT;
+            }
+            else if (Extract.Field.DAY_OF_YEAR.equals(field) || Extract.Field.DOY.equals(field)) {
+                checkExtractYearSubdivision(node, type, field);
+                outputType = SMALLINT;
+            }
+            else if (Extract.Field.YEAR_OF_WEEK.equals(field) || Extract.Field.YOW.equals(field)) {
+                checkExtractYearSubdivision(node, type, field);
+                outputType = INTEGER;
+            }
+            else if (Extract.Field.HOUR.equals(field) || Extract.Field.MINUTE.equals(field) || Extract.Field.SECOND.equals(field)) {
+                if (!(type instanceof TimestampType) &&
+                        !(type instanceof TimestampWithTimeZoneType) &&
+                        !(type instanceof TimeType) &&
+                        !(type instanceof TimeWithTimeZoneType) &&
+                        !(type.equals(INTERVAL_DAY_TIME))) {
+                    throw semanticException(TYPE_MISMATCH, node.getExpression(), "Cannot extract %s from %s", field, type);
+                }
+                outputType = TINYINT;
+            }
+            else if (Extract.Field.TIMEZONE_HOUR.equals(field) || Extract.Field.TIMEZONE_MINUTE.equals(field)) {
+                if (!(type instanceof TimestampWithTimeZoneType) && !(type instanceof TimeWithTimeZoneType)) {
+                    throw semanticException(TYPE_MISMATCH, node.getExpression(), "Cannot extract %s from %s", field, type);
+                }
+                outputType = TINYINT;
+            }
+            else {
+                throw new UnsupportedOperationException("Unknown field: " + field);
             }
 
-            return setExpressionType(node, BIGINT);
+            return setExpressionType(node, outputType);
         }
 
         private boolean isDateTimeType(Type type)
@@ -2931,6 +2939,25 @@ public class ExpressionAnalyzer
                 type.equals(SMALLINT) ||
                 type.equals(TINYINT) ||
                 type instanceof DecimalType && ((DecimalType) type).getScale() == 0;
+    }
+
+    private static void checkExtractYearOrMonth(Extract node, Type type, Extract.Field field)
+    {
+        if (!(type instanceof DateType) &&
+                !(type instanceof TimestampType) &&
+                !(type instanceof TimestampWithTimeZoneType) &&
+                !(type.equals(INTERVAL_YEAR_MONTH))) {
+            throw semanticException(TYPE_MISMATCH, node.getExpression(), "Cannot extract %s from %s", field, type);
+        }
+    }
+
+    private static void checkExtractYearSubdivision(Extract node, Type type, Extract.Field field)
+    {
+        if (!(type instanceof DateType) &&
+                !(type instanceof TimestampType) &&
+                !(type instanceof TimestampWithTimeZoneType)) {
+            throw semanticException(TYPE_MISMATCH, node.getExpression(), "Cannot extract %s from %s", field, type);
+        }
     }
 
     public static class LabelPrefixedReference

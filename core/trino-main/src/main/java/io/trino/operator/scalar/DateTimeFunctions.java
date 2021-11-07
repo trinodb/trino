@@ -393,7 +393,7 @@ public final class DateTimeFunctions
 
     @Description("Second of the minute of the given interval")
     @ScalarFunction("second")
-    @SqlType(StandardTypes.BIGINT)
+    @SqlType(StandardTypes.TINYINT)
     public static long secondFromInterval(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long milliseconds)
     {
         return (milliseconds % MILLISECONDS_IN_MINUTE) / MILLISECONDS_IN_SECOND;
@@ -401,7 +401,7 @@ public final class DateTimeFunctions
 
     @Description("Minute of the hour of the given interval")
     @ScalarFunction("minute")
-    @SqlType(StandardTypes.BIGINT)
+    @SqlType(StandardTypes.TINYINT)
     public static long minuteFromInterval(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long milliseconds)
     {
         return (milliseconds % MILLISECONDS_IN_HOUR) / MILLISECONDS_IN_MINUTE;
@@ -409,7 +409,7 @@ public final class DateTimeFunctions
 
     @Description("Hour of the day of the given interval")
     @ScalarFunction("hour")
-    @SqlType(StandardTypes.BIGINT)
+    @SqlType(StandardTypes.TINYINT)
     public static long hourFromInterval(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long milliseconds)
     {
         return (milliseconds % MILLISECONDS_IN_DAY) / MILLISECONDS_IN_HOUR;
@@ -417,7 +417,7 @@ public final class DateTimeFunctions
 
     @Description("Day of the week of the given date")
     @ScalarFunction(value = "day_of_week", alias = "dow")
-    @SqlType(StandardTypes.BIGINT)
+    @SqlType(StandardTypes.TINYINT)
     public static long dayOfWeekFromDate(@SqlType(StandardTypes.DATE) long date)
     {
         return DAY_OF_WEEK.get(DAYS.toMillis(date));
@@ -425,7 +425,7 @@ public final class DateTimeFunctions
 
     @Description("Day of the month of the given date")
     @ScalarFunction(value = "day", alias = "day_of_month")
-    @SqlType(StandardTypes.BIGINT)
+    @SqlType(StandardTypes.TINYINT)
     public static long dayFromDate(@SqlType(StandardTypes.DATE) long date)
     {
         return DAY_OF_MONTH.get(DAYS.toMillis(date));
@@ -433,7 +433,7 @@ public final class DateTimeFunctions
 
     @Description("Day of the month of the given interval")
     @ScalarFunction(value = "day", alias = "day_of_month")
-    @SqlType(StandardTypes.BIGINT)
+    @SqlType(StandardTypes.TINYINT)
     public static long dayFromInterval(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long milliseconds)
     {
         return milliseconds / MILLISECONDS_IN_DAY;
@@ -450,7 +450,7 @@ public final class DateTimeFunctions
 
     @Description("Day of the year of the given date")
     @ScalarFunction(value = "day_of_year", alias = "doy")
-    @SqlType(StandardTypes.BIGINT)
+    @SqlType(StandardTypes.SMALLINT)
     public static long dayOfYearFromDate(@SqlType(StandardTypes.DATE) long date)
     {
         return DAY_OF_YEAR.get(DAYS.toMillis(date));
@@ -458,7 +458,7 @@ public final class DateTimeFunctions
 
     @Description("Week of the year of the given date")
     @ScalarFunction(value = "week", alias = "week_of_year")
-    @SqlType(StandardTypes.BIGINT)
+    @SqlType(StandardTypes.TINYINT)
     public static long weekFromDate(@SqlType(StandardTypes.DATE) long date)
     {
         return WEEK_OF_YEAR.get(DAYS.toMillis(date));
@@ -466,7 +466,7 @@ public final class DateTimeFunctions
 
     @Description("Year of the ISO week of the given date")
     @ScalarFunction(value = "year_of_week", alias = "yow")
-    @SqlType(StandardTypes.BIGINT)
+    @SqlType(StandardTypes.INTEGER)
     public static long yearOfWeekFromDate(@SqlType(StandardTypes.DATE) long date)
     {
         return YEAR_OF_WEEK.get(DAYS.toMillis(date));
@@ -474,7 +474,7 @@ public final class DateTimeFunctions
 
     @Description("Month of the year of the given date")
     @ScalarFunction("month")
-    @SqlType(StandardTypes.BIGINT)
+    @SqlType(StandardTypes.TINYINT)
     public static long monthFromDate(@SqlType(StandardTypes.DATE) long date)
     {
         return MONTH_OF_YEAR.get(DAYS.toMillis(date));
@@ -482,7 +482,7 @@ public final class DateTimeFunctions
 
     @Description("Month of the year of the given interval")
     @ScalarFunction("month")
-    @SqlType(StandardTypes.BIGINT)
+    @SqlType(StandardTypes.TINYINT)
     public static long monthFromInterval(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long months)
     {
         return months % 12;
@@ -490,7 +490,7 @@ public final class DateTimeFunctions
 
     @Description("Quarter of the year of the given date")
     @ScalarFunction("quarter")
-    @SqlType(StandardTypes.BIGINT)
+    @SqlType(StandardTypes.TINYINT)
     public static long quarterFromDate(@SqlType(StandardTypes.DATE) long date)
     {
         return QUARTER.get(DAYS.toMillis(date));
@@ -498,7 +498,7 @@ public final class DateTimeFunctions
 
     @Description("Year of the given date")
     @ScalarFunction("year")
-    @SqlType(StandardTypes.BIGINT)
+    @SqlType(StandardTypes.INTEGER)
     public static long yearFromDate(@SqlType(StandardTypes.DATE) long date)
     {
         return YEAR.get(DAYS.toMillis(date));
@@ -506,7 +506,7 @@ public final class DateTimeFunctions
 
     @Description("Year of the given interval")
     @ScalarFunction("year")
-    @SqlType(StandardTypes.BIGINT)
+    @SqlType(StandardTypes.INTEGER)
     public static long yearFromInterval(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long months)
     {
         return months / 12;

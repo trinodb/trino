@@ -19,26 +19,26 @@
  date_trunc | time(p) with time zone | varchar(x), time(p) with time zone | scalar | true | Truncate to the specified precision |
  date_trunc | timestamp(p) | varchar(x), timestamp(p) | scalar | true | Truncate to the specified precision in the session timezone |
  date_trunc | timestamp(p) with time zone | varchar(x), timestamp(p) with time zone | scalar | true | Truncate to the specified precision |
- day | bigint | date | scalar | true | Day of the month of the given date |
- day | bigint | interval day to second | scalar | true | Day of the month of the given interval |
- day | bigint | timestamp(p) | scalar | true | Day of the month of the given timestamp |
- day | bigint | timestamp(p) with time zone | scalar | true | Day of the month of the given timestamp |
- day_of_month | bigint | date | scalar | true | Day of the month of the given date |
- day_of_month | bigint | interval day to second | scalar | true | Day of the month of the given interval |
- day_of_month | bigint | timestamp(p) | scalar | true | Day of the month of the given timestamp |
- day_of_month | bigint | timestamp(p) with time zone | scalar | true | Day of the month of the given timestamp |
- day_of_week | bigint | date | scalar | true | Day of the week of the given date |
- day_of_week | bigint | timestamp(p) | scalar | true | Day of the week of the given timestamp |
- day_of_week | bigint | timestamp(p) with time zone | scalar | true | Day of the week of the given timestamp |
- day_of_year | bigint | date | scalar | true | Day of the year of the given date |
- day_of_year | bigint | timestamp(p) | scalar | true | Day of the year of the given timestamp |
- day_of_year | bigint | timestamp(p) with time zone | scalar | true | Day of the year of the given timestamp |
- dow | bigint | date | scalar | true | Day of the week of the given date |
- dow | bigint | timestamp(p) | scalar | true | Day of the week of the given timestamp |
- dow | bigint | timestamp(p) with time zone | scalar | true | Day of the week of the given timestamp |
- doy | bigint | date | scalar | true | Day of the year of the given date |
- doy | bigint | timestamp(p) | scalar | true | Day of the year of the given timestamp |
- doy | bigint | timestamp(p) with time zone | scalar | true | Day of the year of the given timestamp |
+ day | tinyint | date | scalar | true | Day of the month of the given date |
+ day | tinyint | interval day to second | scalar | true | Day of the month of the given interval |
+ day | tinyint | timestamp(p) | scalar | true | Day of the month of the given timestamp |
+ day | tinyint | timestamp(p) with time zone | scalar | true | Day of the month of the given timestamp |
+ day_of_month | tinyint | date | scalar | true | Day of the month of the given date |
+ day_of_month | tinyint | interval day to second | scalar | true | Day of the month of the given interval |
+ day_of_month | tinyint | timestamp(p) | scalar | true | Day of the month of the given timestamp |
+ day_of_month | tinyint | timestamp(p) with time zone | scalar | true | Day of the month of the given timestamp |
+ day_of_week | tinyint | date | scalar | true | Day of the week of the given date |
+ day_of_week | tinyint | timestamp(p) | scalar | true | Day of the week of the given timestamp |
+ day_of_week | tinyint | timestamp(p) with time zone | scalar | true | Day of the week of the given timestamp |
+ day_of_year | smallint | date | scalar | true | Day of the year of the given date |
+ day_of_year | smallint | timestamp(p) | scalar | true | Day of the year of the given timestamp |
+ day_of_year | smallint | timestamp(p) with time zone | scalar | true | Day of the year of the given timestamp |
+ dow | tinyint | date | scalar | true | Day of the week of the given date |
+ dow | tinyint | timestamp(p) | scalar | true | Day of the week of the given timestamp |
+ dow | tinyint | timestamp(p) with time zone | scalar | true | Day of the week of the given timestamp |
+ doy | smallint | date | scalar | true | Day of the year of the given date |
+ doy | smallint | timestamp(p) | scalar | true | Day of the year of the given timestamp |
+ doy | smallint | timestamp(p) with time zone | scalar | true | Day of the year of the given timestamp |
  e | double | | scalar | true | Euler's number |
  format_datetime | varchar | timestamp(p) with time zone, varchar(x) | scalar | true | Formats the given time by the given format |
  format_datetime | varchar | timestamp(p), varchar(x) | scalar | true | Formats the given time by the given format |
@@ -46,41 +46,41 @@
  from_iso8601_timestamp | timestamp(3) with time zone | varchar(x) | scalar | true | |
  from_unixtime | timestamp(3) with time zone | double | scalar | true | |
  from_unixtime | timestamp(3) with time zone | double, bigint, bigint | scalar | true | |
- hour | bigint | interval day to second | scalar | true | Hour of the day of the given interval |
- hour | bigint | time(p) | scalar | true | Hour of the day of the given time |
- hour | bigint | time(p) with time zone | scalar | true | Hour of the day of the given time |
- hour | bigint | timestamp(p) | scalar | true | Hour of the day of the given timestamp |
- hour | bigint | timestamp(p) with time zone | scalar | true | Hour of the day of the given timestamp |
- minute | bigint | interval day to second | scalar | true | Minute of the hour of the given interval |
- minute | bigint | time(p) | scalar | true | Minute of the hour of the given time |
- minute | bigint | time(p) with time zone | scalar | true | Minute of the hour of the given time |
- minute | bigint | timestamp(p) | scalar | true | Minute of the hour of the given timestamp |
- minute | bigint | timestamp(p) with time zone | scalar | true | Minute of the hour of the given timestamp |
- month | bigint | date | scalar | true | Month of the year of the given date |
- month | bigint | interval year to month | scalar | true | Month of the year of the given interval |
- month | bigint | timestamp(p) | scalar | true | Month of the year of the given timestamp |
- month | bigint | timestamp(p) with time zone | scalar | true | Month of the year of the given timestamp |
+ hour | tinyint | interval day to second | scalar | true | Hour of the day of the given interval |
+ hour | tinyint | time(p) | scalar | true | Hour of the day of the given time |
+ hour | tinyint | time(p) with time zone | scalar | true | Hour of the day of the given time |
+ hour | tinyint | timestamp(p) | scalar | true | Hour of the day of the given timestamp |
+ hour | tinyint | timestamp(p) with time zone | scalar | true | Hour of the day of the given timestamp |
+ minute | tinyint | interval day to second | scalar | true | Minute of the hour of the given interval |
+ minute | tinyint | time(p) | scalar | true | Minute of the hour of the given time |
+ minute | tinyint | time(p) with time zone | scalar | true | Minute of the hour of the given time |
+ minute | tinyint | timestamp(p) | scalar | true | Minute of the hour of the given timestamp |
+ minute | tinyint | timestamp(p) with time zone | scalar | true | Minute of the hour of the given timestamp |
+ month | tinyint | date | scalar | true | Month of the year of the given date |
+ month | tinyint | interval year to month | scalar | true | Month of the year of the given interval |
+ month | tinyint | timestamp(p) | scalar | true | Month of the year of the given timestamp |
+ month | tinyint | timestamp(p) with time zone | scalar | true | Month of the year of the given timestamp |
  now | timestamp(3) with time zone | | scalar | true | Current timestamp with time zone |
  parse_datetime | timestamp(3) with time zone | varchar(x), varchar(y) | scalar | true | Parses the specified date/time by the given format |
- quarter | bigint | date | scalar | true | Quarter of the year of the given date |
- quarter | bigint | timestamp(p) | scalar | true | Quarter of the year of the given timestamp |
- quarter | bigint | timestamp(p) with time zone | scalar | true | Quarter of the year of the given timestamp |
- timezone_hour | bigint | timestamp(p) with time zone | scalar | true | Time zone hour of the given timestamp |
- timezone_minute | bigint | timestamp(p) with time zone | scalar | true | Time zone minute of the given timestamp |
+ quarter | tinyint | date | scalar | true | Quarter of the year of the given date |
+ quarter | tinyint | timestamp(p) | scalar | true | Quarter of the year of the given timestamp |
+ quarter | tinyint | timestamp(p) with time zone | scalar | true | Quarter of the year of the given timestamp |
+ timezone_hour | tinyint | timestamp(p) with time zone | scalar | true | Time zone hour of the given timestamp |
+ timezone_minute | tinyint | timestamp(p) with time zone | scalar | true | Time zone minute of the given timestamp |
  to_unixtime | double | timestamp(p) with time zone | scalar | true | |
- week | bigint | date | scalar | true | Week of the year of the given date |
- week | bigint | timestamp(p) | scalar | true | Week of the year of the given timestamp |
- week | bigint | timestamp(p) with time zone | scalar | true | Week of the year of the given timestamp |
- week_of_year | bigint | date | scalar | true | Week of the year of the given date |
- week_of_year | bigint | timestamp(p) | scalar | true | Week of the year of the given timestamp |
- week_of_year | bigint | timestamp(p) with time zone | scalar | true | Week of the year of the given timestamp |
- year | bigint | date | scalar | true | Year of the given date |
- year | bigint | interval year to month | scalar | true | Year of the given interval |
- year | bigint | timestamp(p) | scalar | true | Year of the given timestamp |
- year | bigint | timestamp(p) with time zone | scalar | true | Year of the given timestamp |
- year_of_week | bigint | date | scalar | true | Year of the ISO week of the given date |
- year_of_week | bigint | timestamp(p) | scalar | true | Year of the ISO week of the given timestamp |
- year_of_week | bigint | timestamp(p) with time zone | scalar | true | Year of the ISO week of the given timestamp |
- yow | bigint | date | scalar | true | Year of the ISO week of the given date |
- yow | bigint | timestamp(p) | scalar | true | Year of the ISO week of the given timestamp |
- yow | bigint | timestamp(p) with time zone | scalar | true | Year of the ISO week of the given timestamp |
+ week | tinyint | date | scalar | true | Week of the year of the given date |
+ week | tinyint | timestamp(p) | scalar | true | Week of the year of the given timestamp |
+ week | tinyint | timestamp(p) with time zone | scalar | true | Week of the year of the given timestamp |
+ week_of_year | tinyint | date | scalar | true | Week of the year of the given date |
+ week_of_year | tinyint | timestamp(p) | scalar | true | Week of the year of the given timestamp |
+ week_of_year | tinyint | timestamp(p) with time zone | scalar | true | Week of the year of the given timestamp |
+ year | integer | date | scalar | true | Year of the given date |
+ year | integer | interval year to month | scalar | true | Year of the given interval |
+ year | integer | timestamp(p) | scalar | true | Year of the given timestamp |
+ year | integer | timestamp(p) with time zone | scalar | true | Year of the given timestamp |
+ year_of_week | integer | date | scalar | true | Year of the ISO week of the given date |
+ year_of_week | integer | timestamp(p) | scalar | true | Year of the ISO week of the given timestamp |
+ year_of_week | integer | timestamp(p) with time zone | scalar | true | Year of the ISO week of the given timestamp |
+ yow | integer | date | scalar | true | Year of the ISO week of the given date |
+ yow | integer | timestamp(p) | scalar | true | Year of the ISO week of the given timestamp |
+ yow | integer | timestamp(p) with time zone | scalar | true | Year of the ISO week of the given timestamp |

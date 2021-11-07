@@ -31,14 +31,14 @@ public class ExtractQuarter
     private ExtractQuarter() {}
 
     @LiteralParameters("p")
-    @SqlType(StandardTypes.BIGINT)
+    @SqlType(StandardTypes.TINYINT)
     public static long extract(@SqlType("timestamp(p)") long timestamp)
     {
         return QUARTER_OF_YEAR.getField(ISOChronology.getInstanceUTC()).get(scaleEpochMicrosToMillis(timestamp));
     }
 
     @LiteralParameters("p")
-    @SqlType(StandardTypes.BIGINT)
+    @SqlType(StandardTypes.TINYINT)
     public static long extract(@SqlType("timestamp(p)") LongTimestamp timestamp)
     {
         return extract(timestamp.getEpochMicros());

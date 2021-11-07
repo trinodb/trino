@@ -29,14 +29,14 @@ public final class TimeZoneHour
     private TimeZoneHour() {}
 
     @LiteralParameters("p")
-    @SqlType(StandardTypes.BIGINT)
+    @SqlType(StandardTypes.TINYINT)
     public static long extract(@SqlType("timestamp(p) with time zone") long packedEpochMillis)
     {
         return extractZoneOffsetMinutes(packedEpochMillis) / 60;
     }
 
     @LiteralParameters("p")
-    @SqlType(StandardTypes.BIGINT)
+    @SqlType(StandardTypes.TINYINT)
     public static long extract(@SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone timestamp)
     {
         return extractZoneOffsetMinutes(timestamp.getEpochMillis(), timestamp.getTimeZoneKey()) / 60;
