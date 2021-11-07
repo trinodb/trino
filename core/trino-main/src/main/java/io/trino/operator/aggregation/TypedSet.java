@@ -84,7 +84,7 @@ public class TypedSet
             Type elementType,
             BlockPositionEqual elementEqualOperator,
             BlockPositionHashCode elementHashCodeOperator,
-            BlockBuilder blockBuilder,
+            BlockBuilder elementBlock,
             int expectedSize,
             String functionName,
             boolean unboundedMemory)
@@ -94,7 +94,7 @@ public class TypedSet
                 elementEqualOperator,
                 null,
                 elementHashCodeOperator,
-                blockBuilder,
+                elementBlock,
                 expectedSize,
                 functionName,
                 unboundedMemory);
@@ -120,7 +120,7 @@ public class TypedSet
             Type elementType,
             BlockPositionIsDistinctFrom elementDistinctFromOperator,
             BlockPositionHashCode elementHashCodeOperator,
-            BlockBuilder blockBuilder,
+            BlockBuilder elementBlock,
             int expectedSize,
             String functionName)
     {
@@ -129,7 +129,7 @@ public class TypedSet
                 null,
                 elementDistinctFromOperator,
                 elementHashCodeOperator,
-                blockBuilder,
+                elementBlock,
                 expectedSize,
                 functionName,
                 false);
@@ -140,7 +140,7 @@ public class TypedSet
             BlockPositionEqual elementEqualOperator,
             BlockPositionIsDistinctFrom elementDistinctFromOperator,
             BlockPositionHashCode elementHashCodeOperator,
-            BlockBuilder blockBuilder,
+            BlockBuilder elementBlock,
             int expectedSize,
             String functionName,
             boolean unboundedMemory)
@@ -153,7 +153,7 @@ public class TypedSet
         this.elementDistinctFromOperator = elementDistinctFromOperator;
         this.elementHashCodeOperator = requireNonNull(elementHashCodeOperator, "elementHashCodeOperator is null");
 
-        this.elementBlock = requireNonNull(blockBuilder, "blockBuilder must not be null");
+        this.elementBlock = requireNonNull(elementBlock, "elementBlock must not be null");
         this.functionName = functionName;
         this.maxBlockMemoryInBytes = unboundedMemory ? Long.MAX_VALUE : MAX_FUNCTION_MEMORY.toBytes();
 
