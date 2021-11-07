@@ -176,7 +176,10 @@ public class TypedSet
 
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE + INT_ARRAY_LIST_INSTANCE_SIZE + elementBlock.getRetainedSizeInBytes() + blockPositionByHash.size() * Integer.BYTES;
+        return INSTANCE_SIZE
+                + INT_ARRAY_LIST_INSTANCE_SIZE
+                + elementBlock.getRetainedSizeInBytes()
+                + blockPositionByHash.size() * (long) Integer.BYTES;
     }
 
     public boolean contains(Block block, int position)
