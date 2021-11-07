@@ -33,6 +33,12 @@ import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
+/**
+ * A set of unique SQL values stored in a {@link Block}.
+ *
+ * <p>Depending on the factory method used, the values' equality may be
+ * determined using SQL equality or {@code IS DISTINCT FROM} semantics.
+ */
 public class TypedSet
 {
     @VisibleForTesting
@@ -53,8 +59,8 @@ public class TypedSet
 
     private final int initialElementBlockOffset;
     private final long initialElementBlockSizeInBytes;
-    // size is the number of elements added to the TypedSet (including null).
-    // It is equal to elementBlock.size() - initialElementBlockOffset
+    // The number of elements added to the TypedSet (including null). Should
+    // always be equal to elementBlock.getPositionsCount() - initialElementBlockOffset.
     private int size;
     private int hashCapacity;
     private int maxFill;
@@ -63,6 +69,10 @@ public class TypedSet
 
     private boolean containsNullElement;
 
+    /**
+     * Create a {@code TypedSet} that compares its elements using SQL equality
+     * comparison.
+     */
     public static TypedSet createEqualityTypedSet(
             Type elementType,
             BlockPositionEqual elementEqualOperator,
@@ -81,6 +91,14 @@ public class TypedSet
                 false);
     }
 
+    /**
+     * Create a {@code TypedSet} with no size limit that compares its elements
+     * using SQL equality comparison.
+     *
+     * <p>The elements of the set will be written in the given {@code BlockBuilder}.
+     * If the {@code BlockBuilder} is modified by the caller, the set will stop
+     * functioning correctly.
+     */
     public static TypedSet createUnboundedEqualityTypedSet(
             Type elementType,
             BlockPositionEqual elementEqualOperator,
@@ -100,6 +118,10 @@ public class TypedSet
                 true);
     }
 
+    /**
+     * Create a {@code TypedSet} that compares its elements using the semantics
+     * of {@code IS DISTINCT}.
+     */
     public static TypedSet createDistinctTypedSet(
             Type elementType,
             BlockPositionIsDistinctFrom elementDistinctFromOperator,
@@ -116,6 +138,14 @@ public class TypedSet
                 functionName);
     }
 
+    /**
+     * Create a {@code TypedSet} that compares its elements using the semantics
+     * of {@code IS DISTINCT}.
+     *
+     * <p>The elements of the set will be written in the given {@code BlockBuilder}.
+     * If the {@code BlockBuilder} is modified by the caller, the set will stop
+     * functioning correctly.
+     */
     public static TypedSet createDistinctTypedSet(
             Type elementType,
             BlockPositionIsDistinctFrom elementDistinctFromOperator,
@@ -174,6 +204,10 @@ public class TypedSet
         this.containsNullElement = false;
     }
 
+    /**
+     * Returns the retained size of this block in memory, including over-allocations.
+     * This method is called from the innermost execution loop and must be fast.
+     */
     public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE
@@ -182,6 +216,10 @@ public class TypedSet
                 + blockPositionByHash.size() * (long) Integer.BYTES;
     }
 
+    /**
+     * Return whether this set contains the value at the given {@code position}
+     * in the given {@code block}.
+     */
     public boolean contains(Block block, int position)
     {
         requireNonNull(block, "block must not be null");
@@ -195,6 +233,13 @@ public class TypedSet
         }
     }
 
+    /**
+     * Add the value at the given {@code position} in the given {@code block}
+     * to this set.
+     *
+     * @return {@code true} if the value was added, or {@code false} if it was
+     * already in this set.
+     */
     public boolean add(Block block, int position)
     {
         requireNonNull(block, "block must not be null");
@@ -213,11 +258,19 @@ public class TypedSet
         return false;
     }
 
+    /**
+     * Returns the number of elements in this set.
+     */
     public int size()
     {
         return size;
     }
 
+    /**
+     * Return the position in this set's {@code BlockBuilder} of the value at
+     * the given {@code position} in the given {@code block}, or -1 if the
+     * value is not in this set.
+     */
     public int positionOf(Block block, int position)
     {
         return blockPositionByHash.getInt(getHashPositionOfElement(block, position));
