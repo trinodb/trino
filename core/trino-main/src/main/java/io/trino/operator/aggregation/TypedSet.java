@@ -70,9 +70,10 @@ public class TypedSet
             int expectedSize,
             String functionName)
     {
-        return createEqualityTypedSet(
+        return new TypedSet(
                 elementType,
                 elementEqualOperator,
+                null,
                 elementHashCodeOperator,
                 elementType.createBlockBuilder(null, expectedSize),
                 expectedSize,
@@ -80,14 +81,13 @@ public class TypedSet
                 false);
     }
 
-    public static TypedSet createEqualityTypedSet(
+    public static TypedSet createUnboundedEqualityTypedSet(
             Type elementType,
             BlockPositionEqual elementEqualOperator,
             BlockPositionHashCode elementHashCodeOperator,
             BlockBuilder elementBlock,
             int expectedSize,
-            String functionName,
-            boolean unboundedMemory)
+            String functionName)
     {
         return new TypedSet(
                 elementType,
@@ -97,7 +97,7 @@ public class TypedSet
                 elementBlock,
                 expectedSize,
                 functionName,
-                unboundedMemory);
+                true);
     }
 
     public static TypedSet createDistinctTypedSet(
