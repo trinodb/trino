@@ -135,7 +135,7 @@ public class TypedSet
                 false);
     }
 
-    public TypedSet(
+    private TypedSet(
             Type elementType,
             BlockPositionEqual elementEqualOperator,
             BlockPositionIsDistinctFrom elementDistinctFromOperator,
