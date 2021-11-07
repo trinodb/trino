@@ -917,6 +917,7 @@ public class TestMapOperators
 
         assertInvalidCast("CAST(MAP(ARRAY[1, 2], ARRAY[6, 9]) AS MAP<boolean, bigint>)", "duplicate keys");
         assertInvalidCast("CAST(MAP(ARRAY[json 'null'], ARRAY[1]) AS MAP<bigint, bigint>)", "map key is null");
+        assertInvalidCast("CAST(MAP(ARRAY['NaN', ' NaN '], ARRAY[1, 2]) AS MAP<double, integer>)", "duplicate keys");
     }
 
     @Test
