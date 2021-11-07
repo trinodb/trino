@@ -192,7 +192,7 @@ public class TypedSet
         }
     }
 
-    public void add(Block block, int position)
+    public boolean add(Block block, int position)
     {
         requireNonNull(block, "block must not be null");
         checkArgument(position >= 0, "position must be >= 0");
@@ -205,7 +205,9 @@ public class TypedSet
         int hashPosition = getHashPositionOfElement(block, position);
         if (blockPositionByHash.getInt(hashPosition) == EMPTY_SLOT) {
             addNewElement(hashPosition, block, position);
+            return true;
         }
+        return false;
     }
 
     public int size()
