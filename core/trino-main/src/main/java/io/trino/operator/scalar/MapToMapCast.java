@@ -31,8 +31,8 @@ import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.type.BlockTypeOperators;
-import io.trino.type.BlockTypeOperators.BlockPositionEqual;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
+import io.trino.type.BlockTypeOperators.BlockPositionIsDistinctFrom;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -41,7 +41,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.metadata.Signature.castableToTypeParameter;
 import static io.trino.metadata.Signature.typeVariable;
-import static io.trino.operator.aggregation.TypedSet.createEqualityTypedSet;
+import static io.trino.operator.aggregation.TypedSet.createDistinctTypedSet;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.block.MethodHandleUtil.compose;
 import static io.trino.spi.block.MethodHandleUtil.nativeValueWriter;
@@ -66,7 +66,7 @@ public final class MapToMapCast
             MethodHandle.class,
             MethodHandle.class,
             Type.class,
-            BlockPositionEqual.class,
+            BlockPositionIsDistinctFrom.class,
             BlockPositionHashCode.class,
             ConnectorSession.class,
             Block.class);
@@ -116,7 +116,7 @@ public final class MapToMapCast
 
         MethodHandle keyProcessor = buildProcessor(functionDependencies, fromKeyType, toKeyType, true);
         MethodHandle valueProcessor = buildProcessor(functionDependencies, fromValueType, toValueType, false);
-        BlockPositionEqual keyEqual = blockTypeOperators.getEqualOperator(toKeyType);
+        BlockPositionIsDistinctFrom keyEqual = blockTypeOperators.getDistinctFromOperator(toKeyType);
         BlockPositionHashCode keyHashCode = blockTypeOperators.getHashCodeOperator(toKeyType);
         MethodHandle target = MethodHandles.insertArguments(METHOD_HANDLE, 0, keyProcessor, valueProcessor, toMapType, keyEqual, keyHashCode);
         return new ChoicesScalarFunctionImplementation(boundSignature, NULLABLE_RETURN, ImmutableList.of(NEVER_NULL), target);
@@ -238,14 +238,14 @@ public final class MapToMapCast
             MethodHandle keyProcessFunction,
             MethodHandle valueProcessFunction,
             Type targetType,
-            BlockPositionEqual keyEqual,
+            BlockPositionIsDistinctFrom keyDistinctOperator,
             BlockPositionHashCode keyHashCode,
             ConnectorSession session,
             Block fromMap)
     {
         checkState(targetType.getTypeParameters().size() == 2, "Expect two type parameters for targetType");
         Type toKeyType = targetType.getTypeParameters().get(0);
-        TypedSet resultKeys = createEqualityTypedSet(toKeyType, keyEqual, keyHashCode, fromMap.getPositionCount() / 2, "map-to-map cast");
+        TypedSet resultKeys = createDistinctTypedSet(toKeyType, keyDistinctOperator, keyHashCode, fromMap.getPositionCount() / 2, "map-to-map cast");
 
         // Cast the keys into a new block
         BlockBuilder keyBlockBuilder = toKeyType.createBlockBuilder(null, fromMap.getPositionCount() / 2);
