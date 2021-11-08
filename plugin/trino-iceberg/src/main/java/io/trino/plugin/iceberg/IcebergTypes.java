@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg;
 
+import io.airlift.slice.Slices;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.UuidType;
@@ -75,9 +76,7 @@ public final class IcebergTypes
             return utf8Slice(((String) value));
         }
         if (icebergType instanceof Types.BinaryType) {
-            // TODO the client sees the bytearray's tostring ouput instead of seeing actual bytes, needs to be fixed.
-            // TODO return Slice
-            return ((ByteBuffer) value).array().clone();
+            return Slices.wrappedBuffer(((ByteBuffer) value).array().clone());
         }
         if (icebergType instanceof Types.DateType) {
             return ((Integer) value).longValue();
