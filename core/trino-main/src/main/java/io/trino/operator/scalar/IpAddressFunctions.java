@@ -14,6 +14,7 @@
 package io.trino.operator.scalar;
 
 import com.google.common.net.InetAddresses;
+import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.Description;
@@ -104,45 +105,7 @@ public final class IpAddressFunctions
 
     private static boolean isValidIpV4Cidr(byte[] address, int prefix)
     {
-        // All block must be 0
-        if (prefix == 0) {
-            for (byte block : address) {
-                if (block != (byte) 0) {
-                    return false;
-                }
-            }
-            return true;
-        }
-
-        if (prefix >= 1 & prefix <= 8) {
-            int restriction = 256 / (int) Math.pow(2, prefix);
-            if (address[0] % restriction != 0) {
-                return false;
-            }
-            return address[1] == (byte) 0 && address[2] == (byte) 0 && address[3] == (byte) 0;
-        }
-
-        if (prefix >= 9 & prefix <= 16) {
-            int restriction = 256 / (int) Math.pow(2, prefix - 8);
-            if (address[1] % restriction != 0) {
-                return false;
-            }
-            return address[2] == (byte) 0 && address[3] == (byte) 0;
-        }
-
-        if (prefix >= 17 & prefix <= 24) {
-            int restriction = 256 / (int) Math.pow(2, prefix - 16);
-            if (address[2] % restriction != 0) {
-                return false;
-            }
-            return address[3] == (byte) 0;
-        }
-
-        if (prefix >= 25 & prefix <= 32) {
-            int restriction = 256 / (int) Math.pow(2, prefix - 24);
-            return address[3] % restriction == 0;
-        }
-
-        return false;
+        long mask = 0xFFFFFFFFL >>> prefix;
+        return (Ints.fromByteArray(address) & mask) == 0;
     }
 }
