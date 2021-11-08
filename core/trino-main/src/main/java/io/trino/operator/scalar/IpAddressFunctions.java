@@ -76,7 +76,6 @@ public final class IpAddressFunctions
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid CIDR");
         }
 
-        BigInteger cidrPrefix = new BigInteger(base).shiftRight(baseLength - prefixLength);
         byte[] ipAddress;
         try {
             ipAddress = InetAddress.getByAddress(address.getBytes()).getAddress();
@@ -93,6 +92,7 @@ public final class IpAddressFunctions
             return true;
         }
 
+        BigInteger cidrPrefix = new BigInteger(base).shiftRight(baseLength - prefixLength);
         BigInteger addressPrefix = new BigInteger(ipAddress).shiftRight(baseLength - prefixLength);
 
         return cidrPrefix.equals(addressPrefix);
