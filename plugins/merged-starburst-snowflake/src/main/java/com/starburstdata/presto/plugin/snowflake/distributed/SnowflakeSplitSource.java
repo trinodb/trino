@@ -266,7 +266,7 @@ public class SnowflakeSplitSource
         return retryableErrorCodes.contains(snowflakeSQLException.getSQLState());
     }
 
-    private void closeSnowflakeConnection(ExecutionAttemptedEvent executionAttemptedEvent)
+    private void closeSnowflakeConnection(ExecutionAttemptedEvent<?> executionAttemptedEvent)
     {
         Throwable lastFailure = executionAttemptedEvent.getLastFailure();
         String snowflakeQueryId = "unknown";
