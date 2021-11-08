@@ -180,8 +180,7 @@ public abstract class BaseDynamicPartitionPruningTest
         DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
         assertEquals(
                 domainStats.getSimplifiedDomain(),
-                Domain.create(
-                        ValueSet.ofRanges(range(BIGINT, 1L, true, 60000L, true)), false)
+                Domain.create(ValueSet.ofRanges(range(BIGINT, 1L, true, 60000L, true)), false)
                         .toString(getSession().toConnectorSession()));
     }
 
@@ -332,8 +331,7 @@ public abstract class BaseDynamicPartitionPruningTest
         DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
         assertEquals(
                 domainStats.getSimplifiedDomain(),
-                Domain.create(
-                        ValueSet.ofRanges(range(BIGINT, 1L, true, 60000L, true)), false)
+                Domain.create(ValueSet.ofRanges(range(BIGINT, 1L, true, 60000L, true)), false)
                         .toString(getSession().toConnectorSession()));
     }
 
