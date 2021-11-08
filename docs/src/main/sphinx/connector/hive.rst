@@ -671,7 +671,7 @@ ALTER TABLE EXECUTE
 The connector supports the following commands for use with
 :ref:`ALTER TABLE EXECUTE <alter-table-execute>`:
 
-* ``optimize``: collapse files in transactional tables up to a threshold
+* ``optimize``: collapse files in a non-transactional table up to a threshold
   defined in the ``file_size_threshold`` parameter. For example, the following
   statement collapses files in a table that are under 10 megabytes in size:
 
