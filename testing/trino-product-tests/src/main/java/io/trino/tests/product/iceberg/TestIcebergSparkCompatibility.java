@@ -1256,6 +1256,52 @@ public class TestIcebergSparkCompatibility
                 .containsOnly(row(1, null));
     }
 
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
+    public void testPartialStats()
+    {
+        String tableName = "test_partial_stats_" + randomTableSuffix();
+        String sparkTableName = sparkTableName(tableName);
+        String trinoTableName = trinoTableName(tableName);
+
+        onSpark().executeQuery("CREATE TABLE " + sparkTableName + "(col0 INT, col1 INT)");
+        onSpark().executeQuery("INSERT INTO " + sparkTableName + " VALUES (1, 2)");
+        assertThat(onTrino().executeQuery("SHOW STATS FOR " + trinoTableName))
+                .containsOnly(row("col0", null, null, 0.0, null, "1", "1"), row("col1", null, null, 0.0, null, "2", "2"), row(null, null, null, null, 1.0, null, null));
+
+        onSpark().executeQuery("ALTER TABLE " + sparkTableName + " SET TBLPROPERTIES (write.metadata.metrics.column.col1='none')");
+        onSpark().executeQuery("INSERT INTO " + sparkTableName + " VALUES (3, 4)");
+        assertThat(onTrino().executeQuery("SHOW STATS FOR " + trinoTableName))
+                .containsOnly(row("col0", null, null, 0.0, null, "1", "3"), row("col1", null, null, null, null, null, null), row(null, null, null, null, 2.0, null, null));
+
+        onSpark().executeQuery("DROP TABLE " + sparkTableName);
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
+    public void testStatsAfterAddingPartitionField()
+    {
+        String tableName = "test_stats_after_adding_partition_field_" + randomTableSuffix();
+        String sparkTableName = sparkTableName(tableName);
+        String trinoTableName = trinoTableName(tableName);
+
+        onSpark().executeQuery("CREATE TABLE " + sparkTableName + "(col0 INT, col1 INT)");
+        onSpark().executeQuery("INSERT INTO " + sparkTableName + " VALUES (1, 2)");
+        assertThat(onTrino().executeQuery("SHOW STATS FOR " + trinoTableName))
+                .containsOnly(row("col0", null, null, 0.0, null, "1", "1"), row("col1", null, null, 0.0, null, "2", "2"), row(null, null, null, null, 1.0, null, null));
+
+        onSpark().executeQuery("ALTER TABLE " + sparkTableName + " ADD PARTITION FIELD col1");
+        onSpark().executeQuery("INSERT INTO " + sparkTableName + " VALUES (3, 4)");
+        assertThat(onTrino().executeQuery("SHOW STATS FOR " + trinoTableName))
+                .containsOnly(row("col0", null, null, 0.0, null, "1", "3"), row("col1", null, null, 0.0, null, "2", "4"), row(null, null, null, null, 2.0, null, null));
+
+        onSpark().executeQuery("ALTER TABLE " + sparkTableName + " DROP PARTITION FIELD col1");
+        onSpark().executeQuery("ALTER TABLE " + sparkTableName + " ADD PARTITION FIELD bucket(3, col1)");
+        onSpark().executeQuery("INSERT INTO " + sparkTableName + " VALUES (5, 6)");
+        assertThat(onTrino().executeQuery("SHOW STATS FOR " + trinoTableName))
+                .containsOnly(row("col0", null, null, 0.0, null, "1", "5"), row("col1", null, null, 0.0, null, "2", "6"), row(null, null, null, null, 3.0, null, null));
+
+        onSpark().executeQuery("DROP TABLE " + sparkTableName);
+    }
+
     private static String escapeSparkString(String value)
     {
         return value.replace("\\", "\\\\").replace("'", "\\'");
