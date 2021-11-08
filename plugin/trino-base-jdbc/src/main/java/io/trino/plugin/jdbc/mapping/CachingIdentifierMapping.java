@@ -84,9 +84,9 @@ public final class CachingIdentifierMapping
     }
 
     @Override
-    public String fromRemoteColumnName(String remoteColumnName)
+    public String fromRemoteColumnName(String remoteSchemaName, String remoteTableName, String remoteColumnName)
     {
-        return identifierMapping.fromRemoteColumnName(remoteColumnName);
+        return identifierMapping.fromRemoteColumnName(remoteSchemaName, remoteTableName, remoteColumnName);
     }
 
     @Override
@@ -148,9 +148,9 @@ public final class CachingIdentifierMapping
     }
 
     @Override
-    public String toRemoteColumnName(Connection connection, String columnName)
+    public String toRemoteColumnName(Connection connection, String remoteSchema, String remoteTableName, String columnName)
     {
-        return identifierMapping.toRemoteColumnName(connection, columnName);
+        return identifierMapping.toRemoteColumnName(connection, remoteSchema, remoteTableName, columnName);
     }
 
     private Mapping createSchemaMapping(Connection connection)

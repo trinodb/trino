@@ -23,11 +23,11 @@ public interface IdentifierMapping
 
     String fromRemoteTableName(String remoteSchemaName, String remoteTableName);
 
-    String fromRemoteColumnName(String remoteColumnName);
+    String fromRemoteColumnName(String remoteSchemaName, String remoteTableName, String remoteColumnName);
 
     String toRemoteSchemaName(ConnectorIdentity identity, Connection connection, String schemaName);
 
     String toRemoteTableName(ConnectorIdentity identity, Connection connection, String remoteSchema, String tableName);
 
-    String toRemoteColumnName(Connection connection, String columnName);
+    String toRemoteColumnName(Connection connection, String remoteSchema, String remoteTableName, String columnName);
 }

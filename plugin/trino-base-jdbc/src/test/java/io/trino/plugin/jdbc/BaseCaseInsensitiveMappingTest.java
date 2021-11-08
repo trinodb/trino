@@ -16,6 +16,7 @@ package io.trino.plugin.jdbc;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logging;
+import io.trino.plugin.jdbc.mapping.ColumnMappingRule;
 import io.trino.plugin.jdbc.mapping.IdentifierMappingModule;
 import io.trino.plugin.jdbc.mapping.SchemaMappingRule;
 import io.trino.plugin.jdbc.mapping.TableMappingRule;
@@ -306,6 +307,24 @@ public abstract class BaseCaseInsensitiveMappingTest
             assertThat(computeActual("SHOW TABLES IN trino_schema").getOnlyColumn())
                     .contains("trino_table");
             assertQuery("SHOW COLUMNS FROM trino_schema.trino_table", "SELECT 'c', 'varchar(5)', '', ''");
+            assertUpdate("INSERT INTO trino_schema.trino_table VALUES 'dane'", 1);
+            assertQuery("SELECT * FROM trino_schema.trino_table", "VALUES 'dane'");
+        }
+    }
+
+    @Test
+    public void testColumnRuleMapping()
+            throws Exception
+    {
+        updateRuleBasedIdentifierMappingFile(
+                getMappingFile(),
+                ImmutableList.of(),
+                ImmutableList.of(),
+                ImmutableList.of(new ColumnMappingRule("remote_schema", "remote_table", "remoteColumn", "remote_column")));
+
+        try (AutoCloseable ignore1 = withSchema("remote_schema");
+             AutoCloseable ignore2 = withTable("remote_schema", "remote_table", "(remoteColumn varchar(5))")) {
+            assertQuery("SHOW COLUMNS FROM remote_schema.remote_table", "SELECT 'remote_column', 'varchar(5)', '', ''");
             assertUpdate("INSERT INTO trino_schema.trino_table VALUES 'dane'", 1);
             assertQuery("SELECT * FROM trino_schema.trino_table", "VALUES 'dane'");
         }

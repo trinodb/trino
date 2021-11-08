@@ -547,7 +547,7 @@ public class PhoenixClient
                 rowkeyColumn = Optional.of(ROWKEY);
             }
             for (ColumnMetadata column : tableColumns) {
-                String columnName = getIdentifierMapping().toRemoteColumnName(connection, column.getName());
+                String columnName = getIdentifierMapping().toRemoteColumnName(connection, schema, table, column.getName());
                 columnNames.add(columnName);
                 columnTypes.add(column.getType());
                 String typeStatement = toWriteMapping(session, column.getType()).getDataType();

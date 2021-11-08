@@ -42,7 +42,8 @@ public class TestIdentifierMappingRules
         assertThat(identifierMappingRulesJsonCodec.fromJson(json))
                 .isEqualTo(new IdentifierMappingRules(
                         ImmutableList.of(new SchemaMappingRule("remote_schema", "trino_schema")),
-                        ImmutableList.of(new TableMappingRule("remote_schema", "remote_table", "trino_table"))))
-                .isNotEqualTo(new IdentifierMappingRules(ImmutableList.of(), ImmutableList.of()));
+                        ImmutableList.of(new TableMappingRule("remote_schema", "remote_table", "trino_table")),
+                        ImmutableList.of()))
+                .isNotEqualTo(new IdentifierMappingRules(ImmutableList.of(), ImmutableList.of(), ImmutableList.of()));
     }
 }

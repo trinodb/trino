@@ -22,14 +22,17 @@ public class IdentifierMappingRules
 {
     private final List<SchemaMappingRule> schemas;
     private final List<TableMappingRule> tables;
+    private final List<ColumnMappingRule> columns;
 
     @JsonCreator
     public IdentifierMappingRules(
             @JsonProperty("schemas") List<SchemaMappingRule> schemas,
-            @JsonProperty("tables") List<TableMappingRule> tables)
+            @JsonProperty("tables") List<TableMappingRule> tables,
+            @JsonProperty("columns") List<ColumnMappingRule> columns)
     {
         this.schemas = requireNonNull(schemas, "schemaMappingRules is null");
         this.tables = requireNonNull(tables, "tableMappingRules is null");
+        this.columns = requireNonNull(columns, "columnMappingRules is null");
     }
 
     @JsonProperty("schemas")
@@ -42,6 +45,12 @@ public class IdentifierMappingRules
     public List<TableMappingRule> getTableMapping()
     {
         return tables;
+    }
+
+    @JsonProperty("columns")
+    public List<ColumnMappingRule> getColumnMapping()
+    {
+        return columns;
     }
 
     @Override

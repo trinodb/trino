@@ -27,6 +27,8 @@ public class RuleBasedIdentifierMapping
     private final Map<String, String> toRemoteSchema;
     private final Table<String, String, String> fromRemoteTable;
     private final Table<String, String, String> toRemoteTable;
+    private final Map<FromRemoteColumnMappingKey, String> fromRemoteColumn;
+    private final Map<ToRemoteColumnMappingKey, String> toRemoteColumn;
     private final IdentifierMapping delegate;
 
     public RuleBasedIdentifierMapping(IdentifierMappingRules rules, IdentifierMapping delegate)
@@ -49,6 +51,15 @@ public class RuleBasedIdentifierMapping
                         TableMappingRule::getRemoteSchema,
                         TableMappingRule::getMapping,
                         TableMappingRule::getRemoteTable));
+
+        fromRemoteColumn = rules.getColumnMapping().stream()
+                .collect(toImmutableMap(
+                        columnMappingRule -> new FromRemoteColumnMappingKey(columnMappingRule.getRemoteSchema(), columnMappingRule.getRemoteTable(), columnMappingRule.getRemoteColumn()),
+                        ColumnMappingRule::getMapping));
+        toRemoteColumn = rules.getColumnMapping().stream()
+                .collect(toImmutableMap(
+                        columnMappingRule -> new ToRemoteColumnMappingKey(columnMappingRule.getRemoteSchema(), columnMappingRule.getRemoteTable(), columnMappingRule.getMapping()),
+                        ColumnMappingRule::getRemoteColumn));
 
         this.delegate = requireNonNull(delegate, "delegate is null");
     }
@@ -74,9 +85,13 @@ public class RuleBasedIdentifierMapping
     }
 
     @Override
-    public String fromRemoteColumnName(String remoteColumnName)
+    public String fromRemoteColumnName(String remoteSchemaName, String remoteTableName, String remoteColumnName)
     {
-        return delegate.fromRemoteColumnName(remoteColumnName);
+        String columnName = fromRemoteColumn.get(new FromRemoteColumnMappingKey(remoteSchemaName, remoteTableName, remoteColumnName));
+        if (columnName == null) {
+            columnName = delegate.fromRemoteColumnName(remoteSchemaName, remoteTableName, remoteColumnName);
+        }
+        return columnName;
     }
 
     @Override
@@ -100,8 +115,12 @@ public class RuleBasedIdentifierMapping
     }
 
     @Override
-    public String toRemoteColumnName(Connection connection, String columnName)
+    public String toRemoteColumnName(Connection connection, String remoteSchema, String remoteTableName, String columnName)
     {
-        return delegate.toRemoteColumnName(connection, columnName);
+        String remoteColumnName = toRemoteColumn.get(new ToRemoteColumnMappingKey(remoteSchema, remoteTableName, columnName));
+        if (remoteColumnName == null) {
+            remoteColumnName = delegate.toRemoteColumnName(connection, remoteSchema, remoteTableName, columnName);
+        }
+        return remoteColumnName;
     }
 }

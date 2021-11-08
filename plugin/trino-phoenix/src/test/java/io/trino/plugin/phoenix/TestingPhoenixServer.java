@@ -36,6 +36,7 @@ import static org.apache.hadoop.hbase.HConstants.MASTER_INFO_PORT;
 import static org.apache.hadoop.hbase.HConstants.REGIONSERVER_INFO_PORT;
 
 public final class TestingPhoenixServer
+        implements AutoCloseable
 {
     private static final Logger LOG = Logger.get(TestingPhoenixServer.class);
 
@@ -51,6 +52,11 @@ public final class TestingPhoenixServer
         }
         referenceCount++;
         return instance;
+    }
+
+    @Override
+    public void close() {
+        this.shutdown();
     }
 
     public static synchronized void shutDown()
