@@ -324,8 +324,11 @@ public final class IcebergUtil
      */
     public static Map<Integer, Optional<String>> getPartitionKeys(FileScanTask scanTask)
     {
-        StructLike partition = scanTask.file().partition();
-        PartitionSpec spec = scanTask.spec();
+        return getPartitionKeys(scanTask.file().partition(), scanTask.spec());
+    }
+
+    public static Map<Integer, Optional<String>> getPartitionKeys(StructLike partition, PartitionSpec spec)
+    {
         Map<PartitionField, Integer> fieldToIndex = getIdentityPartitions(spec);
         ImmutableMap.Builder<Integer, Optional<String>> partitionKeys = ImmutableMap.builder();
 

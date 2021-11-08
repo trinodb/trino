@@ -83,7 +83,6 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.onlyElement;
-import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS;
 import static io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
@@ -734,58 +733,26 @@ public abstract class BaseIcebergConnectorTest
 
         // SHOW STATS
         if (format == ORC) {
-            assertThat(query("SHOW STATS FOR test_partitioned_table"))
-                    .projected(0, 2, 3, 4, 5, 6) // ignore data size which is varying for Parquet (and not available for ORC)
-                    .skippingTypesCheck()
-                    .satisfies(result -> {
-                        // TODO https://github.com/trinodb/trino/issues/9716 stats results are non-deterministic
-                        //  once fixed, replace with assertThat(query(...)).matches(...)
-                        MaterializedRow aSampleColumnStatsRow = result.getMaterializedRows().stream()
-                                .filter(row -> "a_boolean".equals(row.getField(0)))
-                                .collect(toOptional()).orElseThrow();
-                        if (aSampleColumnStatsRow.getField(2) == null) {
-                            assertEqualsIgnoreOrder(result, computeActual("VALUES " +
-                                    "  ('a_boolean', NULL, NULL, NULL, 'true', 'true'), " +
-                                    "  ('an_integer', NULL, NULL, NULL, '1', '1'), " +
-                                    "  ('a_bigint', NULL, NULL, NULL, '1', '1'), " +
-                                    "  ('a_real', NULL, NULL, NULL, '1.0', '1.0'), " +
-                                    "  ('a_double', NULL, NULL, NULL, '1.0', '1.0'), " +
-                                    "  ('a_short_decimal', NULL, NULL, NULL, '1.0', '1.0'), " +
-                                    "  ('a_long_decimal', NULL, NULL, NULL, '11.0', '11.0'), " +
-                                    "  ('a_varchar', NULL, NULL, NULL, NULL, NULL), " +
-                                    "  ('a_varbinary', NULL, NULL, NULL, NULL, NULL), " +
-                                    "  ('a_date', NULL, NULL, NULL, '2021-07-24', '2021-07-24'), " +
-                                    "  ('a_time', NULL, NULL, NULL, NULL, NULL), " +
-                                    "  ('a_timestamp', NULL, NULL, NULL, '2021-07-24 03:43:57.987000', '2021-07-24 03:43:57.987999'), " +
-                                    "  ('a_timestamptz', NULL, NULL, NULL, '2021-07-24 04:43:57.987 UTC', '2021-07-24 04:43:57.987 UTC'), " +
-                                    "  ('a_uuid', NULL, NULL, NULL, NULL, NULL), " +
-                                    "  ('a_row', NULL, NULL, NULL, NULL, NULL), " +
-                                    "  ('an_array', NULL, NULL, NULL, NULL, NULL), " +
-                                    "  ('a_map', NULL, NULL, NULL, NULL, NULL), " +
-                                    "  (NULL, NULL, NULL, 2e0, NULL, NULL)"));
-                        }
-                        else {
-                            assertEqualsIgnoreOrder(result, computeActual("VALUES " +
-                                    "  ('a_boolean', NULL, 0e0, NULL, 'true', 'true'), " +
-                                    "  ('an_integer', NULL, 0e0, NULL, '1', '1'), " +
-                                    "  ('a_bigint', NULL, 0e0, NULL, '1', '1'), " +
-                                    "  ('a_real', NULL, 0e0, NULL, '1.0', '1.0'), " +
-                                    "  ('a_double', NULL, 0e0, NULL, '1.0', '1.0'), " +
-                                    "  ('a_short_decimal', NULL, 0e0, NULL, '1.0', '1.0'), " +
-                                    "  ('a_long_decimal', NULL, 0e0, NULL, '11.0', '11.0'), " +
-                                    "  ('a_varchar', NULL, 0e0, NULL, NULL, NULL), " +
-                                    "  ('a_varbinary', NULL, 0e0, NULL, NULL, NULL), " +
-                                    "  ('a_date', NULL, 0e0, NULL, '2021-07-24', '2021-07-24'), " +
-                                    "  ('a_time', NULL, 0e0, NULL, NULL, NULL), " +
-                                    "  ('a_timestamp', NULL, 0e0, NULL, '2021-07-24 03:43:57.987000', '2021-07-24 03:43:57.987999'), " +
-                                    "  ('a_timestamptz', NULL, 0e0, NULL, '2021-07-24 04:43:57.987 UTC', '2021-07-24 04:43:57.987 UTC'), " +
-                                    "  ('a_uuid', NULL, 0e0, NULL, NULL, NULL), " +
-                                    "  ('a_row', NULL, 0e0, NULL, NULL, NULL), " +
-                                    "  ('an_array', NULL, 0e0, NULL, NULL, NULL), " +
-                                    "  ('a_map', NULL, 0e0, NULL, NULL, NULL), " +
-                                    "  (NULL, NULL, NULL, 2e0, NULL, NULL)"));
-                        }
-                    });
+            assertQuery("SHOW STATS FOR test_partitioned_table",
+                    "VALUES " +
+                            "  ('a_boolean', NULL, NULL, 0.5, NULL, 'true', 'true'), " +
+                            "  ('an_integer', NULL, NULL, 0.5, NULL, '1', '1'), " +
+                            "  ('a_bigint', NULL, NULL, 0.5, NULL, '1', '1'), " +
+                            "  ('a_real', NULL, NULL, 0.5, NULL, '1.0', '1.0'), " +
+                            "  ('a_double', NULL, NULL, 0.5, NULL, '1.0', '1.0'), " +
+                            "  ('a_short_decimal', NULL, NULL, 0.5, NULL, '1.0', '1.0'), " +
+                            "  ('a_long_decimal', NULL, NULL, 0.5, NULL, '11.0', '11.0'), " +
+                            "  ('a_varchar', NULL, NULL, 0.5, NULL, NULL, NULL), " +
+                            "  ('a_varbinary', NULL, NULL, 0.5, NULL, NULL, NULL), " +
+                            "  ('a_date', NULL, NULL, 0.5, NULL, '2021-07-24', '2021-07-24'), " +
+                            "  ('a_time', NULL, NULL, 0.5, NULL, NULL, NULL), " +
+                            "  ('a_timestamp', NULL, NULL, 0.5, NULL, '2021-07-24 03:43:57.987654', '2021-07-24 03:43:57.987654'), " +
+                            "  ('a_timestamptz', NULL, NULL, 0.5, NULL, '2021-07-24 04:43:57.987 UTC', '2021-07-24 04:43:57.987 UTC'), " +
+                            "  ('a_uuid', NULL, NULL, 0.5, NULL, NULL, NULL), " +
+                            "  ('a_row', NULL, NULL, 0.5, NULL, NULL, NULL), " +
+                            "  ('an_array', NULL, NULL, 0.5, NULL, NULL, NULL), " +
+                            "  ('a_map', NULL, NULL, 0.5, NULL, NULL, NULL), " +
+                            "  (NULL, NULL, NULL, NULL, 2e0, NULL, NULL)");
         }
         else {
             assertThat(query("SHOW STATS FOR test_partitioned_table"))
@@ -1056,6 +1023,39 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("INSERT INTO test_schema_evolution_drop_middle VALUES (3, 4, 5)", 1);
         assertQuery("SELECT * FROM test_schema_evolution_drop_middle", "VALUES(0, 2, NULL), (3, 4, 5)");
         dropTable("test_schema_evolution_drop_middle");
+    }
+
+    @Test
+    public void testShowStatsAfterAddColumn()
+    {
+        assertUpdate("CREATE TABLE test_show_stats_after_add_column (col0 INTEGER, col1 INTEGER, col2 INTEGER)");
+        // Insert separately to ensure the table has multiple data files
+        assertUpdate("INSERT INTO test_show_stats_after_add_column VALUES (1, 2, 3)", 1);
+        assertUpdate("INSERT INTO test_show_stats_after_add_column VALUES (4, 5, 6)", 1);
+        assertUpdate("INSERT INTO test_show_stats_after_add_column VALUES (NULL, NULL, NULL)", 1);
+        assertUpdate("INSERT INTO test_show_stats_after_add_column VALUES (7, 8, 9)", 1);
+
+        assertThat(query("SHOW STATS FOR test_show_stats_after_add_column"))
+                .projected(0, 2, 3, 4, 5, 6) // ignore data size which is available for Parquet, but not for ORC
+                .skippingTypesCheck()
+                .matches("VALUES " +
+                        "  ('col0', NULL, 25e-2, NULL, '1', '7')," +
+                        "  ('col1', NULL, 25e-2, NULL, '2', '8'), " +
+                        "  ('col2', NULL, 25e-2, NULL, '3', '9'), " +
+                        "  (NULL, NULL, NULL, 4e0, NULL, NULL)");
+
+        // Columns added after some data files exist will not have valid statistics because not all files have min/max/null count statistics for the new column
+        assertUpdate("ALTER TABLE test_show_stats_after_add_column ADD COLUMN col3 INTEGER");
+        assertUpdate("INSERT INTO test_show_stats_after_add_column VALUES (10, 11, 12, 13)", 1);
+        assertThat(query("SHOW STATS FOR test_show_stats_after_add_column"))
+                .projected(0, 2, 3, 4, 5, 6)
+                .skippingTypesCheck()
+                .matches("VALUES " +
+                        "  ('col0', NULL, 2e-1, NULL, '1', '10')," +
+                        "  ('col1', NULL, 2e-1, NULL, '2', '11'), " +
+                        "  ('col2', NULL, 2e-1, NULL, '3', '12'), " +
+                        "  ('col3', NULL, NULL,   NULL, NULL, NULL), " +
+                        "  (NULL, NULL, NULL, 5e0, NULL, NULL)");
     }
 
     @Test
@@ -2643,84 +2643,28 @@ public abstract class BaseIcebergConnectorTest
                 .matches(nullValues);
 
         // SHOW STATS
-        if (format == ORC) {
-            assertThat(query("SHOW STATS FOR test_all_types"))
-                    .projected(0, 2, 3, 4, 5, 6) // ignore data size which is varying for Parquet (and not available for ORC)
-                    .skippingTypesCheck()
-                    .satisfies(result -> {
-                        // TODO https://github.com/trinodb/trino/issues/9716 stats results are non-deterministic
-                        //  once fixed, replace with assertThat(query(...)).matches(...)
-                        MaterializedRow aSampleColumnStatsRow = result.getMaterializedRows().stream()
-                                .filter(row -> "a_boolean".equals(row.getField(0)))
-                                .collect(toOptional()).orElseThrow();
-                        if (aSampleColumnStatsRow.getField(2) == null) {
-                            assertEqualsIgnoreOrder(result, computeActual("VALUES " +
-                                    "  ('a_boolean', NULL, NULL, NULL, NULL, NULL), " +
-                                    "  ('an_integer', NULL, NULL, NULL, NULL, NULL), " +
-                                    "  ('a_bigint', NULL, NULL, NULL, NULL, NULL), " +
-                                    "  ('a_real', NULL, NULL, NULL, NULL, NULL), " +
-                                    "  ('a_double', NULL, NULL, NULL, NULL, NULL), " +
-                                    "  ('a_short_decimal', NULL, NULL, NULL, NULL, NULL), " +
-                                    "  ('a_long_decimal', NULL, NULL, NULL, NULL, NULL), " +
-                                    "  ('a_varchar', NULL, NULL, NULL, NULL, NULL), " +
-                                    "  ('a_varbinary', NULL, NULL, NULL, NULL, NULL), " +
-                                    "  ('a_date', NULL, NULL, NULL, NULL, NULL), " +
-                                    "  ('a_time', NULL, NULL, NULL, NULL, NULL), " +
-                                    "  ('a_timestamp', NULL, NULL, NULL, NULL, NULL), " +
-                                    "  ('a_timestamptz', NULL, NULL, NULL, NULL, NULL), " +
-                                    "  ('a_uuid', NULL, NULL, NULL, NULL, NULL), " +
-                                    "  ('a_row', NULL, NULL, NULL, NULL, NULL), " +
-                                    "  ('an_array', NULL, NULL, NULL, NULL, NULL), " +
-                                    "  ('a_map', NULL, NULL, NULL, NULL, NULL), " +
-                                    "  (NULL, NULL, NULL, 2e0, NULL, NULL)"));
-                        }
-                        else {
-                            assertEqualsIgnoreOrder(result, computeActual("VALUES " +
-                                    "  ('a_boolean', NULL, 0e0, NULL, 'true', 'true'), " +
-                                    "  ('an_integer', NULL, 0e0, NULL, '1', '1'), " +
-                                    "  ('a_bigint', NULL, 0e0, NULL, '1', '1'), " +
-                                    "  ('a_real', NULL, 0e0, NULL, '1.0', '1.0'), " +
-                                    "  ('a_double', NULL, 0e0, NULL, '1.0', '1.0'), " +
-                                    "  ('a_short_decimal', NULL, 0e0, NULL, '1.0', '1.0'), " +
-                                    "  ('a_long_decimal', NULL, 0e0, NULL, '11.0', '11.0'), " +
-                                    "  ('a_varchar', NULL, 0e0, NULL, NULL, NULL), " +
-                                    "  ('a_varbinary', NULL, 0e0, NULL, NULL, NULL), " +
-                                    "  ('a_date', NULL, 0e0, NULL, '2021-07-24', '2021-07-24'), " +
-                                    "  ('a_time', NULL, 0e0, NULL, NULL, NULL), " +
-                                    "  ('a_timestamp', NULL, 0e0, NULL, '2021-07-24 03:43:57.987000', '2021-07-24 03:43:57.987999'), " +
-                                    "  ('a_timestamptz', NULL, 0e0, NULL, '2021-07-24 04:43:57.987 UTC', '2021-07-24 04:43:57.987 UTC'), " +
-                                    "  ('a_uuid', NULL, 0e0, NULL, NULL, NULL), " +
-                                    "  ('a_row', NULL, 0e0, NULL, NULL, NULL), " +
-                                    "  ('an_array', NULL, 0e0, NULL, NULL, NULL), " +
-                                    "  ('a_map', NULL, 0e0, NULL, NULL, NULL), " +
-                                    "  (NULL, NULL, NULL, 2e0, NULL, NULL)"));
-                        }
-                    });
-        }
-        else {
-            assertThat(query("SHOW STATS FOR test_all_types"))
-                    .projected(0, 2, 3, 4, 5, 6) // ignore data size which is varying for Parquet (and not available for ORC)
-                    .skippingTypesCheck()
-                    .matches("VALUES " +
-                            "  ('a_boolean', NULL, 0.5e0, NULL, 'true', 'true'), " +
-                            "  ('an_integer', NULL, 0.5e0, NULL, '1', '1'), " +
-                            "  ('a_bigint', NULL, 0.5e0, NULL, '1', '1'), " +
-                            "  ('a_real', NULL, 0.5e0, NULL, '1.0', '1.0'), " +
-                            "  ('a_double', NULL, 0.5e0, NULL, '1.0', '1.0'), " +
-                            "  ('a_short_decimal', NULL, 0.5e0, NULL, '1.0', '1.0'), " +
-                            "  ('a_long_decimal', NULL, 0.5e0, NULL, '11.0', '11.0'), " +
-                            "  ('a_varchar', NULL, 0.5e0, NULL, NULL, NULL), " +
-                            "  ('a_varbinary', NULL, 0.5e0, NULL, NULL, NULL), " +
-                            "  ('a_date', NULL, 0.5e0, NULL, '2021-07-24', '2021-07-24'), " +
-                            "  ('a_time', NULL, 0.5e0, NULL, NULL, NULL), " +
-                            "  ('a_timestamp', NULL, 0.5e0, NULL, '2021-07-24 03:43:57.987654', '2021-07-24 03:43:57.987654'), " +
-                            "  ('a_timestamptz', NULL, 0.5e0, NULL, '2021-07-24 04:43:57.987 UTC', '2021-07-24 04:43:57.987 UTC'), " +
-                            "  ('a_uuid', NULL, 0.5e0, NULL, NULL, NULL), " +
-                            "  ('a_row', NULL, NULL, NULL, NULL, NULL), " +
-                            "  ('an_array', NULL, NULL, NULL, NULL, NULL), " +
-                            "  ('a_map', NULL, NULL, NULL, NULL, NULL), " +
-                            "  (NULL, NULL, NULL, 2e0, NULL, NULL)");
-        }
+        assertThat(query("SHOW STATS FOR test_all_types"))
+                .projected(0, 2, 3, 4, 5, 6) // ignore data size which is varying for Parquet (and not available for ORC)
+                .skippingTypesCheck()
+                .matches("VALUES " +
+                        "  ('a_boolean', NULL, 0.5e0, NULL, 'true', 'true'), " +
+                        "  ('an_integer', NULL, 0.5e0, NULL, '1', '1'), " +
+                        "  ('a_bigint', NULL, 0.5e0, NULL, '1', '1'), " +
+                        "  ('a_real', NULL, 0.5e0, NULL, '1.0', '1.0'), " +
+                        "  ('a_double', NULL, 0.5e0, NULL, '1.0', '1.0'), " +
+                        "  ('a_short_decimal', NULL, 0.5e0, NULL, '1.0', '1.0'), " +
+                        "  ('a_long_decimal', NULL, 0.5e0, NULL, '11.0', '11.0'), " +
+                        "  ('a_varchar', NULL, 0.5e0, NULL, NULL, NULL), " +
+                        "  ('a_varbinary', NULL, 0.5e0, NULL, NULL, NULL), " +
+                        "  ('a_date', NULL, 0.5e0, NULL, '2021-07-24', '2021-07-24'), " +
+                        "  ('a_time', NULL, 0.5e0, NULL, NULL, NULL), " +
+                        "  ('a_timestamp', NULL, 0.5e0, NULL, " + (format == ORC ? "'2021-07-24 03:43:57.987000', '2021-07-24 03:43:57.987999'" : "'2021-07-24 03:43:57.987654', '2021-07-24 03:43:57.987654'") + "), " +
+                        "  ('a_timestamptz', NULL, 0.5e0, NULL, '2021-07-24 04:43:57.987 UTC', '2021-07-24 04:43:57.987 UTC'), " +
+                        "  ('a_uuid', NULL, 0.5e0, NULL, NULL, NULL), " +
+                        "  ('a_row', NULL, " + (format == ORC ? "0.5" : "NULL") + ", NULL, NULL, NULL), " +
+                        "  ('an_array', NULL, " + (format == ORC ? "0.5" : "NULL") + ", NULL, NULL, NULL), " +
+                        "  ('a_map', NULL, " + (format == ORC ? "0.5" : "NULL") + ", NULL, NULL, NULL), " +
+                        "  (NULL, NULL, NULL, 2e0, NULL, NULL)");
 
         // $partitions
         String schema = getSession().getSchema().orElseThrow();
@@ -2746,26 +2690,7 @@ public abstract class BaseIcebergConnectorTest
                 "  data.a_uuid " +
                 " FROM \"test_all_types$partitions\" "))
                 .matches(
-                        format == ORC
-                                ? "VALUES (" +
-                                "  BIGINT '2', " +
-                                "  BIGINT '2', " +
-                                "  CAST(NULL AS ROW(min boolean, max boolean, null_count bigint)), " +
-                                "  CAST(NULL AS ROW(min integer, max integer, null_count bigint)), " +
-                                "  CAST(NULL AS ROW(min bigint, max bigint, null_count bigint)), " +
-                                "  CAST(NULL AS ROW(min real, max real, null_count bigint)), " +
-                                "  CAST(NULL AS ROW(min double, max double, null_count bigint)), " +
-                                "  CAST(NULL AS ROW(min decimal(5,2), max decimal(5,2), null_count bigint)), " +
-                                "  CAST(NULL AS ROW(min decimal(38,20), max decimal(38,20), null_count bigint)), " +
-                                "  CAST(NULL AS ROW(min varchar, max varchar, null_count bigint)), " +
-                                "  CAST(NULL AS ROW(min varbinary, max varbinary, null_count bigint)), " +
-                                "  CAST(NULL AS ROW(min date, max date, null_count bigint)), " +
-                                "  CAST(NULL AS ROW(min time(6), max time(6), null_count bigint)), " +
-                                "  CAST(NULL AS ROW(min timestamp(6), max timestamp(6), null_count bigint)), " +
-                                "  CAST(NULL AS ROW(min timestamp(6) with time zone, max timestamp(6) with time zone, null_count bigint)), " +
-                                "  CAST(NULL AS ROW(min uuid, max uuid, null_count bigint)) " +
-                                ")"
-                                : "VALUES (" +
+                        "VALUES (" +
                                 "  BIGINT '2', " +
                                 "  BIGINT '2', " +
                                 "  CAST(ROW(true, true, 1) AS ROW(min boolean, max boolean, null_count bigint)), " +
@@ -2776,12 +2701,21 @@ public abstract class BaseIcebergConnectorTest
                                 "  CAST(ROW(1, 1, 1) AS ROW(min decimal(5,2), max decimal(5,2), null_count bigint)), " +
                                 "  CAST(ROW(11, 11, 1) AS ROW(min decimal(38,20), max decimal(38,20), null_count bigint)), " +
                                 "  CAST(ROW('onefsadfdsf', 'onefsadfdsf', 1) AS ROW(min varchar, max varchar, null_count bigint)), " +
-                                "  CAST(ROW(X'000102f0feff', X'000102f0feff', 1) AS ROW(min varbinary, max varbinary, null_count bigint)), " +
+                                (format == ORC ?
+                                        "  CAST(ROW(NULL, NULL, 1) AS ROW(min varbinary, max varbinary, null_count bigint)), " :
+                                        "  CAST(ROW(X'000102f0feff', X'000102f0feff', 1) AS ROW(min varbinary, max varbinary, null_count bigint)), ") +
                                 "  CAST(ROW(DATE '2021-07-24', DATE '2021-07-24', 1) AS ROW(min date, max date, null_count bigint)), " +
                                 "  CAST(ROW(TIME '02:43:57.987654', TIME '02:43:57.987654', 1) AS ROW(min time(6), max time(6), null_count bigint)), " +
-                                "  CAST(ROW(TIMESTAMP '2021-07-24 03:43:57.987654', TIMESTAMP '2021-07-24 03:43:57.987654', 1) AS ROW(min timestamp(6), max timestamp(6), null_count bigint)), " +
-                                "  CAST(ROW(TIMESTAMP '2021-07-24 04:43:57.987654 UTC', TIMESTAMP '2021-07-24 04:43:57.987654 UTC', 1) AS ROW(min timestamp(6) with time zone, max timestamp(6) with time zone, null_count bigint)), " +
-                                "  CAST(ROW(UUID '20050910-1330-11e9-ffff-2a86e4085a59', UUID '20050910-1330-11e9-ffff-2a86e4085a59', 1) AS ROW(min uuid, max uuid, null_count bigint)) " +
+                                (format == ORC ?
+                                        "  CAST(ROW(TIMESTAMP '2021-07-24 03:43:57.987000', TIMESTAMP '2021-07-24 03:43:57.987999', 1) AS ROW(min timestamp(6), max timestamp(6), null_count bigint)), " :
+                                        "  CAST(ROW(TIMESTAMP '2021-07-24 03:43:57.987654', TIMESTAMP '2021-07-24 03:43:57.987654', 1) AS ROW(min timestamp(6), max timestamp(6), null_count bigint)), ") +
+                                (format == ORC ?
+                                        "  CAST(ROW(TIMESTAMP '2021-07-24 04:43:57.987000 UTC', TIMESTAMP '2021-07-24 04:43:57.987999 UTC', 1) AS ROW(min timestamp(6) with time zone, max timestamp(6) with time zone, null_count bigint)), " :
+                                        "  CAST(ROW(TIMESTAMP '2021-07-24 04:43:57.987654 UTC', TIMESTAMP '2021-07-24 04:43:57.987654 UTC', 1) AS ROW(min timestamp(6) with time zone, max timestamp(6) with time zone, null_count bigint)), ") +
+                                (format == ORC ?
+                                        "  CAST(ROW(NULL, NULL, 1) AS ROW(min uuid, max uuid, null_count bigint)) " :
+                                        "  CAST(ROW(UUID '20050910-1330-11e9-ffff-2a86e4085a59', UUID '20050910-1330-11e9-ffff-2a86e4085a59', 1) AS ROW(min uuid, max uuid, null_count bigint)) "
+                                        ) +
                                 ")");
 
         assertUpdate("DROP TABLE test_all_types");
