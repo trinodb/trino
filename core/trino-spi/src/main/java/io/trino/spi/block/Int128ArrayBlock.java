@@ -88,7 +88,13 @@ public class Int128ArrayBlock
     @Override
     public long getPositionsSizeInBytes(boolean[] positions)
     {
-        return (INT128_BYTES + Byte.BYTES) * (long) countUsedPositions(positions);
+        return getPositionsSizeInBytes(positions, countUsedPositions(positions));
+    }
+
+    @Override
+    public long getPositionsSizeInBytes(boolean[] positions, int selectedPositionsCount)
+    {
+        return (long) (INT128_BYTES + Byte.BYTES) * selectedPositionsCount;
     }
 
     @Override

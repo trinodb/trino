@@ -94,7 +94,13 @@ public class Int96ArrayBlock
     @Override
     public long getPositionsSizeInBytes(boolean[] positions)
     {
-        return (INT96_BYTES + Byte.BYTES) * (long) countUsedPositions(positions);
+        return getPositionsSizeInBytes(positions, countUsedPositions(positions));
+    }
+
+    @Override
+    public long getPositionsSizeInBytes(boolean[] positions, int selectedPositionsCount)
+    {
+        return (long) (INT96_BYTES + Byte.BYTES) * selectedPositionsCount;
     }
 
     @Override
