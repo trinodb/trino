@@ -13,6 +13,7 @@
  */
 package io.trino.sql.planner;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.SystemSessionProperties;
@@ -240,7 +241,6 @@ import io.trino.sql.planner.optimizations.OptimizeMixedDistinctAggregations;
 import io.trino.sql.planner.optimizations.OptimizerStats;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
 import io.trino.sql.planner.optimizations.PredicatePushDown;
-import io.trino.sql.planner.optimizations.PruneUnreferencedOutputs;
 import io.trino.sql.planner.optimizations.ReplicateSemiJoinInDelete;
 import io.trino.sql.planner.optimizations.StatsRecordingPlanOptimizer;
 import io.trino.sql.planner.optimizations.TableDeleteOptimizer;
@@ -254,7 +254,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static io.trino.SystemSessionProperties.isIterativeRuleBasedColumnPruning;
 import static java.util.Objects.requireNonNull;
 
 public class PlanOptimizers
@@ -376,8 +375,6 @@ public class PlanOptimizers
                 ruleStats,
                 statsCalculator,
                 estimatedExchangesCostCalculator,
-                session -> !isIterativeRuleBasedColumnPruning(session),
-                ImmutableList.of(new PruneUnreferencedOutputs(metadata)),
                 columnPruningRules);
 
         builder.add(
@@ -944,6 +941,7 @@ public class PlanOptimizers
         this.optimizers = builder.build();
     }
 
+    @VisibleForTesting
     public static Set<Rule<?>> columnPruningRules(Metadata metadata)
     {
         return ImmutableSet.of(
