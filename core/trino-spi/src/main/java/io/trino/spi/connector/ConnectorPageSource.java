@@ -87,6 +87,7 @@ public interface ConnectorPageSource
      * Returns the connector's metrics, mapping a metric ID to its latest value.
      * Each call must return an immutable snapshot of available metrics.
      * Same ID metrics are merged across all tasks and exposed via OperatorStats.
+     * This method can be called after the page source is closed.
      */
     default Metrics getMetrics()
     {

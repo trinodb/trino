@@ -446,7 +446,6 @@ public class SqlTask
                             taskStateMachine,
                             outputBuffer,
                             fragment.get(),
-                            sources,
                             this::notifyStatusChanged);
                     taskHolderReference.compareAndSet(taskHolder, new TaskHolder(taskExecution));
                     needsPlan.set(false);

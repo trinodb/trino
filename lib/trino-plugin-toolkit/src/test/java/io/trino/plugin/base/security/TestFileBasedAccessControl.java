@@ -67,6 +67,7 @@ public class TestFileBasedAccessControl
 
         accessControl.checkCanCreateTable(UNKNOWN, new SchemaTableName("unknown", "unknown"));
         accessControl.checkCanDropTable(UNKNOWN, new SchemaTableName("unknown", "unknown"));
+        accessControl.checkCanTruncateTable(UNKNOWN, new SchemaTableName("unknown", "unknown"));
         accessControl.checkCanRenameTable(UNKNOWN,
                 new SchemaTableName("unknown", "unknown"),
                 new SchemaTableName("unknown", "new_unknown"));
@@ -258,6 +259,7 @@ public class TestFileBasedAccessControl
 
         accessControl.checkCanInsertIntoTable(BOB, bobTable);
         accessControl.checkCanDeleteFromTable(BOB, bobTable);
+        accessControl.checkCanTruncateTable(BOB, bobTable);
         accessControl.checkCanSelectFromColumns(CHARLIE, bobTable, ImmutableSet.of());
         accessControl.checkCanSelectFromColumns(CHARLIE, bobTable, ImmutableSet.of("bobcolumn"));
         accessControl.checkCanInsertIntoTable(CHARLIE, bobTable);
@@ -275,6 +277,7 @@ public class TestFileBasedAccessControl
 
         accessControl.checkCanCreateViewWithSelectFromColumns(BOB, bobTable, ImmutableSet.of());
         accessControl.checkCanDropTable(ADMIN, bobTable);
+        accessControl.checkCanTruncateTable(ADMIN, bobTable);
 
         accessControl.checkCanRenameTable(ADMIN, bobTable, new SchemaTableName("aliceschema", "newbobtable"));
         accessControl.checkCanRenameTable(ALICE, aliceTable, new SchemaTableName("aliceschema", "newalicetable"));

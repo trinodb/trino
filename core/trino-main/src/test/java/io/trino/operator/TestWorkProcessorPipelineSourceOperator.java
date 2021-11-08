@@ -208,8 +208,12 @@ public class TestWorkProcessorPipelineSourceOperator
         // assert source operator stats are correct
         OperatorStats sourceOperatorStats = operatorStats.get(0);
 
-        assertEquals(sourceOperatorStats.getMetrics().getMetrics(), ImmutableMap.of("testSourceMetric", new LongCount(1)));
-        assertEquals(sourceOperatorStats.getConnectorMetrics().getMetrics(), ImmutableMap.of("testSourceConnectorMetric", new LongCount(2)));
+        assertEquals(sourceOperatorStats.getMetrics().getMetrics(), ImmutableMap.of(
+                "testSourceMetric", new LongCount(1),
+                "testSourceClosed", new LongCount(1)));
+        assertEquals(sourceOperatorStats.getConnectorMetrics().getMetrics(), ImmutableMap.of(
+                "testSourceConnectorMetric", new LongCount(2),
+                "testSourceConnectorClosed", new LongCount(1)));
 
         assertEquals(sourceOperatorStats.getDynamicFilterSplitsProcessed(), 42L);
 
@@ -239,8 +243,12 @@ public class TestWorkProcessorPipelineSourceOperator
 
         // assert pipeline metrics
         List<OperatorStats> operatorSummaries = pipelineStats.getOperatorSummaries();
-        assertEquals(operatorSummaries.get(0).getMetrics().getMetrics(), ImmutableMap.of("testSourceMetric", new LongCount(1)));
-        assertEquals(operatorSummaries.get(0).getConnectorMetrics().getMetrics(), ImmutableMap.of("testSourceConnectorMetric", new LongCount(2)));
+        assertEquals(operatorSummaries.get(0).getMetrics().getMetrics(), ImmutableMap.of(
+                "testSourceMetric", new LongCount(1),
+                "testSourceClosed", new LongCount(1)));
+        assertEquals(operatorSummaries.get(0).getConnectorMetrics().getMetrics(), ImmutableMap.of(
+                "testSourceConnectorMetric", new LongCount(2),
+                "testSourceConnectorClosed", new LongCount(1)));
         assertEquals(operatorSummaries.get(1).getMetrics().getMetrics(), ImmutableMap.of("testOperatorMetric", new LongCount(1)));
     }
 
@@ -425,13 +433,18 @@ public class TestWorkProcessorPipelineSourceOperator
         @Override
         public Metrics getMetrics()
         {
-            return new Metrics(ImmutableMap.of("testSourceMetric", new LongCount(1)));
+            System.err.println("closed: " + closed);
+            return new Metrics(ImmutableMap.of(
+                    "testSourceMetric", new LongCount(1),
+                    "testSourceClosed", new LongCount(closed ? 1 : 0)));
         }
 
         @Override
         public Metrics getConnectorMetrics()
         {
-            return new Metrics(ImmutableMap.of("testSourceConnectorMetric", new LongCount(2)));
+            return new Metrics(ImmutableMap.of(
+                    "testSourceConnectorMetric", new LongCount(2),
+                    "testSourceConnectorClosed", new LongCount(closed ? 1 : 0)));
         }
 
         @Override

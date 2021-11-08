@@ -361,7 +361,8 @@ public class TestHiveSplitSource
                     Optional.empty(),
                     Optional.empty(),
                     false,
-                    Optional.empty());
+                    Optional.empty(),
+                    () -> true);
         }
 
         private static Properties properties(String key, String value)

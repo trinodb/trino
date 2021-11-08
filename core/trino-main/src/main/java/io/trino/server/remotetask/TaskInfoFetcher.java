@@ -53,6 +53,7 @@ public class TaskInfoFetcher
 {
     private final TaskId taskId;
     private final Consumer<Throwable> onFail;
+    private final ContinuousTaskStatusFetcher taskStatusFetcher;
     private final StateMachine<TaskInfo> taskInfo;
     private final StateMachine<Optional<TaskInfo>> finalTaskInfo;
     private final JsonCodec<TaskInfo> taskInfoCodec;
@@ -83,6 +84,7 @@ public class TaskInfoFetcher
 
     public TaskInfoFetcher(
             Consumer<Throwable> onFail,
+            ContinuousTaskStatusFetcher taskStatusFetcher,
             TaskInfo initialTask,
             HttpClient httpClient,
             Duration updateInterval,
@@ -99,6 +101,7 @@ public class TaskInfoFetcher
 
         this.taskId = initialTask.getTaskStatus().getTaskId();
         this.onFail = requireNonNull(onFail, "onFail is null");
+        this.taskStatusFetcher = requireNonNull(taskStatusFetcher, "taskStatusFetcher is null");
         this.taskInfo = new StateMachine<>("task " + taskId, executor, initialTask);
         this.finalTaskInfo = new StateMachine<>("task-" + taskId, executor, Optional.empty());
         this.taskInfoCodec = requireNonNull(taskInfoCodec, "taskInfoCodec is null");
@@ -213,8 +216,20 @@ public class TaskInfoFetcher
         Futures.addCallback(future, new SimpleHttpResponseHandler<>(this, request.getUri(), stats), executor);
     }
 
-    synchronized void updateTaskInfo(TaskInfo newValue)
+    synchronized void updateTaskInfo(TaskInfo newTaskInfo)
     {
+        TaskStatus localTaskStatus = taskStatusFetcher.getTaskStatus();
+        TaskStatus newRemoteTaskStatus = newTaskInfo.getTaskStatus();
+
+        TaskInfo newValue;
+        if (localTaskStatus.getState().isDone() && newRemoteTaskStatus.getState().isDone() && localTaskStatus.getState() != newRemoteTaskStatus.getState()) {
+            // prefer local
+            newValue = newTaskInfo.withTaskStatus(localTaskStatus);
+        }
+        else {
+            newValue = newTaskInfo;
+        }
+
         boolean updated = taskInfo.setIf(newValue, oldValue -> {
             TaskStatus oldTaskStatus = oldValue.getTaskStatus();
             TaskStatus newTaskStatus = newValue.getTaskStatus();

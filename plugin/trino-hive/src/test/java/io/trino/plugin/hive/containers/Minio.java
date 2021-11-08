@@ -24,8 +24,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static java.lang.String.format;
-
 public class Minio
         extends BaseTestContainer
 {
@@ -77,10 +75,7 @@ public class Minio
     public void start()
     {
         super.start();
-        log.info(format(
-                "MinIO container started with address for api: http://%s and console: http://%s",
-                getMinioApiEndpoint().toString(),
-                getMinioConsoleEndpoint().toString()));
+        log.info("MinIO container started with address for api: http://%s and console: http://%s", getMinioApiEndpoint(), getMinioConsoleEndpoint());
     }
 
     public HostAndPort getMinioApiEndpoint()

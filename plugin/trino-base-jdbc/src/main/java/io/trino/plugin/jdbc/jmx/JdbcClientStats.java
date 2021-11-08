@@ -54,6 +54,7 @@ public final class JdbcClientStats
     private final JdbcApiStats implementAggregation = new JdbcApiStats();
     private final JdbcApiStats getTableScanRedirection = new JdbcApiStats();
     private final JdbcApiStats delete = new JdbcApiStats();
+    private final JdbcApiStats truncateTable = new JdbcApiStats();
 
     @Managed
     @Nested
@@ -305,5 +306,12 @@ public final class JdbcClientStats
     public JdbcApiStats getDelete()
     {
         return delete;
+    }
+
+    @Managed
+    @Nested
+    public JdbcApiStats getTruncateTable()
+    {
+        return truncateTable;
     }
 }

@@ -897,6 +897,14 @@ public final class MetadataManager
     }
 
     @Override
+    public void truncateTable(Session session, TableHandle tableHandle)
+    {
+        CatalogName catalogName = tableHandle.getCatalogName();
+        ConnectorMetadata metadata = getMetadataForWrite(session, catalogName);
+        metadata.truncateTable(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle());
+    }
+
+    @Override
     public Optional<NewTableLayout> getInsertLayout(Session session, TableHandle table)
     {
         CatalogName catalogName = table.getCatalogName();

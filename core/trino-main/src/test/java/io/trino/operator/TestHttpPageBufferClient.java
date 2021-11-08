@@ -293,6 +293,7 @@ public class TestHttpPageBufferClient
         assertStatus(client, location, "queued", 0, 3, 3, 3, "not scheduled");
 
         // close client and verify
+        processor.setResponse(new TestingResponse(HttpStatus.NO_CONTENT, ImmutableListMultimap.of(), new byte[0]));
         client.close();
         requestComplete.await(10, TimeUnit.SECONDS);
         assertStatus(client, location, "closed", 0, 3, 4, 3, "not scheduled");

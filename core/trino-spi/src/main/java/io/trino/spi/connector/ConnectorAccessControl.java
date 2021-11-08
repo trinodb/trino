@@ -69,6 +69,7 @@ import static io.trino.spi.security.AccessDeniedException.denyShowRoleGrants;
 import static io.trino.spi.security.AccessDeniedException.denyShowRoles;
 import static io.trino.spi.security.AccessDeniedException.denyShowSchemas;
 import static io.trino.spi.security.AccessDeniedException.denyShowTables;
+import static io.trino.spi.security.AccessDeniedException.denyTruncateTable;
 import static io.trino.spi.security.AccessDeniedException.denyUpdateTableColumns;
 import static java.util.Collections.emptySet;
 
@@ -343,7 +344,17 @@ public interface ConnectorAccessControl
     }
 
     /**
-     * Check if identity is allowed to update the supplied columns in the specified table.
+     * Check if identity is allowed to truncate the specified table in this catalog.
+     *
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanTruncateTable(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+        denyTruncateTable(tableName.toString());
+    }
+
+    /**
+     * Check if identity is allowed to update the supplied columns in the specified table in this catalog.
      *
      * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
