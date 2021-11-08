@@ -259,7 +259,7 @@ public class DictionaryBlock
                 dictionaryBlockSize = dictionary.getSizeInBytes();
             }
             else {
-                dictionaryBlockSize = dictionary.getPositionsSizeInBytes(used);
+                dictionaryBlockSize = dictionary.getPositionsSizeInBytes(used, uniqueIds);
             }
         }
 
