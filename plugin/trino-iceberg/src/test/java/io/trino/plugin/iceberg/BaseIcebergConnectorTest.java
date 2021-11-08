@@ -29,7 +29,6 @@ import io.trino.spi.QueryId;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
-import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
@@ -2729,8 +2728,7 @@ public abstract class BaseIcebergConnectorTest
 
             OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(
                     result.getQueryId(),
-                    table -> (table instanceof IcebergTableHandle) &&
-                            ((IcebergTableHandle) table).getSchemaTableName().equals(new SchemaTableName("tpch", "lineitem")));
+                    new QualifiedObjectName(ICEBERG_CATALOG, "tpch", "lineitem"));
 
             // Assert no split level pruning occurs. If this starts failing a new totalprice may need to be selected
             assertThat(probeStats.getTotalDrivers()).isEqualTo(numberOfFiles);
