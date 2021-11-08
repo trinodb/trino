@@ -30,9 +30,11 @@ import io.trino.execution.QueryStats;
 import io.trino.execution.TaskManagerConfig;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.TableHandle;
+import io.trino.metadata.TableMetadata;
 import io.trino.operator.OperatorStats;
 import io.trino.spi.QueryId;
-import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.analyzer.FeaturesConfig;
@@ -66,7 +68,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.function.Consumer;
-import java.util.function.Predicate;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -528,9 +530,10 @@ public abstract class AbstractTestQueryFramework
                 .build();
     }
 
-    protected OperatorStats searchScanFilterAndProjectOperatorStats(QueryId queryId, Predicate<ConnectorTableHandle> tablePredicate)
+    protected OperatorStats searchScanFilterAndProjectOperatorStats(QueryId queryId, QualifiedObjectName catalogSchemaTableName)
     {
-        Plan plan = getDistributedQueryRunner().getQueryPlan(queryId);
+        DistributedQueryRunner runner = getDistributedQueryRunner();
+        Plan plan = runner.getQueryPlan(queryId);
         PlanNodeId nodeId = PlanNodeSearcher.searchFrom(plan.getRoot())
                 .where(node -> {
                     if (!(node instanceof ProjectNode)) {
@@ -545,7 +548,8 @@ public abstract class AbstractTestQueryFramework
                         return false;
                     }
                     TableScanNode tableScanNode = (TableScanNode) filterNode.getSource();
-                    return tablePredicate.test(tableScanNode.getTable().getConnectorHandle());
+                    TableMetadata tableMetadata = getTableMetadata(tableScanNode.getTable());
+                    return tableMetadata.getQualifiedName().equals(catalogSchemaTableName);
                 })
                 .findOnlyElement()
                 .getId();
@@ -558,6 +562,22 @@ public abstract class AbstractTestQueryFramework
                 .stream()
                 .filter(summary -> nodeId.equals(summary.getPlanNodeId()) && summary.getOperatorType().equals("ScanFilterAndProjectOperator"))
                 .collect(MoreCollectors.onlyElement());
+    }
+
+    private TableMetadata getTableMetadata(TableHandle tableHandle)
+    {
+        return inTransaction(getSession(), transactionSession -> {
+            // metadata.getCatalogHandle() registers the catalog for the transaction
+            getQueryRunner().getMetadata().getCatalogHandle(transactionSession, tableHandle.getCatalogName().getCatalogName());
+            return getQueryRunner().getMetadata().getTableMetadata(transactionSession, tableHandle);
+        });
+    }
+
+    private <T> T inTransaction(Session session, Function<Session, T> transactionSessionConsumer)
+    {
+        return transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
+                .singleStatement()
+                .execute(session, transactionSessionConsumer);
     }
 
     @CanIgnoreReturnValue
