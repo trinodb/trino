@@ -199,7 +199,8 @@ public abstract class BaseTestHiveInsertOverwrite
                         .row(2L)
                         .build());
 
-        query(format("INSERT INTO %s values('POLAND', 'Overwrite', 25, 5)", testTable))
+        computeActual(format("INSERT INTO %s values('POLAND', 'Overwrite', 25, 5)", testTable));
+        query(format("SELECT count(*) FROM %s WHERE regionkey = 5", testTable))
                 .assertThat()
                 .skippingTypesCheck()
                 .containsAll(resultBuilder(getSession())
