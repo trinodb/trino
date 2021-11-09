@@ -2740,6 +2740,23 @@ public abstract class BaseIcebergConnectorTest
         testRepartitionData(false, partitioning, expectedFiles);
     }
 
+    @DataProvider
+    public Object[][] repartitioningDataProvider()
+    {
+        return new Object[][] {
+                // identity partitioning column
+                {"'orderstatus'", 3},
+                // bucketing
+                {"'bucket(custkey, 13)'", 13},
+                // varchar-based
+                {"'truncate(comment, 1)'", 35},
+                // complex; would exceed 100 open writers limit in IcebergPageSink without write repartitioning
+                {"'bucket(custkey, 4)', 'truncate(comment, 1)'", 131},
+                // same column multiple times
+                {"'truncate(comment, 1)', 'orderstatus', 'bucket(comment, 2)'", 180},
+        };
+    }
+
     private void testRepartitionData(boolean ctas, String partitioning, int expectedFiles)
     {
         String tableName = "repartition_" +
@@ -2773,23 +2790,6 @@ public abstract class BaseIcebergConnectorTest
                 .matches("VALUES BIGINT '" + expectedFiles + "'");
 
         assertUpdate("DROP TABLE " + tableName);
-    }
-
-    @DataProvider
-    public Object[][] repartitioningDataProvider()
-    {
-        return new Object[][] {
-                // identity partitioning column
-                {"'orderstatus'", 3},
-                // bucketing
-                {"'bucket(custkey, 13)'", 13},
-                // varchar-based
-                {"'truncate(comment, 1)'", 35},
-                // complex; would exceed 100 open writers limit in IcebergPageSink without write repartitioning
-                {"'bucket(custkey, 4)', 'truncate(comment, 1)'", 131},
-                // same column multiple times
-                {"'truncate(comment, 1)', 'orderstatus', 'bucket(comment, 2)'", 180},
-        };
     }
 
     @Test(dataProvider = "testDataMappingSmokeTestDataProvider")
