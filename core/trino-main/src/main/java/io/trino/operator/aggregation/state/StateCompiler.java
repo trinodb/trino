@@ -38,6 +38,7 @@ import io.trino.array.SliceBigArray;
 import io.trino.operator.aggregation.GroupedAccumulator;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateFactory;
 import io.trino.spi.function.AccumulatorStateMetadata;
 import io.trino.spi.function.AccumulatorStateSerializer;
@@ -77,9 +78,11 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.constantClass;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantNull;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantNumber;
+import static io.airlift.bytecode.expression.BytecodeExpressions.constantString;
 import static io.airlift.bytecode.expression.BytecodeExpressions.defaultValue;
 import static io.airlift.bytecode.expression.BytecodeExpressions.equal;
 import static io.airlift.bytecode.expression.BytecodeExpressions.getStatic;
+import static io.airlift.bytecode.expression.BytecodeExpressions.isNull;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -91,6 +94,7 @@ import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static io.trino.util.CompilerUtils.defineClass;
 import static io.trino.util.CompilerUtils.makeClassName;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class StateCompiler
@@ -447,14 +451,71 @@ public final class StateCompiler
 
         // Generate fields
         List<StateField> fields = enumerateFields(clazz, fieldTypes);
+        List<FieldDefinition> fieldDefinitions = new ArrayList<>();
         for (StateField field : fields) {
-            generateField(definition, constructor, field);
+            fieldDefinitions.add(generateField(definition, constructor, field));
         }
 
         constructor.getBody()
                 .ret();
 
+        generateCopy(definition, fields, fieldDefinitions);
+
         return defineClass(definition, clazz, classLoader);
+    }
+
+    private static void generateCopy(ClassDefinition definition, List<StateField> fields, List<FieldDefinition> fieldDefinitions)
+    {
+        MethodDefinition copy = definition.declareMethod(a(PUBLIC), "copy", type(AccumulatorState.class));
+        Variable thisVariable = copy.getThis();
+        BytecodeBlock body = copy.getBody();
+
+        List<BytecodeExpression> fieldCopyExpressions = new ArrayList<>();
+        for (int i = 0; i < fields.size(); i++) {
+            Optional<BytecodeExpression> fieldCopy = copyField(thisVariable, fieldDefinitions.get(i), fields.get(i).getType());
+            if (fieldCopy.isEmpty()) {
+                body
+                        .append(newInstance(UnsupportedOperationException.class, constantString(format("copy not supported for %s (cannot copy field of type %s)", definition.getName(), fields.get(i).getType()))))
+                        .throwObject();
+
+                return;
+            }
+
+            fieldCopyExpressions.add(fieldCopy.get());
+        }
+
+        Variable instanceCopy = copy.getScope().declareVariable(definition.getType(), "instanceCopy");
+        body.append(instanceCopy.set(newInstance(definition.getType())));
+
+        for (int i = 0; i < fieldDefinitions.size(); i++) {
+            FieldDefinition fieldDefinition = fieldDefinitions.get(i);
+            Class<?> type = fields.get(i).getType();
+
+            if (type == long.class || type == double.class || type == boolean.class || type == byte.class || type == int.class) {
+                body.append(instanceCopy.setField(fieldDefinition, fieldCopyExpressions.get(i)));
+            }
+            else {
+                body.append(new IfStatement("if field value is null")
+                        .condition(isNull(thisVariable.getField(fieldDefinition)))
+                        .ifTrue(instanceCopy.setField(fieldDefinition, thisVariable.getField(fieldDefinition)))
+                        .ifFalse(instanceCopy.setField(fieldDefinition, fieldCopyExpressions.get(i))));
+            }
+        }
+        copy.getBody()
+                .append(instanceCopy.ret());
+    }
+
+    private static Optional<BytecodeExpression> copyField(Variable thisVariable, FieldDefinition fieldDefinition, Class<?> type)
+    {
+        if (type == long.class || type == double.class || type == boolean.class || type == byte.class || type == int.class) {
+            return Optional.of(thisVariable.getField(fieldDefinition));
+        }
+
+        if (type == Block.class) {
+            return Optional.of(thisVariable.getField(fieldDefinition).invoke("copyRegion", Block.class, constantInt(0), thisVariable.getField(fieldDefinition).invoke("getPositionCount", int.class)));
+        }
+
+        return Optional.empty();
     }
 
     private static FieldDefinition generateInstanceSize(ClassDefinition definition)
@@ -523,7 +584,7 @@ public final class StateCompiler
         return defineClass(definition, clazz, classLoader);
     }
 
-    private static void generateField(ClassDefinition definition, MethodDefinition constructor, StateField stateField)
+    private static FieldDefinition generateField(ClassDefinition definition, MethodDefinition constructor, StateField stateField)
     {
         FieldDefinition field = definition.declareField(a(PRIVATE), UPPER_CAMEL.to(LOWER_CAMEL, stateField.getName()) + "Value", stateField.getType());
 
@@ -541,6 +602,8 @@ public final class StateCompiler
 
         constructor.getBody()
                 .append(constructor.getThis().setField(field, stateField.initialValueExpression()));
+
+        return field;
     }
 
     private static FieldDefinition generateGroupedField(ClassDefinition definition, MethodDefinition constructor, MethodDefinition ensureCapacity, StateField stateField)
@@ -662,6 +725,11 @@ public final class StateCompiler
 
         for (Method method : clazz.getMethods()) {
             if (Modifier.isStatic(method.getModifiers())) {
+                continue;
+            }
+
+            if (method.getName().equals("copy")) {
+                checkArgument(method.getParameterTypes().length == 0, "copy may not have parameters");
                 continue;
             }
 

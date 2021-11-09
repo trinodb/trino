@@ -15,6 +15,7 @@ package io.trino.operator.aggregation.state;
 
 import io.trino.array.ObjectBigArray;
 import io.trino.operator.aggregation.KeyValuePairs;
+import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateFactory;
 import io.trino.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
@@ -138,6 +139,14 @@ public class KeyValuePairsStateFactory
             this.valueType = valueType;
         }
 
+        // for copying
+        private SingleState(Type keyType, Type valueType, KeyValuePairs pair)
+        {
+            this.keyType = keyType;
+            this.valueType = valueType;
+            this.pair = pair;
+        }
+
         @Override
         public KeyValuePairs get()
         {
@@ -175,6 +184,16 @@ public class KeyValuePairsStateFactory
                 estimatedSize += pair.estimatedInMemorySize();
             }
             return estimatedSize;
+        }
+
+        @Override
+        public AccumulatorState copy()
+        {
+            KeyValuePairs pairCopy = null;
+            if (pair != null) {
+                pairCopy = pair.copy();
+            }
+            return new SingleState(keyType, valueType, pairCopy);
         }
     }
 }
