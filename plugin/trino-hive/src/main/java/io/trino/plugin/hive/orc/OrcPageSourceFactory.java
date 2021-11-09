@@ -383,7 +383,8 @@ public class OrcPageSourceFactory
                             configuration,
                             hdfsEnvironment,
                             info,
-                            bucketNumber));
+                            bucketNumber,
+                            systemMemoryUsage));
 
             Optional<Long> originalFileRowId = acidInfo
                     .filter(OrcPageSourceFactory::hasOriginalFilesAndDeleteDeltas)
