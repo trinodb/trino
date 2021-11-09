@@ -58,6 +58,7 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
 import static io.trino.plugin.iceberg.IcebergUtil.loadIcebergTable;
+import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.tpch.TpchTable.NATION;
@@ -154,7 +155,8 @@ public class TestIcebergSplitSource
                         return TupleDomain.all();
                     }
                 },
-                new Duration(2, SECONDS));
+                new Duration(2, SECONDS),
+                alwaysTrue());
 
         ImmutableList.Builder<IcebergSplit> splits = ImmutableList.builder();
         while (!splitSource.isFinished()) {
@@ -177,15 +179,15 @@ public class TestIcebergSplitSource
         IcebergColumnHandle bigintColumn = IcebergColumnHandle.primitiveIcebergColumnHandle(1, "name", BIGINT, Optional.empty());
         assertFalse(IcebergSplitSource.partitionMatchesPredicate(
                 ImmutableSet.of(bigintColumn),
-                ImmutableMap.of(1, Optional.of("1000")),
+                () -> ImmutableMap.of(bigintColumn, NullableValue.of(BIGINT, 1000L)),
                 TupleDomain.fromFixedValues(ImmutableMap.of(bigintColumn, NullableValue.of(BIGINT, 100L)))));
         assertTrue(IcebergSplitSource.partitionMatchesPredicate(
                 ImmutableSet.of(bigintColumn),
-                ImmutableMap.of(1, Optional.of("1000")),
+                () -> ImmutableMap.of(bigintColumn, NullableValue.of(BIGINT, 1000L)),
                 TupleDomain.fromFixedValues(ImmutableMap.of(bigintColumn, NullableValue.of(BIGINT, 1000L)))));
         assertFalse(IcebergSplitSource.partitionMatchesPredicate(
                 ImmutableSet.of(bigintColumn),
-                ImmutableMap.of(1, Optional.of("1000")),
+                () -> ImmutableMap.of(bigintColumn, NullableValue.of(BIGINT, 1000L)),
                 TupleDomain.fromFixedValues(ImmutableMap.of(bigintColumn, NullableValue.asNull(BIGINT)))));
     }
 

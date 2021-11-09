@@ -2429,9 +2429,7 @@ public abstract class BaseIcebergConnectorTest
         verifySplitCount("SELECT * FROM " + tableName + " WHERE regionkey < 2", 2);
         verifySplitCount("SELECT * FROM " + tableName + " WHERE regionkey < 0", 0);
         verifySplitCount("SELECT * FROM " + tableName + " WHERE regionkey > 1 AND regionkey < 4", 2);
-
-        // TODO(https://github.com/trinodb/trino/issues/9309) should be 1
-        verifySplitCount("SELECT * FROM " + tableName + " WHERE regionkey % 5 = 3", 5);
+        verifySplitCount("SELECT * FROM " + tableName + " WHERE regionkey % 5 = 3", 1);
 
         assertUpdate("DROP TABLE " + tableName);
     }
