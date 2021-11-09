@@ -116,6 +116,16 @@ public class DictionaryBlock
         this.isSequentialIds = isSequentialIds;
     }
 
+    int[] getRawIds()
+    {
+        return ids;
+    }
+
+    int getRawIdsOffset()
+    {
+        return idsOffset;
+    }
+
     @Override
     public int getSliceLength(int position)
     {

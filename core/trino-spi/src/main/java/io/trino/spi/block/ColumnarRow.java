@@ -53,6 +53,9 @@ public final class ColumnarRow
 
     private static ColumnarRow toColumnarRow(DictionaryBlock dictionaryBlock)
     {
+        if (!dictionaryBlock.mayHaveNull()) {
+            return toColumnarRowFromDictionaryWithoutNulls(dictionaryBlock);
+        }
         // build a mapping from the old dictionary to a new dictionary with nulls removed
         Block dictionary = dictionaryBlock.getDictionary();
         int[] newDictionaryIndex = new int[dictionary.getPositionCount()];
@@ -79,6 +82,23 @@ public final class ColumnarRow
         Block[] fields = new Block[columnarRow.getFieldCount()];
         for (int i = 0; i < columnarRow.getFieldCount(); i++) {
             fields[i] = new DictionaryBlock(nonNullPositionCount, columnarRow.getField(i), dictionaryIds);
+        }
+        return new ColumnarRow(dictionaryBlock, fields);
+    }
+
+    private static ColumnarRow toColumnarRowFromDictionaryWithoutNulls(DictionaryBlock dictionaryBlock)
+    {
+        ColumnarRow columnarRow = toColumnarRow(dictionaryBlock.getDictionary());
+        Block[] fields = new Block[columnarRow.getFieldCount()];
+        for (int i = 0; i < fields.length; i++) {
+            // Reuse the dictionary ids array directly since no nulls are present
+            fields[i] = new DictionaryBlock(
+                    dictionaryBlock.getRawIdsOffset(),
+                    dictionaryBlock.getPositionCount(),
+                    columnarRow.getField(i),
+                    dictionaryBlock.getRawIds(),
+                    false,
+                    DictionaryId.randomDictionaryId());
         }
         return new ColumnarRow(dictionaryBlock, fields);
     }
