@@ -83,8 +83,6 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
-import static io.trino.SystemSessionProperties.PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS;
-import static io.trino.SystemSessionProperties.USE_PREFERRED_WRITE_PARTITIONING;
 import static io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
@@ -2749,17 +2747,10 @@ public abstract class BaseIcebergConnectorTest
                 "_" + partitioning.replaceAll("[^a-zA-Z0-9]", "") +
                 "_" + randomTableSuffix();
 
-        // Even if connector returns ConnectorNewTableLayout with partitioning defined, engine can still choose to ignore it.
-        Session obeyConnectorPartitioning = Session.builder(getSession())
-                .setSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, "true")
-                .setSystemProperty(PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS, "1")
-                .build();
-
         long rowCount = (long) computeScalar("SELECT count(*) FROM orders");
 
         if (ctas) {
             assertUpdate(
-                    obeyConnectorPartitioning,
                     "CREATE TABLE " + tableName + " WITH (partitioning = ARRAY[" + partitioning + "]) " +
                             "AS SELECT * FROM tpch.tiny.orders",
                     rowCount);
@@ -2770,7 +2761,7 @@ public abstract class BaseIcebergConnectorTest
                             "AS SELECT * FROM tpch.tiny.orders WITH NO DATA",
                     0);
             // Use source table big enough so that there will be multiple pages being written.
-            assertUpdate(obeyConnectorPartitioning, "INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.orders", rowCount);
+            assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.orders", rowCount);
         }
 
         // verify written data
