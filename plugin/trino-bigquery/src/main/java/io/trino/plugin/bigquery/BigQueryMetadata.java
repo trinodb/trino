@@ -135,6 +135,10 @@ public class BigQueryMetadata
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
         log.debug("listTables(session=%s, schemaName=%s)", session, schemaName);
+        if (schemaName.isPresent() && schemaName.get().equalsIgnoreCase(INFORMATION_SCHEMA)) {
+            return ImmutableList.of();
+        }
+
         // filter ambiguous schemas
         Optional<String> remoteSchema = schemaName.flatMap(schema -> bigQueryClient.toRemoteDataset(projectId, schema)
                 .filter(dataset -> !dataset.isAmbiguous())
