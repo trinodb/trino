@@ -2731,13 +2731,13 @@ public abstract class BaseIcebergConnectorTest
     @Test(dataProvider = "repartitioningDataProvider")
     public void testRepartitionDataOnCtas(String partitioning, int expectedFiles)
     {
-        testRepartitionData(true, partitioning, expectedFiles);
+        testRepartitionData(getSession(), "tpch.tiny.orders", true, partitioning, expectedFiles);
     }
 
     @Test(dataProvider = "repartitioningDataProvider")
     public void testRepartitionDataOnInsert(String partitioning, int expectedFiles)
     {
-        testRepartitionData(false, partitioning, expectedFiles);
+        testRepartitionData(getSession(), "tpch.tiny.orders", false, partitioning, expectedFiles);
     }
 
     @DataProvider
@@ -2757,39 +2757,43 @@ public abstract class BaseIcebergConnectorTest
         };
     }
 
-    private void testRepartitionData(boolean ctas, String partitioning, int expectedFiles)
+    private void testRepartitionData(Session session, String sourceRelation, boolean ctas, String partitioning, int expectedFiles)
     {
-        String tableName = "repartition_" +
+        String tableName = "repartition" +
+                "_" + sourceRelation.replaceAll("[^a-zA-Z0-9]", "") +
                 (ctas ? "ctas" : "insert") +
                 "_" + partitioning.replaceAll("[^a-zA-Z0-9]", "") +
                 "_" + randomTableSuffix();
 
-        long rowCount = (long) computeScalar("SELECT count(*) FROM orders");
+        long rowCount = (long) computeScalar(session, "SELECT count(*) FROM " + sourceRelation);
 
         if (ctas) {
             assertUpdate(
+                    session,
                     "CREATE TABLE " + tableName + " WITH (partitioning = ARRAY[" + partitioning + "]) " +
-                            "AS SELECT * FROM tpch.tiny.orders",
+                            "AS SELECT * FROM " + sourceRelation,
                     rowCount);
         }
         else {
             assertUpdate(
+                    session,
                     "CREATE TABLE " + tableName + " WITH (partitioning = ARRAY[" + partitioning + "]) " +
-                            "AS SELECT * FROM tpch.tiny.orders WITH NO DATA",
+                            "AS SELECT * FROM " + sourceRelation + " WITH NO DATA",
                     0);
             // Use source table big enough so that there will be multiple pages being written.
-            assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.orders", rowCount);
+            assertUpdate(session, "INSERT INTO " + tableName + " SELECT * FROM " + sourceRelation, rowCount);
         }
 
         // verify written data
-        assertThat(query("TABLE " + tableName))
-                .matches("TABLE orders");
+        assertThat(query(session, "TABLE " + tableName))
+                .skippingTypesCheck()
+                .matches("SELECT * FROM " + sourceRelation);
 
         // verify data files, i.e. repartitioning took place
-        assertThat(query("SELECT count(*) FROM \"" + tableName + "$files\""))
+        assertThat(query(session, "SELECT count(*) FROM \"" + tableName + "$files\""))
                 .matches("VALUES BIGINT '" + expectedFiles + "'");
 
-        assertUpdate("DROP TABLE " + tableName);
+        assertUpdate(session, "DROP TABLE " + tableName);
     }
 
     @Test(dataProvider = "testDataMappingSmokeTestDataProvider")
