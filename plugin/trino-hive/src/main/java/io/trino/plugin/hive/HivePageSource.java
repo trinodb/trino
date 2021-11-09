@@ -492,11 +492,14 @@ public class HivePageSource
                     fields[i] = new DictionaryBlock(nullBlocks[i], ids);
                 }
             }
-            boolean[] valueIsNull = new boolean[rowBlock.getPositionCount()];
-            for (int i = 0; i < rowBlock.getPositionCount(); i++) {
-                valueIsNull[i] = rowBlock.isNull(i);
+            boolean[] valueIsNull = null;
+            if (rowBlock.mayHaveNull()) {
+                valueIsNull = new boolean[rowBlock.getPositionCount()];
+                for (int i = 0; i < rowBlock.getPositionCount(); i++) {
+                    valueIsNull[i] = rowBlock.isNull(i);
+                }
             }
-            return RowBlock.fromFieldBlocks(valueIsNull.length, Optional.of(valueIsNull), fields);
+            return RowBlock.fromFieldBlocks(rowBlock.getPositionCount(), Optional.ofNullable(valueIsNull), fields);
         }
     }
 
