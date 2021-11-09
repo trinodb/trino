@@ -13,10 +13,14 @@
  */
 package io.trino.spi.block;
 
+import javax.annotation.Nullable;
+
 import static java.util.Objects.requireNonNull;
 
 public final class ColumnarRow
 {
+    private final int positionCount;
+    @Nullable
     private final Block nullCheckBlock;
     private final Block[] fields;
 
@@ -48,7 +52,7 @@ public final class ColumnarRow
             fieldBlocks[i] = rowBlock.getRawFieldBlocks()[i].getRegion(firstRowPosition, totalRowCount);
         }
 
-        return new ColumnarRow(block, fieldBlocks);
+        return new ColumnarRow(block.getPositionCount(), block, fieldBlocks);
     }
 
     private static ColumnarRow toColumnarRow(DictionaryBlock dictionaryBlock)
@@ -83,7 +87,13 @@ public final class ColumnarRow
         for (int i = 0; i < columnarRow.getFieldCount(); i++) {
             fields[i] = new DictionaryBlock(nonNullPositionCount, columnarRow.getField(i), dictionaryIds);
         }
-        return new ColumnarRow(dictionaryBlock, fields);
+
+        int positionCount = dictionaryBlock.getPositionCount();
+        if (nonNullPositionCount == positionCount) {
+            // no null rows are referenced in the dictionary, discard the null check block
+            dictionaryBlock = null;
+        }
+        return new ColumnarRow(positionCount, dictionaryBlock, fields);
     }
 
     private static ColumnarRow toColumnarRowFromDictionaryWithoutNulls(DictionaryBlock dictionaryBlock)
@@ -100,7 +110,7 @@ public final class ColumnarRow
                     false,
                     DictionaryId.randomDictionaryId());
         }
-        return new ColumnarRow(dictionaryBlock, fields);
+        return new ColumnarRow(dictionaryBlock.getPositionCount(), null, fields);
     }
 
     private static ColumnarRow toColumnarRow(RunLengthEncodedBlock rleBlock)
@@ -122,23 +132,29 @@ public final class ColumnarRow
                 fields[i] = new RunLengthEncodedBlock(nullSuppressedField, rleBlock.getPositionCount());
             }
         }
-        return new ColumnarRow(rleBlock, fields);
+        return new ColumnarRow(rleBlock.getPositionCount(), rleBlock, fields);
     }
 
-    private ColumnarRow(Block nullCheckBlock, Block[] fields)
+    private ColumnarRow(int positionCount, @Nullable Block nullCheckBlock, Block[] fields)
     {
-        this.nullCheckBlock = nullCheckBlock;
-        this.fields = fields.clone();
+        this.positionCount = positionCount;
+        this.nullCheckBlock = nullCheckBlock != null && nullCheckBlock.mayHaveNull() ? nullCheckBlock : null;
+        this.fields = fields;
     }
 
     public int getPositionCount()
     {
-        return nullCheckBlock.getPositionCount();
+        return positionCount;
+    }
+
+    public boolean mayHaveNull()
+    {
+        return nullCheckBlock != null;
     }
 
     public boolean isNull(int position)
     {
-        return nullCheckBlock.isNull(position);
+        return nullCheckBlock != null && nullCheckBlock.isNull(position);
     }
 
     public int getFieldCount()
