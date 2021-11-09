@@ -64,8 +64,12 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.ConnectorIdentity;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileStatus;
@@ -144,18 +148,21 @@ public class IcebergPageSourceProvider
     private final FileFormatDataSourceStats fileFormatDataSourceStats;
     private final OrcReaderOptions orcReaderOptions;
     private final ParquetReaderOptions parquetReaderOptions;
+    private final TypeManager typeManager;
 
     @Inject
     public IcebergPageSourceProvider(
             HdfsEnvironment hdfsEnvironment,
             FileFormatDataSourceStats fileFormatDataSourceStats,
             OrcReaderConfig orcReaderConfig,
-            ParquetReaderConfig parquetReaderConfig)
+            ParquetReaderConfig parquetReaderConfig,
+            TypeManager typeManager)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.fileFormatDataSourceStats = requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
         this.orcReaderOptions = requireNonNull(orcReaderConfig, "orcReaderConfig is null").toOrcReaderOptions();
         this.parquetReaderOptions = requireNonNull(parquetReaderConfig, "parquetReaderConfig is null").toParquetReaderOptions();
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
     @Override
@@ -248,7 +255,8 @@ public class IcebergPageSourceProvider
                                 .withLazyReadSmallRanges(getOrcLazyReadSmallRanges(session))
                                 .withNestedLazy(isOrcNestedLazy(session))
                                 .withBloomFiltersEnabled(isOrcBloomFiltersEnabled(session)),
-                        fileFormatDataSourceStats);
+                        fileFormatDataSourceStats,
+                        typeManager);
             case PARQUET:
                 return createParquetPageSource(
                         hdfsEnvironment,
@@ -279,7 +287,8 @@ public class IcebergPageSourceProvider
             List<IcebergColumnHandle> columns,
             TupleDomain<IcebergColumnHandle> effectivePredicate,
             OrcReaderOptions options,
-            FileFormatDataSourceStats stats)
+            FileFormatDataSourceStats stats,
+            TypeManager typeManager)
     {
         OrcDataSource orcDataSource = null;
         try {
@@ -338,17 +347,10 @@ public class IcebergPageSourceProvider
                 }
 
                 if (orcColumn != null) {
-                    Type readType;
-                    if (column.getType() == UUID) {
-                        if (!"UUID".equals(orcColumn.getAttributes().get(ICEBERG_BINARY_TYPE))) {
-                            throw new TrinoException(ICEBERG_BAD_DATA, format("Expected ORC column for UUID data to be annotated with %s=UUID: %s", ICEBERG_BINARY_TYPE, orcColumn));
-                        }
-                        // ORC spec doesn't have UUID
-                        // TODO read into Int128ArrayBlock for better performance when operating on read values
-                        readType = VARBINARY;
-                    }
-                    else {
-                        readType = column.getType();
+                    Type readType = getOrcReadType(column.getType(), typeManager);
+
+                    if (column.getType() == UUID && !"UUID".equals(orcColumn.getAttributes().get(ICEBERG_BINARY_TYPE))) {
+                        throw new TrinoException(ICEBERG_BAD_DATA, format("Expected ORC column for UUID data to be annotated with %s=UUID: %s", ICEBERG_BINARY_TYPE, orcColumn));
                     }
 
                     List<List<Integer>> fieldIdProjections = fileColumnsByIcebergId.isEmpty() ?
@@ -463,6 +465,33 @@ public class IcebergPageSourceProvider
         String icebergId = column.getAttributes().get(ORC_ICEBERG_ID_KEY);
         verify(icebergId != null, format("column %s does not have %s property", column, ORC_ICEBERG_ID_KEY));
         return Integer.valueOf(icebergId);
+    }
+
+    private static Type getOrcReadType(Type columnType, TypeManager typeManager)
+    {
+        if (columnType == UUID) {
+            // ORC spec doesn't have UUID
+            // TODO read into Int128ArrayBlock for better performance when operating on read values
+            // TODO: Validate that the OrcColumn attribute ICEBERG_BINARY_TYPE is equal to "UUID"
+            return VARBINARY;
+        }
+
+        if (columnType instanceof ArrayType) {
+            return new ArrayType(getOrcReadType(((ArrayType) columnType).getElementType(), typeManager));
+        }
+        if (columnType instanceof MapType) {
+            MapType mapType = (MapType) columnType;
+            Type keyType = getOrcReadType(mapType.getKeyType(), typeManager);
+            Type valueType = getOrcReadType(mapType.getValueType(), typeManager);
+            return new MapType(keyType, valueType, typeManager.getTypeOperators());
+        }
+        if (columnType instanceof RowType) {
+            return RowType.from(((RowType) columnType).getFields().stream()
+                    .map(field -> new RowType.Field(field.getName(), getOrcReadType(field.getType(), typeManager)))
+                    .collect(toImmutableList()));
+        }
+
+        return columnType;
     }
 
     private static class IdBasedFieldMapperFactory

@@ -590,6 +590,26 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testNestedUuid()
+    {
+        assertUpdate("CREATE TABLE test_nested_uuid (int_t int, row_t row(uuid_t uuid, int_t int), map_t map(int, uuid), array_t array(uuid))");
+
+        String uuid = "UUID '406caec7-68b9-4778-81b2-a12ece70c8b1'";
+        String value = format("VALUES (2, row(%1$s, 1), map(array[1], array[%1$s]), array[%1$s, %1$s])", uuid);
+        assertUpdate("INSERT INTO test_nested_uuid " + value, 1);
+
+        assertThat(query("SELECT row_t.int_t, row_t.uuid_t FROM test_nested_uuid"))
+                .matches("VALUES (1, UUID '406caec7-68b9-4778-81b2-a12ece70c8b1')");
+        assertThat(query("SELECT map_t[1] FROM test_nested_uuid"))
+                .matches("VALUES UUID '406caec7-68b9-4778-81b2-a12ece70c8b1'");
+        assertThat(query("SELECT array_t FROM test_nested_uuid"))
+                .matches("VALUES ARRAY[UUID '406caec7-68b9-4778-81b2-a12ece70c8b1', UUID '406caec7-68b9-4778-81b2-a12ece70c8b1']");
+
+        assertQuery("SELECT row_t.int_t FROM test_nested_uuid WHERE row_t.uuid_t = UUID '406caec7-68b9-4778-81b2-a12ece70c8b1'", "VALUES 1");
+        assertQuery("SELECT int_t FROM test_nested_uuid WHERE row_t.uuid_t = UUID '406caec7-68b9-4778-81b2-a12ece70c8b1'", "VALUES 2");
+    }
+
+    @Test
     public void testCreatePartitionedTable()
     {
         assertUpdate("" +
