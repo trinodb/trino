@@ -100,12 +100,11 @@ public final class MapFromEntriesFunction
                 throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "map key cannot be null");
             }
 
-            if (uniqueKeys.contains(rowBlock, 0)) {
+            if (!uniqueKeys.add(rowBlock, 0)) {
                 mapBlockBuilder.closeEntry();
                 pageBuilder.declarePosition();
                 throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Duplicate keys (%s) are not allowed", keyType.getObjectValue(session, rowBlock, 0)));
             }
-            uniqueKeys.add(rowBlock, 0);
 
             keyType.appendTo(rowBlock, 0, resultBuilder);
             valueType.appendTo(rowBlock, 1, resultBuilder);
