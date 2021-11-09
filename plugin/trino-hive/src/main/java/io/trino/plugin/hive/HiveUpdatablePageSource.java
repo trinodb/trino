@@ -126,8 +126,10 @@ public class HiveUpdatablePageSource
     private void deleteRowsInternal(ColumnarRow columnarRow)
     {
         int positionCount = columnarRow.getPositionCount();
-        for (int position = 0; position < positionCount; position++) {
-            checkArgument(!columnarRow.isNull(position), "In the delete rowIds, found null row at position %s", position);
+        if (columnarRow.mayHaveNull()) {
+            for (int position = 0; position < positionCount; position++) {
+                checkArgument(!columnarRow.isNull(position), "In the delete rowIds, found null row at position %s", position);
+            }
         }
 
         Block originalTransactionChannel = columnarRow.getField(ORIGINAL_TRANSACTION_CHANNEL);
