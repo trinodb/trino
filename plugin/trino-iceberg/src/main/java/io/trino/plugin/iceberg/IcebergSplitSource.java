@@ -20,11 +20,14 @@ import com.google.common.collect.Iterators;
 import com.google.common.collect.Streams;
 import io.airlift.units.Duration;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPartitionHandle;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
+import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
@@ -42,12 +45,16 @@ import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
 
+import static com.google.common.base.Suppliers.memoize;
+import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.Sets.intersection;
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
 import static io.trino.plugin.iceberg.IcebergSplitManager.ICEBERG_DOMAIN_COMPACTION_THRESHOLD;
 import static io.trino.plugin.iceberg.IcebergTypes.convertIcebergValueToTrino;
@@ -74,6 +81,7 @@ public class IcebergSplitSource
     private final DynamicFilter dynamicFilter;
     private final long dynamicFilteringWaitTimeoutMillis;
     private final Stopwatch dynamicFilterWaitStopwatch;
+    private final Constraint constraint;
 
     private CloseableIterable<CombinedScanTask> combinedScanIterable;
     private Iterator<FileScanTask> fileScanIterator;
@@ -84,7 +92,8 @@ public class IcebergSplitSource
             Set<IcebergColumnHandle> identityPartitionColumns,
             TableScan tableScan,
             DynamicFilter dynamicFilter,
-            Duration dynamicFilteringWaitTimeout)
+            Duration dynamicFilteringWaitTimeout,
+            Constraint constraint)
     {
         this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
         this.identityPartitionColumns = requireNonNull(identityPartitionColumns, "identityPartitionColumns is null");
@@ -93,6 +102,7 @@ public class IcebergSplitSource
         this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
         this.dynamicFilteringWaitTimeoutMillis = requireNonNull(dynamicFilteringWaitTimeout, "dynamicFilteringWaitTimeout is null").toMillis();
         this.dynamicFilterWaitStopwatch = Stopwatch.createStarted();
+        this.constraint = requireNonNull(constraint, "constraint is null");
     }
 
     @Override
@@ -153,10 +163,23 @@ public class IcebergSplitSource
 
             IcebergSplit icebergSplit = toIcebergSplit(scanTask);
 
+            Supplier<Map<ColumnHandle, NullableValue>> partitionValues = memoize(() -> {
+                Map<ColumnHandle, NullableValue> bindings = new HashMap<>();
+                for (IcebergColumnHandle partitionColumn : identityPartitionColumns) {
+                    Object partitionValue = deserializePartitionValue(
+                            partitionColumn.getType(),
+                            icebergSplit.getPartitionKeys().get(partitionColumn.getId()).orElse(null),
+                            partitionColumn.getName());
+                    NullableValue bindingValue = new NullableValue(partitionColumn.getType(), partitionValue);
+                    bindings.put(partitionColumn, bindingValue);
+                }
+                return bindings;
+            });
+
             if (!dynamicFilterPredicate.isAll() && !dynamicFilterPredicate.equals(pushedDownDynamicFilterPredicate)) {
                 if (!partitionMatchesPredicate(
                         identityPartitionColumns,
-                        icebergSplit.getPartitionKeys(),
+                        partitionValues,
                         dynamicFilterPredicate)) {
                     continue;
                 }
@@ -168,6 +191,9 @@ public class IcebergSplitSource
                         scanTask.file().nullValueCounts())) {
                     continue;
                 }
+            }
+            if (!partitionMatchesConstraint(identityPartitionColumns, partitionValues, constraint)) {
+                continue;
             }
             splits.add(icebergSplit);
         }
@@ -268,10 +294,25 @@ public class IcebergSplitSource
         return Domain.create(ValueSet.ofRanges(statisticsRange), mayContainNulls);
     }
 
+    static boolean partitionMatchesConstraint(
+            Set<IcebergColumnHandle> identityPartitionColumns,
+            Supplier<Map<ColumnHandle, NullableValue>> partitionValues,
+            Constraint constraint)
+    {
+        // We use Constraint just to pass functional predicate here from DistributedExecutionPlanner
+        verify(constraint.getSummary().isAll());
+
+        if (constraint.predicate().isEmpty() ||
+                constraint.getPredicateColumns().map(predicateColumns -> intersection(predicateColumns, identityPartitionColumns).isEmpty()).orElse(false)) {
+            return true;
+        }
+        return constraint.predicate().get().test(partitionValues.get());
+    }
+
     @VisibleForTesting
     static boolean partitionMatchesPredicate(
             Set<IcebergColumnHandle> identityPartitionColumns,
-            Map<Integer, Optional<String>> partitionKeys,
+            Supplier<Map<ColumnHandle, NullableValue>> partitionValues,
             TupleDomain<IcebergColumnHandle> dynamicFilterPredicate)
     {
         if (dynamicFilterPredicate.isNone()) {
@@ -282,8 +323,7 @@ public class IcebergSplitSource
         for (IcebergColumnHandle partitionColumn : identityPartitionColumns) {
             Domain allowedDomain = domains.get(partitionColumn);
             if (allowedDomain != null) {
-                Object partitionValue = deserializePartitionValue(partitionColumn.getType(), partitionKeys.get(partitionColumn.getId()).orElse(null), partitionColumn.getName());
-                if (!allowedDomain.includesNullableValue(partitionValue)) {
+                if (!allowedDomain.includesNullableValue(partitionValues.get().get(partitionColumn).getValue())) {
                     return false;
                 }
             }
