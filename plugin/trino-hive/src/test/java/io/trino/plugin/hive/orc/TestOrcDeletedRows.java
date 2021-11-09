@@ -33,6 +33,7 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -167,7 +168,8 @@ public class TestOrcDeletedRows
                 configuration,
                 HDFS_ENVIRONMENT,
                 acidInfo,
-                OptionalInt.of(0));
+                OptionalInt.of(0),
+                newSimpleAggregatedMemoryContext());
     }
 
     private Page createTestPage(int originalTransactionStart, int originalTransactionEnd)
