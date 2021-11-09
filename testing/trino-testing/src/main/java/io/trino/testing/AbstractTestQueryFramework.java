@@ -155,7 +155,12 @@ public abstract class AbstractTestQueryFramework
 
     protected Object computeScalar(@Language("SQL") String sql)
     {
-        return computeActual(sql).getOnlyValue();
+        return computeScalar(getSession(), sql);
+    }
+
+    protected Object computeScalar(Session session, @Language("SQL") String sql)
+    {
+        return computeActual(session, sql).getOnlyValue();
     }
 
     protected AssertProvider<QueryAssert> query(@Language("SQL") String sql)
