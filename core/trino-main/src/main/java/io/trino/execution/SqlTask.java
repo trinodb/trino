@@ -379,10 +379,11 @@ public class SqlTask
 
     private TaskInfo createTaskInfo(TaskHolder taskHolder)
     {
+        // create task status first to prevent potentially seeing incomplete stats for a done task state
+        TaskStatus taskStatus = createTaskStatus(taskHolder);
         TaskStats taskStats = getTaskStats(taskHolder);
         Set<PlanNodeId> noMoreSplits = getNoMoreSplits(taskHolder);
 
-        TaskStatus taskStatus = createTaskStatus(taskHolder);
         return new TaskInfo(
                 taskStatus,
                 lastHeartbeat.get(),
