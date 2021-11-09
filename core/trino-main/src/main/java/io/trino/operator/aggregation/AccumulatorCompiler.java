@@ -34,6 +34,7 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ColumnarRow;
+import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateFactory;
 import io.trino.spi.function.AccumulatorStateSerializer;
 import io.trino.spi.function.WindowIndex;
@@ -65,6 +66,7 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.constantLong;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantString;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeDynamic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
+import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
 import static io.airlift.bytecode.expression.BytecodeExpressions.not;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import static io.trino.operator.aggregation.AggregationMetadata.countInputChannels;
@@ -151,7 +153,11 @@ public final class AccumulatorCompiler
                 lambdaProviderFields,
                 grouped);
 
+        generatePrivateConstructor(definition);
+
         // Generate methods
+        generateCopy(definition, stateFieldAndDescriptors, lambdaProviderFields, maskChannelField, inputChannelFields);
+
         generateAddInput(
                 definition,
                 stateFields,
@@ -1054,6 +1060,57 @@ public final class AccumulatorCompiler
             body.append(thisVariable.setField(stateField, stateFactory.invoke(createState, Object.class).cast(stateField.getType())));
         }
         body.ret();
+    }
+
+    private static void generatePrivateConstructor(ClassDefinition definition)
+    {
+        MethodDefinition method = definition.declareConstructor(a(PRIVATE));
+
+        BytecodeBlock body = method.getBody();
+        body.comment("super();")
+                .append(method.getThis())
+                .invokeConstructor(Object.class)
+                .ret();
+    }
+
+    private static void generateCopy(
+            ClassDefinition definition,
+            List<StateFieldAndDescriptor> stateFieldsAndDescriptors,
+            List<FieldDefinition> lambdaProviderFields,
+            FieldDefinition maskChannelField,
+            List<FieldDefinition> inputChannelFields)
+    {
+        MethodDefinition copy = definition.declareMethod(a(PUBLIC), "copy", type(Accumulator.class));
+        Variable thisVariable = copy.getThis();
+
+        Variable instanceCopy = copy.getScope().declareVariable(definition.getType(), "instanceCopy");
+        copy.getBody().append(instanceCopy.set(newInstance(definition.getType())));
+
+        for (StateFieldAndDescriptor descriptor : stateFieldsAndDescriptors) {
+            FieldDefinition stateSerializerField = descriptor.getStateSerializerField();
+            FieldDefinition stateFactoryField = descriptor.getStateFactoryField();
+            FieldDefinition stateField = descriptor.getStateField();
+            copy.getBody()
+                    .append(instanceCopy.setField(stateSerializerField, thisVariable.getField(stateSerializerField)))
+                    .append(instanceCopy.setField(stateFactoryField, thisVariable.getField(stateFactoryField)))
+                    .append(instanceCopy.setField(stateField, thisVariable.getField(stateField).invoke("copy", AccumulatorState.class, ImmutableList.of()).cast(stateField.getType())));
+        }
+
+        for (FieldDefinition lambdaProviderField : lambdaProviderFields) {
+            copy.getBody()
+                    .append(instanceCopy.setField(lambdaProviderField, thisVariable.getField(lambdaProviderField)));
+        }
+
+        copy.getBody()
+                .append(instanceCopy.setField(maskChannelField, thisVariable.getField(maskChannelField)));
+
+        for (FieldDefinition inputChannelField : inputChannelFields) {
+            copy.getBody()
+                    .append(instanceCopy.setField(inputChannelField, thisVariable.getField(inputChannelField)));
+        }
+
+        copy.getBody()
+                .append(instanceCopy.ret());
     }
 
     private static BytecodeExpression generateRequireNotNull(Variable variable)

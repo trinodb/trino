@@ -15,6 +15,7 @@ package io.trino.operator.aggregation.state;
 
 import io.trino.array.ObjectBigArray;
 import io.trino.operator.aggregation.TypedHeap;
+import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateFactory;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -95,6 +96,14 @@ public class MinMaxNStateFactory
         private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleMinMaxNState.class).instanceSize();
         private TypedHeap typedHeap;
 
+        public SingleMinMaxNState() {}
+
+        // for copying
+        private SingleMinMaxNState(TypedHeap typedHeap)
+        {
+            this.typedHeap = typedHeap;
+        }
+
         @Override
         public long getEstimatedSize()
         {
@@ -120,6 +129,16 @@ public class MinMaxNStateFactory
         @Override
         public void addMemoryUsage(long memory)
         {
+        }
+
+        @Override
+        public AccumulatorState copy()
+        {
+            TypedHeap typedHeapCopy = null;
+            if (typedHeap != null) {
+                typedHeapCopy = typedHeap.copy();
+            }
+            return new SingleMinMaxNState(typedHeapCopy);
         }
     }
 }
