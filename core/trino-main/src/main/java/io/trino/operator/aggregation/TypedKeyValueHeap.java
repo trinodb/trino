@@ -57,6 +57,19 @@ public class TypedKeyValueHeap
         this.valueBlockBuilder = valueType.createBlockBuilder(null, capacity);
     }
 
+    // for copying
+    private TypedKeyValueHeap(MethodHandle keyGreaterThan, Type keyType, Type valueType, int capacity, int positionCount, int[] heapIndex, BlockBuilder keyBlockBuilder, BlockBuilder valueBlockBuilder)
+    {
+        this.keyGreaterThan = keyGreaterThan;
+        this.keyType = keyType;
+        this.valueType = valueType;
+        this.capacity = capacity;
+        this.positionCount = positionCount;
+        this.heapIndex = heapIndex;
+        this.keyBlockBuilder = keyBlockBuilder;
+        this.valueBlockBuilder = valueBlockBuilder;
+    }
+
     public static Type getSerializedType(Type keyType, Type valueType)
     {
         return RowType.anonymous(ImmutableList.of(BIGINT, new ArrayType(keyType), new ArrayType(valueType)));
@@ -233,5 +246,26 @@ public class TypedKeyValueHeap
             Throwables.throwIfUnchecked(throwable);
             throw new RuntimeException(throwable);
         }
+    }
+
+    public TypedKeyValueHeap copy()
+    {
+        BlockBuilder keyBlockBuilderCopy = null;
+        if (keyBlockBuilder != null) {
+            keyBlockBuilderCopy = (BlockBuilder) keyBlockBuilder.copyRegion(0, keyBlockBuilder.getPositionCount());
+        }
+        BlockBuilder valueBlockBuilderCopy = null;
+        if (valueBlockBuilder != null) {
+            valueBlockBuilderCopy = (BlockBuilder) valueBlockBuilder.copyRegion(0, valueBlockBuilder.getPositionCount());
+        }
+        return new TypedKeyValueHeap(
+                keyGreaterThan,
+                keyType,
+                valueType,
+                capacity,
+                positionCount,
+                heapIndex.clone(),
+                keyBlockBuilderCopy,
+                valueBlockBuilderCopy);
     }
 }

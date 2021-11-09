@@ -11,14 +11,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.spi.function;
+package io.trino.operator.aggregation;
 
-public interface AccumulatorState
+import io.trino.spi.block.BlockBuilder;
+
+public class BlockBuilderCopier
 {
-    long getEstimatedSize();
+    private BlockBuilderCopier() {}
 
-    default AccumulatorState copy()
+    public static BlockBuilder copyBlockBuilder(BlockBuilder blockBuilder)
     {
-        throw new UnsupportedOperationException("copy not implemented for " + getClass());
+        if (blockBuilder == null) {
+            return null;
+        }
+
+        BlockBuilder copy = blockBuilder.newBlockBuilderLike(null);
+        for (int i = 0; i < blockBuilder.getPositionCount(); i++) {
+            copy.appendStructure(blockBuilder.getSingleValueBlock(i));
+        }
+
+        return copy;
     }
 }

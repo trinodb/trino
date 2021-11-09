@@ -279,6 +279,12 @@ public class GenericAccumulatorFactory
         }
 
         @Override
+        public Accumulator copy()
+        {
+            return accumulator.copy();
+        }
+
+        @Override
         public void addInput(Page page)
         {
             // 1. filter out positions based on mask, if present
@@ -506,6 +512,12 @@ public class GenericAccumulatorFactory
         public Type getIntermediateType()
         {
             throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Accumulator copy()
+        {
+            return accumulator.copy();
         }
 
         @Override
