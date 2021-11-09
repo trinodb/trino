@@ -84,8 +84,7 @@ public final class ArrayDistinctFunction
 
         BlockBuilder distinctElementBlockBuilder = pageBuilder.getBlockBuilder(0);
         for (int i = 0; i < array.getPositionCount(); i++) {
-            if (!typedSet.contains(array, i)) {
-                typedSet.add(array, i);
+            if (typedSet.add(array, i)) {
                 distinctCount++;
                 type.appendTo(array, i, distinctElementBlockBuilder);
             }
