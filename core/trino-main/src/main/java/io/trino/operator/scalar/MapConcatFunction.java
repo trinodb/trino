@@ -160,8 +160,7 @@ public final class MapConcatFunction
         for (int idx = lastMapIndex - 1; idx > firstMapIndex; idx--) {
             map = maps[idx];
             for (int i = 0; i < map.getPositionCount(); i += 2) {
-                if (!typedSet.contains(map, i)) {
-                    typedSet.add(map, i);
+                if (typedSet.add(map, i)) {
                     keyType.appendTo(map, i, blockBuilder);
                     valueType.appendTo(map, i + 1, blockBuilder);
                 }

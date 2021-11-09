@@ -72,8 +72,7 @@ public final class ArrayUnionFunction
     private static void appendTypedArray(Block array, Type type, TypedSet typedSet, BlockBuilder blockBuilder)
     {
         for (int i = 0; i < array.getPositionCount(); i++) {
-            if (!typedSet.contains(array, i)) {
-                typedSet.add(array, i);
+            if (typedSet.add(array, i)) {
                 type.appendTo(array, i, blockBuilder);
             }
         }
