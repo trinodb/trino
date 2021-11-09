@@ -451,12 +451,16 @@ public class IcebergMetadata
                 .map(field -> requireNonNull(columnById.get(field.sourceId()), () -> "Cannot find source column for partitioning field " + field))
                 .distinct()
                 .collect(toImmutableList());
+        List<String> partitioningColumnNames = partitioningColumns.stream()
+                .map(IcebergColumnHandle::getName)
+                .collect(toImmutableList());
 
-        return Optional.of(new ConnectorNewTableLayout(
-                new IcebergPartitioningHandle(toPartitionFields(partitionSpec), partitioningColumns),
-                partitioningColumns.stream()
-                        .map(IcebergColumnHandle::getName)
-                        .collect(toImmutableList())));
+        if (partitionSpec.fields().stream().allMatch(field -> field.transform().isIdentity())) {
+            // Do not set partitioningHandle, to let engine determine whether to repartition data or not, on stat-based basis.
+            return Optional.of(new ConnectorNewTableLayout(partitioningColumnNames));
+        }
+        IcebergPartitioningHandle partitioningHandle = new IcebergPartitioningHandle(toPartitionFields(partitionSpec), partitioningColumns);
+        return Optional.of(new ConnectorNewTableLayout(partitioningHandle, partitioningColumnNames));
     }
 
     @Override
