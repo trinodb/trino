@@ -23,7 +23,9 @@ import io.trino.metadata.TableProperties;
 import io.trino.metadata.TableSchema;
 import io.trino.operator.StageExecutionDescriptor;
 import io.trino.server.DynamicFilterService;
+import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.split.SampledSplitSource;
 import io.trino.split.SplitManager;
 import io.trino.split.SplitSource;
@@ -67,6 +69,7 @@ import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.UpdateNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
+import io.trino.sql.tree.Expression;
 
 import javax.inject.Inject;
 
@@ -78,7 +81,9 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
 import static io.trino.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
+import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.spi.connector.DynamicFilter.EMPTY;
+import static io.trino.sql.ExpressionUtils.filterConjuncts;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static java.util.Objects.requireNonNull;
 
@@ -89,13 +94,15 @@ public class DistributedExecutionPlanner
     private final SplitManager splitManager;
     private final Metadata metadata;
     private final DynamicFilterService dynamicFilterService;
+    private final TypeAnalyzer typeAnalyzer;
 
     @Inject
-    public DistributedExecutionPlanner(SplitManager splitManager, Metadata metadata, DynamicFilterService dynamicFilterService)
+    public DistributedExecutionPlanner(SplitManager splitManager, Metadata metadata, DynamicFilterService dynamicFilterService, TypeAnalyzer typeAnalyzer)
     {
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
+        this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
     }
 
     public StageExecutionPlan plan(SubPlan root, Session session)
@@ -191,8 +198,10 @@ public class DistributedExecutionPlanner
 
         private Map<PlanNodeId, SplitSource> visitScanAndFilter(TableScanNode node, Optional<FilterNode> filter)
         {
-            List<DynamicFilters.Descriptor> dynamicFilters = filter
-                    .map(FilterNode::getPredicate)
+            Optional<Expression> filterPredicate = filter
+                    .map(FilterNode::getPredicate);
+
+            List<DynamicFilters.Descriptor> dynamicFilters = filterPredicate
                     .map(DynamicFilters::extractDynamicFilters)
                     .map(DynamicFilters.ExtractResult::getDynamicConjuncts)
                     .orElse(ImmutableList.of());
@@ -203,12 +212,19 @@ public class DistributedExecutionPlanner
                 dynamicFilter = dynamicFilterService.createDynamicFilter(session.getQueryId(), dynamicFilters, node.getAssignments(), typeProvider);
             }
 
+            Constraint constraint = filterPredicate
+                    .map(predicate -> filterConjuncts(metadata, predicate, expression -> !DynamicFilters.isDynamicFilter(expression)))
+                    .map(predicate -> new LayoutConstraintEvaluator(metadata, typeAnalyzer, session, typeProvider, node.getAssignments(), predicate))
+                    .map(evaluator -> new Constraint(TupleDomain.all(), evaluator::isCandidate, evaluator.getArguments())) // we are interested only in functional predicate here so we set the summary to ALL.
+                    .orElse(alwaysTrue());
+
             // get dataSource for table
             SplitSource splitSource = splitManager.getSplits(
                     session,
                     node.getTable(),
                     stageExecutionDescriptor.isScanGroupedExecution(node.getId()) ? GROUPED_SCHEDULING : UNGROUPED_SCHEDULING,
-                    dynamicFilter);
+                    dynamicFilter,
+                    constraint);
 
             splitSources.add(splitSource);
 
