@@ -40,12 +40,12 @@ public class RollbackToSnapshotProcedure
             String.class,
             Long.class);
 
-    private final TrinoCatalog catalog;
+    private final TrinoCatalogFactory catalogFactory;
 
     @Inject
     public RollbackToSnapshotProcedure(TrinoCatalogFactory catalogFactory)
     {
-        this.catalog = requireNonNull(catalogFactory, "catalogFactory is null").create();
+        this.catalogFactory = requireNonNull(catalogFactory, "catalogFactory is null");
     }
 
     @Override
@@ -64,7 +64,7 @@ public class RollbackToSnapshotProcedure
     public void rollbackToSnapshot(ConnectorSession clientSession, String schema, String table, Long snapshotId)
     {
         SchemaTableName schemaTableName = new SchemaTableName(schema, table);
-        Table icebergTable = catalog.loadTable(clientSession, schemaTableName);
+        Table icebergTable = catalogFactory.create().loadTable(clientSession, schemaTableName);
         icebergTable.rollback().toSnapshotId(snapshotId).commit();
     }
 }
