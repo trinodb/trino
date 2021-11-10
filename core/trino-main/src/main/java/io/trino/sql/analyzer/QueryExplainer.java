@@ -182,7 +182,6 @@ public class QueryExplainer
             return explainTask(statement, task, parameters);
         }
 
-        Plan plan;
         switch (planType) {
             case IO:
                 Plan ioPlan = getLogicalPlan(session, statement, parameters, warningCollector);
@@ -192,6 +191,7 @@ public class QueryExplainer
                 return getJsonLogicalPlan(logicalPlan.getRoot(), logicalPlan.getTypes(), metadata, logicalPlan.getStatsAndCosts(), session);
             case DISTRIBUTED:
                 SubPlan subPlan = getDistributedPlan(session, statement, parameters, warningCollector);
+                return getJsonDistributedPlan(subPlan);
             case VALIDATE:
                 // unsupported
                 break;
