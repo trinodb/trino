@@ -70,6 +70,7 @@ public final class TestGroups
     public static final String PHOENIX = "phoenix";
     public static final String CLICKHOUSE = "clickhouse";
     public static final String KUDU = "kudu";
+    public static final String MARIADB = "mariadb";
 
     private TestGroups() {}
 }

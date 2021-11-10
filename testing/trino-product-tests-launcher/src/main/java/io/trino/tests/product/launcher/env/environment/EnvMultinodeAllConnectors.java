@@ -62,6 +62,7 @@ public final class EnvMultinodeAllConnectors
                         "kinesis",
                         "kudu",
                         "localfile",
+                        "mariadb",
                         "memory",
                         "memsql",
                         "mongodb",

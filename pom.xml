@@ -130,6 +130,7 @@
         <module>plugin/trino-kinesis</module>
         <module>plugin/trino-kudu</module>
         <module>plugin/trino-local-file</module>
+        <module>plugin/trino-mariadb</module>
         <module>plugin/trino-memory</module>
         <module>plugin/trino-ml</module>
         <module>plugin/trino-mongodb</module>
@@ -340,6 +341,12 @@
                 <groupId>io.trino</groupId>
                 <artifactId>trino-main</artifactId>
                 <type>test-jar</type>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-mariadb</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -1598,6 +1605,13 @@
                         <artifactId>junit</artifactId>
                     </exclusion>
                 </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>org.mariadb.jdbc</groupId>
+                <artifactId>mariadb-java-client</artifactId>
+                <!-- Client 3.0.3 against MariaDB server 10.2 causes syntax error when accessing metadata-->
+                <version>2.7.5</version>
             </dependency>
 
             <dependency>

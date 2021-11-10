@@ -25,6 +25,7 @@ from different data sources.
     Kinesis         <connector/kinesis>
     Kudu            <connector/kudu>
     Local File      <connector/localfile>
+    MariaDB         <connector/mariadb>
     Memory          <connector/memory>
     MongoDB         <connector/mongodb>
     MySQL           <connector/mysql>
