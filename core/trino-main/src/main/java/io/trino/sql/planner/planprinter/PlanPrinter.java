@@ -18,7 +18,6 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Streams;
 import io.airlift.units.Duration;
 import io.trino.Session;
@@ -304,43 +303,40 @@ public class PlanPrinter
         return builder.toString();
     }
 
-    public static PlanPrinter jsonLogicalPlan(
-            PlanNode plan,
-            TypeProvider types,
-            Optional<StageExecutionDescriptor> stageExecutionStrategy,
-            Metadata metadata,
-            StatsAndCosts estimatedStatsAndCosts,
-            Session session,
-            Optional<Map<PlanNodeId, PlanNodeStats>> stats)
-    {
-        TableInfoSupplier tableInfoSupplier = new TableInfoSupplier(metadata, session);
-        ValuePrinter valuePrinter = new ValuePrinter(metadata, session);
-        return new PlanPrinter(plan, types, stageExecutionStrategy, tableInfoSupplier, ImmutableMap.of(), valuePrinter, estimatedStatsAndCosts, stats);
-    }
-
-    public static String jsonLogicalPlan(
+    public static PlanPrinter createJsonLogicalPlanPrinter(
             PlanNode plan,
             TypeProvider types,
             Metadata metadata,
             StatsAndCosts estimatedStatsAndCosts,
             Session session)
     {
-        return jsonLogicalPlan(plan, types, Optional.empty(), metadata, estimatedStatsAndCosts, session,
-                Optional.empty()).toJson();
+        TableInfoSupplier tableInfoSupplier = new TableInfoSupplier(metadata, session);
+        ValuePrinter valuePrinter = new ValuePrinter(metadata, session);
+
+        return new PlanPrinter(plan, types, Optional.empty(), tableInfoSupplier, ImmutableMap.of(), valuePrinter, estimatedStatsAndCosts, Optional.empty());
     }
 
-    public static String jsonDistributedPlan(SubPlan plan)
+    public static String getJsonLogicalPlan(
+            PlanNode plan,
+            TypeProvider types,
+            Metadata metadata,
+            StatsAndCosts estimatedStatsAndCosts,
+            Session session)
+    {
+        return createJsonLogicalPlanPrinter(plan, types, metadata, estimatedStatsAndCosts, session).toJson();
+    }
+
+    public static String getJsonDistributedPlan(SubPlan plan)
     {
         return formatJsonFragmentList(plan.getAllFragments());
     }
 
     private static String formatJsonFragmentList(List<PlanFragment> fragments)
     {
-        ImmutableSortedMap.Builder<PlanFragmentId, JsonPlanFragment> fragmentJsonMap
-                = ImmutableSortedMap.naturalOrder();
+        ImmutableMap.Builder<PlanFragmentId, JsonPlanFragment> fragmentJsonMap = new ImmutableMap.Builder();
         for (PlanFragment fragment : fragments) {
             PlanFragmentId fragmentId = fragment.getId();
-            JsonPlanFragment jsonPlanFragment = new JsonPlanFragment(fragment.getJsonRepresentation().get());
+            JsonPlanFragment jsonPlanFragment = new JsonPlanFragment(fragment.getJsonRepresentation().get(), fragmentId);
             fragmentJsonMap.put(fragmentId, jsonPlanFragment);
         }
         return new JsonRenderer().render(fragmentJsonMap.build());

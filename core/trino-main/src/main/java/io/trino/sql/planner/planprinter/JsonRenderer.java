@@ -125,16 +125,26 @@ public class JsonRenderer
         @JsonRawValue
         private final String plan;
 
+        @JsonRawValue
+        private final PlanFragmentId planFragmentId;
+
         @JsonCreator
-        public JsonPlanFragment(String plan)
+        public JsonPlanFragment(String plan, PlanFragmentId planFragmentId)
         {
-            this.plan = plan;
+            this.plan = requireNonNull(plan, "plan is null");
+            this.planFragmentId = requireNonNull(planFragmentId, "planFragmentId is null");
         }
 
         @JsonProperty
         public String getPlan()
         {
             return this.plan;
+        }
+
+        @JsonProperty
+        public PlanFragmentId getPlanFragmentId()
+        {
+            return this.planFragmentId;
         }
     }
 }
