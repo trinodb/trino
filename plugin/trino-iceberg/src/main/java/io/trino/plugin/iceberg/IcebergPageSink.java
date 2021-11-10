@@ -42,6 +42,7 @@ import io.trino.spi.type.VarcharType;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.iceberg.FileFormat;
+import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
@@ -95,6 +96,7 @@ public class IcebergPageSink
     private final JsonCodec<CommitTaskData> jsonCodec;
     private final ConnectorSession session;
     private final FileFormat fileFormat;
+    private final MetricsConfig metricsConfig;
     private final PagePartitioner pagePartitioner;
 
     private final List<WriteContext> writers = new ArrayList<>();
@@ -115,6 +117,7 @@ public class IcebergPageSink
             JsonCodec<CommitTaskData> jsonCodec,
             ConnectorSession session,
             FileFormat fileFormat,
+            Map<String, String> storageProperties,
             int maxOpenWriters)
     {
         requireNonNull(inputColumns, "inputColumns is null");
@@ -128,6 +131,7 @@ public class IcebergPageSink
         this.jsonCodec = requireNonNull(jsonCodec, "jsonCodec is null");
         this.session = requireNonNull(session, "session is null");
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
+        this.metricsConfig = MetricsConfig.fromProperties(requireNonNull(storageProperties, "storageProperties is null"));
         this.maxOpenWriters = maxOpenWriters;
         this.pagePartitioner = new PagePartitioner(pageIndexerFactory, toPartitionColumns(inputColumns, partitionSpec));
     }
@@ -312,7 +316,8 @@ public class IcebergPageSink
                 jobConf,
                 session,
                 hdfsContext,
-                fileFormat);
+                fileFormat,
+                metricsConfig);
 
         return new WriteContext(writer, outputPath, partitionData);
     }

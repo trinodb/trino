@@ -94,6 +94,7 @@ public class IcebergPageSinkProvider
                 jsonCodec,
                 session,
                 tableHandle.getFileFormat(),
+                tableHandle.getStorageProperties(),
                 maxOpenPartitions);
     }
 
@@ -121,6 +122,7 @@ public class IcebergPageSinkProvider
                         jsonCodec,
                         session,
                         optimizeHandle.getFileFormat(),
+                        optimizeHandle.getTableStorageProperties(),
                         maxOpenPartitions);
         }
 
