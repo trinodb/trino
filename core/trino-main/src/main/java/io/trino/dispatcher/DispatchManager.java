@@ -16,6 +16,8 @@ package io.trino.dispatcher;
 import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.extension.annotations.WithSpan;
 import io.trino.Session;
 import io.trino.execution.QueryIdGenerator;
 import io.trino.execution.QueryInfo;
@@ -137,6 +139,7 @@ public class DispatchManager
         return queryIdGenerator.createNextQueryId();
     }
 
+    @WithSpan
     public ListenableFuture<Void> createQuery(QueryId queryId, Slug slug, SessionContext sessionContext, String query)
     {
         requireNonNull(queryId, "queryId is null");
@@ -144,6 +147,10 @@ public class DispatchManager
         requireNonNull(query, "query is null");
         checkArgument(!query.isEmpty(), "query must not be empty string");
         checkArgument(queryTracker.tryGetQuery(queryId).isEmpty(), "query %s already exists", queryId);
+
+        Span span = Span.current();
+        span.setAttribute("queryId", queryId.getId());
+        span.setAttribute("queryString", query);
 
         // It is important to return a future implementation which ignores cancellation request.
         // Using NonCancellationPropagatingFuture is not enough; it does not propagate cancel to wrapped future

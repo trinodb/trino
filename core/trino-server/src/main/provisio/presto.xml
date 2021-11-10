@@ -25,6 +25,11 @@
         <artifact id="${project.groupId}:trino-server-main:${project.version}" />
     </artifactSet>
 
+    <!-- opentelemetry instrumentation javaagent -->
+    <artifactSet to="lib">
+        <artifact id="io.opentelemetry.javaagent:opentelemetry-javaagent:1.7.2" />
+    </artifactSet>
+
     <!-- Plugins -->
     <artifactSet to="plugin/resource-group-managers">
         <artifact id="${project.groupId}:trino-resource-group-managers:zip:${project.version}">
