@@ -22,6 +22,7 @@ import io.airlift.units.DataSize;
 import io.trino.plugin.hive.HiveTimestampPrecision;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.assertions.QueryAssert.Row;
+import io.trino.tempto.hadoop.hdfs.HdfsClient;
 import io.trino.tempto.query.QueryExecutionException;
 import io.trino.tempto.query.QueryExecutor.QueryParam;
 import io.trino.tempto.query.QueryResult;
@@ -69,6 +70,7 @@ import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuf
 import static io.trino.tests.product.utils.JdbcDriverUtils.setSessionProperty;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
+import static java.io.InputStream.nullInputStream;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.Comparator.comparingInt;
@@ -84,6 +86,13 @@ public class TestHiveStorageFormats
     @Inject(optional = true)
     @Named("databases.presto.admin_role_enabled")
     private boolean adminRoleEnabled;
+
+    @Inject
+    private HdfsClient hdfsClient;
+
+    @Inject
+    @Named("databases.hive.warehouse_directory_path")
+    private String warehouseDirectory;
 
     private static final List<TimestampAndPrecision> TIMESTAMPS_FROM_HIVE = List.of(
             // write precision is not relevant here, as Hive always uses nanos
@@ -251,6 +260,21 @@ public class TestHiveStorageFormats
                 storageFormat("TEXTFILE"),
                 storageFormat("RCTEXT"),
                 storageFormat("SEQUENCEFILE")
+        };
+    }
+
+    @DataProvider
+    public static StorageFormat[] storageFormatsWithZeroByteFile()
+    {
+        return new StorageFormat[] {
+                storageFormat("ORC"),
+                storageFormat("PARQUET"),
+                storageFormat("RCBINARY"),
+                storageFormat("RCTEXT"),
+                storageFormat("SEQUENCEFILE"),
+                storageFormat("TEXTFILE"),
+                storageFormat("AVRO"),
+                storageFormat("CSV"),
         };
     }
 
@@ -431,6 +455,26 @@ public class TestHiveStorageFormats
         assertThat(onTrino().executeQuery(format("SELECT * FROM %s", tableName))).containsOnly(storedValues);
 
         onTrino().executeQuery(format("DROP TABLE %s", tableName));
+    }
+
+    @Test(dataProvider = "storageFormatsWithZeroByteFile", groups = STORAGE_FORMATS_DETAILED)
+    public void testSelectFromZeroByteFile(StorageFormat storageFormat)
+    {
+        String tableName = format(
+                "test_storage_format_%s_zero_byte_file",
+                storageFormat.getName());
+        hdfsClient.saveFile(format("%s/%s/zero_byte", warehouseDirectory, tableName), nullInputStream());
+        onTrino().executeQuery(format(
+                "CREATE TABLE %s" +
+                        " (name varchar) " +
+                        "WITH ( " +
+                        "   format = '%s'" +
+                        ")",
+                tableName,
+                storageFormat.getName()));
+        assertThat(onTrino().executeQuery("SELECT * FROM " + tableName)).hasNoRows();
+        assertThat(onHive().executeQuery("SELECT * FROM " + tableName)).hasNoRows();
+        onTrino().executeQuery("DROP TABLE " + tableName);
     }
 
     @Test(dataProvider = "storageFormatsWithNullFormat", groups = STORAGE_FORMATS_DETAILED)
