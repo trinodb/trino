@@ -65,6 +65,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -210,6 +211,17 @@ public class AccessControlManager
                 ImmutableList.<SystemAccessControl>builder()
                         .addAll(currentControls)
                         .add(systemAccessControl)
+                        .build());
+    }
+
+    @VisibleForTesting
+    public void removeSystemAccessControl(SystemAccessControl systemAccessControl)
+    {
+        systemAccessControls.getAndUpdate(currentControls ->
+                ImmutableList.<SystemAccessControl>builder()
+                        .addAll(currentControls.stream()
+                                .filter(systemAccessControlItem -> systemAccessControlItem != systemAccessControl)
+                                .collect(Collectors.toList()))
                         .build());
     }
 

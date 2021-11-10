@@ -16,7 +16,6 @@ package io.trino.server.security;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Resources;
 import com.google.inject.Key;
 import io.airlift.http.server.HttpServerConfig;
@@ -28,16 +27,11 @@ import io.jsonwebtoken.JwsHeader;
 import io.jsonwebtoken.JwtBuilder;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
-import io.trino.plugin.base.security.AllowAllSystemAccessControl;
-import io.trino.security.AccessControl;
 import io.trino.security.AccessControlManager;
-import io.trino.server.HttpRequestSessionContextFactory;
 import io.trino.server.security.oauth2.OAuth2Client;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.BasicPrincipal;
-import io.trino.spi.security.Identity;
-import io.trino.spi.security.SystemSecurityContext;
 import okhttp3.Credentials;
 import okhttp3.Headers;
 import okhttp3.JavaNetCookieJar;
@@ -48,13 +42,9 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import javax.crypto.SecretKey;
-import javax.inject.Inject;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.ws.rs.GET;
-import javax.ws.rs.core.Context;
-import javax.ws.rs.core.HttpHeaders;
 
 import java.io.File;
 import java.io.IOException;
@@ -84,12 +74,8 @@ import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.jsonwebtoken.security.Keys.hmacShaKeyFor;
 import static io.trino.client.OkHttpUtil.setupSsl;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
-import static io.trino.server.security.ResourceSecurity.AccessType.AUTHENTICATED_USER;
 import static io.trino.server.security.oauth2.OAuth2Service.NONCE;
 import static io.trino.server.security.oauth2.OAuth2Service.hashNonce;
-import static io.trino.spi.security.AccessDeniedException.denyImpersonateUser;
-import static io.trino.spi.security.AccessDeniedException.denyReadSystemInformationAccess;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -122,7 +108,7 @@ public class TestResourceSecurity
     private static final String TEST_USER_LOGIN = TEST_USER + "@allowed";
     private static final String TEST_PASSWORD = "test-password";
     private static final String TEST_PASSWORD2 = "test-password-2";
-    private static final String MANAGEMENT_USER = "management-user";
+    private static final String MANAGEMENT_USER = TestSystemAccessControl.MANAGEMENT_USER;
     private static final String MANAGEMENT_USER_LOGIN = MANAGEMENT_USER + "@allowed";
     private static final String MANAGEMENT_PASSWORD = "management-password";
     private static final String HMAC_KEY = Resources.getResource("hmac_key.txt").getPath();
@@ -283,7 +269,7 @@ public class TestResourceSecurity
                         .put("http-server.authentication.type", "password")
                         .put("http-server.authentication.password.user-mapping.pattern", ALLOWED_USER_MAPPING_PATTERN)
                         .build())
-                .setAdditionalModule(binder -> jaxrsBinder(binder).bind(TestResource.class))
+                .setAdditionalModule(binder -> jaxrsBinder(binder).bind(TestSystemAccessResource.class))
                 .build()) {
             server.getInstance(Key.get(PasswordAuthenticatorManager.class)).setAuthenticators(TestResourceSecurity::authenticate);
             server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(TestSystemAccessControl.WITH_IMPERSONATION);
@@ -301,28 +287,6 @@ public class TestResourceSecurity
                 assertEquals(response.code(), SC_OK);
                 assertEquals(response.header("user"), TEST_USER);
             }
-        }
-    }
-
-    @javax.ws.rs.Path("/username")
-    public static class TestResource
-    {
-        private final HttpRequestSessionContextFactory sessionContextFactory;
-
-        @Inject
-        public TestResource(AccessControl accessControl)
-        {
-            this.sessionContextFactory = new HttpRequestSessionContextFactory(createTestMetadataManager(), ImmutableSet::of, accessControl);
-        }
-
-        @ResourceSecurity(AUTHENTICATED_USER)
-        @GET
-        public javax.ws.rs.core.Response echoToken(@Context HttpServletRequest servletRequest, @Context HttpHeaders httpHeaders)
-        {
-            Identity identity = sessionContextFactory.extractAuthorizedIdentity(servletRequest, httpHeaders, Optional.empty());
-            return javax.ws.rs.core.Response.ok()
-                    .header("user", identity.getUser())
-                    .build();
         }
     }
 
@@ -929,36 +893,6 @@ public class TestResourceSecurity
             return new BasicPrincipal(user);
         }
         throw new AccessDeniedException("Invalid credentials2");
-    }
-
-    private static class TestSystemAccessControl
-            extends AllowAllSystemAccessControl
-    {
-        public static final TestSystemAccessControl WITH_IMPERSONATION = new TestSystemAccessControl(false);
-        public static final TestSystemAccessControl NO_IMPERSONATION = new TestSystemAccessControl(true);
-
-        private final boolean allowImpersonation;
-
-        private TestSystemAccessControl(boolean allowImpersonation)
-        {
-            this.allowImpersonation = allowImpersonation;
-        }
-
-        @Override
-        public void checkCanImpersonateUser(SystemSecurityContext context, String userName)
-        {
-            if (!allowImpersonation) {
-                denyImpersonateUser(context.getIdentity().getUser(), userName);
-            }
-        }
-
-        @Override
-        public void checkCanReadSystemInformation(SystemSecurityContext context)
-        {
-            if (!context.getIdentity().getUser().equals(MANAGEMENT_USER)) {
-                denyReadSystemInformationAccess();
-            }
-        }
     }
 
     private static TestingHttpServer createTestingJwkServer()

@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
+import static io.trino.server.security.AuthenticationUtils.checkAndRewriteUserHeaderToMappedUserWhenRequired;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -52,7 +53,9 @@ public abstract class AbstractBearerAuthenticator
                 throw needAuthentication(request, "Invalid credentials");
             }
 
-            String authenticatedUser = userMapping.mapUser(principal.get().getName());
+            String username = principal.get().getName();
+            String authenticatedUser = userMapping.mapUser(username);
+            checkAndRewriteUserHeaderToMappedUserWhenRequired(username, request.getHeaders(), authenticatedUser);
             return Identity.forUser(authenticatedUser)
                     .withPrincipal(principal.get())
                     .build();

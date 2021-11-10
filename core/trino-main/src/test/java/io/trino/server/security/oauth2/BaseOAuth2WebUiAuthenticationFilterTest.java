@@ -15,11 +15,13 @@ package io.trino.server.security.oauth2;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Binder;
 import io.airlift.log.Level;
 import io.airlift.log.Logging;
 import io.airlift.testing.Closeables;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.impl.DefaultClaims;
+import io.trino.server.security.TestSystemAccessResource;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.server.ui.OAuth2WebUiAuthenticationFilter;
 import io.trino.server.ui.WebUiModule;
@@ -49,6 +51,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.trino.client.OkHttpUtil.setupInsecureSsl;
 import static io.trino.server.security.oauth2.TokenEndpointAuthMethod.CLIENT_SECRET_BASIC;
 import static io.trino.server.ui.OAuthWebUiCookie.OAUTH2_COOKIE;
@@ -64,9 +67,10 @@ public abstract class BaseOAuth2WebUiAuthenticationFilterTest
 {
     protected static final Duration TTL_ACCESS_TOKEN_IN_SECONDS = Duration.ofSeconds(5);
 
-    protected static final String TRINO_CLIENT_ID = "trino-client";
+    protected static final String TRINO_CLIENT_USERNAME = "trino-client";
+    protected static final String TRINO_CLIENT_ID = TRINO_CLIENT_USERNAME + "@trino.org";
     protected static final String TRINO_CLIENT_SECRET = "trino-secret";
-    private static final String TRINO_AUDIENCE = TRINO_CLIENT_ID;
+    protected static final String TRINO_AUDIENCE = "trino-audience";
     private static final String ADDITIONAL_AUDIENCE = "https://external-service.com";
     protected static final String TRUSTED_CLIENT_ID = "trusted-client";
     protected static final String TRUSTED_CLIENT_SECRET = "trusted-secret";
@@ -78,7 +82,7 @@ public abstract class BaseOAuth2WebUiAuthenticationFilterTest
     protected final OkHttpClient httpClient;
     protected TestingHydraIdentityProvider hydraIdP;
 
-    private TestingTrinoServer server;
+    protected TestingTrinoServer server;
     private URI serverUri;
     private URI uiUri;
 
@@ -102,7 +106,15 @@ public abstract class BaseOAuth2WebUiAuthenticationFilterTest
 
         server = TestingTrinoServer.builder()
                 .setCoordinator(true)
-                .setAdditionalModule(new WebUiModule())
+                .setAdditionalModule(new WebUiModule()
+                {
+                    @Override
+                    protected void setup(Binder binder)
+                    {
+                        super.setup(binder);
+                        jaxrsBinder(binder).bind(TestSystemAccessResource.class);
+                    }
+                })
                 .setProperties(getOAuth2Config(idpUrl))
                 .build();
         server.waitForNodeRefresh(Duration.ofSeconds(10));

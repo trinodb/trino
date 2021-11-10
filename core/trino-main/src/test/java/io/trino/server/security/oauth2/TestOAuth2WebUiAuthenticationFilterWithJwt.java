@@ -13,20 +13,39 @@
  */
 package io.trino.server.security.oauth2;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
+import com.google.inject.Key;
 import io.airlift.http.client.HttpClientConfig;
 import io.airlift.http.client.jetty.JettyHttpClient;
+import io.airlift.http.server.HttpServerInfo;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.Jwts;
+import io.trino.security.AccessControlManager;
+import io.trino.server.security.TestSystemAccessControl;
 import io.trino.server.security.jwt.JwkService;
 import io.trino.server.security.jwt.JwkSigningKeyResolver;
+import okhttp3.Request;
+import okhttp3.Response;
+import org.testng.annotations.Test;
 
+import javax.ws.rs.core.HttpHeaders;
+
+import java.io.IOException;
 import java.net.URI;
+import java.util.function.Consumer;
 
+import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
+import static io.trino.server.security.TestSystemAccessControl.NO_IMPERSONATION;
+import static io.trino.server.security.TestSystemAccessControl.WITH_IMPERSONATION;
+import static javax.ws.rs.core.Response.Status.FORBIDDEN;
+import static javax.ws.rs.core.Response.Status.OK;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.testng.Assert.assertEquals;
 
+@Test(singleThreaded = true)
 public class TestOAuth2WebUiAuthenticationFilterWithJwt
         extends BaseOAuth2WebUiAuthenticationFilterTest
 {
@@ -36,6 +55,7 @@ public class TestOAuth2WebUiAuthenticationFilterWithJwt
         return ImmutableMap.<String, String>builder()
                 .put("web-ui.enabled", "true")
                 .put("web-ui.authentication.type", "oauth2")
+                .put("http-server.authentication.type", "oauth2")
                 .put("http-server.https.enabled", "true")
                 .put("http-server.https.keystore.path", Resources.getResource("cert/localhost.pem").getPath())
                 .put("http-server.https.keystore.key", "")
@@ -45,8 +65,8 @@ public class TestOAuth2WebUiAuthenticationFilterWithJwt
                 .put("http-server.authentication.oauth2.jwks-url", idpUrl + "/.well-known/jwks.json")
                 .put("http-server.authentication.oauth2.client-id", TRINO_CLIENT_ID)
                 .put("http-server.authentication.oauth2.client-secret", TRINO_CLIENT_SECRET)
-                .put("http-server.authentication.oauth2.additional-audiences", TRUSTED_CLIENT_ID)
-                .put("http-server.authentication.oauth2.user-mapping.pattern", "(.*)(@.*)?")
+                .put("http-server.authentication.oauth2.additional-audiences", TRINO_AUDIENCE + "," + TRUSTED_CLIENT_ID)
+                .put("http-server.authentication.oauth2.user-mapping.pattern", "([^@]+)(@.*)?")
                 .put("oauth2-jwk.http-client.trust-store-path", Resources.getResource("cert/localhost.pem").getPath())
                 .build();
     }
@@ -76,5 +96,72 @@ public class TestOAuth2WebUiAuthenticationFilterWithJwt
         assertThat(claims.getSubject()).isEqualTo("foo@bar.com");
         assertThat(claims.get("client_id")).isEqualTo(TRINO_CLIENT_ID);
         assertThat(claims.getIssuer()).isEqualTo("https://localhost:4444/");
+    }
+
+    @Test
+    public void testBearerAuthenticatorWithImpersonationAllowedUserMapping()
+            throws Exception
+    {
+        String token = hydraIdP.getToken(TRINO_CLIENT_ID, TRINO_CLIENT_SECRET, ImmutableList.of(TRINO_AUDIENCE));
+        assertUserIdentityResponse("/username", token, TRINO_CLIENT_ID, true, response -> {
+            assertThat(response.code()).isEqualTo(OK.getStatusCode());
+            assertEquals(response.header("user"), TRINO_CLIENT_USERNAME);
+        });
+    }
+
+    @Test
+    public void testBearerAuthenticatorWithImpersonationAllowedNoUserMapping()
+            throws Exception
+    {
+        String token = hydraIdP.getToken(TRUSTED_CLIENT_ID, TRUSTED_CLIENT_SECRET, ImmutableList.of(TRUSTED_CLIENT_ID));
+        assertUserIdentityResponse("/username", token, "test@trino.org", true, response -> {
+            assertThat(response.code()).isEqualTo(OK.getStatusCode());
+            assertEquals(response.header("user"), "test@trino.org");
+        });
+    }
+
+    @Test
+    public void testBearerAuthenticatorWithImpersonationDeniedUserMapping()
+            throws Exception
+    {
+        String token = hydraIdP.getToken(TRINO_CLIENT_ID, TRINO_CLIENT_SECRET, ImmutableList.of(TRINO_AUDIENCE));
+        assertUserIdentityResponse("/username", token, TRINO_CLIENT_ID, false, response -> {
+            assertThat(response.code()).isEqualTo(OK.getStatusCode());
+        });
+    }
+
+    @Test
+    public void testBearerAuthenticatorWithImpersonationDeniedNoUserMapping()
+            throws Exception
+    {
+        String token = hydraIdP.getToken(TRUSTED_CLIENT_ID, TRUSTED_CLIENT_SECRET, ImmutableList.of(TRUSTED_CLIENT_ID));
+        assertUserIdentityResponse("/username", token, "test@trino.org", false, response -> {
+            assertThat(response.code()).isEqualTo(FORBIDDEN.getStatusCode());
+        });
+    }
+
+    private void assertUserIdentityResponse(String endpoint, String bearerToken, String trinoUser, boolean allowImpersonation, Consumer<Response> responseCheck)
+            throws IOException
+
+    {
+        HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
+        AccessControlManager instance = server.getInstance(Key.get(AccessControlManager.class));
+        TestSystemAccessControl impersonationAccessControl = allowImpersonation ? NO_IMPERSONATION : WITH_IMPERSONATION;
+        try {
+            instance.addSystemAccessControl(impersonationAccessControl);
+            try (Response response = httpClient.newCall(new Request.Builder()
+                            .url(uriBuilderFrom(httpServerInfo.getHttpsUri())
+                                    .replacePath(endpoint)
+                                    .toString())
+                            .addHeader(HttpHeaders.AUTHORIZATION, "Bearer " + bearerToken)
+                            .addHeader("X-Trino-User", trinoUser)
+                            .build())
+                    .execute()) {
+                responseCheck.accept(response);
+            }
+        }
+        finally {
+            instance.removeSystemAccessControl(impersonationAccessControl);
+        }
     }
 }

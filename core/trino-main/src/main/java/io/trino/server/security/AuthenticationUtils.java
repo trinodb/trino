@@ -32,6 +32,19 @@ public final class AuthenticationUtils
     public static void checkAndRewriteUserHeaderToMappedUserWhenRequired(
             String username,
             MultivaluedMap<String, String> headers,
+            String userName)
+    {
+        checkAndRewriteUserHeaderToMappedUserWhenRequired(username, headers, userName, Optional.empty());
+    }
+
+    /**
+     * @deprecated due to alternative user header name deprecation.
+     * Use {@link AuthenticationUtils#checkAndRewriteUserHeaderToMappedUserWhenRequired(String, MultivaluedMap, String)}
+     */
+    @Deprecated
+    public static void checkAndRewriteUserHeaderToMappedUserWhenRequired(
+            String username,
+            MultivaluedMap<String, String> headers,
             String authenticatedUser,
             Optional<String> alternativeUserHeaderName)
     {
