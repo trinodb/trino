@@ -99,7 +99,6 @@ import static io.trino.plugin.hive.HiveSessionProperties.getOrcTinyStripeThresho
 import static io.trino.plugin.hive.HiveSessionProperties.isOrcBloomFiltersEnabled;
 import static io.trino.plugin.hive.HiveSessionProperties.isOrcNestedLazy;
 import static io.trino.plugin.hive.HiveSessionProperties.isUseOrcColumnNames;
-import static io.trino.plugin.hive.ReaderPageSource.noProjectionAdaptation;
 import static io.trino.plugin.hive.orc.OrcPageSource.ColumnAdaptation.updatedRowColumns;
 import static io.trino.plugin.hive.orc.OrcPageSource.ColumnAdaptation.updatedRowColumnsWithOriginalFiles;
 import static io.trino.plugin.hive.orc.OrcPageSource.handleException;
@@ -162,12 +161,6 @@ public class OrcPageSourceFactory
     {
         if (!isDeserializerClass(schema, OrcSerde.class)) {
             return Optional.empty();
-        }
-
-        // per HIVE-13040 and ORC-162, empty files are allowed
-        if (estimatedFileSize == 0) {
-            ReaderPageSource context = noProjectionAdaptation(new EmptyPageSource());
-            return Optional.of(context);
         }
 
         List<HiveColumnHandle> readerColumnHandles = columns;
