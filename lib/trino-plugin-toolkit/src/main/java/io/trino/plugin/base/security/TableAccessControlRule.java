@@ -43,6 +43,7 @@ public class TableAccessControlRule
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
+            Optional.empty(),
             Optional.empty());
 
     private final Set<TablePrivilege> privileges;
@@ -55,6 +56,7 @@ public class TableAccessControlRule
     private final Optional<Pattern> groupRegex;
     private final Optional<Pattern> schemaRegex;
     private final Optional<Pattern> tableRegex;
+    private final Optional<Pattern> sourceRegex;
 
     @JsonCreator
     public TableAccessControlRule(
@@ -66,10 +68,12 @@ public class TableAccessControlRule
             @JsonProperty("role") Optional<Pattern> roleRegex,
             @JsonProperty("group") Optional<Pattern> groupRegex,
             @JsonProperty("schema") Optional<Pattern> schemaRegex,
-            @JsonProperty("table") Optional<Pattern> tableRegex)
+            @JsonProperty("table") Optional<Pattern> tableRegex,
+            @JsonProperty("source") Optional<Pattern> sourceRegex)
     {
         this.privileges = ImmutableSet.copyOf(requireNonNull(privileges, "privileges is null"));
         this.columnConstraints = Maps.uniqueIndex(requireNonNull(columns, "columns is null").orElse(ImmutableList.of()), ColumnConstraint::getName);
+        this.sourceRegex = requireNonNull(sourceRegex, "sourceRegex is null");
         this.restrictedColumns = columnConstraints.values().stream()
                 .filter(constraint -> !constraint.isAllowed())
                 .map(ColumnConstraint::getName)
@@ -83,13 +87,14 @@ public class TableAccessControlRule
         this.tableRegex = requireNonNull(tableRegex, "tableRegex is null");
     }
 
-    public boolean matches(String user, Set<String> roles, Set<String> groups, SchemaTableName table)
+    public boolean matches(String user, Set<String> roles, Set<String> groups, SchemaTableName table, Optional<String> source)
     {
         return userRegex.map(regex -> regex.matcher(user).matches()).orElse(true) &&
                 roleRegex.map(regex -> roles.stream().anyMatch(role -> regex.matcher(role).matches())).orElse(true) &&
                 groupRegex.map(regex -> groups.stream().anyMatch(group -> regex.matcher(group).matches())).orElse(true) &&
                 schemaRegex.map(regex -> regex.matcher(table.getSchemaName()).matches()).orElse(true) &&
-                tableRegex.map(regex -> regex.matcher(table.getTableName()).matches()).orElse(true);
+                tableRegex.map(regex -> regex.matcher(table.getTableName()).matches()).orElse(true) &&
+                sourceRegex.map(regex -> source.map(s -> regex.matcher(s).matches()).orElse(true)).orElse(true);
     }
 
     public Set<String> getRestrictedColumns()

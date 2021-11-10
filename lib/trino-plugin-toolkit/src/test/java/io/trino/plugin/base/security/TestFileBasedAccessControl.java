@@ -42,12 +42,12 @@ import static org.testng.Assert.assertEquals;
 
 public class TestFileBasedAccessControl
 {
-    private static final ConnectorSecurityContext ADMIN = user("admin", ImmutableSet.of("admin", "staff"));
-    private static final ConnectorSecurityContext ALICE = user("alice", ImmutableSet.of("staff"));
-    private static final ConnectorSecurityContext BOB = user("bob", ImmutableSet.of("staff"));
-    private static final ConnectorSecurityContext CHARLIE = user("charlie", ImmutableSet.of("guests"));
-    private static final ConnectorSecurityContext JOE = user("joe", ImmutableSet.of());
-    private static final ConnectorSecurityContext UNKNOWN = user("unknown", ImmutableSet.of());
+    private static final ConnectorSecurityContext ADMIN = user("admin", ImmutableSet.of("admin", "staff"), "any");
+    private static final ConnectorSecurityContext ALICE = user("alice", ImmutableSet.of("staff"), "server");
+    private static final ConnectorSecurityContext BOB = user("bob", ImmutableSet.of("staff"), "desktop");
+    private static final ConnectorSecurityContext CHARLIE = user("charlie", ImmutableSet.of("guests"), "jdbc");
+    private static final ConnectorSecurityContext JOE = user("joe", ImmutableSet.of(), "browser");
+    private static final ConnectorSecurityContext UNKNOWN = user("unknown", ImmutableSet.of(), "unknown");
 
     @Test
     public void testEmptyFile()
@@ -233,6 +233,22 @@ public class TestFileBasedAccessControl
                 .flatMap(privilege -> Stream.of(true, false).map(grantOption -> new Object[] {privilege, grantOption}))
                 .collect(toImmutableList())
                 .toArray(new Object[0][0]);
+    }
+
+    @Test
+    public void testTableSourceRules()
+    {
+        ConnectorSecurityContext aliceWellknownSource = user("alice", ImmutableSet.of(), "wellknown");
+        ConnectorSecurityContext aliceUnknownSource = user("alice", ImmutableSet.of(), "unknown");
+        SchemaTableName secretTable = new SchemaTableName("secret", "test");
+        SchemaTableName openTable = new SchemaTableName("open", "test");
+
+        ConnectorAccessControl accessControl = createAccessControl("source-filter.json");
+
+        accessControl.checkCanSelectFromColumns(aliceWellknownSource, secretTable, ImmutableSet.of());
+        accessControl.checkCanSelectFromColumns(aliceWellknownSource, openTable, ImmutableSet.of());
+        accessControl.checkCanSelectFromColumns(aliceUnknownSource, openTable, ImmutableSet.of());
+        assertDenied(() -> accessControl.checkCanSelectFromColumns(aliceUnknownSource, secretTable, ImmutableSet.of()));
     }
 
     @Test
@@ -436,12 +452,13 @@ public class TestFileBasedAccessControl
         assertAllMethodsOverridden(ConnectorAccessControl.class, FileBasedAccessControl.class);
     }
 
-    private static ConnectorSecurityContext user(String name, Set<String> groups)
+    private static ConnectorSecurityContext user(String name, Set<String> groups, String source)
     {
         return new ConnectorSecurityContext(
                 new ConnectorTransactionHandle() {},
                 ConnectorIdentity.forUser(name).withGroups(groups).build(),
-                new QueryId("query_id"));
+                new QueryId("query_id"),
+                Optional.of(source));
     }
 
     private ConnectorAccessControl createAccessControl(String fileName)

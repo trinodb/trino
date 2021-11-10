@@ -16,6 +16,8 @@ package io.trino.spi.connector;
 import io.trino.spi.QueryId;
 import io.trino.spi.security.ConnectorIdentity;
 
+import java.util.Optional;
+
 import static java.util.Objects.requireNonNull;
 
 public class ConnectorSecurityContext
@@ -23,12 +25,14 @@ public class ConnectorSecurityContext
     private final ConnectorTransactionHandle transactionHandle;
     private final ConnectorIdentity identity;
     private final QueryId queryId;
+    private final Optional<String> source;
 
-    public ConnectorSecurityContext(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, QueryId queryId)
+    public ConnectorSecurityContext(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, QueryId queryId, Optional<String> source)
     {
         this.transactionHandle = requireNonNull(transactionHandle, "transactionHandle is null");
         this.identity = requireNonNull(identity, "identity is null");
         this.queryId = requireNonNull(queryId, "queryId is null");
+        this.source = requireNonNull(source, "source is null");
     }
 
     public ConnectorTransactionHandle getTransactionHandle()
@@ -44,5 +48,10 @@ public class ConnectorSecurityContext
     public QueryId getQueryId()
     {
         return queryId;
+    }
+
+    public Optional<String> getSource()
+    {
+        return source;
     }
 }

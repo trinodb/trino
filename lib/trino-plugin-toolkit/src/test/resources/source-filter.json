@@ -1,0 +1,26 @@
+{
+  "schemas": [
+      {
+        "user": "alice",
+        "schema": "secret",
+        "owner": true
+      },
+    {
+      "user": "alice",
+      "schema": "open",
+      "owner": true
+    }
+  ],
+  "tables": [
+    {
+      "schema": "secret",
+      "source": "wellknown",
+      "privileges": ["SELECT", "INSERT", "DELETE", "OWNERSHIP"]
+    },
+
+    {
+      "schema": "open",
+      "privileges": ["SELECT", "INSERT", "DELETE", "OWNERSHIP"]
+    }
+  ]
+}

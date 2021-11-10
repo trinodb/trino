@@ -44,9 +44,10 @@ public class CatalogTableAccessControlRule
             @JsonProperty("group") Optional<Pattern> groupRegex,
             @JsonProperty("schema") Optional<Pattern> schemaRegex,
             @JsonProperty("table") Optional<Pattern> tableRegex,
-            @JsonProperty("catalog") Optional<Pattern> catalogRegex)
+            @JsonProperty("catalog") Optional<Pattern> catalogRegex,
+            @JsonProperty("source") Optional<Pattern> sourceRegex)
     {
-        this.tableAccessControlRule = new TableAccessControlRule(privileges, columns, filter, filterEnvironment, userRegex, roleRegex, groupRegex, schemaRegex, tableRegex);
+        this.tableAccessControlRule = new TableAccessControlRule(privileges, columns, filter, filterEnvironment, userRegex, roleRegex, groupRegex, schemaRegex, tableRegex, sourceRegex);
         this.catalogRegex = requireNonNull(catalogRegex, "catalogRegex is null");
     }
 
@@ -61,7 +62,7 @@ public class CatalogTableAccessControlRule
         if (!catalogRegex.map(regex -> regex.matcher(table.getCatalogName()).matches()).orElse(true)) {
             return false;
         }
-        return tableAccessControlRule.matches(user, roles, groups, table.getSchemaTableName());
+        return tableAccessControlRule.matches(user, roles, groups, table.getSchemaTableName(), Optional.empty());
     }
 
     public Set<TablePrivilege> getPrivileges()

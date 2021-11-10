@@ -30,18 +30,26 @@ public class SecurityContext
     public static SecurityContext of(Session session)
     {
         requireNonNull(session, "session is null");
-        return new SecurityContext(session.getRequiredTransactionId(), session.getIdentity(), session.getQueryId());
+        return new SecurityContext(session.getRequiredTransactionId(), session.getIdentity(), session.getQueryId(), session.getSource());
     }
 
     private final TransactionId transactionId;
     private final Identity identity;
     private final QueryId queryId;
+    private final Optional<String> source;
 
+    // To avoid modifying all tests.
     public SecurityContext(TransactionId transactionId, Identity identity, QueryId queryId)
+    {
+        this(transactionId, identity, queryId, Optional.empty());
+    }
+
+    public SecurityContext(TransactionId transactionId, Identity identity, QueryId queryId, Optional<String> source)
     {
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
         this.identity = requireNonNull(identity, "identity is null");
         this.queryId = requireNonNull(queryId, "queryId is null");
+        this.source = requireNonNull(source, "source is null");
     }
 
     public TransactionId getTransactionId()
@@ -57,6 +65,11 @@ public class SecurityContext
     public QueryId getQueryId()
     {
         return queryId;
+    }
+
+    public Optional<String> getSource()
+    {
+        return source;
     }
 
     public SystemSecurityContext toSystemSecurityContext()
@@ -77,14 +90,15 @@ public class SecurityContext
         SecurityContext that = (SecurityContext) o;
         return Objects.equals(transactionId, that.transactionId) &&
                 Objects.equals(identity, that.identity) &&
-                Objects.equals(queryId, that.queryId);
+                Objects.equals(queryId, that.queryId) &&
+                Objects.equals(source, that.source);
     }
 
     @Override
     public int hashCode()
     {
         // this is needed by io.trino.sql.analyzer.Analysis.AccessControlInfo
-        return Objects.hash(transactionId, identity, queryId);
+        return Objects.hash(transactionId, identity, queryId, source);
     }
 
     @Override
@@ -94,6 +108,7 @@ public class SecurityContext
                 .add("identity", identity)
                 // no transactionId here as it is not that useful
                 .add("queryId", queryId)
+                .add("source", source.orElse(""))
                 .toString();
     }
 }

@@ -332,7 +332,7 @@ public final class Session
                     .orElseThrow(() -> new TrinoException(NOT_FOUND, "Catalog for role does not exist: " + catalogName))
                     .getCatalogName();
             if (role.getType() == SelectedRole.Type.ROLE) {
-                accessControl.checkCanSetCatalogRole(new SecurityContext(transactionId, identity, queryId), role.getRole().orElseThrow(), catalogName);
+                accessControl.checkCanSetCatalogRole(new SecurityContext(transactionId, identity, queryId, source), role.getRole().orElseThrow(), catalogName);
             }
             connectorRoles.put(catalog.getCatalogName(), role);
 
@@ -546,7 +546,7 @@ public final class Session
 
     public SecurityContext toSecurityContext()
     {
-        return new SecurityContext(getRequiredTransactionId(), getIdentity(), queryId);
+        return new SecurityContext(getRequiredTransactionId(), getIdentity(), queryId, source);
     }
 
     public static class SessionBuilder

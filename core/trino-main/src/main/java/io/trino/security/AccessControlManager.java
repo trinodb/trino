@@ -1266,15 +1266,16 @@ public class AccessControlManager
 
         public ConnectorSecurityContext toConnectorSecurityContext(SecurityContext securityContext)
         {
-            return toConnectorSecurityContext(securityContext.getTransactionId(), securityContext.getIdentity(), securityContext.getQueryId());
+            return toConnectorSecurityContext(securityContext.getTransactionId(), securityContext.getIdentity(), securityContext.getQueryId(), securityContext.getSource());
         }
 
-        public ConnectorSecurityContext toConnectorSecurityContext(TransactionId requiredTransactionId, Identity identity, QueryId queryId)
+        public ConnectorSecurityContext toConnectorSecurityContext(TransactionId requiredTransactionId, Identity identity, QueryId queryId, Optional<String> source)
         {
             return new ConnectorSecurityContext(
                     transactionManager.getConnectorTransaction(requiredTransactionId, catalogName),
                     identity.toConnectorIdentity(catalogName.getCatalogName()),
-                    queryId);
+                    queryId,
+                    source);
         }
     }
 
