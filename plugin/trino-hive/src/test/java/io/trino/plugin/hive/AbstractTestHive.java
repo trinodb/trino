@@ -2293,21 +2293,21 @@ public abstract class AbstractTestHive
         assertEmptyFile(TEXTFILE);
     }
 
-    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "Error opening Hive split .* not a SequenceFile")
+    @Test
     public void testEmptySequenceFile()
             throws Exception
     {
         assertEmptyFile(SEQUENCEFILE);
     }
 
-    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "RCFile is empty: .*")
+    @Test
     public void testEmptyRcTextFile()
             throws Exception
     {
         assertEmptyFile(RCTEXT);
     }
 
-    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "RCFile is empty: .*")
+    @Test
     public void testEmptyRcBinaryFile()
             throws Exception
     {
@@ -2355,7 +2355,7 @@ public abstract class AbstractTestHive
                 assertEquals(listDirectory(context, location), ImmutableList.of("empty-file"));
 
                 // read table with empty file
-                MaterializedResult result = readTable(transaction, tableHandle, columnHandles, session, TupleDomain.all(), OptionalInt.of(1), Optional.empty());
+                MaterializedResult result = readTable(transaction, tableHandle, columnHandles, session, TupleDomain.all(), OptionalInt.of(0), Optional.empty());
                 assertEquals(result.getRowCount(), 0);
             }
         }

@@ -163,6 +163,11 @@ public class InternalHiveSplitFactory
             return Optional.empty();
         }
 
+        // per HIVE-13040 empty files are allowed
+        if (estimatedFileSize == 0) {
+            return Optional.empty();
+        }
+
         // Dynamic filter may not have been ready when partition was loaded in BackgroundHiveSplitLoader,
         // but it might be ready when splits are enumerated lazily.
         if (!partitionMatchSupplier.getAsBoolean()) {
