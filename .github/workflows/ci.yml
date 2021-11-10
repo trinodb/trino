@@ -324,6 +324,7 @@ jobs:
             !:trino-mysql,
             !:trino-postgresql,
             !:trino-sqlserver,
+            !:trino-mariadb,
             !:trino-oracle,
             !:trino-kudu,
             !:trino-druid,
@@ -402,6 +403,7 @@ jobs:
             - { modules: plugin/trino-postgresql }
             - { modules: plugin/trino-sqlserver }
             - { modules: plugin/trino-singlestore }
+            - { modules: plugin/trino-mariadb }
             - { modules: plugin/trino-oracle }
             - { modules: plugin/trino-kudu }
             - { modules: plugin/trino-druid }
