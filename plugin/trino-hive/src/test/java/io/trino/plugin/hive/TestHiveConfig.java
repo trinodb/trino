@@ -46,7 +46,7 @@ public class TestHiveConfig
                 .setMaxPartitionBatchSize(100)
                 .setMaxInitialSplits(200)
                 .setMaxInitialSplitSize(DataSize.of(32, Unit.MEGABYTE))
-                .setSplitLoaderConcurrency(4)
+                .setSplitLoaderConcurrency(64)
                 .setMaxSplitsPerSecond(null)
                 .setDomainCompactionThreshold(100)
                 .setTargetMaxFileSize(DataSize.of(1, Unit.GIGABYTE))
