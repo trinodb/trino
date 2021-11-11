@@ -51,8 +51,13 @@ public class DoubleDecoder
             decoded = ((Number) value).doubleValue();
         }
         else if (value instanceof String) {
+            String stringValue = (String) value;
+            if (stringValue.isEmpty()) {
+                output.appendNull();
+                return;
+            }
             try {
-                decoded = Double.parseDouble((String) value);
+                decoded = Double.parseDouble(stringValue);
             }
             catch (NumberFormatException e) {
                 throw new TrinoException(TYPE_MISMATCH, format("Cannot parse value for field '%s' as DOUBLE: %s", path, value));
