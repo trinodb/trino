@@ -406,7 +406,7 @@ public interface Metadata
     /**
      * Get the view definitions that match the specified table prefix (never null).
      */
-    Map<QualifiedObjectName, ConnectorViewDefinition> getViews(Session session, QualifiedTablePrefix prefix);
+    Map<QualifiedObjectName, ViewInfo> getViews(Session session, QualifiedTablePrefix prefix);
 
     /**
      * Is the specified table a view.
@@ -713,7 +713,7 @@ public interface Metadata
     /**
      * Get the materialized view definitions that match the specified table prefix (never null).
      */
-    Map<QualifiedObjectName, ConnectorMaterializedViewDefinition> getMaterializedViews(Session session, QualifiedTablePrefix prefix);
+    Map<QualifiedObjectName, ViewInfo> getMaterializedViews(Session session, QualifiedTablePrefix prefix);
 
     /**
      * Is the specified table a materialized view.

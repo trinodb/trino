@@ -500,7 +500,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public Map<QualifiedObjectName, ConnectorViewDefinition> getViews(Session session, QualifiedTablePrefix prefix)
+    public Map<QualifiedObjectName, ViewInfo> getViews(Session session, QualifiedTablePrefix prefix)
     {
         throw new UnsupportedOperationException();
     }
@@ -940,7 +940,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public Map<QualifiedObjectName, ConnectorMaterializedViewDefinition> getMaterializedViews(Session session, QualifiedTablePrefix prefix)
+    public Map<QualifiedObjectName, ViewInfo> getMaterializedViews(Session session, QualifiedTablePrefix prefix)
     {
         throw new UnsupportedOperationException();
     }
