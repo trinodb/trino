@@ -13,6 +13,8 @@
  */
 package io.trino.sql.planner.planprinter;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.cost.PlanCostEstimate;
 import io.trino.cost.PlanNodeStatsAndCostSummary;
 import io.trino.cost.PlanNodeStatsEstimate;
@@ -152,17 +154,22 @@ public class NodeRepresentation
         private final Symbol symbol;
         private final String type;
 
-        public TypedSymbol(Symbol symbol, String type)
+        @JsonCreator
+        public TypedSymbol(
+                @JsonProperty("symbol") Symbol symbol,
+                @JsonProperty("type") String type)
         {
             this.symbol = symbol;
             this.type = type;
         }
 
+        @JsonProperty
         public Symbol getSymbol()
         {
             return symbol;
         }
 
+        @JsonProperty
         public String getType()
         {
             return type;

@@ -27,11 +27,19 @@ public class JsonRenderer
         implements Renderer<String>
 {
     private static final JsonCodec<JsonRenderedNode> CODEC = JsonCodec.jsonCodec(JsonRenderedNode.class);
+    private static final JsonCodec<DistributedPlanRepresentation> DISTRIBUTED_PLAN_CODEC
+            = JsonCodec.jsonCodec(DistributedPlanRepresentation.class);
 
     @Override
     public String render(PlanRepresentation plan)
     {
         return CODEC.toJson(renderJson(plan, plan.getRoot()));
+    }
+
+    @Override
+    public String render(DistributedPlanRepresentation distributedPlanRepresentations)
+    {
+        return DISTRIBUTED_PLAN_CODEC.toJson(distributedPlanRepresentations);
     }
 
     private JsonRenderedNode renderJson(PlanRepresentation plan, NodeRepresentation node)

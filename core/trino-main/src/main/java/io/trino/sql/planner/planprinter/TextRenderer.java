@@ -13,14 +13,14 @@
  */
 package io.trino.sql.planner.planprinter;
 
-import com.google.common.collect.ImmutableMap;
-import io.airlift.units.DataSize;
 import io.trino.cost.PlanCostEstimate;
 import io.trino.cost.PlanNodeStatsAndCostSummary;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.spi.metrics.Metric;
 import io.trino.spi.metrics.Metrics;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.planprinter.DistributedPlanRepresentation.DistributedPlan;
+import io.trino.sql.planner.planprinter.DistributedPlanRepresentation.DistributedPlan.DistributedPlanStats;
 import io.trino.sql.planner.planprinter.NodeRepresentation.TypedSymbol;
 
 import java.util.Iterator;
@@ -28,17 +28,18 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.TreeMap;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static java.lang.Double.NEGATIVE_INFINITY;
-import static java.lang.Double.POSITIVE_INFINITY;
-import static java.lang.Double.isFinite;
-import static java.lang.Double.isNaN;
+import static io.trino.sql.planner.planprinter.RendererUtils.formatAsCpuCost;
+import static io.trino.sql.planner.planprinter.RendererUtils.formatAsDataSize;
+import static io.trino.sql.planner.planprinter.RendererUtils.formatAsLong;
+import static io.trino.sql.planner.planprinter.RendererUtils.formatDouble;
+import static io.trino.sql.planner.planprinter.RendererUtils.formatPositions;
+import static io.trino.sql.planner.planprinter.RendererUtils.translateOperatorTypes;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
@@ -63,6 +64,53 @@ public class TextRenderer
         NodeRepresentation root = plan.getRoot();
         boolean hasChildren = hasChildren(root, plan);
         return writeTextOutput(output, plan, Indent.newInstance(level, hasChildren), root);
+    }
+
+    @Override
+    public String render(DistributedPlanRepresentation plan)
+    {
+        StringBuilder output = new StringBuilder();
+        boolean hasChildren = plan.getDistributedPlans().stream().anyMatch(p -> !p.getDistributedFragmentRepresentation().isEmpty());
+        for (DistributedPlan distributedPlan : plan.getDistributedPlans()) {
+            output.append(writeDistributedPlanTextOutput(distributedPlan, Indent.newInstance(level, hasChildren))).append("\n");
+        }
+        return output.toString();
+    }
+
+    private String writeDistributedPlanTextOutput(DistributedPlan plan, Indent indent)
+    {
+        StringBuilder output = new StringBuilder();
+        output.append(format("Fragment %s [%s]\n", plan.getId(), plan.getPartitioning()));
+
+        if (plan.getDistributedPlanStats().isPresent()) {
+            DistributedPlanStats distributedPlanStats = plan.getDistributedPlanStats().get();
+            output.append(indentString(1))
+                    .append(format("CPU: %s, Scheduled: %s, Input: %s (%s); per task: avg.: %s std.dev.: %s, Output: %s (%s)\n",
+                            distributedPlanStats.getTotalCpuTime().convertToMostSuccinctTimeUnit(),
+                            distributedPlanStats.getTotalScheduledTime().convertToMostSuccinctTimeUnit(),
+                            formatPositions(distributedPlanStats.getInputRows()),
+                            distributedPlanStats.getInputSize(),
+                            formatDouble(distributedPlanStats.getAverageInputRows()),
+                            formatDouble(distributedPlanStats.getStdDevInputRows()),
+                            formatPositions(distributedPlanStats.getOutputRows()),
+                            distributedPlanStats.getOutputSize()));
+        }
+        output.append(indentString(1))
+                .append(format("Output layout: [%s]\n", plan.getOutputLayout()));
+
+        output.append(indentString(1));
+        output.append(format("Output partitioning: %s [%s]%s\n",
+                plan.getOutputPartitioning().getHandle(),
+                plan.getOutputPartitioning().getArguments(),
+                plan.getOutputPartitioning().getHashColumn()));
+
+        output.append(indentString(1));
+        output.append(format("Stage Execution Strategy: %s\n", plan.getStageExecutionStrategy()));
+
+        String textOutput = writeTextOutput(new StringBuilder(), plan.getPlanRepresentation(), indent, plan.getPlanRepresentation().getRoot());
+        output.append(textOutput);
+
+        return output.toString();
     }
 
     private String writeTextOutput(StringBuilder output, PlanRepresentation plan, Indent indent, NodeRepresentation node)
@@ -233,30 +281,6 @@ public class TextRenderer
         output.append(format("Size of partition: std.dev.: %s\n", formatDouble(stats.getPartitionRowsStdDev())));
     }
 
-    private static Map<String, String> translateOperatorTypes(Set<String> operators)
-    {
-        if (operators.size() == 1) {
-            // don't display operator (plan node) name again
-            return ImmutableMap.of(getOnlyElement(operators), "");
-        }
-
-        if (operators.contains("LookupJoinOperator") && operators.contains("HashBuilderOperator")) {
-            // join plan node
-            return ImmutableMap.of(
-                    "LookupJoinOperator", "Left (probe) ",
-                    "HashBuilderOperator", "Right (build) ");
-        }
-
-        if (operators.contains("LookupJoinOperator") && operators.contains("DynamicFilterSourceOperator")) {
-            // join plan node
-            return ImmutableMap.of(
-                    "LookupJoinOperator", "Left (probe) ",
-                    "DynamicFilterSourceOperator", "Right (build) ");
-        }
-
-        return ImmutableMap.of();
-    }
-
     private String printReorderJoinStatsAndCost(NodeRepresentation node)
     {
         if (verbose && node.getReorderJoinStatsAndCost().isPresent()) {
@@ -316,50 +340,6 @@ public class TextRenderer
         return node.getChildren().stream()
                 .map(plan::getNode)
                 .anyMatch(Optional::isPresent);
-    }
-
-    private static String formatAsLong(double value)
-    {
-        if (isFinite(value)) {
-            return format(Locale.US, "%d", Math.round(value));
-        }
-
-        return "?";
-    }
-
-    private static String formatAsCpuCost(double value)
-    {
-        return formatAsDataSize(value).replaceAll("B$", "");
-    }
-
-    private static String formatAsDataSize(double value)
-    {
-        if (isNaN(value)) {
-            return "?";
-        }
-        if (value == POSITIVE_INFINITY) {
-            return "+\u221E";
-        }
-        if (value == NEGATIVE_INFINITY) {
-            return "-\u221E";
-        }
-
-        return DataSize.succinctBytes(Math.round(value)).toString();
-    }
-
-    static String formatDouble(double value)
-    {
-        if (isFinite(value)) {
-            return format(Locale.US, "%.2f", value);
-        }
-
-        return "?";
-    }
-
-    static String formatPositions(long positions)
-    {
-        String noun = (positions == 1) ? "row" : "rows";
-        return positions + " " + noun;
     }
 
     static String indentString(int indent)

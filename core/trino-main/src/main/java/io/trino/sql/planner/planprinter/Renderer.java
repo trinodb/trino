@@ -16,4 +16,6 @@ package io.trino.sql.planner.planprinter;
 public interface Renderer<T>
 {
     T render(PlanRepresentation plan);
+
+    T render(DistributedPlanRepresentation plan);
 }

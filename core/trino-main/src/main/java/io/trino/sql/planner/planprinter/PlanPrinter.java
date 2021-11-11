@@ -35,7 +35,6 @@ import io.trino.metadata.TableHandle;
 import io.trino.operator.StageExecutionDescriptor;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.Domain;
-import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.statistics.ColumnStatisticMetadata;
@@ -104,6 +103,7 @@ import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.UpdateNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
+import io.trino.sql.planner.planprinter.DistributedPlanRepresentation.DistributedPlan;
 import io.trino.sql.planner.planprinter.NodeRepresentation.TypedSymbol;
 import io.trino.sql.planner.rowpattern.AggregationValuePointer;
 import io.trino.sql.planner.rowpattern.LogicalIndexExtractor.ExpressionAndValuePointers;
@@ -150,8 +150,8 @@ import static io.trino.sql.ExpressionUtils.combineConjunctsWithDuplicates;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.sql.planner.planprinter.PlanNodeStatsSummarizer.aggregateStageStats;
-import static io.trino.sql.planner.planprinter.TextRenderer.formatDouble;
-import static io.trino.sql.planner.planprinter.TextRenderer.formatPositions;
+import static io.trino.sql.planner.planprinter.RendererUtils.formatDouble;
+import static io.trino.sql.planner.planprinter.RendererUtils.formatPositions;
 import static io.trino.sql.planner.planprinter.TextRenderer.indentString;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.WINDOW;
@@ -171,7 +171,7 @@ public class PlanPrinter
     private final Map<DynamicFilterId, DynamicFilterDomainStats> dynamicFilterDomainStats;
     private final ValuePrinter valuePrinter;
 
-    // NOTE: do NOT add Metadata or Session to this class.  The plan printer must be usable outside of a transaction.
+    // NOTE: do NOT add Metadata or Session to this class.  The plan printer must be usable outside a transaction.
     private PlanPrinter(
             PlanNode planRoot,
             TypeProvider types,
@@ -220,6 +220,11 @@ public class PlanPrinter
     private String toJson()
     {
         return new JsonRenderer().render(representation);
+    }
+
+    private PlanRepresentation getPlanRepresentation()
+    {
+        return representation;
     }
 
     public static String jsonFragmentPlan(PlanNode root, Map<Symbol, Type> symbols, Metadata metadata, FunctionManager functionManager, Session session)
@@ -304,15 +309,48 @@ public class PlanPrinter
 
     public static String textDistributedPlan(SubPlan plan, Metadata metadata, FunctionManager functionManager, Session session, boolean verbose)
     {
+        return new TextRenderer(verbose, 1).render(new DistributedPlanRepresentation(getDistributedPlans(plan, metadata, functionManager, session)));
+    }
+
+    private static List<DistributedPlan> getDistributedPlans(SubPlan plan, Metadata metadata, FunctionManager functionManager, Session session)
+    {
         TableInfoSupplier tableInfoSupplier = new TableInfoSupplier(metadata, session);
         ValuePrinter valuePrinter = new ValuePrinter(metadata, functionManager, session);
-        StringBuilder builder = new StringBuilder();
         TypeProvider typeProvider = getTypeProvider(plan.getAllFragments());
-        for (PlanFragment fragment : plan.getAllFragments()) {
-            builder.append(formatFragment(tableInfoSupplier, ImmutableMap.of(), valuePrinter, fragment, Optional.empty(), Optional.empty(), verbose, typeProvider));
-        }
+        return plan.getAllFragments()
+                .stream()
+                .map(planFragment -> getDistributedPlan(tableInfoSupplier, valuePrinter, typeProvider, planFragment))
+                .collect(toList());
+    }
 
-        return builder.toString();
+    public static String jsonLogicalPlan(
+            PlanNode plan,
+            TypeProvider types,
+            Metadata metadata,
+            StatsAndCosts estimatedStatsAndCosts,
+            FunctionManager functionManager,
+            Session session)
+    {
+        TableInfoSupplier tableInfoSupplier = new TableInfoSupplier(metadata, session);
+        ValuePrinter valuePrinter = new ValuePrinter(metadata, functionManager, session);
+
+        return new PlanPrinter(plan, types, Optional.empty(), tableInfoSupplier, ImmutableMap.of(), valuePrinter, estimatedStatsAndCosts, Optional.empty()).toJson();
+    }
+
+    public static String jsonDistributedPlan(SubPlan plan, Metadata metadata, FunctionManager functionManager, Session session)
+    {
+        return new JsonRenderer().render(new DistributedPlanRepresentation(getDistributedPlans(plan, metadata, functionManager, session)));
+    }
+
+    private static DistributedPlan getDistributedPlan(
+            TableInfoSupplier tableInfoSupplier,
+            ValuePrinter valuePrinter,
+            TypeProvider typeProvider,
+            PlanFragment planFragment)
+    {
+        PlanPrinter planPrinter = new PlanPrinter(planFragment.getRoot(), typeProvider, Optional.of(planFragment.getStageExecutionDescriptor()), tableInfoSupplier,
+                ImmutableMap.of(), valuePrinter, planFragment.getStatsAndCosts(), Optional.empty());
+        return DistributedPlanRepresentation.getDistributedPlan(planPrinter.getPlanRepresentation(), valuePrinter, planFragment, Optional.empty(), false);
     }
 
     private static String formatFragment(
@@ -358,16 +396,7 @@ public class PlanPrinter
                         Joiner.on(", ").join(partitioningScheme.getOutputLayout())));
 
         boolean replicateNullsAndAny = partitioningScheme.isReplicateNullsAndAny();
-        List<String> arguments = partitioningScheme.getPartitioning().getArguments().stream()
-                .map(argument -> {
-                    if (argument.isConstant()) {
-                        NullableValue constant = argument.getConstant();
-                        String printableValue = valuePrinter.castToVarchar(constant.getType(), constant.getValue());
-                        return constant.getType().getDisplayName() + "(" + printableValue + ")";
-                    }
-                    return argument.getColumn().toString();
-                })
-                .collect(toImmutableList());
+        List<String> arguments = DistributedPlanRepresentation.getPartitioningSchemeArguments(valuePrinter, partitioningScheme);
         builder.append(indentString(1));
         if (replicateNullsAndAny) {
             builder.append(format("Output partitioning: %s (replicate nulls and any) [%s]%s\n",
@@ -1626,7 +1655,7 @@ public class PlanPrinter
     }
 
     @SafeVarargs
-    private static String formatHash(Optional<Symbol>... hashes)
+    public static String formatHash(Optional<Symbol>... hashes)
     {
         List<Symbol> symbols = stream(hashes)
                 .filter(Optional::isPresent)
