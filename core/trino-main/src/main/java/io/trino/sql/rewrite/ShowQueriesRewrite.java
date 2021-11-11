@@ -25,19 +25,19 @@ import io.trino.cost.StatsCalculator;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.FunctionKind;
 import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.MetadataUtil;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.RedirectionAwareTableHandle;
 import io.trino.metadata.SessionPropertyManager.SessionPropertyValue;
 import io.trino.metadata.TableHandle;
+import io.trino.metadata.ViewDefinition;
 import io.trino.security.AccessControl;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
-import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorTableMetadata;
-import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.GroupProvider;
 import io.trino.spi.security.PrincipalType;
@@ -509,7 +509,7 @@ final class ShowQueriesRewrite
         {
             if (node.getType() == MATERIALIZED_VIEW) {
                 QualifiedObjectName objectName = createQualifiedObjectName(session, node, node.getName());
-                Optional<ConnectorMaterializedViewDefinition> viewDefinition = metadata.getMaterializedView(session, objectName);
+                Optional<MaterializedViewDefinition> viewDefinition = metadata.getMaterializedView(session, objectName);
 
                 if (viewDefinition.isEmpty()) {
                     if (metadata.isView(session, objectName)) {
@@ -549,7 +549,7 @@ final class ShowQueriesRewrite
                     throw semanticException(NOT_SUPPORTED, node, "Relation '%s' is a materialized view, not a view", objectName);
                 }
 
-                Optional<ConnectorViewDefinition> viewDefinition = metadata.getView(session, objectName);
+                Optional<ViewDefinition> viewDefinition = metadata.getView(session, objectName);
 
                 if (viewDefinition.isEmpty()) {
                     if (metadata.getTableHandle(session, objectName).isPresent()) {
@@ -566,7 +566,7 @@ final class ShowQueriesRewrite
 
                 accessControl.checkCanShowCreateTable(session.toSecurityContext(), new QualifiedObjectName(catalogName.getValue(), schemaName.getValue(), tableName.getValue()));
 
-                CreateView.Security security = viewDefinition.get().isRunAsInvoker() ? INVOKER : DEFINER;
+                CreateView.Security security = viewDefinition.get().getRunAsIdentity().isEmpty() ? INVOKER : DEFINER;
                 String sql = formatSql(new CreateView(
                         QualifiedName.of(ImmutableList.of(catalogName, schemaName, tableName)),
                         query,

@@ -29,10 +29,8 @@ import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorCapabilities;
-import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorOutputMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
-import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.JoinApplicationResult;
@@ -419,7 +417,7 @@ public interface Metadata
     /**
      * Returns the view definition for the specified view name.
      */
-    Optional<ConnectorViewDefinition> getView(Session session, QualifiedObjectName viewName);
+    Optional<ViewDefinition> getView(Session session, QualifiedObjectName viewName);
 
     /**
      * Gets the schema properties for the specified schema.
@@ -434,7 +432,7 @@ public interface Metadata
     /**
      * Creates the specified view with the specified view definition.
      */
-    void createView(Session session, QualifiedObjectName viewName, ConnectorViewDefinition definition, boolean replace);
+    void createView(Session session, QualifiedObjectName viewName, ViewDefinition definition, boolean replace);
 
     /**
      * Rename the specified view.
@@ -698,7 +696,7 @@ public interface Metadata
     /**
      * Creates the specified materialized view with the specified view definition.
      */
-    void createMaterializedView(Session session, QualifiedObjectName viewName, ConnectorMaterializedViewDefinition definition, boolean replace, boolean ignoreExisting);
+    void createMaterializedView(Session session, QualifiedObjectName viewName, MaterializedViewDefinition definition, boolean replace, boolean ignoreExisting);
 
     /**
      * Drops the specified materialized view.
@@ -726,7 +724,7 @@ public interface Metadata
     /**
      * Returns the materialized view definition for the specified view name.
      */
-    Optional<ConnectorMaterializedViewDefinition> getMaterializedView(Session session, QualifiedObjectName viewName);
+    Optional<MaterializedViewDefinition> getMaterializedView(Session session, QualifiedObjectName viewName);
 
     /**
      * Method to get difference between the states of table at two different points in time/or as of given token-ids.

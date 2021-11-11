@@ -18,10 +18,11 @@ import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.cost.StatsCalculator;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.ViewColumn;
 import io.trino.security.AccessControl;
-import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.security.GroupProvider;
 import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.Analyzer;
@@ -93,12 +94,10 @@ public class CreateMaterializedViewTask
         Analysis analysis = new Analyzer(session, metadata, sqlParser, groupProvider, accessControl, Optional.empty(), parameters, parameterLookup, stateMachine.getWarningCollector(), statsCalculator)
                 .analyze(statement);
 
-        List<ConnectorMaterializedViewDefinition.Column> columns = analysis.getOutputDescriptor(statement.getQuery())
+        List<ViewColumn> columns = analysis.getOutputDescriptor(statement.getQuery())
                 .getVisibleFields().stream()
-                .map(field -> new ConnectorMaterializedViewDefinition.Column(field.getName().get(), field.getType().getTypeId()))
+                .map(field -> new ViewColumn(field.getName().get(), field.getType().getTypeId()))
                 .collect(toImmutableList());
-
-        String owner = session.getUser();
 
         CatalogName catalogName = getRequiredCatalogHandle(metadata, session, statement, name.getCatalogName());
 
@@ -113,14 +112,14 @@ public class CreateMaterializedViewTask
                 parameterLookup,
                 true);
 
-        ConnectorMaterializedViewDefinition definition = new ConnectorMaterializedViewDefinition(
+        MaterializedViewDefinition definition = new MaterializedViewDefinition(
                 sql,
-                Optional.empty(),
                 session.getCatalog(),
                 session.getSchema(),
                 columns,
                 statement.getComment(),
-                owner,
+                session.getIdentity(),
+                Optional.empty(),
                 properties);
 
         metadata.createMaterializedView(session, name, definition, statement.isReplace(), statement.isNotExists());
