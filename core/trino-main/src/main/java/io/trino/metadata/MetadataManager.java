@@ -704,7 +704,7 @@ public final class MetadataManager
         if (getMaterializedView(session, name).isPresent()) {
             return true;
         }
-        if (getView(session, name).isPresent()) {
+        if (isView(session, name)) {
             return true;
         }
 

@@ -86,7 +86,7 @@ public class SetPropertiesTask
             throw semanticException(NOT_SUPPORTED, statement, "Cannot set properties to a materialized view in ALTER TABLE");
         }
 
-        if (metadata.getView(session, tableName).isPresent()) {
+        if (metadata.isView(session, tableName)) {
             throw semanticException(NOT_SUPPORTED, statement, "Cannot set properties to a view in ALTER TABLE");
         }
 

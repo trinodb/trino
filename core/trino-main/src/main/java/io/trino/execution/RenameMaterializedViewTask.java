@@ -21,7 +21,6 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.security.AccessControl;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
-import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.RenameMaterializedView;
 import io.trino.transaction.TransactionManager;
@@ -60,8 +59,7 @@ public class RenameMaterializedViewTask
         QualifiedObjectName materializedViewName = createQualifiedObjectName(session, statement, statement.getSource());
         Optional<ConnectorMaterializedViewDefinition> materializedView = metadata.getMaterializedView(session, materializedViewName);
         if (materializedView.isEmpty()) {
-            Optional<ConnectorViewDefinition> view = metadata.getView(session, materializedViewName);
-            if (view.isPresent()) {
+            if (metadata.isView(session, materializedViewName)) {
                 throw semanticException(
                         TABLE_NOT_FOUND,
                         statement,
@@ -89,7 +87,7 @@ public class RenameMaterializedViewTask
         if (metadata.getMaterializedView(session, target).isPresent()) {
             throw semanticException(TABLE_ALREADY_EXISTS, statement, "Target materialized view '%s' already exists", target);
         }
-        if (metadata.getView(session, target).isPresent()) {
+        if (metadata.isView(session, target)) {
             throw semanticException(TABLE_ALREADY_EXISTS, statement, "Target materialized view '%s' does not exist, but a view with that name exists.", target);
         }
         if (metadata.getTableHandle(session, target).isPresent()) {

@@ -359,7 +359,7 @@ public class InformationSchemaMetadata
                     .filter(objectName -> {
                         if (!isColumnsEnumeratingTable(informationSchemaTable) ||
                                 metadata.getMaterializedView(session, objectName).isPresent() ||
-                                metadata.getView(session, objectName).isPresent()) {
+                                metadata.isView(session, objectName)) {
                             return true;
                         }
 

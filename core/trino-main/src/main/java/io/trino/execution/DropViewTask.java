@@ -21,7 +21,6 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.security.AccessControl;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
-import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.sql.tree.DropView;
 import io.trino.sql.tree.Expression;
 import io.trino.transaction.TransactionManager;
@@ -67,8 +66,7 @@ public class DropViewTask
             return immediateVoidFuture();
         }
 
-        Optional<ConnectorViewDefinition> view = metadata.getView(session, name);
-        if (view.isEmpty()) {
+        if (!metadata.isView(session, name)) {
             if (!statement.isExists()) {
                 Optional<TableHandle> table = metadata.getTableHandle(session, name);
                 if (table.isPresent()) {
