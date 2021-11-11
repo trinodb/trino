@@ -21,7 +21,6 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.security.AccessControl;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
-import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.RenameTable;
 import io.trino.transaction.TransactionManager;
@@ -70,8 +69,7 @@ public class RenameTableTask
             return immediateVoidFuture();
         }
 
-        Optional<ConnectorViewDefinition> view = metadata.getView(session, tableName);
-        if (view.isPresent()) {
+        if (metadata.isView(session, tableName)) {
             if (!statement.isExists()) {
                 throw semanticException(
                         TABLE_NOT_FOUND,

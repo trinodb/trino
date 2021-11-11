@@ -244,7 +244,7 @@ final class ShowQueriesRewrite
             if (tableName.isPresent()) {
                 QualifiedObjectName qualifiedTableName = createQualifiedObjectName(session, showGrants, tableName.get());
 
-                if (metadata.getView(session, qualifiedTableName).isEmpty() &&
+                if (!metadata.isView(session, qualifiedTableName) &&
                         metadata.getTableHandle(session, qualifiedTableName).isEmpty()) {
                     throw semanticException(TABLE_NOT_FOUND, showGrants, "Table '%s' does not exist", tableName);
                 }
@@ -415,7 +415,7 @@ final class ShowQueriesRewrite
             Optional<TableHandle> tableHandle = Optional.empty();
             // Check for view if materialized view is not present
             if (!isMaterializedView) {
-                isView = metadata.getView(session, tableName).isPresent();
+                isView = metadata.isView(session, tableName);
                 // Check for table if view is not present
                 if (!isView) {
                     RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, tableName);
@@ -512,7 +512,7 @@ final class ShowQueriesRewrite
                 Optional<ConnectorMaterializedViewDefinition> viewDefinition = metadata.getMaterializedView(session, objectName);
 
                 if (viewDefinition.isEmpty()) {
-                    if (metadata.getView(session, objectName).isPresent()) {
+                    if (metadata.isView(session, objectName)) {
                         throw semanticException(NOT_SUPPORTED, node, "Relation '%s' is a view, not a materialized view", objectName);
                     }
 
@@ -584,7 +584,7 @@ final class ShowQueriesRewrite
                     throw semanticException(NOT_SUPPORTED, node, "Relation '%s' is a materialized view, not a table", objectName);
                 }
 
-                if (metadata.getView(session, objectName).isPresent()) {
+                if (metadata.isView(session, objectName)) {
                     throw semanticException(NOT_SUPPORTED, node, "Relation '%s' is a view, not a table", objectName);
                 }
 
