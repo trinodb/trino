@@ -1587,7 +1587,7 @@ public abstract class BaseElasticsearchConnectorTest
 
         getQueryRunner().createCatalog(catalogName, "elasticsearch", config);
 
-        String indexName1 = "racks";
+        String indexName1 = format("index_%s", randomTableSuffix());
         @Language("JSON")
         String properties = "" +
                 "{" +
@@ -1599,7 +1599,7 @@ public abstract class BaseElasticsearchConnectorTest
         createIndex(indexName1, properties);
 
         // Matches the index 'racks'
-        String indexName2 = "racks2";
+        String indexName2 = format("index_%s", randomTableSuffix());
         properties = "" +
                 "{" +
                 "  \"properties\":{" +
@@ -1610,12 +1610,12 @@ public abstract class BaseElasticsearchConnectorTest
         createIndex(indexName2, properties);
 
         // Index that brings a new field 'bookid' that needs to be added & rackid that needs to be merged.
-        String indexName3 = "books";
+        String indexName3 = format("index_%s", randomTableSuffix());
         properties = "" +
                 "{" +
                 "  \"properties\":{" +
                 "    \"name\":   { \"type\": \"text\" }," +
-                "    \"rackid\":   { \"type\": \"long\" }," +
+                "    \"rackid\":   { \"type\": \"float\" }," +
                 "    \"bookid\":   { \"type\": \"long\" }" +
                 "  }" +
                 "}";
@@ -1635,9 +1635,37 @@ public abstract class BaseElasticsearchConnectorTest
                 .build();
         MaterializedResult actualColumns = computeActual(session, "DESCRIBE " + aliasName);
         assertEquals(actualColumns, expectedColumns);
+
+        // Index that brings a new field 'bookid' that needs to be added & rackid that needs to be merged.
+        String indexName4 = format("index_%s", randomTableSuffix());
+        properties = "" +
+                "{" +
+                "  \"properties\":{" +
+                "    \"name\":   { \"type\": \"text\" }," +
+                "    \"rackid\":   { \"type\": \"long\" }," +
+                "    \"bookid\":   { \"type\": \"long\" }" +
+                "  }" +
+                "}";
+        createIndex(indexName4, properties);
+
+        aliasName = format("alias_%s", randomTableSuffix());
+
+        addAlias(indexName1, aliasName);
+        addAlias(indexName2, aliasName);
+        addAlias(indexName4, aliasName);
+
+        expectedColumns = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                .row("name", "varchar", "", "")
+                .row("bookid", "bigint", "", "")
+                .row("rackid", "bigint", "", "")
+                .build();
+        actualColumns = computeActual(session, "DESCRIBE " + aliasName);
+        assertEquals(actualColumns, expectedColumns);
+
         deleteIndex(indexName1);
         deleteIndex(indexName2);
         deleteIndex(indexName3);
+        deleteIndex(indexName4);
     }
 
     @Test
@@ -1664,7 +1692,7 @@ public abstract class BaseElasticsearchConnectorTest
         getQueryRunner().createCatalog(catalogName, "elasticsearch", config);
 
         // Index that brings a new field 'bookid' that needs to be added & rackid that needs to be merged.
-        String indexName1 = "books";
+        String indexName1 = format("index_%s", randomTableSuffix());
         @Language("JSON")
         String properties = "" +
                 "{" +
@@ -1676,7 +1704,7 @@ public abstract class BaseElasticsearchConnectorTest
                 "}";
         createIndex(indexName1, properties);
 
-        String indexName2 = "racks";
+        String indexName2 = format("index_%s", randomTableSuffix());
         properties = "" +
                 "{" +
                 "  \"properties\":{" +
@@ -1739,7 +1767,7 @@ public abstract class BaseElasticsearchConnectorTest
 
         getQueryRunner().createCatalog(catalogName, "elasticsearch", config);
 
-        String indexName1 = "racks1";
+        String indexName1 = format("index_%s", randomTableSuffix());
         @Language("JSON")
         String properties = "" +
                 "{" +
@@ -1755,7 +1783,7 @@ public abstract class BaseElasticsearchConnectorTest
                 .build());
 
         // Matches the index 'racks1'
-        String indexName2 = "racks2";
+        String indexName2 = format("index_%s", randomTableSuffix());
         properties = "" +
                 "{" +
                 "  \"properties\":{" +
@@ -1770,7 +1798,7 @@ public abstract class BaseElasticsearchConnectorTest
                 .build());
 
         // Index that brings a new field 'bookid' that needs to be merged.
-        String indexName3 = "books";
+        String indexName3 = format("index_%s", randomTableSuffix());
         properties = "" +
                 "{" +
                 "  \"properties\":{" +
@@ -1797,13 +1825,13 @@ public abstract class BaseElasticsearchConnectorTest
         // Select all columns
         // No filters
         assertQuery(session, format("SELECT * FROM %s", aliasName),
-                "VALUES ('racks1', 100, NULL), ('racks2', 101, NULL), ('books', 102, 200)");
+                "VALUES ('racks1', NULL, 100), ('racks2', NULL, 101), ('books', 200, 102)");
         // Filter on common field
         assertQuery(session, format("SELECT * FROM %s where name IN ('racks1', 'racks2')", aliasName),
-                "VALUES ('racks1', 100, NULL), ('racks2', 101, NULL)");
+                "VALUES ('racks1', NULL, 100), ('racks2', NULL, 101)");
         // Filter on merged field
         assertQuery(session, format("SELECT * FROM %s where name = 'books'", aliasName),
-                "VALUES ('books', 102, 200)");
+                "VALUES ('books', 200, 102)");
 
         // Select specific columns
         // No filters
@@ -1843,7 +1871,7 @@ public abstract class BaseElasticsearchConnectorTest
 
         getQueryRunner().createCatalog(catalogName, "elasticsearch", config);
 
-        String indexName1 = "racks1";
+        String indexName1 = format("index_%s", randomTableSuffix());
         @Language("JSON")
         String properties = "" +
                 "{" +
@@ -1859,7 +1887,7 @@ public abstract class BaseElasticsearchConnectorTest
                 .build());
 
         // Matches the index 'racks1'
-        String indexName2 = "racks2";
+        String indexName2 = format("index_%s", randomTableSuffix());
         properties = "" +
                 "{" +
                 "  \"properties\":{" +
@@ -1874,7 +1902,7 @@ public abstract class BaseElasticsearchConnectorTest
                 .build());
 
         // Index that brings a new field 'bookid' that needs to be merged.
-        String indexName3 = "books";
+        String indexName3 = format("index_%s", randomTableSuffix());
         properties = "" +
                 "{" +
                 "  \"properties\":{" +

@@ -191,19 +191,6 @@ public class ElasticsearchConfig
         return this;
     }
 
-    public String getDataTypeForAliasSchemaMismatch()
-    {
-        return dataTypeForAliasSchemaMismatch;
-    }
-
-    @Config("elasticsearch.datatype-for-alias-schema-mismatch")
-    @ConfigDescription("Datatype for alias schema mismatch")
-    public ElasticsearchConfig setDataTypeForAliasSchemaMismatch(String dataTypeForAliasSchemaMismatch)
-    {
-        this.dataTypeForAliasSchemaMismatch = dataTypeForAliasSchemaMismatch;
-        return this;
-    }
-
     @NotNull
     @Min(1)
     public int getScrollSize()

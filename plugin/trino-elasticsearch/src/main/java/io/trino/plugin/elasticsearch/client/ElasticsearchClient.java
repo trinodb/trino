@@ -30,7 +30,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
-import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.ObjectMapperProvider;
@@ -92,10 +91,10 @@ import java.security.cert.Certificate;
 import java.security.cert.CertificateExpiredException;
 import java.security.cert.CertificateNotYetValidException;
 import java.security.cert.X509Certificate;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -107,13 +106,13 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.plugin.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_CONNECTION_ERROR;
@@ -121,6 +120,7 @@ import static io.trino.plugin.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH
 import static io.trino.plugin.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_INVALID_RESPONSE;
 import static io.trino.plugin.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_QUERY_FAILURE;
 import static io.trino.plugin.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_SSL_INITIALIZATION_FAILURE;
+import static io.trino.plugin.elasticsearch.utility.ElasticsearchDataTypes.getWiderDataType;
 import static java.lang.StrictMath.toIntExact;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -128,6 +128,9 @@ import static java.util.Collections.list;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.stream.Collectors.groupingBy;
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
 import static org.elasticsearch.action.search.SearchType.QUERY_THEN_FETCH;
 
 public class ElasticsearchClient
@@ -152,10 +155,9 @@ public class ElasticsearchClient
     private final boolean tlsEnabled;
     private final boolean ignorePublishAddress;
 
-    private boolean unionSchemaIndicesForAlias;
-    private int maxNumberOfIndicesForAliasSchema;
-    private boolean failOnAliasSchemaMismatch;
-    private String dataTypeForAliasSchemaMismatch;
+    private final boolean unionSchemaIndicesForAlias;
+    private final int maxNumberOfIndicesForAliasSchema;
+    private final boolean failOnAliasSchemaMismatch;
 
     private final TimeStat searchStats = new TimeStat(MILLISECONDS);
     private final TimeStat nextPageStats = new TimeStat(MILLISECONDS);
@@ -182,9 +184,8 @@ public class ElasticsearchClient
         this.unionSchemaIndicesForAlias = config.isUnionSchemaIndicesForAlias();
         this.maxNumberOfIndicesForAliasSchema = config.getMaxNumberOfIndicesForAliasSchema();
         this.failOnAliasSchemaMismatch = config.isFailOnAliasSchemaMismatch();
-        this.dataTypeForAliasSchemaMismatch = config.getDataTypeForAliasSchemaMismatch();
         indexMetaDataCache = newCacheBuilder(OptionalLong.of(config.getIndexMetaDataCacheTtl().toMillis()), config.getIndexMetaDataCacheMaximumSize())
-            .build(CacheLoader.asyncReloading(CacheLoader.from(this::loadIndexMetadata), Executors.newSingleThreadExecutor()));
+                .build(CacheLoader.asyncReloading(CacheLoader.from(this::loadIndexMetadata), Executors.newSingleThreadExecutor()));
     }
 
     @PostConstruct
@@ -633,21 +634,21 @@ public class ElasticsearchClient
         // Non object type fields
         Set<IndexMetadata.Field> fields = Stream.concat(schemaFields1.stream(), schemaFields2.stream())
                 .filter(field -> !(field.getType() instanceof IndexMetadata.ObjectType))
-                .collect(Collectors.toSet());
+                .collect(toSet());
 
         // Object Type fields
         Set<IndexMetadata.Field> objectTypeFields = Stream.concat(schemaFields1.stream(), schemaFields2.stream())
                 .filter(field -> field.getType() instanceof IndexMetadata.ObjectType)
-                .collect(Collectors.groupingBy(field -> field.getName()))
+                .collect(groupingBy(field -> field.getName()))
                 .entrySet()
                 .stream()
                 .map(fieldList -> mergeNestedFields(fieldList.getKey(), fieldList.getValue(), index, parentPrefix))
-                .collect(Collectors.toSet());
+                .collect(toSet());
 
         fields.addAll(objectTypeFields);
         fields = checkAndCorrectMismatchFields(index, parentPrefix, fields);
 
-        return new ArrayList<>(fields);
+        return ImmutableList.copyOf(fields);
     }
 
     private IndexMetadata.Field mergeNestedFields(String fieldName, List<IndexMetadata.Field> fields, String index, String parentPrefix)
@@ -661,42 +662,61 @@ public class ElasticsearchClient
         return new IndexMetadata.Field(indexField.isArray(), indexField.getName(), type);
     }
 
-    private String getFlattenedKey(String parent, String child)
+    private static String getFlattenedKey(String parent, String child)
     {
         return format("%s.%s", parent, child);
     }
 
     private Set<IndexMetadata.Field> checkAndCorrectMismatchFields(String index, String parent, Set<IndexMetadata.Field> fields)
     {
-        Map<String, List<IndexMetadata.Field>> fieldsMap = fields.stream()
-                .collect(Collectors.groupingBy(IndexMetadata.Field::getName));
+        final Map<String, List<IndexMetadata.Field>> fieldsByName = fields.stream().collect(groupingBy(IndexMetadata.Field::getName));
 
-        Map<String, List<IndexMetadata.Field>> typeMismatchFields = fieldsMap.entrySet()
+        final Set<IndexMetadata.Field> resultFields = fieldsByName.values().stream()
+                .filter(fieldList -> fieldList.size() == 1)
+                .map(fieldList -> fieldList.get(0))
+                .collect(toSet());
+
+        final Map<String, List<IndexMetadata.Type>> columnsWithMultipleDataTypes = fieldsByName.entrySet()
                 .stream()
                 .filter(fieldNameToFieldsList -> fieldNameToFieldsList.getValue().size() > 1)
-                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+                .collect(toImmutableMap(Map.Entry::getKey, columnToFields -> columnToFields.getValue().stream()
+                        .map(IndexMetadata.Field::getType)
+                        .collect(toList())));
 
-        if (!typeMismatchFields.isEmpty() && failOnAliasSchemaMismatch) {
-            Set<String> failedColNames = typeMismatchFields.keySet();
+        if (!columnsWithMultipleDataTypes.isEmpty() && failOnAliasSchemaMismatch) {
+            Set<String> failedColumns = columnsWithMultipleDataTypes.keySet();
             if (!isNullOrEmpty(parent)) {
-                failedColNames = failedColNames.stream().map(c -> format("%s.%s", parent, c)).collect(Collectors.toSet());
+                failedColumns = failedColumns.stream()
+                        .map(name -> getFlattenedKey(parent, name))
+                        .collect(toImmutableSet());
             }
-            throw new TrinoException(ELASTICSEARCH_INVALID_METADATA, format("Table(Alias index) '%s' has columns '%s' having data type mismatch", index, failedColNames));
+            throw new TrinoException(ELASTICSEARCH_INVALID_METADATA, format("Table(Alias index) '%s' has columns '%s' having data type mismatch", index, failedColumns));
         }
 
-        Set<IndexMetadata.Field> correctedFields = typeMismatchFields.entrySet().stream()
-                .map(fieldNameToFieldsList -> {
-                    String column = isNullOrEmpty(parent) ? fieldNameToFieldsList.getKey() : getFlattenedKey(parent, fieldNameToFieldsList.getKey());
-                    final boolean asRawJson = isNullOrEmpty(dataTypeForAliasSchemaMismatch);
-                    final String dataTypeForMismatchedField = asRawJson ? "text" : dataTypeForAliasSchemaMismatch;
-                    LOG.warn("Column '%s' in index(alias) '%s' has data type mismatch, Hence decoding as - '%s'",
-                            column, index, asRawJson ? "rawJson" : dataTypeForMismatchedField);
-                    return new IndexMetadata.Field(asRawJson, false, fieldNameToFieldsList.getKey(), new IndexMetadata.PrimitiveType(dataTypeForMismatchedField));
-                })
-                .collect(Collectors.toSet());
+        resultFields.addAll(correctColumnsWithMultipleDataTypes(columnsWithMultipleDataTypes));
 
-        correctedFields.forEach(field -> fieldsMap.put(field.getName(), Lists.newArrayList(field)));
-        return fieldsMap.values().stream().map(field -> field.iterator().next()).collect(Collectors.toSet());
+        return resultFields;
+    }
+
+    private Set<IndexMetadata.Field> correctColumnsWithMultipleDataTypes(Map<String, List<IndexMetadata.Type>> fieldsWithMultipleDataTypes)
+    {
+        return fieldsWithMultipleDataTypes.entrySet().stream()
+                .map(fieldType -> {
+                    // column with both PrimitiveType and non PrimitiveType casts as raw json
+                    final Class<? extends IndexMetadata.Type> firstTypeClazz = fieldType.getValue().get(0).getClass();
+                    final boolean isFieldPrimitive = fieldType.getValue().stream().allMatch(type -> type.getClass().equals(firstTypeClazz));
+
+                    String resultDataType = "text";
+                    if (isFieldPrimitive) {
+                        final Set<String> dataTypes = fieldType.getValue().stream()
+                                .map(type -> ((IndexMetadata.PrimitiveType) type).getName())
+                                .collect(toImmutableSet());
+                        resultDataType = getWiderDataType(dataTypes).toLowerCase(Locale.ROOT);
+                    }
+                    // Casts as raw json if resultant data type is text.
+                    return new IndexMetadata.Field("text".equals(resultDataType), false, fieldType.getKey(), new IndexMetadata.PrimitiveType(resultDataType));
+                })
+                .collect(toImmutableSet());
     }
 
     private IndexMetadata.ObjectType parseType(JsonNode properties, JsonNode metaProperties)
