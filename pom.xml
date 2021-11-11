@@ -70,7 +70,7 @@
         <!-- TODO(https://github.com/airlift/airbase/pull/281): Required by testcontainers, remove when pulled from Airbase -->
         <dep.slf4j.version>1.7.32</dep.slf4j.version>
 
-        <dep.docker.images.version>51</dep.docker.images.version>
+        <dep.docker.images.version>52</dep.docker.images.version>
 
         <!--
           America/Bahia_Banderas has:
