@@ -24,6 +24,7 @@ import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.Connector;
+import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorMetadata;
@@ -119,7 +120,7 @@ public class MockConnector
     private final BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableProperties> getTableProperties;
     private final Supplier<Iterable<EventListener>> eventListeners;
     private final MockConnectorFactory.ListRoleGrants roleGrants;
-    private final Optional<MockConnectorAccessControl> accessControl;
+    private final ConnectorAccessControl accessControl;
     private final Function<SchemaTableName, List<List<?>>> data;
     private final Set<Procedure> procedures;
 
@@ -145,7 +146,7 @@ public class MockConnector
             BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableProperties> getTableProperties,
             Supplier<Iterable<EventListener>> eventListeners,
             MockConnectorFactory.ListRoleGrants roleGrants,
-            Optional<MockConnectorAccessControl> accessControl,
+            ConnectorAccessControl accessControl,
             Function<SchemaTableName, List<List<?>>> data,
             Set<Procedure> procedures)
     {
@@ -219,9 +220,9 @@ public class MockConnector
     }
 
     @Override
-    public MockConnectorAccessControl getAccessControl()
+    public ConnectorAccessControl getAccessControl()
     {
-        return accessControl.orElseThrow(() -> new UnsupportedOperationException("Access control for mock connector is not set"));
+        return accessControl;
     }
 
     @Override
@@ -596,25 +597,30 @@ public class MockConnector
         @Override
         public void grantSchemaPrivileges(ConnectorSession session, String schemaName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
         {
-            getAccessControl().grantSchemaPrivileges(schemaName, privileges, grantee, grantOption);
+            getMockAccessControl().grantSchemaPrivileges(schemaName, privileges, grantee, grantOption);
         }
 
         @Override
         public void revokeSchemaPrivileges(ConnectorSession session, String schemaName, Set<Privilege> privileges, TrinoPrincipal revokee, boolean grantOption)
         {
-            getAccessControl().revokeSchemaPrivileges(schemaName, privileges, revokee, grantOption);
+            getMockAccessControl().revokeSchemaPrivileges(schemaName, privileges, revokee, grantOption);
         }
 
         @Override
         public void grantTablePrivileges(ConnectorSession session, SchemaTableName tableName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
         {
-            getAccessControl().grantTablePrivileges(tableName, privileges, grantee, grantOption);
+            getMockAccessControl().grantTablePrivileges(tableName, privileges, grantee, grantOption);
         }
 
         @Override
         public void revokeTablePrivileges(ConnectorSession session, SchemaTableName tableName, Set<Privilege> privileges, TrinoPrincipal revokee, boolean grantOption)
         {
-            getAccessControl().revokeTablePrivileges(tableName, privileges, revokee, grantOption);
+            getMockAccessControl().revokeTablePrivileges(tableName, privileges, revokee, grantOption);
+        }
+
+        private MockConnectorAccessControl getMockAccessControl()
+        {
+            return (MockConnectorAccessControl) accessControl;
         }
     }
 
