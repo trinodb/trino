@@ -51,8 +51,13 @@ public class RealDecoder
             decoded = ((Number) value).floatValue();
         }
         else if (value instanceof String) {
+            String stringValue = (String) value;
+            if (stringValue.isEmpty()) {
+                output.appendNull();
+                return;
+            }
             try {
-                decoded = Float.parseFloat((String) value);
+                decoded = Float.parseFloat(stringValue);
             }
             catch (NumberFormatException e) {
                 throw new TrinoException(TYPE_MISMATCH, format("Cannot parse value for field '%s' as REAL: %s", path, value));
