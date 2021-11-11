@@ -179,7 +179,7 @@ public final class StarburstSqlServerQueryRunner
                 Function.identity(),
                 false,
                 ImmutableMap.of(),
-                ImmutableList.of());
+                TpchTable.getTables());
 
         Logger log = Logger.get(StarburstSqlServerQueryRunner.class);
         log.info("======== SERVER STARTED ========");
