@@ -21,13 +21,12 @@ import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.QualifiedTablePrefix;
+import io.trino.metadata.ViewInfo;
 import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
-import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
-import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.InMemoryRecordSet;
 import io.trino.spi.connector.InMemoryRecordSet.Builder;
 import io.trino.spi.connector.RecordCursor;
@@ -103,8 +102,8 @@ public class TableCommentSystemTable
             QualifiedTablePrefix prefix = tablePrefix(catalog, schemaFilter, tableFilter);
 
             Set<SchemaTableName> names = ImmutableSet.of();
-            Map<SchemaTableName, ConnectorViewDefinition> views = ImmutableMap.of();
-            Map<SchemaTableName, ConnectorMaterializedViewDefinition> materializedViews = ImmutableMap.of();
+            Map<SchemaTableName, ViewInfo> views = ImmutableMap.of();
+            Map<SchemaTableName, ViewInfo> materializedViews = ImmutableMap.of();
             try {
                 materializedViews = getMaterializedViews(session, metadata, accessControl, prefix);
                 views = getViews(session, metadata, accessControl, prefix);
@@ -137,16 +136,16 @@ public class TableCommentSystemTable
             Session session,
             QualifiedTablePrefix prefix,
             SchemaTableName name,
-            Map<SchemaTableName, ConnectorViewDefinition> views,
-            Map<SchemaTableName, ConnectorMaterializedViewDefinition> materializedViews)
+            Map<SchemaTableName, ViewInfo> views,
+            Map<SchemaTableName, ViewInfo> materializedViews)
     {
-        ConnectorMaterializedViewDefinition materializedViewDefinition = materializedViews.get(name);
+        ViewInfo materializedViewDefinition = materializedViews.get(name);
         if (materializedViewDefinition != null) {
             return materializedViewDefinition.getComment();
         }
-        ConnectorViewDefinition viewDefinition = views.get(name);
-        if (viewDefinition != null) {
-            return viewDefinition.getComment();
+        ViewInfo viewInfo = views.get(name);
+        if (viewInfo != null) {
+            return viewInfo.getComment();
         }
         QualifiedObjectName tableName = new QualifiedObjectName(prefix.getCatalogName(), name.getSchemaName(), name.getTableName());
         return metadata.getRedirectionAwareTableHandle(session, tableName).getTableHandle()
