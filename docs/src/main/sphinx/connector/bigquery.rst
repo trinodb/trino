@@ -109,6 +109,8 @@ The connector has a preliminary support for reading from `BigQuery views
 <https://cloud.google.com/bigquery/docs/views-intro>`_. Please note there are
 a few caveats:
 
+* Reading from views is disabled by default. In order to enable it, set the
+  ``bigquery.views-enabled`` configuration property to ``true``.
 * BigQuery views are not materialized by default, which means that the
   connector needs to materialize them before it can read them. This process
   affects the read performance.
@@ -118,8 +120,6 @@ a few caveats:
   and ``bigquery.view-materialization-dataset`` properties, respectively. The
   service account must have write permission to the project and the dataset in
   order to materialize the view.
-* Reading from views is disabled by default. In order to enable it, set the
-  ``bigquery.views-enabled`` configuration property to ``true``.
 
 Configuration properties
 ^^^^^^^^^^^^^^^^^^^^^^^^
