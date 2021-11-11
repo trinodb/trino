@@ -19,9 +19,11 @@ import io.trino.cost.StatsCalculator;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.ViewColumn;
+import io.trino.metadata.ViewDefinition;
 import io.trino.security.AccessControl;
-import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.security.GroupProvider;
+import io.trino.spi.security.Identity;
 import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.Analyzer;
 import io.trino.sql.parser.SqlParser;
@@ -37,7 +39,6 @@ import java.util.Optional;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
-import static io.trino.spi.connector.ConnectorViewDefinition.ViewColumn;
 import static io.trino.sql.ParameterUtils.parameterExtractor;
 import static io.trino.sql.SqlFormatterUtil.getFormattedSql;
 import static io.trino.sql.tree.CreateView.Security.INVOKER;
@@ -96,19 +97,18 @@ public class CreateViewTask
                 .collect(toImmutableList());
 
         // use DEFINER security by default
-        Optional<String> owner = Optional.of(session.getUser());
+        Optional<Identity> owner = Optional.of(session.getIdentity());
         if (statement.getSecurity().orElse(null) == INVOKER) {
             owner = Optional.empty();
         }
 
-        ConnectorViewDefinition definition = new ConnectorViewDefinition(
+        ViewDefinition definition = new ViewDefinition(
                 sql,
                 session.getCatalog(),
                 session.getSchema(),
                 columns,
                 statement.getComment(),
-                owner,
-                owner.isEmpty());
+                owner);
 
         metadata.createView(session, name, definition, statement.isReplace());
 
