@@ -1293,7 +1293,7 @@ public final class MetadataManager
     }
 
     @Override
-    public Optional<ConnectorViewDefinition> getView(Session session, QualifiedObjectName viewName)
+    public Optional<ViewDefinition> getView(Session session, QualifiedObjectName viewName)
     {
         if (viewName.getCatalogName().isEmpty() || viewName.getSchemaName().isEmpty() || viewName.getObjectName().isEmpty()) {
             // View cannot exist
@@ -1307,19 +1307,20 @@ public final class MetadataManager
             ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
 
             ConnectorSession connectorSession = session.toConnectorSession(catalogName);
-            return metadata.getView(connectorSession, viewName.asSchemaTableName());
+            return metadata.getView(connectorSession, viewName.asSchemaTableName())
+                    .map(view -> new ViewDefinition(viewName, view));
         }
         return Optional.empty();
     }
 
     @Override
-    public void createView(Session session, QualifiedObjectName viewName, ConnectorViewDefinition definition, boolean replace)
+    public void createView(Session session, QualifiedObjectName viewName, ViewDefinition definition, boolean replace)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, viewName.getCatalogName());
         CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
-        metadata.createView(session.toConnectorSession(catalogName), viewName.asSchemaTableName(), definition, replace);
+        metadata.createView(session.toConnectorSession(catalogName), viewName.asSchemaTableName(), definition.toConnectorViewDefinition(), replace);
     }
 
     @Override
@@ -1356,13 +1357,18 @@ public final class MetadataManager
     }
 
     @Override
-    public void createMaterializedView(Session session, QualifiedObjectName viewName, ConnectorMaterializedViewDefinition definition, boolean replace, boolean ignoreExisting)
+    public void createMaterializedView(Session session, QualifiedObjectName viewName, MaterializedViewDefinition definition, boolean replace, boolean ignoreExisting)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, viewName.getCatalogName());
         CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
-        metadata.createMaterializedView(session.toConnectorSession(catalogName), viewName.asSchemaTableName(), definition, replace, ignoreExisting);
+        metadata.createMaterializedView(
+                session.toConnectorSession(catalogName),
+                viewName.asSchemaTableName(),
+                definition.toConnectorMaterializedViewDefinition(),
+                replace,
+                ignoreExisting);
     }
 
     @Override
@@ -1442,7 +1448,7 @@ public final class MetadataManager
     }
 
     @Override
-    public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(Session session, QualifiedObjectName viewName)
+    public Optional<MaterializedViewDefinition> getMaterializedView(Session session, QualifiedObjectName viewName)
     {
         if (viewName.getCatalogName().isEmpty() || viewName.getSchemaName().isEmpty() || viewName.getObjectName().isEmpty()) {
             // View cannot exist
@@ -1456,7 +1462,8 @@ public final class MetadataManager
             ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
 
             ConnectorSession connectorSession = session.toConnectorSession(catalogName);
-            return metadata.getMaterializedView(connectorSession, viewName.asSchemaTableName());
+            return metadata.getMaterializedView(connectorSession, viewName.asSchemaTableName())
+                    .map(MaterializedViewDefinition::new);
         }
         return Optional.empty();
     }

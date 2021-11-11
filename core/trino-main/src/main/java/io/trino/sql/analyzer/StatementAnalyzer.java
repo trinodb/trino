@@ -27,6 +27,7 @@ import io.trino.execution.Column;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.FunctionKind;
 import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.NewTableLayout;
 import io.trino.metadata.OperatorNotFoundException;
@@ -37,6 +38,8 @@ import io.trino.metadata.TableExecuteHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
 import io.trino.metadata.TableSchema;
+import io.trino.metadata.ViewColumn;
+import io.trino.metadata.ViewDefinition;
 import io.trino.security.AccessControl;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.security.ViewAccessControl;
@@ -47,10 +50,7 @@ import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnSchema;
-import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorTableMetadata;
-import io.trino.spi.connector.ConnectorViewDefinition;
-import io.trino.spi.connector.ConnectorViewDefinition.ViewColumn;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.function.OperatorType;
@@ -526,7 +526,7 @@ class StatementAnalyzer
         protected Scope visitRefreshMaterializedView(RefreshMaterializedView refreshMaterializedView, Optional<Scope> scope)
         {
             QualifiedObjectName name = createQualifiedObjectName(session, refreshMaterializedView, refreshMaterializedView.getName());
-            Optional<ConnectorMaterializedViewDefinition> optionalView = metadata.getMaterializedView(session, name);
+            Optional<MaterializedViewDefinition> optionalView = metadata.getMaterializedView(session, name);
 
             if (optionalView.isEmpty()) {
                 throw semanticException(TABLE_NOT_FOUND, refreshMaterializedView, "Materialized view '%s' does not exist", name);
@@ -1411,7 +1411,7 @@ class StatementAnalyzer
             return createAndAssignScope(node, scope, queryScope.getRelationType());
         }
 
-        private Optional<QualifiedName> getMaterializedViewStorageTableName(ConnectorMaterializedViewDefinition viewDefinition)
+        private Optional<QualifiedName> getMaterializedViewStorageTableName(MaterializedViewDefinition viewDefinition)
         {
             if (viewDefinition.getStorageTable().isEmpty()) {
                 return Optional.empty();
@@ -1448,7 +1448,7 @@ class StatementAnalyzer
 
             QualifiedObjectName name = createQualifiedObjectName(session, table, table.getName());
 
-            Optional<ConnectorMaterializedViewDefinition> optionalMaterializedView = metadata.getMaterializedView(session, name);
+            Optional<MaterializedViewDefinition> optionalMaterializedView = metadata.getMaterializedView(session, name);
             if (optionalMaterializedView.isPresent()) {
                 if (metadata.getMaterializedViewFreshness(session, name).isMaterializedViewFresh()) {
                     // If materialized view is current, answer the query using the storage table
@@ -1472,7 +1472,7 @@ class StatementAnalyzer
             }
 
             // This could be a reference to a logical view or a table
-            Optional<ConnectorViewDefinition> optionalView = metadata.getView(session, name);
+            Optional<ViewDefinition> optionalView = metadata.getView(session, name);
             if (optionalView.isPresent()) {
                 analysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), name);
                 return createScopeForView(table, name, scope, optionalView.get());
@@ -1638,7 +1638,7 @@ class StatementAnalyzer
             return createAndAssignScope(table, scope, fields);
         }
 
-        private Scope createScopeForMaterializedView(Table table, QualifiedObjectName name, Optional<Scope> scope, ConnectorMaterializedViewDefinition view, Optional<TableHandle> storageTable)
+        private Scope createScopeForMaterializedView(Table table, QualifiedObjectName name, Optional<Scope> scope, MaterializedViewDefinition view, Optional<TableHandle> storageTable)
         {
             return createScopeForView(
                     table,
@@ -1647,26 +1647,14 @@ class StatementAnalyzer
                     view.getOriginalSql(),
                     view.getCatalog(),
                     view.getSchema(),
-                    Optional.of(view.getOwner()),
-                    translateMaterializedViewColumns(view.getColumns()),
+                    view.getRunAsIdentity(),
+                    view.getColumns(),
                     storageTable);
         }
 
-        private List<ConnectorViewDefinition.ViewColumn> translateMaterializedViewColumns(List<ConnectorMaterializedViewDefinition.Column> materializedViewColumns)
+        private Scope createScopeForView(Table table, QualifiedObjectName name, Optional<Scope> scope, ViewDefinition view)
         {
-            List<ConnectorViewDefinition.ViewColumn> viewColumns = new ArrayList<>();
-            for (ConnectorMaterializedViewDefinition.Column column : materializedViewColumns) {
-                viewColumns.add(new ViewColumn(column.getName(), column.getType()));
-            }
-            return viewColumns;
-        }
-
-        private Scope createScopeForView(Table table, QualifiedObjectName name, Optional<Scope> scope, ConnectorViewDefinition view)
-        {
-            if (!view.isRunAsInvoker() && view.getOwner().isEmpty()) {
-                throw semanticException(INVALID_VIEW, table, "Owner must be present in view '%s' with SECURITY DEFINER mode", name);
-            }
-            return createScopeForView(table, name, scope, view.getOriginalSql(), view.getCatalog(), view.getSchema(), view.getOwner(), view.getColumns(), Optional.empty());
+            return createScopeForView(table, name, scope, view.getOriginalSql(), view.getCatalog(), view.getSchema(), view.getRunAsIdentity(), view.getColumns(), Optional.empty());
         }
 
         private Scope createScopeForView(
@@ -1676,8 +1664,8 @@ class StatementAnalyzer
                 String originalSql,
                 Optional<String> catalog,
                 Optional<String> schema,
-                Optional<String> owner,
-                List<ConnectorViewDefinition.ViewColumn> columns,
+                Optional<Identity> owner,
+                List<ViewColumn> columns,
                 Optional<TableHandle> storageTable)
         {
             Statement statement = analysis.getStatement();
@@ -3394,15 +3382,15 @@ class StatementAnalyzer
             }
         }
 
-        private RelationType analyzeView(Query query, QualifiedObjectName name, Optional<String> catalog, Optional<String> schema, Optional<String> owner, Table node)
+        private RelationType analyzeView(Query query, QualifiedObjectName name, Optional<String> catalog, Optional<String> schema, Optional<Identity> owner, Table node)
         {
             try {
                 // run view as view owner if set; otherwise, run as session user
                 Identity identity;
                 AccessControl viewAccessControl;
-                if (owner.isPresent() && !owner.get().equals(session.getIdentity().getUser())) {
-                    identity = Identity.forUser(owner.get())
-                            .withGroups(groupProvider.getGroups(owner.get()))
+                if (owner.isPresent() && !owner.get().getUser().equals(session.getIdentity().getUser())) {
+                    identity = Identity.from(owner.get())
+                            .withGroups(groupProvider.getGroups(owner.get().getUser()))
                             .build();
                     viewAccessControl = new ViewAccessControl(accessControl, session.getIdentity());
                 }
