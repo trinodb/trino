@@ -95,6 +95,11 @@ public class ViewDefinition
         return comment;
     }
 
+    public boolean isRunAsInvoker()
+    {
+        return runAsIdentity.isEmpty();
+    }
+
     public Optional<Identity> getRunAsIdentity()
     {
         return runAsIdentity;
@@ -125,5 +130,16 @@ public class ViewDefinition
                 .add("comment", comment.orElse(null))
                 .add("runAsIdentity", runAsIdentity.orElse(null))
                 .toString();
+    }
+
+    public ViewDefinition withOwner(Identity owner)
+    {
+        return new ViewDefinition(
+                originalSql,
+                catalog,
+                schema,
+                columns,
+                comment,
+                Optional.of(owner));
     }
 }

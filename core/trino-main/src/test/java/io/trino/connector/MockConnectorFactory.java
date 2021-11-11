@@ -16,12 +16,14 @@ package io.trino.connector;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.trino.plugin.base.security.AllowAllAccessControl;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.Connector;
+import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.connector.ConnectorHandleResolver;
@@ -94,7 +96,7 @@ public class MockConnectorFactory
 
     // access control
     private final ListRoleGrants roleGrants;
-    private final Optional<MockConnectorAccessControl> accessControl;
+    private final ConnectorAccessControl accessControl;
 
     private MockConnectorFactory(
             Function<ConnectorSession, List<String>> listSchemaNames,
@@ -120,7 +122,7 @@ public class MockConnectorFactory
             Function<SchemaTableName, List<List<?>>> data,
             Set<Procedure> procedures,
             ListRoleGrants roleGrants,
-            Optional<MockConnectorAccessControl> accessControl)
+            ConnectorAccessControl accessControl)
     {
         this.listSchemaNames = requireNonNull(listSchemaNames, "listSchemaNames is null");
         this.listTables = requireNonNull(listTables, "listTables is null");
@@ -471,9 +473,9 @@ public class MockConnectorFactory
 
         public MockConnectorFactory build()
         {
-            Optional<MockConnectorAccessControl> accessControl = Optional.empty();
+            ConnectorAccessControl accessControl = new AllowAllAccessControl();
             if (provideAccessControl) {
-                accessControl = Optional.of(new MockConnectorAccessControl(schemaGrants, tableGrants, rowFilter, columnMask));
+                accessControl = new MockConnectorAccessControl(schemaGrants, tableGrants, rowFilter, columnMask);
             }
             return new MockConnectorFactory(
                     listSchemaNames,

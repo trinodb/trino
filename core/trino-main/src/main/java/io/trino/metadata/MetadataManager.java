@@ -805,7 +805,12 @@ public final class MetadataManager
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, source.getCatalogName());
         CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
-        metadata.setSchemaAuthorization(session.toConnectorSession(catalogName), source.getSchemaName(), principal);
+        if (catalogMetadata.getSecurityManagement() == SecurityManagement.SYSTEM) {
+            systemSecurityMetadata.setSchemaOwner(session, source, principal);
+        }
+        else {
+            metadata.setSchemaAuthorization(session.toConnectorSession(catalogName), source.getSchemaName(), principal);
+        }
     }
 
     @Override
@@ -883,8 +888,14 @@ public final class MetadataManager
     public void setTableAuthorization(Session session, CatalogSchemaTableName table, TrinoPrincipal principal)
     {
         CatalogName catalogName = new CatalogName(table.getCatalogName());
-        ConnectorMetadata metadata = getMetadataForWrite(session, catalogName);
-        metadata.setTableAuthorization(session.toConnectorSession(catalogName), table.getSchemaTableName(), principal);
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
+        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        if (catalogMetadata.getSecurityManagement() == SecurityManagement.SYSTEM) {
+            systemSecurityMetadata.setTableOwner(session, table, principal);
+        }
+        else {
+            metadata.setTableAuthorization(session.toConnectorSession(catalogName), table.getSchemaTableName(), principal);
+        }
     }
 
     @Override
@@ -1285,15 +1296,36 @@ public final class MetadataManager
             throw new TrinoException(SCHEMA_NOT_FOUND, format("Schema '%s' does not exist", schemaName));
         }
         CatalogMetadata catalogMetadata = getCatalogMetadata(session, new CatalogName(schemaName.getCatalogName()));
+        if (catalogMetadata.getSecurityManagement() == SecurityManagement.SYSTEM) {
+            return systemSecurityMetadata.getSchemaOwner(session, schemaName);
+        }
         CatalogName catalogName = catalogMetadata.getConnectorIdForSchema(schemaName);
         ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
-
         ConnectorSession connectorSession = session.toConnectorSession(catalogName);
         return metadata.getSchemaOwner(connectorSession, schemaName);
     }
 
     @Override
+    public boolean isView(Session session, QualifiedObjectName viewName)
+    {
+        return getViewInternal(session, viewName).isPresent();
+    }
+
+    @Override
     public Optional<ViewDefinition> getView(Session session, QualifiedObjectName viewName)
+    {
+        Optional<ViewDefinition> view = getViewInternal(session, viewName);
+        if (view.isEmpty() || view.get().isRunAsInvoker() || isCatalogManagedSecurity(session, viewName.getCatalogName())) {
+            return view;
+        }
+        Optional<Identity> runAsIdentity = systemSecurityMetadata.getViewRunAsIdentity(session, viewName.asCatalogSchemaTableName());
+        if (runAsIdentity.isEmpty()) {
+            return view;
+        }
+        return view.map(v -> v.withOwner(runAsIdentity.get()));
+    }
+
+    private Optional<ViewDefinition> getViewInternal(Session session, QualifiedObjectName viewName)
     {
         if (viewName.getCatalogName().isEmpty() || viewName.getSchemaName().isEmpty() || viewName.getObjectName().isEmpty()) {
             // View cannot exist
@@ -1343,7 +1375,12 @@ public final class MetadataManager
         CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
-        metadata.setViewAuthorization(session.toConnectorSession(catalogName), view.getSchemaTableName(), principal);
+        if (catalogMetadata.getSecurityManagement() == SecurityManagement.SYSTEM) {
+            systemSecurityMetadata.setViewOwner(session, view, principal);
+        }
+        else {
+            metadata.setViewAuthorization(session.toConnectorSession(catalogName), view.getSchemaTableName(), principal);
+        }
     }
 
     @Override
@@ -1448,7 +1485,26 @@ public final class MetadataManager
     }
 
     @Override
+    public boolean isMaterializedView(Session session, QualifiedObjectName viewName)
+    {
+        return getMaterializedViewInternal(session, viewName).isPresent();
+    }
+
+    @Override
     public Optional<MaterializedViewDefinition> getMaterializedView(Session session, QualifiedObjectName viewName)
+    {
+        Optional<MaterializedViewDefinition> view = getMaterializedViewInternal(session, viewName);
+        if (view.isEmpty() || isCatalogManagedSecurity(session, viewName.getCatalogName())) {
+            return view;
+        }
+        Optional<Identity> runAsIdentity = systemSecurityMetadata.getViewRunAsIdentity(session, viewName.asCatalogSchemaTableName());
+        if (runAsIdentity.isEmpty()) {
+            return view;
+        }
+        return view.map(v -> v.withOwner(runAsIdentity.get()));
+    }
+
+    private Optional<MaterializedViewDefinition> getMaterializedViewInternal(Session session, QualifiedObjectName viewName)
     {
         if (viewName.getCatalogName().isEmpty() || viewName.getSchemaName().isEmpty() || viewName.getObjectName().isEmpty()) {
             // View cannot exist

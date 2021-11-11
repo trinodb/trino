@@ -566,7 +566,7 @@ final class ShowQueriesRewrite
 
                 accessControl.checkCanShowCreateTable(session.toSecurityContext(), new QualifiedObjectName(catalogName.getValue(), schemaName.getValue(), tableName.getValue()));
 
-                CreateView.Security security = viewDefinition.get().getRunAsIdentity().isEmpty() ? INVOKER : DEFINER;
+                CreateView.Security security = viewDefinition.get().isRunAsInvoker() ? INVOKER : DEFINER;
                 String sql = formatSql(new CreateView(
                         QualifiedName.of(ImmutableList.of(catalogName, schemaName, tableName)),
                         query,
