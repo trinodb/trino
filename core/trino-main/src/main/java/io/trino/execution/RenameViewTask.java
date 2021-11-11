@@ -20,7 +20,6 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.security.AccessControl;
-import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.RenameView;
 import io.trino.transaction.TransactionManager;
@@ -57,8 +56,7 @@ public class RenameViewTask
     {
         Session session = stateMachine.getSession();
         QualifiedObjectName viewName = createQualifiedObjectName(session, statement, statement.getSource());
-        Optional<ConnectorMaterializedViewDefinition> materializedView = metadata.getMaterializedView(session, viewName);
-        if (materializedView.isPresent()) {
+        if (metadata.isMaterializedView(session, viewName)) {
             throw semanticException(
                     TABLE_NOT_FOUND,
                     statement,

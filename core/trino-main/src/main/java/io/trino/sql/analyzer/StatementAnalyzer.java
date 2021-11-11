@@ -412,7 +412,7 @@ class StatementAnalyzer
         {
             QualifiedObjectName targetTable = createQualifiedObjectName(session, insert, insert.getTarget());
 
-            if (metadata.getMaterializedView(session, targetTable).isPresent()) {
+            if (metadata.isMaterializedView(session, targetTable)) {
                 throw semanticException(NOT_SUPPORTED, insert, "Inserting into materialized views is not supported");
             }
 
@@ -1009,7 +1009,7 @@ class StatementAnalyzer
             QualifiedObjectName originalName = createQualifiedObjectName(session, table, table.getName());
             String procedureName = node.getProcedureName().getCanonicalValue();
 
-            if (metadata.getMaterializedView(session, originalName).isPresent()) {
+            if (metadata.isMaterializedView(session, originalName)) {
                 throw semanticException(NOT_SUPPORTED, node, "ALTER TABLE EXECUTE is not supported for materialized views");
             }
 

@@ -716,6 +716,14 @@ public interface Metadata
     Map<QualifiedObjectName, ConnectorMaterializedViewDefinition> getMaterializedViews(Session session, QualifiedTablePrefix prefix);
 
     /**
+     * Is the specified table a materialized view.
+     */
+    default boolean isMaterializedView(Session session, QualifiedObjectName viewName)
+    {
+        return getMaterializedView(session, viewName).isPresent();
+    }
+
+    /**
      * Returns the materialized view definition for the specified view name.
      */
     Optional<ConnectorMaterializedViewDefinition> getMaterializedView(Session session, QualifiedObjectName viewName);

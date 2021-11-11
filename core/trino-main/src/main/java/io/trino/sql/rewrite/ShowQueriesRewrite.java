@@ -409,7 +409,7 @@ final class ShowQueriesRewrite
                 throw semanticException(SCHEMA_NOT_FOUND, showColumns, "Schema '%s' does not exist", tableName.getSchemaName());
             }
 
-            boolean isMaterializedView = metadata.getMaterializedView(session, tableName).isPresent();
+            boolean isMaterializedView = metadata.isMaterializedView(session, tableName);
             boolean isView = false;
             QualifiedObjectName targetTableName = tableName;
             Optional<TableHandle> tableHandle = Optional.empty();
@@ -545,7 +545,7 @@ final class ShowQueriesRewrite
             if (node.getType() == VIEW) {
                 QualifiedObjectName objectName = createQualifiedObjectName(session, node, node.getName());
 
-                if (metadata.getMaterializedView(session, objectName).isPresent()) {
+                if (metadata.isMaterializedView(session, objectName)) {
                     throw semanticException(NOT_SUPPORTED, node, "Relation '%s' is a materialized view, not a view", objectName);
                 }
 
@@ -580,7 +580,7 @@ final class ShowQueriesRewrite
             if (node.getType() == TABLE) {
                 QualifiedObjectName objectName = createQualifiedObjectName(session, node, node.getName());
 
-                if (metadata.getMaterializedView(session, objectName).isPresent()) {
+                if (metadata.isMaterializedView(session, objectName)) {
                     throw semanticException(NOT_SUPPORTED, node, "Relation '%s' is a materialized view, not a table", objectName);
                 }
 
