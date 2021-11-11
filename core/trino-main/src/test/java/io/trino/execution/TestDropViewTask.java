@@ -36,10 +36,10 @@ public class TestDropViewTask
     {
         QualifiedObjectName viewName = qualifiedObjectName("existing_view");
         metadata.createView(testSession, viewName, someView(), false);
-        assertThat(metadata.getView(testSession, viewName)).isPresent();
+        assertThat(metadata.isView(testSession, viewName)).isTrue();
 
         getFutureValue(executeDropView(asQualifiedName(viewName), false));
-        assertThat(metadata.getView(testSession, viewName)).isEmpty();
+        assertThat(metadata.isView(testSession, viewName)).isFalse();
     }
 
     @Test

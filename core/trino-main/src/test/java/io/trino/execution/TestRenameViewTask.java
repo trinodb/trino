@@ -39,8 +39,8 @@ public class TestRenameViewTask
         metadata.createView(testSession, viewName, someView(), false);
 
         getFutureValue(executeRenameView(asQualifiedName(viewName), asQualifiedName(newViewName)));
-        assertThat(metadata.getView(testSession, viewName)).isEmpty();
-        assertThat(metadata.getView(testSession, newViewName)).isPresent();
+        assertThat(metadata.isView(testSession, viewName)).isFalse();
+        assertThat(metadata.isView(testSession, newViewName)).isTrue();
     }
 
     @Test

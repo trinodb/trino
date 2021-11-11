@@ -21,7 +21,6 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.security.AccessControl;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
-import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.sql.tree.DropMaterializedView;
 import io.trino.sql.tree.Expression;
 import io.trino.transaction.TransactionManager;
@@ -59,8 +58,7 @@ public class DropMaterializedViewTask
         Optional<ConnectorMaterializedViewDefinition> materializedView = metadata.getMaterializedView(session, name);
         if (materializedView.isEmpty()) {
             if (!statement.isExists()) {
-                Optional<ConnectorViewDefinition> view = metadata.getView(session, name);
-                if (view.isPresent()) {
+                if (metadata.isView(session, name)) {
                     throw semanticException(
                             TABLE_NOT_FOUND,
                             statement,

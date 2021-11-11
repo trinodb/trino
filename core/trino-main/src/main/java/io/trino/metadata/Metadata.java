@@ -409,6 +409,14 @@ public interface Metadata
     Map<QualifiedObjectName, ConnectorViewDefinition> getViews(Session session, QualifiedTablePrefix prefix);
 
     /**
+     * Is the specified table a view.
+     */
+    default boolean isView(Session session, QualifiedObjectName viewName)
+    {
+        return getView(session, viewName).isPresent();
+    }
+
+    /**
      * Returns the view definition for the specified view name.
      */
     Optional<ConnectorViewDefinition> getView(Session session, QualifiedObjectName viewName);

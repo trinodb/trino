@@ -416,7 +416,7 @@ class StatementAnalyzer
                 throw semanticException(NOT_SUPPORTED, insert, "Inserting into materialized views is not supported");
             }
 
-            if (metadata.getView(session, targetTable).isPresent()) {
+            if (metadata.isView(session, targetTable)) {
                 throw semanticException(NOT_SUPPORTED, insert, "Inserting into views is not supported");
             }
 
@@ -668,7 +668,7 @@ class StatementAnalyzer
         {
             Table table = node.getTable();
             QualifiedObjectName originalName = createQualifiedObjectName(session, table, table.getName());
-            if (metadata.getView(session, originalName).isPresent()) {
+            if (metadata.isView(session, originalName)) {
                 throw semanticException(NOT_SUPPORTED, node, "Deleting from views is not supported");
             }
 
@@ -716,7 +716,7 @@ class StatementAnalyzer
             analysis.setUpdateTarget(tableName, Optional.empty(), Optional.empty());
 
             // verify the target table exists and it's not a view
-            if (metadata.getView(session, tableName).isPresent()) {
+            if (metadata.isView(session, tableName)) {
                 throw semanticException(NOT_SUPPORTED, node, "Analyzing views is not supported");
             }
 
@@ -1013,7 +1013,7 @@ class StatementAnalyzer
                 throw semanticException(NOT_SUPPORTED, node, "ALTER TABLE EXECUTE is not supported for materialized views");
             }
 
-            if (metadata.getView(session, originalName).isPresent()) {
+            if (metadata.isView(session, originalName)) {
                 throw semanticException(NOT_SUPPORTED, node, "ALTER TABLE EXECUTE is not supported for views");
             }
 
@@ -2374,7 +2374,7 @@ class StatementAnalyzer
         {
             Table table = update.getTable();
             QualifiedObjectName originalName = createQualifiedObjectName(session, table, table.getName());
-            if (metadata.getView(session, originalName).isPresent()) {
+            if (metadata.isView(session, originalName)) {
                 throw semanticException(NOT_SUPPORTED, update, "Updating through views is not supported");
             }
 
