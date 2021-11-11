@@ -442,6 +442,9 @@ public class TupleDomainParquetPredicate
             List<Object> min = new ArrayList<>();
             List<Object> max = new ArrayList<>();
             for (int i = 0; i < pageCount; i++) {
+                if (nullPages.get(i)) {
+                    continue;
+                }
                 min.add(converterFunction.apply(minValues.get(i)));
                 max.add(converterFunction.apply(maxValues.get(i)));
             }
