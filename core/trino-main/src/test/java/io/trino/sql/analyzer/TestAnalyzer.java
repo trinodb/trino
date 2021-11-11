@@ -2051,21 +2051,6 @@ public class TestAnalyzer
     }
 
     @Test
-    public void testExplain()
-    {
-        analyze("EXPLAIN (FORMAT TEXT, TYPE LOGICAL) SELECT * FROM t1");
-        analyze("EXPLAIN (FORMAT TEXT, TYPE DISTRIBUTED) SELECT * FROM t1");
-        analyze("EXPLAIN (FORMAT TEXT, TYPE IO) SELECT * FROM t1");
-
-        analyze("EXPLAIN (FORMAT JSON, TYPE LOGICAL) SELECT * FROM t1");
-        analyze("EXPLAIN (FORMAT JSON, TYPE DISTRIBUTED) SELECT * FROM t1");
-        analyze("EXPLAIN (FORMAT JSON, TYPE IO) SELECT * FROM t1");
-
-        analyze("EXPLAIN (FORMAT GRAPHVIZ, TYPE LOGICAL) SELECT * FROM t1");
-        analyze("EXPLAIN (FORMAT GRAPHVIZ, TYPE DISTRIBUTED) SELECT * FROM t1");
-    }
-
-    @Test
     public void testExplainAnalyze()
     {
         analyze("EXPLAIN ANALYZE SELECT * FROM t1");
@@ -5290,49 +5275,11 @@ public class TestAnalyzer
                 SQL_PARSER,
                 user -> ImmutableSet.of(),
                 accessControl,
-                Optional.of(getQueryExplainer(metadata, accessControl)),
+                Optional.empty(),
                 emptyList(),
                 emptyMap(),
                 WarningCollector.NOOP,
                 noopStatsCalculator());
-    }
-
-    private static QueryExplainer getQueryExplainer(Metadata metadata, AccessControl accessControl)
-    {
-        LocalQueryRunner queryRunner = LocalQueryRunner.create(SETUP_SESSION);
-        FeaturesConfig featuresConfig = new FeaturesConfig().setOptimizeHashGeneration(true);
-        boolean forceSingleNode = queryRunner.getNodeCount() == 1;
-        TypeOperators typeOperators = new TypeOperators();
-        TypeAnalyzer typeAnalyzer = new TypeAnalyzer(SQL_PARSER, metadata);
-        TaskCountEstimator taskCountEstimator = new TaskCountEstimator(queryRunner::getNodeCount);
-        CostCalculator costCalculator = new CostCalculatorUsingExchanges(taskCountEstimator);
-        List<PlanOptimizer> optimizers = new PlanOptimizers(
-                metadata,
-                typeOperators,
-                typeAnalyzer,
-                new TaskManagerConfig(),
-                forceSingleNode,
-                queryRunner.getSplitManager(),
-                queryRunner.getPageSourceManager(),
-                queryRunner.getStatsCalculator(),
-                new ScalarStatsCalculator(metadata, typeAnalyzer),
-                costCalculator,
-                new CostCalculatorWithEstimatedExchanges(costCalculator, taskCountEstimator),
-                new CostComparator(featuresConfig),
-                taskCountEstimator,
-                queryRunner.getNodePartitioningManager(),
-                new RuleStatsRecorder()).get();
-        return new QueryExplainer(
-                optimizers,
-                new PlanFragmenter(metadata, queryRunner.getNodePartitioningManager(), new QueryManagerConfig()),
-                metadata,
-                typeOperators,
-                queryRunner.getGroupProvider(),
-                accessControl,
-                SQL_PARSER,
-                queryRunner.getStatsCalculator(),
-                costCalculator,
-                ImmutableMap.of());
     }
 
     private Analysis analyze(@Language("SQL") String query)
