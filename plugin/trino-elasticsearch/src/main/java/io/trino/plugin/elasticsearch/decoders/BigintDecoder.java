@@ -48,8 +48,13 @@ public class BigintDecoder
             BIGINT.writeLong(output, ((Number) value).longValue());
         }
         else if (value instanceof String) {
+            String stringValue = (String) value;
+            if (stringValue.isEmpty()) {
+                output.appendNull();
+                return;
+            }
             try {
-                BIGINT.writeLong(output, Long.parseLong((String) value));
+                BIGINT.writeLong(output, Long.parseLong(stringValue));
             }
             catch (NumberFormatException e) {
                 throw new TrinoException(TYPE_MISMATCH, format("Cannot parse value for field '%s' as BIGINT: %s", path, value));

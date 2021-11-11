@@ -51,8 +51,13 @@ public class TinyintDecoder
             decoded = ((Number) value).longValue();
         }
         else if (value instanceof String) {
+            String stringValue = (String) value;
+            if (stringValue.isEmpty()) {
+                output.appendNull();
+                return;
+            }
             try {
-                decoded = Long.parseLong((String) value);
+                decoded = Long.parseLong(stringValue);
             }
             catch (NumberFormatException e) {
                 throw new TrinoException(TYPE_MISMATCH, format("Cannot parse value for field '%s' as TINYINT: %s", path, value));
