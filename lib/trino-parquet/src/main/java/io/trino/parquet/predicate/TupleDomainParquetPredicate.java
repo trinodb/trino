@@ -173,7 +173,7 @@ public class TupleDomainParquetPredicate
                 continue;
             }
 
-            Domain domain = getDomain(effectivePredicateDomain.getType(), numberOfRows, columnIndex, id, column);
+            Domain domain = getDomain(effectivePredicateDomain.getType(), numberOfRows, columnIndex, id, column, timeZone);
             if (!effectivePredicateDomain.overlaps(domain)) {
                 return false;
             }
@@ -400,7 +400,13 @@ public class TupleDomainParquetPredicate
     }
 
     @VisibleForTesting
-    public Domain getDomain(Type type, long rowCount, ColumnIndex columnIndex, ParquetDataSourceId id, RichColumnDescriptor descriptor)
+    public static Domain getDomain(
+            Type type,
+            long rowCount,
+            ColumnIndex columnIndex,
+            ParquetDataSourceId id,
+            RichColumnDescriptor descriptor,
+            DateTimeZone timeZone)
             throws ParquetCorruptionException
     {
         if (columnIndex == null) {
