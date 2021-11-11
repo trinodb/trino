@@ -701,7 +701,7 @@ public final class MetadataManager
 
     private boolean isExistingRelation(Session session, QualifiedObjectName name)
     {
-        if (getMaterializedView(session, name).isPresent()) {
+        if (isMaterializedView(session, name)) {
             return true;
         }
         if (isView(session, name)) {
@@ -1383,9 +1383,7 @@ public final class MetadataManager
 
         Optional<QualifiedObjectName> objectName = prefix.asQualifiedObjectName();
         if (objectName.isPresent()) {
-            return getMaterializedView(session, objectName.get())
-                    .map(handle -> ImmutableList.of(objectName.get()))
-                    .orElseGet(ImmutableList::of);
+            return isMaterializedView(session, objectName.get()) ? ImmutableList.of(objectName.get()) : ImmutableList.of();
         }
 
         Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, prefix.getCatalogName());

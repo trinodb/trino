@@ -82,7 +82,7 @@ public class SetPropertiesTask
 
     private void setTableProperties(SetProperties statement, QualifiedObjectName tableName, Metadata metadata, AccessControl accessControl, Session session, Map<String, Object> properties)
     {
-        if (metadata.getMaterializedView(session, tableName).isPresent()) {
+        if (metadata.isMaterializedView(session, tableName)) {
             throw semanticException(NOT_SUPPORTED, statement, "Cannot set properties to a materialized view in ALTER TABLE");
         }
 
