@@ -48,6 +48,7 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.hive.HivePageSourceProvider.ColumnMapping.buildColumnMappings;
 import static io.trino.plugin.hive.HiveStorageFormat.ORC;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.TYPE_MANAGER;
@@ -204,6 +205,17 @@ public class TestOrcPredicates
             return handle.get();
         });
 
+        List<HivePageSourceProvider.ColumnMapping> columnMappings = buildColumnMappings(
+                partitionName,
+                partitionKeys,
+                columnHandles,
+                ImmutableList.of(),
+                TableToPartitionMapping.empty(),
+                split.getPath(),
+                OptionalInt.empty(),
+                split.getLength(),
+                Instant.now().toEpochMilli());
+
         Optional<ConnectorPageSource> pageSource = HivePageSourceProvider.createHivePageSource(
                 ImmutableSet.of(readerFactory),
                 ImmutableSet.of(),
@@ -214,20 +226,17 @@ public class TestOrcPredicates
                 split.getStart(),
                 split.getLength(),
                 split.getLength(),
-                Instant.now().toEpochMilli(),
                 splitProperties,
                 predicate,
                 columnHandles,
-                partitionName,
-                partitionKeys,
                 TYPE_MANAGER,
-                TableToPartitionMapping.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 false,
                 Optional.empty(),
                 false,
-                NO_ACID_TRANSACTION);
+                NO_ACID_TRANSACTION,
+                columnMappings);
 
         assertTrue(pageSource.isPresent());
         return pageSource.get();

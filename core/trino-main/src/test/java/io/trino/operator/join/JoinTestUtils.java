@@ -15,7 +15,6 @@ package io.trino.operator.join;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
-import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.trino.RowPagesBuilder;
@@ -102,7 +101,7 @@ public final class JoinTestUtils
                 false,
                 hasFilter,
                 probePages.getTypes(),
-                Ints.asList(0),
+                probePages.getHashChannels().orElseThrow(),
                 getHashChannelAsInt(probePages),
                 Optional.empty(),
                 OptionalInt.of(1),
@@ -133,7 +132,6 @@ public final class JoinTestUtils
             NodePartitioningManager nodePartitioningManager,
             boolean parallelBuild,
             TaskContext taskContext,
-            List<Integer> hashChannels,
             RowPagesBuilder buildPages,
             Optional<InternalJoinFilterFunction> filterFunction,
             boolean spillEnabled,
@@ -143,6 +141,7 @@ public final class JoinTestUtils
                 .map(function -> (session, addresses, pages) -> new StandardJoinFilterFunction(function, addresses, pages));
 
         int partitionCount = parallelBuild ? PARTITION_COUNT : 1;
+        List<Integer> hashChannels = buildPages.getHashChannels().orElseThrow();
         LocalExchange.LocalExchangeFactory localExchangeFactory = new LocalExchange.LocalExchangeFactory(
                 nodePartitioningManager,
                 taskContext.getSession(),

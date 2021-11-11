@@ -65,6 +65,7 @@ public class OperatorStats
 
     private final long dynamicFilterSplitsProcessed;
     private final Metrics metrics;
+    private final Metrics connectorMetrics;
 
     private final DataSize physicalWrittenDataSize;
 
@@ -118,6 +119,7 @@ public class OperatorStats
 
             @JsonProperty("dynamicFilterSplitsProcessed") long dynamicFilterSplitsProcessed,
             @JsonProperty("metrics") Metrics metrics,
+            @JsonProperty("connectorMetrics") Metrics connectorMetrics,
 
             @JsonProperty("physicalWrittenDataSize") DataSize physicalWrittenDataSize,
 
@@ -172,7 +174,8 @@ public class OperatorStats
         this.outputPositions = outputPositions;
 
         this.dynamicFilterSplitsProcessed = dynamicFilterSplitsProcessed;
-        this.metrics = requireNonNull(metrics);
+        this.metrics = requireNonNull(metrics, "metrics is null");
+        this.connectorMetrics = requireNonNull(connectorMetrics, "connectorMetrics is null");
 
         this.physicalWrittenDataSize = requireNonNull(physicalWrittenDataSize, "physicalWrittenDataSize is null");
 
@@ -343,6 +346,12 @@ public class OperatorStats
     }
 
     @JsonProperty
+    public Metrics getConnectorMetrics()
+    {
+        return connectorMetrics;
+    }
+
+    @JsonProperty
     public DataSize getPhysicalWrittenDataSize()
     {
         return physicalWrittenDataSize;
@@ -462,6 +471,7 @@ public class OperatorStats
 
         long dynamicFilterSplitsProcessed = this.dynamicFilterSplitsProcessed;
         Metrics.Accumulator metricsAccumulator = Metrics.accumulator().add(this.getMetrics());
+        Metrics.Accumulator connectorMetricsAccumulator = Metrics.accumulator().add(this.getConnectorMetrics());
 
         long physicalWrittenDataSize = this.physicalWrittenDataSize.toBytes();
 
@@ -510,6 +520,7 @@ public class OperatorStats
 
             dynamicFilterSplitsProcessed += operator.getDynamicFilterSplitsProcessed();
             metricsAccumulator.add(operator.getMetrics());
+            connectorMetricsAccumulator.add(operator.getConnectorMetrics());
 
             physicalWrittenDataSize += operator.getPhysicalWrittenDataSize().toBytes();
 
@@ -570,6 +581,7 @@ public class OperatorStats
 
                 dynamicFilterSplitsProcessed,
                 metricsAccumulator.get(),
+                connectorMetricsAccumulator.get(),
 
                 succinctBytes(physicalWrittenDataSize),
 
@@ -637,6 +649,7 @@ public class OperatorStats
                 outputPositions,
                 dynamicFilterSplitsProcessed,
                 metrics,
+                connectorMetrics,
                 physicalWrittenDataSize,
                 blockedWall,
                 finishCalls,

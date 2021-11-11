@@ -13,6 +13,8 @@
  */
 package io.trino.spi.block;
 
+import javax.annotation.Nullable;
+
 import java.util.List;
 
 import static io.trino.spi.block.BlockUtil.arraySame;
@@ -40,6 +42,10 @@ public abstract class AbstractRowBlock
 
     protected abstract int getOffsetBase();
 
+    /**
+     * @return the underlying rowIsNull array, or null when all rows are guaranteed to be non-null
+     */
+    @Nullable
     protected abstract boolean[] getRowIsNull();
 
     // the offset in each field block, it can also be viewed as the "entry-based" offset in the RowBlock
@@ -68,24 +74,40 @@ public abstract class AbstractRowBlock
         checkArrayRange(positions, offset, length);
 
         int[] newOffsets = new int[length + 1];
-        boolean[] newRowIsNull = new boolean[length];
+        newOffsets[0] = 0;
 
-        IntArrayList fieldBlockPositions = new IntArrayList(length);
-        for (int i = 0; i < length; i++) {
-            int position = positions[offset + i];
-            if (isNull(position)) {
-                newRowIsNull[i] = true;
-                newOffsets[i + 1] = newOffsets[i];
+        int[] fieldBlockPositions = new int[length];
+        int fieldBlockPositionCount;
+        boolean[] newRowIsNull;
+        if (getRowIsNull() == null) {
+            // No nulls are present
+            newRowIsNull = null;
+            fieldBlockPositionCount = fieldBlockPositions.length;
+            for (int i = 0; i < fieldBlockPositions.length; i++) {
+                int position = positions[offset + i];
+                newOffsets[i + 1] = i + 1;
+                fieldBlockPositions[i] = getFieldBlockOffset(position);
             }
-            else {
-                newOffsets[i + 1] = newOffsets[i] + 1;
-                fieldBlockPositions.add(getFieldBlockOffset(position));
+        }
+        else {
+            newRowIsNull = new boolean[length];
+            fieldBlockPositionCount = 0;
+            for (int i = 0; i < length; i++) {
+                int position = positions[offset + i];
+                if (isNull(position)) {
+                    newRowIsNull[i] = true;
+                    newOffsets[i + 1] = newOffsets[i];
+                }
+                else {
+                    newOffsets[i + 1] = newOffsets[i] + 1;
+                    fieldBlockPositions[fieldBlockPositionCount++] = getFieldBlockOffset(position);
+                }
             }
         }
 
         Block[] newBlocks = new Block[numFields];
-        for (int i = 0; i < numFields; i++) {
-            newBlocks[i] = getRawFieldBlocks()[i].copyPositions(fieldBlockPositions.elements(), 0, fieldBlockPositions.size());
+        for (int i = 0; i < newBlocks.length; i++) {
+            newBlocks[i] = getRawFieldBlocks()[i].copyPositions(fieldBlockPositions, 0, fieldBlockPositionCount);
         }
         return createRowBlockInternal(0, length, newRowIsNull, newOffsets, newBlocks);
     }
@@ -194,7 +216,7 @@ public abstract class AbstractRowBlock
         for (int i = 0; i < numFields; i++) {
             newBlocks[i] = getRawFieldBlocks()[i].copyRegion(startFieldBlockOffset, fieldBlockLength);
         }
-        boolean[] newRowIsNull = new boolean[] {isNull(position)};
+        boolean[] newRowIsNull = isNull(position) ? new boolean[] {true} : null;
         int[] newOffsets = new int[] {0, fieldBlockLength};
 
         return createRowBlockInternal(0, 1, newRowIsNull, newOffsets, newBlocks);

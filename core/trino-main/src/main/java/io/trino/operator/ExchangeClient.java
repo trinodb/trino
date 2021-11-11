@@ -200,7 +200,7 @@ public class ExchangeClient
                     return ProcessState.blocked(blocked);
                 }
 
-                return ProcessState.yield();
+                return ProcessState.yielded();
             }
 
             return ProcessState.ofResult(page);
@@ -282,7 +282,7 @@ public class ExchangeClient
         notifyBlockedCallers();
     }
 
-    public synchronized void scheduleRequestIfNecessary()
+    private synchronized void scheduleRequestIfNecessary()
     {
         if (isFinished() || isFailed()) {
             return;

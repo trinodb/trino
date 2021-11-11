@@ -220,7 +220,7 @@ public class TestStateCompiler
         singleState.setBlock(array);
         singleState.setAnotherBlock(mapBlockOf(BIGINT, VARCHAR, ImmutableMap.of(123L, "testBlock")));
 
-        BlockBuilder builder = RowType.anonymous(ImmutableList.of(BOOLEAN, TINYINT, DOUBLE, INTEGER, BIGINT, mapType, VARBINARY, arrayType, VARBINARY, VARBINARY))
+        BlockBuilder builder = RowType.anonymous(ImmutableList.of(mapType, VARBINARY, arrayType, BOOLEAN, TINYINT, DOUBLE, INTEGER, BIGINT, VARBINARY, VARBINARY))
                 .createBlockBuilder(null, 1);
         serializer.serialize(singleState, builder);
 

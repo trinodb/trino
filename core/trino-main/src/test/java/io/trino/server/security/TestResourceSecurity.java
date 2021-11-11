@@ -31,6 +31,7 @@ import io.jsonwebtoken.SignatureAlgorithm;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
 import io.trino.security.AccessControl;
 import io.trino.security.AccessControlManager;
+import io.trino.server.HttpRequestSessionContextFactory;
 import io.trino.server.security.oauth2.OAuth2Client;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.security.AccessDeniedException;
@@ -46,6 +47,7 @@ import okhttp3.Response;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import javax.crypto.SecretKey;
 import javax.inject.Inject;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
@@ -66,6 +68,7 @@ import java.security.Principal;
 import java.security.PrivateKey;
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.Base64;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
@@ -78,9 +81,10 @@ import static com.google.common.net.HttpHeaders.AUTHORIZATION;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
+import static io.jsonwebtoken.security.Keys.hmacShaKeyFor;
 import static io.trino.client.OkHttpUtil.setupSsl;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
-import static io.trino.server.HttpRequestSessionContext.extractAuthorizedIdentity;
+import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.server.security.ResourceSecurity.AccessType.AUTHENTICATED_USER;
 import static io.trino.server.security.oauth2.OAuth2Service.NONCE;
 import static io.trino.server.security.oauth2.OAuth2Service.hashNonce;
@@ -303,19 +307,19 @@ public class TestResourceSecurity
     @javax.ws.rs.Path("/username")
     public static class TestResource
     {
-        private final AccessControl accessControl;
+        private final HttpRequestSessionContextFactory sessionContextFactory;
 
         @Inject
         public TestResource(AccessControl accessControl)
         {
-            this.accessControl = accessControl;
+            this.sessionContextFactory = new HttpRequestSessionContextFactory(createTestMetadataManager(), ImmutableSet::of, accessControl);
         }
 
         @ResourceSecurity(AUTHENTICATED_USER)
         @GET
         public javax.ws.rs.core.Response echoToken(@Context HttpServletRequest servletRequest, @Context HttpHeaders httpHeaders)
         {
-            Identity identity = extractAuthorizedIdentity(servletRequest, httpHeaders, Optional.empty(), accessControl, user -> ImmutableSet.of());
+            Identity identity = sessionContextFactory.extractAuthorizedIdentity(servletRequest, httpHeaders, Optional.empty());
             return javax.ws.rs.core.Response.ok()
                     .header("user", identity.getUser())
                     .build();
@@ -471,9 +475,9 @@ public class TestResourceSecurity
 
             assertAuthenticationDisabled(httpServerInfo.getHttpUri());
 
-            String hmac = Files.readString(Paths.get(HMAC_KEY));
+            SecretKey hmac = hmacShaKeyFor(Base64.getDecoder().decode(Files.readString(Paths.get(HMAC_KEY)).trim()));
             JwtBuilder tokenBuilder = Jwts.builder()
-                    .signWith(SignatureAlgorithm.HS256, hmac)
+                    .signWith(hmac)
                     .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()));
             if (principalField.isPresent()) {
                 tokenBuilder.claim(principalField.get(), "test-user");
@@ -511,7 +515,7 @@ public class TestResourceSecurity
             assertAuthenticationDisabled(httpServerInfo.getHttpUri());
 
             String token = Jwts.builder()
-                    .signWith(SignatureAlgorithm.RS256, JWK_PRIVATE_KEY)
+                    .signWith(JWK_PRIVATE_KEY)
                     .setHeaderParam(JwsHeader.KEY_ID, "test-rsa")
                     .setSubject("test-user")
                     .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
@@ -551,7 +555,7 @@ public class TestResourceSecurity
         Date tokenExpiration = Date.from(ZonedDateTime.now().plusMinutes(5).toInstant());
         String issuer = "http://example.com/";
         JwtBuilder accessTokenBuilder = Jwts.builder()
-                .signWith(SignatureAlgorithm.RS256, JWK_PRIVATE_KEY)
+                .signWith(JWK_PRIVATE_KEY)
                 .setHeaderParam(JwsHeader.KEY_ID, "test-rsa")
                 .setIssuer(issuer)
                 .setAudience(clientId)

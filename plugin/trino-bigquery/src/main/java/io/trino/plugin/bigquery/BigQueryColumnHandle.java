@@ -37,6 +37,8 @@ public class BigQueryColumnHandle
     private final String name;
     private final BigQueryType bigQueryType;
     private final Field.Mode mode;
+    private final Long precision;
+    private final Long scale;
     private final List<BigQueryColumnHandle> subColumns;
     private final String description;
     private final boolean hidden;
@@ -46,6 +48,8 @@ public class BigQueryColumnHandle
             @JsonProperty("name") String name,
             @JsonProperty("bigQueryType") BigQueryType bigQueryType,
             @JsonProperty("mode") Field.Mode mode,
+            @JsonProperty("precision") Long precision,
+            @JsonProperty("scale") Long scale,
             @JsonProperty("subColumns") List<BigQueryColumnHandle> subColumns,
             @JsonProperty("description") String description,
             @JsonProperty("hidden") boolean hidden)
@@ -53,6 +57,8 @@ public class BigQueryColumnHandle
         this.name = requireNonNull(name, "column name cannot be null");
         this.bigQueryType = requireNonNull(bigQueryType, () -> format("column type cannot be null for column [%s]", name));
         this.mode = requireNonNull(mode, "Field mode cannot be null");
+        this.precision = precision;
+        this.scale = scale;
         this.subColumns = ImmutableList.copyOf(requireNonNull(subColumns, "subColumns is null"));
         this.description = description;
         this.hidden = hidden;
@@ -63,10 +69,12 @@ public class BigQueryColumnHandle
             String name,
             BigQueryType bigQueryType,
             Field.Mode mode,
+            Long precision,
+            Long scale,
             List<BigQueryColumnHandle> subColumns,
             String description)
     {
-        this(name, bigQueryType, mode, subColumns, description, false);
+        this(name, bigQueryType, mode, precision, scale, subColumns, description, false);
     }
 
     @JsonProperty
@@ -93,6 +101,20 @@ public class BigQueryColumnHandle
     public Field.Mode getMode()
     {
         return mode;
+    }
+
+    @Override
+    @JsonProperty
+    public Long getPrecision()
+    {
+        return precision;
+    }
+
+    @Override
+    @JsonProperty
+    public Long getScale()
+    {
+        return scale;
     }
 
     @JsonProperty
@@ -137,6 +159,8 @@ public class BigQueryColumnHandle
         return Objects.equals(name, that.name) &&
                 Objects.equals(bigQueryType, that.bigQueryType) &&
                 Objects.equals(mode, that.mode) &&
+                Objects.equals(precision, that.precision) &&
+                Objects.equals(scale, that.scale) &&
                 Objects.equals(subColumns, that.subColumns) &&
                 Objects.equals(description, that.description);
     }
@@ -144,7 +168,7 @@ public class BigQueryColumnHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, bigQueryType, mode, subColumns, description);
+        return Objects.hash(name, bigQueryType, mode, precision, scale, subColumns, description);
     }
 
     @Override
@@ -154,6 +178,8 @@ public class BigQueryColumnHandle
                 .add("name", name)
                 .add("type", bigQueryType)
                 .add("mode", mode)
+                .add("precision", precision)
+                .add("scale", scale)
                 .add("subColumns", subColumns)
                 .add("description", description)
                 .toString();

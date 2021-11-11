@@ -79,4 +79,10 @@ public class NoneHiveMaterializedViewMetadata
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support materialized views");
     }
+
+    @Override
+    public void renameMaterializedView(ConnectorSession session, SchemaTableName existingViewName, SchemaTableName newViewName)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming materialized views");
+    }
 }

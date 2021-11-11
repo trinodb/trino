@@ -75,6 +75,7 @@ import org.apache.hadoop.mapred.RecordReader;
 import org.apache.hadoop.mapred.Reporter;
 import org.apache.hadoop.mapred.TextInputFormat;
 import org.apache.hadoop.util.ReflectionUtils;
+import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.DateTimeFormatterBuilder;
@@ -102,6 +103,7 @@ import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Lists.newArrayList;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.bucketColumnHandle;
@@ -131,19 +133,23 @@ import static io.trino.plugin.hive.metastore.SortingColumn.Order.ASCENDING;
 import static io.trino.plugin.hive.metastore.SortingColumn.Order.DESCENDING;
 import static io.trino.plugin.hive.util.ConfigurationUtils.copy;
 import static io.trino.plugin.hive.util.ConfigurationUtils.toJobConf;
-import static io.trino.plugin.hive.util.HiveBucketing.bucketedOnTimestamp;
+import static io.trino.plugin.hive.util.HiveBucketing.isSupportedBucketing;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.Chars.trimTrailingSpaces;
+import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.Decimals.isLongDecimal;
+import static io.trino.spi.type.Decimals.isShortDecimal;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.Byte.parseByte;
@@ -152,9 +158,11 @@ import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.parseFloat;
 import static java.lang.Integer.parseInt;
 import static java.lang.Long.parseLong;
+import static java.lang.Math.floorDiv;
 import static java.lang.Short.parseShort;
 import static java.lang.String.format;
 import static java.math.BigDecimal.ROUND_UNNECESSARY;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
@@ -241,6 +249,7 @@ public final class HiveUtil
         configureCompressionCodecs(jobConf);
 
         try {
+            @SuppressWarnings({"rawtypes", "unchecked"}) // raw type on WritableComparable can't be fixed because Utilities#skipHeader takes them raw
             RecordReader<WritableComparable, Writable> recordReader = (RecordReader<WritableComparable, Writable>) inputFormat.getRecordReader(fileSplit, jobConf, Reporter.NULL);
 
             int headerCount = getHeaderCount(schema);
@@ -845,7 +854,7 @@ public final class HiveUtil
         // add hidden columns
         columns.add(pathColumnHandle());
         if (table.getStorage().getBucketProperty().isPresent()) {
-            if (!bucketedOnTimestamp(table.getStorage().getBucketProperty().get(), table)) {
+            if (isSupportedBucketing(table)) {
                 columns.add(bucketColumnHandle());
             }
         }
@@ -927,7 +936,7 @@ public final class HiveUtil
         return resultBuilder.build();
     }
 
-    public static String getPrefilledColumnValue(
+    public static NullableValue getPrefilledColumnValue(
             HiveColumnHandle columnHandle,
             HivePartitionKey partitionKey,
             Path path,
@@ -936,25 +945,83 @@ public final class HiveUtil
             long fileModifiedTime,
             String partitionName)
     {
+        String columnValue;
         if (partitionKey != null) {
-            return partitionKey.getValue();
+            columnValue = partitionKey.getValue();
         }
-        if (isPathColumnHandle(columnHandle)) {
-            return path.toString();
+        else if (isPathColumnHandle(columnHandle)) {
+            columnValue = path.toString();
         }
-        if (isBucketColumnHandle(columnHandle)) {
-            return String.valueOf(bucketNumber.getAsInt());
+        else if (isBucketColumnHandle(columnHandle)) {
+            columnValue = String.valueOf(bucketNumber.getAsInt());
         }
-        if (isFileSizeColumnHandle(columnHandle)) {
-            return String.valueOf(fileSize);
+        else if (isFileSizeColumnHandle(columnHandle)) {
+            columnValue = String.valueOf(fileSize);
         }
-        if (isFileModifiedTimeColumnHandle(columnHandle)) {
-            return HIVE_TIMESTAMP_PARSER.print(fileModifiedTime);
+        else if (isFileModifiedTimeColumnHandle(columnHandle)) {
+            columnValue = HIVE_TIMESTAMP_PARSER.print(fileModifiedTime);
         }
-        if (isPartitionColumnHandle(columnHandle)) {
-            return partitionName;
+        else if (isPartitionColumnHandle(columnHandle)) {
+            columnValue = partitionName;
         }
-        throw new TrinoException(NOT_SUPPORTED, "unsupported hidden column: " + columnHandle);
+        else {
+            throw new TrinoException(NOT_SUPPORTED, "unsupported hidden column: " + columnHandle);
+        }
+
+        byte[] bytes = columnValue.getBytes(UTF_8);
+        String name = columnHandle.getName();
+        Type type = columnHandle.getType();
+        if (isHiveNull(bytes)) {
+            return NullableValue.asNull(type);
+        }
+        else if (type.equals(BOOLEAN)) {
+            return NullableValue.of(type, booleanPartitionKey(columnValue, name));
+        }
+        else if (type.equals(BIGINT)) {
+            return NullableValue.of(type, bigintPartitionKey(columnValue, name));
+        }
+        else if (type.equals(INTEGER)) {
+            return NullableValue.of(type, integerPartitionKey(columnValue, name));
+        }
+        else if (type.equals(SMALLINT)) {
+            return NullableValue.of(type, smallintPartitionKey(columnValue, name));
+        }
+        else if (type.equals(TINYINT)) {
+            return NullableValue.of(type, tinyintPartitionKey(columnValue, name));
+        }
+        else if (type.equals(REAL)) {
+            return NullableValue.of(type, floatPartitionKey(columnValue, name));
+        }
+        else if (type.equals(DOUBLE)) {
+            return NullableValue.of(type, doublePartitionKey(columnValue, name));
+        }
+        else if (type instanceof VarcharType) {
+            return NullableValue.of(type, varcharPartitionKey(columnValue, name, type));
+        }
+        else if (type instanceof CharType) {
+            return NullableValue.of(type, charPartitionKey(columnValue, name, type));
+        }
+        else if (type.equals(DATE)) {
+            return NullableValue.of(type, datePartitionKey(columnValue, name));
+        }
+        else if (type.equals(TIMESTAMP_MILLIS)) {
+            return NullableValue.of(type, timestampPartitionKey(columnValue, name));
+        }
+        else if (type.equals(TIMESTAMP_TZ_MILLIS)) {
+            // used for $file_modified_time
+            return NullableValue.of(type, packDateTimeWithZone(floorDiv(timestampPartitionKey(columnValue, name), MICROSECONDS_PER_MILLISECOND), DateTimeZone.getDefault().getID()));
+        }
+        else if (isShortDecimal(type)) {
+            return NullableValue.of(type, shortDecimalPartitionKey(columnValue, (DecimalType) type, name));
+        }
+        else if (isLongDecimal(type)) {
+            return NullableValue.of(type, longDecimalPartitionKey(columnValue, (DecimalType) type, name));
+        }
+        else if (type.equals(VarbinaryType.VARBINARY)) {
+            return NullableValue.of(type, utf8Slice(columnValue));
+        }
+
+        throw new TrinoException(NOT_SUPPORTED, format("Unsupported column type %s for prefilled column: %s", type.getDisplayName(), name));
     }
 
     public static void closeWithSuppression(RecordCursor recordCursor, Throwable throwable)
@@ -1016,15 +1083,12 @@ public final class HiveUtil
 
     public static OrcWriterOptions getOrcWriterOptions(Properties schema, OrcWriterOptions orcWriterOptions)
     {
-        if (schema.contains(ORC_BLOOM_FILTER_COLUMNS)) {
-            if (!schema.contains(ORC_BLOOM_FILTER_FPP)) {
+        if (schema.containsKey(ORC_BLOOM_FILTER_COLUMNS)) {
+            if (!schema.containsKey(ORC_BLOOM_FILTER_FPP)) {
                 throw new TrinoException(HIVE_INVALID_METADATA, format("FPP for bloom filter is missing"));
             }
             try {
                 double fpp = parseDouble(schema.getProperty(ORC_BLOOM_FILTER_FPP));
-                if (fpp > 0.0 && fpp < 1.0) {
-                    throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, format("Invalid value for bloom filter: %f", fpp));
-                }
                 return orcWriterOptions
                         .withBloomFilterColumns(ImmutableSet.copyOf(COLUMN_NAMES_SPLITTER.splitToList(schema.getProperty(ORC_BLOOM_FILTER_COLUMNS))))
                         .withBloomFilterFpp(fpp);

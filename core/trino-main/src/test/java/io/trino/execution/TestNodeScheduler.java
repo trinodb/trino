@@ -42,6 +42,7 @@ import io.trino.metadata.InMemoryNodeManager;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
 import io.trino.spi.HostAddress;
+import io.trino.spi.SplitWeight;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.TestingSession;
@@ -341,7 +342,7 @@ public class TestNodeScheduler
         remoteTask1.abort();
         remoteTask2.abort();
 
-        assertEquals(nodeTaskMap.getPartitionedSplitsOnNode(newNode), 0);
+        assertEquals(nodeTaskMap.getPartitionedSplitsOnNode(newNode), PartitionedSplitsInfo.forZeroSplits());
     }
 
     @Test
@@ -407,7 +408,7 @@ public class TestNodeScheduler
         for (RemoteTask task : tasks) {
             task.abort();
         }
-        assertEquals(nodeTaskMap.getPartitionedSplitsOnNode(newNode), 0);
+        assertEquals(nodeTaskMap.getPartitionedSplitsOnNode(newNode), PartitionedSplitsInfo.forZeroSplits());
     }
 
     @Test
@@ -424,13 +425,13 @@ public class TestNodeScheduler
                 ImmutableList.of(new Split(CONNECTOR_ID, new TestSplitRemote(), Lifespan.taskWide())),
                 nodeTaskMap.createPartitionedSplitCountTracker(chosenNode, taskId));
         nodeTaskMap.addTask(chosenNode, remoteTask);
-        assertEquals(nodeTaskMap.getPartitionedSplitsOnNode(chosenNode), 1);
+        assertEquals(nodeTaskMap.getPartitionedSplitsOnNode(chosenNode).getCount(), 1);
         remoteTask.abort();
         MILLISECONDS.sleep(100); // Sleep until cache expires
-        assertEquals(nodeTaskMap.getPartitionedSplitsOnNode(chosenNode), 0);
+        assertEquals(nodeTaskMap.getPartitionedSplitsOnNode(chosenNode), PartitionedSplitsInfo.forZeroSplits());
 
         remoteTask.abort();
-        assertEquals(nodeTaskMap.getPartitionedSplitsOnNode(chosenNode), 0);
+        assertEquals(nodeTaskMap.getPartitionedSplitsOnNode(chosenNode), PartitionedSplitsInfo.forZeroSplits());
     }
 
     @Test
@@ -457,12 +458,12 @@ public class TestNodeScheduler
 
         nodeTaskMap.addTask(chosenNode, remoteTask1);
         nodeTaskMap.addTask(chosenNode, remoteTask2);
-        assertEquals(nodeTaskMap.getPartitionedSplitsOnNode(chosenNode), 3);
+        assertEquals(nodeTaskMap.getPartitionedSplitsOnNode(chosenNode).getCount(), 3);
 
         remoteTask1.abort();
-        assertEquals(nodeTaskMap.getPartitionedSplitsOnNode(chosenNode), 1);
+        assertEquals(nodeTaskMap.getPartitionedSplitsOnNode(chosenNode).getCount(), 1);
         remoteTask2.abort();
-        assertEquals(nodeTaskMap.getPartitionedSplitsOnNode(chosenNode), 0);
+        assertEquals(nodeTaskMap.getPartitionedSplitsOnNode(chosenNode), PartitionedSplitsInfo.forZeroSplits());
     }
 
     @Test
@@ -869,6 +870,7 @@ public class TestNodeScheduler
             implements ConnectorSplit
     {
         private final HostAddress address;
+        private final SplitWeight splitWeight;
 
         private TestSplitLocal()
         {
@@ -877,7 +879,13 @@ public class TestNodeScheduler
 
         private TestSplitLocal(HostAddress address)
         {
+            this(address, SplitWeight.standard());
+        }
+
+        private TestSplitLocal(HostAddress address, SplitWeight splitWeight)
+        {
             this.address = requireNonNull(address, "address is null");
+            this.splitWeight = requireNonNull(splitWeight, "splitWeight is null");
         }
 
         @Override
@@ -896,6 +904,12 @@ public class TestNodeScheduler
         public Object getInfo()
         {
             return this;
+        }
+
+        @Override
+        public SplitWeight getSplitWeight()
+        {
+            return splitWeight;
         }
 
         @Override
@@ -933,6 +947,7 @@ public class TestNodeScheduler
             implements ConnectorSplit
     {
         private final List<HostAddress> hosts;
+        private final SplitWeight splitWeight;
 
         TestSplitRemote()
         {
@@ -945,7 +960,13 @@ public class TestNodeScheduler
 
         TestSplitRemote(HostAddress host)
         {
+            this(host, SplitWeight.standard());
+        }
+
+        TestSplitRemote(HostAddress host, SplitWeight splitWeight)
+        {
             this.hosts = ImmutableList.of(requireNonNull(host, "host is null"));
+            this.splitWeight = requireNonNull(splitWeight, "splitWeight is null");
         }
 
         @Override
@@ -964,6 +985,12 @@ public class TestNodeScheduler
         public Object getInfo()
         {
             return this;
+        }
+
+        @Override
+        public SplitWeight getSplitWeight()
+        {
+            return splitWeight;
         }
     }
 

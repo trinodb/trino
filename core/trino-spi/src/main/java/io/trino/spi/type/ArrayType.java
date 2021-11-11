@@ -30,6 +30,7 @@ import java.lang.invoke.MethodType;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.BiFunction;
 
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
@@ -108,7 +109,8 @@ public class ArrayType
                 .addXxHash64Operators(getXxHash64OperatorMethodHandles(typeOperators, elementType))
                 .addDistinctFromOperators(getDistinctFromOperatorInvokers(typeOperators, elementType))
                 .addIndeterminateOperators(getIndeterminateOperatorInvokers(typeOperators, elementType))
-                .addComparisonOperators(getComparisonOperatorInvokers(typeOperators, elementType))
+                .addComparisonUnorderedLastOperators(getComparisonOperatorInvokers(typeOperators::getComparisonUnorderedLastOperator, elementType))
+                .addComparisonUnorderedFirstOperators(getComparisonOperatorInvokers(typeOperators::getComparisonUnorderedFirstOperator, elementType))
                 .build();
     }
 
@@ -157,12 +159,12 @@ public class ArrayType
         return singletonList(new OperatorMethodHandle(INDETERMINATE_CONVENTION, INDETERMINATE.bindTo(elementIndeterminateOperator)));
     }
 
-    private static List<OperatorMethodHandle> getComparisonOperatorInvokers(TypeOperators typeOperators, Type elementType)
+    private static List<OperatorMethodHandle> getComparisonOperatorInvokers(BiFunction<Type, InvocationConvention, MethodHandle> comparisonOperatorFactory, Type elementType)
     {
         if (!elementType.isOrderable()) {
             return emptyList();
         }
-        MethodHandle elementComparisonOperator = typeOperators.getComparisonOperator(elementType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
+        MethodHandle elementComparisonOperator = comparisonOperatorFactory.apply(elementType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
         return singletonList(new OperatorMethodHandle(COMPARISON_CONVENTION, COMPARISON.bindTo(elementComparisonOperator)));
     }
 

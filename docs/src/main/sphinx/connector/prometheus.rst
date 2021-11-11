@@ -82,3 +82,12 @@ Bearer token authentication
 Prometheus can be setup to require a Authorization header with every query. The value in
 ``prometheus.bearer.token.file`` allows for a bearer token to be read from the configured file. This file
 is optional and not required unless your Prometheus setup requires it.
+
+.. _prometheus-sql-support:
+
+SQL support
+-----------
+
+The connector provides :ref:`globally available <sql-globally-available>` and
+:ref:`read operation <sql-read-operations>` statements to access data and
+metadata in Prometheus.

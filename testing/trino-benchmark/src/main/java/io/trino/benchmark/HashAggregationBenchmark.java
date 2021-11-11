@@ -45,7 +45,7 @@ public class HashAggregationBenchmark
         super(localQueryRunner, "hash_agg", 5, 25);
 
         Metadata metadata = localQueryRunner.getMetadata();
-        doubleSum = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of("sum"), fromTypes(DOUBLE)));
+        doubleSum = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(session, QualifiedName.of("sum"), fromTypes(DOUBLE)));
     }
 
     @Override

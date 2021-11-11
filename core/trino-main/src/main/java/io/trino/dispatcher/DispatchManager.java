@@ -190,7 +190,7 @@ public class DispatchManager
                     sessionContext.getIdentity().getPrincipal().isPresent(),
                     sessionContext.getIdentity().getUser(),
                     sessionContext.getIdentity().getGroups(),
-                    Optional.ofNullable(sessionContext.getSource()),
+                    sessionContext.getSource(),
                     sessionContext.getClientTags(),
                     sessionContext.getResourceEstimates(),
                     queryType));
@@ -225,7 +225,7 @@ public class DispatchManager
                 session = Session.builder(sessionPropertyManager)
                         .setQueryId(queryId)
                         .setIdentity(sessionContext.getIdentity())
-                        .setSource(sessionContext.getSource())
+                        .setSource(sessionContext.getSource().orElse(null))
                         .build();
             }
             Optional<String> preparedSql = Optional.ofNullable(preparedQuery).flatMap(PreparedQuery::getPrepareSql);

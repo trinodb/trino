@@ -15,8 +15,7 @@ package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
-import io.trino.metadata.Metadata;
-import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -41,7 +40,6 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 import static io.trino.jmh.Benchmarks.benchmark;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -80,7 +78,6 @@ public class BenchmarkArrayAggregation
         @Setup(Invocation)
         public void setup()
         {
-            Metadata metadata = createTestMetadataManager();
             Block block;
             Type elementType;
             switch (type) {
@@ -99,8 +96,7 @@ public class BenchmarkArrayAggregation
                 default:
                     throw new UnsupportedOperationException();
             }
-            ResolvedFunction resolvedFunction = metadata.resolveFunction(QualifiedName.of("array_agg"), fromTypes(elementType));
-            InternalAggregationFunction function = metadata.getAggregateFunctionImplementation(resolvedFunction);
+            InternalAggregationFunction function = new TestingFunctionResolution().getAggregateFunctionImplementation(QualifiedName.of("array_agg"), fromTypes(elementType));
             accumulator = function.bind(ImmutableList.of(0), Optional.empty()).createAccumulator();
 
             block = createChannel(ARRAY_SIZE, elementType);

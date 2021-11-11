@@ -66,7 +66,7 @@ public class HiveS3Config
     private TrinoS3AclType s3AclType = TrinoS3AclType.PRIVATE;
     private boolean skipGlacierObjects;
     private boolean requesterPaysEnabled;
-    private boolean s3StreamingUploadEnabled;
+    private boolean s3StreamingUploadEnabled = true;
     private DataSize s3StreamingPartSize = DataSize.of(16, MEGABYTE);
 
     public String getS3AwsAccessKey()

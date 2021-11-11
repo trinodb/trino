@@ -13,15 +13,12 @@
  */
 package io.trino.operator.aggregation;
 
-import io.airlift.stats.QuantileDigest;
 import io.airlift.stats.TDigest;
-import io.trino.operator.aggregation.state.QuantileDigestAndPercentileState;
 import io.trino.operator.aggregation.state.TDigestAndPercentileState;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.CombineFunction;
-import io.trino.spi.function.Description;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlType;
@@ -75,67 +72,5 @@ public final class ApproximateLongPercentileAggregations
         double doubleValue = (double) value;
         checkCondition((long) doubleValue == value, INVALID_FUNCTION_ARGUMENT, "no exact double representation for long: %s", value);
         return doubleValue;
-    }
-
-    // This function is deprecated. It uses QuantileDigest while other 'approx_percentile' functions use TDigest. TDigest does not accept the accuracy parameter.
-    @Deprecated
-    @Description("(DEPRECATED) Use approx_percentile(x, weight, percentile) instead")
-    @InputFunction
-    public static void weightedInput(@AggregationState QuantileDigestAndPercentileState state, @SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.DOUBLE) double weight, @SqlType(StandardTypes.DOUBLE) double percentile, @SqlType(StandardTypes.DOUBLE) double accuracy)
-    {
-        checkCondition(weight > 0, INVALID_FUNCTION_ARGUMENT, "percentile weight must be > 0");
-
-        QuantileDigest digest = state.getDigest();
-
-        if (digest == null) {
-            if (accuracy > 0 && accuracy < 1) {
-                digest = new QuantileDigest(accuracy);
-            }
-            else {
-                throw new IllegalArgumentException("Percentile accuracy must be strictly between 0 and 1");
-            }
-            state.setDigest(digest);
-            state.addMemoryUsage(digest.estimatedInMemorySizeInBytes());
-        }
-
-        state.addMemoryUsage(-digest.estimatedInMemorySizeInBytes());
-        digest.add(value, weight);
-        state.addMemoryUsage(digest.estimatedInMemorySizeInBytes());
-
-        // use last percentile
-        state.setPercentile(percentile);
-    }
-
-    @CombineFunction
-    public static void combine(@AggregationState QuantileDigestAndPercentileState state, QuantileDigestAndPercentileState otherState)
-    {
-        QuantileDigest input = otherState.getDigest();
-
-        QuantileDigest previous = state.getDigest();
-        if (previous == null) {
-            state.setDigest(input);
-            state.addMemoryUsage(input.estimatedInMemorySizeInBytes());
-        }
-        else {
-            state.addMemoryUsage(-previous.estimatedInMemorySizeInBytes());
-            previous.merge(input);
-            state.addMemoryUsage(previous.estimatedInMemorySizeInBytes());
-        }
-        state.setPercentile(otherState.getPercentile());
-    }
-
-    @OutputFunction(StandardTypes.BIGINT)
-    public static void output(@AggregationState QuantileDigestAndPercentileState state, BlockBuilder out)
-    {
-        QuantileDigest digest = state.getDigest();
-        double percentile = state.getPercentile();
-        if (digest == null || digest.getCount() == 0.0) {
-            out.appendNull();
-        }
-        else {
-            checkState(percentile != -1.0, "Percentile is missing");
-            checkCondition(0 <= percentile && percentile <= 1, INVALID_FUNCTION_ARGUMENT, "Percentile must be between 0 and 1");
-            BIGINT.writeLong(out, digest.getQuantile(percentile));
-        }
     }
 }

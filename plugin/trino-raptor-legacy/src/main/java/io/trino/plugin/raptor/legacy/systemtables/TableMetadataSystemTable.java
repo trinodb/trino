@@ -36,7 +36,7 @@ import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.TypeManager;
-import org.skife.jdbi.v2.IDBI;
+import org.jdbi.v3.core.Jdbi;
 
 import javax.inject.Inject;
 
@@ -72,7 +72,7 @@ public class TableMetadataSystemTable
     private final ConnectorTableMetadata tableMetadata;
 
     @Inject
-    public TableMetadataSystemTable(@ForMetadata IDBI dbi, TypeManager typeManager)
+    public TableMetadataSystemTable(@ForMetadata Jdbi dbi, TypeManager typeManager)
     {
         this.dao = onDemandDao(dbi, MetadataDao.class);
         requireNonNull(typeManager, "typeManager is null");

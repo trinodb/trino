@@ -27,6 +27,7 @@ import io.trino.spi.type.Type;
 
 import java.security.Principal;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -163,8 +164,17 @@ public interface AccessControl
      * Check if identity is allowed to create the specified table.
      *
      * @throws AccessDeniedException if not allowed
+     * @deprecated use {@link #checkCanCreateTable(SecurityContext context, QualifiedObjectName tableName, Map properties)}
      */
+    @Deprecated
     void checkCanCreateTable(SecurityContext context, QualifiedObjectName tableName);
+
+    /**
+     * Check if identity is allowed to create the specified table with properties.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanCreateTable(SecurityContext context, QualifiedObjectName tableName, Map<String, Object> properties);
 
     /**
      * Check if identity is allowed to drop the specified table.
@@ -179,6 +189,13 @@ public interface AccessControl
      * @throws AccessDeniedException if not allowed
      */
     void checkCanRenameTable(SecurityContext context, QualifiedObjectName tableName, QualifiedObjectName newTableName);
+
+    /**
+     * Check if identity is allowed to set properties to the specified table.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanSetTableProperties(SecurityContext context, QualifiedObjectName tableName, Map<String, Object> properties);
 
     /**
      * Check if identity is allowed to comment the specified table.
@@ -269,6 +286,13 @@ public interface AccessControl
     void checkCanDeleteFromTable(SecurityContext context, QualifiedObjectName tableName);
 
     /**
+     * Check if identity is allowed to truncate the specified table.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanTruncateTable(SecurityContext context, QualifiedObjectName tableName);
+
+    /**
      * Check if identity is allowed to update the specified table.
      *
      * @throws AccessDeniedException if not allowed
@@ -335,6 +359,13 @@ public interface AccessControl
     void checkCanDropMaterializedView(SecurityContext context, QualifiedObjectName materializedViewName);
 
     /**
+     * Check if identity is allowed to rename the specified materialized view.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanRenameMaterializedView(SecurityContext context, QualifiedObjectName viewName, QualifiedObjectName newViewName);
+
+    /**
      * Check if identity is allowed to create a view that executes the function.
      *
      * @throws AccessDeniedException if not allowed
@@ -393,65 +424,79 @@ public interface AccessControl
     /**
      * Check if identity is allowed to create the specified role.
      *
+     * @param catalogName if present, the role catalog; otherwise the role is a system role
      * @throws AccessDeniedException if not allowed
      */
-    void checkCanCreateRole(SecurityContext context, String role, Optional<TrinoPrincipal> grantor, String catalogName);
+    void checkCanCreateRole(SecurityContext context, String role, Optional<TrinoPrincipal> grantor, Optional<String> catalogName);
 
     /**
      * Check if identity is allowed to drop the specified role.
      *
+     * @param catalogName if present, the role catalog; otherwise the role is a system role
      * @throws AccessDeniedException if not allowed
      */
-    void checkCanDropRole(SecurityContext context, String role, String catalogName);
+    void checkCanDropRole(SecurityContext context, String role, Optional<String> catalogName);
 
     /**
      * Check if identity is allowed to grant the specified roles to the specified principals.
      *
+     * @param catalogName if present, the role catalog; otherwise the role is a system role
      * @throws AccessDeniedException if not allowed
      */
-    void checkCanGrantRoles(SecurityContext context, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor, String catalogName);
+    void checkCanGrantRoles(SecurityContext context, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor, Optional<String> catalogName);
 
     /**
      * Check if identity is allowed to revoke the specified roles from the specified principals.
      *
+     * @param catalogName if present, the role catalog; otherwise the role is a system role
      * @throws AccessDeniedException if not allowed
      */
-    void checkCanRevokeRoles(SecurityContext context, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor, String catalogName);
+    void checkCanRevokeRoles(SecurityContext context,
+            Set<String> roles,
+            Set<TrinoPrincipal> grantees,
+            boolean adminOption,
+            Optional<TrinoPrincipal> grantor,
+            Optional<String> catalogName);
 
     /**
      * Check if identity is allowed to set role for specified catalog.
      *
+     * @param catalogName the role catalog
      * @throws AccessDeniedException if not allowed
      */
-    void checkCanSetRole(SecurityContext context, String role, String catalogName);
+    void checkCanSetCatalogRole(SecurityContext context, String role, String catalogName);
 
     /**
      * Check if identity is allowed to show role authorization descriptors (i.e. RoleGrants).
      *
+     * @param catalogName if present, the role catalog; otherwise the role is a system role
      * @throws AccessDeniedException if not allowed
      */
-    void checkCanShowRoleAuthorizationDescriptors(SecurityContext context, String catalogName);
+    void checkCanShowRoleAuthorizationDescriptors(SecurityContext context, Optional<String> catalogName);
 
     /**
      * Check if identity is allowed to show roles on the specified catalog.
      *
+     * @param catalogName if present, the role catalog; otherwise the role is a system role
      * @throws AccessDeniedException if not allowed
      */
-    void checkCanShowRoles(SecurityContext context, String catalogName);
+    void checkCanShowRoles(SecurityContext context, Optional<String> catalogName);
 
     /**
      * Check if identity is allowed to show current roles on the specified catalog.
      *
+     * @param catalogName if present, the role catalog; otherwise the role is a system role
      * @throws AccessDeniedException if not allowed
      */
-    void checkCanShowCurrentRoles(SecurityContext context, String catalogName);
+    void checkCanShowCurrentRoles(SecurityContext context, Optional<String> catalogName);
 
     /**
      * Check if identity is allowed to show its own role grants on the specified catalog.
      *
+     * @param catalogName if present, the role catalog; otherwise the role is a system role
      * @throws AccessDeniedException if not allowed
      */
-    void checkCanShowRoleGrants(SecurityContext context, String catalogName);
+    void checkCanShowRoleGrants(SecurityContext context, Optional<String> catalogName);
 
     /**
      * Check if identity is allowed to execute procedure
@@ -466,6 +511,13 @@ public interface AccessControl
      * @throws AccessDeniedException if not allowed
      */
     void checkCanExecuteFunction(SecurityContext context, String functionName);
+
+    /**
+     * Check if identity is allowed to execute given table procedure on given table
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanExecuteTableProcedure(SecurityContext context, QualifiedObjectName tableName, String procedureName);
 
     default List<ViewExpression> getRowFilters(SecurityContext context, QualifiedObjectName tableName)
     {

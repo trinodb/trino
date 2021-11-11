@@ -102,6 +102,7 @@ import static io.trino.orc.OrcReader.MAX_BATCH_SIZE;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
+import static io.trino.plugin.hive.HivePageSourceProvider.ColumnMapping.buildColumnMappings;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.plugin.hive.HiveTestUtils.TYPE_MANAGER;
@@ -551,6 +552,18 @@ public class TestOrcPageSourceMemoryTracking
         public ConnectorPageSource newPageSource(FileFormatDataSourceStats stats, ConnectorSession session)
         {
             OrcPageSourceFactory orcPageSourceFactory = new OrcPageSourceFactory(new OrcReaderOptions(), HDFS_ENVIRONMENT, stats, UTC);
+
+            List<HivePageSourceProvider.ColumnMapping> columnMappings = buildColumnMappings(
+                    partitionName,
+                    partitionKeys,
+                    columns,
+                    ImmutableList.of(),
+                    TableToPartitionMapping.empty(),
+                    fileSplit.getPath(),
+                    OptionalInt.empty(),
+                    fileSplit.getLength(),
+                    Instant.now().toEpochMilli());
+
             return HivePageSourceProvider.createHivePageSource(
                     ImmutableSet.of(orcPageSourceFactory),
                     ImmutableSet.of(),
@@ -561,21 +574,17 @@ public class TestOrcPageSourceMemoryTracking
                     fileSplit.getStart(),
                     fileSplit.getLength(),
                     fileSplit.getLength(),
-                    Instant.now().toEpochMilli(),
                     schema,
                     TupleDomain.all(),
                     columns,
-                    partitionName,
-                    partitionKeys,
                     TYPE_MANAGER,
-                    TableToPartitionMapping.empty(),
                     Optional.empty(),
                     Optional.empty(),
                     false,
                     Optional.empty(),
                     false,
-                    NO_ACID_TRANSACTION)
-                    .orElseThrow();
+                    NO_ACID_TRANSACTION,
+                    columnMappings).orElseThrow();
         }
 
         public SourceOperator newTableScanOperator(DriverContext driverContext)

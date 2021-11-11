@@ -19,7 +19,6 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
 import io.trino.spi.connector.CatalogSchemaName;
-import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.SetSchemaAuthorization;
@@ -29,10 +28,9 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static io.trino.metadata.MetadataUtil.checkRoleExists;
 import static io.trino.metadata.MetadataUtil.createCatalogSchemaName;
 import static io.trino.metadata.MetadataUtil.createPrincipal;
-import static io.trino.metadata.MetadataUtil.getSessionCatalog;
-import static io.trino.spi.StandardErrorCode.ROLE_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 
@@ -56,7 +54,6 @@ public class SetSchemaAuthorizationTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
-        String catalog = getSessionCatalog(metadata, session, statement);
 
         CatalogSchemaName source = createCatalogSchemaName(session, statement, Optional.of(statement.getSource()));
 
@@ -64,10 +61,7 @@ public class SetSchemaAuthorizationTask
             throw semanticException(SCHEMA_NOT_FOUND, statement, "Schema '%s' does not exist", source);
         }
         TrinoPrincipal principal = createPrincipal(statement.getPrincipal());
-        if (principal.getType() == PrincipalType.ROLE
-                && !metadata.listRoles(session, catalog).contains(principal.getName())) {
-            throw semanticException(ROLE_NOT_FOUND, statement, "Role '%s' does not exist", principal.getName());
-        }
+        checkRoleExists(session, statement, metadata, principal, Optional.of(source.getCatalogName()));
 
         accessControl.checkCanSetSchemaAuthorization(session.toSecurityContext(), source, principal);
 

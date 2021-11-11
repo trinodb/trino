@@ -13,7 +13,9 @@
  */
 package io.trino.plugin.base.security;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.trino.plugin.base.CatalogName;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSecurityContext;
@@ -65,6 +67,7 @@ public class TestFileBasedAccessControl
 
         accessControl.checkCanCreateTable(UNKNOWN, new SchemaTableName("unknown", "unknown"));
         accessControl.checkCanDropTable(UNKNOWN, new SchemaTableName("unknown", "unknown"));
+        accessControl.checkCanTruncateTable(UNKNOWN, new SchemaTableName("unknown", "unknown"));
         accessControl.checkCanRenameTable(UNKNOWN,
                 new SchemaTableName("unknown", "unknown"),
                 new SchemaTableName("unknown", "new_unknown"));
@@ -88,22 +91,20 @@ public class TestFileBasedAccessControl
                 ImmutableSet.of("test"),
                 ImmutableSet.of(someUser),
                 false,
-                Optional.empty(),
-                "any"));
+                Optional.empty()));
         assertDenied(() -> accessControl.checkCanRevokeRoles(
                 ADMIN,
                 ImmutableSet.of("test"),
                 ImmutableSet.of(someUser),
                 false,
-                Optional.empty(),
-                "any"));
-        assertDenied(() -> accessControl.checkCanSetRole(ADMIN, "role", "any"));
+                Optional.empty()));
+        assertDenied(() -> accessControl.checkCanSetRole(ADMIN, "role"));
 
         // showing roles and permissions is hard coded to allow
-        accessControl.checkCanShowRoleAuthorizationDescriptors(UNKNOWN, "any");
-        accessControl.checkCanShowRoles(UNKNOWN, "any");
-        accessControl.checkCanShowCurrentRoles(UNKNOWN, "any");
-        accessControl.checkCanShowRoleGrants(UNKNOWN, "any");
+        accessControl.checkCanShowRoleAuthorizationDescriptors(UNKNOWN);
+        accessControl.checkCanShowRoles(UNKNOWN);
+        accessControl.checkCanShowCurrentRoles(UNKNOWN);
+        accessControl.checkCanShowRoleGrants(UNKNOWN);
     }
 
     @Test
@@ -258,6 +259,7 @@ public class TestFileBasedAccessControl
 
         accessControl.checkCanInsertIntoTable(BOB, bobTable);
         accessControl.checkCanDeleteFromTable(BOB, bobTable);
+        accessControl.checkCanTruncateTable(BOB, bobTable);
         accessControl.checkCanSelectFromColumns(CHARLIE, bobTable, ImmutableSet.of());
         accessControl.checkCanSelectFromColumns(CHARLIE, bobTable, ImmutableSet.of("bobcolumn"));
         accessControl.checkCanInsertIntoTable(CHARLIE, bobTable);
@@ -275,22 +277,31 @@ public class TestFileBasedAccessControl
 
         accessControl.checkCanCreateViewWithSelectFromColumns(BOB, bobTable, ImmutableSet.of());
         accessControl.checkCanDropTable(ADMIN, bobTable);
+        accessControl.checkCanTruncateTable(ADMIN, bobTable);
 
         accessControl.checkCanRenameTable(ADMIN, bobTable, new SchemaTableName("aliceschema", "newbobtable"));
         accessControl.checkCanRenameTable(ALICE, aliceTable, new SchemaTableName("aliceschema", "newalicetable"));
         accessControl.checkCanRenameView(ADMIN, new SchemaTableName("bobschema", "bobview"), new SchemaTableName("aliceschema", "newbobview"));
         accessControl.checkCanRenameView(ALICE, new SchemaTableName("aliceschema", "aliceview"), new SchemaTableName("aliceschema", "newaliceview"));
+        accessControl.checkCanRenameMaterializedView(ADMIN, new SchemaTableName("bobschema", "bobmaterializedview"), new SchemaTableName("aliceschema", "newbobaterializedview"));
+        accessControl.checkCanRenameMaterializedView(ALICE, new SchemaTableName("aliceschema", "alicevaterializediew"), new SchemaTableName("aliceschema", "newaliceaterializedview"));
+
+        accessControl.checkCanSetTableProperties(ADMIN, bobTable, ImmutableMap.of());
+        accessControl.checkCanSetTableProperties(ALICE, aliceTable, ImmutableMap.of());
 
         assertDenied(() -> accessControl.checkCanInsertIntoTable(ALICE, bobTable));
         assertDenied(() -> accessControl.checkCanDropTable(BOB, bobTable));
         assertDenied(() -> accessControl.checkCanRenameTable(BOB, bobTable, new SchemaTableName("bobschema", "newbobtable")));
         assertDenied(() -> accessControl.checkCanRenameTable(ALICE, aliceTable, new SchemaTableName("bobschema", "newalicetable")));
+        assertDenied(() -> accessControl.checkCanSetTableProperties(BOB, bobTable, ImmutableMap.of()));
         assertDenied(() -> accessControl.checkCanInsertIntoTable(BOB, testTable));
         assertDenied(() -> accessControl.checkCanSelectFromColumns(ADMIN, new SchemaTableName("secret", "secret"), ImmutableSet.of()));
         assertDenied(() -> accessControl.checkCanSelectFromColumns(JOE, new SchemaTableName("secret", "secret"), ImmutableSet.of()));
         assertDenied(() -> accessControl.checkCanCreateViewWithSelectFromColumns(JOE, bobTable, ImmutableSet.of()));
         assertDenied(() -> accessControl.checkCanRenameView(BOB, new SchemaTableName("bobschema", "bobview"), new SchemaTableName("bobschema", "newbobview")));
         assertDenied(() -> accessControl.checkCanRenameView(ALICE, aliceTable, new SchemaTableName("bobschema", "newalicetable")));
+        assertDenied(() -> accessControl.checkCanRenameMaterializedView(BOB, new SchemaTableName("bobschema", "bobmaterializedview"), new SchemaTableName("bobschema", "newbobaterializedview")));
+        assertDenied(() -> accessControl.checkCanRenameMaterializedView(ALICE, aliceTable, new SchemaTableName("bobschema", "newaliceaterializedview")));
 
         accessControl.checkCanSetTableAuthorization(ADMIN, testTable, new TrinoPrincipal(PrincipalType.ROLE, "some_role"));
         accessControl.checkCanSetTableAuthorization(ADMIN, testTable, new TrinoPrincipal(PrincipalType.USER, "some_user"));
@@ -438,7 +449,7 @@ public class TestFileBasedAccessControl
         String path = this.getClass().getClassLoader().getResource(fileName).getPath();
         FileBasedAccessControlConfig config = new FileBasedAccessControlConfig();
         config.setConfigFile(path);
-        return new FileBasedAccessControl("test_catalog", config);
+        return new FileBasedAccessControl(new CatalogName("test_catalog"), config);
     }
 
     private static void assertDenied(ThrowingRunnable runnable)

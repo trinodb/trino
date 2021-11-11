@@ -80,8 +80,8 @@ public class BigQueryMetadata
 {
     private static final Logger log = Logger.get(BigQueryMetadata.class);
 
-    static final int NUMERIC_DATA_TYPE_PRECISION = 38;
-    static final int NUMERIC_DATA_TYPE_SCALE = 9;
+    static final int DEFAULT_NUMERIC_TYPE_PRECISION = 38;
+    static final int DEFAULT_NUMERIC_TYPE_SCALE = 9;
     static final String INFORMATION_SCHEMA = "information_schema";
     private static final String VIEW_DEFINITION_SYSTEM_TABLE_SUFFIX = "$view_definition";
 
@@ -135,6 +135,10 @@ public class BigQueryMetadata
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
         log.debug("listTables(session=%s, schemaName=%s)", session, schemaName);
+        if (schemaName.isPresent() && schemaName.get().equalsIgnoreCase(INFORMATION_SCHEMA)) {
+            return ImmutableList.of();
+        }
+
         // filter ambiguous schemas
         Optional<String> remoteSchema = schemaName.flatMap(schema -> bigQueryClient.toRemoteDataset(projectId, schema)
                 .filter(dataset -> !dataset.isAmbiguous())
@@ -175,13 +179,13 @@ public class BigQueryMetadata
         String remoteTableName = bigQueryClient.toRemoteTable(projectId, remoteSchemaName, schemaTableName.getTableName())
                 .map(RemoteDatabaseObject::getOnlyRemoteName)
                 .orElse(schemaTableName.getTableName());
-        TableInfo tableInfo = bigQueryClient.getTable(TableId.of(projectId, remoteSchemaName, remoteTableName));
-        if (tableInfo == null) {
+        Optional<TableInfo> tableInfo = bigQueryClient.getTable(TableId.of(projectId, remoteSchemaName, remoteTableName));
+        if (tableInfo.isEmpty()) {
             log.debug("Table [%s.%s] was not found", schemaTableName.getSchemaName(), schemaTableName.getTableName());
             return null;
         }
 
-        return new BigQueryTableHandle(schemaTableName, new RemoteTableName(tableInfo.getTableId()), tableInfo);
+        return new BigQueryTableHandle(schemaTableName, new RemoteTableName(tableInfo.get().getTableId()), tableInfo.get());
     }
 
     private ConnectorTableHandle getTableHandleIgnoringConflicts(SchemaTableName schemaTableName)
@@ -192,13 +196,13 @@ public class BigQueryMetadata
         String remoteTableName = bigQueryClient.toRemoteTable(projectId, remoteSchemaName, schemaTableName.getTableName())
                 .map(RemoteDatabaseObject::getAnyRemoteName)
                 .orElse(schemaTableName.getTableName());
-        TableInfo tableInfo = bigQueryClient.getTable(TableId.of(projectId, remoteSchemaName, remoteTableName));
-        if (tableInfo == null) {
+        Optional<TableInfo> tableInfo = bigQueryClient.getTable(TableId.of(projectId, remoteSchemaName, remoteTableName));
+        if (tableInfo.isEmpty()) {
             log.debug("Table [%s.%s] was not found", schemaTableName.getSchemaName(), schemaTableName.getTableName());
             return null;
         }
 
-        return new BigQueryTableHandle(schemaTableName, new RemoteTableName(tableInfo.getTableId()), tableInfo);
+        return new BigQueryTableHandle(schemaTableName, new RemoteTableName(tableInfo.get().getTableId()), tableInfo.get());
     }
 
     @Override
@@ -231,8 +235,9 @@ public class BigQueryMetadata
         String remoteTableName = bigQueryClient.toRemoteTable(projectId, remoteSchemaName, sourceTableName.getTableName())
                 .map(RemoteDatabaseObject::getOnlyRemoteName)
                 .orElseThrow(() -> new TableNotFoundException(viewDefinitionTableName));
-        TableInfo tableInfo = bigQueryClient.getTable(TableId.of(projectId, remoteSchemaName, remoteTableName));
-        if (tableInfo == null || !(tableInfo.getDefinition() instanceof ViewDefinition)) {
+        TableInfo tableInfo = bigQueryClient.getTable(TableId.of(projectId, remoteSchemaName, remoteTableName))
+                .orElseThrow(() -> new TableNotFoundException(viewDefinitionTableName));
+        if (!(tableInfo.getDefinition() instanceof ViewDefinition)) {
             throw new TableNotFoundException(viewDefinitionTableName);
         }
 

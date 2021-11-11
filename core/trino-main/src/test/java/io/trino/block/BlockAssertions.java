@@ -15,6 +15,7 @@ package io.trino.block;
 
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DictionaryBlock;
@@ -22,6 +23,7 @@ import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
@@ -32,6 +34,7 @@ import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
@@ -41,6 +44,7 @@ import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.block.ArrayBlock.fromElementBlock;
@@ -58,6 +62,8 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingConnectorSession.SESSION;
@@ -156,6 +162,21 @@ public final class BlockAssertions
         if (type == VARCHAR) {
             return createRandomStringBlock(positionCount, nullRate, MAX_STRING_SIZE);
         }
+        if (type instanceof CharType) {
+            return createRandomCharsBlock((CharType) type, positionCount, nullRate);
+        }
+        if (type == DOUBLE) {
+            return createRandomDoublesBlock(positionCount, nullRate);
+        }
+        if (type == TINYINT) {
+            return createRandomTinyintsBlock(positionCount, nullRate);
+        }
+        if (type == UUID) {
+            return createRandomUUIDsBlock(positionCount, nullRate);
+        }
+        if (type == VARBINARY) {
+            return createRandomVarbinariesBlock(positionCount, nullRate);
+        }
 
         return createRandomBlockForNestedType(type, positionCount, nullRate);
     }
@@ -227,6 +248,18 @@ public final class BlockAssertions
                 () -> String.valueOf(RANDOM.nextLong())));
     }
 
+    public static Block createRandomLongsBlock(int positionCount, int numberOfUniqueValues)
+    {
+        checkArgument(positionCount >= numberOfUniqueValues, "numberOfUniqueValues must be between 1 and positionCount: %s but was %s", positionCount, numberOfUniqueValues);
+        int[] uniqueValues = chooseRandomUnique(positionCount, numberOfUniqueValues).stream()
+                .mapToInt(Integer::intValue)
+                .toArray();
+        return createLongsBlock(IntStream.range(0, positionCount)
+                .mapToLong(position -> uniqueValues[RANDOM.nextInt(numberOfUniqueValues)])
+                .boxed()
+                .collect(toImmutableList()));
+    }
+
     public static Block createRandomLongsBlock(int positionCount, float nullRate)
     {
         return createLongsBlock(generateListWithNulls(positionCount, nullRate, RANDOM::nextLong));
@@ -243,6 +276,31 @@ public final class BlockAssertions
     {
         return createStringsBlock(
                 generateListWithNulls(positionCount, nullRate, () -> generateRandomStringWithLength(maxStringLength)));
+    }
+
+    private static Block createRandomVarbinariesBlock(int positionCount, float nullRate)
+    {
+        return createSlicesBlock(VARBINARY, generateListWithNulls(positionCount, nullRate, () -> Slices.wrappedLongArray(RANDOM.nextLong(), RANDOM.nextLong())));
+    }
+
+    private static Block createRandomUUIDsBlock(int positionCount, float nullRate)
+    {
+        return createSlicesBlock(UUID, generateListWithNulls(positionCount, nullRate, () -> Slices.wrappedLongArray(RANDOM.nextLong(), RANDOM.nextLong())));
+    }
+
+    private static Block createRandomTinyintsBlock(int positionCount, float nullRate)
+    {
+        return createTypedLongsBlock(TINYINT, generateListWithNulls(positionCount, nullRate, () -> (long) (byte) RANDOM.nextLong()));
+    }
+
+    public static Block createRandomDoublesBlock(int positionCount, float nullRate)
+    {
+        return createDoublesBlock(generateListWithNulls(positionCount, nullRate, RANDOM::nextDouble));
+    }
+
+    public static Block createRandomCharsBlock(CharType charType, int positionCount, float nullRate)
+    {
+        return createCharsBlock(charType, generateListWithNulls(positionCount, nullRate, () -> generateRandomStringWithLength(charType.getLength())));
     }
 
     public static <T> List<T> generateListWithNulls(int positionCount, float nullRate, Supplier<T> valueSupplier)
@@ -287,18 +345,12 @@ public final class BlockAssertions
 
     public static Block createSlicesBlock(Iterable<Slice> values)
     {
-        BlockBuilder builder = VARBINARY.createBlockBuilder(null, 100);
+        return createSlicesBlock(VARBINARY, values);
+    }
 
-        for (Slice value : values) {
-            if (value == null) {
-                builder.appendNull();
-            }
-            else {
-                VARBINARY.writeSlice(builder, value);
-            }
-        }
-
-        return builder.build();
+    public static Block createSlicesBlock(Type type, Iterable<Slice> values)
+    {
+        return createBlock(type, type::writeSlice, values);
     }
 
     public static Block createStringSequenceBlock(int start, int end)
@@ -421,6 +473,11 @@ public final class BlockAssertions
         return builder.build();
     }
 
+    public static Block createCharsBlock(CharType charType, List<String> values)
+    {
+        return createBlock(charType, charType::writeString, values);
+    }
+
     public static Block createIntsBlock(Integer... values)
     {
         requireNonNull(values, "values is null");
@@ -430,18 +487,7 @@ public final class BlockAssertions
 
     public static Block createIntsBlock(Iterable<Integer> values)
     {
-        BlockBuilder builder = INTEGER.createBlockBuilder(null, 100);
-
-        for (Integer value : values) {
-            if (value == null) {
-                builder.appendNull();
-            }
-            else {
-                INTEGER.writeLong(builder, value);
-            }
-        }
-
-        return builder.build();
+        return createBlock(INTEGER, (ValueWriter<Integer>) INTEGER::writeLong, values);
     }
 
     public static Block createRowBlock(List<Type> fieldTypes, Object[]... rows)
@@ -521,18 +567,7 @@ public final class BlockAssertions
 
     public static Block createTypedLongsBlock(Type type, Iterable<Long> values)
     {
-        BlockBuilder builder = type.createBlockBuilder(null, 100);
-
-        for (Long value : values) {
-            if (value == null) {
-                builder.appendNull();
-            }
-            else {
-                type.writeLong(builder, value);
-            }
-        }
-
-        return builder.build();
+        return createBlock(type, type::writeLong, values);
     }
 
     public static Block createLongSequenceBlock(int start, int end)
@@ -549,8 +584,13 @@ public final class BlockAssertions
     public static Block createLongDictionaryBlock(int start, int length)
     {
         checkArgument(length > 5, "block must have more than 5 entries");
+        return createLongDictionaryBlock(start, length, length / 5);
+    }
 
-        int dictionarySize = length / 5;
+    public static Block createLongDictionaryBlock(int start, int length, int dictionarySize)
+    {
+        checkArgument(dictionarySize > 0, "dictionarySize must be greater than 0");
+
         BlockBuilder builder = BIGINT.createBlockBuilder(null, dictionarySize);
         for (int i = start; i < start + dictionarySize; i++) {
             BIGINT.writeLong(builder, i);
@@ -641,18 +681,7 @@ public final class BlockAssertions
 
     public static Block createDoublesBlock(Iterable<Double> values)
     {
-        BlockBuilder builder = DOUBLE.createBlockBuilder(null, 100);
-
-        for (Double value : values) {
-            if (value == null) {
-                builder.appendNull();
-            }
-            else {
-                DOUBLE.writeDouble(builder, value);
-            }
-        }
-
-        return builder.build();
+        return createBlock(DOUBLE, DOUBLE::writeDouble, values);
     }
 
     public static Block createDoubleSequenceBlock(int start, int end)
@@ -761,6 +790,27 @@ public final class BlockAssertions
         return new RunLengthEncodedBlock(blockBuilder.build(), positionCount);
     }
 
+    private static <T> Block createBlock(Type type, ValueWriter<T> valueWriter, Iterable<T> values)
+    {
+        BlockBuilder builder = type.createBlockBuilder(null, 100);
+
+        for (T value : values) {
+            if (value == null) {
+                builder.appendNull();
+            }
+            else {
+                valueWriter.write(builder, value);
+            }
+        }
+
+        return builder.build();
+    }
+
+    private interface ValueWriter<T>
+    {
+        void write(BlockBuilder builder, T value);
+    }
+
     private static Set<Integer> chooseNullPositions(int positionCount, float nullRate)
     {
         int nullCount = (int) (positionCount * nullRate);
@@ -773,6 +823,15 @@ public final class BlockAssertions
 
     private static Set<Integer> chooseRandomUnique(int bound, int count)
     {
+        if (count < bound / 10) {
+            // it's an order of bound/count faster to use this method for small enough count/bound ratio
+            Set<Integer> values = new HashSet<>(count);
+            while (values.size() < count) {
+                values.add(RANDOM.nextInt(bound));
+            }
+            return ImmutableSet.copyOf(values);
+        }
+
         List<Integer> allNumbers = IntStream.range(0, bound).boxed().collect(toList());
         Collections.shuffle(allNumbers, RANDOM);
         return allNumbers.stream().limit(count).collect(toImmutableSet());

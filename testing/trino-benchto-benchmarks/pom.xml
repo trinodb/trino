@@ -4,7 +4,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>361-SNAPSHOT</version>
+        <version>365-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -21,7 +21,6 @@
         <dependency>
             <groupId>io.trino.benchto</groupId>
             <artifactId>benchto-driver</artifactId>
-            <version>0.14</version>
         </dependency>
 
         <dependency>

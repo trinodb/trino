@@ -21,6 +21,7 @@ import com.google.common.collect.ListMultimap;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TypeOperators;
@@ -61,6 +62,7 @@ import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Test(singleThreaded = true)
 public class TestTypeValidator
@@ -68,7 +70,7 @@ public class TestTypeValidator
     private static final SqlParser SQL_PARSER = new SqlParser();
     private static final TypeValidator TYPE_VALIDATOR = new TypeValidator();
 
-    private final Metadata metadata = createTestMetadataManager();
+    private final TestingFunctionResolution functionResolution = new TestingFunctionResolution();
     private final TypeOperators typeOperators = new TypeOperators();
     private SymbolAllocator symbolAllocator;
     private TableScanNode baseTableScan;
@@ -146,7 +148,7 @@ public class TestTypeValidator
     public void testValidWindow()
     {
         Symbol windowSymbol = symbolAllocator.newSymbol("sum", DOUBLE);
-        ResolvedFunction resolvedFunction = metadata.resolveFunction(QualifiedName.of("sum"), fromTypes(DOUBLE));
+        ResolvedFunction resolvedFunction = functionResolution.resolveFunction(QualifiedName.of("sum"), fromTypes(DOUBLE));
 
         WindowNode.Frame frame = new WindowNode.Frame(
                 WindowFrame.Type.RANGE,
@@ -184,7 +186,7 @@ public class TestTypeValidator
                 newId(),
                 baseTableScan,
                 ImmutableMap.of(aggregationSymbol, new Aggregation(
-                        metadata.resolveFunction(QualifiedName.of("sum"), fromTypes(DOUBLE)),
+                        functionResolution.resolveFunction(QualifiedName.of("sum"), fromTypes(DOUBLE)),
                         ImmutableList.of(columnC.toSymbolReference()),
                         false,
                         Optional.empty(),
@@ -212,7 +214,7 @@ public class TestTypeValidator
         assertTypesValid(node);
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "type of symbol 'expr(_[0-9]+)?' is expected to be bigint, but the actual type is integer")
+    @Test
     public void testInvalidProject()
     {
         Expression expression1 = new Cast(columnB.toSymbolReference(), toSqlType(INTEGER));
@@ -226,10 +228,12 @@ public class TestTypeValidator
                 baseTableScan,
                 assignments);
 
-        assertTypesValid(node);
+        assertThatThrownBy(() -> assertTypesValid(node))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageMatching("type of symbol 'expr(_[0-9]+)?' is expected to be bigint, but the actual type is integer");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "type of symbol 'sum(_[0-9]+)?' is expected to be double, but the actual type is bigint")
+    @Test
     public void testInvalidAggregationFunctionCall()
     {
         Symbol aggregationSymbol = symbolAllocator.newSymbol("sum", DOUBLE);
@@ -238,7 +242,7 @@ public class TestTypeValidator
                 newId(),
                 baseTableScan,
                 ImmutableMap.of(aggregationSymbol, new Aggregation(
-                        metadata.resolveFunction(QualifiedName.of("sum"), fromTypes(DOUBLE)),
+                        functionResolution.resolveFunction(QualifiedName.of("sum"), fromTypes(DOUBLE)),
                         ImmutableList.of(columnA.toSymbolReference()),
                         false,
                         Optional.empty(),
@@ -250,10 +254,12 @@ public class TestTypeValidator
                 Optional.empty(),
                 Optional.empty());
 
-        assertTypesValid(node);
+        assertThatThrownBy(() -> assertTypesValid(node))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageMatching("type of symbol 'sum(_[0-9]+)?' is expected to be double, but the actual type is bigint");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "type of symbol 'sum(_[0-9]+)?' is expected to be bigint, but the actual type is double")
+    @Test
     public void testInvalidAggregationFunctionSignature()
     {
         Symbol aggregationSymbol = symbolAllocator.newSymbol("sum", BIGINT);
@@ -262,7 +268,7 @@ public class TestTypeValidator
                 newId(),
                 baseTableScan,
                 ImmutableMap.of(aggregationSymbol, new Aggregation(
-                        metadata.resolveFunction(QualifiedName.of("sum"), fromTypes(DOUBLE)),
+                        functionResolution.resolveFunction(QualifiedName.of("sum"), fromTypes(DOUBLE)),
                         ImmutableList.of(columnC.toSymbolReference()),
                         false,
                         Optional.empty(),
@@ -274,14 +280,16 @@ public class TestTypeValidator
                 Optional.empty(),
                 Optional.empty());
 
-        assertTypesValid(node);
+        assertThatThrownBy(() -> assertTypesValid(node))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageMatching("type of symbol 'sum(_[0-9]+)?' is expected to be bigint, but the actual type is double");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "type of symbol 'sum(_[0-9]+)?' is expected to be double, but the actual type is bigint")
+    @Test
     public void testInvalidWindowFunctionCall()
     {
         Symbol windowSymbol = symbolAllocator.newSymbol("sum", DOUBLE);
-        ResolvedFunction resolvedFunction = metadata.resolveFunction(QualifiedName.of("sum"), fromTypes(DOUBLE));
+        ResolvedFunction resolvedFunction = functionResolution.resolveFunction(QualifiedName.of("sum"), fromTypes(DOUBLE));
 
         WindowNode.Frame frame = new WindowNode.Frame(
                 WindowFrame.Type.RANGE,
@@ -307,14 +315,16 @@ public class TestTypeValidator
                 ImmutableSet.of(),
                 0);
 
-        assertTypesValid(node);
+        assertThatThrownBy(() -> assertTypesValid(node))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageMatching("type of symbol 'sum(_[0-9]+)?' is expected to be double, but the actual type is bigint");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "type of symbol 'sum(_[0-9]+)?' is expected to be bigint, but the actual type is double")
+    @Test
     public void testInvalidWindowFunctionSignature()
     {
         Symbol windowSymbol = symbolAllocator.newSymbol("sum", BIGINT);
-        ResolvedFunction resolvedFunction = metadata.resolveFunction(QualifiedName.of("sum"), fromTypes(DOUBLE));
+        ResolvedFunction resolvedFunction = functionResolution.resolveFunction(QualifiedName.of("sum"), fromTypes(DOUBLE));
 
         WindowNode.Frame frame = new WindowNode.Frame(
                 WindowFrame.Type.RANGE,
@@ -340,10 +350,12 @@ public class TestTypeValidator
                 ImmutableSet.of(),
                 0);
 
-        assertTypesValid(node);
+        assertThatThrownBy(() -> assertTypesValid(node))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageMatching("type of symbol 'sum(_[0-9]+)?' is expected to be bigint, but the actual type is double");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "type of symbol 'output(_[0-9]+)?' is expected to be date, but the actual type is bigint")
+    @Test
     public void testInvalidUnion()
     {
         Symbol outputSymbol = symbolAllocator.newSymbol("output", DATE);
@@ -358,7 +370,9 @@ public class TestTypeValidator
                 mappings,
                 ImmutableList.copyOf(mappings.keySet()));
 
-        assertTypesValid(node);
+        assertThatThrownBy(() -> assertTypesValid(node))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageMatching("type of symbol 'output(_[0-9]+)?' is expected to be date, but the actual type is bigint");
     }
 
     private void assertTypesValid(PlanNode node)

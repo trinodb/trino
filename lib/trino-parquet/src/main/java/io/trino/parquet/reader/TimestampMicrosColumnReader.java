@@ -14,12 +14,14 @@
 package io.trino.parquet.reader;
 
 import io.trino.parquet.RichColumnDescriptor;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.Timestamps;
 import io.trino.spi.type.Type;
 
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
@@ -32,6 +34,7 @@ import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
 
 public class TimestampMicrosColumnReader
         extends PrimitiveColumnReader
@@ -66,7 +69,7 @@ public class TimestampMicrosColumnReader
                 type.writeObject(blockBuilder, LongTimestampWithTimeZone.fromEpochMillisAndFraction(epochMillis, picosOfMillis, UTC_KEY));
             }
             else {
-                throw new IllegalArgumentException("wrong type: " + type);
+                throw new TrinoException(NOT_SUPPORTED, format("Unsupported Trino column type (%s) for Parquet column (%s)", type, columnDescriptor));
             }
         }
         else if (isValueNull()) {

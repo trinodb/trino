@@ -39,6 +39,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.io.BaseEncoding.base16;
 import static io.airlift.testing.Assertions.assertLessThan;
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -185,7 +186,7 @@ public abstract class AbstractTestApproximateSetGeneric
     private InternalAggregationFunction getAggregationFunction()
     {
         return metadata.getAggregateFunctionImplementation(
-                metadata.resolveFunction(QualifiedName.of("$approx_set"), fromTypes(getValueType())));
+                metadata.resolveFunction(TEST_SESSION, QualifiedName.of("$approx_set"), fromTypes(getValueType())));
     }
 
     private Page createPage(List<?> values)

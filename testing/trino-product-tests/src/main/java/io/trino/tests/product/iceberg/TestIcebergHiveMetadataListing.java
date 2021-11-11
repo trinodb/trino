@@ -25,6 +25,7 @@ import java.util.List;
 import static com.google.common.collect.Iterators.getOnlyElement;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
+import static io.trino.tests.product.TestGroups.HMS_ONLY;
 import static io.trino.tests.product.TestGroups.ICEBERG;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
@@ -75,7 +76,7 @@ public class TestIcebergHiveMetadataListing
         onTrino().executeQuery("DROP TABLE IF EXISTS iceberg.default.iceberg_table1");
     }
 
-    @Test(groups = {ICEBERG, STORAGE_FORMATS})
+    @Test(groups = {ICEBERG, STORAGE_FORMATS, HMS_ONLY})
     public void testTableListing()
     {
         assertThat(onTrino().executeQuery("SHOW TABLES FROM iceberg.default"))
@@ -90,7 +91,7 @@ public class TestIcebergHiveMetadataListing
                             .build());
     }
 
-    @Test(groups = {ICEBERG, STORAGE_FORMATS})
+    @Test(groups = {ICEBERG, STORAGE_FORMATS, HMS_ONLY})
     public void testColumnListing()
     {
         assertThat(onTrino().executeQuery(

@@ -15,10 +15,10 @@ package io.trino.tests.product.launcher.suite.suites;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.io.Resources;
+import io.trino.testing.TestingProperties;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.EnvironmentDefaults;
-import io.trino.tests.product.launcher.env.environment.SinglenodeCompatibility;
+import io.trino.tests.product.launcher.env.environment.EnvSinglenodeCompatibility;
 import io.trino.tests.product.launcher.suite.Suite;
 import io.trino.tests.product.launcher.suite.SuiteTestRun;
 
@@ -32,7 +32,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
 import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class SuiteCompatibility
         extends Suite
@@ -52,12 +51,12 @@ public class SuiteCompatibility
         verify(config.getHadoopBaseImage().equals(EnvironmentDefaults.HADOOP_BASE_IMAGE), "The suite should be run with default HADOOP_BASE_IMAGE. Leave HADOOP_BASE_IMAGE unset.");
 
         ImmutableList<SuiteTestRun> trinoCompatibilityTestRuns = testedTrinoDockerImages().stream()
-                .map(image -> testOnEnvironment(SinglenodeCompatibility.class, ImmutableMap.of("compatibility.testDockerImage", image))
+                .map(image -> testOnEnvironment(EnvSinglenodeCompatibility.class, ImmutableMap.of("compatibility.testDockerImage", image))
                         .withGroups("hive_view_compatibility")
                         .build())
                 .collect(toImmutableList());
         ImmutableList<SuiteTestRun> prestoCompatibilityTestRuns = testedPrestoDockerImages().stream()
-                .map(image -> testOnEnvironment(SinglenodeCompatibility.class, ImmutableMap.of("compatibility.testDockerImage", image))
+                .map(image -> testOnEnvironment(EnvSinglenodeCompatibility.class, ImmutableMap.of("compatibility.testDockerImage", image))
                         .withGroups("hive_view_compatibility")
                         .build())
                 .collect(toImmutableList());
@@ -71,7 +70,7 @@ public class SuiteCompatibility
     private static List<String> testedTrinoDockerImages()
     {
         try {
-            String currentVersionString = Resources.toString(Resources.getResource("presto-product-tests-launcher-version.txt"), UTF_8).trim();
+            String currentVersionString = TestingProperties.getProjectVersion();
             Matcher matcher = Pattern.compile("(\\d+)(?:-SNAPSHOT)?").matcher(currentVersionString);
             checkState(matcher.matches());
             int currentVersion = parseInt(matcher.group(1));

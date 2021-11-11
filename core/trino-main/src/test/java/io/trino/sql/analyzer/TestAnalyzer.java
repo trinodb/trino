@@ -30,6 +30,7 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.memory.MemoryManagerConfig;
 import io.trino.memory.NodeMemoryConfig;
 import io.trino.metadata.Catalog;
+import io.trino.metadata.Catalog.SecurityManagement;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.InMemoryNodeManager;
 import io.trino.metadata.InternalNodeManager;
@@ -38,6 +39,7 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.TableHandle;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
+import io.trino.plugin.base.security.DefaultSystemAccessControl;
 import io.trino.security.AccessControl;
 import io.trino.security.AccessControlConfig;
 import io.trino.security.AccessControlManager;
@@ -3453,8 +3455,8 @@ public class TestAnalyzer
                 .hasErrorCode(SYNTAX_ERROR);
 
         Session session = testSessionBuilder()
-                .setCatalog(null)
-                .setSchema(null)
+                .setCatalog(Optional.empty())
+                .setSchema(Optional.empty())
                 .build();
         assertFails(session, "SHOW TABLES")
                 .hasErrorCode(MISSING_CATALOG_NAME);
@@ -3465,7 +3467,7 @@ public class TestAnalyzer
 
         session = testSessionBuilder()
                 .setCatalog(SECOND_CATALOG)
-                .setSchema(null)
+                .setSchema(Optional.empty())
                 .build();
         assertFails(session, "SHOW TABLES")
                 .hasErrorCode(MISSING_SCHEMA_NAME);
@@ -4918,7 +4920,8 @@ public class TestAnalyzer
         AccessControlManager accessControlManager = new AccessControlManager(
                 transactionManager,
                 emptyEventListenerManager(),
-                new AccessControlConfig());
+                new AccessControlConfig(),
+                DefaultSystemAccessControl.NAME);
         accessControlManager.setSystemAccessControls(List.of(AllowAllSystemAccessControl.INSTANCE));
         this.accessControl = accessControlManager;
 
@@ -5312,7 +5315,9 @@ public class TestAnalyzer
         return new Catalog(
                 catalogName,
                 catalog,
+                "test",
                 connector,
+                SecurityManagement.CONNECTOR,
                 createInformationSchemaCatalogName(catalog),
                 new InformationSchemaConnector(catalogName, nodeManager, metadata, accessControl),
                 systemId,

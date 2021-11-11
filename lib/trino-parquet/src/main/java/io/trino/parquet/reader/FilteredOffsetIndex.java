@@ -112,29 +112,22 @@ class FilteredOffsetIndex
                 ranges.add(new OffsetRange(rowGroupOffset, firstPageOffset - rowGroupOffset));
             }
 
-            long currentOffset = -1;
-            long currentLength = 0;
-            for (int i = 0; i < pageCount; ++i) {
+            long currentOffset = getOffset(0);
+            long currentLength = getCompressedPageSize(0);
+            for (int i = 1; i < pageCount; ++i) {
                 long offset = getOffset(i);
                 int length = getCompressedPageSize(i);
 
-                if (currentOffset == -1) {
-                    currentOffset = offset;
-                    currentLength = length;
-                }
-                else if (currentOffset + currentLength == offset) {
+                if (currentOffset + currentLength == offset) {
                     currentLength += length;
                 }
                 else {
                     ranges.add(new OffsetRange(currentOffset, currentLength));
-                    currentOffset = -1;
-                    currentLength = 0;
+                    currentOffset = offset;
+                    currentLength = length;
                 }
             }
-
-            if (currentOffset != -1) {
-                ranges.add(new OffsetRange(currentOffset, currentLength));
-            }
+            ranges.add(new OffsetRange(currentOffset, currentLength));
         }
         return ranges;
     }

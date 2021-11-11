@@ -66,6 +66,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.ImmutableSortedSet.toImmutableSortedSet;
 import static io.trino.operator.ParametricFunctionHelpers.bindDependencies;
+import static io.trino.operator.ParametricFunctionHelpers.signatureWithName;
 import static io.trino.operator.annotations.FunctionsParserHelper.containsImplementationDependencyAnnotation;
 import static io.trino.operator.annotations.FunctionsParserHelper.containsLegacyNullable;
 import static io.trino.operator.annotations.FunctionsParserHelper.createTypeVariableConstraints;
@@ -224,6 +225,17 @@ public class ParametricScalarImplementation
     public List<ParametricScalarImplementationChoice> getChoices()
     {
         return choices;
+    }
+
+    @Override
+    public ParametricScalarImplementation withAlias(String alias)
+    {
+        return new ParametricScalarImplementation(
+                signatureWithName(alias, signature),
+                argumentNativeContainerTypes,
+                specializedTypeParameters,
+                choices,
+                returnNativeContainerType);
     }
 
     private static MethodType javaMethodType(ParametricScalarImplementationChoice choice, BoundSignature signature)

@@ -914,7 +914,7 @@ public final class MathFunctions
                 @SqlType("decimal(p, s)") long num,
                 @SqlType(StandardTypes.INTEGER) long decimals)
         {
-            if (num == 0 || numPrecision - numScale + decimals <= 0) {
+            if (num == 0 || numPrecision - numScale + decimals < 0) {
                 return 0;
             }
             if (decimals >= numScale) {
@@ -1186,7 +1186,7 @@ public final class MathFunctions
     @Description("Constant representing not-a-number")
     @ScalarFunction("nan")
     @SqlType(StandardTypes.DOUBLE)
-    public static double NaN()
+    public static double nan()
     {
         return Double.NaN;
     }

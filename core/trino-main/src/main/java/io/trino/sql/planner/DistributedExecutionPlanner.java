@@ -56,6 +56,7 @@ import io.trino.sql.planner.plan.SortNode;
 import io.trino.sql.planner.plan.SpatialJoinNode;
 import io.trino.sql.planner.plan.StatisticsWriterNode;
 import io.trino.sql.planner.plan.TableDeleteNode;
+import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
@@ -436,6 +437,12 @@ public class DistributedExecutionPlanner
         {
             // node does not have splits
             return ImmutableMap.of();
+        }
+
+        @Override
+        public Map<PlanNodeId, SplitSource> visitTableExecute(TableExecuteNode node, Void context)
+        {
+            return node.getSource().accept(this, context);
         }
 
         @Override

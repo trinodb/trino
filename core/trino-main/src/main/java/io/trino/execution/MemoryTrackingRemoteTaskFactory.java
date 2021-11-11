@@ -24,7 +24,6 @@ import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNodeId;
 
-import java.util.OptionalInt;
 import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
@@ -48,7 +47,6 @@ public class MemoryTrackingRemoteTaskFactory
             InternalNode node,
             PlanFragment fragment,
             Multimap<PlanNodeId, Split> initialSplits,
-            OptionalInt totalPartitions,
             OutputBuffers outputBuffers,
             PartitionedSplitCountTracker partitionedSplitCountTracker,
             Set<DynamicFilterId> outboundDynamicFilterIds,
@@ -59,7 +57,6 @@ public class MemoryTrackingRemoteTaskFactory
                 node,
                 fragment,
                 initialSplits,
-                totalPartitions,
                 outputBuffers,
                 partitionedSplitCountTracker,
                 outboundDynamicFilterIds,

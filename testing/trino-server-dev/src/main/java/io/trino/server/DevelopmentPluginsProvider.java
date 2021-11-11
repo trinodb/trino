@@ -29,29 +29,41 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.Executor;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.server.PluginDiscovery.discoverPlugins;
 import static io.trino.server.PluginDiscovery.writePluginServices;
+import static io.trino.util.Executors.executeUntilFailure;
+import static java.util.Objects.requireNonNull;
 
 public class DevelopmentPluginsProvider
         implements PluginsProvider
 {
     private final ArtifactResolver resolver;
     private final List<String> plugins;
+    private final Executor executor;
 
     @Inject
-    public DevelopmentPluginsProvider(DevelopmentLoaderConfig config)
+    public DevelopmentPluginsProvider(DevelopmentLoaderConfig config, @ForStartup Executor executor)
     {
         this.resolver = new ArtifactResolver(config.getMavenLocalRepository(), config.getMavenRemoteRepository());
         this.plugins = ImmutableList.copyOf(config.getPlugins());
+        this.executor = requireNonNull(executor, "executor is null");
     }
 
     @Override
     public void loadPlugins(Loader loader, ClassLoaderFactory createClassLoader)
     {
-        for (String plugin : plugins) {
-            loader.load(plugin, () -> buildClassLoader(plugin, createClassLoader));
-        }
+        executeUntilFailure(
+                executor,
+                plugins.stream()
+                        .map(plugin -> (Callable<?>) () -> {
+                            loader.load(plugin, () -> buildClassLoader(plugin, createClassLoader));
+                            return null;
+                        })
+                        .collect(toImmutableList()));
     }
 
     private PluginClassLoader buildClassLoader(String plugin, ClassLoaderFactory classLoaderFactory)

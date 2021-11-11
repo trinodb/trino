@@ -60,6 +60,8 @@ Property Name                                      Required   Description
 
 .. include:: jdbc-common-configurations.fragment
 
+.. include:: jdbc-case-insensitive-matching.fragment
+
 .. include:: non-transactional-insert.fragment
 
 Querying Phoenix tables
@@ -183,7 +185,22 @@ Property Name               Default Value    Description
 ``bloomfilter``             ``NONE``         Bloomfilter to use. Valid values are ``NONE`` (default), ``ROW``, or ``ROWCOL``.
 =========================== ================ ==============================================================================================================
 
+.. _phoenix-sql-support:
+
 SQL support
 -----------
+
+The connector provides read and write access to data and metadata in
+Phoenix. In addition to the :ref:`globally available
+<sql-globally-available>` and :ref:`read operation <sql-read-operations>`
+statements, the connector supports the following features:
+
+* :doc:`/sql/insert`
+* :doc:`/sql/delete`
+* :doc:`/sql/create-table`
+* :doc:`/sql/create-table-as`
+* :doc:`/sql/drop-table`
+* :doc:`/sql/create-schema`
+* :doc:`/sql/drop-schema`
 
 .. include:: sql-delete-limitation.fragment

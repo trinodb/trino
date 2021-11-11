@@ -43,16 +43,21 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_TABL
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_MATERIALIZED_VIEW;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_SCHEMA;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_DATA;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_VIEW;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DELETE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DROP_COLUMN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_INSERT;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_MULTI_STATEMENT_WRITES;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_COLUMN;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_MATERIALIZED_VIEW;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_MATERIALIZED_VIEW_ACROSS_SCHEMAS;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_SCHEMA;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_TABLE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ROW_LEVEL_DELETE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TOPN_PUSHDOWN;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TRUNCATE;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
@@ -60,6 +65,7 @@ import static java.lang.String.join;
 import static java.util.Collections.nCopies;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -179,6 +185,72 @@ public abstract class BaseConnectorTest
     public void testColumnsInReverseOrder()
     {
         assertQuery("SELECT shippriority, clerk, totalprice FROM orders");
+    }
+
+    // Test char and varchar comparisons. Currently, unless such comparison is unwrapped in the engine, it's not pushed down into the connector,
+    // but this can change with expression-based predicate pushdown.
+    @Test
+    public void testCharVarcharComparison()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
+
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_char_varchar",
+                "(k, v) AS VALUES" +
+                        "   (-1, CAST(NULL AS char(3))), " +
+                        "   (3, CAST('   ' AS char(3)))," +
+                        "   (6, CAST('x  ' AS char(3)))")) {
+            // varchar of length shorter than column's length
+            assertQuery(
+                    "SELECT k, v FROM " + table.getName() + " WHERE v = CAST('  ' AS varchar(2))",
+                    // The value is included because both sides of the comparison are coerced to char(3)
+                    "VALUES (3, '   ')");
+
+            // varchar of length longer than column's length
+            assertQuery(
+                    "SELECT k, v FROM " + table.getName() + " WHERE v = CAST('  ' AS varchar(4))",
+                    // The value is included because both sides of the comparison are coerced to char(4)
+                    "VALUES (3, '   ')");
+
+            // value that's not all-spaces
+            assertQuery(
+                    "SELECT k, v FROM " + table.getName() + " WHERE v = CAST('x ' AS varchar(2))",
+                    // The value is included because both sides of the comparison are coerced to char(3)
+                    "VALUES (6, 'x  ')");
+        }
+    }
+
+    // Test varchar and char comparisons. Currently, unless such comparison is unwrapped in the engine, it's not pushed down into the connector,
+    // but this can change with expression-based predicate pushdown.
+    @Test
+    public void testVarcharCharComparison()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
+
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_varchar_char",
+                "(k, v) AS VALUES" +
+                        "   (-1, CAST(NULL AS varchar(3))), " +
+                        "   (0, CAST('' AS varchar(3)))," +
+                        "   (1, CAST(' ' AS varchar(3))), " +
+                        "   (2, CAST('  ' AS varchar(3))), " +
+                        "   (3, CAST('   ' AS varchar(3)))," +
+                        "   (4, CAST('x' AS varchar(3)))," +
+                        "   (5, CAST('x ' AS varchar(3)))," +
+                        "   (6, CAST('x  ' AS varchar(3)))")) {
+            assertQuery(
+                    "SELECT k, v FROM " + table.getName() + " WHERE v = CAST('  ' AS char(2))",
+                    // The 3-spaces value is included because both sides of the comparison are coerced to char(3)
+                    "VALUES (0, ''), (1, ' '), (2, '  '), (3, '   ')");
+
+            // value that's not all-spaces
+            assertQuery(
+                    "SELECT k, v FROM " + table.getName() + " WHERE v = CAST('x ' AS char(2))",
+                    // The 3-spaces value is included because both sides of the comparison are coerced to char(3)
+                    "VALUES (4, 'x'), (5, 'x '), (6, 'x  ')");
+        }
     }
 
     @Test
@@ -568,37 +640,122 @@ public abstract class BaseConnectorTest
         assertUpdate("DROP MATERIALIZED VIEW " + viewWithComment);
 
         // test filtering materialized views in system metadata table
-        assertQuery(
-                listMaterializedViewsSql("catalog_name = '" + view.getCatalogName() + "'"),
-                getTestingMaterializedViewsResultRows(view, otherView));
+        assertThat(query(listMaterializedViewsSql("catalog_name = '" + view.getCatalogName() + "'")))
+                .skippingTypesCheck()
+                .containsAll(getTestingMaterializedViewsResultRows(view, otherView));
 
-        assertQuery(
+        assertThat(query(
                 listMaterializedViewsSql(
                         "catalog_name = '" + otherView.getCatalogName() + "'",
-                        "schema_name = '" + otherView.getSchemaName() + "'"),
-                getTestingMaterializedViewsResultRow(otherView, "sarcastic comment"));
+                        "schema_name = '" + otherView.getSchemaName() + "'")))
+                .skippingTypesCheck()
+                .containsAll(getTestingMaterializedViewsResultRow(otherView, "sarcastic comment"));
 
-        assertQuery(
+        assertThat(query(
                 listMaterializedViewsSql(
                         "catalog_name = '" + view.getCatalogName() + "'",
                         "schema_name = '" + view.getSchemaName() + "'",
-                        "name = '" + view.getObjectName() + "'"),
-                getTestingMaterializedViewsResultRow(view, ""));
+                        "name = '" + view.getObjectName() + "'")))
+                .skippingTypesCheck()
+                .containsAll(getTestingMaterializedViewsResultRow(view, ""));
 
-        assertQuery(
-                listMaterializedViewsSql("schema_name LIKE '%" + view.getSchemaName() + "%'"),
-                getTestingMaterializedViewsResultRow(view, ""));
+        assertThat(query(
+                listMaterializedViewsSql("schema_name LIKE '%" + view.getSchemaName() + "%'")))
+                .skippingTypesCheck()
+                .containsAll(getTestingMaterializedViewsResultRow(view, ""));
 
-        assertQuery(
-                listMaterializedViewsSql("name LIKE '%" + view.getObjectName() + "%'"),
-                getTestingMaterializedViewsResultRow(view, ""));
+        assertThat(query(
+                listMaterializedViewsSql("name LIKE '%" + view.getObjectName() + "%'")))
+                .skippingTypesCheck()
+                .containsAll(getTestingMaterializedViewsResultRow(view, ""));
+
+        // verify write in transaction
+        if (!hasBehavior(SUPPORTS_MULTI_STATEMENT_WRITES)) {
+            assertThatThrownBy(() -> inTransaction(session -> computeActual(session, "REFRESH MATERIALIZED VIEW " + view)))
+                    .hasMessageMatching("Catalog only supports writes using autocommit: \\w+");
+        }
 
         assertUpdate("DROP MATERIALIZED VIEW " + view);
         assertUpdate("DROP MATERIALIZED VIEW " + otherView);
 
         assertQueryReturnsEmptyResult(listMaterializedViewsSql("name = '" + view.getObjectName() + "'"));
         assertQueryReturnsEmptyResult(listMaterializedViewsSql("name = '" + otherView.getObjectName() + "'"));
-        assertQueryReturnsEmptyResult(listMaterializedViewsSql("name = '" + viewWithComment.getSchemaName() + "'"));
+        assertQueryReturnsEmptyResult(listMaterializedViewsSql("name = '" + viewWithComment.getObjectName() + "'"));
+    }
+
+    @Test
+    public void testRenameMaterializedView()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_MATERIALIZED_VIEW));
+
+        String schema = "rename_mv_test";
+        Session session = Session.builder(getSession())
+                .setSchema(schema)
+                .build();
+
+        QualifiedObjectName originalMaterializedView = new QualifiedObjectName(
+                session.getCatalog().orElseThrow(),
+                session.getSchema().orElseThrow(),
+                "test_materialized_view_rename_" + randomTableSuffix());
+
+        createTestingMaterializedView(originalMaterializedView, Optional.empty());
+
+        String renamedMaterializedView = "test_materialized_view_rename_new_" + randomTableSuffix();
+        if (!hasBehavior(SUPPORTS_RENAME_MATERIALIZED_VIEW)) {
+            assertQueryFails(session, "ALTER MATERIALIZED VIEW " + originalMaterializedView + " RENAME TO " + renamedMaterializedView, "This connector does not support renaming materialized views");
+            assertUpdate(session, "DROP MATERIALIZED VIEW " + originalMaterializedView);
+            return;
+        }
+
+        // simple rename
+        assertUpdate(session, "ALTER MATERIALIZED VIEW " + originalMaterializedView + " RENAME TO " + renamedMaterializedView);
+        assertTestingMaterializedViewQuery(schema, renamedMaterializedView);
+        // verify new name in the system.metadata.materialized_views
+        assertQuery(session, "SELECT catalog_name, schema_name FROM system.metadata.materialized_views WHERE name = '" + renamedMaterializedView + "'",
+                format("VALUES ('%s', '%s')", originalMaterializedView.getCatalogName(), originalMaterializedView.getSchemaName()));
+        assertQueryReturnsEmptyResult(session, listMaterializedViewsSql("name = '" + originalMaterializedView.getObjectName() + "'"));
+
+        // rename with IF EXISTS on existing materialized view
+        String testExistsMaterializedViewName = "test_materialized_view_rename_exists_" + randomTableSuffix();
+        assertUpdate(session, "ALTER MATERIALIZED VIEW IF EXISTS " + renamedMaterializedView + " RENAME TO " + testExistsMaterializedViewName);
+        assertTestingMaterializedViewQuery(schema, testExistsMaterializedViewName);
+
+        // rename with upper-case, not delimited identifier
+        String uppercaseName = "TEST_MATERIALIZED_VIEW_RENAME_UPPERCASE_" + randomTableSuffix();
+        assertUpdate(session, "ALTER MATERIALIZED VIEW " + testExistsMaterializedViewName + " RENAME TO " + uppercaseName);
+        assertTestingMaterializedViewQuery(schema, uppercaseName.toLowerCase(ENGLISH)); // Ensure select allows for lower-case, not delimited identifier
+
+        String otherSchema = "rename_mv_other_schema";
+        assertUpdate(format("CREATE SCHEMA IF NOT EXISTS %s", otherSchema));
+        if (hasBehavior(SUPPORTS_RENAME_MATERIALIZED_VIEW_ACROSS_SCHEMAS)) {
+            assertUpdate(session, "ALTER MATERIALIZED VIEW " + uppercaseName + " RENAME TO " + otherSchema + "." + originalMaterializedView.getObjectName());
+            assertTestingMaterializedViewQuery(otherSchema, originalMaterializedView.getObjectName());
+
+            assertUpdate(session, "DROP MATERIALIZED VIEW " + otherSchema + "." + originalMaterializedView.getObjectName());
+        }
+        else {
+            assertQueryFails(
+                    session,
+                    "ALTER MATERIALIZED VIEW " + uppercaseName + " RENAME TO " + otherSchema + "." + originalMaterializedView.getObjectName(),
+                    "Materialized View rename across schemas is not supported");
+            assertUpdate(session, "DROP MATERIALIZED VIEW " + uppercaseName);
+        }
+
+        assertFalse(getQueryRunner().tableExists(session, originalMaterializedView.toString()));
+        assertFalse(getQueryRunner().tableExists(session, renamedMaterializedView));
+        assertFalse(getQueryRunner().tableExists(session, testExistsMaterializedViewName));
+
+        // rename with IF EXISTS on NOT existing materialized view
+        assertUpdate(session, "ALTER TABLE IF EXISTS " + originalMaterializedView + " RENAME TO " + renamedMaterializedView);
+        assertQueryReturnsEmptyResult(session, listMaterializedViewsSql("name = '" + originalMaterializedView.getObjectName() + "'"));
+        assertQueryReturnsEmptyResult(session, listMaterializedViewsSql("name = '" + renamedMaterializedView + "'"));
+    }
+
+    private void assertTestingMaterializedViewQuery(String schema, String materializedViewName)
+    {
+        assertThat(query("SELECT * FROM " + schema + "." + materializedViewName))
+                .skippingTypesCheck()
+                .matches("SELECT * FROM nation");
     }
 
     private void createTestingMaterializedView(QualifiedObjectName view, Optional<String> comment)
@@ -876,6 +1033,53 @@ public abstract class BaseConnectorTest
     }
 
     @Test
+    public void testRollback()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_MULTI_STATEMENT_WRITES));
+
+        String table = "test_rollback_" + randomTableSuffix();
+        computeActual(format("CREATE TABLE %s (x int)", table));
+
+        assertThatThrownBy(() ->
+                inTransaction(session -> {
+                    assertUpdate(session, format("INSERT INTO %s VALUES (42)", table), 1);
+                    throw new RollbackException();
+                }))
+                .isInstanceOf(RollbackException.class);
+
+        assertQuery(format("SELECT count(*) FROM %s", table), "SELECT 0");
+    }
+
+    private static class RollbackException
+            extends RuntimeException {}
+
+    @Test
+    public void testWriteNotAllowedInTransaction()
+    {
+        skipTestUnless(!hasBehavior(SUPPORTS_MULTI_STATEMENT_WRITES));
+
+        assertWriteNotAllowedInTransaction(SUPPORTS_CREATE_SCHEMA, "CREATE SCHEMA write_not_allowed");
+        assertWriteNotAllowedInTransaction(SUPPORTS_CREATE_TABLE, "CREATE TABLE write_not_allowed (x int)");
+        assertWriteNotAllowedInTransaction(SUPPORTS_CREATE_TABLE, "DROP TABLE region");
+        assertWriteNotAllowedInTransaction(SUPPORTS_CREATE_TABLE_WITH_DATA, "CREATE TABLE write_not_allowed AS SELECT * FROM region");
+        assertWriteNotAllowedInTransaction(SUPPORTS_CREATE_VIEW, "CREATE VIEW write_not_allowed AS SELECT * FROM region");
+        assertWriteNotAllowedInTransaction(SUPPORTS_CREATE_MATERIALIZED_VIEW, "CREATE MATERIALIZED VIEW write_not_allowed AS SELECT * FROM region");
+        assertWriteNotAllowedInTransaction(SUPPORTS_RENAME_TABLE, "ALTER TABLE region RENAME TO region_name");
+        assertWriteNotAllowedInTransaction(SUPPORTS_INSERT, "INSERT INTO region (regionkey) VALUES (123)");
+        assertWriteNotAllowedInTransaction(SUPPORTS_DELETE, "DELETE FROM region WHERE regionkey = 123");
+
+        // REFRESH MATERIALIZED VIEW is tested in testMaterializedView
+    }
+
+    protected void assertWriteNotAllowedInTransaction(TestingConnectorBehavior behavior, @Language("SQL") String sql)
+    {
+        if (hasBehavior(behavior)) {
+            assertThatThrownBy(() -> inTransaction(session -> computeActual(session, sql)))
+                    .hasMessageMatching("Catalog only supports writes using autocommit: \\w+");
+        }
+    }
+
+    @Test
     public void testRenameSchema()
     {
         if (!hasBehavior(SUPPORTS_RENAME_SCHEMA)) {
@@ -981,7 +1185,7 @@ public abstract class BaseConnectorTest
         }
 
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete", "AS SELECT * FROM region")) {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_supports_delete", "AS SELECT * FROM region")) {
             assertQueryFails("DELETE FROM " + table.getName(), "This connector does not support deletes");
         }
     }
@@ -995,7 +1199,7 @@ public abstract class BaseConnectorTest
         }
 
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete", "AS SELECT * FROM region")) {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_supports_row_level_delete", "AS SELECT * FROM region")) {
             assertQueryFails("DELETE FROM " + table.getName() + " WHERE regionkey = 2", "This connector does not support deletes");
         }
     }
@@ -1004,7 +1208,7 @@ public abstract class BaseConnectorTest
     public void testDeleteAllDataFromTable()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_DELETE));
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete", "AS SELECT * FROM region")) {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_all_data", "AS SELECT * FROM region")) {
             // not using assertUpdate as some connectors provide update count and some not
             getQueryRunner().execute("DELETE FROM " + table.getName());
             assertQuery("SELECT count(*) FROM " + table.getName(), "VALUES 0");
@@ -1015,9 +1219,26 @@ public abstract class BaseConnectorTest
     public void testRowLevelDelete()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete", "AS SELECT * FROM region")) {
+        // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_row_delete", "AS SELECT * FROM region")) {
             assertUpdate("DELETE FROM " + table.getName() + " WHERE regionkey = 2", 1);
             assertQuery("SELECT count(*) FROM " + table.getName(), "VALUES 4");
+        }
+    }
+
+    @Test
+    public void testTruncateTable()
+    {
+        if (!hasBehavior(SUPPORTS_TRUNCATE)) {
+            assertQueryFails("TRUNCATE TABLE nation", "This connector does not support truncating tables");
+            return;
+        }
+
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_truncate", "AS SELECT * FROM region")) {
+            assertUpdate("TRUNCATE TABLE " + table.getName());
+            assertQuery("SELECT count(*) FROM " + table.getName(), "VALUES 0");
         }
     }
 

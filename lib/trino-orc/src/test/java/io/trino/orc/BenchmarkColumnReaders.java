@@ -16,6 +16,7 @@ package io.trino.orc;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import io.trino.orc.metadata.CompressionKind;
+import io.trino.plugin.tpch.DecimalTypeMapping;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.DecimalType;
@@ -1070,8 +1071,8 @@ public class BenchmarkColumnReaders
                 throws Exception
         {
             setup(
-                    getTableColumns("lineitem"),
-                    getTablePages("lineitem", 0.1));
+                    getTableColumns("lineitem", DecimalTypeMapping.DOUBLE),
+                    getTablePages("lineitem", 0.1, DecimalTypeMapping.DOUBLE));
         }
     }
 

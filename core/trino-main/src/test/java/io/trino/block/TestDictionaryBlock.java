@@ -165,13 +165,21 @@ public class TestDictionaryBlock
     {
         Slice[] expectedValues = createExpectedValues(10);
         Block valuesBlock = createSlicesBlock(expectedValues);
-        DictionaryBlock nestedDictionary = new DictionaryBlock(valuesBlock, new int[] {0, 1, 2, 2, 4, 5});
+        DictionaryBlock deeplyNestedDictionary = new DictionaryBlock(valuesBlock, new int[] {0, 1, 2, 2, 4, 5});
+        DictionaryBlock nestedDictionary = new DictionaryBlock(deeplyNestedDictionary, new int[] {0, 1, 2, 3, 4, 5});
         DictionaryBlock dictionary = new DictionaryBlock(nestedDictionary, new int[] {2, 3, 2, 0});
+        DictionaryBlock dictionaryWithAllPositionsUsed = new DictionaryBlock(nestedDictionary, new int[] {0, 1, 2, 3, 4, 5});
 
         assertEquals(
                 dictionary.getSizeInBytes(),
                 valuesBlock.getPositionsSizeInBytes(new boolean[] {true, false, true, false, false, false}) + 4 * Integer.BYTES);
         assertFalse(dictionary.isCompact());
+
+        assertEquals(
+                dictionaryWithAllPositionsUsed.getSizeInBytes(),
+                valuesBlock.getPositionsSizeInBytes(new boolean[] {true, true, true, false, true, true}) + 6 * Integer.BYTES);
+        // dictionary is not compact (even though all positions were used) because it's unnested
+        assertFalse(dictionaryWithAllPositionsUsed.isCompact());
 
         DictionaryBlock compactBlock = dictionary.compact();
         assertBlock(compactBlock.getDictionary(), TestDictionaryBlock::createBlockBuilder, new Slice[] {expectedValues[2], expectedValues[0]});

@@ -84,7 +84,7 @@ public class TestDataWritableWriter
             }
             catch (RuntimeException e) {
                 String errorMessage = "Parquet record is malformed: " + e.getMessage();
-                log.error(errorMessage, e);
+                log.error(e, errorMessage);
                 throw new RuntimeException(errorMessage, e);
             }
             recordConsumer.endMessage();

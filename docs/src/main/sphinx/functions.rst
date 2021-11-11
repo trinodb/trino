@@ -28,6 +28,7 @@ and the :doc:`SQL statement and syntax reference</sql>`.
     Decimal             <functions/decimal>
     Geospatial          <functions/geospatial>
     HyperLogLog         <functions/hyperloglog>
+    IP Address          <functions/ipaddress>
     JSON                <functions/json>
     Lambda              <functions/lambda>
     Logical             <functions/logical>
@@ -37,6 +38,7 @@ and the :doc:`SQL statement and syntax reference</sql>`.
     Quantile digest     <functions/qdigest>
     Regular expression  <functions/regexp>
     Session             <functions/session>
+    Set Digest          <functions/setdigest>
     String              <functions/string>
     System              <functions/system>
     Teradata            <functions/teradata>

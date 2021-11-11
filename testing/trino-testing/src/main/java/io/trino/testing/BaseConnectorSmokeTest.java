@@ -160,12 +160,11 @@ public abstract class BaseConnectorSmokeTest
             throw new AssertionError("Cannot test INSERT without CREATE TABLE, the test needs to be implemented in a connector-specific way");
         }
 
-        String tableName = "test_create_" + randomTableSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " (a bigint, b double)");
-        assertUpdate("INSERT INTO " + tableName + " (a, b) VALUES (42, -38.5)", 1);
-        assertThat(query("SELECT CAST(a AS bigint), b FROM " + tableName))
-                .matches("VALUES (BIGINT '42', -385e-1)");
-        assertUpdate("DROP TABLE " + tableName);
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_", "(a bigint, b double)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " (a, b) VALUES (42, -38.5)", 1);
+            assertThat(query("SELECT CAST(a AS bigint), b FROM " + table.getName()))
+                    .matches("VALUES (BIGINT '42', -385e-1)");
+        }
     }
 
     @Test
@@ -177,7 +176,7 @@ public abstract class BaseConnectorSmokeTest
         }
 
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete", "AS SELECT * FROM region")) {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_supports_delete", "AS SELECT * FROM region")) {
             assertQueryFails("DELETE FROM " + table.getName(), "This connector does not support deletes");
         }
     }
@@ -191,7 +190,7 @@ public abstract class BaseConnectorSmokeTest
         }
 
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete", "AS SELECT * FROM region")) {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_supports_row_level_delete", "AS SELECT * FROM region")) {
             assertQueryFails("DELETE FROM " + table.getName() + " WHERE regionkey = 2", "This connector does not support deletes");
         }
     }
@@ -200,7 +199,7 @@ public abstract class BaseConnectorSmokeTest
     public void testDeleteAllDataFromTable()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_DELETE));
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete", "AS SELECT * FROM region")) {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_all_data", "AS SELECT * FROM region")) {
             // not using assertUpdate as some connectors provide update count and some do not
             getQueryRunner().execute("DELETE FROM " + table.getName());
             assertQuery("SELECT count(*) FROM " + table.getName(), "VALUES 0");
@@ -211,7 +210,8 @@ public abstract class BaseConnectorSmokeTest
     public void testRowLevelDelete()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete", "AS SELECT * FROM region")) {
+        // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_row_delete", "AS SELECT * FROM region")) {
             assertUpdate("DELETE FROM " + table.getName() + " WHERE regionkey = 2", 1);
             assertThat(query("SELECT * FROM " + table.getName() + " WHERE regionkey = 2"))
                     .returnsEmptyResult();

@@ -272,6 +272,32 @@ public class TestTableRedirection
                                         .map(tableName -> row(mappings.getKey(), tableName)))
                                 .flatMap(Function.identity())
                                 .collect(Collectors.joining(","))));
+
+        assertQuery(
+                format("SELECT table_schema, table_name"
+                                + " FROM information_schema.tables"
+                                + " WHERE table_catalog='%s' AND table_schema = '%s' AND table_name='%s'",
+                        CATALOG_NAME,
+                        SCHEMA_ONE,
+                        VALID_REDIRECTION_SRC),
+                format("VALUES ('%s', '%s')", SCHEMA_ONE, VALID_REDIRECTION_SRC));
+
+        assertQueryFails(
+                format("SELECT table_schema, table_name"
+                                + " FROM information_schema.tables"
+                                + " WHERE table_catalog='%s' AND table_schema = '%s' AND table_name='%s'",
+                        CATALOG_NAME,
+                        SCHEMA_ONE,
+                        BAD_REDIRECTION_SRC),
+                format("Table '%1$s' redirected to '%2$s', but the target table '%2$s' does not exist",
+                        new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_ONE, BAD_REDIRECTION_SRC),
+                        new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_TWO, NON_EXISTENT_TABLE)));
+
+        assertQuery(format(
+                "SELECT table_schema, table_name"
+                        + " FROM information_schema.tables"
+                        + " WHERE table_catalog='%s' AND table_schema = '' AND table_name = ''",
+                CATALOG_NAME));
     }
 
     @Test

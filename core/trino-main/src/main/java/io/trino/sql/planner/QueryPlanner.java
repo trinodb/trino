@@ -96,6 +96,7 @@ import io.trino.type.TypeCoercion;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -227,7 +228,12 @@ class QueryPlanner
 
         // prune anchor plan outputs to contain only the symbols exposed in the scope
         NodeAndMappings prunedAnchorPlan = pruneInvisibleFields(anchorPlan, idAllocator);
-        anchorPlan = new RelationPlan(prunedAnchorPlan.getNode(), analysis.getScope(query), prunedAnchorPlan.getFields(), outerContext);
+
+        // if the anchor plan has duplicate output symbols, add projection on top to make the symbols unique
+        // This is necessary to successfully unroll recursion: the recursion step relation must follow
+        // the same layout while it might not have duplicate outputs where the anchor plan did
+        NodeAndMappings disambiguatedAnchorPlan = disambiguateOutputs(prunedAnchorPlan, symbolAllocator, idAllocator);
+        anchorPlan = new RelationPlan(disambiguatedAnchorPlan.getNode(), analysis.getScope(query), disambiguatedAnchorPlan.getFields(), outerContext);
 
         recursionSteps.add(copy(anchorPlan.getRoot(), anchorPlan.getFieldMappings()));
 
@@ -263,6 +269,11 @@ class QueryPlanner
         for (int i = 0; i < maxRecursionDepth; i++) {
             recursionSteps.add(copy(recursionStep, mappings));
             NodeAndMappings replacement = copy(recursionStep, mappings);
+
+            // if the recursion step plan has duplicate output symbols, add projection on top to make the symbols unique
+            // This is necessary to successfully unroll recursion: the relation on the next recursion step must follow
+            // the same layout while it might not have duplicate outputs where the plan for this step did
+            replacement = disambiguateOutputs(replacement, symbolAllocator, idAllocator);
             recursionStep = replace(recursionStep, replacementSpot, replacement);
             replacementSpot = replacement;
         }
@@ -271,7 +282,7 @@ class QueryPlanner
         // 1. append window to count rows
         NodeAndMappings checkConvergenceStep = copy(recursionStep, mappings);
         Symbol countSymbol = symbolAllocator.newSymbol("count", BIGINT);
-        ResolvedFunction function = metadata.resolveFunction(QualifiedName.of("count"), ImmutableList.of());
+        ResolvedFunction function = metadata.resolveFunction(session, QualifiedName.of("count"), ImmutableList.of());
         WindowNode.Function countFunction = new WindowNode.Function(function, ImmutableList.of(), DEFAULT_FRAME, false);
 
         WindowNode windowNode = new WindowNode(
@@ -284,7 +295,7 @@ class QueryPlanner
                 0);
 
         // 2. append filter to fail on non-empty result
-        ResolvedFunction fail = metadata.resolveFunction(QualifiedName.of("fail"), fromTypes(VARCHAR));
+        ResolvedFunction fail = metadata.resolveFunction(session, QualifiedName.of("fail"), fromTypes(VARCHAR));
         String recursionLimitExceededMessage = format("Recursion depth limit exceeded (%s). Use 'max_recursion_depth' session property to modify the limit.", maxRecursionDepth);
         Expression predicate = new IfExpression(
                 new ComparisonExpression(
@@ -1046,7 +1057,7 @@ class QueryPlanner
         // First, append filter to validate offset values. They mustn't be negative or null.
         Symbol offsetSymbol = coercions.get(frameOffset.get());
         Expression zeroOffset = zeroOfType(symbolAllocator.getTypes().get(offsetSymbol));
-        ResolvedFunction fail = metadata.resolveFunction(QualifiedName.of("fail"), fromTypes(VARCHAR));
+        ResolvedFunction fail = metadata.resolveFunction(session, QualifiedName.of("fail"), fromTypes(VARCHAR));
         Expression predicate = new IfExpression(
                 new ComparisonExpression(
                         GREATER_THAN_OR_EQUAL,
@@ -1152,7 +1163,7 @@ class QueryPlanner
 
         // Append filter to validate offset values. They mustn't be negative or null.
         Expression zeroOffset = zeroOfType(offsetType);
-        ResolvedFunction fail = metadata.resolveFunction(QualifiedName.of("fail"), fromTypes(VARCHAR));
+        ResolvedFunction fail = metadata.resolveFunction(session, QualifiedName.of("fail"), fromTypes(VARCHAR));
         Expression predicate = new IfExpression(
                 new ComparisonExpression(GREATER_THAN_OR_EQUAL, offsetSymbol.toSymbolReference(), zeroOffset),
                 TRUE_LITERAL,
@@ -1608,6 +1619,33 @@ class QueryPlanner
         List<Symbol> visibleFields = visibleFields(plan);
         ProjectNode pruned = new ProjectNode(idAllocator.getNextId(), plan.getRoot(), Assignments.identity(visibleFields));
         return new NodeAndMappings(pruned, visibleFields);
+    }
+
+    public static NodeAndMappings disambiguateOutputs(NodeAndMappings plan, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
+    {
+        Set<Symbol> distinctOutputs = ImmutableSet.copyOf(plan.getFields());
+
+        if (distinctOutputs.size() < plan.getFields().size()) {
+            Assignments.Builder assignments = Assignments.builder();
+            ImmutableList.Builder<Symbol> newOutputs = ImmutableList.builder();
+            Set<Symbol> uniqueOutputs = new HashSet<>();
+
+            for (Symbol output : plan.getFields()) {
+                if (uniqueOutputs.add(output)) {
+                    assignments.putIdentity(output);
+                    newOutputs.add(output);
+                }
+                else {
+                    Symbol newOutput = symbolAllocator.newSymbol(output);
+                    assignments.put(newOutput, output.toSymbolReference());
+                    newOutputs.add(newOutput);
+                }
+            }
+
+            return new NodeAndMappings(new ProjectNode(idAllocator.getNextId(), plan.getNode(), assignments.build()), newOutputs.build());
+        }
+
+        return plan;
     }
 
     private PlanBuilder distinct(PlanBuilder subPlan, QuerySpecification node, List<Expression> expressions)

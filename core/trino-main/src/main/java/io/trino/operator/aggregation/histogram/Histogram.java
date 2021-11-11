@@ -15,6 +15,7 @@ package io.trino.operator.aggregation.histogram;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
+import io.trino.metadata.AggregationFunctionMetadata;
 import io.trino.metadata.FunctionArgumentDefinition;
 import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.FunctionMetadata;
@@ -78,16 +79,10 @@ public class Histogram
                         true,
                         "Count the number of times each value occurs",
                         AGGREGATE),
-                true,
-                false);
+                new AggregationFunctionMetadata(
+                        false,
+                        mapType(new TypeSignature("K"), BIGINT.getTypeSignature())));
         this.blockTypeOperators = blockTypeOperators;
-    }
-
-    @Override
-    public List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
-    {
-        Type outputType = functionBinding.getBoundSignature().getReturnType();
-        return ImmutableList.of(outputType.getTypeSignature());
     }
 
     @Override

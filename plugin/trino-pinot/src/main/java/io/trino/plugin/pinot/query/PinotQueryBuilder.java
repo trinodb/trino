@@ -24,6 +24,9 @@ import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.VarbinaryType;
+import io.trino.spi.type.VarcharType;
+import org.apache.commons.codec.binary.Hex;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -50,19 +53,19 @@ public final class PinotQueryBuilder
     {
         requireNonNull(tableHandle, "tableHandle is null");
         StringBuilder pqlBuilder = new StringBuilder();
-        List<String> columnNames;
+        List<String> quotedColumnNames;
         if (columnHandles.isEmpty()) {
             // This occurs when the query is SELECT COUNT(*) FROM pinotTable ...
-            columnNames = ImmutableList.of("*");
+            quotedColumnNames = ImmutableList.of("*");
         }
         else {
-            columnNames = columnHandles.stream()
-                    .map(PinotColumnHandle::getColumnName)
+            quotedColumnNames = columnHandles.stream()
+                    .map(column -> quoteIdentifier(column.getColumnName()))
                     .collect(toImmutableList());
         }
 
         pqlBuilder.append("SELECT ");
-        pqlBuilder.append(String.join(", ", columnNames))
+        pqlBuilder.append(String.join(", ", quotedColumnNames))
                 .append(" FROM ")
                 .append(getTableName(tableHandle, tableNameSuffix))
                 .append(" ");
@@ -136,13 +139,13 @@ public final class PinotQueryBuilder
                 checkState(!rangeConjuncts.isEmpty());
                 disjuncts.add("(" + Joiner.on(" AND ").join(rangeConjuncts) + ")");
             }
-            // Add back all of the possible single values either as an equality or an IN predicate
-            if (singleValues.size() == 1) {
-                disjuncts.add(toConjunct(columnName, "=", getOnlyElement(singleValues)));
-            }
-            else if (singleValues.size() > 1) {
-                disjuncts.add(inClauseValues(columnName, singleValues));
-            }
+        }
+        // Add back all of the possible single values either as an equality or an IN predicate
+        if (singleValues.size() == 1) {
+            disjuncts.add(toConjunct(columnName, "=", getOnlyElement(singleValues)));
+        }
+        else if (singleValues.size() > 1) {
+            disjuncts.add(inClauseValues(columnName, singleValues));
         }
         return "(" + Joiner.on(" OR ").join(disjuncts) + ")";
     }
@@ -152,6 +155,12 @@ public final class PinotQueryBuilder
         if (type instanceof RealType) {
             return intBitsToFloat(toIntExact((Long) value));
         }
+        else if (type instanceof VarcharType) {
+            return ((Slice) value).toStringUtf8();
+        }
+        else if (type instanceof VarbinaryType) {
+            return Hex.encodeHexString(((Slice) value).getBytes());
+        }
         return value;
     }
 
@@ -160,12 +169,12 @@ public final class PinotQueryBuilder
         if (value instanceof Slice) {
             value = ((Slice) value).toStringUtf8();
         }
-        return format("%s %s %s", columnName, operator, singleQuote(value));
+        return format("%s %s %s", quoteIdentifier(columnName), operator, singleQuote(value));
     }
 
     private static String inClauseValues(String columnName, List<Object> singleValues)
     {
-        return format("%s IN (%s)", columnName, singleValues.stream()
+        return format("%s IN (%s)", quoteIdentifier(columnName), singleValues.stream()
                 .map(PinotQueryBuilder::singleQuote)
                 .collect(joining(", ")));
     }
@@ -173,5 +182,10 @@ public final class PinotQueryBuilder
     private static String singleQuote(Object value)
     {
         return format("'%s'", value);
+    }
+
+    private static String quoteIdentifier(String identifier)
+    {
+        return format("\"%s\"", identifier.replaceAll("\"", "\"\""));
     }
 }

@@ -20,6 +20,7 @@ import io.trino.connector.CatalogName;
 import io.trino.connector.informationschema.InformationSchemaConnector;
 import io.trino.connector.system.SystemConnector;
 import io.trino.metadata.Catalog;
+import io.trino.metadata.Catalog.SecurityManagement;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.InMemoryNodeManager;
 import io.trino.metadata.InternalNodeManager;
@@ -204,7 +205,9 @@ public class TestTransactionManager
         catalogManager.registerCatalog(new Catalog(
                 catalogName,
                 catalog,
+                "test",
                 connector,
+                SecurityManagement.CONNECTOR,
                 createInformationSchemaCatalogName(catalog),
                 new InformationSchemaConnector(catalogName, nodeManager, metadata, new AllowAllAccessControl()),
                 systemId,

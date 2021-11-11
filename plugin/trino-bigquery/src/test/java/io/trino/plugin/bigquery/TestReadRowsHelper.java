@@ -32,7 +32,7 @@ import static org.mockito.Mockito.mock;
 public class TestReadRowsHelper
 {
     @Test
-    void testNoFailures()
+    public void testNoFailures()
     {
         BigQueryStorageClient client = mock(BigQueryStorageClient.class);
         ReadRowsRequest.Builder request = newRequest();
@@ -51,7 +51,7 @@ public class TestReadRowsHelper
     }
 
     @Test
-    void testRetryOfSingleFailure()
+    public void testRetryOfSingleFailure()
     {
         BigQueryStorageClient client = mock(BigQueryStorageClient.class);
         ReadRowsRequest.Builder request = newRequest();

@@ -60,7 +60,7 @@ public class AvroBytesDeserializer<T>
         @Override
         public <T> AvroDeserializer<T> create(AvroReaderSupplier<T> avroReaderSupplier)
         {
-            return new AvroBytesDeserializer(avroReaderSupplier);
+            return new AvroBytesDeserializer<>(avroReaderSupplier);
         }
     }
 }

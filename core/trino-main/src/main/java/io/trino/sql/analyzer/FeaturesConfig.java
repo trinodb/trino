@@ -91,7 +91,6 @@ public class FeaturesConfig
     private boolean exchangeCompressionEnabled;
     private boolean legacyRowToJsonCast;
     private boolean optimizeMixedDistinctAggregations;
-    private boolean unwrapCasts = true;
     private boolean forceSingleNodeOutput = true;
     private boolean pagesIndexEagerCompactionEnabled;
     private boolean distributedSort = true;
@@ -140,6 +139,9 @@ public class FeaturesConfig
     private DataSize filterAndProjectMinOutputPageSize = DataSize.of(500, KILOBYTE);
     private int filterAndProjectMinOutputPageRowCount = 256;
     private int maxGroupingSets = 2048;
+
+    private boolean legacyCatalogRoles;
+    private boolean disableSetPropertiesSecurityCheckForCreateDdl;
 
     public enum JoinReorderingStrategy
     {
@@ -778,18 +780,6 @@ public class FeaturesConfig
         return this;
     }
 
-    public boolean isUnwrapCasts()
-    {
-        return unwrapCasts;
-    }
-
-    @Config("optimizer.unwrap-casts")
-    public FeaturesConfig setUnwrapCasts(boolean unwrapCasts)
-    {
-        this.unwrapCasts = unwrapCasts;
-        return this;
-    }
-
     public boolean isExchangeCompressionEnabled()
     {
         return exchangeCompressionEnabled;
@@ -1086,6 +1076,31 @@ public class FeaturesConfig
     public FeaturesConfig setMergeProjectWithValues(boolean mergeProjectWithValues)
     {
         this.mergeProjectWithValues = mergeProjectWithValues;
+        return this;
+    }
+
+    public boolean isLegacyCatalogRoles()
+    {
+        return legacyCatalogRoles;
+    }
+
+    @Config("deprecated.legacy-catalog-roles")
+    @ConfigDescription("Enable legacy role management syntax that assumed all roles are catalog scoped")
+    public FeaturesConfig setLegacyCatalogRoles(boolean legacyCatalogRoles)
+    {
+        this.legacyCatalogRoles = legacyCatalogRoles;
+        return this;
+    }
+
+    public boolean isDisableSetPropertiesSecurityCheckForCreateDdl()
+    {
+        return disableSetPropertiesSecurityCheckForCreateDdl;
+    }
+
+    @Config("deprecated.disable-set-properties-security-check-for-create-ddl")
+    public FeaturesConfig setDisableSetPropertiesSecurityCheckForCreateDdl(boolean disableSetPropertiesSecurityCheckForCreateDdl)
+    {
+        this.disableSetPropertiesSecurityCheckForCreateDdl = disableSetPropertiesSecurityCheckForCreateDdl;
         return this;
     }
 }

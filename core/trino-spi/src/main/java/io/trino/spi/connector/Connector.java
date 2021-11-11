@@ -108,6 +108,11 @@ public interface Connector
         return emptySet();
     }
 
+    default Set<TableProcedureMetadata> getTableProcedures()
+    {
+        return emptySet();
+    }
+
     /**
      * @return the system properties for this connector
      */
@@ -190,7 +195,7 @@ public interface Connector
      */
     default boolean isSingleStatementWritesOnly()
     {
-        return false;
+        return true;
     }
 
     /**

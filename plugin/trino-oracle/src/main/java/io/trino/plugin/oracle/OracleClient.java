@@ -142,6 +142,11 @@ public class OracleClient
 
     private final boolean synonymsEnabled;
 
+    /**
+     * Note the type mappings from trino -> oracle types can cause surprises since they are not invertible
+     * For example, creating an oracle table in trino with a bigint column will generate an oracle table with a number column
+     * Then querying the oracle table with the number column will return a decimal (not a bigint)
+     */
     private static final Map<Type, WriteMapping> WRITE_MAPPINGS = ImmutableMap.<Type, WriteMapping>builder()
             .put(BOOLEAN, oracleBooleanWriteMapping())
             .put(BIGINT, WriteMapping.longMapping("number(19)", bigintWriteFunction()))

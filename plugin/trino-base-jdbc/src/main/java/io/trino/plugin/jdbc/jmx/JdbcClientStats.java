@@ -45,6 +45,7 @@ public final class JdbcClientStats
     private final JdbcApiStats getTableStatistics = new JdbcApiStats();
     private final JdbcApiStats renameColumn = new JdbcApiStats();
     private final JdbcApiStats renameTable = new JdbcApiStats();
+    private final JdbcApiStats setTableProperties = new JdbcApiStats();
     private final JdbcApiStats rollbackCreateTable = new JdbcApiStats();
     private final JdbcApiStats schemaExists = new JdbcApiStats();
     private final JdbcApiStats toPrestoType = new JdbcApiStats();
@@ -53,6 +54,7 @@ public final class JdbcClientStats
     private final JdbcApiStats implementAggregation = new JdbcApiStats();
     private final JdbcApiStats getTableScanRedirection = new JdbcApiStats();
     private final JdbcApiStats delete = new JdbcApiStats();
+    private final JdbcApiStats truncateTable = new JdbcApiStats();
 
     @Managed
     @Nested
@@ -245,6 +247,13 @@ public final class JdbcClientStats
 
     @Managed
     @Nested
+    public JdbcApiStats getSetTableProperties()
+    {
+        return setTableProperties;
+    }
+
+    @Managed
+    @Nested
     public JdbcApiStats getRollbackCreateTable()
     {
         return rollbackCreateTable;
@@ -297,5 +306,12 @@ public final class JdbcClientStats
     public JdbcApiStats getDelete()
     {
         return delete;
+    }
+
+    @Managed
+    @Nested
+    public JdbcApiStats getTruncateTable()
+    {
+        return truncateTable;
     }
 }

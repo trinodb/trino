@@ -186,13 +186,16 @@ public class WorkProcessorOperatorAdapter
     public Page getOutput()
     {
         if (!pages.process()) {
+            updateOperatorMetrics();
             return null;
         }
 
         if (pages.isFinished()) {
+            updateOperatorMetrics();
             return null;
         }
 
+        updateOperatorMetrics();
         return pages.getResult();
     }
 
@@ -213,5 +216,10 @@ public class WorkProcessorOperatorAdapter
             throws Exception
     {
         workProcessorOperator.close();
+    }
+
+    private void updateOperatorMetrics()
+    {
+        operatorContext.setLatestMetrics(workProcessorOperator.getMetrics());
     }
 }

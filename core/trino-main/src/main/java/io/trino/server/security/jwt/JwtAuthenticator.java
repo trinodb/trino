@@ -14,6 +14,7 @@
 package io.trino.server.security.jwt;
 
 import io.jsonwebtoken.JwtParser;
+import io.jsonwebtoken.JwtParserBuilder;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SigningKeyResolver;
 import io.trino.server.security.AbstractBearerAuthenticator;
@@ -40,7 +41,7 @@ public class JwtAuthenticator
         super(createUserMapping(config.getUserMappingPattern(), config.getUserMappingFile()));
         principalField = config.getPrincipalField();
 
-        JwtParser jwtParser = Jwts.parser()
+        JwtParserBuilder jwtParser = Jwts.parserBuilder()
                 .setSigningKeyResolver(signingKeyResolver);
 
         if (config.getRequiredIssuer() != null) {
@@ -49,7 +50,7 @@ public class JwtAuthenticator
         if (config.getRequiredAudience() != null) {
             jwtParser.requireAudience(config.getRequiredAudience());
         }
-        this.jwtParser = jwtParser;
+        this.jwtParser = jwtParser.build();
     }
 
     @Override

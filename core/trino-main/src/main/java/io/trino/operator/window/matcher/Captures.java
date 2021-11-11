@@ -13,93 +13,58 @@
  */
 package io.trino.operator.window.matcher;
 
-import java.util.Arrays;
+import org.openjdk.jol.info.ClassLayout;
 
 // TODO: optimize by
 //   - reference counting and copy on write
 //   - reuse allocated arrays
 class Captures
 {
-    private final int[][] captures;
-    private final int[] usedSlots;
-    private final int minSlotCount;
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(Captures.class).instanceSize();
 
-    private final int[][] labels;
-    private final int[] usedLabelsSlots;
-    private final int minLabelCount;
+    private final IntMultimap captures;
+    private final IntMultimap labels;
 
-    public Captures(int threadCount, int slotCount, int labelCount)
+    public Captures(int initialCapacity, int slotCount, int labelCount)
     {
-        captures = new int[threadCount][];
-        usedSlots = new int[threadCount];
-        minSlotCount = slotCount;
-
-        labels = new int[threadCount][];
-        usedLabelsSlots = new int[threadCount];
-        minLabelCount = labelCount;
-    }
-
-    public void allocate(int threadId)
-    {
-        captures[threadId] = new int[minSlotCount];
-        labels[threadId] = new int[minLabelCount];
+        this.captures = new IntMultimap(initialCapacity, slotCount);
+        this.labels = new IntMultimap(initialCapacity, labelCount);
     }
 
     public void save(int threadId, int value)
     {
-        ensureCapturesCapacity(threadId);
-        captures[threadId][usedSlots[threadId]] = value;
-        usedSlots[threadId]++;
+        captures.add(threadId, value);
     }
 
     public void saveLabel(int threadId, int value)
     {
-        ensureLabelsCapacity(threadId);
-        labels[threadId][usedLabelsSlots[threadId]] = value;
-        usedLabelsSlots[threadId]++;
+        labels.add(threadId, value);
     }
 
     public void copy(int parent, int child)
     {
-        captures[child] = captures[parent].clone();
-        usedSlots[child] = usedSlots[parent];
-        labels[child] = labels[parent].clone();
-        usedLabelsSlots[child] = usedLabelsSlots[parent];
+        captures.copy(parent, child);
+        labels.copy(parent, child);
     }
 
     public ArrayView getCaptures(int threadId)
     {
-        return new ArrayView(captures[threadId], usedSlots[threadId]);
+        return captures.getArrayView(threadId);
     }
 
     public ArrayView getLabels(int threadId)
     {
-        return new ArrayView(labels[threadId], usedLabelsSlots[threadId]);
+        return labels.getArrayView(threadId);
     }
 
     public void release(int threadId)
     {
-        captures[threadId] = null;
-        usedSlots[threadId] = 0;
-        labels[threadId] = null;
-        usedLabelsSlots[threadId] = 0;
+        captures.release(threadId);
+        labels.release(threadId);
     }
 
-    private void ensureCapturesCapacity(int threadId)
+    public long getSizeInBytes()
     {
-        if (usedSlots[threadId] < captures[threadId].length) {
-            return;
-        }
-
-        captures[threadId] = Arrays.copyOf(captures[threadId], captures[threadId].length * 2);
-    }
-
-    private void ensureLabelsCapacity(int threadId)
-    {
-        if (usedLabelsSlots[threadId] < labels[threadId].length) {
-            return;
-        }
-
-        labels[threadId] = Arrays.copyOf(labels[threadId], labels[threadId].length * 2);
+        return INSTANCE_SIZE + captures.getSizeInBytes() + labels.getSizeInBytes();
     }
 }

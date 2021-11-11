@@ -35,6 +35,13 @@ import static io.trino.tpch.TpchColumnTypes.IDENTIFIER;
 public class TpchRecordSetProvider
         implements ConnectorRecordSetProvider
 {
+    private final DecimalTypeMapping decimalTypeMapping;
+
+    public TpchRecordSetProvider(DecimalTypeMapping decimalTypeMapping)
+    {
+        this.decimalTypeMapping = decimalTypeMapping;
+    }
+
     @Override
     public RecordSet getRecordSet(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<? extends ColumnHandle> columns)
     {
@@ -69,7 +76,7 @@ public class TpchRecordSetProvider
             }
         }
 
-        return createTpchRecordSet(table, builder.build(), scaleFactor, partNumber + 1, totalParts, predicate);
+        return createTpchRecordSet(table, builder.build(), decimalTypeMapping, scaleFactor, partNumber + 1, totalParts, predicate);
     }
 
     private static class RowNumberTpchColumn<E extends TpchEntity>

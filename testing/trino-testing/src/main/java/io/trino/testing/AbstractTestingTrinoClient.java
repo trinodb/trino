@@ -28,6 +28,7 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.QualifiedTablePrefix;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.QueryId;
+import io.trino.spi.security.SelectedRole;
 import io.trino.spi.session.ResourceEstimates;
 import io.trino.spi.type.Type;
 import okhttp3.OkHttpClient;
@@ -44,8 +45,8 @@ import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.client.StatementClientFactory.newStatementClient;
+import static io.trino.spi.security.SelectedRole.Type.ROLE;
 import static io.trino.spi.session.ResourceEstimates.CPU_TIME;
 import static io.trino.spi.session.ResourceEstimates.EXECUTION_TIME;
 import static io.trino.spi.session.ResourceEstimates.PEAK_MEMORY;
@@ -164,15 +165,24 @@ public abstract class AbstractTestingTrinoClient<T>
                 resourceEstimates.build(),
                 properties.build(),
                 session.getPreparedStatements(),
-                session.getIdentity().getRoles().entrySet().stream()
-                        .collect(toImmutableMap(Entry::getKey, entry ->
-                                new ClientSelectedRole(
-                                        ClientSelectedRole.Type.valueOf(entry.getValue().getType().toString()),
-                                        entry.getValue().getRole()))),
+                getRoles(session),
                 session.getIdentity().getExtraCredentials(),
                 session.getTransactionId().map(Object::toString).orElse(null),
                 clientRequestTimeout,
                 true);
+    }
+
+    private static Map<String, ClientSelectedRole> getRoles(Session session)
+    {
+        ImmutableMap.Builder<String, ClientSelectedRole> builder = ImmutableMap.builder();
+        session.getIdentity().getEnabledRoles().forEach(role -> builder.put("system", toClientSelectedRole(new SelectedRole(ROLE, Optional.of(role)))));
+        session.getIdentity().getCatalogRoles().forEach((key, value) -> builder.put(key, toClientSelectedRole(value)));
+        return builder.build();
+    }
+
+    private static ClientSelectedRole toClientSelectedRole(io.trino.spi.security.SelectedRole value)
+    {
+        return new ClientSelectedRole(ClientSelectedRole.Type.valueOf(value.getType().toString()), value.getRole());
     }
 
     public List<QualifiedObjectName> listTables(Session session, String catalog, String schema)

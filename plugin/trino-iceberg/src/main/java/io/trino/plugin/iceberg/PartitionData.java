@@ -27,6 +27,7 @@ import java.io.StringWriter;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.UUID;
 
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.Decimals.rescale;
@@ -144,6 +145,8 @@ public class PartitionData
                 return partitionValue.doubleValue();
             case STRING:
                 return partitionValue.asText();
+            case UUID:
+                return UUID.fromString(partitionValue.asText());
             case FIXED:
             case BINARY:
                 try {
@@ -157,7 +160,6 @@ public class PartitionData
                 return rescale(
                         partitionValue.decimalValue(),
                         createDecimalType(decimalType.precision(), decimalType.scale()));
-            case UUID:
             case LIST:
             case MAP:
             case STRUCT:

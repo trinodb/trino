@@ -13,13 +13,13 @@
  */
 package io.trino.plugin.jdbc;
 
-import io.trino.spi.security.ConnectorIdentity;
+import io.trino.spi.connector.ConnectorSession;
 
 public final class SingletonIdentityCacheMapping
         implements IdentityCacheMapping
 {
     @Override
-    public IdentityCacheKey getRemoteUserCacheKey(ConnectorIdentity identity)
+    public IdentityCacheKey getRemoteUserCacheKey(ConnectorSession session)
     {
         return SingletonIdentityCacheKey.INSTANCE;
     }
@@ -32,13 +32,13 @@ public final class SingletonIdentityCacheMapping
         @Override
         public int hashCode()
         {
-            return 0;
+            return getClass().hashCode();
         }
 
         @Override
         public boolean equals(Object obj)
         {
-            return obj instanceof SingletonIdentityCacheMapping;
+            return obj instanceof SingletonIdentityCacheKey;
         }
     }
 }

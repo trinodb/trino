@@ -83,11 +83,15 @@ public class PageTestUtils
             blocks.add(wrapping.map(w -> w.wrap(block, positionCount)).orElse(block));
         }
 
-        hashChannels.ifPresent(channels -> blocks.add(getHashBlock(
-                channels.stream()
-                        .map(types::get)
-                        .collect(toImmutableList()),
-                blocks.build().toArray(Block[]::new))));
+        hashChannels.ifPresent(channels -> {
+            ImmutableList<Block> blocksWithoutHash = blocks.build();
+
+            blocks.add(getHashBlock(
+                    channels.stream()
+                            .map(types::get)
+                            .collect(toImmutableList()),
+                    channels.stream().map(blocksWithoutHash::get).toArray(Block[]::new)));
+        });
 
         return new Page(positionCount, blocks.build().toArray(Block[]::new));
     }

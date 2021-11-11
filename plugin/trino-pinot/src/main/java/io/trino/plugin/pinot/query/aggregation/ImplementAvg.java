@@ -18,7 +18,7 @@ import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.plugin.base.expression.AggregateFunctionRule;
-import io.trino.plugin.pinot.PinotColumnHandle;
+import io.trino.plugin.pinot.query.AggregateExpression;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.type.Type;
@@ -36,10 +36,9 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
-import static java.lang.String.format;
 
 public class ImplementAvg
-        implements AggregateFunctionRule
+        implements AggregateFunctionRule<AggregateExpression>
 {
     private static final Capture<Variable> INPUT = newCapture();
     private static final Set<Type> SUPPORTED_INPUT_TYPES = ImmutableSet.of(INTEGER, BIGINT, REAL, DOUBLE);
@@ -56,9 +55,9 @@ public class ImplementAvg
     }
 
     @Override
-    public Optional<PinotColumnHandle> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext context)
+    public Optional<AggregateExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext context)
     {
         Variable input = captures.get(INPUT);
-        return Optional.of(new PinotColumnHandle(format("avg(%s)", context.getIdentifierQuote().apply(input.getName())), aggregateFunction.getOutputType()));
+        return Optional.of(new AggregateExpression(aggregateFunction.getFunctionName(), context.getIdentifierQuote().apply(input.getName()), true));
     }
 }

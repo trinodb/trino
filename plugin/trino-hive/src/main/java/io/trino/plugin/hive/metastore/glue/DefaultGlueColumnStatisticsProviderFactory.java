@@ -41,12 +41,13 @@ public class DefaultGlueColumnStatisticsProviderFactory
     }
 
     @Override
-    public GlueColumnStatisticsProvider createGlueColumnStatisticsProvider(AWSGlueAsync glueClient)
+    public GlueColumnStatisticsProvider createGlueColumnStatisticsProvider(AWSGlueAsync glueClient, GlueMetastoreStats stats)
     {
         return new DefaultGlueColumnStatisticsProvider(
                 glueClient,
                 catalogId,
                 statisticsReadExecutor,
-                statisticsWriteExecutor);
+                statisticsWriteExecutor,
+                stats);
     }
 }

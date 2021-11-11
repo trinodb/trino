@@ -46,6 +46,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.createTimeType;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampType.createTimestampType;
+import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
@@ -117,6 +118,25 @@ public abstract class BaseSqlServerTypeMapping
                 .addRoundTrip("real", "3.14", REAL, "REAL '3.14'")
                 .addRoundTrip("real", "3.1415927", REAL, "REAL '3.1415927'")
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_real"));
+    }
+
+    @Test
+    public void testFloat()
+    {
+        // SQL Server treats n as one of two possible values. If 1<=n<=24, n is treated as 24. If 25<=n<=53, n is treated as 53
+        SqlDataTypeTest.create()
+                .addRoundTrip("float", "1E100", DOUBLE, "double '1E100'")
+                .addRoundTrip("float", "1.0", DOUBLE, "double '1.0'")
+                .addRoundTrip("float", "123456.123456", DOUBLE, "double '123456.123456'")
+                .addRoundTrip("float", "NULL", DOUBLE, "CAST(NULL AS double)")
+                .addRoundTrip("float(1)", "100000.0", REAL, "REAL '100000.0'")
+                .addRoundTrip("float(24)", "123000.0", REAL, "REAL '123000.0'")
+                .addRoundTrip("float(24)", "NULL", REAL, "CAST(NULL AS real)")
+                .addRoundTrip("float(25)", "1E100", DOUBLE, "double '1E100'")
+                .addRoundTrip("float(53)", "1.0", DOUBLE, "double '1.0'")
+                .addRoundTrip("float(53)", "1234567890123456789.0123456789", DOUBLE, "double '1234567890123456789.0123456789'")
+                .addRoundTrip("float(53)", "NULL", DOUBLE, "CAST(NULL AS double)")
+                .execute(getQueryRunner(), sqlServerCreateAndInsert("test_float"));
     }
 
     @Test
@@ -241,6 +261,15 @@ public abstract class BaseSqlServerTypeMapping
                 .addRoundTrip("varchar(4001)", "'text_c'", createUnboundedVarcharType(), "VARCHAR 'text_c'")
                 .execute(getQueryRunner(), trinoCreateAndInsert(getSession(), "test_long_varchar"))
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_long_varchar"));
+    }
+
+    @Test
+    public void testSqlServerLongVarchar()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("text", "'text_a'", createUnboundedVarcharType(), "VARCHAR 'text_a'")
+                .addRoundTrip("ntext", "'text_a'", createVarcharType(1073741823), "CAST('text_a' as VARCHAR(1073741823))")
+                .execute(getQueryRunner(), sqlServerCreateAndInsert("test_long_n_varchar"));
     }
 
     @Test
@@ -578,6 +607,91 @@ public abstract class BaseSqlServerTypeMapping
                 .addRoundTrip("DATETIME2(7)", "'2020-09-27 12:34:56.1234567'", createTimestampType(7), "TIMESTAMP '2020-09-27 12:34:56.1234567'")
 
                 .execute(getQueryRunner(), sqlServerCreateAndInsert("test_sqlserver_timestamp"));
+    }
+
+    @Test(dataProvider = "testTimestampDataProvider")
+    public void testSqlServerDatetimeOffset(ZoneId sessionZone)
+    {
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
+                .build();
+
+        SqlDataTypeTest.create()
+                // With +00:00 time zone
+                .addRoundTrip("DATETIMEOFFSET", "'1970-01-01 00:00:00'", createTimestampWithTimeZoneType(7), "TIMESTAMP '1970-01-01 00:00:00.0000000+00:00'")
+                .addRoundTrip("DATETIMEOFFSET(1)", "'1970-01-01 00:00:00.1'", createTimestampWithTimeZoneType(1), "TIMESTAMP '1970-01-01 00:00:00.1+00:00'")
+                .addRoundTrip("DATETIMEOFFSET(1)", "'1970-01-01 00:00:00.9'", createTimestampWithTimeZoneType(1), "TIMESTAMP '1970-01-01 00:00:00.9+00:00'")
+                .addRoundTrip("DATETIMEOFFSET(3)", "'1970-01-01 00:00:00.123'", createTimestampWithTimeZoneType(3), "TIMESTAMP '1970-01-01 00:00:00.123+00:00'")
+                .addRoundTrip("DATETIMEOFFSET(6)", "'1970-01-01 00:00:00.123000'", createTimestampWithTimeZoneType(6), "TIMESTAMP '1970-01-01 00:00:00.123000+00:00'")
+                .addRoundTrip("DATETIMEOFFSET(7)", "'1970-01-01 00:00:00.1234567'", createTimestampWithTimeZoneType(7), "TIMESTAMP '1970-01-01 00:00:00.1234567+00:00'")
+                .addRoundTrip("DATETIMEOFFSET(3)", "'1970-01-01 00:00:00.999'", createTimestampWithTimeZoneType(3), "TIMESTAMP '1970-01-01 00:00:00.999+00:00'")
+                .addRoundTrip("DATETIMEOFFSET", "'1970-01-01 00:00:00.1234567'", createTimestampWithTimeZoneType(7), "TIMESTAMP '1970-01-01 00:00:00.1234567+00:00'")
+                .addRoundTrip("DATETIMEOFFSET(1)", "'2020-09-27 12:34:56.1'", createTimestampWithTimeZoneType(1), "TIMESTAMP '2020-09-27 12:34:56.1+00:00'")
+                .addRoundTrip("DATETIMEOFFSET(1)", "'2020-09-27 12:34:56.9'", createTimestampWithTimeZoneType(1), "TIMESTAMP '2020-09-27 12:34:56.9+00:00'")
+                .addRoundTrip("DATETIMEOFFSET(3)", "'2020-09-27 12:34:56.123'", createTimestampWithTimeZoneType(3), "TIMESTAMP '2020-09-27 12:34:56.123+00:00'")
+                .addRoundTrip("DATETIMEOFFSET(6)", "'2020-09-27 12:34:56.123000'", createTimestampWithTimeZoneType(6), "TIMESTAMP '2020-09-27 12:34:56.123000+00:00'")
+                .addRoundTrip("DATETIMEOFFSET(7)", "'2020-09-27 12:34:56.9999999'", createTimestampWithTimeZoneType(7), "TIMESTAMP '2020-09-27 12:34:56.9999999+00:00'")
+                .addRoundTrip("DATETIMEOFFSET(3)", "'2020-09-27 12:34:56.999'", createTimestampWithTimeZoneType(3), "TIMESTAMP '2020-09-27 12:34:56.999+00:00'")
+                .addRoundTrip("DATETIMEOFFSET", "'2020-09-27 12:34:56.1234567'", createTimestampWithTimeZoneType(7), "TIMESTAMP '2020-09-27 12:34:56.1234567+00:00'")
+
+                .addRoundTrip("DATETIMEOFFSET", "'1970-01-01 00:00:00'", createTimestampWithTimeZoneType(7), "TIMESTAMP '1970-01-01 00:00:00.0000000+00:00'")
+                .addRoundTrip("DATETIMEOFFSET", "'1970-01-01 00:00:00.1'", createTimestampWithTimeZoneType(7), "TIMESTAMP '1970-01-01 00:00:00.1000000+00:00'")
+                .addRoundTrip("DATETIMEOFFSET", "'1970-01-01 00:00:00.9'", createTimestampWithTimeZoneType(7), "TIMESTAMP '1970-01-01 00:00:00.9000000+00:00'")
+                .addRoundTrip("DATETIMEOFFSET", "'1970-01-01 00:00:00.123'", createTimestampWithTimeZoneType(7), "TIMESTAMP '1970-01-01 00:00:00.1230000+00:00'")
+                .addRoundTrip("DATETIMEOFFSET", "'1970-01-01 00:00:00.123000'", createTimestampWithTimeZoneType(7), "TIMESTAMP '1970-01-01 00:00:00.1230000+00:00'")
+                .addRoundTrip("DATETIMEOFFSET", "'1970-01-01 00:00:00.999'", createTimestampWithTimeZoneType(7), "TIMESTAMP '1970-01-01 00:00:00.9990000+00:00'")
+                .addRoundTrip("DATETIMEOFFSET", "'1970-01-01 00:00:00.1234567'", createTimestampWithTimeZoneType(7), "TIMESTAMP '1970-01-01 00:00:00.1234567+00:00'")
+                .addRoundTrip("DATETIMEOFFSET", "'2020-09-27 12:34:56.1'", createTimestampWithTimeZoneType(7), "TIMESTAMP '2020-09-27 12:34:56.1000000+00:00'")
+                .addRoundTrip("DATETIMEOFFSET", "'2020-09-27 12:34:56.9'", createTimestampWithTimeZoneType(7), "TIMESTAMP '2020-09-27 12:34:56.9000000+00:00'")
+                .addRoundTrip("DATETIMEOFFSET", "'2020-09-27 12:34:56.123'", createTimestampWithTimeZoneType(7), "TIMESTAMP '2020-09-27 12:34:56.1230000+00:00'")
+                .addRoundTrip("DATETIMEOFFSET", "'2020-09-27 12:34:56.123000'", createTimestampWithTimeZoneType(7), "TIMESTAMP '2020-09-27 12:34:56.1230000+00:00'")
+                .addRoundTrip("DATETIMEOFFSET", "'2020-09-27 12:34:56.999'", createTimestampWithTimeZoneType(7), "TIMESTAMP '2020-09-27 12:34:56.9990000+00:00'")
+                .addRoundTrip("DATETIMEOFFSET", "'2020-09-27 12:34:56.1234567'", createTimestampWithTimeZoneType(7), "TIMESTAMP '2020-09-27 12:34:56.1234567+00:00'")
+
+                // With various time zone
+                .addRoundTrip("DATETIMEOFFSET(1)", "'1970-01-01 00:00:00.1+01:00'", createTimestampWithTimeZoneType(1), "TIMESTAMP '1970-01-01 00:00:00.1+01:00'")
+                .addRoundTrip("DATETIMEOFFSET(2)", "'1970-01-01 00:00:00.12+03:00'", createTimestampWithTimeZoneType(2), "TIMESTAMP '1970-01-01 00:00:00.12+03:00'")
+                .addRoundTrip("DATETIMEOFFSET(3)", "'1970-01-01 00:00:00.123+03:00'", createTimestampWithTimeZoneType(3), "TIMESTAMP '1970-01-01 00:00:00.123+03:00'")
+                .addRoundTrip("DATETIMEOFFSET(4)", "'1970-01-01 00:00:00.1234+04:00'", createTimestampWithTimeZoneType(4), "TIMESTAMP '1970-01-01 00:00:00.1234+04:00'")
+                .addRoundTrip("DATETIMEOFFSET(5)", "'1970-01-01 00:00:00.12345+04:00'", createTimestampWithTimeZoneType(5), "TIMESTAMP '1970-01-01 00:00:00.12345+04:00'")
+                .addRoundTrip("DATETIMEOFFSET(6)", "'1970-01-01 00:00:00.123456+04:00'", createTimestampWithTimeZoneType(6), "TIMESTAMP '1970-01-01 00:00:00.123456+04:00'")
+                .addRoundTrip("DATETIMEOFFSET(7)", "'1970-01-01 00:00:00.1234567+07:00'", createTimestampWithTimeZoneType(7), "TIMESTAMP '1970-01-01 00:00:00.1234567+07:00'")
+                .addRoundTrip("DATETIMEOFFSET", "'1970-01-01 00:00:00.1234567+07:00'", createTimestampWithTimeZoneType(7), "TIMESTAMP '1970-01-01 00:00:00.1234567+07:00'")
+
+                .addRoundTrip("DATETIMEOFFSET(1)", "'2020-09-27 00:00:00.1+01:00'", createTimestampWithTimeZoneType(1), "TIMESTAMP '2020-09-27 00:00:00.1+01:00'")
+                .addRoundTrip("DATETIMEOFFSET(2)", "'2020-09-27 00:00:00.12+03:00'", createTimestampWithTimeZoneType(2), "TIMESTAMP '2020-09-27 00:00:00.12+03:00'")
+                .addRoundTrip("DATETIMEOFFSET(3)", "'2020-09-27 00:00:00.123+03:00'", createTimestampWithTimeZoneType(3), "TIMESTAMP '2020-09-27 00:00:00.123+03:00'")
+                .addRoundTrip("DATETIMEOFFSET(4)", "'2020-09-27 00:00:00.1234+04:00'", createTimestampWithTimeZoneType(4), "TIMESTAMP '2020-09-27 00:00:00.1234+04:00'")
+                .addRoundTrip("DATETIMEOFFSET(5)", "'2020-09-27 00:00:00.12345+04:00'", createTimestampWithTimeZoneType(5), "TIMESTAMP '2020-09-27 00:00:00.12345+04:00'")
+                .addRoundTrip("DATETIMEOFFSET(6)", "'2020-09-27 00:00:00.123456+04:00'", createTimestampWithTimeZoneType(6), "TIMESTAMP '2020-09-27 00:00:00.123456+04:00'")
+                .addRoundTrip("DATETIMEOFFSET(7)", "'2020-09-27 00:00:00.1234567+07:00'", createTimestampWithTimeZoneType(7), "TIMESTAMP '2020-09-27 00:00:00.1234567+07:00'")
+                .addRoundTrip("DATETIMEOFFSET", "'2020-09-27 00:00:00.1234567+07:00'", createTimestampWithTimeZoneType(7), "TIMESTAMP '2020-09-27 00:00:00.1234567+07:00'")
+
+                // before epoch with second fraction
+                .addRoundTrip("DATETIMEOFFSET", "'1969-12-31 23:59:59.1230000'", createTimestampWithTimeZoneType(7), "TIMESTAMP '1969-12-31 23:59:59.1230000+00:00'")
+                .addRoundTrip("DATETIMEOFFSET", "'1969-12-31 23:59:59.1234567'", createTimestampWithTimeZoneType(7), "TIMESTAMP '1969-12-31 23:59:59.1234567+00:00'")
+
+                // round down
+                .addRoundTrip("DATETIMEOFFSET(6)", "'1970-01-01 00:00:00.1234561'", createTimestampWithTimeZoneType(6), "TIMESTAMP '1970-01-01 00:00:00.123456+00:00'")
+
+                // nanos round up, end result rounds down
+                .addRoundTrip("DATETIMEOFFSET(4)", "'1970-01-01 00:00:00.1234499'", createTimestampWithTimeZoneType(4), "TIMESTAMP '1970-01-01 00:00:00.1234+00:00'")
+                .addRoundTrip("DATETIMEOFFSET(5)", "'1970-01-01 00:00:00.12345499'", createTimestampWithTimeZoneType(5), "TIMESTAMP '1970-01-01 00:00:00.12345+00:00'")
+
+                // round up
+                .addRoundTrip("DATETIMEOFFSET(6)", "'1970-01-01 00:00:00.1234565'", createTimestampWithTimeZoneType(6), "TIMESTAMP '1970-01-01 00:00:00.123457+00:00'")
+
+                // round up to next second
+                .addRoundTrip("DATETIMEOFFSET(6)", "'1970-01-01 00:00:00.9999999'", createTimestampWithTimeZoneType(6), "TIMESTAMP '1970-01-01 00:00:01.000000+00:00'")
+
+                // round up to next day
+                .addRoundTrip("DATETIMEOFFSET(6)", "'1970-01-01 23:59:59.9999995'", createTimestampWithTimeZoneType(6), "TIMESTAMP '1970-01-02 00:00:00.000000+00:00'")
+
+                // negative epoch
+                .addRoundTrip("DATETIMEOFFSET(6)", "'1969-12-31 23:59:59.9999995'", createTimestampWithTimeZoneType(6), "TIMESTAMP '1970-01-01 00:00:00.000000+00:00'")
+                .addRoundTrip("DATETIMEOFFSET(6)", "'1969-12-31 23:59:59.9999994'", createTimestampWithTimeZoneType(6), "TIMESTAMP '1969-12-31 23:59:59.999999+00:00'")
+
+                .execute(getQueryRunner(), session, sqlServerCreateAndInsert("test_sqlserver_datetimeoffset"));
     }
 
     @DataProvider

@@ -77,17 +77,19 @@ public class DefaultGlueColumnStatisticsProvider
     // https://docs.aws.amazon.com/glue/latest/dg/aws-glue-api-catalog-partitions.html#aws-glue-api-catalog-partitions-UpdateColumnStatisticsForPartition
     private static final int GLUE_COLUMN_WRITE_STAT_PAGE_SIZE = 25;
 
+    private final GlueMetastoreStats stats;
     private final AWSGlueAsync glueClient;
     private final String catalogId;
     private final Executor readExecutor;
     private final Executor writeExecutor;
 
-    public DefaultGlueColumnStatisticsProvider(AWSGlueAsync glueClient, String catalogId, Executor readExecutor, Executor writeExecutor)
+    public DefaultGlueColumnStatisticsProvider(AWSGlueAsync glueClient, String catalogId, Executor readExecutor, Executor writeExecutor, GlueMetastoreStats stats)
     {
         this.glueClient = glueClient;
         this.catalogId = catalogId;
         this.readExecutor = readExecutor;
         this.writeExecutor = writeExecutor;
+        this.stats = stats;
     }
 
     @Override
@@ -109,7 +111,7 @@ public class DefaultGlueColumnStatisticsProvider
                                 .withDatabaseName(table.getDatabaseName())
                                 .withTableName(table.getTableName())
                                 .withColumnNames(partialColumns);
-                        return glueClient.getColumnStatisticsForTable(request);
+                        return stats.getGetColumnStatisticsForTable().call(() -> glueClient.getColumnStatisticsForTable(request));
                     }, readExecutor)).collect(toImmutableList());
 
             HiveBasicStatistics tableStatistics = getHiveBasicStatistics(table.getParameters());
@@ -159,7 +161,7 @@ public class DefaultGlueColumnStatisticsProvider
                         .withTableName(partition.getTableName())
                         .withColumnNames(columnsNames)
                         .withPartitionValues(partition.getValues());
-                futures.add(supplyAsync(() -> glueClient.getColumnStatisticsForPartition(request), readExecutor));
+                futures.add(supplyAsync(() -> stats.getGetColumnStatisticsForPartition().call(() -> glueClient.getColumnStatisticsForPartition(request)), readExecutor));
             }
             resultsForPartition.put(partition, futures.build());
         }
@@ -229,24 +231,24 @@ public class DefaultGlueColumnStatisticsProvider
             List<List<ColumnStatistics>> columnChunks = Lists.partition(columnStats, GLUE_COLUMN_WRITE_STAT_PAGE_SIZE);
 
             List<CompletableFuture<Void>> updateFutures = columnChunks.stream().map(columnChunk -> runAsync(
-                    () -> glueClient.updateColumnStatisticsForTable(
+                    () -> stats.getUpdateColumnStatisticsForTable().call(() -> glueClient.updateColumnStatisticsForTable(
                             new UpdateColumnStatisticsForTableRequest()
                                     .withCatalogId(catalogId)
                                     .withDatabaseName(table.getDatabaseName())
                                     .withTableName(table.getTableName())
-                                    .withColumnStatisticsList(columnChunk)), this.writeExecutor))
+                                    .withColumnStatisticsList(columnChunk))), this.writeExecutor))
                     .collect(toUnmodifiableList());
 
             Map<String, HiveColumnStatistics> currentTableColumnStatistics = this.getTableColumnStatistics(table);
             Set<String> removedStatistics = difference(currentTableColumnStatistics.keySet(), updatedTableColumnStatistics.keySet());
             List<CompletableFuture<Void>> deleteFutures = removedStatistics.stream()
-                    .map(column -> runAsync(() ->
+                    .map(column -> runAsync(() -> stats.getDeleteColumnStatisticsForTable().call(() ->
                             glueClient.deleteColumnStatisticsForTable(
                                     new DeleteColumnStatisticsForTableRequest()
                                             .withCatalogId(catalogId)
                                             .withDatabaseName(table.getDatabaseName())
                                             .withTableName(table.getTableName())
-                                            .withColumnName(column)), this.writeExecutor))
+                                            .withColumnName(column))), this.writeExecutor))
                     .collect(toUnmodifiableList());
 
             ImmutableList<CompletableFuture<Void>> updateOperationsFutures = ImmutableList.<CompletableFuture<Void>>builder()
@@ -280,24 +282,26 @@ public class DefaultGlueColumnStatisticsProvider
 
             List<List<ColumnStatistics>> columnChunks = Lists.partition(columnStats, GLUE_COLUMN_WRITE_STAT_PAGE_SIZE);
             columnChunks.forEach(columnChunk ->
-                    updateFutures.add(runAsync(() -> glueClient.updateColumnStatisticsForPartition(
-                            new UpdateColumnStatisticsForPartitionRequest()
-                                    .withCatalogId(catalogId)
-                                    .withDatabaseName(partition.getDatabaseName())
-                                    .withTableName(partition.getTableName())
-                                    .withPartitionValues(partition.getValues())
-                                    .withColumnStatisticsList(columnChunk)),
+                    updateFutures.add(runAsync(() -> stats.getUpdateColumnStatisticsForPartition().call(() ->
+                                    glueClient.updateColumnStatisticsForPartition(
+                                            new UpdateColumnStatisticsForPartitionRequest()
+                                                    .withCatalogId(catalogId)
+                                                    .withDatabaseName(partition.getDatabaseName())
+                                                    .withTableName(partition.getTableName())
+                                                    .withPartitionValues(partition.getValues())
+                                                    .withColumnStatisticsList(columnChunk))),
                             writeExecutor)));
 
             Set<String> removedStatistics = difference(currentStatistics.get(partition).keySet(), updatedColumnStatistics.keySet());
             removedStatistics.forEach(column ->
-                    updateFutures.add(runAsync(() -> glueClient.deleteColumnStatisticsForPartition(
-                            new DeleteColumnStatisticsForPartitionRequest()
-                                    .withCatalogId(catalogId)
-                                    .withDatabaseName(partition.getDatabaseName())
-                                    .withTableName(partition.getTableName())
-                                    .withPartitionValues(partition.getValues())
-                                    .withColumnName(column)),
+                    updateFutures.add(runAsync(() -> stats.getDeleteColumnStatisticsForPartition().call(() ->
+                                    glueClient.deleteColumnStatisticsForPartition(
+                                            new DeleteColumnStatisticsForPartitionRequest()
+                                                    .withCatalogId(catalogId)
+                                                    .withDatabaseName(partition.getDatabaseName())
+                                                    .withTableName(partition.getTableName())
+                                                    .withPartitionValues(partition.getValues())
+                                                    .withColumnName(column))),
                             writeExecutor)));
         }
         try {

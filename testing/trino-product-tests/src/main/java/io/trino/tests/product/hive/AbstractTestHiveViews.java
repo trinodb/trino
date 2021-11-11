@@ -88,6 +88,33 @@ public abstract class AbstractTestHiveViews
     }
 
     @Test(groups = HIVE_VIEWS)
+    public void testCommonTableExpression()
+    {
+        onHive().executeQuery(
+                "CREATE OR REPLACE VIEW test_common_table_expression AS " +
+                        "WITH t AS (SELECT n_nationkey, n_regionkey FROM nation WHERE n_nationkey = 8) SELECT * FROM t");
+
+        assertViewQuery("SELECT * FROM test_common_table_expression",
+                queryAssert -> queryAssert.containsOnly(row(8, 2)));
+
+        onHive().executeQuery("DROP VIEW test_common_table_expression");
+    }
+
+    @Test(groups = HIVE_VIEWS)
+    public void testNestedCommonTableExpression()
+    {
+        onHive().executeQuery(
+                "CREATE OR REPLACE VIEW test_nested_common_table_expression AS " +
+                        "WITH t AS (SELECT n_nationkey, n_regionkey FROM nation WHERE n_nationkey = 8), " +
+                        "t2 AS (SELECT n_nationkey * 2 AS nationkey, n_regionkey * 2 AS regionkey FROM t) SELECT * FROM t2");
+
+        assertViewQuery("SELECT * FROM test_nested_common_table_expression",
+                queryAssert -> queryAssert.containsOnly(row(16, 4)));
+
+        onHive().executeQuery("DROP VIEW test_nested_common_table_expression");
+    }
+
+    @Test(groups = HIVE_VIEWS)
     public void testArrayConstructionInView()
     {
         onHive().executeQuery("DROP VIEW IF EXISTS test_array_construction_view");
@@ -97,6 +124,25 @@ public abstract class AbstractTestHiveViews
                 .containsOnly(row(8, 2));
         assertThat(onTrino().executeQuery("SELECT a[1], a[2] FROM test_array_construction_view WHERE n_nationkey = 8"))
                 .containsOnly(row(8, 2));
+    }
+
+    @Test(groups = HIVE_VIEWS)
+    public void testMapConstructionInView()
+    {
+        onHive().executeQuery(
+                "CREATE OR REPLACE VIEW test_map_construction_view AS " +
+                        "SELECT" +
+                        "  o_orderkey" +
+                        ", MAP(o_clerk, o_orderpriority) AS simple_map" +
+                        ", MAP(o_clerk, MAP(o_orderpriority, o_shippriority)) AS nested_map" +
+                        " FROM orders");
+
+        assertViewQuery("SELECT simple_map['Clerk#000000951'] FROM test_map_construction_view WHERE o_orderkey = 1",
+                queryAssert -> queryAssert.containsOnly(row("5-LOW")));
+        assertViewQuery("SELECT nested_map['Clerk#000000951']['5-LOW'] FROM test_map_construction_view WHERE o_orderkey = 1",
+                queryAssert -> queryAssert.containsOnly(row(0)));
+
+        onHive().executeQuery("DROP VIEW test_map_construction_view");
     }
 
     @Test(groups = HIVE_VIEWS)
@@ -121,6 +167,51 @@ public abstract class AbstractTestHiveViews
 
         assertQueryFailure(() -> query("SELECT COUNT(*) FROM view_with_unsupported_coercion"))
                 .hasMessageContaining("View 'hive.default.view_with_unsupported_coercion' is stale or in invalid state: a column of type bigint projected from query view at position 0 has no name");
+    }
+
+    @Test(groups = HIVE_VIEWS)
+    public void testOuterParentheses()
+    {
+        if (getHiveVersionMajor() <= 1) {
+            throw new SkipException("The old Hive doesn't allow outer parentheses in a view definition");
+        }
+
+        onHive().executeQuery("CREATE OR REPLACE VIEW view_outer_parentheses AS (SELECT 'parentheses' AS col FROM nation LIMIT 1)");
+
+        assertViewQuery("SELECT * FROM view_outer_parentheses",
+                queryAssert -> queryAssert.containsOnly(row("parentheses")));
+
+        onHive().executeQuery("DROP VIEW view_outer_parentheses");
+    }
+
+    @Test(groups = HIVE_VIEWS)
+    public void testDateFunction()
+    {
+        onHive().executeQuery("DROP TABLE IF EXISTS hive_table_date_function");
+        onHive().executeQuery("CREATE TABLE hive_table_date_function(s string)");
+        onHive().executeQuery("INSERT INTO hive_table_date_function (s) values ('2021-08-21')");
+        onHive().executeQuery("CREATE OR REPLACE VIEW hive_view_date_function AS SELECT date(s) AS col FROM hive_table_date_function");
+
+        assertViewQuery("SELECT * FROM hive_view_date_function",
+                queryAssert -> queryAssert.containsOnly(row(sqlDate(2021, 8, 21))));
+
+        onHive().executeQuery("DROP VIEW hive_view_date_function");
+        onHive().executeQuery("DROP TABLE hive_table_date_function");
+    }
+
+    @Test(groups = HIVE_VIEWS)
+    public void testPmodFunction()
+    {
+        onHive().executeQuery("DROP TABLE IF EXISTS hive_table_pmod_function");
+        onHive().executeQuery("CREATE TABLE hive_table_pmod_function(n int, m int)");
+        onHive().executeQuery("INSERT INTO hive_table_pmod_function (n, m) values (-5, 2)");
+        onHive().executeQuery("CREATE OR REPLACE VIEW hive_view_pmod_function AS SELECT pmod(n, m) AS col FROM hive_table_pmod_function");
+
+        assertViewQuery("SELECT * FROM hive_view_pmod_function",
+                queryAssert -> queryAssert.containsOnly(row(1)));
+
+        onHive().executeQuery("DROP VIEW hive_view_pmod_function");
+        onHive().executeQuery("DROP TABLE hive_table_pmod_function");
     }
 
     @Test(groups = HIVE_VIEWS)
@@ -315,7 +406,7 @@ public abstract class AbstractTestHiveViews
 
         assertThat(query("SELECT CAST(ts AS varchar) FROM timestamp_hive_view")).containsOnly(row("1990-01-02 12:13:14.123"));
         assertThatThrownBy(
-                // TODO(https://github.com/prestosql/presto/issues/6295) it is not possible to query Hive view with timestamps if hive.timestamp-precision=NANOSECONDS
+                // TODO(https://github.com/trinodb/trino/issues/6295) it is not possible to query Hive view with timestamps if hive.timestamp-precision=NANOSECONDS
                 () -> assertThat(query("SELECT CAST(ts AS varchar) FROM hive_timestamp_nanos.default.timestamp_hive_view")).containsOnly(row("1990-01-02 12:13:14.123456789"))
         ).hasMessageContaining("timestamp(9) projected from query view at position 0 cannot be coerced to column [ts] of type timestamp(3) stored in view definition");
 
@@ -324,18 +415,18 @@ public abstract class AbstractTestHiveViews
 
         assertThat(query("SELECT CAST(ts AS varchar) FROM timestamp_hive_view")).containsOnly(row("1990-01-02 12:13:14.123"));
         assertThatThrownBy(
-                // TODO(https://github.com/prestosql/presto/issues/6295) it is not possible to query Hive view with timestamps if hive.timestamp-precision=NANOSECONDS
+                // TODO(https://github.com/trinodb/trino/issues/6295) it is not possible to query Hive view with timestamps if hive.timestamp-precision=NANOSECONDS
                 () -> assertThat(query("SELECT CAST(ts AS varchar) FROM hive_timestamp_nanos.default.timestamp_hive_view")).containsOnly(row("1990-01-02 12:13:14.123"))
         ).hasMessageContaining("timestamp(9) projected from query view at position 0 cannot be coerced to column [ts] of type timestamp(3) stored in view definition");
 
         setSessionProperty("hive.timestamp_precision", "'NANOSECONDS'");
         setSessionProperty("hive_timestamp_nanos.timestamp_precision", "'NANOSECONDS'");
 
-        // TODO(https://github.com/prestosql/presto/issues/6295) timestamp_precision has no effect on Hive views
+        // TODO(https://github.com/trinodb/trino/issues/6295) timestamp_precision has no effect on Hive views
         // should be: assertThat(query("SELECT CAST(ts AS varchar) FROM timestamp_hive_view")).containsOnly(row("1990-01-02 12:13:14.123456789"))
         assertThat(query("SELECT CAST(ts AS varchar) FROM timestamp_hive_view")).containsOnly(row("1990-01-02 12:13:14.123"));
         assertThatThrownBy(
-                // TODO(https://github.com/prestosql/presto/issues/6295) it is not possible to query Hive view with timestamps if hive.timestamp-precision=NANOSECONDS
+                // TODO(https://github.com/trinodb/trino/issues/6295) it is not possible to query Hive view with timestamps if hive.timestamp-precision=NANOSECONDS
                 () -> assertThat(query("SELECT CAST(ts AS varchar) FROM hive_timestamp_nanos.default.timestamp_hive_view")).containsOnly(row("1990-01-02 12:13:14.123456789"))
         ).hasMessageContaining("timestamp(9) projected from query view at position 0 cannot be coerced to column [ts] of type timestamp(3) stored in view definition");
     }
@@ -352,6 +443,8 @@ public abstract class AbstractTestHiveViews
     }
 
     @Test(groups = HIVE_VIEWS)
+    // Test is currently flaky on CDH5 environment
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/9074", match = "Error while processing statement: FAILED: Execution Error, return code 2 from org.apache.hadoop.hive.ql.exec.mr.MapRedTask")
     public void testNestedGroupBy()
     {
         onHive().executeQuery("DROP VIEW IF EXISTS test_nested_group_by_view");

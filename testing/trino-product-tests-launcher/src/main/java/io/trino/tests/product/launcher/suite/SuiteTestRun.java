@@ -21,12 +21,12 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
-import io.trino.tests.product.launcher.env.Environments;
 
 import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.trino.tests.product.launcher.Configurations.nameForEnvironmentClass;
 import static java.lang.System.getenv;
 import static java.util.Objects.requireNonNull;
 
@@ -70,7 +70,7 @@ public class SuiteTestRun
 
     public String getEnvironmentName()
     {
-        return Environments.nameForClass(environment);
+        return nameForEnvironmentClass(environment);
     }
 
     public Map<String, String> getExtraOptions()

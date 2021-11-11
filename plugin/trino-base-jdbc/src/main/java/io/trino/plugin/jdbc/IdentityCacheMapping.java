@@ -13,16 +13,16 @@
  */
 package io.trino.plugin.jdbc;
 
-import io.trino.spi.security.ConnectorIdentity;
+import io.trino.spi.connector.ConnectorSession;
 
 public interface IdentityCacheMapping
 {
-    IdentityCacheKey getRemoteUserCacheKey(ConnectorIdentity identity);
+    IdentityCacheKey getRemoteUserCacheKey(ConnectorSession session);
 
     /**
-     * This will be used as cache key for metadata. If {@link ConnectorIdentity} content can influence the
+     * This will be used as cache key for metadata. If {@link ConnectorSession} content can influence the
      * metadata then we should have {@link IdentityCacheKey} instance so
-     * we could cache proper metadata for given {@link ConnectorIdentity}.
+     * we could cache proper metadata for given {@link ConnectorSession}.
      */
     abstract class IdentityCacheKey
     {

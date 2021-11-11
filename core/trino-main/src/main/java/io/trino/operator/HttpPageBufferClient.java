@@ -34,6 +34,7 @@ import io.airlift.units.Duration;
 import io.trino.execution.buffer.SerializedPage;
 import io.trino.server.remotetask.Backoff;
 import io.trino.spi.TrinoException;
+import io.trino.spi.TrinoTransportException;
 import io.trino.sql.analyzer.FeaturesConfig.DataIntegrityVerification;
 import org.joda.time.DateTime;
 
@@ -59,6 +60,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
+import static io.airlift.http.client.HttpStatus.NO_CONTENT;
 import static io.airlift.http.client.HttpStatus.familyForStatusCode;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
 import static io.airlift.http.client.Request.Builder.prepareGet;
@@ -468,6 +470,15 @@ public final class HttpPageBufferClient
             public void onSuccess(@Nullable StatusResponse result)
             {
                 assertNotHoldsLock(this);
+
+                if (result.getStatusCode() != NO_CONTENT.code()) {
+                    onFailure(new TrinoTransportException(
+                            REMOTE_BUFFER_CLOSE_FAILED,
+                            fromUri(location),
+                            format("Error closing remote buffer, expected %s got %s", NO_CONTENT.code(), result.getStatusCode())));
+                    return;
+                }
+
                 backoff.success();
                 synchronized (HttpPageBufferClient.this) {
                     closed = true;
@@ -492,7 +503,7 @@ public final class HttpPageBufferClient
                             backoff.getFailureCount(),
                             backoff.getFailureDuration().convertTo(SECONDS),
                             backoff.getFailureRequestTimeTotal().convertTo(SECONDS));
-                    t = new TrinoException(REMOTE_BUFFER_CLOSE_FAILED, message, t);
+                    t = new TrinoTransportException(REMOTE_BUFFER_CLOSE_FAILED, fromUri(location), message, t);
                 }
                 handleFailure(t, resultFuture);
             }

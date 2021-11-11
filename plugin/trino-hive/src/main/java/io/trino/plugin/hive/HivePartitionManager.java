@@ -193,7 +193,9 @@ public class HivePartitionManager
                 handle.getAnalyzeColumnNames(),
                 Optionals.combine(handle.getConstraintColumns(), columns, Sets::union),
                 handle.getProjectedColumns(),
-                handle.getTransaction());
+                handle.getTransaction(),
+                handle.isRecordScannedFiles(),
+                handle.getMaxScannedFileSize());
     }
 
     public List<HivePartition> getOrLoadPartitions(SemiTransactionalHiveMetastore metastore, HiveIdentity identity, HiveTableHandle table)

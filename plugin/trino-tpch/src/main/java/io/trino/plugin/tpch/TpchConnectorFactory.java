@@ -38,6 +38,7 @@ public class TpchConnectorFactory
         implements ConnectorFactory
 {
     public static final String TPCH_COLUMN_NAMING_PROPERTY = "tpch.column-naming";
+    public static final String TPCH_DOUBLE_TYPE_MAPPING_PROPERTY = "tpch.double-type-mapping";
     public static final String TPCH_PRODUCE_PAGES = "tpch.produce-pages";
     public static final String TPCH_MAX_ROWS_PER_PAGE_PROPERTY = "tpch.max-rows-per-page";
     public static final String TPCH_TABLE_SCAN_REDIRECTION_CATALOG = "tpch.table-scan-redirection-catalog";
@@ -82,6 +83,7 @@ public class TpchConnectorFactory
     {
         int splitsPerNode = getSplitsPerNode(properties);
         ColumnNaming columnNaming = ColumnNaming.valueOf(properties.getOrDefault(TPCH_COLUMN_NAMING_PROPERTY, ColumnNaming.SIMPLIFIED.name()).toUpperCase(ENGLISH));
+        DecimalTypeMapping decimalTypeMapping = DecimalTypeMapping.valueOf(properties.getOrDefault(TPCH_DOUBLE_TYPE_MAPPING_PROPERTY, DecimalTypeMapping.DOUBLE.name()).toUpperCase(ENGLISH));
         NodeManager nodeManager = context.getNodeManager();
 
         return new Connector()
@@ -97,6 +99,7 @@ public class TpchConnectorFactory
             {
                 return new TpchMetadata(
                         columnNaming,
+                        decimalTypeMapping,
                         predicatePushdownEnabled,
                         partitioningEnabled,
                         getTpchTableScanRedirectionCatalog(properties),
@@ -113,7 +116,7 @@ public class TpchConnectorFactory
             public ConnectorPageSourceProvider getPageSourceProvider()
             {
                 if (isProducePages(properties)) {
-                    return new TpchPageSourceProvider(getMaxRowsPerPage(properties));
+                    return new TpchPageSourceProvider(getMaxRowsPerPage(properties), decimalTypeMapping);
                 }
 
                 throw new UnsupportedOperationException();
@@ -123,7 +126,7 @@ public class TpchConnectorFactory
             public ConnectorRecordSetProvider getRecordSetProvider()
             {
                 if (!isProducePages(properties)) {
-                    return new TpchRecordSetProvider();
+                    return new TpchRecordSetProvider(decimalTypeMapping);
                 }
 
                 throw new UnsupportedOperationException();

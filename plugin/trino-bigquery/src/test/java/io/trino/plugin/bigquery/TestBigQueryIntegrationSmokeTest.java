@@ -17,8 +17,13 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.testing.AbstractTestIntegrationSmokeTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.sql.TestTable;
+import io.trino.testing.sql.TestView;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
+
+import java.util.List;
 
 import static io.trino.plugin.bigquery.BigQueryQueryRunner.BigQuerySqlExecutor;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -34,13 +39,18 @@ public class TestBigQueryIntegrationSmokeTest
         // TODO extend BaseConnectorTest
         extends AbstractTestIntegrationSmokeTest
 {
-    private BigQuerySqlExecutor bigQuerySqlExecutor;
+    protected BigQuerySqlExecutor bigQuerySqlExecutor;
+
+    @BeforeClass(alwaysRun = true)
+    public void initBigQueryExecutor()
+    {
+        this.bigQuerySqlExecutor = new BigQuerySqlExecutor();
+    }
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this.bigQuerySqlExecutor = new BigQuerySqlExecutor();
         return BigQueryQueryRunner.createQueryRunner(
                 ImmutableMap.of(),
                 ImmutableMap.of());
@@ -49,34 +59,27 @@ public class TestBigQueryIntegrationSmokeTest
     @Test
     public void testCreateSchema()
     {
-        String schemaName = "test_create_schema";
-
-        assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
-
+        String schemaName = "test_schema_create_" + randomTableSuffix();
+        assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).doesNotContain(schemaName);
         assertUpdate("CREATE SCHEMA " + schemaName);
         assertUpdate("CREATE SCHEMA IF NOT EXISTS " + schemaName);
 
-        assertQueryFails(
-                "CREATE SCHEMA " + schemaName,
-                format("\\Qline 1:1: Schema 'bigquery.%s' already exists\\E", schemaName));
+        // verify listing of new schema
+        assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).contains(schemaName);
 
+        // verify SHOW CREATE SCHEMA works
+        assertThat((String) computeScalar("SHOW CREATE SCHEMA " + schemaName))
+                .startsWith(format("CREATE SCHEMA %s.%s", getSession().getCatalog().orElseThrow(), schemaName));
+
+        // try to create duplicate schema
+        assertQueryFails("CREATE SCHEMA " + schemaName, format("line 1:1: Schema '.*\\.%s' already exists", schemaName));
+
+        // cleanup
         assertUpdate("DROP SCHEMA " + schemaName);
-    }
 
-    @Test
-    public void testDropSchema()
-    {
-        String schemaName = "test_drop_schema";
-
+        // verify DROP SCHEMA for non-existing schema
+        assertQueryFails("DROP SCHEMA " + schemaName, format("line 1:1: Schema '.*\\.%s' does not exist", schemaName));
         assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
-        assertUpdate("CREATE SCHEMA " + schemaName);
-
-        assertUpdate("DROP SCHEMA " + schemaName);
-        assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
-
-        assertQueryFails(
-                "DROP SCHEMA " + schemaName,
-                format("\\Qline 1:1: Schema 'bigquery.%s' does not exist\\E", schemaName));
     }
 
     @Override
@@ -100,17 +103,11 @@ public class TestBigQueryIntegrationSmokeTest
     @Test(dataProvider = "createTableSupportedTypes")
     public void testCreateTableSupportedType(String createType, String expectedType)
     {
-        String tableName = "test_create_table_supported_type_" + createType.replaceAll("[^a-zA-Z0-9]", "");
-
-        assertUpdate("DROP TABLE IF EXISTS " + tableName);
-
-        assertUpdate(format("CREATE TABLE %s (col1 %s)", tableName, createType));
-
-        assertEquals(
-                computeScalar("SELECT data_type FROM information_schema.columns WHERE table_name = '" + tableName + "' AND column_name = 'col1'"),
-                expectedType);
-
-        assertUpdate("DROP TABLE " + tableName);
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_table_supported_type_" + createType.replaceAll("[^a-zA-Z0-9]", ""), format("(col1 %s)", createType))) {
+            assertEquals(
+                    computeScalar("SELECT data_type FROM information_schema.columns WHERE table_name = '" + table.getName() + "' AND column_name = 'col1'"),
+                    expectedType);
+        }
     }
 
     @DataProvider
@@ -125,9 +122,9 @@ public class TestBigQueryIntegrationSmokeTest
                 {"double", "double"},
                 {"decimal", "decimal(38,9)"},
                 {"date", "date"},
-                {"time with time zone", "time(3) with time zone"},
-                {"timestamp", "timestamp(3)"},
-                {"timestamp with time zone", "timestamp(3) with time zone"},
+                {"time with time zone", "time(6)"},
+                {"timestamp(6)", "timestamp(6)"},
+                {"timestamp(6) with time zone", "timestamp(6) with time zone"},
                 {"char", "varchar"},
                 {"char(65535)", "varchar"},
                 {"varchar", "varchar"},
@@ -142,14 +139,8 @@ public class TestBigQueryIntegrationSmokeTest
     @Test(dataProvider = "createTableUnsupportedTypes")
     public void testCreateTableUnsupportedType(String createType)
     {
-        String tableName = "test_create_table_unsupported_type_" + createType.replaceAll("[^a-zA-Z0-9]", "");
-
-        assertUpdate("DROP TABLE IF EXISTS " + tableName);
-
-        assertQueryFails(
-                format("CREATE TABLE %s (col1 %s)", tableName, createType),
-                "Unsupported column type: " + createType);
-
+        String tableName = format("test_create_table_unsupported_type_%s_%s", createType.replaceAll("[^a-zA-Z0-9]", ""), randomTableSuffix());
+        assertQueryFails(format("CREATE TABLE %s (col1 %s)", tableName, createType), "Unsupported column type: " + createType);
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
     }
 
@@ -166,52 +157,34 @@ public class TestBigQueryIntegrationSmokeTest
     @Test
     public void testCreateTableWithRowTypeWithoutField()
     {
-        String tableName = "test_row_type_table";
-
-        assertUpdate("DROP TABLE IF EXISTS " + tableName);
-
+        String tableName = "test_row_type_table_" + randomTableSuffix();
         assertQueryFails(
                 "CREATE TABLE " + tableName + "(col1 row(int))",
                 "\\QROW type does not have field names declared: row(integer)\\E");
-
-        assertUpdate("DROP TABLE IF EXISTS " + tableName);
     }
 
     @Test
     public void testCreateTableAlreadyExists()
     {
-        String tableName = "test_create_table_already_exists";
-
-        assertUpdate("DROP TABLE IF EXISTS " + tableName);
-
-        assertUpdate("CREATE TABLE " + tableName + "(col1 int)");
-        assertQueryFails(
-                "CREATE TABLE " + tableName + "(col1 int)",
-                "\\Qline 1:1: Table 'bigquery.tpch.test_create_table_already_exists' already exists\\E");
-
-        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_table_already_exists", "(col1 int)")) {
+            assertQueryFails(
+                    "CREATE TABLE " + table.getName() + "(col1 int)",
+                    "\\Qline 1:1: Table 'bigquery.tpch." + table.getName() + "' already exists\\E");
+        }
     }
 
     @Test
     public void testCreateTableIfNotExists()
     {
-        String tableName = "test_create_table_if_not_exists";
-
-        assertUpdate("DROP TABLE IF EXISTS " + tableName);
-
-        assertUpdate("CREATE TABLE " + tableName + "(col1 int)");
-        assertUpdate("CREATE TABLE IF NOT EXISTS " + tableName + "(col1 int)");
-
-        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_table_if_not_exists", "(col1 int)")) {
+            assertUpdate("CREATE TABLE IF NOT EXISTS " + table.getName() + "(col1 int)");
+        }
     }
 
     @Test
     public void testDropTable()
     {
-        String tableName = "test_drop_table";
-
-        assertUpdate("DROP TABLE IF EXISTS " + tableName);
-
+        String tableName = "test_drop_table_" + randomTableSuffix();
         assertUpdate("CREATE TABLE " + tableName + "(col bigint)");
         assertTrue(getQueryRunner().tableExists(getSession(), tableName));
 
@@ -222,81 +195,68 @@ public class TestBigQueryIntegrationSmokeTest
     @Test(enabled = false)
     public void testSelectFromHourlyPartitionedTable()
     {
-        onBigQuery("DROP TABLE IF EXISTS test.hourly_partitioned");
-        onBigQuery("CREATE TABLE test.hourly_partitioned (value INT64, ts TIMESTAMP) PARTITION BY TIMESTAMP_TRUNC(ts, HOUR)");
-        onBigQuery("INSERT INTO test.hourly_partitioned (value, ts) VALUES (1000, '2018-01-01 10:00:00')");
-
-        MaterializedResult actualValues = computeActual("SELECT COUNT(1) FROM test.hourly_partitioned");
-
-        assertEquals((long) actualValues.getOnlyValue(), 1L);
+        try (TestTable table = new TestTable(
+                bigQuerySqlExecutor,
+                "test.hourly_partitioned",
+                "(value INT64, ts TIMESTAMP) PARTITION BY TIMESTAMP_TRUNC(ts, HOUR)",
+                List.of("1000, '2018-01-01 10:00:00'"))) {
+            assertQuery("SELECT COUNT(1) FROM " + table.getName(), "VALUES 1");
+        }
     }
 
     @Test(enabled = false)
     public void testSelectFromYearlyPartitionedTable()
     {
-        onBigQuery("DROP TABLE IF EXISTS test.yearly_partitioned");
-        onBigQuery("CREATE TABLE test.yearly_partitioned (value INT64, ts TIMESTAMP) PARTITION BY TIMESTAMP_TRUNC(ts, YEAR)");
-        onBigQuery("INSERT INTO test.yearly_partitioned (value, ts) VALUES (1000, '2018-01-01 10:00:00')");
-
-        MaterializedResult actualValues = computeActual("SELECT COUNT(1) FROM test.yearly_partitioned");
-
-        assertEquals((long) actualValues.getOnlyValue(), 1L);
+        try (TestTable table = new TestTable(
+                bigQuerySqlExecutor,
+                "test.yearly_partitioned",
+                "(value INT64, ts TIMESTAMP) PARTITION BY TIMESTAMP_TRUNC(ts, YEAR)",
+                List.of("1000, '2018-01-01 10:00:00'"))) {
+            assertQuery("SELECT COUNT(1) FROM " + table.getName(), "VALUES 1");
+        }
     }
 
     @Test(description = "regression test for https://github.com/trinodb/trino/issues/7784")
     public void testSelectWithSingleQuoteInWhereClause()
     {
-        String tableName = "test.select_with_single_quote";
-
-        onBigQuery("DROP TABLE IF EXISTS " + tableName);
-        onBigQuery("CREATE TABLE " + tableName + "(col INT64, val STRING)");
-        onBigQuery("INSERT INTO " + tableName + " VALUES (1,'escape\\'single quote')");
-
-        MaterializedResult actualValues = computeActual("SELECT val FROM " + tableName + " WHERE val = 'escape''single quote'");
-
-        assertEquals(actualValues.getRowCount(), 1);
-        assertEquals(actualValues.getOnlyValue(), "escape'single quote");
+        try (TestTable table = new TestTable(
+                bigQuerySqlExecutor,
+                "test.select_with_single_quote",
+                "(col INT64, val STRING)",
+                List.of("1, 'escape\\'single quote'"))) {
+            assertQuery("SELECT val FROM " + table.getName() + " WHERE val = 'escape''single quote'", "VALUES 'escape''single quote'");
+        }
     }
 
     @Test(description = "regression test for https://github.com/trinodb/trino/issues/5618")
     public void testPredicatePushdownPrunnedColumns()
     {
-        String tableName = "test.predicate_pushdown_prunned_columns";
-
-        onBigQuery("DROP TABLE IF EXISTS " + tableName);
-        onBigQuery("CREATE TABLE " + tableName + " (a INT64, b INT64, c INT64)");
-        onBigQuery("INSERT INTO " + tableName + " VALUES (1,2,3)");
-
-        assertQuery(
-                "SELECT 1 FROM " + tableName + " WHERE " +
-                        "    ((NULL IS NULL) OR a = 100) AND " +
-                        "    b = 2",
-                "VALUES (1)");
+        try (TestTable table = new TestTable(
+                bigQuerySqlExecutor,
+                "test.predicate_pushdown_prunned_columns",
+                "(a INT64, b INT64, c INT64)",
+                List.of("1, 2, 3"))) {
+            assertQuery(
+                    "SELECT 1 FROM " + table.getName() + " WHERE " +
+                            "    ((NULL IS NULL) OR a = 100) AND " +
+                            "    b = 2",
+                    "VALUES (1)");
+        }
     }
 
     @Test(description = "regression test for https://github.com/trinodb/trino/issues/5635")
     public void testCountAggregationView()
     {
-        String tableName = "test.count_aggregation_table";
-        String viewName = "test.count_aggregation_view";
-
-        onBigQuery("DROP TABLE IF EXISTS " + tableName);
-        onBigQuery("DROP VIEW IF EXISTS " + viewName);
-        onBigQuery("CREATE TABLE " + tableName + " (a INT64, b INT64, c INT64)");
-        onBigQuery("INSERT INTO " + tableName + " VALUES (1, 2, 3), (4, 5, 6)");
-        onBigQuery("CREATE VIEW " + viewName + " AS SELECT * FROM " + tableName);
-
-        assertQuery(
-                "SELECT count(*) FROM " + viewName,
-                "VALUES (2)");
-
-        assertQuery(
-                "SELECT count(*) FROM " + viewName + " WHERE a = 1",
-                "VALUES (1)");
-
-        assertQuery(
-                "SELECT count(a) FROM " + viewName + " WHERE b = 2",
-                "VALUES (1)");
+        try (TestTable table = new TestTable(
+                bigQuerySqlExecutor,
+                "test.count_aggregation_table",
+                "(a INT64, b INT64, c INT64)",
+                List.of("1, 2, 3", "4, 5, 6"));
+                TestView view = new TestView(bigQuerySqlExecutor, "test.count_aggregation_view", "SELECT * FROM " + table.getName())) {
+            assertQuery("SELECT count(*) FROM " + view.getName(), "VALUES (2)");
+            assertQuery("SELECT count(*) FROM " + view.getName() + " WHERE a = 1", "VALUES (1)");
+            assertQuery("SELECT count(a) FROM " + view.getName() + " WHERE b = 2", "VALUES (1)");
+        }
     }
 
     /**
@@ -305,15 +265,10 @@ public class TestBigQueryIntegrationSmokeTest
     @Test
     public void testRepeatCountAggregationView()
     {
-        String viewName = "test.repeat_count_aggregation_view_" + randomTableSuffix();
-
-        onBigQuery("DROP VIEW IF EXISTS " + viewName);
-        onBigQuery("CREATE VIEW " + viewName + " AS SELECT 1 AS col1");
-
-        assertQuery("SELECT count(*) FROM " + viewName, "VALUES (1)");
-        assertQuery("SELECT count(*) FROM " + viewName, "VALUES (1)");
-
-        onBigQuery("DROP VIEW " + viewName);
+        try (TestView view = new TestView(bigQuerySqlExecutor, "test.repeat_count_aggregation_view", "SELECT 1 AS col1")) {
+            assertQuery("SELECT count(*) FROM " + view.getName(), "VALUES (1)");
+            assertQuery("SELECT count(*) FROM " + view.getName(), "VALUES (1)");
+        }
     }
 
     /**
@@ -322,18 +277,11 @@ public class TestBigQueryIntegrationSmokeTest
     @Test
     public void testColumnPositionMismatch()
     {
-        String tableName = "test.test_column_position_mismatch";
-
-        assertUpdate("DROP TABLE IF EXISTS " + tableName);
-        assertUpdate(format("CREATE TABLE %s (c_varchar VARCHAR, c_int INT, c_date DATE)", tableName));
-        onBigQuery(format("INSERT INTO %s VALUES ('a', 1, '2021-01-01')", tableName));
-
-        // Adding a CAST makes BigQuery return columns in a different order
-        assertQuery(
-                "SELECT c_varchar, CAST(c_int AS SMALLINT), c_date FROM " + tableName,
-                "VALUES ('a', 1, '2021-01-01')");
-
-        assertUpdate("DROP TABLE " + tableName);
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test.test_column_position_mismatch", "(c_varchar VARCHAR, c_int INT, c_date DATE)")) {
+            onBigQuery("INSERT INTO " + table.getName() + " VALUES ('a', 1, '2021-01-01')");
+            // Adding a CAST makes BigQuery return columns in a different order
+            assertQuery("SELECT c_varchar, CAST(c_int AS SMALLINT), c_date FROM " + table.getName(), "VALUES ('a', 1, '2021-01-01')");
+        }
     }
 
     @Test
@@ -343,8 +291,6 @@ public class TestBigQueryIntegrationSmokeTest
         String tableName = "views_system_table_base_" + randomTableSuffix();
         String viewName = "views_system_table_view_" + randomTableSuffix();
 
-        onBigQuery(format("DROP TABLE IF EXISTS %s.%s", schemaName, tableName));
-        onBigQuery(format("DROP VIEW IF EXISTS %s.%s", schemaName, viewName));
         onBigQuery(format("CREATE TABLE %s.%s (a INT64, b INT64, c INT64)", schemaName, tableName));
         onBigQuery(format("CREATE VIEW %s.%s AS SELECT * FROM %s.%s", schemaName, viewName, schemaName, tableName));
 
@@ -375,6 +321,23 @@ public class TestBigQueryIntegrationSmokeTest
                         "   shippriority bigint NOT NULL,\n" +
                         "   comment varchar NOT NULL\n" +
                         ")");
+    }
+
+    @Test
+    public void testSkipUnsupportedType()
+    {
+        try (TestTable table = new TestTable(
+                bigQuerySqlExecutor,
+                "test.test_skip_unsupported_type",
+                "(a INT64, unsupported BIGNUMERIC, b INT64)",
+                List.of("1, 999, 2"))) {
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 2)");
+            assertThat((String) computeActual("SHOW CREATE TABLE " + table.getName()).getOnlyValue())
+                    .isEqualTo("CREATE TABLE bigquery." + table.getName() + " (\n" +
+                            "   a bigint,\n" +
+                            "   b bigint\n" +
+                            ")");
+        }
     }
 
     private void onBigQuery(String sql)

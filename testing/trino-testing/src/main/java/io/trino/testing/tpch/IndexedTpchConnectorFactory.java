@@ -14,6 +14,7 @@
 package io.trino.testing.tpch;
 
 import com.google.common.collect.ImmutableSet;
+import io.trino.plugin.tpch.DecimalTypeMapping;
 import io.trino.plugin.tpch.TpchNodePartitioningProvider;
 import io.trino.plugin.tpch.TpchRecordSetProvider;
 import io.trino.plugin.tpch.TpchSplitManager;
@@ -92,7 +93,7 @@ public class IndexedTpchConnectorFactory
             @Override
             public ConnectorRecordSetProvider getRecordSetProvider()
             {
-                return new TpchRecordSetProvider();
+                return new TpchRecordSetProvider(DecimalTypeMapping.DOUBLE);
             }
 
             @Override

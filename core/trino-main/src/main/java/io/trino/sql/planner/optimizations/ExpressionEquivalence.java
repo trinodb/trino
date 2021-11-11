@@ -104,10 +104,6 @@ public class ExpressionEquivalence
     private static class CanonicalizationVisitor
             implements RowExpressionVisitor<RowExpression, Void>
     {
-        public CanonicalizationVisitor()
-        {
-        }
-
         @Override
         public RowExpression visitCall(CallExpression call, Void context)
         {

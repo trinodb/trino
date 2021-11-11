@@ -56,6 +56,7 @@ Keyword                        SQL:2016      SQL-92
 ``JOIN``                       reserved      reserved
 ``LEFT``                       reserved      reserved
 ``LIKE``                       reserved      reserved
+``LISTAGG``                    reserved
 ``LOCALTIME``                  reserved
 ``LOCALTIMESTAMP``             reserved
 ``NATURAL``                    reserved      reserved

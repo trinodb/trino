@@ -14,12 +14,14 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.primitives.Primitives;
+import io.trino.plugin.iceberg.PartitionTransforms.ColumnTransform;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.UuidType;
 import org.apache.iceberg.transforms.Transform;
 import org.apache.iceberg.transforms.Transforms;
 import org.apache.iceberg.types.Type;
@@ -28,7 +30,6 @@ import org.apache.iceberg.types.Types.BooleanType;
 import org.apache.iceberg.types.Types.DecimalType;
 import org.apache.iceberg.types.Types.DoubleType;
 import org.apache.iceberg.types.Types.FloatType;
-import org.apache.iceberg.types.Types.UUIDType;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -39,12 +40,12 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneOffset;
+import java.util.UUID;
 import java.util.function.Function;
 
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
-import static io.trino.plugin.iceberg.PartitionTransforms.getBucketTransform;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
@@ -63,6 +64,7 @@ import static io.trino.type.DateTimes.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.type.DateTimes.MICROSECONDS_PER_SECOND;
 import static io.trino.type.DateTimes.NANOSECONDS_PER_MICROSECOND;
 import static io.trino.type.DateTimes.PICOSECONDS_PER_MICROSECOND;
+import static io.trino.type.UuidOperators.castFromVarcharToUuid;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
@@ -71,7 +73,6 @@ import static java.time.ZoneOffset.UTC;
 import static org.apache.iceberg.types.Type.TypeID.DECIMAL;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 public class TestIcebergBucketing
@@ -118,19 +119,18 @@ public class TestIcebergBucketing
         assertBucketAndHashEquals("string", "test string", 671244848);
         assertBucketAndHashEquals("string", "Trino rocks", 2131833594);
         assertBucketAndHashEquals("string", "\u5f3a\u5927\u7684Trino\u5f15\u64ce", 822296301); // 3-byte UTF-8 sequences (in Basic Plane, i.e. Plane 0)
-        // TODO https://github.com/apache/iceberg/issues/2837: Iceberg value is incorrect
-        assertThatThrownBy(() -> assertBucketAndHashEquals("string", "\uD83D\uDCB0", 661122892)) // 4-byte UTF-8 codepoint (non-BMP)
-                .isInstanceOf(AssertionError.class)
-                .hasMessage("icebergType=string, bucketCount=2147483647, icebergBucket=468848164, trinoBucket=661122892; expected [468848164] but found [661122892]");
-        // TODO https://github.com/apache/iceberg/issues/2837: Iceberg value is incorrect
-        assertThatThrownBy(() -> assertBucketAndHashEquals("string", "\uD843\uDFFC\uD843\uDFFD\uD843\uDFFE\uD843\uDFFF", 2094039023)) // 4 code points: 20FFC - 20FFF. 4-byte UTF-8 sequences in Supplementary Plane 2
-                .isInstanceOf(AssertionError.class)
-                .hasMessage("icebergType=string, bucketCount=2147483647, icebergBucket=775615312, trinoBucket=2094039023; expected [775615312] but found [2094039023]");
+        assertBucketAndHashEquals("string", "\uD83D\uDCB0", 661122892); // 4-byte UTF-8 codepoint (non-BMP)
+        assertBucketAndHashEquals("string", "\uD843\uDFFC\uD843\uDFFD\uD843\uDFFE\uD843\uDFFF", 2094039023); // 4 code points: 20FFC - 20FFF. 4-byte UTF-8 sequences in Supplementary Plane 2
 
         assertBucketAndHashEquals("binary", null, null);
         assertBucketAndHashEquals("binary", ByteBuffer.wrap(new byte[] {}), 0);
         assertBucketAndHashEquals("binary", ByteBuffer.wrap("hello trino".getBytes(StandardCharsets.UTF_8)), 493441885);
         assertBucketAndHashEquals("binary", ByteBuffer.wrap("\uD843\uDFFC\uD843\uDFFD\uD843\uDFFE\uD843\uDFFF".getBytes(StandardCharsets.UTF_16)), 1291558121);
+
+        assertBucketAndHashEquals("uuid", null, null);
+        assertBucketAndHashEquals("uuid", UUID.fromString("00000000-0000-0000-0000-000000000000"), 20237816);
+        assertBucketAndHashEquals("uuid", UUID.fromString("1-2-3-4-5"), 1802237169);
+        assertBucketAndHashEquals("uuid", UUID.fromString("406caec7-68b9-4778-81b2-a12ece70c8b1"), 1231261529);
 
         assertBucketAndHashEquals("fixed[3]", null, null);
         assertBucketAndHashEquals("fixed[3]", ByteBuffer.wrap(new byte[] {0, 0, 0}), 99660839);
@@ -185,9 +185,7 @@ public class TestIcebergBucketing
         assertBucketAndHashEquals("timestamp", LocalDateTime.of(2017, 11, 16, 22, 31, 8).toEpochSecond(UTC) * MICROSECONDS_PER_SECOND, -2047944441 & Integer.MAX_VALUE);
         assertBucketAndHashEquals("timestamptz", LocalDateTime.of(2017, 11, 16, 14, 31, 8).toEpochSecond(ZoneOffset.ofHours(-8)) * MICROSECONDS_PER_SECOND, -2047944441 & Integer.MAX_VALUE);
         assertBucketAndHashEquals("string", "iceberg", 1210000089);
-        assertThatThrownBy(() -> assertBucketAndHashEquals("uuid", null /* f79c3e09-677c-4bbd-a479-3f349cb785e7 */, 1488055340))
-                // TODO https://github.com/trinodb/trino/issues/6663 Iceberg UUID should be mapped to Trino UUID and supported for bucketing
-                .hasMessage("Cannot convert from Iceberg type 'uuid' (UUID) to Trino type");
+        assertBucketAndHashEquals("uuid", UUID.fromString("f79c3e09-677c-4bbd-a479-3f349cb785e7"), 1488055340);
         assertBucketAndHashEquals("fixed[4]", ByteBuffer.wrap(new byte[] {0x00, 0x01, 0x02, 0x03}), -188683207 & Integer.MAX_VALUE);
         assertBucketAndHashEquals("binary", ByteBuffer.wrap(new byte[] {0x00, 0x01, 0x02, 0x03}), -188683207 & Integer.MAX_VALUE);
     }
@@ -209,24 +207,6 @@ public class TestIcebergBucketing
                 {BooleanType.get()},
                 {FloatType.get()},
                 {DoubleType.get()},
-        };
-    }
-
-    @Test(dataProvider = "unsupportedTrinoBucketingTypes")
-    public void testUnsupportedTrinoTypes(Type type)
-    {
-        assertThatThrownBy(() -> computeTrinoBucket(type, null, 1))
-                .hasMessage(format("Cannot convert from Iceberg type '%s' (%s) to Trino type", type, type.typeId()));
-
-        assertNull(computeIcebergBucket(type, null, 1));
-    }
-
-    @DataProvider
-    public Object[][] unsupportedTrinoBucketingTypes()
-    {
-        // TODO https://github.com/trinodb/trino/issues/6663 Iceberg UUID should be mapped to Trino UUID and supported for bucketing
-        return new Object[][] {
-                {UUIDType.get()},
         };
     }
 
@@ -297,7 +277,8 @@ public class TestIcebergBucketing
     private Integer computeTrinoBucket(Type icebergType, Object icebergValue, int bucketCount)
     {
         io.trino.spi.type.Type trinoType = toTrinoType(icebergType, TYPE_MANAGER);
-        Function<Block, Block> bucketTransform = getBucketTransform(trinoType, bucketCount);
+        ColumnTransform transform = PartitionTransforms.bucket(trinoType, bucketCount);
+        Function<Block, Block> blockTransform = transform.getBlockTransform();
 
         BlockBuilder blockBuilder = trinoType.createBlockBuilder(null, 1);
 
@@ -306,9 +287,15 @@ public class TestIcebergBucketing
         writeNativeValue(trinoType, blockBuilder, trinoValue);
         Block block = blockBuilder.build();
 
-        Block bucketBlock = bucketTransform.apply(block);
+        Block bucketBlock = blockTransform.apply(block);
         verify(bucketBlock.getPositionCount() == 1);
-        return bucketBlock.isNull(0) ? null : bucketBlock.getInt(0, 0);
+        Integer trinoBucketWithBlock = bucketBlock.isNull(0) ? null : bucketBlock.getInt(0, 0);
+
+        Long trinoBucketWithValue = (Long) transform.getValueTransform().apply(block, 0);
+        Integer trinoBucketWithValueAsInteger = trinoBucketWithValue == null ? null : toIntExact(trinoBucketWithValue);
+        assertEquals(trinoBucketWithValueAsInteger, trinoBucketWithBlock);
+
+        return trinoBucketWithBlock;
     }
 
     private static Object toTrinoValue(Type icebergType, Object icebergValue)
@@ -342,6 +329,11 @@ public class TestIcebergBucketing
 
         if (trinoType == VARBINARY) {
             return wrappedBuffer(((ByteBuffer) icebergValue).array());
+        }
+
+        if (trinoType == UuidType.UUID) {
+            UUID uuidValue = (UUID) icebergValue;
+            return castFromVarcharToUuid(utf8Slice(uuidValue.toString()));
         }
 
         if (trinoType == DATE) {

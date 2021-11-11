@@ -93,6 +93,7 @@ public class TestPostgreSqlConnectorTest
             case SUPPORTS_AGGREGATION_PUSHDOWN_COVARIANCE:
             case SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION:
             case SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION:
+            case SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT:
                 return true;
 
             case SUPPORTS_JOIN_PUSHDOWN:
@@ -623,6 +624,6 @@ public class TestPostgreSqlConnectorTest
     protected TestView createSleepingView(Duration minimalQueryDuration)
     {
         long secondsToSleep = round(minimalQueryDuration.convertTo(SECONDS).getValue() + 1);
-        return new TestView(onRemoteDatabase(), format("SELECT 1 FROM pg_sleep(%d)", secondsToSleep));
+        return new TestView(onRemoteDatabase(), "test_sleeping_view", format("SELECT 1 FROM pg_sleep(%d)", secondsToSleep));
     }
 }

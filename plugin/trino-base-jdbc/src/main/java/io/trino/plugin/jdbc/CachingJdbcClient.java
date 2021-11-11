@@ -401,6 +401,13 @@ public class CachingJdbcClient
     }
 
     @Override
+    public void setTableProperties(ConnectorSession session, JdbcTableHandle handle, Map<String, Object> properties)
+    {
+        delegate.setTableProperties(session, handle, properties);
+        invalidateTableCaches(handle.asPlainTable().getSchemaTableName());
+    }
+
+    @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         delegate.createTable(session, tableMetadata);
@@ -467,6 +474,13 @@ public class CachingJdbcClient
         return deletedRowsCount;
     }
 
+    @Override
+    public void truncateTable(ConnectorSession session, JdbcTableHandle handle)
+    {
+        delegate.truncateTable(session, handle);
+        onDataChanged(handle.getRequiredNamedRelation().getSchemaTableName());
+    }
+
     @Managed
     public void flushCache()
     {
@@ -479,7 +493,7 @@ public class CachingJdbcClient
 
     private IdentityCacheKey getIdentityKey(ConnectorSession session)
     {
-        return identityMapping.getRemoteUserCacheKey(session.getIdentity());
+        return identityMapping.getRemoteUserCacheKey(session);
     }
 
     private Map<String, Object> getSessionProperties(ConnectorSession session)

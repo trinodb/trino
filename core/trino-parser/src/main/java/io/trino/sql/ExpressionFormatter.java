@@ -65,7 +65,7 @@ import io.trino.sql.tree.LabelDereference;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.LikePredicate;
-import io.trino.sql.tree.LogicalBinaryExpression;
+import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NotExpression;
@@ -74,6 +74,7 @@ import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.NumericParameter;
 import io.trino.sql.tree.OrderBy;
 import io.trino.sql.tree.Parameter;
+import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.QuantifiedComparisonExpression;
 import io.trino.sql.tree.Rollup;
 import io.trino.sql.tree.Row;
@@ -105,6 +106,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.PrimitiveIterator;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -380,6 +382,10 @@ public final class ExpressionFormatter
         @Override
         protected String visitFunctionCall(FunctionCall node, Void context)
         {
+            if (QualifiedName.of("LISTAGG").equals(node.getName())) {
+                return visitListagg(node);
+            }
+
             StringBuilder builder = new StringBuilder();
 
             if (node.getProcessingMode().isPresent()) {
@@ -460,9 +466,13 @@ public final class ExpressionFormatter
         }
 
         @Override
-        protected String visitLogicalBinaryExpression(LogicalBinaryExpression node, Void context)
+        protected String visitLogicalExpression(LogicalExpression node, Void context)
         {
-            return formatBinaryExpression(node.getOperator().toString(), node.getLeft(), node.getRight());
+            return "(" +
+                    node.getTerms().stream()
+                            .map(term -> process(term, context))
+                            .collect(Collectors.joining(" " + node.getOperator().toString() + " ")) +
+                    ")";
         }
 
         @Override
@@ -786,6 +796,62 @@ public final class ExpressionFormatter
             return Joiner.on(", ").join(expressions.stream()
                     .map((e) -> process(e, null))
                     .iterator());
+        }
+
+        /**
+         * Returns the formatted `LISTAGG` function call corresponding to the specified node.
+         *
+         * During the parsing of the syntax tree, the `LISTAGG` expression is synthetically converted
+         * to a function call. This method formats the specified {@link FunctionCall} node to correspond
+         * to the standardised syntax of the `LISTAGG` expression.
+         *
+         * @param node the `LISTAGG` function call
+         */
+        private String visitListagg(FunctionCall node)
+        {
+            StringBuilder builder = new StringBuilder();
+
+            List<Expression> arguments = node.getArguments();
+            Expression expression = arguments.get(0);
+            Expression separator = arguments.get(1);
+            BooleanLiteral overflowError = (BooleanLiteral) arguments.get(2);
+            Expression overflowFiller = arguments.get(3);
+            BooleanLiteral showOverflowEntryCount = (BooleanLiteral) arguments.get(4);
+
+            String innerArguments = joinExpressions(ImmutableList.of(expression, separator));
+            if (node.isDistinct()) {
+                innerArguments = "DISTINCT " + innerArguments;
+            }
+
+            builder.append("LISTAGG")
+                    .append('(').append(innerArguments);
+
+            builder.append(" ON OVERFLOW ");
+            if (overflowError.getValue()) {
+                builder.append(" ERROR");
+            }
+            else {
+                builder.append(" TRUNCATE")
+                        .append(' ')
+                        .append(process(overflowFiller, null));
+                if (showOverflowEntryCount.getValue()) {
+                    builder.append(" WITH COUNT");
+                }
+                else {
+                    builder.append(" WITHOUT COUNT");
+                }
+            }
+
+            builder.append(')');
+
+            if (node.getOrderBy().isPresent()) {
+                builder.append(" WITHIN GROUP ")
+                        .append('(')
+                        .append(formatOrderBy(node.getOrderBy().get()))
+                        .append(')');
+            }
+
+            return builder.toString();
         }
     }
 

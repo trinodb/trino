@@ -103,3 +103,12 @@ The following IDL describes the ``TrinoThriftService`` that must be implemented:
 
 .. literalinclude:: /include/TrinoThriftService.thrift
     :language: thrift
+
+.. _thrift-sql-support:
+
+SQL support
+-----------
+
+The connector provides :ref:`globally available <sql-globally-available>` and
+:ref:`read operation <sql-read-operations>` statements to access data and
+metadata in your Thrift service.

@@ -23,6 +23,7 @@ import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.RichColumnDescriptor;
 import io.trino.parquet.dictionary.Dictionary;
+import io.trino.plugin.base.type.TrinoTimestampEncoder;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
@@ -35,25 +36,30 @@ import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.filter2.predicate.FilterApi;
 import org.apache.parquet.filter2.predicate.FilterPredicate;
+import org.apache.parquet.filter2.predicate.Operators;
 import org.apache.parquet.filter2.predicate.UserDefinedPredicate;
 import org.apache.parquet.hadoop.metadata.ColumnPath;
 import org.apache.parquet.internal.column.columnindex.ColumnIndex;
 import org.apache.parquet.internal.filter2.columnindex.ColumnIndexStore;
 import org.apache.parquet.io.api.Binary;
+import org.apache.parquet.schema.LogicalTypeAnnotation;
+import org.apache.parquet.schema.LogicalTypeAnnotation.TimestampLogicalTypeAnnotation;
 import org.apache.parquet.schema.PrimitiveType;
 import org.joda.time.DateTimeZone;
 
 import java.io.Serializable;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
-import static io.trino.parquet.ParquetTimestampUtils.decode;
+import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.parquet.ParquetTimestampUtils.decodeInt64Timestamp;
+import static io.trino.parquet.ParquetTimestampUtils.decodeInt96Timestamp;
 import static io.trino.parquet.ParquetTypeUtils.getLongDecimalValue;
-import static io.trino.parquet.predicate.ParquetLongStatistics.fromBinary;
-import static io.trino.parquet.predicate.ParquetLongStatistics.fromNumber;
+import static io.trino.parquet.ParquetTypeUtils.getShortDecimalValue;
 import static io.trino.parquet.predicate.PredicateUtils.isStatisticsOverflow;
 import static io.trino.plugin.base.type.TrinoTimestampEncoderFactory.createTimestampEncoder;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -68,6 +74,8 @@ import static java.lang.Float.floatToRawIntBits;
 import static java.lang.String.format;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static java.util.Objects.requireNonNull;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT96;
 
 public class TupleDomainParquetPredicate
         implements Predicate
@@ -108,7 +116,13 @@ public class TupleDomainParquetPredicate
                 continue;
             }
 
-            Domain domain = getDomain(effectivePredicateDomain.getType(), numberOfRows, columnStatistics, id, column.toString(), timeZone);
+            Domain domain = getDomain(
+                    column,
+                    effectivePredicateDomain.getType(),
+                    numberOfRows,
+                    columnStatistics,
+                    id,
+                    timeZone);
             if (!effectivePredicateDomain.overlaps(domain)) {
                 return false;
             }
@@ -155,14 +169,13 @@ public class TupleDomainParquetPredicate
             }
 
             ColumnIndex columnIndex = columnIndexStore.getColumnIndex(ColumnPath.get(column.getPath()));
-            if (columnIndex == null || isEmptyColumnIndex(columnIndex)) {
+            if (columnIndex == null) {
                 continue;
             }
-            else {
-                Domain domain = getDomain(effectivePredicateDomain.getType(), numberOfRows, columnIndex, id, column);
-                if (effectivePredicateDomain.intersect(domain).isNone()) {
-                    return false;
-                }
+
+            Domain domain = getDomain(effectivePredicateDomain.getType(), numberOfRows, columnIndex, id, column);
+            if (!effectivePredicateDomain.overlaps(domain)) {
+                return false;
             }
         }
 
@@ -182,11 +195,11 @@ public class TupleDomainParquetPredicate
 
     @VisibleForTesting
     public static Domain getDomain(
+            ColumnDescriptor column,
             Type type,
             long rowCount,
             Statistics<?> statistics,
             ParquetDataSourceId id,
-            String column,
             DateTimeZone timeZone)
             throws ParquetCorruptionException
     {
@@ -205,28 +218,36 @@ public class TupleDomainParquetPredicate
         }
 
         try {
-            return getDomain(type, statistics.genericGetMin(), statistics.genericGetMax(), hasNullValue, timeZone);
+            return getDomain(
+                    column,
+                    type,
+                    ImmutableList.of(statistics.genericGetMin()),
+                    ImmutableList.of(statistics.genericGetMax()),
+                    hasNullValue,
+                    timeZone);
         }
         catch (Exception e) {
-            throw corruptionException(column, id, statistics, e);
+            throw corruptionException(column.toString(), id, statistics, e);
         }
     }
 
+    /**
+     * Get a domain for the ranges defined by each pair of elements from {@code minimums} and {@code maximums}.
+     * Both arrays must have the same length.
+     */
     private static Domain getDomain(
+            ColumnDescriptor column,
             Type type,
-            Object min,
-            Object max,
+            List<Object> minimums,
+            List<Object> maximums,
             boolean hasNullValue,
             DateTimeZone timeZone)
     {
-        requireNonNull(min);
-        requireNonNull(max);
+        checkArgument(minimums.size() == maximums.size(), "Expected minimums and maximums to have the same size");
 
         if (type.equals(BOOLEAN)) {
-            boolean minValue = (boolean) min;
-            boolean maxValue = (boolean) max;
-            boolean hasTrueValues = minValue || maxValue;
-            boolean hasFalseValues = !minValue || !maxValue;
+            boolean hasTrueValues = minimums.stream().anyMatch(value -> (boolean) value) || maximums.stream().anyMatch(value -> (boolean) value);
+            boolean hasFalseValues = minimums.stream().anyMatch(value -> !(boolean) value) || maximums.stream().anyMatch(value -> !(boolean) value);
             if (hasTrueValues && hasFalseValues) {
                 return Domain.all(type);
             }
@@ -241,77 +262,137 @@ public class TupleDomainParquetPredicate
         }
 
         if (type.equals(BIGINT) || type.equals(INTEGER) || type.equals(DATE) || type.equals(SMALLINT) || type.equals(TINYINT)) {
-            ParquetLongStatistics longStatistics = fromNumber((Number) min, (Number) max);
-            if (isStatisticsOverflow(type, longStatistics)) {
-                return Domain.create(ValueSet.all(type), hasNullValue);
+            List<Range> ranges = new ArrayList<>();
+            for (int i = 0; i < minimums.size(); i++) {
+                long min = asLong(minimums.get(i));
+                long max = asLong(maximums.get(i));
+                if (isStatisticsOverflow(type, min, max)) {
+                    return Domain.create(ValueSet.all(type), hasNullValue);
+                }
+
+                ranges.add(Range.range(type, min, true, max, true));
             }
-            return createDomain(type, hasNullValue, longStatistics);
+
+            return Domain.create(ValueSet.ofRanges(ranges), hasNullValue);
         }
 
         if (type instanceof DecimalType) {
             DecimalType decimalType = (DecimalType) type;
+            List<Range> ranges = new ArrayList<>();
             if (decimalType.isShort()) {
-                ParquetLongStatistics longStatistics = min instanceof Binary && max instanceof Binary
-                        ? fromBinary(decimalType, (Binary) min, (Binary) max)
-                        : fromNumber((Number) min, (Number) max);
-                if (isStatisticsOverflow(type, longStatistics)) {
-                    return Domain.create(ValueSet.all(type), hasNullValue);
+                for (int i = 0; i < minimums.size(); i++) {
+                    Object min = minimums.get(i);
+                    Object max = maximums.get(i);
+
+                    long minValue = min instanceof Binary ? getShortDecimalValue(((Binary) min).getBytes()) : asLong(min);
+                    long maxValue = min instanceof Binary ? getShortDecimalValue(((Binary) max).getBytes()) : asLong(max);
+
+                    if (isStatisticsOverflow(type, minValue, maxValue)) {
+                        return Domain.create(ValueSet.all(type), hasNullValue);
+                    }
+
+                    ranges.add(Range.range(type, minValue, true, maxValue, true));
                 }
-                return createDomain(type, hasNullValue, longStatistics);
             }
             else {
-                Binary minValue = (Binary) min;
-                Binary maxValue = (Binary) max;
-                Slice minSlice = getLongDecimalValue(minValue.getBytes());
-                Slice maxSlice = getLongDecimalValue(maxValue.getBytes());
-                ParquetSliceStatistics sliceStatistics = new ParquetSliceStatistics(minSlice, maxSlice);
-                return createDomain(type, hasNullValue, sliceStatistics);
+                for (int i = 0; i < minimums.size(); i++) {
+                    Slice min = getLongDecimalValue(((Binary) minimums.get(i)).getBytes());
+                    Slice max = getLongDecimalValue(((Binary) maximums.get(i)).getBytes());
+
+                    ranges.add(Range.range(type, min, true, max, true));
+                }
             }
+
+            return Domain.create(ValueSet.ofRanges(ranges), hasNullValue);
         }
 
         if (type.equals(REAL)) {
-            Float minValue = (Float) min;
-            Float maxValue = (Float) max;
-            if (minValue.isNaN() || maxValue.isNaN()) {
-                return Domain.create(ValueSet.all(type), hasNullValue);
-            }
+            List<Range> ranges = new ArrayList<>();
+            for (int i = 0; i < minimums.size(); i++) {
+                Float min = (Float) minimums.get(i);
+                Float max = (Float) maximums.get(i);
 
-            ParquetLongStatistics longStatistics = fromNumber(
-                    floatToRawIntBits(minValue),
-                    floatToRawIntBits(maxValue));
-            return createDomain(type, hasNullValue, longStatistics);
+                if (min.isNaN() || max.isNaN()) {
+                    return Domain.create(ValueSet.all(type), hasNullValue);
+                }
+
+                ranges.add(Range.range(type, (long) floatToRawIntBits(min), true, (long) floatToRawIntBits(max), true));
+            }
+            return Domain.create(ValueSet.ofRanges(ranges), hasNullValue);
         }
 
         if (type.equals(DOUBLE)) {
-            Double minValue = (Double) min;
-            Double maxValue = (Double) max;
-            if (minValue.isNaN() || maxValue.isNaN()) {
-                return Domain.create(ValueSet.all(type), hasNullValue);
-            }
+            List<Range> ranges = new ArrayList<>();
+            for (int i = 0; i < minimums.size(); i++) {
+                Double min = (Double) minimums.get(i);
+                Double max = (Double) maximums.get(i);
 
-            ParquetDoubleStatistics doubleStatistics = new ParquetDoubleStatistics(minValue, maxValue);
-            return createDomain(type, hasNullValue, doubleStatistics);
+                if (min.isNaN() || max.isNaN()) {
+                    return Domain.create(ValueSet.all(type), hasNullValue);
+                }
+
+                ranges.add(Range.range(type, min, true, max, true));
+            }
+            return Domain.create(ValueSet.ofRanges(ranges), hasNullValue);
         }
 
         if (type instanceof VarcharType) {
-            Binary minValue = (Binary) min;
-            Binary maxValue = (Binary) max;
-            Slice minSlice = Slices.wrappedBuffer(minValue.toByteBuffer());
-            Slice maxSlice = Slices.wrappedBuffer(maxValue.toByteBuffer());
-            ParquetSliceStatistics sliceStatistics = new ParquetSliceStatistics(minSlice, maxSlice);
-            return createDomain(type, hasNullValue, sliceStatistics);
+            List<Range> ranges = new ArrayList<>();
+            for (int i = 0; i < minimums.size(); i++) {
+                Slice min = Slices.wrappedBuffer(((Binary) minimums.get(i)).toByteBuffer());
+                Slice max = Slices.wrappedBuffer(((Binary) maximums.get(i)).toByteBuffer());
+                ranges.add(Range.range(type, min, true, max, true));
+            }
+            return Domain.create(ValueSet.ofRanges(ranges), hasNullValue);
         }
 
-        if (type instanceof TimestampType && max instanceof Binary && min instanceof Binary) {
-            // Parquet INT96 timestamp values were compared incorrectly for the purposes of producing statistics by older parquet writers, so
-            // PARQUET-1065 deprecated them. The result is that any writer that produced stats was producing unusable incorrect values, except
-            // the special case where min == max and an incorrect ordering would not be material to the result. PARQUET-1026 made binary stats
-            // available and valid in that special case
-            if (min.equals(max)) {
-                return Domain.create(ValueSet.of(
-                        type,
-                        createTimestampEncoder((TimestampType) type, timeZone).getTimestamp(decode((Binary) max))),
-                        hasNullValue);
+        if (type instanceof TimestampType) {
+            if (column.getPrimitiveType().getPrimitiveTypeName().equals(INT96)) {
+                TrinoTimestampEncoder<?> timestampEncoder = createTimestampEncoder((TimestampType) type, timeZone);
+                List<Object> values = new ArrayList<>();
+                for (int i = 0; i < minimums.size(); i++) {
+                    Object min = minimums.get(i);
+                    Object max = maximums.get(i);
+
+                    // Parquet INT96 timestamp values were compared incorrectly for the purposes of producing statistics by older parquet writers, so
+                    // PARQUET-1065 deprecated them. The result is that any writer that produced stats was producing unusable incorrect values, except
+                    // the special case where min == max and an incorrect ordering would not be material to the result. PARQUET-1026 made binary stats
+                    // available and valid in that special case
+                    if (!(min instanceof Binary) || !(max instanceof Binary) || !min.equals(max)) {
+                        return Domain.create(ValueSet.all(type), hasNullValue);
+                    }
+
+                    values.add(timestampEncoder.getTimestamp(decodeInt96Timestamp((Binary) min)));
+                }
+                return Domain.multipleValues(type, values, hasNullValue);
+            }
+            if (column.getPrimitiveType().getPrimitiveTypeName().equals(INT64)) {
+                LogicalTypeAnnotation logicalTypeAnnotation = column.getPrimitiveType().getLogicalTypeAnnotation();
+                if (!(logicalTypeAnnotation instanceof TimestampLogicalTypeAnnotation)) {
+                    // Invalid statistics. Unit and UTC adjustment are not known
+                    return Domain.create(ValueSet.all(type), hasNullValue);
+                }
+
+                TimestampLogicalTypeAnnotation timestampTypeAnnotation = (TimestampLogicalTypeAnnotation) logicalTypeAnnotation;
+                // Bail out if the precision is not known
+                if (timestampTypeAnnotation.getUnit() == null) {
+                    return Domain.create(ValueSet.all(type), hasNullValue);
+                }
+                TrinoTimestampEncoder<?> timestampEncoder = createTimestampEncoder((TimestampType) type, DateTimeZone.UTC);
+
+                List<Range> ranges = new ArrayList<>();
+                for (int i = 0; i < minimums.size(); i++) {
+                    long min = (long) minimums.get(i);
+                    long max = (long) maximums.get(i);
+
+                    ranges.add(Range.range(
+                            type,
+                            timestampEncoder.getTimestamp(decodeInt64Timestamp(min, timestampTypeAnnotation.getUnit())),
+                            true,
+                            timestampEncoder.getTimestamp(decodeInt64Timestamp(max, timestampTypeAnnotation.getUnit())),
+                            true));
+                }
+                return Domain.create(ValueSet.ofRanges(ranges), hasNullValue);
             }
         }
 
@@ -326,17 +407,20 @@ public class TupleDomainParquetPredicate
             return Domain.all(type);
         }
 
-        String columnName = descriptor.getPrimitiveType().getName();
+        List<ByteBuffer> maxValues = columnIndex.getMaxValues();
+        List<ByteBuffer> minValues = columnIndex.getMinValues();
+        List<Long> nullCounts = columnIndex.getNullCounts();
+        List<Boolean> nullPages = columnIndex.getNullPages();
 
-        if (isCorruptedColumnIndex(columnIndex)) {
+        String columnName = descriptor.getPrimitiveType().getName();
+        if (isCorruptedColumnIndex(minValues, maxValues, nullCounts, nullPages)) {
             throw corruptionException(columnName, id, columnIndex, null);
         }
-
-        if (isEmptyColumnIndex(columnIndex)) {
+        if (maxValues.isEmpty()) {
             return Domain.all(type);
         }
 
-        long totalNullCount = columnIndex.getNullCounts().stream()
+        long totalNullCount = nullCounts.stream()
                 .mapToLong(value -> value)
                 .sum();
         boolean hasNullValue = totalNullCount > 0;
@@ -346,17 +430,17 @@ public class TupleDomainParquetPredicate
         }
 
         try {
-            Domain domain = Domain.none(type);
-            int pageCount = columnIndex.getMinValues().size();
+            int pageCount = minValues.size();
             ColumnIndexValueConverter converter = new ColumnIndexValueConverter();
             Function<ByteBuffer, Object> converterFunction = converter.getConverter(descriptor.getPrimitiveType());
+            List<Object> min = new ArrayList<>();
+            List<Object> max = new ArrayList<>();
             for (int i = 0; i < pageCount; i++) {
-                Object min = converterFunction.apply(columnIndex.getMinValues().get(i));
-                Object max = converterFunction.apply(columnIndex.getMaxValues().get(i));
-                domain = domain.union(getDomain(type, min, max, hasNullValue, timeZone));
+                min.add(converterFunction.apply(minValues.get(i)));
+                max.add(converterFunction.apply(maxValues.get(i)));
             }
 
-            return domain;
+            return getDomain(descriptor, type, min, max, hasNullValue, timeZone);
         }
         catch (Exception e) {
             throw corruptionException(columnName, id, columnIndex, e);
@@ -391,16 +475,16 @@ public class TupleDomainParquetPredicate
             return Domain.all(type);
         }
 
-        Domain domain = Domain.none(type);
         int dictionarySize = dictionaryPage.get().getDictionarySize();
         DictionaryValueConverter converter = new DictionaryValueConverter(dictionary);
         Function<Integer, Object> convertFunction = converter.getConverter(columnDescriptor.getPrimitiveType());
+        List<Object> values = new ArrayList<>();
         for (int i = 0; i < dictionarySize; i++) {
-            Object value = convertFunction.apply(i);
-            domain = domain.union(getDomain(type, value, value, true, timeZone));
+            values.add(convertFunction.apply(i));
         }
 
-        return domain;
+        // TODO: when min == max (i.e., singleton ranges, the construction of Domains can be done more efficiently
+        return getDomain(columnDescriptor, type, values, values, true, timeZone);
     }
 
     private static ParquetCorruptionException corruptionException(String column, ParquetDataSourceId id, Statistics<?> statistics, Exception cause)
@@ -413,46 +497,28 @@ public class TupleDomainParquetPredicate
         return new ParquetCorruptionException(cause, format("Corrupted statistics for column \"%s\" in Parquet file \"%s\". Corrupted column index: [%s]", column, id, columnIndex));
     }
 
-    public static <T extends Comparable<T>> Domain createDomain(Type type, boolean hasNullValue, ParquetRangeStatistics<T> rangeStatistics)
+    private static boolean isCorruptedColumnIndex(
+            List<ByteBuffer> minValues,
+            List<ByteBuffer> maxValues,
+            List<Long> nullCounts,
+            List<Boolean> nullPages)
     {
-        T min = rangeStatistics.getMin();
-        T max = rangeStatistics.getMax();
-        if (min != null && max != null) {
-            return Domain.create(ValueSet.ofRanges(Range.range(type, min, true, max, true)), hasNullValue);
-        }
-        else if (max != null) {
-            return Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(type, max)), hasNullValue);
-        }
-        else if (min != null) {
-            return Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(type, min)), hasNullValue);
-        }
-        else {
-            return Domain.create(ValueSet.all(type), hasNullValue);
-        }
-    }
-
-    private boolean isCorruptedColumnIndex(ColumnIndex columnIndex)
-    {
-        if (columnIndex.getMaxValues() == null
-                || columnIndex.getMinValues() == null
-                || columnIndex.getNullCounts() == null
-                || columnIndex.getNullPages() == null) {
+        if (maxValues == null || minValues == null || nullCounts == null || nullPages == null) {
             return true;
         }
 
-        if (columnIndex.getMaxValues().size() != columnIndex.getMinValues().size()
-                || columnIndex.getMaxValues().size() != columnIndex.getNullPages().size()
-                || columnIndex.getMaxValues().size() != columnIndex.getNullCounts().size()) {
-            return true;
-        }
-
-        return false;
+        return maxValues.size() != minValues.size()
+                || maxValues.size() != nullPages.size()
+                || maxValues.size() != nullCounts.size();
     }
 
-    // Caller should verify isCorruptedColumnIndex is false first
-    private boolean isEmptyColumnIndex(ColumnIndex columnIndex)
+    public static long asLong(Object value)
     {
-        return columnIndex.getMaxValues().size() == 0;
+        if (value instanceof Byte || value instanceof Short || value instanceof Integer || value instanceof Long) {
+            return ((Number) value).longValue();
+        }
+
+        throw new IllegalArgumentException("Can't convert value to long: " + value.getClass().getName());
     }
 
     private FilterPredicate convertToParquetFilter(DateTimeZone timeZone)
@@ -469,7 +535,9 @@ public class TupleDomainParquetPredicate
                 continue;
             }
 
-            FilterPredicate columnFilter = FilterApi.userDefined(FilterApi.intColumn(ColumnPath.get(column.getPath()).toDotString()), new DomainUserDefinedPredicate(domain, timeZone));
+            FilterPredicate columnFilter = FilterApi.userDefined(
+                    new TrinoIntColumn(ColumnPath.get(column.getPath())),
+                    new DomainUserDefinedPredicate<>(column, domain, timeZone));
             if (filter == null) {
                 filter = columnFilter;
             }
@@ -488,11 +556,13 @@ public class TupleDomainParquetPredicate
             extends UserDefinedPredicate<T>
             implements Serializable // Required by argument of FilterApi.userDefined call
     {
+        private final ColumnDescriptor columnDescriptor;
         private final Domain columnDomain;
         private final DateTimeZone timeZone;
 
-        public DomainUserDefinedPredicate(Domain domain, DateTimeZone timeZone)
+        public DomainUserDefinedPredicate(ColumnDescriptor columnDescriptor, Domain domain, DateTimeZone timeZone)
         {
+            this.columnDescriptor = requireNonNull(columnDescriptor, "columnDescriptor is null");
             this.columnDomain = domain;
             this.timeZone = timeZone;
         }
@@ -514,8 +584,14 @@ public class TupleDomainParquetPredicate
                 return false;
             }
 
-            Domain domain = getDomain(columnDomain.getType(), statistic.getMin(), statistic.getMax(), true, timeZone);
-            return columnDomain.intersect(domain).isNone();
+            Domain domain = getDomain(
+                    columnDescriptor,
+                    columnDomain.getType(),
+                    ImmutableList.of(statistic.getMin()),
+                    ImmutableList.of(statistic.getMax()),
+                    true,
+                    timeZone);
+            return !columnDomain.overlaps(domain);
         }
 
         @Override
@@ -581,6 +657,19 @@ public class TupleDomainParquetPredicate
                 default:
                     return (i) -> dictionary.decodeToBinary(i);
             }
+        }
+    }
+
+    // FilterApi#intColumn splits column name on ".". If column name contains a "." this leads to
+    // ColumnIndexFilter#calculateRowRanges failing to detect that column as part of the projection
+    // and treating it like a column with only NULL values.
+    private static final class TrinoIntColumn
+            extends Operators.Column<Integer>
+            implements Operators.SupportsLtGt
+    {
+        TrinoIntColumn(ColumnPath columnPath)
+        {
+            super(columnPath, Integer.class);
         }
     }
 }

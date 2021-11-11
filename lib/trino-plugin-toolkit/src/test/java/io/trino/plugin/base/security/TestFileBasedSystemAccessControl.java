@@ -48,6 +48,7 @@ import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static java.lang.Thread.sleep;
+import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.util.Files.newTemporaryFile;
 import static org.testng.Assert.assertEquals;
@@ -65,12 +66,13 @@ public class TestFileBasedSystemAccessControl
     private static final Identity validSpecialRegexEndQuote = Identity.forUser("\\E").withPrincipal(new KerberosPrincipal("special/\\E@EXAMPLE.COM")).build();
     private static final Identity invalidSpecialRegex = Identity.forUser("alice").withPrincipal(new KerberosPrincipal("special/.*@EXAMPLE.COM")).build();
     private static final Identity bob = Identity.forUser("bob").withGroups(ImmutableSet.of("staff")).build();
-    private static final Identity admin = Identity.forUser("admin").withGroups(ImmutableSet.of("admin", "staff")).build();
+    private static final Identity admin = Identity.forUser("alberto").withEnabledRoles(ImmutableSet.of("admin")).withGroups(ImmutableSet.of("staff")).build();
     private static final Identity nonAsciiUser = Identity.ofUser("\u0194\u0194\u0194");
     private static final CatalogSchemaTableName aliceView = new CatalogSchemaTableName("alice-catalog", "schema", "view");
     private static final Optional<QueryId> queryId = Optional.empty();
 
     private static final Identity charlie = Identity.forUser("charlie").withGroups(ImmutableSet.of("guests")).build();
+    private static final Identity dave = Identity.forUser("dave").withGroups(ImmutableSet.of("contractors")).build();
     private static final Identity joe = Identity.ofUser("joe");
     private static final SystemSecurityContext ADMIN = new SystemSecurityContext(admin, queryId);
     private static final SystemSecurityContext BOB = new SystemSecurityContext(bob, queryId);
@@ -94,13 +96,16 @@ public class TestFileBasedSystemAccessControl
     private static final String ADD_COLUMNS_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot add a column to table .*";
     private static final String DROP_COLUMNS_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot drop a column from table .*";
     private static final String RENAME_COLUMNS_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot rename a column in table .*";
+    private static final String AUTH_TABLE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot set authorization for table .* to .*";
     private static final String AUTH_VIEW_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot set authorization for view .* to .*";
     private static final String TABLE_COMMENT_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot comment table to .*";
     private static final String INSERT_TABLE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot insert into table .*";
     private static final String DELETE_TABLE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot delete from table .*";
+    private static final String TRUNCATE_TABLE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot truncate table .*";
     private static final String DROP_TABLE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot drop table .*";
     private static final String CREATE_TABLE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot show create table for .*";
     private static final String RENAME_TABLE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot rename table .*";
+    private static final String SET_TABLE_PROPERTIES_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot set table properties to .*";
     private static final String CREATE_VIEW_ACCESS_DENIED_MESSAGE = "Access Denied: View owner '.*' cannot create view that selects from .*";
     private static final String CREATE_MATERIALIZED_VIEW_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot create materialized view .*";
     private static final String DROP_MATERIALIZED_VIEW_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot drop materialized view .*";
@@ -128,9 +133,11 @@ public class TestFileBasedSystemAccessControl
         accessControl.checkCanShowColumns(UNKNOWN, new CatalogSchemaTableName("some-catalog", "unknown", "unknown"));
         accessControl.checkCanInsertIntoTable(UNKNOWN, new CatalogSchemaTableName("some-catalog", "unknown", "unknown"));
         accessControl.checkCanDeleteFromTable(UNKNOWN, new CatalogSchemaTableName("some-catalog", "unknown", "unknown"));
+        accessControl.checkCanTruncateTable(UNKNOWN, new CatalogSchemaTableName("some-catalog", "unknown", "unknown"));
 
         accessControl.checkCanCreateTable(UNKNOWN, new CatalogSchemaTableName("some-catalog", "unknown", "unknown"));
         accessControl.checkCanDropTable(UNKNOWN, new CatalogSchemaTableName("some-catalog", "unknown", "unknown"));
+        accessControl.checkCanTruncateTable(UNKNOWN, new CatalogSchemaTableName("some-catalog", "unknown", "unknown"));
         accessControl.checkCanRenameTable(UNKNOWN,
                 new CatalogSchemaTableName("some-catalog", "unknown", "unknown"),
                 new CatalogSchemaTableName("some-catalog", "unknown", "new_unknown"));
@@ -544,6 +551,15 @@ public class TestFileBasedSystemAccessControl
     }
 
     @Test
+    public void testTableRulesForCheckCanTruncateTable()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table.json");
+
+        accessControl.checkCanTruncateTable(ADMIN, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"));
+        assertAccessDenied(() -> accessControl.checkCanTruncateTable(CHARLIE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable")), TRUNCATE_TABLE_ACCESS_DENIED_MESSAGE);
+    }
+
+    @Test
     public void testTableRulesForCheckCanGrantTablePrivilege()
     {
         SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table.json");
@@ -604,8 +620,6 @@ public class TestFileBasedSystemAccessControl
 
         accessControl.checkCanSetTableAuthorization(ADMIN, new CatalogSchemaTableName("some-catalog", "test", "test"), new TrinoPrincipal(PrincipalType.ROLE, "some_role"));
         accessControl.checkCanSetTableAuthorization(ADMIN, new CatalogSchemaTableName("some-catalog", "test", "test"), new TrinoPrincipal(PrincipalType.USER, "some_user"));
-        accessControl.checkCanSetViewAuthorization(ADMIN, new CatalogSchemaTableName("some-catalog", "test", "test"), new TrinoPrincipal(PrincipalType.ROLE, "some_role"));
-        accessControl.checkCanSetViewAuthorization(ADMIN, new CatalogSchemaTableName("some-catalog", "test", "test"), new TrinoPrincipal(PrincipalType.USER, "some_user"));
     }
 
     @Test
@@ -624,8 +638,6 @@ public class TestFileBasedSystemAccessControl
 
         accessControl.checkCanSetTableAuthorization(ALICE, new CatalogSchemaTableName("some-catalog", "aliceschema", "test"), new TrinoPrincipal(PrincipalType.ROLE, "some_role"));
         accessControl.checkCanSetTableAuthorization(ALICE, new CatalogSchemaTableName("some-catalog", "aliceschema", "test"), new TrinoPrincipal(PrincipalType.USER, "some_user"));
-        accessControl.checkCanSetViewAuthorization(ALICE, new CatalogSchemaTableName("some-catalog", "aliceschema", "test"), new TrinoPrincipal(PrincipalType.ROLE, "some_role"));
-        accessControl.checkCanSetViewAuthorization(ALICE, new CatalogSchemaTableName("some-catalog", "aliceschema", "test"), new TrinoPrincipal(PrincipalType.USER, "some_user"));
     }
 
     @Test
@@ -642,8 +654,8 @@ public class TestFileBasedSystemAccessControl
     {
         SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table.json");
 
-        assertAccessDenied(() -> accessControl.checkCanSetViewAuthorization(ALICE, new CatalogSchemaTableName("some-catalog", "test", "test"), new TrinoPrincipal(PrincipalType.ROLE, "some_role")), AUTH_VIEW_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanSetViewAuthorization(ALICE, new CatalogSchemaTableName("some-catalog", "test", "test"), new TrinoPrincipal(PrincipalType.USER, "some_user")), AUTH_VIEW_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanSetTableAuthorization(ALICE, new CatalogSchemaTableName("some-catalog", "test", "test"), new TrinoPrincipal(PrincipalType.ROLE, "some_role")), AUTH_TABLE_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanSetTableAuthorization(ALICE, new CatalogSchemaTableName("some-catalog", "test", "test"), new TrinoPrincipal(PrincipalType.USER, "some_user")), AUTH_TABLE_ACCESS_DENIED_MESSAGE);
     }
 
     @Test
@@ -673,6 +685,16 @@ public class TestFileBasedSystemAccessControl
         accessControl.checkCanRenameTable(ALICE, new CatalogSchemaTableName("some-catalog", "aliceschema", "alicetable"), new CatalogSchemaTableName("some-catalog", "aliceschema", "newalicetable"));
         assertAccessDenied(() -> accessControl.checkCanRenameTable(BOB, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), new CatalogSchemaTableName("some-catalog", "bobschema", "newbobtable")), RENAME_TABLE_ACCESS_DENIED_MESSAGE);
         assertAccessDenied(() -> accessControl.checkCanRenameTable(ALICE, new CatalogSchemaTableName("some-catalog", "aliceschema", "alicetable"), new CatalogSchemaTableName("some-catalog", "bobschema", "newalicetable")), RENAME_TABLE_ACCESS_DENIED_MESSAGE);
+    }
+
+    @Test
+    public void testTableRulesForCheckCanSetTableProperties()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table.json");
+
+        accessControl.checkCanSetTableProperties(ADMIN, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), ImmutableMap.of());
+        accessControl.checkCanSetTableProperties(ALICE, new CatalogSchemaTableName("some-catalog", "aliceschema", "alicetable"), ImmutableMap.of());
+        assertAccessDenied(() -> accessControl.checkCanSetTableProperties(BOB, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), ImmutableMap.of()), SET_TABLE_PROPERTIES_ACCESS_DENIED_MESSAGE);
     }
 
     @Test
@@ -743,10 +765,42 @@ public class TestFileBasedSystemAccessControl
         assertEquals(accessControlManager.filterViewQueryOwnedBy(new SystemSecurityContext(bob, queryId), ImmutableSet.of("a", "b")), ImmutableSet.of());
         accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(bob, queryId), "any");
 
+        accessControlManager.checkCanExecuteQuery(new SystemSecurityContext(dave, queryId));
+        accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(dave, queryId), "alice");
+        accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(dave, queryId), "dave");
+        assertEquals(accessControlManager.filterViewQueryOwnedBy(new SystemSecurityContext(dave, queryId), ImmutableSet.of("alice", "bob", "dave", "admin")),
+                ImmutableSet.of("alice", "dave"));
+        assertThatThrownBy(() -> accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(dave, queryId), "alice"))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Access Denied: Cannot view query");
+        assertThatThrownBy(() -> accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(dave, queryId), "bob"))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Access Denied: Cannot view query");
+        assertThatThrownBy(() -> accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(dave, queryId), "bob"))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Access Denied: Cannot view query");
+        assertThatThrownBy(() -> accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(dave, queryId), "admin"))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Access Denied: Cannot view query");
+
+        Identity contractor = Identity.forUser("some-other-contractor").withGroups(ImmutableSet.of("contractors")).build();
+        accessControlManager.checkCanExecuteQuery(new SystemSecurityContext(contractor, queryId));
+        accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(contractor, queryId), "dave");
+        assertThatThrownBy(() -> accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(contractor, queryId), "dave"))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Access Denied: Cannot view query");
+
         accessControlManager.checkCanExecuteQuery(new SystemSecurityContext(nonAsciiUser, queryId));
         accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(nonAsciiUser, queryId), "any");
         assertEquals(accessControlManager.filterViewQueryOwnedBy(new SystemSecurityContext(nonAsciiUser, queryId), ImmutableSet.of("a", "b")), ImmutableSet.of("a", "b"));
         accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(nonAsciiUser, queryId), "any");
+    }
+
+    @Test
+    public void testInvalidQuery()
+    {
+        assertThatThrownBy(() -> newFileBasedSystemAccessControl("query-invalid.json"))
+                .getRootCause().hasMessage("A valid query rule cannot combine an queryOwner condition with access mode 'execute'");
     }
 
     @Test
@@ -784,6 +838,31 @@ public class TestFileBasedSystemAccessControl
                 .hasMessage("Access Denied: Cannot view query");
         assertEquals(accessControlManager.filterViewQueryOwnedBy(new SystemSecurityContext(bob, queryId), ImmutableSet.of("a", "b")), ImmutableSet.of());
         assertThatThrownBy(() -> accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(bob, queryId), "any"))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Access Denied: Cannot view query");
+
+        accessControlManager.checkCanExecuteQuery(new SystemSecurityContext(dave, queryId));
+        accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(dave, queryId), "alice");
+        accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(dave, queryId), "dave");
+        assertEquals(accessControlManager.filterViewQueryOwnedBy(new SystemSecurityContext(dave, queryId), ImmutableSet.of("alice", "bob", "dave", "admin")),
+                ImmutableSet.of("alice", "dave"));
+        assertThatThrownBy(() -> accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(dave, queryId), "alice"))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Access Denied: Cannot view query");
+        assertThatThrownBy(() -> accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(dave, queryId), "bob"))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Access Denied: Cannot view query");
+        assertThatThrownBy(() -> accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(dave, queryId), "bob"))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Access Denied: Cannot view query");
+        assertThatThrownBy(() -> accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(dave, queryId), "admin"))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Access Denied: Cannot view query");
+
+        Identity contractor = Identity.forUser("some-other-contractor").withGroups(ImmutableSet.of("contractors")).build();
+        accessControlManager.checkCanExecuteQuery(new SystemSecurityContext(contractor, queryId));
+        accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(contractor, queryId), "dave");
+        assertThatThrownBy(() -> accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(contractor, queryId), "dave"))
                 .isInstanceOf(AccessDeniedException.class)
                 .hasMessage("Access Denied: Cannot view query");
     }
@@ -1228,7 +1307,7 @@ public class TestFileBasedSystemAccessControl
 
     private String getResourcePath(String resourceName)
     {
-        return this.getClass().getClassLoader().getResource(resourceName).getPath();
+        return requireNonNull(this.getClass().getClassLoader().getResource(resourceName), "Resource does not exist: " + resourceName).getPath();
     }
 
     private static void assertAccessDenied(ThrowingCallable callable, String expectedMessage)

@@ -38,7 +38,7 @@ public final class Benchmarks
     {
         ChainedOptionsBuilder optionsBuilder = new OptionsBuilder()
                 .verbosity(VerboseMode.NORMAL)
-                .include(".*" + benchmarkClass.getSimpleName() + ".*")
+                .include("^\\Q" + benchmarkClass.getName() + ".\\E")
                 .resultFormat(ResultFormatType.JSON)
                 .result(format("%s/%s-result-%s.json", System.getProperty("java.io.tmpdir"), benchmarkClass.getSimpleName(), ISO_DATE_TIME.format(LocalDateTime.now())));
         return new BenchmarkBuilder(optionsBuilder);

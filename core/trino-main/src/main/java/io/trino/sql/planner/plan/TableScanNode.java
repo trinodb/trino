@@ -253,4 +253,17 @@ public class TableScanNode
                 updateTarget,
                 Optional.of(useConnectorNodePartitioning));
     }
+
+    public TableScanNode withTableHandle(TableHandle table)
+    {
+        return new TableScanNode(
+                getId(),
+                table,
+                outputSymbols,
+                assignments,
+                enforcedConstraint,
+                statistics,
+                updateTarget,
+                useConnectorNodePartitioning);
+    }
 }

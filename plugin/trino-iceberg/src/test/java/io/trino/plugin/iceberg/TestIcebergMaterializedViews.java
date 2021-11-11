@@ -39,6 +39,7 @@ import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_MATERIALIZED_VIEW;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.INSERT_TABLE;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.REFRESH_MATERIALIZED_VIEW;
+import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.RENAME_MATERIALIZED_VIEW;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.UPDATE_TABLE;
 import static io.trino.testing.TestingAccessControlManager.privilege;
@@ -96,14 +97,16 @@ public class TestIcebergMaterializedViews
         String schemaName = getSession().getSchema().orElseThrow();
         String materializedViewName = format("test_materialized_view_%s", randomTableSuffix());
 
-        computeActual("CREATE TABLE region AS SELECT * FROM tpch.tiny.region LIMIT 1");
-        computeActual(format("CREATE MATERIALIZED VIEW %s AS SELECT * FROM region LIMIT 1", materializedViewName));
+        computeActual("CREATE TABLE small_region AS SELECT * FROM tpch.tiny.region LIMIT 1");
+        computeActual(format("CREATE MATERIALIZED VIEW %s AS SELECT * FROM small_region LIMIT 1", materializedViewName));
 
         // test storage table name
         assertQuery(
                 format(
                         "SELECT storage_catalog, storage_schema, CONCAT(storage_schema, '.', storage_table)" +
-                                "FROM system.metadata.materialized_views WHERE name = '%s'",
+                                "FROM system.metadata.materialized_views WHERE schema_name = '%s' AND name = '%s'",
+                        // TODO (https://github.com/trinodb/trino/issues/9039) remove redundant schema_name filter
+                        schemaName,
                         materializedViewName),
                 format(
                         "VALUES ('%s', '%s', '%s')",
@@ -113,16 +116,18 @@ public class TestIcebergMaterializedViews
 
         // test freshness update
         assertQuery(
-                format("SELECT is_fresh FROM system.metadata.materialized_views WHERE name = '%s'", materializedViewName),
-                "VALUES ('false')");
+                // TODO (https://github.com/trinodb/trino/issues/9039) remove redundant schema_name filter
+                format("SELECT is_fresh FROM system.metadata.materialized_views WHERE schema_name = '%s' AND name = '%s'", schemaName, materializedViewName),
+                "VALUES false");
 
         computeActual(format("REFRESH MATERIALIZED VIEW %s", materializedViewName));
 
         assertQuery(
-                format("SELECT is_fresh FROM system.metadata.materialized_views WHERE name = '%s'", materializedViewName),
-                "VALUES ('true')");
+                // TODO (https://github.com/trinodb/trino/issues/9039) remove redundant schema_name filter
+                format("SELECT is_fresh FROM system.metadata.materialized_views WHERE schema_name = '%s' AND name = '%s'", schemaName, materializedViewName),
+                "VALUES true");
 
-        assertUpdate("DROP TABLE region");
+        assertUpdate("DROP TABLE small_region");
         assertUpdate(format("DROP MATERIALIZED VIEW %s", materializedViewName));
     }
 
@@ -176,8 +181,8 @@ public class TestIcebergMaterializedViews
         assertUpdate(session, "DROP MATERIALIZED VIEW iceberg.tpch.materialized_view_session_test");
 
         session = Session.builder(getSession())
-                .setCatalog(null)
-                .setSchema(null)
+                .setCatalog(Optional.empty())
+                .setSchema(Optional.empty())
                 .build();
         assertUpdate(session, "CREATE MATERIALIZED VIEW iceberg.tpch.materialized_view_session_test AS SELECT * FROM iceberg.tpch.base_table1");
         assertQuery(session, "SELECT COUNT(*) FROM iceberg.tpch.materialized_view_session_test", "VALUES 6");
@@ -202,6 +207,17 @@ public class TestIcebergMaterializedViews
                 "Cannot drop materialized view .*.materialized_view_drop_deny.*",
                 privilege("materialized_view_drop_deny", DROP_MATERIALIZED_VIEW));
         assertUpdate("DROP MATERIALIZED VIEW materialized_view_drop_deny");
+    }
+
+    @Test
+    public void testRenameDenyPermission()
+    {
+        assertUpdate("CREATE MATERIALIZED VIEW materialized_view_rename_deny AS SELECT * FROM base_table1");
+        assertAccessDenied(
+                "ALTER MATERIALIZED VIEW materialized_view_rename_deny RENAME TO materialized_view_rename_deny_new",
+                "Cannot rename materialized view .*.materialized_view_rename_deny.*",
+                privilege("materialized_view_rename_deny", RENAME_MATERIALIZED_VIEW));
+        assertUpdate("DROP MATERIALIZED VIEW materialized_view_rename_deny");
     }
 
     @Test

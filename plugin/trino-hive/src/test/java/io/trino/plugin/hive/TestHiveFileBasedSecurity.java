@@ -27,6 +27,7 @@ import java.io.File;
 
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.tpch.TpchTable.NATION;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestHiveFileBasedSecurity
 {
@@ -59,18 +60,20 @@ public class TestHiveFileBasedSecurity
         queryRunner.execute(admin, "SELECT * FROM nation");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Access Denied: Cannot select from table tpch.nation.*")
+    @Test
     public void testNonAdminCannotRead()
     {
         Session bob = getSession("bob");
-        queryRunner.execute(bob, "SELECT * FROM nation");
+        assertThatThrownBy(() -> queryRunner.execute(bob, "SELECT * FROM nation"))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageMatching(".*Access Denied: Cannot select from table tpch.nation.*");
     }
 
     private Session getSession(String user)
     {
         return testSessionBuilder()
-                .setCatalog(queryRunner.getDefaultSession().getCatalog().get())
-                .setSchema(queryRunner.getDefaultSession().getSchema().get())
+                .setCatalog(queryRunner.getDefaultSession().getCatalog())
+                .setSchema(queryRunner.getDefaultSession().getSchema())
                 .setIdentity(Identity.ofUser(user))
                 .build();
     }

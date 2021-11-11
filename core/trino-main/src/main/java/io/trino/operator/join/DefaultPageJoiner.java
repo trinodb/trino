@@ -53,7 +53,7 @@ import static io.trino.operator.WorkProcessor.TransformationState.blocked;
 import static io.trino.operator.WorkProcessor.TransformationState.finished;
 import static io.trino.operator.WorkProcessor.TransformationState.needsMoreData;
 import static io.trino.operator.WorkProcessor.TransformationState.ofResult;
-import static io.trino.operator.WorkProcessor.TransformationState.yield;
+import static io.trino.operator.WorkProcessor.TransformationState.yielded;
 import static io.trino.operator.join.LookupJoinOperatorFactory.JoinType.FULL_OUTER;
 import static io.trino.operator.join.LookupJoinOperatorFactory.JoinType.PROBE_OUTER;
 import static io.trino.operator.join.PartitionedLookupSourceFactory.NO_SPILL_EPOCH;
@@ -205,7 +205,7 @@ public class DefaultPageJoiner
                 return ofResult(buildOutputPage(), false);
             }
 
-            return yield();
+            return yielded();
         }
 
         if (!pageBuilder.isEmpty() || finishing) {
@@ -240,11 +240,8 @@ public class DefaultPageJoiner
                 if (!joinCurrentPosition(lookupSource, yieldSignal)) {
                     break;
                 }
-                if (!currentProbePositionProducedRow) {
-                    currentProbePositionProducedRow = true;
-                    if (!outerJoinCurrentPosition()) {
-                        break;
-                    }
+                if (probeOnOuterSide && !outerJoinCurrentPosition()) {
+                    break;
                 }
                 statisticsCounter.recordProbe(joinSourcePositions);
             }
@@ -289,13 +286,14 @@ public class DefaultPageJoiner
     }
 
     /**
-     * Produce a row for the current probe position, if it doesn't match any row on lookup side and this is an outer join.
+     * Produce a row for the current probe position, if it doesn't match any row on lookup side.
      *
      * @return whether pageBuilder can still not fill
      */
     private boolean outerJoinCurrentPosition()
     {
-        if (probeOnOuterSide) {
+        if (!currentProbePositionProducedRow) {
+            currentProbePositionProducedRow = true;
             pageBuilder.appendNullForBuild(probe);
             return !pageBuilder.isFull();
         }

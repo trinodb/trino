@@ -131,7 +131,8 @@ public final class DecimalOperators
             Slice right;
 
             if (rescaleLeft) {
-                left = rescale(a, rescale);
+                left = unscaledDecimal();
+                rescale(a, rescale, left);
                 right = unscaledDecimal(b);
             }
             else {

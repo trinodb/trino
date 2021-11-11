@@ -196,4 +196,20 @@ public class IndexMetadata
             return fields;
         }
     }
+
+    public static class ScaledFloatType
+            implements Type
+    {
+        private final double scale;
+
+        public ScaledFloatType(double scale)
+        {
+            this.scale = scale;
+        }
+
+        public double getScale()
+        {
+            return scale;
+        }
+    }
 }

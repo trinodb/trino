@@ -78,13 +78,15 @@ public class DriverContext
 
     private final List<OperatorContext> operatorContexts = new CopyOnWriteArrayList<>();
     private final Lifespan lifespan;
+    private final long splitWeight;
 
     public DriverContext(
             PipelineContext pipelineContext,
             Executor notificationExecutor,
             ScheduledExecutorService yieldExecutor,
             MemoryTrackingContext driverMemoryContext,
-            Lifespan lifespan)
+            Lifespan lifespan,
+            long splitWeight)
     {
         this.pipelineContext = requireNonNull(pipelineContext, "pipelineContext is null");
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
@@ -92,11 +94,18 @@ public class DriverContext
         this.driverMemoryContext = requireNonNull(driverMemoryContext, "driverMemoryContext is null");
         this.lifespan = requireNonNull(lifespan, "lifespan is null");
         this.yieldSignal = new DriverYieldSignal();
+        this.splitWeight = splitWeight;
+        checkArgument(splitWeight >= 0, "splitWeight must be >= 0, found: %s", splitWeight);
     }
 
     public TaskId getTaskId()
     {
         return pipelineContext.getTaskId();
+    }
+
+    public long getSplitWeight()
+    {
+        return splitWeight;
     }
 
     public OperatorContext addOperatorContext(int operatorId, PlanNodeId planNodeId, String operatorType)

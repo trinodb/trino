@@ -17,7 +17,7 @@ the needs of the query.
 ``scale-writers``
 ^^^^^^^^^^^^^^^^^
 
-* **Type:** ``boolean``
+* **Type:** :ref:`prop-type-boolean`
 * **Default value:** ``false``
 
 Enable writer scaling. This can be specified on a per-query basis
@@ -25,7 +25,7 @@ using the ``scale_writers`` session property.
 
 ``writer-min-size``
 ^^^^^^^^^^^^^^^^^^^
-* **Type:** ``data size``
+* **Type:** :ref:`prop-type-data-size`
 * **Default value:** ``32MB``
 
 The minimum amount of data that must be written by a writer task before

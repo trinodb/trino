@@ -14,11 +14,11 @@
 
 package io.trino.cost;
 
-import io.trino.sql.planner.FunctionCallBuilder;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.ComparisonExpression.Operator;
-import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.DoubleLiteral;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.SymbolReference;
 import org.testng.annotations.AfterClass;
@@ -150,11 +150,11 @@ public class TestFilterStatsRule
         // can't estimate function and default filter factor is turned off
         ComparisonExpression unestimatableExpression = new ComparisonExpression(
                 Operator.EQUAL,
-                new FunctionCallBuilder(tester().getMetadata())
-                        .setName(QualifiedName.of("sin"))
+                new TestingFunctionResolution()
+                        .functionCallBuilder(QualifiedName.of("sin"))
                         .addArgument(DOUBLE, new SymbolReference("i1"))
                         .build(),
-                new LongLiteral("1"));
+                new DoubleLiteral("1"));
 
         tester()
                 .assertStatsFor(pb -> pb

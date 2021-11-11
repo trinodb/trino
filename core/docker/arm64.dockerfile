@@ -16,7 +16,7 @@ FROM centos:centos8
 ENV JAVA_HOME /usr/lib/jvm/jre-11
 RUN \
     set -xeu && \
-    yum -y -q install python3 java-11-openjdk-headless && \
+    yum -y -q install python3 java-11-openjdk-headless java-11-openjdk-devel && \
     yum -q clean all && \
     rm -rf /var/cache/yum && \
     alternatives --set python /usr/bin/python3 && \

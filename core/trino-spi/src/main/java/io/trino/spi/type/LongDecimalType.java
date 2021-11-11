@@ -26,15 +26,18 @@ import io.trino.spi.function.BlockIndex;
 import io.trino.spi.function.BlockPosition;
 import io.trino.spi.function.ScalarOperator;
 
+import java.math.BigInteger;
+
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.trino.spi.block.Int128ArrayBlock.INT128_BYTES;
-import static io.trino.spi.function.OperatorType.COMPARISON;
+import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
 import static io.trino.spi.type.Decimals.decodeUnscaledValue;
 import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.UNSCALED_DECIMAL_128_SLICE_LENGTH;
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.compare;
+import static io.trino.spi.type.UnscaledDecimal128Arithmetic.isNegative;
 import static java.lang.invoke.MethodHandles.lookup;
 
 final class LongDecimalType
@@ -95,7 +98,10 @@ final class LongDecimalType
             return null;
         }
         Slice slice = getSlice(block, position);
-        return new SqlDecimal(decodeUnscaledValue(slice), getPrecision(), getScale());
+        BigInteger unscaledValue = decodeUnscaledValue(slice);
+        // sanity check: disallow "negative zero" in case we get a corrupted result from somewhere
+        checkArgument(unscaledValue.signum() != 0 || !isNegative(slice), "The encoded long decimal is invalid: negative zero");
+        return new SqlDecimal(unscaledValue, getPrecision(), getScale());
     }
 
     @Override
@@ -178,13 +184,13 @@ final class LongDecimalType
         return XxHash64.hash(low) ^ XxHash64.hash(high);
     }
 
-    @ScalarOperator(COMPARISON)
+    @ScalarOperator(COMPARISON_UNORDERED_LAST)
     private static long comparisonOperator(Slice left, Slice right)
     {
         return compare(left, right);
     }
 
-    @ScalarOperator(COMPARISON)
+    @ScalarOperator(COMPARISON_UNORDERED_LAST)
     private static long comparisonOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
     {
         long leftLow = leftBlock.getLong(leftPosition, 0);

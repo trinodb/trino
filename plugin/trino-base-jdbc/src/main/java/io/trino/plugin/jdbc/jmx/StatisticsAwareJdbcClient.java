@@ -220,6 +220,12 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
+    public void setTableProperties(ConnectorSession session, JdbcTableHandle handle, Map<String, Object> properties)
+    {
+        stats.getSetTableProperties().wrap(() -> delegate().setTableProperties(session, handle, properties));
+    }
+
+    @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         stats.getCreateTable().wrap(() -> delegate().createTable(session, tableMetadata));
@@ -357,5 +363,11 @@ public final class StatisticsAwareJdbcClient
     public OptionalLong delete(ConnectorSession session, JdbcTableHandle handle)
     {
         return stats.getDelete().wrap(() -> delegate().delete(session, handle));
+    }
+
+    @Override
+    public void truncateTable(ConnectorSession session, JdbcTableHandle handle)
+    {
+        stats.getTruncateTable().wrap(() -> delegate().truncateTable(session, handle));
     }
 }
