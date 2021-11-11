@@ -36,10 +36,10 @@ public class TestDropMaterializedViewTask
     {
         QualifiedObjectName viewName = qualifiedObjectName("existing_materialized_view");
         metadata.createMaterializedView(testSession, viewName, someMaterializedView(), false, false);
-        assertThat(metadata.getMaterializedView(testSession, viewName)).isPresent();
+        assertThat(metadata.isMaterializedView(testSession, viewName)).isTrue();
 
         getFutureValue(executeDropMaterializedView(asQualifiedName(viewName), false));
-        assertThat(metadata.getMaterializedView(testSession, viewName)).isEmpty();
+        assertThat(metadata.isMaterializedView(testSession, viewName)).isFalse();
     }
 
     @Test

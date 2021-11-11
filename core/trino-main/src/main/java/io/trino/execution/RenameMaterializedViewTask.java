@@ -20,7 +20,6 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.security.AccessControl;
-import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.RenameMaterializedView;
 import io.trino.transaction.TransactionManager;
@@ -57,8 +56,7 @@ public class RenameMaterializedViewTask
     {
         Session session = stateMachine.getSession();
         QualifiedObjectName materializedViewName = createQualifiedObjectName(session, statement, statement.getSource());
-        Optional<ConnectorMaterializedViewDefinition> materializedView = metadata.getMaterializedView(session, materializedViewName);
-        if (materializedView.isEmpty()) {
+        if (!metadata.isMaterializedView(session, materializedViewName)) {
             if (metadata.isView(session, materializedViewName)) {
                 throw semanticException(
                         TABLE_NOT_FOUND,
@@ -84,7 +82,7 @@ public class RenameMaterializedViewTask
         if (metadata.getCatalogHandle(session, target.getCatalogName()).isEmpty()) {
             throw semanticException(CATALOG_NOT_FOUND, statement, "Target catalog '%s' does not exist", target.getCatalogName());
         }
-        if (metadata.getMaterializedView(session, target).isPresent()) {
+        if (metadata.isMaterializedView(session, target)) {
             throw semanticException(TABLE_ALREADY_EXISTS, statement, "Target materialized view '%s' already exists", target);
         }
         if (metadata.isView(session, target)) {

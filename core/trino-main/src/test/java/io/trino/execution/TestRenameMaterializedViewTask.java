@@ -40,8 +40,8 @@ public class TestRenameMaterializedViewTask
         metadata.createMaterializedView(testSession, materializedViewName, someMaterializedView(), false, false);
 
         getFutureValue(executeRenameMaterializedView(asQualifiedName(materializedViewName), asQualifiedName(newMaterializedViewName)));
-        assertThat(metadata.getMaterializedView(testSession, materializedViewName)).isEmpty();
-        assertThat(metadata.getMaterializedView(testSession, newMaterializedViewName)).isPresent();
+        assertThat(metadata.isMaterializedView(testSession, materializedViewName)).isFalse();
+        assertThat(metadata.isMaterializedView(testSession, newMaterializedViewName)).isTrue();
     }
 
     @Test
