@@ -101,4 +101,18 @@ public class MaterializedViewDefinition
                 .add("properties", properties)
                 .toString();
     }
+
+    @Override
+    public MaterializedViewDefinition withOwner(Identity owner)
+    {
+        return new MaterializedViewDefinition(
+                getOriginalSql(),
+                getCatalog(),
+                getSchema(),
+                getColumns(),
+                getComment(),
+                owner,
+                storageTable,
+                properties);
+    }
 }
