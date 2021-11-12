@@ -286,6 +286,12 @@ public class TestStatementBuilder
         printStatement("grant select on foo to alice with grant option");
         printStatement("grant all privileges on foo to alice");
         printStatement("grant delete, select on foo to role public");
+        printStatement("deny select on foo to alice");
+        printStatement("deny all privileges on foo to alice");
+        printStatement("deny delete, select on foo to role public");
+        printStatement("deny select on schema foo to alice");
+        printStatement("deny all privileges on schema foo to alice");
+        printStatement("deny delete, select on schema foo to role public");
         printStatement("revoke grant option for select on foo from alice");
         printStatement("revoke all privileges on foo from alice");
         printStatement("revoke insert, delete on foo from role public");

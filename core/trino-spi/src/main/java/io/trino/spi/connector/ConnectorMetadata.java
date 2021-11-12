@@ -869,6 +869,14 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Denys the specified privilege to the specified user on the specified schema
+     */
+    default void denySchemaPrivileges(ConnectorSession session, String schemaName, Set<Privilege> privileges, TrinoPrincipal grantee)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support denys on schemas");
+    }
+
+    /**
      * Revokes the specified privilege on the specified schema from the specified user
      */
     default void revokeSchemaPrivileges(ConnectorSession session, String schemaName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
@@ -882,6 +890,14 @@ public interface ConnectorMetadata
     default void grantTablePrivileges(ConnectorSession session, SchemaTableName tableName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support grants on tables");
+    }
+
+    /**
+     * Denys the specified privilege to the specified user on the specified table
+     */
+    default void denyTablePrivileges(ConnectorSession session, SchemaTableName tableName, Set<Privilege> privileges, TrinoPrincipal grantee)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support denys on tables");
     }
 
     /**

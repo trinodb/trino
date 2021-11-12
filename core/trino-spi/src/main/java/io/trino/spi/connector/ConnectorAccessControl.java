@@ -32,6 +32,8 @@ import static io.trino.spi.security.AccessDeniedException.denyCreateTable;
 import static io.trino.spi.security.AccessDeniedException.denyCreateView;
 import static io.trino.spi.security.AccessDeniedException.denyCreateViewWithSelect;
 import static io.trino.spi.security.AccessDeniedException.denyDeleteTable;
+import static io.trino.spi.security.AccessDeniedException.denyDenySchemaPrivilege;
+import static io.trino.spi.security.AccessDeniedException.denyDenyTablePrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyDropColumn;
 import static io.trino.spi.security.AccessDeniedException.denyDropMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyDropRole;
@@ -473,6 +475,16 @@ public interface ConnectorAccessControl
         denyGrantSchemaPrivilege(privilege.toString(), schemaName);
     }
 
+    /**
+     * Check if identity is allowed to deny to any other user the specified privilege on the specified schema.
+     *
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanDenySchemaPrivilege(ConnectorSecurityContext context, Privilege privilege, String schemaName, TrinoPrincipal grantee)
+    {
+        denyDenySchemaPrivilege(privilege.toString(), schemaName);
+    }
+
     default void checkCanRevokeSchemaPrivilege(ConnectorSecurityContext context, Privilege privilege, String schemaName, TrinoPrincipal revokee, boolean grantOption)
     {
         denyRevokeSchemaPrivilege(privilege.toString(), schemaName);
@@ -486,6 +498,16 @@ public interface ConnectorAccessControl
     default void checkCanGrantTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, TrinoPrincipal grantee, boolean grantOption)
     {
         denyGrantTablePrivilege(privilege.toString(), tableName.toString());
+    }
+
+    /**
+     * Check if identity is allowed to deny to any other user the specified privilege on the specified table.
+     *
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanDenyTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, TrinoPrincipal grantee)
+    {
+        denyDenyTablePrivilege(privilege.toString(), tableName.toString());
     }
 
     /**

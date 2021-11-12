@@ -282,6 +282,12 @@ public abstract class ForwardingConnectorAccessControl
     }
 
     @Override
+    public void checkCanDenySchemaPrivilege(ConnectorSecurityContext context, Privilege privilege, String schemaName, TrinoPrincipal grantee)
+    {
+        delegate().checkCanDenySchemaPrivilege(context, privilege, schemaName, grantee);
+    }
+
+    @Override
     public void checkCanRevokeSchemaPrivilege(ConnectorSecurityContext context, Privilege privilege, String schemaName, TrinoPrincipal revokee, boolean grantOption)
     {
         delegate().checkCanRevokeSchemaPrivilege(context, privilege, schemaName, revokee, grantOption);
@@ -291,6 +297,12 @@ public abstract class ForwardingConnectorAccessControl
     public void checkCanGrantTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, TrinoPrincipal grantee, boolean grantOption)
     {
         delegate().checkCanGrantTablePrivilege(context, privilege, tableName, grantee, grantOption);
+    }
+
+    @Override
+    public void checkCanDenyTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, TrinoPrincipal grantee)
+    {
+        delegate().checkCanDenyTablePrivilege(context, privilege, tableName, grantee);
     }
 
     @Override

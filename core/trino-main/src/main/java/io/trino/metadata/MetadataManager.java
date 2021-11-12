@@ -2151,6 +2151,20 @@ public final class MetadataManager
     }
 
     @Override
+    public void denyTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, TrinoPrincipal grantee)
+    {
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, tableName.getCatalogName());
+        if (catalogMetadata.getSecurityManagement() == SecurityManagement.SYSTEM) {
+            systemSecurityMetadata.denyTablePrivileges(session, tableName, privileges, grantee);
+            return;
+        }
+        CatalogName catalogName = catalogMetadata.getCatalogName();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+
+        metadata.denyTablePrivileges(session.toConnectorSession(catalogName), tableName.asSchemaTableName(), privileges, grantee);
+    }
+
+    @Override
     public void revokeTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, tableName.getCatalogName());
@@ -2176,6 +2190,20 @@ public final class MetadataManager
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
         metadata.grantSchemaPrivileges(session.toConnectorSession(catalogName), schemaName.getSchemaName(), privileges, grantee, grantOption);
+    }
+
+    @Override
+    public void denySchemaPrivileges(Session session, CatalogSchemaName schemaName, Set<Privilege> privileges, TrinoPrincipal grantee)
+    {
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, schemaName.getCatalogName());
+        if (catalogMetadata.getSecurityManagement() == SecurityManagement.SYSTEM) {
+            systemSecurityMetadata.denySchemaPrivileges(session, schemaName, privileges, grantee);
+            return;
+        }
+        CatalogName catalogName = catalogMetadata.getCatalogName();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+
+        metadata.denySchemaPrivileges(session.toConnectorSession(catalogName), schemaName.getSchemaName(), privileges, grantee);
     }
 
     @Override

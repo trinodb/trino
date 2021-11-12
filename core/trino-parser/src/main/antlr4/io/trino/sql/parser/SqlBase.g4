@@ -116,6 +116,10 @@ statement
         ON (SCHEMA | TABLE)? qualifiedName
         TO grantee=principal
         (WITH GRANT OPTION)?                                           #grant
+    | DENY
+        (privilege (',' privilege)* | ALL PRIVILEGES)
+        ON (SCHEMA | TABLE)? qualifiedName
+        TO grantee=principal                                           #deny
     | REVOKE
         (GRANT OPTION FOR)?
         (privilege (',' privilege)* | ALL PRIVILEGES)
@@ -701,7 +705,7 @@ nonReserved
     | DATA | DATE | DAY | DEFINE | DEFINER | DESC | DISTRIBUTED | DOUBLE
     | EMPTY | ERROR | EXCLUDING | EXPLAIN
     | FETCH | FILTER | FINAL | FIRST | FOLLOWING | FORMAT | FUNCTIONS
-    | GRANT | GRANTED | GRANTS | GRAPHVIZ | GROUPS
+    | GRANT | DENY | GRANTED | GRANTS | GRAPHVIZ | GROUPS
     | HOUR
     | IF | IGNORE | INCLUDING | INITIAL | INPUT | INTERVAL | INVOKER | IO | ISOLATION
     | JSON
@@ -767,6 +771,7 @@ DAY: 'DAY';
 DEALLOCATE: 'DEALLOCATE';
 DEFINER: 'DEFINER';
 DELETE: 'DELETE';
+DENY: 'DENY';
 DESC: 'DESC';
 DESCRIBE: 'DESCRIBE';
 DEFINE: 'DEFINE';

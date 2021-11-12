@@ -1468,6 +1468,7 @@ public abstract class AbstractTestEngineOnlyQueries
         assertDescribeOutputEmpty("COMMIT");
         assertDescribeOutputEmpty("ROLLBACK");
         assertDescribeOutputEmpty("GRANT INSERT ON foo TO bar");
+        assertDescribeOutputEmpty("DENY INSERT ON foo TO bar");
         assertDescribeOutputEmpty("REVOKE INSERT ON foo FROM bar");
         assertDescribeOutputEmpty("CREATE SCHEMA foo");
         assertDescribeOutputEmpty("CREATE SCHEMA foo AUTHORIZATION bar");

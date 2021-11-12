@@ -322,6 +322,13 @@ public class InjectedConnectorAccessControl
     }
 
     @Override
+    public void checkCanDenySchemaPrivilege(ConnectorSecurityContext context, Privilege privilege, String schemaName, TrinoPrincipal grantee)
+    {
+        checkArgument(context == null, "context must be null");
+        accessControl.checkCanDenySchemaPrivilege(securityContext, privilege, getCatalogSchemaName(schemaName), grantee);
+    }
+
+    @Override
     public void checkCanRevokeSchemaPrivilege(ConnectorSecurityContext context, Privilege privilege, String schemaName, TrinoPrincipal revokee, boolean grantOption)
     {
         checkArgument(context == null, "context must be null");
@@ -333,6 +340,13 @@ public class InjectedConnectorAccessControl
     {
         checkArgument(context == null, "context must be null");
         accessControl.checkCanGrantTablePrivilege(securityContext, privilege, getQualifiedObjectName(tableName), grantee, grantOption);
+    }
+
+    @Override
+    public void checkCanDenyTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, TrinoPrincipal grantee)
+    {
+        checkArgument(context == null, "context must be null");
+        accessControl.checkCanDenyTablePrivilege(securityContext, privilege, getQualifiedObjectName(tableName), grantee);
     }
 
     @Override
