@@ -102,7 +102,7 @@
 
         <dependency>
             <groupId>com.google.api.grpc</groupId>
-            <artifactId>proto-google-cloud-bigquerystorage-v1beta1</artifactId>
+            <artifactId>proto-google-cloud-bigquerystorage-v1</artifactId>
             <exclusions>
                 <exclusion>
                     <groupId>com.google.guava</groupId>

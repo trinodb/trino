@@ -43,7 +43,7 @@ public class BigQueryConnectorModule
     public void configure(Binder binder)
     {
         // BigQuery related
-        binder.bind(BigQueryStorageClientFactory.class).in(Scopes.SINGLETON);
+        binder.bind(BigQueryReadClientFactory.class).in(Scopes.SINGLETON);
 
         // Connector implementation
         binder.bind(BigQueryConnector.class).in(Scopes.SINGLETON);

@@ -17,7 +17,7 @@ import com.google.cloud.bigquery.BigQueryException;
 import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.TableInfo;
 import com.google.cloud.bigquery.TableResult;
-import com.google.cloud.bigquery.storage.v1beta1.Storage.ReadSession;
+import com.google.cloud.bigquery.storage.v1.ReadSession;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
@@ -56,7 +56,7 @@ public class BigQuerySplitManager
     private static final Logger log = Logger.get(BigQuerySplitManager.class);
 
     private final BigQueryClient bigQueryClient;
-    private final BigQueryStorageClientFactory bigQueryStorageClientFactory;
+    private final BigQueryReadClientFactory bigQueryReadClientFactory;
     private final OptionalInt parallelism;
     private final boolean viewEnabled;
     private final Duration viewExpiration;
@@ -66,13 +66,13 @@ public class BigQuerySplitManager
     public BigQuerySplitManager(
             BigQueryConfig config,
             BigQueryClient bigQueryClient,
-            BigQueryStorageClientFactory bigQueryStorageClientFactory,
+            BigQueryReadClientFactory bigQueryReadClientFactory,
             NodeManager nodeManager)
     {
         requireNonNull(config, "config cannot be null");
 
         this.bigQueryClient = requireNonNull(bigQueryClient, "bigQueryClient cannot be null");
-        this.bigQueryStorageClientFactory = requireNonNull(bigQueryStorageClientFactory, "bigQueryStorageClientFactory cannot be null");
+        this.bigQueryReadClientFactory = requireNonNull(bigQueryReadClientFactory, "bigQueryReadClientFactory cannot be null");
         this.parallelism = config.getParallelism();
         this.viewEnabled = config.isViewsEnabled();
         this.viewExpiration = config.getViewExpiration();
@@ -113,7 +113,7 @@ public class BigQuerySplitManager
                 .map(column -> ((BigQueryColumnHandle) column).getName())
                 .collect(toImmutableList());
 
-        ReadSession readSession = new ReadSessionCreator(bigQueryClient, bigQueryStorageClientFactory, viewEnabled, viewExpiration)
+        ReadSession readSession = new ReadSessionCreator(bigQueryClient, bigQueryReadClientFactory, viewEnabled, viewExpiration)
                 .create(remoteTableId, projectedColumnsNames, filter, actualParallelism);
 
         return readSession.getStreamsList().stream()
