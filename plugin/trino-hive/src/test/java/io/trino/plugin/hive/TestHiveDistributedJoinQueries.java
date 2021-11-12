@@ -26,7 +26,6 @@ import org.testng.annotations.Test;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
-import static io.trino.tpch.TpchTable.getTables;
 import static org.testng.Assert.assertEquals;
 
 /**
@@ -41,7 +40,7 @@ public class TestHiveDistributedJoinQueries
     {
         verify(new DynamicFilterConfig().isEnableDynamicFiltering(), "this class assumes dynamic filtering is enabled by default");
         return HiveQueryRunner.builder()
-                .setInitialTables(getTables())
+                .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
     }
 
