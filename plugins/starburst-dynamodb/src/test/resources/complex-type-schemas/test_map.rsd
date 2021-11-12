@@ -1,32 +1,6 @@
 <api:script xmlns:api="http://apiscript.com/ns?v1" xmlns:xs="http://www.cdata.com/ns/rsbscript/2" xmlns:other="http://apiscript.com/ns?v1">
-  <api:info title="test_map">
-    <attr name="row_id" xs:type="varchar(2000)" key="true" other:keytype="HASH" other:internaltype="S" />
-    <attr name="value"  xs:type="varchar(2000)"                                 other:internaltype="M" />
+  <api:info title="test_map" other:catalog="CData" other:schema="AmazonDynamoDB" description="test_map" other:tableapiname="test_map" other:version="20">
+    <attr name="row_id" xs:type="varchar(2000)" other:relativepath="row_id" other:fullpath="row_id" other:dynamodatatype="S" key="true" other:keytype="HASH" />
+    <attr name="value"  xs:type="varchar(2000)" other:relativepath="value"  other:fullpath="value"  other:dynamodatatype="M" />
   </api:info>
-
-  <api:set attr="tablename" value="test_map" />
-
-  <api:script method="GET">
-    <api:call op="dynamodbadoMultiThreadSelect">
-      <api:push/>
-    </api:call>
-  </api:script>
-
-  <api:script method="POST">
-    <api:call op="dynamodbadoAdd">
-      <api:push/>
-    </api:call>
-  </api:script>
-
-  <api:script method="MERGE">
-    <api:call op="dynamodbadoUpdate">
-      <api:push/>
-    </api:call>
-  </api:script>
-
-  <api:script method="DELETE">
-    <api:call op="dynamodbadoDelete">
-      <api:push/>
-    </api:call>
-  </api:script>
 </api:script>

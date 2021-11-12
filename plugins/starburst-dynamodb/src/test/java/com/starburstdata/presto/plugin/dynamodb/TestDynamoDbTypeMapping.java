@@ -278,7 +278,7 @@ public class TestDynamoDbTypeMapping
                 "time(3)",
                 "TIME '00:00:00.000'",
                 createTimeType(3),
-                "Illegal value for type varchar(3): '00:00:00'",
+                "Illegal value for type varchar(3): '00:00:00.000'",
                 "Unsupported column type: time");
     }
 

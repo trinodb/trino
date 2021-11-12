@@ -83,6 +83,8 @@ public class DynamoDbConnectionFactory
                 .append("AWS Access Key=\"").append(dynamoDbConfig.getAwsAccessKey()).append("\";")
                 .append("AWS Secret Key=\"").append(dynamoDbConfig.getAwsSecretKey()).append("\";")
                 .append("AWS Region=\"").append(AWS_REGION_TO_CDATA_REGION.get(dynamoDbConfig.getAwsRegion())).append("\";")
+                .append("IgnoreTypes=\"Datetime,Time\";") // Change default of IgnoreTypes to support date types
+                .append("UseBatchWriteItemOperation=\"True\";") // Enable BatchWriteItemOperation to support varbinary types
                 .append("OEMKey=\"").append(CDATA_OEM_KEY).append("\";");
 
         dynamoDbConfig.getEndpointUrl().ifPresent(url -> builder.append("URL=\"").append(url).append("\";"));

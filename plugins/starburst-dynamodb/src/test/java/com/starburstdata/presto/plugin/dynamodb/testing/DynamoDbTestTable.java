@@ -87,12 +87,10 @@ public class DynamoDbTestTable
     private String buildCreateTableSql()
     {
         return "EXEC CreateTable TableName = '" + name + "',\n" +
-                "KeySchema_AttributeName#1 = 'col_0',\n" +
-                "KeySchema_KeyType#1 = 'HASH',\n" +
-                "AttributeDefinitions_AttributeName#1 = 'col_0',\n" +
-                "AttributeDefinitions_AttributeType#1 = '" + getDynamoDbTypeFromSql(columns.get(0).getDeclaredType().get()) + "',\n" +
-                "ProvisionedThroughput_ReadCapacityUnits = '1',\n" +
-                "ProvisionedThroughput_WriteCapacityUnits = '1'";
+                "PartitionKeyName = 'col_0',\n" +
+                format("PartitionKeyType = '%s',\n", getDynamoDbTypeFromSql(columns.get(0).getDeclaredType().get())) +
+                "ReadCapacityUnits = '1',\n" +
+                "WriteCapacityUnits = '1'";
     }
 
     private static String getColumnSize(String declaredType)

@@ -58,7 +58,7 @@
         <dependency>
             <groupId>com.cdata</groupId>
             <artifactId>dynamodb-jdbc</artifactId>
-            <version>2020-3</version>
+            <version>2021-1</version>
         </dependency>
 
         <dependency>

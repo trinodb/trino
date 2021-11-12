@@ -1,34 +1,8 @@
 <api:script xmlns:api="http://apiscript.com/ns?v1" xmlns:xs="http://www.cdata.com/ns/rsbscript/2" xmlns:other="http://apiscript.com/ns?v1">
-  <api:info title="test_flattened_map">
-    <attr name="row_id"  xs:type="varchar(2000)" other:path="row_id"            other:internaltype="S" key="true" other:keytype="HASH" />
-    <attr name="value.a" xs:type="varchar(2000)" other:path="value___cdata___a" other:internaltype="S"  />
-    <attr name="value.b" xs:type="bigint"        other:path="value___cdata___b" other:internaltype="N"  />
-    <attr name="value.c" xs:type="varchar(2000)" other:path="value___cdata___c" other:internaltype="SS" />
+  <api:info title="test_flattened_map" other:catalog="CData" other:schema="AmazonDynamoDB" description="test_flattened_map" other:tableapiname="test_flattened_map" other:version="20">
+    <attr name="row_id"  xs:type="varchar(2000)" other:relativepath="row_id" other:fullpath="row_id"  other:dynamodatatype="S" key="true" other:keytype="HASH" />
+    <attr name="value.a" xs:type="varchar(2000)" other:relativepath="a"      other:fullpath="value.a" other:dynamodatatype="S"  />
+    <attr name="value.b" xs:type="bigint"        other:relativepath="b"      other:fullpath="value.b" other:dynamodatatype="N"  />
+    <attr name="value.c" xs:type="varchar(2000)" other:relativepath="c"      other:fullpath="value.c" other:dynamodatatype="SS" />
   </api:info>
-
-  <api:set attr="tablename" value="test_flattened_map" />
-
-  <api:script method="GET">
-    <api:call op="dynamodbadoMultiThreadSelect">
-      <api:push/>
-    </api:call>
-  </api:script>
-
-  <api:script method="POST">
-    <api:call op="dynamodbadoAdd">
-      <api:push/>
-    </api:call>
-  </api:script>
-
-  <api:script method="MERGE">
-    <api:call op="dynamodbadoUpdate">
-      <api:push/>
-    </api:call>
-  </api:script>
-
-  <api:script method="DELETE">
-    <api:call op="dynamodbadoDelete">
-      <api:push/>
-    </api:call>
-  </api:script>
 </api:script>

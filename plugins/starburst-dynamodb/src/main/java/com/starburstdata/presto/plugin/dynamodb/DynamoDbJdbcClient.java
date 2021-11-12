@@ -219,9 +219,7 @@ public class DynamoDbJdbcClient
             throw new TrinoException(GENERIC_USER_ERROR, format("Attribute %s specified for primary key but is not present in the column list", partitionKeyAttribute));
         }
 
-        sql.append(format("KeySchema_AttributeName#1 = '%s', KeySchema_KeyType#1 = 'HASH', ", partitionKeyAttribute));
-        sql.append(format("AttributeDefinitions_AttributeName#1 = '%s', ", partitionKeyAttribute));
-        sql.append(format("AttributeDefinitions_AttributeType#1 = '%s', ", getDynamoDbTypeFromSql(partitionKeyMetadata.get().getType().getDisplayName())));
+        sql.append(format("PartitionKeyName = '%s', PartitionKeyType = '%s', ", partitionKeyAttribute, getDynamoDbTypeFromSql(partitionKeyMetadata.get().getType().getDisplayName())));
 
         Optional<String> sortKeyAttribute = getSortKeyAttribute(tableProperties);
         Optional<ColumnMetadata> sortKeyMetadata = sortKeyAttribute.flatMap(s -> tableMetadata.getColumns().stream().filter(column -> column.getName().equalsIgnoreCase(s)).findFirst());
@@ -235,9 +233,7 @@ public class DynamoDbJdbcClient
                 throw new TrinoException(GENERIC_USER_ERROR, format("Attribute %s specified for sort key but is not present in the column list", attribute));
             }
 
-            sql.append(format("KeySchema_AttributeName#2 = '%s', KeySchema_KeyType#2 = 'RANGE', ", attribute));
-            sql.append(format("AttributeDefinitions_AttributeName#2 = '%s', ", attribute));
-            sql.append(format("AttributeDefinitions_AttributeType#2 = '%s', ", getDynamoDbTypeFromSql(sortKeyMetadata.get().getType().getDisplayName())));
+            sql.append(format("SortKeyName = '%s', SortKeyType = '%s', ", attribute, getDynamoDbTypeFromSql(sortKeyMetadata.get().getType().getDisplayName())));
         });
 
         sql.append(format("ProvisionedThroughput_ReadCapacityUnits = '%s', ProvisionedThroughput_WriteCapacityUnits = '%s'",
