@@ -74,6 +74,12 @@ class MockConnectorAccessControl
     }
 
     @Override
+    public void checkCanDenySchemaPrivilege(ConnectorSecurityContext context, Privilege privilege, String schemaName, TrinoPrincipal grantee)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void checkCanRevokeSchemaPrivilege(ConnectorSecurityContext context, Privilege privilege, String schemaName, TrinoPrincipal revokee, boolean grantOption)
     {
         if (!schemaGrants.canGrant(context.getIdentity().getUser(), schemaName, privilege)) {
@@ -96,6 +102,12 @@ class MockConnectorAccessControl
         if (!schemaGrants.canGrant(user, tableName.getSchemaName(), privilege) && !tableGrants.canGrant(user, tableName, privilege)) {
             denyGrantTablePrivilege(privilege.toString(), tableName.getTableName());
         }
+    }
+
+    @Override
+    public void checkCanDenyTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, TrinoPrincipal grantee)
+    {
+        throw new UnsupportedOperationException();
     }
 
     @Override

@@ -39,6 +39,7 @@ import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.Resources.getResource;
+import static io.trino.spi.security.Privilege.UPDATE;
 import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
@@ -86,6 +87,7 @@ public class TestFileBasedAccessControl
         // permissions management APIs are hard coded to deny
         TrinoPrincipal someUser = new TrinoPrincipal(PrincipalType.USER, "some_user");
         assertDenied(() -> accessControl.checkCanGrantTablePrivilege(ADMIN, Privilege.SELECT, new SchemaTableName("any", "any"), someUser, false));
+        assertDenied(() -> accessControl.checkCanDenyTablePrivilege(ADMIN, Privilege.SELECT, new SchemaTableName("any", "any"), someUser));
         assertDenied(() -> accessControl.checkCanRevokeTablePrivilege(ADMIN, Privilege.SELECT, new SchemaTableName("any", "any"), someUser, false));
         assertDenied(() -> accessControl.checkCanCreateRole(ADMIN, "role", Optional.empty()));
         assertDenied(() -> accessControl.checkCanDropRole(ADMIN, "role"));
@@ -204,6 +206,28 @@ public class TestFileBasedAccessControl
         assertDenied(() -> accessControl.checkCanGrantSchemaPrivilege(CHARLIE, privilege, "staff", grantee, grantOption));
         accessControl.checkCanGrantSchemaPrivilege(CHARLIE, privilege, "authenticated", grantee, grantOption);
         assertDenied(() -> accessControl.checkCanGrantSchemaPrivilege(CHARLIE, privilege, "test", grantee, grantOption));
+    }
+
+    @Test
+    public void testDenySchemaPrivilege()
+    {
+        ConnectorAccessControl accessControl = createAccessControl("schema.json");
+        TrinoPrincipal grantee = new TrinoPrincipal(PrincipalType.USER, "alice");
+
+        accessControl.checkCanDenySchemaPrivilege(ADMIN, UPDATE, "bob", grantee);
+        accessControl.checkCanDenySchemaPrivilege(ADMIN, UPDATE, "staff", grantee);
+        accessControl.checkCanDenySchemaPrivilege(ADMIN, UPDATE, "authenticated", grantee);
+        accessControl.checkCanDenySchemaPrivilege(ADMIN, UPDATE, "test", grantee);
+
+        accessControl.checkCanDenySchemaPrivilege(BOB, UPDATE, "bob", grantee);
+        accessControl.checkCanDenySchemaPrivilege(BOB, UPDATE, "staff", grantee);
+        accessControl.checkCanDenySchemaPrivilege(BOB, UPDATE, "authenticated", grantee);
+        assertDenied(() -> accessControl.checkCanDenySchemaPrivilege(BOB, UPDATE, "test", grantee));
+
+        assertDenied(() -> accessControl.checkCanDenySchemaPrivilege(CHARLIE, UPDATE, "bob", grantee));
+        assertDenied(() -> accessControl.checkCanDenySchemaPrivilege(CHARLIE, UPDATE, "staff", grantee));
+        accessControl.checkCanDenySchemaPrivilege(CHARLIE, UPDATE, "authenticated", grantee);
+        assertDenied(() -> accessControl.checkCanDenySchemaPrivilege(CHARLIE, UPDATE, "test", grantee));
     }
 
     @Test(dataProvider = "privilegeGrantOption")

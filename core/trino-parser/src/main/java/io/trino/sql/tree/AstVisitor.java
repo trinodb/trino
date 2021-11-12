@@ -757,6 +757,11 @@ public abstract class AstVisitor<R, C>
         return visitStatement(node, context);
     }
 
+    protected R visitDeny(Deny node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
     protected R visitRevoke(Revoke node, C context)
     {
         return visitStatement(node, context);

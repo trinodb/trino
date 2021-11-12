@@ -71,6 +71,8 @@ import static io.trino.spi.security.AccessDeniedException.denyCreateTable;
 import static io.trino.spi.security.AccessDeniedException.denyCreateView;
 import static io.trino.spi.security.AccessDeniedException.denyCreateViewWithSelect;
 import static io.trino.spi.security.AccessDeniedException.denyDeleteTable;
+import static io.trino.spi.security.AccessDeniedException.denyDenySchemaPrivilege;
+import static io.trino.spi.security.AccessDeniedException.denyDenyTablePrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyDropColumn;
 import static io.trino.spi.security.AccessDeniedException.denyDropMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyDropRole;
@@ -824,6 +826,17 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
+    public void checkCanDenySchemaPrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaName schema, TrinoPrincipal grantee)
+    {
+        if (!canAccessCatalog(context, schema.getCatalogName(), ALL)) {
+            denyDenySchemaPrivilege(privilege.name(), schema.toString());
+        }
+        if (!isSchemaOwner(context, schema)) {
+            denyDenySchemaPrivilege(privilege.name(), schema.toString());
+        }
+    }
+
+    @Override
     public void checkCanRevokeSchemaPrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaName schema, TrinoPrincipal revokee, boolean grantOption)
     {
         if (!canAccessCatalog(context, schema.getCatalogName(), ALL)) {
@@ -839,6 +852,14 @@ public class FileBasedSystemAccessControl
     {
         if (!checkTablePermission(context, table, OWNERSHIP)) {
             denyGrantTablePrivilege(privilege.name(), table.toString());
+        }
+    }
+
+    @Override
+    public void checkCanDenyTablePrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaTableName table, TrinoPrincipal grantee)
+    {
+        if (!checkTablePermission(context, table, OWNERSHIP)) {
+            denyDenyTablePrivilege(privilege.name(), table.toString());
         }
     }
 
