@@ -309,6 +309,22 @@ public final class SessionRepresentation
         return timeZoneKey.getId();
     }
 
+    public Identity toIdentity()
+    {
+        return toIdentity(emptyMap());
+    }
+
+    public Identity toIdentity(Map<String, String> extraCredentials)
+    {
+        return Identity.forUser(user)
+                .withGroups(groups)
+                .withPrincipal(principal.map(BasicPrincipal::new))
+                .withEnabledRoles(enabledRoles)
+                .withConnectorRoles(catalogRoles)
+                .withExtraCredentials(extraCredentials)
+                .build();
+    }
+
     public Session toSession(SessionPropertyManager sessionPropertyManager)
     {
         return toSession(sessionPropertyManager, emptyMap());
@@ -320,13 +336,7 @@ public final class SessionRepresentation
                 new QueryId(queryId),
                 transactionId,
                 clientTransactionSupport,
-                Identity.forUser(user)
-                        .withGroups(groups)
-                        .withPrincipal(principal.map(BasicPrincipal::new))
-                        .withEnabledRoles(enabledRoles)
-                        .withConnectorRoles(catalogRoles)
-                        .withExtraCredentials(extraCredentials)
-                        .build(),
+                toIdentity(extraCredentials),
                 source,
                 catalog,
                 schema,

@@ -21,10 +21,12 @@ import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.type.Type;
 
 import java.security.Principal;
+import java.util.Collection;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static io.trino.spi.security.AccessDeniedException.denyAddColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCatalogAccess;
@@ -125,9 +127,36 @@ public interface SystemAccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
+    default void checkCanViewQueryOwnedBy(SystemSecurityContext context, Identity queryOwner)
+    {
+        checkCanViewQueryOwnedBy(context, queryOwner.getUser());
+    }
+
+    /**
+     * Checks if identity can view a query owned by the specified user.  The method
+     * will not be called when the current user is the query owner.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
     default void checkCanViewQueryOwnedBy(SystemSecurityContext context, String queryOwner)
     {
         denyViewQuery();
+    }
+
+    /**
+     * Filter the list of users to those the identity view query owned by the user.  The method
+     * will not be called with the current user in the set.
+     * @return
+     */
+    default Collection<Identity> filterViewQuery(SystemSecurityContext context, Collection<Identity> queryOwners)
+    {
+        Set<String> ownerUsers = queryOwners.stream()
+                .map(Identity::getUser)
+                .collect(Collectors.toSet());
+        Set<String> allowedUsers = filterViewQueryOwnedBy(context, ownerUsers);
+        return queryOwners.stream()
+                .filter(owner -> allowedUsers.contains(owner.getUser()))
+                .collect(Collectors.toList());
     }
 
     /**
@@ -137,6 +166,17 @@ public interface SystemAccessControl
     default Set<String> filterViewQueryOwnedBy(SystemSecurityContext context, Set<String> queryOwners)
     {
         return emptySet();
+    }
+
+    /**
+     * Checks if identity can kill a query owned by the specified user.  The method
+     * will not be called when the current user is the query owner.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanKillQueryOwnedBy(SystemSecurityContext context, Identity queryOwner)
+    {
+        checkCanKillQueryOwnedBy(context, queryOwner.getUser());
     }
 
     /**
