@@ -161,6 +161,24 @@ public class DisabledSystemSecurityMetadata
         throw notSupportedException(view.getCatalogName());
     }
 
+    @Override
+    public void schemaCreated(Session session, CatalogSchemaName schema) {}
+
+    @Override
+    public void schemaRenamed(Session session, CatalogSchemaName sourceSchema, CatalogSchemaName targetSchema) {}
+
+    @Override
+    public void schemaDropped(Session session, CatalogSchemaName schema) {}
+
+    @Override
+    public void tableCreated(Session session, CatalogSchemaTableName table) {}
+
+    @Override
+    public void tableRenamed(Session session, CatalogSchemaTableName sourceTable, CatalogSchemaTableName targetTable) {}
+
+    @Override
+    public void tableDropped(Session session, CatalogSchemaTableName table) {}
+
     private static TrinoException notSupportedException(String catalogName)
     {
         return new TrinoException(NOT_SUPPORTED, "Catalog does not support permission management: " + catalogName);

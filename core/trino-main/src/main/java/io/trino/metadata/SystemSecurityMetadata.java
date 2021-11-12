@@ -135,4 +135,34 @@ public interface SystemSecurityMetadata
      * Set the owner of the specified view
      */
     void setViewOwner(Session session, CatalogSchemaTableName view, TrinoPrincipal principal);
+
+    /**
+     * A schema was created
+     */
+    void schemaCreated(Session session, CatalogSchemaName schema);
+
+    /**
+     * A schema was renamed
+     */
+    void schemaRenamed(Session session, CatalogSchemaName sourceSchema, CatalogSchemaName targetSchema);
+
+    /**
+     * A schema was dropped
+     */
+    void schemaDropped(Session session, CatalogSchemaName schema);
+
+    /**
+     * A table or view was created
+     */
+    void tableCreated(Session session, CatalogSchemaTableName table);
+
+    /**
+     * A table or view was renamed
+     */
+    void tableRenamed(Session session, CatalogSchemaTableName sourceTable, CatalogSchemaTableName targetTable);
+
+    /**
+     * A table or view was dropped
+     */
+    void tableDropped(Session session, CatalogSchemaTableName table);
 }

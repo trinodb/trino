@@ -224,4 +224,22 @@ class TestingSystemSecurityMetadata
     {
         throw new UnsupportedOperationException();
     }
+
+    @Override
+    public void schemaCreated(Session session, CatalogSchemaName schema) {}
+
+    @Override
+    public void schemaRenamed(Session session, CatalogSchemaName sourceSchema, CatalogSchemaName targetSchema) {}
+
+    @Override
+    public void schemaDropped(Session session, CatalogSchemaName schema) {}
+
+    @Override
+    public void tableCreated(Session session, CatalogSchemaTableName table) {}
+
+    @Override
+    public void tableRenamed(Session session, CatalogSchemaTableName sourceTable, CatalogSchemaTableName targetTable) {}
+
+    @Override
+    public void tableDropped(Session session, CatalogSchemaTableName table) {}
 }
