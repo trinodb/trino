@@ -458,6 +458,16 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot grant privilege %s on schema %s%s", privilege, schemaName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denyDenySchemaPrivilege(String privilege, String schemaName)
+    {
+        denyDenySchemaPrivilege(privilege, schemaName, null);
+    }
+
+    public static void denyDenySchemaPrivilege(String privilege, String schemaName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot deny privilege %s on schema %s%s", privilege, schemaName, formatExtraInfo(extraInfo)));
+    }
+
     public static void denyRevokeSchemaPrivilege(String privilege, String schemaName)
     {
         denyRevokeSchemaPrivilege(privilege, schemaName, null);
@@ -476,6 +486,16 @@ public class AccessDeniedException
     public static void denyGrantTablePrivilege(String privilege, String tableName, String extraInfo)
     {
         throw new AccessDeniedException(format("Cannot grant privilege %s on table %s%s", privilege, tableName, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyDenyTablePrivilege(String privilege, String tableName)
+    {
+        denyDenyTablePrivilege(privilege, tableName, null);
+    }
+
+    public static void denyDenyTablePrivilege(String privilege, String tableName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot deny privilege %s on table %s%s", privilege, tableName, formatExtraInfo(extraInfo)));
     }
 
     public static void denyRevokeTablePrivilege(String privilege, String tableName)

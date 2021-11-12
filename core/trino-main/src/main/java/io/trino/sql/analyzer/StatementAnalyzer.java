@@ -103,6 +103,7 @@ import io.trino.sql.tree.CreateView;
 import io.trino.sql.tree.Cube;
 import io.trino.sql.tree.Deallocate;
 import io.trino.sql.tree.Delete;
+import io.trino.sql.tree.Deny;
 import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.DropColumn;
 import io.trino.sql.tree.DropMaterializedView;
@@ -1184,6 +1185,12 @@ class StatementAnalyzer
 
         @Override
         protected Scope visitGrant(Grant node, Optional<Scope> scope)
+        {
+            return createAndAssignScope(node, scope);
+        }
+
+        @Override
+        protected Scope visitDeny(Deny node, Optional<Scope> scope)
         {
             return createAndAssignScope(node, scope);
         }
