@@ -157,6 +157,8 @@ import io.trino.operator.scalar.VarbinaryFunctions;
 import io.trino.operator.scalar.VersionFunction;
 import io.trino.operator.scalar.WilsonInterval;
 import io.trino.operator.scalar.WordStemFunction;
+import io.trino.operator.scalar.json.JsonInputFunctions;
+import io.trino.operator.scalar.json.JsonOutputFunctions;
 import io.trino.operator.scalar.time.LocalTimeFunction;
 import io.trino.operator.scalar.time.TimeFunctions;
 import io.trino.operator.scalar.time.TimeOperators;
@@ -435,6 +437,8 @@ public final class SystemFunctionBundle
                 .scalars(DateTimeFunctions.class)
                 .scalar(DateTimeFunctions.FromUnixtimeNanosDecimal.class)
                 .scalars(JsonFunctions.class)
+                .scalars(JsonInputFunctions.class)
+                .scalars(JsonOutputFunctions.class)
                 .scalars(ColorFunctions.class)
                 .scalars(HyperLogLogFunctions.class)
                 .scalars(QuantileDigestFunctions.class)

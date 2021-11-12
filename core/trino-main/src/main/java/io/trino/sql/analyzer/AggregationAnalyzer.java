@@ -43,6 +43,11 @@ import io.trino.sql.tree.InListExpression;
 import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
+import io.trino.sql.tree.JsonExists;
+import io.trino.sql.tree.JsonPathInvocation;
+import io.trino.sql.tree.JsonPathParameter;
+import io.trino.sql.tree.JsonQuery;
+import io.trino.sql.tree.JsonValue;
 import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.LikePredicate;
 import io.trino.sql.tree.Literal;
@@ -713,6 +718,35 @@ class AggregationAnalyzer
                         argumentNotInGroupBy.get());
             }
             return true;
+        }
+
+        @Override
+        protected Boolean visitJsonExists(JsonExists node, Void context)
+        {
+            return process(node.getJsonPathInvocation(), context);
+        }
+
+        @Override
+        protected Boolean visitJsonValue(JsonValue node, Void context)
+        {
+            return process(node.getJsonPathInvocation(), context) &&
+                    node.getEmptyDefault().map(expression -> process(expression, context)).orElse(true) &&
+                    node.getErrorDefault().map(expression -> process(expression, context)).orElse(true);
+        }
+
+        @Override
+        protected Boolean visitJsonQuery(JsonQuery node, Void context)
+        {
+            return process(node.getJsonPathInvocation(), context);
+        }
+
+        @Override
+        protected Boolean visitJsonPathInvocation(JsonPathInvocation node, Void context)
+        {
+            return process(node.getInputExpression(), context) &&
+                    node.getPathParameters().stream()
+                            .map(JsonPathParameter::getParameter)
+                            .allMatch(expression -> process(expression, context));
         }
 
         @Override
