@@ -56,6 +56,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.security.Principal;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -263,7 +264,7 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanViewQueryOwnedBy(Identity identity, String queryOwner)
+    public void checkCanViewQueryOwnedBy(Identity identity, Identity queryOwner)
     {
         requireNonNull(identity, "identity is null");
 
@@ -271,16 +272,16 @@ public class AccessControlManager
     }
 
     @Override
-    public Set<String> filterQueriesOwnedBy(Identity identity, Set<String> queryOwners)
+    public Collection<Identity> filterQueriesOwnedBy(Identity identity, Collection<Identity> queryOwners)
     {
         for (SystemAccessControl systemAccessControl : getSystemAccessControls()) {
-            queryOwners = systemAccessControl.filterViewQueryOwnedBy(new SystemSecurityContext(identity, Optional.empty()), queryOwners);
+            queryOwners = systemAccessControl.filterViewQuery(new SystemSecurityContext(identity, Optional.empty()), queryOwners);
         }
         return queryOwners;
     }
 
     @Override
-    public void checkCanKillQueryOwnedBy(Identity identity, String queryOwner)
+    public void checkCanKillQueryOwnedBy(Identity identity, Identity queryOwner)
     {
         requireNonNull(identity, "identity is null");
         requireNonNull(queryOwner, "queryOwner is null");

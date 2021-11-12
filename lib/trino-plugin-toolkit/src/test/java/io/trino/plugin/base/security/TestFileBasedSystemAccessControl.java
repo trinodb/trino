@@ -35,6 +35,7 @@ import org.testng.annotations.Test;
 import javax.security.auth.kerberos.KerberosPrincipal;
 
 import java.io.File;
+import java.util.Collection;
 import java.util.EnumSet;
 import java.util.Optional;
 import java.util.Set;
@@ -1249,8 +1250,12 @@ public class TestFileBasedSystemAccessControl
 
     @Test
     public void testEverythingImplemented()
+            throws NoSuchMethodException
     {
-        assertAllMethodsOverridden(SystemAccessControl.class, FileBasedSystemAccessControl.class);
+        assertAllMethodsOverridden(SystemAccessControl.class, FileBasedSystemAccessControl.class, ImmutableSet.of(
+                FileBasedSystemAccessControl.class.getMethod("checkCanViewQueryOwnedBy", SystemSecurityContext.class, Identity.class),
+                FileBasedSystemAccessControl.class.getMethod("filterViewQuery", SystemSecurityContext.class, Collection.class),
+                FileBasedSystemAccessControl.class.getMethod("checkCanKillQueryOwnedBy", SystemSecurityContext.class, Identity.class)));
     }
 
     @Test
