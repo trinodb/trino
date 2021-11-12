@@ -920,4 +920,41 @@ public abstract class DefaultTraversalVisitor<C>
 
         return null;
     }
+
+    @Override
+    protected Void visitJsonExists(JsonExists node, C context)
+    {
+        process(node.getJsonPathInvocation(), context);
+
+        return null;
+    }
+
+    @Override
+    protected Void visitJsonValue(JsonValue node, C context)
+    {
+        process(node.getJsonPathInvocation(), context);
+        node.getEmptyDefault().ifPresent(expression -> process(expression, context));
+        node.getErrorDefault().ifPresent(expression -> process(expression, context));
+
+        return null;
+    }
+
+    @Override
+    protected Void visitJsonQuery(JsonQuery node, C context)
+    {
+        process(node.getJsonPathInvocation(), context);
+
+        return null;
+    }
+
+    @Override
+    protected Void visitJsonPathInvocation(JsonPathInvocation node, C context)
+    {
+        process(node.getInputExpression(), context);
+        for (JsonPathParameter parameter : node.getPathParameters()) {
+            process(parameter.getParameter(), context);
+        }
+
+        return null;
+    }
 }

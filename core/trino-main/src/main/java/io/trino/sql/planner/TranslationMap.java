@@ -30,6 +30,9 @@ import io.trino.sql.tree.FieldReference;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.GenericDataType;
 import io.trino.sql.tree.Identifier;
+import io.trino.sql.tree.JsonExists;
+import io.trino.sql.tree.JsonQuery;
+import io.trino.sql.tree.JsonValue;
 import io.trino.sql.tree.LabelDereference;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.LambdaExpression;
@@ -389,6 +392,24 @@ class TranslationMap
             {
                 // do not rewrite identifiers in field names
                 return node;
+            }
+
+            @Override
+            public Expression rewriteJsonExists(JsonExists node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                throw new UnsupportedOperationException("JSON_EXISTS function is not yet supported");
+            }
+
+            @Override
+            public Expression rewriteJsonValue(JsonValue node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                throw new UnsupportedOperationException("JSON_VALUE function is not yet supported");
+            }
+
+            @Override
+            public Expression rewriteJsonQuery(JsonQuery node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                throw new UnsupportedOperationException("JSON_QUERY function is not yet supported");
             }
 
             private Expression coerceIfNecessary(Expression original, Expression rewritten)
