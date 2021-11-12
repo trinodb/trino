@@ -101,6 +101,9 @@ import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesIndexPageSorter;
 import io.trino.operator.TrinoOperatorFactories;
 import io.trino.operator.index.IndexJoinLookupStats;
+import io.trino.operator.scalar.json.JsonExistsFunction;
+import io.trino.operator.scalar.json.JsonQueryFunction;
+import io.trino.operator.scalar.json.JsonValueFunction;
 import io.trino.server.ExpressionSerialization.ExpressionDeserializer;
 import io.trino.server.ExpressionSerialization.ExpressionSerializer;
 import io.trino.server.PluginManager.PluginsProvider;
@@ -150,6 +153,7 @@ import io.trino.sql.tree.Expression;
 import io.trino.transaction.TransactionManagerConfig;
 import io.trino.type.BlockTypeOperators;
 import io.trino.type.InternalTypeManager;
+import io.trino.type.JsonPath2016Type;
 import io.trino.type.TypeDeserializer;
 import io.trino.type.TypeOperatorsCache;
 import io.trino.type.TypeSignatureDeserializer;
@@ -408,6 +412,7 @@ public class ServerMainModule
         binder.bind(TypeRegistry.class).in(Scopes.SINGLETON);
         binder.bind(TypeManager.class).to(InternalTypeManager.class).in(Scopes.SINGLETON);
         newSetBinder(binder, Type.class);
+        binder.bind(RegisterJsonPath2016Type.class).asEagerSingleton();
 
         // split manager
         binder.bind(SplitManager.class).in(Scopes.SINGLETON);
@@ -524,6 +529,27 @@ public class ServerMainModule
     public static FunctionBundle literalFunctionBundle(BlockEncodingSerde blockEncodingSerde)
     {
         return new InternalFunctionBundle(new LiteralFunction(blockEncodingSerde));
+    }
+
+    @ProvidesIntoSet
+    @Singleton
+    // not adding to system function bundle to avoid mutual dependency FunctionManager <-> MetadataManager in testing instance constructors
+    public static FunctionBundle jsonFunctionBundle(FunctionManager functionManager, Metadata metadata, TypeManager typeManager)
+    {
+        return new InternalFunctionBundle(
+                new JsonExistsFunction(functionManager, metadata, typeManager),
+                new JsonValueFunction(functionManager, metadata, typeManager),
+                new JsonQueryFunction(functionManager, metadata, typeManager));
+    }
+
+    // working around circular dependency Type <-> TypeManager
+    private static class RegisterJsonPath2016Type
+    {
+        @Inject
+        public RegisterJsonPath2016Type(BlockEncodingSerde blockEncodingSerde, TypeManager typeManager, TypeRegistry typeRegistry)
+        {
+            typeRegistry.addType(new JsonPath2016Type(new TypeDeserializer(typeManager), blockEncodingSerde));
+        }
     }
 
     @Provides
