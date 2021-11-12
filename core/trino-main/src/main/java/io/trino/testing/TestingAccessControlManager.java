@@ -32,6 +32,7 @@ import javax.inject.Inject;
 
 import java.security.Principal;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -254,7 +255,7 @@ public class TestingAccessControlManager
     }
 
     @Override
-    public void checkCanViewQueryOwnedBy(Identity identity, String queryOwner)
+    public void checkCanViewQueryOwnedBy(Identity identity, Identity queryOwner)
     {
         if (shouldDenyPrivilege(identity.getUser(), "query", VIEW_QUERY)) {
             denyViewQuery();
@@ -265,7 +266,7 @@ public class TestingAccessControlManager
     }
 
     @Override
-    public Set<String> filterQueriesOwnedBy(Identity identity, Set<String> owners)
+    public Collection<Identity> filterQueriesOwnedBy(Identity identity, Collection<Identity> owners)
     {
         if (shouldDenyPrivilege(identity.getUser(), "query", VIEW_QUERY)) {
             return ImmutableSet.of();
@@ -277,7 +278,7 @@ public class TestingAccessControlManager
     }
 
     @Override
-    public void checkCanKillQueryOwnedBy(Identity identity, String queryOwner)
+    public void checkCanKillQueryOwnedBy(Identity identity, Identity queryOwner)
     {
         if (shouldDenyPrivilege(identity.getUser(), "query", KILL_QUERY)) {
             denyKillQuery();

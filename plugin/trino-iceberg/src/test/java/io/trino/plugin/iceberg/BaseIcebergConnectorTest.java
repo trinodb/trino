@@ -234,7 +234,6 @@ public abstract class BaseIcebergConnectorTest
     {
         assertThat(computeActual("SHOW CREATE SCHEMA tpch").getOnlyValue().toString())
                 .matches("CREATE SCHEMA iceberg.tpch\n" +
-                        "AUTHORIZATION USER user\n" +
                         "WITH \\(\n" +
                         "\\s+location = '.*/iceberg_data/tpch'\n" +
                         "\\)");
