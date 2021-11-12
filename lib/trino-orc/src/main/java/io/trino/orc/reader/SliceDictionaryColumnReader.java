@@ -185,7 +185,7 @@ public class SliceDictionaryColumnReader
         if (nonNullValueTemp.length < minNonNullValueSize) {
             nonNullValueTemp = new int[minNonNullValueSize];
             nonNullPositionList = new int[minNonNullValueSize];
-            systemMemoryContext.setBytes(sizeOf(nonNullValueTemp) + sizeOf(nonNullPositionList));
+            updateMemory();
         }
 
         dataStream.next(nonNullValueTemp, nonNullCount);
@@ -249,6 +249,7 @@ public class SliceDictionaryColumnReader
                 dictionaryData = new byte[toIntExact(dataLength)];
                 // add one extra entry for null
                 dictionaryOffsetVector = new int[dictionarySize + 2];
+                updateMemory();
 
                 // read dictionary values
                 ByteArrayInputStream dictionaryDataStream = dictionaryDataStreamSource.openStream();
@@ -257,6 +258,7 @@ public class SliceDictionaryColumnReader
             else {
                 dictionaryData = EMPTY_DICTIONARY_DATA;
                 dictionaryOffsetVector = EMPTY_DICTIONARY_OFFSETS;
+                updateMemory();
             }
         }
         dictionaryOpen = true;
@@ -364,5 +366,11 @@ public class SliceDictionaryColumnReader
     public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE;
+    }
+
+    private void updateMemory()
+    {
+        systemMemoryContext.setBytes(sizeOf(nonNullValueTemp) + sizeOf(nonNullPositionList) + sizeOf(dictionaryData)
+                + sizeOf(dictionaryLength) + sizeOf(dictionaryOffsetVector));
     }
 }
