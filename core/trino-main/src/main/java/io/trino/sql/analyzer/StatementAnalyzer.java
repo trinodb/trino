@@ -683,8 +683,8 @@ class StatementAnalyzer
                 throw semanticException(NOT_SUPPORTED, node, "Delete from table with row filter");
             }
 
-            TableMetadata tableMetadata = metadata.getTableMetadata(session, handle);
-            for (ColumnMetadata tableColumn : tableMetadata.getColumns()) {
+            TableSchema tableSchema = metadata.getTableSchema(session, handle);
+            for (ColumnSchema tableColumn : tableSchema.getColumns()) {
                 if (!accessControl.getColumnMasks(session.toSecurityContext(), tableName, tableColumn.getName(), tableColumn.getType()).isEmpty()) {
                     throw semanticException(NOT_SUPPORTED, node, "Delete from table with column mask");
                 }
@@ -1508,9 +1508,11 @@ class StatementAnalyzer
                         rowIdColumnHandle = metadata.getDeleteRowIdColumnHandle(session, tableHandle.get());
                         break;
                     case UPDATE:
-                        List<ColumnMetadata> updatedColumnMetadata = analysis.getUpdatedColumns()
+                        List<ColumnSchema> updatedColumnMetadata = analysis.getUpdatedColumns()
                                 .orElseThrow(() -> new VerifyException("updated columns not set"));
-                        Set<String> updatedColumnNames = updatedColumnMetadata.stream().map(ColumnMetadata::getName).collect(toImmutableSet());
+                        Set<String> updatedColumnNames = updatedColumnMetadata.stream()
+                                .map(ColumnSchema::getName)
+                                .collect(toImmutableSet());
                         List<ColumnHandle> updatedColumns = columnHandles.entrySet().stream()
                                 .filter(entry -> updatedColumnNames.contains(entry.getKey()))
                                 .map(Map.Entry::getValue)
@@ -2378,11 +2380,11 @@ class StatementAnalyzer
             TableHandle handle = redirection.getTableHandle()
                     .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, table, "Table '%s' does not exist", tableName));
 
-            TableMetadata tableMetadata = metadata.getTableMetadata(session, handle);
+            TableSchema tableSchema = metadata.getTableSchema(session, handle);
 
-            List<ColumnMetadata> allColumns = tableMetadata.getColumns();
-            Map<String, ColumnMetadata> columns = allColumns.stream()
-                    .collect(toImmutableMap(ColumnMetadata::getName, Function.identity()));
+            List<ColumnSchema> allColumns = tableSchema.getColumns();
+            Map<String, ColumnSchema> columns = allColumns.stream()
+                    .collect(toImmutableMap(ColumnSchema::getName, Function.identity()));
 
             for (UpdateAssignment assignment : update.getAssignments()) {
                 String columnName = assignment.getName().getValue();
@@ -2402,13 +2404,13 @@ class StatementAnalyzer
 
             // TODO: how to deal with connectors that need to see the pre-image of rows to perform the update without
             //       flowing that data through the masking logic
-            for (ColumnMetadata tableColumn : allColumns) {
+            for (ColumnSchema tableColumn : allColumns) {
                 if (!accessControl.getColumnMasks(session.toSecurityContext(), tableName, tableColumn.getName(), tableColumn.getType()).isEmpty()) {
                     throw semanticException(NOT_SUPPORTED, update, "Updating a table with column masks is not supported");
                 }
             }
 
-            List<ColumnMetadata> updatedColumns = allColumns.stream()
+            List<ColumnSchema> updatedColumns = allColumns.stream()
                     .filter(column -> assignmentTargets.contains(column.getName()))
                     .collect(toImmutableList());
             analysis.setUpdatedColumns(updatedColumns);
@@ -2440,7 +2442,7 @@ class StatementAnalyzer
 
             List<Type> tableTypes = update.getAssignments().stream()
                     .map(assignment -> requireNonNull(columns.get(assignment.getName().getValue())))
-                    .map(ColumnMetadata::getType)
+                    .map(ColumnSchema::getType)
                     .collect(toImmutableList());
 
             if (!typesMatchForInsert(tableTypes, expressionTypes)) {
