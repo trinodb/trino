@@ -29,6 +29,7 @@ import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BooleanSupplier;
 
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -76,6 +77,32 @@ public class TestHiveSplitSource
 
         // try to remove 20 splits, and verify we only got 5
         assertEquals(getSplits(hiveSplitSource, 20).size(), 5);
+        assertEquals(hiveSplitSource.getBufferedInternalSplitCount(), 0);
+    }
+
+    @Test
+    public void testDynamicPartitionPruning()
+    {
+        HiveSplitSource hiveSplitSource = HiveSplitSource.allAtOnce(
+                SESSION,
+                "database",
+                "table",
+                10,
+                10,
+                DataSize.of(1, MEGABYTE),
+                Integer.MAX_VALUE,
+                new TestingHiveSplitLoader(),
+                Executors.newFixedThreadPool(5),
+                new CounterStat(),
+                false);
+
+        // add two splits, one of the splits is dynamically pruned
+        hiveSplitSource.addToQueue(new TestSplit(0, () -> false));
+        hiveSplitSource.addToQueue(new TestSplit(1, () -> true));
+        assertEquals(hiveSplitSource.getBufferedInternalSplitCount(), 2);
+
+        // try to remove 2 splits, only one should be returned
+        assertEquals(getSplits(hiveSplitSource, 2).size(), 1);
         assertEquals(hiveSplitSource.getBufferedInternalSplitCount(), 0);
     }
 
@@ -336,12 +363,22 @@ public class TestHiveSplitSource
             this(id, OptionalInt.empty());
         }
 
+        private TestSplit(int id, BooleanSupplier partitionMatchSupplier)
+        {
+            this(id, OptionalInt.empty(), DataSize.ofBytes(100), partitionMatchSupplier);
+        }
+
         private TestSplit(int id, OptionalInt bucketNumber)
         {
             this(id, bucketNumber, DataSize.ofBytes(100));
         }
 
         private TestSplit(int id, OptionalInt bucketNumber, DataSize fileSize)
+        {
+            this(id, bucketNumber, fileSize, () -> true);
+        }
+
+        private TestSplit(int id, OptionalInt bucketNumber, DataSize fileSize, BooleanSupplier partitionMatchSupplier)
         {
             super(
                     "partition-name",
@@ -362,7 +399,7 @@ public class TestHiveSplitSource
                     Optional.empty(),
                     false,
                     Optional.empty(),
-                    () -> true);
+                    partitionMatchSupplier);
         }
 
         private static Properties properties(String key, String value)
