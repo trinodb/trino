@@ -353,10 +353,13 @@ class HiveSplitSource
             ImmutableList.Builder<InternalHiveSplit> splitsToInsertBuilder = ImmutableList.builder();
             ImmutableList.Builder<ConnectorSplit> resultBuilder = ImmutableList.builder();
             int removedEstimatedSizeInBytes = 0;
+            int removedSplitCount = 0;
             for (InternalHiveSplit internalSplit : internalSplits) {
                 // Dynamic filter may not have been ready when partition was loaded in BackgroundHiveSplitLoader.
                 // Perform one more dynamic filter check immediately before split is returned to the engine
                 if (!internalSplit.getPartitionMatchSupplier().getAsBoolean()) {
+                    removedEstimatedSizeInBytes += internalSplit.getEstimatedSizeInBytes();
+                    removedSplitCount++;
                     continue;
                 }
 
@@ -412,17 +415,17 @@ class HiveSplitSource
 
                 if (internalSplit.isDone()) {
                     removedEstimatedSizeInBytes += internalSplit.getEstimatedSizeInBytes();
+                    removedSplitCount++;
                 }
                 else {
                     splitsToInsertBuilder.add(internalSplit);
                 }
             }
             estimatedSplitSizeInBytes.addAndGet(-removedEstimatedSizeInBytes);
+            bufferedInternalSplitCount.addAndGet(-removedSplitCount);
 
             List<InternalHiveSplit> splitsToInsert = splitsToInsertBuilder.build();
             List<ConnectorSplit> result = resultBuilder.build();
-            bufferedInternalSplitCount.addAndGet(splitsToInsert.size() - result.size());
-
             return new AsyncQueue.BorrowResult<>(splitsToInsert, result);
         });
 
