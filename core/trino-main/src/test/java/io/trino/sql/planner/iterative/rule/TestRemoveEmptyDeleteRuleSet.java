@@ -21,21 +21,35 @@ import io.trino.plugin.tpch.TpchTransactionHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.BigintType;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
+import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static io.trino.sql.planner.iterative.rule.RemoveEmptyDeleteRuleSet.remoteEmptyDeleteRule;
+import static io.trino.sql.planner.iterative.rule.RemoveEmptyDeleteRuleSet.removeEmptyDeleteWithExchangeRule;
 import static io.trino.sql.planner.iterative.rule.test.RuleTester.CONNECTOR_ID;
+import static io.trino.testing.DataProviders.toDataProvider;
 
-public class TestRemoveEmptyDelete
+public class TestRemoveEmptyDeleteRuleSet
         extends BaseRuleTest
 {
-    @Test
-    public void testDoesNotFire()
+    @Test(dataProvider = "rules")
+    public void testDoesNotFire(Rule<?> rule)
     {
-        tester().assertThat(new RemoveEmptyDelete())
+        tester().assertThat(rule)
                 .on(p -> p.tableDelete(
+                        new SchemaTableName("sch", "tab"),
+                        p.tableScan(
+                                new TableHandle(CONNECTOR_ID, new TpchTableHandle("nation", 1.0), TpchTransactionHandle.INSTANCE, Optional.empty()),
+                                ImmutableList.of(),
+                                ImmutableMap.of()),
+                        p.symbol("a", BigintType.BIGINT)))
+                .doesNotFire();
+        tester().assertThat(rule)
+                .on(p -> p.tableWithExchangeDelete(
                         new SchemaTableName("sch", "tab"),
                         p.tableScan(
                                 new TableHandle(CONNECTOR_ID, new TpchTableHandle("nation", 1.0), TpchTransactionHandle.INSTANCE, Optional.empty()),
@@ -48,12 +62,31 @@ public class TestRemoveEmptyDelete
     @Test
     public void test()
     {
-        tester().assertThat(new RemoveEmptyDelete())
+        tester().assertThat(remoteEmptyDeleteRule())
                 .on(p -> p.tableDelete(
                         new SchemaTableName("sch", "tab"),
                         p.values(),
                         p.symbol("a", BigintType.BIGINT)))
                 .matches(
                         PlanMatchPattern.values(ImmutableMap.of("a", 0)));
+    }
+
+    @Test
+    public void testWithExchange()
+    {
+        tester().assertThat(removeEmptyDeleteWithExchangeRule())
+                .on(p -> p.tableWithExchangeDelete(
+                        new SchemaTableName("sch", "tab"),
+                        p.values(),
+                        p.symbol("a", BigintType.BIGINT)))
+                .matches(
+                        PlanMatchPattern.values(ImmutableMap.of("a", 0)));
+    }
+
+    @DataProvider
+    public static Object[][] rules()
+    {
+        return RemoveEmptyDeleteRuleSet.rules().stream()
+                .collect(toDataProvider());
     }
 }
