@@ -24,7 +24,6 @@ import com.google.common.collect.Iterables;
 import io.trino.metadata.InsertTableHandle;
 import io.trino.metadata.NewTableLayout;
 import io.trino.metadata.OutputTableHandle;
-import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableExecuteHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.spi.connector.ColumnHandle;
@@ -32,6 +31,7 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.tree.Table;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -348,20 +348,20 @@ public class TableWriterNode
     public static class RefreshMaterializedViewReference
             extends WriterTarget
     {
-        private final QualifiedObjectName materializedViewName;
+        private final Table table;
         private final TableHandle storageTableHandle;
         private final List<TableHandle> sourceTableHandles;
 
-        public RefreshMaterializedViewReference(QualifiedObjectName materializedViewName, TableHandle storageTableHandle, List<TableHandle> sourceTableHandles)
+        public RefreshMaterializedViewReference(Table table, TableHandle storageTableHandle, List<TableHandle> sourceTableHandles)
         {
-            this.materializedViewName = requireNonNull(materializedViewName, "materializedViewName is null");
+            this.table = requireNonNull(table, "table is null");
             this.storageTableHandle = requireNonNull(storageTableHandle, "storageTableHandle is null");
             this.sourceTableHandles = ImmutableList.copyOf(sourceTableHandles);
         }
 
-        public QualifiedObjectName getMaterializedViewName()
+        public Table getTable()
         {
-            return materializedViewName;
+            return table;
         }
 
         public TableHandle getStorageTableHandle()
@@ -377,7 +377,7 @@ public class TableWriterNode
         @Override
         public String toString()
         {
-            return materializedViewName.toString();
+            return table.toString();
         }
     }
 
