@@ -661,7 +661,7 @@ public class PlanBuilder
         }
     }
 
-    public TableFinishNode tableDelete(SchemaTableName schemaTableName, PlanNode deleteSource, Symbol deleteRowId)
+    public TableFinishNode tableWithExchangeDelete(SchemaTableName schemaTableName, PlanNode deleteSource, Symbol deleteRowId)
     {
         DeleteTarget deleteTarget = deleteTarget(schemaTableName);
         return new TableFinishNode(
@@ -675,6 +675,23 @@ public class PlanBuilder
                                 ImmutableList.of(deleteRowId)))
                         .addInputsSet(deleteRowId)
                         .singleDistributionPartitioningScheme(deleteRowId)),
+                deleteTarget,
+                deleteRowId,
+                Optional.empty(),
+                Optional.empty());
+    }
+
+    public TableFinishNode tableDelete(SchemaTableName schemaTableName, PlanNode deleteSource, Symbol deleteRowId)
+    {
+        DeleteTarget deleteTarget = deleteTarget(schemaTableName);
+        return new TableFinishNode(
+                idAllocator.getNextId(),
+                new DeleteNode(
+                        idAllocator.getNextId(),
+                        deleteSource,
+                        deleteTarget,
+                        deleteRowId,
+                        ImmutableList.of(deleteRowId)),
                 deleteTarget,
                 deleteRowId,
                 Optional.empty(),
