@@ -135,7 +135,7 @@ public class QueryRewriter
         QualifiedName temporaryTableName = generateTemporaryTableName(statement.getTarget());
         Statement createTemporaryTable = new CreateTable(temporaryTableName, ImmutableList.of(new LikeClause(statement.getTarget(), Optional.of(INCLUDING))), true, ImmutableList.of(), Optional.empty());
         String createTemporaryTableSql = formatSql(createTemporaryTable);
-        String insertSql = formatSql(new Insert(temporaryTableName, statement.getColumns(), statement.getQuery()));
+        String insertSql = formatSql(new Insert(new Table(temporaryTableName), statement.getColumns(), statement.getQuery()));
         String checksumSql = checksumSql(getColumnsForTable(connection, query.getCatalog(), query.getSchema(), statement.getTarget().toString()), temporaryTableName);
         String dropTableSql = dropTableSql(temporaryTableName);
         return new Query(query.getCatalog(), query.getSchema(), ImmutableList.of(createTemporaryTableSql, insertSql), checksumSql, ImmutableList.of(dropTableSql), query.getUsername(), query.getPassword(), query.getSessionProperties());
