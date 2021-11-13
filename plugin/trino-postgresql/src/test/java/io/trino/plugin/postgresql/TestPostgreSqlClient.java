@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.postgresql;
 
+import io.trino.metadata.MetadataManager;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.JdbcClient;
@@ -35,6 +36,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -45,7 +47,7 @@ import static org.testng.Assert.assertTrue;
 
 public class TestPostgreSqlClient
 {
-    private static final TypeManager TYPE_MANAGER = new InternalTypeManager(createTestMetadataManager(), new TypeOperators());
+    private static final TypeManager TYPE_MANAGER = new InternalTypeManager(createPostgreSqlTestMetadataManager(), new TypeOperators());
 
     private static final JdbcColumnHandle BIGINT_COLUMN =
             JdbcColumnHandle.builder()
@@ -67,6 +69,13 @@ public class TestPostgreSqlClient
             session -> { throw new UnsupportedOperationException(); },
             TYPE_MANAGER,
             new DefaultIdentifierMapping());
+
+    private static MetadataManager createPostgreSqlTestMetadataManager()
+    {
+        MetadataManager metadataManager = createTestMetadataManager();
+        metadataManager.addType(GEOMETRY);
+        return metadataManager;
+    }
 
     @Test
     public void testImplementCount()
