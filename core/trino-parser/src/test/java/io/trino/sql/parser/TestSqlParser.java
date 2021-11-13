@@ -1752,7 +1752,7 @@ public class TestSqlParser
     @Test
     public void testInsertInto()
     {
-        QualifiedName table = QualifiedName.of("a", "b/c", "d");
+        Table table = new Table(QualifiedName.of("a", "b/c", "d"));
         Query query = simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t")));
 
         assertStatement("INSERT INTO a.\"b/c\".d SELECT * FROM t",
@@ -3229,10 +3229,10 @@ public class TestSqlParser
     public void testRefreshMaterializedView()
     {
         assertStatement("REFRESH MATERIALIZED VIEW test",
-                new RefreshMaterializedView(Optional.empty(), QualifiedName.of("test")));
+                new RefreshMaterializedView(Optional.empty(), new Table(QualifiedName.of("test"))));
 
         assertStatement("REFRESH MATERIALIZED VIEW \"some name that contains space\"",
-                new RefreshMaterializedView(Optional.empty(), QualifiedName.of("some name that contains space")));
+                new RefreshMaterializedView(Optional.empty(), new Table(QualifiedName.of("some name that contains space"))));
     }
 
     @Test
