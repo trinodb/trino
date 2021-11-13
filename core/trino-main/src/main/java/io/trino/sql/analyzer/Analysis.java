@@ -32,7 +32,7 @@ import io.trino.security.AccessControl;
 import io.trino.security.SecurityContext;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.ColumnHandle;
-import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.eventlistener.ColumnDetail;
 import io.trino.spi.eventlistener.ColumnInfo;
@@ -204,7 +204,7 @@ public class Analysis
     private Optional<RefreshMaterializedViewAnalysis> refreshMaterializedView = Optional.empty();
     private Optional<QualifiedObjectName> delegatedRefreshMaterializedView = Optional.empty();
     private Optional<TableHandle> analyzeTarget = Optional.empty();
-    private Optional<List<ColumnMetadata>> updatedColumns = Optional.empty();
+    private Optional<List<ColumnSchema>> updatedColumns = Optional.empty();
 
     private final QueryType queryType;
 
@@ -732,12 +732,12 @@ public class Analysis
         return insert;
     }
 
-    public void setUpdatedColumns(List<ColumnMetadata> updatedColumns)
+    public void setUpdatedColumns(List<ColumnSchema> updatedColumns)
     {
         this.updatedColumns = Optional.of(updatedColumns);
     }
 
-    public Optional<List<ColumnMetadata>> getUpdatedColumns()
+    public Optional<List<ColumnSchema>> getUpdatedColumns()
     {
         return updatedColumns;
     }
