@@ -32,10 +32,12 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableExecuteHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
+import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.statistics.TableStatisticsMetadata;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.Type;
@@ -81,6 +83,7 @@ import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.IfExpression;
 import io.trino.sql.tree.Insert;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
+import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.QualifiedName;
@@ -105,6 +108,7 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -115,8 +119,11 @@ import static com.google.common.collect.Streams.zip;
 import static io.trino.SystemSessionProperties.isCollectPlanStatisticsForAllQueries;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
 import static io.trino.spi.statistics.TableStatisticType.ROW_COUNT;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -131,6 +138,7 @@ import static io.trino.sql.planner.plan.TableWriterNode.CreateReference;
 import static io.trino.sql.planner.plan.TableWriterNode.InsertReference;
 import static io.trino.sql.planner.plan.TableWriterNode.WriterTarget;
 import static io.trino.sql.planner.sanity.PlanSanityChecker.DISTRIBUTED_PLAN_SANITY_CHECKER;
+import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -390,6 +398,7 @@ public class LogicalPlanner
 
     private RelationPlan getInsertPlan(
             Analysis analysis,
+            Table table,
             Query query,
             TableHandle tableHandle,
             List<ColumnHandle> insertColumns,
@@ -398,7 +407,9 @@ public class LogicalPlanner
     {
         TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
 
-        RelationPlan plan = createRelationPlan(analysis, query);
+        Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaDeclarationToSymbolMap = buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator);
+        RelationPlanner planner = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, Optional.empty(), session, ImmutableMap.of());
+        RelationPlan plan = planner.process(query, null);
 
         ImmutableList.Builder<Symbol> builder = ImmutableList.builder();
         for (int i = 0; i < plan.getFieldMappings().size(); i++) {
@@ -453,6 +464,11 @@ public class LogicalPlanner
 
         plan = new RelationPlan(projectNode, scope, projectNode.getOutputSymbols(), Optional.empty());
 
+        plan = planner.addRowFilters(
+                table,
+                plan,
+                failIfPredicateIsNotMeet(metadata, session, PERMISSION_DENIED, AccessDeniedException.PREFIX + "Cannot insert into a table restricted with a row filter"));
+
         List<String> insertedTableColumnNames = insertedColumns.stream()
                 .map(ColumnMetadata::getName)
                 .collect(toImmutableList());
@@ -487,13 +503,28 @@ public class LogicalPlanner
                 statisticsMetadata);
     }
 
+    private static Function<Expression, Expression> failIfPredicateIsNotMeet(Metadata metadata, Session session, StandardErrorCode errorCode, String errorMessage)
+    {
+        ResolvedFunction fail = metadata.resolveFunction(session, QualifiedName.of("fail"), fromTypes(INTEGER, VARCHAR));
+        return predicate -> new IfExpression(
+                predicate,
+                TRUE_LITERAL,
+                new Cast(
+                        new FunctionCall(
+                                fail.toQualifiedName(),
+                                ImmutableList.of(
+                                        new Cast(new LongLiteral(Long.toString(errorCode.toErrorCode().getCode())), toSqlType(INTEGER)),
+                                        new Cast(new StringLiteral(errorMessage), toSqlType(VARCHAR)))),
+                        toSqlType(BOOLEAN)));
+    }
+
     private RelationPlan createInsertPlan(Analysis analysis, Insert insertStatement)
     {
         Analysis.Insert insert = analysis.getInsert().orElseThrow();
         TableHandle tableHandle = insert.getTarget();
         Query query = insertStatement.getQuery();
         Optional<NewTableLayout> newTableLayout = insert.getNewTableLayout();
-        return getInsertPlan(analysis, query, tableHandle, insert.getColumns(), newTableLayout, Optional.empty());
+        return getInsertPlan(analysis, insert.getTable(), query, tableHandle, insert.getColumns(), newTableLayout, Optional.empty());
     }
 
     private RelationPlan createRefreshMaterializedViewPlan(Analysis analysis)
@@ -512,9 +543,11 @@ public class LogicalPlanner
         TableHandle tableHandle = viewAnalysis.getTarget();
         Query query = viewAnalysis.getQuery();
         Optional<NewTableLayout> newTableLayout = metadata.getInsertLayout(session, viewAnalysis.getTarget());
-        TableWriterNode.RefreshMaterializedViewReference writerTarget = new TableWriterNode.RefreshMaterializedViewReference(viewAnalysis.getMaterializedViewName(),
-                tableHandle, new ArrayList<>(analysis.getTables()));
-        return getInsertPlan(analysis, query, tableHandle, viewAnalysis.getColumns(), newTableLayout, Optional.of(writerTarget));
+        TableWriterNode.RefreshMaterializedViewReference writerTarget = new TableWriterNode.RefreshMaterializedViewReference(
+                viewAnalysis.getTable(),
+                tableHandle,
+                new ArrayList<>(analysis.getTables()));
+        return getInsertPlan(analysis, viewAnalysis.getTable(), query, tableHandle, viewAnalysis.getColumns(), newTableLayout, Optional.of(writerTarget));
     }
 
     private RelationPlan createTableWriterPlan(
