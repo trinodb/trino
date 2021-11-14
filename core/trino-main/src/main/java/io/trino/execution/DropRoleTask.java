@@ -21,7 +21,8 @@ import io.trino.security.AccessControl;
 import io.trino.sql.tree.DropRole;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Identifier;
-import io.trino.transaction.TransactionManager;
+
+import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;
@@ -30,10 +31,21 @@ import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.checkRoleExists;
 import static io.trino.metadata.MetadataUtil.processRoleCommandCatalog;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 
 public class DropRoleTask
         implements DataDefinitionTask<DropRole>
 {
+    private final Metadata metadata;
+    private final AccessControl accessControl;
+
+    @Inject
+    public DropRoleTask(Metadata metadata, AccessControl accessControl)
+    {
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
+    }
+
     @Override
     public String getName()
     {
@@ -43,9 +55,6 @@ public class DropRoleTask
     @Override
     public ListenableFuture<Void> execute(
             DropRole statement,
-            TransactionManager transactionManager,
-            Metadata metadata,
-            AccessControl accessControl,
             QueryStateMachine stateMachine,
             List<Expression> parameters,
             WarningCollector warningCollector)

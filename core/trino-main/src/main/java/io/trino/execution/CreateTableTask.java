@@ -43,7 +43,6 @@ import io.trino.sql.tree.LikeClause;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.TableElement;
-import io.trino.transaction.TransactionManager;
 
 import javax.inject.Inject;
 
@@ -80,15 +79,20 @@ import static io.trino.sql.tree.LikeClause.PropertiesOption.EXCLUDING;
 import static io.trino.sql.tree.LikeClause.PropertiesOption.INCLUDING;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class CreateTableTask
         implements DataDefinitionTask<CreateTable>
 {
+    private final Metadata metadata;
+    private final AccessControl accessControl;
     private final boolean disableSetPropertiesSecurityCheckForCreateDdl;
 
     @Inject
-    public CreateTableTask(FeaturesConfig featuresConfig)
+    public CreateTableTask(Metadata metadata, AccessControl accessControl, FeaturesConfig featuresConfig)
     {
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.disableSetPropertiesSecurityCheckForCreateDdl = featuresConfig.isDisableSetPropertiesSecurityCheckForCreateDdl();
     }
 
@@ -101,18 +105,15 @@ public class CreateTableTask
     @Override
     public ListenableFuture<Void> execute(
             CreateTable statement,
-            TransactionManager transactionManager,
-            Metadata metadata,
-            AccessControl accessControl,
             QueryStateMachine stateMachine,
             List<Expression> parameters,
             WarningCollector warningCollector)
     {
-        return internalExecute(statement, metadata, accessControl, stateMachine.getSession(), parameters, output -> stateMachine.setOutput(Optional.of(output)));
+        return internalExecute(statement, stateMachine.getSession(), parameters, output -> stateMachine.setOutput(Optional.of(output)));
     }
 
     @VisibleForTesting
-    ListenableFuture<Void> internalExecute(CreateTable statement, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, Consumer<Output> outputConsumer)
+    ListenableFuture<Void> internalExecute(CreateTable statement, Session session, List<Expression> parameters, Consumer<Output> outputConsumer)
     {
         checkArgument(!statement.getElements().isEmpty(), "no columns for table");
 

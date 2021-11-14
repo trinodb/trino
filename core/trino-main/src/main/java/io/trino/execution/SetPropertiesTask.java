@@ -22,7 +22,8 @@ import io.trino.metadata.TableHandle;
 import io.trino.security.AccessControl;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.SetProperties;
-import io.trino.transaction.TransactionManager;
+
+import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
@@ -36,10 +37,21 @@ import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.sql.NodeUtils.mapFromProperties;
 import static io.trino.sql.ParameterUtils.parameterExtractor;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
+import static java.util.Objects.requireNonNull;
 
 public class SetPropertiesTask
         implements DataDefinitionTask<SetProperties>
 {
+    private final Metadata metadata;
+    private final AccessControl accessControl;
+
+    @Inject
+    public SetPropertiesTask(Metadata metadata, AccessControl accessControl)
+    {
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
+    }
+
     @Override
     public String getName()
     {
@@ -49,9 +61,6 @@ public class SetPropertiesTask
     @Override
     public ListenableFuture<Void> execute(
             SetProperties statement,
-            TransactionManager transactionManager,
-            Metadata metadata,
-            AccessControl accessControl,
             QueryStateMachine stateMachine,
             List<Expression> parameters,
             WarningCollector warningCollector)
@@ -71,7 +80,7 @@ public class SetPropertiesTask
                     accessControl,
                     parameterExtractor(statement, parameters),
                     false); // skip setting of default properties since they should not be stored explicitly
-            setTableProperties(statement, tableName, metadata, accessControl, session, properties);
+            setTableProperties(statement, tableName, session, properties);
         }
         else {
             throw semanticException(NOT_SUPPORTED, statement, "Unsupported target type: %s", statement.getType());
@@ -80,7 +89,7 @@ public class SetPropertiesTask
         return immediateVoidFuture();
     }
 
-    private void setTableProperties(SetProperties statement, QualifiedObjectName tableName, Metadata metadata, AccessControl accessControl, Session session, Map<String, Object> properties)
+    private void setTableProperties(SetProperties statement, QualifiedObjectName tableName, Session session, Map<String, Object> properties)
     {
         if (metadata.isMaterializedView(session, tableName)) {
             throw semanticException(NOT_SUPPORTED, statement, "Cannot set properties to a materialized view in ALTER TABLE");

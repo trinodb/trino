@@ -39,6 +39,8 @@ import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Parameter;
 import io.trino.transaction.TransactionManager;
 
+import javax.inject.Inject;
+
 import java.lang.invoke.MethodType;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -63,10 +65,23 @@ import static io.trino.sql.ParameterUtils.parameterExtractor;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static java.util.Arrays.asList;
+import static java.util.Objects.requireNonNull;
 
 public class CallTask
         implements DataDefinitionTask<Call>
 {
+    private final TransactionManager transactionManager;
+    private final Metadata metadata;
+    private final AccessControl accessControl;
+
+    @Inject
+    public CallTask(TransactionManager transactionManager, Metadata metadata, AccessControl accessControl)
+    {
+        this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
+    }
+
     @Override
     public String getName()
     {
@@ -76,9 +91,6 @@ public class CallTask
     @Override
     public ListenableFuture<Void> execute(
             Call call,
-            TransactionManager transactionManager,
-            Metadata metadata,
-            AccessControl accessControl,
             QueryStateMachine stateMachine,
             List<Expression> parameters,
             WarningCollector warningCollector)

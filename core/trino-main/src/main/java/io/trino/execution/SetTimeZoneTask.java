@@ -43,7 +43,6 @@ import io.trino.sql.tree.ExpressionTreeRewriter;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.SetTimeZone;
-import io.trino.transaction.TransactionManager;
 import io.trino.type.IntervalDayTimeType;
 
 import javax.inject.Inject;
@@ -68,13 +67,17 @@ import static java.util.Objects.requireNonNull;
 public class SetTimeZoneTask
         implements DataDefinitionTask<SetTimeZone>
 {
+    private final Metadata metadata;
+    private final AccessControl accessControl;
     private final SqlParser sqlParser;
     private final GroupProvider groupProvider;
     private final StatsCalculator statsCalculator;
 
     @Inject
-    public SetTimeZoneTask(SqlParser sqlParser, GroupProvider groupProvider, StatsCalculator statsCalculator)
+    public SetTimeZoneTask(Metadata metadata, AccessControl accessControl, SqlParser sqlParser, GroupProvider groupProvider, StatsCalculator statsCalculator)
     {
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
@@ -89,15 +92,12 @@ public class SetTimeZoneTask
     @Override
     public ListenableFuture<Void> execute(
             SetTimeZone statement,
-            TransactionManager transactionManager,
-            Metadata metadata,
-            AccessControl accessControl,
             QueryStateMachine stateMachine,
             List<Expression> parameters,
             WarningCollector warningCollector)
     {
         String timeZoneId = statement.getTimeZone()
-                .map(timeZone -> getTimeZoneId(timeZone, statement, metadata, accessControl, stateMachine, parameters, warningCollector))
+                .map(timeZone -> getTimeZoneId(timeZone, statement, stateMachine, parameters, warningCollector))
                 .orElse(TimeZone.getDefault().getID());
         stateMachine.addSetSessionProperties(TIME_ZONE_ID, timeZoneId);
 
@@ -107,8 +107,6 @@ public class SetTimeZoneTask
     private String getTimeZoneId(
             Expression expression,
             SetTimeZone statement,
-            Metadata metadata,
-            AccessControl accessControl,
             QueryStateMachine stateMachine,
             List<Expression> parameters,
             WarningCollector warningCollector)

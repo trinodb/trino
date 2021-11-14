@@ -15,8 +15,6 @@ package io.trino.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.Metadata;
-import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.Deallocate;
@@ -24,7 +22,6 @@ import io.trino.sql.tree.Execute;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Prepare;
 import io.trino.sql.tree.Statement;
-import io.trino.transaction.TransactionManager;
 
 import javax.inject.Inject;
 
@@ -56,9 +53,6 @@ public class PrepareTask
     @Override
     public ListenableFuture<Void> execute(
             Prepare prepare,
-            TransactionManager transactionManager,
-            Metadata metadata,
-            AccessControl accessControl,
             QueryStateMachine stateMachine,
             List<Expression> parameters,
             WarningCollector warningCollector)

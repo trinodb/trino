@@ -112,11 +112,8 @@ public class TestSetPathTask
 
     private void executeSetPathTask(PathSpecification pathSpecification, QueryStateMachine stateMachine)
     {
-        getFutureValue(new SetPathTask().execute(
+        getFutureValue(new SetPathTask(metadata).execute(
                 new SetPath(pathSpecification),
-                transactionManager,
-                metadata,
-                accessControl,
                 stateMachine,
                 emptyList(),
                 WarningCollector.NOOP));

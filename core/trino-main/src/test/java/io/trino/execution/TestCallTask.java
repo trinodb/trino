@@ -130,12 +130,9 @@ public class TestCallTask
                         methodHandle));
         AccessControl accessControl = accessControlProvider.apply(transactionManager);
 
-        new CallTask()
+        new CallTask(transactionManager, metadata, accessControl)
                 .execute(
                         new Call(QualifiedName.of("testing_procedure"), ImmutableList.of()),
-                        transactionManager,
-                        metadata,
-                        accessControl,
                         stateMachine(transactionManager, metadata, accessControl),
                         ImmutableList.of(),
                         WarningCollector.NOOP);

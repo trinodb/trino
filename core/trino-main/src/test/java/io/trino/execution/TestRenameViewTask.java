@@ -77,6 +77,7 @@ public class TestRenameViewTask
 
     private ListenableFuture<Void> executeRenameView(QualifiedName source, QualifiedName target)
     {
-        return new RenameViewTask().execute(new RenameView(source, target), transactionManager, metadata, new AllowAllAccessControl(), queryStateMachine, ImmutableList.of(), WarningCollector.NOOP);
+        return new RenameViewTask(metadata, new AllowAllAccessControl())
+                .execute(new RenameView(source, target), queryStateMachine, ImmutableList.of(), WarningCollector.NOOP);
     }
 }

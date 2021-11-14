@@ -29,7 +29,6 @@ import io.trino.sql.analyzer.Analyzer;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.CreateView;
 import io.trino.sql.tree.Expression;
-import io.trino.transaction.TransactionManager;
 
 import javax.inject.Inject;
 
@@ -47,13 +46,17 @@ import static java.util.Objects.requireNonNull;
 public class CreateViewTask
         implements DataDefinitionTask<CreateView>
 {
+    private final Metadata metadata;
+    private final AccessControl accessControl;
     private final SqlParser sqlParser;
     private final GroupProvider groupProvider;
     private final StatsCalculator statsCalculator;
 
     @Inject
-    public CreateViewTask(SqlParser sqlParser, GroupProvider groupProvider, StatsCalculator statsCalculator)
+    public CreateViewTask(Metadata metadata, AccessControl accessControl, SqlParser sqlParser, GroupProvider groupProvider, StatsCalculator statsCalculator)
     {
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
@@ -68,9 +71,6 @@ public class CreateViewTask
     @Override
     public ListenableFuture<Void> execute(
             CreateView statement,
-            TransactionManager transactionManager,
-            Metadata metadata,
-            AccessControl accessControl,
             QueryStateMachine stateMachine,
             List<Expression> parameters,
             WarningCollector warningCollector)
