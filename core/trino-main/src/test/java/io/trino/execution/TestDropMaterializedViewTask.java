@@ -105,6 +105,7 @@ public class TestDropMaterializedViewTask
 
     private ListenableFuture<Void> executeDropMaterializedView(QualifiedName viewName, boolean exists)
     {
-        return new DropMaterializedViewTask().execute(new DropMaterializedView(viewName, exists), transactionManager, metadata, new AllowAllAccessControl(), queryStateMachine, ImmutableList.of(), WarningCollector.NOOP);
+        return new DropMaterializedViewTask(metadata, new AllowAllAccessControl())
+                .execute(new DropMaterializedView(viewName, exists), queryStateMachine, ImmutableList.of(), WarningCollector.NOOP);
     }
 }

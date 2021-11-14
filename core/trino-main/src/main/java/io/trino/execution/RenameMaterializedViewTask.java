@@ -22,7 +22,8 @@ import io.trino.metadata.TableHandle;
 import io.trino.security.AccessControl;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.RenameMaterializedView;
-import io.trino.transaction.TransactionManager;
+
+import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;
@@ -34,10 +35,21 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
+import static java.util.Objects.requireNonNull;
 
 public class RenameMaterializedViewTask
         implements DataDefinitionTask<RenameMaterializedView>
 {
+    private final Metadata metadata;
+    private final AccessControl accessControl;
+
+    @Inject
+    public RenameMaterializedViewTask(Metadata metadata, AccessControl accessControl)
+    {
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
+    }
+
     @Override
     public String getName()
     {
@@ -47,9 +59,6 @@ public class RenameMaterializedViewTask
     @Override
     public ListenableFuture<Void> execute(
             RenameMaterializedView statement,
-            TransactionManager transactionManager,
-            Metadata metadata,
-            AccessControl accessControl,
             QueryStateMachine stateMachine,
             List<Expression> parameters,
             WarningCollector warningCollector)
