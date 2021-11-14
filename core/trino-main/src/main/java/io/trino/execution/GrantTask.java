@@ -25,7 +25,8 @@ import io.trino.spi.security.Privilege;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Grant;
 import io.trino.sql.tree.GrantOnType;
-import io.trino.transaction.TransactionManager;
+
+import javax.inject.Inject;
 
 import java.util.EnumSet;
 import java.util.List;
@@ -41,10 +42,21 @@ import static io.trino.spi.StandardErrorCode.INVALID_PRIVILEGE;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
+import static java.util.Objects.requireNonNull;
 
 public class GrantTask
         implements DataDefinitionTask<Grant>
 {
+    private final Metadata metadata;
+    private final AccessControl accessControl;
+
+    @Inject
+    public GrantTask(Metadata metadata, AccessControl accessControl)
+    {
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
+    }
+
     @Override
     public String getName()
     {
@@ -54,23 +66,20 @@ public class GrantTask
     @Override
     public ListenableFuture<Void> execute(
             Grant statement,
-            TransactionManager transactionManager,
-            Metadata metadata,
-            AccessControl accessControl,
             QueryStateMachine stateMachine,
             List<Expression> parameters,
             WarningCollector warningCollector)
     {
         if (statement.getType().filter(GrantOnType.SCHEMA::equals).isPresent()) {
-            executeGrantOnSchema(stateMachine.getSession(), statement, metadata, accessControl);
+            executeGrantOnSchema(stateMachine.getSession(), statement);
         }
         else {
-            executeGrantOnTable(stateMachine.getSession(), statement, metadata, accessControl);
+            executeGrantOnTable(stateMachine.getSession(), statement);
         }
         return immediateVoidFuture();
     }
 
-    private void executeGrantOnSchema(Session session, Grant statement, Metadata metadata, AccessControl accessControl)
+    private void executeGrantOnSchema(Session session, Grant statement)
     {
         CatalogSchemaName schemaName = createCatalogSchemaName(session, statement, Optional.of(statement.getName()));
 
@@ -86,7 +95,7 @@ public class GrantTask
         metadata.grantSchemaPrivileges(session, schemaName, privileges, createPrincipal(statement.getGrantee()), statement.isWithGrantOption());
     }
 
-    private void executeGrantOnTable(Session session, Grant statement, Metadata metadata, AccessControl accessControl)
+    private void executeGrantOnTable(Session session, Grant statement)
     {
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName());
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);

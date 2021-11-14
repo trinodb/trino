@@ -143,8 +143,8 @@ public class TestCreateMaterializedViewTask
                 ImmutableList.of(),
                 Optional.empty());
 
-        getFutureValue(new CreateMaterializedViewTask(parser, new TestingGroupProvider(), statsCalculator)
-                .execute(statement, transactionManager, metadata, new AllowAllAccessControl(), queryStateMachine, ImmutableList.of(), WarningCollector.NOOP));
+        getFutureValue(new CreateMaterializedViewTask(metadata, new AllowAllAccessControl(), parser, new TestingGroupProvider(), statsCalculator)
+                .execute(statement, queryStateMachine, ImmutableList.of(), WarningCollector.NOOP));
         assertEquals(metadata.getCreateMaterializedViewCallCount(), 1);
     }
 
@@ -160,8 +160,8 @@ public class TestCreateMaterializedViewTask
                 ImmutableList.of(),
                 Optional.empty());
 
-        assertTrinoExceptionThrownBy(() -> getFutureValue(new CreateMaterializedViewTask(parser, new TestingGroupProvider(), statsCalculator)
-                .execute(statement, transactionManager, metadata, new AllowAllAccessControl(), queryStateMachine, ImmutableList.of(), WarningCollector.NOOP)))
+        assertTrinoExceptionThrownBy(() -> getFutureValue(new CreateMaterializedViewTask(metadata, new AllowAllAccessControl(), parser, new TestingGroupProvider(), statsCalculator)
+                .execute(statement, queryStateMachine, ImmutableList.of(), WarningCollector.NOOP)))
                 .hasErrorCode(ALREADY_EXISTS)
                 .hasMessage("Materialized view already exists");
 
@@ -180,8 +180,8 @@ public class TestCreateMaterializedViewTask
                 ImmutableList.of(new Property(new Identifier("baz"), new StringLiteral("abc"))),
                 Optional.empty());
 
-        assertTrinoExceptionThrownBy(() -> getFutureValue(new CreateMaterializedViewTask(parser, new TestingGroupProvider(), statsCalculator)
-                .execute(statement, transactionManager, metadata, new AllowAllAccessControl(), queryStateMachine, ImmutableList.of(), WarningCollector.NOOP)))
+        assertTrinoExceptionThrownBy(() -> getFutureValue(new CreateMaterializedViewTask(metadata, new AllowAllAccessControl(), parser, new TestingGroupProvider(), statsCalculator)
+                .execute(statement, queryStateMachine, ImmutableList.of(), WarningCollector.NOOP)))
                 .hasErrorCode(INVALID_MATERIALIZED_VIEW_PROPERTY)
                 .hasMessage("Catalog 'catalog' does not support materialized view property 'baz'");
 
@@ -203,8 +203,8 @@ public class TestCreateMaterializedViewTask
         accessControl.loadSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
         accessControl.deny(privilege("test_mv", CREATE_MATERIALIZED_VIEW));
 
-        assertThatThrownBy(() -> getFutureValue(new CreateMaterializedViewTask(parser, new TestingGroupProvider(), statsCalculator)
-                .execute(statement, transactionManager, metadata, accessControl, queryStateMachine, ImmutableList.of(), WarningCollector.NOOP)))
+        assertThatThrownBy(() -> getFutureValue(new CreateMaterializedViewTask(metadata, accessControl, parser, new TestingGroupProvider(), statsCalculator)
+                .execute(statement, queryStateMachine, ImmutableList.of(), WarningCollector.NOOP)))
                 .isInstanceOf(AccessDeniedException.class)
                 .hasMessageContaining("Cannot create materialized view catalog.schema.test_mv");
     }

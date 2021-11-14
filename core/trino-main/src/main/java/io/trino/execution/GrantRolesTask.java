@@ -23,7 +23,8 @@ import io.trino.spi.security.TrinoPrincipal;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.GrantRoles;
 import io.trino.sql.tree.Identifier;
-import io.trino.transaction.TransactionManager;
+
+import javax.inject.Inject;
 
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -37,10 +38,21 @@ import static io.trino.metadata.MetadataUtil.checkRoleExists;
 import static io.trino.metadata.MetadataUtil.createPrincipal;
 import static io.trino.metadata.MetadataUtil.processRoleCommandCatalog;
 import static io.trino.spi.security.PrincipalType.ROLE;
+import static java.util.Objects.requireNonNull;
 
 public class GrantRolesTask
         implements DataDefinitionTask<GrantRoles>
 {
+    private final Metadata metadata;
+    private final AccessControl accessControl;
+
+    @Inject
+    public GrantRolesTask(Metadata metadata, AccessControl accessControl)
+    {
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
+    }
+
     @Override
     public String getName()
     {
@@ -50,9 +62,6 @@ public class GrantRolesTask
     @Override
     public ListenableFuture<Void> execute(
             GrantRoles statement,
-            TransactionManager transactionManager,
-            Metadata metadata,
-            AccessControl accessControl,
             QueryStateMachine stateMachine,
             List<Expression> parameters,
             WarningCollector warningCollector)

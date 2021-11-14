@@ -15,11 +15,8 @@ package io.trino.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.Metadata;
-import io.trino.security.AccessControl;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Statement;
-import io.trino.transaction.TransactionManager;
 
 import java.util.List;
 
@@ -29,9 +26,6 @@ public interface DataDefinitionTask<T extends Statement>
 
     ListenableFuture<Void> execute(
             T statement,
-            TransactionManager transactionManager,
-            Metadata metadata,
-            AccessControl accessControl,
             QueryStateMachine stateMachine,
             List<Expression> parameters,
             WarningCollector warningCollector);

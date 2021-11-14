@@ -106,6 +106,7 @@ public class TestRenameTableTask
 
     private ListenableFuture<Void> executeRenameTable(QualifiedName source, QualifiedName target, boolean exists)
     {
-        return new RenameTableTask().execute(new RenameTable(source, target, exists), transactionManager, metadata, new AllowAllAccessControl(), queryStateMachine, ImmutableList.of(), WarningCollector.NOOP);
+        return new RenameTableTask(metadata, new AllowAllAccessControl())
+                .execute(new RenameTable(source, target, exists), queryStateMachine, ImmutableList.of(), WarningCollector.NOOP);
     }
 }

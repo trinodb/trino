@@ -21,7 +21,6 @@ import io.trino.plugin.base.security.AllowAllSystemAccessControl;
 import io.trino.plugin.base.security.DefaultSystemAccessControl;
 import io.trino.security.AccessControlConfig;
 import io.trino.security.AccessControlManager;
-import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.sql.tree.Deallocate;
 import io.trino.sql.tree.Identifier;
@@ -96,7 +95,7 @@ public class TestDeallocateTask
                 WarningCollector.NOOP,
                 Optional.empty());
         Deallocate deallocate = new Deallocate(new Identifier(statementName));
-        new DeallocateTask().execute(deallocate, transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList(), WarningCollector.NOOP);
+        new DeallocateTask().execute(deallocate, stateMachine, emptyList(), WarningCollector.NOOP);
         return stateMachine.getDeallocatedPreparedStatements();
     }
 }
