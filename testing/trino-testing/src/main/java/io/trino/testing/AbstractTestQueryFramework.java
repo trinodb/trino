@@ -14,6 +14,7 @@
 package io.trino.testing;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.MoreCollectors;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.units.Duration;
@@ -27,6 +28,7 @@ import io.trino.cost.CostComparator;
 import io.trino.cost.ScalarStatsCalculator;
 import io.trino.cost.TaskCountEstimator;
 import io.trino.execution.QueryManagerConfig;
+import io.trino.execution.QueryPreparer;
 import io.trino.execution.QueryStats;
 import io.trino.execution.TaskManagerConfig;
 import io.trino.execution.warnings.WarningCollector;
@@ -38,20 +40,28 @@ import io.trino.operator.OperatorStats;
 import io.trino.spi.QueryId;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
+import io.trino.sql.analyzer.AnalyzerFactory;
 import io.trino.sql.analyzer.QueryExplainer;
+import io.trino.sql.analyzer.QueryExplainerFactory;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.PlanFragmenter;
 import io.trino.sql.planner.PlanOptimizers;
+import io.trino.sql.planner.PlanOptimizersFactory;
 import io.trino.sql.planner.RuleStatsRecorder;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.optimizations.PlanNodeSearcher;
-import io.trino.sql.planner.optimizations.PlanOptimizer;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.query.QueryAssertions.QueryAssert;
+import io.trino.sql.rewrite.DescribeInputRewrite;
+import io.trino.sql.rewrite.DescribeOutputRewrite;
+import io.trino.sql.rewrite.ExplainRewrite;
+import io.trino.sql.rewrite.ShowQueriesRewrite;
+import io.trino.sql.rewrite.ShowStatsRewrite;
+import io.trino.sql.rewrite.StatementRewrite;
 import io.trino.sql.tree.ExplainType;
 import io.trino.testing.TestingAccessControlManager.TestingPrivilege;
 import io.trino.transaction.TransactionBuilder;
@@ -461,7 +471,7 @@ public abstract class AbstractTestQueryFramework
         CostCalculator costCalculator = new CostCalculatorUsingExchanges(taskCountEstimator);
         TypeOperators typeOperators = new TypeOperators();
         TypeAnalyzer typeAnalyzer = new TypeAnalyzer(sqlParser, metadata);
-        List<PlanOptimizer> optimizers = new PlanOptimizers(
+        PlanOptimizersFactory planOptimizersFactory = new PlanOptimizers(
                 metadata,
                 typeOperators,
                 typeAnalyzer,
@@ -476,17 +486,27 @@ public abstract class AbstractTestQueryFramework
                 new CostComparator(featuresConfig),
                 taskCountEstimator,
                 queryRunner.getNodePartitioningManager(),
-                new RuleStatsRecorder()).get();
-        return new QueryExplainer(
-                optimizers,
+                new RuleStatsRecorder());
+        QueryExplainerFactory queryExplainerFactory = new QueryExplainerFactory(
+                planOptimizersFactory,
                 new PlanFragmenter(metadata, queryRunner.getNodePartitioningManager(), new QueryManagerConfig()),
                 metadata,
                 typeOperators,
-                queryRunner.getGroupProvider(),
-                queryRunner.getAccessControl(),
                 sqlParser,
                 queryRunner.getStatsCalculator(),
                 costCalculator);
+        AnalyzerFactory analyzerFactory = new AnalyzerFactory(
+                metadata,
+                sqlParser,
+                queryRunner.getAccessControl(),
+                queryRunner.getGroupProvider(),
+                new StatementRewrite(ImmutableSet.of(
+                        new DescribeInputRewrite(sqlParser),
+                        new DescribeOutputRewrite(sqlParser),
+                        new ShowQueriesRewrite(metadata, sqlParser, queryRunner.getAccessControl()),
+                        new ShowStatsRewrite(queryExplainerFactory, queryRunner.getStatsCalculator()),
+                        new ExplainRewrite(queryExplainerFactory, new QueryPreparer(sqlParser)))));
+        return queryExplainerFactory.createQueryExplainer(analyzerFactory);
     }
 
     protected static void skipTestUnless(boolean requirement)

@@ -41,6 +41,7 @@ import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.security.SystemAccessControl;
 import io.trino.split.PageSourceManager;
 import io.trino.split.SplitManager;
+import io.trino.sql.analyzer.AnalyzerFactory;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.sql.planner.Plan;
 import io.trino.transaction.TransactionManager;
@@ -321,6 +322,12 @@ public class DistributedQueryRunner
     public Metadata getMetadata()
     {
         return coordinator.getMetadata();
+    }
+
+    @Override
+    public AnalyzerFactory getAnalyzerFactory()
+    {
+        return coordinator.getAnalyzerFactory();
     }
 
     @Override

@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.trino.Session;
-import io.trino.cost.StatsCalculator;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
@@ -28,7 +27,7 @@ import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.analyzer.Analysis;
-import io.trino.sql.analyzer.Analyzer;
+import io.trino.sql.analyzer.AnalyzerFactory;
 import io.trino.sql.analyzer.CorrelationSupport;
 import io.trino.sql.analyzer.ExpressionAnalysis;
 import io.trino.sql.analyzer.ExpressionAnalyzer;
@@ -49,7 +48,6 @@ import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.TimeZone;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -70,17 +68,17 @@ public class SetTimeZoneTask
     private final Metadata metadata;
     private final AccessControl accessControl;
     private final SqlParser sqlParser;
+    private final AnalyzerFactory analyzerFactory;
     private final GroupProvider groupProvider;
-    private final StatsCalculator statsCalculator;
 
     @Inject
-    public SetTimeZoneTask(Metadata metadata, AccessControl accessControl, SqlParser sqlParser, GroupProvider groupProvider, StatsCalculator statsCalculator)
+    public SetTimeZoneTask(Metadata metadata, AccessControl accessControl, SqlParser sqlParser, AnalyzerFactory analyzerFactory, GroupProvider groupProvider)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
+        this.analyzerFactory = requireNonNull(analyzerFactory, "analyzerFactory is null");
         this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
-        this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
     }
 
     @Override
@@ -112,7 +110,7 @@ public class SetTimeZoneTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
-        Analysis analysis = analyzeStatement(statement, metadata, accessControl, stateMachine, parameters, session);
+        Analysis analysis = analyzeStatement(statement, stateMachine, parameters, session);
         Scope scope = Scope.builder()
                 .withRelationType(RelationId.anonymous(), new RelationType())
                 .build();
@@ -154,23 +152,15 @@ public class SetTimeZoneTask
 
     private Analysis analyzeStatement(
             SetTimeZone statement,
-            Metadata metadata,
-            AccessControl accessControl,
             QueryStateMachine stateMachine,
             List<Expression> parameters,
             Session session)
     {
-        return new Analyzer(
+        return analyzerFactory.createAnalyzer(
                 session,
-                metadata,
-                sqlParser,
-                groupProvider,
-                accessControl,
-                Optional.empty(),
                 parameters,
                 parameterExtractor(statement, parameters),
-                stateMachine.getWarningCollector(),
-                statsCalculator)
+                stateMachine.getWarningCollector())
                 .analyze(statement);
     }
 
