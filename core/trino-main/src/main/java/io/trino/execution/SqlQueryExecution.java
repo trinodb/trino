@@ -37,20 +37,17 @@ import io.trino.memory.VersionedMemoryPoolId;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
 import io.trino.operator.ForScheduler;
-import io.trino.security.AccessControl;
 import io.trino.server.BasicQueryInfo;
 import io.trino.server.DynamicFilterService;
 import io.trino.server.protocol.Slug;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
-import io.trino.spi.security.GroupProvider;
 import io.trino.spi.type.TypeOperators;
 import io.trino.split.SplitManager;
 import io.trino.split.SplitSource;
 import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.Analyzer;
-import io.trino.sql.analyzer.QueryExplainer;
-import io.trino.sql.parser.SqlParser;
+import io.trino.sql.analyzer.AnalyzerFactory;
 import io.trino.sql.planner.DistributedExecutionPlanner;
 import io.trino.sql.planner.InputExtractor;
 import io.trino.sql.planner.LogicalPlanner;
@@ -140,9 +137,7 @@ public class SqlQueryExecution
             Slug slug,
             Metadata metadata,
             TypeOperators typeOperators,
-            GroupProvider groupProvider,
-            AccessControl accessControl,
-            SqlParser sqlParser,
+            AnalyzerFactory analyzerFactory,
             SplitManager splitManager,
             NodePartitioningManager nodePartitioningManager,
             NodeScheduler nodeScheduler,
@@ -154,7 +149,6 @@ public class SqlQueryExecution
             ScheduledExecutorService schedulerExecutor,
             FailureDetector failureDetector,
             NodeTaskMap nodeTaskMap,
-            QueryExplainer queryExplainer,
             ExecutionPolicy executionPolicy,
             SplitSchedulerStats schedulerStats,
             StatsCalculator statsCalculator,
@@ -190,7 +184,7 @@ public class SqlQueryExecution
             this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
 
             // analyze query
-            this.analysis = analyze(preparedQuery, stateMachine, metadata, groupProvider, accessControl, sqlParser, queryExplainer, warningCollector);
+            this.analysis = analyze(preparedQuery, stateMachine, warningCollector, analyzerFactory);
 
             stateMachine.addStateChangeListener(state -> {
                 if (!state.isDone()) {
@@ -246,30 +240,20 @@ public class SqlQueryExecution
         dynamicFilterService.removeQuery(stateMachine.getQueryId());
     }
 
-    private Analysis analyze(
+    private static Analysis analyze(
             PreparedQuery preparedQuery,
             QueryStateMachine stateMachine,
-            Metadata metadata,
-            GroupProvider groupProvider,
-            AccessControl accessControl,
-            SqlParser sqlParser,
-            QueryExplainer queryExplainer,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            AnalyzerFactory analyzerFactory)
     {
         stateMachine.beginAnalysis();
 
         requireNonNull(preparedQuery, "preparedQuery is null");
-        Analyzer analyzer = new Analyzer(
+        Analyzer analyzer = analyzerFactory.createAnalyzer(
                 stateMachine.getSession(),
-                metadata,
-                sqlParser,
-                groupProvider,
-                accessControl,
-                Optional.of(queryExplainer),
                 preparedQuery.getParameters(),
                 parameterExtractor(preparedQuery.getStatement(), preparedQuery.getParameters()),
-                warningCollector,
-                statsCalculator);
+                warningCollector);
         Analysis analysis;
         try {
             analysis = analyzer.analyze(preparedQuery.getStatement());
@@ -732,16 +716,13 @@ public class SqlQueryExecution
         private final int scheduleSplitBatchSize;
         private final Metadata metadata;
         private final TypeOperators typeOperators;
-        private final GroupProvider groupProvider;
-        private final AccessControl accessControl;
-        private final SqlParser sqlParser;
+        private final AnalyzerFactory analyzerFactory;
         private final SplitManager splitManager;
         private final NodePartitioningManager nodePartitioningManager;
         private final NodeScheduler nodeScheduler;
         private final List<PlanOptimizer> planOptimizers;
         private final PlanFragmenter planFragmenter;
         private final RemoteTaskFactory remoteTaskFactory;
-        private final QueryExplainer queryExplainer;
         private final ExecutorService queryExecutor;
         private final ScheduledExecutorService schedulerExecutor;
         private final FailureDetector failureDetector;
@@ -758,9 +739,7 @@ public class SqlQueryExecution
                 QueryManagerConfig config,
                 Metadata metadata,
                 TypeOperators typeOperators,
-                GroupProvider groupProvider,
-                AccessControl accessControl,
-                SqlParser sqlParser,
+                AnalyzerFactory analyzerFactory,
                 SplitManager splitManager,
                 NodePartitioningManager nodePartitioningManager,
                 NodeScheduler nodeScheduler,
@@ -771,7 +750,6 @@ public class SqlQueryExecution
                 @ForScheduler ScheduledExecutorService schedulerExecutor,
                 FailureDetector failureDetector,
                 NodeTaskMap nodeTaskMap,
-                QueryExplainer queryExplainer,
                 Map<String, ExecutionPolicy> executionPolicies,
                 SplitSchedulerStats schedulerStats,
                 StatsCalculator statsCalculator,
@@ -785,9 +763,7 @@ public class SqlQueryExecution
             this.scheduleSplitBatchSize = config.getScheduleSplitBatchSize();
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
-            this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
-            this.accessControl = requireNonNull(accessControl, "accessControl is null");
-            this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
+            this.analyzerFactory = requireNonNull(analyzerFactory, "analyzerFactory is null");
             this.splitManager = requireNonNull(splitManager, "splitManager is null");
             this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
             this.nodeScheduler = requireNonNull(nodeScheduler, "nodeScheduler is null");
@@ -797,7 +773,6 @@ public class SqlQueryExecution
             this.schedulerExecutor = requireNonNull(schedulerExecutor, "schedulerExecutor is null");
             this.failureDetector = requireNonNull(failureDetector, "failureDetector is null");
             this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
-            this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
             this.executionPolicies = requireNonNull(executionPolicies, "executionPolicies is null");
             this.planOptimizers = requireNonNull(planOptimizersFactory, "planOptimizersFactory is null").get();
             this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
@@ -824,9 +799,7 @@ public class SqlQueryExecution
                     slug,
                     metadata,
                     typeOperators,
-                    groupProvider,
-                    accessControl,
-                    sqlParser,
+                    analyzerFactory,
                     splitManager,
                     nodePartitioningManager,
                     nodeScheduler,
@@ -838,7 +811,6 @@ public class SqlQueryExecution
                     schedulerExecutor,
                     failureDetector,
                     nodeTaskMap,
-                    queryExplainer,
                     executionPolicy,
                     schedulerStats,
                     statsCalculator,

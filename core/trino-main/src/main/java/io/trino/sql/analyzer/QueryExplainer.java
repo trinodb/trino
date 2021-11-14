@@ -18,9 +18,7 @@ import io.trino.cost.CostCalculator;
 import io.trino.cost.StatsCalculator;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
-import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
-import io.trino.spi.security.GroupProvider;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.SqlFormatter;
 import io.trino.sql.parser.SqlParser;
@@ -43,8 +41,6 @@ import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Prepare;
 import io.trino.sql.tree.Statement;
 
-import javax.inject.Inject;
-
 import java.util.List;
 import java.util.Optional;
 
@@ -63,62 +59,34 @@ public class QueryExplainer
     private final PlanFragmenter planFragmenter;
     private final Metadata metadata;
     private final TypeOperators typeOperators;
-    private final GroupProvider groupProvider;
-    private final AccessControl accessControl;
     private final SqlParser sqlParser;
+    private final AnalyzerFactory analyzerFactory;
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
 
-    @Inject
-    public QueryExplainer(
+    QueryExplainer(
             PlanOptimizersFactory planOptimizersFactory,
             PlanFragmenter planFragmenter,
             Metadata metadata,
             TypeOperators typeOperators,
-            GroupProvider groupProvider,
-            AccessControl accessControl,
             SqlParser sqlParser,
+            AnalyzerFactory analyzerFactory,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator)
     {
-        this(
-                planOptimizersFactory.get(),
-                planFragmenter,
-                metadata,
-                typeOperators,
-                groupProvider,
-                accessControl,
-                sqlParser,
-                statsCalculator,
-                costCalculator);
-    }
-
-    public QueryExplainer(
-            List<PlanOptimizer> planOptimizers,
-            PlanFragmenter planFragmenter,
-            Metadata metadata,
-            TypeOperators typeOperators,
-            GroupProvider groupProvider,
-            AccessControl accessControl,
-            SqlParser sqlParser,
-            StatsCalculator statsCalculator,
-            CostCalculator costCalculator)
-    {
-        this.planOptimizers = requireNonNull(planOptimizers, "planOptimizers is null");
+        this.planOptimizers = requireNonNull(planOptimizersFactory.get(), "planOptimizers is null");
         this.planFragmenter = requireNonNull(planFragmenter, "planFragmenter is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
-        this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
-        this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
+        this.analyzerFactory = requireNonNull(analyzerFactory, "analyzerFactory is null");
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
     }
 
-    public Analysis analyze(Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector)
+    public void validate(Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector)
     {
-        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, groupProvider, accessControl, Optional.of(this), parameters, parameterExtractor(statement, parameters), warningCollector, statsCalculator);
-        return analyzer.analyze(statement, EXPLAIN);
+        analyze(session, statement, parameters, warningCollector);
     }
 
     public String getPlan(Session session, Statement statement, Type planType, List<Expression> parameters, WarningCollector warningCollector)
@@ -206,6 +174,12 @@ public class QueryExplainer
                 costCalculator,
                 warningCollector);
         return logicalPlanner.plan(analysis, OPTIMIZED_AND_VALIDATED, true);
+    }
+
+    private Analysis analyze(Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector)
+    {
+        Analyzer analyzer = analyzerFactory.createAnalyzer(session, parameters, parameterExtractor(statement, parameters), warningCollector);
+        return analyzer.analyze(statement, EXPLAIN);
     }
 
     private SubPlan getDistributedPlan(Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector)

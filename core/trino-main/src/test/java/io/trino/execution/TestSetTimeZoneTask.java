@@ -259,8 +259,8 @@ public class TestSetTimeZoneTask
                 localQueryRunner.getMetadata(),
                 localQueryRunner.getAccessControl(),
                 localQueryRunner.getSqlParser(),
-                localQueryRunner.getGroupProvider(),
-                localQueryRunner.getStatsCalculator());
+                localQueryRunner.getAnalyzerFactory(),
+                localQueryRunner.getGroupProvider());
         getFutureValue(task.execute(setTimeZone, stateMachine, emptyList(), WarningCollector.NOOP));
     }
 }

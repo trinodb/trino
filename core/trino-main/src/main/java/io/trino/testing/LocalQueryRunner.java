@@ -128,7 +128,8 @@ import io.trino.split.SplitManager;
 import io.trino.split.SplitSource;
 import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.Analyzer;
-import io.trino.sql.analyzer.QueryExplainer;
+import io.trino.sql.analyzer.AnalyzerFactory;
+import io.trino.sql.analyzer.QueryExplainerFactory;
 import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.gen.JoinFilterFunctionCompiler;
@@ -152,6 +153,12 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.planprinter.PlanPrinter;
 import io.trino.sql.planner.sanity.PlanSanityChecker;
+import io.trino.sql.rewrite.DescribeInputRewrite;
+import io.trino.sql.rewrite.DescribeOutputRewrite;
+import io.trino.sql.rewrite.ExplainRewrite;
+import io.trino.sql.rewrite.ShowQueriesRewrite;
+import io.trino.sql.rewrite.ShowStatsRewrite;
+import io.trino.sql.rewrite.StatementRewrite;
 import io.trino.testing.PageConsumerOperator.PageConsumerOutputFactory;
 import io.trino.transaction.InMemoryTransactionManager;
 import io.trino.transaction.TransactionId;
@@ -244,7 +251,6 @@ public class LocalQueryRunner
     private final boolean alwaysRevokeMemory;
     private final NodeSpillConfig nodeSpillConfig;
     private final FeaturesConfig featuresConfig;
-    private final PlanOptimizersProvider planOptimizersProvider;
     private final OperatorFactories operatorFactories;
     private boolean printPlan;
 
@@ -269,7 +275,6 @@ public class LocalQueryRunner
             boolean alwaysRevokeMemory,
             int nodeCountForStats,
             Map<String, List<PropertyMetadata<?>>> defaultSessionProperties,
-            PlanOptimizersProvider planOptimizersProvider,
             OperatorFactories operatorFactories,
             Set<SystemSessionPropertiesProvider> extraSessionProperties)
     {
@@ -279,7 +284,6 @@ public class LocalQueryRunner
 
         this.taskManagerConfig = new TaskManagerConfig().setTaskConcurrency(4);
         this.nodeSpillConfig = requireNonNull(nodeSpillConfig, "nodeSpillConfig is null");
-        this.planOptimizersProvider = requireNonNull(planOptimizersProvider, "planOptimizersProvider is null");
         this.operatorFactories = requireNonNull(operatorFactories, "operatorFactories is null");
         this.alwaysRevokeMemory = alwaysRevokeMemory;
         this.notificationExecutor = newCachedThreadPool(daemonThreadsNamed("local-query-runner-executor-%s"));
@@ -490,6 +494,12 @@ public class LocalQueryRunner
     public Metadata getMetadata()
     {
         return metadata;
+    }
+
+    @Override
+    public AnalyzerFactory getAnalyzerFactory()
+    {
+        return createAnalyzerFactory(getPlanOptimizers(false));
     }
 
     public TypeOperators getTypeOperators()
@@ -868,21 +878,22 @@ public class LocalQueryRunner
 
     public List<PlanOptimizer> getPlanOptimizers(boolean forceSingleNode)
     {
-        return planOptimizersProvider.getPlanOptimizers(
-                forceSingleNode,
-                sqlParser,
+        return new PlanOptimizers(
                 metadata,
                 typeOperators,
+                new TypeAnalyzer(sqlParser, metadata),
                 taskManagerConfig,
+                forceSingleNode,
                 splitManager,
                 pageSourceManager,
                 statsCalculator,
                 scalarStatsCalculator,
                 costCalculator,
                 estimatedExchangesCostCalculator,
-                featuresConfig,
+                new CostComparator(featuresConfig),
                 taskCountEstimator,
-                nodePartitioningManager);
+                nodePartitioningManager,
+                new RuleStatsRecorder()).get();
     }
 
     public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers, WarningCollector warningCollector)
@@ -898,17 +909,12 @@ public class LocalQueryRunner
 
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
 
-        QueryExplainer queryExplainer = new QueryExplainer(
-                optimizers,
-                planFragmenter,
-                metadata,
-                typeOperators,
-                groupProvider,
-                accessControl,
-                sqlParser,
-                statsCalculator,
-                costCalculator);
-        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, groupProvider, accessControl, Optional.of(queryExplainer), preparedQuery.getParameters(), parameterExtractor(preparedQuery.getStatement(), preparedQuery.getParameters()), warningCollector, statsCalculator);
+        AnalyzerFactory analyzerFactory = createAnalyzerFactory(optimizers);
+        Analyzer analyzer = analyzerFactory.createAnalyzer(
+                session,
+                preparedQuery.getParameters(),
+                parameterExtractor(preparedQuery.getStatement(), preparedQuery.getParameters()),
+                warningCollector);
 
         LogicalPlanner logicalPlanner = new LogicalPlanner(
                 session,
@@ -927,6 +933,30 @@ public class LocalQueryRunner
         return logicalPlanner.plan(analysis, stage);
     }
 
+    private AnalyzerFactory createAnalyzerFactory(List<PlanOptimizer> optimizers)
+    {
+        QueryExplainerFactory queryExplainerFactory = new QueryExplainerFactory(
+                () -> optimizers,
+                planFragmenter,
+                metadata,
+                typeOperators,
+                sqlParser,
+                statsCalculator,
+                costCalculator);
+
+        return new AnalyzerFactory(
+                metadata,
+                sqlParser,
+                accessControl,
+                groupProvider,
+                new StatementRewrite(ImmutableSet.of(
+                        new DescribeInputRewrite(sqlParser),
+                        new DescribeOutputRewrite(sqlParser),
+                        new ShowQueriesRewrite(metadata, sqlParser, accessControl),
+                        new ShowStatsRewrite(queryExplainerFactory, statsCalculator),
+                        new ExplainRewrite(queryExplainerFactory, new QueryPreparer(sqlParser)))));
+    }
+
     private static List<Split> getNextBatch(SplitSource splitSource)
     {
         return getFutureValue(splitSource.getNextBatch(NOT_PARTITIONED, Lifespan.taskWide(), 1000)).getSplits();
@@ -939,25 +969,6 @@ public class LocalQueryRunner
                 .findAll();
     }
 
-    public interface PlanOptimizersProvider
-    {
-        List<PlanOptimizer> getPlanOptimizers(
-                boolean forceSingleNode,
-                SqlParser sqlParser,
-                MetadataManager metadata,
-                TypeOperators typeOperators,
-                TaskManagerConfig taskManagerConfig,
-                SplitManager splitManager,
-                PageSourceManager pageSourceManager,
-                StatsCalculator statsCalculator,
-                ScalarStatsCalculator scalarStatsCalculator,
-                CostCalculator costCalculator,
-                CostCalculator estimatedExchangesCostCalculator,
-                FeaturesConfig featuresConfig,
-                TaskCountEstimator taskCountEstimator,
-                NodePartitioningManager nodePartitioningManager);
-    }
-
     public static class Builder
     {
         private final Session defaultSession;
@@ -968,37 +979,6 @@ public class LocalQueryRunner
         private Map<String, List<PropertyMetadata<?>>> defaultSessionProperties = ImmutableMap.of();
         private Set<SystemSessionPropertiesProvider> extraSessionProperties = ImmutableSet.of();
         private int nodeCountForStats;
-        private PlanOptimizersProvider planOptimizersProvider = (
-                forceSingleNode,
-                sqlParser,
-                metadata,
-                typeOperators,
-                taskManagerConfig,
-                splitManager,
-                pageSourceManager,
-                statsCalculator,
-                scalarStatsCalculator,
-                costCalculator,
-                estimatedExchangesCostCalculator,
-                featuresConfig,
-                taskCountEstimator,
-                nodePartitioningManager) ->
-                new PlanOptimizers(
-                        metadata,
-                        typeOperators,
-                        new TypeAnalyzer(sqlParser, metadata),
-                        taskManagerConfig,
-                        forceSingleNode,
-                        splitManager,
-                        pageSourceManager,
-                        statsCalculator,
-                        scalarStatsCalculator,
-                        costCalculator,
-                        estimatedExchangesCostCalculator,
-                        new CostComparator(featuresConfig),
-                        taskCountEstimator,
-                        nodePartitioningManager,
-                        new RuleStatsRecorder()).get();
         private OperatorFactories operatorFactories = new TrinoOperatorFactories();
 
         private Builder(Session defaultSession)
@@ -1042,12 +1022,6 @@ public class LocalQueryRunner
             return this;
         }
 
-        public Builder withPlanOptimizersProvider(PlanOptimizersProvider planOptimizersProvider)
-        {
-            this.planOptimizersProvider = requireNonNull(planOptimizersProvider, "planOptimizersProvider is null");
-            return this;
-        }
-
         public Builder withOperatorFactories(OperatorFactories operatorFactories)
         {
             this.operatorFactories = requireNonNull(operatorFactories, "operatorFactories is null");
@@ -1075,7 +1049,6 @@ public class LocalQueryRunner
                     alwaysRevokeMemory,
                     nodeCountForStats,
                     defaultSessionProperties,
-                    planOptimizersProvider,
                     operatorFactories,
                     extraSessionProperties);
         }
