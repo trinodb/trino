@@ -16,7 +16,6 @@ package io.trino.sql.analyzer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import io.trino.Session;
-import io.trino.cost.StatsCalculator;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
@@ -46,37 +45,37 @@ public class Analyzer
 {
     private final Metadata metadata;
     private final SqlParser sqlParser;
+    private final AnalyzerFactory analyzerFactory;
     private final AccessControl accessControl;
     private final GroupProvider groupProvider;
     private final Session session;
-    private final Optional<QueryExplainer> queryExplainer;
     private final List<Expression> parameters;
     private final Map<NodeRef<Parameter>, Expression> parameterLookup;
     private final WarningCollector warningCollector;
-    private final StatsCalculator statsCalculator;
+    private final StatementRewrite statementRewrite;
 
-    public Analyzer(
+    Analyzer(
             Session session,
             Metadata metadata,
             SqlParser sqlParser,
+            AnalyzerFactory analyzerFactory,
             GroupProvider groupProvider,
             AccessControl accessControl,
-            Optional<QueryExplainer> queryExplainer,
             List<Expression> parameters,
             Map<NodeRef<Parameter>, Expression> parameterLookup,
             WarningCollector warningCollector,
-            StatsCalculator statsCalculator)
+            StatementRewrite statementRewrite)
     {
         this.session = requireNonNull(session, "session is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
+        this.analyzerFactory = requireNonNull(analyzerFactory, "analyzerFactory is null");
         this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
-        this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
         this.parameters = parameters;
         this.parameterLookup = parameterLookup;
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
-        this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
+        this.statementRewrite = requireNonNull(statementRewrite, "statementRewrite is null");
     }
 
     public Analysis analyze(Statement statement)
@@ -86,7 +85,7 @@ public class Analyzer
 
     public Analysis analyze(Statement statement, QueryType queryType)
     {
-        Statement rewrittenStatement = StatementRewrite.rewrite(session, metadata, sqlParser, queryExplainer, statement, parameters, parameterLookup, groupProvider, accessControl, warningCollector, statsCalculator);
+        Statement rewrittenStatement = statementRewrite.rewrite(analyzerFactory, session, statement, parameters, parameterLookup, warningCollector);
         Analysis analysis = new Analysis(rewrittenStatement, parameterLookup, queryType);
         StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, groupProvider, accessControl, session, warningCollector, CorrelationSupport.ALLOWED);
         analyzer.analyze(rewrittenStatement, Optional.empty());

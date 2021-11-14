@@ -22,6 +22,7 @@ import io.trino.metadata.SqlFunction;
 import io.trino.spi.Plugin;
 import io.trino.split.PageSourceManager;
 import io.trino.split.SplitManager;
+import io.trino.sql.analyzer.AnalyzerFactory;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.sql.planner.Plan;
 import io.trino.transaction.TransactionManager;
@@ -45,6 +46,8 @@ public interface QueryRunner
     TransactionManager getTransactionManager();
 
     Metadata getMetadata();
+
+    AnalyzerFactory getAnalyzerFactory();
 
     SplitManager getSplitManager();
 

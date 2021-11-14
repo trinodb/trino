@@ -63,6 +63,8 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
+import io.trino.sql.rewrite.ShowQueriesRewrite;
+import io.trino.sql.rewrite.StatementRewrite;
 import io.trino.sql.tree.Statement;
 import io.trino.testing.TestingAccessControlManager;
 import io.trino.testing.TestingMetadata;
@@ -80,7 +82,6 @@ import java.util.function.Consumer;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.connector.CatalogName.createInformationSchemaCatalogName;
 import static io.trino.connector.CatalogName.createSystemTablesCatalogName;
-import static io.trino.cost.StatsCalculator.noopStatsCalculator;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.operator.scalar.ApplyFunction.APPLY_FUNCTION;
 import static io.trino.spi.StandardErrorCode.AMBIGUOUS_NAME;
@@ -5251,17 +5252,13 @@ public class TestAnalyzer
 
     private static Analyzer createAnalyzer(Session session, Metadata metadata, AccessControl accessControl)
     {
-        return new Analyzer(
+        StatementRewrite statementRewrite = new StatementRewrite(ImmutableSet.of(new ShowQueriesRewrite(metadata, SQL_PARSER, accessControl)));
+        AnalyzerFactory analyzerFactory = new AnalyzerFactory(metadata, SQL_PARSER, accessControl, user -> ImmutableSet.of(), statementRewrite);
+        return analyzerFactory.createAnalyzer(
                 session,
-                metadata,
-                SQL_PARSER,
-                user -> ImmutableSet.of(),
-                accessControl,
-                Optional.empty(),
                 emptyList(),
                 emptyMap(),
-                WarningCollector.NOOP,
-                noopStatsCalculator());
+                WarningCollector.NOOP);
     }
 
     private Analysis analyze(@Language("SQL") String query)

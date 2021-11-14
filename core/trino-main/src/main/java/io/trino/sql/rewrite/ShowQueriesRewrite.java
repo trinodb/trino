@@ -21,7 +21,6 @@ import com.google.common.collect.Lists;
 import com.google.common.primitives.Primitives;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
-import io.trino.cost.StatsCalculator;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.FunctionKind;
 import io.trino.metadata.FunctionMetadata;
@@ -39,11 +38,10 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.security.GroupProvider;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.session.PropertyMetadata;
-import io.trino.sql.analyzer.QueryExplainer;
+import io.trino.sql.analyzer.AnalyzerFactory;
 import io.trino.sql.parser.ParsingException;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.AllColumns;
@@ -85,6 +83,8 @@ import io.trino.sql.tree.Statement;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.TableElement;
 import io.trino.sql.tree.Values;
+
+import javax.inject.Inject;
 
 import java.util.Collections;
 import java.util.List;
@@ -150,22 +150,29 @@ import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
-final class ShowQueriesRewrite
+public final class ShowQueriesRewrite
         implements StatementRewrite.Rewrite
 {
+    private final Metadata metadata;
+    private final SqlParser parser;
+    private final AccessControl accessControl;
+
+    @Inject
+    public ShowQueriesRewrite(Metadata metadata, SqlParser parser, AccessControl accessControl)
+    {
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.parser = requireNonNull(parser, "parser is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
+    }
+
     @Override
     public Statement rewrite(
+            AnalyzerFactory analyzerFactory,
             Session session,
-            Metadata metadata,
-            SqlParser parser,
-            Optional<QueryExplainer> queryExplainer,
             Statement node,
             List<Expression> parameters,
             Map<NodeRef<Parameter>, Expression> parameterLookup,
-            GroupProvider groupProvider,
-            AccessControl accessControl,
-            WarningCollector warningCollector,
-            StatsCalculator statsCalculator)
+            WarningCollector warningCollector)
     {
         return (Statement) new Visitor(metadata, parser, session, accessControl).process(node, null);
     }

@@ -75,6 +75,7 @@ import io.trino.spi.security.GroupProvider;
 import io.trino.spi.security.SystemAccessControl;
 import io.trino.split.PageSourceManager;
 import io.trino.split.SplitManager;
+import io.trino.sql.analyzer.AnalyzerFactory;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.sql.planner.Plan;
 import io.trino.testing.ProcedureTester;
@@ -140,6 +141,7 @@ public class TestingTrinoServer
     private final CatalogManager catalogManager;
     private final TransactionManager transactionManager;
     private final Metadata metadata;
+    private final AnalyzerFactory analyzerFactory;
     private final StatsCalculator statsCalculator;
     private final TestingAccessControlManager accessControl;
     private final TestingGroupProvider groupProvider;
@@ -293,6 +295,7 @@ public class TestingTrinoServer
         splitManager = injector.getInstance(SplitManager.class);
         pageSourceManager = injector.getInstance(PageSourceManager.class);
         if (coordinator) {
+            analyzerFactory = injector.getInstance(AnalyzerFactory.class);
             dispatchManager = injector.getInstance(DispatchManager.class);
             queryManager = (SqlQueryManager) injector.getInstance(QueryManager.class);
             resourceGroupManager = Optional.of((InternalResourceGroupManager<?>) injector.getInstance(InternalResourceGroupManager.class));
@@ -303,6 +306,7 @@ public class TestingTrinoServer
             injector.getInstance(CertificateAuthenticatorManager.class).useDefaultAuthenticator();
         }
         else {
+            analyzerFactory = null;
             dispatchManager = null;
             queryManager = null;
             resourceGroupManager = Optional.empty();
@@ -435,6 +439,11 @@ public class TestingTrinoServer
     public Metadata getMetadata()
     {
         return metadata;
+    }
+
+    public AnalyzerFactory getAnalyzerFactory()
+    {
+        return analyzerFactory;
     }
 
     public StatsCalculator getStatsCalculator()
