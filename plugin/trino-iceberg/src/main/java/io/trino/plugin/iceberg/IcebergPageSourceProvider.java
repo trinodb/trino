@@ -495,13 +495,17 @@ public class IcebergPageSourceProvider
             TupleDomain<ColumnDescriptor> parquetTupleDomain = getParquetTupleDomain(descriptorsByPath, effectivePredicate);
             Predicate parquetPredicate = buildPredicate(requestedSchema, parquetTupleDomain, descriptorsByPath, UTC);
 
+            long nextStart = 0;
             List<BlockMetaData> blocks = new ArrayList<>();
+            ImmutableList.Builder<Long> blockStarts = ImmutableList.builder();
             for (BlockMetaData block : parquetMetadata.getBlocks()) {
                 long firstDataPage = block.getColumns().get(0).getFirstDataPageOffset();
                 if (start <= firstDataPage && firstDataPage < start + length &&
                         predicateMatches(parquetPredicate, block, dataSource, descriptorsByPath, parquetTupleDomain)) {
                     blocks.add(block);
+                    blockStarts.add(nextStart);
                 }
+                nextStart += block.getRowCount();
             }
 
             MessageColumnIO messageColumnIO = getColumnIO(fileSchema, requestedSchema);
@@ -509,7 +513,7 @@ public class IcebergPageSourceProvider
                     Optional.ofNullable(fileMetaData.getCreatedBy()),
                     messageColumnIO,
                     blocks,
-                    Optional.empty(),
+                    Optional.of(blockStarts.build()),
                     dataSource,
                     UTC,
                     systemMemoryContext,
