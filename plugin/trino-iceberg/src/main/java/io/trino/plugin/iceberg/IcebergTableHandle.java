@@ -42,6 +42,7 @@ public class IcebergTableHandle
     private final TupleDomain<IcebergColumnHandle> enforcedPredicate;
 
     private final Set<IcebergColumnHandle> projectedColumns;
+    private final Optional<String> nameMappingJson;
 
     @JsonCreator
     public IcebergTableHandle(
@@ -51,7 +52,8 @@ public class IcebergTableHandle
             @JsonProperty("snapshotId") Optional<Long> snapshotId,
             @JsonProperty("unenforcedPredicate") TupleDomain<IcebergColumnHandle> unenforcedPredicate,
             @JsonProperty("enforcedPredicate") TupleDomain<IcebergColumnHandle> enforcedPredicate,
-            @JsonProperty("projectedColumns") Set<IcebergColumnHandle> projectedColumns)
+            @JsonProperty("projectedColumns") Set<IcebergColumnHandle> projectedColumns,
+            @JsonProperty("nameMappingJson") Optional<String> nameMappingJson)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -60,6 +62,7 @@ public class IcebergTableHandle
         this.unenforcedPredicate = requireNonNull(unenforcedPredicate, "unenforcedPredicate is null");
         this.enforcedPredicate = requireNonNull(enforcedPredicate, "enforcedPredicate is null");
         this.projectedColumns = ImmutableSet.copyOf(requireNonNull(projectedColumns, "projectedColumns is null"));
+        this.nameMappingJson = requireNonNull(nameMappingJson, "nameMappingJson is null");
     }
 
     @JsonProperty
@@ -104,6 +107,12 @@ public class IcebergTableHandle
         return projectedColumns;
     }
 
+    @JsonProperty
+    public Optional<String> getNameMappingJson()
+    {
+        return nameMappingJson;
+    }
+
     public SchemaTableName getSchemaTableName()
     {
         return new SchemaTableName(schemaName, tableName);
@@ -123,7 +132,8 @@ public class IcebergTableHandle
                 snapshotId,
                 unenforcedPredicate,
                 enforcedPredicate,
-                projectedColumns);
+                projectedColumns,
+                nameMappingJson);
     }
 
     @Override
@@ -143,13 +153,14 @@ public class IcebergTableHandle
                 Objects.equals(snapshotId, that.snapshotId) &&
                 Objects.equals(unenforcedPredicate, that.unenforcedPredicate) &&
                 Objects.equals(enforcedPredicate, that.enforcedPredicate) &&
-                Objects.equals(projectedColumns, that.projectedColumns);
+                Objects.equals(projectedColumns, that.projectedColumns) &&
+                Objects.equals(nameMappingJson, that.nameMappingJson);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(schemaName, tableName, tableType, snapshotId, unenforcedPredicate, enforcedPredicate, projectedColumns);
+        return Objects.hash(schemaName, tableName, tableType, snapshotId, unenforcedPredicate, enforcedPredicate, projectedColumns, nameMappingJson);
     }
 
     @Override
