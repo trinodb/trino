@@ -157,6 +157,11 @@ public final class BigQueryQueryRunner
             return tableNames.build();
         }
 
+        public BigQuery getBigQuery()
+        {
+            return bigQuery;
+        }
+
         private static BigQuery createBigQueryClient()
         {
             try {
