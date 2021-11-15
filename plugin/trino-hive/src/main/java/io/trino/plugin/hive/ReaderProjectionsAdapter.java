@@ -150,6 +150,10 @@ public class ReaderProjectionsAdapter
 
         private Block adaptNulls(ColumnarRow columnarRow, Block loadedInternalBlock)
         {
+            if (!columnarRow.mayHaveNull()) {
+                return loadedInternalBlock;
+            }
+
             // TODO: The current implementation copies over data to a new block builder when a null row element is found.
             //  We can optimize this by using a Block implementation that uses a null vector of the parent row block and
             //  the block for the field.
