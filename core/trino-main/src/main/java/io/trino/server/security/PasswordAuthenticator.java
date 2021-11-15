@@ -24,7 +24,7 @@ import java.security.Principal;
 import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
-import static io.trino.server.security.AuthenticationUtils.rewriteUserHeaderToMappedUser;
+import static io.trino.server.security.AuthenticationUtils.checkAndRewriteUserHeaderToMappedUserWhenRequired;
 import static io.trino.server.security.BasicAuthCredentials.extractBasicAuthCredentials;
 import static io.trino.server.security.UserMapping.createUserMapping;
 import static java.util.Objects.requireNonNull;
@@ -64,7 +64,7 @@ public class PasswordAuthenticator
                 String authenticatedUser = userMapping.mapUser(principal.toString());
 
                 // rewrite the original "unmapped" user header to the mapped user (see method Javadoc for more details)
-                rewriteUserHeaderToMappedUser(user, request.getHeaders(), authenticatedUser, alternateHeaderName);
+                checkAndRewriteUserHeaderToMappedUserWhenRequired(user, request.getHeaders(), authenticatedUser, alternateHeaderName);
                 return Identity.forUser(authenticatedUser)
                         .withPrincipal(principal)
                         .build();

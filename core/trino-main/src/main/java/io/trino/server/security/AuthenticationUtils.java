@@ -29,7 +29,7 @@ public final class AuthenticationUtils
      * When username from authentication header matches the `x-trino-user` header, we assume that the client does
      * not want to force the runtime username, and only wanted to communicate the authentication user.
      */
-    public static void rewriteUserHeaderToMappedUser(
+    public static void checkAndRewriteUserHeaderToMappedUserWhenRequired(
             String username,
             MultivaluedMap<String, String> headers,
             String authenticatedUser,
