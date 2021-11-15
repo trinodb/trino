@@ -99,12 +99,6 @@ public class CreateTableTask
     }
 
     @Override
-    public String explain(CreateTable statement, List<Expression> parameters)
-    {
-        return "CREATE TABLE " + statement.getName();
-    }
-
-    @Override
     public ListenableFuture<Void> execute(
             CreateTable statement,
             TransactionManager transactionManager,

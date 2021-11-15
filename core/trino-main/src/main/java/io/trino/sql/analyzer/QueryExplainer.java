@@ -13,17 +13,16 @@
  */
 package io.trino.sql.analyzer;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.cost.CostCalculator;
 import io.trino.cost.StatsCalculator;
-import io.trino.execution.DataDefinitionTask;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.security.GroupProvider;
 import io.trino.spi.type.TypeOperators;
+import io.trino.sql.SqlFormatter;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.LogicalPlanner;
 import io.trino.sql.planner.Plan;
@@ -33,16 +32,20 @@ import io.trino.sql.planner.PlanOptimizersFactory;
 import io.trino.sql.planner.SubPlan;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
-import io.trino.sql.planner.planprinter.IoPlanPrinter;
 import io.trino.sql.planner.planprinter.PlanPrinter;
+import io.trino.sql.tree.CreateMaterializedView;
+import io.trino.sql.tree.CreateSchema;
+import io.trino.sql.tree.CreateTable;
+import io.trino.sql.tree.CreateView;
+import io.trino.sql.tree.DropSchema;
 import io.trino.sql.tree.ExplainType.Type;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.Prepare;
 import io.trino.sql.tree.Statement;
 
 import javax.inject.Inject;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -50,6 +53,7 @@ import static io.trino.sql.ParameterUtils.parameterExtractor;
 import static io.trino.sql.analyzer.QueryType.EXPLAIN;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.sql.planner.planprinter.IoPlanPrinter.textIoPlan;
+import static io.trino.util.StatementUtils.isDataDefinitionStatement;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -64,7 +68,6 @@ public class QueryExplainer
     private final SqlParser sqlParser;
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
-    private final Map<Class<? extends Statement>, DataDefinitionTask<?>> dataDefinitionTask;
 
     @Inject
     public QueryExplainer(
@@ -76,8 +79,7 @@ public class QueryExplainer
             AccessControl accessControl,
             SqlParser sqlParser,
             StatsCalculator statsCalculator,
-            CostCalculator costCalculator,
-            Map<Class<? extends Statement>, DataDefinitionTask<?>> dataDefinitionTask)
+            CostCalculator costCalculator)
     {
         this(
                 planOptimizersFactory.get(),
@@ -88,8 +90,7 @@ public class QueryExplainer
                 accessControl,
                 sqlParser,
                 statsCalculator,
-                costCalculator,
-                dataDefinitionTask);
+                costCalculator);
     }
 
     public QueryExplainer(
@@ -101,8 +102,7 @@ public class QueryExplainer
             AccessControl accessControl,
             SqlParser sqlParser,
             StatsCalculator statsCalculator,
-            CostCalculator costCalculator,
-            Map<Class<? extends Statement>, DataDefinitionTask<?>> dataDefinitionTask)
+            CostCalculator costCalculator)
     {
         this.planOptimizers = requireNonNull(planOptimizers, "planOptimizers is null");
         this.planFragmenter = requireNonNull(planFragmenter, "planFragmenter is null");
@@ -113,7 +113,6 @@ public class QueryExplainer
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
-        this.dataDefinitionTask = ImmutableMap.copyOf(requireNonNull(dataDefinitionTask, "dataDefinitionTask is null"));
     }
 
     public Analysis analyze(Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector)
@@ -124,9 +123,9 @@ public class QueryExplainer
 
     public String getPlan(Session session, Statement statement, Type planType, List<Expression> parameters, WarningCollector warningCollector)
     {
-        DataDefinitionTask<?> task = dataDefinitionTask.get(statement.getClass());
-        if (task != null) {
-            return explainTask(statement, task, parameters);
+        Optional<String> explain = explainDataDefinition(statement, parameters);
+        if (explain.isPresent()) {
+            return explain.get();
         }
 
         switch (planType) {
@@ -137,7 +136,7 @@ public class QueryExplainer
                 SubPlan subPlan = getDistributedPlan(session, statement, parameters, warningCollector);
                 return PlanPrinter.textDistributedPlan(subPlan, metadata, session, false);
             case IO:
-                return IoPlanPrinter.textIoPlan(getLogicalPlan(session, statement, parameters, warningCollector), metadata, typeOperators, session);
+                return textIoPlan(getLogicalPlan(session, statement, parameters, warningCollector), metadata, typeOperators, session);
             case VALIDATE:
                 // unsupported
                 break;
@@ -145,17 +144,12 @@ public class QueryExplainer
         throw new IllegalArgumentException("Unhandled plan type: " + planType);
     }
 
-    private static <T extends Statement> String explainTask(Statement statement, DataDefinitionTask<T> task, List<Expression> parameters)
-    {
-        return task.explain((T) statement, parameters);
-    }
-
     public String getGraphvizPlan(Session session, Statement statement, Type planType, List<Expression> parameters, WarningCollector warningCollector)
     {
-        DataDefinitionTask<?> task = dataDefinitionTask.get(statement.getClass());
-        if (task != null) {
+        Optional<String> explain = explainDataDefinition(statement, parameters);
+        if (explain.isPresent()) {
             // todo format as graphviz
-            return explainTask(statement, task, parameters);
+            return explain.get();
         }
 
         switch (planType) {
@@ -174,10 +168,10 @@ public class QueryExplainer
 
     public String getJsonPlan(Session session, Statement statement, Type planType, List<Expression> parameters, WarningCollector warningCollector)
     {
-        DataDefinitionTask<?> task = dataDefinitionTask.get(statement.getClass());
-        if (task != null) {
+        Optional<String> explain = explainDataDefinition(statement, parameters);
+        if (explain.isPresent()) {
             // todo format as json
-            return explainTask(statement, task, parameters);
+            return explain.get();
         }
 
         switch (planType) {
@@ -218,5 +212,41 @@ public class QueryExplainer
     {
         Plan plan = getLogicalPlan(session, statement, parameters, warningCollector);
         return planFragmenter.createSubPlans(session, plan, false, warningCollector);
+    }
+
+    private static <T extends Statement> Optional<String> explainDataDefinition(T statement, List<Expression> parameters)
+    {
+        if (!isDataDefinitionStatement(statement.getClass())) {
+            return Optional.empty();
+        }
+
+        if (statement instanceof CreateSchema) {
+            return Optional.of("CREATE SCHEMA " + ((CreateSchema) statement).getSchemaName());
+        }
+        if (statement instanceof DropSchema) {
+            return Optional.of("DROP SCHEMA " + ((DropSchema) statement).getSchemaName());
+        }
+        if (statement instanceof CreateTable) {
+            return Optional.of("CREATE TABLE " + ((CreateTable) statement).getName());
+        }
+        if (statement instanceof CreateView) {
+            return Optional.of("CREATE VIEW " + ((CreateView) statement).getName());
+        }
+        if (statement instanceof CreateMaterializedView) {
+            return Optional.of("CREATE MATERIALIZED VIEW " + ((CreateMaterializedView) statement).getName());
+        }
+        if (statement instanceof Prepare) {
+            return Optional.of("PREPARE " + ((Prepare) statement).getName());
+        }
+
+        StringBuilder builder = new StringBuilder();
+        builder.append(SqlFormatter.formatSql(statement));
+        if (!parameters.isEmpty()) {
+            builder.append("\n")
+                    .append("Parameters: ")
+                    .append(parameters);
+        }
+
+        return Optional.of(builder.toString());
     }
 }

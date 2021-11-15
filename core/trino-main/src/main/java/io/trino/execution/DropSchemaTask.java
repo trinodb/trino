@@ -45,12 +45,6 @@ public class DropSchemaTask
     }
 
     @Override
-    public String explain(DropSchema statement, List<Expression> parameters)
-    {
-        return "DROP SCHEMA " + statement.getSchemaName();
-    }
-
-    @Override
     public ListenableFuture<Void> execute(
             DropSchema statement,
             TransactionManager transactionManager,

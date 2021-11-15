@@ -17,7 +17,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
-import io.trino.sql.SqlFormatter;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Statement;
 import io.trino.transaction.TransactionManager;
@@ -37,18 +36,8 @@ public interface DataDefinitionTask<T extends Statement>
             List<Expression> parameters,
             WarningCollector warningCollector);
 
-    default String explain(T statement, List<Expression> parameters)
+    interface ExplainDataDefinition<T extends Statement>
     {
-        StringBuilder builder = new StringBuilder();
-
-        builder.append(SqlFormatter.formatSql(statement));
-
-        if (!parameters.isEmpty()) {
-            builder.append("\n")
-                    .append("Parameters: ")
-                    .append(parameters);
-        }
-
-        return builder.toString();
+        String explain(T statement, List<Expression> parameters);
     }
 }

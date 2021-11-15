@@ -53,12 +53,6 @@ public class CreateSchemaTask
     }
 
     @Override
-    public String explain(CreateSchema statement, List<Expression> parameters)
-    {
-        return "CREATE SCHEMA " + statement.getSchemaName();
-    }
-
-    @Override
     public ListenableFuture<Void> execute(
             CreateSchema statement,
             TransactionManager transactionManager,
