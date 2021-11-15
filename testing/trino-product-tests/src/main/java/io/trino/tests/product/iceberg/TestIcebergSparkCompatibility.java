@@ -1080,6 +1080,135 @@ public class TestIcebergSparkCompatibility
                 "GZIP");
     }
 
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
+    public void testTrinoReadingMigratedNestedData(StorageFormat storageFormat)
+    {
+        String baseTableName = "test_trino_reading_migrated_nested_data_" + randomTableSuffix();
+        String defaultCatalogTableName = sparkDefaultCatalogTableName(baseTableName);
+
+        String sparkTableDefinition = "" +
+                "CREATE TABLE %s (\n" +
+                "  doc_id STRING\n" +
+                ", nested_map MAP<STRING, ARRAY<STRUCT<sName: STRING, sNumber: INT>>>\n" +
+                ", nested_array ARRAY<MAP<STRING, ARRAY<STRUCT<mName: STRING, mNumber: INT>>>>\n" +
+                ", nested_struct STRUCT<id:INT, name:STRING, address:STRUCT<street_number:INT, street_name:STRING>>)\n" +
+                " USING %s";
+        onSpark().executeQuery(format(sparkTableDefinition, defaultCatalogTableName, storageFormat.name()));
+
+        String insert = "" +
+                "INSERT INTO TABLE %s SELECT" +
+                "  'Doc213'" +
+                ", map('s1', array(named_struct('sName', 'ASName1', 'sNumber', 201), named_struct('sName', 'ASName2', 'sNumber', 202)))" +
+                ", array(map('m1', array(named_struct('mName', 'MAS1Name1', 'mNumber', 301), named_struct('mName', 'MAS1Name2', 'mNumber', 302)))" +
+                "       ,map('m2', array(named_struct('mName', 'MAS2Name1', 'mNumber', 401), named_struct('mName', 'MAS2Name2', 'mNumber', 402))))" +
+                ", named_struct('id', 1, 'name', 'P. Sherman', 'address', named_struct('street_number', 42, 'street_name', 'Wallaby Way'))";
+        onSpark().executeQuery(format(insert, defaultCatalogTableName));
+        onSpark().executeQuery(format("CALL system.migrate('%s')", defaultCatalogTableName));
+
+        String sparkTableName = sparkTableName(baseTableName);
+        Row row = row("Doc213", "ASName2", 201, "MAS2Name1", 302, "P. Sherman", 42, "Wallaby Way");
+
+        String sparkSelect = "SELECT" +
+                "  doc_id" +
+                ", nested_map['s1'][1].sName" +
+                ", nested_map['s1'][0].sNumber" +
+                ", nested_array[1]['m2'][0].mName" +
+                ", nested_array[0]['m1'][1].mNumber" +
+                ", nested_struct.name" +
+                ", nested_struct.address.street_number" +
+                ", nested_struct.address.street_name" +
+                "  FROM ";
+
+        QueryResult sparkResult = onSpark().executeQuery(sparkSelect + sparkTableName);
+        // The Spark behavior when the default name mapping does not exist is not consistent
+        assertThat(sparkResult).containsOnly(row);
+
+        String trinoSelect = "SELECT" +
+                "  doc_id" +
+                ", nested_map['s1'][2].sName" +
+                ", nested_map['s1'][1].sNumber" +
+                ", nested_array[2]['m2'][1].mName" +
+                ", nested_array[1]['m1'][2].mNumber" +
+                ", nested_struct.name" +
+                ", nested_struct.address.street_number" +
+                ", nested_struct.address.street_name" +
+                "  FROM ";
+
+        String trinoTableName = trinoTableName(baseTableName);
+        QueryResult trinoResult = onTrino().executeQuery(trinoSelect + trinoTableName);
+        assertThat(trinoResult).containsOnly(row);
+
+        // After removing the name mapping, columns from migrated files should be null since they are missing the Iceberg Field IDs
+        onSpark().executeQuery(format("ALTER TABLE %s UNSET TBLPROPERTIES ('schema.name-mapping.default')", sparkTableName));
+        assertThat(onTrino().executeQuery(trinoSelect + trinoTableName)).containsOnly(row(null, null, null, null, null, null, null, null));
+        assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).containsOnly(row(null, null, null, null));
+        assertThat(onTrino().executeQuery("SELECT nested_struct.address.street_number, nested_struct.address.street_name FROM " + trinoTableName)).containsOnly(row(null, null));
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
+    public void testMigratedDataWithAlteredSchema(StorageFormat storageFormat)
+    {
+        String baseTableName = "test_migrated_data_with_altered_schema_" + randomTableSuffix();
+        String defaultCatalogTableName = sparkDefaultCatalogTableName(baseTableName);
+
+        String sparkTableDefinition = "" +
+                "CREATE TABLE %s (\n" +
+                "  doc_id STRING\n" +
+                ", nested_struct STRUCT<id:INT, name:STRING, address:STRUCT<a:INT, b:STRING>>)\n" +
+                " USING %s";
+        onSpark().executeQuery(format(sparkTableDefinition, defaultCatalogTableName, storageFormat.name()));
+
+        String insert = "" +
+                "INSERT INTO TABLE %s SELECT" +
+                "  'Doc213'" +
+                ", named_struct('id', 1, 'name', 'P. Sherman', 'address', named_struct('a', 42, 'b', 'Wallaby Way'))";
+        onSpark().executeQuery(format(insert, defaultCatalogTableName));
+        onSpark().executeQuery(format("CALL system.migrate('%s')", defaultCatalogTableName));
+
+        String sparkTableName = sparkTableName(baseTableName);
+        onSpark().executeQuery("ALTER TABLE " + sparkTableName + " RENAME COLUMN nested_struct TO nested_struct_moved");
+
+        String select = "SELECT" +
+                " nested_struct_moved.name" +
+                ", nested_struct_moved.address.a" +
+                ", nested_struct_moved.address.b" +
+                "  FROM ";
+        Row row = row("P. Sherman", 42, "Wallaby Way");
+
+        QueryResult sparkResult = onSpark().executeQuery(select + sparkTableName);
+        assertThat(sparkResult).containsOnly(ImmutableList.of(row));
+
+        String trinoTableName = trinoTableName(baseTableName);
+        assertThat(onTrino().executeQuery(select + trinoTableName)).containsOnly(ImmutableList.of(row));
+
+        // After removing the name mapping, columns from migrated files should be null since they are missing the Iceberg Field IDs
+        onSpark().executeQuery(format("ALTER TABLE %s UNSET TBLPROPERTIES ('schema.name-mapping.default')", sparkTableName));
+        assertThat(onTrino().executeQuery(select + trinoTableName)).containsOnly(row(null, null, null));
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
+    public void testMigratedDataWithPartialNameMapping(StorageFormat storageFormat)
+    {
+        String baseTableName = "test_migrated_data_with_partial_name_mapping_" + randomTableSuffix();
+        String defaultCatalogTableName = sparkDefaultCatalogTableName(baseTableName);
+
+        String sparkTableDefinition = "CREATE TABLE %s (a INT, b INT) USING " + storageFormat.name();
+        onSpark().executeQuery(format(sparkTableDefinition, defaultCatalogTableName));
+
+        String insert = "INSERT INTO TABLE %s SELECT 1, 2";
+        onSpark().executeQuery(format(insert, defaultCatalogTableName));
+        onSpark().executeQuery(format("CALL system.migrate('%s')", defaultCatalogTableName));
+
+        String sparkTableName = sparkTableName(baseTableName);
+        String trinoTableName = trinoTableName(baseTableName);
+        // Test missing entry for column 'b'
+        onSpark().executeQuery(format(
+                "ALTER TABLE %s SET TBLPROPERTIES ('schema.name-mapping.default'='[{\"field-id\": 1, \"names\": [\"a\"]}, {\"field-id\": 2, \"names\": [\"c\"]} ]')",
+                sparkTableName));
+        assertThat(onTrino().executeQuery("SELECT a, b FROM " + trinoTableName))
+                .containsOnly(row(1, null));
+    }
+
     private static String escapeSparkString(String value)
     {
         return value.replace("\\", "\\\\").replace("'", "\\'");
@@ -1093,6 +1222,11 @@ public class TestIcebergSparkCompatibility
     private static String sparkTableName(String tableName)
     {
         return format("%s.%s.%s", SPARK_CATALOG, TEST_SCHEMA_NAME, tableName);
+    }
+
+    private static String sparkDefaultCatalogTableName(String tableName)
+    {
+        return format("%s.%s", TEST_SCHEMA_NAME, tableName);
     }
 
     private static String trinoTableName(String tableName)
