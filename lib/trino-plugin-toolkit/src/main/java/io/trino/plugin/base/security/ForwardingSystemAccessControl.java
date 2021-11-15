@@ -26,6 +26,7 @@ import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.Type;
 
 import java.security.Principal;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
@@ -171,6 +172,12 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public void checkCanCreateTable(SystemSecurityContext context, CatalogSchemaTableName table, Map<String, Object> properties)
+    {
+        delegate().checkCanCreateTable(context, table, properties);
+    }
+
+    @Override
     public void checkCanDropTable(SystemSecurityContext context, CatalogSchemaTableName table)
     {
         delegate().checkCanDropTable(context, table);
@@ -180,6 +187,12 @@ public abstract class ForwardingSystemAccessControl
     public void checkCanRenameTable(SystemSecurityContext context, CatalogSchemaTableName table, CatalogSchemaTableName newTable)
     {
         delegate().checkCanRenameTable(context, table, newTable);
+    }
+
+    @Override
+    public void checkCanSetTableProperties(SystemSecurityContext context, CatalogSchemaTableName table, Map<String, Object> properties)
+    {
+        delegate().checkCanSetTableProperties(context, table, properties);
     }
 
     @Override
@@ -261,6 +274,12 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public void checkCanTruncateTable(SystemSecurityContext context, CatalogSchemaTableName table)
+    {
+        delegate().checkCanTruncateTable(context, table);
+    }
+
+    @Override
     public void checkCanUpdateTableColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> updatedColumnNames)
     {
         delegate().checkCanUpdateTableColumns(context, table, updatedColumnNames);
@@ -315,6 +334,12 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public void checkCanRenameMaterializedView(SystemSecurityContext context, CatalogSchemaTableName view, CatalogSchemaTableName newView)
+    {
+        delegate().checkCanRenameMaterializedView(context, view, newView);
+    }
+
+    @Override
     public void checkCanGrantExecuteFunctionPrivilege(SystemSecurityContext context, String functionName, TrinoPrincipal grantee, boolean grantOption)
     {
         delegate().checkCanGrantExecuteFunctionPrivilege(context, functionName, grantee, grantOption);
@@ -351,9 +376,51 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
-    public void checkCanShowRoles(SystemSecurityContext context, String catalogName)
+    public void checkCanShowRoles(SystemSecurityContext context)
     {
-        delegate().checkCanShowRoles(context, catalogName);
+        delegate().checkCanShowRoles(context);
+    }
+
+    @Override
+    public void checkCanCreateRole(SystemSecurityContext context, String role, Optional<TrinoPrincipal> grantor)
+    {
+        delegate().checkCanCreateRole(context, role, grantor);
+    }
+
+    @Override
+    public void checkCanDropRole(SystemSecurityContext context, String role)
+    {
+        delegate().checkCanDropRole(context, role);
+    }
+
+    @Override
+    public void checkCanGrantRoles(SystemSecurityContext context, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor)
+    {
+        delegate().checkCanGrantRoles(context, roles, grantees, adminOption, grantor);
+    }
+
+    @Override
+    public void checkCanRevokeRoles(SystemSecurityContext context, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor)
+    {
+        delegate().checkCanRevokeRoles(context, roles, grantees, adminOption, grantor);
+    }
+
+    @Override
+    public void checkCanShowRoleAuthorizationDescriptors(SystemSecurityContext context)
+    {
+        delegate().checkCanShowRoleAuthorizationDescriptors(context);
+    }
+
+    @Override
+    public void checkCanShowCurrentRoles(SystemSecurityContext context)
+    {
+        delegate().checkCanShowCurrentRoles(context);
+    }
+
+    @Override
+    public void checkCanShowRoleGrants(SystemSecurityContext context)
+    {
+        delegate().checkCanShowRoleGrants(context);
     }
 
     @Override
@@ -366,6 +433,12 @@ public abstract class ForwardingSystemAccessControl
     public void checkCanExecuteFunction(SystemSecurityContext systemSecurityContext, String functionName)
     {
         delegate().checkCanExecuteFunction(systemSecurityContext, functionName);
+    }
+
+    @Override
+    public void checkCanExecuteTableProcedure(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName table, String procedure)
+    {
+        delegate().checkCanExecuteTableProcedure(systemSecurityContext, table, procedure);
     }
 
     @Override

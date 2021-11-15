@@ -22,6 +22,8 @@ import * as d3 from "d3";
 export const GLYPHICON_DEFAULT = {color: '#1edcff'};
 export const GLYPHICON_HIGHLIGHT = {color: '#999999'};
 
+const EMDASH = "\u2014";
+
 const STATE_COLOR_MAP = {
     QUEUED: '#1b8f72',
     RUNNING: '#19874e',
@@ -98,7 +100,7 @@ export function getStageStateColor(stage: any): string
 
 // This relies on the fact that BasicQueryInfo and QueryInfo have all the fields
 // necessary to compute this string, and that these fields are consistently named.
-export function getHumanReadableState(query: any): string
+export function getHumanReadableState(query: any, forOverviewPage: boolean): string
 {
     if (query.state === "RUNNING") {
         let title = "RUNNING";
@@ -121,19 +123,24 @@ export function getHumanReadableState(query: any): string
     }
 
     if (query.state === "FAILED") {
+        let errorMsg = "";
         switch (query.errorType) {
             case "USER_ERROR":
+                errorMsg = "USER ERROR";
                 if (query.errorCode.name === "USER_CANCELED") {
-                    return "USER CANCELED";
+                    errorMsg = "USER CANCELED";
                 }
-                return "USER ERROR";
             case "INTERNAL_ERROR":
-                return "INTERNAL ERROR";
+                errorMsg = "INTERNAL ERROR";
             case "INSUFFICIENT_RESOURCES":
-                return "INSUFFICIENT RESOURCES";
+                errorMsg = "INSUFFICIENT RESOURCES";
             case "EXTERNAL":
-                return "EXTERNAL ERROR";
+                errorMsg = "EXTERNAL ERROR";
         }
+        if (forOverviewPage && query.errorCode && query.errorCode.name) {
+            errorMsg += " " + EMDASH + " " + query.errorCode.name;
+        }
+        return errorMsg;
     }
 
     return query.state;
@@ -151,13 +158,13 @@ export function getProgressBarPercentage(query: any): number
     return Math.round(progress);
 }
 
-export function getProgressBarTitle(query: any): string
+export function getProgressBarTitle(query: any, forOverviewPage: boolean): string
 {
     if (query.queryStats.progressPercentage && query.state === "RUNNING") {
-        return getHumanReadableState(query) + " (" + getProgressBarPercentage(query) + "%)"
+        return getHumanReadableState(query, forOverviewPage) + " (" + getProgressBarPercentage(query) + "%)"
     }
 
-    return getHumanReadableState(query)
+    return getHumanReadableState(query, forOverviewPage)
 }
 
 export function isQueryEnded(query: any): boolean

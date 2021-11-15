@@ -116,7 +116,7 @@ import io.trino.sql.tree.Lateral;
 import io.trino.sql.tree.LikeClause;
 import io.trino.sql.tree.LikePredicate;
 import io.trino.sql.tree.Limit;
-import io.trino.sql.tree.LogicalBinaryExpression;
+import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.MeasureDefinition;
 import io.trino.sql.tree.Merge;
@@ -159,6 +159,7 @@ import io.trino.sql.tree.RangeQuantifier;
 import io.trino.sql.tree.RefreshMaterializedView;
 import io.trino.sql.tree.Relation;
 import io.trino.sql.tree.RenameColumn;
+import io.trino.sql.tree.RenameMaterializedView;
 import io.trino.sql.tree.RenameSchema;
 import io.trino.sql.tree.RenameTable;
 import io.trino.sql.tree.RenameView;
@@ -175,6 +176,7 @@ import io.trino.sql.tree.SearchedCaseExpression;
 import io.trino.sql.tree.Select;
 import io.trino.sql.tree.SelectItem;
 import io.trino.sql.tree.SetPath;
+import io.trino.sql.tree.SetProperties;
 import io.trino.sql.tree.SetRole;
 import io.trino.sql.tree.SetSchemaAuthorization;
 import io.trino.sql.tree.SetSession;
@@ -205,11 +207,13 @@ import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SubsetDefinition;
 import io.trino.sql.tree.Table;
 import io.trino.sql.tree.TableElement;
+import io.trino.sql.tree.TableExecute;
 import io.trino.sql.tree.TableSubquery;
 import io.trino.sql.tree.TimeLiteral;
 import io.trino.sql.tree.TimestampLiteral;
 import io.trino.sql.tree.TransactionAccessMode;
 import io.trino.sql.tree.TransactionMode;
+import io.trino.sql.tree.TruncateTable;
 import io.trino.sql.tree.TryExpression;
 import io.trino.sql.tree.TypeParameter;
 import io.trino.sql.tree.Union;
@@ -235,9 +239,13 @@ import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.TerminalNode;
 
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -324,7 +332,7 @@ class AstBuilder
 
         List<Property> properties = ImmutableList.of();
         if (context.properties() != null) {
-            properties = visit(context.properties().property(), Property.class);
+            properties = visit(context.properties().propertyAssignments().property(), Property.class);
         }
 
         return new CreateSchema(
@@ -378,7 +386,7 @@ class AstBuilder
 
         List<Property> properties = ImmutableList.of();
         if (context.properties() != null) {
-            properties = visit(context.properties().property(), Property.class);
+            properties = visit(context.properties().propertyAssignments().property(), Property.class);
         }
 
         return new CreateTableAsSelect(
@@ -401,7 +409,7 @@ class AstBuilder
         }
         List<Property> properties = ImmutableList.of();
         if (context.properties() != null) {
-            properties = visit(context.properties().property(), Property.class);
+            properties = visit(context.properties().propertyAssignments().property(), Property.class);
         }
         return new CreateTable(
                 getLocation(context),
@@ -422,7 +430,7 @@ class AstBuilder
 
         List<Property> properties = ImmutableList.of();
         if (context.properties() != null) {
-            properties = visit(context.properties().property(), Property.class);
+            properties = visit(context.properties().propertyAssignments().property(), Property.class);
         }
 
         return new CreateMaterializedView(
@@ -507,6 +515,12 @@ class AstBuilder
     }
 
     @Override
+    public Node visitTruncateTable(SqlBaseParser.TruncateTableContext context)
+    {
+        return new TruncateTable(getLocation(context), getQualifiedName(context.qualifiedName()));
+    }
+
+    @Override
     public Node visitMerge(SqlBaseParser.MergeContext context)
     {
         return new Merge(
@@ -561,6 +575,17 @@ class AstBuilder
     }
 
     @Override
+    public Node visitSetTableProperties(SqlBaseParser.SetTablePropertiesContext context)
+    {
+        List<Property> properties = ImmutableList.of();
+        if (context.propertyAssignments() != null) {
+            properties = visit(context.propertyAssignments().property(), Property.class);
+        }
+
+        return new SetProperties(getLocation(context), SetProperties.Type.TABLE, getQualifiedName(context.qualifiedName()), properties);
+    }
+
+    @Override
     public Node visitCommentTable(SqlBaseParser.CommentTableContext context)
     {
         Optional<String> comment = Optional.empty();
@@ -601,7 +626,7 @@ class AstBuilder
     {
         List<Property> properties = ImmutableList.of();
         if (context.properties() != null) {
-            properties = visit(context.properties().property(), Property.class);
+            properties = visit(context.properties().propertyAssignments().property(), Property.class);
         }
         return new Analyze(
                 getLocation(context),
@@ -639,6 +664,21 @@ class AstBuilder
     }
 
     @Override
+    public Node visitTableExecute(SqlBaseParser.TableExecuteContext context)
+    {
+        List<CallArgument> arguments = ImmutableList.of();
+        if (context.callArgument() != null) {
+            arguments = this.visit(context.callArgument(), CallArgument.class);
+        }
+
+        return new TableExecute(
+                new Table(getLocation(context), getQualifiedName(context.tableName)),
+                (Identifier) visit(context.procedureName),
+                arguments,
+                visitIfPresent(context.booleanExpression(), Expression.class));
+    }
+
+    @Override
     public Node visitCreateView(SqlBaseParser.CreateViewContext context)
     {
         Optional<String> comment = Optional.empty();
@@ -667,6 +707,12 @@ class AstBuilder
     public Node visitRenameView(SqlBaseParser.RenameViewContext context)
     {
         return new RenameView(getLocation(context), getQualifiedName(context.from), getQualifiedName(context.to));
+    }
+
+    @Override
+    public Node visitRenameMaterializedView(SqlBaseParser.RenameMaterializedViewContext context)
+    {
+        return new RenameMaterializedView(getLocation(context), getQualifiedName(context.from), getQualifiedName(context.to), context.EXISTS() != null);
     }
 
     @Override
@@ -1229,7 +1275,8 @@ class AstBuilder
         return new CreateRole(
                 getLocation(context),
                 (Identifier) visit(context.name),
-                getGrantorSpecificationIfPresent(context.grantor()));
+                getGrantorSpecificationIfPresent(context.grantor()),
+                visitIfPresent(context.catalog, Identifier.class));
     }
 
     @Override
@@ -1237,7 +1284,8 @@ class AstBuilder
     {
         return new DropRole(
                 getLocation(context),
-                (Identifier) visit(context.name));
+                (Identifier) visit(context.name),
+                visitIfPresent(context.catalog, Identifier.class));
     }
 
     @Override
@@ -1248,7 +1296,8 @@ class AstBuilder
                 ImmutableSet.copyOf(getIdentifiers(context.roles().identifier())),
                 ImmutableSet.copyOf(getPrincipalSpecifications(context.principal())),
                 context.OPTION() != null,
-                getGrantorSpecificationIfPresent(context.grantor()));
+                getGrantorSpecificationIfPresent(context.grantor()),
+                visitIfPresent(context.catalog, Identifier.class));
     }
 
     @Override
@@ -1259,7 +1308,8 @@ class AstBuilder
                 ImmutableSet.copyOf(getIdentifiers(context.roles().identifier())),
                 ImmutableSet.copyOf(getPrincipalSpecifications(context.principal())),
                 context.OPTION() != null,
-                getGrantorSpecificationIfPresent(context.grantor()));
+                getGrantorSpecificationIfPresent(context.grantor()),
+                visitIfPresent(context.catalog, Identifier.class));
     }
 
     @Override
@@ -1272,7 +1322,11 @@ class AstBuilder
         else if (context.NONE() != null) {
             type = SetRole.Type.NONE;
         }
-        return new SetRole(getLocation(context), type, getIdentifierIfPresent(context.role));
+        return new SetRole(
+                getLocation(context),
+                type,
+                getIdentifierIfPresent(context.role),
+                visitIfPresent(context.catalog, Identifier.class));
     }
 
     @Override
@@ -1398,13 +1452,56 @@ class AstBuilder
     }
 
     @Override
-    public Node visitLogicalBinary(SqlBaseParser.LogicalBinaryContext context)
+    public Node visitOr(SqlBaseParser.OrContext context)
     {
-        return new LogicalBinaryExpression(
-                getLocation(context.operator),
-                getLogicalBinaryOperator(context.operator),
-                (Expression) visit(context.left),
-                (Expression) visit(context.right));
+        List<ParserRuleContext> terms = flatten(context, element -> {
+            if (element instanceof SqlBaseParser.OrContext) {
+                SqlBaseParser.OrContext or = (SqlBaseParser.OrContext) element;
+                return Optional.of(or.booleanExpression());
+            }
+
+            return Optional.empty();
+        });
+
+        return new LogicalExpression(getLocation(context), LogicalExpression.Operator.OR, visit(terms, Expression.class));
+    }
+
+    @Override
+    public Node visitAnd(SqlBaseParser.AndContext context)
+    {
+        List<ParserRuleContext> terms = flatten(context, element -> {
+            if (element instanceof SqlBaseParser.AndContext) {
+                SqlBaseParser.AndContext and = (SqlBaseParser.AndContext) element;
+                return Optional.of(and.booleanExpression());
+            }
+
+            return Optional.empty();
+        });
+
+        return new LogicalExpression(getLocation(context), LogicalExpression.Operator.AND, visit(terms, Expression.class));
+    }
+
+    private static List<ParserRuleContext> flatten(ParserRuleContext root, Function<ParserRuleContext, Optional<List<? extends ParserRuleContext>>> extractChildren)
+    {
+        List<ParserRuleContext> result = new ArrayList<>();
+        Deque<ParserRuleContext> pending = new ArrayDeque<>();
+        pending.push(root);
+
+        while (!pending.isEmpty()) {
+            ParserRuleContext next = pending.pop();
+
+            Optional<List<? extends ParserRuleContext>> children = extractChildren.apply(next);
+            if (!children.isPresent()) {
+                result.add(next);
+            }
+            else {
+                for (int i = children.get().size() - 1; i >= 0; i--) {
+                    pending.push(children.get().get(i));
+                }
+            }
+        }
+
+        return result;
     }
 
     // *************** from clause *****************
@@ -1890,6 +1987,64 @@ class AstBuilder
         return new Extract(getLocation(context), (Expression) visit(context.valueExpression()), field);
     }
 
+    /**
+     * Returns the corresponding {@link FunctionCall} for the `LISTAGG` primary expression.
+     *
+     * Although the syntax tree should represent the structure of the original parsed query
+     * as closely as possible and any semantic interpretation should be part of the
+     * analysis/planning phase, in case of `LISTAGG` aggregation function it is more pragmatic
+     * now to create a synthetic {@link FunctionCall} expression during the parsing of the syntax tree.
+     *
+     * @param context `LISTAGG` expression context
+     */
+    @Override
+    public Node visitListagg(SqlBaseParser.ListaggContext context)
+    {
+        Optional<Window> window = Optional.empty();
+        OrderBy orderBy = new OrderBy(visit(context.sortItem(), SortItem.class));
+        boolean distinct = isDistinct(context.setQuantifier());
+
+        Expression expression = (Expression) visit(context.expression());
+        StringLiteral separator = context.string() == null ? new StringLiteral(getLocation(context), "") : (StringLiteral) (visit(context.string()));
+        BooleanLiteral overflowError = new BooleanLiteral(getLocation(context), "true");
+        StringLiteral overflowFiller = new StringLiteral(getLocation(context), "...");
+        BooleanLiteral showOverflowEntryCount = new BooleanLiteral(getLocation(context), "false");
+
+        SqlBaseParser.ListAggOverflowBehaviorContext overflowBehavior = context.listAggOverflowBehavior();
+        if (overflowBehavior != null) {
+            if (overflowBehavior.ERROR() != null) {
+                overflowError = new BooleanLiteral(getLocation(context), "true");
+            }
+            else if (overflowBehavior.TRUNCATE() != null) {
+                overflowError = new BooleanLiteral(getLocation(context), "false");
+                if (overflowBehavior.string() != null) {
+                    overflowFiller = (StringLiteral) (visit(overflowBehavior.string()));
+                }
+                SqlBaseParser.ListaggCountIndicationContext listaggCountIndicationContext = overflowBehavior.listaggCountIndication();
+                if (listaggCountIndicationContext.WITH() != null) {
+                    showOverflowEntryCount = new BooleanLiteral(getLocation(context), "true");
+                }
+                else if (listaggCountIndicationContext.WITHOUT() != null) {
+                    showOverflowEntryCount = new BooleanLiteral(getLocation(context), "false");
+                }
+            }
+        }
+
+        List<Expression> arguments = ImmutableList.of(expression, separator, overflowError, overflowFiller, showOverflowEntryCount);
+
+        //TODO model this as a ListAgg node in the AST
+        return new FunctionCall(
+                Optional.of(getLocation(context)),
+                QualifiedName.of("LISTAGG"),
+                window,
+                Optional.empty(),
+                Optional.of(orderBy),
+                distinct,
+                Optional.empty(),
+                Optional.empty(),
+                arguments);
+    }
+
     @Override
     public Node visitSubstring(SqlBaseParser.SubstringContext context)
     {
@@ -2148,7 +2303,7 @@ class AstBuilder
 
         List<Property> properties = ImmutableList.of();
         if (context.properties() != null) {
-            properties = visit(context.properties().property(), Property.class);
+            properties = visit(context.properties().propertyAssignments().property(), Property.class);
         }
 
         boolean nullable = context.NOT() == null;
@@ -2932,18 +3087,6 @@ class AstBuilder
         }
 
         throw new IllegalArgumentException("Unsupported sampling method: " + token.getText());
-    }
-
-    private static LogicalBinaryExpression.Operator getLogicalBinaryOperator(Token token)
-    {
-        switch (token.getType()) {
-            case SqlBaseLexer.AND:
-                return LogicalBinaryExpression.Operator.AND;
-            case SqlBaseLexer.OR:
-                return LogicalBinaryExpression.Operator.OR;
-        }
-
-        throw new IllegalArgumentException("Unsupported operator: " + token.getText());
     }
 
     private static SortItem.NullOrdering getNullOrderingType(Token token)

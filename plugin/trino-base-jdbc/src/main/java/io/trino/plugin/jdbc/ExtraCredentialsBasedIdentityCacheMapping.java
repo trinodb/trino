@@ -14,7 +14,7 @@
 package io.trino.plugin.jdbc;
 
 import io.trino.plugin.jdbc.credential.ExtraCredentialConfig;
-import io.trino.spi.security.ConnectorIdentity;
+import io.trino.spi.connector.ConnectorSession;
 
 import javax.inject.Inject;
 
@@ -49,9 +49,9 @@ public final class ExtraCredentialsBasedIdentityCacheMapping
     }
 
     @Override
-    public IdentityCacheKey getRemoteUserCacheKey(ConnectorIdentity identity)
+    public IdentityCacheKey getRemoteUserCacheKey(ConnectorSession session)
     {
-        Map<String, String> extraCredentials = identity.getExtraCredentials();
+        Map<String, String> extraCredentials = session.getIdentity().getExtraCredentials();
         return new ExtraCredentialsBasedIdentityCacheKey(
                 userCredentialName.map(extraCredentials::get)
                         .map(this::hash),

@@ -755,7 +755,9 @@ public class ElasticsearchClient
                     }
                     result.add(new IndexMetadata.Field(asRawJson, isArray, name, new IndexMetadata.DateTimeType(formats)));
                     break;
-
+                case "scaled_float":
+                    result.add(new IndexMetadata.Field(asRawJson, isArray, name, new IndexMetadata.ScaledFloatType(value.get("scaling_factor").asDouble())));
+                    break;
                 case "nested":
                 case "object":
                     if (value.has("properties")) {

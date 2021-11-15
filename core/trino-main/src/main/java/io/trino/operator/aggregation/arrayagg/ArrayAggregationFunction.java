@@ -15,6 +15,7 @@ package io.trino.operator.aggregation.arrayagg;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
+import io.trino.metadata.AggregationFunctionMetadata;
 import io.trino.metadata.FunctionArgumentDefinition;
 import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.FunctionMetadata;
@@ -46,6 +47,7 @@ import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadat
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_BLOCK_INPUT_CHANNEL;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static io.trino.operator.aggregation.AggregationUtils.generateAggregationName;
+import static io.trino.spi.type.TypeSignature.arrayType;
 import static io.trino.util.Reflection.methodHandle;
 
 public class ArrayAggregationFunction
@@ -65,7 +67,7 @@ public class ArrayAggregationFunction
                                 NAME,
                                 ImmutableList.of(typeVariable("T")),
                                 ImmutableList.of(),
-                                TypeSignature.arrayType(new TypeSignature("T")),
+                                arrayType(new TypeSignature("T")),
                                 ImmutableList.of(new TypeSignature("T")),
                                 false),
                         true,
@@ -74,15 +76,9 @@ public class ArrayAggregationFunction
                         true,
                         "return an array of values",
                         AGGREGATE),
-                true,
-                true);
-    }
-
-    @Override
-    public List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
-    {
-        Type type = functionBinding.getTypeVariable("T");
-        return ImmutableList.of(new ArrayAggregationStateSerializer(type).getSerializedType().getTypeSignature());
+                new AggregationFunctionMetadata(
+                        true,
+                        arrayType(new TypeSignature("T"))));
     }
 
     @Override

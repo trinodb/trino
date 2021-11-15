@@ -69,11 +69,8 @@ public final class PredicateUtils
 {
     private PredicateUtils() {}
 
-    public static boolean isStatisticsOverflow(Type type, ParquetLongStatistics statistics)
+    public static boolean isStatisticsOverflow(Type type, long min, long max)
     {
-        long min = statistics.getMin();
-        long max = statistics.getMax();
-
         if (type == TINYINT) {
             return min < Byte.MIN_VALUE || max > Byte.MAX_VALUE;
         }
@@ -92,7 +89,8 @@ public final class PredicateUtils
                 // Smallest long decimal type with 0 scale has broader range than representable in long, as used in ParquetLongStatistics
                 return false;
             }
-            return BigDecimal.valueOf(min).compareTo(minimalValue(decimalType)) < 0 || BigDecimal.valueOf(max).compareTo(maximalValue(decimalType)) > 0;
+            return BigDecimal.valueOf(min, decimalType.getScale()).compareTo(minimalValue(decimalType)) < 0 ||
+                    BigDecimal.valueOf(max, decimalType.getScale()).compareTo(maximalValue(decimalType)) > 0;
         }
 
         throw new IllegalArgumentException("Unsupported type: " + type);

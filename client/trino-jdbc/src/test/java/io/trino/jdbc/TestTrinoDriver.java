@@ -709,7 +709,7 @@ public class TestTrinoDriver
     public void testBadQuery()
             throws Exception
     {
-        try (Connection connection = createConnection("test", "tiny")) {
+        try (Connection connection = createConnection(TEST_CATALOG, "tiny")) {
             try (Statement statement = connection.createStatement()) {
                 try (ResultSet ignored = statement.executeQuery("SELECT * FROM bad_table")) {
                     fail("expected exception");
@@ -745,15 +745,25 @@ public class TestTrinoDriver
             try (Statement statement = connection.createStatement()) {
                 statement.executeUpdate("SET ROLE ALL");
             }
-            assertEquals(connection.getRoles(), ImmutableMap.of(TEST_CATALOG, new ClientSelectedRole(ClientSelectedRole.Type.ALL, Optional.empty())));
+            assertEquals(connection.getRoles(), ImmutableMap.of("system", new ClientSelectedRole(ClientSelectedRole.Type.ALL, Optional.empty())));
             try (Statement statement = connection.createStatement()) {
                 statement.executeUpdate("SET ROLE NONE");
             }
-            assertEquals(connection.getRoles(), ImmutableMap.of(TEST_CATALOG, new ClientSelectedRole(ClientSelectedRole.Type.NONE, Optional.empty())));
+            assertEquals(connection.getRoles(), ImmutableMap.of("system", new ClientSelectedRole(ClientSelectedRole.Type.NONE, Optional.empty())));
+
             try (Statement statement = connection.createStatement()) {
-                statement.executeUpdate("SET ROLE bar");
+                // There is no way to create system roles right now
+                assertThatThrownBy(() -> statement.executeUpdate("SET ROLE bar"))
+                        .hasMessageMatching(".* Role 'bar' does not exist");
+
+                // Only hive connector supports roles
+                assertThatThrownBy(() -> statement.executeUpdate("SET ROLE ALL IN " + TEST_CATALOG))
+                        .hasMessageMatching(".* Catalog '.*' does not support role management");
+                assertThatThrownBy(() -> statement.executeUpdate("SET ROLE NONE IN " + TEST_CATALOG))
+                        .hasMessageMatching(".* Catalog '.*' does not support role management");
+                assertThatThrownBy(() -> statement.executeUpdate("SET ROLE bar IN " + TEST_CATALOG))
+                        .hasMessageMatching(".* Catalog '.*' does not support role management");
             }
-            assertEquals(connection.getRoles(), ImmutableMap.of(TEST_CATALOG, new ClientSelectedRole(ClientSelectedRole.Type.ROLE, Optional.of("bar"))));
         }
     }
 

@@ -93,10 +93,11 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.UriInfo;
 
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.RejectedExecutionException;
@@ -104,6 +105,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.airlift.json.JsonBinder.jsonBinder;
@@ -253,6 +255,8 @@ public class TestHttpRemoteTask
         assertEventually(
                 new Duration(15, SECONDS),
                 () -> assertGreaterThanOrEqual(testingTaskResource.getStatusFetchCounter(), 3L));
+        assertEquals(testingTaskResource.getDynamicFiltersFetchCounter(), 1L, testingTaskResource.getDynamicFiltersFetchRequests().toString());
+
         future = dynamicFilter.isBlocked();
         testingTaskResource.setDynamicFilterDomains(new VersionedDynamicFilterDomains(
                 2L,
@@ -263,7 +267,7 @@ public class TestHttpRemoteTask
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         handle1, Domain.singleValue(BIGINT, 1L),
                         handle2, Domain.singleValue(BIGINT, 2L))));
-        assertEquals(testingTaskResource.getDynamicFiltersFetchCounter(), 2L);
+        assertEquals(testingTaskResource.getDynamicFiltersFetchCounter(), 2L, testingTaskResource.getDynamicFiltersFetchRequests().toString());
         assertGreaterThanOrEqual(testingTaskResource.getStatusFetchCounter(), 4L);
 
         httpRemoteTaskFactory.stop();
@@ -412,7 +416,6 @@ public class TestHttpRemoteTask
                 new InternalNode("node-id", URI.create("http://fake.invalid/"), new NodeVersion("version"), false),
                 TaskTestUtils.PLAN_FRAGMENT,
                 ImmutableMultimap.of(),
-                OptionalInt.empty(),
                 createInitialEmptyOutputBuffers(OutputBuffers.BufferType.BROADCAST),
                 new NodeTaskMap.PartitionedSplitCountTracker(i -> {}),
                 outboundDynamicFilterIds,
@@ -550,6 +553,7 @@ public class TestHttpRemoteTask
         private long createOrUpdateCounter;
         private long dynamicFiltersFetchCounter;
         private long dynamicFiltersSentCounter;
+        private final List<DynamicFiltersFetchRequest> dynamicFiltersFetchRequests = new ArrayList<>();
 
         public TestingTaskResource(AtomicLong lastActivityNanos, FailureScenario failureScenario)
         {
@@ -632,6 +636,14 @@ public class TestHttpRemoteTask
                 @Context UriInfo uriInfo)
         {
             dynamicFiltersFetchCounter++;
+            // keep incoming dynamicfilters request log for debugging purposes
+            dynamicFiltersFetchRequests.add(new DynamicFiltersFetchRequest(
+                    uriInfo.getRequestUri().toString(),
+                    taskId,
+                    currentDynamicFiltersVersion,
+                    dynamicFilterDomains
+                            .map(VersionedDynamicFilterDomains::getVersion)
+                            .orElse(-1L)));
             return dynamicFilterDomains.orElse(null);
         }
 
@@ -700,6 +712,11 @@ public class TestHttpRemoteTask
             return dynamicFiltersSentCounter;
         }
 
+        public synchronized List<DynamicFiltersFetchRequest> getDynamicFiltersFetchRequests()
+        {
+            return ImmutableList.copyOf(dynamicFiltersFetchRequests);
+        }
+
         private TaskInfo buildTaskInfo()
         {
             return new TaskInfo(
@@ -753,7 +770,40 @@ public class TestHttpRemoteTask
                     initialTaskStatus.getRevocableMemoryReservation(),
                     initialTaskStatus.getFullGcCount(),
                     initialTaskStatus.getFullGcTime(),
-                    dynamicFilterDomains.map(VersionedDynamicFilterDomains::getVersion).orElse(INITIAL_DYNAMIC_FILTERS_VERSION));
+                    dynamicFilterDomains.map(VersionedDynamicFilterDomains::getVersion).orElse(INITIAL_DYNAMIC_FILTERS_VERSION),
+                    initialTaskStatus.getQueuedPartitionedSplitsWeight(),
+                    initialTaskStatus.getRunningPartitionedSplitsWeight());
+        }
+
+        private static class DynamicFiltersFetchRequest
+        {
+            private final String uriInfo;
+            private final TaskId taskId;
+            private final Long currentDynamicFiltersVersion;
+            private final long storedDynamicFiltersVersion;
+
+            private DynamicFiltersFetchRequest(
+                    String uriInfo,
+                    TaskId taskId,
+                    Long currentDynamicFiltersVersion,
+                    long storedDynamicFiltersVersion)
+            {
+                this.uriInfo = requireNonNull(uriInfo, "uriInfo is null");
+                this.taskId = requireNonNull(taskId, "taskId is null");
+                this.currentDynamicFiltersVersion = requireNonNull(currentDynamicFiltersVersion, "currentDynamicFiltersVersion is null");
+                this.storedDynamicFiltersVersion = storedDynamicFiltersVersion;
+            }
+
+            @Override
+            public String toString()
+            {
+                return toStringHelper(this)
+                        .add("uriInfo", uriInfo)
+                        .add("taskId", taskId)
+                        .add("currentDynamicFiltersVersion", currentDynamicFiltersVersion)
+                        .add("storedDynamicFiltersVersion", storedDynamicFiltersVersion)
+                        .toString();
+            }
         }
     }
 }

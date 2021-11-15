@@ -17,7 +17,8 @@ import com.google.common.annotations.VisibleForTesting;
 import io.trino.Session;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.type.BlockTypeOperators;
@@ -25,9 +26,9 @@ import io.trino.type.BlockTypeOperators;
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkState;
 import static io.trino.SystemSessionProperties.isDictionaryAggregationEnabled;
 import static io.trino.operator.GroupByHash.createGroupByHash;
-import static io.trino.spi.type.BooleanType.BOOLEAN;
 
 public class MarkDistinctHash
 {
@@ -51,26 +52,41 @@ public class MarkDistinctHash
 
     public Work<Block> markDistinctRows(Page page)
     {
-        return new TransformWork<>(
-                groupByHash.getGroupIds(page),
-                ids -> {
-                    BlockBuilder blockBuilder = BOOLEAN.createBlockBuilder(null, ids.getPositionCount());
-                    for (int i = 0; i < ids.getPositionCount(); i++) {
-                        if (ids.getGroupId(i) == nextDistinctId) {
-                            BOOLEAN.writeBoolean(blockBuilder, true);
-                            nextDistinctId++;
-                        }
-                        else {
-                            BOOLEAN.writeBoolean(blockBuilder, false);
-                        }
-                    }
-                    return blockBuilder.build();
-                });
+        return new TransformWork<>(groupByHash.getGroupIds(page), this::processNextGroupIds);
     }
 
     @VisibleForTesting
     public int getCapacity()
     {
         return groupByHash.getCapacity();
+    }
+
+    private Block processNextGroupIds(GroupByIdBlock ids)
+    {
+        int positions = ids.getPositionCount();
+        if (positions > 1) {
+            // must have > 1 positions to benefit from using a RunLengthEncoded block
+            if (nextDistinctId == ids.getGroupCount()) {
+                // no new distinct positions
+                return new RunLengthEncodedBlock(BooleanType.createBlockForSingleNonNullValue(false), positions);
+            }
+            if (nextDistinctId + positions == ids.getGroupCount()) {
+                // all positions are distinct
+                nextDistinctId = ids.getGroupCount();
+                return new RunLengthEncodedBlock(BooleanType.createBlockForSingleNonNullValue(true), positions);
+            }
+        }
+        byte[] distinctMask = new byte[positions];
+        for (int position = 0; position < distinctMask.length; position++) {
+            if (ids.getGroupId(position) == nextDistinctId) {
+                distinctMask[position] = 1;
+                nextDistinctId++;
+            }
+            else {
+                distinctMask[position] = 0;
+            }
+        }
+        checkState(nextDistinctId == ids.getGroupCount());
+        return BooleanType.wrapByteArrayAsBooleanBlockWithoutNulls(distinctMask);
     }
 }

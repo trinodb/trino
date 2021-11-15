@@ -248,7 +248,7 @@ public class TableScanOperator
                 throw new UncheckedIOException(e);
             }
             systemMemoryContext.setBytes(source.getSystemMemoryUsage());
-            operatorContext.setLatestMetrics(source.getMetrics());
+            operatorContext.setLatestConnectorMetrics(source.getMetrics());
         }
     }
 
@@ -330,7 +330,7 @@ public class TableScanOperator
 
         // updating system memory usage should happen after page is loaded.
         systemMemoryContext.setBytes(source.getSystemMemoryUsage());
-        operatorContext.setLatestMetrics(source.getMetrics());
+        operatorContext.setLatestConnectorMetrics(source.getMetrics());
         return page;
     }
 }

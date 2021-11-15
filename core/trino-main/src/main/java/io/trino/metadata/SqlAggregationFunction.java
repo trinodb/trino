@@ -16,44 +16,26 @@ package io.trino.metadata;
 import com.google.common.collect.ImmutableList;
 import io.trino.operator.aggregation.AggregationFromAnnotationsParser;
 import io.trino.operator.aggregation.InternalAggregationFunction;
-import io.trino.spi.type.StandardTypes;
-import io.trino.spi.type.TypeSignature;
-import io.trino.spi.type.TypeSignatureParameter;
 
 import java.util.List;
-import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
 public abstract class SqlAggregationFunction
         implements SqlFunction
 {
     private final FunctionMetadata functionMetadata;
-    private final boolean orderSensitive;
-    private final boolean decomposable;
-
-    public static List<SqlAggregationFunction> createFunctionByAnnotations(Class<?> aggregationDefinition)
-    {
-        return ImmutableList.of(AggregationFromAnnotationsParser.parseFunctionDefinition(aggregationDefinition));
-    }
+    private final AggregationFunctionMetadata aggregationFunctionMetadata;
 
     public static List<SqlAggregationFunction> createFunctionsByAnnotations(Class<?> aggregationDefinition)
     {
-        return AggregationFromAnnotationsParser.parseFunctionDefinitions(aggregationDefinition)
-                .stream()
-                .map(SqlAggregationFunction.class::cast)
-                .collect(toImmutableList());
+        return ImmutableList.copyOf(AggregationFromAnnotationsParser.parseFunctionDefinitions(aggregationDefinition));
     }
 
-    protected SqlAggregationFunction(FunctionMetadata functionMetadata, boolean decomposable, boolean orderSensitive)
+    public SqlAggregationFunction(FunctionMetadata functionMetadata, AggregationFunctionMetadata aggregationFunctionMetadata)
     {
         this.functionMetadata = requireNonNull(functionMetadata, "functionMetadata is null");
-        checkArgument(functionMetadata.isDeterministic(), "Aggregation function must be deterministic");
-        this.orderSensitive = orderSensitive;
-        this.decomposable = decomposable;
+        this.aggregationFunctionMetadata = requireNonNull(aggregationFunctionMetadata, "aggregationFunctionMetadata is null");
     }
 
     @Override
@@ -62,28 +44,9 @@ public abstract class SqlAggregationFunction
         return functionMetadata;
     }
 
-    public AggregationFunctionMetadata getAggregationMetadata(FunctionBinding functionBinding)
+    public AggregationFunctionMetadata getAggregationMetadata()
     {
-        if (!decomposable) {
-            return new AggregationFunctionMetadata(orderSensitive, Optional.empty());
-        }
-
-        List<TypeSignature> intermediateTypes = getIntermediateTypes(functionBinding);
-        TypeSignature intermediateType;
-        if (intermediateTypes.size() == 1) {
-            intermediateType = getOnlyElement(intermediateTypes);
-        }
-        else {
-            intermediateType = new TypeSignature(StandardTypes.ROW, intermediateTypes.stream()
-                    .map(TypeSignatureParameter::anonymousField)
-                    .collect(toImmutableList()));
-        }
-        return new AggregationFunctionMetadata(orderSensitive, Optional.of(intermediateType));
-    }
-
-    protected List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
-    {
-        throw new UnsupportedOperationException();
+        return aggregationFunctionMetadata;
     }
 
     public InternalAggregationFunction specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)

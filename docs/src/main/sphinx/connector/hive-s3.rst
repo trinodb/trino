@@ -28,7 +28,7 @@ Property Name                                Description
                                              connect to an S3-compatible storage system instead
                                              of AWS. When using v4 signatures, it is recommended to
                                              set this to the AWS region-specific endpoint
-                                             (e.g., ``http[s]://<bucket>.s3-<AWS-region>.amazonaws.com``).
+                                             (e.g., ``http[s]://s3.<AWS-region>.amazonaws.com``).
 
 ``hive.s3.storage-class``                    The S3 storage class to use when writing the data. Currently only
                                              ``STANDARD`` and ``INTELLIGENT_TIERING`` storage classes are supported.
@@ -169,7 +169,7 @@ The security mapping must provide one or more configuration settings:
   credential. If list cotains "*", then any key can be specified via extra credential.
 
 The security mapping entries are processed in the order listed in the configuration
-file. More specific mappings should thus be specified before less specific mappings.
+JSON. More specific mappings should thus be specified before less specific mappings.
 For example, the mapping list might have URL prefix ``s3://abc/xyz/`` followed by
 ``s3://abc/`` to allow different configuration for a specific path within a bucket
 than for other paths within the bucket. You can set default configuration by not
@@ -189,7 +189,10 @@ In addition to the rules above, the default mapping can contain the optional
 
 If no mapping entry matches and no default is configured, the access is denied.
 
-Example JSON configuration file:
+The configuration JSON can either be retrieved from a file or REST-endpoint specified via
+``hive.s3.security-mapping.config-file``.
+
+Example JSON configuration:
 
 .. code-block:: json
 
@@ -234,7 +237,10 @@ Example JSON configuration file:
 ======================================================= =================================================================
 Property Name                                           Description
 ======================================================= =================================================================
-``hive.s3.security-mapping.config-file``                The JSON configuration file containing security mappings.
+``hive.s3.security-mapping.config-file``                The JSON configuration file or REST-endpoint URI containing
+                                                        security mappings.
+``hive.s3.security-mapping.json-pointer``               A JSON pointer (RFC 6901) to mappings inside the JSON retrieved from
+                                                        the config file or REST-endpont. The whole document ("") by default.
 
 ``hive.s3.security-mapping.iam-role-credential-name``   The name of the *extra credential* used to provide the IAM role.
 

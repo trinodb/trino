@@ -25,6 +25,7 @@ import io.trino.orc.metadata.ColumnMetadata;
 import io.trino.orc.metadata.CompressionKind;
 import io.trino.orc.metadata.OrcColumnId;
 import io.trino.orc.metadata.OrcType;
+import io.trino.orc.metadata.statistics.BooleanStatistics;
 import io.trino.orc.metadata.statistics.ColumnStatistics;
 import io.trino.orc.metadata.statistics.DateStatistics;
 import io.trino.orc.metadata.statistics.DecimalStatistics;
@@ -177,6 +178,13 @@ public class IcebergOrcFileWriter
 
     private static Optional<IcebergMinMax> toIcebergMinMax(ColumnStatistics orcColumnStats, org.apache.iceberg.types.Type icebergType)
     {
+        BooleanStatistics booleanStatistics = orcColumnStats.getBooleanStatistics();
+        if (booleanStatistics != null) {
+            boolean hasTrueValues = booleanStatistics.getTrueValueCount() != 0;
+            boolean hasFalseValues = orcColumnStats.getNumberOfValues() != booleanStatistics.getTrueValueCount();
+            return Optional.of(new IcebergMinMax(icebergType, !hasFalseValues, hasTrueValues));
+        }
+
         IntegerStatistics integerStatistics = orcColumnStats.getIntegerStatistics();
         if (integerStatistics != null) {
             Object min = integerStatistics.getMin();

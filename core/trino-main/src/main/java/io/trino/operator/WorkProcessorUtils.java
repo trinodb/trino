@@ -131,7 +131,7 @@ public final class WorkProcessorUtils
                         return ProcessState.blocked(processor.getBlockedFuture());
                     }
                     else {
-                        return ProcessState.yield();
+                        return ProcessState.yielded();
                     }
 
                     if (processorIterator.hasNext()) {
@@ -174,7 +174,7 @@ public final class WorkProcessorUtils
         {
             if (!lastProcessYielded && yieldSignal.getAsBoolean()) {
                 lastProcessYielded = true;
-                return ProcessState.yield();
+                return ProcessState.yielded();
             }
             lastProcessYielded = false;
 
@@ -230,7 +230,7 @@ public final class WorkProcessorUtils
             return ProcessState.blocked(processor.getBlockedFuture());
         }
 
-        return ProcessState.yield();
+        return ProcessState.yielded();
     }
 
     static <T, R> WorkProcessor<R> flatMap(WorkProcessor<T> processor, Function<T, WorkProcessor<R>> mapper)
@@ -286,7 +286,7 @@ public final class WorkProcessorUtils
                 return TransformationState.blocked(nestedProcessor.getBlockedFuture());
             }
 
-            return TransformationState.yield();
+            return TransformationState.yielded();
         });
     }
 
@@ -312,7 +312,7 @@ public final class WorkProcessorUtils
                             return ProcessState.blocked(processor.getBlockedFuture());
                         }
                         else {
-                            return ProcessState.yield();
+                            return ProcessState.yielded();
                         }
                     }
 
@@ -331,7 +331,7 @@ public final class WorkProcessorUtils
                         case BLOCKED:
                             return ProcessState.blocked(state.getBlocked());
                         case YIELD:
-                            return ProcessState.yield();
+                            return ProcessState.yielded();
                         case RESULT:
                             return ProcessState.ofResult(state.getResult());
                         case FINISHED:
@@ -353,7 +353,7 @@ public final class WorkProcessorUtils
         @Nullable
         WorkProcessor.Process<T> process;
         // set initial state to yield as it will cause processor computations to progress
-        ProcessState<T> state = ProcessState.yield();
+        ProcessState<T> state = ProcessState.yielded();
 
         ProcessWorkProcessor(WorkProcessor.Process<T> process)
         {

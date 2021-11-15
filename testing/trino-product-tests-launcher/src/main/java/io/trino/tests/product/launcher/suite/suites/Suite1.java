@@ -15,7 +15,7 @@ package io.trino.tests.product.launcher.suite.suites;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
-import io.trino.tests.product.launcher.env.environment.Multinode;
+import io.trino.tests.product.launcher.env.environment.EnvMultinode;
 import io.trino.tests.product.launcher.suite.Suite;
 import io.trino.tests.product.launcher.suite.SuiteTestRun;
 
@@ -30,8 +30,8 @@ public class Suite1
     public List<SuiteTestRun> getTestRuns(EnvironmentConfig config)
     {
         return ImmutableList.of(
-                testOnEnvironment(Multinode.class)
-                        .withExcludedGroups("big_query", "storage_formats", "profile_specific_tests", "tpcds", "hive_compression")
+                testOnEnvironment(EnvMultinode.class)
+                        .withExcludedGroups("big_query", "storage_formats", "storage_formats_detailed", "profile_specific_tests", "tpcds", "hive_compression")
                         .build());
     }
 }

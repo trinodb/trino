@@ -38,6 +38,7 @@ import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_SCALAR;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractAggregateFunctions;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractExpressions;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractWindowExpressions;
+import static io.trino.sql.analyzer.QueryType.OTHERS;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static java.util.Objects.requireNonNull;
 
@@ -80,13 +81,13 @@ public class Analyzer
 
     public Analysis analyze(Statement statement)
     {
-        return analyze(statement, false);
+        return analyze(statement, OTHERS);
     }
 
-    public Analysis analyze(Statement statement, boolean isDescribe)
+    public Analysis analyze(Statement statement, QueryType queryType)
     {
         Statement rewrittenStatement = StatementRewrite.rewrite(session, metadata, sqlParser, queryExplainer, statement, parameters, parameterLookup, groupProvider, accessControl, warningCollector, statsCalculator);
-        Analysis analysis = new Analysis(rewrittenStatement, parameterLookup, isDescribe);
+        Analysis analysis = new Analysis(rewrittenStatement, parameterLookup, queryType);
         StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, groupProvider, accessControl, session, warningCollector, CorrelationSupport.ALLOWED);
         analyzer.analyze(rewrittenStatement, Optional.empty());
 

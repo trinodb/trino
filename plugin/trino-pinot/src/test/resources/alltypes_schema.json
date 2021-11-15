@@ -19,11 +19,6 @@
             "singleValueField": false
         },
         {
-            "name": "bool_array_col",
-            "dataType": "BOOLEAN",
-            "singleValueField": false
-        },
-        {
             "name": "int_array_col",
             "dataType": "INT",
             "singleValueField": false

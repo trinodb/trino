@@ -81,13 +81,11 @@ public class TransformExistsApplyToCorrelatedJoin
 
     private static final QualifiedName COUNT = QualifiedName.of("count");
     private final Metadata metadata;
-    private final ResolvedFunction countFunction;
 
     public TransformExistsApplyToCorrelatedJoin(Metadata metadata)
     {
         requireNonNull(metadata, "metadata is null");
         this.metadata = metadata;
-        countFunction = metadata.resolveFunction(COUNT, ImmutableList.of());
     }
 
     @Override
@@ -168,6 +166,7 @@ public class TransformExistsApplyToCorrelatedJoin
 
     private PlanNode rewriteToDefaultAggregation(ApplyNode applyNode, Context context)
     {
+        ResolvedFunction countFunction = metadata.resolveFunction(context.getSession(), COUNT, ImmutableList.of());
         Symbol count = context.getSymbolAllocator().newSymbol(COUNT.toString(), BIGINT);
         Symbol exists = getOnlyElement(applyNode.getSubqueryAssignments().getSymbols());
 

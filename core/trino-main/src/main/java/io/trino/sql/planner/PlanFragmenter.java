@@ -572,6 +572,10 @@ public class PlanFragmenter
             GroupedExecutionProperties left = node.getLeft().accept(this, null);
             GroupedExecutionProperties right = node.getRight().accept(this, null);
 
+            if (!groupedExecutionEnabled) {
+                return GroupedExecutionProperties.notCapable();
+            }
+
             if (node.getDistributionType().isEmpty()) {
                 // This is possible when the optimizers is invoked with `forceSingleNode` set to true.
                 return GroupedExecutionProperties.notCapable();

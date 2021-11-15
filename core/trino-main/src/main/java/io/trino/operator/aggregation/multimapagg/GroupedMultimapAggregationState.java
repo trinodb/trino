@@ -41,8 +41,9 @@ public final class GroupedMultimapAggregationState
     }
 
     @Override
-    protected final void accept(MultimapAggregationStateConsumer consumer, PageBuilder pageBuilder, int currentPosition)
+    protected final boolean accept(MultimapAggregationStateConsumer consumer, PageBuilder pageBuilder, int currentPosition)
     {
         consumer.accept(pageBuilder.getBlockBuilder(KEY_CHANNEL), pageBuilder.getBlockBuilder(VALUE_CHANNEL), currentPosition);
+        return true;
     }
 }

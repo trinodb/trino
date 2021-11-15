@@ -91,7 +91,7 @@ public class TestRenameTableTask
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeRenameTable(viewName, qualifiedName("existing_materialized_view_new"), false)))
                 .hasErrorCode(TABLE_NOT_FOUND)
-                .hasMessage("Table '%s' does not exist, but a materialized view with that name exists.", viewName);
+                .hasMessage("Table '%s' does not exist, but a materialized view with that name exists. Did you mean ALTER MATERIALIZED VIEW catalog.schema.existing_materialized_view RENAME ...?", viewName);
     }
 
     @Test

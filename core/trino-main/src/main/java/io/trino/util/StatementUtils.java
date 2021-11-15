@@ -45,6 +45,7 @@ import io.trino.sql.tree.Prepare;
 import io.trino.sql.tree.Query;
 import io.trino.sql.tree.RefreshMaterializedView;
 import io.trino.sql.tree.RenameColumn;
+import io.trino.sql.tree.RenameMaterializedView;
 import io.trino.sql.tree.RenameSchema;
 import io.trino.sql.tree.RenameTable;
 import io.trino.sql.tree.RenameView;
@@ -53,6 +54,7 @@ import io.trino.sql.tree.Revoke;
 import io.trino.sql.tree.RevokeRoles;
 import io.trino.sql.tree.Rollback;
 import io.trino.sql.tree.SetPath;
+import io.trino.sql.tree.SetProperties;
 import io.trino.sql.tree.SetRole;
 import io.trino.sql.tree.SetSchemaAuthorization;
 import io.trino.sql.tree.SetSession;
@@ -72,6 +74,8 @@ import io.trino.sql.tree.ShowStats;
 import io.trino.sql.tree.ShowTables;
 import io.trino.sql.tree.StartTransaction;
 import io.trino.sql.tree.Statement;
+import io.trino.sql.tree.TableExecute;
+import io.trino.sql.tree.TruncateTable;
 import io.trino.sql.tree.Update;
 import io.trino.sql.tree.Use;
 
@@ -81,6 +85,7 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.spi.resourcegroups.QueryType.ALTER_TABLE_EXECUTE;
 import static io.trino.spi.resourcegroups.QueryType.ANALYZE;
 import static io.trino.spi.resourcegroups.QueryType.DATA_DEFINITION;
 import static io.trino.spi.resourcegroups.QueryType.DELETE;
@@ -137,10 +142,12 @@ public final class StatementUtils
             .put(DropSchema.class, DATA_DEFINITION)
             .put(DropTable.class, DATA_DEFINITION)
             .put(DropView.class, DATA_DEFINITION)
+            .put(TruncateTable.class, DATA_DEFINITION)
             .put(Grant.class, DATA_DEFINITION)
             .put(GrantRoles.class, DATA_DEFINITION)
             .put(Prepare.class, DATA_DEFINITION)
             .put(RenameColumn.class, DATA_DEFINITION)
+            .put(RenameMaterializedView.class, DATA_DEFINITION)
             .put(RenameSchema.class, DATA_DEFINITION)
             .put(RenameTable.class, DATA_DEFINITION)
             .put(RenameView.class, DATA_DEFINITION)
@@ -152,10 +159,12 @@ public final class StatementUtils
             .put(SetRole.class, DATA_DEFINITION)
             .put(SetSchemaAuthorization.class, DATA_DEFINITION)
             .put(SetSession.class, DATA_DEFINITION)
+            .put(SetProperties.class, DATA_DEFINITION)
             .put(SetTableAuthorization.class, DATA_DEFINITION)
             .put(SetTimeZone.class, DATA_DEFINITION)
             .put(SetViewAuthorization.class, DATA_DEFINITION)
             .put(StartTransaction.class, DATA_DEFINITION)
+            .put(TableExecute.class, ALTER_TABLE_EXECUTE)
             .put(Use.class, DATA_DEFINITION)
             .build();
 

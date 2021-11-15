@@ -15,6 +15,7 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
+import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.connector.ConnectorSession;
@@ -65,78 +66,82 @@ public final class LiteralInterpreter
 {
     private LiteralInterpreter() {}
 
-    public static Object evaluate(Metadata metadata, ConnectorSession session, Map<NodeRef<Expression>, Type> types, Expression node)
+    public static Object evaluate(Metadata metadata, Session session, Map<NodeRef<Expression>, Type> types, Expression node)
     {
         if (!(node instanceof Literal)) {
             throw new IllegalArgumentException("node must be a Literal");
         }
-        return new LiteralVisitor(metadata, types).process(node, session);
+        return new LiteralVisitor(session, metadata, types).process(node, null);
     }
 
     private static class LiteralVisitor
-            extends AstVisitor<Object, ConnectorSession>
+            extends AstVisitor<Object, Void>
     {
+        private final Session session;
+        private final ConnectorSession connectorSession;
         private final Metadata metadata;
         private final InterpretedFunctionInvoker functionInvoker;
         private final Map<NodeRef<Expression>, Type> types;
 
-        private LiteralVisitor(Metadata metadata, Map<NodeRef<Expression>, Type> types)
+        private LiteralVisitor(Session session, Metadata metadata, Map<NodeRef<Expression>, Type> types)
         {
+            this.session = requireNonNull(session, "session is null");
+            this.connectorSession = session.toConnectorSession();
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.functionInvoker = new InterpretedFunctionInvoker(metadata);
             this.types = requireNonNull(types, "types is null");
         }
 
         @Override
-        protected Object visitLiteral(Literal node, ConnectorSession session)
+        protected Object visitLiteral(Literal node, Void context)
         {
             throw new UnsupportedOperationException("Unhandled literal type: " + node);
         }
 
         @Override
-        protected Object visitBooleanLiteral(BooleanLiteral node, ConnectorSession session)
+        protected Object visitBooleanLiteral(BooleanLiteral node, Void context)
         {
             return node.getValue();
         }
 
         @Override
-        protected Long visitLongLiteral(LongLiteral node, ConnectorSession session)
+        protected Long visitLongLiteral(LongLiteral node, Void context)
         {
             return node.getValue();
         }
 
         @Override
-        protected Double visitDoubleLiteral(DoubleLiteral node, ConnectorSession session)
+        protected Double visitDoubleLiteral(DoubleLiteral node, Void context)
         {
             return node.getValue();
         }
 
         @Override
-        protected Object visitDecimalLiteral(DecimalLiteral node, ConnectorSession context)
+        protected Object visitDecimalLiteral(DecimalLiteral node, Void context)
         {
             return Decimals.parse(node.getValue()).getObject();
         }
 
         @Override
-        protected Slice visitStringLiteral(StringLiteral node, ConnectorSession session)
+        protected Slice visitStringLiteral(StringLiteral node, Void context)
         {
             return node.getSlice();
         }
 
         @Override
-        protected Object visitCharLiteral(CharLiteral node, ConnectorSession context)
+        protected Object visitCharLiteral(CharLiteral node, Void context)
         {
             return node.getSlice();
         }
 
         @Override
-        protected Slice visitBinaryLiteral(BinaryLiteral node, ConnectorSession session)
+        protected Slice visitBinaryLiteral(BinaryLiteral node, Void context)
         {
             return node.getValue();
         }
 
         @Override
-        protected Object visitGenericLiteral(GenericLiteral node, ConnectorSession session)
+        protected Object visitGenericLiteral(GenericLiteral node, Void context)
         {
             Type type;
             try {
@@ -147,13 +152,13 @@ public final class LiteralInterpreter
             }
 
             if (JSON.equals(type)) {
-                ResolvedFunction resolvedFunction = metadata.resolveFunction(QualifiedName.of("json_parse"), fromTypes(VARCHAR));
-                return functionInvoker.invoke(resolvedFunction, session, ImmutableList.of(utf8Slice(node.getValue())));
+                ResolvedFunction resolvedFunction = metadata.resolveFunction(session, QualifiedName.of("json_parse"), fromTypes(VARCHAR));
+                return functionInvoker.invoke(resolvedFunction, connectorSession, ImmutableList.of(utf8Slice(node.getValue())));
             }
 
             try {
-                ResolvedFunction resolvedFunction = metadata.getCoercion(VARCHAR, type);
-                return functionInvoker.invoke(resolvedFunction, session, ImmutableList.of(utf8Slice(node.getValue())));
+                ResolvedFunction resolvedFunction = metadata.getCoercion(session, VARCHAR, type);
+                return functionInvoker.invoke(resolvedFunction, connectorSession, ImmutableList.of(utf8Slice(node.getValue())));
             }
             catch (IllegalArgumentException e) {
                 throw semanticException(INVALID_LITERAL, node, "No literal form for type %s", type);
@@ -161,7 +166,7 @@ public final class LiteralInterpreter
         }
 
         @Override
-        protected Object visitTimeLiteral(TimeLiteral node, ConnectorSession session)
+        protected Object visitTimeLiteral(TimeLiteral node, Void session)
         {
             Type type = types.get(NodeRef.of(node));
 
@@ -176,7 +181,7 @@ public final class LiteralInterpreter
         }
 
         @Override
-        protected Object visitTimestampLiteral(TimestampLiteral node, ConnectorSession session)
+        protected Object visitTimestampLiteral(TimestampLiteral node, Void session)
         {
             Type type = types.get(NodeRef.of(node));
 
@@ -193,7 +198,7 @@ public final class LiteralInterpreter
         }
 
         @Override
-        protected Long visitIntervalLiteral(IntervalLiteral node, ConnectorSession session)
+        protected Long visitIntervalLiteral(IntervalLiteral node, Void context)
         {
             if (node.isYearToMonth()) {
                 return node.getSign().multiplier() * parseYearMonthInterval(node.getValue(), node.getStartField(), node.getEndField());
@@ -202,7 +207,7 @@ public final class LiteralInterpreter
         }
 
         @Override
-        protected Object visitNullLiteral(NullLiteral node, ConnectorSession session)
+        protected Object visitNullLiteral(NullLiteral node, Void context)
         {
             return null;
         }

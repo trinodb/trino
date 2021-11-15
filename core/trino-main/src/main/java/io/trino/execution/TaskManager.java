@@ -29,7 +29,6 @@ import io.trino.sql.planner.plan.DynamicFilterId;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalInt;
 
 public interface TaskManager
 {
@@ -95,7 +94,6 @@ public interface TaskManager
             Optional<PlanFragment> fragment,
             List<TaskSource> sources,
             OutputBuffers outputBuffers,
-            OptionalInt totalPartitions,
             Map<DynamicFilterId, Domain> dynamicFilterDomains);
 
     /**

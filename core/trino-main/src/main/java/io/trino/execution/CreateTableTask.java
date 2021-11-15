@@ -33,6 +33,7 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeNotFoundException;
+import io.trino.sql.analyzer.FeaturesConfig;
 import io.trino.sql.analyzer.Output;
 import io.trino.sql.analyzer.OutputColumn;
 import io.trino.sql.tree.ColumnDefinition;
@@ -43,6 +44,8 @@ import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.TableElement;
 import io.trino.transaction.TransactionManager;
+
+import javax.inject.Inject;
 
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -58,12 +61,12 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
+import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.COLUMN_TYPE_UNKNOWN;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_COLUMN_NAME;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
@@ -81,6 +84,14 @@ import static java.lang.String.format;
 public class CreateTableTask
         implements DataDefinitionTask<CreateTable>
 {
+    private final boolean disableSetPropertiesSecurityCheckForCreateDdl;
+
+    @Inject
+    public CreateTableTask(FeaturesConfig featuresConfig)
+    {
+        this.disableSetPropertiesSecurityCheckForCreateDdl = featuresConfig.isDisableSetPropertiesSecurityCheckForCreateDdl();
+    }
+
     @Override
     public String getName()
     {
@@ -121,8 +132,7 @@ public class CreateTableTask
             return immediateVoidFuture();
         }
 
-        CatalogName catalogName = metadata.getCatalogHandle(session, tableName.getCatalogName())
-                .orElseThrow(() -> new TrinoException(NOT_FOUND, "Catalog does not exist: " + tableName.getCatalogName()));
+        CatalogName catalogName = getRequiredCatalogHandle(metadata, session, statement, tableName.getCatalogName());
 
         LinkedHashMap<String, ColumnMetadata> columns = new LinkedHashMap<>();
         Map<String, Object> inheritedProperties = ImmutableMap.of();
@@ -156,7 +166,8 @@ public class CreateTableTask
                         session,
                         metadata,
                         accessControl,
-                        parameterLookup);
+                        parameterLookup,
+                        true);
 
                 columns.put(name, ColumnMetadata.builder()
                         .setName(name)
@@ -231,8 +242,6 @@ public class CreateTableTask
             }
         }
 
-        accessControl.checkCanCreateTable(session.toSecurityContext(), tableName);
-
         Map<String, Expression> sqlProperties = mapFromProperties(statement.getProperties());
         Map<String, Object> properties = metadata.getTablePropertyManager().getProperties(
                 catalogName,
@@ -241,7 +250,15 @@ public class CreateTableTask
                 session,
                 metadata,
                 accessControl,
-                parameterLookup);
+                parameterLookup,
+                true);
+
+        if (!disableSetPropertiesSecurityCheckForCreateDdl && !properties.isEmpty()) {
+            accessControl.checkCanCreateTable(session.toSecurityContext(), tableName, properties);
+        }
+        else {
+            accessControl.checkCanCreateTable(session.toSecurityContext(), tableName);
+        }
 
         Map<String, Object> finalProperties = combineProperties(sqlProperties.keySet(), properties, inheritedProperties);
 

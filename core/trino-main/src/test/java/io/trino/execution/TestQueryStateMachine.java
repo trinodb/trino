@@ -24,6 +24,7 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.memory.VersionedMemoryPoolId;
 import io.trino.metadata.Metadata;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
+import io.trino.plugin.base.security.DefaultSystemAccessControl;
 import io.trino.security.AccessControlConfig;
 import io.trino.security.AccessControlManager;
 import io.trino.spi.TrinoException;
@@ -511,7 +512,8 @@ public class TestQueryStateMachine
         AccessControlManager accessControl = new AccessControlManager(
                 transactionManager,
                 emptyEventListenerManager(),
-                new AccessControlConfig());
+                new AccessControlConfig(),
+                DefaultSystemAccessControl.NAME);
         accessControl.setSystemAccessControls(List.of(AllowAllSystemAccessControl.INSTANCE));
         QueryStateMachine stateMachine = QueryStateMachine.beginWithTicker(
                 QUERY,

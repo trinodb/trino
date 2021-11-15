@@ -16,9 +16,16 @@ package io.trino.plugin.bigquery;
 import com.google.auth.oauth2.ServiceAccountCredentials;
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.BigQueryOptions;
+import com.google.cloud.bigquery.Dataset;
+import com.google.cloud.bigquery.DatasetId;
 import com.google.cloud.bigquery.DatasetInfo;
 import com.google.cloud.bigquery.QueryJobConfiguration;
+import com.google.cloud.bigquery.Table;
+import com.google.cloud.bigquery.TableResult;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.Session;
@@ -32,14 +39,21 @@ import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.util.Base64;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
+import static com.google.cloud.bigquery.BigQuery.DatasetDeleteOption.deleteContents;
+import static com.google.cloud.bigquery.BigQuery.DatasetListOption.labelFilter;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public final class BigQueryQueryRunner
 {
-    private static final String TPCH_SCHEMA = "tpch";
+    private static final String BIGQUERY_CREDENTIALS_KEY = requireNonNull(System.getProperty("bigquery.credentials-key"), "bigquery.credentials-key is not set");
+    public static final String TPCH_SCHEMA = "tpch";
+    public static final String TEST_SCHEMA = "test";
 
     private BigQueryQueryRunner() {}
 
@@ -83,6 +97,8 @@ public final class BigQueryQueryRunner
     public static class BigQuerySqlExecutor
             implements SqlExecutor
     {
+        private static final Map.Entry<String, String> BIG_QUERY_SQL_EXECUTOR_LABEL = Maps.immutableEntry("ci-automation-source", "trino_tests_big_query_sql_executor");
+
         private final BigQuery bigQuery;
 
         public BigQuerySqlExecutor()
@@ -93,8 +109,13 @@ public final class BigQueryQueryRunner
         @Override
         public void execute(String sql)
         {
+            executeQuery(sql);
+        }
+
+        public TableResult executeQuery(String sql)
+        {
             try {
-                bigQuery.query(QueryJobConfiguration.of(sql));
+                return bigQuery.query(QueryJobConfiguration.of(sql));
             }
             catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -102,20 +123,44 @@ public final class BigQueryQueryRunner
             }
         }
 
-        public void createDataset(String dataset)
+        public void createDataset(String datasetName)
         {
-            bigQuery.create(DatasetInfo.newBuilder(dataset).build());
+            DatasetInfo dataset = DatasetInfo.newBuilder(datasetName)
+                    .setLabels(ImmutableMap.copyOf(ImmutableSet.of(BIG_QUERY_SQL_EXECUTOR_LABEL)))
+                    .build();
+            bigQuery.create(dataset);
         }
 
-        public void dropDataset(String dataset)
+        public void dropDatasetIfExists(String dataset)
         {
-            bigQuery.delete(dataset);
+            bigQuery.delete(dataset, deleteContents());
+        }
+
+        public List<String> getSelfCreatedDatasets()
+        {
+            ImmutableList.Builder<String> datasetNames = ImmutableList.builder();
+            for (Dataset dataset : bigQuery.listDatasets(
+                    labelFilter(format("labels.%s:%s",
+                            BIG_QUERY_SQL_EXECUTOR_LABEL.getKey(),
+                            BIG_QUERY_SQL_EXECUTOR_LABEL.getValue()))).iterateAll()) {
+                datasetNames.add(dataset.getDatasetId().getDataset());
+            }
+            return datasetNames.build();
+        }
+
+        public List<String> getTableNames(String dataset)
+        {
+            ImmutableList.Builder<String> tableNames = ImmutableList.builder();
+            for (Table table : bigQuery.listTables(DatasetId.of(dataset)).iterateAll()) {
+                tableNames.add(table.getTableId().getTable());
+            }
+            return tableNames.build();
         }
 
         private static BigQuery createBigQueryClient()
         {
             try {
-                InputStream jsonKey = new ByteArrayInputStream(Base64.getDecoder().decode(System.getProperty("bigquery.credentials-key")));
+                InputStream jsonKey = new ByteArrayInputStream(Base64.getDecoder().decode(BIGQUERY_CREDENTIALS_KEY));
                 return BigQueryOptions.newBuilder()
                         .setCredentials(ServiceAccountCredentials.fromStream(jsonKey))
                         .build()

@@ -16,14 +16,14 @@ package io.trino.tests.product.launcher.suite.suites;
 import com.google.common.collect.ImmutableList;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.EnvironmentDefaults;
-import io.trino.tests.product.launcher.env.environment.SinglenodeKerberosHdfsImpersonationCrossRealm;
-import io.trino.tests.product.launcher.env.environment.SinglenodeMysql;
-import io.trino.tests.product.launcher.env.environment.SinglenodePostgresql;
-import io.trino.tests.product.launcher.env.environment.SinglenodeSparkHive;
-import io.trino.tests.product.launcher.env.environment.SinglenodeSparkIceberg;
-import io.trino.tests.product.launcher.env.environment.SinglenodeSqlserver;
-import io.trino.tests.product.launcher.env.environment.TwoKerberosHives;
-import io.trino.tests.product.launcher.env.environment.TwoMixedHives;
+import io.trino.tests.product.launcher.env.environment.EnvSinglenodeKerberosHdfsImpersonationCrossRealm;
+import io.trino.tests.product.launcher.env.environment.EnvSinglenodeMysql;
+import io.trino.tests.product.launcher.env.environment.EnvSinglenodePostgresql;
+import io.trino.tests.product.launcher.env.environment.EnvSinglenodeSparkHive;
+import io.trino.tests.product.launcher.env.environment.EnvSinglenodeSparkIceberg;
+import io.trino.tests.product.launcher.env.environment.EnvSinglenodeSqlserver;
+import io.trino.tests.product.launcher.env.environment.EnvTwoKerberosHives;
+import io.trino.tests.product.launcher.env.environment.EnvTwoMixedHives;
 import io.trino.tests.product.launcher.suite.Suite;
 import io.trino.tests.product.launcher.suite.SuiteTestRun;
 
@@ -41,13 +41,13 @@ public class Suite7NonGeneric
         verify(config.getHadoopBaseImage().equals(EnvironmentDefaults.HADOOP_BASE_IMAGE), "The suite should be run with default HADOOP_BASE_IMAGE. Leave HADOOP_BASE_IMAGE unset.");
 
         return ImmutableList.of(
-                testOnEnvironment(SinglenodeMysql.class).withGroups("mysql").build(),
-                testOnEnvironment(SinglenodePostgresql.class).withGroups("postgresql").build(),
-                testOnEnvironment(SinglenodeSqlserver.class).withGroups("sqlserver").build(),
-                testOnEnvironment(SinglenodeSparkHive.class).withGroups("hive_spark_bucketing").build(),
-                testOnEnvironment(SinglenodeSparkIceberg.class).withGroups("iceberg").withExcludedGroups("storage_formats").build(),
-                testOnEnvironment(SinglenodeKerberosHdfsImpersonationCrossRealm.class).withGroups("storage_formats", "cli", "hdfs_impersonation").build(),
-                testOnEnvironment(TwoMixedHives.class).withGroups("two_hives").build(),
-                testOnEnvironment(TwoKerberosHives.class).withGroups("two_hives").build());
+                testOnEnvironment(EnvSinglenodeMysql.class).withGroups("mysql").build(),
+                testOnEnvironment(EnvSinglenodePostgresql.class).withGroups("postgresql").build(),
+                testOnEnvironment(EnvSinglenodeSqlserver.class).withGroups("sqlserver").build(),
+                testOnEnvironment(EnvSinglenodeSparkHive.class).withGroups("hive_spark").build(),
+                testOnEnvironment(EnvSinglenodeSparkIceberg.class).withGroups("iceberg").withExcludedGroups("storage_formats").build(),
+                testOnEnvironment(EnvSinglenodeKerberosHdfsImpersonationCrossRealm.class).withGroups("storage_formats", "cli", "hdfs_impersonation").build(),
+                testOnEnvironment(EnvTwoMixedHives.class).withGroups("two_hives").build(),
+                testOnEnvironment(EnvTwoKerberosHives.class).withGroups("two_hives").build());
     }
 }

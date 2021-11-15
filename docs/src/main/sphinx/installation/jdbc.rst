@@ -10,8 +10,11 @@ as those used for reporting and database development, use the JDBC driver.
 Requirements
 ------------
 
-The JDBC driver is compatible with Java versions 8 or higher, and can be used with
-applications running on Java virtual machines version 8 or higher.
+The Trino JDBC driver has the following requirements:
+
+* Java version 8 or higher.
+* All users that connect to Trino with the JDBC driver must be granted access to
+  query tables in the ``system.jdbc`` schema.
 
 Installing
 ----------

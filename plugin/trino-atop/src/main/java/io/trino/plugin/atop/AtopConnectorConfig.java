@@ -30,13 +30,13 @@ public class AtopConnectorConfig
 {
     public enum AtopSecurity
     {
-        NONE,
+        ALLOW_ALL,
         FILE,
     }
 
     private String executablePath = "atop";
     private String timeZone = ZoneId.systemDefault().getId();
-    private AtopSecurity security = AtopSecurity.NONE;
+    private AtopSecurity security = AtopSecurity.ALLOW_ALL;
     private Duration readTimeout = new Duration(5, MINUTES);
     private int concurrentReadersPerNode = 1;
     private int maxHistoryDays = 30;

@@ -295,7 +295,7 @@ public class TableScanWorkProcessorOperator
                     return ProcessState.finished();
                 }
                 else {
-                    return ProcessState.yield();
+                    return ProcessState.yielded();
                 }
             }
 

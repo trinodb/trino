@@ -15,14 +15,13 @@ package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
-import io.airlift.slice.Slice;
+import io.trino.metadata.AggregationFunctionMetadata;
 import io.trino.metadata.FunctionArgumentDefinition;
 import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlAggregationFunction;
 import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
-import io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateSerializer;
 import io.trino.operator.aggregation.state.LongDecimalWithOverflowState;
 import io.trino.operator.aggregation.state.LongDecimalWithOverflowStateFactory;
 import io.trino.operator.aggregation.state.LongDecimalWithOverflowStateSerializer;
@@ -33,7 +32,6 @@ import io.trino.spi.function.AccumulatorStateSerializer;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
-import io.trino.spi.type.UnscaledDecimal128Arithmetic;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
@@ -42,28 +40,25 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static io.trino.operator.aggregation.AggregationUtils.generateAggregationName;
-import static io.trino.spi.type.Decimals.MAX_PRECISION;
-import static io.trino.spi.type.Decimals.MAX_SHORT_PRECISION;
 import static io.trino.spi.type.TypeSignatureParameter.numericParameter;
 import static io.trino.spi.type.TypeSignatureParameter.typeVariable;
+import static io.trino.spi.type.UnscaledDecimal128Arithmetic.SIGN_LONG_MASK;
+import static io.trino.spi.type.UnscaledDecimal128Arithmetic.addWithOverflow;
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.throwIfOverflows;
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.throwOverflowException;
-import static io.trino.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.util.Reflection.methodHandle;
 
 public class DecimalSumAggregation
         extends SqlAggregationFunction
 {
-    // Constant references for short/long decimal types for use in operations that only manipulate unscaled values
-    private static final DecimalType LONG_DECIMAL_TYPE = DecimalType.createDecimalType(MAX_PRECISION, 0);
-    private static final DecimalType SHORT_DECIMAL_TYPE = DecimalType.createDecimalType(MAX_SHORT_PRECISION, 0);
-
     public static final DecimalSumAggregation DECIMAL_SUM_AGGREGATION = new DecimalSumAggregation();
     private static final String NAME = "sum";
     private static final MethodHandle SHORT_DECIMAL_INPUT_FUNCTION = methodHandle(DecimalSumAggregation.class, "inputShortDecimal", LongDecimalWithOverflowState.class, Block.class, int.class);
@@ -87,14 +82,9 @@ public class DecimalSumAggregation
                         true,
                         "Calculates the sum over the input values",
                         AGGREGATE),
-                true,
-                false);
-    }
-
-    @Override
-    public List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
-    {
-        return ImmutableList.of(new LongDecimalWithOverflowAndLongStateSerializer().getSerializedType().getTypeSignature());
+                new AggregationFunctionMetadata(
+                        false,
+                        VARBINARY.getTypeSignature()));
     }
 
     @Override
@@ -146,36 +136,68 @@ public class DecimalSumAggregation
 
     public static void inputShortDecimal(LongDecimalWithOverflowState state, Block block, int position)
     {
-        Slice sum = state.getLongDecimal();
-        if (sum == null) {
-            sum = UnscaledDecimal128Arithmetic.unscaledDecimal();
-            state.setLongDecimal(sum);
+        state.setNotNull();
+
+        long[] decimal = state.getDecimalArray();
+        int offset = state.getDecimalArrayOffset();
+
+        long rightLow = block.getLong(position, 0);
+        long rightHigh = 0;
+        if (rightLow < 0) {
+            rightLow = -rightLow;
+            rightHigh = SIGN_LONG_MASK;
         }
-        long overflow = UnscaledDecimal128Arithmetic.addWithOverflow(sum, unscaledDecimal(SHORT_DECIMAL_TYPE.getLong(block, position)), sum);
+
+        long overflow = addWithOverflow(
+                decimal[offset],
+                decimal[offset + 1],
+                rightLow,
+                rightHigh,
+                decimal,
+                offset);
         state.addOverflow(overflow);
     }
 
     public static void inputLongDecimal(LongDecimalWithOverflowState state, Block block, int position)
     {
-        Slice sum = state.getLongDecimal();
-        if (sum == null) {
-            sum = UnscaledDecimal128Arithmetic.unscaledDecimal();
-            state.setLongDecimal(sum);
-        }
-        long overflow = UnscaledDecimal128Arithmetic.addWithOverflow(sum, LONG_DECIMAL_TYPE.getSlice(block, position), sum);
+        state.setNotNull();
+
+        long[] decimal = state.getDecimalArray();
+        int offset = state.getDecimalArrayOffset();
+
+        long overflow = addWithOverflow(
+                decimal[offset],
+                decimal[offset + 1],
+                block.getLong(position, 0),
+                block.getLong(position, SIZE_OF_LONG),
+                decimal,
+                offset);
         state.addOverflow(overflow);
     }
 
     public static void combine(LongDecimalWithOverflowState state, LongDecimalWithOverflowState otherState)
     {
-        Slice sum = state.getLongDecimal();
         long overflow = otherState.getOverflow();
 
-        if (sum == null) {
-            state.setLongDecimal(otherState.getLongDecimal());
+        long[] decimal = state.getDecimalArray();
+        int offset = state.getDecimalArrayOffset();
+
+        long[] otherDecimal = otherState.getDecimalArray();
+        int otherOffset = otherState.getDecimalArrayOffset();
+
+        if (state.isNotNull()) {
+            overflow += addWithOverflow(
+                    decimal[offset],
+                    decimal[offset + 1],
+                    otherDecimal[otherOffset],
+                    otherDecimal[otherOffset + 1],
+                    decimal,
+                    offset);
         }
         else {
-            overflow += UnscaledDecimal128Arithmetic.addWithOverflow(sum, otherState.getLongDecimal(), sum);
+            state.setNotNull();
+            decimal[offset] = otherDecimal[otherOffset];
+            decimal[offset + 1] = otherDecimal[otherOffset + 1];
         }
 
         state.addOverflow(overflow);
@@ -183,16 +205,24 @@ public class DecimalSumAggregation
 
     public static void outputLongDecimal(LongDecimalWithOverflowState state, BlockBuilder out)
     {
-        Slice decimal = state.getLongDecimal();
-        if (decimal == null) {
-            out.appendNull();
-        }
-        else {
+        if (state.isNotNull()) {
             if (state.getOverflow() != 0) {
                 throwOverflowException();
             }
-            throwIfOverflows(decimal);
-            LONG_DECIMAL_TYPE.writeSlice(out, decimal);
+
+            long[] decimal = state.getDecimalArray();
+            int offset = state.getDecimalArrayOffset();
+
+            long rawLow = decimal[offset];
+            long rawHigh = decimal[offset + 1];
+
+            throwIfOverflows(rawLow, rawHigh);
+            out.writeLong(rawLow);
+            out.writeLong(rawHigh);
+            out.closeEntry();
+        }
+        else {
+            out.appendNull();
         }
     }
 }

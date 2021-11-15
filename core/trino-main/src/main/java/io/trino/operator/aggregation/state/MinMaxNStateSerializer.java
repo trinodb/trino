@@ -21,7 +21,8 @@ import io.trino.spi.function.AccumulatorStateSerializer;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.type.BlockTypeOperators.BlockPositionComparison;
+
+import java.lang.invoke.MethodHandle;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.Math.toIntExact;
@@ -29,14 +30,14 @@ import static java.lang.Math.toIntExact;
 public class MinMaxNStateSerializer
         implements AccumulatorStateSerializer<MinMaxNState>
 {
-    private final BlockPositionComparison blockComparison;
+    private final MethodHandle greaterThanMethod;
     private final Type elementType;
     private final ArrayType arrayType;
     private final Type serializedType;
 
-    public MinMaxNStateSerializer(BlockPositionComparison blockComparison, Type elementType)
+    public MinMaxNStateSerializer(MethodHandle greaterThanMethod, Type elementType)
     {
-        this.blockComparison = blockComparison;
+        this.greaterThanMethod = greaterThanMethod;
         this.elementType = elementType;
         this.arrayType = new ArrayType(elementType);
         this.serializedType = RowType.anonymous(ImmutableList.of(BIGINT, arrayType));
@@ -72,7 +73,7 @@ public class MinMaxNStateSerializer
         Block currentBlock = (Block) serializedType.getObject(block, index);
         int capacity = toIntExact(BIGINT.getLong(currentBlock, 0));
         Block heapBlock = arrayType.getObject(currentBlock, 1);
-        TypedHeap heap = new TypedHeap(blockComparison, elementType, capacity);
+        TypedHeap heap = new TypedHeap(greaterThanMethod, elementType, capacity);
         heap.addAll(heapBlock);
         state.setTypedHeap(heap);
     }

@@ -607,7 +607,8 @@ public class WindowOperator
                         windowFunctions,
                         frames,
                         pagesIndexWithHashStrategies.peerGroupHashStrategy,
-                        pagesIndexWithHashStrategies.frameBoundComparators);
+                        pagesIndexWithHashStrategies.frameBoundComparators,
+                        operatorContext.aggregateUserMemoryContext());
 
                 windowInfo.addPartition(partition);
                 partitionStart = partitionEnd;

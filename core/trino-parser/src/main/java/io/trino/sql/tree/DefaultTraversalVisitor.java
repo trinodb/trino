@@ -452,10 +452,11 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
-    protected Void visitLogicalBinaryExpression(LogicalBinaryExpression node, C context)
+    protected Void visitLogicalExpression(LogicalExpression node, C context)
     {
-        process(node.getLeft(), context);
-        process(node.getRight(), context);
+        for (Node child : node.getTerms()) {
+            process(child, context);
+        }
 
         return null;
     }

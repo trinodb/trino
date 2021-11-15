@@ -24,11 +24,11 @@ import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.NodeState;
 import io.trino.security.AccessControl;
 import io.trino.server.ForWorkerInfo;
+import io.trino.server.HttpRequestSessionContextFactory;
 import io.trino.server.ProtocolConfig;
 import io.trino.server.security.ResourceSecurity;
 import io.trino.spi.QueryId;
 import io.trino.spi.security.AccessDeniedException;
-import io.trino.spi.security.GroupProvider;
 
 import javax.inject.Inject;
 import javax.servlet.http.HttpServletRequest;
@@ -51,7 +51,6 @@ import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.trino.security.AccessControlUtil.checkCanViewQueryOwnedBy;
-import static io.trino.server.HttpRequestSessionContext.extractAuthorizedIdentity;
 import static io.trino.server.security.ResourceSecurity.AccessType.WEB_UI;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
@@ -65,7 +64,7 @@ public class WorkerResource
     private final InternalNodeManager nodeManager;
     private final AccessControl accessControl;
     private final HttpClient httpClient;
-    private final GroupProvider groupProvider;
+    private final HttpRequestSessionContextFactory sessionContextFactory;
     private final Optional<String> alternateHeaderName;
 
     @Inject
@@ -74,14 +73,14 @@ public class WorkerResource
             InternalNodeManager nodeManager,
             AccessControl accessControl,
             @ForWorkerInfo HttpClient httpClient,
-            GroupProvider groupProvider,
+            HttpRequestSessionContextFactory sessionContextFactory,
             ProtocolConfig protocolConfig)
     {
         this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
-        this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
+        this.sessionContextFactory = requireNonNull(sessionContextFactory, "sessionContextFactory is null");
         this.alternateHeaderName = protocolConfig.getAlternateHeaderName();
     }
 
@@ -114,7 +113,7 @@ public class WorkerResource
         Optional<QueryInfo> queryInfo = dispatchManager.getFullQueryInfo(queryId);
         if (queryInfo.isPresent()) {
             try {
-                checkCanViewQueryOwnedBy(extractAuthorizedIdentity(servletRequest, httpHeaders, alternateHeaderName, accessControl, groupProvider), queryInfo.get().getSession().getUser(), accessControl);
+                checkCanViewQueryOwnedBy(sessionContextFactory.extractAuthorizedIdentity(servletRequest, httpHeaders, alternateHeaderName), queryInfo.get().getSession().getUser(), accessControl);
                 return proxyJsonResponse(nodeId, "v1/task/" + task);
             }
             catch (AccessDeniedException e) {

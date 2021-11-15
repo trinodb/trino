@@ -26,7 +26,6 @@ import io.trino.spi.QueryId;
 import io.trino.spi.memory.MemoryPoolId;
 import io.trino.spiller.SpillSpaceTracker;
 
-import java.util.OptionalInt;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -71,8 +70,7 @@ public final class TestingTaskContext
                 session,
                 () -> {},
                 true,
-                true,
-                OptionalInt.empty());
+                true);
     }
 
     public static Builder builder(Executor notificationExecutor, ScheduledExecutorService yieldExecutor, Session session)

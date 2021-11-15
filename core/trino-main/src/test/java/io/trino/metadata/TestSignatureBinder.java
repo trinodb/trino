@@ -27,6 +27,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.metadata.Signature.castableFromTypeParameter;
 import static io.trino.metadata.Signature.castableToTypeParameter;
@@ -296,7 +297,7 @@ public class TestSignatureBinder
                 .fails();
     }
 
-    @Test(expectedExceptions = UnsupportedOperationException.class)
+    @Test
     public void testNoVariableReuseAcrossTypes()
     {
         TypeSignature leftType = new TypeSignature("decimal", TypeSignatureParameter.typeVariable("p1"), TypeSignatureParameter.typeVariable("s"));
@@ -307,9 +308,11 @@ public class TestSignatureBinder
                 .argumentTypes(leftType, rightType)
                 .build();
 
-        assertThat(function)
+        assertThatThrownBy(() -> assertThat(function)
                 .boundTo(createDecimalType(2, 1), createDecimalType(3, 1))
-                .produces(NO_BOUND_VARIABLES);
+                .produces(NO_BOUND_VARIABLES))
+                .isInstanceOf(UnsupportedOperationException.class)
+                .hasMessage("Literal parameters may not be shared across different types");
     }
 
     @Test
@@ -1205,7 +1208,7 @@ public class TestSignatureBinder
         private Optional<TypeVariables> bindVariables()
         {
             assertNotNull(argumentTypes);
-            SignatureBinder signatureBinder = new SignatureBinder(metadata, function, allowCoercion);
+            SignatureBinder signatureBinder = new SignatureBinder(TEST_SESSION, metadata, function, allowCoercion);
             if (returnType == null) {
                 return signatureBinder.bindVariables(argumentTypes);
             }

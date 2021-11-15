@@ -729,7 +729,8 @@ public class ParquetTester
                         .setMaxPageSize(DataSize.ofBytes(100))
                         .setMaxBlockSize(DataSize.ofBytes(100000))
                         .build(),
-                compressionCodecName);
+                compressionCodecName,
+                "test-version");
 
         PageBuilder pageBuilder = new PageBuilder(types);
         for (int i = 0; i < types.size(); ++i) {

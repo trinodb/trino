@@ -81,7 +81,7 @@ public class TestIcebergMetadataFileOperations
         HiveMetastore metastore = createTestingFileHiveMetastore(baseDir);
 
         trackingFileIoProvider = new TrackingFileIoProvider(new HdfsFileIoProvider(HDFS_ENVIRONMENT));
-        queryRunner.installPlugin(new TestingIcebergPlugin(metastore, Optional.of(trackingFileIoProvider)));
+        queryRunner.installPlugin(new TestingIcebergPlugin(Optional.of(metastore), Optional.of(trackingFileIoProvider)));
         queryRunner.createCatalog("iceberg", "iceberg");
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");

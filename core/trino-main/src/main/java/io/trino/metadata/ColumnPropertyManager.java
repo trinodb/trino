@@ -16,7 +16,7 @@ package io.trino.metadata;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
 
 public class ColumnPropertyManager
-        extends AbstractPropertyManager
+        extends AbstractCatalogPropertyManager
 {
     public ColumnPropertyManager()
     {

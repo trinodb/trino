@@ -287,6 +287,12 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
+    public void setTableProperties(ConnectorSession session, JdbcTableHandle handle, Map<String, Object> properties)
+    {
+        delegate().setTableProperties(session, handle, properties);
+    }
+
+    @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         delegate().createTable(session, tableMetadata);
@@ -338,5 +344,11 @@ public abstract class ForwardingJdbcClient
     public OptionalLong delete(ConnectorSession session, JdbcTableHandle handle)
     {
         return delegate().delete(session, handle);
+    }
+
+    @Override
+    public void truncateTable(ConnectorSession session, JdbcTableHandle handle)
+    {
+        delegate().truncateTable(session, handle);
     }
 }

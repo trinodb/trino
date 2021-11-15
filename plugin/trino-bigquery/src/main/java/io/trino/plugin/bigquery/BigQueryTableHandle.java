@@ -114,7 +114,7 @@ public class BigQueryTableHandle
         }
         BigQueryTableHandle that = (BigQueryTableHandle) o;
         // NOTE remoteTableName is not compared here because two handles differing in only remoteTableName will create ambiguity
-        // TOOD: Add tests for this (see TestJdbcTableHandle#testEquivalence for reference)
+        // TODO: Add tests for this (see TestJdbcTableHandle#testEquivalence for reference)
         return Objects.equals(schemaTableName, that.schemaTableName) &&
                 Objects.equals(type, that.type) &&
                 Objects.equals(constraint, that.constraint) &&

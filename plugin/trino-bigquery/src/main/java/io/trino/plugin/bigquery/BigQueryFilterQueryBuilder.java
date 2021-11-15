@@ -29,7 +29,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 
-class BigQueryFilterQueryBuilder
+public class BigQueryFilterQueryBuilder
 {
     private static final String QUOTE = "`";
     private static final String ESCAPED_QUOTE = "``";
@@ -72,36 +72,50 @@ class BigQueryFilterQueryBuilder
         for (BigQueryColumnHandle column : columns) {
             Domain domain = tupleDomain.getDomains().get().get(column);
             if (domain != null) {
-                clauses.add(toPredicate(column.getName(), domain, column));
+                toPredicate(column.getName(), domain, column).ifPresent(clauses::add);
             }
         }
         return clauses.build();
     }
 
-    private String toPredicate(String columnName, Domain domain, BigQueryColumnHandle column)
+    private Optional<String> toPredicate(String columnName, Domain domain, BigQueryColumnHandle column)
     {
         if (domain.getValues().isNone()) {
-            return domain.isNullAllowed() ? quote(columnName) + " IS NULL" : "FALSE";
+            String predicate = domain.isNullAllowed() ? quote(columnName) + " IS NULL" : "FALSE";
+            return Optional.of(predicate);
         }
 
         if (domain.getValues().isAll()) {
-            return domain.isNullAllowed() ? "TRUE" : quote(columnName) + " IS NOT NULL";
+            String predicate = domain.isNullAllowed() ? "TRUE" : quote(columnName) + " IS NOT NULL";
+            return Optional.of(predicate);
         }
 
         List<String> disjuncts = new ArrayList<>();
-        List<Object> singleValues = new ArrayList<>();
+        List<String> singleValues = new ArrayList<>();
         for (Range range : domain.getValues().getRanges().getOrderedRanges()) {
             checkState(!range.isAll()); // Already checked
             if (range.isSingleValue()) {
-                singleValues.add(range.getSingleValue());
+                Optional<String> value = column.getBigQueryType().convertToString(column.getTrinoType(), range.getSingleValue());
+                if (value.isEmpty()) {
+                    return Optional.empty();
+                }
+                singleValues.add(value.get());
             }
             else {
                 List<String> rangeConjuncts = new ArrayList<>();
                 if (!range.isLowUnbounded()) {
-                    rangeConjuncts.add(toPredicate(columnName, range.isLowInclusive() ? ">=" : ">", range.getLowBoundedValue(), column));
+                    Optional<String> predicate = toPredicate(columnName, range.isLowInclusive() ? ">=" : ">", range.getLowBoundedValue(), column);
+                    if (predicate.isEmpty()) {
+                        return Optional.empty();
+                    }
+                    rangeConjuncts.add(predicate.get());
                 }
                 if (!range.isHighUnbounded()) {
-                    rangeConjuncts.add(toPredicate(columnName, range.isHighInclusive() ? "<=" : "<", range.getHighBoundedValue(), column));
+                    Optional<String> predicate = toPredicate(columnName, range.isHighInclusive() ? "<=" : "<", range.getHighBoundedValue(), column);
+                    if (predicate.isEmpty()) {
+                        return Optional.empty();
+                    }
+                    rangeConjuncts.add(predicate.get());
                 }
                 // If rangeConjuncts is null, then the range was ALL, which should already have been checked for
                 checkState(!rangeConjuncts.isEmpty());
@@ -111,12 +125,11 @@ class BigQueryFilterQueryBuilder
 
         // Add back all of the possible single values either as an equality or an IN predicate
         if (singleValues.size() == 1) {
-            disjuncts.add(toPredicate(columnName, "=", getOnlyElement(singleValues), column));
+            String predicate = quote(columnName) + " = " + getOnlyElement(singleValues);
+            disjuncts.add(predicate);
         }
         else if (singleValues.size() > 1) {
-            String values = singleValues.stream()
-                    .map(column.getBigQueryType()::convertToString)
-                    .collect(joining(","));
+            String values = String.join(",", singleValues);
             disjuncts.add(quote(columnName) + " IN (" + values + ")");
         }
 
@@ -126,13 +139,16 @@ class BigQueryFilterQueryBuilder
             disjuncts.add(quote(columnName) + " IS NULL");
         }
 
-        return "(" + String.join(" OR ", disjuncts) + ")";
+        return Optional.of("(" + String.join(" OR ", disjuncts) + ")");
     }
 
-    private String toPredicate(String columnName, String operator, Object value, BigQueryColumnHandle column)
+    private Optional<String> toPredicate(String columnName, String operator, Object value, BigQueryColumnHandle column)
     {
-        String valueAsString = column.getBigQueryType().convertToString(value);
-        return quote(columnName) + " " + operator + " " + valueAsString;
+        Optional<String> valueAsString = column.getBigQueryType().convertToString(column.getTrinoType(), value);
+        if (valueAsString.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(quote(columnName) + " " + operator + " " + valueAsString.get());
     }
 
     private String quote(String name)

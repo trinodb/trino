@@ -37,6 +37,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
@@ -270,12 +271,12 @@ public class TestTpchMetadata
         ConstraintApplicationResult<ConnectorTableHandle> result;
 
         domain = fixedValueTupleDomain(tpchMetadata, ORDER_STATUS, utf8Slice("P"));
-        result = tpchMetadata.applyFilter(session, tableHandle, new Constraint(domain, convertToPredicate(domain, ORDER_STATUS))).get();
+        result = tpchMetadata.applyFilter(session, tableHandle, new Constraint(domain, convertToPredicate(domain, ORDER_STATUS), Set.of(tpchMetadata.toColumnHandle(ORDER_STATUS)))).get();
         assertTupleDomainEquals(result.getRemainingFilter(), TupleDomain.all(), session);
         assertTupleDomainEquals(((TpchTableHandle) result.getHandle()).getConstraint(), domain, session);
 
         domain = fixedValueTupleDomain(tpchMetadata, ORDER_KEY, 42L);
-        result = tpchMetadata.applyFilter(session, tableHandle, new Constraint(domain, convertToPredicate(domain, ORDER_STATUS))).get();
+        result = tpchMetadata.applyFilter(session, tableHandle, new Constraint(domain, convertToPredicate(domain, ORDER_STATUS), Set.of(tpchMetadata.toColumnHandle(ORDER_STATUS)))).get();
         assertTupleDomainEquals(result.getRemainingFilter(), domain, session);
         assertTupleDomainEquals(
                 ((TpchTableHandle) result.getHandle()).getConstraint(),
@@ -297,7 +298,10 @@ public class TestTpchMetadata
         ConstraintApplicationResult<ConnectorTableHandle> result;
 
         domain = fixedValueTupleDomain(tpchMetadata, PartColumn.TYPE, utf8Slice("SMALL BRUSHED COPPER"));
-        result = tpchMetadata.applyFilter(session, tableHandle, new Constraint(domain, convertToPredicate(domain, PartColumn.TYPE))).get();
+        result = tpchMetadata.applyFilter(session, tableHandle, new Constraint(
+                domain,
+                convertToPredicate(domain, PartColumn.TYPE),
+                Set.of(tpchMetadata.toColumnHandle(PartColumn.TYPE)))).get();
         assertTupleDomainEquals(result.getRemainingFilter(), TupleDomain.all(), session);
         assertTupleDomainEquals(
                 filterOutColumnFromPredicate(((TpchTableHandle) result.getHandle()).getConstraint(), tpchMetadata.toColumnHandle(PartColumn.CONTAINER)),
@@ -305,12 +309,18 @@ public class TestTpchMetadata
                 session);
 
         domain = fixedValueTupleDomain(tpchMetadata, PartColumn.TYPE, utf8Slice("UNKNOWN"));
-        result = tpchMetadata.applyFilter(session, tableHandle, new Constraint(domain, convertToPredicate(domain, PartColumn.TYPE))).get();
+        result = tpchMetadata.applyFilter(session, tableHandle, new Constraint(
+                domain,
+                convertToPredicate(domain, PartColumn.TYPE),
+                Set.of(tpchMetadata.toColumnHandle(PartColumn.TYPE)))).get();
         assertTupleDomainEquals(result.getRemainingFilter(), TupleDomain.all(), session);
         assertTupleDomainEquals(((TpchTableHandle) result.getHandle()).getConstraint(), TupleDomain.none(), session);
 
         domain = fixedValueTupleDomain(tpchMetadata, PartColumn.CONTAINER, utf8Slice("SM BAG"));
-        result = tpchMetadata.applyFilter(session, tableHandle, new Constraint(domain, convertToPredicate(domain, PartColumn.CONTAINER))).get();
+        result = tpchMetadata.applyFilter(session, tableHandle, new Constraint(
+                domain,
+                convertToPredicate(domain, PartColumn.CONTAINER),
+                Set.of(tpchMetadata.toColumnHandle(PartColumn.CONTAINER)))).get();
         assertTupleDomainEquals(result.getRemainingFilter(), TupleDomain.all(), session);
         assertTupleDomainEquals(
                 filterOutColumnFromPredicate(((TpchTableHandle) result.getHandle()).getConstraint(), tpchMetadata.toColumnHandle(PartColumn.TYPE)),
@@ -318,17 +328,26 @@ public class TestTpchMetadata
                 session);
 
         domain = fixedValueTupleDomain(tpchMetadata, PartColumn.CONTAINER, utf8Slice("UNKNOWN"));
-        result = tpchMetadata.applyFilter(session, tableHandle, new Constraint(domain, convertToPredicate(domain, PartColumn.CONTAINER))).get();
+        result = tpchMetadata.applyFilter(session, tableHandle, new Constraint(
+                domain,
+                convertToPredicate(domain, PartColumn.CONTAINER),
+                Set.of(tpchMetadata.toColumnHandle(PartColumn.CONTAINER)))).get();
         assertTupleDomainEquals(result.getRemainingFilter(), TupleDomain.all(), session);
         assertTupleDomainEquals(((TpchTableHandle) result.getHandle()).getConstraint(), TupleDomain.none(), session);
 
         domain = fixedValueTupleDomain(tpchMetadata, PartColumn.TYPE, utf8Slice("SMALL BRUSHED COPPER"), PartColumn.CONTAINER, utf8Slice("SM BAG"));
-        result = tpchMetadata.applyFilter(session, tableHandle, new Constraint(domain, convertToPredicate(domain, PartColumn.CONTAINER))).get();
+        result = tpchMetadata.applyFilter(session, tableHandle, new Constraint(
+                domain,
+                convertToPredicate(domain, PartColumn.CONTAINER),
+                Set.of(tpchMetadata.toColumnHandle(PartColumn.CONTAINER)))).get();
         assertTupleDomainEquals(result.getRemainingFilter(), TupleDomain.all(), session);
         assertTupleDomainEquals(((TpchTableHandle) result.getHandle()).getConstraint(), domain, session);
 
         domain = fixedValueTupleDomain(tpchMetadata, PartColumn.TYPE, utf8Slice("UNKNOWN"), PartColumn.CONTAINER, utf8Slice("UNKNOWN"));
-        result = tpchMetadata.applyFilter(session, tableHandle, new Constraint(domain, convertToPredicate(domain, PartColumn.TYPE, PartColumn.CONTAINER))).get();
+        result = tpchMetadata.applyFilter(session, tableHandle, new Constraint(
+                domain,
+                convertToPredicate(domain, PartColumn.TYPE, PartColumn.CONTAINER),
+                Set.of(tpchMetadata.toColumnHandle(PartColumn.TYPE), tpchMetadata.toColumnHandle(PartColumn.CONTAINER)))).get();
         assertTupleDomainEquals(result.getRemainingFilter(), TupleDomain.all(), session);
         assertTupleDomainEquals(((TpchTableHandle) result.getHandle()).getConstraint(), TupleDomain.none(), session);
     }
@@ -363,7 +382,7 @@ public class TestTpchMetadata
                 .map(value -> fixedValueTupleDomain(tpchMetadata, column, utf8Slice(value)))
                 .collect(toList());
         TupleDomain<ColumnHandle> domain = TupleDomain.columnWiseUnion(valueDomains);
-        return new Constraint(domain, convertToPredicate(domain, column));
+        return new Constraint(domain, convertToPredicate(domain, column), Set.of(tpchMetadata.toColumnHandle(column)));
     }
 
     private static TupleDomain<ColumnHandle> fixedValueTupleDomain(TpchMetadata tpchMetadata, TpchColumn<?> column, Object value)
@@ -371,15 +390,15 @@ public class TestTpchMetadata
         requireNonNull(column, "column is null");
         requireNonNull(value, "value is null");
         return TupleDomain.fromFixedValues(
-                ImmutableMap.of(tpchMetadata.toColumnHandle(column), new NullableValue(getTrinoType(column), value)));
+                ImmutableMap.of(tpchMetadata.toColumnHandle(column), new NullableValue(getTrinoType(column, DecimalTypeMapping.DOUBLE), value)));
     }
 
     private static TupleDomain<ColumnHandle> fixedValueTupleDomain(TpchMetadata tpchMetadata, TpchColumn<?> column1, Object value1, TpchColumn<?> column2, Object value2)
     {
         return TupleDomain.fromFixedValues(
                 ImmutableMap.of(
-                        tpchMetadata.toColumnHandle(column1), new NullableValue(getTrinoType(column1), value1),
-                        tpchMetadata.toColumnHandle(column2), new NullableValue(getTrinoType(column2), value2)));
+                        tpchMetadata.toColumnHandle(column1), new NullableValue(getTrinoType(column1, DecimalTypeMapping.DOUBLE), value1),
+                        tpchMetadata.toColumnHandle(column2), new NullableValue(getTrinoType(column2, DecimalTypeMapping.DOUBLE), value2)));
     }
 
     private ColumnStatistics noColumnStatistics()

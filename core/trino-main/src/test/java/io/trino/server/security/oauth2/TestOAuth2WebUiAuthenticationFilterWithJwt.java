@@ -28,7 +28,7 @@ import java.net.URI;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestOAuth2WebUiAuthenticationFilterWithJwt
-        extends TestOAuth2WebUiAuthenticationFilter
+        extends BaseOAuth2WebUiAuthenticationFilterTest
 {
     @Override
     protected ImmutableMap<String, String> getOAuth2Config(String idpUrl)
@@ -55,7 +55,7 @@ public class TestOAuth2WebUiAuthenticationFilterWithJwt
     protected TestingHydraIdentityProvider getHydraIdp()
             throws Exception
     {
-        TestingHydraIdentityProvider hydraIdP = new TestingHydraIdentityProvider(TTL_ACCESS_TOKEN_IN_SECONDS, true);
+        TestingHydraIdentityProvider hydraIdP = new TestingHydraIdentityProvider(TTL_ACCESS_TOKEN_IN_SECONDS, true, false);
         hydraIdP.start();
 
         return hydraIdP;
@@ -65,11 +65,12 @@ public class TestOAuth2WebUiAuthenticationFilterWithJwt
     protected void validateAccessToken(String cookieValue)
     {
         assertThat(cookieValue).isNotBlank();
-        Jws<Claims> jwt = Jwts.parser()
+        Jws<Claims> jwt = Jwts.parserBuilder()
                 .setSigningKeyResolver(new JwkSigningKeyResolver(new JwkService(
                         URI.create("https://localhost:" + hydraIdP.getAuthPort() + "/.well-known/jwks.json"),
                         new JettyHttpClient(new HttpClientConfig()
                                 .setTrustStorePath(Resources.getResource("cert/localhost.pem").getPath())))))
+                .build()
                 .parseClaimsJws(cookieValue);
         Claims claims = jwt.getBody();
         assertThat(claims.getSubject()).isEqualTo("foo@bar.com");

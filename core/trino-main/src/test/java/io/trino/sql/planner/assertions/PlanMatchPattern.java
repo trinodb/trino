@@ -55,6 +55,7 @@ import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.SortNode;
 import io.trino.sql.planner.plan.SpatialJoinNode;
+import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TopNNode;
@@ -272,7 +273,7 @@ public final class PlanMatchPattern
             PlanMatchPattern source)
     {
         PlanMatchPattern result = node(AggregationNode.class, source)
-                .with(new PredicateMatcher(predicate));
+                .with(new PredicateMatcher<>(predicate));
         aggregations.entrySet().forEach(
                 aggregation -> result.withAlias(aggregation.getKey(), new AggregationFunctionMatcher(aggregation.getValue())));
         return result;
@@ -632,6 +633,11 @@ public final class PlanMatchPattern
         return node(ExchangeNode.class, sources);
     }
 
+    public static PlanMatchPattern exchange(ExchangeNode.Scope scope, PlanMatchPattern... sources)
+    {
+        return exchange(scope, Optional.empty(), ImmutableList.of(), ImmutableSet.of(), Optional.empty(), sources);
+    }
+
     public static PlanMatchPattern exchange(ExchangeNode.Scope scope, ExchangeNode.Type type, PlanMatchPattern... sources)
     {
         return exchange(scope, type, ImmutableList.of(), sources);
@@ -650,6 +656,17 @@ public final class PlanMatchPattern
     public static PlanMatchPattern exchange(
             ExchangeNode.Scope scope,
             ExchangeNode.Type type,
+            List<Ordering> orderBy,
+            Set<String> partitionedBy,
+            Optional<List<List<String>>> inputs,
+            PlanMatchPattern... sources)
+    {
+        return exchange(scope, Optional.of(type), orderBy, partitionedBy, inputs, sources);
+    }
+
+    public static PlanMatchPattern exchange(
+            ExchangeNode.Scope scope,
+            Optional<ExchangeNode.Type> type,
             List<Ordering> orderBy,
             Set<String> partitionedBy,
             Optional<List<List<String>>> inputs,
@@ -836,6 +853,11 @@ public final class PlanMatchPattern
     public static PlanMatchPattern tableWriter(List<String> columns, List<String> columnNames, PlanMatchPattern source)
     {
         return node(TableWriterNode.class, source).with(new TableWriterMatcher(columns, columnNames));
+    }
+
+    public static PlanMatchPattern tableExecute(List<String> columns, List<String> columnNames, PlanMatchPattern source)
+    {
+        return node(TableExecuteNode.class, source).with(new TableExecuteMatcher(columns, columnNames));
     }
 
     public PlanMatchPattern(List<PlanMatchPattern> sourcePatterns)

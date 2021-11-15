@@ -18,6 +18,7 @@ import io.trino.Session;
 import io.trino.Session.SessionBuilder;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
+import io.trino.plugin.base.security.DefaultSystemAccessControl;
 import io.trino.security.AccessControlConfig;
 import io.trino.security.AccessControlManager;
 import io.trino.security.AllowAllAccessControl;
@@ -129,7 +130,7 @@ public class TestCommitTask
                 new ResourceGroupId("test"),
                 true,
                 transactionManager,
-                new AccessControlManager(transactionManager, emptyEventListenerManager(), new AccessControlConfig()),
+                new AccessControlManager(transactionManager, emptyEventListenerManager(), new AccessControlConfig(), DefaultSystemAccessControl.NAME),
                 executor,
                 metadata,
                 WarningCollector.NOOP,

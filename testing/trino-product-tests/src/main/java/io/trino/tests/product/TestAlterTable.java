@@ -73,7 +73,7 @@ public class TestAlterTable
         assertQueryFailure(() -> query(format("ALTER TABLE %s RENAME COLUMN nationkey TO n_regionkeY", TABLE_NAME)))
                 .hasMessageContaining("Column 'n_regionkey' already exists");
 
-        assertThat(query(format("ALTER TABLE %s RENAME COLUMN nationkey TO n_nationkey", TABLE_NAME)));
+        query(format("ALTER TABLE %s RENAME COLUMN nationkey TO n_nationkey", TABLE_NAME));
     }
 
     @Test(groups = {ALTER_TABLE, SMOKE})

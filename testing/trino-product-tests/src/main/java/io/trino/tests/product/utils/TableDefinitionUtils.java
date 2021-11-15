@@ -25,7 +25,7 @@ public final class TableDefinitionUtils
 {
     private TableDefinitionUtils() {}
 
-    public static TableInstance mutableTableInstanceOf(TableDefinition tableDefinition)
+    public static TableInstance<?> mutableTableInstanceOf(TableDefinition tableDefinition)
     {
         if (tableDefinition.getDatabase().isPresent()) {
             return mutableTableInstanceOf(tableDefinition, tableDefinition.getDatabase().get());
@@ -33,12 +33,12 @@ public final class TableDefinitionUtils
         return mutableTableInstanceOf(tableHandleInSchema(tableDefinition));
     }
 
-    private static TableInstance mutableTableInstanceOf(TableDefinition tableDefinition, String database)
+    private static TableInstance<?> mutableTableInstanceOf(TableDefinition tableDefinition, String database)
     {
         return mutableTableInstanceOf(tableHandleInSchema(tableDefinition).inDatabase(database));
     }
 
-    private static TableInstance mutableTableInstanceOf(TableHandle tableHandle)
+    private static TableInstance<?> mutableTableInstanceOf(TableHandle tableHandle)
     {
         return testContext().getDependency(MutableTablesState.class).get(tableHandle);
     }

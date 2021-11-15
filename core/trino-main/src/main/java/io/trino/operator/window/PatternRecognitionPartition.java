@@ -14,6 +14,8 @@
 package io.trino.operator.window;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.memory.context.AggregatedMemoryContext;
+import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.PagesHashStrategy;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.window.Framing.Range;
@@ -50,6 +52,7 @@ public final class PatternRecognitionPartition
     private final int[] outputChannels;
     private final List<WindowFunction> windowFunctions;
     private final PagesHashStrategy peerGroupHashStrategy;
+    private final LocalMemoryContext matcherMemoryContext;
 
     private int peerGroupStart;
     private int peerGroupEnd;
@@ -77,6 +80,7 @@ public final class PatternRecognitionPartition
             int[] outputChannels,
             List<WindowFunction> windowFunctions,
             PagesHashStrategy peerGroupHashStrategy,
+            AggregatedMemoryContext memoryContext,
             List<MeasureComputation> measures,
             Optional<FrameInfo> commonBaseFrame,
             PatternRecognitionRelation.RowsPerMatch rowsPerMatch,
@@ -92,6 +96,7 @@ public final class PatternRecognitionPartition
         this.outputChannels = outputChannels;
         this.windowFunctions = ImmutableList.copyOf(windowFunctions);
         this.peerGroupHashStrategy = peerGroupHashStrategy;
+        this.matcherMemoryContext = memoryContext.newLocalMemoryContext(Matcher.class.getSimpleName());
         this.measures = ImmutableList.copyOf(measures);
         this.framing = commonBaseFrame.map(frameInfo -> new RowsFraming(frameInfo, partitionStart, partitionEnd, pagesIndex));
         this.rowsPerMatch = rowsPerMatch;
@@ -164,13 +169,13 @@ public final class PatternRecognitionPartition
                 searchEnd = partitionStart + baseRange.getEnd() + 1;
             }
             LabelEvaluator labelEvaluator = new LabelEvaluator(matchNumber, patternStart, partitionStart, searchStart, searchEnd, labelEvaluations, windowIndex);
-            MatchResult matchResult = matcher.run(labelEvaluator);
+            MatchResult matchResult = matcher.run(labelEvaluator, matcherMemoryContext);
 
             // 2. in case SEEK was specified (as opposite to INITIAL), try match pattern starting from subsequent rows until the first match is found
             while (!matchResult.isMatched() && !initial && patternStart < searchEnd - 1) {
                 patternStart++;
                 labelEvaluator = new LabelEvaluator(matchNumber, patternStart, partitionStart, searchStart, searchEnd, labelEvaluations, windowIndex);
-                matchResult = matcher.run(labelEvaluator);
+                matchResult = matcher.run(labelEvaluator, matcherMemoryContext);
             }
 
             // produce output depending on match and output mode (rowsPerMatch)

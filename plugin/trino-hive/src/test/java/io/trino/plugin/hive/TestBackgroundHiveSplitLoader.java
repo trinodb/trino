@@ -32,6 +32,7 @@ import io.trino.plugin.hive.util.HiveBucketing.HiveBucketFilter;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorSplitSource.ConnectorSplitBatch;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Domain;
@@ -76,14 +77,17 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -380,6 +384,12 @@ public class TestBackgroundHiveSplitLoader
                 new DynamicFilter()
                 {
                     @Override
+                    public Set<ColumnHandle> getColumnsCovered()
+                    {
+                        return ImmutableSet.of();
+                    }
+
+                    @Override
                     public CompletableFuture<?> isBlocked()
                     {
                         return CompletableFuture.runAsync(() -> {
@@ -543,6 +553,7 @@ public class TestBackgroundHiveSplitLoader
                 false,
                 false,
                 true,
+                Optional.empty(),
                 Optional.empty());
 
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
@@ -946,8 +957,15 @@ public class TestBackgroundHiveSplitLoader
     {
         ImmutableList.Builder<HiveSplit> splits = ImmutableList.builder();
         while (!source.isFinished()) {
-            source.getNextBatch(NOT_PARTITIONED, 100).get()
-                    .getSplits().stream()
+            ConnectorSplitBatch batch;
+            try {
+                batch = source.getNextBatch(NOT_PARTITIONED, 100).get();
+            }
+            catch (ExecutionException e) {
+                throwIfUnchecked(e.getCause());
+                throw e;
+            }
+            batch.getSplits().stream()
                     .map(HiveSplit.class::cast)
                     .forEach(splits::add);
         }
@@ -1068,7 +1086,8 @@ public class TestBackgroundHiveSplitLoader
                 false,
                 false,
                 true,
-                validWriteIds);
+                validWriteIds,
+                Optional.empty());
     }
 
     private BackgroundHiveSplitLoader backgroundHiveSplitLoader(List<LocatedFileStatus> files, DirectoryLister directoryLister)
@@ -1100,6 +1119,7 @@ public class TestBackgroundHiveSplitLoader
                 false,
                 false,
                 true,
+                Optional.empty(),
                 Optional.empty());
     }
 
@@ -1126,6 +1146,7 @@ public class TestBackgroundHiveSplitLoader
                 false,
                 false,
                 true,
+                Optional.empty(),
                 Optional.empty());
     }
 
@@ -1169,7 +1190,8 @@ public class TestBackgroundHiveSplitLoader
                 Integer.MAX_VALUE,
                 hiveSplitLoader,
                 executor,
-                new CounterStat());
+                new CounterStat(),
+                false);
     }
 
     private static Table table(

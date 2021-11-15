@@ -58,7 +58,7 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 /**
  * Contains information about {@link Operator} execution.
  * <p>
- * Not thread-safe. Only {@link #getOperatorStats()}, {@link #getNestedOperatorStats()}
+ * Not thread-safe. Only {@link #getNestedOperatorStats()}
  * and revocable-memory-related operations are thread-safe.
  */
 public class OperatorContext
@@ -85,6 +85,7 @@ public class OperatorContext
 
     private final AtomicLong dynamicFilterSplitsProcessed = new AtomicLong();
     private final AtomicReference<Metrics> metrics = new AtomicReference<>(Metrics.EMPTY);  // this is not incremental, but gets overwritten by the latest value.
+    private final AtomicReference<Metrics> connectorMetrics = new AtomicReference<>(Metrics.EMPTY); // this is not incremental, but gets overwritten by the latest value.
 
     private final AtomicLong physicalWrittenDataSize = new AtomicLong();
 
@@ -229,6 +230,11 @@ public class OperatorContext
     public void setLatestMetrics(Metrics metrics)
     {
         this.metrics.set(metrics);
+    }
+
+    public void setLatestConnectorMetrics(Metrics metrics)
+    {
+        this.connectorMetrics.set(metrics);
     }
 
     public void recordPhysicalWrittenData(long sizeInBytes)
@@ -508,7 +514,20 @@ public class OperatorContext
         return format("%s-%s", operatorType, planNodeId);
     }
 
-    public OperatorStats getOperatorStats()
+    public List<OperatorStats> getNestedOperatorStats()
+    {
+        Supplier<List<OperatorStats>> nestedOperatorStatsSupplier = this.nestedOperatorStatsSupplier.get();
+        return Optional.ofNullable(nestedOperatorStatsSupplier)
+                .map(Supplier::get)
+                .orElseGet(() -> ImmutableList.of(getOperatorStats()));
+    }
+
+    public <C, R> R accept(QueryContextVisitor<C, R> visitor, C context)
+    {
+        return visitor.visitOperatorContext(this, context);
+    }
+
+    private OperatorStats getOperatorStats()
     {
         Supplier<? extends OperatorInfo> infoSupplier = this.infoSupplier.get();
         OperatorInfo info = Optional.ofNullable(infoSupplier).map(Supplier::get).orElse(null);
@@ -544,6 +563,7 @@ public class OperatorContext
 
                 dynamicFilterSplitsProcessed.get(),
                 metrics.get(),
+                connectorMetrics.get(),
 
                 succinctBytes(physicalWrittenDataSize.get()),
 
@@ -566,19 +586,6 @@ public class OperatorContext
 
                 memoryFuture.get().isDone() ? Optional.empty() : Optional.of(WAITING_FOR_MEMORY),
                 info);
-    }
-
-    public List<OperatorStats> getNestedOperatorStats()
-    {
-        Supplier<List<OperatorStats>> nestedOperatorStatsSupplier = this.nestedOperatorStatsSupplier.get();
-        return Optional.ofNullable(nestedOperatorStatsSupplier)
-                .map(Supplier::get)
-                .orElseGet(() -> ImmutableList.of(getOperatorStats()));
-    }
-
-    public <C, R> R accept(QueryContextVisitor<C, R> visitor, C context)
-    {
-        return visitor.visitOperatorContext(this, context);
     }
 
     private static long nanosBetween(long start, long end)

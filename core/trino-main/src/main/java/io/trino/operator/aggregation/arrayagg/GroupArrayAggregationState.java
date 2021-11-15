@@ -39,8 +39,9 @@ public final class GroupArrayAggregationState
     }
 
     @Override
-    protected final void accept(ArrayAggregationStateConsumer consumer, PageBuilder pageBuilder, int currentPosition)
+    protected final boolean accept(ArrayAggregationStateConsumer consumer, PageBuilder pageBuilder, int currentPosition)
     {
         consumer.accept(pageBuilder.getBlockBuilder(VALUE_CHANNEL), currentPosition);
+        return true;
     }
 }

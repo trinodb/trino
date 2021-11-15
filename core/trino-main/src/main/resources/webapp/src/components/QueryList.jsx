@@ -67,7 +67,7 @@ export class QueryListItem extends React.Component {
             }
         }
 
-        return truncateString(formattedQueryText, 300);
+        return formattedQueryText;
     }
 
     render() {
@@ -122,10 +122,10 @@ export class QueryListItem extends React.Component {
                 </span>
             </div>);
 
-        let user = (<span>{query.session.user}</span>);
-        if (query.session.principal) {
+        let user = (<span>{query.sessionUser}</span>);
+        if (query.sessionPrincipal) {
             user = (
-                <span>{query.session.user}<span className="glyphicon glyphicon-lock-inverse" style={GLYPHICON_DEFAULT}/></span>
+                <span>{query.sessionUser}<span className="glyphicon glyphicon-lock-inverse" style={GLYPHICON_DEFAULT}/></span>
             );
         }
 
@@ -153,7 +153,7 @@ export class QueryListItem extends React.Component {
                             <div className="col-xs-12">
                                 <span data-toggle="tooltip" data-placement="right" title="Source">
                                     <span className="glyphicon glyphicon-log-in" style={GLYPHICON_DEFAULT}/>&nbsp;&nbsp;
-                                    <span>{truncateString(query.session.source, 35)}</span>
+                                    <span>{truncateString(query.sessionSource, 35)}</span>
                                 </span>
                             </div>
                         </div>
@@ -181,14 +181,14 @@ export class QueryListItem extends React.Component {
                                 <div className="progress">
                                     <div className="progress-bar progress-bar-info" role="progressbar" aria-valuenow={getProgressBarPercentage(query)} aria-valuemin="0"
                                          aria-valuemax="100" style={progressBarStyle}>
-                                        {getProgressBarTitle(query)}
+                                        {getProgressBarTitle(query, true)}
                                     </div>
                                 </div>
                             </div>
                         </div>
                         <div className="row query-row-bottom">
                             <div className="col-xs-12">
-                                <pre className="query-snippet"><code className="sql">{QueryListItem.stripQueryTextWhitespace(query.query)}</code></pre>
+                                <pre className="query-snippet"><code className="sql">{QueryListItem.stripQueryTextWhitespace(query.queryTextPreview)}</code></pre>
                             </div>
                         </div>
                     </div>
@@ -266,12 +266,15 @@ export class QueryList extends React.Component {
         this.handleSortClick = this.handleSortClick.bind(this);
     }
 
-    sortAndLimitQueries(queries, sortType, sortOrder, maxQueries) {
+    sortQueries(queries, sortType, sortOrder) {
         queries.sort(function (queryA, queryB) {
             return sortOrder(sortType(queryA) - sortType(queryB));
         }, this);
+    }
 
-        if (maxQueries !== 0 && queries.length > maxQueries) {
+    sortAndLimitQueries(queries, sortType, sortOrder, maxQueries) {
+        this.sortQueries(queries, sortType, sortOrder);
+        if (queries.length > maxQueries) {
             queries.splice(maxQueries, (queries.length - maxQueries));
         }
     }
@@ -299,19 +302,23 @@ export class QueryList extends React.Component {
                 const term = searchString.toLowerCase();
                 if (query.queryId.toLowerCase().indexOf(term) !== -1 ||
                     getHumanReadableState(query).toLowerCase().indexOf(term) !== -1 ||
-                    query.query.toLowerCase().indexOf(term) !== -1) {
+                    query.queryTextPreview.toLowerCase().indexOf(term) !== -1) {
                     return true;
                 }
 
-                if (query.session.user && query.session.user.toLowerCase().indexOf(term) !== -1) {
+                if (query.sessionUser && query.sessionUser.toLowerCase().indexOf(term) !== -1) {
                     return true;
                 }
 
-                if (query.session.source && query.session.source.toLowerCase().indexOf(term) !== -1) {
+                if (query.sessionSource && query.sessionSource.toLowerCase().indexOf(term) !== -1) {
                     return true;
                 }
 
                 if (query.resourceGroupId && query.resourceGroupId.join(".").toLowerCase().indexOf(term) !== -1) {
+                    return true;
+                }
+
+                if (query.errorCode && query.errorCode.name && query.errorCode.name.toLowerCase().indexOf(term) !== -1) {
                     return true;
                 }
 
@@ -359,11 +366,11 @@ export class QueryList extends React.Component {
             if (this.state.reorderInterval !== 0 && ((lastRefresh - lastReorder) >= this.state.reorderInterval)) {
                 updatedQueries = this.filterQueries(updatedQueries, this.state.stateFilters, this.state.errorTypeFilters, this.state.searchString);
                 updatedQueries = updatedQueries.concat(newQueries);
-                this.sortAndLimitQueries(updatedQueries, this.state.currentSortType, this.state.currentSortOrder, 0);
+                this.sortQueries(updatedQueries, this.state.currentSortType, this.state.currentSortOrder);
                 lastReorder = Date.now();
             }
             else {
-                this.sortAndLimitQueries(newQueries, this.state.currentSortType, this.state.currentSortOrder, 0);
+                this.sortQueries(newQueries, this.state.currentSortType, this.state.currentSortOrder);
                 updatedQueries = updatedQueries.concat(newQueries);
             }
 
@@ -509,7 +516,7 @@ export class QueryList extends React.Component {
         }
 
         const filteredQueries = this.filterQueries(this.state.allQueries, newFilters, this.state.errorTypeFilters, this.state.searchString);
-        this.sortAndLimitQueries(filteredQueries, this.state.currentSortType, this.state.currentSortOrder);
+        this.sortAndLimitQueries(filteredQueries, this.state.currentSortType, this.state.currentSortOrder, this.state.maxQueries);
 
         this.setState({
             stateFilters: newFilters,
@@ -541,7 +548,7 @@ export class QueryList extends React.Component {
         }
 
         const filteredQueries = this.filterQueries(this.state.allQueries, this.state.stateFilters, newFilters, this.state.searchString);
-        this.sortAndLimitQueries(filteredQueries, this.state.currentSortType, this.state.currentSortOrder);
+        this.sortAndLimitQueries(filteredQueries, this.state.currentSortType, this.state.currentSortOrder, this.state.maxQueries);
 
         this.setState({
             errorTypeFilters: newFilters,
@@ -573,7 +580,7 @@ export class QueryList extends React.Component {
                 <div className="row toolbar-row">
                     <div className="col-xs-12 toolbar-col">
                         <div className="input-group input-group-sm">
-                            <input type="text" className="form-control form-control-small search-bar" placeholder="User, source, query ID, query state, resource group, or query text"
+                            <input type="text" className="form-control form-control-small search-bar" placeholder="User, source, query ID, query state, resource group, error name, or query text"
                                    onChange={this.handleSearchStringChange} value={this.state.searchString}/>
                             <span className="input-group-addon filter-addon">State:</span>
                             <div className="input-group-btn">

@@ -18,7 +18,16 @@ if test -d /docker/presto-init.d; then
     done
 fi
 
-export JAVA_HOME="/usr/lib/jvm/zulu-11"
+if [ -z "$JAVA_HOME" ]; then
+    echo "JAVA_HOME must be set"
+    exit 1
+fi
+
+if [ ! -d "$JAVA_HOME" ]; then
+    echo "JAVA_HOME $JAVA_HOME does not exist"
+    exit 1
+fi
+
 export PATH="${JAVA_HOME}/bin:${PATH}"
 
 exec /docker/presto-server/bin/launcher \

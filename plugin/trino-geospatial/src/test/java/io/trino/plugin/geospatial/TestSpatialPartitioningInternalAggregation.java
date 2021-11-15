@@ -78,7 +78,7 @@ public class TestSpatialPartitioningInternalAggregation
         Rectangle expectedExtent = new Rectangle(-10, -10, Math.nextUp(10.0), Math.nextUp(10.0));
         String expectedValue = getSpatialPartitioning(expectedExtent, geometries, partitionCount);
 
-        AccumulatorFactory accumulatorFactory = function.bind(Ints.asList(0, 1, 2), Optional.empty());
+        AccumulatorFactory accumulatorFactory = function.bind(Ints.asList(0, 1), Optional.empty());
         Page page = new Page(geometryBlock, partitionCountBlock);
 
         Accumulator accumulator = accumulatorFactory.createAccumulator();
@@ -96,6 +96,7 @@ public class TestSpatialPartitioningInternalAggregation
     {
         Metadata metadata = functionAssertions.getMetadata();
         return metadata.getAggregateFunctionImplementation(metadata.resolveFunction(
+                functionAssertions.getSession(),
                 QualifiedName.of("spatial_partitioning"),
                 fromTypes(GEOMETRY, INTEGER)));
     }

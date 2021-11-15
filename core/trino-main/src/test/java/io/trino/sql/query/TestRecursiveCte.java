@@ -13,10 +13,12 @@
  */
 package io.trino.sql.query;
 
+import io.trino.Session;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static io.trino.SystemSessionProperties.MAX_RECURSION_DEPTH;
 import static io.trino.SystemSessionProperties.getMaxRecursionDepth;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -283,5 +285,44 @@ public class TestRecursiveCte
                 "          )" +
                 "          SELECT * FROM t"))
                 .hasMessage("Recursion depth limit exceeded (%s). Use 'max_recursion_depth' session property to modify the limit.", getMaxRecursionDepth(assertions.getDefaultSession()));
+    }
+
+    @Test
+    public void testDuplicateOutputsInAnchorAndStepRelation()
+    {
+        // This example tests recursive query with symbol ambiguity on different stages of recursion planning:
+        // - the base relation outputs the same symbol (`a`) twice, once as `a`, and once as `root_a`
+        // - the step relation in the first recursion step also outputs the same symbol twice:
+        // `T.orig_a` is the same as `CTE.root_a`, and the planner uses the same output symbol for both.
+        // In each case, such ambiguity is resolved by adding a disambiguating projection,
+        // so that the output consists of distinct symbols.
+        // This is necessary to successfully replace the part of the plan with another plan
+        // in the next recursion step. The replacement must fit in the output layout of the previous
+        // recursion step, without a constraint that certain outputs should be equal.
+        assertThat(assertions.query(
+                Session.builder(assertions.getDefaultSession())
+                        .setSystemProperty(MAX_RECURSION_DEPTH, "4")
+                        .build(),
+                "WITH RECURSIVE " +
+                        "        T(a, orig_a) AS (VALUES (1, 0), (2, 0), (3, 1), (4, 1), (5, 2), (6, 3), (7, 5)), " +
+                        "        CTE(a, orig_a, base_id, root_a) AS( " +
+                        "                                           SELECT a, orig_a, 'base_entry', a " +
+                        "                                               FROM T " +
+                        "                                               WHERE orig_a = 0 " +
+                        "                                           UNION ALL " +
+                        "                                           SELECT T.a, T.orig_a, 'derived', CTE.root_a " +
+                        "                                               FROM T " +
+                        "                                               INNER JOIN " +
+                        "                                               CTE " +
+                        "                                               ON CTE.a = T.orig_a " +
+                        "                                           ) " +
+                        "SELECT * FROM CTE"))
+                .matches("VALUES (1, 0, 'base_entry', 1), " +
+                        "        (2, 0, 'base_entry', 2), " +
+                        "        (3, 1, 'derived',    1), " +
+                        "        (4, 1, 'derived',    1), " +
+                        "        (5, 2, 'derived',    2), " +
+                        "        (6, 3, 'derived',    1), " +
+                        "        (7, 5, 'derived',    2)");
     }
 }

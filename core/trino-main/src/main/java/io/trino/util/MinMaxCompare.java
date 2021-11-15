@@ -13,21 +13,22 @@
  */
 package io.trino.util;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.metadata.FunctionDependencies;
+import io.trino.metadata.FunctionDependencyDeclaration;
 import io.trino.spi.function.InvocationConvention;
+import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
-import io.trino.type.BlockTypeOperators;
-import io.trino.type.BlockTypeOperators.BlockPositionComparison;
+import io.trino.spi.type.TypeOperators;
+import io.trino.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 
-import static io.trino.spi.function.OperatorType.COMPARISON;
-import static io.trino.spi.type.DoubleType.DOUBLE;
-import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_FIRST;
+import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.util.Reflection.methodHandle;
-import static java.lang.Float.intBitsToFloat;
 import static java.lang.invoke.MethodHandles.filterReturnValue;
 
 public final class MinMaxCompare
@@ -35,58 +36,33 @@ public final class MinMaxCompare
     private static final MethodHandle MIN_FUNCTION = methodHandle(MinMaxCompare.class, "min", long.class);
     private static final MethodHandle MAX_FUNCTION = methodHandle(MinMaxCompare.class, "max", long.class);
 
-    public static final MethodHandle MAX_REAL_FUNCTION = methodHandle(MinMaxCompare.class, "maxReal", long.class, long.class);
-    public static final MethodHandle MAX_DOUBLE_FUNCTION = methodHandle(MinMaxCompare.class, "maxDouble", double.class, double.class);
-
     private MinMaxCompare() {}
+
+    public static FunctionDependencyDeclaration getMinMaxCompareFunctionDependencies(TypeSignature typeSignature, boolean min)
+    {
+        OperatorType comparisonOperator = min ? COMPARISON_UNORDERED_LAST : COMPARISON_UNORDERED_FIRST;
+        return FunctionDependencyDeclaration.builder()
+                .addOperatorSignature(comparisonOperator, ImmutableList.of(typeSignature, typeSignature))
+                .build();
+    }
 
     public static MethodHandle getMinMaxCompare(FunctionDependencies dependencies, Type type, InvocationConvention convention, boolean min)
     {
-        if (!min && type.equals(REAL)) {
-            return MAX_REAL_FUNCTION;
-        }
-        if (!min && type.equals(DOUBLE)) {
-            return MAX_DOUBLE_FUNCTION;
-        }
-        MethodHandle handle = dependencies.getOperatorInvoker(COMPARISON, List.of(type, type), convention).getMethodHandle();
+        OperatorType comparisonOperator = min ? COMPARISON_UNORDERED_LAST : COMPARISON_UNORDERED_FIRST;
+        MethodHandle handle = dependencies.getOperatorInvoker(comparisonOperator, List.of(type, type), convention).getMethodHandle();
         return filterReturnValue(handle, min ? MIN_FUNCTION : MAX_FUNCTION);
     }
 
-    public static BlockPositionComparison getMaxCompare(BlockTypeOperators operators, Type type)
+    public static MethodHandle getMinMaxCompare(TypeOperators typeOperators, Type type, InvocationConvention convention, boolean min)
     {
-        if (type.equals(REAL)) {
-            return (leftBlock, leftPosition, rightBlock, rightPosition) -> {
-                float left = toReal(REAL.getLong(leftBlock, leftPosition));
-                float right = toReal(REAL.getLong(rightBlock, rightPosition));
-                if (Float.isNaN(left) && Float.isNaN(right)) {
-                    return 0;
-                }
-                if (Float.isNaN(left)) {
-                    return -1;
-                }
-                if (Float.isNaN(right)) {
-                    return 1;
-                }
-                return Float.compare(left, right);
-            };
+        MethodHandle handle;
+        if (min) {
+            handle = typeOperators.getComparisonUnorderedLastOperator(type, convention);
         }
-        if (type.equals(DOUBLE)) {
-            return (leftBlock, leftPosition, rightBlock, rightPosition) -> {
-                double left = DOUBLE.getDouble(leftBlock, leftPosition);
-                double right = DOUBLE.getDouble(rightBlock, rightPosition);
-                if (Double.isNaN(left) && Double.isNaN(right)) {
-                    return 0;
-                }
-                if (Double.isNaN(left)) {
-                    return -1;
-                }
-                if (Double.isNaN(right)) {
-                    return 1;
-                }
-                return Double.compare(left, right);
-            };
+        else {
+            handle = typeOperators.getComparisonUnorderedFirstOperator(type, convention);
         }
-        return operators.getComparisonOperator(type);
+        return filterReturnValue(handle, min ? MIN_FUNCTION : MAX_FUNCTION);
     }
 
     @UsedByGeneratedCode
@@ -99,25 +75,5 @@ public final class MinMaxCompare
     public static boolean max(long comparisonResult)
     {
         return comparisonResult > 0;
-    }
-
-    @UsedByGeneratedCode
-    public static boolean maxReal(long intLeft, long intRight)
-    {
-        float left = toReal(intLeft);
-        float right = toReal(intRight);
-        return (left > right) || Float.isNaN(right);
-    }
-
-    @UsedByGeneratedCode
-    public static boolean maxDouble(double left, double right)
-    {
-        return (left > right) || Double.isNaN(right);
-    }
-
-    @SuppressWarnings("NumericCastThatLosesPrecision")
-    private static float toReal(long value)
-    {
-        return intBitsToFloat((int) value);
     }
 }

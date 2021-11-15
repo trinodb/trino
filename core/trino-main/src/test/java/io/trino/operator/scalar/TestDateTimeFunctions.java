@@ -1140,7 +1140,7 @@ public class TestDateTimeFunctions
                 TIMESTAMP_WITH_TIME_ZONE,
                 toTimestampWithTimeZone(new DateTime(2001, 12, 1, 3, 4, 5, 321, getDateTimeZone(getTimeZoneKey("America/Los_Angeles")))));
 
-        assertInvalidFunction("with_timezone(TIMESTAMP '2001-08-22 03:04:05.321', 'invalidzoneid')", INVALID_FUNCTION_ARGUMENT, "'invalidzoneid' is not a valid time zone");
+        assertInvalidFunction("with_timezone(TIMESTAMP '2001-08-22 03:04:05.321', 'invalidzoneid')", "'invalidzoneid' is not a valid time zone");
     }
 
     private void assertFunctionString(String projection, Type expectedType, String expected)

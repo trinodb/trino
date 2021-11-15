@@ -15,3 +15,12 @@ Administration
     admin/dist-sort
     admin/dynamic-filtering
     admin/graceful-shutdown
+
+***************
+Event listeners
+***************
+
+.. toctree::
+    :titlesonly:
+
+    admin/event-listeners-http

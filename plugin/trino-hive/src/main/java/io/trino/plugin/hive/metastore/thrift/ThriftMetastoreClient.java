@@ -180,6 +180,9 @@ public interface ThriftMetastoreClient
     LockResponse checkLock(long lockId)
             throws TException;
 
+    void unlock(long lockId)
+            throws TException;
+
     String getValidWriteIds(List<String> tableList, long currentTransactionId)
             throws TException;
 

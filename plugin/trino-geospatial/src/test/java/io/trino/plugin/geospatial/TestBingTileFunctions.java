@@ -41,7 +41,7 @@ public class TestBingTileFunctions
         extends AbstractTestFunctions
 {
     @BeforeClass
-    protected void registerFunctions()
+    public void registerFunctions()
     {
         functionAssertions.installPlugin(new GeoPlugin());
         functionAssertions.getMetadata().addFunctions(ImmutableList.of(APPLY_FUNCTION));

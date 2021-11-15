@@ -14,6 +14,7 @@
 package io.trino.plugin.phoenix;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Streams;
 import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.plugin.jdbc.UnsupportedTypeHandling;
@@ -31,10 +32,13 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
+import java.util.stream.Stream;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.plugin.phoenix.PhoenixQueryRunner.createPhoenixQueryRunner;
+import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertTrue;
@@ -73,6 +77,9 @@ public class TestPhoenixConnectorTest
 
             case SUPPORTS_RENAME_TABLE:
             case SUPPORTS_RENAME_SCHEMA:
+                return false;
+
+            case SUPPORTS_TRUNCATE:
                 return false;
 
             default:
@@ -193,6 +200,76 @@ public class TestPhoenixConnectorTest
                         "   rowkeys = 'ROWKEY',\n" +
                         "   salt_buckets = 10\n" +
                         ")");
+    }
+
+    @Override
+    public void testCharVarcharComparison()
+    {
+        // test overridden because super uses all-space char values ('  ') that are null-out by Phoenix
+
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_char_varchar",
+                "(k, v) AS VALUES" +
+                        "   (-1, CAST(NULL AS char(3))), " +
+                        "   (3, CAST('x  ' AS char(3)))")) {
+            assertQuery(
+                    "SELECT k, v FROM " + table.getName() + " WHERE v = CAST('x ' AS varchar(2))",
+                    // The value is included because both sides of the comparison are coerced to char(3)
+                    "VALUES (3, 'x  ')");
+
+            assertQuery(
+                    "SELECT k, v FROM " + table.getName() + " WHERE v = CAST('x ' AS varchar(4))",
+                    // The value is included because both sides of the comparison are coerced to char(4)
+                    "VALUES (3, 'x  ')");
+        }
+    }
+
+    @Override
+    public void testVarcharCharComparison()
+    {
+        // test overridden because Phoenix nulls-out '' varchar value, impacting results
+
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_varchar_char",
+                "(k, v) AS VALUES" +
+                        "   (-1, CAST(NULL AS varchar(3))), " +
+                        "   (0, CAST('' AS varchar(3)))," + // '' gets replaced with null in Phoenix
+                        "   (1, CAST(' ' AS varchar(3))), " +
+                        "   (2, CAST('  ' AS varchar(3))), " +
+                        "   (3, CAST('   ' AS varchar(3)))," +
+                        "   (4, CAST('x' AS varchar(3)))," +
+                        "   (5, CAST('x ' AS varchar(3)))," +
+                        "   (6, CAST('x  ' AS varchar(3)))")) {
+            assertQuery(
+                    "SELECT k, v FROM " + table.getName() + " WHERE v = CAST('  ' AS char(2))",
+                    // The 3-spaces value is included because both sides of the comparison are coerced to char(3)
+                    "VALUES (1, ' '), (2, '  '), (3, '   ')");
+
+            // value that's not all-spaces
+            assertQuery(
+                    "SELECT k, v FROM " + table.getName() + " WHERE v = CAST('x ' AS char(2))",
+                    // The 3-spaces value is included because both sides of the comparison are coerced to char(3)
+                    "VALUES (4, 'x'), (5, 'x '), (6, 'x  ')");
+        }
+    }
+
+    // Overridden because Phoenix requires a ROWID column
+    @Override
+    public void testCountDistinctWithStringTypes()
+    {
+        assertThatThrownBy(super::testCountDistinctWithStringTypes).hasStackTraceContaining("Illegal data. CHAR types may only contain single byte characters");
+        // Skipping the ą test case because it is not supported
+        List<String> rows = Streams.mapWithIndex(Stream.of("a", "b", "A", "B", " a ", "a", "b", " b "), (value, idx) -> String.format("%d, '%2$s', '%2$s'", idx, value))
+                .collect(toImmutableList());
+        String tableName = "count_distinct_strings" + randomTableSuffix();
+
+        try (TestTable testTable = new TestTable(getQueryRunner()::execute, tableName, "(id int, t_char CHAR(5), t_varchar VARCHAR(5)) WITH (ROWKEYS='id')", rows)) {
+            assertQuery("SELECT count(DISTINCT t_varchar) FROM " + testTable.getName(), "VALUES 6");
+            assertQuery("SELECT count(DISTINCT t_char) FROM " + testTable.getName(), "VALUES 6");
+            assertQuery("SELECT count(DISTINCT t_char), count(DISTINCT t_varchar) FROM " + testTable.getName(), "VALUES (6, 6)");
+        }
     }
 
     @Test

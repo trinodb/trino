@@ -187,7 +187,7 @@ public class DynamicFilterSourceOperator
             // Skipping DOUBLE and REAL in collectMinMaxValues to avoid dealing with NaN values
             if (minMaxCollectionLimit > 0 && type.isOrderable() && type != DOUBLE && type != REAL) {
                 minMaxChannelsBuilder.add(channelIndex);
-                minMaxComparisonsBuilder.add(blockTypeOperators.getComparisonOperator(type));
+                minMaxComparisonsBuilder.add(blockTypeOperators.getComparisonUnorderedLastOperator(type));
             }
             this.blockBuilders[channelIndex] = type.createBlockBuilder(null, EXPECTED_BLOCK_BUILDER_SIZE);
             this.valueSets[channelIndex] = createEqualityTypedSet(

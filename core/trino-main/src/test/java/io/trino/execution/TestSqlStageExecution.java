@@ -41,7 +41,6 @@ import org.testng.annotations.Test;
 
 import java.net.URI;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -134,7 +133,7 @@ public class TestSqlStageExecution
                             URI.create("http://10.0.0." + (i / 10_000) + ":" + (i % 10_000)),
                             NodeVersion.UNKNOWN,
                             false);
-                    stage.scheduleTask(node, i, OptionalInt.empty());
+                    stage.scheduleTask(node, i);
                     latch.countDown();
                 }
             }
@@ -182,8 +181,8 @@ public class TestSqlStageExecution
 
         InternalNode node1 = new InternalNode("other1", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, false);
         InternalNode node2 = new InternalNode("other2", URI.create("http://127.0.0.2:12"), NodeVersion.UNKNOWN, false);
-        MockRemoteTask task1 = (MockRemoteTask) stage.scheduleTask(node1, 1, OptionalInt.empty()).get();
-        MockRemoteTask task2 = (MockRemoteTask) stage.scheduleTask(node2, 2, OptionalInt.empty()).get();
+        MockRemoteTask task1 = (MockRemoteTask) stage.scheduleTask(node1, 1).get();
+        MockRemoteTask task2 = (MockRemoteTask) stage.scheduleTask(node2, 2).get();
 
         // both tasks' buffers are under utilized
         assertFalse(stage.isAnyTaskBlocked());

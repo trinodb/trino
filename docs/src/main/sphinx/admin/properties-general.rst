@@ -5,7 +5,7 @@ General properties
 ``join-distribution-type``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``string``
+* **Type:** :ref:`prop-type-string`
 * **Allowed values:** ``AUTOMATIC``, ``PARTITIONED``, ``BROADCAST``
 * **Default value:** ``AUTOMATIC``
 
@@ -27,7 +27,7 @@ the ``join_distribution_type`` session property.
 ``redistribute-writes``
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``boolean``
+* **Type:** :ref:`prop-type-boolean`
 * **Default value:** ``true``
 
 This property enables redistribution of data before writing. This can

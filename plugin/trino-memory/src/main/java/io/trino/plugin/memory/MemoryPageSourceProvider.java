@@ -95,6 +95,7 @@ public final class MemoryPageSourceProvider
         private final boolean enableLazyDynamicFiltering;
         private long rows;
         private long completedPositions;
+        private boolean closed;
 
         private DynamicFilteringPageSource(FixedPageSource delegate, List<ColumnHandle> columns, DynamicFilter dynamicFilter, boolean enableLazyDynamicFiltering)
         {
@@ -171,6 +172,7 @@ public final class MemoryPageSourceProvider
         public void close()
         {
             delegate.close();
+            closed = true;
         }
 
         @Override
@@ -178,7 +180,7 @@ public final class MemoryPageSourceProvider
         {
             return new Metrics(ImmutableMap.of(
                     "rows", new LongCount(rows),
-                    "finished", new LongCount(isFinished() ? 1 : 0),
+                    "finished", new LongCount(closed ? 1 : 0),
                     "started", new LongCount(1)));
         }
     }

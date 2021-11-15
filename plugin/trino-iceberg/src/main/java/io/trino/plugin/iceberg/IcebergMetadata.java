@@ -43,6 +43,7 @@ import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.DiscretePredicates;
 import io.trino.spi.connector.MaterializedViewFreshness;
+import io.trino.spi.connector.MaterializedViewNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SystemTable;
@@ -58,7 +59,9 @@ import org.apache.iceberg.AppendFiles;
 import org.apache.iceberg.DataFiles;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.PartitionField;
+import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
+import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.Table;
@@ -70,6 +73,7 @@ import org.apache.iceberg.types.Type;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -85,17 +89,22 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.plugin.hive.util.HiveUtil.isStructuralType;
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.primitiveIcebergColumnHandle;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.isStatisticsEnabled;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
 import static io.trino.plugin.iceberg.IcebergUtil.deserializePartitionValue;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumns;
 import static io.trino.plugin.iceberg.IcebergUtil.getFileFormat;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
 import static io.trino.plugin.iceberg.IcebergUtil.getTableComment;
 import static io.trino.plugin.iceberg.IcebergUtil.newCreateTableTransaction;
+import static io.trino.plugin.iceberg.IcebergUtil.toIcebergSchema;
+import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
 import static io.trino.plugin.iceberg.PartitionFields.toPartitionFields;
 import static io.trino.plugin.iceberg.TableType.DATA;
 import static io.trino.plugin.iceberg.TrinoHiveCatalog.DEPENDS_ON_TABLES;
@@ -262,7 +271,7 @@ public class IcebergMetadata
 
             Iterable<TupleDomain<ColumnHandle>> discreteTupleDomain = Iterables.transform(files, fileScan -> {
                 // Extract partition values in the data file
-                Map<Integer, String> partitionColumnValueStrings = getPartitionKeys(fileScan);
+                Map<Integer, Optional<String>> partitionColumnValueStrings = getPartitionKeys(fileScan);
                 Map<ColumnHandle, NullableValue> partitionValues = partitionSourceIds.stream()
                         .filter(partitionColumnValueStrings::containsKey)
                         .collect(toImmutableMap(
@@ -271,9 +280,8 @@ public class IcebergMetadata
                                     IcebergColumnHandle column = columns.get(columnId);
                                     Object prestoValue = deserializePartitionValue(
                                             column.getType(),
-                                            partitionColumnValueStrings.get(columnId),
-                                            column.getName(),
-                                            session.getTimeZoneKey());
+                                            partitionColumnValueStrings.get(columnId).orElse(null),
+                                            column.getName());
 
                                     return NullableValue.of(column.getType(), prestoValue);
                                 }));
@@ -393,6 +401,14 @@ public class IcebergMetadata
     }
 
     @Override
+    public Optional<ConnectorNewTableLayout> getNewTableLayout(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    {
+        Schema schema = toIcebergSchema(tableMetadata.getColumns());
+        PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitioning(tableMetadata.getProperties()));
+        return getWriteLayout(schema, partitionSpec);
+    }
+
+    @Override
     public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
     {
         transaction = newCreateTableTransaction(catalog, tableMetadata, session);
@@ -411,6 +427,36 @@ public class IcebergMetadata
     public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         return finishInsert(session, (IcebergWritableTableHandle) tableHandle, fragments, computedStatistics);
+    }
+
+    @Override
+    public Optional<ConnectorNewTableLayout> getInsertLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        IcebergTableHandle table = (IcebergTableHandle) tableHandle;
+        Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
+        return getWriteLayout(icebergTable.schema(), icebergTable.spec());
+    }
+
+    private Optional<ConnectorNewTableLayout> getWriteLayout(Schema tableSchema, PartitionSpec partitionSpec)
+    {
+        if (partitionSpec.isUnpartitioned()) {
+            return Optional.empty();
+        }
+
+        Map<Integer, IcebergColumnHandle> columnById = getColumns(tableSchema, typeManager).stream()
+                .collect(toImmutableMap(IcebergColumnHandle::getId, identity()));
+
+        List<IcebergColumnHandle> partitioningColumns = partitionSpec.fields().stream()
+                .sorted(Comparator.comparing(PartitionField::sourceId))
+                .map(field -> requireNonNull(columnById.get(field.sourceId()), () -> "Cannot find source column for partitioning field " + field))
+                .distinct()
+                .collect(toImmutableList());
+
+        return Optional.of(new ConnectorNewTableLayout(
+                new IcebergPartitioningHandle(toPartitionFields(partitionSpec), partitioningColumns),
+                partitioningColumns.stream()
+                        .map(IcebergColumnHandle::getName)
+                        .collect(toImmutableList())));
     }
 
     @Override
@@ -501,7 +547,7 @@ public class IcebergMetadata
     public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
     {
         Table icebergTable = catalog.loadTable(session, ((IcebergTableHandle) tableHandle).getSchemaTableName());
-        icebergTable.updateSchema().addColumn(column.getName(), toIcebergType(column.getType())).commit();
+        icebergTable.updateSchema().addColumn(column.getName(), toIcebergType(column.getType()), column.getComment()).commit();
     }
 
     @Override
@@ -561,7 +607,7 @@ public class IcebergMetadata
     @Override
     public ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        throw new TrinoException(NOT_SUPPORTED, "This connector only supports delete where one or more partitions are deleted entirely");
+        throw new TrinoException(NOT_SUPPORTED, "This connector only supports delete where one or more identity-transformed partitions are deleted entirely");
     }
 
     @Override
@@ -648,9 +694,14 @@ public class IcebergMetadata
                 .filter(isIdentityPartition)
                 .intersect(table.getEnforcedPredicate());
 
-        TupleDomain<IcebergColumnHandle> newUnenforcedConstraint = constraint.getSummary()
+        TupleDomain<IcebergColumnHandle> remainingConstraint = constraint.getSummary()
                 .transformKeys(IcebergColumnHandle.class::cast)
-                .filter(isIdentityPartition.negate())
+                .filter(isIdentityPartition.negate());
+
+        TupleDomain<IcebergColumnHandle> newUnenforcedConstraint = remainingConstraint
+                // TODO: Remove after completing https://github.com/trinodb/trino/issues/8759
+                // Only applies to the unenforced constraint because structural types cannot be partition keys
+                .filter((columnHandle, predicate) -> !isStructuralType(columnHandle.getType()))
                 .intersect(table.getUnenforcedPredicate());
 
         if (newEnforcedConstraint.equals(table.getEnforcedPredicate())
@@ -665,7 +716,7 @@ public class IcebergMetadata
                         table.getSnapshotId(),
                         newUnenforcedConstraint,
                         newEnforcedConstraint),
-                newUnenforcedConstraint.transformKeys(ColumnHandle.class::cast),
+                remainingConstraint.transformKeys(ColumnHandle.class::cast),
                 false));
     }
 
@@ -682,6 +733,10 @@ public class IcebergMetadata
     @Override
     public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint constraint)
     {
+        if (!isStatisticsEnabled(session)) {
+            return TableStatistics.empty();
+        }
+
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         Table icebergTable = catalog.loadTable(session, handle.getSchemaTableName());
         return TableStatisticsMaker.getTableStatistics(typeManager, constraint, handle, icebergTable);
@@ -814,6 +869,16 @@ public class IcebergMetadata
         return catalog.getMaterializedView(session, viewName);
     }
 
+    @Override
+    public void renameMaterializedView(ConnectorSession session, SchemaTableName source, SchemaTableName target)
+    {
+        // TODO (https://github.com/trinodb/trino/issues/9594) support rename across schemas
+        if (!source.getSchemaName().equals(target.getSchemaName())) {
+            throw new TrinoException(NOT_SUPPORTED, "Materialized View rename across schemas is not supported");
+        }
+        catalog.renameMaterializedView(session, source, target);
+    }
+
     public Optional<TableToken> getTableToken(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
@@ -853,7 +918,12 @@ public class IcebergMetadata
             String schema = strings.get(0);
             String name = strings.get(1);
             SchemaTableName schemaTableName = new SchemaTableName(schema, name);
-            if (!isTableCurrent(session, getTableHandle(session, schemaTableName), entry.getValue())) {
+            IcebergTableHandle tableHandle = getTableHandle(session, schemaTableName);
+
+            if (tableHandle == null) {
+                throw new MaterializedViewNotFoundException(materializedViewName);
+            }
+            if (!isTableCurrent(session, tableHandle, entry.getValue())) {
                 return new MaterializedViewFreshness(false);
             }
         }

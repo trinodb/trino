@@ -135,6 +135,8 @@ Property                                              Description               
                                                       enabling this feature.
 ``bigquery.view-materialization-project``             The project where the materialized view is going to be created The view's project
 ``bigquery.view-materialization-dataset``             The dataset where the materialized view is going to be created The view's dataset
+``bigquery.views-cache-ttl``                          Duration for which the materialization of a view will be       ``15m``
+                                                      cached and reused. Set to ``0ms`` to disable the cache.
 ``bigquery.max-read-rows-retries``                    The number of retries in case of retryable server issues       ``3``
 ``bigquery.credentials-key``                          The base64 encoded credentials key                             None. See the `requirements <#requirements>`_ section.
 ``bigquery.credentials-file``                         The path to the JSON credentials file                          None. See the `requirements <#requirements>`_ section.
@@ -152,22 +154,24 @@ Data types
 With a few exceptions, all BigQuery types are mapped directly to their Trino
 counterparts. Here are all the mappings:
 
-=============  ============================ =============================================================================================================
-BigQuery       Trino                        Notes
-=============  ============================ =============================================================================================================
+============== =============================== =============================================================================================================
+BigQuery       Trino                           Notes
+============== =============================== =============================================================================================================
+``ARRAY``      ``ARRAY``
 ``BOOLEAN``    ``BOOLEAN``
 ``BYTES``      ``VARBINARY``
 ``DATE``       ``DATE``
-``DATETIME``   ``TIMESTAMP``
+``DATETIME``   ``TIMESTAMP(6)``
 ``FLOAT``      ``DOUBLE``
-``GEOGRAPHY``  ``VARCHAR``                  In `Well-known text (WKT) <https://en.wikipedia.org/wiki/Well-known_text_representation_of_geometry>`_ format
+``GEOGRAPHY``  ``VARCHAR``                     In `Well-known text (WKT) <https://en.wikipedia.org/wiki/Well-known_text_representation_of_geometry>`_ format
 ``INTEGER``    ``BIGINT``
-``NUMERIC``    ``DECIMAL(38,9)``
+``NUMERIC``    ``DECIMAL(P,S)``                Defaults to ``38`` as precision and ``9`` as scale
+``BIGNUMERIC`` ``DECIMAL(P,S)``                Precision > 38 is not supported. Note that the default precision and scale of BIGNUMERIC is ``(77, 38)``.
 ``RECORD``     ``ROW``
 ``STRING``     ``VARCHAR``
-``TIME``       ``TIME_WITH_TIME_ZONE``      Time zone is UTC
-``TIMESTAMP``  ``TIMESTAMP_WITH_TIME_ZONE`` Time zone is UTC
-=============  ============================ =============================================================================================================
+``TIME``       ``TIME(6)``
+``TIMESTAMP``  ``TIMESTAMP(6) WITH TIME ZONE`` Time zone is UTC
+============== =============================== =============================================================================================================
 
 System tables
 -------------

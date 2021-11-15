@@ -11,34 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
@@ -60,6 +32,7 @@ import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HivePrincipal;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.util.HiveUtil;
+import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnMetadata;
@@ -152,7 +125,7 @@ class TrinoHiveCatalog
     private final HiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
     private final TypeManager typeManager;
-    private final HiveTableOperationsProvider tableOperationsProvider;
+    private final IcebergTableOperationsProvider tableOperationsProvider;
     private final String trinoVersion;
     private final boolean useUniqueTableLocation;
 
@@ -164,7 +137,7 @@ class TrinoHiveCatalog
             HiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
-            HiveTableOperationsProvider tableOperationsProvider,
+            IcebergTableOperationsProvider tableOperationsProvider,
             String trinoVersion,
             boolean useUniqueTableLocation)
     {
@@ -260,9 +233,8 @@ class TrinoHiveCatalog
     {
         TableMetadata metadata = newTableMetadata(schema, partitionSpec, location, properties);
         TableOperations ops = tableOperationsProvider.createTableOperations(
-                new HdfsContext(session),
-                session.getQueryId(),
-                new HiveIdentity(session),
+                metastore,
+                session,
                 schemaTableName.getSchemaName(),
                 schemaTableName.getTableName(),
                 Optional.of(session.getUser()),
@@ -316,9 +288,9 @@ class TrinoHiveCatalog
     {
         TableMetadata metadata = tableMetadataCache.computeIfAbsent(
                 schemaTableName,
-                ignore -> ((BaseTable) loadIcebergTable(tableOperationsProvider, session, schemaTableName)).operations().current());
+                ignore -> ((BaseTable) loadIcebergTable(metastore, tableOperationsProvider, session, schemaTableName)).operations().current());
 
-        return getIcebergTableWithMetadata(tableOperationsProvider, session, schemaTableName, metadata);
+        return getIcebergTableWithMetadata(metastore, tableOperationsProvider, session, schemaTableName, metadata);
     }
 
     @Override
@@ -629,6 +601,12 @@ class TrinoHiveCatalog
                 definition.getComment(),
                 materializedView.getOwner(),
                 properties.build()));
+    }
+
+    @Override
+    public void renameMaterializedView(ConnectorSession session, SchemaTableName source, SchemaTableName target)
+    {
+        metastore.renameTable(new HiveIdentity(session), source.getSchemaName(), source.getTableName(), target.getSchemaName(), target.getTableName());
     }
 
     private List<String> listNamespaces(ConnectorSession session, Optional<String> namespace)

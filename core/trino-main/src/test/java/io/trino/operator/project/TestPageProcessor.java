@@ -20,7 +20,7 @@ import io.airlift.testing.TestingTicker;
 import io.airlift.units.Duration;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
-import io.trino.metadata.Metadata;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.CompletedWork;
 import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.Work;
@@ -52,7 +52,6 @@ import static io.trino.block.BlockAssertions.createSlicesBlock;
 import static io.trino.block.BlockAssertions.createStringsBlock;
 import static io.trino.execution.executor.PrioritizedSplitRunner.SPLIT_RUN_QUANTA;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.operator.PageAssertions.assertPageEquals;
 import static io.trino.operator.project.PageProcessor.MAX_BATCH_SIZE;
 import static io.trino.operator.project.PageProcessor.MAX_PAGE_SIZE_IN_BYTES;
@@ -421,14 +420,14 @@ public class TestPageProcessor
     @Test
     public void testExpressionProfiler()
     {
-        Metadata metadata = createTestMetadataManager();
+        TestingFunctionResolution functionResolution = new TestingFunctionResolution();
         CallExpression add10Expression = call(
-                metadata.resolveOperator(ADD, ImmutableList.of(BIGINT, BIGINT)),
+                functionResolution.resolveOperator(ADD, ImmutableList.of(BIGINT, BIGINT)),
                 field(0, BIGINT),
                 constant(10L, BIGINT));
 
         TestingTicker testingTicker = new TestingTicker();
-        PageFunctionCompiler functionCompiler = new PageFunctionCompiler(metadata, 0);
+        PageFunctionCompiler functionCompiler = functionResolution.getPageFunctionCompiler();
         Supplier<PageProjection> projectionSupplier = functionCompiler.compileProjection(add10Expression, Optional.empty());
         PageProjection projection = projectionSupplier.get();
         Page page = new Page(createLongSequenceBlock(1, 11));

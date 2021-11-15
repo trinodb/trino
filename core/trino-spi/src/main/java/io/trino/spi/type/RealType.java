@@ -24,7 +24,8 @@ import io.trino.spi.function.ScalarOperator;
 import java.util.Optional;
 
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static io.trino.spi.function.OperatorType.COMPARISON;
+import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_FIRST;
+import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.spi.function.OperatorType.IS_DISTINCT_FROM;
@@ -139,10 +140,28 @@ public final class RealType
         return leftFloat != rightFloat;
     }
 
-    @ScalarOperator(COMPARISON)
-    private static long comparisonOperator(long left, long right)
+    @ScalarOperator(COMPARISON_UNORDERED_LAST)
+    private static long comparisonUnorderedLastOperator(long left, long right)
     {
         return Float.compare(intBitsToFloat((int) left), intBitsToFloat((int) right));
+    }
+
+    @ScalarOperator(COMPARISON_UNORDERED_FIRST)
+    private static long comparisonUnorderedFirstOperator(long leftBits, long rightBits)
+    {
+        // Float compare puts NaN last, so we must handle NaNs manually
+        float left = intBitsToFloat((int) leftBits);
+        float right = intBitsToFloat((int) rightBits);
+        if (Float.isNaN(left) && Float.isNaN(right)) {
+            return 0;
+        }
+        if (Float.isNaN(left)) {
+            return -1;
+        }
+        if (Float.isNaN(right)) {
+            return 1;
+        }
+        return Float.compare(left, right);
     }
 
     @ScalarOperator(LESS_THAN)

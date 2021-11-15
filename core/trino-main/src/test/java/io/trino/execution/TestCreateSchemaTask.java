@@ -50,7 +50,7 @@ public class TestCreateSchemaTask
 {
     private static final String CATALOG_NAME = "catalog";
     private Session testSession;
-    TestCreateSchemaTask.MockMetadata metadata;
+    private TestCreateSchemaTask.MockMetadata metadata;
 
     @BeforeMethod
     public void setUp()
@@ -74,10 +74,10 @@ public class TestCreateSchemaTask
     {
         String schemaName = "test_db";
         CreateSchema statement = new CreateSchema(QualifiedName.of(schemaName), false, ImmutableList.of());
-        getFutureValue(new CreateSchemaTask().internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, emptyList()));
+        getFutureValue(CreateSchemaTask.internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, emptyList()));
         assertEquals(metadata.getCreateSchemaCount(), 1);
         assertThatExceptionOfType(TrinoException.class)
-                .isThrownBy(() -> getFutureValue(new CreateSchemaTask().internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, emptyList())))
+                .isThrownBy(() -> getFutureValue(CreateSchemaTask.internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, emptyList())))
                 .withMessage("Schema already exists");
     }
 
@@ -86,9 +86,9 @@ public class TestCreateSchemaTask
     {
         String schemaName = "test_db";
         CreateSchema statement = new CreateSchema(QualifiedName.of(schemaName), true, ImmutableList.of());
-        getFutureValue(new CreateSchemaTask().internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, emptyList()));
+        getFutureValue(CreateSchemaTask.internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, emptyList()));
         assertEquals(metadata.getCreateSchemaCount(), 1);
-        getFutureValue(new CreateSchemaTask().internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, emptyList()));
+        getFutureValue(CreateSchemaTask.internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, emptyList()));
         assertEquals(metadata.getCreateSchemaCount(), 1);
     }
 

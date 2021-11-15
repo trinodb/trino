@@ -378,6 +378,13 @@ public class FailureAwareThriftMetastoreClient
     }
 
     @Override
+    public void unlock(long lockId)
+            throws TException
+    {
+        runWithHandle(() -> delegate.unlock(lockId));
+    }
+
+    @Override
     public String getValidWriteIds(List<String> tableList, long currentTransactionId)
             throws TException
     {

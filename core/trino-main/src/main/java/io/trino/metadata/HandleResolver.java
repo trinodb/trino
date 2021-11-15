@@ -22,6 +22,7 @@ import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.connector.ConnectorTableExecuteHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableLayoutHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
@@ -103,6 +104,11 @@ public final class HandleResolver
         return getId(insertHandle, MaterializedHandleResolver::getInsertTableHandleClass);
     }
 
+    public String getId(ConnectorTableExecuteHandle tableExecuteHandle)
+    {
+        return getId(tableExecuteHandle, MaterializedHandleResolver::getTableExecuteHandleClass);
+    }
+
     public String getId(ConnectorPartitioningHandle partitioningHandle)
     {
         return getId(partitioningHandle, MaterializedHandleResolver::getPartitioningHandleClass);
@@ -148,6 +154,11 @@ public final class HandleResolver
         return resolverFor(id).getInsertTableHandleClass().orElseThrow(() -> new IllegalArgumentException("No resolver for " + id));
     }
 
+    public Class<? extends ConnectorTableExecuteHandle> getTableExecuteHandleClass(String id)
+    {
+        return resolverFor(id).getTableExecuteHandleClass().orElseThrow(() -> new IllegalArgumentException("No resolver for " + id));
+    }
+
     public Class<? extends ConnectorPartitioningHandle> getPartitioningHandleClass(String id)
     {
         return resolverFor(id).getPartitioningHandleClass().orElseThrow(() -> new IllegalArgumentException("No resolver for " + id));
@@ -188,6 +199,7 @@ public final class HandleResolver
         private final Optional<Class<? extends ConnectorIndexHandle>> indexHandle;
         private final Optional<Class<? extends ConnectorOutputTableHandle>> outputTableHandle;
         private final Optional<Class<? extends ConnectorInsertTableHandle>> insertTableHandle;
+        private final Optional<Class<? extends ConnectorTableExecuteHandle>> tableExecuteHandle;
         private final Optional<Class<? extends ConnectorPartitioningHandle>> partitioningHandle;
         private final Optional<Class<? extends ConnectorTransactionHandle>> transactionHandle;
 
@@ -200,6 +212,7 @@ public final class HandleResolver
             indexHandle = getHandleClass(resolver::getIndexHandleClass);
             outputTableHandle = getHandleClass(resolver::getOutputTableHandleClass);
             insertTableHandle = getHandleClass(resolver::getInsertTableHandleClass);
+            tableExecuteHandle = getHandleClass(resolver::getTableExecuteHandleClass);
             partitioningHandle = getHandleClass(resolver::getPartitioningHandleClass);
             transactionHandle = getHandleClass(resolver::getTransactionHandleClass);
         }
@@ -249,6 +262,11 @@ public final class HandleResolver
             return insertTableHandle;
         }
 
+        public Optional<Class<? extends ConnectorTableExecuteHandle>> getTableExecuteHandleClass()
+        {
+            return tableExecuteHandle;
+        }
+
         public Optional<Class<? extends ConnectorPartitioningHandle>> getPartitioningHandleClass()
         {
             return partitioningHandle;
@@ -276,6 +294,7 @@ public final class HandleResolver
                     Objects.equals(indexHandle, that.indexHandle) &&
                     Objects.equals(outputTableHandle, that.outputTableHandle) &&
                     Objects.equals(insertTableHandle, that.insertTableHandle) &&
+                    Objects.equals(tableExecuteHandle, that.tableExecuteHandle) &&
                     Objects.equals(partitioningHandle, that.partitioningHandle) &&
                     Objects.equals(transactionHandle, that.transactionHandle);
         }
@@ -283,7 +302,7 @@ public final class HandleResolver
         @Override
         public int hashCode()
         {
-            return Objects.hash(tableHandle, layoutHandle, columnHandle, split, indexHandle, outputTableHandle, insertTableHandle, partitioningHandle, transactionHandle);
+            return Objects.hash(tableHandle, layoutHandle, columnHandle, split, indexHandle, outputTableHandle, insertTableHandle, tableExecuteHandle, partitioningHandle, transactionHandle);
         }
     }
 }

@@ -20,7 +20,6 @@ import io.trino.server.security.ResourceSecurity;
 import io.trino.spi.QueryId;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.security.AccessDeniedException;
-import io.trino.spi.security.GroupProvider;
 
 import javax.inject.Inject;
 import javax.servlet.http.HttpServletRequest;
@@ -45,7 +44,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.execution.QueryState.QUEUED;
 import static io.trino.security.AccessControlUtil.checkCanViewQueryOwnedBy;
 import static io.trino.security.AccessControlUtil.filterQueries;
-import static io.trino.server.HttpRequestSessionContext.extractAuthorizedIdentity;
 import static io.trino.server.QueryStateInfo.createQueryStateInfo;
 import static io.trino.server.QueryStateInfo.createQueuedQueryStateInfo;
 import static io.trino.server.security.ResourceSecurity.AccessType.AUTHENTICATED_USER;
@@ -58,7 +56,7 @@ public class QueryStateInfoResource
     private final DispatchManager dispatchManager;
     private final ResourceGroupManager<?> resourceGroupManager;
     private final AccessControl accessControl;
-    private final GroupProvider groupProvider;
+    private final HttpRequestSessionContextFactory sessionContextFactory;
     private final Optional<String> alternateHeaderName;
 
     @Inject
@@ -66,13 +64,13 @@ public class QueryStateInfoResource
             DispatchManager dispatchManager,
             ResourceGroupManager<?> resourceGroupManager,
             AccessControl accessControl,
-            GroupProvider groupProvider,
+            HttpRequestSessionContextFactory sessionContextFactory,
             ProtocolConfig protocolConfig)
     {
         this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
         this.resourceGroupManager = requireNonNull(resourceGroupManager, "resourceGroupManager is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
-        this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
+        this.sessionContextFactory = requireNonNull(sessionContextFactory, "sessionContextFactory is null");
         this.alternateHeaderName = protocolConfig.getAlternateHeaderName();
     }
 
@@ -82,7 +80,7 @@ public class QueryStateInfoResource
     public List<QueryStateInfo> getQueryStateInfos(@QueryParam("user") String user, @Context HttpServletRequest servletRequest, @Context HttpHeaders httpHeaders)
     {
         List<BasicQueryInfo> queryInfos = dispatchManager.getQueries();
-        queryInfos = filterQueries(extractAuthorizedIdentity(servletRequest, httpHeaders, alternateHeaderName, accessControl, groupProvider), queryInfos, accessControl);
+        queryInfos = filterQueries(sessionContextFactory.extractAuthorizedIdentity(servletRequest, httpHeaders, alternateHeaderName), queryInfos, accessControl);
 
         if (!isNullOrEmpty(user)) {
             queryInfos = queryInfos.stream()
@@ -118,7 +116,7 @@ public class QueryStateInfoResource
     {
         try {
             BasicQueryInfo queryInfo = dispatchManager.getQueryInfo(new QueryId(queryId));
-            checkCanViewQueryOwnedBy(extractAuthorizedIdentity(servletRequest, httpHeaders, alternateHeaderName, accessControl, groupProvider), queryInfo.getSession().getUser(), accessControl);
+            checkCanViewQueryOwnedBy(sessionContextFactory.extractAuthorizedIdentity(servletRequest, httpHeaders, alternateHeaderName), queryInfo.getSession().getUser(), accessControl);
             return getQueryStateInfo(queryInfo);
         }
         catch (AccessDeniedException e) {

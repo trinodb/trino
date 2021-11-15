@@ -20,7 +20,10 @@ import com.google.cloud.bigquery.storage.v1beta1.BigQueryStorageClient;
 import com.google.cloud.bigquery.storage.v1beta1.ReadOptions;
 import com.google.cloud.bigquery.storage.v1beta1.Storage;
 import com.google.cloud.bigquery.storage.v1beta1.TableReferenceProto;
+import io.airlift.units.Duration;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.TableNotFoundException;
 
 import java.util.List;
 import java.util.Optional;
@@ -32,23 +35,27 @@ import static java.util.stream.Collectors.toList;
 // A helper class, also handles view materialization
 public class ReadSessionCreator
 {
-    private final ReadSessionCreatorConfig config;
     private final BigQueryClient bigQueryClient;
     private final BigQueryStorageClientFactory bigQueryStorageClientFactory;
+    private final boolean viewEnabled;
+    private final Duration viewExpiration;
 
     public ReadSessionCreator(
-            ReadSessionCreatorConfig config,
             BigQueryClient bigQueryClient,
-            BigQueryStorageClientFactory bigQueryStorageClientFactory)
+            BigQueryStorageClientFactory bigQueryStorageClientFactory,
+            boolean viewEnabled,
+            Duration viewExpiration)
     {
-        this.config = config;
         this.bigQueryClient = bigQueryClient;
         this.bigQueryStorageClientFactory = bigQueryStorageClientFactory;
+        this.viewEnabled = viewEnabled;
+        this.viewExpiration = viewExpiration;
     }
 
-    public Storage.ReadSession create(TableId table, List<String> selectedFields, Optional<String> filter, int parallelism)
+    public Storage.ReadSession create(TableId remoteTable, List<String> selectedFields, Optional<String> filter, int parallelism)
     {
-        TableInfo tableDetails = bigQueryClient.getTable(table);
+        TableInfo tableDetails = bigQueryClient.getTable(remoteTable)
+                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(remoteTable.getDataset(), remoteTable.getTable())));
 
         TableInfo actualTable = getActualTable(tableDetails, selectedFields);
 
@@ -89,27 +96,27 @@ public class ReadSessionCreator
     }
 
     private TableInfo getActualTable(
-            TableInfo table,
+            TableInfo remoteTable,
             List<String> requiredColumns)
     {
-        TableDefinition tableDefinition = table.getDefinition();
+        TableDefinition tableDefinition = remoteTable.getDefinition();
         TableDefinition.Type tableType = tableDefinition.getType();
         if (TableDefinition.Type.TABLE == tableType) {
-            return table;
+            return remoteTable;
         }
         if (TableDefinition.Type.VIEW == tableType) {
-            if (!config.viewsEnabled) {
+            if (!viewEnabled) {
                 throw new TrinoException(NOT_SUPPORTED, format(
                         "Views are not enabled. You can enable views by setting '%s' to true. Notice additional cost may occur.",
                         BigQueryConfig.VIEWS_ENABLED));
             }
             // get it from the view
-            return bigQueryClient.getCachedTable(config, table.getTableId(), requiredColumns);
+            return bigQueryClient.getCachedTable(viewExpiration, remoteTable, requiredColumns);
         }
         else {
             // not regular table or a view
             throw new TrinoException(NOT_SUPPORTED, format("Table type '%s' of table '%s.%s' is not supported",
-                    tableType, table.getTableId().getDataset(), table.getTableId().getTable()));
+                    tableType, remoteTable.getTableId().getDataset(), remoteTable.getTableId().getTable()));
         }
     }
 }

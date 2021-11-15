@@ -41,6 +41,30 @@ Drop table::
 
     DROP TABLE memory.default.nation;
 
+.. _memory-sql-support:
+
+SQL support
+-----------
+
+The connector provides read and write access to temporary data and metadata
+stored in memory. In addition to the :ref:`globally available
+<sql-globally-available>` and :ref:`read operation <sql-read-operations>`
+statements, the connector supports the following features:
+
+* :ref:`sql-data-management`
+* :doc:`/sql/create-table`
+* :doc:`/sql/create-table-as`
+* :doc:`/sql/drop-table`
+* :doc:`/sql/create-schema`
+* :doc:`/sql/drop-schema`
+
+DROP TABLE
+^^^^^^^^^^
+
+Upon execution of a ``DROP TABLE`` operation, memory is not released
+immediately. It is instead released after the next write operation to the
+catalog.
+
 .. _memory_dynamic_filtering:
 
 Dynamic filtering
@@ -56,11 +80,11 @@ For the Memory connector, a table scan is delayed until the collection of dynami
 This can be disabled by using the configuration property ``memory.enable-lazy-dynamic-filtering``
 in the catalog file.
 
+
+
 Limitations
 -----------
 
-* After ``DROP TABLE`` memory is not released immediately. It is
-  released after the next write access to memory connector.
 * When one worker fails/restarts, all data that was stored in its
   memory is lost. To prevent silent data loss the
   connector throws an error on any read access to such
