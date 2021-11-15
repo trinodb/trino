@@ -365,7 +365,7 @@ public class ParquetPageSourceFactory
         return Optional.of(new GroupType(baseType.getRepetition(), baseType.getName(), ImmutableList.of(type)));
     }
 
-    private static Optional<ColumnIndexStore> getColumnIndexStore(
+    public static Optional<ColumnIndexStore> getColumnIndexStore(
             ParquetDataSource dataSource,
             BlockMetaData blockMetadata,
             Map<List<String>, RichColumnDescriptor> descriptorsByPath,
