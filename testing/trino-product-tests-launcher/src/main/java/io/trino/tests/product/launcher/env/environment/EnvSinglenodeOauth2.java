@@ -83,8 +83,13 @@ public class EnvSinglenodeOauth2
                 "client_secret_basic",
                 "trinodb_client_id/",
                 "https://presto-master:7778/oauth2/callback,https://localhost:7778/oauth2/callback");
-
         builder.containerDependsOn(COORDINATOR, hydraClientConfig.getLogicalName());
+
+        DockerContainer proxyServerContainer = new DockerContainer("monokal/tinyproxy", "proxy")
+                .withCommand("ANY");
+        builder.addContainer(proxyServerContainer);
+        binder.exposePort(proxyServerContainer, 8888);
+        builder.containerDependsOn(COORDINATOR, proxyServerContainer.getLogicalName());
     }
 
     @Override
