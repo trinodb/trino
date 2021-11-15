@@ -343,7 +343,8 @@ public class StarburstSqlServerClient
             return handle.createQuery("" +
                     "SELECT sum(rows) row_count " +
                     "FROM sys.partitions " +
-                    "WHERE object_id = :object_id")
+                    "WHERE object_id = :object_id " +
+                    "AND index_id IN (0, 1)") // 0 = heap, 1 = clustered index, 2 or greater = non-clustered index
                     .bind("object_id", tableObjectId)
                     .mapTo(Long.class)
                     .findOnly();

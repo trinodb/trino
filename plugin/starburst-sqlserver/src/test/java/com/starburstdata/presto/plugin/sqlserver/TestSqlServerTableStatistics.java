@@ -380,6 +380,42 @@ public class TestSqlServerTableStatistics
         }
     }
 
+    @Test
+    public void testShowStatsAfterCreateIndex()
+    {
+        String tableName = "test_stats_create_index";
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        computeActual(format("CREATE TABLE %s AS SELECT * FROM tpch.tiny.orders", tableName));
+
+        String expected = "VALUES " +
+                "('orderkey', null, 15000, 0, null, null, null)," +
+                "('custkey', null, 1000, 0, null, null, null)," +
+                "('orderstatus', 30000, 3, 0, null, null, null)," +
+                "('totalprice', null, 14996, 0, null, null, null)," +
+                "('orderdate', null, 2401, 0, null, null, null)," +
+                "('orderpriority', 252376, 5, 0, null, null, null)," +
+                "('clerk', 450000, 1000, 0, null, null, null)," +
+                "('shippriority', null, 1, 0, null, null, null)," +
+                "('comment', 1454727, 14994, 0, null, null, null)," +
+                "(null, null, null, null, 15000, null, null)";
+
+        try {
+            gatherStats(tableName);
+            assertQuery("SHOW STATS FOR " + tableName, expected);
+
+            // CREATE INDEX statement updates sys.partitions table
+            sqlServer.execute(format("CREATE INDEX idx ON %s (orderkey)", tableName));
+            sqlServer.execute(format("CREATE UNIQUE INDEX unique_index ON %s (orderkey)", tableName));
+            sqlServer.execute(format("CREATE CLUSTERED INDEX clustered_index ON %s (orderkey)", tableName));
+            sqlServer.execute(format("CREATE NONCLUSTERED INDEX non_clustered_index ON %s (orderkey)", tableName));
+
+            assertQuery("SHOW STATS FOR " + tableName, expected);
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
+    }
+
     @Override
     protected void gatherStats(String tableName)
     {
