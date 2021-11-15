@@ -155,15 +155,11 @@ public class BigQueryMetadata
             Iterable<Table> tables = bigQueryClient.listTables(DatasetId.of(projectId, remoteSchemaName), TABLE, VIEW);
             for (Table table : tables) {
                 // filter ambiguous tables
-                boolean isAmbiguous = bigQueryClient.toRemoteTable(projectId, remoteSchemaName, table.getTableId().getTable().toLowerCase(ENGLISH), tables)
+                bigQueryClient.toRemoteTable(projectId, remoteSchemaName, table.getTableId().getTable().toLowerCase(ENGLISH), tables)
                         .filter(RemoteDatabaseObject::isAmbiguous)
-                        .isPresent();
-                if (!isAmbiguous) {
-                    tableNames.add(new SchemaTableName(table.getTableId().getDataset(), table.getTableId().getTable()));
-                }
-                else {
-                    log.debug("Filtered out [%s.%s] from list of tables due to ambiguous name", remoteSchemaName, table.getTableId().getTable());
-                }
+                        .ifPresentOrElse(
+                                remoteTable -> log.debug("Filtered out [%s.%s] from list of tables due to ambiguous name", remoteSchemaName, table.getTableId().getTable()),
+                                () -> tableNames.add(new SchemaTableName(table.getTableId().getDataset(), table.getTableId().getTable())));
             }
         }
         return tableNames.build();
