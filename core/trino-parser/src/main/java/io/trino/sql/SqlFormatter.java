@@ -79,6 +79,7 @@ import io.trino.sql.tree.PrincipalSpecification;
 import io.trino.sql.tree.Property;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Query;
+import io.trino.sql.tree.QueryPeriod;
 import io.trino.sql.tree.QuerySpecification;
 import io.trino.sql.tree.RefreshMaterializedView;
 import io.trino.sql.tree.Relation;
@@ -462,7 +463,16 @@ public final class SqlFormatter
         protected Void visitTable(Table node, Integer indent)
         {
             builder.append(formatName(node.getName()));
+            if (node.getQueryPeriod().isPresent()) {
+                builder.append(" " + node.getQueryPeriod().get().toString());
+            }
+            return null;
+        }
 
+        @Override
+        protected Void visitQueryPeriod(QueryPeriod node, Integer indent)
+        {
+            builder.append("FOR " + node.getRangeType().name() + " AS OF " + formatExpression(node.getEnd().get()));
             return null;
         }
 

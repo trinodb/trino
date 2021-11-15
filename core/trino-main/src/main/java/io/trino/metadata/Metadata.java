@@ -748,4 +748,19 @@ public interface Metadata
      * Get the target table handle after performing redirection.
      */
     RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName);
+
+    /**
+     * Get the target table handle after performing redirection with a table version.
+     */
+    RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion);
+
+    /**
+     * Verifies that a version is valid for a given table
+     */
+    boolean isValidTableVersion(Session session, QualifiedObjectName tableName, TableVersion version);
+
+    /**
+     * Returns a table handle for the specified table name with a specified version
+     */
+    Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion);
 }

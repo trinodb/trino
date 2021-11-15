@@ -127,6 +127,7 @@ import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.QuantifiedComparisonExpression;
 import io.trino.sql.tree.QuantifiedPattern;
 import io.trino.sql.tree.Query;
+import io.trino.sql.tree.QueryPeriod;
 import io.trino.sql.tree.QuerySpecification;
 import io.trino.sql.tree.RangeQuantifier;
 import io.trino.sql.tree.RefreshMaterializedView;
@@ -3541,6 +3542,70 @@ public class TestSqlParser
                         ImmutableList.of(
                                 new UpdateAssignment(new Identifier("bar"), new LongLiteral("23"))),
                         Optional.empty()));
+    }
+
+    @Test
+    public void testQueryPeriod()
+    {
+        Expression rangeValue = new TimestampLiteral(location(1, 37), "2021-03-01 00:00:01");
+        QueryPeriod queryPeriod = new QueryPeriod(location(1, 17), QueryPeriod.RangeType.TIMESTAMP, rangeValue);
+        Table table = new Table(location(1, 15), qualifiedName(location(1, 15), "t"), queryPeriod);
+        assertThat(statement("SELECT * FROM t FOR TIMESTAMP AS OF TIMESTAMP '2021-03-01 00:00:01'"))
+                .isEqualTo(
+                        new Query(
+                                location(1, 1),
+                                Optional.empty(),
+                                new QuerySpecification(
+                                        location(1, 1),
+                                        new Select(
+                                                location(1, 1),
+                                                false,
+                                                ImmutableList.of(
+                                                        new AllColumns(
+                                                                location(1, 8),
+                                                                Optional.empty(),
+                                                                ImmutableList.of()))),
+                                        Optional.of(table),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        ImmutableList.of(),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty()),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()));
+
+        rangeValue = new StringLiteral(location(1, 35), "version1");
+        queryPeriod = new QueryPeriod(new NodeLocation(1, 17), QueryPeriod.RangeType.VERSION, rangeValue);
+        table = new Table(location(1, 15), qualifiedName(location(1, 15), "t"), queryPeriod);
+        assertThat(statement("SELECT * FROM t FOR VERSION AS OF 'version1'"))
+                .isEqualTo(
+                        new Query(
+                                location(1, 1),
+                                Optional.empty(),
+                                new QuerySpecification(
+                                        location(1, 1),
+                                        new Select(
+                                                location(1, 1),
+                                                false,
+                                                ImmutableList.of(
+                                                        new AllColumns(
+                                                                location(1, 8),
+                                                                Optional.empty(),
+                                                                ImmutableList.of()))),
+                                        Optional.of(table),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        ImmutableList.of(),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty()),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()));
     }
 
     @Test

@@ -48,7 +48,7 @@ public class TestSqlParserErrorHandling
                 {"select * from 'oops",
                         "line 1:15: mismatched input '''. Expecting: '(', 'LATERAL', 'UNNEST', <identifier>"},
                 {"select *\nfrom x\nfrom",
-                        "line 3:1: mismatched input 'from'. Expecting: ',', '.', 'AS', 'CROSS', 'EXCEPT', 'FETCH', 'FULL', 'GROUP', 'HAVING', 'INNER', 'INTERSECT', 'JOIN', 'LEFT', " +
+                        "line 3:1: mismatched input 'from'. Expecting: ',', '.', 'AS', 'CROSS', 'EXCEPT', 'FETCH', 'FOR', 'FULL', 'GROUP', 'HAVING', 'INNER', 'INTERSECT', 'JOIN', 'LEFT', " +
                                 "'LIMIT', 'MATCH_RECOGNIZE', 'NATURAL', 'OFFSET', 'ORDER', 'RIGHT', 'TABLESAMPLE', 'UNION', 'WHERE', 'WINDOW', <EOF>, <identifier>"},
                 {"select *\nfrom x\nwhere from",
                         "line 3:7: mismatched input 'from'. Expecting: <expression>"},
@@ -142,7 +142,13 @@ public class TestSqlParserErrorHandling
                 {"SHOW FUNCTIONS LIKE '%$_%' ESCAPE",
                         "line 1:34: mismatched input '<EOF>'. Expecting: <string>"},
                 {"SHOW SESSION LIKE '%$_%' ESCAPE",
-                        "line 1:32: mismatched input '<EOF>'. Expecting: <string>"}
+                        "line 1:32: mismatched input '<EOF>'. Expecting: <string>"},
+                {"SELECT * FROM t FOR TIMESTAMP ",
+                        "line 1:31: mismatched input '<EOF>'. Expecting: 'AS'"},
+                {"SELECT * FROM t FOR TIMESTAMP AS OF TIMESTAMP WHERE",
+                        "line 1:52: mismatched input '<EOF>'. Expecting: <expression>"},
+                {"SELECT * FROM t FOR VERSION AS OF TIMESTAMP WHERE",
+                        "line 1:50: mismatched input '<EOF>'. Expecting: <expression>"}
         };
     }
 
