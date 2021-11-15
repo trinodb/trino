@@ -326,6 +326,41 @@ public class TestSynapseTableStatistics
         }
     }
 
+    @Test
+    public void testShowStatsAfterCreateIndex()
+    {
+        String tableName = "test_stats_create_index_" + randomTableSuffix();
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        computeActual(format("CREATE TABLE %s AS SELECT * FROM tpch.tiny.nation", tableName));
+
+        try {
+            gatherStats(tableName);
+            assertThat(showStats(tableName))
+                    .get()
+                    .returns(Estimate.of(25), from(TableStatistics::getRowCount))
+                    .extracting(TableStatistics::getColumnStatistics, InstanceOfAssertFactories.map(ColumnHandle.class, ColumnStatistics.class))
+                    .hasEntrySatisfying(handle("nationkey"), statsCloseTo(25, 0, Double.NaN))
+                    .hasEntrySatisfying(handle("name"), statsCloseTo(25, 0, 353))
+                    .hasEntrySatisfying(handle("regionkey"), statsCloseTo(5, 0, Double.NaN))
+                    .hasEntrySatisfying(handle("comment"), statsCloseTo(25, 0, 3713));
+
+            // CREATE INDEX statement updates sys.partitions table
+            synapseServer.execute(format("CREATE INDEX unique_index ON %s (nationkey)", tableName));
+
+            assertThat(showStats(tableName))
+                    .get()
+                    .returns(Estimate.of(25), from(TableStatistics::getRowCount))
+                    .extracting(TableStatistics::getColumnStatistics, InstanceOfAssertFactories.map(ColumnHandle.class, ColumnStatistics.class))
+                    .hasEntrySatisfying(handle("nationkey"), statsCloseTo(25, 0, Double.NaN))
+                    .hasEntrySatisfying(handle("name"), statsCloseTo(25, 0, 353))
+                    .hasEntrySatisfying(handle("regionkey"), statsCloseTo(5, 0, Double.NaN))
+                    .hasEntrySatisfying(handle("comment"), statsCloseTo(25, 0, 3713));
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
+    }
+
     private ColumnHandle handle(String name)
     {
         return new TestingColumnHandle(name);
