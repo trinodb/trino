@@ -391,9 +391,7 @@ class StatementAnalyzer
         {
             Scope returnScope = super.process(node, scope);
             checkState(returnScope.getOuterQueryParent().equals(outerQueryScope), "result scope should have outer query scope equal with parameter outer query scope");
-            if (scope.isPresent()) {
-                checkState(hasScopeAsLocalParent(returnScope, scope.get()), "return scope should have context scope as one of its ancestors");
-            }
+            scope.ifPresent(value -> checkState(hasScopeAsLocalParent(returnScope, value), "return scope should have context scope as one of its ancestors"));
             return returnScope;
         }
 
