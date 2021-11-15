@@ -31,6 +31,8 @@ import static java.util.Objects.requireNonNull;
 public class ColumnMetadata
 {
     private final String name;
+    // If a mapping from columnName (remote) to mappedName exists, it will be here
+    private final Optional<String> mappedName;
     private final Type type;
     private final boolean nullable;
     private final String comment;
@@ -40,7 +42,7 @@ public class ColumnMetadata
 
     public ColumnMetadata(String name, Type type)
     {
-        this(name, type, true, null, null, false, emptyMap());
+        this(name, null, type, true, null, null, false, emptyMap());
     }
 
     /**
@@ -49,7 +51,7 @@ public class ColumnMetadata
     @Deprecated
     public ColumnMetadata(String name, Type type, String comment)
     {
-        this(name, type, true, comment, null, false, emptyMap());
+        this(name, null, type, true, comment, null, false, emptyMap());
     }
 
     /**
@@ -58,7 +60,7 @@ public class ColumnMetadata
     @Deprecated
     public ColumnMetadata(String name, Type type, String comment, boolean hidden)
     {
-        this(name, type, true, comment, null, hidden, emptyMap());
+        this(name, null, type, true, comment, null, hidden, emptyMap());
     }
 
     /**
@@ -67,7 +69,7 @@ public class ColumnMetadata
     @Deprecated
     public ColumnMetadata(String name, Type type, String comment, String extraInfo, boolean hidden)
     {
-        this(name, type, true, comment, extraInfo, hidden, emptyMap());
+        this(name, null, type, true, comment, extraInfo, hidden, emptyMap());
     }
 
     /**
@@ -76,20 +78,21 @@ public class ColumnMetadata
     @Deprecated
     public ColumnMetadata(String name, Type type, String comment, String extraInfo, boolean hidden, Map<String, Object> properties)
     {
-        this(name, type, true, comment, extraInfo, hidden, properties);
+        this(name, null, type, true, comment, extraInfo, hidden, properties);
     }
 
     /**
      * @deprecated Use {@link #builder()} instead.
      */
     @Deprecated
-    public ColumnMetadata(String name, Type type, boolean nullable, String comment, String extraInfo, boolean hidden, Map<String, Object> properties)
+    public ColumnMetadata(String name, String mappedName, Type type, boolean nullable, String comment, String extraInfo, boolean hidden, Map<String, Object> properties)
     {
         checkNotEmpty(name, "name");
         requireNonNull(type, "type is null");
         requireNonNull(properties, "properties is null");
 
         this.name = name.toLowerCase(ENGLISH);
+        this.mappedName = mappedName == null ? Optional.empty() : Optional.of(mappedName);
         this.type = type;
         this.comment = comment;
         this.extraInfo = extraInfo;
@@ -101,6 +104,16 @@ public class ColumnMetadata
     public String getName()
     {
         return name;
+    }
+
+    public Optional<String> getMappedName()
+    {
+        return mappedName;
+    }
+
+    public String getMappedNameOrName()
+    {
+        return mappedName.orElse(name);
     }
 
     public Type getType()
@@ -146,6 +159,9 @@ public class ColumnMetadata
     {
         StringBuilder sb = new StringBuilder("ColumnMetadata{");
         sb.append("name='").append(name).append('\'');
+        if (!mappedName.isEmpty()) {
+            sb.append("mappedName='").append(mappedName).append('\'');
+        }
         sb.append(", type=").append(type);
         sb.append(", ").append(nullable ? "nullable" : "nonnull");
         if (comment != null) {
@@ -201,6 +217,7 @@ public class ColumnMetadata
     public static class Builder
     {
         private String name;
+        private Optional<String> mappedName = Optional.empty();
         private Type type;
         private boolean nullable = true;
         private Optional<String> comment = Optional.empty();
@@ -213,6 +230,7 @@ public class ColumnMetadata
         private Builder(ColumnMetadata columnMetadata)
         {
             this.name = columnMetadata.getName();
+            this.mappedName = columnMetadata.mappedName;
             this.type = columnMetadata.getType();
             this.nullable = columnMetadata.isNullable();
             this.comment = Optional.ofNullable(columnMetadata.getComment());
@@ -224,6 +242,18 @@ public class ColumnMetadata
         public Builder setName(String name)
         {
             this.name = requireNonNull(name, "name is null");
+            return this;
+        }
+
+        public Builder setMappedName(String mappedName)
+        {
+            this.mappedName = Optional.of(requireNonNull(mappedName, "name is null"));
+            return this;
+        }
+
+        public Builder setMappedName(Optional<String> mappedName)
+        {
+            this.mappedName = mappedName;
             return this;
         }
 
@@ -267,6 +297,7 @@ public class ColumnMetadata
         {
             return new ColumnMetadata(
                     name,
+                    mappedName.orElse(null),
                     type,
                     nullable,
                     comment.orElse(null),

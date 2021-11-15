@@ -268,6 +268,9 @@ public abstract class BaseJdbcClient
                 ResultSet resultSet = getColumns(tableHandle, connection.getMetaData())) {
             int allColumns = 0;
             List<JdbcColumnHandle> columns = new ArrayList<>();
+            String remoteSchemaName = identifierMapping.toRemoteSchemaName(session.getIdentity(), connection, schemaTableName.getSchemaName());
+            String remoteTableNameString = identifierMapping.toRemoteTableName(session.getIdentity(), connection, remoteSchemaName, schemaTableName.getTableName());
+
             while (resultSet.next()) {
                 // skip if table doesn't match expected
                 if (!(Objects.equals(remoteTableName, getRemoteTable(resultSet)))) {
@@ -275,6 +278,7 @@ public abstract class BaseJdbcClient
                 }
                 allColumns++;
                 String columnName = resultSet.getString("COLUMN_NAME");
+                String mappedColumnName = identifierMapping.fromRemoteColumnName(remoteSchemaName, remoteTableNameString, columnName);
                 JdbcTypeHandle typeHandle = new JdbcTypeHandle(
                         getInteger(resultSet, "DATA_TYPE").orElseThrow(() -> new IllegalStateException("DATA_TYPE is null")),
                         Optional.ofNullable(resultSet.getString("TYPE_NAME")),
@@ -290,6 +294,7 @@ public abstract class BaseJdbcClient
                 // skip unsupported column types
                 columnMapping.ifPresent(mapping -> columns.add(JdbcColumnHandle.builder()
                         .setColumnName(columnName)
+                        .setMappedColumnName(mappedColumnName)
                         .setJdbcTypeHandle(typeHandle)
                         .setColumnType(mapping.getType())
                         .setNullable(nullable)
@@ -584,7 +589,7 @@ public abstract class BaseJdbcClient
             ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
             ImmutableList.Builder<JdbcTypeHandle> jdbcColumnTypes = ImmutableList.builder();
             for (JdbcColumnHandle column : columns) {
-                columnNames.add(column.getColumnName());
+                columnNames.add(identifierMapping.toRemoteColumnName(connection, remoteSchema, remoteTable, column.getColumnName()));
                 columnTypes.add(column.getColumnType());
                 jdbcColumnTypes.add(column.getJdbcTypeHandle());
             }
@@ -712,7 +717,7 @@ public abstract class BaseJdbcClient
     {
         try (Connection connection = connectionFactory.openConnection(session)) {
             String columnName = column.getName();
-            String remoteColumnName = toRemoteColumnName(connection, getIdentifierMapping(), handle, columnName);
+            String remoteColumnName = toRemoteColumnName(session.getIdentity(), connection, getIdentifierMapping(), handle, columnName);
             String sql = format(
                     "ALTER TABLE %s ADD %s",
                     quoted(handle.asPlainTable().getRemoteTableName()),
@@ -729,7 +734,7 @@ public abstract class BaseJdbcClient
     {
         try (Connection connection = connectionFactory.openConnection(session)) {
             String columnName = jdbcColumn.getColumnName();
-            String newRemoteColumnName = toRemoteColumnName(connection, getIdentifierMapping(), handle, columnName);
+            String newRemoteColumnName = toRemoteColumnName(session.getIdentity(), connection, getIdentifierMapping(), handle, columnName);
             String sql = format(
                     "ALTER TABLE %s RENAME COLUMN %s TO %s",
                     quoted(handle.asPlainTable().getRemoteTableName()),
@@ -1063,10 +1068,12 @@ public abstract class BaseJdbcClient
         return name.map(string -> escapeNamePattern(string, escape));
     }
 
-    protected static String toRemoteColumnName(Connection connection, IdentifierMapping identifierMapping, JdbcTableHandle handle, String columnName)
+    protected static String toRemoteColumnName(ConnectorIdentity identity, Connection connection, IdentifierMapping identifierMapping, JdbcTableHandle handle, String columnName)
     {
         SchemaTableName schemaTableName = handle.asPlainTable().getSchemaTableName();
-        return identifierMapping.toRemoteColumnName(connection, schemaTableName.getSchemaName(), schemaTableName.getTableName(), columnName);
+        String remoteSchemaName = identifierMapping.toRemoteSchemaName(identity, connection, schemaTableName.getSchemaName());
+        String remoteTableName = identifierMapping.toRemoteTableName(identity, connection, remoteSchemaName, schemaTableName.getTableName());
+        return identifierMapping.toRemoteColumnName(connection, remoteSchemaName, remoteTableName, columnName);
     }
 
     private static String escapeNamePattern(String name, String escape)

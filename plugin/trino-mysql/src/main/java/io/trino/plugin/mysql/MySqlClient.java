@@ -485,7 +485,7 @@ public class MySqlClient
     public void renameColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
     {
         try (Connection connection = connectionFactory.openConnection(session)) {
-            String newRemoteColumnName = toRemoteColumnName(connection, getIdentifierMapping(), handle, newColumnName);
+            String newRemoteColumnName = toRemoteColumnName(session.getIdentity(), connection, getIdentifierMapping(), handle, newColumnName);
             String sql = format(
                     "ALTER TABLE %s RENAME COLUMN %s TO %s",
                     quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName()),

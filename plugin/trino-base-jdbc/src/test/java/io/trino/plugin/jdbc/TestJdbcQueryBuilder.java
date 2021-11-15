@@ -539,6 +539,7 @@ public class TestJdbcQueryBuilder
                 this.columns.get(2),
                 new JdbcColumnHandle(
                         "s",
+                        Optional.empty(),
                         JDBC_BIGINT,
                         BIGINT,
                         true,
@@ -582,6 +583,7 @@ public class TestJdbcQueryBuilder
                 this.columns.get(2),
                 new JdbcColumnHandle(
                         "s",
+                        Optional.empty(),
                         JDBC_BIGINT,
                         BIGINT,
                         true,

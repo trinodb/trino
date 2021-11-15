@@ -406,7 +406,7 @@ public class MemSqlClient
     public void renameColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
     {
         try (Connection connection = connectionFactory.openConnection(session)) {
-            String newRemoteColumnName = toRemoteColumnName(connection, getIdentifierMapping(), handle, newColumnName);
+            String newRemoteColumnName = toRemoteColumnName(session.getIdentity(), connection, getIdentifierMapping(), handle, newColumnName);
             // MemSQL versions earlier than 5.7 do not support the CHANGE syntax
             String sql = format(
                     "ALTER TABLE %s CHANGE %s %s",

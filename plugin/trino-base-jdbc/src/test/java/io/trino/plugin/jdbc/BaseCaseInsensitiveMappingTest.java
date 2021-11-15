@@ -324,9 +324,14 @@ public abstract class BaseCaseInsensitiveMappingTest
 
         try (AutoCloseable ignore1 = withSchema("remote_schema");
              AutoCloseable ignore2 = withTable("remote_schema", "remote_table", "(remoteColumn varchar(5))")) {
+            assertTableColumnNames("remote_schema.remote_table", "remote_column");
             assertQuery("SHOW COLUMNS FROM remote_schema.remote_table", "SELECT 'remote_column', 'varchar(5)', '', ''");
-            assertUpdate("INSERT INTO trino_schema.trino_table VALUES 'dane'", 1);
-            assertQuery("SELECT * FROM trino_schema.trino_table", "VALUES 'dane'");
+            assertUpdate("INSERT INTO remote_schema.remote_table VALUES 'grant'", 1);
+            assertUpdate("INSERT INTO remote_schema.remote_table (remote_column) VALUES 'santa'", 1);
+            assertQueryFails("INSERT INTO remote_schema.remote_table (remoteColumn) VALUES 'athing'", "Insert column name does not exist in target table: remotecolumn");
+            assertQuery("SELECT * FROM remote_schema.remote_table", "VALUES 'grant', 'santa'");
+            assertQuery("SELECT remote_column FROM remote_schema.remote_table", "VALUES 'grant', 'santa'");
+            assertQuery("WITH tmp as (select remote_column FROM remote_schema.remote_table) select * from tmp", "VALUES 'grant', 'santa'");
         }
     }
 

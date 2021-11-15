@@ -30,7 +30,7 @@ public class TestJdbcColumnHandle
     @Test
     public void testJsonRoundTrip()
     {
-        assertJsonRoundTrip(COLUMN_CODEC, new JdbcColumnHandle("columnName", JDBC_VARCHAR, VARCHAR, true, Optional.of("some comment")));
+        assertJsonRoundTrip(COLUMN_CODEC, new JdbcColumnHandle("columnName", Optional.empty(), JDBC_VARCHAR, VARCHAR, true, Optional.of("some comment")));
     }
 
     @Test

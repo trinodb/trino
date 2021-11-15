@@ -124,7 +124,7 @@ public class TestDefaultJdbcMetadata
         ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(SESSION, tableHandle);
         assertEquals(tableMetadata.getTable(), new SchemaTableName("example", "numbers"));
         assertEquals(tableMetadata.getColumns(), ImmutableList.of(
-                new ColumnMetadata("text", VARCHAR, false, null, null, false, emptyMap()), // primary key is not null in H2
+                new ColumnMetadata("text", null, VARCHAR, false, null, null, false, emptyMap()), // primary key is not null in H2
                 new ColumnMetadata("text_short", createVarcharType(32)),
                 new ColumnMetadata("value", BIGINT)));
 
@@ -133,7 +133,7 @@ public class TestDefaultJdbcMetadata
         ConnectorTableMetadata specialTableMetadata = metadata.getTableMetadata(SESSION, specialTableHandle);
         assertEquals(specialTableMetadata.getTable(), new SchemaTableName("exa_ple", "num_ers"));
         assertEquals(specialTableMetadata.getColumns(), ImmutableList.of(
-                new ColumnMetadata("te_t", VARCHAR, false, null, null, false, emptyMap()), // primary key is not null in H2
+                new ColumnMetadata("te_t", null, VARCHAR, false, null, null, false, emptyMap()), // primary key is not null in H2
                 new ColumnMetadata("va%ue", BIGINT)));
 
         // unknown tables should produce null

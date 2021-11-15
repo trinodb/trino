@@ -462,20 +462,26 @@ class StatementAnalyzer
 
             List<String> insertColumns;
             if (insert.getColumns().isPresent()) {
+                // Insert column names will be using mapped names (if they exist), need to undo the mapping
+                Map<String, String> mappedNameToColumnName = columns.stream().collect(toImmutableMap(
+                        ColumnSchema::getMappedNameOrName,
+                        ColumnSchema::getName
+                ));
+                Set<String> columnNames = new HashSet<>();
                 insertColumns = insert.getColumns().get().stream()
                         .map(Identifier::getValue)
                         .map(column -> column.toLowerCase(ENGLISH))
+                        .map(insertColumn -> {
+                            String columnName = mappedNameToColumnName.get(insertColumn);
+                            if(columnName == null){
+                                throw semanticException(COLUMN_NOT_FOUND, insert, "Insert column name does not exist in target table: %s", insertColumn);
+                            }
+                            if (!columnNames.add(columnName)) {
+                                throw semanticException(DUPLICATE_COLUMN_NAME, insert, "Insert column name is specified more than once: %s", insertColumn);
+                            }
+                            return columnName;
+                        })
                         .collect(toImmutableList());
-
-                Set<String> columnNames = new HashSet<>();
-                for (String insertColumn : insertColumns) {
-                    if (!tableColumns.contains(insertColumn)) {
-                        throw semanticException(COLUMN_NOT_FOUND, insert, "Insert column name does not exist in target table: %s", insertColumn);
-                    }
-                    if (!columnNames.add(insertColumn)) {
-                        throw semanticException(DUPLICATE_COLUMN_NAME, insert, "Insert column name is specified more than once: %s", insertColumn);
-                    }
-                }
             }
             else {
                 insertColumns = tableColumns;
@@ -1804,9 +1810,10 @@ class StatementAnalyzer
             // TODO: discover columns lazily based on where they are needed (to support connectors that can't enumerate all tables)
             ImmutableList.Builder<Field> fields = ImmutableList.builder();
             for (ColumnSchema column : tableSchema.getColumns()) {
-                Field field = Field.newQualified(
-                        table.getName(),
+                Field field = new Field(
+                        Optional.of(table.getName()),
                         Optional.of(column.getName()),
+                        column.getMappedName(),
                         column.getType(),
                         column.isHidden(),
                         Optional.of(tableName),
@@ -1969,6 +1976,7 @@ class StatementAnalyzer
             return new Field(
                     Optional.empty(),
                     field.getName(),
+                    field.getMappedName(),
                     field.getType(),
                     false,
                     field.getOriginTable(),
@@ -1981,6 +1989,7 @@ class StatementAnalyzer
             return new Field(
                     Optional.empty(),
                     field.getName(),
+                    field.getMappedName(),
                     field.getType(),
                     field.isHidden(),
                     field.getOriginTable(),
@@ -2260,6 +2269,7 @@ class StatementAnalyzer
                 outputDescriptorFields[i] = new Field(
                         oldField.getRelationAlias(),
                         oldField.getName(),
+                        oldField.getMappedName(),
                         outputFieldTypes[i],
                         oldField.isHidden(),
                         oldField.getOriginTable(),
@@ -3231,6 +3241,7 @@ class StatementAnalyzer
                 Field newField = new Field(
                         field.getRelationAlias(),
                         alias,
+                        field.getMappedName(),
                         field.getType(),
                         false,
                         field.getOriginTable(),
