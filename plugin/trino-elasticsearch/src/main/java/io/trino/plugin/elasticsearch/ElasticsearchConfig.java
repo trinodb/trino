@@ -79,7 +79,6 @@ public class ElasticsearchConfig
     private boolean unionSchemaIndicesForAlias;
     private int maxNumberOfIndicesForAliasSchema;
     private boolean failOnAliasSchemaMismatch;
-    private String dataTypeForAliasSchemaMismatch;
 
     private Duration indexMetaDataCacheTtl = new Duration(1, MINUTES);
     private long indexMetaDataCacheMaximumSize = 1000;
