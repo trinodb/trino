@@ -66,12 +66,6 @@ public class CreateViewTask
     }
 
     @Override
-    public String explain(CreateView statement, List<Expression> parameters)
-    {
-        return "CREATE VIEW " + statement.getName();
-    }
-
-    @Override
     public ListenableFuture<Void> execute(
             CreateView statement,
             TransactionManager transactionManager,
