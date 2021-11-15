@@ -79,6 +79,7 @@ import io.trino.spi.connector.ConnectorTableLayoutResult;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.ConnectorTableSchema;
+import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.Constraint;
@@ -383,6 +384,12 @@ public final class MetadataManager
     @Override
     public Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName table)
     {
+        return getTableHandle(session, table, Optional.empty(), Optional.empty());
+    }
+
+    @Override
+    public Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName table, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion)
+    {
         requireNonNull(table, "table is null");
 
         if (table.getCatalogName().isEmpty() || table.getSchemaName().isEmpty() || table.getObjectName().isEmpty()) {
@@ -395,6 +402,21 @@ public final class MetadataManager
             ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
 
             ConnectorSession connectorSession = session.toConnectorSession(catalogName);
+
+            // GetTableHandle with the optional version handle field will throw an error if it is not implemented, so only try calling it when we have a version
+            if (startVersion.isPresent() || endVersion.isPresent()) {
+                ConnectorTableHandle versionedTableHandle = metadata.getTableHandle(
+                        connectorSession,
+                        table.asSchemaTableName(),
+                        toConnectorVersion(startVersion),
+                        toConnectorVersion(endVersion));
+                return Optional.ofNullable(versionedTableHandle)
+                        .map(connectorTableHandle -> new TableHandle(
+                                catalogName,
+                                connectorTableHandle,
+                                catalogMetadata.getTransactionHandleFor(catalogName),
+                                Optional.empty()));
+            }
 
             return Optional.ofNullable(metadata.getTableHandle(connectorSession, table.asSchemaTableName()))
                     .map(connectorTableHandle -> new TableHandle(
@@ -1552,12 +1574,18 @@ public final class MetadataManager
     @Override
     public RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName)
     {
+        return getRedirectionAwareTableHandle(session, tableName, Optional.empty(), Optional.empty());
+    }
+
+    @Override
+    public RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion)
+    {
         QualifiedObjectName targetTableName = getRedirectedTableName(session, tableName);
         if (targetTableName.equals(tableName)) {
-            return noRedirection(getTableHandle(session, tableName));
+            return noRedirection(getTableHandle(session, tableName, startVersion, endVersion));
         }
 
-        Optional<TableHandle> tableHandle = getTableHandle(session, targetTableName);
+        Optional<TableHandle> tableHandle = getTableHandle(session, targetTableName, startVersion, endVersion);
         if (tableHandle.isPresent()) {
             return withRedirectionTo(targetTableName, tableHandle.get());
         }
@@ -2811,6 +2839,31 @@ public final class MetadataManager
                 catalogMetadata.getMetadata().cleanupQuery(connectorSession);
             }
         }
+    }
+
+    @Override
+    public boolean isValidTableVersion(Session session, QualifiedObjectName tableName, TableVersion version)
+    {
+        requireNonNull(version, "Version must not be null for table " + tableName);
+
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, tableName.getCatalogName());
+        if (!catalog.isPresent()) {
+            return false;
+        }
+
+        CatalogMetadata catalogMetadata = catalog.get();
+        CatalogName connectorId = catalogMetadata.getConnectorId(session, tableName);
+        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
+        return metadata.isSupportedVersionType(session.toConnectorSession(), tableName.asSchemaTableName(), version.getPointerType(), version.getObjectType());
+    }
+
+    private Optional<ConnectorTableVersion> toConnectorVersion(Optional<TableVersion> version)
+    {
+        Optional<ConnectorTableVersion> connectorVersion = Optional.empty();
+        if (version.isPresent()) {
+            connectorVersion = Optional.of(new ConnectorTableVersion(version.get().getPointerType(), version.get().getObjectType(), version.get().getPointer()));
+        }
+        return connectorVersion;
     }
 
     private static class OperatorCacheKey

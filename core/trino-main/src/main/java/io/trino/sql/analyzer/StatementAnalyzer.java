@@ -37,6 +37,7 @@ import io.trino.metadata.TableExecuteHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
 import io.trino.metadata.TableSchema;
+import io.trino.metadata.TableVersion;
 import io.trino.security.AccessControl;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.security.ViewAccessControl;
@@ -51,6 +52,7 @@ import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.ConnectorViewDefinition.ViewColumn;
+import io.trino.spi.connector.PointerType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.function.OperatorType;
@@ -60,8 +62,11 @@ import io.trino.spi.security.Identity;
 import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
+import io.trino.spi.type.DateType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
+import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeNotFoundException;
 import io.trino.spi.type.VarcharType;
@@ -142,6 +147,7 @@ import io.trino.sql.tree.Prepare;
 import io.trino.sql.tree.Property;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Query;
+import io.trino.sql.tree.QueryPeriod;
 import io.trino.sql.tree.QuerySpecification;
 import io.trino.sql.tree.RefreshMaterializedView;
 import io.trino.sql.tree.Relation;
@@ -287,6 +293,7 @@ import static io.trino.sql.analyzer.Scope.BasisType.TABLE;
 import static io.trino.sql.analyzer.ScopeReferenceExtractor.getReferencesToScope;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.DereferenceExpression.getQualifiedName;
 import static io.trino.sql.tree.Join.Type.FULL;
@@ -1479,7 +1486,7 @@ class StatementAnalyzer
             }
 
             // This can only be a table
-            RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, name);
+            RedirectionAwareTableHandle redirection = getTableHandle(table, name, scope);
             Optional<TableHandle> tableHandle = redirection.getTableHandle();
             QualifiedObjectName targetTableName = redirection.getRedirectedTableName().orElse(name);
             analysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), targetTableName);
@@ -4137,7 +4144,7 @@ class StatementAnalyzer
                 Expression providedValue = analysis.getParameters().get(NodeRef.of(parameter));
                 Object value;
                 try {
-                    value = ExpressionInterpreter.evaluateConstantExpression(
+                    value = evaluateConstantExpression(
                             providedValue,
                             BIGINT,
                             metadata,
@@ -4204,6 +4211,83 @@ class StatementAnalyzer
         private OutputColumn createOutputColumn(Field field)
         {
             return new OutputColumn(new Column(field.getName().orElseThrow(), field.getType().toString()), analysis.getSourceColumns(field));
+        }
+
+        /**
+         * Helper function that analyzes any versioning and returns the appropriate table handle.
+         * If no for clause exists, this is just a wrapper around getRedirectionAwareTableHandle in MetadataManager.
+         */
+        private RedirectionAwareTableHandle getTableHandle(Table table, QualifiedObjectName name, Optional<Scope> scope)
+        {
+            if (table.getQueryPeriod().isPresent()) {
+                Optional<TableVersion> startVersion = extractTableVersion(table, name, table.getQueryPeriod().get().getStart(), scope);
+                Optional<TableVersion> endVersion = extractTableVersion(table, name, table.getQueryPeriod().get().getEnd(), scope);
+                return metadata.getRedirectionAwareTableHandle(session, name, startVersion, endVersion);
+            }
+            return metadata.getRedirectionAwareTableHandle(session, name);
+        }
+
+        /**
+         * Analyzes the version pointer in a query period and extracts an evaluated version value
+         */
+        private Optional<TableVersion> extractTableVersion(Table table, QualifiedObjectName tableName, Optional<Expression> version, Optional<Scope> scope)
+        {
+            Optional<TableVersion> tableVersion = Optional.empty();
+            if (version.isEmpty()) {
+                return tableVersion;
+            }
+            ExpressionAnalysis expressionAnalysis = analyzeExpression(version.get(), scope.get());
+            analysis.recordSubqueries(table, expressionAnalysis);
+
+            // Once the range value is analyzed, we can evaluate it
+            Type versionType = expressionAnalysis.getType(version.get());
+            PointerType pointerType = toPointerType(table.getQueryPeriod().get().getRangeType());
+            Object evaluatedVersion = evaluateConstantExpression(version.get(), versionType, metadata, session, accessControl, ImmutableMap.of());
+            TableVersion extractedVersion = new TableVersion(pointerType, versionType, evaluatedVersion);
+
+            // Before checking if the connector supports the version type, verify that version is a valid time-based type
+            if (extractedVersion.getPointerType() == PointerType.TEMPORAL) {
+                if (!isValidTemporalType(extractedVersion.getObjectType())) {
+                    throw semanticException(
+                            TYPE_MISMATCH,
+                            table.getQueryPeriod().get(),
+                            format(
+                                    "Type %s invalid. Temporal pointers must be of type Timestamp, Timestamp with Time Zone, or Date.",
+                                    extractedVersion.getObjectType().getDisplayName()));
+                }
+            }
+
+            if (!metadata.isValidTableVersion(session, tableName, extractedVersion)) {
+                throw semanticException(
+                        TYPE_MISMATCH,
+                        table.getQueryPeriod().get(),
+                        format("Type %s not supported by this connector.", extractedVersion.getObjectType().getDisplayName()));
+            }
+
+            return Optional.of(extractedVersion);
+        }
+
+        private boolean isValidTemporalType(Type type)
+        {
+            return (type instanceof TimestampWithTimeZoneType ||
+                    type instanceof TimestampType ||
+                    type instanceof DateType);
+        }
+
+        private PointerType toPointerType(QueryPeriod.RangeType type)
+        {
+            PointerType pointerType = null;
+            switch (type) {
+                case TIMESTAMP:
+                    pointerType = PointerType.TEMPORAL;
+                    break;
+                case VERSION:
+                    pointerType = PointerType.TARGET_ID;
+                    break;
+                default:
+                    throw new TrinoException(NOT_SUPPORTED, format("No TravelType maps from RangeType %s.", type.name()));
+            }
+            return pointerType;
         }
     }
 
