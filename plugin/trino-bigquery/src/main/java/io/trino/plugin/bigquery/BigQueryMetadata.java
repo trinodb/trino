@@ -30,6 +30,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import io.airlift.log.Logger;
 import io.trino.plugin.bigquery.BigQueryClient.RemoteDatabaseObject;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -70,6 +71,7 @@ import static com.google.cloud.bigquery.TableDefinition.Type.VIEW;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_LISTING_DATASET_ERROR;
 import static io.trino.plugin.bigquery.BigQueryType.toField;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -152,14 +154,25 @@ public class BigQueryMetadata
 
         ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
         for (String remoteSchemaName : remoteSchemaNames) {
-            Iterable<Table> tables = bigQueryClient.listTables(DatasetId.of(projectId, remoteSchemaName), TABLE, VIEW);
-            for (Table table : tables) {
-                // filter ambiguous tables
-                bigQueryClient.toRemoteTable(projectId, remoteSchemaName, table.getTableId().getTable().toLowerCase(ENGLISH), tables)
-                        .filter(RemoteDatabaseObject::isAmbiguous)
-                        .ifPresentOrElse(
-                                remoteTable -> log.debug("Filtered out [%s.%s] from list of tables due to ambiguous name", remoteSchemaName, table.getTableId().getTable()),
-                                () -> tableNames.add(new SchemaTableName(table.getTableId().getDataset(), table.getTableId().getTable())));
+            try {
+                Iterable<Table> tables = bigQueryClient.listTables(DatasetId.of(projectId, remoteSchemaName), TABLE, VIEW);
+                for (Table table : tables) {
+                    // filter ambiguous tables
+                    bigQueryClient.toRemoteTable(projectId, remoteSchemaName, table.getTableId().getTable().toLowerCase(ENGLISH), tables)
+                            .filter(RemoteDatabaseObject::isAmbiguous)
+                            .ifPresentOrElse(
+                                    remoteTable -> log.debug("Filtered out [%s.%s] from list of tables due to ambiguous name", remoteSchemaName, table.getTableId().getTable()),
+                                    () -> tableNames.add(new SchemaTableName(table.getTableId().getDataset(), table.getTableId().getTable())));
+                }
+            }
+            catch (BigQueryException e) {
+                if (e.getCode() == 404 && e.getMessage().contains("Not found: Dataset")) {
+                    // Dataset not found error is ignored because listTables is used for metadata queries (SELECT FROM information_schema)
+                    log.debug("Dataset disappeared during listing operation: %s", remoteSchemaName);
+                }
+                else {
+                    throw new TrinoException(BIGQUERY_LISTING_DATASET_ERROR, "Exception happened during listing BigQuery dataset: " + remoteSchemaName, e);
+                }
             }
         }
         return tableNames.build();
