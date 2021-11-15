@@ -54,12 +54,6 @@ public class PrepareTask
     }
 
     @Override
-    public String explain(Prepare statement, List<Expression> parameters)
-    {
-        return "PREPARE " + statement.getName();
-    }
-
-    @Override
     public ListenableFuture<Void> execute(
             Prepare prepare,
             TransactionManager transactionManager,

@@ -14,7 +14,6 @@
 package io.trino.testing;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.MoreCollectors;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.units.Duration;
@@ -487,8 +486,7 @@ public abstract class AbstractTestQueryFramework
                 queryRunner.getAccessControl(),
                 sqlParser,
                 queryRunner.getStatsCalculator(),
-                costCalculator,
-                ImmutableMap.of());
+                costCalculator);
     }
 
     protected static void skipTestUnless(boolean requirement)

@@ -70,12 +70,6 @@ public class CreateMaterializedViewTask
     }
 
     @Override
-    public String explain(CreateMaterializedView statement, List<Expression> parameters)
-    {
-        return "CREATE MATERIALIZED VIEW " + statement.getName();
-    }
-
-    @Override
     public ListenableFuture<Void> execute(
             CreateMaterializedView statement,
             TransactionManager transactionManager,
