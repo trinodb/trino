@@ -13,11 +13,14 @@
  */
 package io.trino.execution.scheduler;
 
-import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
-public interface ExecutionSchedule
+public class PartitionIdAllocator
 {
-    Set<PipelinedStageExecution> getStagesToSchedule();
+    private final AtomicInteger nextId = new AtomicInteger();
 
-    boolean isFinished();
+    public int getNextId()
+    {
+        return nextId.getAndIncrement();
+    }
 }
