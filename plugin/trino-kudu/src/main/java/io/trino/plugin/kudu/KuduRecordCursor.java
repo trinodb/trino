@@ -15,7 +15,6 @@ package io.trino.plugin.kudu;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.TrinoException;
@@ -40,8 +39,6 @@ import static java.util.Objects.requireNonNull;
 public class KuduRecordCursor
         implements RecordCursor
 {
-    private static final Logger log = Logger.get(KuduRecordCursor.class);
-
     private static final Field ROW_DATA_FIELD;
 
     static {
@@ -118,7 +115,6 @@ public class KuduRecordCursor
                     nextRows = scanner.nextRows();
                 }
                 while (!nextRows.hasNext());
-                log.debug("Fetched " + nextRows.getNumRows() + " rows");
             }
             catch (KuduException e) {
                 throw new RuntimeException(e);
