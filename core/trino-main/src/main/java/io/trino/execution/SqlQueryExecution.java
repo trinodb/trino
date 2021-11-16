@@ -82,7 +82,7 @@ import static io.trino.SystemSessionProperties.isEnableDynamicFiltering;
 import static io.trino.execution.QueryState.FAILED;
 import static io.trino.execution.QueryState.PLANNING;
 import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
-import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.STACK_OVERFLOW;
 import static io.trino.sql.ParameterUtils.parameterExtractor;
 import static java.lang.Thread.currentThread;
 import static java.util.Objects.requireNonNull;
@@ -250,7 +250,7 @@ public class SqlQueryExecution
             analysis = analyzer.analyze(preparedQuery.getStatement());
         }
         catch (StackOverflowError e) {
-            throw new TrinoException(NOT_SUPPORTED, "statement is too large (stack overflow during analysis)", e);
+            throw new TrinoException(STACK_OVERFLOW, "statement is too large (stack overflow during analysis)", e);
         }
 
         stateMachine.setUpdateType(analysis.getUpdateType());
@@ -451,7 +451,7 @@ public class SqlQueryExecution
             return doPlanQuery();
         }
         catch (StackOverflowError e) {
-            throw new TrinoException(NOT_SUPPORTED, "statement is too large (stack overflow during analysis)", e);
+            throw new TrinoException(STACK_OVERFLOW, "statement is too large (stack overflow during analysis)", e);
         }
     }
 
