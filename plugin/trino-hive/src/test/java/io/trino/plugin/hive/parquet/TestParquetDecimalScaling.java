@@ -54,6 +54,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.transform;
 import static io.trino.plugin.hive.parquet.TestParquetDecimalScaling.ParquetDecimalInsert.maximumValue;
 import static io.trino.plugin.hive.parquet.TestParquetDecimalScaling.ParquetDecimalInsert.minimumValue;
+import static io.trino.spi.type.Decimals.overflows;
 import static io.trino.tpch.TpchTable.NATION;
 import static java.lang.Integer.MAX_VALUE;
 import static java.lang.String.format;
@@ -278,6 +279,55 @@ public class TestParquetDecimalScaling
                 {10, 2, false, 10, 4, ImmutableList.of("99999999.99")},
                 {18, 8, false, 32, 23, ImmutableList.of("1234567890.12345678")},
                 {20, 8, false, 32, 21, ImmutableList.of("123456789012.12345678")},
+        };
+    }
+
+    @Test(dataProvider = "testParquetLongFixedLenByteArrayWithTrinoShortDecimalProvider")
+    public void testParquetLongFixedLenByteArrayWithTrinoShortDecimal(int schemaPrecision, int schemaScale, int parquetPrecision, int parquetScale, String writeValue)
+    {
+        String tableName = generateTableName("rounded_decimals", parquetPrecision, parquetScale);
+        createTable(tableName, schemaPrecision, schemaScale);
+
+        int byteArrayLength = ParquetHiveSerDe.PRECISION_TO_BYTE_COUNT[parquetPrecision - 1];
+        MessageType schema = parseMessageType(format(
+                "message hive_record { optional fixed_len_byte_array(%d) value (DECIMAL(%d, %d)); }",
+                byteArrayLength,
+                schemaPrecision,
+                schemaScale));
+        List<ObjectInspector> inspectors = ImmutableList.of(new JavaHiveDecimalObjectInspector(new DecimalTypeInfo(parquetPrecision, parquetScale)));
+
+        createParquetFile(
+                getParquetWritePath(tableName),
+                getStandardStructObjectInspector(ImmutableList.of("value"), inspectors),
+                new Iterator[] {ImmutableList.of(HiveDecimal.create(writeValue)).stream().iterator()},
+                schema,
+                Collections.singletonList("hive_record"));
+
+        if (overflows(new BigDecimal(writeValue).unscaledValue(), schemaPrecision)) {
+            assertQueryFails(
+                    format("SELECT * FROM tpch.%s", tableName),
+                    format("Could not read fixed_len_byte_array\\(%d\\) value %s into decimal\\(%d,%d\\)", byteArrayLength, writeValue, schemaPrecision, schemaScale));
+        }
+        else {
+            assertValues(tableName, schemaScale, ImmutableList.of(writeValue));
+        }
+
+        dropTable(tableName);
+    }
+
+    @DataProvider
+    public Object[][] testParquetLongFixedLenByteArrayWithTrinoShortDecimalProvider()
+    {
+        // schemaPrecision, schemaScale, parquetPrecision, parquetScale, writeValue
+        return new Object[][] {
+                {5, 2, 19, 2, "-5"},
+                {5, 2, 20, 2, "999.99"},
+                {7, 2, 24, 2, "-99999.99"},
+                {10, 2, 26, 2, "99999999.99"},
+                {14, 4, 30, 4, "99999999.99"},
+                {18, 8, 32, 8, "1234567890.12345678"},
+                {18, 8, 32, 8, "123456789012.12345678"},
+                {18, 8, 38, 8, "4989875563210.12345678"},
         };
     }
 
