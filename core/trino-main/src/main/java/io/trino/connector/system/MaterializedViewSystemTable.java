@@ -58,7 +58,6 @@ public class MaterializedViewSystemTable
             .column("storage_schema", createUnboundedVarcharType())
             .column("storage_table", createUnboundedVarcharType())
             .column("is_fresh", BOOLEAN)
-            .column("owner", createUnboundedVarcharType())
             .column("comment", createUnboundedVarcharType())
             .column("definition", createUnboundedVarcharType())
             .build();
@@ -140,7 +139,6 @@ public class MaterializedViewSystemTable
                         .map(storageTable -> storageTable.getSchemaTableName().getTableName())
                         .orElse(""),
                 freshness.isMaterializedViewFresh(),
-                definition.getOwner(),
                 definition.getComment().orElse(""),
                 definition.getOriginalSql()
         };
