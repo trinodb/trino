@@ -13,11 +13,12 @@
  */
 package io.trino.execution.scheduler;
 
+import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import com.google.common.graph.Traverser;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -27,6 +28,7 @@ import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.execution.BasicStageStats;
+import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.NodeTaskMap;
 import io.trino.execution.QueryState;
 import io.trino.execution.QueryStateMachine;
@@ -35,40 +37,43 @@ import io.trino.execution.RemoteTaskFactory;
 import io.trino.execution.SqlStageExecution;
 import io.trino.execution.StageId;
 import io.trino.execution.StageInfo;
-import io.trino.execution.StageState;
 import io.trino.execution.TableExecuteContextManager;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskStatus;
-import io.trino.execution.buffer.OutputBuffers;
-import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
 import io.trino.failuredetector.FailureDetector;
 import io.trino.metadata.InternalNode;
 import io.trino.server.DynamicFilterService;
+import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPartitionHandle;
 import io.trino.split.SplitSource;
 import io.trino.sql.planner.NodePartitionMap;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.sql.planner.PartitioningHandle;
+import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.StageExecutionPlan;
 import io.trino.sql.planner.plan.PlanFragmentId;
+import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.sql.planner.plan.RemoteSourceNode;
+import io.trino.sql.planner.plan.TableScanNode;
 
 import java.net.URI;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -79,6 +84,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
@@ -88,13 +94,14 @@ import static io.trino.SystemSessionProperties.getWriterMinSize;
 import static io.trino.connector.CatalogName.isInternalSystemConnector;
 import static io.trino.execution.BasicStageStats.aggregateBasicStageStats;
 import static io.trino.execution.SqlStageExecution.createSqlStageExecution;
-import static io.trino.execution.StageState.ABORTED;
-import static io.trino.execution.StageState.CANCELED;
-import static io.trino.execution.StageState.FAILED;
-import static io.trino.execution.StageState.FINISHED;
-import static io.trino.execution.StageState.FLUSHING;
-import static io.trino.execution.StageState.RUNNING;
-import static io.trino.execution.StageState.SCHEDULED;
+import static io.trino.execution.scheduler.PipelinedStageExecution.State.ABORTED;
+import static io.trino.execution.scheduler.PipelinedStageExecution.State.CANCELED;
+import static io.trino.execution.scheduler.PipelinedStageExecution.State.FAILED;
+import static io.trino.execution.scheduler.PipelinedStageExecution.State.FINISHED;
+import static io.trino.execution.scheduler.PipelinedStageExecution.State.FLUSHING;
+import static io.trino.execution.scheduler.PipelinedStageExecution.State.RUNNING;
+import static io.trino.execution.scheduler.PipelinedStageExecution.State.SCHEDULED;
+import static io.trino.execution.scheduler.PipelinedStageExecution.createPipelinedStageExecution;
 import static io.trino.execution.scheduler.SourcePartitionedScheduler.newSourcePartitionedSchedulerAsStageScheduler;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NO_NODES_AVAILABLE;
@@ -102,8 +109,10 @@ import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITION
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
+import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static io.trino.util.Failures.checkCondition;
+import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -114,17 +123,27 @@ import static java.util.stream.Collectors.toCollection;
 public class SqlQueryScheduler
 {
     private final QueryStateMachine queryStateMachine;
-    private final ExecutionPolicy executionPolicy;
-    private final Map<StageId, SqlStageExecution> stages;
+    private final StageExecutionPlan plan;
+    private final NodePartitioningManager nodePartitioningManager;
+    private final NodeScheduler nodeScheduler;
+    private final int splitBatchSize;
     private final ExecutorService executor;
-    private final StageId rootStageId;
-    private final Map<StageId, StageScheduler> stageSchedulers;
-    private final Map<StageId, StageLinkage> stageLinkages;
+    private final ScheduledExecutorService schedulerExecutor;
+    private final FailureDetector failureDetector;
+    private final ExecutionPolicy executionPolicy;
     private final SplitSchedulerStats schedulerStats;
-    private final boolean summarizeTaskInfo;
     private final DynamicFilterService dynamicFilterService;
     private final TableExecuteContextManager tableExecuteContextManager;
+
+    private final Map<PlanFragmentId, SqlStageExecution> stages;
+    private final StageId rootStageId;
+    private final Map<StageId, Set<StageId>> stageLineage;
+
+    // all stages that could be scheduled remotely (excluding coordinator only stages)
+    private final Set<StageId> remotelyScheduledStages;
+
     private final AtomicBoolean started = new AtomicBoolean();
+    private final AtomicReference<PipelinedScheduler> scheduler = new AtomicReference<>();
 
     public static SqlQueryScheduler createSqlQueryScheduler(
             QueryStateMachine queryStateMachine,
@@ -132,13 +151,11 @@ public class SqlQueryScheduler
             NodePartitioningManager nodePartitioningManager,
             NodeScheduler nodeScheduler,
             RemoteTaskFactory remoteTaskFactory,
-            Session session,
             boolean summarizeTaskInfo,
             int splitBatchSize,
             ExecutorService queryExecutor,
             ScheduledExecutorService schedulerExecutor,
             FailureDetector failureDetector,
-            OutputBuffers rootOutputBuffers,
             NodeTaskMap nodeTaskMap,
             ExecutionPolicy executionPolicy,
             SplitSchedulerStats schedulerStats,
@@ -151,13 +168,11 @@ public class SqlQueryScheduler
                 nodePartitioningManager,
                 nodeScheduler,
                 remoteTaskFactory,
-                session,
                 summarizeTaskInfo,
                 splitBatchSize,
                 queryExecutor,
                 schedulerExecutor,
                 failureDetector,
-                rootOutputBuffers,
                 nodeTaskMap,
                 executionPolicy,
                 schedulerStats,
@@ -173,13 +188,11 @@ public class SqlQueryScheduler
             NodePartitioningManager nodePartitioningManager,
             NodeScheduler nodeScheduler,
             RemoteTaskFactory remoteTaskFactory,
-            Session session,
             boolean summarizeTaskInfo,
             int splitBatchSize,
             ExecutorService queryExecutor,
             ScheduledExecutorService schedulerExecutor,
             FailureDetector failureDetector,
-            OutputBuffers rootOutputBuffers,
             NodeTaskMap nodeTaskMap,
             ExecutionPolicy executionPolicy,
             SplitSchedulerStats schedulerStats,
@@ -187,88 +200,41 @@ public class SqlQueryScheduler
             TableExecuteContextManager tableExecuteContextManager)
     {
         this.queryStateMachine = requireNonNull(queryStateMachine, "queryStateMachine is null");
+        this.plan = requireNonNull(plan, "plan is null");
+        this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
+        this.nodeScheduler = requireNonNull(nodeScheduler, "nodeScheduler is null");
+        this.splitBatchSize = splitBatchSize;
+        this.executor = requireNonNull(queryExecutor, "queryExecutor is null");
+        this.schedulerExecutor = requireNonNull(schedulerExecutor, "schedulerExecutor is null");
+        this.failureDetector = requireNonNull(failureDetector, "failureDetector is null");
         this.executionPolicy = requireNonNull(executionPolicy, "executionPolicy is null");
         this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
-        this.summarizeTaskInfo = summarizeTaskInfo;
         this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
         this.tableExecuteContextManager = requireNonNull(tableExecuteContextManager, "tableExecuteContextManager is null");
 
-        // todo come up with a better way to build this, or eliminate this map
-        ImmutableMap.Builder<StageId, StageScheduler> stageSchedulers = ImmutableMap.builder();
-        ImmutableMap.Builder<StageId, StageLinkage> stageLinkages = ImmutableMap.builder();
-
-        // Only fetch a distribution once per query to assure all stages see the same machine assignments
-        Map<PartitioningHandle, NodePartitionMap> partitioningCache = new HashMap<>();
-
-        OutputBufferId rootBufferId = Iterables.getOnlyElement(rootOutputBuffers.getBuffers().keySet());
-        List<SqlStageExecution> stages = createStages(
-                (fragmentId, tasks, noMoreExchangeLocations) -> updateQueryOutputLocations(queryStateMachine, rootBufferId, tasks, noMoreExchangeLocations),
-                new AtomicInteger(),
-                plan.withBucketToPartition(Optional.of(new int[1])),
-                nodeScheduler,
+        stages = createStages(
+                queryStateMachine.getSession(),
                 remoteTaskFactory,
-                session,
-                splitBatchSize,
-                partitioningHandle -> partitioningCache.computeIfAbsent(partitioningHandle, handle -> nodePartitioningManager.getNodePartitioningMap(session, handle)),
-                nodePartitioningManager,
-                queryExecutor,
-                schedulerExecutor,
-                failureDetector,
                 nodeTaskMap,
-                stageSchedulers,
-                stageLinkages);
-
-        SqlStageExecution rootStage = stages.get(0);
-        rootStage.setOutputBuffers(rootOutputBuffers);
-        this.rootStageId = rootStage.getStageId();
-
-        this.stages = stages.stream()
-                .collect(toImmutableMap(SqlStageExecution::getStageId, identity()));
-
-        this.stageSchedulers = stageSchedulers.build();
-        this.stageLinkages = stageLinkages.build();
-
-        this.executor = queryExecutor;
+                queryExecutor,
+                schedulerStats,
+                plan,
+                summarizeTaskInfo);
+        rootStageId = getStageId(queryStateMachine.getQueryId(), plan.getFragment().getId());
+        stageLineage = getStageLineage(queryStateMachine.getQueryId(), plan);
+        remotelyScheduledStages = stages.values().stream()
+                .filter(stage -> !stage.getFragment().getPartitioning().isCoordinatorOnly())
+                .map(SqlStageExecution::getStageId)
+                .collect(toImmutableSet());
     }
 
     // this is a separate method to ensure that the `this` reference is not leaked during construction
     private void initialize()
     {
-        SqlStageExecution rootStage = stages.get(rootStageId);
-        rootStage.addStateChangeListener(state -> {
-            if (state == FINISHED) {
-                queryStateMachine.transitionToFinishing();
-            }
-            else if (state == CANCELED) {
-                // output stage was canceled
-                queryStateMachine.transitionToCanceled();
-            }
-        });
-
-        for (SqlStageExecution stage : stages.values()) {
-            stage.addStateChangeListener(state -> {
-                if (queryStateMachine.isDone()) {
-                    return;
-                }
-                if (state == FAILED) {
-                    queryStateMachine.transitionToFailed(stage.getStageInfo().getFailureCause().toException());
-                }
-                else if (state == ABORTED) {
-                    // this should never happen, since abort can only be triggered in query clean up after the query is finished
-                    queryStateMachine.transitionToFailed(new TrinoException(GENERIC_INTERNAL_ERROR, "Query stage was aborted"));
-                }
-                else if (queryStateMachine.getQueryState() == QueryState.STARTING) {
-                    // if the stage has at least one task, we are running
-                    if (stage.hasTasks()) {
-                        queryStateMachine.transitionToRunning();
-                    }
-                }
-            });
-        }
-
         // when query is done or any time a stage completes, attempt to transition query to "final query info ready"
         queryStateMachine.addStateChangeListener(newState -> {
             if (newState.isDone()) {
+                stages.values().forEach(SqlStageExecution::transitionToFinished);
                 queryStateMachine.updateQueryInfo(Optional.ofNullable(getStageInfo()));
             }
         });
@@ -277,200 +243,101 @@ public class SqlQueryScheduler
         }
     }
 
-    private static void updateQueryOutputLocations(QueryStateMachine queryStateMachine, OutputBufferId rootBufferId, Set<RemoteTask> tasks, boolean noMoreExchangeLocations)
+    private static Map<PlanFragmentId, SqlStageExecution> createStages(
+            Session session,
+            RemoteTaskFactory taskFactory,
+            NodeTaskMap nodeTaskMap,
+            ExecutorService executor,
+            SplitSchedulerStats schedulerStats,
+            StageExecutionPlan planTree,
+            boolean summarizeTaskInfo)
     {
-        Map<TaskId, URI> bufferLocations = tasks.stream()
-                .collect(toImmutableMap(RemoteTask::getTaskId, task -> uriBuilderFrom(task.getTaskStatus().getSelf()).appendPath("results").appendPath(rootBufferId.toString()).build()));
-        queryStateMachine.updateOutputLocations(bufferLocations, noMoreExchangeLocations);
+        ImmutableMap.Builder<PlanFragmentId, SqlStageExecution> result = ImmutableMap.builder();
+        for (StageExecutionPlan planNode : Traverser.forTree(StageExecutionPlan::getSubStages).breadthFirst(planTree)) {
+            PlanFragment fragment = planNode.getFragment();
+            SqlStageExecution stageExecution = createSqlStageExecution(
+                    getStageId(session.getQueryId(), fragment.getId()),
+                    fragment,
+                    planNode.getTables(),
+                    taskFactory,
+                    session,
+                    summarizeTaskInfo,
+                    nodeTaskMap,
+                    executor,
+                    schedulerStats);
+            result.put(fragment.getId(), stageExecution);
+        }
+        return result.build();
     }
 
-    private List<SqlStageExecution> createStages(
-            ExchangeLocationsConsumer parent,
-            AtomicInteger nextStageId,
-            StageExecutionPlan plan,
-            NodeScheduler nodeScheduler,
-            RemoteTaskFactory remoteTaskFactory,
-            Session session,
-            int splitBatchSize,
-            Function<PartitioningHandle, NodePartitionMap> partitioningCache,
-            NodePartitioningManager nodePartitioningManager,
-            ExecutorService queryExecutor,
-            ScheduledExecutorService schedulerExecutor,
-            FailureDetector failureDetector,
-            NodeTaskMap nodeTaskMap,
-            ImmutableMap.Builder<StageId, StageScheduler> stageSchedulers,
-            ImmutableMap.Builder<StageId, StageLinkage> stageLinkages)
+    private static Map<StageId, Set<StageId>> getStageLineage(QueryId queryId, StageExecutionPlan planTree)
     {
-        ImmutableList.Builder<SqlStageExecution> stages = ImmutableList.builder();
-
-        StageId stageId = new StageId(queryStateMachine.getQueryId(), nextStageId.getAndIncrement());
-        SqlStageExecution stage = createSqlStageExecution(
-                stageId,
-                plan.getFragment(),
-                plan.getTables(),
-                remoteTaskFactory,
-                session,
-                summarizeTaskInfo,
-                nodeTaskMap,
-                queryExecutor,
-                failureDetector,
-                dynamicFilterService,
-                schedulerStats);
-        stages.add(stage);
-
-        // function to create child stages recursively by supplying the bucket partitioning (according to parent's partitioning)
-        Function<Optional<int[]>, Set<SqlStageExecution>> createChildStages = bucketToPartition -> {
-            ImmutableSet.Builder<SqlStageExecution> childStagesBuilder = ImmutableSet.builder();
-            for (StageExecutionPlan subStagePlan : plan.getSubStages()) {
-                List<SqlStageExecution> subTree = createStages(
-                        stage::addExchangeLocations,
-                        nextStageId,
-                        subStagePlan.withBucketToPartition(bucketToPartition),
-                        nodeScheduler,
-                        remoteTaskFactory,
-                        session,
-                        splitBatchSize,
-                        partitioningCache,
-                        nodePartitioningManager,
-                        queryExecutor,
-                        schedulerExecutor,
-                        failureDetector,
-                        nodeTaskMap,
-                        stageSchedulers,
-                        stageLinkages);
-                stages.addAll(subTree);
-
-                SqlStageExecution childStage = subTree.get(0);
-                childStagesBuilder.add(childStage);
-            }
-            return childStagesBuilder.build();
-        };
-
-        Set<SqlStageExecution> childStages;
-        PartitioningHandle partitioningHandle = plan.getFragment().getPartitioning();
-        if (partitioningHandle.equals(SOURCE_DISTRIBUTION)) {
-            // nodes are selected dynamically based on the constraints of the splits and the system load
-            Entry<PlanNodeId, SplitSource> entry = Iterables.getOnlyElement(plan.getSplitSources().entrySet());
-            PlanNodeId planNodeId = entry.getKey();
-            SplitSource splitSource = entry.getValue();
-            Optional<CatalogName> catalogName = Optional.of(splitSource.getCatalogName())
-                    .filter(catalog -> !isInternalSystemConnector(catalog));
-            NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, catalogName);
-            SplitPlacementPolicy placementPolicy = new DynamicSplitPlacementPolicy(nodeSelector, stage::getAllTasks);
-
-            checkArgument(!plan.getFragment().getStageExecutionDescriptor().isStageGroupedExecution());
-
-            childStages = createChildStages.apply(Optional.of(new int[1]));
-            stageSchedulers.put(stageId, newSourcePartitionedSchedulerAsStageScheduler(
-                    stage,
-                    planNodeId,
-                    splitSource,
-                    placementPolicy,
-                    splitBatchSize,
-                    dynamicFilterService,
-                    tableExecuteContextManager,
-                    () -> childStages.stream().anyMatch(SqlStageExecution::isAnyTaskBlocked)));
+        ImmutableMap.Builder<StageId, Set<StageId>> result = ImmutableMap.builder();
+        for (StageExecutionPlan planNode : Traverser.forTree(StageExecutionPlan::getSubStages).breadthFirst(planTree)) {
+            result.put(
+                    getStageId(queryId, planNode.getFragment().getId()),
+                    planNode.getSubStages().stream()
+                            .map(stage -> getStageId(queryId, stage.getFragment().getId()))
+                            .collect(toImmutableSet()));
         }
-        else if (partitioningHandle.equals(SCALED_WRITER_DISTRIBUTION)) {
-            childStages = createChildStages.apply(Optional.of(new int[1]));
-            Supplier<Collection<TaskStatus>> sourceTasksProvider = () -> childStages.stream()
-                    .map(SqlStageExecution::getTaskStatuses)
-                    .flatMap(List::stream)
-                    .collect(toImmutableList());
-            Supplier<Collection<TaskStatus>> writerTasksProvider = stage::getTaskStatuses;
+        return result.build();
+    }
 
-            ScaledWriterScheduler scheduler = new ScaledWriterScheduler(
-                    stage,
-                    sourceTasksProvider,
-                    writerTasksProvider,
-                    nodeScheduler.createNodeSelector(session, Optional.empty()),
-                    schedulerExecutor,
-                    getWriterMinSize(session));
-            whenAllStages(childStages, StageState::isDone)
-                    .addListener(scheduler::finish, directExecutor());
-            stageSchedulers.put(stageId, scheduler);
+    private static StageId getStageId(QueryId queryId, PlanFragmentId fragmentId)
+    {
+        // TODO: refactor fragment id to be based on an integer
+        return new StageId(queryId, parseInt(fragmentId.toString()));
+    }
+
+    public synchronized void start()
+    {
+        if (started.compareAndSet(false, true)) {
+            if (queryStateMachine.isDone()) {
+                return;
+            }
+            PipelinedScheduler pipelinedScheduler = createPipelinedScheduler(new TaskLifecycleListener()
+            {
+                @Override
+                public void taskCreated(PlanFragmentId fragmentId, RemoteTask task)
+                {
+                    Map<TaskId, URI> bufferLocations = ImmutableMap.of(
+                            task.getTaskId(),
+                            uriBuilderFrom(task.getTaskStatus().getSelf())
+                                    .appendPath("results")
+                                    .appendPath("0").build());
+                    queryStateMachine.updateOutputLocations(bufferLocations, false);
+                }
+
+                @Override
+                public void noMoreTasks(PlanFragmentId fragmentId)
+                {
+                    queryStateMachine.updateOutputLocations(ImmutableMap.of(), true);
+                }
+            });
+            scheduler.set(pipelinedScheduler);
+            executor.submit(pipelinedScheduler::schedule);
         }
-        else {
-            Optional<int[]> bucketToPartition;
-            Map<PlanNodeId, SplitSource> splitSources = plan.getSplitSources();
-            if (!splitSources.isEmpty()) {
-                // contains local source
-                List<PlanNodeId> schedulingOrder = plan.getFragment().getPartitionedSources();
-                Optional<CatalogName> catalogName = partitioningHandle.getConnectorId();
-                checkArgument(catalogName.isPresent(), "No connector ID for partitioning handle: %s", partitioningHandle);
-                List<ConnectorPartitionHandle> connectorPartitionHandles;
-                boolean groupedExecutionForStage = plan.getFragment().getStageExecutionDescriptor().isStageGroupedExecution();
-                if (groupedExecutionForStage) {
-                    connectorPartitionHandles = nodePartitioningManager.listPartitionHandles(session, partitioningHandle);
-                    checkState(!ImmutableList.of(NOT_PARTITIONED).equals(connectorPartitionHandles));
-                }
-                else {
-                    connectorPartitionHandles = ImmutableList.of(NOT_PARTITIONED);
-                }
+    }
 
-                BucketNodeMap bucketNodeMap;
-                List<InternalNode> stageNodeList;
-                if (plan.getFragment().getRemoteSourceNodes().stream().allMatch(node -> node.getExchangeType() == REPLICATE)) {
-                    // no remote source
-                    boolean dynamicLifespanSchedule = plan.getFragment().getStageExecutionDescriptor().isDynamicLifespanSchedule();
-                    bucketNodeMap = nodePartitioningManager.getBucketNodeMap(session, partitioningHandle, dynamicLifespanSchedule);
-
-                    // verify execution is consistent with planner's decision on dynamic lifespan schedule
-                    verify(bucketNodeMap.isDynamic() == dynamicLifespanSchedule);
-
-                    stageNodeList = new ArrayList<>(nodeScheduler.createNodeSelector(session, catalogName).allNodes());
-                    Collections.shuffle(stageNodeList);
-                    bucketToPartition = Optional.empty();
-                }
-                else {
-                    // cannot use dynamic lifespan schedule
-                    verify(!plan.getFragment().getStageExecutionDescriptor().isDynamicLifespanSchedule());
-
-                    // remote source requires nodePartitionMap
-                    NodePartitionMap nodePartitionMap = partitioningCache.apply(plan.getFragment().getPartitioning());
-                    if (groupedExecutionForStage) {
-                        checkState(connectorPartitionHandles.size() == nodePartitionMap.getBucketToPartition().length);
-                    }
-                    stageNodeList = nodePartitionMap.getPartitionToNode();
-                    bucketNodeMap = nodePartitionMap.asBucketNodeMap();
-                    bucketToPartition = Optional.of(nodePartitionMap.getBucketToPartition());
-                }
-
-                stageSchedulers.put(stageId, new FixedSourcePartitionedScheduler(
-                        stage,
-                        splitSources,
-                        plan.getFragment().getStageExecutionDescriptor(),
-                        schedulingOrder,
-                        stageNodeList,
-                        bucketNodeMap,
-                        splitBatchSize,
-                        getConcurrentLifespansPerNode(session),
-                        nodeScheduler.createNodeSelector(session, catalogName),
-                        connectorPartitionHandles,
-                        dynamicFilterService,
-                        tableExecuteContextManager));
+    public synchronized void cancelStage(StageId stageId)
+    {
+        try (SetThreadName ignored = new SetThreadName("Query-%s", queryStateMachine.getQueryId())) {
+            PipelinedScheduler scheduler = this.scheduler.get();
+            if (scheduler != null) {
+                scheduler.cancelStage(stageId);
             }
-            else {
-                // all sources are remote
-                NodePartitionMap nodePartitionMap = partitioningCache.apply(plan.getFragment().getPartitioning());
-                List<InternalNode> partitionToNode = nodePartitionMap.getPartitionToNode();
-                // todo this should asynchronously wait a standard timeout period before failing
-                checkCondition(!partitionToNode.isEmpty(), NO_NODES_AVAILABLE, "No worker nodes available");
-                stageSchedulers.put(stageId, new FixedCountScheduler(stage, partitionToNode));
-                bucketToPartition = Optional.of(nodePartitionMap.getBucketToPartition());
-            }
-            childStages = createChildStages.apply(bucketToPartition);
         }
+    }
 
-        stage.addStateChangeListener(newState -> {
-            if (newState == FLUSHING || newState.isDone()) {
-                childStages.forEach(SqlStageExecution::cancel);
+    public synchronized void abort()
+    {
+        try (SetThreadName ignored = new SetThreadName("Query-%s", queryStateMachine.getQueryId())) {
+            PipelinedScheduler scheduler = this.scheduler.get();
+            if (scheduler != null) {
+                scheduler.abort();
             }
-        });
-
-        stageLinkages.put(stageId, new StageLinkage(plan.getFragment().getId(), parent, childStages));
-
-        return stages.build();
+            stages.values().forEach(SqlStageExecution::transitionToFinished);
+        }
     }
 
     public BasicStageStats getBasicStageStats()
@@ -495,7 +362,7 @@ public class SqlQueryScheduler
     {
         StageInfo parent = stageInfos.get(stageId);
         checkArgument(parent != null, "No stageInfo for %s", parent);
-        List<StageInfo> childStages = stageLinkages.get(stageId).getChildStageIds().stream()
+        List<StageInfo> childStages = stageLineage.get(stageId).stream()
                 .map(childStageId -> buildStageInfo(childStageId, stageInfos))
                 .collect(toImmutableList());
         if (childStages.isEmpty()) {
@@ -535,133 +402,258 @@ public class SqlQueryScheduler
         return new Duration(millis, MILLISECONDS);
     }
 
-    public void start()
+    private PipelinedScheduler createPipelinedScheduler(TaskLifecycleListener taskLifecycleListener)
     {
-        if (started.compareAndSet(false, true)) {
-            executor.submit(this::schedule);
+        Session session = queryStateMachine.getSession();
+        Map<PartitioningHandle, NodePartitionMap> partitioningCacheMap = new HashMap<>();
+        Function<PartitioningHandle, NodePartitionMap> partitioningCache = partitioningHandle ->
+                partitioningCacheMap.computeIfAbsent(partitioningHandle, handle -> nodePartitioningManager.getNodePartitioningMap(session, handle));
+        Map<PlanFragmentId, Optional<int[]>> bucketToPartitionMap = createBucketToPartitionMap(plan, partitioningCache);
+        Map<PlanFragmentId, OutputBufferManager> outputBufferManagers = createOutputBufferManagers(stages.values(), bucketToPartitionMap);
+        ImmutableList.Builder<PipelinedStageExecution> executionsBuilder = ImmutableList.builder();
+        ImmutableMap.Builder<StageId, StageScheduler> schedulersBuilder = ImmutableMap.builder();
+        PipelinedStageExecution rootExecution = createPipelinedExecution(
+                plan,
+                outputBufferManagers,
+                bucketToPartitionMap,
+                partitioningCache,
+                taskLifecycleListener,
+                executionsBuilder,
+                schedulersBuilder);
+        List<PipelinedStageExecution> executions = executionsBuilder.build();
+        ExecutionSchedule executionSchedule = executionPolicy.createExecutionSchedule(executions);
+
+        rootExecution.addStateChangeListener(state -> {
+            if (state == FINISHED) {
+                queryStateMachine.transitionToFinishing();
+            }
+            else if (state == CANCELED) {
+                // output stage was canceled
+                queryStateMachine.transitionToCanceled();
+            }
+        });
+
+        Set<StageId> finishedStages = newConcurrentHashSet();
+        for (PipelinedStageExecution execution : executions) {
+            execution.addStateChangeListener(state -> {
+                if (queryStateMachine.isDone()) {
+                    return;
+                }
+                if (!state.canScheduleMoreTasks()) {
+                    dynamicFilterService.stageCannotScheduleMoreTasks(execution.getStageId(), execution.getAllTasks().size());
+                }
+                if (state == FAILED) {
+                    RuntimeException failureCause = execution.getFailureCause()
+                            .map(ExecutionFailureInfo::toException)
+                            .orElseGet(() -> new VerifyException(format("stage execution for stage %s is failed by failure cause is not present", execution.getStageId())));
+                    stages.get(execution.getFragment().getId()).transitionToFailed(failureCause);
+                    queryStateMachine.transitionToFailed(failureCause);
+                }
+                else if (state == ABORTED) {
+                    // this should never happen, since abort can only be triggered in query clean up after the query is finished
+                    queryStateMachine.transitionToFailed(new TrinoException(GENERIC_INTERNAL_ERROR, "Query stage was aborted"));
+                }
+                else if (queryStateMachine.getQueryState() == QueryState.STARTING) {
+                    // if the stage has at least one task, we are running
+                    if (!execution.getAllTasks().isEmpty()) {
+                        queryStateMachine.transitionToRunning();
+                    }
+                }
+                else if (state.isDone() && !state.isFailure()) {
+                    finishedStages.add(execution.getStageId());
+                    // Once all remotely scheduled stages complete it should be safe to transition stage execution
+                    // to the finished state as at this point no further task retries are expected
+                    // This is needed to make explain analyze work that requires final stage info to be available before the
+                    // explain analyze stage is finished
+                    if (finishedStages.containsAll(remotelyScheduledStages)) {
+                        stages.values().stream()
+                                .filter(stage -> finishedStages.contains(stage.getStageId()))
+                                .forEach(SqlStageExecution::transitionToFinished);
+                    }
+                }
+            });
+        }
+
+        return new PipelinedScheduler(
+                queryStateMachine,
+                executionSchedule,
+                schedulersBuilder.build(),
+                schedulerStats,
+                executions);
+    }
+
+    private PipelinedStageExecution createPipelinedExecution(
+            StageExecutionPlan plan,
+            Map<PlanFragmentId, OutputBufferManager> outputBufferManagers,
+            Map<PlanFragmentId, Optional<int[]>> bucketToPartitionMap,
+            Function<PartitioningHandle, NodePartitionMap> partitioningCache,
+            TaskLifecycleListener taskLifecycleListener,
+            ImmutableList.Builder<PipelinedStageExecution> executions,
+            ImmutableMap.Builder<StageId, StageScheduler> schedulers)
+    {
+        PlanFragment fragment = plan.getFragment();
+        PipelinedStageExecution execution = createPipelinedStageExecution(
+                stages.get(fragment.getId()),
+                outputBufferManagers,
+                taskLifecycleListener,
+                failureDetector,
+                executor,
+                bucketToPartitionMap.get(fragment.getId()));
+        executions.add(execution);
+        ImmutableList.Builder<PipelinedStageExecution> childExecutionsBuilder = ImmutableList.builder();
+        for (StageExecutionPlan child : plan.getSubStages()) {
+            childExecutionsBuilder.add(createPipelinedExecution(
+                    child,
+                    outputBufferManagers,
+                    bucketToPartitionMap,
+                    partitioningCache,
+                    execution.getTaskLifecycleListener(),
+                    executions,
+                    schedulers));
+        }
+        ImmutableList<PipelinedStageExecution> childExecutions = childExecutionsBuilder.build();
+        StageScheduler scheduler = createStageScheduler(
+                execution,
+                plan.getSplitSources(),
+                childExecutions,
+                partitioningCache);
+        schedulers.put(execution.getStageId(), scheduler);
+
+        execution.addStateChangeListener(newState -> {
+            if (newState == FLUSHING || newState.isDone()) {
+                childExecutions.forEach(PipelinedStageExecution::cancel);
+            }
+        });
+
+        return execution;
+    }
+
+    private StageScheduler createStageScheduler(
+            PipelinedStageExecution stageExecution,
+            Map<PlanNodeId, SplitSource> splitSources,
+            List<PipelinedStageExecution> childStages,
+            Function<PartitioningHandle, NodePartitionMap> partitioningCache)
+    {
+        Session session = queryStateMachine.getSession();
+        PlanFragment fragment = stageExecution.getFragment();
+        PartitioningHandle partitioningHandle = fragment.getPartitioning();
+        if (partitioningHandle.equals(SOURCE_DISTRIBUTION)) {
+            // nodes are selected dynamically based on the constraints of the splits and the system load
+            Entry<PlanNodeId, SplitSource> entry = Iterables.getOnlyElement(splitSources.entrySet());
+            PlanNodeId planNodeId = entry.getKey();
+            SplitSource splitSource = entry.getValue();
+            Optional<CatalogName> catalogName = Optional.of(splitSource.getCatalogName())
+                    .filter(catalog -> !isInternalSystemConnector(catalog));
+            NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, catalogName);
+            SplitPlacementPolicy placementPolicy = new DynamicSplitPlacementPolicy(nodeSelector, stageExecution::getAllTasks);
+
+            checkArgument(!fragment.getStageExecutionDescriptor().isStageGroupedExecution());
+
+            return newSourcePartitionedSchedulerAsStageScheduler(
+                    stageExecution,
+                    planNodeId,
+                    splitSource,
+                    placementPolicy,
+                    splitBatchSize,
+                    dynamicFilterService,
+                    tableExecuteContextManager,
+                    () -> childStages.stream().anyMatch(PipelinedStageExecution::isAnyTaskBlocked));
+        }
+        else if (partitioningHandle.equals(SCALED_WRITER_DISTRIBUTION)) {
+            Supplier<Collection<TaskStatus>> sourceTasksProvider = () -> childStages.stream()
+                    .map(PipelinedStageExecution::getTaskStatuses)
+                    .flatMap(List::stream)
+                    .collect(toImmutableList());
+            Supplier<Collection<TaskStatus>> writerTasksProvider = stageExecution::getTaskStatuses;
+
+            ScaledWriterScheduler scheduler = new ScaledWriterScheduler(
+                    stageExecution,
+                    sourceTasksProvider,
+                    writerTasksProvider,
+                    nodeScheduler.createNodeSelector(session, Optional.empty()),
+                    schedulerExecutor,
+                    getWriterMinSize(session));
+            whenAllStages(childStages, PipelinedStageExecution.State::isDone)
+                    .addListener(scheduler::finish, directExecutor());
+
+            return scheduler;
+        }
+        else {
+            if (!splitSources.isEmpty()) {
+                // contains local source
+                List<PlanNodeId> schedulingOrder = fragment.getPartitionedSources();
+                Optional<CatalogName> catalogName = partitioningHandle.getConnectorId();
+                checkArgument(catalogName.isPresent(), "No connector ID for partitioning handle: %s", partitioningHandle);
+                List<ConnectorPartitionHandle> connectorPartitionHandles;
+                boolean groupedExecutionForStage = fragment.getStageExecutionDescriptor().isStageGroupedExecution();
+                if (groupedExecutionForStage) {
+                    connectorPartitionHandles = nodePartitioningManager.listPartitionHandles(session, partitioningHandle);
+                    checkState(!ImmutableList.of(NOT_PARTITIONED).equals(connectorPartitionHandles));
+                }
+                else {
+                    connectorPartitionHandles = ImmutableList.of(NOT_PARTITIONED);
+                }
+
+                BucketNodeMap bucketNodeMap;
+                List<InternalNode> stageNodeList;
+                if (fragment.getRemoteSourceNodes().stream().allMatch(node -> node.getExchangeType() == REPLICATE)) {
+                    // no remote source
+                    boolean dynamicLifespanSchedule = fragment.getStageExecutionDescriptor().isDynamicLifespanSchedule();
+                    bucketNodeMap = nodePartitioningManager.getBucketNodeMap(session, partitioningHandle, dynamicLifespanSchedule);
+
+                    // verify execution is consistent with planner's decision on dynamic lifespan schedule
+                    verify(bucketNodeMap.isDynamic() == dynamicLifespanSchedule);
+
+                    stageNodeList = new ArrayList<>(nodeScheduler.createNodeSelector(session, catalogName).allNodes());
+                    Collections.shuffle(stageNodeList);
+                }
+                else {
+                    // cannot use dynamic lifespan schedule
+                    verify(!fragment.getStageExecutionDescriptor().isDynamicLifespanSchedule());
+
+                    // remote source requires nodePartitionMap
+                    NodePartitionMap nodePartitionMap = partitioningCache.apply(partitioningHandle);
+                    if (groupedExecutionForStage) {
+                        checkState(connectorPartitionHandles.size() == nodePartitionMap.getBucketToPartition().length);
+                    }
+                    stageNodeList = nodePartitionMap.getPartitionToNode();
+                    bucketNodeMap = nodePartitionMap.asBucketNodeMap();
+                }
+
+                return new FixedSourcePartitionedScheduler(
+                        stageExecution,
+                        splitSources,
+                        fragment.getStageExecutionDescriptor(),
+                        schedulingOrder,
+                        stageNodeList,
+                        bucketNodeMap,
+                        splitBatchSize,
+                        getConcurrentLifespansPerNode(session),
+                        nodeScheduler.createNodeSelector(session, catalogName),
+                        connectorPartitionHandles,
+                        dynamicFilterService,
+                        tableExecuteContextManager);
+            }
+            else {
+                // all sources are remote
+                NodePartitionMap nodePartitionMap = partitioningCache.apply(partitioningHandle);
+                List<InternalNode> partitionToNode = nodePartitionMap.getPartitionToNode();
+                // todo this should asynchronously wait a standard timeout period before failing
+                checkCondition(!partitionToNode.isEmpty(), NO_NODES_AVAILABLE, "No worker nodes available");
+                return new FixedCountScheduler(stageExecution, partitionToNode);
+            }
         }
     }
 
-    private void schedule()
-    {
-        try (SetThreadName ignored = new SetThreadName("Query-%s", queryStateMachine.getQueryId())) {
-            Set<StageId> completedStages = new HashSet<>();
-            ExecutionSchedule executionSchedule = executionPolicy.createExecutionSchedule(stages.values());
-            while (!executionSchedule.isFinished()) {
-                List<ListenableFuture<Void>> blockedStages = new ArrayList<>();
-                for (SqlStageExecution stage : executionSchedule.getStagesToSchedule()) {
-                    stage.beginScheduling();
-
-                    // perform some scheduling work
-                    ScheduleResult result = stageSchedulers.get(stage.getStageId())
-                            .schedule();
-
-                    // modify parent and children based on the results of the scheduling
-                    if (result.isFinished()) {
-                        stage.schedulingComplete();
-                    }
-                    else if (!result.getBlocked().isDone()) {
-                        blockedStages.add(result.getBlocked());
-                    }
-                    stageLinkages.get(stage.getStageId())
-                            .processScheduleResults(stage.getState(), result.getNewTasks());
-                    schedulerStats.getSplitsScheduledPerIteration().add(result.getSplitsScheduled());
-                    if (result.getBlockedReason().isPresent()) {
-                        switch (result.getBlockedReason().get()) {
-                            case WRITER_SCALING:
-                                // no-op
-                                break;
-                            case WAITING_FOR_SOURCE:
-                                schedulerStats.getWaitingForSource().update(1);
-                                break;
-                            case SPLIT_QUEUES_FULL:
-                                schedulerStats.getSplitQueuesFull().update(1);
-                                break;
-                            case MIXED_SPLIT_QUEUES_FULL_AND_WAITING_FOR_SOURCE:
-                            case NO_ACTIVE_DRIVER_GROUP:
-                                break;
-                            default:
-                                throw new UnsupportedOperationException("Unknown blocked reason: " + result.getBlockedReason().get());
-                        }
-                    }
-                }
-
-                // make sure to update stage linkage at least once per loop to catch async state changes (e.g., partial cancel)
-                for (SqlStageExecution stage : stages.values()) {
-                    if (!completedStages.contains(stage.getStageId()) && stage.getState().isDone()) {
-                        stageLinkages.get(stage.getStageId())
-                                .processScheduleResults(stage.getState(), ImmutableSet.of());
-                        completedStages.add(stage.getStageId());
-                    }
-                }
-
-                // wait for a state change and then schedule again
-                if (!blockedStages.isEmpty()) {
-                    try (TimeStat.BlockTimer timer = schedulerStats.getSleepTime().time()) {
-                        tryGetFutureValue(whenAnyComplete(blockedStages), 1, SECONDS);
-                    }
-                    for (ListenableFuture<Void> blockedStage : blockedStages) {
-                        blockedStage.cancel(true);
-                    }
-                }
-            }
-
-            for (SqlStageExecution stage : stages.values()) {
-                StageState state = stage.getState();
-                if (state != SCHEDULED && state != RUNNING && state != FLUSHING && !state.isDone()) {
-                    throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Scheduling is complete, but stage %s is in state %s", stage.getStageId(), state));
-                }
-            }
-        }
-        catch (Throwable t) {
-            queryStateMachine.transitionToFailed(t);
-            throw t;
-        }
-        finally {
-            RuntimeException closeError = new RuntimeException();
-            for (StageScheduler scheduler : stageSchedulers.values()) {
-                try {
-                    scheduler.close();
-                }
-                catch (Throwable t) {
-                    queryStateMachine.transitionToFailed(t);
-                    // Self-suppression not permitted
-                    if (closeError != t) {
-                        closeError.addSuppressed(t);
-                    }
-                }
-            }
-            if (closeError.getSuppressed().length > 0) {
-                throw closeError;
-            }
-        }
-    }
-
-    public void cancelStage(StageId stageId)
-    {
-        try (SetThreadName ignored = new SetThreadName("Query-%s", queryStateMachine.getQueryId())) {
-            SqlStageExecution sqlStageExecution = stages.get(stageId);
-            SqlStageExecution stage = requireNonNull(sqlStageExecution, () -> format("Stage '%s' does not exist", stageId));
-            stage.cancel();
-        }
-    }
-
-    public void abort()
-    {
-        try (SetThreadName ignored = new SetThreadName("Query-%s", queryStateMachine.getQueryId())) {
-            stages.values().forEach(SqlStageExecution::abort);
-        }
-    }
-
-    private static ListenableFuture<Void> whenAllStages(Collection<SqlStageExecution> stages, Predicate<StageState> predicate)
+    private static ListenableFuture<Void> whenAllStages(Collection<PipelinedStageExecution> stages, Predicate<PipelinedStageExecution.State> predicate)
     {
         checkArgument(!stages.isEmpty(), "stages is empty");
         Set<StageId> stageIds = stages.stream()
-                .map(SqlStageExecution::getStageId)
+                .map(PipelinedStageExecution::getStageId)
                 .collect(toCollection(Sets::newConcurrentHashSet));
         SettableFuture<Void> future = SettableFuture.create();
 
-        for (SqlStageExecution stage : stages) {
+        for (PipelinedStageExecution stage : stages) {
             stage.addStateChangeListener(state -> {
                 if (predicate.test(state) && stageIds.remove(stage.getStageId()) && stageIds.isEmpty()) {
                     future.set(null);
@@ -672,73 +664,202 @@ public class SqlQueryScheduler
         return future;
     }
 
-    private interface ExchangeLocationsConsumer
+    private static Map<PlanFragmentId, OutputBufferManager> createOutputBufferManagers(
+            Collection<SqlStageExecution> stageExecutions,
+            Map<PlanFragmentId, Optional<int[]>> bucketToPartitionMap)
     {
-        void addExchangeLocations(PlanFragmentId fragmentId, Set<RemoteTask> tasks, boolean noMoreExchangeLocations);
+        ImmutableMap.Builder<PlanFragmentId, OutputBufferManager> result = ImmutableMap.builder();
+        for (SqlStageExecution stageExecution : stageExecutions) {
+            PlanFragmentId fragmentId = stageExecution.getFragment().getId();
+            PartitioningHandle partitioningHandle = stageExecution.getFragment().getPartitioningScheme().getPartitioning().getHandle();
+            OutputBufferManager outputBufferManager;
+            if (partitioningHandle.equals(FIXED_BROADCAST_DISTRIBUTION)) {
+                outputBufferManager = new BroadcastOutputBufferManager();
+            }
+            else if (partitioningHandle.equals(SCALED_WRITER_DISTRIBUTION)) {
+                outputBufferManager = new ScaledOutputBufferManager();
+            }
+            else {
+                Optional<int[]> bucketToPartition = bucketToPartitionMap.get(fragmentId);
+                checkArgument(bucketToPartition.isPresent(), "bucketToPartition is expected to be present for fragment: %s", fragmentId);
+                int partitionCount = Ints.max(bucketToPartition.get()) + 1;
+                outputBufferManager = new PartitionedOutputBufferManager(partitioningHandle, partitionCount);
+            }
+            result.put(fragmentId, outputBufferManager);
+        }
+        return result.build();
     }
 
-    private static class StageLinkage
+    private static Map<PlanFragmentId, Optional<int[]>> createBucketToPartitionMap(
+            StageExecutionPlan plan,
+            Function<PartitioningHandle, NodePartitionMap> partitioningCache)
     {
-        private final PlanFragmentId currentStageFragmentId;
-        private final ExchangeLocationsConsumer parent;
-        private final Map<StageId, OutputBufferManager> childOutputBufferManagers;
-        private final Map<StageId, SqlStageExecution> childStages;
+        ImmutableMap.Builder<PlanFragmentId, Optional<int[]>> result = ImmutableMap.builder();
+        // root fragment always has a single consumer
+        result.put(plan.getFragment().getId(), Optional.of(new int[] {0}));
+        Queue<StageExecutionPlan> queue = new ArrayDeque<>();
+        queue.add(plan);
+        while (!queue.isEmpty()) {
+            StageExecutionPlan executionPlan = queue.poll();
+            PlanFragment fragment = executionPlan.getFragment();
+            Optional<int[]> bucketToPartition = getBucketToPartition(fragment.getPartitioning(), partitioningCache, fragment.getRoot(), fragment.getRemoteSourceNodes());
+            for (StageExecutionPlan child : executionPlan.getSubStages()) {
+                result.put(child.getFragment().getId(), bucketToPartition);
+                queue.add(child);
+            }
+        }
+        return result.build();
+    }
 
-        public StageLinkage(PlanFragmentId fragmentId, ExchangeLocationsConsumer parent, Set<SqlStageExecution> children)
+    private static Optional<int[]> getBucketToPartition(
+            PartitioningHandle partitioningHandle,
+            Function<PartitioningHandle, NodePartitionMap> partitioningCache,
+            PlanNode fragmentRoot,
+            List<RemoteSourceNode> remoteSourceNodes)
+    {
+        if (partitioningHandle.equals(SOURCE_DISTRIBUTION) || partitioningHandle.equals(SCALED_WRITER_DISTRIBUTION)) {
+            return Optional.of(new int[1]);
+        }
+        else if (searchFrom(fragmentRoot).where(node -> node instanceof TableScanNode).findFirst().isPresent()) {
+            if (remoteSourceNodes.stream().allMatch(node -> node.getExchangeType() == REPLICATE)) {
+                return Optional.empty();
+            }
+            else {
+                // remote source requires nodePartitionMap
+                NodePartitionMap nodePartitionMap = partitioningCache.apply(partitioningHandle);
+                return Optional.of(nodePartitionMap.getBucketToPartition());
+            }
+        }
+        else {
+            NodePartitionMap nodePartitionMap = partitioningCache.apply(partitioningHandle);
+            List<InternalNode> partitionToNode = nodePartitionMap.getPartitionToNode();
+            // todo this should asynchronously wait a standard timeout period before failing
+            checkCondition(!partitionToNode.isEmpty(), NO_NODES_AVAILABLE, "No worker nodes available");
+            return Optional.of(nodePartitionMap.getBucketToPartition());
+        }
+    }
+
+    private static class PipelinedScheduler
+    {
+        private final QueryStateMachine queryStateMachine;
+        private final ExecutionSchedule executionSchedule;
+        private final Map<StageId, StageScheduler> stageSchedulers;
+        private final SplitSchedulerStats schedulerStats;
+        private final List<PipelinedStageExecution> stageExecutions;
+
+        private final AtomicBoolean started = new AtomicBoolean();
+
+        private PipelinedScheduler(
+                QueryStateMachine queryStateMachine,
+                ExecutionSchedule executionSchedule,
+                Map<StageId, StageScheduler> stageSchedulers,
+                SplitSchedulerStats schedulerStats,
+                List<PipelinedStageExecution> stageExecutions)
         {
-            this.currentStageFragmentId = fragmentId;
-            this.parent = parent;
-            this.childOutputBufferManagers = children.stream()
-                    .collect(toImmutableMap(
-                            SqlStageExecution::getStageId,
-                            childStage -> {
-                                OutputBufferManager outputBufferManager;
-                                PartitioningHandle partitioningHandle = childStage.getFragment().getPartitioningScheme().getPartitioning().getHandle();
-                                if (partitioningHandle.equals(FIXED_BROADCAST_DISTRIBUTION)) {
-                                    outputBufferManager = new BroadcastOutputBufferManager();
-                                }
-                                else if (partitioningHandle.equals(SCALED_WRITER_DISTRIBUTION)) {
-                                    outputBufferManager = new ScaledOutputBufferManager();
-                                }
-                                else {
-                                    int partitionCount = Ints.max(childStage.getFragment().getPartitioningScheme().getBucketToPartition().get()) + 1;
-                                    outputBufferManager = new PartitionedOutputBufferManager(partitioningHandle, partitionCount);
-                                }
-                                childStage.setOutputBuffers(outputBufferManager.getOutputBuffers());
-                                return outputBufferManager;
-                            }));
-            this.childStages = children.stream()
-                    .collect(toImmutableMap(SqlStageExecution::getStageId, identity()));
+            this.queryStateMachine = requireNonNull(queryStateMachine, "queryStateMachine is null");
+            this.executionSchedule = requireNonNull(executionSchedule, "executionSchedule is null");
+            this.stageSchedulers = ImmutableMap.copyOf(requireNonNull(stageSchedulers, "stageSchedulers is null"));
+            this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
+            this.stageExecutions = ImmutableList.copyOf(requireNonNull(stageExecutions, "stageExecutions is null"));
         }
 
-        public Set<StageId> getChildStageIds()
+        public void schedule()
         {
-            return childStages.keySet();
-        }
+            checkState(started.compareAndSet(false, true), "already started");
 
-        public void processScheduleResults(StageState newState, Set<RemoteTask> newTasks)
-        {
-            boolean noMoreTasks = !newState.canScheduleMoreTasks();
-            // Add an exchange location to the parent stage for each new task
-            parent.addExchangeLocations(currentStageFragmentId, newTasks, noMoreTasks);
+            try (SetThreadName ignored = new SetThreadName("Query-%s", queryStateMachine.getQueryId())) {
+                while (!executionSchedule.isFinished()) {
+                    List<ListenableFuture<Void>> blockedStages = new ArrayList<>();
+                    for (PipelinedStageExecution stage : executionSchedule.getStagesToSchedule()) {
+                        stage.beginScheduling();
 
-            if (!childOutputBufferManagers.isEmpty()) {
-                // Add an output buffer to the child stages for each new task
-                List<OutputBufferId> newOutputBuffers = newTasks.stream()
-                        .map(task -> new OutputBufferId(task.getTaskId().getPartitionId()))
-                        .collect(toImmutableList());
-                for (StageId childStageId : childStages.keySet()) {
-                    OutputBufferManager outputBufferManager = childOutputBufferManagers.get(childStageId);
-                    for (OutputBufferId newOutputBuffer : newOutputBuffers) {
-                        outputBufferManager.addOutputBuffer(newOutputBuffer);
+                        // perform some scheduling work
+                        ScheduleResult result = stageSchedulers.get(stage.getStageId())
+                                .schedule();
+
+                        // modify parent and children based on the results of the scheduling
+                        if (result.isFinished()) {
+                            stage.schedulingComplete();
+                        }
+                        else if (!result.getBlocked().isDone()) {
+                            blockedStages.add(result.getBlocked());
+                        }
+                        schedulerStats.getSplitsScheduledPerIteration().add(result.getSplitsScheduled());
+                        if (result.getBlockedReason().isPresent()) {
+                            switch (result.getBlockedReason().get()) {
+                                case WRITER_SCALING:
+                                    // no-op
+                                    break;
+                                case WAITING_FOR_SOURCE:
+                                    schedulerStats.getWaitingForSource().update(1);
+                                    break;
+                                case SPLIT_QUEUES_FULL:
+                                    schedulerStats.getSplitQueuesFull().update(1);
+                                    break;
+                                case MIXED_SPLIT_QUEUES_FULL_AND_WAITING_FOR_SOURCE:
+                                case NO_ACTIVE_DRIVER_GROUP:
+                                    break;
+                                default:
+                                    throw new UnsupportedOperationException("Unknown blocked reason: " + result.getBlockedReason().get());
+                            }
+                        }
                     }
-                    if (noMoreTasks) {
-                        outputBufferManager.getOutputBuffers();
+
+                    // wait for a state change and then schedule again
+                    if (!blockedStages.isEmpty()) {
+                        try (TimeStat.BlockTimer timer = schedulerStats.getSleepTime().time()) {
+                            tryGetFutureValue(whenAnyComplete(blockedStages), 1, SECONDS);
+                        }
+                        for (ListenableFuture<Void> blockedStage : blockedStages) {
+                            blockedStage.cancel(true);
+                        }
                     }
-                    SqlStageExecution childStage = childStages.get(childStageId);
-                    childStage.setOutputBuffers(outputBufferManager.getOutputBuffers());
+                }
+
+                for (PipelinedStageExecution stage : stageExecutions) {
+                    PipelinedStageExecution.State state = stage.getState();
+                    if (state != SCHEDULED && state != RUNNING && state != FLUSHING && !state.isDone()) {
+                        throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Scheduling is complete, but stage %s is in state %s", stage.getStageId(), state));
+                    }
                 }
             }
+            catch (Throwable t) {
+                queryStateMachine.transitionToFailed(t);
+                throw t;
+            }
+            finally {
+                RuntimeException closeError = new RuntimeException();
+                for (StageScheduler scheduler : stageSchedulers.values()) {
+                    try {
+                        scheduler.close();
+                    }
+                    catch (Throwable t) {
+                        queryStateMachine.transitionToFailed(t);
+                        // Self-suppression not permitted
+                        if (closeError != t) {
+                            closeError.addSuppressed(t);
+                        }
+                    }
+                }
+                if (closeError.getSuppressed().length > 0) {
+                    throw closeError;
+                }
+            }
+        }
+
+        public void cancelStage(StageId stageId)
+        {
+            for (PipelinedStageExecution execution : stageExecutions) {
+                if (execution.getStageId().equals(stageId)) {
+                    execution.cancel();
+                    break;
+                }
+            }
+        }
+
+        public void abort()
+        {
+            stageExecutions.forEach(PipelinedStageExecution::abort);
         }
     }
 }

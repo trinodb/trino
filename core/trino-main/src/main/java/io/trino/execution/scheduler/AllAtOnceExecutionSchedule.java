@@ -17,8 +17,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
-import io.trino.execution.SqlStageExecution;
-import io.trino.execution.StageState;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.IndexJoinNode;
@@ -43,35 +41,35 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.execution.StageState.FLUSHING;
-import static io.trino.execution.StageState.RUNNING;
-import static io.trino.execution.StageState.SCHEDULED;
+import static io.trino.execution.scheduler.PipelinedStageExecution.State.FLUSHING;
+import static io.trino.execution.scheduler.PipelinedStageExecution.State.RUNNING;
+import static io.trino.execution.scheduler.PipelinedStageExecution.State.SCHEDULED;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
 public class AllAtOnceExecutionSchedule
         implements ExecutionSchedule
 {
-    private final Set<SqlStageExecution> schedulingStages;
+    private final Set<PipelinedStageExecution> schedulingStages;
 
-    public AllAtOnceExecutionSchedule(Collection<SqlStageExecution> stages)
+    public AllAtOnceExecutionSchedule(Collection<PipelinedStageExecution> stages)
     {
         requireNonNull(stages, "stages is null");
         List<PlanFragmentId> preferredScheduleOrder = getPreferredScheduleOrder(stages.stream()
-                .map(SqlStageExecution::getFragment)
+                .map(PipelinedStageExecution::getFragment)
                 .collect(toImmutableList()));
 
-        Ordering<SqlStageExecution> ordering = Ordering.explicit(preferredScheduleOrder)
+        Ordering<PipelinedStageExecution> ordering = Ordering.explicit(preferredScheduleOrder)
                 .onResultOf(PlanFragment::getId)
-                .onResultOf(SqlStageExecution::getFragment);
+                .onResultOf(PipelinedStageExecution::getFragment);
         schedulingStages = new LinkedHashSet<>(ordering.sortedCopy(stages));
     }
 
     @Override
-    public Set<SqlStageExecution> getStagesToSchedule()
+    public Set<PipelinedStageExecution> getStagesToSchedule()
     {
-        for (Iterator<SqlStageExecution> iterator = schedulingStages.iterator(); iterator.hasNext(); ) {
-            StageState state = iterator.next().getState();
+        for (Iterator<PipelinedStageExecution> iterator = schedulingStages.iterator(); iterator.hasNext(); ) {
+            PipelinedStageExecution.State state = iterator.next().getState();
             if (state == SCHEDULED || state == RUNNING || state == FLUSHING || state.isDone()) {
                 iterator.remove();
             }

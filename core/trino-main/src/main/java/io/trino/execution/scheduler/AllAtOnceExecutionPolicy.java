@@ -13,15 +13,13 @@
  */
 package io.trino.execution.scheduler;
 
-import io.trino.execution.SqlStageExecution;
-
 import java.util.Collection;
 
 public class AllAtOnceExecutionPolicy
         implements ExecutionPolicy
 {
     @Override
-    public ExecutionSchedule createExecutionSchedule(Collection<SqlStageExecution> stages)
+    public ExecutionSchedule createExecutionSchedule(Collection<PipelinedStageExecution> stages)
     {
         return new AllAtOnceExecutionSchedule(stages);
     }
