@@ -681,37 +681,39 @@ public class SqlQueryScheduler
     {
         private final PlanFragmentId currentStageFragmentId;
         private final ExchangeLocationsConsumer parent;
-        private final Set<OutputBufferManager> childOutputBufferManagers;
-        private final Set<StageId> childStageIds;
+        private final Map<StageId, OutputBufferManager> childOutputBufferManagers;
+        private final Map<StageId, SqlStageExecution> childStages;
 
         public StageLinkage(PlanFragmentId fragmentId, ExchangeLocationsConsumer parent, Set<SqlStageExecution> children)
         {
             this.currentStageFragmentId = fragmentId;
             this.parent = parent;
             this.childOutputBufferManagers = children.stream()
-                    .map(childStage -> {
-                        PartitioningHandle partitioningHandle = childStage.getFragment().getPartitioningScheme().getPartitioning().getHandle();
-                        if (partitioningHandle.equals(FIXED_BROADCAST_DISTRIBUTION)) {
-                            return new BroadcastOutputBufferManager(childStage::setOutputBuffers);
-                        }
-                        else if (partitioningHandle.equals(SCALED_WRITER_DISTRIBUTION)) {
-                            return new ScaledOutputBufferManager(childStage::setOutputBuffers);
-                        }
-                        else {
-                            int partitionCount = Ints.max(childStage.getFragment().getPartitioningScheme().getBucketToPartition().get()) + 1;
-                            return new PartitionedOutputBufferManager(partitioningHandle, partitionCount, childStage::setOutputBuffers);
-                        }
-                    })
-                    .collect(toImmutableSet());
-
-            this.childStageIds = children.stream()
-                    .map(SqlStageExecution::getStageId)
-                    .collect(toImmutableSet());
+                    .collect(toImmutableMap(
+                            SqlStageExecution::getStageId,
+                            childStage -> {
+                                OutputBufferManager outputBufferManager;
+                                PartitioningHandle partitioningHandle = childStage.getFragment().getPartitioningScheme().getPartitioning().getHandle();
+                                if (partitioningHandle.equals(FIXED_BROADCAST_DISTRIBUTION)) {
+                                    outputBufferManager = new BroadcastOutputBufferManager();
+                                }
+                                else if (partitioningHandle.equals(SCALED_WRITER_DISTRIBUTION)) {
+                                    outputBufferManager = new ScaledOutputBufferManager();
+                                }
+                                else {
+                                    int partitionCount = Ints.max(childStage.getFragment().getPartitioningScheme().getBucketToPartition().get()) + 1;
+                                    outputBufferManager = new PartitionedOutputBufferManager(partitioningHandle, partitionCount);
+                                }
+                                childStage.setOutputBuffers(outputBufferManager.getOutputBuffers());
+                                return outputBufferManager;
+                            }));
+            this.childStages = children.stream()
+                    .collect(toImmutableMap(SqlStageExecution::getStageId, identity()));
         }
 
         public Set<StageId> getChildStageIds()
         {
-            return childStageIds;
+            return childStages.keySet();
         }
 
         public void processScheduleResults(StageState newState, Set<RemoteTask> newTasks)
@@ -725,8 +727,16 @@ public class SqlQueryScheduler
                 List<OutputBufferId> newOutputBuffers = newTasks.stream()
                         .map(task -> new OutputBufferId(task.getTaskId().getPartitionId()))
                         .collect(toImmutableList());
-                for (OutputBufferManager child : childOutputBufferManagers) {
-                    child.addOutputBuffers(newOutputBuffers, noMoreTasks);
+                for (StageId childStageId : childStages.keySet()) {
+                    OutputBufferManager outputBufferManager = childOutputBufferManagers.get(childStageId);
+                    for (OutputBufferId newOutputBuffer : newOutputBuffers) {
+                        outputBufferManager.addOutputBuffer(newOutputBuffer);
+                    }
+                    if (noMoreTasks) {
+                        outputBufferManager.getOutputBuffers();
+                    }
+                    SqlStageExecution childStage = childStages.get(childStageId);
+                    childStage.setOutputBuffers(outputBufferManager.getOutputBuffers());
                 }
             }
         }
