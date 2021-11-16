@@ -14,10 +14,12 @@
 package io.trino.operator;
 
 import com.esri.core.geometry.ogc.OGCGeometry;
-import com.esri.core.geometry.ogc.OGCPoint;
 import io.airlift.slice.Slice;
 import io.trino.Session;
+import io.trino.geospatial.GeometryUtils;
 import io.trino.geospatial.Rectangle;
+import io.trino.geospatial.rtree.Flatbush;
+import io.trino.geospatial.rtree.HasExtent;
 import io.trino.operator.SpatialIndexBuilderOperator.SpatialPredicate;
 import io.trino.operator.join.JoinFilterFunction;
 import io.trino.spi.Page;
@@ -27,8 +29,6 @@ import io.trino.spi.type.Type;
 import io.trino.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
-import org.locationtech.jts.geom.Envelope;
-import org.locationtech.jts.index.strtree.STRtree;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
@@ -37,6 +37,7 @@ import java.util.Optional;
 import java.util.OptionalDouble;
 
 import static com.google.common.base.Verify.verifyNotNull;
+import static io.trino.geospatial.GeometryUtils.getExtent;
 import static io.trino.geospatial.serde.GeometrySerde.deserialize;
 import static io.trino.operator.SyntheticAddress.decodePosition;
 import static io.trino.operator.SyntheticAddress.decodeSliceIndex;
@@ -55,25 +56,33 @@ public class PagesRTreeIndex
     private final List<Type> types;
     private final List<Integer> outputChannels;
     private final List<List<Block>> channels;
-    private final STRtree rtree;
+    private final Flatbush<GeometryWithPosition> rtree;
     private final int radiusChannel;
     private final SpatialPredicate spatialRelationshipTest;
     private final JoinFilterFunction filterFunction;
     private final Map<Integer, Rectangle> partitions;
 
     public static final class GeometryWithPosition
+            implements HasExtent
     {
         private static final int INSTANCE_SIZE = ClassLayout.parseClass(GeometryWithPosition.class).instanceSize();
 
         private final OGCGeometry ogcGeometry;
         private final int partition;
         private final int position;
+        private final Rectangle extent;
 
         public GeometryWithPosition(OGCGeometry ogcGeometry, int partition, int position)
+        {
+            this(ogcGeometry, partition, position, 0.0f);
+        }
+
+        public GeometryWithPosition(OGCGeometry ogcGeometry, int partition, int position, double radius)
         {
             this.ogcGeometry = requireNonNull(ogcGeometry, "ogcGeometry is null");
             this.partition = partition;
             this.position = position;
+            this.extent = GeometryUtils.getExtent(ogcGeometry, radius);
         }
 
         public OGCGeometry getGeometry()
@@ -91,7 +100,14 @@ public class PagesRTreeIndex
             return position;
         }
 
-        public long getEstimatedMemorySizeInBytes()
+        @Override
+        public Rectangle getExtent()
+        {
+            return extent;
+        }
+
+        @Override
+        public long getEstimatedSizeInBytes()
         {
             return INSTANCE_SIZE + ogcGeometry.estimateMemorySize();
         }
@@ -103,7 +119,7 @@ public class PagesRTreeIndex
             List<Type> types,
             List<Integer> outputChannels,
             List<List<Block>> channels,
-            STRtree rtree,
+            Flatbush<GeometryWithPosition> rtree,
             Optional<Integer> radiusChannel,
             SpatialPredicate spatialRelationshipTest,
             Optional<JoinFilterFunctionFactory> filterFunctionFactory,
@@ -120,16 +136,8 @@ public class PagesRTreeIndex
         this.partitions = requireNonNull(partitions, "partitions is null");
     }
 
-    private static Envelope getEnvelope(OGCGeometry ogcGeometry)
-    {
-        com.esri.core.geometry.Envelope env = new com.esri.core.geometry.Envelope();
-        ogcGeometry.getEsriGeometry().queryEnvelope(env);
-
-        return new Envelope(env.getXMin(), env.getXMax(), env.getYMin(), env.getYMax());
-    }
-
     /**
-     * Returns an array of addresses from {@link PagesIndex#valueAddresses} corresponding
+     * Returns an array of addresses from {@link PagesIndex#getValueAddresses()} corresponding
      * to rows with matching geometries.
      * <p>
      * The caller is responsible for calling {@link #isJoinPositionEligible(int, int, Page)}
@@ -152,24 +160,20 @@ public class PagesRTreeIndex
             return EMPTY_ADDRESSES;
         }
 
-        boolean probeIsPoint = probeGeometry instanceof OGCPoint;
-
         IntArrayList matchingPositions = new IntArrayList();
 
-        Envelope envelope = getEnvelope(probeGeometry);
-        rtree.query(envelope, item -> {
-            GeometryWithPosition geometryWithPosition = (GeometryWithPosition) item;
+        Rectangle queryRectangle = getExtent(probeGeometry);
+        boolean probeIsPoint = queryRectangle.isPointlike();
+        rtree.findIntersections(queryRectangle, geometryWithPosition -> {
             OGCGeometry buildGeometry = geometryWithPosition.getGeometry();
-            if (partitions.isEmpty() || (probePartition == geometryWithPosition.getPartition() && (probeIsPoint || (buildGeometry instanceof OGCPoint) || testReferencePoint(envelope, buildGeometry, probePartition)))) {
-                if (radiusChannel == -1) {
-                    if (spatialRelationshipTest.apply(buildGeometry, probeGeometry, OptionalDouble.empty())) {
-                        matchingPositions.add(geometryWithPosition.getPosition());
-                    }
-                }
-                else {
-                    if (spatialRelationshipTest.apply(geometryWithPosition.getGeometry(), probeGeometry, OptionalDouble.of(getRadius(geometryWithPosition.getPosition())))) {
-                        matchingPositions.add(geometryWithPosition.getPosition());
-                    }
+            Rectangle buildEnvelope = geometryWithPosition.getExtent();
+            if (partitions.isEmpty() || (probePartition == geometryWithPosition.getPartition() &&
+                    (probeIsPoint || buildEnvelope.isPointlike() || testReferencePoint(queryRectangle, buildEnvelope, probePartition)))) {
+                OptionalDouble radius = radiusChannel == -1 ?
+                        OptionalDouble.empty() :
+                        OptionalDouble.of(getRadius(geometryWithPosition.getPosition()));
+                if (spatialRelationshipTest.apply(buildGeometry, probeGeometry, radius)) {
+                    matchingPositions.add(geometryWithPosition.getPosition());
                 }
             }
         });
@@ -177,18 +181,17 @@ public class PagesRTreeIndex
         return matchingPositions.toIntArray(null);
     }
 
-    private boolean testReferencePoint(Envelope probeEnvelope, OGCGeometry buildGeometry, int partition)
+    private boolean testReferencePoint(Rectangle probeEnvelope, Rectangle buildEnvelope, int partition)
     {
-        Envelope buildEnvelope = getEnvelope(buildGeometry);
-        Envelope intersection = buildEnvelope.intersection(probeEnvelope);
-        if (intersection.isNull()) {
+        Rectangle intersection = buildEnvelope.intersection(probeEnvelope);
+        if (intersection == null) {
             return false;
         }
 
         Rectangle extent = partitions.get(partition);
 
-        double x = intersection.getMinX();
-        double y = intersection.getMinY();
+        double x = intersection.getXMin();
+        double y = intersection.getYMin();
         return x >= extent.getXMin() && x < extent.getXMax() && y >= extent.getYMin() && y < extent.getYMax();
     }
 

@@ -51,18 +51,13 @@ public final class SpatialPartitioningInternalAggregateFunction
             return;
         }
 
-        Rectangle extent = new Rectangle(envelope.getXMin(), envelope.getYMin(), envelope.getXMax(), envelope.getYMax());
-
         if (state.getCount() == 0) {
             state.setPartitionCount(toIntExact(partitionCount));
-            state.setExtent(extent);
             state.setSamples(new ArrayList<>());
-        }
-        else {
-            state.setExtent(state.getExtent().merge(extent));
         }
 
         // use reservoir sampling
+        Rectangle extent = new Rectangle(envelope.getXMin(), envelope.getYMin(), envelope.getXMax(), envelope.getYMax());
         List<Rectangle> samples = state.getSamples();
         if (samples.size() <= MAX_SAMPLE_COUNT) {
             samples.add(extent);
@@ -89,11 +84,6 @@ public final class SpatialPartitioningInternalAggregateFunction
 
         int partitionCount = state.getPartitionCount();
         int maxItemsPerNode = (samples.size() + partitionCount - 1) / partitionCount;
-        Rectangle envelope = state.getExtent();
-
-        // Add a small buffer on the right and upper sides
-        Rectangle paddedExtent = new Rectangle(envelope.getXMin(), envelope.getYMin(), Math.nextUp(envelope.getXMax()), Math.nextUp(envelope.getYMax()));
-
-        VARCHAR.writeString(out, KdbTreeUtils.toJson(buildKdbTree(maxItemsPerNode, paddedExtent, samples)));
+        VARCHAR.writeString(out, KdbTreeUtils.toJson(buildKdbTree(maxItemsPerNode, samples)));
     }
 }

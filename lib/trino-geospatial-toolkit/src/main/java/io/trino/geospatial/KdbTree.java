@@ -20,7 +20,9 @@ import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.ArrayDeque;
 import java.util.Comparator;
+import java.util.Deque;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -35,6 +37,11 @@ import static java.util.Objects.requireNonNull;
 /**
  * 2-dimensional K-D-B Tree
  * see https://en.wikipedia.org/wiki/K-D-B-tree
+ *
+ * This KdbTree is open: it covers the entire plane, and the border nodes extend
+ * out to infinity. For each node, the right (xMax) and top (yMax) are not
+ * considered part of the node. This means, for intersection/containment checks,
+ * a strict inequality `<` must be used for xMax and yMax.
  */
 public class KdbTree
 {
@@ -165,31 +172,39 @@ public class KdbTree
 
     public Map<Integer, Rectangle> getLeaves()
     {
-        ImmutableMap.Builder<Integer, Rectangle> leaves = ImmutableMap.builder();
-        addLeaves(root, leaves, node -> true);
-        return leaves.buildOrThrow();
+        return findLeaves(node -> true);
     }
 
     public Map<Integer, Rectangle> findIntersectingLeaves(Rectangle envelope)
     {
-        ImmutableMap.Builder<Integer, Rectangle> leaves = ImmutableMap.builder();
-        addLeaves(root, leaves, node -> node.extent.intersects(envelope));
-        return leaves.buildOrThrow();
+        return findLeaves(node -> {
+            // Nodes don't include their upper (yMax) or right (xMax) boundaries
+            return node.extent.getXMin() <= envelope.getXMax()
+                    && node.extent.getXMax() > envelope.getXMin()
+                    && node.extent.getYMin() <= envelope.getYMax()
+                    && node.extent.getYMax() > envelope.getYMin();
+        });
     }
 
-    private static void addLeaves(Node node, ImmutableMap.Builder<Integer, Rectangle> leaves, Predicate<Node> predicate)
+    private Map<Integer, Rectangle> findLeaves(Predicate<Node> predicate)
     {
-        if (!predicate.apply(node)) {
-            return;
+        ImmutableMap.Builder<Integer, Rectangle> leaves = ImmutableMap.builder();
+        Deque<Node> deque = new ArrayDeque<>();
+        deque.push(root);
+        while (!deque.isEmpty()) {
+            Node node = deque.pop();
+            if (!predicate.apply(node)) {
+                continue;
+            }
+            if (node.leafId.isPresent()) {
+                leaves.put(node.leafId.getAsInt(), node.extent);
+            }
+            else {
+                deque.push(node.getLeft().get());
+                deque.push(node.getRight().get());
+            }
         }
-
-        if (node.leafId.isPresent()) {
-            leaves.put(node.leafId.getAsInt(), node.extent);
-        }
-        else {
-            addLeaves(node.left.get(), leaves, predicate);
-            addLeaves(node.right.get(), leaves, predicate);
-        }
+        return leaves.build();
     }
 
     private interface SplitDimension
@@ -269,12 +284,11 @@ public class KdbTree
         }
     }
 
-    public static KdbTree buildKdbTree(int maxItemsPerNode, Rectangle extent, List<Rectangle> items)
+    public static KdbTree buildKdbTree(int maxItemsPerNode, List<Rectangle> items)
     {
         checkArgument(maxItemsPerNode > 0, "maxItemsPerNode must be > 0");
-        requireNonNull(extent, "extent is null");
         requireNonNull(items, "items is null");
-        return new KdbTree(buildKdbTreeNode(maxItemsPerNode, 0, extent, items, new LeafIdAllocator()));
+        return new KdbTree(buildKdbTreeNode(maxItemsPerNode, 0, Rectangle.getUniverseRectangle(), items, new LeafIdAllocator()));
     }
 
     private static Node buildKdbTreeNode(int maxItemsPerNode, int level, Rectangle extent, List<Rectangle> items, LeafIdAllocator leafIdAllocator)
@@ -290,7 +304,7 @@ public class KdbTree
         }
 
         // Split over longer side
-        boolean splitVertically = extent.getWidth() >= extent.getHeight();
+        boolean splitVertically = shouldSplitVertically(extent);
         Optional<SplitResult<Node>> splitResult = trySplit(splitVertically ? BY_X : BY_Y, maxItemsPerNode, level, extent, items, leafIdAllocator);
         if (splitResult.isEmpty()) {
             // Try spitting by the other side
@@ -302,6 +316,37 @@ public class KdbTree
         }
 
         return newInternal(extent, splitResult.get().getLeft(), splitResult.get().getRight());
+    }
+
+    /*
+     * Split vertically if the extent is wider than it is tall. Consider a
+     * doubly-infinite "longer" than half-infinite, and half-infinite longer
+     * than finite.
+     */
+    private static boolean shouldSplitVertically(Rectangle extent)
+    {
+        int numHorizontalInfinities = 0;
+        if (extent.getXMax() == Double.POSITIVE_INFINITY) {
+            numHorizontalInfinities += 1;
+        }
+        if (extent.getXMin() == Double.NEGATIVE_INFINITY) {
+            numHorizontalInfinities += 1;
+        }
+
+        int numVerticalInfinities = 0;
+        if (extent.getYMax() == Double.POSITIVE_INFINITY) {
+            numVerticalInfinities += 1;
+        }
+        if (extent.getYMin() == Double.NEGATIVE_INFINITY) {
+            numVerticalInfinities += 1;
+        }
+
+        if (numHorizontalInfinities == numVerticalInfinities) {
+            return extent.getWidth() >= extent.getHeight();
+        }
+        else {
+            return numHorizontalInfinities > numVerticalInfinities;
+        }
     }
 
     private static final class SplitResult<T>

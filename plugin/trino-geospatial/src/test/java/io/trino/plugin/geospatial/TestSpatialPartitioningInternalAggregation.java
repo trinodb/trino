@@ -75,8 +75,7 @@ public class TestSpatialPartitioningInternalAggregation
 
         Block partitionCountBlock = BlockAssertions.createRLEBlock(partitionCount, geometries.size());
 
-        Rectangle expectedExtent = new Rectangle(-10, -10, Math.nextUp(10.0), Math.nextUp(10.0));
-        String expectedValue = getSpatialPartitioning(expectedExtent, geometries, partitionCount);
+        String expectedValue = getSpatialPartitioning(geometries, partitionCount);
 
         AggregatorFactory aggregatorFactory = function.createAggregatorFactory(SINGLE, Ints.asList(0, 1), OptionalInt.empty());
         Page page = new Page(geometryBlock, partitionCountBlock);
@@ -138,7 +137,7 @@ public class TestSpatialPartitioningInternalAggregation
         return builder.build();
     }
 
-    private String getSpatialPartitioning(Rectangle extent, List<OGCGeometry> geometries, int partitionCount)
+    private String getSpatialPartitioning(List<OGCGeometry> geometries, int partitionCount)
     {
         ImmutableList.Builder<Rectangle> rectangles = ImmutableList.builder();
         for (OGCGeometry geometry : geometries) {
@@ -147,6 +146,6 @@ public class TestSpatialPartitioningInternalAggregation
             rectangles.add(new Rectangle(envelope.getXMin(), envelope.getYMin(), envelope.getXMax(), envelope.getYMax()));
         }
 
-        return KdbTreeUtils.toJson(buildKdbTree(roundToInt(geometries.size() * 1.0 / partitionCount, CEILING), extent, rectangles.build()));
+        return KdbTreeUtils.toJson(buildKdbTree(roundToInt(geometries.size() * 1.0 / partitionCount, CEILING), rectangles.build()));
     }
 }

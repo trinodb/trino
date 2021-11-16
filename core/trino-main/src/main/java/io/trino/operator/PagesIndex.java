@@ -21,6 +21,7 @@ import io.airlift.units.DataSize;
 import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.geospatial.Rectangle;
+import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.SpatialIndexBuilderOperator.SpatialPredicate;
 import io.trino.operator.join.JoinHashSupplier;
 import io.trino.operator.join.LookupSource;
@@ -495,11 +496,12 @@ public class PagesIndex
             SpatialPredicate spatialRelationshipTest,
             Optional<JoinFilterFunctionFactory> filterFunctionFactory,
             List<Integer> outputChannels,
-            Map<Integer, Rectangle> partitions)
+            Map<Integer, Rectangle> partitions,
+            LocalMemoryContext localUserMemoryContext)
     {
         // TODO probably shouldn't copy to reduce memory and for memory accounting's sake
         List<List<Block>> channels = ImmutableList.copyOf(this.channels);
-        return new PagesSpatialIndexSupplier(session, valueAddresses, types, outputChannels, channels, geometryChannel, radiusChannel, partitionChannel, spatialRelationshipTest, filterFunctionFactory, partitions);
+        return new PagesSpatialIndexSupplier(session, valueAddresses, types, outputChannels, channels, geometryChannel, radiusChannel, partitionChannel, spatialRelationshipTest, filterFunctionFactory, partitions, localUserMemoryContext);
     }
 
     public LookupSourceSupplier createLookupSourceSupplier(

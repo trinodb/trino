@@ -15,6 +15,7 @@ package io.trino.geospatial;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.trino.geospatial.rtree.HasExtent;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;
@@ -26,8 +27,14 @@ import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
 public final class Rectangle
+        implements HasExtent
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(Rectangle.class).instanceSize();
+    private static final Rectangle UNIVERSE_RECTANGLE = new Rectangle(
+            Double.NEGATIVE_INFINITY,
+            Double.NEGATIVE_INFINITY,
+            Double.POSITIVE_INFINITY,
+            Double.POSITIVE_INFINITY);
 
     private final double xMin;
     private final double yMin;
@@ -47,6 +54,11 @@ public final class Rectangle
         this.yMin = yMin;
         this.xMax = xMax;
         this.yMax = yMax;
+    }
+
+    public static Rectangle getUniverseRectangle()
+    {
+        return UNIVERSE_RECTANGLE;
     }
 
     @JsonProperty
@@ -104,7 +116,30 @@ public final class Rectangle
         return new Rectangle(min(this.xMin, other.xMin), min(this.yMin, other.yMin), max(this.xMax, other.xMax), max(this.yMax, other.yMax));
     }
 
-    public int estimateMemorySize()
+    public boolean contains(double x, double y)
+    {
+        return xMin <= x && x <= xMax
+                && yMin <= y && y <= yMax;
+    }
+
+    /**
+     * Returns if this Rectangle contains only a single point.
+     *
+     * @return if xMax==xMin and yMax==yMin
+     */
+    public boolean isPointlike()
+    {
+        return xMin == xMax && yMin == yMax;
+    }
+
+    @Override
+    public Rectangle getExtent()
+    {
+        return this;
+    }
+
+    @Override
+    public long getEstimatedSizeInBytes()
     {
         return INSTANCE_SIZE;
     }

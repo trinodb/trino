@@ -30,6 +30,8 @@ import static java.lang.Math.toIntExact;
 public class SpatialPartitioningStateFactory
         implements AccumulatorStateFactory<SpatialPartitioningState>
 {
+    private static final int ENVELOPE_SIZE = toIntExact(new Envelope(1, 2, 3, 4).estimateMemorySize());
+
     @Override
     public SpatialPartitioningState createSingleState()
     {
@@ -46,14 +48,11 @@ public class SpatialPartitioningStateFactory
             implements GroupedAccumulatorState, SpatialPartitioningState
     {
         private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupedSpatialPartitioningState.class).instanceSize();
-        private static final int ENVELOPE_SIZE = toIntExact(new Envelope(1, 2, 3, 4).estimateMemorySize());
 
         private long groupId;
         private final IntBigArray partitionCounts = new IntBigArray();
         private final LongBigArray counts = new LongBigArray();
-        private final ObjectBigArray<Rectangle> envelopes = new ObjectBigArray<>();
         private final ObjectBigArray<List<Rectangle>> samples = new ObjectBigArray<>();
-        private int envelopeCount;
         private int samplesCount;
 
         @Override
@@ -81,21 +80,6 @@ public class SpatialPartitioningStateFactory
         }
 
         @Override
-        public Rectangle getExtent()
-        {
-            return envelopes.get(groupId);
-        }
-
-        @Override
-        public void setExtent(Rectangle envelope)
-        {
-            if (envelopes.get(groupId) == null) {
-                envelopeCount++;
-            }
-            envelopes.set(groupId, envelope);
-        }
-
-        @Override
         public List<Rectangle> getSamples()
         {
             return samples.get(groupId);
@@ -115,7 +99,7 @@ public class SpatialPartitioningStateFactory
         @Override
         public long getEstimatedSize()
         {
-            return INSTANCE_SIZE + partitionCounts.sizeOf() + counts.sizeOf() + envelopes.sizeOf() + samples.sizeOf() + ENVELOPE_SIZE * (envelopeCount + samplesCount);
+            return INSTANCE_SIZE + partitionCounts.sizeOf() + counts.sizeOf() + samples.sizeOf() + ENVELOPE_SIZE * samplesCount;
         }
 
         @Override
@@ -129,7 +113,6 @@ public class SpatialPartitioningStateFactory
         {
             partitionCounts.ensureCapacity(size);
             counts.ensureCapacity(size);
-            envelopes.ensureCapacity(size);
             samples.ensureCapacity(size);
         }
     }
@@ -141,7 +124,6 @@ public class SpatialPartitioningStateFactory
 
         private int partitionCount;
         private long count;
-        private Rectangle envelope;
         private List<Rectangle> samples = new ArrayList<>();
 
         @Override
@@ -169,18 +151,6 @@ public class SpatialPartitioningStateFactory
         }
 
         @Override
-        public Rectangle getExtent()
-        {
-            return envelope;
-        }
-
-        @Override
-        public void setExtent(Rectangle envelope)
-        {
-            this.envelope = envelope;
-        }
-
-        @Override
         public List<Rectangle> getSamples()
         {
             return samples;
@@ -195,7 +165,7 @@ public class SpatialPartitioningStateFactory
         @Override
         public long getEstimatedSize()
         {
-            return INSTANCE_SIZE + (envelope != null ? envelope.estimateMemorySize() * (1 + samples.size()) : 0);
+            return INSTANCE_SIZE + samples.size() * ENVELOPE_SIZE;
         }
     }
 }

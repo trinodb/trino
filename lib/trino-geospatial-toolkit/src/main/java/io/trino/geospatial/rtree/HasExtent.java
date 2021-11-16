@@ -11,27 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.geospatial;
+package io.trino.geospatial.rtree;
 
 import io.trino.geospatial.Rectangle;
-import io.trino.spi.function.AccumulatorState;
-import io.trino.spi.function.AccumulatorStateMetadata;
 
-import java.util.List;
-
-@AccumulatorStateMetadata(stateSerializerClass = SpatialPartitioningStateSerializer.class, stateFactoryClass = SpatialPartitioningStateFactory.class)
-public interface SpatialPartitioningState
-        extends AccumulatorState
+public interface HasExtent
 {
-    int getPartitionCount();
+    Rectangle getExtent();
 
-    void setPartitionCount(int partitionCount);
-
-    long getCount();
-
-    void setCount(long count);
-
-    List<Rectangle> getSamples();
-
-    void setSamples(List<Rectangle> samples);
+    long getEstimatedSizeInBytes();
 }
