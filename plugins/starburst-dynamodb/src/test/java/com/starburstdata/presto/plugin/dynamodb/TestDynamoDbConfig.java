@@ -48,6 +48,8 @@ public class TestDynamoDbConfig
         assertRecordedDefaults(recordDefaults(DynamoDbConfig.class)
                 .setAwsAccessKey(null)
                 .setAwsSecretKey(null)
+                .setAwsRoleArn(null)
+                .setAwsExternalId(null)
                 .setAwsRegion(null)
                 .setGenerateSchemaFiles(NEVER)
                 .setSchemaDirectory(JAVA_IO_TMPDIR.value() + "/dynamodb-schemas")
@@ -71,6 +73,8 @@ public class TestDynamoDbConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("dynamodb.aws-access-key", "access-key")
                 .put("dynamodb.aws-secret-key", "secret-key")
+                .put("dynamodb.aws-role-arn", "role-arn")
+                .put("dynamodb.aws-external-id", "external-id")
                 .put("dynamodb.aws-region", "us-east-2")
                 .put("dynamodb.generate-schema-files", "ON_USE")
                 .put("dynamodb.schema-directory", tempDirectory.getAbsolutePath())
@@ -87,6 +91,8 @@ public class TestDynamoDbConfig
         DynamoDbConfig expected = new DynamoDbConfig()
                 .setAwsAccessKey("access-key")
                 .setAwsSecretKey("secret-key")
+                .setAwsRoleArn("role-arn")
+                .setAwsExternalId("external-id")
                 .setAwsRegion("us-east-2")
                 .setGenerateSchemaFiles(ON_USE)
                 .setSchemaDirectory(tempDirectory.getAbsolutePath())
@@ -108,6 +114,28 @@ public class TestDynamoDbConfig
         assertThatThrownBy(() -> new DynamoDbConfig().setAwsRegion("foobar").validate())
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("dynamodb.aws-region must be one of the following: af-south-1, ap-east-1, ap-northeast-1, ap-northeast-2, ap-northeast-3, ap-south-1, ap-southeast-1, ap-southeast-2, ca-central-1, cn-north-1, eu-central-1, eu-north-1, eu-south-1, eu-west-1, eu-west-2, eu-west-3, me-south-1, sa-east-1, us-east-1, us-east-2, us-gov-east-1, us-gov-west-1, us-iso-east-1, us-west-1, us-west-2");
+    }
+
+    @Test
+    public void testAwsKeysNotBothSet()
+    {
+        // Test both not set
+        new DynamoDbConfig().setAwsRegion("us-east-2").validate();
+
+        // Test only one set throws an error
+        assertThatThrownBy(() -> new DynamoDbConfig().setAwsRegion("us-east-2").setAwsAccessKey("foo").validate())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("dynamodb.aws-access-key and dynamodb.aws-secret-key must both be either set or not set");
+        assertThatThrownBy(() -> new DynamoDbConfig().setAwsRegion("us-east-2").setAwsSecretKey("bar").validate())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("dynamodb.aws-access-key and dynamodb.aws-secret-key must both be either set or not set");
+
+        // Test both set
+        new DynamoDbConfig()
+                .setAwsRegion("us-east-2")
+                .setAwsAccessKey("foo")
+                .setAwsSecretKey("bar")
+                .validate();
     }
 
     @Test

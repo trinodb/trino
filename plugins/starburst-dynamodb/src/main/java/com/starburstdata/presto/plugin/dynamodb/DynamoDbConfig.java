@@ -50,6 +50,8 @@ public class DynamoDbConfig
 
     private String awsAccessKey;
     private String awsSecretKey;
+    private String awsRoleArn;
+    private String awsExternalId;
     private String awsRegion;
     private GenerateSchemaFiles generateSchemaFiles = GenerateSchemaFiles.NEVER;
     private String schemaDirectory = JAVA_IO_TMPDIR.value() + "/dynamodb-schemas";
@@ -62,9 +64,9 @@ public class DynamoDbConfig
     private int driverLoggingVerbosity = 3;
     private Optional<String> extraJdbcProperties = Optional.empty();
 
-    public String getAwsAccessKey()
+    public Optional<String> getAwsAccessKey()
     {
-        return awsAccessKey;
+        return Optional.ofNullable(awsAccessKey);
     }
 
     @Config("dynamodb.aws-access-key")
@@ -76,9 +78,9 @@ public class DynamoDbConfig
         return this;
     }
 
-    public String getAwsSecretKey()
+    public Optional<String> getAwsSecretKey()
     {
-        return awsSecretKey;
+        return Optional.ofNullable(awsSecretKey);
     }
 
     @Config("dynamodb.aws-secret-key")
@@ -87,6 +89,32 @@ public class DynamoDbConfig
     public DynamoDbConfig setAwsSecretKey(String awsSecretKey)
     {
         this.awsSecretKey = awsSecretKey;
+        return this;
+    }
+
+    public Optional<String> getAwsRoleArn()
+    {
+        return Optional.ofNullable(awsRoleArn);
+    }
+
+    @Config("dynamodb.aws-role-arn")
+    @ConfigDescription("AWS Role ARN")
+    public DynamoDbConfig setAwsRoleArn(String awsRoleArn)
+    {
+        this.awsRoleArn = awsRoleArn;
+        return this;
+    }
+
+    public Optional<String> getAwsExternalId()
+    {
+        return Optional.ofNullable(awsExternalId);
+    }
+
+    @Config("dynamodb.aws-external-id")
+    @ConfigDescription("AWS External ID")
+    public DynamoDbConfig setAwsExternalId(String awsExternalId)
+    {
+        this.awsExternalId = awsExternalId;
         return this;
     }
 
@@ -244,5 +272,6 @@ public class DynamoDbConfig
     public void validate()
     {
         checkState(AWS_REGION_TO_CDATA_REGION.containsKey(getAwsRegion()), "dynamodb.aws-region must be one of the following: " + AWS_REGION_TO_CDATA_REGION.keySet().stream().sorted().collect(joining(", ")));
+        checkState(getAwsAccessKey().isPresent() == getAwsSecretKey().isPresent(), "dynamodb.aws-access-key and dynamodb.aws-secret-key must both be either set or not set");
     }
 }

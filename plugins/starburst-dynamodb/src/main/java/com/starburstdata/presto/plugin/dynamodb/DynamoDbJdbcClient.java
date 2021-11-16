@@ -66,6 +66,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.starburstdata.presto.plugin.dynamodb.DynamoDbTableProperties.getPartitionKeyAttribute;
 import static com.starburstdata.presto.plugin.dynamodb.DynamoDbTableProperties.getReadCapacityUnits;
@@ -119,8 +120,8 @@ public class DynamoDbJdbcClient
 
     // These properties are needed to drop a table using the AWS SDK. CData driver does not support dropping tables
     private final Optional<String> endpointUrl;
-    private final String accessKey;
-    private final String secretAccessKey;
+    private final Optional<String> accessKey;
+    private final Optional<String> secretAccessKey;
     private final Region region;
     private final boolean enableWrites;
 
@@ -297,9 +298,12 @@ public class DynamoDbJdbcClient
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping tables");
         }
 
+        checkState(accessKey.isPresent(), "access key is not set but it is required for dropping tables");
+        checkState(secretAccessKey.isPresent(), "secret key is not set but it is required for dropping tables");
+
         DynamoDbClientBuilder builder = DynamoDbClient.builder()
                 .credentialsProvider(StaticCredentialsProvider.create(
-                        AwsBasicCredentials.create(accessKey, secretAccessKey)))
+                        AwsBasicCredentials.create(accessKey.get(), secretAccessKey.get())))
                 .region(region);
 
         endpointUrl.ifPresent(url -> builder.endpointOverride(URI.create(url)));

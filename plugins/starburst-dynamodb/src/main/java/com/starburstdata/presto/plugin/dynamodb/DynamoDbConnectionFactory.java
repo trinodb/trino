@@ -80,13 +80,23 @@ public class DynamoDbConnectionFactory
         checkArgument(AWS_REGION_TO_CDATA_REGION.containsKey(dynamoDbConfig.getAwsRegion()), "No mapping of AWS region to location for value: " + dynamoDbConfig.getAwsRegion());
 
         StringBuilder builder = new StringBuilder("jdbc:amazondynamodb:")
-                .append("AWS Access Key=\"").append(dynamoDbConfig.getAwsAccessKey()).append("\";")
-                .append("AWS Secret Key=\"").append(dynamoDbConfig.getAwsSecretKey()).append("\";")
                 .append("AWS Region=\"").append(AWS_REGION_TO_CDATA_REGION.get(dynamoDbConfig.getAwsRegion())).append("\";")
                 .append("IgnoreTypes=\"Datetime,Time\";") // Change default of IgnoreTypes to support date types
                 .append("UseBatchWriteItemOperation=\"True\";") // Enable BatchWriteItemOperation to support varbinary types
                 .append("OEMKey=\"").append(CDATA_OEM_KEY).append("\";");
 
+        // Both of these settings are validated in DynamoDbConfig
+        if (dynamoDbConfig.getAwsAccessKey().isPresent() && dynamoDbConfig.getAwsSecretKey().isPresent()) {
+            builder.append("AWS Access Key=\"").append(dynamoDbConfig.getAwsAccessKey().get()).append("\";");
+            builder.append("AWS Secret Key=\"").append(dynamoDbConfig.getAwsSecretKey().get()).append("\";");
+        }
+        else {
+            // If they are not set, set auth scheme to EC2 roles so driver does not throw an error
+            builder.append("Auth Scheme=\"AwsEC2Roles\";");
+        }
+
+        dynamoDbConfig.getAwsRoleArn().ifPresent(url -> builder.append("AWS Role ARN=\"").append(url).append("\";"));
+        dynamoDbConfig.getAwsExternalId().ifPresent(url -> builder.append("AWS External Id=\"").append(url).append("\";"));
         dynamoDbConfig.getEndpointUrl().ifPresent(url -> builder.append("URL=\"").append(url).append("\";"));
 
         if (dynamoDbConfig.isDriverLoggingEnabled()) {

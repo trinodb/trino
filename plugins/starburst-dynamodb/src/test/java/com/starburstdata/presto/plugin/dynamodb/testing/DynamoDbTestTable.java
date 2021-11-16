@@ -178,7 +178,7 @@ public class DynamoDbTestTable
     {
         DynamoDbClientBuilder builder = DynamoDbClient.builder()
                 .credentialsProvider(StaticCredentialsProvider.create(
-                        AwsBasicCredentials.create(config.getAwsAccessKey(), config.getAwsAccessKey())))
+                        AwsBasicCredentials.create(config.getAwsAccessKey().get(), config.getAwsAccessKey().get())))
                 .region(Region.US_EAST_2)
                 .endpointOverride(URI.create(config.getEndpointUrl().get()));
 

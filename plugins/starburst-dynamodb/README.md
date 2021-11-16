@@ -83,3 +83,98 @@ The CData driver returns predicates where you compare to null as `true`, e.g. `v
 Trino treats this as false and causes correctness issues when these predicates are pushed down to the driver.
 I started a support thread with CData and this is the expected behavior of the driver.
 All pushdowns are disabled in the `DynamoDbJdbcClient` column mappings.
+
+## Testing the Connector on AWS
+
+Until product tests are in place, this connector can be tested locally or on EC2 by setting up IAM roles and policies by hand.
+It assumes whoever is reading this has understanding of how to set up and configure SEP as well as creating IAM users and roles and setting policies using the AWS console.
+This section can also be used as a guide for how to set up AWS for product tests.
+
+To fully test the AWS authentication, you should use EC2 since we also support using the EC2 instance role for interacting with DynamoDB.
+
+1. Install SEP as a single-node or multi-node cluster. It is expected to be launch-ready and just needs the Dynamo configs.
+2. Create a new user in [IAM](https://console.aws.amazon.com/iamv2/home#/users) called, e.g., `sep-dynamodb` that needs an Access key.
+   Copy the access key, secret key, and the ARN and keep them in a safe place. We'll use them later.
+3. Attach, at a minimum, the `AmazonDynamoDBFullAccess` policy.
+4. Create a `sep-dynamodb` profile in your `~/.aws/credentials` file containing the access and secret key.
+5. Create a Dynamo DB table either via the console or using the AWS CLI and add a couple items:
+
+```
+aws dynamodb create-table \
+    --table-name MusicCollection \
+    --attribute-definitions AttributeName=Artist,AttributeType=S AttributeName=SongTitle,AttributeType=S \
+    --key-schema AttributeName=Artist,KeyType=HASH AttributeName=SongTitle,KeyType=RANGE \
+    --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5 \
+    --profile sep-dynamodb \
+    --region us-east-2
+
+aws dynamodb put-item \
+    --table-name MusicCollection  \
+    --item \
+        '{"Artist": {"S": "No One You Know"}, "SongTitle": {"S": "Call Me Today"}, "AlbumTitle": {"S": "Somewhat Famous"}, "Awards": {"N": "1"}}' \
+    --profile sep-dynamodb \
+    --region us-east-2
+
+aws dynamodb put-item \
+    --table-name MusicCollection \
+    --item \
+        '{"Artist": {"S": "Acme Band"}, "SongTitle": {"S": "Happy Day"}, "AlbumTitle": {"S": "Songs About Life"}, "Awards": {"N": "10"} }' \
+    --profile sep-dynamodb \
+    --region us-east-2
+
+aws dynamodb scan \
+    --table-name MusicCollection \
+    --profile sep-dynamodb \
+    --region us-east-2
+```
+
+6. We'll start by testing using a user's access key and secret key.
+Create a catalog file `sep-dynamodb.properties` in the `etc/catalog/` folder on each SEP node, adding the access and secret keys for the user.
+
+```
+connector.name=dynamodb
+dynamodb.aws-access-key=<access key>
+dynamodb.aws-secret-key=<secret key>
+dynamodb.aws-region=us-east-2
+dynamodb.generate-schema-files=ON_USE
+dynamodb.schema-directory=etc/dynamodb-schemas
+```
+
+7. Create the folder `etc/dynamodb-schemas` on every host an start SEP.
+
+8. Query the `musiccollection` table to ensure connectivity:
+```
+$ trino --server localhost:8080 --catalog sep-dynamodb --schema amazondynamodb
+trino:amazondynamodb> show tables;
+      Table
+-----------------
+ musiccollection
+(1 row)
+
+trino:amazondynamodb> select * from musiccollection;
+   songtitle   |     artist      |    albumtitle
+---------------+-----------------+------------------
+ Call Me Today | No One You Know | Somewhat Famous
+ Happy Day     | Acme Band       | Songs About Life
+(2 rows)
+```
+
+9. Next we'll test the assume role functionality. Go to IAM and create a new role for another AWS account and enter the same account ID (or another account ID if you want to test cross-account access).
+Optionally select an external ID to be added to the catalog file.
+This role should have the `AmazonDynamoDBReadOnlyAccess` policy. Give it a name, e.g. `sep-dynamodb-read-only`. Hit create, pick the new role, and copy the ARN.
+Under `Trust relationships` for the role, edit the trust relationship to include the ARN for the **user** from step 2.
+
+11. Stop SEP and edit the catalog file to add this additional property:
+
+```
+dynamodb.aws-role-arn=<copied ARN for the role>
+
+# If you also added an external id:
+dynamodb.aws-external-id=<thevalue>
+```
+
+12. Query again and validate data can be read.
+
+13. If running on EC2, you can remove the access key and secret key properties from the catalog file and the EC2 instance role attached to the instance will be used instead.
+Make sure the instance role has the `AmazonDynamoDBReadOnlyAccess` policy attached to it in order to read from DynamoDB. The EC2 instance role would also need to be added to the
+trust relationships for the role ARN if configured in the catalog.
