@@ -13,11 +13,14 @@
  */
 package io.trino.execution.scheduler;
 
+import io.trino.execution.buffer.OutputBuffers;
 import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
-
-import java.util.List;
 
 interface OutputBufferManager
 {
-    void addOutputBuffers(List<OutputBufferId> newBuffers, boolean noMoreBuffers);
+    void addOutputBuffer(OutputBufferId newBuffer);
+
+    void noMoreBuffers();
+
+    OutputBuffers getOutputBuffers();
 }
