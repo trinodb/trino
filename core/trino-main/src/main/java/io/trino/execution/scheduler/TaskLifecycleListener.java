@@ -13,11 +13,25 @@
  */
 package io.trino.execution.scheduler;
 
-import java.util.Set;
+import io.trino.execution.RemoteTask;
+import io.trino.sql.planner.plan.PlanFragmentId;
 
-public interface ExecutionSchedule
+public interface TaskLifecycleListener
 {
-    Set<PipelinedStageExecution> getStagesToSchedule();
+    void taskCreated(PlanFragmentId fragmentId, RemoteTask task);
 
-    boolean isFinished();
+    void noMoreTasks(PlanFragmentId fragmentId);
+
+    TaskLifecycleListener NO_OP = new TaskLifecycleListener()
+    {
+        @Override
+        public void taskCreated(PlanFragmentId fragmentId, RemoteTask task)
+        {
+        }
+
+        @Override
+        public void noMoreTasks(PlanFragmentId fragmentId)
+        {
+        }
+    };
 }
