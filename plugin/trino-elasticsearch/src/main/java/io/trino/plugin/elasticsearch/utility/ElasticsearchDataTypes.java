@@ -55,7 +55,7 @@ public enum ElasticsearchDataTypes
             if (numberOfBuckets > 1) {
                 return "text";
             }
-            return _widerType(elasticsearchDataTypes);
+            return widerType(elasticsearchDataTypes);
         }
         catch (IllegalArgumentException e) {
             // Do nothing.
@@ -64,7 +64,7 @@ public enum ElasticsearchDataTypes
         return "text";
     }
 
-    private static String _widerType(List<ElasticsearchDataTypes> types)
+    private static String widerType(List<ElasticsearchDataTypes> types)
     {
         PriorityQueue<ElasticsearchDataTypes> heap = new PriorityQueue<>(Comparator.comparingInt(ElasticsearchDataTypes::getWeight).reversed());
         heap.addAll(types);
