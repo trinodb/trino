@@ -114,16 +114,15 @@ public class TestIcebergPlugin
     {
         ConnectorFactory connectorFactory = getConnectorFactory();
 
-        Connector connector = connectorFactory.create(
+        connectorFactory.create(
                 "test",
                 ImmutableMap.<String, String>builder()
                         .put("iceberg.catalog.type", "HIVE_METASTORE")
                         .put("hive.metastore.uri", "thrift://foo:1234")
                         .put("iceberg.security", "allow-all")
                         .build(),
-                new TestingConnectorContext());
-        assertThatThrownBy(connector::getAccessControl).isInstanceOf(UnsupportedOperationException.class);
-        connector.shutdown();
+                new TestingConnectorContext())
+                .shutdown();
     }
 
     @Test
@@ -140,6 +139,23 @@ public class TestIcebergPlugin
                         .build(),
                 new TestingConnectorContext())
                 .shutdown();
+    }
+
+    @Test
+    public void testSystemAccessControl()
+    {
+        ConnectorFactory connectorFactory = getConnectorFactory();
+
+        Connector connector = connectorFactory.create(
+                "test",
+                ImmutableMap.<String, String>builder()
+                        .put("iceberg.catalog.type", "HIVE_METASTORE")
+                        .put("hive.metastore.uri", "thrift://foo:1234")
+                        .put("iceberg.security", "system")
+                        .build(),
+                new TestingConnectorContext());
+        assertThatThrownBy(connector::getAccessControl).isInstanceOf(UnsupportedOperationException.class);
+        connector.shutdown();
     }
 
     private static ConnectorFactory getConnectorFactory()
