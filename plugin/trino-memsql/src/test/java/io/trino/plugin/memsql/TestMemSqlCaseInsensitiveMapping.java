@@ -17,10 +17,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.jdbc.BaseCaseInsensitiveMappingTest;
-import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.SqlExecutor;
-import io.trino.testing.sql.TestTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -31,7 +29,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.jdbc.mapping.RuleBasedIdentifierMappingUtils.createRuleBasedIdentifierMappingFile;
 import static io.trino.plugin.memsql.MemSqlQueryRunner.createMemSqlQueryRunner;
 import static io.trino.testing.assertions.Assert.assertEquals;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -41,12 +38,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Test(singleThreaded = true)
 public class TestMemSqlCaseInsensitiveMapping
         extends BaseCaseInsensitiveMappingTest
-        // TODO extends BaseCaseInsensitiveMappingTest - https://github.com/trinodb/trino/issues/7864
 {
-
     private Path mappingFile;
     private TestingMemSqlServer memSqlServer;
-
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -184,7 +178,7 @@ public class TestMemSqlCaseInsensitiveMapping
 
         for (int i = 0; i < nameVariants.length; i++) {
             for (int j = i + 1; j < nameVariants.length; j++) {
-                try (AutoCloseable ignore1 = withTable("tpch",  nameVariants[i], "(c varchar(5))");
+                try (AutoCloseable ignore1 = withTable("tpch", nameVariants[i], "(c varchar(5))");
                         AutoCloseable ignore2 = withTable("tpch", nameVariants[j], "(d varchar(5))")) {
                     assertThat(computeActual("SHOW TABLES").getOnlyColumn()).contains("casesensitivename");
                     assertThat(computeActual("SHOW TABLES").getOnlyColumn().filter("casesensitivename"::equals)).hasSize(1); // TODO, should be 2

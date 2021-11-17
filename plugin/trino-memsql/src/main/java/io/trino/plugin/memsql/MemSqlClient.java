@@ -209,8 +209,9 @@ public class MemSqlClient
                 boolean nullable = (resultSet.getInt("NULLABLE") != columnNoNulls);
                 Optional<String> comment = Optional.ofNullable(emptyToNull(resultSet.getString("REMARKS")));
                 if (columnMapping.isPresent()) {
+                    String columnName = fromRemoteColumnName(session.getIdentity(), connection, getIdentifierMapping(), tableHandle, remoteColumnName);
                     columns.add(JdbcColumnHandle.builder()
-                            .setColumnName(remoteColumnName)
+                            .setColumnName(columnName)
                             .setJdbcTypeHandle(typeHandle)
                             .setColumnType(columnMapping.get().getType())
                             .setNullable(nullable)
