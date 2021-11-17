@@ -127,7 +127,8 @@ public class TestJdbcQueryBuilder
                 wrapWithRemoteJdbcColumnHandle(new JdbcColumnHandle("col_8", JDBC_SMALLINT, SMALLINT)),
                 wrapWithRemoteJdbcColumnHandle(new JdbcColumnHandle("col_9", JDBC_INTEGER, INTEGER)),
                 wrapWithRemoteJdbcColumnHandle(new JdbcColumnHandle("col_10", JDBC_REAL, REAL)),
-                wrapWithRemoteJdbcColumnHandle(new JdbcColumnHandle("col_11", JDBC_CHAR, charType)));
+                wrapWithRemoteJdbcColumnHandle(new JdbcColumnHandle("col_11", JDBC_CHAR, charType)),
+                new RemoteJdbcColumnHandle(new JdbcColumnHandle("col_12", JDBC_VARCHAR, VARCHAR), "RemoteCol12"));
 
         Connection connection = database.getConnection();
         try (PreparedStatement preparedStatement = connection.prepareStatement("create table \"test_table\" (" +
@@ -142,7 +143,8 @@ public class TestJdbcQueryBuilder
                 "\"col_8\" SMALLINT, " +
                 "\"col_9\" INTEGER, " +
                 "\"col_10\" REAL, " +
-                "\"col_11\" CHAR(128) " +
+                "\"col_11\" CHAR(128), " +
+                "\"RemoteCol12\" VARCHAR(128) " +
                 ")")) {
             preparedStatement.execute();
             StringBuilder stringBuilder = new StringBuilder("insert into \"test_table\" values ");
@@ -151,7 +153,7 @@ public class TestJdbcQueryBuilder
             for (int i = 0; i < len; i++) {
                 stringBuilder.append(format(
                         Locale.ENGLISH,
-                        "(%d, %f, %b, 'test_str_%d', '%s', '%s', '%s', %d, %d, %d, %f, 'test_str_%d')",
+                        "(%d, %f, %b, 'test_str_%d', '%s', '%s', '%s', %d, %d, %d, %f, 'test_str_%d', 'test_str_%d')",
                         i,
                         200000.0 + i / 2.0,
                         i % 2 == 0,
@@ -163,6 +165,7 @@ public class TestJdbcQueryBuilder
                         -i,
                         i - 100,
                         100.0f + i,
+                        i,
                         i));
                 dateTime = dateTime.plusHours(26);
                 if (i != len - 1) {
@@ -232,7 +235,7 @@ public class TestJdbcQueryBuilder
         try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(SESSION, connection, preparedQuery)) {
             assertThat(preparedQuery.getQuery()).isEqualTo("" +
                     "SELECT \"col_0\", \"col_1\", \"col_2\", \"col_3\", \"col_4\", \"col_5\", " +
-                    "\"col_6\", \"col_7\", \"col_8\", \"col_9\", \"col_10\", \"col_11\" " +
+                    "\"col_6\", \"col_7\", \"col_8\", \"col_9\", \"col_10\", \"col_11\", \"RemoteCol12\" " +
                     "FROM \"test_table\" " +
                     "WHERE (\"col_0\" < ? OR (\"col_0\" >= ? AND \"col_0\" <= ?) OR \"col_0\" > ? OR \"col_0\" IN (?,?)) " +
                     "AND ((\"col_1\" >= ? AND \"col_1\" <= ?) OR (\"col_1\" >= ? AND \"col_1\" <= ?) OR \"col_1\" IN (?,?,?,?)) " +
@@ -314,7 +317,7 @@ public class TestJdbcQueryBuilder
         try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(SESSION, connection, preparedQuery)) {
             assertThat(preparedQuery.getQuery()).isEqualTo("" +
                     "SELECT \"col_0\", \"col_1\", \"col_2\", \"col_3\", \"col_4\", \"col_5\", " +
-                    "\"col_6\", \"col_7\", \"col_8\", \"col_9\", \"col_10\", \"col_11\" " +
+                    "\"col_6\", \"col_7\", \"col_8\", \"col_9\", \"col_10\", \"col_11\", \"RemoteCol12\" " +
                     "FROM \"test_table\" " +
                     "WHERE \"col_10\" IN (?,?,?)");
             ImmutableSet.Builder<Long> longBuilder = ImmutableSet.builder();
@@ -348,7 +351,7 @@ public class TestJdbcQueryBuilder
         try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(SESSION, connection, preparedQuery)) {
             assertThat(preparedQuery.getQuery()).isEqualTo("" +
                     "SELECT \"col_0\", \"col_1\", \"col_2\", \"col_3\", \"col_4\", \"col_5\", " +
-                    "\"col_6\", \"col_7\", \"col_8\", \"col_9\", \"col_10\", \"col_11\" " +
+                    "\"col_6\", \"col_7\", \"col_8\", \"col_9\", \"col_10\", \"col_11\", \"RemoteCol12\" " +
                     "FROM \"test_table\" " +
                     "WHERE ((\"col_3\" >= ? AND \"col_3\" < ?) OR \"col_3\" IN (?,?))");
             ImmutableSet.Builder<String> builder = ImmutableSet.builder();
@@ -384,7 +387,7 @@ public class TestJdbcQueryBuilder
         try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(SESSION, connection, preparedQuery)) {
             assertThat(preparedQuery.getQuery()).isEqualTo("" +
                     "SELECT \"col_0\", \"col_1\", \"col_2\", \"col_3\", \"col_4\", \"col_5\", " +
-                    "\"col_6\", \"col_7\", \"col_8\", \"col_9\", \"col_10\", \"col_11\" " +
+                    "\"col_6\", \"col_7\", \"col_8\", \"col_9\", \"col_10\", \"col_11\", \"RemoteCol12\" " +
                     "FROM \"test_table\" " +
                     "WHERE ((\"col_11\" >= ? AND \"col_11\" < ?) OR \"col_11\" IN (?,?))");
             ImmutableSet.Builder<String> builder = ImmutableSet.builder();
@@ -425,7 +428,7 @@ public class TestJdbcQueryBuilder
         try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(SESSION, connection, preparedQuery)) {
             assertThat(preparedQuery.getQuery()).isEqualTo("" +
                     "SELECT \"col_0\", \"col_1\", \"col_2\", \"col_3\", \"col_4\", \"col_5\", " +
-                    "\"col_6\", \"col_7\", \"col_8\", \"col_9\", \"col_10\", \"col_11\" " +
+                    "\"col_6\", \"col_7\", \"col_8\", \"col_9\", \"col_10\", \"col_11\", \"RemoteCol12\" " +
                     "FROM \"test_table\" " +
                     "WHERE ((\"col_4\" >= ? AND \"col_4\" < ?) OR \"col_4\" IN (?,?)) AND ((\"col_5\" > ? AND \"col_5\" <= ?) OR \"col_5\" IN (?,?))");
             ImmutableSet.Builder<Date> dateBuilder = ImmutableSet.builder();
@@ -466,7 +469,7 @@ public class TestJdbcQueryBuilder
         try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(SESSION, connection, preparedQuery)) {
             assertThat(preparedQuery.getQuery()).isEqualTo("" +
                     "SELECT \"col_0\", \"col_1\", \"col_2\", \"col_3\", \"col_4\", \"col_5\", " +
-                    "\"col_6\", \"col_7\", \"col_8\", \"col_9\", \"col_10\", \"col_11\" " +
+                    "\"col_6\", \"col_7\", \"col_8\", \"col_9\", \"col_10\", \"col_11\", \"RemoteCol12\" " +
                     "FROM \"test_table\" " +
                     "WHERE ((\"col_6\" > ? AND \"col_6\" <= ?) OR \"col_6\" IN (?,?))");
             ImmutableSet.Builder<Timestamp> builder = ImmutableSet.builder();
@@ -499,7 +502,7 @@ public class TestJdbcQueryBuilder
         try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(SESSION, connection, preparedQuery)) {
             assertThat(preparedQuery.getQuery()).isEqualTo("" +
                     "SELECT \"col_0\", \"col_1\", \"col_2\", \"col_3\", \"col_4\", \"col_5\", " +
-                    "\"col_6\", \"col_7\", \"col_8\", \"col_9\", \"col_10\", \"col_11\" " +
+                    "\"col_6\", \"col_7\", \"col_8\", \"col_9\", \"col_10\", \"col_11\", \"RemoteCol12\" " +
                     "FROM \"test_table\" " +
                     "LIMIT 10");
             long count = 0;
@@ -526,7 +529,7 @@ public class TestJdbcQueryBuilder
         try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(SESSION, connection, preparedQuery)) {
             assertThat(preparedQuery.getQuery()).isEqualTo("" +
                     "SELECT \"col_0\", \"col_1\", \"col_2\", \"col_3\", \"col_4\", \"col_5\", " +
-                    "\"col_6\", \"col_7\", \"col_8\", \"col_9\", \"col_10\", \"col_11\" " +
+                    "\"col_6\", \"col_7\", \"col_8\", \"col_9\", \"col_10\", \"col_11\", \"RemoteCol12\" " +
                     "FROM \"test_table\" " +
                     "WHERE \"col_1\" IS NULL");
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
