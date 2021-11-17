@@ -37,6 +37,7 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
+import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.iterative.rule.PushPredicateIntoTableScan;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ApplyNode;
@@ -1155,6 +1156,10 @@ public class AddExchanges
 
             for (int i = 0; i < node.getSources().size(); i++) {
                 PlanWithProperties child = node.getSources().get(i).accept(this, PreferredProperties.any());
+                if (QueryCardinalityUtil.isEmpty(child.getNode(), Lookup.noLookup())) {
+                    // skipping empty sources
+                    continue;
+                }
                 if (child.getProperties().isSingleNode()) {
                     unpartitionedChildren.add(child.getNode());
                     unpartitionedOutputLayouts.add(node.sourceOutputLayout(i));
@@ -1218,7 +1223,7 @@ public class AddExchanges
                 result = new UnionNode(node.getId(), unpartitionedChildren, mappings.build(), ImmutableList.copyOf(mappings.build().keySet()));
             }
             else {
-                throw new IllegalStateException("both unpartitionedChildren partitionedChildren are empty");
+                result = new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of());
             }
 
             return new PlanWithProperties(
