@@ -35,6 +35,18 @@ public class TestIdentifierMappingRules
                 "    \"remoteSchema\" : \"remote_schema\",\n" +
                 "    \"remoteTable\" : \"remote_table\",\n" +
                 "    \"mapping\" : \"trino_table\"\n" +
+                "  } ],\n" +
+                "  \"columns\" : [ {\n" +
+                "    \"remoteSchema\" : \"remote_schema\",\n" +
+                "    \"remoteTable\" : \"remote_table\",\n" +
+                "    \"remoteColumn\" : \"RemoteColumnOne\",\n" +
+                "    \"mapping\" : \"column_one\"\n" +
+                "  } ,\n" +
+                "  {\n" +
+                "    \"remoteSchema\" : \"remote_schema\",\n" +
+                "    \"remoteTable\" : \"remote_table\",\n" +
+                "    \"remoteColumn\" : \"RemoteColumnTwo\",\n" +
+                "    \"mapping\" : \"column_two\"\n" +
                 "  } ]\n" +
                 "}";
 
@@ -43,7 +55,9 @@ public class TestIdentifierMappingRules
                 .isEqualTo(new IdentifierMappingRules(
                         ImmutableList.of(new SchemaMappingRule("remote_schema", "trino_schema")),
                         ImmutableList.of(new TableMappingRule("remote_schema", "remote_table", "trino_table")),
-                        ImmutableList.of()))
+                        ImmutableList.of(
+                                new ColumnMappingRule("remote_schema", "remote_table", "RemoteColumnOne", "column_one"),
+                                new ColumnMappingRule("remote_schema", "remote_table", "RemoteColumnOne", "column_two"))))
                 .isNotEqualTo(new IdentifierMappingRules(ImmutableList.of(), ImmutableList.of(), ImmutableList.of()));
     }
 }
