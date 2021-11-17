@@ -35,6 +35,8 @@ import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.types.Type;
 
+import javax.annotation.Nullable;
+
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
@@ -202,9 +204,9 @@ public class IcebergSplitSource
     static boolean fileMatchesPredicate(
             Map<Integer, Type.PrimitiveType> primitiveTypeForFieldId,
             TupleDomain<IcebergColumnHandle> dynamicFilterPredicate,
-            Map<Integer, ByteBuffer> lowerBounds,
-            Map<Integer, ByteBuffer> upperBounds,
-            Map<Integer, Long> nullValueCounts)
+            @Nullable Map<Integer, ByteBuffer> lowerBounds,
+            @Nullable Map<Integer, ByteBuffer> upperBounds,
+            @Nullable Map<Integer, Long> nullValueCounts)
     {
         if (dynamicFilterPredicate.isNone()) {
             return false;
@@ -216,13 +218,19 @@ public class IcebergSplitSource
             Domain domain = domainEntry.getValue();
 
             int fieldId = column.getId();
-            Long nullValueCount = nullValueCounts.get(fieldId);
-            boolean mayContainNulls = nullValueCount == null || nullValueCount > 0;
+            boolean mayContainNulls;
+            if (nullValueCounts == null) {
+                mayContainNulls = true;
+            }
+            else {
+                Long nullValueCount = nullValueCounts.get(fieldId);
+                mayContainNulls = nullValueCount == null || nullValueCount > 0;
+            }
             Type type = primitiveTypeForFieldId.get(fieldId);
             Domain statisticsDomain = domainForStatistics(
                     column.getType(),
-                    fromByteBuffer(type, lowerBounds.get(fieldId)),
-                    fromByteBuffer(type, upperBounds.get(fieldId)),
+                    lowerBounds == null ? null : fromByteBuffer(type, lowerBounds.get(fieldId)),
+                    upperBounds == null ? null : fromByteBuffer(type, upperBounds.get(fieldId)),
                     mayContainNulls);
             if (!domain.overlaps(statisticsDomain)) {
                 return false;
@@ -231,11 +239,15 @@ public class IcebergSplitSource
         return true;
     }
 
-    private static Domain domainForStatistics(io.trino.spi.type.Type type, Object lowerBound, Object upperBound, boolean containsNulls)
+    private static Domain domainForStatistics(
+            io.trino.spi.type.Type type,
+            @Nullable Object lowerBound,
+            @Nullable Object upperBound,
+            boolean mayContainNulls)
     {
         Type icebergType = toIcebergType(type);
         if (lowerBound == null && upperBound == null) {
-            return Domain.create(ValueSet.all(type), containsNulls);
+            return Domain.create(ValueSet.all(type), mayContainNulls);
         }
 
         Range statisticsRange;
@@ -253,7 +265,7 @@ public class IcebergSplitSource
         else {
             statisticsRange = Range.greaterThanOrEqual(type, convertIcebergValueToTrino(icebergType, lowerBound));
         }
-        return Domain.create(ValueSet.ofRanges(statisticsRange), containsNulls);
+        return Domain.create(ValueSet.ofRanges(statisticsRange), mayContainNulls);
     }
 
     @VisibleForTesting

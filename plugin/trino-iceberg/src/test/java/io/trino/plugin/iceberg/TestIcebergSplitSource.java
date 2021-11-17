@@ -284,4 +284,54 @@ public class TestIcebergSplitSource
                 upperBound,
                 ImmutableMap.of(1, 1L)));
     }
+
+    @Test
+    public void testNullStatisticsMaps()
+    {
+        IcebergColumnHandle bigintColumn = IcebergColumnHandle.primitiveIcebergColumnHandle(1, "name", BIGINT, Optional.empty());
+        Map<Integer, Type.PrimitiveType> primitiveTypes = ImmutableMap.of(1, Types.LongType.get());
+        Map<Integer, ByteBuffer> lowerBound = ImmutableMap.of(1, Conversions.toByteBuffer(Types.LongType.get(), -1000L));
+        Map<Integer, ByteBuffer> upperBound = ImmutableMap.of(1, Conversions.toByteBuffer(Types.LongType.get(), 2000L));
+        TupleDomain<IcebergColumnHandle> domainOfZero = TupleDomain.fromFixedValues(ImmutableMap.of(bigintColumn, NullableValue.of(BIGINT, 0L)));
+
+        assertTrue(IcebergSplitSource.fileMatchesPredicate(
+                primitiveTypes,
+                domainOfZero,
+                null,
+                upperBound,
+                ImmutableMap.of(1, 0L)));
+        assertTrue(IcebergSplitSource.fileMatchesPredicate(
+                primitiveTypes,
+                domainOfZero,
+                ImmutableMap.of(),
+                upperBound,
+                ImmutableMap.of(1, 0L)));
+
+        assertTrue(IcebergSplitSource.fileMatchesPredicate(
+                primitiveTypes,
+                domainOfZero,
+                lowerBound,
+                null,
+                ImmutableMap.of(1, 0L)));
+        assertTrue(IcebergSplitSource.fileMatchesPredicate(
+                primitiveTypes,
+                domainOfZero,
+                lowerBound,
+                ImmutableMap.of(),
+                ImmutableMap.of(1, 0L)));
+
+        TupleDomain<IcebergColumnHandle> onlyNull = TupleDomain.withColumnDomains(ImmutableMap.of(bigintColumn, Domain.onlyNull(BIGINT)));
+        assertTrue(IcebergSplitSource.fileMatchesPredicate(
+                primitiveTypes,
+                onlyNull,
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                null));
+        assertTrue(IcebergSplitSource.fileMatchesPredicate(
+                primitiveTypes,
+                onlyNull,
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                ImmutableMap.of()));
+    }
 }
