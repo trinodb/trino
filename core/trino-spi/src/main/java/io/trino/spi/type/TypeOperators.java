@@ -69,7 +69,15 @@ public class TypeOperators
     public TypeOperators()
     {
         ConcurrentHashMap<Object, Object> cache = new ConcurrentHashMap<>();
-        this.cache = (operatorConvention, supplier) -> cache.computeIfAbsent(operatorConvention, key -> supplier.get());
+        // optimize the read lock caused by computeIfAbsent
+        // this.cache = (operatorConvention, supplier) -> cache.computeIfAbsent(operatorConvention, key -> supplier.get());
+        this.cache = (operatorConvention, supplier) -> {
+            Object value = cache.get(operatorConvention);
+            if (value == null) {
+                value = cache.computeIfAbsent(operatorConvention, key -> supplier.get());
+            }
+            return value;
+        };
     }
 
     public TypeOperators(BiFunction<Object, Supplier<Object>, Object> cache)
@@ -181,10 +189,14 @@ public class TypeOperators
             this.operatorConvention = operatorConvention;
         }
 
-        public synchronized MethodHandle get()
+        // optimize the read lock caused by synchronized
+        // public synchronized MethodHandle get()
+        public MethodHandle get()
         {
             if (adapted == null) {
-                adapted = adaptOperator(operatorConvention);
+                synchronized (this) {
+                    adapted = adaptOperator(operatorConvention);
+                }
             }
             return adapted;
         }
