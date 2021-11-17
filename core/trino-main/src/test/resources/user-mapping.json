@@ -5,6 +5,11 @@
             "user": "$1_file"
         },
         {
+            "pattern": "([^@]+)(@.*)?",
+            "user": "$1$2",
+            "case": "lower"
+        },
+        {
             "pattern": "test",
             "allow": false
         },
