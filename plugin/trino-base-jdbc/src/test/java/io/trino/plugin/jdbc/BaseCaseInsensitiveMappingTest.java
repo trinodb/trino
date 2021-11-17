@@ -324,18 +324,24 @@ public abstract class BaseCaseInsensitiveMappingTest
 
         try (AutoCloseable ignore1 = withSchema("remote_schema");
                 AutoCloseable ignore2 = withTable("remote_schema", "remote_table", "(remoteColumn varchar(5))")) {
+            // Metadata queries
             assertTableColumnNames("remote_schema.remote_table", "remote_column");
             assertQuery("SHOW COLUMNS FROM remote_schema.remote_table", "SELECT 'remote_column', 'varchar(5)', '', ''");
+
+            // Inserts without and with columns
             assertUpdate("INSERT INTO remote_schema.remote_table VALUES 'grant'", 1);
             assertUpdate("INSERT INTO remote_schema.remote_table (remote_column) VALUES 'santa'", 1);
             assertQueryFails("INSERT INTO remote_schema.remote_table (remoteColumn) VALUES 'athing'", "Insert column name does not exist in target table: remotecolumn");
+
+            // Select * or with named columns
             assertQuery("SELECT * FROM remote_schema.remote_table", "VALUES 'grant', 'santa'");
             assertQuery("SELECT remote_column FROM remote_schema.remote_table", "VALUES 'grant', 'santa'");
 
+            // CTAS with named columns
             assertUpdate("CREATE TABLE remote_schema.ctas as select remote_column from remote_schema.remote_table", 2);
             assertQuery("SELECT remote_column FROM remote_schema.ctas", "VALUES 'grant', 'santa'");
-            assertUpdate("DELETE FROM remote_schema.ctas", 2);
 
+            // CTAS *
             assertUpdate("CREATE TABLE remote_schema.ctas_star as select * from remote_schema.remote_table", 2);
             assertQuery("SELECT remote_column FROM remote_schema.ctas_star", "VALUES 'grant', 'santa'");
         }
@@ -354,20 +360,26 @@ public abstract class BaseCaseInsensitiveMappingTest
                         new ColumnMappingRule("RemoteSchema", "RemoteTable", "Casesensitive", "caseinsensitive")));
 
         try (AutoCloseable ignore1 = withSchema("RemoteSchema");
-                AutoCloseable ignore2 = withTable("RemoteSchema", "RemoteTable", "(Casesensitive varchar(5), RemoteColumn int)")) {
-            assertTableColumnNames("remote_schema.remote_table", "caseinsensitive", "remote_column");
-            assertUpdate("INSERT INTO remote_schema.remote_table VALUES ('grant', 20)", 1);
+                AutoCloseable ignore2 = withTable("RemoteSchema", "RemoteTable", "(Casesensitive varchar(5), RemoteColumn int, Unmapped_column int)");
+                AutoCloseable ignore3 = withTable("RemoteSchema", "RemoteTableNoMappings", "(Casesensitive varchar(5))")) {
+
+            // Metadata queries
+            assertTableColumnNames("remote_schema.remote_table", "caseinsensitive", "remote_column", "unmapped_column");
+            // Note there is a mapping from RemoteSchema.RemoteTable.Casesensitive -> caseinsensitive, but not for RemoteSchema.RemoteTableNoMappings
+            assertTableColumnNames("remote_schema.remotetablenomappings", "casesensitive");
+
+            // Inserts without and with columns
+            assertUpdate("INSERT INTO remote_schema.remote_table VALUES ('grant', 20, null)", 1);
             assertUpdate("INSERT INTO remote_schema.remote_table (caseinsensitive, remote_column) VALUES ('santa', 100)", 1);
             assertUpdate("INSERT INTO remote_schema.remote_table (caseinsensitive) VALUES ('test')", 1);
 
-            assertQuery("SELECT * FROM remote_schema.remote_table", "VALUES ('grant', 20), ('santa', 100), ('test', null)");
-            assertQuery("SELECT caseinsensitive, remote_column FROM remote_schema.remote_table", "VALUES ('grant', 20), ('santa', 100), ('test', null)");
-            assertUpdate("CREATE TABLE remote_schema.ctas as select * from remote_schema.remote_table", 3);
-            assertQuery("SELECT * FROM remote_schema.ctas", "VALUES ('grant', 20), ('santa', 100), ('test', null)");
-            assertQuery("SELECT caseinsensitive, remote_column FROM remote_schema.ctas", "VALUES ('grant', 20), ('santa', 100), ('test', null)");
+            // Select with * or named columns
+            assertQuery("SELECT * FROM remote_schema.remote_table", "VALUES ('grant', 20, null), ('santa', 100, null), ('test', null, null)");
+            assertQuery("SELECT caseinsensitive, remote_column, unmapped_column FROM remote_schema.remote_table", "VALUES ('grant', 20, null), ('santa', 100, null), ('test', null, null)");
 
-            assertUpdate("DELETE FROM remote_schema.ctas where remote_column = 20", 1);
-            assertQuery("SELECT caseinsensitive, remote_column FROM remote_schema.ctas", "VALUES ('santa', 100), ('test', null)");
+            // Deletes
+            assertUpdate("DELETE FROM remote_schema.remote_table where remote_column = 20", 1);
+            assertQuery("SELECT caseinsensitive, remote_column, unmapped_column FROM remote_schema.remote_table", "VALUES ('santa', 100, null), ('test', null, null)");
         }
     }
 
