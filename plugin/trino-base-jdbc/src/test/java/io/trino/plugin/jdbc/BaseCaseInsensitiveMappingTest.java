@@ -323,7 +323,7 @@ public abstract class BaseCaseInsensitiveMappingTest
                 ImmutableList.of(new ColumnMappingRule("remote_schema", "remote_table", "remoteColumn", "remote_column")));
 
         try (AutoCloseable ignore1 = withSchema("remote_schema");
-             AutoCloseable ignore2 = withTable("remote_schema", "remote_table", "(remoteColumn varchar(5))")) {
+                AutoCloseable ignore2 = withTable("remote_schema", "remote_table", "(remoteColumn varchar(5))")) {
             assertTableColumnNames("remote_schema.remote_table", "remote_column");
             assertQuery("SHOW COLUMNS FROM remote_schema.remote_table", "SELECT 'remote_column', 'varchar(5)', '', ''");
             assertUpdate("INSERT INTO remote_schema.remote_table VALUES 'grant'", 1);
@@ -331,7 +331,43 @@ public abstract class BaseCaseInsensitiveMappingTest
             assertQueryFails("INSERT INTO remote_schema.remote_table (remoteColumn) VALUES 'athing'", "Insert column name does not exist in target table: remotecolumn");
             assertQuery("SELECT * FROM remote_schema.remote_table", "VALUES 'grant', 'santa'");
             assertQuery("SELECT remote_column FROM remote_schema.remote_table", "VALUES 'grant', 'santa'");
-            assertQuery("WITH tmp as (select remote_column FROM remote_schema.remote_table) select * from tmp", "VALUES 'grant', 'santa'");
+
+            assertUpdate("CREATE TABLE remote_schema.ctas as select remote_column from remote_schema.remote_table", 2);
+            assertQuery("SELECT remote_column FROM remote_schema.ctas", "VALUES 'grant', 'santa'");
+            assertUpdate("DELETE FROM remote_schema.ctas", 2);
+
+            assertUpdate("CREATE TABLE remote_schema.ctas_star as select * from remote_schema.remote_table", 2);
+            assertQuery("SELECT remote_column FROM remote_schema.ctas_star", "VALUES 'grant', 'santa'");
+        }
+    }
+
+    @Test
+    public void testSchemaAndTableMappingsWithColumnMappings()
+            throws Exception
+    {
+        updateRuleBasedIdentifierMappingFile(
+                getMappingFile(),
+                ImmutableList.of(new SchemaMappingRule("RemoteSchema", "remote_schema")),
+                ImmutableList.of(new TableMappingRule("RemoteSchema", "RemoteTable", "remote_table")),
+                ImmutableList.of(
+                        new ColumnMappingRule("RemoteSchema", "RemoteTable", "RemoteColumn", "remote_column"),
+                        new ColumnMappingRule("RemoteSchema", "RemoteTable", "Casesensitive", "caseinsensitive")));
+
+        try (AutoCloseable ignore1 = withSchema("RemoteSchema");
+                AutoCloseable ignore2 = withTable("RemoteSchema", "RemoteTable", "(Casesensitive varchar(5), RemoteColumn int)")) {
+            assertTableColumnNames("remote_schema.remote_table", "caseinsensitive", "remote_column");
+            assertUpdate("INSERT INTO remote_schema.remote_table VALUES ('grant', 20)", 1);
+            assertUpdate("INSERT INTO remote_schema.remote_table (caseinsensitive, remote_column) VALUES ('santa', 100)", 1);
+            assertUpdate("INSERT INTO remote_schema.remote_table (caseinsensitive) VALUES ('test')", 1);
+
+            assertQuery("SELECT * FROM remote_schema.remote_table", "VALUES ('grant', 20), ('santa', 100), ('test', null)");
+            assertQuery("SELECT caseinsensitive, remote_column FROM remote_schema.remote_table", "VALUES ('grant', 20), ('santa', 100), ('test', null)");
+            assertUpdate("CREATE TABLE remote_schema.ctas as select * from remote_schema.remote_table", 3);
+            assertQuery("SELECT * FROM remote_schema.ctas", "VALUES ('grant', 20), ('santa', 100), ('test', null)");
+            assertQuery("SELECT caseinsensitive, remote_column FROM remote_schema.ctas", "VALUES ('grant', 20), ('santa', 100), ('test', null)");
+
+            assertUpdate("DELETE FROM remote_schema.ctas where remote_column = 20", 1);
+            assertQuery("SELECT caseinsensitive, remote_column FROM remote_schema.ctas", "VALUES ('santa', 100), ('test', null)");
         }
     }
 

@@ -535,7 +535,7 @@ public abstract class BaseJdbcClient
             ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
             ImmutableList.Builder<String> columnList = ImmutableList.builder();
             for (ColumnMetadata column : tableMetadata.getColumns()) {
-                String columnName = identifierMapping.toRemoteColumnName(connection, remoteSchema, remoteTable, column.getName());
+                String columnName = identifierMapping.toRemoteColumnName(connection, remoteSchema, remoteTable, column.getMappedNameOrName());
                 columnNames.add(columnName);
                 columnTypes.add(column.getType());
                 columnList.add(getColumnDefinitionSql(session, column, columnName));
@@ -716,8 +716,7 @@ public abstract class BaseJdbcClient
     public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column)
     {
         try (Connection connection = connectionFactory.openConnection(session)) {
-            String columnName = column.getName();
-            String remoteColumnName = toRemoteColumnName(session.getIdentity(), connection, getIdentifierMapping(), handle, columnName);
+            String remoteColumnName = toRemoteColumnName(session.getIdentity(), connection, getIdentifierMapping(), handle, column.getName());
             String sql = format(
                     "ALTER TABLE %s ADD %s",
                     quoted(handle.asPlainTable().getRemoteTableName()),
@@ -733,8 +732,7 @@ public abstract class BaseJdbcClient
     public void renameColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
     {
         try (Connection connection = connectionFactory.openConnection(session)) {
-            String columnName = jdbcColumn.getColumnName();
-            String newRemoteColumnName = toRemoteColumnName(session.getIdentity(), connection, getIdentifierMapping(), handle, columnName);
+            String newRemoteColumnName = toRemoteColumnName(session.getIdentity(), connection, getIdentifierMapping(), handle, jdbcColumn.getColumnName());
             String sql = format(
                     "ALTER TABLE %s RENAME COLUMN %s TO %s",
                     quoted(handle.asPlainTable().getRemoteTableName()),

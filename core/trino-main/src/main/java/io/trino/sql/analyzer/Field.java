@@ -48,13 +48,14 @@ public class Field
         return new Field(Optional.empty(), name, Optional.empty(), type, false, Optional.empty(), Optional.empty(), false);
     }
 
-    public static Field newUnqualified(Optional<String> name, Type type, Optional<QualifiedObjectName> originTable, Optional<String> originColumn, boolean aliased)
+    public static Field newUnqualified(Optional<String> name, Optional<String> mappedName, Type type, Optional<QualifiedObjectName> originTable, Optional<String> originColumn, boolean aliased)
     {
         requireNonNull(name, "name is null");
+        requireNonNull(mappedName, "mappedName is null");
         requireNonNull(type, "type is null");
         requireNonNull(originTable, "originTable is null");
 
-        return new Field(Optional.empty(), name, Optional.empty(), type, false, originTable, originColumn, aliased);
+        return new Field(Optional.empty(), name, mappedName, type, false, originTable, originColumn, aliased);
     }
 
     public static Field newQualified(QualifiedName relationAlias, Optional<String> name, Type type, boolean hidden, Optional<QualifiedObjectName> originTable, Optional<String> originColumn, boolean aliased)

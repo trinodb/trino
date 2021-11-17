@@ -465,15 +465,14 @@ class StatementAnalyzer
                 // Insert column names will be using mapped names (if they exist), need to undo the mapping
                 Map<String, String> mappedNameToColumnName = columns.stream().collect(toImmutableMap(
                         ColumnSchema::getMappedNameOrName,
-                        ColumnSchema::getName
-                ));
+                        ColumnSchema::getName));
                 Set<String> columnNames = new HashSet<>();
                 insertColumns = insert.getColumns().get().stream()
                         .map(Identifier::getValue)
                         .map(column -> column.toLowerCase(ENGLISH))
                         .map(insertColumn -> {
                             String columnName = mappedNameToColumnName.get(insertColumn);
-                            if(columnName == null){
+                            if (columnName == null) {
                                 throw semanticException(COLUMN_NOT_FOUND, insert, "Insert column name does not exist in target table: %s", insertColumn);
                             }
                             if (!columnNames.add(columnName)) {
@@ -804,7 +803,7 @@ class StatementAnalyzer
                         throw semanticException(COLUMN_TYPE_UNKNOWN, node, "Column type is unknown at position %s", queryScope.getRelationType().indexOf(field) + 1);
                     }
                     String columnName = node.getColumnAliases().get().get(aliasPosition).getValue();
-                    columns.add(new ColumnMetadata(columnName, field.getType()));
+                    columns.add(ColumnMetadata.builder().setName(columnName).setMappedName(field.getMappedName()).setType(field.getType()).build());
                     outputColumns.add(new OutputColumn(new Column(columnName, field.getType().toString()), analysis.getSourceColumns(field)));
                     aliasPosition++;
                 }
@@ -812,7 +811,7 @@ class StatementAnalyzer
             else {
                 validateColumns(node, queryScope.getRelationType());
                 columns.addAll(queryScope.getRelationType().getVisibleFields().stream()
-                        .map(field -> new ColumnMetadata(field.getName().orElseThrow(), field.getType()))
+                        .map(field -> ColumnMetadata.builder().setName(field.getName().orElseThrow()).setMappedName(field.getMappedName()).setType(field.getType()).build())
                         .collect(toImmutableList()));
                 queryScope.getRelationType().getVisibleFields().stream()
                         .map(this::createOutputColumn)
@@ -3056,7 +3055,7 @@ class StatementAnalyzer
                             name = field.getName();
                         }
 
-                        Field newField = Field.newUnqualified(name, field.getType(), field.getOriginTable(), field.getOriginColumnName(), false);
+                        Field newField = Field.newUnqualified(name, field.getMappedName(), field.getType(), field.getOriginTable(), field.getOriginColumnName(), false);
                         analysis.addSourceColumns(newField, analysis.getSourceColumns(field));
                         outputFields.add(newField);
                     }
@@ -3092,7 +3091,7 @@ class StatementAnalyzer
                         }
                     }
 
-                    Field newField = Field.newUnqualified(field.map(Identifier::getValue), analysis.getType(expression), originTable, originColumn, column.getAlias().isPresent()); // TODO don't use analysis as a side-channel. Use outputExpressions to look up the type
+                    Field newField = Field.newUnqualified(field.map(Identifier::getValue), Optional.empty(), analysis.getType(expression), originTable, originColumn, column.getAlias().isPresent()); // TODO don't use analysis as a side-channel. Use outputExpressions to look up the type
                     if (originTable.isPresent()) {
                         analysis.addSourceColumns(newField, ImmutableSet.of(new SourceColumn(originTable.get(), originColumn.orElseThrow())));
                     }
@@ -4209,7 +4208,7 @@ class StatementAnalyzer
 
         private OutputColumn createOutputColumn(Field field)
         {
-            return new OutputColumn(new Column(field.getName().orElseThrow(), field.getType().toString()), analysis.getSourceColumns(field));
+            return new OutputColumn(new Column(field.getMappedNameOrName().orElseThrow(), field.getType().toString()), analysis.getSourceColumns(field));
         }
     }
 
