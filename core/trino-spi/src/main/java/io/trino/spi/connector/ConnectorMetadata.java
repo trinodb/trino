@@ -206,7 +206,7 @@ public interface ConnectorMetadata
     }
 
     /**
-     * Return table schema definition for the specified table handle
+     * Return table schema definition for the specified table handle.
      * This method is useful when getting full table metadata is expensive.
      *
      * @throws RuntimeException if table handle is no longer valid

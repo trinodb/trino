@@ -260,7 +260,7 @@ public class InformationSchemaPageSource
                         prefix.getCatalogName(),
                         tableName.getSchemaName(),
                         tableName.getTableName(),
-                        column.getMappedNameOrName(),
+                        column.getName(),
                         ordinalPosition,
                         null,
                         "YES",

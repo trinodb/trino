@@ -27,7 +27,6 @@ public class Field
     private final Optional<String> originColumnName;
     private final Optional<QualifiedName> relationAlias;
     private final Optional<String> name;
-    private final Optional<String> mappedName;
     private final Type type;
     private final boolean hidden;
     private final boolean aliased;
@@ -37,7 +36,7 @@ public class Field
         requireNonNull(name, "name is null");
         requireNonNull(type, "type is null");
 
-        return new Field(Optional.empty(), Optional.of(name), Optional.empty(), type, false, Optional.empty(), Optional.empty(), false);
+        return new Field(Optional.empty(), Optional.of(name), type, false, Optional.empty(), Optional.empty(), false);
     }
 
     public static Field newUnqualified(Optional<String> name, Type type)
@@ -45,17 +44,16 @@ public class Field
         requireNonNull(name, "name is null");
         requireNonNull(type, "type is null");
 
-        return new Field(Optional.empty(), name, Optional.empty(), type, false, Optional.empty(), Optional.empty(), false);
+        return new Field(Optional.empty(), name, type, false, Optional.empty(), Optional.empty(), false);
     }
 
-    public static Field newUnqualified(Optional<String> name, Optional<String> mappedName, Type type, Optional<QualifiedObjectName> originTable, Optional<String> originColumn, boolean aliased)
+    public static Field newUnqualified(Optional<String> name, Type type, Optional<QualifiedObjectName> originTable, Optional<String> originColumn, boolean aliased)
     {
         requireNonNull(name, "name is null");
-        requireNonNull(mappedName, "mappedName is null");
         requireNonNull(type, "type is null");
         requireNonNull(originTable, "originTable is null");
 
-        return new Field(Optional.empty(), name, mappedName, type, false, originTable, originColumn, aliased);
+        return new Field(Optional.empty(), name, type, false, originTable, originColumn, aliased);
     }
 
     public static Field newQualified(QualifiedName relationAlias, Optional<String> name, Type type, boolean hidden, Optional<QualifiedObjectName> originTable, Optional<String> originColumn, boolean aliased)
@@ -65,21 +63,19 @@ public class Field
         requireNonNull(type, "type is null");
         requireNonNull(originTable, "originTable is null");
 
-        return new Field(Optional.of(relationAlias), name, Optional.empty(), type, hidden, originTable, originColumn, aliased);
+        return new Field(Optional.of(relationAlias), name, type, hidden, originTable, originColumn, aliased);
     }
 
-    public Field(Optional<QualifiedName> relationAlias, Optional<String> name, Optional<String> mappedName, Type type, boolean hidden, Optional<QualifiedObjectName> originTable, Optional<String> originColumnName, boolean aliased)
+    public Field(Optional<QualifiedName> relationAlias, Optional<String> name, Type type, boolean hidden, Optional<QualifiedObjectName> originTable, Optional<String> originColumnName, boolean aliased)
     {
         requireNonNull(relationAlias, "relationAlias is null");
         requireNonNull(name, "name is null");
-        requireNonNull(mappedName, "mappedName is null");
         requireNonNull(type, "type is null");
         requireNonNull(originTable, "originTable is null");
         requireNonNull(originColumnName, "originColumnName is null");
 
         this.relationAlias = relationAlias;
         this.name = name;
-        this.mappedName = mappedName;
         this.type = type;
         this.hidden = hidden;
         this.originTable = originTable;
@@ -104,19 +100,6 @@ public class Field
 
     public Optional<String> getName()
     {
-        return name;
-    }
-
-    public Optional<String> getMappedName()
-    {
-        return mappedName;
-    }
-
-    public Optional<String> getMappedNameOrName()
-    {
-        if (mappedName.isPresent()) {
-            return mappedName;
-        }
         return name;
     }
 
@@ -163,13 +146,12 @@ public class Field
      */
     public boolean canResolve(QualifiedName name)
     {
-        Optional<String> mappedNameOrName = getMappedNameOrName();
-        if (mappedNameOrName.isEmpty()) {
+        if (this.name.isEmpty()) {
             return false;
         }
 
         // TODO: need to know whether the qualified name and the name of this field were quoted
-        return matchesPrefix(name.getPrefix()) && mappedNameOrName.get().equalsIgnoreCase(name.getSuffix());
+        return matchesPrefix(name.getPrefix()) && this.name.get().equalsIgnoreCase(name.getSuffix());
     }
 
     @Override

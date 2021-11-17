@@ -16,7 +16,6 @@ package io.trino.spi.connector;
 import io.trino.spi.type.Type;
 
 import java.util.Objects;
-import java.util.Optional;
 
 import static io.trino.spi.connector.SchemaUtil.checkNotEmpty;
 import static java.util.Locale.ENGLISH;
@@ -25,18 +24,15 @@ import static java.util.Objects.requireNonNull;
 public final class ColumnSchema
 {
     private final String name;
-    private final Optional<String> mappedName;
     private final Type type;
     private final boolean hidden;
 
-    private ColumnSchema(String name, Optional<String> mappedName, Type type, boolean hidden)
+    private ColumnSchema(String name, Type type, boolean hidden)
     {
         checkNotEmpty(name, "name");
-        requireNonNull(mappedName, "mappedName is null");
         requireNonNull(type, "type is null");
 
         this.name = name.toLowerCase(ENGLISH);
-        this.mappedName = mappedName;
         this.type = type;
         this.hidden = hidden;
     }
@@ -44,16 +40,6 @@ public final class ColumnSchema
     public String getName()
     {
         return name;
-    }
-
-    public Optional<String> getMappedName()
-    {
-        return mappedName;
-    }
-
-    public String getMappedNameOrName()
-    {
-        return mappedName.orElse(name);
     }
 
     public Type getType()
@@ -90,16 +76,12 @@ public final class ColumnSchema
     @Override
     public String toString()
     {
-        StringBuilder builder = new StringBuilder("ColumnBasicMetadata{")
-                .append("name='").append(name).append('\'');
-
-        mappedName.ifPresent(mapped ->
-                builder.append("mappedName='").append(mapped).append('\''));
-
-        return builder.append(", type=").append(type)
-               .append(", hidden=").append(hidden)
-               .append('}')
-               .toString();
+        return new StringBuilder("ColumnBasicMetadata{")
+                .append("name='").append(name).append('\'')
+                .append(", type=").append(type)
+                .append(", hidden=").append(hidden)
+                .append('}')
+                .toString();
     }
 
     public static Builder builder()
@@ -115,7 +97,6 @@ public final class ColumnSchema
     public static class Builder
     {
         private String name;
-        private Optional<String> mappedName;
         private Type type;
         private boolean hidden;
 
@@ -124,7 +105,6 @@ public final class ColumnSchema
         private Builder(ColumnMetadata columnMetadata)
         {
             this.name = columnMetadata.getName();
-            this.mappedName = columnMetadata.getMappedName();
             this.type = columnMetadata.getType();
             this.hidden = columnMetadata.isHidden();
         }
@@ -132,12 +112,6 @@ public final class ColumnSchema
         public Builder setName(String name)
         {
             this.name = requireNonNull(name, "name is null");
-            return this;
-        }
-
-        public Builder setMappedName(Optional<String> mappedName)
-        {
-            this.mappedName = requireNonNull(mappedName, "mappedName is null");
             return this;
         }
 
@@ -155,7 +129,7 @@ public final class ColumnSchema
 
         public ColumnSchema build()
         {
-            return new ColumnSchema(name, mappedName, type, hidden);
+            return new ColumnSchema(name, type, hidden);
         }
     }
 }

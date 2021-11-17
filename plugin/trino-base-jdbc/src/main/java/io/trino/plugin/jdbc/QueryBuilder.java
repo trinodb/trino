@@ -18,7 +18,6 @@ import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
-import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.predicate.Domain;
@@ -64,17 +63,17 @@ public class QueryBuilder
             ConnectorSession session,
             Connection connection,
             JdbcRelationHandle baseRelation,
-            Optional<List<List<JdbcColumnHandle>>> groupingSets,
-            List<JdbcColumnHandle> columns,
+            Optional<List<List<RemoteJdbcColumnHandle>>> groupingSets,
+            List<RemoteJdbcColumnHandle> columns,
             Map<String, String> columnExpressions,
-            TupleDomain<ColumnHandle> tupleDomain,
+            TupleDomain<RemoteJdbcColumnHandle> tupleDomain,
             Optional<String> additionalPredicate)
     {
         if (!tupleDomain.isNone()) {
-            Map<ColumnHandle, Domain> domains = tupleDomain.getDomains().orElseThrow();
+            Map<RemoteJdbcColumnHandle, Domain> domains = tupleDomain.getDomains().orElseThrow();
             columns.stream()
                     .filter(domains::containsKey)
-                    .filter(column -> columnExpressions.containsKey(column.getColumnName()))
+                    .filter(column -> columnExpressions.containsKey(column.getRemoteName()))
                     .findFirst()
                     .ifPresent(column -> { throw new IllegalArgumentException(format("Column %s has an expression and a constraint attached at the same time", column)); });
         }
@@ -106,8 +105,8 @@ public class QueryBuilder
             PreparedQuery leftSource,
             PreparedQuery rightSource,
             List<JdbcJoinCondition> joinConditions,
-            Map<JdbcColumnHandle, String> leftAssignments,
-            Map<JdbcColumnHandle, String> rightAssignments)
+            Map<RemoteJdbcColumnHandle, String> leftAssignments,
+            Map<RemoteJdbcColumnHandle, String> rightAssignments)
     {
         // Verify assignments are present. This is safe assumption as join conditions are not pruned, and simplifies the code here.
         verify(!leftAssignments.isEmpty(), "leftAssignments is empty");
@@ -136,10 +135,10 @@ public class QueryBuilder
         return new PreparedQuery(query, parameters);
     }
 
-    protected String formatAssignments(String relationAlias, Map<JdbcColumnHandle, String> assignments)
+    protected String formatAssignments(String relationAlias, Map<RemoteJdbcColumnHandle, String> assignments)
     {
         return assignments.entrySet().stream()
-                .map(entry -> format("%s.%s AS %s", relationAlias, client.quoted(entry.getKey().getColumnName()), client.quoted(entry.getValue())))
+                .map(entry -> format("%s.%s AS %s", relationAlias, client.quoted(entry.getKey().getRemoteName()), client.quoted(entry.getValue())))
                 .collect(joining(", "));
     }
 
@@ -162,7 +161,7 @@ public class QueryBuilder
             ConnectorSession session,
             Connection connection,
             JdbcNamedRelationHandle baseRelation,
-            TupleDomain<ColumnHandle> tupleDomain)
+            TupleDomain<RemoteJdbcColumnHandle> tupleDomain)
     {
         String sql = "DELETE FROM " + getRelation(baseRelation.getRemoteTableName());
 
@@ -219,15 +218,15 @@ public class QueryBuilder
         return client.quoted(remoteTableName);
     }
 
-    protected String getProjection(List<JdbcColumnHandle> columns, Map<String, String> columnExpressions)
+    protected String getProjection(List<RemoteJdbcColumnHandle> columns, Map<String, String> columnExpressions)
     {
         if (columns.isEmpty()) {
             return "1 x";
         }
         return columns.stream()
                 .map(jdbcColumnHandle -> {
-                    String columnAlias = client.quoted(jdbcColumnHandle.getColumnName());
-                    String expression = columnExpressions.get(jdbcColumnHandle.getColumnName());
+                    String columnAlias = client.quoted(jdbcColumnHandle.getRemoteName());
+                    String expression = columnExpressions.get(jdbcColumnHandle.getRemoteName());
                     if (expression == null) {
                         return columnAlias;
                     }
@@ -249,49 +248,49 @@ public class QueryBuilder
         throw new IllegalArgumentException("Unsupported relation: " + baseRelation);
     }
 
-    private static Domain pushDownDomain(JdbcClient client, ConnectorSession session, Connection connection, JdbcColumnHandle column, Domain domain)
+    private static Domain pushDownDomain(JdbcClient client, ConnectorSession session, Connection connection, RemoteJdbcColumnHandle column, Domain domain)
     {
-        return client.toColumnMapping(session, connection, column.getJdbcTypeHandle())
-                .orElseThrow(() -> new IllegalStateException(format("Unsupported type %s with handle %s", column.getColumnType(), column.getJdbcTypeHandle())))
+        return client.toColumnMapping(session, connection, column.getColumnHandle().getJdbcTypeHandle())
+                .orElseThrow(() -> new IllegalStateException(format("Unsupported type %s with handle %s", column.getColumnHandle().getColumnType(), column.getColumnHandle().getJdbcTypeHandle())))
                 .getPredicatePushdownController().apply(session, domain).getPushedDown();
     }
 
     private List<String> toConjuncts(
             ConnectorSession session,
             Connection connection,
-            TupleDomain<ColumnHandle> tupleDomain,
+            TupleDomain<RemoteJdbcColumnHandle> tupleDomain,
             Consumer<QueryParameter> accumulator)
     {
         if (tupleDomain.isNone()) {
             return ImmutableList.of(ALWAYS_FALSE);
         }
         ImmutableList.Builder<String> builder = ImmutableList.builder();
-        for (Map.Entry<ColumnHandle, Domain> entry : tupleDomain.getDomains().get().entrySet()) {
-            JdbcColumnHandle column = ((JdbcColumnHandle) entry.getKey());
+        for (Map.Entry<RemoteJdbcColumnHandle, Domain> entry : tupleDomain.getDomains().get().entrySet()) {
+            RemoteJdbcColumnHandle column = entry.getKey();
             Domain domain = pushDownDomain(client, session, connection, column, entry.getValue());
             builder.add(toPredicate(session, connection, column, domain, accumulator));
         }
         return builder.build();
     }
 
-    private String toPredicate(ConnectorSession session, Connection connection, JdbcColumnHandle column, Domain domain, Consumer<QueryParameter> accumulator)
+    private String toPredicate(ConnectorSession session, Connection connection, RemoteJdbcColumnHandle column, Domain domain, Consumer<QueryParameter> accumulator)
     {
         if (domain.getValues().isNone()) {
-            return domain.isNullAllowed() ? client.quoted(column.getColumnName()) + " IS NULL" : ALWAYS_FALSE;
+            return domain.isNullAllowed() ? client.quoted(column.getRemoteName()) + " IS NULL" : ALWAYS_FALSE;
         }
 
         if (domain.getValues().isAll()) {
-            return domain.isNullAllowed() ? ALWAYS_TRUE : client.quoted(column.getColumnName()) + " IS NOT NULL";
+            return domain.isNullAllowed() ? ALWAYS_TRUE : client.quoted(column.getRemoteName()) + " IS NOT NULL";
         }
 
         String predicate = toPredicate(session, connection, column, domain.getValues(), accumulator);
         if (!domain.isNullAllowed()) {
             return predicate;
         }
-        return format("(%s OR %s IS NULL)", predicate, client.quoted(column.getColumnName()));
+        return format("(%s OR %s IS NULL)", predicate, client.quoted(column.getRemoteName()));
     }
 
-    private String toPredicate(ConnectorSession session, Connection connection, JdbcColumnHandle column, ValueSet valueSet, Consumer<QueryParameter> accumulator)
+    private String toPredicate(ConnectorSession session, Connection connection, RemoteJdbcColumnHandle column, ValueSet valueSet, Consumer<QueryParameter> accumulator)
     {
         checkArgument(!valueSet.isNone(), "none values should be handled earlier");
 
@@ -302,8 +301,8 @@ public class QueryBuilder
             }
         }
 
-        JdbcTypeHandle jdbcType = column.getJdbcTypeHandle();
-        Type type = column.getColumnType();
+        JdbcTypeHandle jdbcType = column.getColumnHandle().getJdbcTypeHandle();
+        Type type = column.getColumnHandle().getColumnType();
         WriteFunction writeFunction = getWriteFunction(session, connection, jdbcType, type);
 
         List<String> disjuncts = new ArrayList<>();
@@ -341,7 +340,7 @@ public class QueryBuilder
                 accumulator.accept(new QueryParameter(jdbcType, type, Optional.of(value)));
             }
             String values = Joiner.on(",").join(nCopies(singleValues.size(), writeFunction.getBindExpression()));
-            disjuncts.add(client.quoted(column.getColumnName()) + " IN (" + values + ")");
+            disjuncts.add(client.quoted(column.getRemoteName()) + " IN (" + values + ")");
         }
 
         checkState(!disjuncts.isEmpty());
@@ -351,10 +350,10 @@ public class QueryBuilder
         return "(" + Joiner.on(" OR ").join(disjuncts) + ")";
     }
 
-    private String toPredicate(JdbcColumnHandle column, JdbcTypeHandle jdbcType, Type type, WriteFunction writeFunction, String operator, Object value, Consumer<QueryParameter> accumulator)
+    private String toPredicate(RemoteJdbcColumnHandle column, JdbcTypeHandle jdbcType, Type type, WriteFunction writeFunction, String operator, Object value, Consumer<QueryParameter> accumulator)
     {
         accumulator.accept(new QueryParameter(jdbcType, type, Optional.of(value)));
-        return format("%s %s %s", client.quoted(column.getColumnName()), operator, writeFunction.getBindExpression());
+        return format("%s %s %s", client.quoted(column.getRemoteName()), operator, writeFunction.getBindExpression());
     }
 
     private WriteFunction getWriteFunction(ConnectorSession session, Connection connection, JdbcTypeHandle jdbcType, Type type)
@@ -366,7 +365,7 @@ public class QueryBuilder
         return writeFunction;
     }
 
-    private String getGroupBy(Optional<List<List<JdbcColumnHandle>>> groupingSets)
+    private String getGroupBy(Optional<List<List<RemoteJdbcColumnHandle>>> groupingSets)
     {
         if (groupingSets.isEmpty()) {
             return "";
@@ -374,20 +373,20 @@ public class QueryBuilder
 
         verify(!groupingSets.get().isEmpty());
         if (groupingSets.get().size() == 1) {
-            List<JdbcColumnHandle> groupingSet = getOnlyElement(groupingSets.get());
+            List<RemoteJdbcColumnHandle> groupingSet = getOnlyElement(groupingSets.get());
             if (groupingSet.isEmpty()) {
                 // global aggregation
                 return "";
             }
             return " GROUP BY " + groupingSet.stream()
-                    .map(JdbcColumnHandle::getColumnName)
+                    .map(RemoteJdbcColumnHandle::getRemoteName)
                     .map(client::quoted)
                     .collect(joining(", "));
         }
         return " GROUP BY GROUPING SETS " +
                 groupingSets.get().stream()
                         .map(groupingSet -> groupingSet.stream()
-                                .map(JdbcColumnHandle::getColumnName)
+                                .map(RemoteJdbcColumnHandle::getRemoteName)
                                 .map(client::quoted)
                                 .collect(joining(", ", "(", ")")))
                         .collect(joining(", ", "(", ")"));

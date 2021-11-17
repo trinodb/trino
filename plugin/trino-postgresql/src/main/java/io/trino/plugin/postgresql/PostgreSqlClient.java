@@ -784,7 +784,7 @@ public class PostgreSqlClient
         try (Connection connection = connectionFactory.openConnection(session)) {
             verify(connection.getAutoCommit());
             QueryBuilder queryBuilder = new QueryBuilder(this);
-            PreparedQuery preparedQuery = queryBuilder.prepareDelete(session, connection, handle.getRequiredNamedRelation(), handle.getConstraint());
+            PreparedQuery preparedQuery = queryBuilder.prepareDelete(session, connection, handle.getRequiredNamedRelation(), handle.getConstraint().transformKeys(columnHandle -> toRemoteColumnHandle(session.getIdentity(), connection, getIdentifierMapping(), handle, (JdbcColumnHandle) columnHandle)));
             try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(session, connection, preparedQuery)) {
                 int affectedRowsCount = preparedStatement.executeUpdate();
                 // In getPreparedStatement we set autocommit to false so here we need an explicit commit

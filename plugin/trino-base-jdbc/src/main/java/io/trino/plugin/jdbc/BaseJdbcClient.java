@@ -58,6 +58,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -293,8 +294,7 @@ public abstract class BaseJdbcClient
                 Optional<String> comment = Optional.ofNullable(emptyToNull(resultSet.getString("REMARKS")));
                 // skip unsupported column types
                 columnMapping.ifPresent(mapping -> columns.add(JdbcColumnHandle.builder()
-                        .setColumnName(columnName)
-                        .setMappedColumnName(mappedColumnName)
+                        .setColumnName(mappedColumnName)
                         .setJdbcTypeHandle(typeHandle)
                         .setColumnType(mapping.getType())
                         .setNullable(nullable)
@@ -437,10 +437,10 @@ public abstract class BaseJdbcClient
                 session,
                 connection,
                 table.getRelationHandle(),
-                groupingSets,
-                columns,
+                groupingSets.map(groupings -> groupings.stream().map(subGroupings -> subGroupings.stream().map(columnHandle -> toRemoteColumnHandle(session.getIdentity(), connection, getIdentifierMapping(), table, columnHandle)).collect(Collectors.toList())).collect(Collectors.toList())),
+                columns.stream().map(columnHandle -> toRemoteColumnHandle(session.getIdentity(), connection, getIdentifierMapping(), table, columnHandle)).collect(Collectors.toList()),
                 columnExpressions,
-                table.getConstraint(),
+                table.getConstraint().transformKeys(columnHandle -> toRemoteColumnHandle(session.getIdentity(), connection, getIdentifierMapping(), table, (JdbcColumnHandle) columnHandle)),
                 split.flatMap(JdbcSplit::getAdditionalPredicate)));
     }
 
@@ -462,14 +462,16 @@ public abstract class BaseJdbcClient
         }
 
         QueryBuilder queryBuilder = new QueryBuilder(this);
+        // Note the right and left assignments are columnHandles with synthetic names
+        // Thus we can skip the remote column name mapping step
         return Optional.of(queryBuilder.prepareJoinQuery(
                 session,
                 joinType,
                 leftSource,
                 rightSource,
                 joinConditions,
-                leftAssignments,
-                rightAssignments));
+                leftAssignments.entrySet().stream().collect(Collectors.toUnmodifiableMap(entry -> new RemoteJdbcColumnHandle(entry.getKey(), entry.getKey().getColumnName()), Map.Entry::getValue)),
+                rightAssignments.entrySet().stream().collect(Collectors.toUnmodifiableMap(entry -> new RemoteJdbcColumnHandle(entry.getKey(), entry.getKey().getColumnName()), Map.Entry::getValue))));
     }
 
     protected boolean isSupportedJoinCondition(JdbcJoinCondition joinCondition)
@@ -535,10 +537,10 @@ public abstract class BaseJdbcClient
             ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
             ImmutableList.Builder<String> columnList = ImmutableList.builder();
             for (ColumnMetadata column : tableMetadata.getColumns()) {
-                String columnName = identifierMapping.toRemoteColumnName(connection, remoteSchema, remoteTable, column.getMappedNameOrName());
-                columnNames.add(columnName);
+                String remoteColumnName = identifierMapping.toRemoteColumnName(connection, remoteSchema, remoteTable, column.getName());
+                columnNames.add(remoteColumnName);
                 columnTypes.add(column.getType());
-                columnList.add(getColumnDefinitionSql(session, column, columnName));
+                columnList.add(getColumnDefinitionSql(session, column, remoteColumnName));
             }
 
             RemoteTableName remoteTableName = new RemoteTableName(Optional.ofNullable(catalog), Optional.ofNullable(remoteSchema), remoteTargetTableName);
@@ -562,10 +564,10 @@ public abstract class BaseJdbcClient
         return format("CREATE TABLE %s (%s)", quoted(remoteTableName), join(", ", columns));
     }
 
-    protected String getColumnDefinitionSql(ConnectorSession session, ColumnMetadata column, String columnName)
+    protected String getColumnDefinitionSql(ConnectorSession session, ColumnMetadata column, String remoteColumnName)
     {
         StringBuilder sb = new StringBuilder()
-                .append(quoted(columnName))
+                .append(quoted(remoteColumnName))
                 .append(" ")
                 .append(toWriteMapping(session, column.getType()).getDataType());
         if (!column.isNullable()) {
@@ -622,12 +624,12 @@ public abstract class BaseJdbcClient
         }
     }
 
-    protected void copyTableSchema(Connection connection, String catalogName, String schemaName, String tableName, String newTableName, List<String> columnNames)
+    protected void copyTableSchema(Connection connection, String catalogName, String schemaName, String tableName, String newTableName, List<String> remoteColumnNames)
     {
         String sql = format(
                 "CREATE TABLE %s AS SELECT %s FROM %s WHERE 0 = 1",
                 quoted(catalogName, schemaName, newTableName),
-                columnNames.stream()
+                remoteColumnNames.stream()
                         .map(this::quoted)
                         .collect(joining(", ")),
                 quoted(catalogName, schemaName, tableName));
@@ -1031,7 +1033,7 @@ public abstract class BaseJdbcClient
         try (Connection connection = connectionFactory.openConnection(session)) {
             verify(connection.getAutoCommit());
             QueryBuilder queryBuilder = new QueryBuilder(this);
-            PreparedQuery preparedQuery = queryBuilder.prepareDelete(session, connection, handle.getRequiredNamedRelation(), handle.getConstraint());
+            PreparedQuery preparedQuery = queryBuilder.prepareDelete(session, connection, handle.getRequiredNamedRelation(), handle.getConstraint().transformKeys(columnHandle -> toRemoteColumnHandle(session.getIdentity(), connection, getIdentifierMapping(), handle, (JdbcColumnHandle) columnHandle)));
             try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(session, connection, preparedQuery)) {
                 return OptionalLong.of(preparedStatement.executeUpdate());
             }
@@ -1068,10 +1070,16 @@ public abstract class BaseJdbcClient
 
     protected static String toRemoteColumnName(ConnectorIdentity identity, Connection connection, IdentifierMapping identifierMapping, JdbcTableHandle handle, String columnName)
     {
-        SchemaTableName schemaTableName = handle.asPlainTable().getSchemaTableName();
+        SchemaTableName schemaTableName = handle.getRequiredNamedRelation().getSchemaTableName();
         String remoteSchemaName = identifierMapping.toRemoteSchemaName(identity, connection, schemaTableName.getSchemaName());
         String remoteTableName = identifierMapping.toRemoteTableName(identity, connection, remoteSchemaName, schemaTableName.getTableName());
         return identifierMapping.toRemoteColumnName(connection, remoteSchemaName, remoteTableName, columnName);
+    }
+
+    protected static RemoteJdbcColumnHandle toRemoteColumnHandle(ConnectorIdentity identity, Connection connection, IdentifierMapping identifierMapping, JdbcTableHandle handle, JdbcColumnHandle column)
+    {
+        // JdbcColumnHandles store the mapped column name, we need to convert back to the remote column name
+        return new RemoteJdbcColumnHandle(column, toRemoteColumnName(identity, connection, identifierMapping, handle, column.getColumnName()));
     }
 
     private static String escapeNamePattern(String name, String escape)

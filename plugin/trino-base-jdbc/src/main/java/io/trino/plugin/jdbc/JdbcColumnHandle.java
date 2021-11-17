@@ -30,8 +30,6 @@ public final class JdbcColumnHandle
         implements ColumnHandle
 {
     private final String columnName;
-    // If a mapping from columnName (remote) to mappedColumnName exists, it will be here
-    private final Optional<String> mappedColumnName;
     private final JdbcTypeHandle jdbcTypeHandle;
     private final Type columnType;
     private final boolean nullable;
@@ -40,7 +38,7 @@ public final class JdbcColumnHandle
     // All and only required fields
     public JdbcColumnHandle(String columnName, JdbcTypeHandle jdbcTypeHandle, Type columnType)
     {
-        this(columnName, Optional.empty(), jdbcTypeHandle, columnType, true, Optional.empty());
+        this(columnName, jdbcTypeHandle, columnType, true, Optional.empty());
     }
 
     /**
@@ -49,7 +47,7 @@ public final class JdbcColumnHandle
     @Deprecated
     public JdbcColumnHandle(String columnName, JdbcTypeHandle jdbcTypeHandle, Type columnType, boolean nullable)
     {
-        this(columnName, Optional.empty(), jdbcTypeHandle, columnType, nullable, Optional.empty());
+        this(columnName, jdbcTypeHandle, columnType, nullable, Optional.empty());
     }
 
     /**
@@ -59,14 +57,12 @@ public final class JdbcColumnHandle
     @JsonCreator
     public JdbcColumnHandle(
             @JsonProperty("columnName") String columnName,
-            @JsonProperty("mappedColumnName") Optional<String> mappedColumnName,
             @JsonProperty("jdbcTypeHandle") JdbcTypeHandle jdbcTypeHandle,
             @JsonProperty("columnType") Type columnType,
             @JsonProperty("nullable") boolean nullable,
             @JsonProperty("comment") Optional<String> comment)
     {
         this.columnName = requireNonNull(columnName, "columnName is null");
-        this.mappedColumnName = mappedColumnName;
         this.jdbcTypeHandle = requireNonNull(jdbcTypeHandle, "jdbcTypeHandle is null");
         this.columnType = requireNonNull(columnType, "columnType is null");
         this.nullable = nullable;
@@ -77,17 +73,6 @@ public final class JdbcColumnHandle
     public String getColumnName()
     {
         return columnName;
-    }
-
-    @JsonProperty
-    public Optional<String> getMappedColumnName()
-    {
-        return mappedColumnName;
-    }
-
-    public String getMappedOrColumnName()
-    {
-        return mappedColumnName.orElse(columnName);
     }
 
     @JsonProperty
@@ -118,7 +103,6 @@ public final class JdbcColumnHandle
     {
         return ColumnMetadata.builder()
                 .setName(columnName)
-                .setMappedName(mappedColumnName)
                 .setType(columnType)
                 .setNullable(nullable)
                 .setComment(comment)
@@ -127,12 +111,10 @@ public final class JdbcColumnHandle
 
     public ColumnSchema getColumnSchema()
     {
-        ColumnSchema.Builder builder = ColumnSchema.builder()
+        return ColumnSchema.builder()
                 .setName(columnName)
-                .setMappedName(mappedColumnName)
-                .setType(columnType);
-
-        return builder.build();
+                .setType(columnType)
+                .build();
     }
 
     @Override
@@ -176,7 +158,6 @@ public final class JdbcColumnHandle
     public static final class Builder
     {
         private String columnName;
-        private Optional<String> mappedColumnName = Optional.empty();
         private JdbcTypeHandle jdbcTypeHandle;
         private Type columnType;
         private boolean nullable = true;
@@ -187,7 +168,6 @@ public final class JdbcColumnHandle
         private Builder(JdbcColumnHandle handle)
         {
             this.columnName = handle.getColumnName();
-            this.mappedColumnName = handle.getMappedColumnName();
             this.jdbcTypeHandle = handle.getJdbcTypeHandle();
             this.columnType = handle.getColumnType();
             this.nullable = handle.isNullable();
@@ -197,12 +177,6 @@ public final class JdbcColumnHandle
         public Builder setColumnName(String columnName)
         {
             this.columnName = columnName;
-            return this;
-        }
-
-        public Builder setMappedColumnName(String mappedColumnName)
-        {
-            this.mappedColumnName = Optional.of(mappedColumnName);
             return this;
         }
 
@@ -234,7 +208,6 @@ public final class JdbcColumnHandle
         {
             return new JdbcColumnHandle(
                     columnName,
-                    mappedColumnName,
                     jdbcTypeHandle,
                     columnType,
                     nullable,

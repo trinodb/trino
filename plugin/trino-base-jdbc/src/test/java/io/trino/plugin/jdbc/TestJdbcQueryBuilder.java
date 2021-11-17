@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multiset;
-import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Domain;
@@ -99,7 +98,12 @@ public class TestJdbcQueryBuilder
     private TestingDatabase database;
     private JdbcClient jdbcClient;
 
-    private List<JdbcColumnHandle> columns;
+    private List<RemoteJdbcColumnHandle> columns;
+
+    private RemoteJdbcColumnHandle wrapWithRemoteJdbcColumnHandle(JdbcColumnHandle columnHandle)
+    {
+        return new RemoteJdbcColumnHandle(columnHandle, columnHandle.getColumnName());
+    }
 
     @BeforeMethod
     public void setup()
@@ -112,18 +116,18 @@ public class TestJdbcQueryBuilder
         CharType charType = CharType.createCharType(0);
 
         columns = ImmutableList.of(
-                new JdbcColumnHandle("col_0", JDBC_BIGINT, BIGINT),
-                new JdbcColumnHandle("col_1", JDBC_DOUBLE, DOUBLE),
-                new JdbcColumnHandle("col_2", JDBC_BOOLEAN, BOOLEAN),
-                new JdbcColumnHandle("col_3", JDBC_VARCHAR, VARCHAR),
-                new JdbcColumnHandle("col_4", JDBC_DATE, DATE),
-                new JdbcColumnHandle("col_5", JDBC_TIME, TIME),
-                new JdbcColumnHandle("col_6", JDBC_TIMESTAMP, TIMESTAMP_MILLIS),
-                new JdbcColumnHandle("col_7", JDBC_TINYINT, TINYINT),
-                new JdbcColumnHandle("col_8", JDBC_SMALLINT, SMALLINT),
-                new JdbcColumnHandle("col_9", JDBC_INTEGER, INTEGER),
-                new JdbcColumnHandle("col_10", JDBC_REAL, REAL),
-                new JdbcColumnHandle("col_11", JDBC_CHAR, charType));
+                wrapWithRemoteJdbcColumnHandle(new JdbcColumnHandle("col_0", JDBC_BIGINT, BIGINT)),
+                wrapWithRemoteJdbcColumnHandle(new JdbcColumnHandle("col_1", JDBC_DOUBLE, DOUBLE)),
+                wrapWithRemoteJdbcColumnHandle(new JdbcColumnHandle("col_2", JDBC_BOOLEAN, BOOLEAN)),
+                wrapWithRemoteJdbcColumnHandle(new JdbcColumnHandle("col_3", JDBC_VARCHAR, VARCHAR)),
+                wrapWithRemoteJdbcColumnHandle(new JdbcColumnHandle("col_4", JDBC_DATE, DATE)),
+                wrapWithRemoteJdbcColumnHandle(new JdbcColumnHandle("col_5", JDBC_TIME, TIME)),
+                wrapWithRemoteJdbcColumnHandle(new JdbcColumnHandle("col_6", JDBC_TIMESTAMP, TIMESTAMP_MILLIS)),
+                wrapWithRemoteJdbcColumnHandle(new JdbcColumnHandle("col_7", JDBC_TINYINT, TINYINT)),
+                wrapWithRemoteJdbcColumnHandle(new JdbcColumnHandle("col_8", JDBC_SMALLINT, SMALLINT)),
+                wrapWithRemoteJdbcColumnHandle(new JdbcColumnHandle("col_9", JDBC_INTEGER, INTEGER)),
+                wrapWithRemoteJdbcColumnHandle(new JdbcColumnHandle("col_10", JDBC_REAL, REAL)),
+                wrapWithRemoteJdbcColumnHandle(new JdbcColumnHandle("col_11", JDBC_CHAR, charType)));
 
         Connection connection = database.getConnection();
         try (PreparedStatement preparedStatement = connection.prepareStatement("create table \"test_table\" (" +
@@ -182,7 +186,7 @@ public class TestJdbcQueryBuilder
     public void testNormalBuildSql()
             throws SQLException
     {
-        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.<ColumnHandle, Domain>builder()
+        TupleDomain<RemoteJdbcColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.<RemoteJdbcColumnHandle, Domain>builder()
                 .put(columns.get(0), Domain.create(SortedRangeSet.copyOf(BIGINT,
                         ImmutableList.of(
                                 Range.equal(BIGINT, 128L),
@@ -255,7 +259,7 @@ public class TestJdbcQueryBuilder
     public void testBuildSqlWithDomainComplement()
             throws SQLException
     {
-        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.<ColumnHandle, Domain>builder()
+        TupleDomain<RemoteJdbcColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.<RemoteJdbcColumnHandle, Domain>builder()
                 // complement of a Domain with null not allowed
                 .put(columns.get(0), Domain.create(ValueSet.of(BIGINT, 128L, 180L, 233L), false).complement())
                 // complement of a Domain with null allowed
@@ -296,7 +300,7 @@ public class TestJdbcQueryBuilder
     public void testBuildSqlWithFloat()
             throws SQLException
     {
-        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
+        TupleDomain<RemoteJdbcColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
                 columns.get(10), Domain.create(SortedRangeSet.copyOf(REAL,
                         ImmutableList.of(
                                 Range.equal(REAL, (long) floatToRawIntBits(100.0f + 0)),
@@ -330,7 +334,7 @@ public class TestJdbcQueryBuilder
     public void testBuildSqlWithVarchar()
             throws SQLException
     {
-        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
+        TupleDomain<RemoteJdbcColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
                 columns.get(3), Domain.create(SortedRangeSet.copyOf(VARCHAR,
                         ImmutableList.of(
                                 Range.range(VARCHAR, utf8Slice("test_str_700"), true, utf8Slice("test_str_702"), false),
@@ -366,7 +370,7 @@ public class TestJdbcQueryBuilder
             throws SQLException
     {
         CharType charType = CharType.createCharType(0);
-        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
+        TupleDomain<RemoteJdbcColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
                 columns.get(11), Domain.create(SortedRangeSet.copyOf(charType,
                         ImmutableList.of(
                                 Range.range(charType, utf8Slice("test_str_700"), true, utf8Slice("test_str_702"), false),
@@ -401,7 +405,7 @@ public class TestJdbcQueryBuilder
     public void testBuildSqlWithDateTime()
             throws SQLException
     {
-        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
+        TupleDomain<RemoteJdbcColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
                 columns.get(4), Domain.create(SortedRangeSet.copyOf(DATE,
                         ImmutableList.of(
                                 Range.range(DATE, toDays(2016, 6, 7), true, toDays(2016, 6, 17), false),
@@ -448,7 +452,7 @@ public class TestJdbcQueryBuilder
     public void testBuildSqlWithTimestamp()
             throws SQLException
     {
-        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
+        TupleDomain<RemoteJdbcColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
                 columns.get(6), Domain.create(SortedRangeSet.copyOf(TIMESTAMP_MILLIS,
                         ImmutableList.of(
                                 Range.equal(TIMESTAMP_MILLIS, toPrestoTimestamp(2016, 6, 3, 0, 23, 37)),
@@ -512,7 +516,7 @@ public class TestJdbcQueryBuilder
     public void testEmptyBuildSql()
             throws SQLException
     {
-        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
+        TupleDomain<RemoteJdbcColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
                 columns.get(0), Domain.all(BIGINT),
                 columns.get(1), Domain.onlyNull(DOUBLE)));
 
@@ -535,15 +539,14 @@ public class TestJdbcQueryBuilder
     public void testAggregation()
             throws SQLException
     {
-        List<JdbcColumnHandle> projectedColumns = ImmutableList.of(
+        List<RemoteJdbcColumnHandle> projectedColumns = ImmutableList.of(
                 this.columns.get(2),
-                new JdbcColumnHandle(
+                wrapWithRemoteJdbcColumnHandle(new JdbcColumnHandle(
                         "s",
-                        Optional.empty(),
                         JDBC_BIGINT,
                         BIGINT,
                         true,
-                        Optional.empty()));
+                        Optional.empty())));
 
         Connection connection = database.getConnection();
         QueryBuilder queryBuilder = new QueryBuilder(jdbcClient);
@@ -576,18 +579,17 @@ public class TestJdbcQueryBuilder
     public void testAggregationWithFilter()
             throws SQLException
     {
-        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
+        TupleDomain<RemoteJdbcColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
                 this.columns.get(1), Domain.create(ValueSet.ofRanges(Range.lessThan(DOUBLE, 200042.0)), true)));
 
-        List<JdbcColumnHandle> projectedColumns = ImmutableList.of(
+        List<RemoteJdbcColumnHandle> projectedColumns = ImmutableList.of(
                 this.columns.get(2),
-                new JdbcColumnHandle(
+                wrapWithRemoteJdbcColumnHandle(new JdbcColumnHandle(
                         "s",
-                        Optional.empty(),
                         JDBC_BIGINT,
                         BIGINT,
                         true,
-                        Optional.empty()));
+                        Optional.empty())));
 
         Connection connection = database.getConnection();
         QueryBuilder queryBuilder = new QueryBuilder(jdbcClient);
