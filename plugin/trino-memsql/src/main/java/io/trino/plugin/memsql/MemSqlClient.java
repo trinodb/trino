@@ -190,10 +190,10 @@ public class MemSqlClient
                     continue;
                 }
                 allColumns++;
-                String columnName = resultSet.getString("COLUMN_NAME");
+                String remoteColumnName = resultSet.getString("COLUMN_NAME");
                 Optional<Integer> decimalDigits = getInteger(resultSet, "DECIMAL_DIGITS");
-                if (timestampPrecisions.containsKey(columnName)) {
-                    decimalDigits = Optional.of(timestampPrecisions.get(columnName));
+                if (timestampPrecisions.containsKey(remoteColumnName)) {
+                    decimalDigits = Optional.of(timestampPrecisions.get(remoteColumnName));
                 }
 
                 JdbcTypeHandle typeHandle = new JdbcTypeHandle(
@@ -204,13 +204,13 @@ public class MemSqlClient
                         Optional.empty(),
                         Optional.empty());
                 Optional<ColumnMapping> columnMapping = toColumnMapping(session, connection, typeHandle);
-                log.debug("Mapping data type of '%s' column '%s': %s mapped to %s", schemaTableName, columnName, typeHandle, columnMapping);
+                log.debug("Mapping data type of '%s' column '%s': %s mapped to %s", schemaTableName, remoteColumnName, typeHandle, columnMapping);
                 // skip unsupported column types
                 boolean nullable = (resultSet.getInt("NULLABLE") != columnNoNulls);
                 Optional<String> comment = Optional.ofNullable(emptyToNull(resultSet.getString("REMARKS")));
                 if (columnMapping.isPresent()) {
                     columns.add(JdbcColumnHandle.builder()
-                            .setColumnName(columnName)
+                            .setColumnName(remoteColumnName)
                             .setJdbcTypeHandle(typeHandle)
                             .setColumnType(columnMapping.get().getType())
                             .setNullable(nullable)

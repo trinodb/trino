@@ -16,36 +16,70 @@ package io.trino.plugin.memsql;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.trino.plugin.jdbc.BaseCaseInsensitiveMappingTest;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
+import java.nio.file.Path;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.plugin.jdbc.mapping.RuleBasedIdentifierMappingUtils.createRuleBasedIdentifierMappingFile;
 import static io.trino.plugin.memsql.MemSqlQueryRunner.createMemSqlQueryRunner;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 
 // With case-insensitive-name-matching enabled colliding schema/table names are considered as errors.
 // Some tests here create colliding names which can cause any other concurrent test to fail.
 @Test(singleThreaded = true)
 public class TestMemSqlCaseInsensitiveMapping
+        extends BaseCaseInsensitiveMappingTest
         // TODO extends BaseCaseInsensitiveMappingTest - https://github.com/trinodb/trino/issues/7864
-        extends AbstractTestQueryFramework
 {
-    protected TestingMemSqlServer memSqlServer;
+
+    private Path mappingFile;
+    private TestingMemSqlServer memSqlServer;
+
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
+        mappingFile = createRuleBasedIdentifierMappingFile();
         memSqlServer = new TestingMemSqlServer();
-        return createMemSqlQueryRunner(memSqlServer, ImmutableMap.of(), ImmutableMap.of("case-insensitive-name-matching", "true"), ImmutableList.of());
+        return createMemSqlQueryRunner(memSqlServer, ImmutableMap.of(), ImmutableMap.<String, String>builder()
+                .put("case-insensitive-name-matching", "true")
+                .put("case-insensitive-name-matching.config-file", mappingFile.toFile().getAbsolutePath())
+                .put("case-insensitive-name-matching.config-file.refresh-period", "1ms") // ~always refresh
+                .build(),
+                ImmutableList.of());
+    }
+
+    @Override
+    protected Path getMappingFile()
+    {
+        return requireNonNull(mappingFile, "mappingFile is null");
+    }
+
+    @Override
+    protected SqlExecutor onRemoteDatabase()
+    {
+        return requireNonNull(memSqlServer, "memSqlServer is null")::execute;
+    }
+
+    @Override
+    protected String quoted(String name)
+    {
+        String identifierQuote = "`";
+        name = name.replace(identifierQuote, identifierQuote + identifierQuote);
+        return identifierQuote + name + identifierQuote;
     }
 
     @AfterClass(alwaysRun = true)
@@ -59,9 +93,9 @@ public class TestMemSqlCaseInsensitiveMapping
             throws Exception
     {
         try (AutoCloseable ignore1 = withSchema("NonLowerCaseSchema");
-                AutoCloseable ignore2 = withTable("NonLowerCaseSchema.lower_case_name", "(c varchar(5))");
-                AutoCloseable ignore3 = withTable("NonLowerCaseSchema.Mixed_Case_Name", "(c varchar(5))");
-                AutoCloseable ignore4 = withTable("NonLowerCaseSchema.UPPER_CASE_NAME", "(c varchar(5))")) {
+                AutoCloseable ignore2 = withTable("NonLowerCaseSchema", "lower_case_name", "(c varchar(5))");
+                AutoCloseable ignore3 = withTable("NonLowerCaseSchema", "Mixed_Case_Name", "(c varchar(5))");
+                AutoCloseable ignore4 = withTable("NonLowerCaseSchema", "UPPER_CASE_NAME", "(c varchar(5))")) {
             assertThat(computeActual("SHOW SCHEMAS").getOnlyColumn()).contains("nonlowercaseschema");
             assertQuery("SHOW SCHEMAS LIKE 'nonlowerc%'", "VALUES 'nonlowercaseschema'");
             assertQuery("SELECT schema_name FROM information_schema.schemata WHERE schema_name LIKE '%nonlowercaseschema'", "VALUES 'nonlowercaseschema'");
@@ -77,8 +111,8 @@ public class TestMemSqlCaseInsensitiveMapping
     {
         try (AutoCloseable ignore1 = withSchema("SomeSchema");
                 AutoCloseable ignore2 = withTable(
-                        "SomeSchema.NonLowerCaseTable", "(lower_case_name varchar(10), Mixed_Case_Name varchar(10), UPPER_CASE_NAME varchar(10))")) {
-            execute("INSERT INTO SomeSchema.NonLowerCaseTable VALUES ('a', 'b', 'c')");
+                        "SomeSchema", "NonLowerCaseTable", "(lower_case_name varchar(10), Mixed_Case_Name varchar(10), UPPER_CASE_NAME varchar(10))")) {
+            onRemoteDatabase().execute("INSERT INTO SomeSchema.NonLowerCaseTable VALUES ('a', 'b', 'c')");
 
             assertQuery(
                     "SELECT column_name FROM information_schema.columns WHERE table_schema = 'someschema' AND table_name = 'nonlowercasetable'",
@@ -128,7 +162,7 @@ public class TestMemSqlCaseInsensitiveMapping
                 String otherSchemaName = nameVariants[j];
                 try (AutoCloseable ignore1 = withSchema(schemaName);
                         AutoCloseable ignore2 = withSchema(otherSchemaName);
-                        AutoCloseable ignore3 = withTable(schemaName + ".some_table_name", "(c varchar(5))")) {
+                        AutoCloseable ignore3 = withTable(schemaName, "some_table_name", "(c varchar(5))")) {
                     assertThat(computeActual("SHOW SCHEMAS").getOnlyColumn()).contains("casesensitivename");
                     assertThat(computeActual("SHOW SCHEMAS").getOnlyColumn().filter("casesensitivename"::equals)).hasSize(1); // TODO change io.trino.plugin.jdbc.JdbcClient.getSchemaNames to return a List
                     assertQueryFails("SHOW TABLES FROM casesensitivename", "Failed to find remote schema name: Ambiguous name: casesensitivename");
@@ -150,8 +184,8 @@ public class TestMemSqlCaseInsensitiveMapping
 
         for (int i = 0; i < nameVariants.length; i++) {
             for (int j = i + 1; j < nameVariants.length; j++) {
-                try (AutoCloseable ignore1 = withTable("tpch." + nameVariants[i], "(c varchar(5))");
-                        AutoCloseable ignore2 = withTable("tpch." + nameVariants[j], "(d varchar(5))")) {
+                try (AutoCloseable ignore1 = withTable("tpch",  nameVariants[i], "(c varchar(5))");
+                        AutoCloseable ignore2 = withTable("tpch", nameVariants[j], "(d varchar(5))")) {
                     assertThat(computeActual("SHOW TABLES").getOnlyColumn()).contains("casesensitivename");
                     assertThat(computeActual("SHOW TABLES").getOnlyColumn().filter("casesensitivename"::equals)).hasSize(1); // TODO, should be 2
                     assertQueryFails("SHOW COLUMNS FROM casesensitivename", "Failed to find remote table name: Ambiguous name: casesensitivename");
@@ -161,24 +195,11 @@ public class TestMemSqlCaseInsensitiveMapping
         }
     }
 
-    private AutoCloseable withSchema(String schemaName)
+    @Test
+    public void forceTestNgToRespectSingleThreaded()
     {
-        execute(format("CREATE SCHEMA `%s`", schemaName));
-        return () -> execute(format("DROP SCHEMA `%s`", schemaName));
-    }
-
-    /**
-     * @deprecated Use {@link TestTable} instead.
-     */
-    @Deprecated
-    private AutoCloseable withTable(String tableName, String tableDefinition)
-    {
-        execute(format("CREATE TABLE %s %s", tableName, tableDefinition));
-        return () -> execute(format("DROP TABLE %s", tableName));
-    }
-
-    private void execute(String sql)
-    {
-        memSqlServer.execute(sql);
+        // TODO: Remove after updating TestNG to 7.4.0+ (https://github.com/trinodb/trino/issues/8571)
+        // TestNG doesn't enforce @Test(singleThreaded = true) when tests are defined in base class. According to
+        // https://github.com/cbeust/testng/issues/2361#issuecomment-688393166 a workaround it to add a dummy test to the leaf test class.
     }
 }
