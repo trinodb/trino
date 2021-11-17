@@ -23,6 +23,7 @@ public class IcebergSecurityConfig
     {
         ALLOW_ALL,
         READ_ONLY,
+        SYSTEM,
     }
 
     private IcebergSecurity securitySystem = IcebergSecurity.ALLOW_ALL;

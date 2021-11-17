@@ -15,17 +15,14 @@ package io.trino.plugin.hive.security;
 
 import com.google.inject.Binder;
 import com.google.inject.Module;
-import com.google.inject.Scopes;
-import io.trino.plugin.base.security.AllowAllAccessControl;
-import io.trino.spi.connector.ConnectorAccessControl;
 
-public class AllowAllSecurityModule
+public class SystemSecurityModule
         implements Module
 {
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(ConnectorAccessControl.class).to(AllowAllAccessControl.class).in(Scopes.SINGLETON);
+        // do not bind an ConnectorAccessControl so the engine will use system security with system roles
         binder.bind(AccessControlMetadataFactory.class).toInstance(metastore -> new AccessControlMetadata() {});
     }
 }
