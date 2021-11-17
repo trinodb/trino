@@ -77,6 +77,7 @@ public final class InternalIcebergConnectorFactory
                     new ConnectorObjectNameGeneratorModule(catalogName, "io.trino.plugin.iceberg", "trino.plugin.iceberg"),
                     new JsonModule(),
                     new IcebergModule(),
+                    new IcebergSecurityModule(),
                     new IcebergCatalogModule(metastore),
                     new HiveHdfsModule(),
                     new HiveS3Module(),
