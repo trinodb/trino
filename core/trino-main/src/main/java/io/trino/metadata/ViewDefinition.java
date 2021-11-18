@@ -24,7 +24,6 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.StandardErrorCode.INVALID_VIEW;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ViewDefinition
@@ -56,10 +55,17 @@ public class ViewDefinition
 
     public ViewDefinition(QualifiedObjectName viewName, ConnectorViewDefinition view)
     {
+        this(viewName, view, view.getOwner().map(Identity::ofUser));
+    }
+
+    public ViewDefinition(QualifiedObjectName viewName, ConnectorViewDefinition view, Identity runAsIdentityOverride)
+    {
+        this(viewName, view, Optional.of(runAsIdentityOverride));
+    }
+
+    private ViewDefinition(QualifiedObjectName viewName, ConnectorViewDefinition view, Optional<Identity> runAsIdentity)
+    {
         requireNonNull(view, "view is null");
-        if (!view.isRunAsInvoker() && view.getOwner().isEmpty()) {
-            throw new TrinoException(INVALID_VIEW, format("Owner must be present in view '%s' with SECURITY DEFINER mode", viewName));
-        }
         this.originalSql = view.getOriginalSql();
         this.catalog = view.getCatalog();
         this.schema = view.getSchema();
@@ -67,7 +73,13 @@ public class ViewDefinition
                 .map(column -> new ViewColumn(column.getName(), column.getType()))
                 .collect(toImmutableList());
         this.comment = view.getComment();
-        this.runAsIdentity = view.getOwner().map(Identity::ofUser);
+        this.runAsIdentity = runAsIdentity;
+        if (view.isRunAsInvoker() && runAsIdentity.isPresent()) {
+            throw new TrinoException(INVALID_VIEW, "Run-as identity cannot be set for a run-as invoker view: " + viewName);
+        }
+        if (!view.isRunAsInvoker() && runAsIdentity.isEmpty()) {
+            throw new TrinoException(INVALID_VIEW, "Run-as identity must be set for a run-as definer view: " + viewName);
+        }
     }
 
     public String getOriginalSql()
@@ -130,16 +142,5 @@ public class ViewDefinition
                 .add("comment", comment.orElse(null))
                 .add("runAsIdentity", runAsIdentity.orElse(null))
                 .toString();
-    }
-
-    public ViewDefinition withOwner(Identity owner)
-    {
-        return new ViewDefinition(
-                originalSql,
-                catalog,
-                schema,
-                columns,
-                comment,
-                Optional.of(owner));
     }
 }
