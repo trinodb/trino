@@ -219,7 +219,7 @@ public class TestOrcBloomFilters
     }
 
     @Test
-    // simulate query on a 2 columns where 1 is used as part of the where, with and without bloom filter
+    // simulate query on 2 columns where 1 is used as part of the where, with and without bloom filter
     public void testMatches()
     {
         TupleDomainOrcPredicate predicate = TupleDomainOrcPredicate.builder()
