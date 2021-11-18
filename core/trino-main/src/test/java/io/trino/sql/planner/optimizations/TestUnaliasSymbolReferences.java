@@ -45,6 +45,7 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCALE_FACTOR;
+import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.DynamicFilters.createDynamicFilterExpression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
@@ -147,7 +148,7 @@ public class TestUnaliasSymbolReferences
     {
         return new TableHandle(
                 new CatalogName(session.getCatalog().get()),
-                new TpchTableHandle(tableName, TINY_SCALE_FACTOR),
+                new TpchTableHandle(TINY_SCHEMA_NAME, tableName, TINY_SCALE_FACTOR),
                 TestingTransactionHandle.create(),
                 Optional.empty());
     }

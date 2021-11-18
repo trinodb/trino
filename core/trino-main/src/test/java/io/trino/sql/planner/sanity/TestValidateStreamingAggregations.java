@@ -57,7 +57,7 @@ public class TestValidateStreamingAggregations
         CatalogName catalogName = getCurrentConnectorId();
         nationTableHandle = new TableHandle(
                 catalogName,
-                new TpchTableHandle("nation", 1.0),
+                new TpchTableHandle("sf1", "nation", 1.0),
                 TpchTransactionHandle.INSTANCE,
                 Optional.empty());
     }
