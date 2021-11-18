@@ -33,6 +33,7 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCALE_FACTOR;
+import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expressions;
@@ -162,7 +163,7 @@ public class TestPruneCountAggregationOverScalar
                                             p.tableScan(
                                                     new TableHandle(
                                                             new CatalogName("local"),
-                                                            new TpchTableHandle("orders", TINY_SCALE_FACTOR),
+                                                            new TpchTableHandle(TINY_SCHEMA_NAME, "orders", TINY_SCALE_FACTOR),
                                                             TpchTransactionHandle.INSTANCE,
                                                             Optional.empty()),
                                                     ImmutableList.of(totalPrice),

@@ -19,6 +19,7 @@ import io.trino.plugin.tpch.util.PredicateUtils;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.SchemaTableName;
@@ -127,6 +128,30 @@ public class TestTpchMetadata
             testTableStats(schema, ORDERS, constraint(ORDER_STATUS, "F", "NO SUCH STATUS"), 730_400 * scaleFactor);
             testTableStats(schema, ORDERS, constraint(ORDER_STATUS, "F", "O", "P"), 1_500_000 * scaleFactor);
         });
+    }
+
+    @Test
+    public void testGetTableMetadata()
+    {
+        Stream.of("sf0.01", "tiny", "sf1.0", "sf1.000", "sf2.01", "sf3.1", "sf10.0", "sf100.0", "sf30000.0", "sf30000.2").forEach(
+                schemaName -> {
+                    testGetTableMetadata(schemaName, REGION);
+                    testGetTableMetadata(schemaName, NATION);
+                    testGetTableMetadata(schemaName, SUPPLIER);
+                    testGetTableMetadata(schemaName, CUSTOMER);
+                    testGetTableMetadata(schemaName, PART);
+                    testGetTableMetadata(schemaName, PART_SUPPLIER);
+                    testGetTableMetadata(schemaName, ORDERS);
+                    testGetTableMetadata(schemaName, LINE_ITEM);
+                });
+    }
+
+    private void testGetTableMetadata(String schema, TpchTable<?> table)
+    {
+        TpchTableHandle tableHandle = tpchMetadata.getTableHandle(session, new SchemaTableName(schema, table.getTableName()));
+        ConnectorTableMetadata tableMetadata = tpchMetadata.getTableMetadata(session, tableHandle);
+        assertEquals(tableMetadata.getTableSchema().getTable().getTableName(), table.getTableName());
+        assertEquals(tableMetadata.getTableSchema().getTable().getSchemaName(), schema);
     }
 
     @Test

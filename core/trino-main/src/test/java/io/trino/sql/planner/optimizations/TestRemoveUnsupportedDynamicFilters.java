@@ -86,7 +86,7 @@ public class TestRemoveUnsupportedDynamicFilters
         CatalogName catalogName = getCurrentConnectorId();
         lineitemTableHandle = new TableHandle(
                 catalogName,
-                new TpchTableHandle("lineitem", 1.0),
+                new TpchTableHandle("sf1", "lineitem", 1.0),
                 TestingTransactionHandle.create(),
                 Optional.empty());
         lineitemOrderKeySymbol = builder.symbol("LINEITEM_OK", BIGINT);
@@ -94,7 +94,7 @@ public class TestRemoveUnsupportedDynamicFilters
 
         TableHandle ordersTableHandle = new TableHandle(
                 catalogName,
-                new TpchTableHandle("orders", 1.0),
+                new TpchTableHandle("sf1", "orders", 1.0),
                 TestingTransactionHandle.create(),
                 Optional.empty());
         ordersOrderKeySymbol = builder.symbol("ORDERS_OK", BIGINT);
