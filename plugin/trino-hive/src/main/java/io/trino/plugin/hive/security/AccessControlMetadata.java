@@ -30,6 +30,11 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 
 public interface AccessControlMetadata
 {
+    default boolean isUsingSystemSecurity()
+    {
+        return false;
+    }
+
     /**
      * Does the specified role exist.
      */

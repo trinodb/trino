@@ -852,7 +852,7 @@ public abstract class AbstractTestHive
                                 Optional.empty(),
                                 ImmutableList.of(new ConnectorMaterializedViewDefinition.Column("abc", TypeId.of("type"))),
                                 Optional.empty(),
-                                "alice",
+                                Optional.of("alice"),
                                 ImmutableMap.of()));
                     }
                 },
@@ -2537,7 +2537,7 @@ public abstract class AbstractTestHive
         return Table.builder()
                 .setDatabaseName(schemaName)
                 .setTableName(tableName)
-                .setOwner(tableOwner)
+                .setOwner(Optional.of(tableOwner))
                 .setTableType(TableType.MANAGED_TABLE.name())
                 .setParameters(ImmutableMap.of(
                         PRESTO_VERSION_NAME, TEST_SERVER_VERSION,
@@ -2871,7 +2871,7 @@ public abstract class AbstractTestHive
         Table.Builder table = Table.builder()
                 .setDatabaseName(tableName.getSchemaName())
                 .setTableName(tableName.getTableName())
-                .setOwner(session.getUser())
+                .setOwner(Optional.of(session.getUser()))
                 .setTableType(MANAGED_TABLE.name())
                 .setDataColumns(List.of(new Column("a_column", HIVE_STRING, Optional.empty())))
                 .setParameter(SPARK_TABLE_PROVIDER_KEY, DELTA_LAKE_PROVIDER);
@@ -3073,7 +3073,7 @@ public abstract class AbstractTestHive
             Table.Builder tableBuilder = Table.builder()
                     .setDatabaseName(schemaName)
                     .setTableName(tableName)
-                    .setOwner(tableOwner)
+                    .setOwner(Optional.of(tableOwner))
                     .setTableType(TableType.MANAGED_TABLE.name())
                     .setParameters(ImmutableMap.of(
                             PRESTO_VERSION_NAME, TEST_SERVER_VERSION,
@@ -5094,7 +5094,7 @@ public abstract class AbstractTestHive
             Table.Builder tableBuilder = Table.builder()
                     .setDatabaseName(schemaName)
                     .setTableName(tableName)
-                    .setOwner(tableOwner)
+                    .setOwner(Optional.of(tableOwner))
                     .setTableType(TableType.MANAGED_TABLE.name())
                     .setParameters(ImmutableMap.of(
                             PRESTO_VERSION_NAME, TEST_SERVER_VERSION,

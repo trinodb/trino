@@ -43,6 +43,7 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -92,8 +93,8 @@ public class TestHivePlans
                         .setMetastoreUser("test"));
         Database database = Database.builder()
                 .setDatabaseName(SCHEMA_NAME)
-                .setOwnerName("public")
-                .setOwnerType(PrincipalType.ROLE)
+                .setOwnerName(Optional.of("public"))
+                .setOwnerType(Optional.of(PrincipalType.ROLE))
                 .build();
 
         metastore.createDatabase(new HiveIdentity(HIVE_SESSION.toConnectorSession()), database);

@@ -70,7 +70,7 @@ public class TestMockConnector
                                                 Optional.of("default"),
                                                 ImmutableList.of(new Column("nationkey", BIGINT.getTypeId())),
                                                 Optional.empty(),
-                                                "alice",
+                                                Optional.of("alice"),
                                                 ImmutableMap.of())))
                                 .withData(schemaTableName -> {
                                     if (schemaTableName.equals(new SchemaTableName("default", "nation"))) {

@@ -250,6 +250,7 @@ import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilege
 import static io.trino.plugin.hive.metastore.MetastoreUtil.getHiveSchema;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.getProtectMode;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.verifyOnline;
+import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.hive.metastore.PrincipalPrivileges.fromHivePrivilegeInfos;
 import static io.trino.plugin.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
 import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
@@ -798,8 +799,8 @@ public class HiveMetadata
         Database database = Database.builder()
                 .setDatabaseName(schemaName)
                 .setLocation(location)
-                .setOwnerType(owner.getType())
-                .setOwnerName(owner.getName())
+                .setOwnerType(accessControlMetadata.isUsingSystemSecurity() ? Optional.empty() : Optional.of(owner.getType()))
+                .setOwnerName(accessControlMetadata.isUsingSystemSecurity() ? Optional.empty() : Optional.of(owner.getName()))
                 .build();
 
         metastore.createDatabase(new HiveIdentity(session), database);
@@ -886,8 +887,9 @@ public class HiveMetadata
                 tableProperties,
                 targetPath,
                 external,
-                prestoVersion);
-        PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(table.getOwner());
+                prestoVersion,
+                accessControlMetadata.isUsingSystemSecurity());
+        PrincipalPrivileges principalPrivileges = accessControlMetadata.isUsingSystemSecurity() ? NO_PRIVILEGES : buildInitialPrivilegeSet(session.getUser());
         HiveBasicStatistics basicStatistics = (!external && table.getPartitionColumns().isEmpty()) ? createZeroStatistics() : createEmptyStatistics();
         metastore.createTable(
                 session,
@@ -1090,7 +1092,8 @@ public class HiveMetadata
             Map<String, String> additionalTableParameters,
             Optional<Path> targetPath,
             boolean external,
-            String prestoVersion)
+            String prestoVersion,
+            boolean usingSystemSecurity)
     {
         Map<String, HiveColumnHandle> columnHandlesByName = Maps.uniqueIndex(columnHandles, HiveColumnHandle::getName);
         List<Column> partitionColumns = partitionedBy.stream()
@@ -1125,7 +1128,7 @@ public class HiveMetadata
         Table.Builder tableBuilder = Table.builder()
                 .setDatabaseName(schemaName)
                 .setTableName(tableName)
-                .setOwner(tableOwner)
+                .setOwner(usingSystemSecurity ? Optional.empty() : Optional.of(tableOwner))
                 .setTableType((external ? EXTERNAL_TABLE : MANAGED_TABLE).name())
                 .setDataColumns(columns.build())
                 .setPartitionColumns(partitionColumns)
@@ -1393,8 +1396,9 @@ public class HiveMetadata
                 handle.getAdditionalTableParameters(),
                 Optional.of(writeInfo.getTargetPath()),
                 handle.isExternal(),
-                prestoVersion);
-        PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(handle.getTableOwner());
+                prestoVersion,
+                accessControlMetadata.isUsingSystemSecurity());
+        PrincipalPrivileges principalPrivileges = accessControlMetadata.isUsingSystemSecurity() ? NO_PRIVILEGES : buildInitialPrivilegeSet(handle.getTableOwner());
 
         partitionUpdates = PartitionUpdate.mergePartitionUpdates(partitionUpdates);
 
@@ -2169,6 +2173,10 @@ public class HiveMetadata
     @Override
     public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, boolean replace)
     {
+        if (accessControlMetadata.isUsingSystemSecurity()) {
+            definition = definition.withoutOwner();
+        }
+
         HiveIdentity identity = new HiveIdentity(session);
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put(TABLE_COMMENT, PRESTO_VIEW_COMMENT)
@@ -2183,7 +2191,7 @@ public class HiveMetadata
         Table.Builder tableBuilder = Table.builder()
                 .setDatabaseName(viewName.getSchemaName())
                 .setTableName(viewName.getTableName())
-                .setOwner(session.getUser())
+                .setOwner(accessControlMetadata.isUsingSystemSecurity() ? Optional.empty() : Optional.ofNullable(session.getUser()))
                 .setTableType(TableType.VIRTUAL_VIEW.name())
                 .setDataColumns(ImmutableList.of(dummyColumn))
                 .setPartitionColumns(ImmutableList.of())
@@ -2195,7 +2203,7 @@ public class HiveMetadata
                 .setStorageFormat(VIEW_STORAGE_FORMAT)
                 .setLocation("");
         Table table = tableBuilder.build();
-        PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(session.getUser());
+        PrincipalPrivileges principalPrivileges = accessControlMetadata.isUsingSystemSecurity() ? NO_PRIVILEGES : buildInitialPrivilegeSet(session.getUser());
 
         Optional<Table> existing = metastore.getTable(identity, viewName.getSchemaName(), viewName.getTableName());
         if (existing.isPresent()) {
@@ -2276,7 +2284,7 @@ public class HiveMetadata
 
         Optional<Database> database = metastore.getDatabase(schemaName.getSchemaName());
         if (database.isPresent()) {
-            return database.flatMap(db -> Optional.of(new TrinoPrincipal(db.getOwnerType(), db.getOwnerName())));
+            return database.flatMap(db -> db.getOwnerName().map(ownerName -> new TrinoPrincipal(db.getOwnerType().orElseThrow(), ownerName)));
         }
 
         throw new SchemaNotFoundException(schemaName.getSchemaName());
@@ -2321,14 +2329,14 @@ public class HiveMetadata
                     ConnectorViewDefinition definition = createViewReader(metastore, session, view, typeManager)
                             .decodeViewData(view.getViewOriginalText().get(), view, catalogName);
                     // use owner from table metadata if it exists
-                    if (view.getOwner() != null && !definition.isRunAsInvoker()) {
+                    if (view.getOwner().isPresent() && !definition.isRunAsInvoker()) {
                         definition = new ConnectorViewDefinition(
                                 definition.getOriginalSql(),
                                 definition.getCatalog(),
                                 definition.getSchema(),
                                 definition.getColumns(),
                                 definition.getComment(),
-                                Optional.of(view.getOwner()),
+                                view.getOwner(),
                                 false);
                     }
                     return definition;

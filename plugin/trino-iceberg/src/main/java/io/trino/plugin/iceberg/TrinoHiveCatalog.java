@@ -77,6 +77,7 @@ import static io.trino.plugin.hive.ViewReaderUtil.encodeViewData;
 import static io.trino.plugin.hive.ViewReaderUtil.isHiveOrPrestoView;
 import static io.trino.plugin.hive.ViewReaderUtil.isPrestoView;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
+import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
 import static io.trino.plugin.hive.util.HiveUtil.isHiveSystemSchema;
 import static io.trino.plugin.hive.util.HiveWriteUtils.getTableDefaultLocation;
@@ -128,6 +129,7 @@ class TrinoHiveCatalog
     private final IcebergTableOperationsProvider tableOperationsProvider;
     private final String trinoVersion;
     private final boolean useUniqueTableLocation;
+    private final boolean isUsingSystemSecurity;
 
     private final Map<SchemaTableName, TableMetadata> tableMetadataCache = new ConcurrentHashMap<>();
     private final ViewReaderUtil.PrestoViewReader viewReader = new ViewReaderUtil.PrestoViewReader();
@@ -139,7 +141,8 @@ class TrinoHiveCatalog
             TypeManager typeManager,
             IcebergTableOperationsProvider tableOperationsProvider,
             String trinoVersion,
-            boolean useUniqueTableLocation)
+            boolean useUniqueTableLocation,
+            boolean isUsingSystemSecurity)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
@@ -148,6 +151,7 @@ class TrinoHiveCatalog
         this.tableOperationsProvider = requireNonNull(tableOperationsProvider, "tableOperationsProvider is null");
         this.trinoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
         this.useUniqueTableLocation = useUniqueTableLocation;
+        this.isUsingSystemSecurity = isUsingSystemSecurity;
     }
 
     @Override
@@ -174,7 +178,7 @@ class TrinoHiveCatalog
     {
         Optional<Database> database = metastore.getDatabase(namespace);
         if (database.isPresent()) {
-            return database.flatMap(db -> Optional.of(new TrinoPrincipal(db.getOwnerType(), db.getOwnerName())));
+            return database.flatMap(db -> db.getOwnerName().map(ownerName -> new TrinoPrincipal(db.getOwnerType().orElseThrow(), ownerName)));
         }
 
         throw new SchemaNotFoundException(namespace);
@@ -196,8 +200,8 @@ class TrinoHiveCatalog
         Database database = Database.builder()
                 .setDatabaseName(namespace)
                 .setLocation(location)
-                .setOwnerType(owner.getType())
-                .setOwnerName(owner.getName())
+                .setOwnerType(isUsingSystemSecurity ? Optional.empty() : Optional.of(owner.getType()))
+                .setOwnerName(isUsingSystemSecurity ? Optional.empty() : Optional.of(owner.getName()))
                 .build();
 
         metastore.createDatabase(new HiveIdentity(session), database);
@@ -237,7 +241,7 @@ class TrinoHiveCatalog
                 session,
                 schemaTableName.getSchemaName(),
                 schemaTableName.getTableName(),
-                Optional.of(session.getUser()),
+                isUsingSystemSecurity ? Optional.empty() : Optional.of(session.getUser()),
                 Optional.of(location));
         return createTableTransaction(schemaTableName.toString(), ops, metadata);
     }
@@ -328,6 +332,10 @@ class TrinoHiveCatalog
     @Override
     public void createView(ConnectorSession session, SchemaTableName schemaViewName, ConnectorViewDefinition definition, boolean replace)
     {
+        if (isUsingSystemSecurity) {
+            definition = definition.withoutOwner();
+        }
+
         HiveIdentity identity = new HiveIdentity(session);
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put(PRESTO_VIEW_FLAG, "true")
@@ -340,7 +348,7 @@ class TrinoHiveCatalog
         io.trino.plugin.hive.metastore.Table.Builder tableBuilder = io.trino.plugin.hive.metastore.Table.builder()
                 .setDatabaseName(schemaViewName.getSchemaName())
                 .setTableName(schemaViewName.getTableName())
-                .setOwner(session.getUser())
+                .setOwner(isUsingSystemSecurity ? Optional.empty() : Optional.of(session.getUser()))
                 .setTableType(org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW.name())
                 .setDataColumns(ImmutableList.of(new Column("dummy", HIVE_STRING, Optional.empty())))
                 .setPartitionColumns(ImmutableList.of())
@@ -352,7 +360,7 @@ class TrinoHiveCatalog
                 .setStorageFormat(VIEW_STORAGE_FORMAT)
                 .setLocation("");
         io.trino.plugin.hive.metastore.Table table = tableBuilder.build();
-        PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(session.getUser());
+        PrincipalPrivileges principalPrivileges = isUsingSystemSecurity ? NO_PRIVILEGES : buildInitialPrivilegeSet(session.getUser());
 
         Optional<io.trino.plugin.hive.metastore.Table> existing = metastore.getTable(identity, schemaViewName.getSchemaName(), schemaViewName.getTableName());
         if (existing.isPresent()) {
@@ -449,14 +457,14 @@ class TrinoHiveCatalog
                     ConnectorViewDefinition definition = viewReader
                             .decodeViewData(view.getViewOriginalText().get(), view, catalogName);
                     // use owner from table metadata if it exists
-                    if (view.getOwner() != null && !definition.isRunAsInvoker()) {
+                    if (view.getOwner().isPresent() && !definition.isRunAsInvoker()) {
                         definition = new ConnectorViewDefinition(
                                 definition.getOriginalSql(),
                                 definition.getCatalog(),
                                 definition.getSchema(),
                                 definition.getColumns(),
                                 definition.getComment(),
-                                Optional.of(view.getOwner()),
+                                view.getOwner(),
                                 false);
                     }
                     return definition;
@@ -518,7 +526,7 @@ class TrinoHiveCatalog
         io.trino.plugin.hive.metastore.Table.Builder tableBuilder = io.trino.plugin.hive.metastore.Table.builder()
                 .setDatabaseName(schemaViewName.getSchemaName())
                 .setTableName(schemaViewName.getTableName())
-                .setOwner(session.getUser())
+                .setOwner(isUsingSystemSecurity ? Optional.empty() : Optional.of(session.getUser()))
                 .setTableType(VIRTUAL_VIEW.name())
                 .setDataColumns(ImmutableList.of(dummyColumn))
                 .setPartitionColumns(ImmutableList.of())
@@ -529,7 +537,7 @@ class TrinoHiveCatalog
                         encodeMaterializedViewData(fromConnectorMaterializedViewDefinition(definition))))
                 .setViewExpandedText(Optional.of("/* Presto Materialized View */"));
         io.trino.plugin.hive.metastore.Table table = tableBuilder.build();
-        PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(session.getUser());
+        PrincipalPrivileges principalPrivileges = isUsingSystemSecurity ? NO_PRIVILEGES : buildInitialPrivilegeSet(session.getUser());
         if (existing.isPresent() && replace) {
             // drop the current storage table
             String oldStorageTable = existing.get().getParameters().get(STORAGE_TABLE);

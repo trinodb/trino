@@ -592,11 +592,13 @@ public class SqlStandardAccessControl
 
         // a database can be owned by a user or role
         ConnectorIdentity identity = context.getIdentity();
-        if (database.getOwnerType() == USER && identity.getUser().equals(database.getOwnerName())) {
-            return true;
-        }
-        if (database.getOwnerType() == ROLE && isRoleEnabled(identity, hivePrincipal -> metastore.listRoleGrants(context, hivePrincipal), database.getOwnerName())) {
-            return true;
+        if (database.getOwnerName().isPresent()) {
+            if (database.getOwnerType().orElse(null) == USER && identity.getUser().equals(database.getOwnerName().get())) {
+                return true;
+            }
+            if (database.getOwnerType().orElse(null) == ROLE && isRoleEnabled(identity, hivePrincipal -> metastore.listRoleGrants(context, hivePrincipal), database.getOwnerName().get())) {
+                return true;
+            }
         }
         return false;
     }

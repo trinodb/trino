@@ -1251,7 +1251,7 @@ public class TestBackgroundHiveSplitLoader
 
         return tableBuilder
                 .setDatabaseName("test_dbname")
-                .setOwner("testOwner")
+                .setOwner(Optional.of("testOwner"))
                 .setTableName("test_table")
                 .setTableType(TableType.MANAGED_TABLE.toString())
                 .setDataColumns(ImmutableList.of(new Column("col1", HIVE_STRING, Optional.empty())))

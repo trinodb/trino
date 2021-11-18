@@ -31,7 +31,7 @@ public class ConnectorMaterializedViewDefinition
     private final Optional<String> schema;
     private final List<Column> columns;
     private final Optional<String> comment;
-    private final String owner;
+    private final Optional<String> owner;
     private final Map<String, Object> properties;
 
     public ConnectorMaterializedViewDefinition(
@@ -41,7 +41,7 @@ public class ConnectorMaterializedViewDefinition
             Optional<String> schema,
             List<Column> columns,
             Optional<String> comment,
-            String owner,
+            Optional<String> owner,
             Map<String, Object> properties)
     {
         this.originalSql = requireNonNull(originalSql, "originalSql is null");
@@ -91,7 +91,7 @@ public class ConnectorMaterializedViewDefinition
         return comment;
     }
 
-    public String getOwner()
+    public Optional<String> getOwner()
     {
         return owner;
     }
