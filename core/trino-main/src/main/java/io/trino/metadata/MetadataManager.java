@@ -1357,18 +1357,18 @@ public final class MetadataManager
     @Override
     public Optional<ViewDefinition> getView(Session session, QualifiedObjectName viewName)
     {
-        Optional<ViewDefinition> view = getViewInternal(session, viewName);
-        if (view.isEmpty() || view.get().isRunAsInvoker() || isCatalogManagedSecurity(session, viewName.getCatalogName())) {
-            return view;
+        Optional<ConnectorViewDefinition> connectorView = getViewInternal(session, viewName);
+        if (connectorView.isEmpty() || connectorView.get().isRunAsInvoker() || isCatalogManagedSecurity(session, viewName.getCatalogName())) {
+            return connectorView.map(view -> new ViewDefinition(viewName, view));
         }
-        Optional<Identity> runAsIdentity = systemSecurityMetadata.getViewRunAsIdentity(session, viewName.asCatalogSchemaTableName());
-        if (runAsIdentity.isEmpty()) {
-            return view;
-        }
-        return view.map(v -> v.withOwner(runAsIdentity.get()));
+
+        Identity runAsIdentity = systemSecurityMetadata.getViewRunAsIdentity(session, viewName.asCatalogSchemaTableName())
+                .or(() -> connectorView.get().getOwner().map(Identity::ofUser))
+                .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, "Catalog does not support run-as DEFINER views: " + viewName));
+        return Optional.of(new ViewDefinition(viewName, connectorView.get(), runAsIdentity));
     }
 
-    private Optional<ViewDefinition> getViewInternal(Session session, QualifiedObjectName viewName)
+    private Optional<ConnectorViewDefinition> getViewInternal(Session session, QualifiedObjectName viewName)
     {
         if (viewName.getCatalogName().isEmpty() || viewName.getSchemaName().isEmpty() || viewName.getObjectName().isEmpty()) {
             // View cannot exist
@@ -1382,8 +1382,7 @@ public final class MetadataManager
             ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
 
             ConnectorSession connectorSession = session.toConnectorSession(catalogName);
-            return metadata.getView(connectorSession, viewName.asSchemaTableName())
-                    .map(view -> new ViewDefinition(viewName, view));
+            return metadata.getView(connectorSession, viewName.asSchemaTableName());
         }
         return Optional.empty();
     }
@@ -1551,18 +1550,18 @@ public final class MetadataManager
     @Override
     public Optional<MaterializedViewDefinition> getMaterializedView(Session session, QualifiedObjectName viewName)
     {
-        Optional<MaterializedViewDefinition> view = getMaterializedViewInternal(session, viewName);
-        if (view.isEmpty() || isCatalogManagedSecurity(session, viewName.getCatalogName())) {
-            return view;
+        Optional<ConnectorMaterializedViewDefinition> connectorView = getMaterializedViewInternal(session, viewName);
+        if (connectorView.isEmpty() || isCatalogManagedSecurity(session, viewName.getCatalogName())) {
+            return connectorView.map(view -> new MaterializedViewDefinition(view, Identity.ofUser(view.getOwner())));
         }
-        Optional<Identity> runAsIdentity = systemSecurityMetadata.getViewRunAsIdentity(session, viewName.asCatalogSchemaTableName());
-        if (runAsIdentity.isEmpty()) {
-            return view;
-        }
-        return view.map(v -> v.withOwner(runAsIdentity.get()));
+
+        Identity runAsIdentity = systemSecurityMetadata.getViewRunAsIdentity(session, viewName.asCatalogSchemaTableName())
+                .or(() -> connectorView.get().getOwner().map(Identity::ofUser))
+                .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, "Materialized view does not have an owner: " + viewName));
+        return Optional.of(new MaterializedViewDefinition(connectorView.get(), runAsIdentity));
     }
 
-    private Optional<MaterializedViewDefinition> getMaterializedViewInternal(Session session, QualifiedObjectName viewName)
+    private Optional<ConnectorMaterializedViewDefinition> getMaterializedViewInternal(Session session, QualifiedObjectName viewName)
     {
         if (viewName.getCatalogName().isEmpty() || viewName.getSchemaName().isEmpty() || viewName.getObjectName().isEmpty()) {
             // View cannot exist
@@ -1576,8 +1575,7 @@ public final class MetadataManager
             ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
 
             ConnectorSession connectorSession = session.toConnectorSession(catalogName);
-            return metadata.getMaterializedView(connectorSession, viewName.asSchemaTableName())
-                    .map(MaterializedViewDefinition::new);
+            return metadata.getMaterializedView(connectorSession, viewName.asSchemaTableName());
         }
         return Optional.empty();
     }
