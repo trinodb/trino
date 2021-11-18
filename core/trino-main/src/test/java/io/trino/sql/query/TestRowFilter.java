@@ -19,6 +19,7 @@ import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.plugin.tpch.TpchConnectorFactory;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.Identity;
@@ -35,6 +36,8 @@ import java.util.Optional;
 
 import static io.trino.connector.MockConnectorEntities.TPCH_NATION_DATA;
 import static io.trino.connector.MockConnectorEntities.TPCH_NATION_SCHEMA;
+import static io.trino.connector.MockConnectorEntities.TPCH_NATION_WITH_HIDDEN_COLUMN;
+import static io.trino.connector.MockConnectorEntities.TPCH_WITH_HIDDEN_COLUMN_DATA;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -83,11 +86,17 @@ public class TestRowFilter
                     if (schemaTableName.equals(new SchemaTableName("tiny", "nation"))) {
                         return TPCH_NATION_SCHEMA;
                     }
+                    if (schemaTableName.equals(new SchemaTableName("tiny", "nation_with_hidden_column"))) {
+                        return TPCH_NATION_WITH_HIDDEN_COLUMN;
+                    }
                     throw new UnsupportedOperationException();
                 })
                 .withData(schemaTableName -> {
                     if (schemaTableName.equals(new SchemaTableName("tiny", "nation"))) {
                         return TPCH_NATION_DATA;
+                    }
+                    if (schemaTableName.equals(new SchemaTableName("tiny", "nation_with_hidden_column"))) {
+                        return TPCH_WITH_HIDDEN_COLUMN_DATA;
                     }
                     throw new UnsupportedOperationException();
                 })
@@ -485,5 +494,65 @@ public class TestRowFilter
                 .hasMessage("Access Denied: Cannot insert into a table restricted with a row filter");
         assertThatThrownBy(() -> assertions.query("INSERT INTO mock.tiny.nation(regionkey) VALUES (0)"))
                 .hasMessage("Access Denied: Cannot insert into a table restricted with a row filter");
+    }
+
+    @Test
+    public void testRowFilterWithHiddenColumns()
+    {
+        accessControl.reset();
+        accessControl.rowFilter(
+                new QualifiedObjectName(MOCK_CATALOG, "tiny", "nation_with_hidden_column"),
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "nationkey < 1"));
+
+        assertions.query("SELECT * FROM mock.tiny.nation_with_hidden_column")
+                .assertThat()
+                .skippingTypesCheck()
+                .matches("VALUES (BIGINT '0', 'ALGERIA', BIGINT '0', ' haggle. carefully final deposits detect slyly agai')");
+        // TODO https://github.com/trinodb/trino/issues/10005 - support insert into a table with hidden columns
+        assertThatThrownBy(() -> assertions.query("INSERT INTO mock.tiny.nation_with_hidden_column VALUES (101, 'POLAND', 0, 'No comment')"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("scope: 5, fields mappings: 4");
+        // TODO https://github.com/trinodb/trino/issues/10005 - support insert into a table with hidden columns
+        assertThatThrownBy(() -> assertions.query("INSERT INTO mock.tiny.nation_with_hidden_column VALUES (0, 'POLAND', 0, 'No comment')"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("scope: 5, fields mappings: 4");
+        assertThatThrownBy(() -> assertions.query("UPDATE mock.tiny.nation_with_hidden_column SET name = 'POLAND'"))
+                .isInstanceOf(TrinoException.class)
+                .hasMessageContaining("Updating a table with a row filter is not supported");
+        assertions.query("DELETE FROM mock.tiny.nation_with_hidden_column WHERE regionkey < 5")
+                .assertThat()
+                .skippingTypesCheck()
+                .matches("SELECT BIGINT '1'");
+        assertions.query("DELETE FROM mock.tiny.nation_with_hidden_column WHERE \"$hidden\" IS NOT NULL")
+                .assertThat()
+                .skippingTypesCheck()
+                .matches("SELECT BIGINT '1'");
+    }
+
+    @Test
+    public void testRowFilterOnHiddenColumn()
+    {
+        accessControl.reset();
+        accessControl.rowFilter(
+                new QualifiedObjectName(MOCK_CATALOG, "tiny", "nation_with_hidden_column"),
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "\"$hidden\" < 1"));
+
+        assertions.query("SELECT count(*) FROM mock.tiny.nation_with_hidden_column")
+                .assertThat()
+                .skippingTypesCheck()
+                .matches("VALUES BIGINT '25'");
+        // TODO https://github.com/trinodb/trino/issues/10006 - support insert into a table with row filter that is using hidden columns
+        assertThatThrownBy(() -> assertions.query("INSERT INTO mock.tiny.nation_with_hidden_column VALUES (101, 'POLAND', 0, 'No comment')"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("scope: 5, fields mappings: 4");
+        assertThatThrownBy(() -> assertions.query("UPDATE mock.tiny.nation_with_hidden_column SET name = 'POLAND'"))
+                .isInstanceOf(TrinoException.class)
+                .hasMessageContaining("Updating a table with a row filter is not supported");
+        assertions.query("DELETE FROM mock.tiny.nation_with_hidden_column WHERE regionkey < 5")
+                .assertThat()
+                .skippingTypesCheck()
+                .matches("SELECT BIGINT '25'");
     }
 }
