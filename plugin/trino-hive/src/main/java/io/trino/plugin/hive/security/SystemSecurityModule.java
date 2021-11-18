@@ -23,6 +23,12 @@ public class SystemSecurityModule
     public void configure(Binder binder)
     {
         // do not bind an ConnectorAccessControl so the engine will use system security with system roles
-        binder.bind(AccessControlMetadataFactory.class).toInstance(metastore -> new AccessControlMetadata() {});
+        binder.bind(AccessControlMetadataFactory.class).toInstance(metastore -> new AccessControlMetadata() {
+            @Override
+            public boolean isUsingSystemSecurity()
+            {
+                return true;
+            }
+        });
     }
 }

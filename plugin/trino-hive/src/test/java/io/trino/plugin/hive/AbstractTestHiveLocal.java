@@ -99,8 +99,8 @@ public abstract class AbstractTestHiveLocal
         metastore.createDatabase(HIVE_IDENTITY,
                 Database.builder()
                         .setDatabaseName(testDbName)
-                        .setOwnerName("public")
-                        .setOwnerType(PrincipalType.ROLE)
+                        .setOwnerName(Optional.of("public"))
+                        .setOwnerType(Optional.of(PrincipalType.ROLE))
                         .build());
 
         HiveConfig hiveConfig = new HiveConfig()
@@ -242,7 +242,7 @@ public abstract class AbstractTestHiveLocal
             Table.Builder tableBuilder = Table.builder()
                     .setDatabaseName(schemaName)
                     .setTableName(tableName)
-                    .setOwner(tableOwner)
+                    .setOwner(Optional.of(tableOwner))
                     .setTableType(TableType.EXTERNAL_TABLE.name())
                     .setParameters(ImmutableMap.of(
                             PRESTO_VERSION_NAME, TEST_SERVER_VERSION,

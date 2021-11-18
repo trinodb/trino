@@ -139,7 +139,7 @@ public class TestEventListenerBasic
                                     Optional.empty(),
                                     ImmutableList.of(new Column("test_column", BIGINT.getTypeId())),
                                     Optional.empty(),
-                                    "alice",
+                                    Optional.of("alice"),
                                     ImmutableMap.of());
                             SchemaTableName materializedViewName = new SchemaTableName("default", "test_materialized_view");
                             return ImmutableMap.of(materializedViewName, definition);

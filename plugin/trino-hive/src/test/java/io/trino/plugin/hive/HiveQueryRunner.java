@@ -220,8 +220,8 @@ public final class HiveQueryRunner
     {
         return Database.builder()
                 .setDatabaseName(name)
-                .setOwnerName("public")
-                .setOwnerType(PrincipalType.ROLE)
+                .setOwnerName(Optional.of("public"))
+                .setOwnerType(Optional.of(PrincipalType.ROLE))
                 .build();
     }
 

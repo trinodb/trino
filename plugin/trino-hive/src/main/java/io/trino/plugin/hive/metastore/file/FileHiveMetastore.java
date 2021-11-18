@@ -242,8 +242,8 @@ public class FileHiveMetastore
         Database database = getRequiredDatabase(databaseName);
         Path databaseMetadataDirectory = getDatabaseMetadataDirectory(database.getDatabaseName());
         Database newDatabase = Database.builder(database)
-                .setOwnerName(principal.getName())
-                .setOwnerType(principal.getType())
+                .setOwnerName(Optional.of(principal.getName()))
+                .setOwnerType(Optional.of(principal.getType()))
                 .build();
 
         writeSchemaFile(DATABASE, databaseMetadataDirectory, databaseCodec, new DatabaseMetadata(currentVersion, newDatabase), true);
@@ -356,7 +356,7 @@ public class FileHiveMetastore
         Table table = getRequiredTable(databaseName, tableName);
         Path tableMetadataDirectory = getTableMetadataDirectory(table);
         Table newTable = Table.builder(table)
-                .setOwner(principal.getName())
+                .setOwner(Optional.of(principal.getName()))
                 .build();
 
         writeSchemaFile(TABLE, tableMetadataDirectory, tableCodec, new TableMetadata(currentVersion, newTable), true);
@@ -1105,7 +1105,7 @@ public class FileHiveMetastore
                     .build();
         }
         ImmutableSet.Builder<HivePrivilegeInfo> result = ImmutableSet.builder();
-        if (principal.get().getType() == USER && table.getOwner().equals(principal.get().getName())) {
+        if (principal.get().getType() == USER && table.getOwner().orElseThrow().equals(principal.get().getName())) {
             result.add(new HivePrivilegeInfo(OWNERSHIP, true, principal.get(), principal.get()));
         }
         result.addAll(readPermissionsFile(getPermissionsPath(permissionsDirectory, principal.get())));

@@ -24,6 +24,7 @@ import io.trino.spi.type.TypeManager;
 import javax.inject.Inject;
 
 import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeMetastore;
+import static io.trino.plugin.iceberg.IcebergSecurityConfig.IcebergSecurity.SYSTEM;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
 
@@ -37,6 +38,7 @@ public class TrinoCatalogFactory
     private final String trinoVersion;
     private final CatalogType catalogType;
     private final boolean isUniqueTableLocation;
+    private final boolean isUsingSystemSecurity;
 
     @Inject
     public TrinoCatalogFactory(
@@ -46,7 +48,8 @@ public class TrinoCatalogFactory
             HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
             IcebergTableOperationsProvider tableOperationsProvider,
-            NodeVersion nodeVersion)
+            NodeVersion nodeVersion,
+            IcebergSecurityConfig securityConfig)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
@@ -57,6 +60,7 @@ public class TrinoCatalogFactory
         requireNonNull(config, "config is null");
         this.catalogType = config.getCatalogType();
         this.isUniqueTableLocation = config.isUniqueTableLocation();
+        this.isUsingSystemSecurity = securityConfig.getSecuritySystem() == SYSTEM;
     }
 
     public TrinoCatalog create()
@@ -64,7 +68,15 @@ public class TrinoCatalogFactory
         switch (catalogType) {
             case TESTING_FILE_METASTORE:
             case HIVE_METASTORE:
-                return new TrinoHiveCatalog(catalogName, memoizeMetastore(metastore, 1000), hdfsEnvironment, typeManager, tableOperationsProvider, trinoVersion, isUniqueTableLocation);
+                return new TrinoHiveCatalog(
+                        catalogName,
+                        memoizeMetastore(metastore, 1000),
+                        hdfsEnvironment,
+                        typeManager,
+                        tableOperationsProvider,
+                        trinoVersion,
+                        isUniqueTableLocation,
+                        isUsingSystemSecurity);
             case GLUE:
                 // TODO not supported yet
                 throw new TrinoException(NOT_SUPPORTED, "Unknown Trino Iceberg catalog type");
