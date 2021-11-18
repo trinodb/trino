@@ -16,7 +16,6 @@ package io.trino.connector;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.trino.plugin.base.security.AllowAllAccessControl;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.CatalogSchemaTableName;
@@ -96,7 +95,7 @@ public class MockConnectorFactory
 
     // access control
     private final ListRoleGrants roleGrants;
-    private final ConnectorAccessControl accessControl;
+    private final Optional<ConnectorAccessControl> accessControl;
 
     private MockConnectorFactory(
             Function<ConnectorSession, List<String>> listSchemaNames,
@@ -122,7 +121,7 @@ public class MockConnectorFactory
             Function<SchemaTableName, List<List<?>>> data,
             Set<Procedure> procedures,
             ListRoleGrants roleGrants,
-            ConnectorAccessControl accessControl)
+            Optional<ConnectorAccessControl> accessControl)
     {
         this.listSchemaNames = requireNonNull(listSchemaNames, "listSchemaNames is null");
         this.listTables = requireNonNull(listTables, "listTables is null");
@@ -473,9 +472,9 @@ public class MockConnectorFactory
 
         public MockConnectorFactory build()
         {
-            ConnectorAccessControl accessControl = new AllowAllAccessControl();
+            Optional<ConnectorAccessControl> accessControl = Optional.empty();
             if (provideAccessControl) {
-                accessControl = new MockConnectorAccessControl(schemaGrants, tableGrants, rowFilter, columnMask);
+                accessControl = Optional.of(new MockConnectorAccessControl(schemaGrants, tableGrants, rowFilter, columnMask));
             }
             return new MockConnectorFactory(
                     listSchemaNames,
