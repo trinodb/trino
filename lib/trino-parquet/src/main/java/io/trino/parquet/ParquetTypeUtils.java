@@ -246,7 +246,7 @@ public final class ParquetTypeUtils
     public static long getShortDecimalValue(byte[] bytes)
     {
         long value = 0;
-        if ((bytes[0] & 0x80) != 0) {
+        if (bytes[0] < 0) {
             for (int i = 0; i < 8 - bytes.length; ++i) {
                 value |= 0xFFL << (8 * (7 - i));
             }
