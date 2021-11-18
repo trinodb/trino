@@ -120,7 +120,7 @@ public class MockConnector
     private final BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableProperties> getTableProperties;
     private final Supplier<Iterable<EventListener>> eventListeners;
     private final MockConnectorFactory.ListRoleGrants roleGrants;
-    private final ConnectorAccessControl accessControl;
+    private final Optional<ConnectorAccessControl> accessControl;
     private final Function<SchemaTableName, List<List<?>>> data;
     private final Set<Procedure> procedures;
 
@@ -146,7 +146,7 @@ public class MockConnector
             BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableProperties> getTableProperties,
             Supplier<Iterable<EventListener>> eventListeners,
             MockConnectorFactory.ListRoleGrants roleGrants,
-            ConnectorAccessControl accessControl,
+            Optional<ConnectorAccessControl> accessControl,
             Function<SchemaTableName, List<List<?>>> data,
             Set<Procedure> procedures)
     {
@@ -222,7 +222,7 @@ public class MockConnector
     @Override
     public ConnectorAccessControl getAccessControl()
     {
-        return accessControl;
+        return accessControl.orElseThrow(UnsupportedOperationException::new);
     }
 
     @Override
@@ -620,7 +620,7 @@ public class MockConnector
 
         private MockConnectorAccessControl getMockAccessControl()
         {
-            return (MockConnectorAccessControl) accessControl;
+            return (MockConnectorAccessControl) getAccessControl();
         }
     }
 
