@@ -367,20 +367,21 @@ public class PostgreSqlClient
                 List<JdbcColumnHandle> columns = new ArrayList<>();
                 while (resultSet.next()) {
                     allColumns++;
-                    String columnName = resultSet.getString("COLUMN_NAME");
+                    String remoteColumnName = resultSet.getString("COLUMN_NAME");
                     JdbcTypeHandle typeHandle = new JdbcTypeHandle(
                             getInteger(resultSet, "DATA_TYPE").orElseThrow(() -> new IllegalStateException("DATA_TYPE is null")),
                             Optional.of(resultSet.getString("TYPE_NAME")),
                             getInteger(resultSet, "COLUMN_SIZE"),
                             getInteger(resultSet, "DECIMAL_DIGITS"),
-                            Optional.ofNullable(arrayColumnDimensions.get(columnName)),
+                            Optional.ofNullable(arrayColumnDimensions.get(remoteColumnName)),
                             Optional.empty());
                     Optional<ColumnMapping> columnMapping = toColumnMapping(session, connection, typeHandle);
-                    log.debug("Mapping data type of '%s' column '%s': %s mapped to %s", schemaTableName, columnName, typeHandle, columnMapping);
+                    log.debug("Mapping data type of '%s' column '%s': %s mapped to %s", schemaTableName, remoteColumnName, typeHandle, columnMapping);
                     // skip unsupported column types
                     if (columnMapping.isPresent()) {
                         boolean nullable = (resultSet.getInt("NULLABLE") != columnNoNulls);
                         Optional<String> comment = Optional.ofNullable(resultSet.getString("REMARKS"));
+                        String columnName = getIdentifierMapping().fromRemoteColumnName(remoteColumnName);
                         columns.add(JdbcColumnHandle.builder()
                                 .setColumnName(columnName)
                                 .setJdbcTypeHandle(typeHandle)

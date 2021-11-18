@@ -274,7 +274,7 @@ public abstract class BaseJdbcClient
                     continue;
                 }
                 allColumns++;
-                String columnName = resultSet.getString("COLUMN_NAME");
+                String remoteColumnName = resultSet.getString("COLUMN_NAME");
                 JdbcTypeHandle typeHandle = new JdbcTypeHandle(
                         getInteger(resultSet, "DATA_TYPE").orElseThrow(() -> new IllegalStateException("DATA_TYPE is null")),
                         Optional.ofNullable(resultSet.getString("TYPE_NAME")),
@@ -283,11 +283,12 @@ public abstract class BaseJdbcClient
                         Optional.empty(),
                         Optional.empty());
                 Optional<ColumnMapping> columnMapping = toColumnMapping(session, connection, typeHandle);
-                log.debug("Mapping data type of '%s' column '%s': %s mapped to %s", schemaTableName, columnName, typeHandle, columnMapping);
+                log.debug("Mapping data type of '%s' column '%s': %s mapped to %s", schemaTableName, remoteColumnName, typeHandle, columnMapping);
                 boolean nullable = (resultSet.getInt("NULLABLE") != columnNoNulls);
                 // Note: some databases (e.g. SQL Server) do not return column remarks/comment here.
                 Optional<String> comment = Optional.ofNullable(emptyToNull(resultSet.getString("REMARKS")));
                 // skip unsupported column types
+                String columnName = getIdentifierMapping().fromRemoteColumnName(remoteColumnName);
                 columnMapping.ifPresent(mapping -> columns.add(JdbcColumnHandle.builder()
                         .setColumnName(columnName)
                         .setJdbcTypeHandle(typeHandle)
