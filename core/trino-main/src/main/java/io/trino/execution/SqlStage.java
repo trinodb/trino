@@ -45,7 +45,7 @@ import static io.trino.server.DynamicFilterService.getOutboundDynamicFilters;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
-public final class SqlStageExecution
+public final class SqlStage
 {
     private final Session session;
     private final StageStateMachine stateMachine;
@@ -63,7 +63,7 @@ public final class SqlStageExecution
     @GuardedBy("this")
     private final Set<TaskId> tasksWithFinalInfo = new HashSet<>();
 
-    public static SqlStageExecution createSqlStageExecution(
+    public static SqlStage createSqlStage(
             StageId stageId,
             PlanFragment fragment,
             Map<PlanNodeId, TableInfo> tables,
@@ -84,17 +84,17 @@ public final class SqlStageExecution
         requireNonNull(executor, "executor is null");
         requireNonNull(schedulerStats, "schedulerStats is null");
 
-        SqlStageExecution sqlStageExecution = new SqlStageExecution(
+        SqlStage sqlStage = new SqlStage(
                 session,
                 new StageStateMachine(stageId, fragment, tables, executor, schedulerStats),
                 remoteTaskFactory,
                 nodeTaskMap,
                 summarizeTaskInfo);
-        sqlStageExecution.initialize();
-        return sqlStageExecution;
+        sqlStage.initialize();
+        return sqlStage;
     }
 
-    private SqlStageExecution(
+    private SqlStage(
             Session session,
             StageStateMachine stateMachine,
             RemoteTaskFactory remoteTaskFactory,
