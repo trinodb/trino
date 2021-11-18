@@ -83,7 +83,7 @@ public class MaterializedViewDefinition
                         .map(column -> new ConnectorMaterializedViewDefinition.Column(column.getName(), column.getType()))
                         .collect(toImmutableList()),
                 getComment(),
-                getRunAsIdentity().orElseThrow().getUser(),
+                getRunAsIdentity().map(Identity::getUser),
                 properties);
     }
 

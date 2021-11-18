@@ -30,6 +30,7 @@ import org.testng.annotations.Test;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Optional;
 
 import static com.amazonaws.util.CollectionUtils.isNullOrEmpty;
 import static io.trino.plugin.hive.HiveType.HIVE_STRING;
@@ -76,8 +77,8 @@ public class TestGlueToTrinoConverter
         assertEquals(trinoDatabase.getLocation().get(), testDatabase.getLocationUri());
         assertEquals(trinoDatabase.getComment().get(), testDatabase.getDescription());
         assertEquals(trinoDatabase.getParameters(), testDatabase.getParameters());
-        assertEquals(trinoDatabase.getOwnerName(), PUBLIC_OWNER);
-        assertEquals(trinoDatabase.getOwnerType(), PrincipalType.ROLE);
+        assertEquals(trinoDatabase.getOwnerName(), Optional.of(PUBLIC_OWNER));
+        assertEquals(trinoDatabase.getOwnerType(), Optional.of(PrincipalType.ROLE));
     }
 
     @Test
@@ -87,7 +88,7 @@ public class TestGlueToTrinoConverter
         assertEquals(trinoTable.getTableName(), testTable.getName());
         assertEquals(trinoTable.getDatabaseName(), testDatabase.getName());
         assertEquals(trinoTable.getTableType(), testTable.getTableType());
-        assertEquals(trinoTable.getOwner(), testTable.getOwner());
+        assertEquals(trinoTable.getOwner().orElse(null), testTable.getOwner());
         assertEquals(trinoTable.getParameters(), testTable.getParameters());
         assertColumnList(trinoTable.getDataColumns(), testTable.getStorageDescriptor().getColumns());
         assertColumnList(trinoTable.getPartitionColumns(), testTable.getPartitionKeys());
@@ -108,7 +109,7 @@ public class TestGlueToTrinoConverter
         assertEquals(trinoTable.getTableName(), glueTable.getName());
         assertEquals(trinoTable.getDatabaseName(), testDatabase.getName());
         assertEquals(trinoTable.getTableType(), glueTable.getTableType());
-        assertEquals(trinoTable.getOwner(), glueTable.getOwner());
+        assertEquals(trinoTable.getOwner().orElse(null), glueTable.getOwner());
         assertEquals(trinoTable.getParameters(), glueTable.getParameters());
         assertEquals(trinoTable.getDataColumns().size(), 1);
         assertEquals(trinoTable.getDataColumns().get(0).getType(), HIVE_STRING);

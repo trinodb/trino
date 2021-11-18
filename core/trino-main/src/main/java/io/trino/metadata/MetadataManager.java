@@ -1552,7 +1552,10 @@ public final class MetadataManager
     {
         Optional<ConnectorMaterializedViewDefinition> connectorView = getMaterializedViewInternal(session, viewName);
         if (connectorView.isEmpty() || isCatalogManagedSecurity(session, viewName.getCatalogName())) {
-            return connectorView.map(view -> new MaterializedViewDefinition(view, Identity.ofUser(view.getOwner())));
+            return connectorView.map(view -> {
+                String runAsUser = view.getOwner().orElseThrow(() -> new TrinoException(INVALID_VIEW, "Owner not set for a run-as invoker view: " + viewName));
+                return new MaterializedViewDefinition(view, Identity.ofUser(runAsUser));
+            });
         }
 
         Identity runAsIdentity = systemSecurityMetadata.getViewRunAsIdentity(session, viewName.asCatalogSchemaTableName())

@@ -87,7 +87,7 @@ public class TestColumnMask
                         new ConnectorMaterializedViewDefinition.Column("regionkey", BigintType.BIGINT.getTypeId()),
                         new ConnectorMaterializedViewDefinition.Column("comment", VarcharType.createVarcharType(152).getTypeId())),
                 Optional.empty(),
-                VIEW_OWNER,
+                Optional.of(VIEW_OWNER),
                 ImmutableMap.of());
 
         ConnectorMaterializedViewDefinition freshMaterializedView = new ConnectorMaterializedViewDefinition(
@@ -101,7 +101,7 @@ public class TestColumnMask
                         new ConnectorMaterializedViewDefinition.Column("regionkey", BigintType.BIGINT.getTypeId()),
                         new ConnectorMaterializedViewDefinition.Column("comment", VarcharType.createVarcharType(152).getTypeId())),
                 Optional.empty(),
-                VIEW_OWNER,
+                Optional.of(VIEW_OWNER),
                 ImmutableMap.of());
 
         ConnectorMaterializedViewDefinition materializedViewWithCasts = new ConnectorMaterializedViewDefinition(
@@ -115,7 +115,7 @@ public class TestColumnMask
                         new ConnectorMaterializedViewDefinition.Column("regionkey", BigintType.BIGINT.getTypeId()),
                         new ConnectorMaterializedViewDefinition.Column("comment", VarcharType.createVarcharType(152).getTypeId())),
                 Optional.empty(),
-                VIEW_OWNER,
+                Optional.of(VIEW_OWNER),
                 ImmutableMap.of());
 
         MockConnectorFactory mock = MockConnectorFactory.builder()

@@ -649,7 +649,7 @@ public class SemiTransactionalHiveMetastore
         if (oldTableAction == null) {
             Table table = getExistingTable(identity, schemaTableName.getSchemaName(), schemaTableName.getTableName());
             HdfsContext hdfsContext = new HdfsContext(session);
-            PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(table.getOwner());
+            PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(table.getOwner().orElseThrow());
             tableActions.put(
                     schemaTableName,
                     new Action<>(
@@ -699,7 +699,7 @@ public class SemiTransactionalHiveMetastore
         if (oldTableAction == null) {
             Table table = getExistingTable(identity, schemaTableName.getSchemaName(), schemaTableName.getTableName());
             HdfsContext hdfsContext = new HdfsContext(session);
-            PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(table.getOwner());
+            PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(table.getOwner().orElseThrow());
             tableActions.put(
                     schemaTableName,
                     new Action<>(
@@ -1087,7 +1087,7 @@ public class SemiTransactionalHiveMetastore
         SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
         Action<TableAndMore> tableAction = tableActions.get(schemaTableName);
         if (tableAction == null) {
-            return delegate.listTablePrivileges(databaseName, tableName, getTableOwner(identity, databaseName, tableName), principal);
+            return delegate.listTablePrivileges(databaseName, tableName, getRequiredTableOwner(identity, databaseName, tableName), principal);
         }
         switch (tableAction.getType()) {
             case ADD:
@@ -1095,7 +1095,7 @@ public class SemiTransactionalHiveMetastore
                 if (principal.isPresent() && principal.get().getType() == PrincipalType.ROLE) {
                     return ImmutableSet.of();
                 }
-                String owner = tableAction.getData().getTable().getOwner();
+                String owner = tableAction.getData().getTable().getOwner().orElseThrow();
                 if (principal.isPresent() && !principal.get().getName().equals(owner)) {
                     return ImmutableSet.of();
                 }
@@ -1107,7 +1107,7 @@ public class SemiTransactionalHiveMetastore
             case INSERT_EXISTING:
             case DELETE_ROWS:
             case UPDATE:
-                return delegate.listTablePrivileges(databaseName, tableName, getTableOwner(identity, databaseName, tableName), principal);
+                return delegate.listTablePrivileges(databaseName, tableName, getRequiredTableOwner(identity, databaseName, tableName), principal);
             case DROP:
                 throw new TableNotFoundException(schemaTableName);
             case DROP_PRESERVE_DATA:
@@ -1117,9 +1117,9 @@ public class SemiTransactionalHiveMetastore
         throw new IllegalStateException("Unknown action type");
     }
 
-    public synchronized String getTableOwner(HiveIdentity identity, String databaseName, String tableName)
+    private synchronized String getRequiredTableOwner(HiveIdentity identity, String databaseName, String tableName)
     {
-        return getExistingTable(identity, databaseName, tableName).getOwner();
+        return getExistingTable(identity, databaseName, tableName).getOwner().orElseThrow();
     }
 
     private Table getExistingTable(HiveIdentity identity, String databaseName, String tableName)
@@ -1131,13 +1131,13 @@ public class SemiTransactionalHiveMetastore
     @Override
     public synchronized void grantTablePrivileges(HiveIdentity identity, String databaseName, String tableName, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges)
     {
-        setExclusive((delegate, hdfsEnvironment) -> delegate.grantTablePrivileges(databaseName, tableName, getTableOwner(identity, databaseName, tableName), grantee, privileges));
+        setExclusive((delegate, hdfsEnvironment) -> delegate.grantTablePrivileges(databaseName, tableName, getRequiredTableOwner(identity, databaseName, tableName), grantee, privileges));
     }
 
     @Override
     public synchronized void revokeTablePrivileges(HiveIdentity identity, String databaseName, String tableName, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges)
     {
-        setExclusive((delegate, hdfsEnvironment) -> delegate.revokeTablePrivileges(databaseName, tableName, getTableOwner(identity, databaseName, tableName), grantee, privileges));
+        setExclusive((delegate, hdfsEnvironment) -> delegate.revokeTablePrivileges(databaseName, tableName, getRequiredTableOwner(identity, databaseName, tableName), grantee, privileges));
     }
 
     public synchronized String declareIntentionToWrite(ConnectorSession session, WriteMode writeMode, Path stagingPathRoot, SchemaTableName schemaTableName)

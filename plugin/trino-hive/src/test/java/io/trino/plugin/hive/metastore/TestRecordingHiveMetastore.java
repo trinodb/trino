@@ -66,8 +66,8 @@ public class TestRecordingHiveMetastore
     private static final Database DATABASE = new Database(
             "database",
             Optional.of("location"),
-            "owner",
-            USER,
+            Optional.of("owner"),
+            Optional.of(USER),
             Optional.of("comment"),
             ImmutableMap.of("param", "value"));
     private static final Column TABLE_COLUMN = new Column(
@@ -83,7 +83,7 @@ public class TestRecordingHiveMetastore
     private static final Table TABLE = new Table(
             "database",
             "table",
-            "owner",
+            Optional.of("owner"),
             "table_type",
             TABLE_STORAGE,
             ImmutableList.of(TABLE_COLUMN),
