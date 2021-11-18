@@ -564,7 +564,7 @@ public class MockConnector
         @Override
         public Set<String> listRoles(ConnectorSession session)
         {
-            return roleGrants.apply(session, Optional.empty(), Optional.empty(), OptionalLong.empty()).stream().map(grant -> grant.getRoleName()).collect(toImmutableSet());
+            return roleGrants.apply(session, Optional.empty(), Optional.empty(), OptionalLong.empty()).stream().map(RoleGrant::getRoleName).collect(toImmutableSet());
         }
 
         @Override
