@@ -14,7 +14,6 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import io.airlift.concurrent.BoundedExecutor;
@@ -105,6 +104,7 @@ import static io.trino.plugin.hive.HiveTestUtils.getDefaultHiveRecordCursorProvi
 import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.trino.plugin.hive.HiveTestUtils.getHiveSessionProperties;
 import static io.trino.plugin.hive.HiveTestUtils.getTypes;
+import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.hive.util.HiveWriteUtils.getRawFileSystem;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.MaterializedResult.materializeSourceDataStream;
@@ -581,7 +581,7 @@ public abstract class AbstractTestHiveFileSystem
                 tableBuilder.getStorageBuilder().setLocation("/");
 
                 // drop table
-                replaceTable(identity, databaseName, tableName, tableBuilder.build(), new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of()));
+                replaceTable(identity, databaseName, tableName, tableBuilder.build(), NO_PRIVILEGES);
                 delegate.dropTable(identity, databaseName, tableName, false);
 
                 // drop data
@@ -612,7 +612,7 @@ public abstract class AbstractTestHiveFileSystem
             tableBuilder.getStorageBuilder().setLocation(location);
 
             // NOTE: this clears the permissions
-            replaceTable(identity, databaseName, tableName, tableBuilder.build(), new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of()));
+            replaceTable(identity, databaseName, tableName, tableBuilder.build(), NO_PRIVILEGES);
         }
 
         private List<String> listAllDataPaths(HiveIdentity identity, String schemaName, String tableName)
