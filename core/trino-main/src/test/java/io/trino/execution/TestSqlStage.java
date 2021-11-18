@@ -47,7 +47,7 @@ import java.util.concurrent.ScheduledExecutorService;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.execution.SqlStageExecution.createSqlStageExecution;
+import static io.trino.execution.SqlStage.createSqlStage;
 import static io.trino.execution.buffer.OutputBuffers.BufferType.ARBITRARY;
 import static io.trino.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static io.trino.operator.StageExecutionDescriptor.ungroupedExecution;
@@ -62,7 +62,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
-public class TestSqlStageExecution
+public class TestSqlStage
 {
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
@@ -100,7 +100,7 @@ public class TestSqlStageExecution
         NodeTaskMap nodeTaskMap = new NodeTaskMap(new FinalizerService());
 
         StageId stageId = new StageId(new QueryId("query"), 0);
-        SqlStageExecution stage = createSqlStageExecution(
+        SqlStage stage = createSqlStage(
                 stageId,
                 createExchangePlanFragment(),
                 ImmutableMap.of(),

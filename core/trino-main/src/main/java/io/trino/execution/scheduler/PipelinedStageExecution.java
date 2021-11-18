@@ -24,7 +24,7 @@ import io.airlift.log.Logger;
 import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.Lifespan;
 import io.trino.execution.RemoteTask;
-import io.trino.execution.SqlStageExecution;
+import io.trino.execution.SqlStage;
 import io.trino.execution.StageId;
 import io.trino.execution.StateMachine;
 import io.trino.execution.StateMachine.StateChangeListener;
@@ -86,7 +86,7 @@ public class PipelinedStageExecution
     private static final Logger log = Logger.get(PipelinedStageExecution.class);
 
     private final PipelinedStageStateMachine stateMachine;
-    private final SqlStageExecution stageExecution;
+    private final SqlStage stage;
     private final Map<PlanFragmentId, OutputBufferManager> outputBufferManagers;
     private final TaskLifecycleListener taskLifecycleListener;
     private final FailureDetector failureDetector;
@@ -118,7 +118,7 @@ public class PipelinedStageExecution
     private final ListenerManager<Set<Lifespan>> completedLifespansChangeListeners = new ListenerManager<>();
 
     public static PipelinedStageExecution createPipelinedStageExecution(
-            SqlStageExecution stageExecution,
+            SqlStage stage,
             Map<PlanFragmentId, OutputBufferManager> outputBufferManagers,
             TaskLifecycleListener taskLifecycleListener,
             FailureDetector failureDetector,
@@ -126,16 +126,16 @@ public class PipelinedStageExecution
             Optional<int[]> bucketToPartition,
             int attempt)
     {
-        PipelinedStageStateMachine stateMachine = new PipelinedStageStateMachine(stageExecution.getStageId(), executor);
+        PipelinedStageStateMachine stateMachine = new PipelinedStageStateMachine(stage.getStageId(), executor);
         ImmutableMap.Builder<PlanFragmentId, RemoteSourceNode> exchangeSources = ImmutableMap.builder();
-        for (RemoteSourceNode remoteSourceNode : stageExecution.getFragment().getRemoteSourceNodes()) {
+        for (RemoteSourceNode remoteSourceNode : stage.getFragment().getRemoteSourceNodes()) {
             for (PlanFragmentId planFragmentId : remoteSourceNode.getSourceFragmentIds()) {
                 exchangeSources.put(planFragmentId, remoteSourceNode);
             }
         }
         PipelinedStageExecution execution = new PipelinedStageExecution(
                 stateMachine,
-                stageExecution,
+                stage,
                 outputBufferManagers,
                 taskLifecycleListener,
                 failureDetector,
@@ -149,7 +149,7 @@ public class PipelinedStageExecution
 
     private PipelinedStageExecution(
             PipelinedStageStateMachine stateMachine,
-            SqlStageExecution stageExecution,
+            SqlStage stage,
             Map<PlanFragmentId, OutputBufferManager> outputBufferManagers,
             TaskLifecycleListener taskLifecycleListener,
             FailureDetector failureDetector,
@@ -159,7 +159,7 @@ public class PipelinedStageExecution
             int attempt)
     {
         this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
-        this.stageExecution = requireNonNull(stageExecution, "stageExecution is null");
+        this.stage = requireNonNull(stage, "stage is null");
         this.outputBufferManagers = ImmutableMap.copyOf(requireNonNull(outputBufferManagers, "outputBufferManagers is null"));
         this.taskLifecycleListener = requireNonNull(taskLifecycleListener, "taskLifecycleListener is null");
         this.failureDetector = requireNonNull(failureDetector, "failureDetector is null");
@@ -173,13 +173,13 @@ public class PipelinedStageExecution
     {
         stateMachine.addStateChangeListener(state -> {
             if (!state.canScheduleMoreTasks()) {
-                taskLifecycleListener.noMoreTasks(stageExecution.getFragment().getId());
+                taskLifecycleListener.noMoreTasks(stage.getFragment().getId());
 
                 // update output buffers
                 for (PlanFragmentId sourceFragment : exchangeSources.keySet()) {
                     OutputBufferManager outputBufferManager = outputBufferManagers.get(sourceFragment);
                     outputBufferManager.noMoreBuffers();
-                    for (RemoteTask sourceTask : sourceTasks.get(stageExecution.getFragment().getId())) {
+                    for (RemoteTask sourceTask : sourceTasks.get(stage.getFragment().getId())) {
                         sourceTask.setOutputBuffers(outputBufferManager.getOutputBuffers());
                     }
                 }
@@ -229,7 +229,7 @@ public class PipelinedStageExecution
             stateMachine.transitionToFinished();
         }
 
-        for (PlanNodeId partitionedSource : stageExecution.getFragment().getPartitionedSources()) {
+        for (PlanNodeId partitionedSource : stage.getFragment().getPartitionedSources()) {
             schedulingComplete(partitionedSource);
         }
     }
@@ -286,9 +286,9 @@ public class PipelinedStageExecution
 
         checkArgument(!tasks.containsKey(partition), "A task for partition %s already exists", partition);
 
-        OutputBuffers outputBuffers = outputBufferManagers.get(stageExecution.getFragment().getId()).getOutputBuffers();
+        OutputBuffers outputBuffers = outputBufferManagers.get(stage.getFragment().getId()).getOutputBuffers();
 
-        Optional<RemoteTask> optionalTask = stageExecution.createTask(
+        Optional<RemoteTask> optionalTask = stage.createTask(
                 node,
                 partition,
                 attempt,
@@ -326,14 +326,14 @@ public class PipelinedStageExecution
 
         task.start();
 
-        taskLifecycleListener.taskCreated(stageExecution.getFragment().getId(), task);
+        taskLifecycleListener.taskCreated(stage.getFragment().getId(), task);
 
         // update output buffers
         OutputBufferId outputBufferId = new OutputBufferId(task.getTaskId().getPartitionId());
         for (PlanFragmentId sourceFragment : exchangeSources.keySet()) {
             OutputBufferManager outputBufferManager = outputBufferManagers.get(sourceFragment);
             outputBufferManager.addOutputBuffer(outputBufferId);
-            for (RemoteTask sourceTask : sourceTasks.get(stageExecution.getFragment().getId())) {
+            for (RemoteTask sourceTask : sourceTasks.get(stage.getFragment().getId())) {
                 sourceTask.setOutputBuffers(outputBufferManager.getOutputBuffers());
             }
         }
@@ -494,17 +494,17 @@ public class PipelinedStageExecution
 
     public void recordGetSplitTime(long start)
     {
-        stageExecution.recordGetSplitTime(start);
+        stage.recordGetSplitTime(start);
     }
 
     public StageId getStageId()
     {
-        return stageExecution.getStageId();
+        return stage.getStageId();
     }
 
     public PlanFragment getFragment()
     {
-        return stageExecution.getFragment();
+        return stage.getFragment();
     }
 
     public Optional<ExecutionFailureInfo> getFailureCause()
