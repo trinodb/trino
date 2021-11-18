@@ -311,7 +311,7 @@ import static io.trino.operator.scalar.ArrayToJsonCast.LEGACY_ARRAY_TO_JSON;
 import static io.trino.operator.scalar.ArrayTransformFunction.ARRAY_TRANSFORM_FUNCTION;
 import static io.trino.operator.scalar.CastFromUnknownOperator.CAST_FROM_UNKNOWN;
 import static io.trino.operator.scalar.ConcatFunction.VARBINARY_CONCAT;
-import static io.trino.operator.scalar.ConcatFunction.VARCHAR_CONCAT;
+import static io.trino.operator.scalar.ConcatFunction.VARCHAR_CONCAT_FUNCTIONS;
 import static io.trino.operator.scalar.ConcatWsFunction.CONCAT_WS;
 import static io.trino.operator.scalar.ElementToArrayConcatFunction.ELEMENT_TO_ARRAY_CONCAT_FUNCTION;
 import static io.trino.operator.scalar.FormatFunction.FORMAT_FUNCTION;
@@ -601,7 +601,8 @@ public class FunctionRegistry
                 .functions(MAX_AGGREGATION, MIN_AGGREGATION, new MaxNAggregationFunction(blockTypeOperators), new MinNAggregationFunction(blockTypeOperators))
                 .function(COUNT_COLUMN)
                 .functions(JSON_TO_ROW, JSON_STRING_TO_ROW, ROW_TO_ROW_CAST)
-                .functions(VARCHAR_CONCAT, VARBINARY_CONCAT)
+                .functions(VARCHAR_CONCAT_FUNCTIONS)
+                .function(VARBINARY_CONCAT)
                 .function(CONCAT_WS)
                 .function(DECIMAL_TO_DECIMAL_CAST)
                 .function(castVarcharToRe2JRegexp(featuresConfig.getRe2JDfaStatesLimit(), featuresConfig.getRe2JDfaRetries()))
