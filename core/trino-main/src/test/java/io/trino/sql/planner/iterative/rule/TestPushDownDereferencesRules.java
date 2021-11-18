@@ -299,7 +299,7 @@ public class TestPushDownDereferencesRules
     {
         TableHandle testTable = new TableHandle(
                 new CatalogName(CATALOG_ID),
-                new TpchTableHandle("orders", 1.0),
+                new TpchTableHandle("sf1", "orders", 1.0),
                 TestingTransactionHandle.create(),
                 Optional.empty());
 

@@ -66,7 +66,7 @@ public class TestValidateAggregationsWithDefaultValues
         CatalogName catalogName = getCurrentConnectorId();
         TableHandle nationTableHandle = new TableHandle(
                 catalogName,
-                new TpchTableHandle("nation", 1.0),
+                new TpchTableHandle("sf1", "nation", 1.0),
                 TestingTransactionHandle.create(),
                 Optional.empty());
         TpchColumnHandle nationkeyColumnHandle = new TpchColumnHandle("nationkey", BIGINT);

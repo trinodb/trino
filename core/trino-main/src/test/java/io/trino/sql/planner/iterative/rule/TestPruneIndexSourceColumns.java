@@ -35,6 +35,7 @@ import java.util.function.Predicate;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCALE_FACTOR;
+import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.constrainedIndexSource;
@@ -82,7 +83,7 @@ public class TestPruneIndexSourceColumns
                 p.indexSource(
                         new TableHandle(
                                 new CatalogName("local"),
-                                new TpchTableHandle("orders", TINY_SCALE_FACTOR),
+                                new TpchTableHandle(TINY_SCHEMA_NAME, "orders", TINY_SCALE_FACTOR),
                                 TpchTransactionHandle.INSTANCE,
                                 Optional.empty()),
                         ImmutableSet.of(orderkey, custkey),

@@ -43,7 +43,7 @@ public class TestRemoveEmptyDeleteRuleSet
                 .on(p -> p.tableDelete(
                         new SchemaTableName("sch", "tab"),
                         p.tableScan(
-                                new TableHandle(CONNECTOR_ID, new TpchTableHandle("nation", 1.0), TpchTransactionHandle.INSTANCE, Optional.empty()),
+                                new TableHandle(CONNECTOR_ID, new TpchTableHandle("sf1", "nation", 1.0), TpchTransactionHandle.INSTANCE, Optional.empty()),
                                 ImmutableList.of(),
                                 ImmutableMap.of()),
                         p.symbol("a", BigintType.BIGINT)))
@@ -52,7 +52,7 @@ public class TestRemoveEmptyDeleteRuleSet
                 .on(p -> p.tableWithExchangeDelete(
                         new SchemaTableName("sch", "tab"),
                         p.tableScan(
-                                new TableHandle(CONNECTOR_ID, new TpchTableHandle("nation", 1.0), TpchTransactionHandle.INSTANCE, Optional.empty()),
+                                new TableHandle(CONNECTOR_ID, new TpchTableHandle("sf1", "nation", 1.0), TpchTransactionHandle.INSTANCE, Optional.empty()),
                                 ImmutableList.of(),
                                 ImmutableMap.of()),
                         p.symbol("a", BigintType.BIGINT)))
