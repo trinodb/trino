@@ -254,6 +254,7 @@ import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createDecimalC
 import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createDoubleColumnStatistics;
 import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
 import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createStringColumnStatistics;
+import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.hive.metastore.SortingColumn.Order.ASCENDING;
 import static io.trino.plugin.hive.metastore.SortingColumn.Order.DESCENDING;
 import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
@@ -2882,8 +2883,7 @@ public abstract class AbstractTestHive
                         hdfsEnvironment,
                         tableName.getSchemaName(),
                         tableName.getTableName()).toString());
-        PrincipalPrivileges principalPrivileges = new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of());
-        metastoreClient.createTable(identity, table.build(), principalPrivileges);
+        metastoreClient.createTable(identity, table.build(), NO_PRIVILEGES);
 
         try {
             // Verify the table was created as a Delta Lake table
