@@ -149,6 +149,7 @@ public final class SystemSessionProperties
     public static final String RETRY_ATTEMPTS = "retry_attempts";
     public static final String RETRY_INITIAL_DELAY = "retry_initial_delay";
     public static final String RETRY_MAX_DELAY = "retry_max_delay";
+    public static final String HIDE_INACCESSIBLE_COLUMNS = "hide_inaccessible_columns";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -692,6 +693,12 @@ public final class SystemSessionProperties
                         RETRY_MAX_DELAY,
                         "Maximum delay before initiating a retry attempt. Delay increases exponentially for each subsequent attempt starting from 'retry_initial_delay'",
                         queryManagerConfig.getRetryMaxDelay(),
+                        false),
+                booleanProperty(
+                        HIDE_INACCESSIBLE_COLUMNS,
+                        "When enabled non-accessible columns are silently filtered from results from SELECT * statements",
+                        featuresConfig.isHideInaccesibleColumns(),
+                        value -> validateHideInaccesibleColumns(value, featuresConfig.isHideInaccesibleColumns()),
                         false));
     }
 
@@ -1030,6 +1037,13 @@ public final class SystemSessionProperties
         return session.getSystemProperty(MAX_GROUPING_SETS, Integer.class);
     }
 
+    private static void validateHideInaccesibleColumns(boolean value, boolean defaultValue)
+    {
+        if (defaultValue == true && value == false) {
+            throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s cannot be disabled with session property when it was enabled with configuration", HIDE_INACCESSIBLE_COLUMNS));
+        }
+    }
+
     public static OptionalInt getMaxDriversPerTask(Session session)
     {
         Integer value = session.getSystemProperty(MAX_DRIVERS_PER_TASK, Integer.class);
@@ -1240,5 +1254,10 @@ public final class SystemSessionProperties
     public static Duration getRetryMaxDelay(Session session)
     {
         return session.getSystemProperty(RETRY_MAX_DELAY, Duration.class);
+    }
+
+    public static boolean isHideInaccesibleColumns(Session session)
+    {
+        return session.getSystemProperty(HIDE_INACCESSIBLE_COLUMNS, Boolean.class);
     }
 }

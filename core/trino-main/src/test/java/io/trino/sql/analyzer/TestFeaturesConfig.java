@@ -115,7 +115,8 @@ public class TestFeaturesConfig
                 .setMergeProjectWithValues(true)
                 .setLegacyCatalogRoles(false)
                 .setDisableSetPropertiesSecurityCheckForCreateDdl(false)
-                .setIncrementalHashArrayLoadFactorEnabled(true));
+                .setIncrementalHashArrayLoadFactorEnabled(true)
+                .setHideInaccesibleColumns(false));
     }
 
     @Test
@@ -195,6 +196,7 @@ public class TestFeaturesConfig
                 .put("deprecated.legacy-catalog-roles", "true")
                 .put("deprecated.disable-set-properties-security-check-for-create-ddl", "true")
                 .put("incremental-hash-array-load-factor.enabled", "false")
+                .put("hide-inaccessible-columns", "true")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -270,7 +272,8 @@ public class TestFeaturesConfig
                 .setMergeProjectWithValues(false)
                 .setLegacyCatalogRoles(true)
                 .setDisableSetPropertiesSecurityCheckForCreateDdl(true)
-                .setIncrementalHashArrayLoadFactorEnabled(false);
+                .setIncrementalHashArrayLoadFactorEnabled(false)
+                .setHideInaccesibleColumns(true);
         assertFullMapping(properties, expected);
     }
 }
