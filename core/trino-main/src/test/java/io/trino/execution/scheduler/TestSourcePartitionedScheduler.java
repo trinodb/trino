@@ -27,7 +27,7 @@ import io.trino.execution.MockRemoteTaskFactory.MockRemoteTask;
 import io.trino.execution.NodeTaskMap;
 import io.trino.execution.PartitionedSplitsInfo;
 import io.trino.execution.RemoteTask;
-import io.trino.execution.SqlStageExecution;
+import io.trino.execution.SqlStage;
 import io.trino.execution.StageId;
 import io.trino.execution.TableExecuteContextManager;
 import io.trino.execution.TableInfo;
@@ -654,7 +654,7 @@ public class TestSourcePartitionedScheduler
     private PipelinedStageExecution createStageExecution(PlanFragment fragment, NodeTaskMap nodeTaskMap)
     {
         StageId stageId = new StageId(QUERY_ID, 0);
-        SqlStageExecution stage = SqlStageExecution.createSqlStageExecution(stageId,
+        SqlStage stage = SqlStage.createSqlStage(stageId,
                 fragment,
                 ImmutableMap.of(TABLE_SCAN_NODE_ID, new TableInfo(new QualifiedObjectName("test", "test", "test"), TupleDomain.all())),
                 new MockRemoteTaskFactory(queryExecutor, scheduledExecutor),

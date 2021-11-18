@@ -35,7 +35,7 @@ import io.trino.execution.QueryState;
 import io.trino.execution.QueryStateMachine;
 import io.trino.execution.RemoteTask;
 import io.trino.execution.RemoteTaskFactory;
-import io.trino.execution.SqlStageExecution;
+import io.trino.execution.SqlStage;
 import io.trino.execution.StageId;
 import io.trino.execution.StageInfo;
 import io.trino.execution.StateMachine;
@@ -117,7 +117,7 @@ import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.getWriterMinSize;
 import static io.trino.connector.CatalogName.isInternalSystemConnector;
 import static io.trino.execution.BasicStageStats.aggregateBasicStageStats;
-import static io.trino.execution.SqlStageExecution.createSqlStageExecution;
+import static io.trino.execution.SqlStage.createSqlStage;
 import static io.trino.execution.scheduler.PipelinedStageExecution.State.ABORTED;
 import static io.trino.execution.scheduler.PipelinedStageExecution.State.CANCELED;
 import static io.trino.execution.scheduler.PipelinedStageExecution.State.FAILED;
@@ -449,9 +449,9 @@ public class SqlQueryScheduler
     private static class StageManager
     {
         private final QueryStateMachine queryStateMachine;
-        private final Map<StageId, SqlStageExecution> stages;
-        private final List<SqlStageExecution> coordinatorStagesInTopologicalOrder;
-        private final List<SqlStageExecution> distributedStagesInTopologicalOrder;
+        private final Map<StageId, SqlStage> stages;
+        private final List<SqlStage> coordinatorStagesInTopologicalOrder;
+        private final List<SqlStage> distributedStagesInTopologicalOrder;
         private final StageId rootStageId;
         private final Map<StageId, Set<StageId>> children;
         private final Map<StageId, StageId> parents;
@@ -467,15 +467,15 @@ public class SqlQueryScheduler
                 SubPlan planTree,
                 boolean summarizeTaskInfo)
         {
-            ImmutableMap.Builder<StageId, SqlStageExecution> stages = ImmutableMap.builder();
-            ImmutableList.Builder<SqlStageExecution> coordinatorStagesInTopologicalOrder = ImmutableList.builder();
-            ImmutableList.Builder<SqlStageExecution> distributedStagesInTopologicalOrder = ImmutableList.builder();
+            ImmutableMap.Builder<StageId, SqlStage> stages = ImmutableMap.builder();
+            ImmutableList.Builder<SqlStage> coordinatorStagesInTopologicalOrder = ImmutableList.builder();
+            ImmutableList.Builder<SqlStage> distributedStagesInTopologicalOrder = ImmutableList.builder();
             StageId rootStageId = null;
             ImmutableMap.Builder<StageId, Set<StageId>> children = ImmutableMap.builder();
             ImmutableMap.Builder<StageId, StageId> parents = ImmutableMap.builder();
             for (SubPlan planNode : Traverser.forTree(SubPlan::getChildren).breadthFirst(planTree)) {
                 PlanFragment fragment = planNode.getFragment();
-                SqlStageExecution stageExecution = createSqlStageExecution(
+                SqlStage stage = createSqlStage(
                         getStageId(session.getQueryId(), fragment.getId()),
                         fragment,
                         extractTableInfo(session, metadata, fragment),
@@ -485,13 +485,13 @@ public class SqlQueryScheduler
                         nodeTaskMap,
                         executor,
                         schedulerStats);
-                StageId stageId = stageExecution.getStageId();
-                stages.put(stageId, stageExecution);
+                StageId stageId = stage.getStageId();
+                stages.put(stageId, stage);
                 if (fragment.getPartitioning().isCoordinatorOnly()) {
-                    coordinatorStagesInTopologicalOrder.add(stageExecution);
+                    coordinatorStagesInTopologicalOrder.add(stage);
                 }
                 else {
-                    distributedStagesInTopologicalOrder.add(stageExecution);
+                    distributedStagesInTopologicalOrder.add(stage);
                 }
                 if (rootStageId == null) {
                     rootStageId = stageId;
@@ -539,9 +539,9 @@ public class SqlQueryScheduler
 
         private StageManager(
                 QueryStateMachine queryStateMachine,
-                Map<StageId, SqlStageExecution> stages,
-                List<SqlStageExecution> coordinatorStagesInTopologicalOrder,
-                List<SqlStageExecution> distributedStagesInTopologicalOrder,
+                Map<StageId, SqlStage> stages,
+                List<SqlStage> coordinatorStagesInTopologicalOrder,
+                List<SqlStage> distributedStagesInTopologicalOrder,
                 StageId rootStageId,
                 Map<StageId, Set<StageId>> children,
                 Map<StageId, StageId> parents)
@@ -558,64 +558,64 @@ public class SqlQueryScheduler
         // this is a separate method to ensure that the `this` reference is not leaked during construction
         private void initialize()
         {
-            for (SqlStageExecution stage : stages.values()) {
+            for (SqlStage stage : stages.values()) {
                 stage.addFinalStageInfoListener(status -> queryStateMachine.updateQueryInfo(Optional.ofNullable(getStageInfo())));
             }
         }
 
         public void finish()
         {
-            stages.values().forEach(SqlStageExecution::finish);
+            stages.values().forEach(SqlStage::finish);
         }
 
         public void abort()
         {
-            stages.values().forEach(SqlStageExecution::abort);
+            stages.values().forEach(SqlStage::abort);
         }
 
-        public List<SqlStageExecution> getCoordinatorStagesInTopologicalOrder()
+        public List<SqlStage> getCoordinatorStagesInTopologicalOrder()
         {
             return coordinatorStagesInTopologicalOrder;
         }
 
-        public List<SqlStageExecution> getDistributedStagesInTopologicalOrder()
+        public List<SqlStage> getDistributedStagesInTopologicalOrder()
         {
             return distributedStagesInTopologicalOrder;
         }
 
-        public SqlStageExecution getOutputStage()
+        public SqlStage getOutputStage()
         {
             return stages.get(rootStageId);
         }
 
-        public SqlStageExecution get(PlanFragmentId fragmentId)
+        public SqlStage get(PlanFragmentId fragmentId)
         {
             return get(getStageId(queryStateMachine.getQueryId(), fragmentId));
         }
 
-        public SqlStageExecution get(StageId stageId)
+        public SqlStage get(StageId stageId)
         {
             return requireNonNull(stages.get(stageId), () -> "stage not found: " + stageId);
         }
 
-        public Set<SqlStageExecution> getChildren(PlanFragmentId fragmentId)
+        public Set<SqlStage> getChildren(PlanFragmentId fragmentId)
         {
             return getChildren(getStageId(queryStateMachine.getQueryId(), fragmentId));
         }
 
-        public Set<SqlStageExecution> getChildren(StageId stageId)
+        public Set<SqlStage> getChildren(StageId stageId)
         {
             return children.get(stageId).stream()
                     .map(this::get)
                     .collect(toImmutableSet());
         }
 
-        public Optional<SqlStageExecution> getParent(PlanFragmentId fragmentId)
+        public Optional<SqlStage> getParent(PlanFragmentId fragmentId)
         {
             return getParent(getStageId(queryStateMachine.getQueryId(), fragmentId));
         }
 
-        public Optional<SqlStageExecution> getParent(StageId stageId)
+        public Optional<SqlStage> getParent(StageId stageId)
         {
             return Optional.ofNullable(parents.get(stageId)).map(stages::get);
         }
@@ -623,7 +623,7 @@ public class SqlQueryScheduler
         public BasicStageStats getBasicStageStats()
         {
             List<BasicStageStats> stageStats = stages.values().stream()
-                    .map(SqlStageExecution::getBasicStageStats)
+                    .map(SqlStage::getBasicStageStats)
                     .collect(toImmutableList());
 
             return aggregateBasicStageStats(stageStats);
@@ -632,7 +632,7 @@ public class SqlQueryScheduler
         public StageInfo getStageInfo()
         {
             Map<StageId, StageInfo> stageInfos = stages.values().stream()
-                    .map(SqlStageExecution::getStageInfo)
+                    .map(SqlStage::getStageInfo)
                     .collect(toImmutableMap(StageInfo::getStageId, identity()));
 
             return buildStageInfo(rootStageId, stageInfos);
@@ -664,14 +664,14 @@ public class SqlQueryScheduler
         public long getUserMemoryReservation()
         {
             return stages.values().stream()
-                    .mapToLong(SqlStageExecution::getUserMemoryReservation)
+                    .mapToLong(SqlStage::getUserMemoryReservation)
                     .sum();
         }
 
         public long getTotalMemoryReservation()
         {
             return stages.values().stream()
-                    .mapToLong(SqlStageExecution::getTotalMemoryReservation)
+                    .mapToLong(SqlStage::getTotalMemoryReservation)
                     .sum();
         }
 
@@ -743,7 +743,7 @@ public class SqlQueryScheduler
             TaskLifecycleListener taskLifecycleListener = new QueryOutputTaskLifecycleListener(queryStateMachine);
             // create executions
             ImmutableList.Builder<PipelinedStageExecution> stageExecutions = ImmutableList.builder();
-            for (SqlStageExecution stage : stageManager.getCoordinatorStagesInTopologicalOrder()) {
+            for (SqlStage stage : stageManager.getCoordinatorStagesInTopologicalOrder()) {
                 PipelinedStageExecution stageExecution = createPipelinedStageExecution(
                         stage,
                         outputBuffersForStagesConsumedByCoordinator,
@@ -776,20 +776,20 @@ public class SqlQueryScheduler
             ImmutableMap.Builder<PlanFragmentId, OutputBufferManager> result = ImmutableMap.builder();
 
             // create output buffer for output stage
-            SqlStageExecution outputStage = stageManager.getOutputStage();
+            SqlStage outputStage = stageManager.getOutputStage();
             result.put(outputStage.getFragment().getId(), createSingleStreamOutputBuffer(outputStage));
 
             // create output buffers for stages consumed by coordinator
-            for (SqlStageExecution coordinatorStage : stageManager.getCoordinatorStagesInTopologicalOrder()) {
-                for (SqlStageExecution child : stageManager.getChildren(coordinatorStage.getStageId())) {
-                    result.put(child.getFragment().getId(), createSingleStreamOutputBuffer(child));
+            for (SqlStage coordinatorStage : stageManager.getCoordinatorStagesInTopologicalOrder()) {
+                for (SqlStage childStage : stageManager.getChildren(coordinatorStage.getStageId())) {
+                    result.put(childStage.getFragment().getId(), createSingleStreamOutputBuffer(childStage));
                 }
             }
 
             return result.build();
         }
 
-        private static OutputBufferManager createSingleStreamOutputBuffer(SqlStageExecution stage)
+        private static OutputBufferManager createSingleStreamOutputBuffer(SqlStage stage)
         {
             PartitioningHandle partitioningHandle = stage.getFragment().getPartitioningScheme().getPartitioning().getHandle();
             checkArgument(partitioningHandle.isSingleNode(), "partitioning is expected to be single node: " + partitioningHandle);
@@ -800,11 +800,11 @@ public class SqlQueryScheduler
         {
             ImmutableMap.Builder<PlanFragmentId, Optional<int[]>> result = ImmutableMap.builder();
 
-            SqlStageExecution outputStage = stageManager.getOutputStage();
+            SqlStage outputStage = stageManager.getOutputStage();
             result.put(outputStage.getFragment().getId(), Optional.of(SINGLE_PARTITION));
 
-            for (SqlStageExecution coordinatorStage : stageManager.getCoordinatorStagesInTopologicalOrder()) {
-                for (SqlStageExecution childStage : stageManager.getChildren(coordinatorStage.getStageId())) {
+            for (SqlStage coordinatorStage : stageManager.getCoordinatorStagesInTopologicalOrder()) {
+                for (SqlStage childStage : stageManager.getChildren(coordinatorStage.getStageId())) {
                     result.put(childStage.getFragment().getId(), Optional.of(SINGLE_PARTITION));
                 }
             }
@@ -863,9 +863,9 @@ public class SqlQueryScheduler
             for (int currentIndex = 0, nextIndex = 1; nextIndex < stageExecutions.size(); currentIndex++, nextIndex++) {
                 PipelinedStageExecution stageExecution = stageExecutions.get(currentIndex);
                 PipelinedStageExecution childStageExecution = stageExecutions.get(nextIndex);
-                Set<SqlStageExecution> childStages = stageManager.getChildren(stageExecution.getStageId());
+                Set<SqlStage> childStages = stageManager.getChildren(stageExecution.getStageId());
                 verify(childStages.size() == 1, "exactly one child stage is expected");
-                SqlStageExecution childStage = getOnlyElement(childStages);
+                SqlStage childStage = getOnlyElement(childStages);
                 verify(childStage.getStageId().equals(childStageExecution.getStageId()), "stage execution order doesn't match the stage order");
                 stageExecution.addStateChangeListener(newState -> {
                     if (newState == FLUSHING || newState.isDone()) {
@@ -1082,8 +1082,8 @@ public class SqlQueryScheduler
             }
 
             Map<StageId, PipelinedStageExecution> stageExecutions = new HashMap<>();
-            for (SqlStageExecution stage : stageManager.getDistributedStagesInTopologicalOrder()) {
-                Optional<SqlStageExecution> parentStage = stageManager.getParent(stage.getStageId());
+            for (SqlStage stage : stageManager.getDistributedStagesInTopologicalOrder()) {
+                Optional<SqlStage> parentStage = stageManager.getParent(stage.getStageId());
                 TaskLifecycleListener taskLifecycleListener;
                 if (parentStage.isEmpty() || parentStage.get().getFragment().getPartitioning().isCoordinatorOnly()) {
                     // output will be consumed by coordinator
@@ -1147,10 +1147,10 @@ public class SqlQueryScheduler
         {
             ImmutableMap.Builder<PlanFragmentId, Optional<int[]>> result = ImmutableMap.builder();
             result.putAll(bucketToPartitionForStagesConsumedByCoordinator);
-            for (SqlStageExecution stage : stageManager.getDistributedStagesInTopologicalOrder()) {
+            for (SqlStage stage : stageManager.getDistributedStagesInTopologicalOrder()) {
                 PlanFragment fragment = stage.getFragment();
                 Optional<int[]> bucketToPartition = getBucketToPartition(fragment.getPartitioning(), partitioningCache, fragment.getRoot(), fragment.getRemoteSourceNodes());
-                for (SqlStageExecution childStage : stageManager.getChildren(stage.getStageId())) {
+                for (SqlStage childStage : stageManager.getChildren(stage.getStageId())) {
                     result.put(childStage.getFragment().getId(), bucketToPartition);
                 }
             }
@@ -1192,8 +1192,8 @@ public class SqlQueryScheduler
         {
             ImmutableMap.Builder<PlanFragmentId, OutputBufferManager> result = ImmutableMap.builder();
             result.putAll(outputBuffersForStagesConsumedByCoordinator);
-            for (SqlStageExecution parentStage : stageManager.getDistributedStagesInTopologicalOrder()) {
-                for (SqlStageExecution childStage : stageManager.getChildren(parentStage.getStageId())) {
+            for (SqlStage parentStage : stageManager.getDistributedStagesInTopologicalOrder()) {
+                for (SqlStage childStage : stageManager.getChildren(parentStage.getStageId())) {
                     PlanFragmentId fragmentId = childStage.getFragment().getId();
                     PartitioningHandle partitioningHandle = childStage.getFragment().getPartitioningScheme().getPartitioning().getHandle();
 
