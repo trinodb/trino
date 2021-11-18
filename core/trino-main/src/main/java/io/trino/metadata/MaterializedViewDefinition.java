@@ -47,7 +47,7 @@ public class MaterializedViewDefinition
         this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
     }
 
-    public MaterializedViewDefinition(ConnectorMaterializedViewDefinition view)
+    public MaterializedViewDefinition(ConnectorMaterializedViewDefinition view, Identity runAsIdentity)
     {
         super(
                 view.getOriginalSql(),
@@ -57,7 +57,7 @@ public class MaterializedViewDefinition
                         .map(column -> new ViewColumn(column.getName(), column.getType()))
                         .collect(toImmutableList()),
                 view.getComment(),
-                Optional.of(Identity.ofUser(view.getOwner())));
+                Optional.of(runAsIdentity));
         this.storageTable = view.getStorageTable();
         this.properties = ImmutableMap.copyOf(view.getProperties());
     }
@@ -100,19 +100,5 @@ public class MaterializedViewDefinition
                 .add("storageTable", storageTable.orElse(null))
                 .add("properties", properties)
                 .toString();
-    }
-
-    @Override
-    public MaterializedViewDefinition withOwner(Identity owner)
-    {
-        return new MaterializedViewDefinition(
-                getOriginalSql(),
-                getCatalog(),
-                getSchema(),
-                getColumns(),
-                getComment(),
-                owner,
-                storageTable,
-                properties);
     }
 }
