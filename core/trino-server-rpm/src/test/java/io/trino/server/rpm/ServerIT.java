@@ -46,9 +46,9 @@ public class ServerIT
 
     @Parameters("rpm")
     @Test
-    public void testWithJava11(String rpm)
+    public void testWithJava17(String rpm)
     {
-        testServer(rpm, "11");
+        testServer(rpm, "17");
     }
 
     @Parameters("rpm")
@@ -59,6 +59,9 @@ public class ServerIT
         String rpm = "/" + new File(rpmHostPath).getName();
         String installAndStartTrino = "" +
                 "yum localinstall -q -y " + rpm + "\n" +
+                // update default JDK to 17
+                "alternatives --set java /usr/lib/jvm/zulu-17/bin/java\n" +
+                "alternatives --set javac /usr/lib/jvm/zulu-17/bin/javac\n" +
                 "/etc/init.d/trino start\n" +
                 // allow tail to work with Docker's non-local file system
                 "tail ---disable-inotify -F /var/log/trino/server.log\n";
@@ -100,6 +103,9 @@ public class ServerIT
         String command = "" +
                 // install RPM
                 "yum localinstall -q -y " + rpm + "\n" +
+                // update default JDK to 17
+                "alternatives --set java /usr/lib/jvm/zulu-17/bin/java\n" +
+                "alternatives --set javac /usr/lib/jvm/zulu-17/bin/javac\n" +
                 // create Hive catalog file
                 "mkdir /etc/trino/catalog\n" +
                 "echo CONFIG_ENV[HMS_PORT]=9083 >> /etc/trino/env.sh\n" +

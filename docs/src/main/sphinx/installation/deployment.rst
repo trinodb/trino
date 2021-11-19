@@ -34,9 +34,9 @@ Linux operating system
 Java runtime environment
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-Trino requires a 64-bit version of Java 11, with a minimum required version of 11.0.15.
-Earlier patch versions such as 11.0.2 do not work, nor will earlier major versions such as Java 8.
-Newer major versions such as Java 12 or 13, including Java 17, are not supported -- they may work, but are not tested.
+Trino requires a 64-bit version of Java 17, with a minimum required version of 17.0.3.
+Earlier major versions such as Java 8 or Java 11 do not work.
+Newer major versions such as Java 18 or 19, are not supported -- they may work, but are not tested.
 
 We recommend using `Azul Zulu <https://www.azul.com/downloads/zulu-community/>`_
 as the JDK for Trino, as Trino is tested against that distribution.
@@ -129,8 +129,8 @@ The following provides a good starting point for creating ``etc/jvm.config``:
 
     -server
     -Xmx16G
-    -XX:-UseBiasedLocking
-    -XX:+UseG1GC
+    -XX:InitialRAMPercentage=80
+    -XX:MaxRAMPercentage=80
     -XX:G1HeapRegionSize=32M
     -XX:+ExplicitGCInvokesConcurrent
     -XX:+ExitOnOutOfMemoryError

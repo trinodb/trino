@@ -13,11 +13,11 @@
 #
 FROM registry.access.redhat.com/ubi8/ubi
 
-ENV JAVA_HOME /usr/lib/jvm/zulu11
+ENV JAVA_HOME /usr/lib/jvm/zulu17
 RUN \
     set -xeu && \
     yum -y -q install https://cdn.azul.com/zulu/bin/zulu-repo-1.0.0-1.noarch.rpm && \
-    yum -y -q install python3 zulu11-jdk less && \
+    yum -y -q install python3 zulu17-jdk less && \
     yum -q clean all && \
     rm -rf /var/cache/yum && \
     alternatives --set python /usr/bin/python3 && \

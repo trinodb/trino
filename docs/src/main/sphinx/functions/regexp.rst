@@ -35,11 +35,11 @@ with a few notable exceptions:
   * Binary properties must be specified directly, without the ``Is``.
     Example: ``\p{NoncharacterCodePoint}``
 
-    .. _Java pattern: https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/util/regex/Pattern.html
+    .. _Java pattern: https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/regex/Pattern.html
 
-    .. _capturing group number: https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/util/regex/Pattern.html#gnumber
+    .. _capturing group number: https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/regex/Pattern.html#gnumber
 
-    .. _Capturing groups: https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/util/regex/Pattern.html#cg
+    .. _Capturing groups: https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/regex/Pattern.html#cg
 
 .. function:: regexp_count(string, pattern) -> bigint
 
