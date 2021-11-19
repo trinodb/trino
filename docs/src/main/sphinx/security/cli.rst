@@ -85,8 +85,8 @@ documentation for setting up Kerberos authentication for the Trino coordinator
 may be of help when interpreting the Kerberos debugging messages.
 
 See `Troubleshooting Security
-<https://docs.oracle.com/en/java/javase/11/security/troubleshooting-security.html>`_
+<https://docs.oracle.com/en/java/javase/17/security/troubleshooting-security.html>`_
 in the Java documentation for more details about
 the ``-Djava.security.debug`` flag, and `Troubleshooting
-<https://docs.oracle.com/en/java/javase/11/security/troubleshooting.html>`_
+<https://docs.oracle.com/en/java/javase/17/security/troubleshooting.html>`_
 for more details about the Java GSS-API and Kerberos issues.
