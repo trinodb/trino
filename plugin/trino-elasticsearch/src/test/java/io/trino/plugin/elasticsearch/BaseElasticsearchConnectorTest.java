@@ -1693,7 +1693,45 @@ public abstract class BaseElasticsearchConnectorTest
     }
 
     @Test
-    public void testPassthroughQuery()
+    public void testPassthroughQueryWithSize()
+    {
+        @Language("JSON")
+        String query = "{\n " +
+                " \"size\":5000\n" +
+                "}";
+
+        assertQuery(format("SELECT count(*) " +
+                        " FROM \"orders$query:%s\"", BaseEncoding.base32().encode(query.getBytes(UTF_8))), "VALUES (3)");
+
+        assertQueryFails(
+                "SELECT * FROM \"orders$query:invalid-base32-encoding\"",
+                "Elasticsearch query for 'orders' is not base32-encoded correctly");
+        assertQueryFails(
+                format("SELECT * FROM \"orders$query:%s\"", BaseEncoding.base32().encode("invalid json".getBytes(UTF_8))),
+                "Elasticsearch query for 'orders' is not valid JSON");
+    }
+
+    @Test
+    public void testPassthroughQueryWithoutSize()
+    {
+        @Language("JSON")
+        String query = "{\n " +
+                " \"query\": {\"match_all\": {}}" +
+                "}";
+
+        assertQuery(format("SELECT count(*) " +
+                " FROM \"orders$query:%s\"", BaseEncoding.base32().encode(query.getBytes(UTF_8))), "VALUES (15)");
+
+        assertQueryFails(
+                "SELECT * FROM \"orders$query:invalid-base32-encoding\"",
+                "Elasticsearch query for 'orders' is not base32-encoded correctly");
+        assertQueryFails(
+                format("SELECT * FROM \"orders$query:%s\"", BaseEncoding.base32().encode("invalid json".getBytes(UTF_8))),
+                "Elasticsearch query for 'orders' is not valid JSON");
+    }
+
+    @Test
+    public void testPassthroughQueryAgg()
     {
         @Language("JSON")
         String query = "{\n" +

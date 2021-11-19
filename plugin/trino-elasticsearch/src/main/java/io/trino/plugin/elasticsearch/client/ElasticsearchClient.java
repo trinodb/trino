@@ -19,6 +19,7 @@ import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.auth.STSAssumeRoleSessionCredentialsProvider;
 import com.amazonaws.services.securitytoken.AWSSecurityTokenServiceClientBuilder;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.NullNode;
@@ -60,6 +61,7 @@ import org.elasticsearch.client.Response;
 import org.elasticsearch.client.ResponseException;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
+import org.elasticsearch.common.collect.Tuple;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
@@ -88,6 +90,7 @@ import java.security.cert.CertificateExpiredException;
 import java.security.cert.CertificateNotYetValidException;
 import java.security.cert.X509Certificate;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -635,9 +638,74 @@ public class ElasticsearchClient
         return jsonNode.get(name);
     }
 
-    public String executeQuery(String index, String query)
+    public Tuple<String, Boolean> executeQuery(String index, String query)
     {
+        JsonNode jsonNode = null;
+        boolean doScroll = true;
+        try {
+            jsonNode = OBJECT_MAPPER.readTree(query);
+        }
+        catch (JsonProcessingException e) {
+            LOG.warn(e, "query param is not a proper json");
+        }
+
+        if (jsonNode == null || jsonNode.isEmpty()) {
+            query = "{\"size\":" + scrollSize + "}";
+        }
+        else if (jsonNode.get("aggs") != null || jsonNode.get("aggregations") != null) {
+            doScroll = false;
+        }
+        else {
+            JsonNode sizeNode = jsonNode.get("size");
+            if (sizeNode == null) {
+                int startQuery = query.indexOf("{");
+                query = query.substring(0, startQuery + 1) + "\"size\":" + scrollSize + "," + query.substring(startQuery + 1);
+            }
+        }
+
         String path = format("/%s/_search", index);
+
+        Map<String, String> params = new HashMap<>();
+
+        if (doScroll) {
+            params.put("scroll", new TimeValue(scrollTimeout.toMillis()).toString());
+        }
+
+        Response response;
+        try {
+            response = client.getLowLevelClient()
+                    .performRequest(
+                            "GET",
+                            path,
+                            params,
+                            new ByteArrayEntity(query.getBytes(UTF_8)),
+                            new BasicHeader("Content-Type", "application/json"),
+                            new BasicHeader("Accept-Encoding", "application/json"));
+        }
+        catch (IOException e) {
+            throw new TrinoException(ELASTICSEARCH_CONNECTION_ERROR, e);
+        }
+
+        String body;
+        try {
+            body = EntityUtils.toString(response.getEntity());
+        }
+        catch (IOException e) {
+            throw new TrinoException(ELASTICSEARCH_INVALID_RESPONSE, e);
+        }
+
+        return Tuple.tuple(body, doScroll);
+    }
+
+    public String executeScrollQuery(String scrollId)
+    {
+        String path = "/_search/scroll";
+
+        String scrollQuery = "{\n" +
+                             " \"scroll\": \"" + new TimeValue(scrollTimeout.toMillis()) +
+                             "\", \n" +
+                              " \"scroll_id\": \"" + scrollId + "\"\n" +
+                             "}";
 
         Response response;
         try {
@@ -646,7 +714,7 @@ public class ElasticsearchClient
                             "GET",
                             path,
                             ImmutableMap.of(),
-                            new ByteArrayEntity(query.getBytes(UTF_8)),
+                            new ByteArrayEntity(scrollQuery.getBytes(UTF_8)),
                             new BasicHeader("Content-Type", "application/json"),
                             new BasicHeader("Accept-Encoding", "application/json"));
         }
