@@ -129,8 +129,7 @@ public abstract class BaseMySqlConnectorTest
             return Optional.of(dataMappingTestSetup.asUnsupported());
         }
 
-        if (typeName.equals("real")
-                || typeName.equals("timestamp")) {
+        if (typeName.equals("timestamp")) {
             // TODO this should either work or fail cleanly
             return Optional.empty();
         }
