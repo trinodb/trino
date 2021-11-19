@@ -301,10 +301,7 @@ public final class UnscaledDecimal128Arithmetic
     // Multiplies by 10^rescaleFactor. Only positive rescaleFactor values are allowed
     private static void shiftLeftBy10(Slice decimal, int rescaleFactor, Slice result)
     {
-        if (rescaleFactor <= MAX_POWER_OF_TEN_INT) {
-            multiply(decimal, (int) longTenToNth(rescaleFactor), result);
-        }
-        else if (rescaleFactor <= MAX_POWER_OF_TEN_LONG) {
+        if (rescaleFactor <= MAX_POWER_OF_TEN_LONG) {
             multiply(decimal, longTenToNth(rescaleFactor), result);
         }
         else {
