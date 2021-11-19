@@ -509,14 +509,13 @@ public class TestRowFilter
                 .assertThat()
                 .skippingTypesCheck()
                 .matches("VALUES (BIGINT '0', 'ALGERIA', BIGINT '0', ' haggle. carefully final deposits detect slyly agai')");
-        // TODO https://github.com/trinodb/trino/issues/10005 - support insert into a table with hidden columns
         assertThatThrownBy(() -> assertions.query("INSERT INTO mock.tiny.nation_with_hidden_column VALUES (101, 'POLAND', 0, 'No comment')"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("scope: 5, fields mappings: 4");
-        // TODO https://github.com/trinodb/trino/issues/10005 - support insert into a table with hidden columns
-        assertThatThrownBy(() -> assertions.query("INSERT INTO mock.tiny.nation_with_hidden_column VALUES (0, 'POLAND', 0, 'No comment')"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("scope: 5, fields mappings: 4");
+                .isInstanceOf(TrinoException.class)
+                .hasMessage("Access Denied: Cannot insert into a table restricted with a row filter");
+        assertions.query("INSERT INTO mock.tiny.nation_with_hidden_column VALUES (0, 'POLAND', 0, 'No comment')")
+                .assertThat()
+                .skippingTypesCheck()
+                .matches("VALUES BIGINT '1'");
         assertThatThrownBy(() -> assertions.query("UPDATE mock.tiny.nation_with_hidden_column SET name = 'POLAND'"))
                 .isInstanceOf(TrinoException.class)
                 .hasMessageContaining("Updating a table with a row filter is not supported");
@@ -545,8 +544,8 @@ public class TestRowFilter
                 .matches("VALUES BIGINT '25'");
         // TODO https://github.com/trinodb/trino/issues/10006 - support insert into a table with row filter that is using hidden columns
         assertThatThrownBy(() -> assertions.query("INSERT INTO mock.tiny.nation_with_hidden_column VALUES (101, 'POLAND', 0, 'No comment')"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("scope: 5, fields mappings: 4");
+                .isInstanceOf(ArrayIndexOutOfBoundsException.class)
+                .hasMessage("Index 4 out of bounds for length 4");
         assertThatThrownBy(() -> assertions.query("UPDATE mock.tiny.nation_with_hidden_column SET name = 'POLAND'"))
                 .isInstanceOf(TrinoException.class)
                 .hasMessageContaining("Updating a table with a row filter is not supported");

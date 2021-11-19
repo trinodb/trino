@@ -467,7 +467,15 @@ public class LogicalPlanner
         plan = planner.addRowFilters(
                 table,
                 plan,
-                failIfPredicateIsNotMeet(metadata, session, PERMISSION_DENIED, AccessDeniedException.PREFIX + "Cannot insert into a table restricted with a row filter"));
+                failIfPredicateIsNotMeet(metadata, session, PERMISSION_DENIED, AccessDeniedException.PREFIX + "Cannot insert into a table restricted with a row filter"),
+                node -> {
+                    Scope accessControlScope = analysis.getAccessControlScope(table);
+                    // hidden fields are not accessible in insert
+                    return Scope.builder()
+                            .like(accessControlScope)
+                            .withRelationType(accessControlScope.getRelationId(), accessControlScope.getRelationType().withOnlyVisibleFields())
+                            .build();
+                });
 
         List<String> insertedTableColumnNames = insertedColumns.stream()
                 .map(ColumnMetadata::getName)
