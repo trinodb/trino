@@ -499,7 +499,8 @@ public class PinotClient
         int[] indices = new int[columnNames.length];
         int[] inverseIndices = new int[columnNames.length];
         for (int i = 0; i < columnHandles.size(); i++) {
-            indices[i] = columnIndices.get(columnHandles.get(i).getColumnName().toLowerCase(ENGLISH));
+            String columnName = columnHandles.get(i).getColumnName().toLowerCase(ENGLISH);
+            indices[i] = requireNonNull(columnIndices.get(columnName), format("column index for '%s' was not found", columnName));
             inverseIndices[indices[i]] = i;
         }
         List<Object[]> rows = resultTable.getRows();
