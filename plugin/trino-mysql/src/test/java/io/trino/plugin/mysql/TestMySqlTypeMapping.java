@@ -48,7 +48,6 @@ import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.io.BaseEncoding.base16;
 import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
 import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.STRICT;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.DECIMAL_DEFAULT_SCALE;
@@ -85,7 +84,6 @@ import static java.math.RoundingMode.HALF_UP;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Arrays.asList;
-import static java.util.function.Function.identity;
 
 public class TestMySqlTypeMapping
         extends AbstractTestQueryFramework
@@ -955,15 +953,5 @@ public class TestMySqlTypeMapping
     private static DataType<Double> mysqlDoubleDataType()
     {
         return dataType("double precision", DoubleType.DOUBLE, Object::toString);
-    }
-
-    private static DataType<byte[]> mysqlBinaryDataType(String insertType)
-    {
-        return dataType(
-                insertType,
-                VARBINARY,
-                bytes -> "X'" + base16().encode(bytes) + "'",
-                DataType::binaryLiteral,
-                identity());
     }
 }
