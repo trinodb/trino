@@ -254,6 +254,11 @@ class RelationPlanner
 
     public RelationPlan addRowFilters(Table node, RelationPlan plan, Function<Expression, Expression> predicateTransformation)
     {
+        return addRowFilters(node, plan, predicateTransformation, analysis::getAccessControlScope);
+    }
+
+    public RelationPlan addRowFilters(Table node, RelationPlan plan, Function<Expression, Expression> predicateTransformation, Function<Table, Scope> accessControlScope)
+    {
         List<Expression> filters = analysis.getRowFilters(node);
 
         if (filters.isEmpty()) {
@@ -261,7 +266,7 @@ class RelationPlanner
         }
 
         PlanBuilder planBuilder = newPlanBuilder(plan, analysis, lambdaDeclarationToSymbolMap)
-                .withScope(analysis.getAccessControlScope(node), plan.getFieldMappings()); // The fields in the access control scope has the same layout as those for the table scope
+                .withScope(accessControlScope.apply(node), plan.getFieldMappings()); // The fields in the access control scope has the same layout as those for the table scope
 
         for (Expression filter : filters) {
             planBuilder = subqueryPlanner.handleSubqueries(planBuilder, filter, analysis.getSubqueries(filter));
