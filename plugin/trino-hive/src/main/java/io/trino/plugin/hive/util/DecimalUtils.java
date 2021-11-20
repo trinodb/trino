@@ -13,12 +13,11 @@
  */
 package io.trino.plugin.hive.util;
 
-import io.airlift.slice.Slice;
+import io.trino.spi.type.Int128;
 import org.apache.hadoop.hive.serde2.io.HiveDecimalWritable;
 
 import java.math.BigInteger;
 
-import static io.trino.spi.type.Decimals.encodeUnscaledValue;
 import static io.trino.spi.type.Decimals.rescale;
 
 public final class DecimalUtils
@@ -49,10 +48,10 @@ public final class DecimalUtils
         return value;
     }
 
-    public static Slice getLongDecimalValue(HiveDecimalWritable writable, int columnScale)
+    public static Int128 getLongDecimalValue(HiveDecimalWritable writable, int columnScale)
     {
         BigInteger value = new BigInteger(writable.getInternalStorage());
         value = rescale(value, writable.getScale(), columnScale);
-        return encodeUnscaledValue(value);
+        return Int128.valueOf(value);
     }
 }

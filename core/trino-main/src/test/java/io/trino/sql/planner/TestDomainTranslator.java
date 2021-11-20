@@ -27,6 +27,7 @@ import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.DoubleType;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.DomainTranslator.ExtractionResult;
@@ -68,7 +69,6 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
-import static io.trino.spi.type.Decimals.encodeScaledValue;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -2156,9 +2156,9 @@ public class TestDomainTranslator
         return new BigDecimal(value).unscaledValue().longValueExact();
     }
 
-    private static Slice longDecimal(String value)
+    private static Int128 longDecimal(String value)
     {
-        return encodeScaledValue(new BigDecimal(value));
+        return Decimals.valueOf(new BigDecimal(value));
     }
 
     private static Long realValue(float value)

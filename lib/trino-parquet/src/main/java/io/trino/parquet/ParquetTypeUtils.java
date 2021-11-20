@@ -13,8 +13,8 @@
  */
 package io.trino.parquet;
 
-import io.airlift.slice.Slice;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Int128;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.io.ColumnIO;
 import org.apache.parquet.io.ColumnIOFactory;
@@ -36,7 +36,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
 import static org.apache.parquet.schema.OriginalType.DECIMAL;
 import static org.apache.parquet.schema.Type.Repetition.REPEATED;
 
@@ -264,9 +263,8 @@ public final class ParquetTypeUtils
         return value;
     }
 
-    public static Slice getLongDecimalValue(byte[] bytes)
+    public static Int128 getLongDecimalValue(byte[] bytes)
     {
-        BigInteger value = new BigInteger(bytes);
-        return unscaledDecimal(value);
+        return Int128.valueOf(new BigInteger(bytes));
     }
 }

@@ -14,7 +14,6 @@
 package io.trino.type;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.metadata.PolymorphicScalarFunctionBuilder;
 import io.trino.metadata.PolymorphicScalarFunctionBuilder.SpecializeContext;
@@ -27,9 +26,9 @@ import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.TypeSignature;
 
-import java.math.BigInteger;
 import java.util.List;
 
 import static io.trino.metadata.Signature.longVariableExpression;
@@ -41,19 +40,15 @@ import static io.trino.spi.function.OperatorType.MODULUS;
 import static io.trino.spi.function.OperatorType.MULTIPLY;
 import static io.trino.spi.function.OperatorType.NEGATION;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
-import static io.trino.spi.type.Decimals.encodeUnscaledValue;
 import static io.trino.spi.type.Decimals.longTenToNth;
+import static io.trino.spi.type.Int128Math.add;
+import static io.trino.spi.type.Int128Math.divideRoundUp;
+import static io.trino.spi.type.Int128Math.multiply;
+import static io.trino.spi.type.Int128Math.negateExact;
+import static io.trino.spi.type.Int128Math.remainder;
+import static io.trino.spi.type.Int128Math.rescale;
+import static io.trino.spi.type.Int128Math.subtract;
 import static io.trino.spi.type.TypeSignatureParameter.typeVariable;
-import static io.trino.spi.type.UnscaledDecimal128Arithmetic.add;
-import static io.trino.spi.type.UnscaledDecimal128Arithmetic.divideRoundUp;
-import static io.trino.spi.type.UnscaledDecimal128Arithmetic.isZero;
-import static io.trino.spi.type.UnscaledDecimal128Arithmetic.multiply;
-import static io.trino.spi.type.UnscaledDecimal128Arithmetic.remainder;
-import static io.trino.spi.type.UnscaledDecimal128Arithmetic.rescale;
-import static io.trino.spi.type.UnscaledDecimal128Arithmetic.subtract;
-import static io.trino.spi.type.UnscaledDecimal128Arithmetic.throwIfOverflows;
-import static io.trino.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
-import static io.trino.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimalToUnscaledLong;
 import static java.lang.Integer.max;
 import static java.lang.Long.signum;
 import static java.lang.Math.abs;
@@ -106,67 +101,48 @@ public final class DecimalOperators
     }
 
     @UsedByGeneratedCode
-    public static Slice addShortShortLong(long a, long b, int rescale, boolean left)
+    public static Int128 addShortShortLong(long a, long b, int rescale, boolean left)
     {
-        return internalAddLongLongLong(unscaledDecimal(a), unscaledDecimal(b), rescale, left);
+        return internalAddLongLongLong(a >> 63, a, b >> 63, b, rescale, left);
     }
 
     @UsedByGeneratedCode
-    public static Slice addLongLongLong(Slice a, Slice b, int rescale, boolean left)
+    public static Int128 addLongLongLong(Int128 a, Int128 b, int rescale, boolean left)
     {
-        return internalAddLongLongLong(a, b, rescale, left);
+        return internalAddLongLongLong(a.getHigh(), a.getLow(), b.getHigh(), b.getLow(), rescale, left);
     }
 
     @UsedByGeneratedCode
-    public static Slice addShortLongLong(long a, Slice b, int rescale, boolean left)
+    public static Int128 addShortLongLong(long a, Int128 b, int rescale, boolean left)
     {
         return addLongShortLong(b, a, rescale, !left);
     }
 
     @UsedByGeneratedCode
-    public static Slice addLongShortLong(Slice a, long b, int rescale, boolean rescaleLeft)
+    public static Int128 addLongShortLong(Int128 a, long b, int rescale, boolean rescaleLeft)
     {
-        try {
-            Slice left;
-            Slice right;
-
-            if (rescaleLeft) {
-                left = unscaledDecimal();
-                rescale(a, rescale, left);
-                right = unscaledDecimal(b);
-            }
-            else {
-                left = rescale(b, rescale);
-                right = a;
-            }
-
-            add(left, right, left);
-            throwIfOverflows(left);
-            return left;
-        }
-        catch (ArithmeticException e) {
-            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
-        }
+        return internalAddLongLongLong(a.getHigh(), a.getLow(), b >> 63, b, rescale, rescaleLeft);
     }
 
-    private static Slice internalAddLongLongLong(Slice a, Slice b, int rescale, boolean rescaleLeft)
+    private static Int128 internalAddLongLongLong(long leftHigh, long leftLow, long rightHigh, long rightLow, int rescale, boolean rescaleLeft)
     {
+        // TODO: specialize implementation for rescale == 0 vs rescale > 0, and rescale left vs rescale right to avoid branch pollution
         try {
-            Slice left = unscaledDecimal();
-            Slice right;
-
+            long[] result = new long[2];
             if (rescaleLeft) {
-                rescale(a, rescale, left);
-                right = b;
+                rescale(leftHigh, leftLow, rescale, result, 0);
+                add(result[0], result[1], rightHigh, rightLow, result, 0);
             }
             else {
-                rescale(b, rescale, left);
-                right = a;
+                rescale(rightHigh, rightLow, rescale, result, 0);
+                add(leftHigh, leftLow, result[0], result[1], result, 0);
             }
 
-            add(left, right, left);
-            throwIfOverflows(left);
-            return left;
+            if (Decimals.overflows(result[0], result[1])) {
+                throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow");
+            }
+
+            return Int128.valueOf(result);
         }
         catch (ArithmeticException e) {
             throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
@@ -207,43 +183,47 @@ public final class DecimalOperators
     }
 
     @UsedByGeneratedCode
-    public static Slice subtractShortShortLong(long a, long b, int rescale, boolean left)
+    public static Int128 subtractShortShortLong(long a, long b, int rescale, boolean left)
     {
-        return internalSubtractLongLongLong(unscaledDecimal(a), unscaledDecimal(b), rescale, left);
+        return internalSubtractLongLongLong(a >> 63, a, b >> 63, b, rescale, left);
     }
 
     @UsedByGeneratedCode
-    public static Slice subtractLongLongLong(Slice a, Slice b, int rescale, boolean left)
+    public static Int128 subtractLongLongLong(Int128 a, Int128 b, int rescale, boolean left)
     {
-        return internalSubtractLongLongLong(a, b, rescale, left);
+        return internalSubtractLongLongLong(a.getHigh(), a.getLow(), b.getHigh(), b.getLow(), rescale, left);
     }
 
     @UsedByGeneratedCode
-    public static Slice subtractShortLongLong(long a, Slice b, int rescale, boolean left)
+    public static Int128 subtractShortLongLong(long a, Int128 b, int rescale, boolean left)
     {
-        return internalSubtractLongLongLong(unscaledDecimal(a), b, rescale, left);
+        return internalSubtractLongLongLong(a >> 63, a, b.getHigh(), b.getLow(), rescale, left);
     }
 
     @UsedByGeneratedCode
-    public static Slice subtractLongShortLong(Slice a, long b, int rescale, boolean left)
+    public static Int128 subtractLongShortLong(Int128 a, long b, int rescale, boolean left)
     {
-        return internalSubtractLongLongLong(a, unscaledDecimal(b), rescale, left);
+        return internalSubtractLongLongLong(a.getHigh(), a.getLow(), b >> 63, b, rescale, left);
     }
 
-    private static Slice internalSubtractLongLongLong(Slice a, Slice b, int rescale, boolean rescaleLeft)
+    private static Int128 internalSubtractLongLongLong(long leftHigh, long leftLow, long rightHigh, long rightLow, int rescale, boolean rescaleLeft)
     {
         try {
-            Slice tmp = unscaledDecimal();
+            long[] result = new long[2];
             if (rescaleLeft) {
-                rescale(a, rescale, tmp);
-                subtract(tmp, b, tmp);
+                rescale(leftHigh, leftLow, rescale, result, 0);
+                subtract(result[0], result[1], rightHigh, rightLow, result, 0);
             }
             else {
-                rescale(b, rescale, tmp);
-                subtract(a, tmp, tmp);
+                rescale(rightHigh, rightLow, rescale, result, 0);
+                subtract(leftHigh, leftLow, result[0], result[1], result, 0);
             }
-            throwIfOverflows(tmp);
-            return tmp;
+
+            if (Decimals.overflows(result[0], result[1])) {
+                throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow");
+            }
+
+            return Int128.valueOf(result);
         }
         catch (ArithmeticException e) {
             throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
@@ -280,12 +260,10 @@ public final class DecimalOperators
     }
 
     @UsedByGeneratedCode
-    public static Slice multiplyShortShortLong(long a, long b)
+    public static Int128 multiplyShortShortLong(long a, long b)
     {
         try {
-            Slice result = multiply(a, b);
-            throwIfOverflows(result);
-            return result;
+            return multiply(a, b);
         }
         catch (ArithmeticException e) {
             throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
@@ -293,12 +271,10 @@ public final class DecimalOperators
     }
 
     @UsedByGeneratedCode
-    public static Slice multiplyLongLongLong(Slice a, Slice b)
+    public static Int128 multiplyLongLongLong(Int128 a, Int128 b)
     {
         try {
-            Slice result = multiply(a, b);
-            throwIfOverflows(result);
-            return result;
+            return multiply(a, b);
         }
         catch (ArithmeticException e) {
             throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
@@ -306,18 +282,16 @@ public final class DecimalOperators
     }
 
     @UsedByGeneratedCode
-    public static Slice multiplyShortLongLong(long a, Slice b)
+    public static Int128 multiplyShortLongLong(long a, Int128 b)
     {
         return multiplyLongShortLong(b, a);
     }
 
     @UsedByGeneratedCode
-    public static Slice multiplyLongShortLong(Slice a, long b)
+    public static Int128 multiplyLongShortLong(Int128 a, long b)
     {
         try {
-            Slice result = multiply(a, b);
-            throwIfOverflows(result);
-            return result;
+            return multiply(a, b);
         }
         catch (ArithmeticException e) {
             throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
@@ -390,13 +364,13 @@ public final class DecimalOperators
     }
 
     @UsedByGeneratedCode
-    public static long divideShortLongShort(long dividend, Slice divisor, int rescaleFactor)
+    public static long divideShortLongShort(long dividend, Int128 divisor, int rescaleFactor)
     {
-        if (isZero(divisor)) {
+        if (divisor.isZero()) {
             throw new TrinoException(DIVISION_BY_ZERO, "Division by zero");
         }
         try {
-            return unscaledDecimalToUnscaledLong(divideRoundUp(dividend, rescaleFactor, divisor));
+            return divideRoundUp(dividend >> 63, dividend, rescaleFactor, divisor.getHigh(), divisor.getLow(), 0).toLongExact();
         }
         catch (ArithmeticException e) {
             throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
@@ -404,13 +378,13 @@ public final class DecimalOperators
     }
 
     @UsedByGeneratedCode
-    public static long divideLongShortShort(Slice dividend, long divisor, int rescaleFactor)
+    public static long divideLongShortShort(Int128 dividend, long divisor, int rescaleFactor)
     {
         if (divisor == 0) {
             throw new TrinoException(DIVISION_BY_ZERO, "Division by zero");
         }
         try {
-            return unscaledDecimalToUnscaledLong(divideRoundUp(dividend, rescaleFactor, divisor));
+            return divideRoundUp(dividend.getHigh(), dividend.getLow(), rescaleFactor, divisor >> 63, divisor, 0).toLongExact();
         }
         catch (ArithmeticException e) {
             throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
@@ -418,13 +392,17 @@ public final class DecimalOperators
     }
 
     @UsedByGeneratedCode
-    public static Slice divideShortShortLong(long dividend, long divisor, int rescaleFactor)
+    public static Int128 divideShortShortLong(long dividend, long divisor, int rescaleFactor)
     {
         if (divisor == 0) {
             throw new TrinoException(DIVISION_BY_ZERO, "Division by zero");
         }
         try {
-            return divideRoundUp(dividend, rescaleFactor, divisor);
+            Int128 result = divideRoundUp(dividend >> 63, dividend, rescaleFactor, divisor >> 63, divisor, 0);
+            if (Decimals.overflows(result)) {
+                throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow");
+            }
+            return result;
         }
         catch (ArithmeticException e) {
             throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
@@ -432,13 +410,17 @@ public final class DecimalOperators
     }
 
     @UsedByGeneratedCode
-    public static Slice divideLongLongLong(Slice dividend, Slice divisor, int rescaleFactor)
+    public static Int128 divideLongLongLong(Int128 dividend, Int128 divisor, int rescaleFactor)
     {
-        if (isZero(divisor)) {
+        if (divisor.isZero()) {
             throw new TrinoException(DIVISION_BY_ZERO, "Division by zero");
         }
         try {
-            return divideRoundUp(dividend, rescaleFactor, divisor);
+            Int128 result = divideRoundUp(dividend.getHigh(), dividend.getLow(), rescaleFactor, divisor.getHigh(), divisor.getLow(), 0);
+            if (Decimals.overflows(result)) {
+                throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow");
+            }
+            return result;
         }
         catch (ArithmeticException e) {
             throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
@@ -446,13 +428,17 @@ public final class DecimalOperators
     }
 
     @UsedByGeneratedCode
-    public static Slice divideShortLongLong(long dividend, Slice divisor, int rescaleFactor)
+    public static Int128 divideShortLongLong(long dividend, Int128 divisor, int rescaleFactor)
     {
-        if (isZero(divisor)) {
+        if (divisor.isZero()) {
             throw new TrinoException(DIVISION_BY_ZERO, "Division by zero");
         }
         try {
-            return divideRoundUp(dividend, rescaleFactor, divisor);
+            Int128 result = divideRoundUp(dividend >> 63, dividend, rescaleFactor, divisor.getHigh(), divisor.getLow(), 0);
+            if (Decimals.overflows(result)) {
+                throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow");
+            }
+            return result;
         }
         catch (ArithmeticException e) {
             throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
@@ -460,13 +446,17 @@ public final class DecimalOperators
     }
 
     @UsedByGeneratedCode
-    public static Slice divideLongShortLong(Slice dividend, long divisor, int rescaleFactor)
+    public static Int128 divideLongShortLong(Int128 dividend, long divisor, int rescaleFactor)
     {
         if (divisor == 0) {
             throw new TrinoException(DIVISION_BY_ZERO, "Division by zero");
         }
         try {
-            return divideRoundUp(dividend, rescaleFactor, divisor);
+            Int128 result = divideRoundUp(dividend.getHigh(), dividend.getLow(), rescaleFactor, divisor >> 63, divisor, 0);
+            if (Decimals.overflows(result)) {
+                throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow");
+            }
+            return result;
         }
         catch (ArithmeticException e) {
             throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
@@ -558,7 +548,7 @@ public final class DecimalOperators
             throw new TrinoException(DIVISION_BY_ZERO, "Division by zero");
         }
         try {
-            return unscaledDecimalToUnscaledLong(remainder(dividend, dividendRescaleFactor, divisor, divisorRescaleFactor));
+            return remainder(dividend >> 63, dividend, dividendRescaleFactor, divisor >> 63, divisor, divisorRescaleFactor).toLongExact();
         }
         catch (ArithmeticException e) {
             throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
@@ -566,13 +556,13 @@ public final class DecimalOperators
     }
 
     @UsedByGeneratedCode
-    public static long modulusShortLongShort(long dividend, Slice divisor, int dividendRescaleFactor, int divisorRescaleFactor)
+    public static long modulusShortLongShort(long dividend, Int128 divisor, int dividendRescaleFactor, int divisorRescaleFactor)
     {
-        if (isZero(divisor)) {
+        if (divisor.isZero()) {
             throw new TrinoException(DIVISION_BY_ZERO, "Division by zero");
         }
         try {
-            return unscaledDecimalToUnscaledLong(remainder(dividend, dividendRescaleFactor, divisor, divisorRescaleFactor));
+            return remainder(dividend >> 63, dividend, dividendRescaleFactor, divisor.getHigh(), divisor.getLow(), divisorRescaleFactor).toLongExact();
         }
         catch (ArithmeticException e) {
             throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
@@ -580,41 +570,13 @@ public final class DecimalOperators
     }
 
     @UsedByGeneratedCode
-    public static long modulusLongShortShort(Slice dividend, long divisor, int dividendRescaleFactor, int divisorRescaleFactor)
-    {
-        if (divisor == 0) {
-            throw new TrinoException(DIVISION_BY_ZERO, "Division by zero");
-        }
-        try {
-            return unscaledDecimalToUnscaledLong(remainder(dividend, dividendRescaleFactor, divisor, divisorRescaleFactor));
-        }
-        catch (ArithmeticException e) {
-            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
-        }
-    }
-
-    @UsedByGeneratedCode
-    public static Slice modulusShortLongLong(long dividend, Slice divisor, int dividendRescaleFactor, int divisorRescaleFactor)
-    {
-        if (isZero(divisor)) {
-            throw new TrinoException(DIVISION_BY_ZERO, "Division by zero");
-        }
-        try {
-            return remainder(dividend, dividendRescaleFactor, divisor, divisorRescaleFactor);
-        }
-        catch (ArithmeticException e) {
-            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
-        }
-    }
-
-    @UsedByGeneratedCode
-    public static Slice modulusLongShortLong(Slice dividend, long divisor, int dividendRescaleFactor, int divisorRescaleFactor)
+    public static long modulusLongShortShort(Int128 dividend, long divisor, int dividendRescaleFactor, int divisorRescaleFactor)
     {
         if (divisor == 0) {
             throw new TrinoException(DIVISION_BY_ZERO, "Division by zero");
         }
         try {
-            return remainder(dividend, dividendRescaleFactor, divisor, divisorRescaleFactor);
+            return remainder(dividend.getHigh(), dividend.getLow(), dividendRescaleFactor, divisor >> 63, divisor, divisorRescaleFactor).toLongExact();
         }
         catch (ArithmeticException e) {
             throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
@@ -622,13 +584,41 @@ public final class DecimalOperators
     }
 
     @UsedByGeneratedCode
-    public static Slice modulusLongLongLong(Slice dividend, Slice divisor, int dividendRescaleFactor, int divisorRescaleFactor)
+    public static Int128 modulusShortLongLong(long dividend, Int128 divisor, int dividendRescaleFactor, int divisorRescaleFactor)
     {
-        if (isZero(divisor)) {
+        if (divisor.isZero()) {
             throw new TrinoException(DIVISION_BY_ZERO, "Division by zero");
         }
         try {
-            return remainder(dividend, dividendRescaleFactor, divisor, divisorRescaleFactor);
+            return remainder(dividend >> 63, dividend, dividendRescaleFactor, divisor.getHigh(), divisor.getLow(), divisorRescaleFactor);
+        }
+        catch (ArithmeticException e) {
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
+        }
+    }
+
+    @UsedByGeneratedCode
+    public static Int128 modulusLongShortLong(Int128 dividend, long divisor, int dividendRescaleFactor, int divisorRescaleFactor)
+    {
+        if (divisor == 0) {
+            throw new TrinoException(DIVISION_BY_ZERO, "Division by zero");
+        }
+        try {
+            return remainder(dividend.getHigh(), dividend.getLow(), dividendRescaleFactor, divisor >> 63, divisor, divisorRescaleFactor);
+        }
+        catch (ArithmeticException e) {
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
+        }
+    }
+
+    @UsedByGeneratedCode
+    public static Int128 modulusLongLongLong(Int128 dividend, Int128 divisor, int dividendRescaleFactor, int divisorRescaleFactor)
+    {
+        if (divisor.isZero()) {
+            throw new TrinoException(DIVISION_BY_ZERO, "Division by zero");
+        }
+        try {
+            return remainder(dividend.getHigh(), dividend.getLow(), dividendRescaleFactor, divisor.getHigh(), divisor.getLow(), divisorRescaleFactor);
         }
         catch (ArithmeticException e) {
             throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
@@ -647,10 +637,9 @@ public final class DecimalOperators
 
         @LiteralParameters({"p", "s"})
         @SqlType("decimal(p, s)")
-        public static Slice negate(@SqlType("decimal(p, s)") Slice arg)
+        public static Int128 negate(@SqlType("decimal(p, s)") Int128 value)
         {
-            BigInteger argBigInteger = Decimals.decodeUnscaledValue(arg);
-            return encodeUnscaledValue(argBigInteger.negate());
+            return negateExact(value);
         }
     }
 }

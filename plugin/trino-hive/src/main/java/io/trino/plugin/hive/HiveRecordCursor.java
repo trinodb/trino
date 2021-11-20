@@ -132,7 +132,7 @@ public class HiveRecordCursor
                     longs[columnIndex] = (long) prefilledValue;
                 }
                 else if (isLongDecimal(type)) {
-                    slices[columnIndex] = (Slice) prefilledValue;
+                    objects[columnIndex] = prefilledValue;
                 }
                 else {
                     throw new TrinoException(NOT_SUPPORTED, format("Unsupported column type %s for prefilled column: %s", type.getDisplayName(), name));

@@ -13,15 +13,14 @@
  */
 package io.trino.spi.block;
 
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.Type;
 
 import java.util.Random;
 
 public class TestInt128ArrayBlockEncoding
-        extends BaseBlockEncodingTest<Slice>
+        extends BaseBlockEncodingTest<Int128>
 {
     private static final DecimalType TYPE = DecimalType.createDecimalType(30);
 
@@ -32,14 +31,14 @@ public class TestInt128ArrayBlockEncoding
     }
 
     @Override
-    protected void write(BlockBuilder blockBuilder, Slice value)
+    protected void write(BlockBuilder blockBuilder, Int128 value)
     {
-        TYPE.writeSlice(blockBuilder, value);
+        TYPE.writeObject(blockBuilder, value);
     }
 
     @Override
-    protected Slice randomValue(Random random)
+    protected Int128 randomValue(Random random)
     {
-        return Slices.wrappedLongArray(random.nextLong(), random.nextLong());
+        return Int128.valueOf(random.nextLong(), random.nextLong());
     }
 }
