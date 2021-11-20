@@ -63,7 +63,7 @@ public class SetTableAuthorizationTask
         }
 
         TrinoPrincipal principal = createPrincipal(statement.getPrincipal());
-        checkRoleExists(session, statement, metadata, principal, Optional.of(tableName.getCatalogName()));
+        checkRoleExists(session, statement, metadata, principal, Optional.of(tableName.getCatalogName()).filter(catalog -> metadata.isCatalogManagedSecurity(session, catalog)));
 
         accessControl.checkCanSetTableAuthorization(session.toSecurityContext(), tableName, principal);
 
