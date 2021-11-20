@@ -29,6 +29,7 @@ import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
@@ -296,8 +297,8 @@ public class TupleDomainParquetPredicate
             }
             else {
                 for (int i = 0; i < minimums.size(); i++) {
-                    Slice min = getLongDecimalValue(((Binary) minimums.get(i)).getBytes());
-                    Slice max = getLongDecimalValue(((Binary) maximums.get(i)).getBytes());
+                    Int128 min = getLongDecimalValue(((Binary) minimums.get(i)).getBytes());
+                    Int128 max = getLongDecimalValue(((Binary) maximums.get(i)).getBytes());
 
                     ranges.add(Range.range(type, min, true, max, true));
                 }

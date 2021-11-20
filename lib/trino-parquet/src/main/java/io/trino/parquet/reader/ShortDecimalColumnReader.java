@@ -99,7 +99,7 @@ public class ShortDecimalColumnReader
                 trinoType.writeLong(blockBuilder, convertedValue);
             }
             else if (isLongDecimal(trinoDecimalType)) {
-                trinoType.writeSlice(blockBuilder, shortToLongCast(
+                trinoType.writeObject(blockBuilder, shortToLongCast(
                         value,
                         parquetDecimalType.getPrecision(),
                         parquetDecimalType.getScale(),

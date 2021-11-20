@@ -13,7 +13,6 @@
  */
 package io.trino.spi.type;
 
-import io.airlift.slice.Slice;
 import io.trino.jmh.Benchmarks;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -28,56 +27,43 @@ import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.runner.RunnerException;
 
-import java.math.BigInteger;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
-
-import static io.trino.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
 
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
 @Fork(value = 1)
 @Warmup(iterations = 10)
 @Measurement(iterations = 20)
-public class BenchmarkUnscaledDecimal128
+public class BenchmarkInt128
 {
     @Benchmark
-    public Slice multiplyLongLong(Data data)
+    public Int128 multiplyLongLong(Data data)
     {
-        UnscaledDecimal128Arithmetic.multiply(data.longLeft, data.longRight, data.result);
-
-        return data.result;
+        return Int128Math.multiply(data.longLeft, data.longRight);
     }
 
     @Benchmark
-    public Slice multiplyLongInt(Data data)
+    public Int128 multiplyLongInt(Data data)
     {
-        UnscaledDecimal128Arithmetic.multiply(data.longLeft, data.intRight, data.result);
-
-        return data.result;
+        return Int128Math.multiply(data.longLeft, data.intRight);
     }
 
     @Benchmark
-    public Slice multiply128Int(Data data)
+    public Int128 multiply128Int(Data data)
     {
-        UnscaledDecimal128Arithmetic.multiply(data.int128, data.intRight, data.result);
-
-        return data.result;
+        return Int128Math.multiply(data.int128, data.intRight);
     }
 
     @Benchmark
-    public Slice multiply128(Data data)
+    public Int128 multiply128(Data data)
     {
-        UnscaledDecimal128Arithmetic.multiply(data.leftLow, data.leftHigh, data.rightLow, data.rightHigh, data.result);
-
-        return data.result;
+        return Int128Math.multiply(data.leftHigh, data.leftLow, data.rightHigh, data.rightLow);
     }
 
     @State(Scope.Thread)
     public static class Data
     {
-        public final Slice result = io.airlift.slice.Slices.allocate(16);
-
         public long longLeft;
         public long longRight;
         public int intRight;
@@ -85,7 +71,7 @@ public class BenchmarkUnscaledDecimal128
         public long leftLow;
         public long rightHigh;
         public long rightLow;
-        public Slice int128;
+        public Int128 int128;
 
         @Setup(Level.Iteration)
         public void setup()
@@ -93,17 +79,17 @@ public class BenchmarkUnscaledDecimal128
             longLeft = ThreadLocalRandom.current().nextLong();
             longRight = ThreadLocalRandom.current().nextLong();
             intRight = ThreadLocalRandom.current().nextInt();
-            leftHigh = ThreadLocalRandom.current().nextBoolean() ? UnscaledDecimal128Arithmetic.SIGN_LONG_MASK : 0;
-            leftLow = ThreadLocalRandom.current().nextLong(Long.MAX_VALUE);
-            rightHigh = ThreadLocalRandom.current().nextBoolean() ? UnscaledDecimal128Arithmetic.SIGN_LONG_MASK : 0;
-            rightLow = ThreadLocalRandom.current().nextLong(Long.MAX_VALUE);
-            int128 = unscaledDecimal(BigInteger.valueOf(ThreadLocalRandom.current().nextLong()));
+            leftLow = ThreadLocalRandom.current().nextLong();
+            leftHigh = leftHigh >> 63;
+            rightLow = ThreadLocalRandom.current().nextLong();
+            rightHigh = rightHigh >> 63;
+            int128 = Int128.valueOf(ThreadLocalRandom.current().nextLong());
         }
     }
 
     public static void main(String[] args)
             throws RunnerException
     {
-        Benchmarks.benchmark(BenchmarkUnscaledDecimal128.class).run();
+        Benchmarks.benchmark(BenchmarkInt128.class).run();
     }
 }

@@ -25,6 +25,7 @@ import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
@@ -53,7 +54,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.Decimals.MAX_SHORT_PRECISION;
-import static io.trino.spi.type.Decimals.encodeUnscaledValue;
 import static io.trino.spi.type.Decimals.writeBigDecimal;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -752,7 +752,7 @@ public final class BlockAssertions
         BigInteger base = BigInteger.TEN.pow(type.getScale());
 
         for (int i = start; i < end; ++i) {
-            type.writeSlice(builder, encodeUnscaledValue(BigInteger.valueOf(i).multiply(base)));
+            type.writeObject(builder, Int128.valueOf(BigInteger.valueOf(i).multiply(base)));
         }
 
         return builder.build();

@@ -221,7 +221,7 @@ public class BigQueryResultPageSource
             verify(isLongDecimal(type), "The type should be long decimal");
             DecimalType decimalType = (DecimalType) type;
             BigDecimal decimal = DECIMAL_CONVERTER.convert(decimalType.getPrecision(), decimalType.getScale(), value);
-            type.writeSlice(output, Decimals.encodeScaledValue(decimal, decimalType.getScale()));
+            type.writeObject(output, Decimals.encodeScaledValue(decimal, decimalType.getScale()));
         }
         else if (type instanceof VarbinaryType) {
             if (value instanceof ByteBuffer) {

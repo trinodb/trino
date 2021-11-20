@@ -41,7 +41,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
@@ -747,7 +747,7 @@ public final class HiveWriteUtils
             unscaledValue = BigInteger.valueOf(decimalType.getLong(block, position));
         }
         else {
-            unscaledValue = Decimals.decodeUnscaledValue(decimalType.getSlice(block, position));
+            unscaledValue = ((Int128) decimalType.getObject(block, position)).toBigInteger();
         }
         return HiveDecimal.create(unscaledValue, decimalType.getScale());
     }
