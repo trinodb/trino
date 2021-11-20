@@ -299,7 +299,12 @@ public class TestIcebergSplitSource
     @Test
     public void testNullStatisticsMaps()
     {
-        IcebergColumnHandle bigintColumn = IcebergColumnHandle.primitiveIcebergColumnHandle(1, "name", BIGINT, Optional.empty());
+        IcebergColumnHandle bigintColumn = new IcebergColumnHandle(
+                new ColumnIdentity(1, "name", ColumnIdentity.TypeCategory.PRIMITIVE, ImmutableList.of()),
+                BIGINT,
+                ImmutableList.of(),
+                BIGINT,
+                Optional.empty());
         Map<Integer, Type.PrimitiveType> primitiveTypes = ImmutableMap.of(1, Types.LongType.get());
         Map<Integer, ByteBuffer> lowerBound = ImmutableMap.of(1, Conversions.toByteBuffer(Types.LongType.get(), -1000L));
         Map<Integer, ByteBuffer> upperBound = ImmutableMap.of(1, Conversions.toByteBuffer(Types.LongType.get(), 2000L));
