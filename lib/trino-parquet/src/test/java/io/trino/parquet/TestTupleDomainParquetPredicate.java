@@ -23,6 +23,7 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
@@ -88,7 +89,6 @@ import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.round;
 import static io.trino.spi.type.TinyintType.TINYINT;
-import static io.trino.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.Float.NaN;
@@ -265,9 +265,9 @@ public class TestTupleDomainParquetPredicate
         DecimalType type = createDecimalType(20, 5);
         BigInteger maximum = new BigInteger("12345678901234512345");
 
-        Slice zero = unscaledDecimal(BigInteger.valueOf(0L));
-        Slice hundred = unscaledDecimal(BigInteger.valueOf(100L));
-        Slice max = unscaledDecimal(maximum);
+        Int128 zero = Int128.ZERO;
+        Int128 hundred = Int128.valueOf(100L);
+        Int128 max = Int128.valueOf(maximum);
 
         assertEquals(getDomain(columnDescriptor, type, 0, null, ID, UTC), all(type));
         assertEquals(getDomain(columnDescriptor, type, 10, binaryColumnStats(maximum, maximum), ID, UTC), singleValue(type, max));
@@ -287,8 +287,8 @@ public class TestTupleDomainParquetPredicate
     {
         ColumnDescriptor columnDescriptor = createColumnDescriptor(FIXED_LEN_BYTE_ARRAY, "LongDecimalColumnWithNoScale");
         DecimalType type = createDecimalType(20, 0);
-        Slice zero = unscaledDecimal(BigInteger.valueOf(0L));
-        Slice hundred = unscaledDecimal(BigInteger.valueOf(100L));
+        Int128 zero = Int128.ZERO;
+        Int128 hundred = Int128.valueOf(100L);
         assertEquals(getDomain(columnDescriptor, type, 0, null, ID, UTC), all(type));
 
         assertEquals(getDomain(columnDescriptor, type, 10, binaryColumnStats(100L, 100L), ID, UTC), singleValue(type, hundred));

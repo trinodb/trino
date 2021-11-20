@@ -21,6 +21,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.Type;
 
 import java.math.BigDecimal;
@@ -28,7 +29,6 @@ import java.math.BigDecimal;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.spi.type.Decimals.encodeUnscaledValue;
 import static io.trino.spi.type.Decimals.isShortDecimal;
 import static java.math.RoundingMode.HALF_UP;
 
@@ -71,7 +71,7 @@ public class DecimalEncoding
             output.writeBytes(utf8Slice(Decimals.toString(type.getLong(block, position), type.getScale())));
         }
         else {
-            output.writeBytes(utf8Slice(Decimals.toString(type.getSlice(block, position), type.getScale())));
+            output.writeBytes(utf8Slice(Decimals.toString((Int128) type.getObject(block, position), type.getScale())));
         }
     }
 
@@ -92,7 +92,7 @@ public class DecimalEncoding
                 type.writeLong(builder, parseLong(slice, offset, length));
             }
             else {
-                type.writeSlice(builder, parseSlice(slice, offset, length));
+                type.writeObject(builder, parseSlice(slice, offset, length));
             }
         }
         return builder.build();
@@ -105,7 +105,7 @@ public class DecimalEncoding
             type.writeLong(builder, parseLong(slice, offset, length));
         }
         else {
-            type.writeSlice(builder, parseSlice(slice, offset, length));
+            type.writeObject(builder, parseSlice(slice, offset, length));
         }
     }
 
@@ -115,10 +115,10 @@ public class DecimalEncoding
         return decimal.unscaledValue().longValue();
     }
 
-    private Slice parseSlice(Slice slice, int offset, int length)
+    private Int128 parseSlice(Slice slice, int offset, int length)
     {
         BigDecimal decimal = parseBigDecimal(slice, offset, length);
-        return encodeUnscaledValue(decimal.unscaledValue());
+        return Int128.valueOf(decimal.unscaledValue());
     }
 
     private BigDecimal parseBigDecimal(Slice slice, int offset, int length)
