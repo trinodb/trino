@@ -62,7 +62,7 @@ public class SetViewAuthorizationTask
         }
 
         TrinoPrincipal principal = createPrincipal(statement.getPrincipal());
-        checkRoleExists(session, statement, metadata, principal, Optional.of(viewName.getCatalogName()));
+        checkRoleExists(session, statement, metadata, principal, Optional.of(viewName.getCatalogName()).filter(catalog -> metadata.isCatalogManagedSecurity(session, catalog)));
 
         accessControl.checkCanSetViewAuthorization(session.toSecurityContext(), viewName, principal);
 
