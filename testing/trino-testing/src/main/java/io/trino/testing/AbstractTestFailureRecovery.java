@@ -449,7 +449,7 @@ public abstract class AbstractTestFailureRecovery
 
         private ExecutionResult executeExpected()
         {
-            return execute(query, Optional.empty());
+            return execute(noRetries(session), query, Optional.empty());
         }
 
         private ExecutionResult executeActual(MaterializedResult expected)
@@ -465,23 +465,20 @@ public abstract class AbstractTestFailureRecovery
                     failure,
                     errorType));
 
-            ExecutionResult actual = execute(query, Optional.of(token));
+            ExecutionResult actual = execute(session, query, Optional.of(token));
             assertEquals(getStageStats(actual.getQueryResult(), stageId).getFailedTasks(), failureType.isPresent() ? 1 : 0);
             return actual;
         }
 
-        private ExecutionResult execute(String query, Optional<String> traceToken)
+        private ExecutionResult execute(Session session, String query, Optional<String> traceToken)
         {
             String tableName = "table_" + randomTableSuffix();
-            setup.ifPresent(sql -> getQueryRunner().execute(session, resolveTableName(sql, tableName)));
+            setup.ifPresent(sql -> getQueryRunner().execute(noRetries(session), resolveTableName(sql, tableName)));
 
             ResultWithQueryId<MaterializedResult> resultWithQueryId = null;
             RuntimeException failure = null;
             try {
-                Session sessionWithToken = Session.builder(session)
-                        .setTraceToken(traceToken)
-                        .build();
-                resultWithQueryId = getDistributedQueryRunner().executeWithQueryId(sessionWithToken, resolveTableName(query, tableName));
+                resultWithQueryId = getDistributedQueryRunner().executeWithQueryId(withTraceToken(session, traceToken), resolveTableName(query, tableName));
             }
             catch (RuntimeException e) {
                 failure = e;
@@ -490,16 +487,16 @@ public abstract class AbstractTestFailureRecovery
             MaterializedResult result = resultWithQueryId == null ? null : resultWithQueryId.getResult();
             Optional<MaterializedResult> updatedTableContent = Optional.empty();
             if (result != null && result.getUpdateCount().isPresent()) {
-                updatedTableContent = Optional.of(getQueryRunner().execute(session, "SELECT * FROM " + tableName));
+                updatedTableContent = Optional.of(getQueryRunner().execute(noRetries(session), "SELECT * FROM " + tableName));
             }
 
             Optional<MaterializedResult> updatedTableStatistics = Optional.empty();
             if (result != null && result.getUpdateType().isPresent() && result.getUpdateType().get().equals("ANALYZE")) {
-                updatedTableStatistics = Optional.of(getQueryRunner().execute(session, "SHOW STATS FOR " + tableName));
+                updatedTableStatistics = Optional.of(getQueryRunner().execute(noRetries(session), "SHOW STATS FOR " + tableName));
             }
 
             try {
-                cleanup.ifPresent(sql -> getQueryRunner().execute(session, resolveTableName(sql, tableName)));
+                cleanup.ifPresent(sql -> getQueryRunner().execute(noRetries(session), resolveTableName(sql, tableName)));
             }
             catch (RuntimeException e) {
                 if (failure == null) {
@@ -568,6 +565,20 @@ public abstract class AbstractTestFailureRecovery
         private String resolveTableName(String query, String tableName)
         {
             return query.replaceAll("<table>", tableName);
+        }
+
+        private Session noRetries(Session session)
+        {
+            return Session.builder(session)
+                    .setSystemProperty("retry_policy", "NONE")
+                    .build();
+        }
+
+        private Session withTraceToken(Session session, Optional<String> traceToken)
+        {
+            return Session.builder(session)
+                    .setTraceToken(traceToken)
+                    .build();
         }
     }
 
