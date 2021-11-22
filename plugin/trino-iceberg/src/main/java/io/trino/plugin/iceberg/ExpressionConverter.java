@@ -18,7 +18,6 @@ import io.airlift.slice.Slice;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
@@ -36,13 +35,15 @@ import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import org.apache.iceberg.expressions.Expression;
+import org.apache.iceberg.expressions.Expressions;
 
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzToMicros;
 import static io.trino.spi.type.TimeType.TIME_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
@@ -59,11 +60,11 @@ import static org.apache.iceberg.expressions.Expressions.and;
 import static org.apache.iceberg.expressions.Expressions.equal;
 import static org.apache.iceberg.expressions.Expressions.greaterThan;
 import static org.apache.iceberg.expressions.Expressions.greaterThanOrEqual;
+import static org.apache.iceberg.expressions.Expressions.in;
 import static org.apache.iceberg.expressions.Expressions.isNull;
 import static org.apache.iceberg.expressions.Expressions.lessThan;
 import static org.apache.iceberg.expressions.Expressions.lessThanOrEqual;
 import static org.apache.iceberg.expressions.Expressions.not;
-import static org.apache.iceberg.expressions.Expressions.or;
 
 public final class ExpressionConverter
 {
@@ -106,20 +107,22 @@ public final class ExpressionConverter
             throw new UnsupportedOperationException("Unsupported type for expression: " + type);
         }
 
-        ValueSet domainValues = domain.getValues();
-        Expression expression = null;
-        if (domain.isNullAllowed()) {
-            expression = isNull(columnName);
-        }
-
         if (type.isOrderable()) {
-            List<Range> orderedRanges = domainValues.getRanges().getOrderedRanges();
-            expression = firstNonNull(expression, alwaysFalse());
-
+            List<Range> orderedRanges = domain.getValues().getRanges().getOrderedRanges();
+            List<Object> icebergValues = new ArrayList<>();
+            List<Expression> rangeExpressions = new ArrayList<>();
             for (Range range : orderedRanges) {
-                expression = or(expression, toIcebergExpression(columnName, range));
+                if (range.isSingleValue()) {
+                    icebergValues.add(getIcebergLiteralValue(type, range.getLowBoundedValue()));
+                }
+                else {
+                    rangeExpressions.add(toIcebergExpression(columnName, range));
+                }
             }
-            return expression;
+            Expression ranges = or(rangeExpressions);
+            Expression values = icebergValues.isEmpty() ? alwaysFalse() : in(columnName, icebergValues);
+            Expression nullExpression = domain.isNullAllowed() ? isNull(columnName) : alwaysFalse();
+            return or(nullExpression, or(values, ranges));
         }
 
         throw new VerifyException(format("Unsupported type %s with domain values %s", type, domain));
@@ -227,5 +230,22 @@ public final class ExpressionConverter
         }
 
         throw new UnsupportedOperationException("Unsupported type: " + type);
+    }
+
+    private static Expression or(Expression left, Expression right)
+    {
+        return Expressions.or(left, right);
+    }
+
+    private static Expression or(List<Expression> expressions)
+    {
+        if (expressions.isEmpty()) {
+            return alwaysFalse();
+        }
+        if (expressions.size() == 1) {
+            return getOnlyElement(expressions);
+        }
+        int mid = expressions.size() / 2;
+        return or(or(expressions.subList(0, mid)), or(expressions.subList(mid, expressions.size())));
     }
 }
