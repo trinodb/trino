@@ -17,7 +17,6 @@ import com.google.common.base.VerifyException;
 import io.airlift.slice.Slice;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
-import io.trino.spi.predicate.SortedRangeSet;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.ArrayType;
@@ -52,6 +51,7 @@ import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.expressions.Expressions.alwaysFalse;
 import static org.apache.iceberg.expressions.Expressions.alwaysTrue;
@@ -112,8 +112,8 @@ public final class ExpressionConverter
             expression = isNull(columnName);
         }
 
-        if (domainValues instanceof SortedRangeSet) {
-            List<Range> orderedRanges = ((SortedRangeSet) domainValues).getOrderedRanges();
+        if (type.isOrderable()) {
+            List<Range> orderedRanges = domainValues.getRanges().getOrderedRanges();
             expression = firstNonNull(expression, alwaysFalse());
 
             for (Range range : orderedRanges) {
@@ -122,7 +122,7 @@ public final class ExpressionConverter
             return expression;
         }
 
-        throw new VerifyException("Did not expect a domain value set other than SortedRangeSet but got " + domainValues.getClass().getSimpleName());
+        throw new VerifyException(format("Unsupported type %s with domain values %s", type, domain));
     }
 
     private static Expression toIcebergExpression(String columnName, Range range)
