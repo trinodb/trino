@@ -69,15 +69,13 @@
         </dependency>
 
         <dependency>
-            <groupId>org.jdbi</groupId>
-            <artifactId>jdbi3-core</artifactId>
+            <groupId>net.jodah</groupId>
+            <artifactId>failsafe</artifactId>
         </dependency>
 
         <dependency>
-            <!-- transitive compile, but used in tests -->
-            <groupId>net.jodah</groupId>
-            <artifactId>failsafe</artifactId>
-            <scope>runtime</scope>
+            <groupId>org.jdbi</groupId>
+            <artifactId>jdbi3-core</artifactId>
         </dependency>
 
         <dependency>
