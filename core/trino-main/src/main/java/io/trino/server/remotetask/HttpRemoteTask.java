@@ -15,6 +15,7 @@ package io.trino.server.remotetask;
 
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
 import com.google.common.net.HttpHeaders;
@@ -64,6 +65,7 @@ import javax.annotation.concurrent.GuardedBy;
 
 import java.net.URI;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -79,6 +81,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -91,7 +94,11 @@ import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
 import static io.airlift.http.client.Request.Builder.preparePost;
 import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
+import static io.trino.SystemSessionProperties.getMaxRemoteTaskRequestSize;
 import static io.trino.SystemSessionProperties.getMaxUnacknowledgedSplitsPerTask;
+import static io.trino.SystemSessionProperties.getRemoteTaskGuaranteedSplitsPerRequest;
+import static io.trino.SystemSessionProperties.getRemoteTaskRequestSizeHeadroom;
+import static io.trino.SystemSessionProperties.isEnableAdaptiveTaskRequestSize;
 import static io.trino.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS_VERSION;
 import static io.trino.execution.TaskInfo.createInitialTask;
 import static io.trino.execution.TaskState.ABORTED;
@@ -172,6 +179,14 @@ public final class HttpRemoteTask
     private final AtomicBoolean started = new AtomicBoolean(false);
     private final AtomicBoolean aborting = new AtomicBoolean(false);
 
+    @GuardedBy("this")
+    private int splitBatchSize;
+
+    private final int guaranteedSplitsPerRequest;
+    private final long maxRequestSize;
+    private final long requestSizeHeadroom;
+    private final boolean enableAdaptiveTaskRequestSize;
+
     public HttpRemoteTask(
             Session session,
             TaskId taskId,
@@ -234,6 +249,12 @@ public final class HttpRemoteTask
                 pendingSplits.put(entry.getKey(), scheduledSplit);
             }
             maxUnacknowledgedSplits = getMaxUnacknowledgedSplitsPerTask(session);
+
+            this.guaranteedSplitsPerRequest = getRemoteTaskGuaranteedSplitsPerRequest(session);
+            this.maxRequestSize = getMaxRemoteTaskRequestSize(session).toBytes();
+            this.requestSizeHeadroom = getRemoteTaskRequestSizeHeadroom(session).toBytes();
+            this.splitBatchSize = maxUnacknowledgedSplits;
+            this.enableAdaptiveTaskRequestSize = isEnableAdaptiveTaskRequestSize(session);
 
             int pendingSourceSplitCount = 0;
             long pendingSourceSplitsWeight = 0;
@@ -557,6 +578,10 @@ public final class HttpRemoteTask
                 pendingSourceSplitsWeight -= removedWeight;
             }
         }
+        // set needsUpdate to true when there are sill pending splits
+        if (pendingSplits.size() > 0) {
+            needsUpdate.set(true);
+        }
         // Update node level split tracker before split queue space to ensure it's up to date before waking up the scheduler
         partitionedSplitCountTracker.setPartitionedSplits(getPartitionedSplitsInfo());
         updateSplitQueueSpace();
@@ -578,6 +603,27 @@ public final class HttpRemoteTask
         // synchronized so that needsUpdate is not cleared in sendUpdate before actual request is sent
         needsUpdate.set(true);
         sendUpdate();
+    }
+
+    /**
+     * Adaptively adjust batch size to meet expected request size:
+     * If requestSize is not equal to expectedSize, this function will try to estimate and adjust the batch size proportionally based on
+     * current nums of splits and size of request.
+     */
+    private synchronized void adjustSplitBatchSize(List<TaskSource> sources, long requestSize, long expectedSize)
+    {
+        int numSplits = 0;
+        for (TaskSource taskSource : sources) {
+            numSplits = Math.max(numSplits, taskSource.getSplits().size());
+        }
+        if (requestSize <= 0 || numSplits == 0) {
+            return;
+        }
+        if ((requestSize > expectedSize && splitBatchSize > guaranteedSplitsPerRequest) || (requestSize < expectedSize && splitBatchSize < maxUnacknowledgedSplits)) {
+            int newSplitBatchSize = (int) (numSplits * ((double) expectedSize / requestSize));
+            newSplitBatchSize = Math.max(guaranteedSplitsPerRequest, Math.min(maxUnacknowledgedSplits, newSplitBatchSize));
+            splitBatchSize = newSplitBatchSize;
+        }
     }
 
     private synchronized void sendUpdate()
@@ -614,6 +660,20 @@ public final class HttpRemoteTask
                 outputBuffers.get(),
                 dynamicFilterDomains.getDynamicFilterDomains());
         byte[] taskUpdateRequestJson = taskUpdateRequestCodec.toJsonBytes(updateRequest);
+
+        if (enableAdaptiveTaskRequestSize) {
+            int oldSplitBatchSize = splitBatchSize;
+            // try to adjust batch size to meet expected request size: (requestSizeLimit - requestSizeLimitHeadroom)
+            adjustSplitBatchSize(sources, taskUpdateRequestJson.length, maxRequestSize - requestSizeHeadroom);
+            // abandon current request and reschedule update if size of request body exceeds requestSizeLimit
+            // and splitBatchSize is updated
+            if (taskUpdateRequestJson.length > maxRequestSize && splitBatchSize < oldSplitBatchSize) {
+                log.debug("%s - current taskUpdateRequestJson exceeded limit: %d, abandon.", taskId, taskUpdateRequestJson.length);
+                scheduleUpdate();
+                return;
+            }
+        }
+
         if (fragment.isPresent()) {
             stats.updateWithPlanBytes(taskUpdateRequestJson.length);
         }
@@ -646,20 +706,35 @@ public final class HttpRemoteTask
 
     private synchronized List<TaskSource> getSources()
     {
-        return Stream.concat(planFragment.getPartitionedSourceNodes().stream(), planFragment.getRemoteSourceNodes().stream())
-                .filter(Objects::nonNull)
-                .map(PlanNode::getId)
-                .map(this::getSource)
-                .filter(Objects::nonNull)
-                .collect(toImmutableList());
+        return Stream.concat(
+                planFragment.getPartitionedSourceNodes().stream()
+                        .filter(Objects::nonNull)
+                        .map(PlanNode::getId)
+                        .map(planNodeId -> getSource(planNodeId, true)),
+                planFragment.getRemoteSourceNodes().stream()
+                        .filter(Objects::nonNull)
+                        .map(PlanNode::getId)
+                        .map(planNodeId -> getSource(planNodeId, false))
+        ).filter(Objects::nonNull).collect(toImmutableList());
     }
 
-    private synchronized TaskSource getSource(PlanNodeId planNodeId)
+    private synchronized TaskSource getSource(PlanNodeId planNodeId, boolean isPartitionedSource)
     {
         Set<ScheduledSplit> splits = pendingSplits.get(planNodeId);
         boolean pendingNoMoreSplits = Boolean.TRUE.equals(this.noMoreSplits.get(planNodeId));
         boolean noMoreSplits = this.noMoreSplits.containsKey(planNodeId);
         Set<Lifespan> noMoreSplitsForLifespan = pendingNoMoreSplitsForLifespan.get(planNodeId);
+
+        // only apply batchSize to partitioned sources
+        if (isPartitionedSource && splitBatchSize < splits.size()) {
+            splits = splits.stream()
+                    .sorted(Comparator.comparingLong(ScheduledSplit::getSequenceId))
+                    .limit(splitBatchSize)
+                    .collect(Collectors.toSet());
+            // if not last batch, we need to defer setting no more splits
+            noMoreSplits = false;
+            noMoreSplitsForLifespan = ImmutableSet.of();
+        }
 
         TaskSource element = null;
         if (!splits.isEmpty() || !noMoreSplitsForLifespan.isEmpty() || pendingNoMoreSplits) {

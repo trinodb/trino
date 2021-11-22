@@ -57,7 +57,11 @@ public class TestQueryManagerConfig
                 .setQueryMaxCpuTime(new Duration(1_000_000_000, DAYS))
                 .setQueryMaxScanPhysicalBytes(null)
                 .setRequiredWorkers(1)
-                .setRequiredWorkersMaxWait(new Duration(5, MINUTES)));
+                .setRequiredWorkersMaxWait(new Duration(5, MINUTES))
+                .setEnabledAdaptiveTaskRequestSize(false)
+                .setMaxRemoteTaskRequestSize(DataSize.of(8, DataSize.Unit.MEGABYTE))
+                .setRemoteTaskRequestSizeHeadroom(DataSize.of(2, DataSize.Unit.MEGABYTE))
+                .setRemoteTaskGuaranteedSplitPerTask(3));
     }
 
     @Test
@@ -87,6 +91,10 @@ public class TestQueryManagerConfig
                 .put("query.max-scan-physical-bytes", "1kB")
                 .put("query-manager.required-workers", "333")
                 .put("query-manager.required-workers-max-wait", "33m")
+                .put("query.remote-task.enable-adaptive-request-size", "true")
+                .put("query.remote-task.max-request-size", "10MB")
+                .put("query.remote-task.request-size-headroom", "1MB")
+                .put("query.remote-task.guaranteed-splits-per-task", "5")
                 .build();
 
         QueryManagerConfig expected = new QueryManagerConfig()
@@ -112,7 +120,11 @@ public class TestQueryManagerConfig
                 .setQueryMaxCpuTime(new Duration(2, DAYS))
                 .setQueryMaxScanPhysicalBytes(DataSize.of(1, KILOBYTE))
                 .setRequiredWorkers(333)
-                .setRequiredWorkersMaxWait(new Duration(33, MINUTES));
+                .setRequiredWorkersMaxWait(new Duration(33, MINUTES))
+                .setEnabledAdaptiveTaskRequestSize(true)
+                .setMaxRemoteTaskRequestSize(DataSize.of(10, DataSize.Unit.MEGABYTE))
+                .setRemoteTaskRequestSizeHeadroom(DataSize.of(1, DataSize.Unit.MEGABYTE))
+                .setRemoteTaskGuaranteedSplitPerTask(5);
 
         assertFullMapping(properties, expected);
     }

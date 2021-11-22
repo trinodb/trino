@@ -13,10 +13,12 @@
  */
 package io.trino.server.remotetask;
 
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Multimap;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Module;
@@ -28,6 +30,7 @@ import io.airlift.jaxrs.testing.JaxrsTestingHttpProcessor;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonModule;
 import io.airlift.units.Duration;
+import io.trino.Session;
 import io.trino.block.BlockJsonSerde;
 import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogName;
@@ -112,15 +115,21 @@ import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.SystemSessionProperties.ENABLE_ADAPTIVE_REMOTE_TASK_REQUEST_SIZE;
+import static io.trino.SystemSessionProperties.MAX_REMOTE_TASK_REQUEST_SIZE;
+import static io.trino.SystemSessionProperties.REMOTE_TASK_GUARANTEED_SPLITS_PER_REQUEST;
+import static io.trino.SystemSessionProperties.REMOTE_TASK_REQUEST_SIZE_HEADROOM;
 import static io.trino.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS_VERSION;
 import static io.trino.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
 import static io.trino.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.server.InternalHeaders.TRINO_CURRENT_VERSION;
 import static io.trino.server.InternalHeaders.TRINO_MAX_WAIT;
 import static io.trino.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static io.trino.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.Math.min;
@@ -365,6 +374,52 @@ public class TestHttpRemoteTask
         dynamicFilterService.stop();
     }
 
+    @Test(timeOut = 300000)
+    public void testAdaptiveRemoteTaskRequestSize()
+            throws Exception
+    {
+        AtomicLong lastActivityNanos = new AtomicLong(System.nanoTime());
+        TestingTaskResource testingTaskResource = new TestingTaskResource(lastActivityNanos, FailureScenario.NO_FAILURE);
+
+        Session session = testSessionBuilder()
+                .setCatalog("tpch")
+                .setSchema(TINY_SCHEMA_NAME)
+                .setSystemProperty(ENABLE_ADAPTIVE_REMOTE_TASK_REQUEST_SIZE, "true")
+                .setSystemProperty(MAX_REMOTE_TASK_REQUEST_SIZE, "8kB")
+                .setSystemProperty(REMOTE_TASK_REQUEST_SIZE_HEADROOM, "2kB")
+                .setSystemProperty(REMOTE_TASK_GUARANTEED_SPLITS_PER_REQUEST, "2")
+                .build();
+        HttpRemoteTaskFactory httpRemoteTaskFactory = createHttpRemoteTaskFactory(testingTaskResource);
+
+        RemoteTask remoteTask = createRemoteTask(httpRemoteTaskFactory, ImmutableSet.of(), session);
+
+        testingTaskResource.setInitialTaskInfo(remoteTask.getTaskInfo());
+        remoteTask.start();
+
+        Lifespan lifespan = Lifespan.driverGroup(3);
+
+        Multimap<PlanNodeId, Split> splits = HashMultimap.create();
+        for (int i = 0; i < 1000; i++) {
+            splits.put(TABLE_SCAN_NODE_ID, new Split(new CatalogName("test"), TestingSplit.createLocalSplit(), lifespan));
+        }
+        remoteTask.addSplits(splits);
+
+        poll(() -> testingTaskResource.getTaskSource(TABLE_SCAN_NODE_ID) != null);
+        poll(() -> testingTaskResource.getTaskSource(TABLE_SCAN_NODE_ID).getSplits().size() == 1000);
+
+        remoteTask.noMoreSplits(TABLE_SCAN_NODE_ID, lifespan);
+        poll(() -> testingTaskResource.getTaskSource(TABLE_SCAN_NODE_ID).getNoMoreSplitsForLifespan().size() == 1);
+
+        remoteTask.noMoreSplits(TABLE_SCAN_NODE_ID);
+        poll(() -> testingTaskResource.getTaskSource(TABLE_SCAN_NODE_ID).isNoMoreSplits());
+
+        remoteTask.cancel();
+        poll(() -> remoteTask.getTaskStatus().getState().isDone());
+        poll(() -> remoteTask.getTaskInfo().getTaskStatus().getState().isDone());
+
+        httpRemoteTaskFactory.stop();
+    }
+
     private void runTest(FailureScenario failureScenario)
             throws Exception
     {
@@ -410,8 +465,13 @@ public class TestHttpRemoteTask
 
     private RemoteTask createRemoteTask(HttpRemoteTaskFactory httpRemoteTaskFactory, Set<DynamicFilterId> outboundDynamicFilterIds)
     {
+        return createRemoteTask(httpRemoteTaskFactory, outboundDynamicFilterIds, TEST_SESSION);
+    }
+
+    private RemoteTask createRemoteTask(HttpRemoteTaskFactory httpRemoteTaskFactory, Set<DynamicFilterId> outboundDynamicFilterIds, Session session)
+    {
         return httpRemoteTaskFactory.createRemoteTask(
-                TEST_SESSION,
+                session,
                 new TaskId("test", 1, 2),
                 new InternalNode("node-id", URI.create("http://fake.invalid/"), new NodeVersion("version"), false),
                 TaskTestUtils.PLAN_FRAGMENT,

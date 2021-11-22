@@ -133,7 +133,7 @@ public class SqlTaskExecution
     private final ConcurrentMap<PlanNodeId, TaskSource> unpartitionedSources = new ConcurrentHashMap<>();
 
     @GuardedBy("this")
-    private long maxAcknowledgedSplit = Long.MIN_VALUE;
+    private final Map<PlanNodeId, Long> maxAcknowledgedSplitByPlanNode = new HashMap<>();
 
     @GuardedBy("this")
     private final SchedulingLifespanManager schedulingLifespanManager;
@@ -325,12 +325,11 @@ public class SqlTaskExecution
         Map<PlanNodeId, TaskSource> updatedUnpartitionedSources = new HashMap<>();
 
         // first remove any split that was already acknowledged
-        long currentMaxAcknowledgedSplit = this.maxAcknowledgedSplit;
         sources = sources.stream()
                 .map(source -> new TaskSource(
                         source.getPlanNodeId(),
                         source.getSplits().stream()
-                                .filter(scheduledSplit -> scheduledSplit.getSequenceId() > currentMaxAcknowledgedSplit)
+                                .filter(scheduledSplit -> scheduledSplit.getSequenceId() > maxAcknowledgedSplitByPlanNode.getOrDefault(source.getPlanNodeId(), Long.MIN_VALUE))
                                 .collect(Collectors.toSet()),
                         // Like splits, noMoreSplitsForLifespan could be pruned so that only new items will be processed.
                         // This is not happening here because correctness won't be compromised due to duplicate events for noMoreSplitsForLifespan.
@@ -354,11 +353,18 @@ public class SqlTaskExecution
         }
 
         // update maxAcknowledgedSplit
-        maxAcknowledgedSplit = sources.stream()
-                .flatMap(source -> source.getSplits().stream())
-                .mapToLong(ScheduledSplit::getSequenceId)
-                .max()
-                .orElse(maxAcknowledgedSplit);
+        for (TaskSource taskSource : sources) {
+            long maxAcknowledgedSplit = taskSource.getSplits().stream()
+                    .mapToLong(ScheduledSplit::getSequenceId)
+                    .max()
+                    .orElse(Long.MIN_VALUE);
+            PlanNodeId planNodeId = taskSource.getPlanNodeId();
+
+            if (!maxAcknowledgedSplitByPlanNode.containsKey(planNodeId)) {
+                maxAcknowledgedSplitByPlanNode.put(planNodeId, Long.MIN_VALUE);
+            }
+            maxAcknowledgedSplitByPlanNode.computeIfPresent(planNodeId, (key, val) -> maxAcknowledgedSplit > val ? maxAcknowledgedSplit : val);
+        }
         return updatedUnpartitionedSources;
     }
 

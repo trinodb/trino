@@ -58,6 +58,11 @@ public class QueryManagerConfig
     private Duration remoteTaskMaxErrorDuration = new Duration(5, TimeUnit.MINUTES);
     private int remoteTaskMaxCallbackThreads = 1000;
 
+    private boolean enabledAdaptiveTaskRequestSize;
+    private DataSize maxRemoteTaskRequestSize = DataSize.of(8, DataSize.Unit.MEGABYTE);
+    private DataSize remoteTaskRequestSizeHeadroom = DataSize.of(2, DataSize.Unit.MEGABYTE);
+    private int remoteTaskGuaranteedSplitPerTask = 3;
+
     private String queryExecutionPolicy = "all-at-once";
     private Duration queryMaxRunTime = new Duration(100, TimeUnit.DAYS);
     private Duration queryMaxExecutionTime = new Duration(100, TimeUnit.DAYS);
@@ -335,6 +340,57 @@ public class QueryManagerConfig
     public QueryManagerConfig setRemoteTaskMaxCallbackThreads(int remoteTaskMaxCallbackThreads)
     {
         this.remoteTaskMaxCallbackThreads = remoteTaskMaxCallbackThreads;
+        return this;
+    }
+
+    public boolean isEnabledAdaptiveTaskRequestSize()
+    {
+        return enabledAdaptiveTaskRequestSize;
+    }
+
+    @Config("query.remote-task.enable-adaptive-request-size")
+    public QueryManagerConfig setEnabledAdaptiveTaskRequestSize(boolean enabledAdaptiveTaskRequestSize)
+    {
+        this.enabledAdaptiveTaskRequestSize = enabledAdaptiveTaskRequestSize;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getMaxRemoteTaskRequestSize()
+    {
+        return maxRemoteTaskRequestSize;
+    }
+
+    @Config("query.remote-task.max-request-size")
+    public QueryManagerConfig setMaxRemoteTaskRequestSize(DataSize maxRemoteTaskRequestSize)
+    {
+        this.maxRemoteTaskRequestSize = maxRemoteTaskRequestSize;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getRemoteTaskRequestSizeHeadroom()
+    {
+        return remoteTaskRequestSizeHeadroom;
+    }
+
+    @Config("query.remote-task.request-size-headroom")
+    public QueryManagerConfig setRemoteTaskRequestSizeHeadroom(DataSize remoteTaskRequestSizeHeadroom)
+    {
+        this.remoteTaskRequestSizeHeadroom = remoteTaskRequestSizeHeadroom;
+        return this;
+    }
+
+    @Min(1)
+    public int getRemoteTaskGuaranteedSplitPerTask()
+    {
+        return remoteTaskGuaranteedSplitPerTask;
+    }
+
+    @Config("query.remote-task.guaranteed-splits-per-task")
+    public QueryManagerConfig setRemoteTaskGuaranteedSplitPerTask(int remoteTaskGuaranteedSplitPerTask)
+    {
+        this.remoteTaskGuaranteedSplitPerTask = remoteTaskGuaranteedSplitPerTask;
         return this;
     }
 

@@ -144,6 +144,10 @@ public final class SystemSessionProperties
     public static final String TIME_ZONE_ID = "time_zone_id";
     public static final String LEGACY_CATALOG_ROLES = "legacy_catalog_roles";
     public static final String INCREMENTAL_HASH_ARRAY_LOAD_FACTOR_ENABLED = "incremental_hash_array_load_factor_enabled";
+    public static final String ENABLE_ADAPTIVE_REMOTE_TASK_REQUEST_SIZE = "enable_adaptive_remote_task_request_size";
+    public static final String MAX_REMOTE_TASK_REQUEST_SIZE = "max_remote_task_request_size";
+    public static final String REMOTE_TASK_REQUEST_SIZE_HEADROOM = "remote_task_request_size_headroom";
+    public static final String REMOTE_TASK_GUARANTEED_SPLITS_PER_REQUEST = "remote_task_guaranteed_splits_per_request";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -666,6 +670,26 @@ public final class SystemSessionProperties
                         INCREMENTAL_HASH_ARRAY_LOAD_FACTOR_ENABLED,
                         "Use smaller load factor for small hash arrays in order to improve performance",
                         featuresConfig.isIncrementalHashArrayLoadFactorEnabled(),
+                        false),
+                booleanProperty(
+                        ENABLE_ADAPTIVE_REMOTE_TASK_REQUEST_SIZE,
+                        "Experimental: Enable adaptive adjustment for size of remote task update request",
+                        queryManagerConfig.isEnabledAdaptiveTaskRequestSize(),
+                        false),
+                dataSizeProperty(
+                        MAX_REMOTE_TASK_REQUEST_SIZE,
+                        "Experimental: Max size of remote task update request",
+                        queryManagerConfig.getMaxRemoteTaskRequestSize(),
+                        false),
+                dataSizeProperty(
+                        REMOTE_TASK_REQUEST_SIZE_HEADROOM,
+                        "Experimental: Headroom for size of remote task update request",
+                        queryManagerConfig.getRemoteTaskRequestSizeHeadroom(),
+                        false),
+                integerProperty(
+                        REMOTE_TASK_GUARANTEED_SPLITS_PER_REQUEST,
+                        "Guaranteed splits per remote task request",
+                        queryManagerConfig.getRemoteTaskGuaranteedSplitPerTask(),
                         false));
     }
 
@@ -1183,5 +1207,25 @@ public final class SystemSessionProperties
     public static boolean isIncrementalHashArrayLoadFactorEnabled(Session session)
     {
         return session.getSystemProperty(INCREMENTAL_HASH_ARRAY_LOAD_FACTOR_ENABLED, Boolean.class);
+    }
+
+    public static boolean isEnableAdaptiveTaskRequestSize(Session session)
+    {
+        return session.getSystemProperty(ENABLE_ADAPTIVE_REMOTE_TASK_REQUEST_SIZE, Boolean.class);
+    }
+
+    public static DataSize getMaxRemoteTaskRequestSize(Session session)
+    {
+        return session.getSystemProperty(MAX_REMOTE_TASK_REQUEST_SIZE, DataSize.class);
+    }
+
+    public static DataSize getRemoteTaskRequestSizeHeadroom(Session session)
+    {
+        return session.getSystemProperty(REMOTE_TASK_REQUEST_SIZE_HEADROOM, DataSize.class);
+    }
+
+    public static int getRemoteTaskGuaranteedSplitsPerRequest(Session session)
+    {
+        return session.getSystemProperty(REMOTE_TASK_GUARANTEED_SPLITS_PER_REQUEST, Integer.class);
     }
 }
