@@ -161,9 +161,7 @@ public class TopologyAwareNodeSelectorFactory
             }
             try {
                 byHostAndPort.put(node.getHostAndPort(), node);
-
-                InetAddress host = InetAddress.getByName(node.getInternalUri().getHost());
-                byHost.put(host, node);
+                byHost.put(node.getInternalAddress(), node);
             }
             catch (UnknownHostException e) {
                 if (inaccessibleNodeLogCache.getIfPresent(node) == null) {
