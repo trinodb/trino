@@ -100,6 +100,7 @@
         <module>docs</module>
         <module>lib/trino-array</module>
         <module>lib/trino-collect</module>
+        <module>lib/trino-errorprone</module>
         <module>lib/trino-filesystem</module>
         <module>lib/trino-geospatial-toolkit</module>
         <module>lib/trino-hadoop-toolkit</module>
@@ -2111,6 +2112,11 @@
                                     <groupId>com.google.errorprone</groupId>
                                     <artifactId>error_prone_core</artifactId>
                                     <version>${dep.errorprone.version}</version>
+                                </path>
+                                <path>
+                                    <groupId>io.trino</groupId>
+                                    <artifactId>trino-errorprone</artifactId>
+                                    <version>${project.version}</version>
                                 </path>
                             </annotationProcessorPaths>
                         </configuration>
