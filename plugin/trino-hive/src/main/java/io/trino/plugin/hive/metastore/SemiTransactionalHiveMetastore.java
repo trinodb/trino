@@ -1120,7 +1120,7 @@ public class SemiTransactionalHiveMetastore
         SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
         Action<TableAndMore> tableAction = tableActions.get(schemaTableName);
         if (tableAction == null) {
-            return delegate.listTablePrivileges(databaseName, tableName, getRequiredTableOwner(identity, databaseName, tableName), principal);
+            return delegate.listTablePrivileges(databaseName, tableName, getExistingTable(identity, databaseName, tableName).getOwner(), principal);
         }
         switch (tableAction.getType()) {
             case ADD:
@@ -1128,19 +1128,24 @@ public class SemiTransactionalHiveMetastore
                 if (principal.isPresent() && principal.get().getType() == PrincipalType.ROLE) {
                     return ImmutableSet.of();
                 }
-                String owner = tableAction.getData().getTable().getOwner().orElseThrow();
-                if (principal.isPresent() && !principal.get().getName().equals(owner)) {
+                Optional<String> owner = tableAction.getData().getTable().getOwner();
+                if (owner.isEmpty()) {
+                    // todo the existing logic below seem off. Only permissions held by the table owner are returned
                     return ImmutableSet.of();
                 }
-                Collection<HivePrivilegeInfo> privileges = tableAction.getData().getPrincipalPrivileges().getUserPrivileges().get(owner);
+                String ownerUsername = owner.orElseThrow();
+                if (principal.isPresent() && !principal.get().getName().equals(ownerUsername)) {
+                    return ImmutableSet.of();
+                }
+                Collection<HivePrivilegeInfo> privileges = tableAction.getData().getPrincipalPrivileges().getUserPrivileges().get(ownerUsername);
                 return ImmutableSet.<HivePrivilegeInfo>builder()
                         .addAll(privileges)
-                        .add(new HivePrivilegeInfo(OWNERSHIP, true, new HivePrincipal(USER, owner), new HivePrincipal(USER, owner)))
+                        .add(new HivePrivilegeInfo(OWNERSHIP, true, new HivePrincipal(USER, ownerUsername), new HivePrincipal(USER, ownerUsername)))
                         .build();
             case INSERT_EXISTING:
             case DELETE_ROWS:
             case UPDATE:
-                return delegate.listTablePrivileges(databaseName, tableName, getRequiredTableOwner(identity, databaseName, tableName), principal);
+                return delegate.listTablePrivileges(databaseName, tableName, getExistingTable(identity, databaseName, tableName).getOwner(), principal);
             case DROP:
                 throw new TableNotFoundException(schemaTableName);
             case DROP_PRESERVE_DATA:
