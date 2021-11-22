@@ -702,8 +702,6 @@ public class IcebergMetadata
         Set<Integer> partitionSourceIds = identityPartitionColumnsInAllSpecs(icebergTable);
         BiPredicate<IcebergColumnHandle, Domain> isIdentityPartition = (column, domain) -> partitionSourceIds.contains(column.getId());
 
-        // TODO: Avoid enforcing the constraint when partition filters have large IN expressions, since iceberg cannot
-        // support it. Such large expressions cannot be simplified since simplification changes the filtered set.
         TupleDomain<IcebergColumnHandle> newEnforcedConstraint = constraint.getSummary()
                 .transformKeys(IcebergColumnHandle.class::cast)
                 .filter(isIdentityPartition)

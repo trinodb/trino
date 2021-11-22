@@ -1067,7 +1067,7 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
-    public void testLargeInFailureOnPartitionedColumns()
+    public void testLargeInOnPartitionedColumns()
     {
         assertUpdate("CREATE TABLE test_large_in_failure (col1 BIGINT, col2 BIGINT) WITH (partitioning = ARRAY['col2'])");
         assertUpdate("INSERT INTO test_large_in_failure VALUES (1, 10)", 1L);
@@ -1076,11 +1076,9 @@ public abstract class BaseIcebergConnectorTest
         List<String> predicates = IntStream.range(0, 25_000).boxed()
                 .map(Object::toString)
                 .collect(toImmutableList());
-
         String filter = format("col2 IN (%s)", join(",", predicates));
-        assertThatThrownBy(() -> getQueryRunner().execute(format("SELECT * FROM test_large_in_failure WHERE %s", filter)))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessage("java.lang.StackOverflowError");
+        assertThat(query("SELECT * FROM test_large_in_failure WHERE " + filter))
+                .matches("TABLE test_large_in_failure");
 
         dropTable("test_large_in_failure");
     }
