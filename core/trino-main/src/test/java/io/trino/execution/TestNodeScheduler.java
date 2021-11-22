@@ -735,8 +735,8 @@ public class TestNodeScheduler
 
         ImmutableSetMultimap.Builder<InetAddress, InternalNode> nodesByHost = ImmutableSetMultimap.builder();
         try {
-            nodesByHost.put(InetAddress.getByName(node1.getInternalUri().getHost()), node1);
-            nodesByHost.put(InetAddress.getByName(node2.getInternalUri().getHost()), node2);
+            nodesByHost.put(node1.getInternalAddress(), node1);
+            nodesByHost.put(node2.getInternalAddress(), node2);
         }
         catch (UnknownHostException e) {
             System.out.println("Could not convert the address");
