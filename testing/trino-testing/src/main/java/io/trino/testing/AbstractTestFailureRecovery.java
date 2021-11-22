@@ -118,6 +118,8 @@ public abstract class AbstractTestFailureRecovery
 
     protected abstract void createPartitionedLineitemTable(String tableName, List<String> columns, String partitionColumn);
 
+    protected abstract boolean areWriteRetriesSupported();
+
     @Test(invocationCount = INVOCATION_COUNT)
     public void testSimpleSelect()
     {
@@ -264,10 +266,12 @@ public abstract class AbstractTestFailureRecovery
     @Test(invocationCount = INVOCATION_COUNT)
     public void testAnalyzeStatistics()
     {
-        testTableModification(
+        testNonSelect(
+                Optional.empty(),
                 Optional.of("CREATE TABLE <table> AS SELECT * FROM orders"),
                 "ANALYZE <table>",
-                Optional.of("DROP TABLE <table>"));
+                Optional.of("DROP TABLE <table>"),
+                false);
     }
 
     @Test(invocationCount = INVOCATION_COUNT)
@@ -311,21 +315,23 @@ public abstract class AbstractTestFailureRecovery
                 .failsWithoutRetries(failure -> failure.hasMessageContaining("Encountered too many errors talking to a worker node"))
                 .finishesSuccessfully();
 
-        assertThatQuery("INSERT INTO <table> SELECT * FROM orders")
-                .withSetupQuery(Optional.of("CREATE TABLE <table> AS SELECT * FROM orders WITH NO DATA"))
-                .withCleanupQuery(Optional.of("DROP TABLE <table>"))
-                .experiencing(TASK_MANAGEMENT_REQUEST_TIMEOUT)
-                .at(boundaryDistributedStage())
-                .failsWithoutRetries(failure -> failure.hasMessageContaining("Encountered too many errors talking to a worker node"))
-                .finishesSuccessfully();
+        if (areWriteRetriesSupported()) {
+            assertThatQuery("INSERT INTO <table> SELECT * FROM orders")
+                    .withSetupQuery(Optional.of("CREATE TABLE <table> AS SELECT * FROM orders WITH NO DATA"))
+                    .withCleanupQuery(Optional.of("DROP TABLE <table>"))
+                    .experiencing(TASK_MANAGEMENT_REQUEST_TIMEOUT)
+                    .at(boundaryDistributedStage())
+                    .failsWithoutRetries(failure -> failure.hasMessageContaining("Encountered too many errors talking to a worker node"))
+                    .finishesSuccessfully();
 
-        assertThatQuery("INSERT INTO <table> SELECT * FROM orders")
-                .withSetupQuery(Optional.of("CREATE TABLE <table> AS SELECT * FROM orders WITH NO DATA"))
-                .withCleanupQuery(Optional.of("DROP TABLE <table>"))
-                .experiencing(TASK_GET_RESULTS_REQUEST_TIMEOUT)
-                .at(boundaryDistributedStage())
-                .failsWithoutRetries(failure -> failure.hasMessageContaining("Encountered too many errors talking to a worker node"))
-                .finishesSuccessfully();
+            assertThatQuery("INSERT INTO <table> SELECT * FROM orders")
+                    .withSetupQuery(Optional.of("CREATE TABLE <table> AS SELECT * FROM orders WITH NO DATA"))
+                    .withCleanupQuery(Optional.of("DROP TABLE <table>"))
+                    .experiencing(TASK_GET_RESULTS_REQUEST_TIMEOUT)
+                    .at(boundaryDistributedStage())
+                    .failsWithoutRetries(failure -> failure.hasMessageContaining("Encountered too many errors talking to a worker node"))
+                    .finishesSuccessfully();
+        }
     }
 
     protected void testTableModification(Optional<String> setupQuery, String query, Optional<String> cleanupQuery)
@@ -335,6 +341,21 @@ public abstract class AbstractTestFailureRecovery
 
     protected void testTableModification(Optional<Session> session, Optional<String> setupQuery, String query, Optional<String> cleanupQuery)
     {
+        testNonSelect(session, setupQuery, query, cleanupQuery, true);
+    }
+
+    protected void testNonSelect(Optional<Session> session, Optional<String> setupQuery, String query, Optional<String> cleanupQuery, boolean writesData)
+    {
+        if (writesData && !areWriteRetriesSupported()) {
+            // if retries are not supported assert on that and skip actual failures simulation
+            assertThatQuery(query)
+                    .withSession(session)
+                    .withSetupQuery(setupQuery)
+                    .withCleanupQuery(cleanupQuery)
+                    .failsDespiteRetries(failure -> failure.hasMessageMatching("This connector does not support query retries"));
+            return;
+        }
+
         assertThatQuery(query)
                 .withSession(session)
                 .withSetupQuery(setupQuery)
