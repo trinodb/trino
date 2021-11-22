@@ -515,7 +515,6 @@ public class PagesIndex
                     searchFunctionFactories);
         }
 
-        // if compilation fails
         PagesHashStrategy hashStrategy = new SimplePagesHashStrategy(
                 types,
                 outputChannels.orElse(rangeList(types.size())),
