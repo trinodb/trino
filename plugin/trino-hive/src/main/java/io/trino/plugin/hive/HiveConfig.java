@@ -64,6 +64,8 @@ public class HiveConfig
 {
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
 
+    private boolean singleStatementWritesOnly;
+
     private DataSize maxSplitSize = DataSize.of(64, MEGABYTE);
     private int maxPartitionsPerScan = 100_000;
     private int maxOutstandingSplits = 1_000;
@@ -163,6 +165,19 @@ public class HiveConfig
 
     private boolean sizeBasedSplitWeightsEnabled = true;
     private double minimumAssignedSplitWeight = 0.05;
+
+    public boolean isSingleStatementWritesOnly()
+    {
+        return singleStatementWritesOnly;
+    }
+
+    @Config("hive.single-statement-writes")
+    @ConfigDescription("Require transaction to be in auto-commit mode for writes")
+    public HiveConfig setSingleStatementWritesOnly(boolean singleStatementWritesOnly)
+    {
+        this.singleStatementWritesOnly = singleStatementWritesOnly;
+        return this;
+    }
 
     public int getMaxInitialSplits()
     {
