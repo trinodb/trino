@@ -36,6 +36,11 @@ public class TestHiveFailureRecovery
     {
         return HiveQueryRunner.builder()
                 .setInitialTables(requiredTpchTables)
+                .setInitialTablesSessionMutator(
+                        // create initial tables with retries disbabled (write operations do not support retries yet)
+                        session -> Session.builder(session)
+                                .setSystemProperty("retry_policy", "NONE")
+                                .build())
                 .setCoordinatorProperties(coordinatorProperties)
                 .setExtraProperties(configProperties)
                 .build();
@@ -50,6 +55,12 @@ public class TestHiveFailureRecovery
                 partitionColumn,
                 String.join(",", columns));
         getQueryRunner().execute(sql);
+    }
+
+    @Override
+    protected boolean areWriteRetriesSupported()
+    {
+        return false;
     }
 
     @Override
@@ -143,7 +154,6 @@ public class TestHiveFailureRecovery
     }
 
     @Test(invocationCount = INVOCATION_COUNT)
-    // delete is unsupported for non ACID tables
     public void testDeletePartitionWithSubquery()
     {
         assertThatThrownBy(() -> {
