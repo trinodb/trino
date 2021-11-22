@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSet.Builder;
 import com.google.common.collect.Sets;
 import com.google.common.io.ByteStreams;
 import io.airlift.json.JsonCodec;
@@ -1094,16 +1095,15 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, String tableOwner, Optional<HivePrincipal> principal)
+    public synchronized Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, Optional<String> tableOwner, Optional<HivePrincipal> principal)
     {
         Table table = getRequiredTable(databaseName, tableName);
         Path permissionsDirectory = getPermissionsDirectory(table);
         if (principal.isEmpty()) {
-            HivePrincipal owner = new HivePrincipal(USER, tableOwner);
-            return ImmutableSet.<HivePrivilegeInfo>builder()
-                    .addAll(readAllPermissions(permissionsDirectory))
-                    .add(new HivePrivilegeInfo(OWNERSHIP, true, owner, owner))
-                    .build();
+            Builder<HivePrivilegeInfo> privileges = ImmutableSet.<HivePrivilegeInfo>builder()
+                    .addAll(readAllPermissions(permissionsDirectory));
+            tableOwner.ifPresent(owner -> privileges.add(new HivePrivilegeInfo(OWNERSHIP, true, new HivePrincipal(USER, owner), new HivePrincipal(USER, owner))));
+            return privileges.build();
         }
         ImmutableSet.Builder<HivePrivilegeInfo> result = ImmutableSet.builder();
         if (principal.get().getType() == USER && table.getOwner().orElseThrow().equals(principal.get().getName())) {
@@ -1122,7 +1122,7 @@ public class FileHiveMetastore
     @Override
     public synchronized void revokeTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges)
     {
-        Set<HivePrivilegeInfo> currentPrivileges = listTablePrivileges(databaseName, tableName, tableOwner, Optional.of(grantee));
+        Set<HivePrivilegeInfo> currentPrivileges = listTablePrivileges(databaseName, tableName, Optional.of(tableOwner), Optional.of(grantee));
         Set<HivePrivilegeInfo> privilegesToRemove = privileges.stream()
                 .map(p -> new HivePrivilegeInfo(p.getHivePrivilege(), p.isGrantOption(), p.getGrantor(), grantee))
                 .collect(toImmutableSet());
