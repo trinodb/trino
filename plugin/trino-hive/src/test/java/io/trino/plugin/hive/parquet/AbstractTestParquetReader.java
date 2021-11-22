@@ -29,7 +29,6 @@ import io.trino.spi.type.SqlDecimal;
 import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.SqlVarbinary;
 import io.trino.spi.type.Type;
-import io.trino.testng.services.Flaky;
 import org.apache.hadoop.hive.common.type.Date;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.common.type.Timestamp;
@@ -538,7 +537,6 @@ public abstract class AbstractTestParquetReader
     }
 
     @Test
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/4063", match = "struct field values cannot be empty")
     public void testComplexNestedStructs()
             throws Exception
     {
