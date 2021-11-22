@@ -14,7 +14,6 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedResult;
@@ -26,7 +25,6 @@ import org.testng.annotations.Test;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestParquetPageSkipping
@@ -174,8 +172,7 @@ public class TestParquetPageSkipping
                     assertThat(queryStats.getPhysicalInputPositions()).isGreaterThan(0);
                     assertThat(queryStats.getProcessedInputPositions()).isEqualTo(queryStats.getPhysicalInputPositions());
                 },
-                results -> assertThat(results.getRowCount()).isEqualTo(0),
-                new Duration(10, SECONDS));
+                results -> assertThat(results.getRowCount()).isEqualTo(0));
 
         assertQueryStats(
                 getSession(),
@@ -184,8 +181,7 @@ public class TestParquetPageSkipping
                     assertThat(queryStats.getPhysicalInputPositions()).isEqualTo(0);
                     assertThat(queryStats.getProcessedInputPositions()).isEqualTo(0);
                 },
-                results -> assertThat(results.getRowCount()).isEqualTo(0),
-                new Duration(10, SECONDS));
+                results -> assertThat(results.getRowCount()).isEqualTo(0));
     }
 
     @DataProvider
