@@ -11,26 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator;
+package io.trino.spi.connector;
 
-import io.trino.spi.connector.RetryMode;
-
-public enum RetryPolicy
+public enum RetryMode
 {
-    TASK(RetryMode.RETRIES_ENABLED),
-    QUERY(RetryMode.RETRIES_ENABLED),
-    NONE(RetryMode.NO_RETRIES),
-    /**/;
-
-    private final RetryMode retryMode;
-
-    RetryPolicy(RetryMode retryMode)
-    {
-        this.retryMode = retryMode;
-    }
-
-    public RetryMode getRetryMode()
-    {
-        return this.retryMode;
-    }
+    NO_RETRIES,
+    RETRIES_ENABLED,
 }
