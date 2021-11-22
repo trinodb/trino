@@ -116,11 +116,6 @@ public abstract class BaseSqlServerConnectorTest
             return Optional.of(dataMappingTestSetup.asUnsupported());
         }
 
-        if (typeName.equals("varbinary")) {
-            // TODO this should either work or fail cleanly
-            return Optional.empty();
-        }
-
         return Optional.of(dataMappingTestSetup);
     }
 
