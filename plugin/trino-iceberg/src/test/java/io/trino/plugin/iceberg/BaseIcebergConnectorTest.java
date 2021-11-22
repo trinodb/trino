@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
@@ -43,7 +42,6 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.ResultWithQueryId;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
-import io.trino.testng.services.Flaky;
 import io.trino.tpch.TpchTable;
 import org.apache.avro.Schema;
 import org.apache.avro.file.DataFileReader;
@@ -66,7 +64,6 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.regex.Matcher;
@@ -105,7 +102,6 @@ import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.apache.iceberg.FileFormat.ORC;
@@ -2427,7 +2423,6 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5172", match = "Couldn't find operator summary, probably due to query statistic collection error")
     public void testSplitPruningForFilterOnPartitionColumn()
     {
         String tableName = "nation_partitioned_pruning";
@@ -2726,22 +2721,19 @@ public abstract class BaseIcebergConnectorTest
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, FeaturesConfig.JoinDistributionType.BROADCAST.name())
                 .build();
 
-        // TODO (https://github.com/trinodb/trino/issues/5172): remove assertEventually
-        assertEventually(() -> {
-            ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
-                    session,
-                    "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.totalprice = 974.04");
-            assertEquals(result.getResult().getRowCount(), 1);
+        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
+                session,
+                "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.totalprice = 974.04");
+        assertEquals(result.getResult().getRowCount(), 1);
 
-            OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(
-                    result.getQueryId(),
-                    new QualifiedObjectName(ICEBERG_CATALOG, "tpch", "lineitem"));
+        OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(
+                result.getQueryId(),
+                new QualifiedObjectName(ICEBERG_CATALOG, "tpch", "lineitem"));
 
-            // Assert no split level pruning occurs. If this starts failing a new totalprice may need to be selected
-            assertThat(probeStats.getTotalDrivers()).isEqualTo(numberOfFiles);
-            // Assert some lineitem rows were filtered out on file level
-            assertThat(probeStats.getInputPositions()).isLessThan(fullTableScan);
-        });
+        // Assert no split level pruning occurs. If this starts failing a new totalprice may need to be selected
+        assertThat(probeStats.getTotalDrivers()).isEqualTo(numberOfFiles);
+        // Assert some lineitem rows were filtered out on file level
+        assertThat(probeStats.getInputPositions()).isLessThan(fullTableScan);
     }
 
     @Test(dataProvider = "repartitioningDataProvider")
@@ -2861,7 +2853,6 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test(dataProvider = "testDataMappingSmokeTestDataProvider")
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5172", match = "Couldn't find operator summary, probably due to query statistic collection error")
     public void testSplitPruningForFilterOnNonPartitionColumn(DataMappingTestSetup testSetup)
     {
         if (testSetup.isUnsupportedType()) {
@@ -2923,34 +2914,26 @@ public abstract class BaseIcebergConnectorTest
 
     private void verifySplitCount(String query, int expectedSplitCount)
     {
-        // using assertEventually here as the operator stats mechanism is known to be best-effort and some late-stage stats are sometimes not recorded
-        // (see https://github.com/trinodb/trino/issues/5172)
-        assertEventually(new Duration(10, SECONDS), () -> {
-            ResultWithQueryId<MaterializedResult> selectAllPartitionsResult = getDistributedQueryRunner().executeWithQueryId(getSession(), query);
-            assertEqualsIgnoreOrder(selectAllPartitionsResult.getResult().getMaterializedRows(), computeActual(withoutPredicatePushdown(getSession()), query).getMaterializedRows());
-            verifySplitCount(selectAllPartitionsResult.getQueryId(), expectedSplitCount);
-        });
+        ResultWithQueryId<MaterializedResult> selectAllPartitionsResult = getDistributedQueryRunner().executeWithQueryId(getSession(), query);
+        assertEqualsIgnoreOrder(selectAllPartitionsResult.getResult().getMaterializedRows(), computeActual(withoutPredicatePushdown(getSession()), query).getMaterializedRows());
+        verifySplitCount(selectAllPartitionsResult.getQueryId(), expectedSplitCount);
     }
 
     private void verifyPredicatePushdownDataRead(@Language("SQL") String query, boolean supportsPushdown)
     {
-        // using assertEventually here as the operator stats mechanism is known to be best-effort and some late-stage stats are sometimes not recorded
-        // (see https://github.com/trinodb/trino/issues/5172)
-        assertEventually(new Duration(10, TimeUnit.SECONDS), () -> {
-            ResultWithQueryId<MaterializedResult> resultWithPredicatePushdown = getDistributedQueryRunner().executeWithQueryId(getSession(), query);
-            ResultWithQueryId<MaterializedResult> resultWithoutPredicatePushdown = getDistributedQueryRunner().executeWithQueryId(
-                    withoutPredicatePushdown(getSession()),
-                    query);
+        ResultWithQueryId<MaterializedResult> resultWithPredicatePushdown = getDistributedQueryRunner().executeWithQueryId(getSession(), query);
+        ResultWithQueryId<MaterializedResult> resultWithoutPredicatePushdown = getDistributedQueryRunner().executeWithQueryId(
+                withoutPredicatePushdown(getSession()),
+                query);
 
-            DataSize withPushdownDataSize = getOperatorStats(resultWithPredicatePushdown.getQueryId()).getInputDataSize();
-            DataSize withoutPushdownDataSize = getOperatorStats(resultWithoutPredicatePushdown.getQueryId()).getInputDataSize();
-            if (supportsPushdown) {
-                assertThat(withPushdownDataSize).isLessThan(withoutPushdownDataSize);
-            }
-            else {
-                assertThat(withPushdownDataSize).isEqualTo(withoutPushdownDataSize);
-            }
-        });
+        DataSize withPushdownDataSize = getOperatorStats(resultWithPredicatePushdown.getQueryId()).getInputDataSize();
+        DataSize withoutPushdownDataSize = getOperatorStats(resultWithoutPredicatePushdown.getQueryId()).getInputDataSize();
+        if (supportsPushdown) {
+            assertThat(withPushdownDataSize).isLessThan(withoutPushdownDataSize);
+        }
+        else {
+            assertThat(withPushdownDataSize).isEqualTo(withoutPushdownDataSize);
+        }
     }
 
     private Session withoutPredicatePushdown(Session session)
@@ -3164,7 +3147,6 @@ public abstract class BaseIcebergConnectorTest
             Session sessionWithoutPushdown = Session.builder(getSession())
                     .setCatalogSessionProperty(ICEBERG_CATALOG, "projection_pushdown_enabled", "false")
                     .build();
-            Duration timeout = new Duration(10, SECONDS);
 
             assertQueryStats(
                     getSession(),
@@ -3175,11 +3157,9 @@ public abstract class BaseIcebergConnectorTest
                                 sessionWithoutPushdown,
                                 selectQuery,
                                 statsWithoutPushdown -> assertThat(statsWithoutPushdown.getProcessedInputDataSize()).isGreaterThan(processedDataSizeWithPushdown),
-                                results -> assertEquals(results.getOnlyColumnAsSet(), expected),
-                                timeout);
+                                results -> assertEquals(results.getOnlyColumnAsSet(), expected));
                     },
-                    results -> assertEquals(results.getOnlyColumnAsSet(), expected),
-                    timeout);
+                    results -> assertEquals(results.getOnlyColumnAsSet(), expected));
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS projection_pushdown_reads_less_data");

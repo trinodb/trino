@@ -20,7 +20,6 @@ import io.trino.execution.QueryStats;
 import io.trino.operator.OperatorStats;
 import io.trino.spi.type.Decimals;
 import io.trino.sql.analyzer.FeaturesConfig;
-import io.trino.testng.services.Flaky;
 import io.trino.tests.QueryTemplate;
 import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
@@ -2303,7 +2302,6 @@ public abstract class AbstractTestJoinQueries
     }
 
     @Test
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5172", match = ".*expected.*but found.*")
     public void testOutputDuplicatesInsensitiveJoin()
     {
         assertJoinOutputPositions(
