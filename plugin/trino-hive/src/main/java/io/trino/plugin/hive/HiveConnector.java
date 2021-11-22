@@ -66,6 +66,7 @@ public class HiveConnector
     private final ClassLoader classLoader;
 
     private final HiveTransactionManager transactionManager;
+    private final boolean singleStatementWritesOnly;
 
     public HiveConnector(
             LifeCycleManager lifeCycleManager,
@@ -84,6 +85,7 @@ public class HiveConnector
             List<PropertyMetadata<?>> analyzeProperties,
             List<PropertyMetadata<?>> materializedViewProperties,
             Optional<ConnectorAccessControl> accessControl,
+            boolean singleStatementWritesOnly,
             ClassLoader classLoader)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
@@ -104,6 +106,7 @@ public class HiveConnector
         this.analyzeProperties = ImmutableList.copyOf(requireNonNull(analyzeProperties, "analyzeProperties is null"));
         this.materializedViewProperties = requireNonNull(materializedViewProperties, "materializedViewProperties is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
+        this.singleStatementWritesOnly = singleStatementWritesOnly;
         this.classLoader = requireNonNull(classLoader, "classLoader is null");
     }
 
@@ -196,7 +199,7 @@ public class HiveConnector
     @Override
     public boolean isSingleStatementWritesOnly()
     {
-        return false;
+        return singleStatementWritesOnly;
     }
 
     @Override

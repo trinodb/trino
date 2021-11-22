@@ -161,6 +161,7 @@ public final class InternalHiveConnectorFactory
                     hiveAnalyzeProperties.getAnalyzeProperties(),
                     hiveMaterializedViewPropertiesProvider.getMaterializedViewProperties(),
                     hiveAccessControl,
+                    injector.getInstance(HiveConfig.class).isSingleStatementWritesOnly(),
                     classLoader);
         }
     }
