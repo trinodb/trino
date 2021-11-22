@@ -338,7 +338,6 @@ public class TestMemoryConnectorTest
     }
 
     @Test
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5172", match = "Lists differ at element")
     public void testCrossJoinDynamicFiltering()
     {
         assertUpdate("DROP TABLE IF EXISTS probe");

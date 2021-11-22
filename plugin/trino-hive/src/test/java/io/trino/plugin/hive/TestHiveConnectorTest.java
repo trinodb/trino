@@ -22,7 +22,6 @@ import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
-import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.cost.StatsAndCosts;
@@ -159,7 +158,6 @@ import static java.util.Collections.nCopies;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toSet;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -4617,18 +4615,13 @@ public class TestHiveConnectorTest
                 format("SELECT * FROM %s WHERE t > %s", tableName, formatTimestamp(value)));
         assertEquals(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputDataSize().toBytes(), 0);
 
-        // TODO: replace this with a simple query stats check once we find a way to wait until all pending updates to query stats have been applied
-        // (might be fixed by https://github.com/trinodb/trino/issues/5172)
-        ExponentialSleeper sleeper = new ExponentialSleeper();
         assertQueryStats(
                 session,
                 format("SELECT * FROM %s WHERE t = %s", tableName, formatTimestamp(value)),
                 queryStats -> {
-                    sleeper.sleep();
                     assertThat(queryStats.getProcessedInputDataSize().toBytes()).isGreaterThan(0);
                 },
-                results -> {},
-                new Duration(30, SECONDS));
+                results -> {});
     }
 
     @Test(dataProvider = "timestampPrecisionAndValues")
@@ -4655,18 +4648,13 @@ public class TestHiveConnectorTest
 
         assertQuery(session, "SELECT * FROM test_orc_timestamp_predicate_pushdown WHERE t < " + formatTimestamp(value.plusNanos(1)), format("VALUES (%s)", formatTimestamp(value)));
 
-        // TODO: replace this with a simple query stats check once we find a way to wait until all pending updates to query stats have been applied
-        // (might be fixed by https://github.com/trinodb/trino/issues/5172)
-        ExponentialSleeper sleeper = new ExponentialSleeper();
         assertQueryStats(
                 session,
                 format("SELECT * FROM test_orc_timestamp_predicate_pushdown WHERE t = %s", formatTimestamp(value)),
                 queryStats -> {
-                    sleeper.sleep();
                     assertThat(queryStats.getProcessedInputDataSize().toBytes()).isGreaterThan(0);
                 },
-                results -> {},
-                new Duration(30, SECONDS));
+                results -> {});
     }
 
     private static String formatTimestamp(LocalDateTime timestamp)
@@ -4734,8 +4722,7 @@ public class TestHiveConnectorTest
                 getSession(),
                 sql,
                 queryStats -> assertThat(queryStats.getProcessedInputDataSize().toBytes()).isEqualTo(0),
-                results -> assertThat(results.getRowCount()).isEqualTo(0),
-                new Duration(5, SECONDS));
+                results -> assertThat(results.getRowCount()).isEqualTo(0));
     }
 
     private QueryInfo getQueryInfo(DistributedQueryRunner queryRunner, ResultWithQueryId<MaterializedResult> queryResult)
@@ -8466,50 +8453,6 @@ public class TestHiveConnectorTest
         {
             this.type = requireNonNull(type, "type is null");
             this.estimate = requireNonNull(estimate, "estimate is null");
-        }
-    }
-
-    private static class ExponentialSleeper
-    {
-        private Duration nextSleepTime;
-        private final Duration maxSleepTime;
-        private final Duration minSleepIncrement;
-        private final double sleepIncrementFactor;
-
-        ExponentialSleeper(Duration minSleepTime, Duration maxSleepTime, Duration minSleepIncrement, double sleepIncrementFactor)
-        {
-            this.nextSleepTime = minSleepTime;
-            this.maxSleepTime = maxSleepTime;
-            this.minSleepIncrement = minSleepIncrement;
-            this.sleepIncrementFactor = sleepIncrementFactor;
-        }
-
-        ExponentialSleeper()
-        {
-            this(
-                    new Duration(0, SECONDS),
-                    new Duration(5, SECONDS),
-                    new Duration(100, MILLISECONDS),
-                    2.0);
-        }
-
-        public void sleep()
-        {
-            try {
-                Thread.sleep(nextSleepTime.toMillis());
-                long incrementMillis = (long) (nextSleepTime.toMillis() * sleepIncrementFactor - nextSleepTime.toMillis());
-                if (incrementMillis < minSleepIncrement.toMillis()) {
-                    incrementMillis = minSleepIncrement.toMillis();
-                }
-                nextSleepTime = new Duration(nextSleepTime.toMillis() + incrementMillis, MILLISECONDS);
-                if (nextSleepTime.compareTo(maxSleepTime) > 0) {
-                    nextSleepTime = maxSleepTime;
-                }
-            }
-            catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new RuntimeException(e);
-            }
         }
     }
 
