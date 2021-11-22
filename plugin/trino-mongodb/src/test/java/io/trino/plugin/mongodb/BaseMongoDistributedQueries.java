@@ -18,8 +18,6 @@ import io.trino.testing.sql.TestTable;
 import org.testng.SkipException;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
-
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public abstract class BaseMongoDistributedQueries
@@ -86,17 +84,5 @@ public abstract class BaseMongoDistributedQueries
         }
 
         super.testColumnName(columnName);
-    }
-
-    @Override
-    protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
-    {
-        String typeName = dataMappingTestSetup.getTrinoTypeName();
-        if (typeName.equals("time")) {
-            // TODO this should either work or fail cleanly
-            return Optional.empty();
-        }
-
-        return Optional.of(dataMappingTestSetup);
     }
 }
