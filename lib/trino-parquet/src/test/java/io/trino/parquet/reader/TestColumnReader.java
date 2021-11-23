@@ -137,7 +137,7 @@ public class TestColumnReader
                 batchSkippers,
                 new Object[] {Optional.of(toRowRanges(range(56, 80), range(120, 200), range(350, 455), range(600, 940)))},
                 new Object[] {ImmutableList.of(range(50, 100), range(120, 275), range(290, 455), range(590, 800), range(801, 1000))});
-        return combine(rangesWithNoPageSkipped, rangesWithPagesSkipped);
+        return concat(rangesWithNoPageSkipped, rangesWithPagesSkipped);
     }
 
     private enum ColumnReaderInput
@@ -299,7 +299,7 @@ public class TestColumnReader
     /**
      * @return args concatenated together into a single Object[][]
      */
-    private static Object[][] combine(Object[][]... args)
+    private static Object[][] concat(Object[][]... args)
     {
         return Arrays.stream(args)
                 .flatMap(Arrays::stream)
