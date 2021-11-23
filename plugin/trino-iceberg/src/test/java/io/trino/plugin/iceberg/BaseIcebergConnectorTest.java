@@ -2375,7 +2375,7 @@ public abstract class BaseIcebergConnectorTest
             throws Exception
     {
         // Create a table with a single insert
-        assertUpdate("CREATE TABLE test_iceberg_file_size (x BIGINT) WITH (format='PARQUET')");
+        assertUpdate("CREATE TABLE test_iceberg_file_size (x BIGINT)");
         assertUpdate("INSERT INTO test_iceberg_file_size VALUES (123), (456), (758)", 3);
 
         // Get manifest file
@@ -2421,7 +2421,10 @@ public abstract class BaseIcebergConnectorTest
         assertQuery(session, "SELECT * FROM test_iceberg_file_size", "VALUES (123), (456), (758)");
 
         // Using Iceberg provided file size fails the query
-        assertQueryFails("SELECT * FROM test_iceberg_file_size", format("Error reading tail from .* with length %d", alteredValue));
+        assertQueryFails("SELECT * FROM test_iceberg_file_size",
+                format == ORC
+                        ? format(".*Error opening Iceberg split.*\\QIncorrect file size (%s) for file (end of stream not reached)\\E.*", alteredValue)
+                        : format("Error reading tail from .* with length %d", alteredValue));
 
         dropTable("test_iceberg_file_size");
     }
