@@ -51,6 +51,12 @@ public abstract class AbstractOrcDataSource
         this.options = requireNonNull(options, "options is null");
     }
 
+    protected Slice readTailInternal(int length)
+            throws IOException
+    {
+        return readFully(estimatedSize - length, length);
+    }
+
     protected abstract void readInternal(long position, byte[] buffer, int bufferOffset, int bufferLength)
             throws IOException;
 
@@ -82,7 +88,14 @@ public abstract class AbstractOrcDataSource
     public Slice readTail(int length)
             throws IOException
     {
-        return readFully(estimatedSize - length, length);
+        long start = System.nanoTime();
+
+        Slice tailSlice = readTailInternal(length);
+
+        readTimeNanos += System.nanoTime() - start;
+        readBytes += tailSlice.length();
+
+        return tailSlice;
     }
 
     @Override
