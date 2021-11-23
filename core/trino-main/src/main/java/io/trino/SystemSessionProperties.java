@@ -144,6 +144,7 @@ public final class SystemSessionProperties
     public static final String TIME_ZONE_ID = "time_zone_id";
     public static final String LEGACY_CATALOG_ROLES = "legacy_catalog_roles";
     public static final String INCREMENTAL_HASH_ARRAY_LOAD_FACTOR_ENABLED = "incremental_hash_array_load_factor_enabled";
+    public static final String MAX_PARTIAL_TOP_N_MEMORY = "max_partial_top_n_memory";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -666,6 +667,11 @@ public final class SystemSessionProperties
                         INCREMENTAL_HASH_ARRAY_LOAD_FACTOR_ENABLED,
                         "Use smaller load factor for small hash arrays in order to improve performance",
                         featuresConfig.isIncrementalHashArrayLoadFactorEnabled(),
+                        false),
+                dataSizeProperty(
+                        MAX_PARTIAL_TOP_N_MEMORY,
+                        "Max memory size for partial Top N aggregations. This can be turned off by setting it with '0'.",
+                        taskManagerConfig.getMaxPartialTopNMemory(),
                         false));
     }
 
@@ -1183,5 +1189,10 @@ public final class SystemSessionProperties
     public static boolean isIncrementalHashArrayLoadFactorEnabled(Session session)
     {
         return session.getSystemProperty(INCREMENTAL_HASH_ARRAY_LOAD_FACTOR_ENABLED, Boolean.class);
+    }
+
+    public static DataSize getMaxPartialTopNMemory(Session session)
+    {
+        return session.getSystemProperty(MAX_PARTIAL_TOP_N_MEMORY, DataSize.class);
     }
 }
