@@ -296,8 +296,8 @@ public class SnowflakeSplitSource
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
+                ImmutableSet.of(),
+                ImmutableSet.of(),
                 NO_ACID_TRANSACTION,
                 false,
                 Optional.empty());
@@ -344,7 +344,7 @@ public class SnowflakeSplitSource
         Table table = new Table(
                 "dummy_schema",
                 "dummy_table",
-                "dummy",
+                Optional.of("dummy"),
                 EXTERNAL_TABLE.name(),
                 Storage.builder()
                         .setLocation(getStageLocation(transferAgent))
