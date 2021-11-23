@@ -433,7 +433,7 @@ public abstract class BaseJdbcClient
             Map<String, String> columnExpressions,
             Optional<JdbcSplit> split)
     {
-        return applyQueryTransformations(table, queryBuilder.prepareQuery(
+        return applyQueryTransformations(table, queryBuilder.prepareSelectQuery(
                 this,
                 session,
                 connection,

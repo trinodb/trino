@@ -53,7 +53,7 @@ public class DefaultQueryBuilder
 
     private static final Logger log = Logger.get(DefaultQueryBuilder.class);
 
-    public PreparedQuery prepareQuery(
+    public PreparedQuery prepareSelectQuery(
             JdbcClient client,
             ConnectorSession session,
             Connection connection,

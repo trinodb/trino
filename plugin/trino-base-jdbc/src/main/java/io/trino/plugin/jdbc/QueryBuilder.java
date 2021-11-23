@@ -31,7 +31,7 @@ import java.util.function.Consumer;
 
 public interface QueryBuilder
 {
-    PreparedQuery prepareQuery(
+    PreparedQuery prepareSelectQuery(
             JdbcClient client,
             ConnectorSession session,
             Connection connection,
