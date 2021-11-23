@@ -54,7 +54,7 @@ public class HiveTableHandle
     private final Optional<List<List<String>>> analyzePartitionValues;
     private final Optional<Set<String>> analyzeColumnNames;
     private final Set<ColumnHandle> constraintColumns;
-    private final Optional<Set<ColumnHandle>> projectedColumns;
+    private final Set<ColumnHandle> projectedColumns;
     private final AcidTransaction transaction;
     private final boolean recordScannedFiles;
     private final Optional<Long> maxScannedFileSize;
@@ -87,7 +87,7 @@ public class HiveTableHandle
                 analyzePartitionValues,
                 analyzeColumnNames,
                 ImmutableSet.of(),
-                Optional.empty(),
+                ImmutableSet.of(),
                 transaction,
                 false,
                 Optional.empty());
@@ -115,7 +115,7 @@ public class HiveTableHandle
                 Optional.empty(),
                 Optional.empty(),
                 ImmutableSet.of(),
-                Optional.empty(),
+                ImmutableSet.of(),
                 NO_ACID_TRANSACTION,
                 false,
                 Optional.empty());
@@ -135,7 +135,7 @@ public class HiveTableHandle
             Optional<List<List<String>>> analyzePartitionValues,
             Optional<Set<String>> analyzeColumnNames,
             Set<ColumnHandle> constraintColumns,
-            Optional<Set<ColumnHandle>> projectedColumns,
+            Set<ColumnHandle> projectedColumns,
             AcidTransaction transaction,
             boolean recordScannedFiles,
             Optional<Long> maxSplitFileSize)
@@ -153,7 +153,7 @@ public class HiveTableHandle
         this.analyzePartitionValues = requireNonNull(analyzePartitionValues, "analyzePartitionValues is null").map(ImmutableList::copyOf);
         this.analyzeColumnNames = requireNonNull(analyzeColumnNames, "analyzeColumnNames is null").map(ImmutableSet::copyOf);
         this.constraintColumns = ImmutableSet.copyOf(requireNonNull(constraintColumns, "constraintColumns is null"));
-        this.projectedColumns = requireNonNull(projectedColumns, "projectedColumns is null").map(ImmutableSet::copyOf);
+        this.projectedColumns = ImmutableSet.copyOf(requireNonNull(projectedColumns, "projectedColumns is null"));
         this.transaction = requireNonNull(transaction, "transaction is null");
         this.recordScannedFiles = recordScannedFiles;
         this.maxScannedFileSize = requireNonNull(maxSplitFileSize, "maxSplitFileSize is null");
@@ -264,7 +264,7 @@ public class HiveTableHandle
                 analyzePartitionValues,
                 analyzeColumnNames,
                 constraintColumns,
-                Optional.of(projectedColumns),
+                projectedColumns,
                 transaction,
                 recordScannedFiles,
                 maxScannedFileSize);
@@ -403,7 +403,7 @@ public class HiveTableHandle
 
     // do not serialize projected columns as they are not needed on workers
     @JsonIgnore
-    public Optional<Set<ColumnHandle>> getProjectedColumns()
+    public Set<ColumnHandle> getProjectedColumns()
     {
         return projectedColumns;
     }

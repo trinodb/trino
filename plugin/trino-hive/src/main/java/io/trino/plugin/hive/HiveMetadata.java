@@ -2576,8 +2576,7 @@ public class HiveMetadata
         // all references are simple variables
         if (columnProjections.values().stream().allMatch(ProjectedColumnRepresentation::isVariable)) {
             Set<ColumnHandle> projectedColumns = ImmutableSet.copyOf(assignments.values());
-            if (hiveTableHandle.getProjectedColumns().isPresent()
-                    && hiveTableHandle.getProjectedColumns().get().equals(projectedColumns)) {
+            if (hiveTableHandle.getProjectedColumns().equals(projectedColumns)) {
                 return Optional.empty();
             }
             List<Assignment> assignmentsList = assignments.entrySet().stream()
@@ -2777,7 +2776,7 @@ public class HiveMetadata
                 hiveTable.getAnalyzePartitionValues(),
                 hiveTable.getAnalyzeColumnNames(),
                 ImmutableSet.of(),
-                Optional.empty(), // Projected columns is used only during optimization phase of planning
+                ImmutableSet.of(), // Projected columns is used only during optimization phase of planning
                 hiveTable.getTransaction(),
                 hiveTable.isRecordScannedFiles(),
                 hiveTable.getMaxScannedFileSize());
