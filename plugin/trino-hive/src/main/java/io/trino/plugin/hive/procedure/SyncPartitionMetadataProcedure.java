@@ -43,6 +43,7 @@ import java.io.IOException;
 import java.lang.invoke.MethodHandle;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -220,7 +221,9 @@ public class SyncPartitionMetadataProcedure
                     table.getTableName(),
                     buildPartitionObject(session, table, name),
                     new Path(table.getStorage().getLocation(), name),
-                    PartitionStatistics.empty());
+                    Optional.empty(), // no need for failed attempts cleanup
+                    PartitionStatistics.empty(),
+                    false);
         }
     }
 

@@ -154,6 +154,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.concat;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Sets.intersection;
 import static io.trino.plugin.hive.HiveAnalyzeProperties.getColumnNames;
 import static io.trino.plugin.hive.HiveAnalyzeProperties.getPartitionList;
@@ -285,6 +286,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
+import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.predicate.TupleDomain.withColumnDomains;
 import static io.trino.spi.statistics.TableStatisticType.ROW_COUNT;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -901,8 +903,10 @@ public class HiveMetadata
                 table,
                 principalPrivileges,
                 Optional.empty(),
+                Optional.empty(),
                 ignoreExisting,
-                new PartitionStatistics(basicStatistics, ImmutableMap.of()));
+                new PartitionStatistics(basicStatistics, ImmutableMap.of()),
+                false);
     }
 
     private Map<String, String> getEmptyTableProperties(ConnectorTableMetadata tableMetadata, Optional<HiveBucketProperty> bucketProperty, HdfsContext hdfsContext)
@@ -1312,8 +1316,8 @@ public class HiveMetadata
             throw new TrinoException(NOT_SUPPORTED, "CREATE TABLE AS is not supported for transactional tables without explicit location if location determining is delegated to metastore");
         }
 
-        if (retryMode != RetryMode.NO_RETRIES) {
-            throw new TrinoException(NOT_SUPPORTED, "CREATE TABLE AS is not supported with query retries enabled");
+        if (isTransactional && retryMode != NO_RETRIES) {
+            throw new TrinoException(NOT_SUPPORTED, "CREATE TABLE AS is not supported for transactional tables with query retries enabled");
         }
 
         if (getAvroSchemaUrl(tableMetadata.getProperties()) != null) {
@@ -1373,7 +1377,8 @@ public class HiveMetadata
                 session.getUser(),
                 tableProperties,
                 transaction,
-                externalLocation.isPresent());
+                externalLocation.isPresent(),
+                retryMode != NO_RETRIES);
 
         WriteInfo writeInfo = locationService.getQueryWriteInfo(locationHandle);
         metastore.declareIntentionToWrite(session, writeInfo.getWriteMode(), writeInfo.getWritePath(), schemaTableName);
@@ -1448,7 +1453,20 @@ public class HiveMetadata
             tableStatistics = new PartitionStatistics(createEmptyStatistics(), ImmutableMap.of());
         }
 
-        metastore.createTable(session, table, principalPrivileges, Optional.of(writeInfo.getWritePath()), false, tableStatistics);
+        if (handle.getPartitionedBy().isEmpty()) {
+            List<String> fileNames;
+            if (partitionUpdates.isEmpty()) {
+                // creating empty table via CTAS ... WITH NO DATA
+                fileNames = ImmutableList.of();
+            }
+            else {
+                fileNames = getOnlyElement(partitionUpdates).getFileNames();
+            }
+            metastore.createTable(session, table, principalPrivileges, Optional.of(writeInfo.getWritePath()), Optional.of(fileNames), false, tableStatistics, handle.isRetriesEnabled());
+        }
+        else {
+            metastore.createTable(session, table, principalPrivileges, Optional.of(writeInfo.getWritePath()), Optional.empty(), false, tableStatistics, false);
+        }
 
         if (!handle.getPartitionedBy().isEmpty()) {
             if (isRespectTableFormat(session)) {
@@ -1466,7 +1484,9 @@ public class HiveMetadata
                         handle.getTableName(),
                         buildPartitionObject(session, table, update),
                         update.getWritePath(),
-                        partitionStatistics);
+                        Optional.of(update.getFileNames()),
+                        partitionStatistics,
+                        handle.isRetriesEnabled());
             }
         }
 
@@ -1633,7 +1653,7 @@ public class HiveMetadata
             throw new TrinoException(NOT_SUPPORTED, format("Updating a Hive table with %s property not supported", SKIP_FOOTER_COUNT_KEY));
         }
 
-        if (retryMode != RetryMode.NO_RETRIES) {
+        if (retryMode != NO_RETRIES) {
             throw new TrinoException(NOT_SUPPORTED, "Updating a Hive tables is not supported with query retries enabled");
         }
 
@@ -1692,8 +1712,9 @@ public class HiveMetadata
             }
         }
 
-        if (retryMode != RetryMode.NO_RETRIES) {
-            throw new TrinoException(NOT_SUPPORTED, "Inserting into Hive tables is not supported with query retries enabled");
+        boolean isTransactional = isTransactionalTable(table.getParameters());
+        if (isTransactional && retryMode != NO_RETRIES) {
+            throw new TrinoException(NOT_SUPPORTED, "Inserting into Hive transactional tables is not supported with query retries enabled");
         }
 
         List<HiveColumnHandle> handles = hiveColumnHandles(table, typeManager, getTimestampPrecision(session)).stream()
@@ -1711,7 +1732,7 @@ public class HiveMetadata
         }
         LocationHandle locationHandle = locationService.forExistingTable(metastore, session, table);
 
-        AcidTransaction transaction = isTransactionalTable(table.getParameters()) ? metastore.beginInsert(session, table) : NO_ACID_TRANSACTION;
+        AcidTransaction transaction = isTransactional ? metastore.beginInsert(session, table) : NO_ACID_TRANSACTION;
 
         HiveInsertTableHandle result = new HiveInsertTableHandle(
                 tableName.getSchemaName(),
@@ -1722,12 +1743,13 @@ public class HiveMetadata
                 table.getStorage().getBucketProperty(),
                 tableStorageFormat,
                 isRespectTableFormat(session) ? tableStorageFormat : getHiveStorageFormat(session),
-                transaction);
+                transaction,
+                retryMode != NO_RETRIES);
 
         WriteInfo writeInfo = locationService.getQueryWriteInfo(locationHandle);
         if (getInsertExistingPartitionsBehavior(session) == InsertExistingPartitionsBehavior.OVERWRITE
                 && writeInfo.getWriteMode() == DIRECT_TO_TARGET_EXISTING_DIRECTORY) {
-            if (isTransactionalTable(table.getParameters())) {
+            if (isTransactional) {
                 throw new TrinoException(NOT_SUPPORTED, "Overwriting existing partition in transactional tables doesn't support DIRECT_TO_TARGET_EXISTING_DIRECTORY write mode");
             }
             // This check is required to prevent using partition overwrite operation during user managed transactions
@@ -1767,7 +1789,15 @@ public class HiveMetadata
                 Optional<Partition> partition = table.getPartitionColumns().isEmpty() ? Optional.empty() : Optional.of(buildPartitionObject(session, table, partitionUpdate));
                 if (handle.isTransactional() && partition.isPresent()) {
                     PartitionStatistics statistics = PartitionStatistics.builder().setBasicStatistics(partitionUpdate.getStatistics()).build();
-                    metastore.addPartition(session, handle.getSchemaName(), handle.getTableName(), partition.get(), partitionUpdate.getWritePath(), statistics);
+                    metastore.addPartition(
+                            session,
+                            handle.getSchemaName(),
+                            handle.getTableName(),
+                            partition.get(),
+                            partitionUpdate.getWritePath(),
+                            Optional.of(partitionUpdate.getFileNames()),
+                            statistics,
+                            handle.isRetriesEnabled());
                 }
                 createEmptyFiles(session, partitionUpdate.getWritePath(), table, partition, partitionUpdate.getFileNames());
             }
@@ -1800,7 +1830,7 @@ public class HiveMetadata
                     metastore.dropTable(session, handle.getSchemaName(), handle.getTableName());
 
                     // create the table with the new location
-                    metastore.createTable(session, table, principalPrivileges, Optional.of(partitionUpdate.getWritePath()), false, partitionStatistics);
+                    metastore.createTable(session, table, principalPrivileges, Optional.of(partitionUpdate.getWritePath()), Optional.of(partitionUpdate.getFileNames()), false, partitionStatistics, handle.isRetriesEnabled());
                 }
                 else if (partitionUpdate.getUpdateMode() == NEW || partitionUpdate.getUpdateMode() == APPEND) {
                     // insert into unpartitioned table
@@ -1810,7 +1840,8 @@ public class HiveMetadata
                             handle.getTableName(),
                             partitionUpdate.getWritePath(),
                             partitionUpdate.getFileNames(),
-                            partitionStatistics);
+                            partitionStatistics,
+                            handle.isRetriesEnabled());
                 }
                 else {
                     throw new IllegalArgumentException("Unsupported update mode: " + partitionUpdate.getUpdateMode());
@@ -1830,7 +1861,8 @@ public class HiveMetadata
                         partitionValues,
                         partitionUpdate.getWritePath(),
                         partitionUpdate.getFileNames(),
-                        partitionStatistics);
+                        partitionStatistics,
+                        handle.isRetriesEnabled());
             }
             else if (partitionUpdate.getUpdateMode() == NEW || partitionUpdate.getUpdateMode() == OVERWRITE) {
                 // insert into new partition or overwrite existing partition
@@ -1848,11 +1880,11 @@ public class HiveMetadata
                     }
                     else {
                         metastore.dropPartition(session, handle.getSchemaName(), handle.getTableName(), partition.getValues(), true);
-                        metastore.addPartition(session, handle.getSchemaName(), handle.getTableName(), partition, partitionUpdate.getWritePath(), partitionStatistics);
+                        metastore.addPartition(session, handle.getSchemaName(), handle.getTableName(), partition, partitionUpdate.getWritePath(), Optional.of(partitionUpdate.getFileNames()), partitionStatistics, handle.isRetriesEnabled());
                     }
                 }
                 else {
-                    metastore.addPartition(session, handle.getSchemaName(), handle.getTableName(), partition, partitionUpdate.getWritePath(), partitionStatistics);
+                    metastore.addPartition(session, handle.getSchemaName(), handle.getTableName(), partition, partitionUpdate.getWritePath(), Optional.of(partitionUpdate.getFileNames()), partitionStatistics, handle.isRetriesEnabled());
                 }
             }
             else {
@@ -1981,7 +2013,7 @@ public class HiveMetadata
             throw new TrinoException(NOT_SUPPORTED, "OPTIMIZE procedure must be explicitly enabled via " + NON_TRANSACTIONAL_OPTIMIZE_ENABLED + " session property");
         }
 
-        if (retryMode != RetryMode.NO_RETRIES) {
+        if (retryMode != NO_RETRIES) {
             throw new TrinoException(NOT_SUPPORTED, "OPTIMIZE procedure is not supported with query retries enabled");
         }
 
@@ -2042,7 +2074,8 @@ public class HiveMetadata
                 tableStorageFormat,
                 // TODO: test with multiple partitions using different storage format
                 tableStorageFormat,
-                NO_ACID_TRANSACTION));
+                NO_ACID_TRANSACTION,
+                retryMode != NO_RETRIES));
     }
 
     @Override
@@ -2123,7 +2156,8 @@ public class HiveMetadata
                         handle.getTableName(),
                         partitionUpdate.getWritePath(),
                         partitionUpdate.getFileNames(),
-                        PartitionStatistics.empty());
+                        PartitionStatistics.empty(),
+                        handle.isRetriesEnabled());
             }
             else {
                 // operating on a partition
@@ -2135,7 +2169,8 @@ public class HiveMetadata
                         partitionValues,
                         partitionUpdate.getWritePath(),
                         partitionUpdate.getFileNames(),
-                        PartitionStatistics.empty());
+                        PartitionStatistics.empty(),
+                        handle.isRetriesEnabled());
             }
         }
 
@@ -2243,7 +2278,7 @@ public class HiveMetadata
         }
 
         try {
-            metastore.createTable(session, table, principalPrivileges, Optional.empty(), false, new PartitionStatistics(createEmptyStatistics(), ImmutableMap.of()));
+            metastore.createTable(session, table, principalPrivileges, Optional.empty(), Optional.empty(), false, new PartitionStatistics(createEmptyStatistics(), ImmutableMap.of()), false);
         }
         catch (TableAlreadyExistsException e) {
             throw new ViewAlreadyExistsException(e.getTableName());
@@ -2380,7 +2415,7 @@ public class HiveMetadata
                 .orElseThrow(() -> new TableNotFoundException(tableName));
         ensureTableSupportsDelete(table);
 
-        if (retryMode != RetryMode.NO_RETRIES) {
+        if (retryMode != NO_RETRIES) {
             throw new TrinoException(NOT_SUPPORTED, "Deleting from Hive tables is not supported with query retries enabled");
         }
 
