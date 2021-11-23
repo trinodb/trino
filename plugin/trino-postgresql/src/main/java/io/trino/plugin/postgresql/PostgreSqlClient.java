@@ -869,7 +869,7 @@ public class PostgreSqlClient
                 DISABLE_PUSHDOWN);
     }
 
-    public static LongWriteFunction timeWriteFunction(int precision)
+    private static LongWriteFunction timeWriteFunction(int precision)
     {
         checkArgument(precision <= 6, "Unsupported precision: %s", precision); // PostgreSQL limit but also assumption within this method
         String bindExpression = format("CAST(? AS time(%s))", precision);

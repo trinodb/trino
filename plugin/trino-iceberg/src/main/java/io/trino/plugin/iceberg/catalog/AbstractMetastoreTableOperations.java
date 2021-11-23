@@ -17,6 +17,7 @@ import io.airlift.log.Logger;
 import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.MetastoreUtil;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
@@ -53,7 +54,7 @@ import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.hive.HiveType.toHiveType;
 import static io.trino.plugin.hive.ViewReaderUtil.isHiveOrPrestoView;
 import static io.trino.plugin.hive.ViewReaderUtil.isPrestoView;
-import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
+import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergUtil.getLocationProvider;
 import static io.trino.plugin.iceberg.IcebergUtil.isIcebergTable;
@@ -195,7 +196,7 @@ public abstract class AbstractMetastoreTableOperations
             Table.Builder builder = Table.builder()
                     .setDatabaseName(database)
                     .setTableName(tableName)
-                    .setOwner(owner.orElseThrow(() -> new IllegalStateException("Owner not set")))
+                    .setOwner(owner)
                     .setTableType(TableType.EXTERNAL_TABLE.name())
                     .setDataColumns(toHiveColumns(metadata.schema().columns()))
                     .withStorage(storage -> storage.setLocation(metadata.location()))
@@ -219,7 +220,7 @@ public abstract class AbstractMetastoreTableOperations
             throw e;
         }
 
-        PrincipalPrivileges privileges = buildInitialPrivilegeSet(table.getOwner());
+        PrincipalPrivileges privileges = owner.map(MetastoreUtil::buildInitialPrivilegeSet).orElse(NO_PRIVILEGES);
         HiveIdentity identity = new HiveIdentity(session);
         metastore.createTable(identity, table, privileges);
     }

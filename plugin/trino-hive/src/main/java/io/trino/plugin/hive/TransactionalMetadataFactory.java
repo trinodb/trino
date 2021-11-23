@@ -15,5 +15,5 @@ package io.trino.plugin.hive;
 
 public interface TransactionalMetadataFactory
 {
-    TransactionalMetadata create();
+    TransactionalMetadata create(boolean autoCommit);
 }

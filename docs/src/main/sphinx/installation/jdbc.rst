@@ -10,8 +10,11 @@ as those used for reporting and database development, use the JDBC driver.
 Requirements
 ------------
 
-The JDBC driver is compatible with Java versions 8 or higher, and can be used with
-applications running on Java virtual machines version 8 or higher.
+The Trino JDBC driver has the following requirements:
+
+* Java version 8 or higher.
+* All users that connect to Trino with the JDBC driver must be granted access to
+  query tables in the ``system.jdbc`` schema.
 
 Installing
 ----------
@@ -167,6 +170,9 @@ Name                                                         Description
 ``KerberosConfigPath``                                       Kerberos configuration file.
 ``KerberosKeytabPath``                                       Kerberos keytab file.
 ``KerberosCredentialCachePath``                              Kerberos credential cache.
+``KerberosDelegation``                                       Set to ``true`` to use the token from an existing Kerberos context.
+                                                             This allows client to use Kerberos authentication without passing
+                                                             the Keytab or credential cache. Defaults to ``false``.
 ``extraCredentials``                                         Extra credentials for connecting to external services,
                                                              specified as a list of key-value pairs. For example,
                                                              ``foo:bar;abc:xyz`` creates the credential named ``abc``
@@ -187,7 +193,9 @@ Name                                                         Description
                                                              connections for the same authenticated user until the cache is
                                                              invalidated, such as when a client is restarted or when the classloader
                                                              reloads the JDBC driver. This is disabled by default, with a value of
-                                                             ``NONE``. To enable, set the value to ``MEMORY``.
+                                                             ``NONE``. To enable, set the value to ``MEMORY``. If the JDBC driver is used
+                                                             in a shared mode by different users, the first registered token is stored
+                                                             and authenticates all users.
 ``disableCompression``                                       Whether compression should be enabled.
 ``assumeLiteralNamesInMetadataCallsForNonConformingClients`` When enabled, the name patterns passed to ``DatabaseMetaData`` methods
                                                              are treated as literals. You can use this as a workaround for

@@ -14,6 +14,8 @@
 package io.trino.plugin.hive.orc;
 
 import com.google.common.collect.ImmutableSet;
+import io.trino.memory.context.AggregatedMemoryContext;
+import io.trino.memory.context.LocalMemoryContext;
 import io.trino.orc.OrcCorruptionException;
 import io.trino.plugin.hive.AcidInfo;
 import io.trino.plugin.hive.HdfsEnvironment;
@@ -30,6 +32,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.io.AcidUtils;
 import org.apache.hadoop.hive.ql.io.BucketCodec;
+import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.NotThreadSafe;
@@ -43,6 +46,7 @@ import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
+import static io.airlift.slice.SizeOf.sizeOfObjectArray;
 import static io.trino.plugin.hive.BackgroundHiveSplitLoader.hasAttemptId;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
@@ -65,6 +69,7 @@ public class OrcDeletedRows
     private final HdfsEnvironment hdfsEnvironment;
     private final AcidInfo acidInfo;
     private final OptionalInt bucketNumber;
+    private final LocalMemoryContext systemMemoryUsage;
 
     @Nullable
     private Set<RowId> deletedRows;
@@ -76,7 +81,8 @@ public class OrcDeletedRows
             Configuration configuration,
             HdfsEnvironment hdfsEnvironment,
             AcidInfo acidInfo,
-            OptionalInt bucketNumber)
+            OptionalInt bucketNumber,
+            AggregatedMemoryContext systemMemoryContext)
     {
         this.sourceFileName = requireNonNull(sourceFileName, "sourceFileName is null");
         this.pageSourceFactory = requireNonNull(pageSourceFactory, "pageSourceFactory is null");
@@ -85,6 +91,7 @@ public class OrcDeletedRows
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.acidInfo = requireNonNull(acidInfo, "acidInfo is null");
         this.bucketNumber = requireNonNull(bucketNumber, "bucketNumber is null");
+        this.systemMemoryUsage = requireNonNull(systemMemoryContext, "systemMemoryContext is null").newLocalMemoryContext(OrcDeletedRows.class.getSimpleName());
     }
 
     public MaskDeletedRowsFunction getMaskDeletedRowsFunction(Page sourcePage, OptionalLong startRowId)
@@ -262,8 +269,17 @@ public class OrcDeletedRows
                 throw new TrinoException(HIVE_CURSOR_ERROR, "Failed to read ORC delete delta file: " + path, e);
             }
         }
+
         deletedRows = deletedRowsBuilder.build();
+        // Not updating memory usage in the loop, when deletedRows are built, as recorded information is propagated
+        // to operator memory context via OrcPageSource only at the end of processing of page.
+        systemMemoryUsage.setBytes(memorySizeOfRowIdsArray(deletedRows.size()));
         return deletedRows;
+    }
+
+    private long memorySizeOfRowIdsArray(int rowCount)
+    {
+        return sizeOfObjectArray(rowCount) + (long) rowCount * RowId.INSTANCE_SIZE;
     }
 
     private static Path createPath(AcidInfo acidInfo, AcidInfo.DeleteDeltaInfo deleteDeltaInfo, String fileName)
@@ -285,6 +301,8 @@ public class OrcDeletedRows
 
     private static class RowId
     {
+        public static final int INSTANCE_SIZE = ClassLayout.parseClass(RowId.class).instanceSize();
+
         private final long originalTransaction;
         private final int bucket;
         private final int statementId;

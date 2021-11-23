@@ -44,7 +44,7 @@ import static java.util.Objects.requireNonNull;
  * Implements {@code count(DISTINCT x)}.
  */
 public class ImplementCountDistinct
-        implements AggregateFunctionRule
+        implements AggregateFunctionRule<JdbcExpression>
 {
     private static final Capture<Variable> INPUT = newCapture();
 

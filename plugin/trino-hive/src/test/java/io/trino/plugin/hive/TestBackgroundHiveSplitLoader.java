@@ -86,11 +86,11 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static com.google.common.io.Resources.getResource;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -356,9 +356,7 @@ public class TestBackgroundHiveSplitLoader
         backgroundHiveSplitLoader.start(hiveSplitSource);
 
         List<HiveSplit> splits = drainSplits(hiveSplitSource);
-        assertEquals(splits.size(), 1);
-        assertEquals(splits.get(0).getPath(), RETURNED_PATH.toString());
-        assertEquals(splits.get(0).getLength(), 0);
+        assertEquals(splits.size(), 0);
     }
 
     @Test
@@ -941,7 +939,7 @@ public class TestBackgroundHiveSplitLoader
             Files.write(file.toPath(), String.valueOf(orcAcidVersion).getBytes(UTF_8));
             return;
         }
-        checkState(file.createNewFile(), "Failed to create file %s", file);
+        Files.copy(getResource("fullacidNationTableWithOriginalFiles/000000_0").openStream(), file.toPath());
     }
 
     private static List<String> drain(HiveSplitSource source)
@@ -1253,7 +1251,7 @@ public class TestBackgroundHiveSplitLoader
 
         return tableBuilder
                 .setDatabaseName("test_dbname")
-                .setOwner("testOwner")
+                .setOwner(Optional.of("testOwner"))
                 .setTableName("test_table")
                 .setTableType(TableType.MANAGED_TABLE.toString())
                 .setDataColumns(ImmutableList.of(new Column("col1", HIVE_STRING, Optional.empty())))
@@ -1264,7 +1262,7 @@ public class TestBackgroundHiveSplitLoader
 
     private static LocatedFileStatus locatedFileStatus(Path path)
     {
-        return locatedFileStatus(path, 0);
+        return locatedFileStatus(path, 10);
     }
 
     private static LocatedFileStatus locatedFileStatus(Path path, long fileLength)

@@ -77,8 +77,8 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.orc.OrcReader.INITIAL_BATCH_SIZE;
-import static io.trino.orc.OrcReader.ProjectedLayout.createProjectedLayout;
-import static io.trino.orc.OrcReader.ProjectedLayout.fullyProjectedLayout;
+import static io.trino.orc.OrcReader.NameBasedProjectedLayout.createProjectedLayout;
+import static io.trino.orc.OrcReader.fullyProjectedLayout;
 import static io.trino.orc.metadata.OrcMetadataWriter.PRESTO_WRITER_ID;
 import static io.trino.orc.metadata.OrcMetadataWriter.TRINO_WRITER_ID;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.INT;
@@ -99,7 +99,6 @@ import static io.trino.plugin.hive.HiveSessionProperties.getOrcTinyStripeThresho
 import static io.trino.plugin.hive.HiveSessionProperties.isOrcBloomFiltersEnabled;
 import static io.trino.plugin.hive.HiveSessionProperties.isOrcNestedLazy;
 import static io.trino.plugin.hive.HiveSessionProperties.isUseOrcColumnNames;
-import static io.trino.plugin.hive.ReaderPageSource.noProjectionAdaptation;
 import static io.trino.plugin.hive.orc.OrcPageSource.ColumnAdaptation.updatedRowColumns;
 import static io.trino.plugin.hive.orc.OrcPageSource.ColumnAdaptation.updatedRowColumnsWithOriginalFiles;
 import static io.trino.plugin.hive.orc.OrcPageSource.handleException;
@@ -162,12 +161,6 @@ public class OrcPageSourceFactory
     {
         if (!isDeserializerClass(schema, OrcSerde.class)) {
             return Optional.empty();
-        }
-
-        // per HIVE-13040 and ORC-162, empty files are allowed
-        if (estimatedFileSize == 0) {
-            ReaderPageSource context = noProjectionAdaptation(new EmptyPageSource());
-            return Optional.of(context);
         }
 
         List<HiveColumnHandle> readerColumnHandles = columns;
@@ -390,7 +383,8 @@ public class OrcPageSourceFactory
                             configuration,
                             hdfsEnvironment,
                             info,
-                            bucketNumber));
+                            bucketNumber,
+                            systemMemoryUsage));
 
             Optional<Long> originalFileRowId = acidInfo
                     .filter(OrcPageSourceFactory::hasOriginalFilesAndDeleteDeltas)

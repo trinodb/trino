@@ -67,7 +67,7 @@ public class TestHiveS3Config
                 .setS3AclType(TrinoS3AclType.PRIVATE)
                 .setSkipGlacierObjects(false)
                 .setRequesterPaysEnabled(false)
-                .setS3StreamingUploadEnabled(false)
+                .setS3StreamingUploadEnabled(true)
                 .setS3StreamingPartSize(DataSize.of(16, Unit.MEGABYTE)));
     }
 
@@ -108,7 +108,7 @@ public class TestHiveS3Config
                 .put("hive.s3.upload-acl-type", "PUBLIC_READ")
                 .put("hive.s3.skip-glacier-objects", "true")
                 .put("hive.s3.requester-pays.enabled", "true")
-                .put("hive.s3.streaming.enabled", "true")
+                .put("hive.s3.streaming.enabled", "false")
                 .put("hive.s3.streaming.part-size", "15MB")
                 .build();
 
@@ -143,7 +143,7 @@ public class TestHiveS3Config
                 .setS3AclType(TrinoS3AclType.PUBLIC_READ)
                 .setSkipGlacierObjects(true)
                 .setRequesterPaysEnabled(true)
-                .setS3StreamingUploadEnabled(true)
+                .setS3StreamingUploadEnabled(false)
                 .setS3StreamingPartSize(DataSize.of(15, Unit.MEGABYTE));
 
         assertFullMapping(properties, expected);

@@ -64,8 +64,8 @@ public class TestMetadataQueryOptimization
 
         Database database = Database.builder()
                 .setDatabaseName(SCHEMA_NAME)
-                .setOwnerName("public")
-                .setOwnerType(PrincipalType.ROLE)
+                .setOwnerName(Optional.of("public"))
+                .setOwnerType(Optional.of(PrincipalType.ROLE))
                 .build();
         metastore.createDatabase(new HiveIdentity(session.toConnectorSession()), database);
 

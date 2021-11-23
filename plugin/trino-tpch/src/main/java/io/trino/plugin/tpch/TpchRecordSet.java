@@ -50,6 +50,17 @@ public class TpchRecordSet<E extends TpchEntity>
 
     public static <E extends TpchEntity> TpchRecordSet<E> createTpchRecordSet(
             TpchTable<E> table,
+            DecimalTypeMapping decimalTypeMapping,
+            double scaleFactor,
+            int part,
+            int partCount,
+            TupleDomain<ColumnHandle> predicate)
+    {
+        return createTpchRecordSet(table, table.getColumns(), decimalTypeMapping, scaleFactor, part, partCount, predicate);
+    }
+
+    public static <E extends TpchEntity> TpchRecordSet<E> createTpchRecordSet(
+            TpchTable<E> table,
             List<TpchColumn<E>> columns,
             DecimalTypeMapping decimalTypeMapping,
             double scaleFactor,

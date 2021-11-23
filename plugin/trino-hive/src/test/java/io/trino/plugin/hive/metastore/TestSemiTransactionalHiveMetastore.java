@@ -136,7 +136,7 @@ public class TestSemiTransactionalHiveMetastore
                 return Optional.of(new Table(
                         "database",
                         tableName,
-                        "owner",
+                        Optional.of("owner"),
                         "table_type",
                         TABLE_STORAGE,
                         ImmutableList.of(TABLE_COLUMN),

@@ -76,52 +76,51 @@ public final class MultimapFromEntriesFunction
                     operator = HASH_CODE,
                     argumentTypes = "K",
                     convention = @Convention(arguments = BLOCK_POSITION, result = FAIL_ON_NULL)) BlockPositionHashCode keyHashCode,
-            @SqlType("array(row(K,V))") Block block)
+            @SqlType("array(row(K,V))") Block mapEntries)
     {
         Type keyType = mapType.getKeyType();
         Type valueType = ((ArrayType) mapType.getValueType()).getElementType();
-        RowType rowType = RowType.anonymous(ImmutableList.of(keyType, valueType));
+        RowType mapEntryType = RowType.anonymous(ImmutableList.of(keyType, valueType));
 
         if (pageBuilder.isFull()) {
             pageBuilder.reset();
         }
 
-        int entryCount = block.getPositionCount();
+        int entryCount = mapEntries.getPositionCount();
         if (entryCount > entryIndicesList.length) {
             initializeEntryIndicesList(entryCount);
         }
         TypedSet keySet = createEqualityTypedSet(keyType, keyEqual, keyHashCode, entryCount, NAME);
 
         for (int i = 0; i < entryCount; i++) {
-            if (block.isNull(i)) {
+            if (mapEntries.isNull(i)) {
                 clearEntryIndices(keySet.size());
                 throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "map entry cannot be null");
             }
-            Block rowBlock = rowType.getObject(block, i);
+            Block mapEntryBlock = mapEntryType.getObject(mapEntries, i);
 
-            if (rowBlock.isNull(0)) {
+            if (mapEntryBlock.isNull(0)) {
                 clearEntryIndices(keySet.size());
                 throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "map key cannot be null");
             }
 
-            if (keySet.contains(rowBlock, 0)) {
-                entryIndicesList[keySet.positionOf(rowBlock, 0)].add(i);
+            if (keySet.add(mapEntryBlock, 0)) {
+                entryIndicesList[keySet.size() - 1].add(i);
             }
             else {
-                keySet.add(rowBlock, 0);
-                entryIndicesList[keySet.size() - 1].add(i);
+                entryIndicesList[keySet.positionOf(mapEntryBlock, 0)].add(i);
             }
         }
 
         BlockBuilder multimapBlockBuilder = pageBuilder.getBlockBuilder(0);
-        BlockBuilder singleMapWriter = multimapBlockBuilder.beginBlockEntry();
+        BlockBuilder mapWriter = multimapBlockBuilder.beginBlockEntry();
         for (int i = 0; i < keySet.size(); i++) {
-            keyType.appendTo(rowType.getObject(block, entryIndicesList[i].getInt(0)), 0, singleMapWriter);
-            BlockBuilder singleArrayWriter = singleMapWriter.beginBlockEntry();
+            keyType.appendTo(mapEntryType.getObject(mapEntries, entryIndicesList[i].getInt(0)), 0, mapWriter);
+            BlockBuilder valuesArray = mapWriter.beginBlockEntry();
             for (int entryIndex : entryIndicesList[i]) {
-                valueType.appendTo(rowType.getObject(block, entryIndex), 1, singleArrayWriter);
+                valueType.appendTo(mapEntryType.getObject(mapEntries, entryIndex), 1, valuesArray);
             }
-            singleMapWriter.closeEntry();
+            mapWriter.closeEntry();
         }
 
         multimapBlockBuilder.closeEntry();

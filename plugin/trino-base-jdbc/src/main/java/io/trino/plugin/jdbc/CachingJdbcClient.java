@@ -46,6 +46,7 @@ import javax.inject.Inject;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
@@ -202,10 +203,10 @@ public class CachingJdbcClient
     }
 
     @Override
-    public void abortReadConnection(Connection connection)
+    public void abortReadConnection(Connection connection, ResultSet resultSet)
             throws SQLException
     {
-        delegate.abortReadConnection(connection);
+        delegate.abortReadConnection(connection, resultSet);
     }
 
     @Override

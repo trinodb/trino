@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive.metastore;
 
-import com.google.common.collect.ImmutableMultimap;
 import com.linkedin.coral.hive.hive2rel.HiveMetastoreClient;
 import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil;
@@ -21,6 +20,7 @@ import org.apache.hadoop.hive.metastore.api.Database;
 
 import java.util.List;
 
+import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -63,7 +63,7 @@ public class CoralSemiTransactionalHiveMSCAdapter
     public org.apache.hadoop.hive.metastore.api.Table getTable(String dbName, String tableName)
     {
         return delegate.getTable(identity, dbName, tableName)
-                .map(value -> ThriftMetastoreUtil.toMetastoreApiTable(value, new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of())))
+                .map(value -> ThriftMetastoreUtil.toMetastoreApiTable(value, NO_PRIVILEGES))
                 .orElse(null);
     }
 }

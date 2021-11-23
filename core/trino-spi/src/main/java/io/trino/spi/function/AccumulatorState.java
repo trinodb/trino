@@ -16,4 +16,9 @@ package io.trino.spi.function;
 public interface AccumulatorState
 {
     long getEstimatedSize();
+
+    default AccumulatorState copy()
+    {
+        throw new UnsupportedOperationException("copy not implemented for " + getClass());
+    }
 }

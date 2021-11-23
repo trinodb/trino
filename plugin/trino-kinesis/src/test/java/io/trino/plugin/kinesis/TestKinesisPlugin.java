@@ -59,7 +59,7 @@ public class TestKinesisPlugin
         ConnectorMetadata md = c.getMetadata(KinesisTransactionHandle.INSTANCE);
         assertNotNull(md);
 
-        ConnectorTransactionHandle handle = c.beginTransaction(READ_COMMITTED, true);
+        ConnectorTransactionHandle handle = c.beginTransaction(READ_COMMITTED, true, true);
         assertTrue(handle instanceof KinesisTransactionHandle);
 
         c.shutdown();

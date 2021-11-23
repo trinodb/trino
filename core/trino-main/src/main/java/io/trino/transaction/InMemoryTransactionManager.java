@@ -448,9 +448,7 @@ public class InMemoryTransactionManager
             if (connector instanceof InternalConnector) {
                 return ((InternalConnector) connector).beginTransaction(transactionId, isolationLevel, readOnly);
             }
-            else {
-                return connector.beginTransaction(isolationLevel, readOnly);
-            }
+            return connector.beginTransaction(isolationLevel, readOnly, autoCommitContext);
         }
 
         public synchronized void checkConnectorWrite(CatalogName catalogName)

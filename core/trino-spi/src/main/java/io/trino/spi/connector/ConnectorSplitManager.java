@@ -25,6 +25,7 @@ public interface ConnectorSplitManager
         throw new UnsupportedOperationException();
     }
 
+    @Deprecated
     default ConnectorSplitSource getSplits(
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
@@ -33,6 +34,17 @@ public interface ConnectorSplitManager
             DynamicFilter dynamicFilter)
     {
         throw new UnsupportedOperationException();
+    }
+
+    default ConnectorSplitSource getSplits(
+            ConnectorTransactionHandle transaction,
+            ConnectorSession session,
+            ConnectorTableHandle table,
+            SplitSchedulingStrategy splitSchedulingStrategy,
+            DynamicFilter dynamicFilter,
+            Constraint constraint)
+    {
+        return getSplits(transaction, session, table, splitSchedulingStrategy, dynamicFilter);
     }
 
     enum SplitSchedulingStrategy

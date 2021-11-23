@@ -25,19 +25,19 @@ import io.trino.cost.StatsCalculator;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.FunctionKind;
 import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.MetadataUtil;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.RedirectionAwareTableHandle;
 import io.trino.metadata.SessionPropertyManager.SessionPropertyValue;
 import io.trino.metadata.TableHandle;
+import io.trino.metadata.ViewDefinition;
 import io.trino.security.AccessControl;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
-import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorTableMetadata;
-import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.GroupProvider;
 import io.trino.spi.security.PrincipalType;
@@ -244,7 +244,7 @@ final class ShowQueriesRewrite
             if (tableName.isPresent()) {
                 QualifiedObjectName qualifiedTableName = createQualifiedObjectName(session, showGrants, tableName.get());
 
-                if (metadata.getView(session, qualifiedTableName).isEmpty() &&
+                if (!metadata.isView(session, qualifiedTableName) &&
                         metadata.getTableHandle(session, qualifiedTableName).isEmpty()) {
                     throw semanticException(TABLE_NOT_FOUND, showGrants, "Table '%s' does not exist", tableName);
                 }
@@ -409,13 +409,13 @@ final class ShowQueriesRewrite
                 throw semanticException(SCHEMA_NOT_FOUND, showColumns, "Schema '%s' does not exist", tableName.getSchemaName());
             }
 
-            boolean isMaterializedView = metadata.getMaterializedView(session, tableName).isPresent();
+            boolean isMaterializedView = metadata.isMaterializedView(session, tableName);
             boolean isView = false;
             QualifiedObjectName targetTableName = tableName;
             Optional<TableHandle> tableHandle = Optional.empty();
             // Check for view if materialized view is not present
             if (!isMaterializedView) {
-                isView = metadata.getView(session, tableName).isPresent();
+                isView = metadata.isView(session, tableName);
                 // Check for table if view is not present
                 if (!isView) {
                     RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, tableName);
@@ -509,10 +509,10 @@ final class ShowQueriesRewrite
         {
             if (node.getType() == MATERIALIZED_VIEW) {
                 QualifiedObjectName objectName = createQualifiedObjectName(session, node, node.getName());
-                Optional<ConnectorMaterializedViewDefinition> viewDefinition = metadata.getMaterializedView(session, objectName);
+                Optional<MaterializedViewDefinition> viewDefinition = metadata.getMaterializedView(session, objectName);
 
                 if (viewDefinition.isEmpty()) {
-                    if (metadata.getView(session, objectName).isPresent()) {
+                    if (metadata.isView(session, objectName)) {
                         throw semanticException(NOT_SUPPORTED, node, "Relation '%s' is a view, not a materialized view", objectName);
                     }
 
@@ -545,11 +545,11 @@ final class ShowQueriesRewrite
             if (node.getType() == VIEW) {
                 QualifiedObjectName objectName = createQualifiedObjectName(session, node, node.getName());
 
-                if (metadata.getMaterializedView(session, objectName).isPresent()) {
+                if (metadata.isMaterializedView(session, objectName)) {
                     throw semanticException(NOT_SUPPORTED, node, "Relation '%s' is a materialized view, not a view", objectName);
                 }
 
-                Optional<ConnectorViewDefinition> viewDefinition = metadata.getView(session, objectName);
+                Optional<ViewDefinition> viewDefinition = metadata.getView(session, objectName);
 
                 if (viewDefinition.isEmpty()) {
                     if (metadata.getTableHandle(session, objectName).isPresent()) {
@@ -580,11 +580,11 @@ final class ShowQueriesRewrite
             if (node.getType() == TABLE) {
                 QualifiedObjectName objectName = createQualifiedObjectName(session, node, node.getName());
 
-                if (metadata.getMaterializedView(session, objectName).isPresent()) {
+                if (metadata.isMaterializedView(session, objectName)) {
                     throw semanticException(NOT_SUPPORTED, node, "Relation '%s' is a materialized view, not a table", objectName);
                 }
 
-                if (metadata.getView(session, objectName).isPresent()) {
+                if (metadata.isView(session, objectName)) {
                     throw semanticException(NOT_SUPPORTED, node, "Relation '%s' is a view, not a table", objectName);
                 }
 

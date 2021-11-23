@@ -558,7 +558,7 @@ public abstract class BaseElasticsearchConnectorTest
 
         index(indexName, ImmutableMap.<String, Object>builder()
                 .put("es_object", ImmutableMap.<String, Object>builder()
-                        .put("array_of_string_arrays", ImmutableList.<List>builder()
+                        .put("array_of_string_arrays", ImmutableList.<List<String>>builder()
                                 .add(ImmutableList.<String>builder()
                                         .add("abc")
                                         .add("def")
@@ -573,7 +573,7 @@ public abstract class BaseElasticsearchConnectorTest
                                 .build())
                         .build())
                 .put("es_array_object", ImmutableMap.<String, Object>builder()
-                        .put("array_of_string_arrays", ImmutableList.<List>builder()
+                        .put("array_of_string_arrays", ImmutableList.<List<String>>builder()
                                 .add(ImmutableList.<String>builder()
                                         .add("abc")
                                         .add("def")
@@ -588,7 +588,7 @@ public abstract class BaseElasticsearchConnectorTest
                                 .build())
                         .build())
                 .put("es_raw_object", ImmutableMap.<String, Object>builder()
-                        .put("array_of_string_arrays", ImmutableList.<List>builder()
+                        .put("array_of_string_arrays", ImmutableList.<List<String>>builder()
                                 .add(ImmutableList.<String>builder()
                                         .add("abc")
                                         .add("def")
@@ -602,7 +602,7 @@ public abstract class BaseElasticsearchConnectorTest
                                         .build())
                                 .build())
                         .build())
-                .put("array_of_string_arrays", ImmutableList.<List>builder()
+                .put("array_of_string_arrays", ImmutableList.<List<String>>builder()
                         .add(ImmutableList.<String>builder()
                                 .add("abc")
                                 .add("def")
@@ -953,6 +953,44 @@ public abstract class BaseElasticsearchConnectorTest
         assertQuery(
                 "SELECT a FROM test_mixed_arrays",
                 "VALUES NULL, ARRAY['hello'], ARRAY['foo', 'bar']");
+    }
+
+    @Test
+    public void testEmptyNumericFields()
+            throws IOException
+    {
+        String indexName = "emptynumeric";
+
+        @Language("JSON")
+        String mapping = "" +
+                "{" +
+                "  \"properties\": { " +
+                "    \"byte_column\":         {\"type\": \"byte\"}," +
+                "    \"short_column\":        {\"type\": \"short\"}," +
+                "    \"integer_column\":      {\"type\": \"integer\"}," +
+                "    \"long_column\":         {\"type\": \"long\"}," +
+                "    \"float_column\":        {\"type\": \"float\"}," +
+                "    \"scaled_float_column\": {\"type\": \"scaled_float\", \"scaling_factor\": 100}," +
+                "    \"double_column\":       {\"type\": \"double\"}" +
+                "  }" +
+                "}";
+
+        createIndex(indexName, mapping);
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("byte_column", "")
+                .put("short_column", "")
+                .put("integer_column", "")
+                .put("long_column", "")
+                .put("float_column", "")
+                .put("scaled_float_column", "")
+                .put("double_column", "")
+                .build());
+
+        assertQuery(
+                "SELECT byte_column, short_column, integer_column, long_column, float_column, scaled_float_column, double_column FROM emptynumeric",
+                "VALUES (NULL, NULL, NULL, NULL, NULL, NULL, NULL)");
+
+        deleteIndex(indexName);
     }
 
     @Test

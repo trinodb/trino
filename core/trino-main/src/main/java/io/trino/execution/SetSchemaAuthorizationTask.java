@@ -61,7 +61,7 @@ public class SetSchemaAuthorizationTask
             throw semanticException(SCHEMA_NOT_FOUND, statement, "Schema '%s' does not exist", source);
         }
         TrinoPrincipal principal = createPrincipal(statement.getPrincipal());
-        checkRoleExists(session, statement, metadata, principal, Optional.of(source.getCatalogName()));
+        checkRoleExists(session, statement, metadata, principal, Optional.of(source.getCatalogName()).filter(catalog -> metadata.isCatalogManagedSecurity(session, catalog)));
 
         accessControl.checkCanSetSchemaAuthorization(session.toSecurityContext(), source, principal);
 

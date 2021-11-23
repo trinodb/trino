@@ -192,18 +192,20 @@ public abstract class BaseTestHiveInsertOverwrite
                         "('POLAND', 'Test Data', 25, 5), " +
                         "('CZECH', 'Test Data', 26, 5)",
                 testTable));
-        query(format("SELECT count(*) FROM %s WHERE regionkey = 5", testTable))
+        query(format("SELECT name, comment, nationkey, regionkey FROM %s WHERE regionkey = 5", testTable))
                 .assertThat()
                 .skippingTypesCheck()
                 .containsAll(resultBuilder(getSession())
-                        .row(2L)
+                        .row("POLAND", "Test Data", 25L, 5L)
+                        .row("CZECH", "Test Data", 26L, 5L)
                         .build());
 
-        query(format("INSERT INTO %s values('POLAND', 'Overwrite', 25, 5)", testTable))
+        computeActual(format("INSERT INTO %s values('POLAND', 'Overwrite', 25, 5)", testTable));
+        query(format("SELECT name, comment, nationkey, regionkey FROM %s WHERE regionkey = 5", testTable))
                 .assertThat()
                 .skippingTypesCheck()
                 .containsAll(resultBuilder(getSession())
-                        .row(1L)
+                        .row("POLAND", "Overwrite", 25L, 5L)
                         .build());
         computeActual(format("DROP TABLE %s", testTable));
     }

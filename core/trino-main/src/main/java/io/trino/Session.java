@@ -49,7 +49,6 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.connector.CatalogName.createInformationSchemaCatalogName;
 import static io.trino.connector.CatalogName.createSystemTablesCatalogName;
@@ -85,7 +84,6 @@ public final class Session
     private final SessionPropertyManager sessionPropertyManager;
     private final Map<String, String> preparedStatements;
     private final ProtocolHeaders protocolHeaders;
-    private final Optional<Boolean> transactionAutoCommitContext;
 
     public Session(
             QueryId queryId,
@@ -111,8 +109,7 @@ public final class Session
             Map<String, Map<String, String>> unprocessedCatalogProperties,
             SessionPropertyManager sessionPropertyManager,
             Map<String, String> preparedStatements,
-            ProtocolHeaders protocolHeaders,
-            Optional<Boolean> transactionAutoCommitContext)
+            ProtocolHeaders protocolHeaders)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
@@ -152,8 +149,6 @@ public final class Session
         checkArgument(transactionId.isEmpty() || unprocessedCatalogProperties.isEmpty(), "Catalog session properties cannot be set if there is an open transaction");
 
         checkArgument(catalog.isPresent() || schema.isEmpty(), "schema is set but catalog is not");
-
-        this.transactionAutoCommitContext = requireNonNull(transactionAutoCommitContext, "transactionId is null");
     }
 
     public QueryId getQueryId()
@@ -311,13 +306,7 @@ public final class Session
         requireNonNull(transactionManager, "transactionManager is null");
         requireNonNull(accessControl, "accessControl is null");
 
-        for (Entry<String, String> property : systemProperties.entrySet()) {
-            // verify permissions
-            accessControl.checkCanSetSystemSessionProperty(identity, property.getKey());
-
-            // validate session property value
-            sessionPropertyManager.validateSystemSessionProperty(property.getKey(), property.getValue());
-        }
+        validateSystemProperties(accessControl, this.systemProperties);
 
         // Now that there is a transaction, the catalog name can be resolved to a connector, and the catalog properties can be validated
         ImmutableMap.Builder<CatalogName, Map<String, String>> connectorProperties = ImmutableMap.builder();
@@ -331,13 +320,7 @@ public final class Session
                     .orElseThrow(() -> new TrinoException(NOT_FOUND, "Session property catalog does not exist: " + catalogName))
                     .getCatalogName();
 
-            for (Entry<String, String> property : catalogProperties.entrySet()) {
-                // verify permissions
-                accessControl.checkCanSetCatalogSessionProperty(new SecurityContext(transactionId, identity, queryId), catalogName, property.getKey());
-
-                // validate session property value
-                sessionPropertyManager.validateCatalogSessionProperty(catalog, catalogName, property.getKey(), property.getValue());
-            }
+            validateCatalogProperties(Optional.of(transactionId), accessControl, catalog, catalogProperties);
             connectorProperties.put(catalog, catalogProperties);
         }
 
@@ -363,7 +346,6 @@ public final class Session
                 connectorRoles.put(systemTablesCatalogName, role);
             }
         }
-        boolean isAutoCommitContext = transactionManager.getTransactionInfo(transactionId).isAutoCommitContext();
 
         return new Session(
                 queryId,
@@ -391,23 +373,19 @@ public final class Session
                 ImmutableMap.of(),
                 sessionPropertyManager,
                 preparedStatements,
-                protocolHeaders,
-                Optional.of(isAutoCommitContext));
+                protocolHeaders);
     }
 
-    public Session withDefaultProperties(Map<String, String> systemPropertyDefaults, Map<String, Map<String, String>> catalogPropertyDefaults)
+    public Session withDefaultProperties(Map<String, String> systemPropertyDefaults, Map<String, Map<String, String>> catalogPropertyDefaults, AccessControl accessControl)
     {
         requireNonNull(systemPropertyDefaults, "systemPropertyDefaults is null");
         requireNonNull(catalogPropertyDefaults, "catalogPropertyDefaults is null");
 
-        // to remove this check properties must be authenticated and validated as in beginTransactionId
-        checkState(
-                this.transactionId.isEmpty() && this.connectorProperties.isEmpty(),
-                "Session properties cannot be overridden once a transaction is active");
-
         Map<String, String> systemProperties = new HashMap<>();
         systemProperties.putAll(systemPropertyDefaults);
         systemProperties.putAll(this.systemProperties);
+
+        validateSystemProperties(accessControl, systemProperties);
 
         Map<String, Map<String, String>> connectorProperties = catalogPropertyDefaults.entrySet().stream()
                 .map(entry -> Maps.immutableEntry(entry.getKey(), new HashMap<>(entry.getValue())))
@@ -418,6 +396,9 @@ public final class Session
                 connectorProperties.computeIfAbsent(catalog, id -> new HashMap<>())
                         .put(entry.getKey(), entry.getValue());
             }
+        }
+        for (Entry<String, Map<String, String>> catalogEntry : connectorProperties.entrySet()) {
+            validateCatalogProperties(this.transactionId, accessControl, new CatalogName(catalogEntry.getKey()), catalogEntry.getValue());
         }
 
         return new Session(
@@ -444,8 +425,7 @@ public final class Session
                 connectorProperties,
                 sessionPropertyManager,
                 preparedStatements,
-                protocolHeaders,
-                transactionAutoCommitContext);
+                protocolHeaders);
     }
 
     public ConnectorSession toConnectorSession()
@@ -464,7 +444,6 @@ public final class Session
 
         return new FullConnectorSession(
                 this,
-                transactionAutoCommitContext,
                 identity.toConnectorIdentity(catalogName.getCatalogName()),
                 connectorProperties.getOrDefault(catalogName, ImmutableMap.of()),
                 catalogName,
@@ -501,8 +480,7 @@ public final class Session
                 unprocessedCatalogProperties,
                 identity.getCatalogRoles(),
                 preparedStatements,
-                protocolHeaders.getProtocolName(),
-                transactionAutoCommitContext);
+                protocolHeaders.getProtocolName());
     }
 
     @Override
@@ -529,6 +507,30 @@ public final class Session
                 .add("start", start)
                 .omitNullValues()
                 .toString();
+    }
+
+    private void validateCatalogProperties(Optional<TransactionId> transactionId, AccessControl accessControl, CatalogName catalog, Map<String, String> catalogProperties)
+    {
+        for (Entry<String, String> property : catalogProperties.entrySet()) {
+            // verify permissions
+            if (transactionId.isPresent()) {
+                accessControl.checkCanSetCatalogSessionProperty(new SecurityContext(transactionId.get(), identity, queryId), catalog.getCatalogName(), property.getKey());
+            }
+
+            // validate catalog session property value
+            sessionPropertyManager.validateCatalogSessionProperty(catalog, property.getKey(), property.getValue());
+        }
+    }
+
+    private void validateSystemProperties(AccessControl accessControl, Map<String, String> systemProperties)
+    {
+        for (Entry<String, String> property : systemProperties.entrySet()) {
+            // verify permissions
+            accessControl.checkCanSetSystemSessionProperty(identity, property.getKey());
+
+            // validate session property value
+            sessionPropertyManager.validateSystemSessionProperty(property.getKey(), property.getValue());
+        }
     }
 
     public static SessionBuilder builder(SessionPropertyManager sessionPropertyManager)
@@ -833,8 +835,7 @@ public final class Session
                     catalogSessionProperties,
                     sessionPropertyManager,
                     preparedStatements,
-                    protocolHeaders,
-                    Optional.empty());
+                    protocolHeaders);
         }
     }
 

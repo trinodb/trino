@@ -26,6 +26,7 @@ import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.Type;
 
 import java.security.Principal;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -81,13 +82,14 @@ public interface AccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
-    void checkCanViewQueryOwnedBy(Identity identity, String queryOwner);
+    void checkCanViewQueryOwnedBy(Identity identity, Identity queryOwner);
 
     /**
      * Filter the list of users to those the identity view query owned by the user.  The method
      * will not be called with the current user in the set.
+     * @return
      */
-    Set<String> filterQueriesOwnedBy(Identity identity, Set<String> queryOwners);
+    Collection<Identity> filterQueriesOwnedBy(Identity identity, Collection<Identity> queryOwners);
 
     /**
      * Checks if identity can kill a query owned by the specified user.  The method
@@ -95,7 +97,7 @@ public interface AccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
-    void checkCanKillQueryOwnedBy(Identity identity, String queryOwner);
+    void checkCanKillQueryOwnedBy(Identity identity, Identity queryOwner);
 
     /**
      * Filter the list of catalogs to those visible to the identity.

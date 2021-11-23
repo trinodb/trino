@@ -84,7 +84,7 @@ public class TestProtoUtils
         Column c = t.getColumn(TestingAlluxioMetastoreObjects.COLUMN_NAME).get();
         assertEquals(table.getDbName(), t.getDatabaseName());
         assertEquals(table.getTableName(), t.getTableName());
-        assertEquals(table.getOwner(), t.getOwner());
+        assertEquals(table.getOwner(), t.getOwner().orElse(null));
         assertEquals(table.getType().toString(), t.getTableType());
         assertEquals(0, t.getDataColumns().size());
         assertEquals(1, t.getPartitionColumns().size());

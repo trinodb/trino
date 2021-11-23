@@ -23,6 +23,7 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AbstractMockMetadata;
 import io.trino.metadata.Catalog;
 import io.trino.metadata.CatalogManager;
+import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.MetadataManager;
 import io.trino.metadata.QualifiedObjectName;
@@ -30,15 +31,14 @@ import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
 import io.trino.metadata.TablePropertyManager;
 import io.trino.metadata.TableSchema;
+import io.trino.metadata.ViewDefinition;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
 import io.trino.security.AccessControl;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
-import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorTableMetadata;
-import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TestingColumnHandle;
 import io.trino.spi.resourcegroups.ResourceGroupId;
@@ -232,7 +232,7 @@ public class TestCreateMaterializedViewTask
         private final TablePropertyManager tablePropertyManager;
         private final MaterializedViewPropertyManager materializedViewPropertyManager;
         private final CatalogName catalogHandle;
-        private final Map<SchemaTableName, ConnectorMaterializedViewDefinition> materializedViews = new ConcurrentHashMap<>();
+        private final Map<SchemaTableName, MaterializedViewDefinition> materializedViews = new ConcurrentHashMap<>();
 
         public MockMetadata(
                 TablePropertyManager tablePropertyManager,
@@ -245,7 +245,7 @@ public class TestCreateMaterializedViewTask
         }
 
         @Override
-        public void createMaterializedView(Session session, QualifiedObjectName viewName, ConnectorMaterializedViewDefinition definition, boolean replace, boolean ignoreExisting)
+        public void createMaterializedView(Session session, QualifiedObjectName viewName, MaterializedViewDefinition definition, boolean replace, boolean ignoreExisting)
         {
             materializedViews.put(viewName.asSchemaTableName(), definition);
             if (!ignoreExisting) {
@@ -316,13 +316,13 @@ public class TestCreateMaterializedViewTask
         }
 
         @Override
-        public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(Session session, QualifiedObjectName viewName)
+        public Optional<MaterializedViewDefinition> getMaterializedView(Session session, QualifiedObjectName viewName)
         {
             return Optional.ofNullable(materializedViews.get(viewName.asSchemaTableName()));
         }
 
         @Override
-        public Optional<ConnectorViewDefinition> getView(Session session, QualifiedObjectName viewName)
+        public Optional<ViewDefinition> getView(Session session, QualifiedObjectName viewName)
         {
             return Optional.empty();
         }

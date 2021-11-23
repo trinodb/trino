@@ -13,6 +13,7 @@
  */
 package io.trino.operator;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
@@ -196,7 +197,7 @@ public class TestOperatorStats
     @Test
     public void testAdd()
     {
-        OperatorStats actual = EXPECTED.add(EXPECTED, EXPECTED);
+        OperatorStats actual = EXPECTED.add(ImmutableList.of(EXPECTED, EXPECTED));
 
         assertEquals(actual.getStageId(), 0);
         assertEquals(actual.getOperatorId(), 41);
@@ -246,7 +247,7 @@ public class TestOperatorStats
     @Test
     public void testAddMergeable()
     {
-        OperatorStats actual = MERGEABLE.add(MERGEABLE, MERGEABLE);
+        OperatorStats actual = MERGEABLE.add(ImmutableList.of(MERGEABLE, MERGEABLE));
 
         assertEquals(actual.getStageId(), 0);
         assertEquals(actual.getOperatorId(), 41);

@@ -173,7 +173,7 @@ public class TupleDomainParquetPredicate
                 continue;
             }
 
-            Domain domain = getDomain(effectivePredicateDomain.getType(), numberOfRows, columnIndex, id, column);
+            Domain domain = getDomain(effectivePredicateDomain.getType(), numberOfRows, columnIndex, id, column, timeZone);
             if (!effectivePredicateDomain.overlaps(domain)) {
                 return false;
             }
@@ -400,7 +400,13 @@ public class TupleDomainParquetPredicate
     }
 
     @VisibleForTesting
-    public Domain getDomain(Type type, long rowCount, ColumnIndex columnIndex, ParquetDataSourceId id, RichColumnDescriptor descriptor)
+    public static Domain getDomain(
+            Type type,
+            long rowCount,
+            ColumnIndex columnIndex,
+            ParquetDataSourceId id,
+            RichColumnDescriptor descriptor,
+            DateTimeZone timeZone)
             throws ParquetCorruptionException
     {
         if (columnIndex == null) {
@@ -436,6 +442,9 @@ public class TupleDomainParquetPredicate
             List<Object> min = new ArrayList<>();
             List<Object> max = new ArrayList<>();
             for (int i = 0; i < pageCount; i++) {
+                if (nullPages.get(i)) {
+                    continue;
+                }
                 min.add(converterFunction.apply(minValues.get(i)));
                 max.add(converterFunction.apply(maxValues.get(i)));
             }
@@ -537,7 +546,7 @@ public class TupleDomainParquetPredicate
 
             FilterPredicate columnFilter = FilterApi.userDefined(
                     new TrinoIntColumn(ColumnPath.get(column.getPath())),
-                    new DomainUserDefinedPredicate(column, domain, timeZone));
+                    new DomainUserDefinedPredicate<>(column, domain, timeZone));
             if (filter == null) {
                 filter = columnFilter;
             }

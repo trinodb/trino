@@ -384,6 +384,10 @@ Property Name                                      Description                  
                                                    for tables. It must be either 'skip' or an octal number,
                                                    with a leading 0. If set to 'skip', permissions of newly
                                                    created directories will not be set by Trino.
+
+``hive.query-partition-filter-required``           Set to ``true`` to force a query to use a partition filter.   ``false``
+                                                   You can use the ``query_partition_filter_required`` catalog 
+                                                   session property for temporary, catalog specific use.
 ================================================== ============================================================ ============
 
 ORC format configuration properties
@@ -671,7 +675,7 @@ ALTER TABLE EXECUTE
 The connector supports the following commands for use with
 :ref:`ALTER TABLE EXECUTE <alter-table-execute>`:
 
-* ``optimize``: collapse files in transactional tables up to a threshold
+* ``optimize``: collapse files in a non-transactional table up to a threshold
   defined in the ``file_size_threshold`` parameter. For example, the following
   statement collapses files in a table that are under 10 megabytes in size:
 

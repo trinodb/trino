@@ -109,6 +109,8 @@ The connector has a preliminary support for reading from `BigQuery views
 <https://cloud.google.com/bigquery/docs/views-intro>`_. Please note there are
 a few caveats:
 
+* Reading from views is disabled by default. In order to enable it, set the
+  ``bigquery.views-enabled`` configuration property to ``true``.
 * BigQuery views are not materialized by default, which means that the
   connector needs to materialize them before it can read them. This process
   affects the read performance.
@@ -118,8 +120,6 @@ a few caveats:
   and ``bigquery.view-materialization-dataset`` properties, respectively. The
   service account must have write permission to the project and the dataset in
   order to materialize the view.
-* Reading from views is disabled by default. In order to enable it, set the
-  ``bigquery.views-enabled`` configuration property to ``true``.
 
 Configuration properties
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -154,9 +154,9 @@ Data types
 With a few exceptions, all BigQuery types are mapped directly to their Trino
 counterparts. Here are all the mappings:
 
-=============  =============================== =============================================================================================================
+============== =============================== =============================================================================================================
 BigQuery       Trino                           Notes
-=============  =============================== =============================================================================================================
+============== =============================== =============================================================================================================
 ``ARRAY``      ``ARRAY``
 ``BOOLEAN``    ``BOOLEAN``
 ``BYTES``      ``VARBINARY``
@@ -166,11 +166,12 @@ BigQuery       Trino                           Notes
 ``GEOGRAPHY``  ``VARCHAR``                     In `Well-known text (WKT) <https://en.wikipedia.org/wiki/Well-known_text_representation_of_geometry>`_ format
 ``INTEGER``    ``BIGINT``
 ``NUMERIC``    ``DECIMAL(P,S)``                Defaults to ``38`` as precision and ``9`` as scale
+``BIGNUMERIC`` ``DECIMAL(P,S)``                Precision > 38 is not supported. Note that the default precision and scale of BIGNUMERIC is ``(77, 38)``.
 ``RECORD``     ``ROW``
 ``STRING``     ``VARCHAR``
 ``TIME``       ``TIME(6)``
 ``TIMESTAMP``  ``TIMESTAMP(6) WITH TIME ZONE`` Time zone is UTC
-=============  =============================== =============================================================================================================
+============== =============================== =============================================================================================================
 
 System tables
 -------------

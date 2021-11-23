@@ -273,7 +273,7 @@ public final class PlanMatchPattern
             PlanMatchPattern source)
     {
         PlanMatchPattern result = node(AggregationNode.class, source)
-                .with(new PredicateMatcher(predicate));
+                .with(new PredicateMatcher<>(predicate));
         aggregations.entrySet().forEach(
                 aggregation -> result.withAlias(aggregation.getKey(), new AggregationFunctionMatcher(aggregation.getValue())));
         return result;

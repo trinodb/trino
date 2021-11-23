@@ -376,7 +376,11 @@ class TranslationMap
             return Optional.of(fieldSymbols[field.getHierarchyFieldIndex()]);
         }
 
-        return Optional.of(Symbol.from(outerContext.get().rewrite(expression)));
+        if (outerContext.isPresent()) {
+            return Optional.of(Symbol.from(outerContext.get().rewrite(expression)));
+        }
+
+        return Optional.empty();
     }
 
     private static void verifyAstExpression(Expression astExpression)

@@ -151,7 +151,7 @@ public class TestMemoryConnectorTest
         Metrics metrics = collectCustomMetrics("SELECT partkey FROM part WHERE partkey % 1000 > 0");
         assertThat(metrics.getMetrics().get("rows")).isEqualTo(new LongCount(PART_COUNT));
         assertThat(metrics.getMetrics().get("started")).isEqualTo(metrics.getMetrics().get("finished"));
-        assertThat(((Count) metrics.getMetrics().get("finished")).getTotal()).isGreaterThan(0);
+        assertThat(((Count<?>) metrics.getMetrics().get("finished")).getTotal()).isGreaterThan(0);
     }
 
     @Test
@@ -161,7 +161,7 @@ public class TestMemoryConnectorTest
         Metrics metrics = collectCustomMetrics("SELECT partkey FROM part");
         assertThat(metrics.getMetrics().get("rows")).isEqualTo(new LongCount(PART_COUNT));
         assertThat(metrics.getMetrics().get("started")).isEqualTo(metrics.getMetrics().get("finished"));
-        assertThat(((Count) metrics.getMetrics().get("finished")).getTotal()).isGreaterThan(0);
+        assertThat(((Count<?>) metrics.getMetrics().get("finished")).getTotal()).isGreaterThan(0);
     }
 
     private Metrics collectCustomMetrics(String sql)
@@ -338,7 +338,6 @@ public class TestMemoryConnectorTest
     }
 
     @Test
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5172", match = "Lists differ at element")
     public void testCrossJoinDynamicFiltering()
     {
         assertUpdate("DROP TABLE IF EXISTS probe");

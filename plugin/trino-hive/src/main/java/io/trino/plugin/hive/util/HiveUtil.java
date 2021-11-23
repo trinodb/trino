@@ -249,6 +249,7 @@ public final class HiveUtil
         configureCompressionCodecs(jobConf);
 
         try {
+            @SuppressWarnings({"rawtypes", "unchecked"}) // raw type on WritableComparable can't be fixed because Utilities#skipHeader takes them raw
             RecordReader<WritableComparable, Writable> recordReader = (RecordReader<WritableComparable, Writable>) inputFormat.getRecordReader(fileSplit, jobConf, Reporter.NULL);
 
             int headerCount = getHeaderCount(schema);
@@ -1082,15 +1083,12 @@ public final class HiveUtil
 
     public static OrcWriterOptions getOrcWriterOptions(Properties schema, OrcWriterOptions orcWriterOptions)
     {
-        if (schema.contains(ORC_BLOOM_FILTER_COLUMNS)) {
-            if (!schema.contains(ORC_BLOOM_FILTER_FPP)) {
+        if (schema.containsKey(ORC_BLOOM_FILTER_COLUMNS)) {
+            if (!schema.containsKey(ORC_BLOOM_FILTER_FPP)) {
                 throw new TrinoException(HIVE_INVALID_METADATA, format("FPP for bloom filter is missing"));
             }
             try {
                 double fpp = parseDouble(schema.getProperty(ORC_BLOOM_FILTER_FPP));
-                if (fpp > 0.0 && fpp < 1.0) {
-                    throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, format("Invalid value for bloom filter: %f", fpp));
-                }
                 return orcWriterOptions
                         .withBloomFilterColumns(ImmutableSet.copyOf(COLUMN_NAMES_SPLITTER.splitToList(schema.getProperty(ORC_BLOOM_FILTER_COLUMNS))))
                         .withBloomFilterFpp(fpp);

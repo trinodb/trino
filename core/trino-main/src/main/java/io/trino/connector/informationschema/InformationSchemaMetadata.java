@@ -358,8 +358,8 @@ public class InformationSchemaMetadata
                             .map(table -> new QualifiedObjectName(catalogName, prefix.getSchemaName().get(), table)))
                     .filter(objectName -> {
                         if (!isColumnsEnumeratingTable(informationSchemaTable) ||
-                                metadata.getMaterializedView(session, objectName).isPresent() ||
-                                metadata.getView(session, objectName).isPresent()) {
+                                metadata.isMaterializedView(session, objectName) ||
+                                metadata.isView(session, objectName)) {
                             return true;
                         }
 

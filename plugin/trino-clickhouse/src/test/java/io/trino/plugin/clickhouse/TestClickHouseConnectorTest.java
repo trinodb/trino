@@ -390,10 +390,6 @@ public class TestClickHouseConnectorTest
                 // Querying the column with a boolean predicate subsequently fails with "Cannot apply operator: tinyint = boolean"
                 return Optional.empty();
 
-            case "real":
-                // TODO (https://github.com/trinodb/trino/issues/7101) enable the test
-                return Optional.empty();
-
             case "varbinary":
                 // here in this test class we map ClickHouse String into varchar, so varbinary ends up a varchar
                 return Optional.empty();

@@ -362,6 +362,22 @@ public class TestHivePlugin
                 .shutdown();
     }
 
+    @Test
+    public void testSystemAccessControl()
+    {
+        ConnectorFactory connectorFactory = getHiveConnectorFactory();
+
+        Connector connector = connectorFactory.create(
+                "test",
+                ImmutableMap.<String, String>builder()
+                        .put("hive.metastore.uri", "thrift://foo:1234")
+                        .put("hive.security", "system")
+                        .build(),
+                new TestingConnectorContext());
+        assertThatThrownBy(connector::getAccessControl).isInstanceOf(UnsupportedOperationException.class);
+        connector.shutdown();
+    }
+
     private static ConnectorFactory getHiveConnectorFactory()
     {
         Plugin plugin = new HivePlugin();

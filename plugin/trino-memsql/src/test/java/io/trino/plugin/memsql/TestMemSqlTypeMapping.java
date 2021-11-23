@@ -147,20 +147,20 @@ public class TestMemSqlTypeMapping
     @Test
     public void testFloat()
     {
-        singlePrecisionFloatingPointTests(realDataType())
-                .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_float"));
-        singlePrecisionFloatingPointTests(memSqlFloatDataType())
-                .execute(getQueryRunner(), memSqlCreateAndInsert("tpch.memsql_test_float"));
-    }
-
-    private static DataTypeTest singlePrecisionFloatingPointTests(DataType<Float> floatType)
-    {
         // we are not testing Nan/-Infinity/+Infinity as those are not supported by MemSQL
-        return DataTypeTest.create()
-                .addRoundTrip(floatType, 3.14f)
-                // TODO Overeagerly rounded by MemSQL to 3.14159
-                // .addRoundTrip(floatType, 3.1415927f)
-                .addRoundTrip(floatType, null);
+        SqlDataTypeTest.create()
+                .addRoundTrip("real", "3.14", REAL, "REAL '3.14'")
+                .addRoundTrip("real", "10.3e0", REAL, "REAL '10.3e0'")
+                .addRoundTrip("real", "NULL", REAL, "CAST(NULL AS REAL)")
+                // .addRoundTrip("real", "3.1415927", REAL, "REAL '3.1415927'") // Overeagerly rounded by MemSQL to 3.14159
+                .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_float"));
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("float", "3.14", REAL, "REAL '3.14'")
+                .addRoundTrip("float", "10.3e0", REAL, "REAL '10.3e0'")
+                .addRoundTrip("float", "NULL", REAL, "CAST(NULL AS REAL)")
+                // .addRoundTrip("float", "3.1415927", REAL, "REAL '3.1415927'") // Overeagerly rounded by MemSQL to 3.14159
+                .execute(getQueryRunner(), memSqlCreateAndInsert("tpch.memsql_test_float"));
     }
 
     @Test
@@ -849,11 +849,6 @@ public class TestMemSqlTypeMapping
     private static DataType<String> memSqlJsonDataType(Function<String, String> toLiteral)
     {
         return dataType("json", JSON, toLiteral);
-    }
-
-    private static DataType<Float> memSqlFloatDataType()
-    {
-        return dataType("float", REAL, Object::toString);
     }
 
     private static DataType<Double> memSqlDoubleDataType()

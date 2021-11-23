@@ -1017,7 +1017,7 @@ public class ThriftHiveMetastore
                     .stopOnIllegalExceptions()
                     .run("dropDatabase", stats.getDropDatabase().wrap(() -> {
                         try (ThriftMetastoreClient client = createMetastoreClient(identity)) {
-                            client.dropDatabase(databaseName, true, false);
+                            client.dropDatabase(databaseName, false, false);
                         }
                         return null;
                     }));
@@ -1452,7 +1452,7 @@ public class ThriftHiveMetastore
                     .stopOnIllegalExceptions()
                     .run("grantTablePrivileges", stats.getGrantTablePrivileges().wrap(() -> {
                         try (ThriftMetastoreClient metastoreClient = createMetastoreClient()) {
-                            Set<HivePrivilegeInfo> existingPrivileges = listTablePrivileges(databaseName, tableName, tableOwner, Optional.of(grantee));
+                            Set<HivePrivilegeInfo> existingPrivileges = listTablePrivileges(databaseName, tableName, Optional.of(tableOwner), Optional.of(grantee));
 
                             Set<PrivilegeGrantInfo> privilegesToGrant = new HashSet<>(requestedPrivileges);
                             Iterator<PrivilegeGrantInfo> iterator = privilegesToGrant.iterator();
@@ -1503,7 +1503,7 @@ public class ThriftHiveMetastore
                     .stopOnIllegalExceptions()
                     .run("revokeTablePrivileges", stats.getRevokeTablePrivileges().wrap(() -> {
                         try (ThriftMetastoreClient metastoreClient = createMetastoreClient()) {
-                            Set<HivePrivilege> existingHivePrivileges = listTablePrivileges(databaseName, tableName, tableOwner, Optional.of(grantee)).stream()
+                            Set<HivePrivilege> existingHivePrivileges = listTablePrivileges(databaseName, tableName, Optional.of(tableOwner), Optional.of(grantee)).stream()
                                     .map(HivePrivilegeInfo::getHivePrivilege)
                                     .collect(toImmutableSet());
 
@@ -1529,7 +1529,7 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, String tableOwner, Optional<HivePrincipal> principal)
+    public Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, Optional<String> tableOwner, Optional<HivePrincipal> principal)
     {
         try {
             return retry()
@@ -1539,15 +1539,14 @@ public class ThriftHiveMetastore
                             ImmutableSet.Builder<HivePrivilegeInfo> privileges = ImmutableSet.builder();
                             List<HiveObjectPrivilege> hiveObjectPrivilegeList;
                             if (principal.isEmpty()) {
-                                HivePrincipal ownerPrincipal = new HivePrincipal(USER, tableOwner);
-                                privileges.add(new HivePrivilegeInfo(OWNERSHIP, true, ownerPrincipal, ownerPrincipal));
+                                tableOwner.ifPresent(owner -> privileges.add(new HivePrivilegeInfo(OWNERSHIP, true, new HivePrincipal(USER, owner), new HivePrincipal(USER, owner))));
                                 hiveObjectPrivilegeList = client.listPrivileges(
                                         null,
                                         null,
                                         new HiveObjectRef(TABLE, databaseName, tableName, null, null));
                             }
                             else {
-                                if (principal.get().getType() == USER && tableOwner.equals(principal.get().getName())) {
+                                if (tableOwner.isPresent() && principal.get().getType() == USER && tableOwner.get().equals(principal.get().getName())) {
                                     privileges.add(new HivePrivilegeInfo(OWNERSHIP, true, principal.get(), principal.get()));
                                 }
                                 hiveObjectPrivilegeList = client.listPrivileges(

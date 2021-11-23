@@ -41,9 +41,11 @@ import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.security.SqlStandardAccessControlMetadataMetastore;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.statistics.ColumnStatisticType;
@@ -366,7 +368,38 @@ public class SemiTransactionalHiveMetastore
 
     public synchronized void dropDatabase(HiveIdentity identity, String schemaName)
     {
-        setExclusive((delegate, hdfsEnvironment) -> delegate.dropDatabase(identity, schemaName));
+        HdfsContext context = new HdfsContext(
+                identity.getUsername()
+                        .map(ConnectorIdentity::ofUser)
+                        .orElseThrow(() -> new IllegalStateException("username is null")));
+
+        Optional<Path> location = delegate.getDatabase(schemaName)
+                .orElseThrow(() -> new SchemaNotFoundException(schemaName))
+                .getLocation()
+                .map(Path::new);
+
+        setExclusive((delegate, hdfsEnvironment) -> {
+            delegate.dropDatabase(identity, schemaName);
+
+            location.ifPresent(path -> {
+                try {
+                    FileSystem fs = hdfsEnvironment.getFileSystem(context, path);
+                    // If no files in schema directory, delete it
+                    if (!fs.listFiles(path, false).hasNext()) {
+                        log.debug("Deleting location of dropped schema (%s)", path);
+                        fs.delete(path, true);
+                    }
+                    else {
+                        log.info("Skipped deleting schema location with external files (%s)", path);
+                    }
+                }
+                catch (IOException e) {
+                    throw new TrinoException(
+                            HIVE_FILESYSTEM_ERROR,
+                            format("Error checking or deleting schema directory '%s'", path), e);
+                }
+            });
+        });
     }
 
     public synchronized void renameDatabase(HiveIdentity identity, String source, String target)
@@ -649,7 +682,7 @@ public class SemiTransactionalHiveMetastore
         if (oldTableAction == null) {
             Table table = getExistingTable(identity, schemaTableName.getSchemaName(), schemaTableName.getTableName());
             HdfsContext hdfsContext = new HdfsContext(session);
-            PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(table.getOwner());
+            PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(table.getOwner().orElseThrow());
             tableActions.put(
                     schemaTableName,
                     new Action<>(
@@ -699,7 +732,7 @@ public class SemiTransactionalHiveMetastore
         if (oldTableAction == null) {
             Table table = getExistingTable(identity, schemaTableName.getSchemaName(), schemaTableName.getTableName());
             HdfsContext hdfsContext = new HdfsContext(session);
-            PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(table.getOwner());
+            PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(table.getOwner().orElseThrow());
             tableActions.put(
                     schemaTableName,
                     new Action<>(
@@ -1087,7 +1120,7 @@ public class SemiTransactionalHiveMetastore
         SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
         Action<TableAndMore> tableAction = tableActions.get(schemaTableName);
         if (tableAction == null) {
-            return delegate.listTablePrivileges(databaseName, tableName, getTableOwner(identity, databaseName, tableName), principal);
+            return delegate.listTablePrivileges(databaseName, tableName, getExistingTable(identity, databaseName, tableName).getOwner(), principal);
         }
         switch (tableAction.getType()) {
             case ADD:
@@ -1095,19 +1128,24 @@ public class SemiTransactionalHiveMetastore
                 if (principal.isPresent() && principal.get().getType() == PrincipalType.ROLE) {
                     return ImmutableSet.of();
                 }
-                String owner = tableAction.getData().getTable().getOwner();
-                if (principal.isPresent() && !principal.get().getName().equals(owner)) {
+                Optional<String> owner = tableAction.getData().getTable().getOwner();
+                if (owner.isEmpty()) {
+                    // todo the existing logic below seem off. Only permissions held by the table owner are returned
                     return ImmutableSet.of();
                 }
-                Collection<HivePrivilegeInfo> privileges = tableAction.getData().getPrincipalPrivileges().getUserPrivileges().get(owner);
+                String ownerUsername = owner.orElseThrow();
+                if (principal.isPresent() && !principal.get().getName().equals(ownerUsername)) {
+                    return ImmutableSet.of();
+                }
+                Collection<HivePrivilegeInfo> privileges = tableAction.getData().getPrincipalPrivileges().getUserPrivileges().get(ownerUsername);
                 return ImmutableSet.<HivePrivilegeInfo>builder()
                         .addAll(privileges)
-                        .add(new HivePrivilegeInfo(OWNERSHIP, true, new HivePrincipal(USER, owner), new HivePrincipal(USER, owner)))
+                        .add(new HivePrivilegeInfo(OWNERSHIP, true, new HivePrincipal(USER, ownerUsername), new HivePrincipal(USER, ownerUsername)))
                         .build();
             case INSERT_EXISTING:
             case DELETE_ROWS:
             case UPDATE:
-                return delegate.listTablePrivileges(databaseName, tableName, getTableOwner(identity, databaseName, tableName), principal);
+                return delegate.listTablePrivileges(databaseName, tableName, getExistingTable(identity, databaseName, tableName).getOwner(), principal);
             case DROP:
                 throw new TableNotFoundException(schemaTableName);
             case DROP_PRESERVE_DATA:
@@ -1117,9 +1155,9 @@ public class SemiTransactionalHiveMetastore
         throw new IllegalStateException("Unknown action type");
     }
 
-    public synchronized String getTableOwner(HiveIdentity identity, String databaseName, String tableName)
+    private synchronized String getRequiredTableOwner(HiveIdentity identity, String databaseName, String tableName)
     {
-        return getExistingTable(identity, databaseName, tableName).getOwner();
+        return getExistingTable(identity, databaseName, tableName).getOwner().orElseThrow();
     }
 
     private Table getExistingTable(HiveIdentity identity, String databaseName, String tableName)
@@ -1131,13 +1169,13 @@ public class SemiTransactionalHiveMetastore
     @Override
     public synchronized void grantTablePrivileges(HiveIdentity identity, String databaseName, String tableName, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges)
     {
-        setExclusive((delegate, hdfsEnvironment) -> delegate.grantTablePrivileges(databaseName, tableName, getTableOwner(identity, databaseName, tableName), grantee, privileges));
+        setExclusive((delegate, hdfsEnvironment) -> delegate.grantTablePrivileges(databaseName, tableName, getRequiredTableOwner(identity, databaseName, tableName), grantee, privileges));
     }
 
     @Override
     public synchronized void revokeTablePrivileges(HiveIdentity identity, String databaseName, String tableName, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges)
     {
-        setExclusive((delegate, hdfsEnvironment) -> delegate.revokeTablePrivileges(databaseName, tableName, getTableOwner(identity, databaseName, tableName), grantee, privileges));
+        setExclusive((delegate, hdfsEnvironment) -> delegate.revokeTablePrivileges(databaseName, tableName, getRequiredTableOwner(identity, databaseName, tableName), grantee, privileges));
     }
 
     public synchronized String declareIntentionToWrite(ConnectorSession session, WriteMode writeMode, Path stagingPathRoot, SchemaTableName schemaTableName)

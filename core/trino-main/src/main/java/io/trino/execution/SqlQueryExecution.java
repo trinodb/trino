@@ -111,7 +111,6 @@ public class SqlQueryExecution
     private final Slug slug;
     private final Metadata metadata;
     private final TypeOperators typeOperators;
-    private final SqlParser sqlParser;
     private final SplitManager splitManager;
     private final NodePartitioningManager nodePartitioningManager;
     private final NodeScheduler nodeScheduler;
@@ -133,6 +132,7 @@ public class SqlQueryExecution
     private final CostCalculator costCalculator;
     private final DynamicFilterService dynamicFilterService;
     private final TableExecuteContextManager tableExecuteContextManager;
+    private final TypeAnalyzer typeAnalyzer;
 
     private SqlQueryExecution(
             PreparedQuery preparedQuery,
@@ -161,13 +161,13 @@ public class SqlQueryExecution
             CostCalculator costCalculator,
             DynamicFilterService dynamicFilterService,
             WarningCollector warningCollector,
-            TableExecuteContextManager tableExecuteContextManager)
+            TableExecuteContextManager tableExecuteContextManager,
+            TypeAnalyzer typeAnalyzer)
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
             this.slug = requireNonNull(slug, "slug is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
-            this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
             this.splitManager = requireNonNull(splitManager, "splitManager is null");
             this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
             this.nodeScheduler = requireNonNull(nodeScheduler, "nodeScheduler is null");
@@ -217,6 +217,7 @@ public class SqlQueryExecution
             });
 
             this.remoteTaskFactory = new MemoryTrackingRemoteTaskFactory(requireNonNull(remoteTaskFactory, "remoteTaskFactory is null"), stateMachine);
+            this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
         }
     }
 
@@ -488,7 +489,7 @@ public class SqlQueryExecution
                 idAllocator,
                 metadata,
                 typeOperators,
-                new TypeAnalyzer(sqlParser, metadata),
+                typeAnalyzer,
                 statsCalculator,
                 costCalculator,
                 stateMachine.getWarningCollector());
@@ -511,7 +512,7 @@ public class SqlQueryExecution
     private void planDistribution(PlanRoot plan)
     {
         // plan the execution on the active nodes
-        DistributedExecutionPlanner distributedPlanner = new DistributedExecutionPlanner(splitManager, metadata, dynamicFilterService);
+        DistributedExecutionPlanner distributedPlanner = new DistributedExecutionPlanner(splitManager, metadata, dynamicFilterService, typeAnalyzer);
         StageExecutionPlan outputStageExecutionPlan = distributedPlanner.plan(plan.getRoot(), stateMachine.getSession());
 
         // ensure split sources are closed
@@ -750,6 +751,7 @@ public class SqlQueryExecution
         private final CostCalculator costCalculator;
         private final DynamicFilterService dynamicFilterService;
         private final TableExecuteContextManager tableExecuteContextManager;
+        private final TypeAnalyzer typeAnalyzer;
 
         @Inject
         SqlQueryExecutionFactory(
@@ -775,7 +777,8 @@ public class SqlQueryExecution
                 StatsCalculator statsCalculator,
                 CostCalculator costCalculator,
                 DynamicFilterService dynamicFilterService,
-                TableExecuteContextManager tableExecuteContextManager)
+                TableExecuteContextManager tableExecuteContextManager,
+                TypeAnalyzer typeAnalyzer)
         {
             requireNonNull(config, "config is null");
             this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
@@ -801,6 +804,7 @@ public class SqlQueryExecution
             this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
             this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
             this.tableExecuteContextManager = requireNonNull(tableExecuteContextManager, "tableExecuteContextManager is null");
+            this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
         }
 
         @Override
@@ -841,7 +845,8 @@ public class SqlQueryExecution
                     costCalculator,
                     dynamicFilterService,
                     warningCollector,
-                    tableExecuteContextManager);
+                    tableExecuteContextManager,
+                    typeAnalyzer);
         }
     }
 }

@@ -15,6 +15,9 @@ package io.trino.plugin.hive.security;
 
 import com.google.inject.Binder;
 import com.google.inject.Module;
+import com.google.inject.Scopes;
+import io.trino.plugin.base.security.AllowAllAccessControl;
+import io.trino.spi.connector.ConnectorAccessControl;
 
 public class AllowAllSecurityModule
         implements Module
@@ -22,6 +25,7 @@ public class AllowAllSecurityModule
     @Override
     public void configure(Binder binder)
     {
+        binder.bind(ConnectorAccessControl.class).to(AllowAllAccessControl.class).in(Scopes.SINGLETON);
         binder.bind(AccessControlMetadataFactory.class).toInstance(metastore -> new AccessControlMetadata() {});
     }
 }

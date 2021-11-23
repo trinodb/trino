@@ -36,7 +36,7 @@ import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static io.trino.operator.aggregation.TypedSet.createEqualityTypedSet;
+import static io.trino.operator.aggregation.TypedSet.createUnboundedEqualityTypedSet;
 import static io.trino.spi.predicate.Range.range;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
@@ -190,14 +190,13 @@ public class DynamicFilterSourceOperator
                 minMaxComparisonsBuilder.add(blockTypeOperators.getComparisonUnorderedLastOperator(type));
             }
             this.blockBuilders[channelIndex] = type.createBlockBuilder(null, EXPECTED_BLOCK_BUILDER_SIZE);
-            this.valueSets[channelIndex] = createEqualityTypedSet(
+            this.valueSets[channelIndex] = createUnboundedEqualityTypedSet(
                     type,
                     blockTypeOperators.getEqualOperator(type),
                     blockTypeOperators.getHashCodeOperator(type),
                     blockBuilders[channelIndex],
                     EXPECTED_BLOCK_BUILDER_SIZE,
-                    format("DynamicFilterSourceOperator_%s_%d", planNodeId, channelIndex),
-                    true);
+                    format("DynamicFilterSourceOperator_%s_%d", planNodeId, channelIndex));
         }
 
         this.minMaxCollectionLimit = minMaxCollectionLimit;

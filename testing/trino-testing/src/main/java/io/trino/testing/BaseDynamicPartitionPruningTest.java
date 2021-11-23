@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
+import io.trino.metadata.QualifiedObjectName;
+import io.trino.operator.OperatorStats;
 import io.trino.server.DynamicFilterService.DynamicFilterDomainStats;
 import io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import io.trino.spi.QueryId;
@@ -96,8 +98,8 @@ public abstract class BaseDynamicPartitionPruningTest
         MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
         assertEqualsIgnoreOrder(result.getResult(), expected);
 
-        // TODO bring back OperatorStats assertions from https://github.com/trinodb/trino/commit/1feaa0f928a02f577c8ac9ef6cc0c8ec2008a46d
-        // after https://github.com/trinodb/trino/issues/5120 is fixed
+        OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(result.getQueryId(), getQualifiedTableName(PARTITIONED_LINEITEM));
+        assertEquals(probeStats.getInputPositions(), 0L);
 
         DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
         assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
@@ -121,8 +123,9 @@ public abstract class BaseDynamicPartitionPruningTest
         MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
         assertEqualsIgnoreOrder(result.getResult(), expected);
 
-        // TODO bring back OperatorStats assertions from https://github.com/trinodb/trino/commit/1feaa0f928a02f577c8ac9ef6cc0c8ec2008a46d
-        // after https://github.com/trinodb/trino/issues/5120 is fixed
+        OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(result.getQueryId(), getQualifiedTableName(PARTITIONED_LINEITEM));
+        // Probe-side is partially scanned
+        assertEquals(probeStats.getInputPositions(), 615L);
 
         DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
         assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
@@ -144,8 +147,9 @@ public abstract class BaseDynamicPartitionPruningTest
         MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
         assertEqualsIgnoreOrder(result.getResult(), expected);
 
-        // TODO bring back OperatorStats assertions from https://github.com/trinodb/trino/commit/1feaa0f928a02f577c8ac9ef6cc0c8ec2008a46d
-        // after https://github.com/trinodb/trino/issues/5120 is fixed
+        OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(result.getQueryId(), getQualifiedTableName(PARTITIONED_LINEITEM));
+        // Probe-side is fully scanned
+        assertEquals(probeStats.getInputPositions(), LINEITEM_COUNT);
 
         DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
         assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
@@ -168,8 +172,9 @@ public abstract class BaseDynamicPartitionPruningTest
         MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
         assertEqualsIgnoreOrder(result.getResult(), expected);
 
-        // TODO bring back OperatorStats assertions from https://github.com/trinodb/trino/commit/1feaa0f928a02f577c8ac9ef6cc0c8ec2008a46d
-        // after https://github.com/trinodb/trino/issues/5120 is fixed
+        OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(result.getQueryId(), getQualifiedTableName(PARTITIONED_LINEITEM));
+        // Probe-side is fully scanned because the build-side is too large for dynamic filtering
+        assertEquals(probeStats.getInputPositions(), LINEITEM_COUNT);
 
         DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
         assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
@@ -180,8 +185,7 @@ public abstract class BaseDynamicPartitionPruningTest
         DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
         assertEquals(
                 domainStats.getSimplifiedDomain(),
-                Domain.create(
-                        ValueSet.ofRanges(range(BIGINT, 1L, true, 60000L, true)), false)
+                Domain.create(ValueSet.ofRanges(range(BIGINT, 1L, true, 60000L, true)), false)
                         .toString(getSession().toConnectorSession()));
     }
 
@@ -199,8 +203,9 @@ public abstract class BaseDynamicPartitionPruningTest
         MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
         assertEqualsIgnoreOrder(result.getResult(), expected);
 
-        // TODO bring back OperatorStats assertions from https://github.com/trinodb/trino/commit/1feaa0f928a02f577c8ac9ef6cc0c8ec2008a46d
-        // after https://github.com/trinodb/trino/issues/5120 is fixed
+        OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(result.getQueryId(), getQualifiedTableName(PARTITIONED_LINEITEM));
+        // Probe-side is partially scanned
+        assertEquals(probeStats.getInputPositions(), 558L);
 
         DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
         assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 2L);
@@ -231,6 +236,10 @@ public abstract class BaseDynamicPartitionPruningTest
         MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
         assertEqualsIgnoreOrder(result.getResult(), expected);
 
+        OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(result.getQueryId(), getQualifiedTableName("partitioned_lineitem_int"));
+        // Probe-side is partially scanned
+        assertEquals(probeStats.getInputPositions(), 615L);
+
         DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
         assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
         assertEquals(dynamicFiltersStats.getLazyDynamicFilters(), 1L);
@@ -250,8 +259,8 @@ public abstract class BaseDynamicPartitionPruningTest
         MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
         assertEqualsIgnoreOrder(result.getResult(), expected);
 
-        // TODO bring back OperatorStats assertions from https://github.com/trinodb/trino/commit/0fb16ab9d9c990e58fad63d4dab3dbbe482a077d
-        // after https://github.com/trinodb/trino/issues/5120 is fixed
+        OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(result.getQueryId(), getQualifiedTableName(PARTITIONED_LINEITEM));
+        assertEquals(probeStats.getInputPositions(), 0L);
 
         DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
         assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
@@ -273,8 +282,9 @@ public abstract class BaseDynamicPartitionPruningTest
         MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
         assertEqualsIgnoreOrder(result.getResult(), expected);
 
-        // TODO bring back OperatorStats assertions from https://github.com/trinodb/trino/commit/0fb16ab9d9c990e58fad63d4dab3dbbe482a077d
-        // after https://github.com/trinodb/trino/issues/5120 is fixed
+        OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(result.getQueryId(), getQualifiedTableName(PARTITIONED_LINEITEM));
+        // Probe-side is partially scanned
+        assertEquals(probeStats.getInputPositions(), 615L);
 
         DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
         assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
@@ -296,8 +306,9 @@ public abstract class BaseDynamicPartitionPruningTest
         MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
         assertEqualsIgnoreOrder(result.getResult(), expected);
 
-        // TODO bring back OperatorStats assertions from https://github.com/trinodb/trino/commit/0fb16ab9d9c990e58fad63d4dab3dbbe482a077d
-        // after https://github.com/trinodb/trino/issues/5120 is fixed
+        OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(result.getQueryId(), getQualifiedTableName(PARTITIONED_LINEITEM));
+        // Probe-side is fully scanned
+        assertEquals(probeStats.getInputPositions(), LINEITEM_COUNT);
 
         DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
         assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
@@ -320,8 +331,9 @@ public abstract class BaseDynamicPartitionPruningTest
         MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
         assertEqualsIgnoreOrder(result.getResult(), expected);
 
-        // TODO bring back OperatorStats assertions from https://github.com/trinodb/trino/commit/0fb16ab9d9c990e58fad63d4dab3dbbe482a077d
-        // after https://github.com/trinodb/trino/issues/5120 is fixed
+        OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(result.getQueryId(), getQualifiedTableName(PARTITIONED_LINEITEM));
+        // Probe-side is fully scanned because the build-side is too large for dynamic filtering
+        assertEquals(probeStats.getInputPositions(), LINEITEM_COUNT);
 
         DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
         assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
@@ -332,8 +344,7 @@ public abstract class BaseDynamicPartitionPruningTest
         DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
         assertEquals(
                 domainStats.getSimplifiedDomain(),
-                Domain.create(
-                        ValueSet.ofRanges(range(BIGINT, 1L, true, 60000L, true)), false)
+                Domain.create(ValueSet.ofRanges(range(BIGINT, 1L, true, 60000L, true)), false)
                         .toString(getSession().toConnectorSession()));
     }
 
@@ -347,8 +358,8 @@ public abstract class BaseDynamicPartitionPruningTest
         MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
         assertEqualsIgnoreOrder(result.getResult(), expected);
 
-        // TODO bring back OperatorStats assertions from https://github.com/trinodb/trino/commit/0fb16ab9d9c990e58fad63d4dab3dbbe482a077d
-        // after https://github.com/trinodb/trino/issues/5120 is fixed
+        OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(result.getQueryId(), getQualifiedTableName(PARTITIONED_LINEITEM));
+        assertEquals(probeStats.getInputPositions(), 0L);
 
         DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
         assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
@@ -370,8 +381,9 @@ public abstract class BaseDynamicPartitionPruningTest
         MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
         assertEqualsIgnoreOrder(result.getResult(), expected);
 
-        // TODO bring back OperatorStats assertions from https://github.com/trinodb/trino/commit/0fb16ab9d9c990e58fad63d4dab3dbbe482a077d
-        // after https://github.com/trinodb/trino/issues/5120 is fixed
+        OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(result.getQueryId(), getQualifiedTableName(PARTITIONED_LINEITEM));
+        // Probe-side is partially scanned
+        assertEquals(probeStats.getInputPositions(), 615L);
 
         DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
         assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
@@ -393,8 +405,9 @@ public abstract class BaseDynamicPartitionPruningTest
         MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
         assertEqualsIgnoreOrder(result.getResult(), expected);
 
-        // TODO bring back OperatorStats assertions from https://github.com/trinodb/trino/commit/0fb16ab9d9c990e58fad63d4dab3dbbe482a077d
-        // after https://github.com/trinodb/trino/issues/5120 is fixed
+        OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(result.getQueryId(), getQualifiedTableName(PARTITIONED_LINEITEM));
+        // Probe-side is fully scanned
+        assertEquals(probeStats.getInputPositions(), LINEITEM_COUNT);
 
         DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
         assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
@@ -421,5 +434,14 @@ public abstract class BaseDynamicPartitionPruningTest
         return Session.builder(getSession())
                 .setSystemProperty("enable_dynamic_filtering", "false")
                 .build();
+    }
+
+    private QualifiedObjectName getQualifiedTableName(String tableName)
+    {
+        Session session = getQueryRunner().getDefaultSession();
+        return new QualifiedObjectName(
+                session.getCatalog().orElseThrow(),
+                session.getSchema().orElseThrow(),
+                tableName);
     }
 }

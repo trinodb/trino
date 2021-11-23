@@ -116,6 +116,16 @@ public class DictionaryBlock
         this.isSequentialIds = isSequentialIds;
     }
 
+    int[] getRawIds()
+    {
+        return ids;
+    }
+
+    int getRawIdsOffset()
+    {
+        return idsOffset;
+    }
+
     @Override
     public int getSliceLength(int position)
     {
@@ -229,10 +239,9 @@ public class DictionaryBlock
         boolean isSequentialIds = true;
         for (int i = 0; i < positionCount; i++) {
             int position = getId(i);
-            if (!used[position]) {
-                uniqueIds++;
-                used[position] = true;
-            }
+            // Avoid branching
+            uniqueIds += used[position] ? 0 : 1;
+            used[position] = true;
 
             isSequentialIds = isSequentialIds && previousPosition < position;
             previousPosition = position;
@@ -260,7 +269,7 @@ public class DictionaryBlock
                 dictionaryBlockSize = dictionary.getSizeInBytes();
             }
             else {
-                dictionaryBlockSize = dictionary.getPositionsSizeInBytes(used);
+                dictionaryBlockSize = dictionary.getPositionsSizeInBytes(used, uniqueIds);
             }
         }
 

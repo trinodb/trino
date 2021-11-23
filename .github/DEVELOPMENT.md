@@ -43,8 +43,11 @@ much easier and reduces the chance of introducing unintended changes in behavior
 
 We recommend you use IntelliJ as your IDE. The code style template for the
 project can be found in the [codestyle](https://github.com/airlift/codestyle)
-repository along with our general programming and Java guidelines. In addition
-to those you should also adhere to the following:
+repository along with our general programming and Java guidelines. 
+
+To run checkstyle and other maven checks before opening a PR: `./mvnw validate`
+
+In addition to those you should also adhere to the following:
 
 ### Alphabetize
 

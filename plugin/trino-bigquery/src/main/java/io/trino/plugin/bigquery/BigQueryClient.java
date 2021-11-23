@@ -57,7 +57,6 @@ import static com.google.common.collect.Streams.stream;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_AMBIGUOUS_OBJECT_NAME;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_VIEW_DESTINATION_TABLE_CREATION_FAILED;
 import static io.trino.plugin.bigquery.BigQueryUtil.convertToBigQueryException;
-import static io.trino.plugin.bigquery.Conversions.isSupportedType;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -306,7 +305,7 @@ public class BigQueryClient
         }
         return schema.getFields()
                 .stream()
-                .filter(field -> isSupportedType(field.getType()))
+                .filter(Conversions::isSupportedType)
                 .map(Conversions::toColumnHandle)
                 .collect(toImmutableList());
     }

@@ -19,6 +19,7 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.QualifiedTablePrefix;
 import io.trino.metadata.SystemSecurityMetadata;
 import io.trino.spi.connector.CatalogSchemaName;
+import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.security.GrantInfo;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
@@ -193,4 +194,52 @@ class TestingSystemSecurityMetadata
     {
         throw new UnsupportedOperationException();
     }
+
+    @Override
+    public Optional<TrinoPrincipal> getSchemaOwner(Session session, CatalogSchemaName schema)
+    {
+        return Optional.empty();
+    }
+
+    @Override
+    public void setSchemaOwner(Session session, CatalogSchemaName schema, TrinoPrincipal principal)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void setTableOwner(Session session, CatalogSchemaTableName table, TrinoPrincipal principal)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Optional<Identity> getViewRunAsIdentity(Session session, CatalogSchemaTableName viewName)
+    {
+        return Optional.empty();
+    }
+
+    @Override
+    public void setViewOwner(Session session, CatalogSchemaTableName view, TrinoPrincipal principal)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void schemaCreated(Session session, CatalogSchemaName schema) {}
+
+    @Override
+    public void schemaRenamed(Session session, CatalogSchemaName sourceSchema, CatalogSchemaName targetSchema) {}
+
+    @Override
+    public void schemaDropped(Session session, CatalogSchemaName schema) {}
+
+    @Override
+    public void tableCreated(Session session, CatalogSchemaTableName table) {}
+
+    @Override
+    public void tableRenamed(Session session, CatalogSchemaTableName sourceTable, CatalogSchemaTableName targetTable) {}
+
+    @Override
+    public void tableDropped(Session session, CatalogSchemaTableName table) {}
 }

@@ -29,6 +29,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
+import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 
 @NotThreadSafe
 public class FileMetastoreTableOperations
@@ -79,7 +80,8 @@ public class FileMetastoreTableOperations
             throw e;
         }
 
-        PrincipalPrivileges privileges = buildInitialPrivilegeSet(table.getOwner());
+        // todo privileges should not be replaced for an alter
+        PrincipalPrivileges privileges = owner.isEmpty() && table.getOwner().isPresent() ? NO_PRIVILEGES : buildInitialPrivilegeSet(table.getOwner().get());
         HiveIdentity identity = new HiveIdentity(session);
         metastore.replaceTable(identity, database, tableName, table, privileges);
     }

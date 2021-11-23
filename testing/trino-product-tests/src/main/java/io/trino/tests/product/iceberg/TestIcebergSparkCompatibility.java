@@ -643,6 +643,32 @@ public class TestIcebergSparkCompatibility
         assertThat(onTrino().executeQuery(format("SELECT keep_col FROM %s WHERE a_struct.drop_and_add IS NULL", trinoTableName))).containsOnly(row(3L));
         assertThat(onTrino().executeQuery(format("SELECT keep_col FROM %s WHERE a_struct.added IS NULL", trinoTableName))).containsOnly(row(3L));
 
+        onSpark().executeQuery(format(
+                "INSERT INTO TABLE %s SELECT " +
+                        "12, " + // quite_renamed_col
+                        "13, " + // keep_col
+                        "15, " + // CaseSensitiveCol,
+                        "named_struct('renamed', 111, 'keep', 112, 'CaseSensitive', 113, 'drop_and_add', 114, 'added', 115), " + // a_struct
+                        "1001, " + // a_partition,
+                        "14, " + // drop_and_add_col
+                        "15", // add_col
+                sparkTableName));
+
+        assertThat(onTrino().executeQuery("SELECT DISTINCT a_struct.renamed, a_struct.added, a_struct.keep FROM " + trinoTableName)).containsOnly(
+                row(11L, null, 12L),
+                row(111L, 115L, 112L));
+        assertThat(onTrino().executeQuery("SELECT DISTINCT a_struct.renamed, a_struct.keep FROM " + trinoTableName + " WHERE a_struct.added IS NULL")).containsOnly(
+                row(11L, 12L));
+
+        assertThat(onTrino().executeQuery("SELECT a_struct FROM " + trinoTableName + " WHERE a_struct.added IS NOT NULL")).containsOnly(
+                row(rowBuilder()
+                        .addField("renamed", 111L)
+                        .addField("keep", 112L)
+                        .addField("CaseSensitive", 113L)
+                        .addField("drop_and_add", 114L)
+                        .addField("added", 115L)
+                        .build()));
+
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
 
@@ -779,6 +805,70 @@ public class TestIcebergSparkCompatibility
         onSpark().executeQuery(format("INSERT INTO %s VALUES %s", sparkTableName, SPARK_INSERTED_PARTITION_VALUES));
         assertSelectsOnSpecialCharacters(trinoTableName, sparkTableName);
         onTrino().executeQuery("DROP TABLE " + trinoTableName);
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
+    public void testInsertReadingFromParquetTableWithNestedRowFieldNotPresentInDataFile()
+    {
+        // regression test for https://github.com/trinodb/trino/issues/9264
+        String sourceTableNameBase = "test_nested_missing_row_field_source";
+        String trinoSourceTableName = trinoTableName(sourceTableNameBase);
+        String sparkSourceTableName = sparkTableName(sourceTableNameBase);
+
+        onTrino().executeQuery("DROP TABLE IF EXISTS " + trinoSourceTableName);
+        onTrino().executeQuery(
+                "CREATE TABLE " + trinoSourceTableName + " WITH (format = 'PARQUET') AS " +
+                        " SELECT CAST(" +
+                        "    ROW(1, ROW(2, 3)) AS " +
+                        "    ROW(foo BIGINT, a_sub_struct ROW(x BIGINT, y BIGINT)) " +
+                        ") AS a_struct");
+
+        onSpark().executeQuery("ALTER TABLE " + sparkSourceTableName + " ADD COLUMN a_struct.a_sub_struct_2 STRUCT<z: BIGINT>");
+
+        onTrino().executeQuery(
+                "INSERT INTO " + trinoSourceTableName +
+                        " SELECT CAST(" +
+                        "    ROW(1, ROW(2, 3), ROW(4)) AS " +
+                        "    ROW(foo BIGINT,\n" +
+                        "        a_sub_struct ROW(x BIGINT, y BIGINT), " +
+                        "        a_sub_struct_2 ROW(z BIGINT)" +
+                        "    )" +
+                        ") AS a_struct");
+
+        String trinoTargetTableName = trinoTableName("test_nested_missing_row_field_target");
+        onTrino().executeQuery("DROP TABLE IF EXISTS " + trinoTargetTableName);
+        onTrino().executeQuery("CREATE TABLE " + trinoTargetTableName + " WITH (format = 'PARQUET') AS SELECT * FROM " + trinoSourceTableName);
+
+        assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTargetTableName))
+                .containsOnly(
+                        row(
+                                rowBuilder()
+                                        .addField("foo", 1L)
+                                        .addField(
+                                                "a_sub_struct",
+                                                rowBuilder()
+                                                        .addField("x", 2L)
+                                                        .addField("y", 3L)
+                                                        .build())
+                                        .addField(
+                                                "a_sub_struct_2",
+                                                null)
+                                        .build()),
+                        row(
+                                rowBuilder()
+                                        .addField("foo", 1L)
+                                        .addField(
+                                                "a_sub_struct",
+                                                rowBuilder()
+                                                        .addField("x", 2L)
+                                                        .addField("y", 3L)
+                                                        .build())
+                                        .addField(
+                                                "a_sub_struct_2",
+                                                rowBuilder()
+                                                        .addField("z", 4L)
+                                                        .build())
+                                        .build()));
     }
 
     private void assertSelectsOnSpecialCharacters(String trinoTableName, String sparkTableName)

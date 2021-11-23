@@ -15,8 +15,8 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
+import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.QualifiedObjectName;
-import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.sql.tree.ExplainType;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -513,7 +513,7 @@ public class TestIcebergMaterializedViews
         TransactionManager transactionManager = getQueryRunner().getTransactionManager();
         TransactionId transactionId = transactionManager.beginTransaction(false);
         Session session = getSession().beginTransactionId(transactionId, transactionManager, getQueryRunner().getAccessControl());
-        Optional<ConnectorMaterializedViewDefinition> materializedView = getQueryRunner().getMetadata()
+        Optional<MaterializedViewDefinition> materializedView = getQueryRunner().getMetadata()
                 .getMaterializedView(session, new QualifiedObjectName(catalogName, schemaName, objectName));
         assertThat(materializedView).isPresent();
         return materializedView.get().getStorageTable().get().getSchemaTableName();

@@ -34,10 +34,13 @@ import io.trino.metadata.Catalog.SecurityManagement;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.InMemoryNodeManager;
 import io.trino.metadata.InternalNodeManager;
+import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.TableHandle;
+import io.trino.metadata.ViewColumn;
+import io.trino.metadata.ViewDefinition;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
 import io.trino.plugin.base.security.DefaultSystemAccessControl;
 import io.trino.security.AccessControl;
@@ -47,13 +50,11 @@ import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.Connector;
-import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
-import io.trino.spi.connector.ConnectorMaterializedViewDefinition.Column;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
-import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.security.Identity;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.transaction.IsolationLevel;
 import io.trino.spi.type.ArrayType;
@@ -141,7 +142,6 @@ import static io.trino.spi.StandardErrorCode.TOO_MANY_GROUPING_SETS;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.StandardErrorCode.VIEW_IS_RECURSIVE;
 import static io.trino.spi.StandardErrorCode.VIEW_IS_STALE;
-import static io.trino.spi.connector.ConnectorViewDefinition.ViewColumn;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -4997,70 +4997,65 @@ public class TestAnalyzer
                 false));
 
         // materialized view referencing table in same schema
-        ConnectorMaterializedViewDefinition materializedViewData1 = new ConnectorMaterializedViewDefinition(
-                "select a from t1",
-                Optional.empty(),
-                Optional.of(TPCH_CATALOG),
-                Optional.of("s1"),
-                ImmutableList.of(new ConnectorMaterializedViewDefinition.Column("a", BIGINT.getTypeId())),
-                Optional.of("comment"),
-                "user",
-                ImmutableMap.of());
-        inSetupTransaction(session -> metadata.createMaterializedView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "mv1"), materializedViewData1, false, true));
-
-        // valid view referencing table in same schema
-        ConnectorViewDefinition viewData1 = new ConnectorViewDefinition(
+        MaterializedViewDefinition materializedViewData1 = new MaterializedViewDefinition(
                 "select a from t1",
                 Optional.of(TPCH_CATALOG),
                 Optional.of("s1"),
                 ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId())),
                 Optional.of("comment"),
-                Optional.of("user"),
-                false);
+                Identity.ofUser("user"),
+                Optional.empty(),
+                ImmutableMap.of());
+        inSetupTransaction(session -> metadata.createMaterializedView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "mv1"), materializedViewData1, false, true));
+
+        // valid view referencing table in same schema
+        ViewDefinition viewData1 = new ViewDefinition(
+                "select a from t1",
+                Optional.of(TPCH_CATALOG),
+                Optional.of("s1"),
+                ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId())),
+                Optional.of("comment"),
+                Optional.of(Identity.ofUser("user")));
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v1"), viewData1, false));
 
         // stale view (different column type)
-        ConnectorViewDefinition viewData2 = new ConnectorViewDefinition(
+        ViewDefinition viewData2 = new ViewDefinition(
                 "select a from t1",
                 Optional.of(TPCH_CATALOG),
                 Optional.of("s1"),
                 ImmutableList.of(new ViewColumn("a", VARCHAR.getTypeId())),
                 Optional.of("comment"),
-                Optional.of("user"),
-                false);
+                Optional.of(Identity.ofUser("user")));
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v2"), viewData2, false));
 
         // view referencing table in different schema from itself and session
-        ConnectorViewDefinition viewData3 = new ConnectorViewDefinition(
+        ViewDefinition viewData3 = new ViewDefinition(
                 "select a from t4",
                 Optional.of(SECOND_CATALOG),
                 Optional.of("s2"),
                 ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId())),
                 Optional.of("comment"),
-                Optional.of("owner"),
-                false);
+                Optional.of(Identity.ofUser("owner")));
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(THIRD_CATALOG, "s3", "v3"), viewData3, false));
 
         // valid view with uppercase column name
-        ConnectorViewDefinition viewData4 = new ConnectorViewDefinition(
+        ViewDefinition viewData4 = new ViewDefinition(
                 "select A from t1",
                 Optional.of("tpch"),
                 Optional.of("s1"),
                 ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId())),
                 Optional.of("comment"),
-                Optional.of("user"),
-                false);
+                Optional.of(Identity.ofUser("user")));
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName("tpch", "s1", "v4"), viewData4, false));
 
         // recursive view referencing to itself
-        ConnectorViewDefinition viewData5 = new ConnectorViewDefinition(
+        ViewDefinition viewData5 = new ViewDefinition(
                 "select * from v5",
                 Optional.of(TPCH_CATALOG),
                 Optional.of("s1"),
                 ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId())),
                 Optional.of("comment"),
-                Optional.of("user"),
-                false);
+                Optional.of(Identity.ofUser("user")));
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v5"), viewData5, false));
 
         // type analysis for INSERT
@@ -5130,25 +5125,24 @@ public class TestAnalyzer
         inSetupTransaction(session -> metadata.createMaterializedView(
                 session,
                 tableViewAndMaterializedView,
-                new ConnectorMaterializedViewDefinition(
+                new MaterializedViewDefinition(
                         "SELECT a FROM t1",
-                        Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t1")),
                         Optional.of(TPCH_CATALOG),
                         Optional.of("s1"),
-                        ImmutableList.of(new Column("a", BIGINT.getTypeId())),
+                        ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId())),
                         Optional.empty(),
-                        "some user",
+                        Identity.ofUser("some user"),
+                        Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t1")),
                         ImmutableMap.of()),
                 false,
                 false));
-        ConnectorViewDefinition viewDefinition = new ConnectorViewDefinition(
+        ViewDefinition viewDefinition = new ViewDefinition(
                 "SELECT a FROM t2",
                 Optional.of(TPCH_CATALOG),
                 Optional.of("s1"),
                 ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId())),
                 Optional.empty(),
-                Optional.empty(),
-                true);
+                Optional.empty());
         inSetupTransaction(session -> metadata.createView(
                 session,
                 tableViewAndMaterializedView,
@@ -5180,15 +5174,15 @@ public class TestAnalyzer
         inSetupTransaction(session -> metadata.createMaterializedView(
                 session,
                 freshMaterializedView,
-                new ConnectorMaterializedViewDefinition(
+                new MaterializedViewDefinition(
                         "SELECT a, b FROM t1",
-                        // t3 has a, b column and hidden column x
-                        Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t3")),
                         Optional.of(TPCH_CATALOG),
                         Optional.of("s1"),
-                        ImmutableList.of(new Column("a", BIGINT.getTypeId()), new Column("b", BIGINT.getTypeId())),
+                        ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId()), new ViewColumn("b", BIGINT.getTypeId())),
                         Optional.empty(),
-                        "some user",
+                        Identity.ofUser("some user"),
+                        // t3 has a, b column and hidden column x
+                        Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t3")),
                         ImmutableMap.of()),
                 false,
                 false));
@@ -5198,14 +5192,14 @@ public class TestAnalyzer
         inSetupTransaction(session -> metadata.createMaterializedView(
                 session,
                 freshMaterializedViewMismatchedColumnCount,
-                new ConnectorMaterializedViewDefinition(
+                new MaterializedViewDefinition(
                         "SELECT a FROM t1",
-                        Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t2")),
                         Optional.of(TPCH_CATALOG),
                         Optional.of("s1"),
-                        ImmutableList.of(new Column("a", BIGINT.getTypeId())),
+                        ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId())),
                         Optional.empty(),
-                        "some user",
+                        Identity.ofUser("some user"),
+                        Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t2")),
                         ImmutableMap.of()),
                 false,
                 false));
@@ -5215,14 +5209,14 @@ public class TestAnalyzer
         inSetupTransaction(session -> metadata.createMaterializedView(
                 session,
                 freshMaterializedMismatchedColumnName,
-                new ConnectorMaterializedViewDefinition(
+                new MaterializedViewDefinition(
                         "SELECT a, b as c FROM t1",
-                        Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t2")),
                         Optional.of(TPCH_CATALOG),
                         Optional.of("s1"),
-                        ImmutableList.of(new Column("a", BIGINT.getTypeId()), new Column("c", BIGINT.getTypeId())),
+                        ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId()), new ViewColumn("c", BIGINT.getTypeId())),
                         Optional.empty(),
-                        "some user",
+                        Identity.ofUser("some user"),
+                        Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t2")),
                         ImmutableMap.of()),
                 false,
                 false));
@@ -5232,14 +5226,14 @@ public class TestAnalyzer
         inSetupTransaction(session -> metadata.createMaterializedView(
                 session,
                 freshMaterializedMismatchedColumnType,
-                new ConnectorMaterializedViewDefinition(
+                new MaterializedViewDefinition(
                         "SELECT a, null b FROM t1",
-                        Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t2")),
                         Optional.of(TPCH_CATALOG),
                         Optional.of("s1"),
-                        ImmutableList.of(new Column("a", BIGINT.getTypeId()), new Column("b", RowType.anonymousRow(TINYINT).getTypeId())),
+                        ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId()), new ViewColumn("b", RowType.anonymousRow(TINYINT).getTypeId())),
                         Optional.empty(),
-                        "some user",
+                        Identity.ofUser("some user"),
+                        Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t2")),
                         ImmutableMap.of()),
                 false,
                 false));
@@ -5334,7 +5328,7 @@ public class TestAnalyzer
             private final ConnectorMetadata metadata = new TestingMetadata();
 
             @Override
-            public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
+            public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
             {
                 return new ConnectorTransactionHandle() {};
             }

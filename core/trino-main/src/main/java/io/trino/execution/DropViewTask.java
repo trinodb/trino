@@ -20,8 +20,6 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.security.AccessControl;
-import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
-import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.sql.tree.DropView;
 import io.trino.sql.tree.Expression;
 import io.trino.transaction.TransactionManager;
@@ -56,8 +54,7 @@ public class DropViewTask
         Session session = stateMachine.getSession();
         QualifiedObjectName name = createQualifiedObjectName(session, statement, statement.getName());
 
-        Optional<ConnectorMaterializedViewDefinition> materializedView = metadata.getMaterializedView(session, name);
-        if (materializedView.isPresent()) {
+        if (metadata.isMaterializedView(session, name)) {
             if (!statement.isExists()) {
                 throw semanticException(
                         TABLE_NOT_FOUND,
@@ -67,8 +64,7 @@ public class DropViewTask
             return immediateVoidFuture();
         }
 
-        Optional<ConnectorViewDefinition> view = metadata.getView(session, name);
-        if (view.isEmpty()) {
+        if (!metadata.isView(session, name)) {
             if (!statement.isExists()) {
                 Optional<TableHandle> table = metadata.getTableHandle(session, name);
                 if (table.isPresent()) {

@@ -15,6 +15,7 @@ package io.trino.metadata;
 
 import io.trino.Session;
 import io.trino.spi.connector.CatalogSchemaName;
+import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.security.GrantInfo;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
@@ -108,4 +109,60 @@ public interface SystemSecurityMetadata
      * Gets the privileges for the specified table available to the given grantee considering the selected session role
      */
     Set<GrantInfo> listTablePrivileges(Session session, QualifiedTablePrefix prefix);
+
+    /**
+     * Set the owner of the specified schema
+     */
+    Optional<TrinoPrincipal> getSchemaOwner(Session session, CatalogSchemaName schema);
+
+    /**
+     * Set the owner of the specified schema
+     */
+    void setSchemaOwner(Session session, CatalogSchemaName schema, TrinoPrincipal principal);
+
+    /**
+     * Set the owner of the specified table
+     */
+    void setTableOwner(Session session, CatalogSchemaTableName table, TrinoPrincipal principal);
+
+    /**
+     * Get the identity to run the view as
+     * @return
+     */
+    Optional<Identity> getViewRunAsIdentity(Session session, CatalogSchemaTableName viewName);
+
+    /**
+     * Set the owner of the specified view
+     */
+    void setViewOwner(Session session, CatalogSchemaTableName view, TrinoPrincipal principal);
+
+    /**
+     * A schema was created
+     */
+    void schemaCreated(Session session, CatalogSchemaName schema);
+
+    /**
+     * A schema was renamed
+     */
+    void schemaRenamed(Session session, CatalogSchemaName sourceSchema, CatalogSchemaName targetSchema);
+
+    /**
+     * A schema was dropped
+     */
+    void schemaDropped(Session session, CatalogSchemaName schema);
+
+    /**
+     * A table or view was created
+     */
+    void tableCreated(Session session, CatalogSchemaTableName table);
+
+    /**
+     * A table or view was renamed
+     */
+    void tableRenamed(Session session, CatalogSchemaTableName sourceTable, CatalogSchemaTableName targetTable);
+
+    /**
+     * A table or view was dropped
+     */
+    void tableDropped(Session session, CatalogSchemaTableName table);
 }

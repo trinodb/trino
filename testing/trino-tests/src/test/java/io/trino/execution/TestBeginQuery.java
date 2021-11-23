@@ -191,7 +191,7 @@ public class TestBeginQuery
         }
 
         @Override
-        public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
+        public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
         {
             return TestingTransactionHandle.create();
         }

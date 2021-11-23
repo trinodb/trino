@@ -43,7 +43,8 @@ public class TestIcebergConfig
                 .setUniqueTableLocation(false)
                 .setCatalogType(HIVE_METASTORE)
                 .setDynamicFilteringWaitTimeout(new Duration(0, MINUTES))
-                .setTableStatisticsEnabled(true));
+                .setTableStatisticsEnabled(true)
+                .setProjectionPushdownEnabled(true));
     }
 
     @Test
@@ -58,6 +59,7 @@ public class TestIcebergConfig
                 .put("iceberg.catalog.type", "GLUE")
                 .put("iceberg.dynamic-filtering.wait-timeout", "1h")
                 .put("iceberg.table-statistics-enabled", "false")
+                .put("iceberg.projection-pushdown-enabled", "false")
                 .build();
 
         IcebergConfig expected = new IcebergConfig()
@@ -68,7 +70,8 @@ public class TestIcebergConfig
                 .setUniqueTableLocation(true)
                 .setCatalogType(GLUE)
                 .setDynamicFilteringWaitTimeout(Duration.valueOf("1h"))
-                .setTableStatisticsEnabled(false);
+                .setTableStatisticsEnabled(false)
+                .setProjectionPushdownEnabled(false);
 
         assertFullMapping(properties, expected);
     }

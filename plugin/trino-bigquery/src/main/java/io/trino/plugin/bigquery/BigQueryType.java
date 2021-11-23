@@ -88,6 +88,7 @@ public enum BigQueryType
     GEOGRAPHY(VarcharType.VARCHAR, unsupportedToStringConverter()),
     INTEGER(BigintType.BIGINT, BigQueryType::simpleToStringConverter),
     NUMERIC(null, BigQueryType::numericToStringConverter),
+    BIGNUMERIC(null, BigQueryType::numericToStringConverter),
     RECORD(null, unsupportedToStringConverter()),
     STRING(createUnboundedVarcharType(), BigQueryType::stringToStringConverter),
     TIME(TimeType.TIME_MICROS, BigQueryType::timeToStringConverter),
@@ -323,10 +324,12 @@ public enum BigQueryType
             return Optional.empty();
         }
         if (type instanceof DecimalType) {
+            String bigqueryTypeName = this.toString();
+            verify(bigqueryTypeName.equals("NUMERIC") || bigqueryTypeName.equals("BIGNUMERIC"), "Expected NUMERIC or BIGNUMERIC: %s", bigqueryTypeName);
             if (isShortDecimal(type)) {
-                return Optional.of("NUMERIC " + quote(Decimals.toString((long) value, ((DecimalType) type).getScale())));
+                return Optional.of(format("%s '%s'", bigqueryTypeName, Decimals.toString((long) value, ((DecimalType) type).getScale())));
             }
-            return Optional.of("NUMERIC " + quote(Decimals.toString((Slice) value, ((DecimalType) type).getScale())));
+            return Optional.of(format("%s '%s'", bigqueryTypeName, Decimals.toString((Slice) value, ((DecimalType) type).getScale())));
         }
         return toStringConverter.convertToString(value);
     }
@@ -335,8 +338,10 @@ public enum BigQueryType
     {
         switch (this) {
             case NUMERIC:
+            case BIGNUMERIC:
                 Long precision = typeAdaptor.getPrecision();
                 Long scale = typeAdaptor.getScale();
+                // Unsupported BIGNUMERIC types (precision > 38) are filtered in BigQueryClient.getColumns
                 if (precision != null && scale != null) {
                     return createDecimalType(toIntExact(precision), toIntExact(scale));
                 }

@@ -22,7 +22,6 @@ import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
-import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.cost.StatsAndCosts;
@@ -159,7 +158,6 @@ import static java.util.Collections.nCopies;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toSet;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -3046,12 +3044,6 @@ public class TestHiveConnectorTest
     @Test
     public void testPartitionPerScanLimit()
     {
-        TestingHiveStorageFormat storageFormat = new TestingHiveStorageFormat(getSession(), HiveStorageFormat.ORC);
-        testWithStorageFormat(storageFormat, this::testPartitionPerScanLimit);
-    }
-
-    private void testPartitionPerScanLimit(Session session, HiveStorageFormat storageFormat)
-    {
         String tableName = "test_partition_per_scan_limit";
         String partitionsTable = "\"" + tableName + "$partitions\"";
 
@@ -3062,14 +3054,12 @@ public class TestHiveConnectorTest
                 "  part BIGINT" +
                 ") " +
                 "WITH (" +
-                "format = '" + storageFormat + "', " +
                 "partitioned_by = ARRAY[ 'part' ]" +
                 ") ";
 
-        assertUpdate(session, createTable);
+        assertUpdate(createTable);
 
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, tableName);
-        assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
         assertEquals(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY), ImmutableList.of("part"));
 
         // insert 1200 partitions
@@ -3082,22 +3072,19 @@ public class TestHiveConnectorTest
                     "SELECT 'bar' foo, part " +
                     "FROM UNNEST(SEQUENCE(" + partStart + ", " + partEnd + ")) AS TMP(part)";
 
-            assertUpdate(session, insertPartitions, 100);
+            assertUpdate(insertPartitions, 100);
         }
 
         // we are not constrained by hive.max-partitions-per-scan when listing partitions
         assertQuery(
-                session,
                 "SELECT * FROM " + partitionsTable + " WHERE part > 490 AND part <= 500",
                 "VALUES 491, 492, 493, 494, 495, 496, 497, 498, 499, 500");
 
         assertQuery(
-                session,
                 "SELECT * FROM " + partitionsTable + " WHERE part < 0",
                 "SELECT null WHERE false");
 
         assertQuery(
-                session,
                 "SELECT * FROM " + partitionsTable,
                 "VALUES " + LongStream.range(0, 1200)
                         .mapToObj(String::valueOf)
@@ -3105,31 +3092,81 @@ public class TestHiveConnectorTest
 
         // verify can query 1000 partitions
         assertQuery(
-                session,
                 "SELECT count(foo) FROM " + tableName + " WHERE part < 1000",
                 "SELECT 1000");
 
         // verify the rest 200 partitions are successfully inserted
         assertQuery(
-                session,
                 "SELECT count(foo) FROM " + tableName + " WHERE part >= 1000 AND part < 1200",
                 "SELECT 200");
 
         // verify cannot query more than 1000 partitions
         assertQueryFails(
-                session,
                 "SELECT * FROM " + tableName + " WHERE part < 1001",
                 format("Query over table 'tpch.%s' can potentially read more than 1000 partitions", tableName));
 
         // verify cannot query all partitions
         assertQueryFails(
-                session,
                 "SELECT * FROM " + tableName,
                 format("Query over table 'tpch.%s' can potentially read more than 1000 partitions", tableName));
 
-        assertUpdate(session, "DROP TABLE " + tableName);
+        assertUpdate("DROP TABLE " + tableName);
+    }
 
-        assertFalse(getQueryRunner().tableExists(session, tableName));
+    @Test
+    public void testPartitionPerScanLimitWithMultiplePartitionColumns()
+    {
+        String tableName = "test_multi_partition_per_scan_limit";
+        String partitionsTable = "\"" + tableName + "$partitions\"";
+
+        assertUpdate("" +
+                "CREATE TABLE " + tableName + " (  foo varchar,   part1 bigint,   part2 bigint) " +
+                "WITH (partitioned_by = ARRAY['part1', 'part2'])");
+
+        // insert 1200 partitions with part1 being NULL
+        for (int batchNumber = 0; batchNumber < 12; batchNumber++) {
+            // insert with a loop to avoid max open writers limit
+            assertUpdate(
+                    format(
+                            "INSERT INTO %s SELECT 'bar' foo, NULL part1, n part2 FROM UNNEST(sequence(%s, %s)) a(n)",
+                            tableName,
+                            batchNumber * 100 + 1,
+                            (batchNumber + 1) * 100),
+                    100);
+        }
+        // insert 10 partitions with part1=part2
+        assertUpdate("INSERT INTO " + tableName + " SELECT 'bar' foo, n part1, n part2 FROM UNNEST(sequence(1, 10)) a(n)", 10);
+
+        // verify can query 1000 partitions
+        assertThat(query("SELECT count(*) FROM " + tableName + " WHERE part1 IS NULL AND part2 < 1001"))
+                .matches("VALUES BIGINT '1000'");
+
+        // verify cannot query more than 1000 partitions
+        assertThatThrownBy(() -> query("SELECT count(*) FROM " + tableName + " WHERE part1 IS NULL AND part2 <= 1001"))
+                .hasMessage(format("Query over table 'tpch.%s' can potentially read more than 1000 partitions", tableName));
+        assertThatThrownBy(() -> query("SELECT count(*) FROM " + tableName))
+                .hasMessage(format("Query over table 'tpch.%s' can potentially read more than 1000 partitions", tableName));
+
+        // verify we can query with a predicate that is not representable as a TupleDomain
+        // TODO this shouldn't fail
+        assertThatThrownBy(() -> query("SELECT * FROM " + tableName + " WHERE part1 % 400 = 3")) // may be translated to Domain.all
+                .hasMessage(format("Query over table 'tpch.%s' can potentially read more than 1000 partitions", tableName));
+        assertThat(query("SELECT * FROM " + tableName + " WHERE part1 % 400 = 3 AND part1 IS NOT NULL"))  // may be translated to Domain.all except nulls
+                .matches("VALUES (VARCHAR 'bar', BIGINT '3', BIGINT '3')");
+
+        // we are not constrained by hive.max-partitions-per-scan (=1000) when listing partitions
+        assertThat(query("SELECT * FROM " + partitionsTable))
+                .matches("" +
+                        "SELECT CAST(NULL AS bigint), CAST(n AS bigint) FROM UNNEST(sequence(1, 1200)) a(n) " +
+                        "UNION ALL VALUES (1,1), (2,2), (3,3), (4,4), (5,5), (6,6), (7,7), (8,8), (9,9), (10, 10)");
+        assertThat(query("SELECT * FROM " + partitionsTable + " WHERE part1 IS NOT NULL"))
+                .matches("VALUES (BIGINT '1', BIGINT '1'), (2,2), (3,3), (4,4), (5,5), (6,6), (7,7), (8,8), (9,9), (10, 10)");
+        assertThat(query("SELECT * FROM " + partitionsTable + " WHERE part1 < 4"))
+                .matches("VALUES (BIGINT '1', BIGINT '1'), (2,2), (3,3)");
+        assertThat(query("SELECT * FROM " + partitionsTable + " WHERE part2 < 4"))
+                .matches("VALUES (BIGINT '1', BIGINT '1'), (2,2), (3,3), (NULL,1), (NULL,2), (NULL,3)");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -4578,18 +4615,13 @@ public class TestHiveConnectorTest
                 format("SELECT * FROM %s WHERE t > %s", tableName, formatTimestamp(value)));
         assertEquals(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputDataSize().toBytes(), 0);
 
-        // TODO: replace this with a simple query stats check once we find a way to wait until all pending updates to query stats have been applied
-        // (might be fixed by https://github.com/trinodb/trino/issues/5172)
-        ExponentialSleeper sleeper = new ExponentialSleeper();
         assertQueryStats(
                 session,
                 format("SELECT * FROM %s WHERE t = %s", tableName, formatTimestamp(value)),
                 queryStats -> {
-                    sleeper.sleep();
                     assertThat(queryStats.getProcessedInputDataSize().toBytes()).isGreaterThan(0);
                 },
-                results -> {},
-                new Duration(30, SECONDS));
+                results -> {});
     }
 
     @Test(dataProvider = "timestampPrecisionAndValues")
@@ -4616,18 +4648,13 @@ public class TestHiveConnectorTest
 
         assertQuery(session, "SELECT * FROM test_orc_timestamp_predicate_pushdown WHERE t < " + formatTimestamp(value.plusNanos(1)), format("VALUES (%s)", formatTimestamp(value)));
 
-        // TODO: replace this with a simple query stats check once we find a way to wait until all pending updates to query stats have been applied
-        // (might be fixed by https://github.com/trinodb/trino/issues/5172)
-        ExponentialSleeper sleeper = new ExponentialSleeper();
         assertQueryStats(
                 session,
                 format("SELECT * FROM test_orc_timestamp_predicate_pushdown WHERE t = %s", formatTimestamp(value)),
                 queryStats -> {
-                    sleeper.sleep();
                     assertThat(queryStats.getProcessedInputDataSize().toBytes()).isGreaterThan(0);
                 },
-                results -> {},
-                new Duration(30, SECONDS));
+                results -> {});
     }
 
     private static String formatTimestamp(LocalDateTime timestamp)
@@ -4695,8 +4722,7 @@ public class TestHiveConnectorTest
                 getSession(),
                 sql,
                 queryStats -> assertThat(queryStats.getProcessedInputDataSize().toBytes()).isEqualTo(0),
-                results -> assertThat(results.getRowCount()).isEqualTo(0),
-                new Duration(5, SECONDS));
+                results -> assertThat(results.getRowCount()).isEqualTo(0));
     }
 
     private QueryInfo getQueryInfo(DistributedQueryRunner queryRunner, ResultWithQueryId<MaterializedResult> queryResult)
@@ -8427,50 +8453,6 @@ public class TestHiveConnectorTest
         {
             this.type = requireNonNull(type, "type is null");
             this.estimate = requireNonNull(estimate, "estimate is null");
-        }
-    }
-
-    private static class ExponentialSleeper
-    {
-        private Duration nextSleepTime;
-        private final Duration maxSleepTime;
-        private final Duration minSleepIncrement;
-        private final double sleepIncrementFactor;
-
-        ExponentialSleeper(Duration minSleepTime, Duration maxSleepTime, Duration minSleepIncrement, double sleepIncrementFactor)
-        {
-            this.nextSleepTime = minSleepTime;
-            this.maxSleepTime = maxSleepTime;
-            this.minSleepIncrement = minSleepIncrement;
-            this.sleepIncrementFactor = sleepIncrementFactor;
-        }
-
-        ExponentialSleeper()
-        {
-            this(
-                    new Duration(0, SECONDS),
-                    new Duration(5, SECONDS),
-                    new Duration(100, MILLISECONDS),
-                    2.0);
-        }
-
-        public void sleep()
-        {
-            try {
-                Thread.sleep(nextSleepTime.toMillis());
-                long incrementMillis = (long) (nextSleepTime.toMillis() * sleepIncrementFactor - nextSleepTime.toMillis());
-                if (incrementMillis < minSleepIncrement.toMillis()) {
-                    incrementMillis = minSleepIncrement.toMillis();
-                }
-                nextSleepTime = new Duration(nextSleepTime.toMillis() + incrementMillis, MILLISECONDS);
-                if (nextSleepTime.compareTo(maxSleepTime) > 0) {
-                    nextSleepTime = maxSleepTime;
-                }
-            }
-            catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new RuntimeException(e);
-            }
         }
     }
 

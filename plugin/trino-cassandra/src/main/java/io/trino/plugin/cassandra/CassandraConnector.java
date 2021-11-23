@@ -59,7 +59,7 @@ public class CassandraConnector
     }
 
     @Override
-    public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
+    public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
     {
         checkConnectorSupports(READ_UNCOMMITTED, isolationLevel);
         return CassandraTransactionHandle.INSTANCE;

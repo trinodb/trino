@@ -30,6 +30,7 @@ import io.trino.spi.type.Type;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
@@ -132,10 +133,10 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
-    public void abortReadConnection(Connection connection)
+    public void abortReadConnection(Connection connection, ResultSet resultSet)
             throws SQLException
     {
-        delegate().abortReadConnection(connection);
+        delegate().abortReadConnection(connection, resultSet);
     }
 
     @Override

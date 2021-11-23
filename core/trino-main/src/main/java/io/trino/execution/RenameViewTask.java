@@ -20,8 +20,6 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.security.AccessControl;
-import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
-import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.RenameView;
 import io.trino.transaction.TransactionManager;
@@ -58,16 +56,14 @@ public class RenameViewTask
     {
         Session session = stateMachine.getSession();
         QualifiedObjectName viewName = createQualifiedObjectName(session, statement, statement.getSource());
-        Optional<ConnectorMaterializedViewDefinition> materializedView = metadata.getMaterializedView(session, viewName);
-        if (materializedView.isPresent()) {
+        if (metadata.isMaterializedView(session, viewName)) {
             throw semanticException(
                     TABLE_NOT_FOUND,
                     statement,
                     "View '%s' does not exist, but a materialized view with that name exists. Did you mean ALTER MATERIALIZED VIEW %s RENAME ...?", viewName, viewName);
         }
 
-        Optional<ConnectorViewDefinition> viewDefinition = metadata.getView(session, viewName);
-        if (viewDefinition.isEmpty()) {
+        if (!metadata.isView(session, viewName)) {
             Optional<TableHandle> table = metadata.getTableHandle(session, viewName);
             if (table.isPresent()) {
                 throw semanticException(
@@ -83,7 +79,7 @@ public class RenameViewTask
         if (metadata.getCatalogHandle(session, target.getCatalogName()).isEmpty()) {
             throw semanticException(CATALOG_NOT_FOUND, statement, "Target catalog '%s' does not exist", target.getCatalogName());
         }
-        if (metadata.getView(session, target).isPresent()) {
+        if (metadata.isView(session, target)) {
             throw semanticException(TABLE_ALREADY_EXISTS, statement, "Target view '%s' already exists", target);
         }
         if (!viewName.getCatalogName().equals(target.getCatalogName())) {

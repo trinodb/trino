@@ -31,6 +31,7 @@ public class HiveSecurityModule
     public static final String READ_ONLY = "read-only";
     public static final String SQL_STANDARD = "sql-standard";
     public static final String ALLOW_ALL = "allow-all";
+    public static final String SYSTEM = "system";
 
     @Override
     protected void setup(Binder binder)
@@ -53,6 +54,7 @@ public class HiveSecurityModule
                         new StaticAccessControlMetadataModule()));
         bindSecurityModule(SQL_STANDARD, new SqlStandardSecurityModule());
         bindSecurityModule(ALLOW_ALL, new AllowAllSecurityModule());
+        bindSecurityModule(SYSTEM, new SystemSecurityModule());
     }
 
     private void bindSecurityModule(String name, Module module)

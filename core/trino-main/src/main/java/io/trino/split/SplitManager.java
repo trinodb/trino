@@ -66,7 +66,12 @@ public class SplitManager
         splitManagers.remove(catalogName);
     }
 
-    public SplitSource getSplits(Session session, TableHandle table, SplitSchedulingStrategy splitSchedulingStrategy, DynamicFilter dynamicFilter)
+    public SplitSource getSplits(
+            Session session,
+            TableHandle table,
+            SplitSchedulingStrategy splitSchedulingStrategy,
+            DynamicFilter dynamicFilter,
+            Constraint constraint)
     {
         CatalogName catalogName = table.getCatalogName();
         ConnectorSplitManager splitManager = getConnectorSplitManager(catalogName);
@@ -92,7 +97,8 @@ public class SplitManager
                     connectorSession,
                     table.getConnectorHandle(),
                     splitSchedulingStrategy,
-                    dynamicFilter);
+                    dynamicFilter,
+                    constraint);
         }
 
         SplitSource splitSource = new ConnectorAwareSplitSource(catalogName, source);
