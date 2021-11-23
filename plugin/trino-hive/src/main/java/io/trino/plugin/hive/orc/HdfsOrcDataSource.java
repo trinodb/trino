@@ -57,7 +57,7 @@ public class HdfsOrcDataSource
     }
 
     @Override
-    public Slice readTail(int length)
+    protected Slice readTailInternal(int length)
             throws IOException
     {
         //  Handle potentially imprecise file lengths by reading the footer
