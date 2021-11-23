@@ -53,7 +53,7 @@ public class HiveTableHandle
     private final Optional<HiveBucketFilter> bucketFilter;
     private final Optional<List<List<String>>> analyzePartitionValues;
     private final Optional<Set<String>> analyzeColumnNames;
-    private final Optional<Set<ColumnHandle>> constraintColumns;
+    private final Set<ColumnHandle> constraintColumns;
     private final Optional<Set<ColumnHandle>> projectedColumns;
     private final AcidTransaction transaction;
     private final boolean recordScannedFiles;
@@ -86,7 +86,7 @@ public class HiveTableHandle
                 bucketFilter,
                 analyzePartitionValues,
                 analyzeColumnNames,
-                Optional.empty(),
+                ImmutableSet.of(),
                 Optional.empty(),
                 transaction,
                 false,
@@ -114,7 +114,7 @@ public class HiveTableHandle
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty(),
+                ImmutableSet.of(),
                 Optional.empty(),
                 NO_ACID_TRANSACTION,
                 false,
@@ -134,7 +134,7 @@ public class HiveTableHandle
             Optional<HiveBucketFilter> bucketFilter,
             Optional<List<List<String>>> analyzePartitionValues,
             Optional<Set<String>> analyzeColumnNames,
-            Optional<Set<ColumnHandle>> constraintColumns,
+            Set<ColumnHandle> constraintColumns,
             Optional<Set<ColumnHandle>> projectedColumns,
             AcidTransaction transaction,
             boolean recordScannedFiles,
@@ -152,7 +152,7 @@ public class HiveTableHandle
         this.bucketFilter = requireNonNull(bucketFilter, "bucketFilter is null");
         this.analyzePartitionValues = requireNonNull(analyzePartitionValues, "analyzePartitionValues is null").map(ImmutableList::copyOf);
         this.analyzeColumnNames = requireNonNull(analyzeColumnNames, "analyzeColumnNames is null").map(ImmutableSet::copyOf);
-        this.constraintColumns = requireNonNull(constraintColumns, "constraintColumns is null").map(ImmutableSet::copyOf);
+        this.constraintColumns = ImmutableSet.copyOf(requireNonNull(constraintColumns, "constraintColumns is null"));
         this.projectedColumns = requireNonNull(projectedColumns, "projectedColumns is null").map(ImmutableSet::copyOf);
         this.transaction = requireNonNull(transaction, "transaction is null");
         this.recordScannedFiles = recordScannedFiles;
@@ -396,7 +396,7 @@ public class HiveTableHandle
 
     // do not serialize constraint columns as they are not needed on workers
     @JsonIgnore
-    public Optional<Set<ColumnHandle>> getConstraintColumns()
+    public Set<ColumnHandle> getConstraintColumns()
     {
         return constraintColumns;
     }

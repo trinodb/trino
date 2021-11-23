@@ -2539,8 +2539,8 @@ public class HiveMetadata
         if (isQueryPartitionFilterRequiredForTable(session, handle.getSchemaTableName()) && handle.getAnalyzePartitionValues().isEmpty() && handle.getEnforcedConstraint().isAll()) {
             List<HiveColumnHandle> partitionColumns = handle.getPartitionColumns();
             if (!partitionColumns.isEmpty()) {
-                Optional<Set<ColumnHandle>> referencedColumns = handle.getConstraintColumns();
-                if (referencedColumns.isEmpty() || Collections.disjoint(referencedColumns.get(), partitionColumns)) {
+                Set<ColumnHandle> referencedColumns = handle.getConstraintColumns();
+                if (Collections.disjoint(referencedColumns, partitionColumns)) {
                     String partitionColumnNames = partitionColumns.stream()
                             .map(HiveColumnHandle::getName)
                             .collect(joining(", "));
@@ -2776,7 +2776,7 @@ public class HiveMetadata
                 hiveTable.getBucketFilter(),
                 hiveTable.getAnalyzePartitionValues(),
                 hiveTable.getAnalyzeColumnNames(),
-                Optional.empty(),
+                ImmutableSet.of(),
                 Optional.empty(), // Projected columns is used only during optimization phase of planning
                 hiveTable.getTransaction(),
                 hiveTable.isRecordScannedFiles(),
