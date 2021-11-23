@@ -22,7 +22,7 @@ import org.apache.iceberg.FileFormat;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
-import static io.trino.plugin.hive.HiveCompressionCodec.GZIP;
+import static io.trino.plugin.hive.HiveCompressionCodec.ZSTD;
 import static io.trino.plugin.iceberg.CatalogType.HIVE_METASTORE;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -30,7 +30,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class IcebergConfig
 {
     private IcebergFileFormat fileFormat = ORC;
-    private HiveCompressionCodec compressionCodec = GZIP;
+    private HiveCompressionCodec compressionCodec = ZSTD;
     private boolean useFileSizeFromMetadata = true;
     private int maxPartitionsPerWriter = 100;
     private boolean uniqueTableLocation;
