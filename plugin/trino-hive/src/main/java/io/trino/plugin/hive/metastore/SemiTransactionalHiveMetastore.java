@@ -1152,7 +1152,7 @@ public class SemiTransactionalHiveMetastore
         if (writeMode == WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY) {
             Map<List<String>, Action<PartitionAndMore>> partitionActionsOfTable = partitionActions.get(schemaTableName);
             if (partitionActionsOfTable != null && !partitionActionsOfTable.isEmpty()) {
-                throw new TrinoException(NOT_SUPPORTED, "Cannot insert into a table with a partition that has been modified in the same transaction when Trinoto is configured to skip temporary directories.");
+                throw new TrinoException(NOT_SUPPORTED, "Cannot insert into a table with a partition that has been modified in the same transaction when Trino is configured to skip temporary directories.");
             }
         }
         HdfsContext hdfsContext = new HdfsContext(session);
