@@ -161,7 +161,7 @@ public class TestOrcDeletedRows
                 HDFS_ENVIRONMENT,
                 new FileFormatDataSourceStats());
 
-        return new OrcDeletedRows(
+        OrcDeletedRows deletedRows = new OrcDeletedRows(
                 sourceFileName,
                 pageSourceFactory,
                 ConnectorIdentity.ofUser("test"),
@@ -170,6 +170,13 @@ public class TestOrcDeletedRows
                 acidInfo,
                 OptionalInt.of(0),
                 newSimpleAggregatedMemoryContext());
+
+        // ensure deletedRows is loaded
+        while (!deletedRows.loadOrYield()) {
+            // do nothing
+        }
+
+        return deletedRows;
     }
 
     private Page createTestPage(int originalTransactionStart, int originalTransactionEnd)
