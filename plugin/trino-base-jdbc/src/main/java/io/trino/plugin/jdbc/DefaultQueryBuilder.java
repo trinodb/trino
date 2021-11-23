@@ -130,7 +130,7 @@ public class DefaultQueryBuilder
         return new PreparedQuery(query, parameters);
     }
 
-    public PreparedQuery prepareDelete(
+    public PreparedQuery prepareDeleteQuery(
             JdbcClient client,
             ConnectorSession session,
             Connection connection,
