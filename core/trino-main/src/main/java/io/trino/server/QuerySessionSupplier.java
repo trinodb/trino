@@ -33,7 +33,9 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.Session.SessionBuilder;
+import static io.trino.SystemSessionProperties.EXCHANGE_ENCRYPTION;
 import static io.trino.SystemSessionProperties.TIME_ZONE_ID;
+import static io.trino.execution.buffer.AesBufferCipher.generateNewSecretKey;
 import static io.trino.server.HttpRequestSessionContextFactory.addEnabledRoles;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static java.util.Map.Entry;
@@ -127,6 +129,10 @@ public class QuerySessionSupplier
             else {
                 sessionBuilder.setTimeZoneKey(context.getTimeZoneId().map(TimeZoneKey::getTimeZoneKey));
             }
+        }
+
+        if (context.getSystemProperties().getOrDefault(EXCHANGE_ENCRYPTION, "false").equals("true")) {
+            sessionBuilder.setExchangeSecretKey(Optional.of(generateNewSecretKey()));
         }
 
         context.getLanguage().ifPresent(s -> sessionBuilder.setLocale(Locale.forLanguageTag(s)));

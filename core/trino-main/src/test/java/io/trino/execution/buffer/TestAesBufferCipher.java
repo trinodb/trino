@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.spiller;
+package io.trino.execution.buffer;
 
 import io.trino.spi.TrinoException;
 import org.testng.Assert.ThrowingRunnable;
@@ -25,31 +25,31 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.expectThrows;
 
-public class TestAesSpillCipher
+public class TestAesBufferCipher
 {
     @Test
     public void test()
     {
-        AesSpillCipher spillCipher = new AesSpillCipher();
+        AesBufferCipher bufferCipher = new AesBufferCipher();
         // test [0, 257] buffer sizes to check off all padding cases
         for (int size = 0; size <= 257; size++) {
             byte[] data = randomBytes(size);
             // .clone() to prevent cipher from modifying the content we assert against
-            byte[] encrypted = encryptExact(spillCipher, data.clone());
-            assertEquals(data, decryptExact(spillCipher, encrypted));
+            byte[] encrypted = encryptExact(bufferCipher, data.clone());
+            assertEquals(data, decryptExact(bufferCipher, encrypted));
         }
         // verify that initialization vector is not re-used
-        assertNotEquals(encryptExact(spillCipher, new byte[0]), encryptExact(spillCipher, new byte[0]), "IV values must not be reused");
+        assertNotEquals(encryptExact(bufferCipher, new byte[0]), encryptExact(bufferCipher, new byte[0]), "IV values must not be reused");
 
-        byte[] encrypted = encryptExact(spillCipher, randomBytes(1));
-        spillCipher.close();
-        spillCipher.close(); // should not throw an exception
+        byte[] encrypted = encryptExact(bufferCipher, randomBytes(1));
+        bufferCipher.close();
+        bufferCipher.close(); // should not throw an exception
 
-        assertFailure(() -> decryptExact(spillCipher, encrypted), "Spill cipher already closed");
-        assertFailure(() -> encryptExact(spillCipher, randomBytes(1)), "Spill cipher already closed");
+        assertFailure(() -> decryptExact(bufferCipher, encrypted), "Buffer cipher already closed");
+        assertFailure(() -> encryptExact(bufferCipher, randomBytes(1)), "Buffer cipher already closed");
     }
 
-    private static byte[] encryptExact(SpillCipher cipher, byte[] data)
+    private static byte[] encryptExact(BufferCipher cipher, byte[] data)
     {
         byte[] output = new byte[cipher.encryptedMaxLength(data.length)];
         int outLength = cipher.encrypt(data, 0, data.length, output, 0);
@@ -61,7 +61,7 @@ public class TestAesSpillCipher
         }
     }
 
-    private static byte[] decryptExact(SpillCipher cipher, byte[] encryptedData)
+    private static byte[] decryptExact(BufferCipher cipher, byte[] encryptedData)
     {
         byte[] output = new byte[cipher.decryptedMaxLength(encryptedData.length)];
         int outLength = cipher.decrypt(encryptedData, 0, encryptedData.length, output, 0);

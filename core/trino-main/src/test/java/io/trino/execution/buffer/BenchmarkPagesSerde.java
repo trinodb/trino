@@ -18,7 +18,6 @@ import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
-import io.trino.spiller.AesSpillCipher;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -128,7 +127,7 @@ public class BenchmarkPagesSerde
         private PagesSerde createPagesSerde()
         {
             PagesSerdeFactory serdeFactory = new PagesSerdeFactory(createTestMetadataManager().getBlockEncodingSerde(), compressed);
-            return encrypted ? serdeFactory.createPagesSerdeForSpill(Optional.of(new AesSpillCipher())) : serdeFactory.createPagesSerde();
+            return encrypted ? serdeFactory.createPagesSerde(Optional.of(new AesBufferCipher())) : serdeFactory.createPagesSerde();
         }
 
         private SerializedPage[] createSerializedPages()

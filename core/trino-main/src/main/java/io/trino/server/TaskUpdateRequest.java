@@ -15,6 +15,14 @@ package io.trino.server;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.JsonDeserializer;
+import com.fasterxml.jackson.databind.JsonSerializer;
+import com.fasterxml.jackson.databind.SerializerProvider;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
 import io.trino.SessionRepresentation;
 import io.trino.execution.TaskSource;
@@ -23,6 +31,11 @@ import io.trino.spi.predicate.Domain;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.DynamicFilterId;
 
+import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
+
+import java.io.IOException;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -35,6 +48,8 @@ public class TaskUpdateRequest
     private final SessionRepresentation session;
     // extraCredentials is stored separately from SessionRepresentation to avoid being leaked
     private final Map<String, String> extraCredentials;
+    // exchangeSecretKey is stored separately from SessionRepresentation to avoid being leaked
+    private final Optional<SecretKey> exchangeSecretKey;
     private final Optional<PlanFragment> fragment;
     private final List<TaskSource> sources;
     private final OutputBuffers outputIds;
@@ -44,6 +59,7 @@ public class TaskUpdateRequest
     public TaskUpdateRequest(
             @JsonProperty("session") SessionRepresentation session,
             @JsonProperty("extraCredentials") Map<String, String> extraCredentials,
+            @JsonProperty("exchangeSecretKey") Optional<SecretKey> exchangeSecretKey,
             @JsonProperty("fragment") Optional<PlanFragment> fragment,
             @JsonProperty("sources") List<TaskSource> sources,
             @JsonProperty("outputIds") OutputBuffers outputIds,
@@ -58,6 +74,7 @@ public class TaskUpdateRequest
 
         this.session = session;
         this.extraCredentials = extraCredentials;
+        this.exchangeSecretKey = exchangeSecretKey;
         this.fragment = fragment;
         this.sources = ImmutableList.copyOf(sources);
         this.outputIds = outputIds;
@@ -100,6 +117,14 @@ public class TaskUpdateRequest
         return dynamicFilterDomains;
     }
 
+    @JsonProperty
+    @JsonSerialize(using = SecretKeySerializer.class)
+    @JsonDeserialize(using = SecretKeyDeserializer.class)
+    public Optional<SecretKey> getExchangeSecretKey()
+    {
+        return exchangeSecretKey;
+    }
+
     @Override
     public String toString()
     {
@@ -111,5 +136,39 @@ public class TaskUpdateRequest
                 .add("outputIds", outputIds)
                 .add("dynamicFilterDomains", dynamicFilterDomains)
                 .toString();
+    }
+
+    public static class SecretKeySerializer
+            extends JsonSerializer<Optional<SecretKey>>
+    {
+        @Override
+        public void serialize(Optional<SecretKey> secretKey, JsonGenerator jsonGenerator, SerializerProvider serializerProvider)
+                throws IOException
+        {
+            if (secretKey.isPresent()) {
+                jsonGenerator.writeString(Base64.getEncoder().encodeToString(secretKey.get().getEncoded()));
+            }
+            else {
+                jsonGenerator.writeString("");
+            }
+        }
+    }
+
+    public static class SecretKeyDeserializer
+            extends JsonDeserializer<Optional<SecretKey>>
+    {
+        @Override
+        public Optional<SecretKey> deserialize(JsonParser jsonParser, DeserializationContext deserializationContext)
+                throws IOException
+        {
+            String encodedKey = jsonParser.getValueAsString();
+            if (encodedKey.isEmpty()) {
+                return Optional.empty();
+            }
+            else {
+                byte[] decodedKey = Base64.getDecoder().decode(encodedKey);
+                return Optional.of(new SecretKeySpec(decodedKey, 0, decodedKey.length, "AES"));
+            }
+        }
     }
 }

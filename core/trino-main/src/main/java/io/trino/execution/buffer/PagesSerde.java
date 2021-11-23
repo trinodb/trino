@@ -21,7 +21,6 @@ import io.airlift.slice.Slices;
 import io.trino.execution.buffer.PageCodecMarker.MarkerSet;
 import io.trino.spi.Page;
 import io.trino.spi.block.BlockEncodingSerde;
-import io.trino.spiller.SpillCipher;
 
 import javax.annotation.concurrent.NotThreadSafe;
 
@@ -45,15 +44,15 @@ public class PagesSerde
     private final BlockEncodingSerde blockEncodingSerde;
     private final Optional<Compressor> compressor;
     private final Optional<Decompressor> decompressor;
-    private final Optional<SpillCipher> spillCipher;
+    private final Optional<BufferCipher> bufferCipher;
 
-    public PagesSerde(BlockEncodingSerde blockEncodingSerde, Optional<Compressor> compressor, Optional<Decompressor> decompressor, Optional<SpillCipher> spillCipher)
+    public PagesSerde(BlockEncodingSerde blockEncodingSerde, Optional<Compressor> compressor, Optional<Decompressor> decompressor, Optional<BufferCipher> bufferCipher)
     {
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         checkArgument(compressor.isPresent() == decompressor.isPresent(), "compressor and decompressor must both be present or both be absent");
         this.compressor = requireNonNull(compressor, "compressor is null");
         this.decompressor = requireNonNull(decompressor, "decompressor is null");
-        this.spillCipher = requireNonNull(spillCipher, "spillCipher is null");
+        this.bufferCipher = requireNonNull(bufferCipher, "bufferCipher is null");
     }
 
     public PagesSerdeContext newContext()
@@ -92,9 +91,9 @@ public class PagesSerde
                 }
             }
 
-            if (spillCipher.isPresent()) {
-                byte[] encrypted = context.acquireBuffer(spillCipher.get().encryptedMaxLength(slice.length()));
-                int encryptedSize = spillCipher.get().encrypt(
+            if (bufferCipher.isPresent()) {
+                byte[] encrypted = context.acquireBuffer(bufferCipher.get().encryptedMaxLength(slice.length()));
+                int encryptedSize = bufferCipher.get().encrypt(
                         slice.byteArray(),
                         slice.byteArrayOffset(),
                         slice.length(),
@@ -136,10 +135,10 @@ public class PagesSerde
         // *can* be released for reuse if used for decryption and later released after decompression
         byte[] inUseTempBuffer = null;
         if (serializedPage.isEncrypted()) {
-            checkState(spillCipher.isPresent(), "Page is encrypted, but spill cipher is missing");
+            checkState(bufferCipher.isPresent(), "Page is encrypted, but buffer cipher is missing");
 
-            byte[] decrypted = context.acquireBuffer(spillCipher.get().decryptedMaxLength(slice.length()));
-            int decryptedSize = spillCipher.get().decrypt(
+            byte[] decrypted = context.acquireBuffer(bufferCipher.get().decryptedMaxLength(slice.length()));
+            int decryptedSize = bufferCipher.get().decrypt(
                     slice.byteArray(),
                     slice.byteArrayOffset(),
                     slice.length(),

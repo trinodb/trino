@@ -15,6 +15,7 @@ package io.trino.operator.output;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.trino.execution.buffer.AesBufferCipher;
 import io.trino.execution.buffer.OutputBuffer;
 import io.trino.execution.buffer.PagesSerde;
 import io.trino.execution.buffer.PagesSerdeFactory;
@@ -104,7 +105,7 @@ public class TaskOutputOperator
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
         this.pagePreprocessor = requireNonNull(pagePreprocessor, "pagePreprocessor is null");
-        this.serde = requireNonNull(serdeFactory, "serdeFactory is null").createPagesSerde();
+        this.serde = requireNonNull(serdeFactory, "serdeFactory is null").createPagesSerde(operatorContext.getSession().getExchangeSecretKey().map(AesBufferCipher::new));
     }
 
     @Override

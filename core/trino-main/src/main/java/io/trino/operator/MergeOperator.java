@@ -16,6 +16,7 @@ package io.trino.operator;
 import com.google.common.io.Closer;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import io.trino.execution.buffer.AesBufferCipher;
 import io.trino.execution.buffer.PagesSerde;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.metadata.Split;
@@ -98,7 +99,7 @@ public class MergeOperator
                     operatorContext,
                     sourceId,
                     exchangeClientSupplier,
-                    serdeFactory.createPagesSerde(),
+                    serdeFactory.createPagesSerde(operatorContext.getSession().getExchangeSecretKey().map(AesBufferCipher::new)),
                     orderingCompiler.compilePageWithPositionComparator(types, sortChannels, sortOrder),
                     outputChannels,
                     outputTypes);

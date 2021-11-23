@@ -11,9 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.spiller;
+package io.trino.execution.buffer;
 
-public interface SpillCipher
+public interface BufferCipher
         extends AutoCloseable
 {
     /**

@@ -16,7 +16,6 @@ package io.trino.execution.buffer;
 import io.airlift.compress.lz4.Lz4Compressor;
 import io.airlift.compress.lz4.Lz4Decompressor;
 import io.trino.spi.block.BlockEncodingSerde;
-import io.trino.spiller.SpillCipher;
 
 import java.util.Optional;
 
@@ -38,17 +37,17 @@ public class PagesSerdeFactory
         return createPagesSerdeInternal(Optional.empty());
     }
 
-    public PagesSerde createPagesSerdeForSpill(Optional<SpillCipher> spillCipher)
+    public PagesSerde createPagesSerde(Optional<BufferCipher> bufferCipher)
     {
-        return createPagesSerdeInternal(spillCipher);
+        return createPagesSerdeInternal(bufferCipher);
     }
 
-    private PagesSerde createPagesSerdeInternal(Optional<SpillCipher> spillCipher)
+    private PagesSerde createPagesSerdeInternal(Optional<BufferCipher> bufferCipher)
     {
         if (compressionEnabled) {
-            return new PagesSerde(blockEncodingSerde, Optional.of(new Lz4Compressor()), Optional.of(new Lz4Decompressor()), spillCipher);
+            return new PagesSerde(blockEncodingSerde, Optional.of(new Lz4Compressor()), Optional.of(new Lz4Decompressor()), bufferCipher);
         }
 
-        return new PagesSerde(blockEncodingSerde, Optional.empty(), Optional.empty(), spillCipher);
+        return new PagesSerde(blockEncodingSerde, Optional.empty(), Optional.empty(), bufferCipher);
     }
 }

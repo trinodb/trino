@@ -609,6 +609,7 @@ public final class HttpRemoteTask
         TaskUpdateRequest updateRequest = new TaskUpdateRequest(
                 session.toSessionRepresentation(),
                 session.getIdentity().getExtraCredentials(),
+                session.getExchangeSecretKey(),
                 fragment,
                 sources,
                 outputBuffers.get(),

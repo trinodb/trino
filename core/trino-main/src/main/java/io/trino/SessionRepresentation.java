@@ -28,6 +28,8 @@ import io.trino.spi.type.TimeZoneKey;
 import io.trino.sql.SqlPath;
 import io.trino.transaction.TransactionId;
 
+import javax.crypto.SecretKey;
+
 import java.time.Instant;
 import java.util.Locale;
 import java.util.Map;
@@ -324,10 +326,10 @@ public final class SessionRepresentation
 
     public Session toSession(SessionPropertyManager sessionPropertyManager)
     {
-        return toSession(sessionPropertyManager, emptyMap());
+        return toSession(sessionPropertyManager, emptyMap(), Optional.empty());
     }
 
-    public Session toSession(SessionPropertyManager sessionPropertyManager, Map<String, String> extraCredentials)
+    public Session toSession(SessionPropertyManager sessionPropertyManager, Map<String, String> extraCredentials, Optional<SecretKey> exchangeSecretKey)
     {
         return new Session(
                 new QueryId(queryId),
@@ -353,6 +355,7 @@ public final class SessionRepresentation
                 unprocessedCatalogProperties,
                 sessionPropertyManager,
                 preparedStatements,
-                createProtocolHeaders(protocolName));
+                createProtocolHeaders(protocolName),
+                exchangeSecretKey);
     }
 }

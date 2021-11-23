@@ -23,6 +23,7 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.slice.InputStreamSliceInput;
 import io.airlift.slice.OutputStreamSliceOutput;
 import io.airlift.slice.SliceOutput;
+import io.trino.execution.buffer.BufferCipher;
 import io.trino.execution.buffer.PagesSerde;
 import io.trino.execution.buffer.PagesSerdeUtil;
 import io.trino.execution.buffer.SerializedPage;
@@ -81,7 +82,7 @@ public class FileSingleStreamSpiller
             SpillerStats spillerStats,
             SpillContext spillContext,
             LocalMemoryContext memoryContext,
-            Optional<SpillCipher> spillCipher,
+            Optional<BufferCipher> bufferCipher,
             Runnable fileSystemErrorHandler)
     {
         this.serde = requireNonNull(serde, "serde is null");
@@ -89,8 +90,8 @@ public class FileSingleStreamSpiller
         this.spillerStats = requireNonNull(spillerStats, "spillerStats is null");
         this.localSpillContext = spillContext.newLocalSpillContext();
         this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
-        if (requireNonNull(spillCipher, "spillCipher is null").isPresent()) {
-            closer.register(spillCipher.get()::close);
+        if (requireNonNull(bufferCipher, "bufferCipher is null").isPresent()) {
+            closer.register(bufferCipher.get()::close);
         }
         // HACK!
         // The writePages() method is called in a separate thread pool and it's possible that

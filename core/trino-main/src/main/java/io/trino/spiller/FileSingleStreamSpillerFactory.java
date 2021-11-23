@@ -21,6 +21,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
+import io.trino.execution.buffer.AesBufferCipher;
+import io.trino.execution.buffer.BufferCipher;
 import io.trino.execution.buffer.PagesSerde;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.memory.context.LocalMemoryContext;
@@ -163,11 +165,11 @@ public class FileSingleStreamSpillerFactory
     @Override
     public SingleStreamSpiller create(List<Type> types, SpillContext spillContext, LocalMemoryContext memoryContext)
     {
-        Optional<SpillCipher> spillCipher = Optional.empty();
+        Optional<BufferCipher> bufferCipher = Optional.empty();
         if (spillEncryptionEnabled) {
-            spillCipher = Optional.of(new AesSpillCipher());
+            bufferCipher = Optional.of(new AesBufferCipher());
         }
-        PagesSerde serde = serdeFactory.createPagesSerdeForSpill(spillCipher);
+        PagesSerde serde = serdeFactory.createPagesSerde(bufferCipher);
         return new FileSingleStreamSpiller(
                 serde,
                 executor,
@@ -175,7 +177,7 @@ public class FileSingleStreamSpillerFactory
                 spillerStats,
                 spillContext,
                 memoryContext,
-                spillCipher,
+                bufferCipher,
                 spillPathHealthCache::invalidateAll);
     }
 

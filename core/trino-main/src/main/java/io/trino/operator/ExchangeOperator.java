@@ -15,6 +15,7 @@ package io.trino.operator;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.connector.CatalogName;
+import io.trino.execution.buffer.AesBufferCipher;
 import io.trino.execution.buffer.PagesSerde;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.execution.buffer.SerializedPage;
@@ -77,7 +78,7 @@ public class ExchangeOperator
             return new ExchangeOperator(
                     operatorContext,
                     sourceId,
-                    serdeFactory.createPagesSerde(),
+                    serdeFactory.createPagesSerde(operatorContext.getSession().getExchangeSecretKey().map(AesBufferCipher::new)),
                     exchangeClient);
         }
 

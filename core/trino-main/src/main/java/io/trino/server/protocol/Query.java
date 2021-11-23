@@ -45,6 +45,7 @@ import io.trino.execution.QueryStats;
 import io.trino.execution.StageId;
 import io.trino.execution.StageInfo;
 import io.trino.execution.TaskInfo;
+import io.trino.execution.buffer.AesBufferCipher;
 import io.trino.execution.buffer.PagesSerde;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.execution.buffer.SerializedPage;
@@ -237,7 +238,7 @@ class Query
         this.resultsProcessorExecutor = resultsProcessorExecutor;
         this.timeoutExecutor = timeoutExecutor;
         this.supportsParametricDateTime = session.getClientCapabilities().contains(ClientCapabilities.PARAMETRIC_DATETIME.toString());
-        serde = new PagesSerdeFactory(blockEncodingSerde, isExchangeCompressionEnabled(session)).createPagesSerde();
+        serde = new PagesSerdeFactory(blockEncodingSerde, isExchangeCompressionEnabled(session)).createPagesSerde(session.getExchangeSecretKey().map(AesBufferCipher::new));
     }
 
     public void cancel()

@@ -19,7 +19,6 @@ import io.airlift.compress.lz4.Lz4Compressor;
 import io.airlift.compress.lz4.Lz4Decompressor;
 import io.trino.spi.Page;
 import io.trino.spi.block.BlockEncodingSerde;
-import io.trino.spiller.SpillCipher;
 
 import java.util.Optional;
 
@@ -46,9 +45,9 @@ public class TestingPagesSerdeFactory
     private static class SynchronizedPagesSerde
             extends PagesSerde
     {
-        public SynchronizedPagesSerde(BlockEncodingSerde blockEncodingSerde, Optional<Compressor> compressor, Optional<Decompressor> decompressor, Optional<SpillCipher> spillCipher)
+        public SynchronizedPagesSerde(BlockEncodingSerde blockEncodingSerde, Optional<Compressor> compressor, Optional<Decompressor> decompressor, Optional<BufferCipher> bufferCipher)
         {
-            super(blockEncodingSerde, compressor, decompressor, spillCipher);
+            super(blockEncodingSerde, compressor, decompressor, bufferCipher);
         }
 
         @Override

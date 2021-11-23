@@ -36,6 +36,8 @@ import io.trino.sql.tree.Execute;
 import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
 
+import javax.crypto.SecretKey;
+
 import java.security.Principal;
 import java.time.Instant;
 import java.util.HashMap;
@@ -84,6 +86,7 @@ public final class Session
     private final SessionPropertyManager sessionPropertyManager;
     private final Map<String, String> preparedStatements;
     private final ProtocolHeaders protocolHeaders;
+    private final Optional<SecretKey> exchangeSecretKey;
 
     public Session(
             QueryId queryId,
@@ -109,7 +112,8 @@ public final class Session
             Map<String, Map<String, String>> unprocessedCatalogProperties,
             SessionPropertyManager sessionPropertyManager,
             Map<String, String> preparedStatements,
-            ProtocolHeaders protocolHeaders)
+            ProtocolHeaders protocolHeaders,
+            Optional<SecretKey> exchangeSecretKey)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
@@ -149,6 +153,8 @@ public final class Session
         checkArgument(transactionId.isEmpty() || unprocessedCatalogProperties.isEmpty(), "Catalog session properties cannot be set if there is an open transaction");
 
         checkArgument(catalog.isPresent() || schema.isEmpty(), "schema is set but catalog is not");
+
+        this.exchangeSecretKey = requireNonNull(exchangeSecretKey, "exchangeSecretKey is null");
     }
 
     public QueryId getQueryId()
@@ -299,6 +305,11 @@ public final class Session
         return protocolHeaders;
     }
 
+    public Optional<SecretKey> getExchangeSecretKey()
+    {
+        return exchangeSecretKey;
+    }
+
     public Session beginTransactionId(TransactionId transactionId, TransactionManager transactionManager, AccessControl accessControl)
     {
         requireNonNull(transactionId, "transactionId is null");
@@ -373,7 +384,8 @@ public final class Session
                 ImmutableMap.of(),
                 sessionPropertyManager,
                 preparedStatements,
-                protocolHeaders);
+                protocolHeaders,
+                exchangeSecretKey);
     }
 
     public Session withDefaultProperties(Map<String, String> systemPropertyDefaults, Map<String, Map<String, String>> catalogPropertyDefaults, AccessControl accessControl)
@@ -425,7 +437,8 @@ public final class Session
                 connectorProperties,
                 sessionPropertyManager,
                 preparedStatements,
-                protocolHeaders);
+                protocolHeaders,
+                exchangeSecretKey);
     }
 
     public ConnectorSession toConnectorSession()
@@ -574,6 +587,7 @@ public final class Session
         private final SessionPropertyManager sessionPropertyManager;
         private final Map<String, String> preparedStatements = new HashMap<>();
         private ProtocolHeaders protocolHeaders = TRINO_HEADERS;
+        private Optional<SecretKey> exchangeSecretKey = Optional.empty();
 
         private SessionBuilder(SessionPropertyManager sessionPropertyManager)
         {
@@ -606,6 +620,7 @@ public final class Session
                     .forEach((catalog, properties) -> catalogSessionProperties.put(catalog, new HashMap<>(properties)));
             this.preparedStatements.putAll(session.preparedStatements);
             this.protocolHeaders = session.protocolHeaders;
+            this.exchangeSecretKey = session.exchangeSecretKey;
         }
 
         public SessionBuilder setQueryId(QueryId queryId)
@@ -809,6 +824,12 @@ public final class Session
             return this;
         }
 
+        public SessionBuilder setExchangeSecretKey(Optional<SecretKey> exchangeSecretKey)
+        {
+            this.exchangeSecretKey = requireNonNull(exchangeSecretKey, "exchangeSecretKey is null");
+            return this;
+        }
+
         public Session build()
         {
             return new Session(
@@ -835,7 +856,8 @@ public final class Session
                     catalogSessionProperties,
                     sessionPropertyManager,
                     preparedStatements,
-                    protocolHeaders);
+                    protocolHeaders,
+                    exchangeSecretKey);
         }
     }
 

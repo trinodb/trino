@@ -11,12 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.spiller;
+package io.trino.execution.buffer;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.execution.buffer.PagesSerde;
-import io.trino.execution.buffer.SerializedPage;
-import io.trino.execution.buffer.TestingPagesSerdeFactory;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
@@ -34,13 +31,13 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
 
-public class TestSpillCipherPagesSerde
+public class TestBufferCipherPagesSerde
 {
     @Test
     public void test()
     {
-        SpillCipher cipher = new AesSpillCipher();
-        PagesSerde serde = new TestingPagesSerdeFactory().createPagesSerdeForSpill(Optional.of(cipher));
+        BufferCipher cipher = new AesBufferCipher();
+        PagesSerde serde = new TestingPagesSerdeFactory().createPagesSerde(Optional.of(cipher));
         List<Type> types = ImmutableList.of(VARCHAR);
         Page emptyPage = new Page(VARCHAR.createBlockBuilder(null, 0).build());
         try (PagesSerde.PagesSerdeContext context = serde.newContext()) {
@@ -57,8 +54,8 @@ public class TestSpillCipherPagesSerde
 
             cipher.close();
 
-            assertFailure(() -> serde.serialize(context, helloWorldPage), "Spill cipher already closed");
-            assertFailure(() -> serde.deserialize(context, serialized), "Spill cipher already closed");
+            assertFailure(() -> serde.serialize(context, helloWorldPage), "Buffer cipher already closed");
+            assertFailure(() -> serde.deserialize(context, serialized), "Buffer cipher already closed");
         }
     }
 

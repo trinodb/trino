@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
+import io.trino.execution.buffer.AesBufferCipher;
 import io.trino.execution.buffer.OutputBuffer;
 import io.trino.execution.buffer.PagesSerde;
 import io.trino.execution.buffer.PagesSerdeFactory;
@@ -94,8 +95,8 @@ public class DefaultPagePartitioner
         this.nullChannel = requireNonNull(nullChannel, "nullChannel is null").orElse(-1);
         this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
         this.sourceTypes = requireNonNull(sourceTypes, "sourceTypes is null").toArray(new Type[0]);
-        this.serde = requireNonNull(serdeFactory, "serdeFactory is null").createPagesSerde();
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.serde = requireNonNull(serdeFactory, "serdeFactory is null").createPagesSerde(operatorContext.getSession().getExchangeSecretKey().map(AesBufferCipher::new));
 
         //  Ensure partition channels align with constant arguments provided
         for (int i = 0; i < this.partitionChannels.length; i++) {

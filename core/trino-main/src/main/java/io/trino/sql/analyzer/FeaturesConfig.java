@@ -89,6 +89,7 @@ public class FeaturesConfig
     private boolean pushTableWriteThroughUnion = true;
     private DataIntegrityVerification exchangeDataIntegrityVerification = DataIntegrityVerification.ABORT;
     private boolean exchangeCompressionEnabled;
+    private boolean exchangeEncryptionEnabled;
     private boolean legacyRowToJsonCast;
     private boolean optimizeMixedDistinctAggregations;
     private boolean forceSingleNodeOutput = true;
@@ -790,6 +791,18 @@ public class FeaturesConfig
     public FeaturesConfig setExchangeCompressionEnabled(boolean exchangeCompressionEnabled)
     {
         this.exchangeCompressionEnabled = exchangeCompressionEnabled;
+        return this;
+    }
+
+    public boolean isExchangeEncryptionEnabled()
+    {
+        return exchangeEncryptionEnabled;
+    }
+
+    @Config("exchange.encryption-enabled")
+    public FeaturesConfig setExchangeEncryptionEnabled(boolean exchangeEncryptionEnabled)
+    {
+        this.exchangeEncryptionEnabled = exchangeEncryptionEnabled;
         return this;
     }
 
