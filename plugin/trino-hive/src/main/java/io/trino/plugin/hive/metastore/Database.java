@@ -51,7 +51,9 @@ public class Database
             @JsonProperty("parameters") Map<String, String> parameters)
     {
         this.databaseName = requireNonNull(databaseName, "databaseName is null");
-        this.location = requireNonNull(location, "location is null");
+        requireNonNull(location, "location is null");
+        checkArgument(location.isEmpty() || !location.get().isEmpty(), "location cannot be an empty string");
+        this.location = location;
         this.ownerName = requireNonNull(ownerName, "ownerName is null");
         this.ownerType = requireNonNull(ownerType, "ownerType is null");
         checkArgument(ownerName.isPresent() == ownerType.isPresent(), "Both ownerName and ownerType must be present or empty");

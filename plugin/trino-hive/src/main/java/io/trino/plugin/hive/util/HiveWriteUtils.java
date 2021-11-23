@@ -448,7 +448,7 @@ public final class HiveWriteUtils
     public static Path getTableDefaultLocation(Database database, HdfsContext context, HdfsEnvironment hdfsEnvironment, String schemaName, String tableName)
     {
         Optional<String> location = database.getLocation();
-        if (location.isEmpty() || location.get().isEmpty()) {
+        if (location.isEmpty()) {
             throw new TrinoException(HIVE_DATABASE_LOCATION_ERROR, format("Database '%s' location is not set", schemaName));
         }
 
