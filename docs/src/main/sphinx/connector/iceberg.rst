@@ -75,7 +75,7 @@ At a minimum, ``hive.metastore.uri`` must be configured:
       * ``LZ4``
       * ``ZSTD``
       * ``GZIP``
-    - ``GZIP``
+    - ``ZSTD``
   * - ``iceberg.max-partitions-per-writer``
     - Maximum number of partitions handled per writer.
     - 100
