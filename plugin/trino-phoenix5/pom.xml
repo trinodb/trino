@@ -15,7 +15,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <dep.hbase.version>2.2.6</dep.hbase.version>
+        <dep.hbase.version>2.4.8</dep.hbase.version>
     </properties>
 
     <dependencies>
@@ -91,7 +91,7 @@
 
         <dependency>
             <groupId>org.apache.phoenix</groupId>
-            <artifactId>phoenix-client-embedded-hbase-2.2</artifactId>
+            <artifactId>phoenix-client-embedded-hbase-2.4</artifactId>
             <version>5.1.2</version>
         </dependency>
 
@@ -266,6 +266,19 @@
 
         <dependency>
             <groupId>org.apache.hbase</groupId>
+            <artifactId>hbase-logging</artifactId>
+            <version>${dep.hbase.version}</version>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>*</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.hbase</groupId>
             <artifactId>hbase-server</artifactId>
             <type>test-jar</type>
             <version>${dep.hbase.version}</version>
@@ -352,8 +365,16 @@
                             <artifactId>stream</artifactId>
                         </dependency>
                         <dependency>
+                            <groupId>javax.activation</groupId>
+                            <artifactId>javax.activation-api</artifactId>
+                        </dependency>
+                        <dependency>
                             <groupId>javax.xml.bind</groupId>
                             <artifactId>jaxb-api</artifactId>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.apache.hbase</groupId>
+                            <artifactId>hbase-logging</artifactId>
                         </dependency>
                     </ignoredDependencies>
                 </configuration>
