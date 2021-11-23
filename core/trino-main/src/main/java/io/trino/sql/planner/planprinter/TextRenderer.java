@@ -14,7 +14,6 @@
 package io.trino.sql.planner.planprinter;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.DataSize;
 import io.trino.cost.PlanCostEstimate;
 import io.trino.cost.PlanNodeStatsAndCostSummary;
 import io.trino.cost.PlanNodeStatsEstimate;
@@ -35,10 +34,10 @@ import java.util.function.Function;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static java.lang.Double.NEGATIVE_INFINITY;
-import static java.lang.Double.POSITIVE_INFINITY;
-import static java.lang.Double.isFinite;
-import static java.lang.Double.isNaN;
+import static io.trino.sql.planner.planprinter.util.RendererUtils.formatAsCpuCost;
+import static io.trino.sql.planner.planprinter.util.RendererUtils.formatAsDataSize;
+import static io.trino.sql.planner.planprinter.util.RendererUtils.formatAsLong;
+import static io.trino.sql.planner.planprinter.util.RendererUtils.formatDouble;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
@@ -313,44 +312,6 @@ public class TextRenderer
         return node.getChildren().stream()
                 .map(plan::getNode)
                 .anyMatch(Optional::isPresent);
-    }
-
-    private static String formatAsLong(double value)
-    {
-        if (isFinite(value)) {
-            return format(Locale.US, "%d", Math.round(value));
-        }
-
-        return "?";
-    }
-
-    private static String formatAsCpuCost(double value)
-    {
-        return formatAsDataSize(value).replaceAll("B$", "");
-    }
-
-    private static String formatAsDataSize(double value)
-    {
-        if (isNaN(value)) {
-            return "?";
-        }
-        if (value == POSITIVE_INFINITY) {
-            return "+\u221E";
-        }
-        if (value == NEGATIVE_INFINITY) {
-            return "-\u221E";
-        }
-
-        return DataSize.succinctBytes(Math.round(value)).toString();
-    }
-
-    static String formatDouble(double value)
-    {
-        if (isFinite(value)) {
-            return format(Locale.US, "%.2f", value);
-        }
-
-        return "?";
     }
 
     static String formatPositions(long positions)

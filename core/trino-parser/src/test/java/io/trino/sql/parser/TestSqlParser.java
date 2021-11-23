@@ -65,6 +65,7 @@ import io.trino.sql.tree.Execute;
 import io.trino.sql.tree.ExistsPredicate;
 import io.trino.sql.tree.Explain;
 import io.trino.sql.tree.ExplainAnalyze;
+import io.trino.sql.tree.ExplainAnalyzeFormat;
 import io.trino.sql.tree.ExplainFormat;
 import io.trino.sql.tree.ExplainType;
 import io.trino.sql.tree.Expression;
@@ -2349,11 +2350,30 @@ public class TestSqlParser
         assertStatement("EXPLAIN ANALYZE VERBOSE SELECT * FROM t",
                 new ExplainAnalyze(simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))), true));
 
+        assertStatement("EXPLAIN ANALYZE (format JSON) SELECT * FROM t",
+                new ExplainAnalyze(simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))), false,
+                        Optional.of(new ExplainAnalyzeFormat(ExplainAnalyzeFormat.Type.JSON))));
+
+        assertStatement("EXPLAIN ANALYZE VERBOSE (format JSON) SELECT * FROM t",
+                new ExplainAnalyze(simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))), true,
+                        Optional.of(new ExplainAnalyzeFormat(ExplainAnalyzeFormat.Type.JSON))));
+
+        assertStatement("EXPLAIN ANALYZE (format TEXT) SELECT * FROM t",
+                new ExplainAnalyze(simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))), false,
+                        Optional.of(new ExplainAnalyzeFormat(ExplainAnalyzeFormat.Type.TEXT))));
+
+        assertStatement("EXPLAIN ANALYZE VERBOSE (format TEXT) SELECT * FROM t",
+                new ExplainAnalyze(simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))), true,
+                        Optional.of(new ExplainAnalyzeFormat(ExplainAnalyzeFormat.Type.TEXT))));
+
         assertStatementIsInvalid("EXPLAIN ANALYZE (type DISTRIBUTED) SELECT * FROM t")
-                .withMessage("line 1:18: mismatched input 'type'. Expecting: '(', 'SELECT', 'TABLE', 'VALUES'");
+                .withMessage("line 1:18: mismatched input 'type'. Expecting: '(', 'FORMAT', 'SELECT', 'TABLE', 'VALUES'");
 
         assertStatementIsInvalid("EXPLAIN ANALYZE VERBOSE (type DISTRIBUTED) SELECT * FROM t")
-                .withMessage("line 1:26: mismatched input 'type'. Expecting: '(', 'SELECT', 'TABLE', 'VALUES'");
+                .withMessage("line 1:26: mismatched input 'type'. Expecting: '(', 'FORMAT', 'SELECT', 'TABLE', 'VALUES'");
+
+        assertStatementIsInvalid("EXPLAIN ANALYZE VERBOSE (format graphviz) SELECT * FROM t")
+                .withMessage("line 1:33: mismatched input 'graphviz'. Expecting: 'JSON', 'TEXT'");
     }
 
     @Test

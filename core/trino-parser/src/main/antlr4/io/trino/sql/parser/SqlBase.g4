@@ -129,7 +129,8 @@ statement
         FROM grantee=principal                                         #revoke
     | SHOW GRANTS (ON TABLE? qualifiedName)?                           #showGrants
     | EXPLAIN ('(' explainOption (',' explainOption)* ')')? statement  #explain
-    | EXPLAIN ANALYZE VERBOSE? statement                               #explainAnalyze
+    | EXPLAIN ANALYZE VERBOSE?
+        ('(' explainAnalyzeOption ')')? statement                      #explainAnalyze
     | SHOW CREATE TABLE qualifiedName                                  #showCreateTable
     | SHOW CREATE SCHEMA qualifiedName                                 #showCreateSchema
     | SHOW CREATE VIEW qualifiedName                                   #showCreateView
@@ -630,6 +631,10 @@ explainOption
     : FORMAT value=(TEXT | GRAPHVIZ | JSON)                 #explainFormat
     | TYPE value=(LOGICAL | DISTRIBUTED | VALIDATE | IO)    #explainType
     ;
+
+ explainAnalyzeOption
+     : FORMAT value=(TEXT | JSON)          #explainAnalyzeFormat
+     ;
 
 transactionMode
     : ISOLATION LEVEL levelOfIsolation    #isolationLevel

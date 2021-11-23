@@ -13,6 +13,8 @@
  */
 package io.trino.sql.planner.planprinter;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -34,8 +36,8 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class PlanNodeStats
         implements Mergeable<PlanNodeStats>
 {
+    protected final Map<String, BasicOperatorStats> operatorStats;
     private final PlanNodeId planNodeId;
-
     private final Duration planNodeScheduledTime;
     private final Duration planNodeCpuTime;
     private final long planNodeInputPositions;
@@ -44,18 +46,17 @@ public class PlanNodeStats
     private final DataSize planNodeOutputDataSize;
     private final DataSize planNodeSpilledDataSize;
 
-    protected final Map<String, BasicOperatorStats> operatorStats;
-
+    @JsonCreator
     PlanNodeStats(
-            PlanNodeId planNodeId,
-            Duration planNodeScheduledTime,
-            Duration planNodeCpuTime,
-            long planNodeInputPositions,
-            DataSize planNodeInputDataSize,
-            long planNodeOutputPositions,
-            DataSize planNodeOutputDataSize,
-            DataSize planNodeSpilledDataSize,
-            Map<String, BasicOperatorStats> operatorStats)
+            @JsonProperty("planNodeId") PlanNodeId planNodeId,
+            @JsonProperty("planNodeScheduledTime") Duration planNodeScheduledTime,
+            @JsonProperty("planNodeCpuTime") Duration planNodeCpuTime,
+            @JsonProperty("planNodeInputPositions") long planNodeInputPositions,
+            @JsonProperty("planNodeInputDataSize") DataSize planNodeInputDataSize,
+            @JsonProperty("planNodeOutputPositions") long planNodeOutputPositions,
+            @JsonProperty("planNodeOutputDataSize") DataSize planNodeOutputDataSize,
+            @JsonProperty("planNodeSpilledDataSize") DataSize planNodeSpilledDataSize,
+            @JsonProperty("operatorStats") Map<String, BasicOperatorStats> operatorStats)
     {
         this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
 
@@ -77,46 +78,55 @@ public class PlanNodeStats
         return sqrt(max(variance, 0d));
     }
 
+    @JsonProperty
     public PlanNodeId getPlanNodeId()
     {
         return planNodeId;
     }
 
+    @JsonProperty
     public Duration getPlanNodeScheduledTime()
     {
         return planNodeScheduledTime;
     }
 
+    @JsonProperty
     public Duration getPlanNodeCpuTime()
     {
         return planNodeCpuTime;
     }
 
+    @JsonProperty
     public Set<String> getOperatorTypes()
     {
         return operatorStats.keySet();
     }
 
+    @JsonProperty
     public long getPlanNodeInputPositions()
     {
         return planNodeInputPositions;
     }
 
+    @JsonProperty
     public DataSize getPlanNodeInputDataSize()
     {
         return planNodeInputDataSize;
     }
 
+    @JsonProperty
     public long getPlanNodeOutputPositions()
     {
         return planNodeOutputPositions;
     }
 
+    @JsonProperty
     public DataSize getPlanNodeOutputDataSize()
     {
         return planNodeOutputDataSize;
     }
 
+    @JsonProperty
     public DataSize getPlanNodeSpilledDataSize()
     {
         return planNodeSpilledDataSize;
@@ -141,6 +151,7 @@ public class PlanNodeStats
                                 entry.getValue().getTotalDrivers())));
     }
 
+    @JsonProperty
     public Map<String, BasicOperatorStats> getOperatorStats()
     {
         return operatorStats;

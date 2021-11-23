@@ -147,10 +147,12 @@ import static io.trino.sql.DynamicFilters.extractDynamicFilters;
 import static io.trino.sql.ExpressionUtils.combineConjunctsWithDuplicates;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.sql.planner.planprinter.JsonDistributedFragment.DistributedFragmentStats;
+import static io.trino.sql.planner.planprinter.JsonDistributedFragment.OutputPartitioning;
 import static io.trino.sql.planner.planprinter.PlanNodeStatsSummarizer.aggregateStageStats;
-import static io.trino.sql.planner.planprinter.TextRenderer.formatDouble;
 import static io.trino.sql.planner.planprinter.TextRenderer.formatPositions;
 import static io.trino.sql.planner.planprinter.TextRenderer.indentString;
+import static io.trino.sql.planner.planprinter.util.RendererUtils.formatDouble;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.WINDOW;
 import static java.lang.Math.abs;
@@ -214,6 +216,11 @@ public class PlanPrinter
     private String toJson()
     {
         return new JsonRenderer().render(representation);
+    }
+
+    public Map<Integer, List<DistributedPlanRepresentation>> toJsonNodeRepresentation(boolean verbose)
+    {
+        return new JsonRenderer().render(representation, verbose, 1);
     }
 
     public static String jsonFragmentPlan(PlanNode root, Map<Symbol, Type> symbols, Metadata metadata, Session session)
@@ -385,6 +392,128 @@ public class PlanPrinter
                 .append("\n");
 
         return builder.toString();
+    }
+
+    public static String jsonDistributedPlan(
+            StageInfo outputStageInfo,
+            QueryStats queryStats,
+            Metadata metadata,
+            Session session,
+            boolean verbose)
+    {
+        return jsonDistributedPlan(
+                outputStageInfo,
+                queryStats,
+                new ValuePrinter(metadata, session),
+                verbose);
+    }
+
+    public static String jsonDistributedPlan(
+            StageInfo outputStageInfo,
+            QueryStats queryStats,
+            ValuePrinter valuePrinter,
+            boolean verbose)
+    {
+        Map<PlanNodeId, TableInfo> tableInfos = getAllStages(Optional.of(outputStageInfo)).stream()
+                .map(StageInfo::getTables)
+                .map(Map::entrySet)
+                .flatMap(Collection::stream)
+                .collect(toImmutableMap(Entry::getKey, Entry::getValue));
+
+        List<StageInfo> allStages = getAllStages(Optional.of(outputStageInfo));
+        List<PlanFragment> allFragments = allStages.stream()
+                .map(StageInfo::getPlan)
+                .collect(toImmutableList());
+        Map<PlanNodeId, PlanNodeStats> aggregatedStats = aggregateStageStats(allStages);
+
+        Map<DynamicFilterId, DynamicFilterDomainStats> dynamicFilterDomainStats = queryStats.getDynamicFiltersStats()
+                .getDynamicFilterDomainStats().stream()
+                .collect(toImmutableMap(DynamicFilterDomainStats::getDynamicFilterId, identity()));
+
+        List<JsonDistributedFragment> jsonDistributedFragments = allStages.stream()
+                .map(stageInfo ->
+                        getJsonDistributedFragment(tableScanNode -> tableInfos.get(tableScanNode.getId()),
+                                dynamicFilterDomainStats,
+                                valuePrinter,
+                                stageInfo.getPlan(),
+                                Optional.of(stageInfo),
+                                Optional.of(aggregatedStats),
+                                verbose,
+                                allFragments))
+                .collect(toList());
+
+        return new JsonRenderer().render(new JsonDistributedPlanFragments(jsonDistributedFragments));
+    }
+
+    private static JsonDistributedFragment getJsonDistributedFragment(
+            Function<TableScanNode, TableInfo> tableInfoSupplier,
+            Map<DynamicFilterId, DynamicFilterDomainStats> dynamicFilterDomainStats,
+            ValuePrinter valuePrinter,
+            PlanFragment fragment,
+            Optional<StageInfo> stageInfo,
+            Optional<Map<PlanNodeId, PlanNodeStats>> planNodeStats,
+            boolean verbose,
+            List<PlanFragment> allFragments)
+    {
+        StageStats stageStats;
+        DistributedFragmentStats distributedFragmentStats = null;
+        if (stageInfo.isPresent()) {
+            stageStats = stageInfo.get().getStageStats();
+
+            double avgPositionsPerTask = stageInfo.get().getTasks().stream().mapToLong(task -> task.getStats().getProcessedInputPositions()).average().orElse(Double.NaN);
+            double squaredDifferences = stageInfo.get().getTasks().stream().mapToDouble(task -> Math.pow(task.getStats().getProcessedInputPositions() - avgPositionsPerTask, 2)).sum();
+            double sdAmongTasks = Math.sqrt(squaredDifferences / stageInfo.get().getTasks().size());
+
+            distributedFragmentStats = new DistributedFragmentStats(
+                    stageStats.getTotalCpuTime().convertToMostSuccinctTimeUnit(),
+                    stageStats.getTotalScheduledTime().convertToMostSuccinctTimeUnit(),
+                    formatPositions(stageStats.getProcessedInputPositions()),
+                    stageStats.getProcessedInputDataSize().toString(),
+                    formatDouble(avgPositionsPerTask),
+                    formatDouble(sdAmongTasks),
+                    formatPositions(stageStats.getOutputPositions()),
+                    stageStats.getOutputDataSize().toString());
+        }
+
+        PartitioningScheme partitioningScheme = fragment.getPartitioningScheme();
+        String outputLayout = Joiner.on(", ").join(partitioningScheme.getOutputLayout());
+
+        List<String> arguments = partitioningScheme.getPartitioning().getArguments().stream()
+                .map(argument -> {
+                    if (argument.isConstant()) {
+                        NullableValue constant = argument.getConstant();
+                        String printableValue = valuePrinter.castToVarchar(constant.getType(), constant.getValue());
+                        return constant.getType().getDisplayName() + "(" + printableValue + ")";
+                    }
+                    return argument.getColumn().toString();
+                })
+                .collect(toImmutableList());
+        OutputPartitioning outputPartitioning = new OutputPartitioning(
+                partitioningScheme.getPartitioning().getHandle(),
+                Joiner.on(", ").join(arguments),
+                formatHash(partitioningScheme.getHashColumn()));
+
+        TypeProvider typeProvider = TypeProvider.copyOf(allFragments.stream()
+                .flatMap(f -> f.getSymbols().entrySet().stream())
+                .distinct()
+                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)));
+        Map<Integer, List<DistributedPlanRepresentation>> distributedPlanRepresentations = new PlanPrinter(
+                fragment.getRoot(),
+                typeProvider,
+                Optional.of(fragment.getStageExecutionDescriptor()),
+                tableInfoSupplier,
+                dynamicFilterDomainStats,
+                valuePrinter,
+                fragment.getStatsAndCosts(),
+                planNodeStats).toJsonNodeRepresentation(verbose);
+
+        return new JsonDistributedFragment(fragment.getId(),
+                fragment.getPartitioning(),
+                distributedFragmentStats,
+                outputLayout,
+                outputPartitioning,
+                fragment.getStageExecutionDescriptor().getStageExecutionStrategy(),
+                distributedPlanRepresentations);
     }
 
     private static TypeProvider getTypeProvider(List<PlanFragment> fragments)
@@ -1579,7 +1708,8 @@ public class PlanPrinter
                     estimatedCosts,
                     reorderJoinStatsAndCost,
                     childrenIds,
-                    remoteSources);
+                    remoteSources,
+                    new ArrayList<>());
 
             representation.addNode(nodeOutput);
             return nodeOutput;

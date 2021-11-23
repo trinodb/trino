@@ -23,6 +23,7 @@ import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.ValuesNode;
+import io.trino.sql.tree.ExplainAnalyzeFormat;
 import org.testng.annotations.Test;
 
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
@@ -61,7 +62,8 @@ public class TestVerifyOnlyOneOutputNode
                                         ), ImmutableList.of(), ImmutableList.of()
                                 ), new Symbol("a"),
                                 ImmutableList.of(),
-                                false),
+                                false,
+                                ExplainAnalyzeFormat.Type.TEXT),
                         ImmutableList.of(), ImmutableList.of());
         assertThatThrownBy(() -> new VerifyOnlyOneOutputNode().validate(root, null, PLANNER_CONTEXT, null, null, WarningCollector.NOOP))
                 .isInstanceOf(IllegalStateException.class)

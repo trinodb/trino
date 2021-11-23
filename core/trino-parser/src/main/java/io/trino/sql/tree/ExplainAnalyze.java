@@ -27,22 +27,29 @@ public final class ExplainAnalyze
 {
     private final Statement statement;
     private final boolean verbose;
+    private final Optional<ExplainAnalyzeOption> option;
 
     public ExplainAnalyze(Statement statement, boolean verbose)
     {
-        this(Optional.empty(), statement, verbose);
+        this(Optional.empty(), statement, verbose, Optional.empty());
     }
 
-    public ExplainAnalyze(NodeLocation location, boolean verbose, Statement statement)
+    public ExplainAnalyze(Statement statement, boolean verbose, Optional<ExplainAnalyzeOption> option)
     {
-        this(Optional.of(location), statement, verbose);
+        this(Optional.empty(), statement, verbose, option);
     }
 
-    public ExplainAnalyze(Optional<NodeLocation> location, Statement statement, boolean verbose)
+    public ExplainAnalyze(NodeLocation location, boolean verbose, Statement statement, Optional<ExplainAnalyzeOption> option)
+    {
+        this(Optional.of(location), statement, verbose, option);
+    }
+
+    public ExplainAnalyze(Optional<NodeLocation> location, Statement statement, boolean verbose, Optional<ExplainAnalyzeOption> option)
     {
         super(location);
         this.statement = requireNonNull(statement, "statement is null");
         this.verbose = verbose;
+        this.option = option;
     }
 
     public Statement getStatement()
@@ -55,6 +62,11 @@ public final class ExplainAnalyze
         return verbose;
     }
 
+    public Optional<ExplainAnalyzeOption> getOption()
+    {
+        return option;
+    }
+
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
@@ -64,15 +76,16 @@ public final class ExplainAnalyze
     @Override
     public List<Node> getChildren()
     {
-        return ImmutableList.<Node>builder()
-                .add(statement)
-                .build();
+        ImmutableList.Builder<Node> nodes = ImmutableList.builder();
+        nodes.add(statement);
+        option.ifPresent(nodes::add);
+        return nodes.build();
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(statement, verbose);
+        return Objects.hash(statement, verbose, option);
     }
 
     @Override
@@ -85,7 +98,7 @@ public final class ExplainAnalyze
             return false;
         }
         ExplainAnalyze o = (ExplainAnalyze) obj;
-        return Objects.equals(statement, o.statement);
+        return Objects.equals(statement, o.statement) && Objects.equals(option, o.option);
     }
 
     @Override
@@ -94,6 +107,7 @@ public final class ExplainAnalyze
         return toStringHelper(this)
                 .add("statement", statement)
                 .add("verbose", verbose)
+                .add("option", option)
                 .toString();
     }
 }

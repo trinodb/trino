@@ -48,6 +48,8 @@ public class TestStatementBuilder
         printStatement("select * from foo");
         printStatement("explain select * from foo");
         printStatement("explain (type distributed, format graphviz) select * from foo");
+        printStatement("explain analyze (format text) select * from foo");
+        printStatement("explain analyze (format json) select * from foo");
 
         printStatement("select * from foo /* end */");
         printStatement("/* start */ select * from foo");

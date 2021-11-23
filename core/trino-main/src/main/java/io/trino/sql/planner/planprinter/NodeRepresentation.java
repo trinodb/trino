@@ -13,6 +13,8 @@
  */
 package io.trino.sql.planner.planprinter;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.cost.PlanCostEstimate;
 import io.trino.cost.PlanNodeStatsAndCostSummary;
 import io.trino.cost.PlanNodeStatsEstimate;
@@ -40,21 +42,24 @@ public class NodeRepresentation
     private final List<PlanNodeStatsEstimate> estimatedStats;
     private final List<PlanCostEstimate> estimatedCost;
     private final Optional<PlanNodeStatsAndCostSummary> reorderJoinStatsAndCost;
+    private final List<NodeRepresentation> childrenNodeRepresentation;
 
     private final StringBuilder details = new StringBuilder();
 
+    @JsonCreator
     public NodeRepresentation(
-            PlanNodeId id,
-            String name,
-            String type,
-            String identifier,
-            List<TypedSymbol> outputs,
-            Optional<PlanNodeStats> stats,
-            List<PlanNodeStatsEstimate> estimatedStats,
-            List<PlanCostEstimate> estimatedCost,
-            Optional<PlanNodeStatsAndCostSummary> reorderJoinStatsAndCost,
-            List<PlanNodeId> children,
-            List<PlanFragmentId> remoteSources)
+            @JsonProperty("id") PlanNodeId id,
+            @JsonProperty("name") String name,
+            @JsonProperty("type") String type,
+            @JsonProperty("identifier") String identifier,
+            @JsonProperty("outputs") List<TypedSymbol> outputs,
+            @JsonProperty("stats") Optional<PlanNodeStats> stats,
+            @JsonProperty("estimatedStats") List<PlanNodeStatsEstimate> estimatedStats,
+            @JsonProperty("estimatedCost") List<PlanCostEstimate> estimatedCost,
+            @JsonProperty("reorderJoinStatsAndCost") Optional<PlanNodeStatsAndCostSummary> reorderJoinStatsAndCost,
+            @JsonProperty("children") List<PlanNodeId> children,
+            @JsonProperty("remoteSources") List<PlanFragmentId> remoteSources,
+            @JsonProperty("childrenNodeRepresentation") List<NodeRepresentation> childrenNodeRepresentation)
     {
         this.id = requireNonNull(id, "id is null");
         this.name = requireNonNull(name, "name is null");
@@ -67,6 +72,7 @@ public class NodeRepresentation
         this.reorderJoinStatsAndCost = requireNonNull(reorderJoinStatsAndCost, "reorderJoinStatsAndCost is null");
         this.children = requireNonNull(children, "children is null");
         this.remoteSources = requireNonNull(remoteSources, "remoteSources is null");
+        this.childrenNodeRepresentation = requireNonNull(childrenNodeRepresentation, "childrenNodeRepresentation is null");
 
         checkArgument(estimatedCost.size() == estimatedStats.size(), "size of cost and stats list does not match");
     }
@@ -87,64 +93,82 @@ public class NodeRepresentation
         details.append('\n');
     }
 
+    @JsonProperty
     public PlanNodeId getId()
     {
         return id;
     }
 
+    @JsonProperty
     public String getName()
     {
         return name;
     }
 
+    @JsonProperty
     public String getType()
     {
         return type;
     }
 
+    @JsonProperty
     public String getIdentifier()
     {
         return identifier;
     }
 
+    @JsonProperty
     public List<TypedSymbol> getOutputs()
     {
         return outputs;
     }
 
+    @JsonProperty
     public List<PlanNodeId> getChildren()
     {
         return children;
     }
 
+    @JsonProperty
     public List<PlanFragmentId> getRemoteSources()
     {
         return remoteSources;
     }
 
+    @JsonProperty
     public String getDetails()
     {
         return details.toString();
     }
 
+    @JsonProperty
     public Optional<PlanNodeStats> getStats()
     {
         return stats;
     }
 
+    @JsonProperty
     public List<PlanNodeStatsEstimate> getEstimatedStats()
     {
         return estimatedStats;
     }
 
+    @JsonProperty
     public List<PlanCostEstimate> getEstimatedCost()
     {
         return estimatedCost;
     }
 
+    @JsonProperty
     public Optional<PlanNodeStatsAndCostSummary> getReorderJoinStatsAndCost()
     {
         return reorderJoinStatsAndCost;
+    }
+
+    @JsonProperty
+    public List<NodeRepresentation> getChildNodeRepresentations()
+    {
+        return childrenNodeRepresentation;
     }
 
     public static class TypedSymbol
@@ -152,17 +176,22 @@ public class NodeRepresentation
         private final Symbol symbol;
         private final String type;
 
-        public TypedSymbol(Symbol symbol, String type)
+        @JsonCreator
+        public TypedSymbol(
+                @JsonProperty("symbol") Symbol symbol,
+                @JsonProperty("type") String type)
         {
-            this.symbol = symbol;
-            this.type = type;
+            this.symbol = requireNonNull(symbol, "symbol is null");
+            this.type = requireNonNull(type, "type is null");
         }
 
+        @JsonProperty
         public Symbol getSymbol()
         {
             return symbol;
         }
 
+        @JsonProperty
         public String getType()
         {
             return type;

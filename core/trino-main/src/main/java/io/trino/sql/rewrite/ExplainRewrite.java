@@ -94,7 +94,7 @@ public final class ExplainRewrite
         protected Node visitExplainAnalyze(ExplainAnalyze node, Void context)
         {
             Statement statement = (Statement) process(node.getStatement(), context);
-            return new ExplainAnalyze(node.getLocation(), statement, node.isVerbose());
+            return new ExplainAnalyze(node.getLocation(), statement, node.isVerbose(), node.getOption());
         }
 
         @Override

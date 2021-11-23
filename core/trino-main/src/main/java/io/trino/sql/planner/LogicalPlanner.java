@@ -77,6 +77,8 @@ import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.CreateTableAsSelect;
 import io.trino.sql.tree.Delete;
 import io.trino.sql.tree.ExplainAnalyze;
+import io.trino.sql.tree.ExplainAnalyzeFormat;
+import io.trino.sql.tree.ExplainAnalyzeOption;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.GenericLiteral;
@@ -313,7 +315,15 @@ public class LogicalPlanner
             Symbol symbol = underlyingPlan.getSymbol(fieldIndex);
             actualOutputs.add(symbol);
         }
-        root = new ExplainAnalyzeNode(idAllocator.getNextId(), root, outputSymbol, actualOutputs.build(), statement.isVerbose());
+
+        ExplainAnalyzeFormat.Type planFormat = ExplainAnalyzeFormat.Type.TEXT;
+        if (statement.getOption().isPresent()) {
+            ExplainAnalyzeOption option = statement.getOption().get();
+            if (option instanceof ExplainAnalyzeFormat) {
+                planFormat = ((ExplainAnalyzeFormat) option).getType();
+            }
+        }
+        root = new ExplainAnalyzeNode(idAllocator.getNextId(), root, outputSymbol, actualOutputs.build(), statement.isVerbose(), planFormat);
         return new RelationPlan(root, scope, ImmutableList.of(outputSymbol), Optional.empty());
     }
 

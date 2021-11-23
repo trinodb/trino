@@ -797,6 +797,7 @@ public abstract class DefaultTraversalVisitor<C>
     protected Void visitExplainAnalyze(ExplainAnalyze node, C context)
     {
         process(node.getStatement(), context);
+        node.getOption().ifPresent(option -> process(option, context));
         return null;
     }
 

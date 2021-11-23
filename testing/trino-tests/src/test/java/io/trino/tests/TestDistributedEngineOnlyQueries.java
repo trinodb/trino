@@ -205,6 +205,36 @@ public class TestDistributedEngineOnlyQueries
         assertExplainAnalyze(
                 "EXPLAIN ANALYZE SELECT * FROM nation a, nation b WHERE a.nationkey = b.nationkey",
                 "Estimates: \\{rows: .* \\(.*\\), cpu: .*, memory: .*, network: .*}");
+
+        assertExplainAnalyze(
+                "EXPLAIN ANALYZE (FORMAT JSON) SELECT * FROM (SELECT nationkey, regionkey FROM nation GROUP BY nationkey, regionkey) a, nation b WHERE a.regionkey = b.regionkey",
+                "\"totalCpuTime\" : .*",
+                "\"inputRows\" : .*",
+                "\"inputDataSize\" : .*",
+                "\"stdDevInputRows\" : .*",
+                "\"outputRows\" : .*",
+                "\"outputDataSize\" : .*");
+        assertExplainAnalyze(
+                "EXPLAIN ANALYZE (FORMAT JSON) SELECT * FROM nation a, nation b WHERE a.nationkey = b.nationkey",
+                "\"outputLayout\" : \"nationkey, name, regionkey, comment, name_1, regionkey_2. comment_3\"");
+        assertExplainAnalyze(
+                Session.builder(getSession())
+                        .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "false")
+                        .build(),
+                "EXPLAIN ANALYZE (FORMAT JSON) SELECT * FROM nation a, nation b WHERE a.nationkey = b.nationkey",
+                "\"totalCpuTime\" : .*",
+                "\"inputRows\" : .*",
+                "\"inputDataSize\" : .*",
+                "\"stdDevInputRows\" : .*",
+                "\"outputRows\" : .*",
+                "\"outputDataSize\" : .*");
+        assertExplainAnalyze(
+                "EXPLAIN ANALYZE (FORMAT JSON) SELECT nationkey FROM nation GROUP BY nationkey",
+                "\"inputRows\" : .*",
+                "\"inputDataSize\" : .*",
+                "\"stdDevInputRows\" : .*",
+                "\"outputRows\" : .*",
+                "\"outputDataSize\" : .*");
     }
 
     @Test

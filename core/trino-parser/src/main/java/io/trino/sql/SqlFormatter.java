@@ -46,6 +46,7 @@ import io.trino.sql.tree.Except;
 import io.trino.sql.tree.Execute;
 import io.trino.sql.tree.Explain;
 import io.trino.sql.tree.ExplainAnalyze;
+import io.trino.sql.tree.ExplainAnalyzeFormat;
 import io.trino.sql.tree.ExplainFormat;
 import io.trino.sql.tree.ExplainOption;
 import io.trino.sql.tree.ExplainType;
@@ -936,6 +937,16 @@ public final class SqlFormatter
             if (node.isVerbose()) {
                 builder.append(" VERBOSE");
             }
+
+            node.getOption().ifPresent((value) -> {
+                if (value instanceof ExplainAnalyzeFormat) {
+                    String format = "FORMAT " + ((ExplainAnalyzeFormat) value).getType();
+                    builder.append("(").append(format).append(")");
+                }
+                else {
+                    throw new UnsupportedOperationException("unhandled explain analyze option: " + value);
+                }
+            });
             builder.append("\n");
 
             process(node.getStatement(), indent);

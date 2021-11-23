@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.tree.ExplainAnalyzeFormat;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -35,6 +36,7 @@ public class ExplainAnalyzeNode
     private final Symbol outputSymbol;
     private final List<Symbol> actualOutputs;
     private final boolean verbose;
+    private final ExplainAnalyzeFormat.Type format;
 
     @JsonCreator
     public ExplainAnalyzeNode(
@@ -42,7 +44,8 @@ public class ExplainAnalyzeNode
             @JsonProperty("source") PlanNode source,
             @JsonProperty("outputSymbol") Symbol outputSymbol,
             @JsonProperty("actualOutputs") List<Symbol> actualOutputs,
-            @JsonProperty("verbose") boolean verbose)
+            @JsonProperty("verbose") boolean verbose,
+            @JsonProperty("format") ExplainAnalyzeFormat.Type format)
     {
         super(id);
         this.source = requireNonNull(source, "source is null");
@@ -51,6 +54,7 @@ public class ExplainAnalyzeNode
         checkArgument(ImmutableSet.copyOf(source.getOutputSymbols()).containsAll(actualOutputs), "Source does not supply all required input symbols");
         this.actualOutputs = ImmutableList.copyOf(actualOutputs);
         this.verbose = verbose;
+        this.format = format;
     }
 
     @JsonProperty("outputSymbol")
@@ -77,6 +81,12 @@ public class ExplainAnalyzeNode
         return verbose;
     }
 
+    @JsonProperty("format")
+    public ExplainAnalyzeFormat.Type getFormat()
+    {
+        return format;
+    }
+
     @Override
     public List<Symbol> getOutputSymbols()
     {
@@ -98,6 +108,6 @@ public class ExplainAnalyzeNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new ExplainAnalyzeNode(getId(), Iterables.getOnlyElement(newChildren), outputSymbol, actualOutputs, isVerbose());
+        return new ExplainAnalyzeNode(getId(), Iterables.getOnlyElement(newChildren), outputSymbol, actualOutputs, isVerbose(), getFormat());
     }
 }

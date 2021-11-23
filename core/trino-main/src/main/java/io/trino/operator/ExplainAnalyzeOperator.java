@@ -22,12 +22,14 @@ import io.trino.metadata.Metadata;
 import io.trino.spi.Page;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.sql.tree.ExplainAnalyzeFormat;
 
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.planner.planprinter.PlanPrinter.jsonDistributedPlan;
 import static io.trino.sql.planner.planprinter.PlanPrinter.textDistributedPlan;
 import static java.util.Objects.requireNonNull;
 
@@ -42,6 +44,7 @@ public class ExplainAnalyzeOperator
         private final QueryPerformanceFetcher queryPerformanceFetcher;
         private final Metadata metadata;
         private final boolean verbose;
+        private final ExplainAnalyzeFormat.Type format;
         private boolean closed;
 
         public ExplainAnalyzeOperatorFactory(
@@ -49,13 +52,15 @@ public class ExplainAnalyzeOperator
                 PlanNodeId planNodeId,
                 QueryPerformanceFetcher queryPerformanceFetcher,
                 Metadata metadata,
-                boolean verbose)
+                boolean verbose,
+                ExplainAnalyzeFormat.Type format)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.queryPerformanceFetcher = requireNonNull(queryPerformanceFetcher, "queryPerformanceFetcher is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.verbose = verbose;
+            this.format = format;
         }
 
         @Override
@@ -63,7 +68,7 @@ public class ExplainAnalyzeOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, ExplainAnalyzeOperator.class.getSimpleName());
-            return new ExplainAnalyzeOperator(operatorContext, queryPerformanceFetcher, metadata, verbose);
+            return new ExplainAnalyzeOperator(operatorContext, queryPerformanceFetcher, metadata, verbose, format);
         }
 
         @Override
@@ -75,7 +80,7 @@ public class ExplainAnalyzeOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new ExplainAnalyzeOperatorFactory(operatorId, planNodeId, queryPerformanceFetcher, metadata, verbose);
+            return new ExplainAnalyzeOperatorFactory(operatorId, planNodeId, queryPerformanceFetcher, metadata, verbose, format);
         }
     }
 
@@ -83,6 +88,7 @@ public class ExplainAnalyzeOperator
     private final QueryPerformanceFetcher queryPerformanceFetcher;
     private final Metadata metadata;
     private final boolean verbose;
+    private final ExplainAnalyzeFormat.Type format;
     private boolean finishing;
     private boolean outputConsumed;
 
@@ -90,12 +96,14 @@ public class ExplainAnalyzeOperator
             OperatorContext operatorContext,
             QueryPerformanceFetcher queryPerformanceFetcher,
             Metadata metadata,
-            boolean verbose)
+            boolean verbose,
+            ExplainAnalyzeFormat.Type format)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.queryPerformanceFetcher = requireNonNull(queryPerformanceFetcher, "queryPerformanceFetcher is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.verbose = verbose;
+        this.format = format;
     }
 
     @Override
@@ -145,12 +153,28 @@ public class ExplainAnalyzeOperator
             return null;
         }
 
-        String plan = textDistributedPlan(
-                queryInfo.getOutputStage().get().getSubStages().get(0),
-                queryInfo.getQueryStats(),
-                metadata,
-                operatorContext.getSession(),
-                verbose);
+        String plan;
+        switch (format) {
+            case JSON:
+                plan = jsonDistributedPlan(
+                        queryInfo.getOutputStage().get().getSubStages().get(0),
+                        queryInfo.getQueryStats(),
+                        metadata,
+                        operatorContext.getSession(),
+                        verbose);
+                break;
+            case TEXT:
+                plan = textDistributedPlan(
+                        queryInfo.getOutputStage().get().getSubStages().get(0),
+                        queryInfo.getQueryStats(),
+                        metadata,
+                        operatorContext.getSession(),
+                        verbose);
+                break;
+            default:
+                throw new IllegalArgumentException("Invalid Explain Analyze format: " + format);
+        }
+
         BlockBuilder builder = VARCHAR.createBlockBuilder(null, 1);
         VARCHAR.writeString(builder, plan);
 

@@ -348,7 +348,7 @@ public abstract class AbstractTestQueryFramework
 
     protected void assertExplain(Session session, @Language("SQL") String query, @Language("RegExp") String... expectedExplainRegExps)
     {
-        assertExplainAnalyze(false, session, query, expectedExplainRegExps);
+        assertExplainAnalyze(session, query, expectedExplainRegExps);
     }
 
     protected void assertExplainAnalyze(@Language("SQL") String query, @Language("RegExp") String... expectedExplainRegExps)
@@ -356,24 +356,12 @@ public abstract class AbstractTestQueryFramework
         assertExplainAnalyze(getSession(), query, expectedExplainRegExps);
     }
 
-    protected void assertExplainAnalyze(Session session, @Language("SQL") String query, @Language("RegExp") String... expectedExplainRegExps)
-    {
-        assertExplainAnalyze(true, session, query, expectedExplainRegExps);
-    }
-
-    private void assertExplainAnalyze(
-            boolean analyze,
+    protected void assertExplainAnalyze(
             Session session,
             @Language("SQL") String query,
             @Language("RegExp") String... expectedExplainRegExps)
     {
         String value = (String) computeActual(session, query).getOnlyValue();
-
-        if (analyze) {
-            // TODO: check that rendered plan is as expected, once stats are collected in a consistent way
-            // assertTrue(value.contains("Cost: "), format("Expected output to contain \"Cost: \", but it is %s", value));
-            assertThat(value).containsPattern("CPU:.*, Input:.*, Output");
-        }
 
         for (String expectedExplainRegExp : expectedExplainRegExps) {
             assertThat(value).containsPattern(expectedExplainRegExp);
