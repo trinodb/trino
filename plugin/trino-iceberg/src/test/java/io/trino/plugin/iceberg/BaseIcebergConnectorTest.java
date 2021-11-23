@@ -61,6 +61,8 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -2368,6 +2370,36 @@ public abstract class BaseIcebergConnectorTest
         // i.e. a query like 'DELETE FROM test_metadata_optimization WHERE b = 6 AND a = 5'
 
         dropTable("test_metadata_optimization");
+    }
+
+    @Test
+    public void testFileSizeInManifest()
+            throws Exception
+    {
+        assertUpdate("CREATE TABLE test_file_size_in_manifest (" +
+                "a_bigint bigint, " +
+                "a_varchar varchar, " +
+                "a_long_decimal decimal(38,20), " +
+                "a_map map(varchar, integer))");
+
+        assertUpdate(
+                "INSERT INTO test_file_size_in_manifest VALUES " +
+                        "(NULL, NULL, NULL, NULL), " +
+                        "(42, 'some varchar value', DECIMAL '123456789123456789.123456789123456789', map(ARRAY['abc', 'def'], ARRAY[113, -237843832]))",
+                2);
+
+        MaterializedResult files = computeActual("SELECT file_path, record_count, file_size_in_bytes FROM \"test_file_size_in_manifest$files\"");
+        long totalRecordCount = 0;
+        for (MaterializedRow row : files.getMaterializedRows()) {
+            String path = (String) row.getField(0);
+            Long recordCount = (Long) row.getField(1);
+            Long fileSizeInBytes = (Long) row.getField(2);
+
+            totalRecordCount += recordCount;
+            assertThat(fileSizeInBytes).isEqualTo(Files.size(Paths.get(path)));
+        }
+        // Verify sum(record_count) to make sure we have all the files.
+        assertThat(totalRecordCount).isEqualTo(2);
     }
 
     @Test
