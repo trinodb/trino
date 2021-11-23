@@ -990,6 +990,9 @@ public class LocalExecutionPlanner
             }
 
             Optional<Integer> hashChannel = node.getHashSymbol().map(channelGetter(source));
+            boolean isPartial = node.isPartial();
+            Optional<DataSize> maxPartialTopNMemorySize = isPartial ? Optional.of(SystemSessionProperties.getMaxPartialTopNMemory(session)).filter(
+                    maxSize -> maxSize.compareTo(DataSize.ofBytes(0)) > 0) : Optional.empty();
             OperatorFactory operatorFactory = new TopNRankingOperator.TopNRankingOperatorFactory(
                     context.getNextOperatorId(),
                     node.getId(),
@@ -1001,9 +1004,10 @@ public class LocalExecutionPlanner
                     sortChannels,
                     sortOrder,
                     node.getMaxRankingPerPartition(),
-                    node.isPartial(),
+                    isPartial,
                     hashChannel,
                     1000,
+                    maxPartialTopNMemorySize,
                     joinCompiler,
                     typeOperators,
                     blockTypeOperators);
