@@ -234,7 +234,9 @@ import static io.trino.plugin.hive.HiveTableProperties.isTransactional;
 import static io.trino.plugin.hive.HiveTimestampPrecision.NANOSECONDS;
 import static io.trino.plugin.hive.HiveType.HIVE_STRING;
 import static io.trino.plugin.hive.HiveType.toHiveType;
-import static io.trino.plugin.hive.HiveWriterFactory.computeBucketedFileName;
+import static io.trino.plugin.hive.HiveWriterFactory.computeNonTransactionalBucketedFilename;
+import static io.trino.plugin.hive.HiveWriterFactory.computeTransactionalBucketedFilename;
+import static io.trino.plugin.hive.HiveWriterFactory.getBucketFromFileName;
 import static io.trino.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY;
 import static io.trino.plugin.hive.PartitionUpdate.UpdateMode.APPEND;
 import static io.trino.plugin.hive.PartitionUpdate.UpdateMode.NEW;
@@ -1520,18 +1522,23 @@ public class HiveMetadata
         configureCompression(conf, getCompressionCodec(session));
         String fileExtension = HiveWriterFactory.getFileExtension(conf, fromHiveStorageFormat(storageFormat));
         Set<String> fileNames = ImmutableSet.copyOf(partitionUpdate.getFileNames());
+        Set<Integer> bucketsWithFiles = fileNames.stream()
+                .map(HiveWriterFactory::getBucketFromFileName)
+                .collect(toImmutableSet());
+
         ImmutableList.Builder<String> missingFileNamesBuilder = ImmutableList.builder();
         for (int i = 0; i < bucketCount; i++) {
+            if (bucketsWithFiles.contains(i)) {
+                continue;
+            }
             String fileName;
             if (transactionalCreateTable) {
-                fileName = computeBucketedFileName(Optional.empty(), i) + fileExtension;
+                fileName = computeTransactionalBucketedFilename(i) + fileExtension;
             }
             else {
-                fileName = computeBucketedFileName(Optional.of(session.getQueryId()), i) + fileExtension;
+                fileName = computeNonTransactionalBucketedFilename(session.getQueryId(), i) + fileExtension;
             }
-            if (!fileNames.contains(fileName)) {
-                missingFileNamesBuilder.add(fileName);
-            }
+            missingFileNamesBuilder.add(fileName);
         }
         List<String> missingFileNames = missingFileNamesBuilder.build();
         verify(fileNames.size() + missingFileNames.size() == bucketCount);

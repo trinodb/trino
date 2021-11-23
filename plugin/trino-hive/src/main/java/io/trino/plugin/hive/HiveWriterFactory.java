@@ -68,6 +68,8 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -113,6 +115,7 @@ public class HiveWriterFactory
 {
     private static final int MAX_BUCKET_COUNT = 100_000;
     private static final int BUCKET_NUMBER_PADDING = Integer.toString(MAX_BUCKET_COUNT - 1).length();
+    private static final Pattern BUCKET_FROM_FILENAME_PATTERN = Pattern.compile("(0[0-9]+)_.*");
 
     private final Set<HiveFileWriterFactory> fileWriterFactories;
     private final String schemaName;
@@ -668,9 +671,9 @@ public class HiveWriterFactory
 
         if (bucketNumber.isPresent()) {
             if (isCreateTransactionalTable) {
-                return computeBucketedFileName(Optional.empty(), bucketNumber.getAsInt());
+                return computeTransactionalBucketedFilename(bucketNumber.getAsInt());
             }
-            return computeBucketedFileName(Optional.of(queryId), bucketNumber.getAsInt());
+            return computeNonTransactionalBucketedFilename(queryId, bucketNumber.getAsInt());
         }
 
         if (isCreateTransactionalTable) {
@@ -685,13 +688,32 @@ public class HiveWriterFactory
         return queryId + "_" + randomUUID();
     }
 
-    public static String computeBucketedFileName(Optional<String> queryId, int bucket)
+    public static String computeNonTransactionalBucketedFilename(String queryId, int bucket)
+    {
+        // It is important that we put query id at the end of suffix which we use to compute the file name.
+        // Filename must either start or end with query id so HiveWriteUtils.isFileCreatedByQuery works correctly.
+        return computeBucketedFileName(Optional.of(randomUUID() + "_" + queryId), bucket);
+    }
+
+    public static String computeTransactionalBucketedFilename(int bucket)
+    {
+        return computeBucketedFileName(Optional.empty(), bucket);
+    }
+
+    private static String computeBucketedFileName(Optional<String> suffix, int bucket)
     {
         String paddedBucket = Strings.padStart(Integer.toString(bucket), BUCKET_NUMBER_PADDING, '0');
-        if (queryId.isPresent()) {
-            return format("0%s_0_%s", paddedBucket, queryId.get());
+        if (suffix.isPresent()) {
+            return format("0%s_0_%s", paddedBucket, suffix.get());
         }
         return format("0%s_0", paddedBucket);
+    }
+
+    public static int getBucketFromFileName(String fileName)
+    {
+        Matcher matcher = BUCKET_FROM_FILENAME_PATTERN.matcher(fileName);
+        checkArgument(matcher.matches(), "filename %s does not match pattern %s", fileName, BUCKET_FROM_FILENAME_PATTERN);
+        return Integer.parseInt(matcher.group(1));
     }
 
     public static String getFileExtension(JobConf conf, StorageFormat storageFormat)
