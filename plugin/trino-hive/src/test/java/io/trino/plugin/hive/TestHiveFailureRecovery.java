@@ -36,11 +36,6 @@ public class TestHiveFailureRecovery
     {
         return HiveQueryRunner.builder()
                 .setInitialTables(requiredTpchTables)
-                .setInitialTablesSessionMutator(
-                        // create initial tables with retries disbabled (write operations do not support retries yet)
-                        session -> Session.builder(session)
-                                .setSystemProperty("retry_policy", "NONE")
-                                .build())
                 .setCoordinatorProperties(coordinatorProperties)
                 .setExtraProperties(configProperties)
                 .build();
@@ -60,15 +55,7 @@ public class TestHiveFailureRecovery
     @Override
     protected boolean areWriteRetriesSupported()
     {
-        return false;
-    }
-
-    @Override
-    // create table is not atomic at the moment
-    @Test(enabled = false)
-    public void testCreateTable()
-    {
-        super.testCreateTable();
+        return true;
     }
 
     @Override
@@ -111,8 +98,7 @@ public class TestHiveFailureRecovery
                 .hasMessageContaining("This connector does not support creating materialized views");
     }
 
-    @Test(invocationCount = INVOCATION_COUNT, enabled = false)
-    // create table is not atomic at the moment
+    @Test(invocationCount = INVOCATION_COUNT)
     public void testCreatePartitionedTable()
     {
         testTableModification(
@@ -121,8 +107,7 @@ public class TestHiveFailureRecovery
                 Optional.of("DROP TABLE <table>"));
     }
 
-    @Test(invocationCount = INVOCATION_COUNT, enabled = false)
-    // create partition is not atomic at the moment
+    @Test(invocationCount = INVOCATION_COUNT)
     public void testInsertIntoNewPartition()
     {
         testTableModification(
@@ -140,8 +125,7 @@ public class TestHiveFailureRecovery
                 Optional.of("DROP TABLE <table>"));
     }
 
-    @Test(invocationCount = INVOCATION_COUNT, enabled = false)
-    // replace partition is not atomic at the moment
+    @Test(invocationCount = INVOCATION_COUNT)
     public void testReplaceExistingPartition()
     {
         testTableModification(
