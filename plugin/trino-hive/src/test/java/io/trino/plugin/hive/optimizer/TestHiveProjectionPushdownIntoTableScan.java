@@ -175,8 +175,8 @@ public class TestHiveProjectionPushdownIntoTableScan
                                             HiveTableHandle hiveTableHandle = (HiveTableHandle) table;
                                             return hiveTableHandle.getCompactEffectivePredicate().equals(TupleDomain.withColumnDomains(
                                                     ImmutableMap.of(columnY, Domain.singleValue(BIGINT, 2L)))) &&
-                                                    hiveTableHandle.getProjectedColumns().equals(Optional.of(
-                                                            ImmutableSet.of(column1Handle, columnX, columnY)));
+                                                    hiveTableHandle.getProjectedColumns().equals(
+                                                            ImmutableSet.of(column1Handle, columnX, columnY));
                                         },
                                         TupleDomain.all(),
                                         ImmutableMap.of("col0_y", columnY::equals, "col0_x", columnX::equals, "col1", column1Handle::equals)))));
@@ -192,8 +192,8 @@ public class TestHiveProjectionPushdownIntoTableScan
                                             HiveTableHandle hiveTableHandle = (HiveTableHandle) table;
                                             return hiveTableHandle.getCompactEffectivePredicate().equals(TupleDomain.withColumnDomains(
                                                     ImmutableMap.of(columnX, Domain.singleValue(BIGINT, 5L)))) &&
-                                                    hiveTableHandle.getProjectedColumns().equals(Optional.of(
-                                                            ImmutableSet.of(column0Handle, columnX)));
+                                                    hiveTableHandle.getProjectedColumns().equals(
+                                                            ImmutableSet.of(column0Handle, columnX));
                                         },
                                         TupleDomain.all(),
                                         ImmutableMap.of("col0", column0Handle::equals, "col0_x", columnX::equals)))));

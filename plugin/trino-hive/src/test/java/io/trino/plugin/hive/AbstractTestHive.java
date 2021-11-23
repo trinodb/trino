@@ -3494,7 +3494,7 @@ public abstract class AbstractTestHive
 
         assertEquals(actualAssignments.size(), expectedAssignments.size());
         assertEquals(
-                Optional.of(actualAssignments.values().stream().map(Assignment::getColumn).collect(toImmutableSet())),
+                actualAssignments.values().stream().map(Assignment::getColumn).collect(toImmutableSet()),
                 ((HiveTableHandle) result.getHandle()).getProjectedColumns());
     }
 
