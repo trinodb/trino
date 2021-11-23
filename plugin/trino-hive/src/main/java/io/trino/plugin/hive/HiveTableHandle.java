@@ -150,10 +150,10 @@ public class HiveTableHandle
         this.enforcedConstraint = requireNonNull(enforcedConstraint, "enforcedConstraint is null");
         this.bucketHandle = requireNonNull(bucketHandle, "bucketHandle is null");
         this.bucketFilter = requireNonNull(bucketFilter, "bucketFilter is null");
-        this.analyzePartitionValues = requireNonNull(analyzePartitionValues, "analyzePartitionValues is null");
+        this.analyzePartitionValues = requireNonNull(analyzePartitionValues, "analyzePartitionValues is null").map(ImmutableList::copyOf);
         this.analyzeColumnNames = requireNonNull(analyzeColumnNames, "analyzeColumnNames is null").map(ImmutableSet::copyOf);
-        this.constraintColumns = requireNonNull(constraintColumns, "constraintColumns is null");
-        this.projectedColumns = requireNonNull(projectedColumns, "projectedColumns is null");
+        this.constraintColumns = requireNonNull(constraintColumns, "constraintColumns is null").map(ImmutableSet::copyOf);
+        this.projectedColumns = requireNonNull(projectedColumns, "projectedColumns is null").map(ImmutableSet::copyOf);
         this.transaction = requireNonNull(transaction, "transaction is null");
         this.recordScannedFiles = recordScannedFiles;
         this.maxScannedFileSize = requireNonNull(maxSplitFileSize, "maxSplitFileSize is null");
