@@ -25,6 +25,7 @@ import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
+import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.SliceWriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
@@ -132,9 +133,10 @@ public class ClickHouseClient
             ConnectionFactory connectionFactory,
             TypeManager typeManager,
             ClickHouseConfig clickHouseConfig,
+            QueryBuilder queryBuilder,
             IdentifierMapping identifierMapping)
     {
-        super(config, "\"", connectionFactory, identifierMapping);
+        super(config, "\"", connectionFactory, queryBuilder, identifierMapping);
         this.uuidType = typeManager.getType(new TypeSignature(StandardTypes.UUID));
         // TODO (https://github.com/trinodb/trino/issues/7102) define session property
         this.mapStringAsVarchar = clickHouseConfig.isMapStringAsVarchar();

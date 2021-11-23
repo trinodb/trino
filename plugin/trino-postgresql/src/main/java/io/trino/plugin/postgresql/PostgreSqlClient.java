@@ -267,9 +267,10 @@ public class PostgreSqlClient
             PostgreSqlConfig postgreSqlConfig,
             ConnectionFactory connectionFactory,
             TypeManager typeManager,
+            QueryBuilder queryBuilder,
             IdentifierMapping identifierMapping)
     {
-        super(config, "\"", connectionFactory, identifierMapping);
+        super(config, "\"", connectionFactory, queryBuilder, identifierMapping);
         this.jsonType = typeManager.getType(new TypeSignature(JSON));
         this.uuidType = typeManager.getType(new TypeSignature(StandardTypes.UUID));
         this.varcharMapType = (MapType) typeManager.getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
@@ -783,9 +784,8 @@ public class PostgreSqlClient
         checkArgument(handle.getSortOrder().isEmpty(), "Unable to delete when sort order is set: %s", handle);
         try (Connection connection = connectionFactory.openConnection(session)) {
             verify(connection.getAutoCommit());
-            QueryBuilder queryBuilder = new QueryBuilder(this);
-            PreparedQuery preparedQuery = queryBuilder.prepareDelete(session, connection, handle.getRequiredNamedRelation(), handle.getConstraint());
-            try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(session, connection, preparedQuery)) {
+            PreparedQuery preparedQuery = queryBuilder.prepareDelete(this, session, connection, handle.getRequiredNamedRelation(), handle.getConstraint());
+            try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(this, session, connection, preparedQuery)) {
                 int affectedRowsCount = preparedStatement.executeUpdate();
                 // In getPreparedStatement we set autocommit to false so here we need an explicit commit
                 connection.commit();

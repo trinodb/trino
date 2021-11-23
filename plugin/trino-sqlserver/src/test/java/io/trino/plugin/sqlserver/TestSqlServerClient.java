@@ -15,6 +15,7 @@ package io.trino.plugin.sqlserver;
 
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
+import io.trino.plugin.jdbc.DefaultQueryBuilder;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
@@ -61,6 +62,7 @@ public class TestSqlServerClient
             session -> {
                 throw new UnsupportedOperationException();
             },
+            new DefaultQueryBuilder(),
             new DefaultIdentifierMapping());
 
     @Test

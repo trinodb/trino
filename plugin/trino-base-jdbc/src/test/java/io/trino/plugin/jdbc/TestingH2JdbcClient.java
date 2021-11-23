@@ -74,7 +74,7 @@ class TestingH2JdbcClient
 
     public TestingH2JdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory)
     {
-        super(config, "\"", connectionFactory, new DefaultIdentifierMapping());
+        super(config, "\"", connectionFactory, new DefaultQueryBuilder(), new DefaultIdentifierMapping());
     }
 
     @Override

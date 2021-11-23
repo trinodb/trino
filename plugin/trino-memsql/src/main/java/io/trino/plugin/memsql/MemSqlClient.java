@@ -26,6 +26,7 @@ import io.trino.plugin.jdbc.JdbcSortItem;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.PreparedQuery;
+import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.UnsupportedTypeHandling;
 import io.trino.plugin.jdbc.WriteMapping;
@@ -126,9 +127,9 @@ public class MemSqlClient
     private final Type jsonType;
 
     @Inject
-    public MemSqlClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, TypeManager typeManager, IdentifierMapping identifierMapping)
+    public MemSqlClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, TypeManager typeManager, QueryBuilder queryBuilder, IdentifierMapping identifierMapping)
     {
-        super(config, "`", connectionFactory, identifierMapping);
+        super(config, "`", connectionFactory, queryBuilder, identifierMapping);
         requireNonNull(typeManager, "typeManager is null");
         this.jsonType = typeManager.getType(new TypeSignature(StandardTypes.JSON));
     }

@@ -28,6 +28,7 @@ import io.trino.plugin.jdbc.JdbcSortItem;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.PreparedQuery;
+import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.expression.ImplementAvgDecimal;
 import io.trino.plugin.jdbc.expression.ImplementAvgFloatingPoint;
@@ -155,9 +156,9 @@ public class MySqlClient
     private final AggregateFunctionRewriter<JdbcExpression> aggregateFunctionRewriter;
 
     @Inject
-    public MySqlClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, TypeManager typeManager, IdentifierMapping identifierMapping)
+    public MySqlClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, TypeManager typeManager, QueryBuilder queryBuilder, IdentifierMapping identifierMapping)
     {
-        super(config, "`", connectionFactory, identifierMapping);
+        super(config, "`", connectionFactory, queryBuilder, identifierMapping);
         this.jsonType = typeManager.getType(new TypeSignature(StandardTypes.JSON));
 
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());

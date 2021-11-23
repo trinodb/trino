@@ -192,13 +192,14 @@ public class PhoenixClient
     private final Configuration configuration;
 
     @Inject
-    public PhoenixClient(PhoenixConfig config, ConnectionFactory connectionFactory, IdentifierMapping identifierMapping)
+    public PhoenixClient(PhoenixConfig config, ConnectionFactory connectionFactory, QueryBuilder queryBuilder, IdentifierMapping identifierMapping)
             throws SQLException
     {
         super(
                 ESCAPE_CHARACTER,
                 connectionFactory,
                 ImmutableSet.of(),
+                queryBuilder,
                 identifierMapping);
         this.configuration = new Configuration(false);
         getConnectionProperties(config).forEach((k, v) -> configuration.set((String) k, (String) v));
@@ -280,7 +281,7 @@ public class PhoenixClient
                 columns,
                 ImmutableMap.of(),
                 split);
-        return new QueryBuilder(this).prepareStatement(session, connection, preparedQuery);
+        return queryBuilder.prepareStatement(this, session, connection, preparedQuery);
     }
 
     @Override
