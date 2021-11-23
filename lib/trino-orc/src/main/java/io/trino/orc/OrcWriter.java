@@ -467,6 +467,8 @@ public final class OrcWriter
         try (Closeable ignored = orcDataSink) {
             flushStripe(CLOSED);
         }
+
+        bufferedBytes = 0;
     }
 
     public enum OrcOperation
