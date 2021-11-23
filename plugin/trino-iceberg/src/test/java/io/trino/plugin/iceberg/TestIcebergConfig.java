@@ -23,7 +23,7 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static io.trino.plugin.hive.HiveCompressionCodec.GZIP;
+import static io.trino.plugin.hive.HiveCompressionCodec.ZSTD;
 import static io.trino.plugin.iceberg.CatalogType.GLUE;
 import static io.trino.plugin.iceberg.CatalogType.HIVE_METASTORE;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
@@ -37,7 +37,7 @@ public class TestIcebergConfig
     {
         assertRecordedDefaults(recordDefaults(IcebergConfig.class)
                 .setFileFormat(ORC)
-                .setCompressionCodec(GZIP)
+                .setCompressionCodec(ZSTD)
                 .setUseFileSizeFromMetadata(true)
                 .setMaxPartitionsPerWriter(100)
                 .setUniqueTableLocation(false)
