@@ -108,7 +108,8 @@ public class TestSemiTransactionalHiveMetastore
                     "table_" + i,
                     new Path("location"),
                     ImmutableList.of(),
-                    PartitionStatistics.empty()));
+                    PartitionStatistics.empty(),
+                    false));
             semiTransactionalHiveMetastore.commit();
         });
     }

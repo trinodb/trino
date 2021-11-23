@@ -151,7 +151,9 @@ public class RegisterPartitionProcedure
                 table.getTableName(),
                 buildPartitionObject(session, table, partitionValues, partitionLocation),
                 partitionLocation,
-                PartitionStatistics.empty());
+                Optional.empty(), // no need for failed attempts cleanup
+                PartitionStatistics.empty(),
+                false);
 
         metastore.commit();
     }
