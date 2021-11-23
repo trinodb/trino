@@ -45,6 +45,7 @@ public class TaskManagerConfig
     private boolean taskCpuTimerEnabled = true;
     private boolean statisticsCpuTimerEnabled = true;
     private DataSize maxPartialAggregationMemoryUsage = DataSize.of(16, Unit.MEGABYTE);
+    private DataSize maxPartialTopNMemory = DataSize.of(16, Unit.MEGABYTE);
     private DataSize maxLocalExchangeBufferSize = DataSize.of(32, Unit.MEGABYTE);
     private DataSize maxIndexMemoryUsage = DataSize.of(64, Unit.MEGABYTE);
     private boolean shareIndexLoading;
@@ -153,6 +154,19 @@ public class TaskManagerConfig
     public TaskManagerConfig setMaxPartialAggregationMemoryUsage(DataSize maxPartialAggregationMemoryUsage)
     {
         this.maxPartialAggregationMemoryUsage = maxPartialAggregationMemoryUsage;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getMaxPartialTopNMemory()
+    {
+        return maxPartialTopNMemory;
+    }
+
+    @Config("task.max-partial-top-n-memory")
+    public TaskManagerConfig setMaxPartialTopNMemory(DataSize maxPartialTopNMemory)
+    {
+        this.maxPartialTopNMemory = maxPartialTopNMemory;
         return this;
     }
 
