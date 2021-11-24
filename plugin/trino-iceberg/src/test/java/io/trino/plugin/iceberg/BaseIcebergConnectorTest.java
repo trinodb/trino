@@ -1062,18 +1062,18 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testLargeInOnPartitionedColumns()
     {
-        assertUpdate("CREATE TABLE test_large_in_failure (col1 BIGINT, col2 BIGINT) WITH (partitioning = ARRAY['col2'])");
-        assertUpdate("INSERT INTO test_large_in_failure VALUES (1, 10)", 1L);
-        assertUpdate("INSERT INTO test_large_in_failure VALUES (2, 20)", 1L);
+        assertUpdate("CREATE TABLE test_in_predicate_large_set (col1 BIGINT, col2 BIGINT) WITH (partitioning = ARRAY['col2'])");
+        assertUpdate("INSERT INTO test_in_predicate_large_set VALUES (1, 10)", 1L);
+        assertUpdate("INSERT INTO test_in_predicate_large_set VALUES (2, 20)", 1L);
 
         List<String> predicates = IntStream.range(0, 25_000).boxed()
                 .map(Object::toString)
                 .collect(toImmutableList());
         String filter = format("col2 IN (%s)", join(",", predicates));
-        assertThat(query("SELECT * FROM test_large_in_failure WHERE " + filter))
-                .matches("TABLE test_large_in_failure");
+        assertThat(query("SELECT * FROM test_in_predicate_large_set WHERE " + filter))
+                .matches("TABLE test_in_predicate_large_set");
 
-        dropTable("test_large_in_failure");
+        dropTable("test_in_predicate_large_set");
     }
 
     @Test
