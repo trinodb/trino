@@ -1358,8 +1358,7 @@ public class HiveMetadata
 
         LocationHandle locationHandle = locationService.forNewTable(metastore, session, schemaName, tableName, externalLocation);
 
-        boolean transactional = isTransactional(tableMetadata.getProperties()).orElse(false);
-        AcidTransaction transaction = transactional ? forCreateTable() : NO_ACID_TRANSACTION;
+        AcidTransaction transaction = isTransactional ? forCreateTable() : NO_ACID_TRANSACTION;
 
         HiveOutputTableHandle result = new HiveOutputTableHandle(
                 schemaName,
