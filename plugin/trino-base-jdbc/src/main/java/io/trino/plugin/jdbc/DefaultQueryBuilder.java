@@ -140,7 +140,7 @@ public class DefaultQueryBuilder
                 .collect(joining(", "));
     }
 
-    protected static String formatJoinType(JoinType joinType)
+    protected String formatJoinType(JoinType joinType)
     {
         switch (joinType) {
             case INNER:
@@ -250,14 +250,14 @@ public class DefaultQueryBuilder
         throw new IllegalArgumentException("Unsupported relation: " + baseRelation);
     }
 
-    private static Domain pushDownDomain(JdbcClient client, ConnectorSession session, Connection connection, JdbcColumnHandle column, Domain domain)
+    protected Domain pushDownDomain(JdbcClient client, ConnectorSession session, Connection connection, JdbcColumnHandle column, Domain domain)
     {
         return client.toColumnMapping(session, connection, column.getJdbcTypeHandle())
                 .orElseThrow(() -> new IllegalStateException(format("Unsupported type %s with handle %s", column.getColumnType(), column.getJdbcTypeHandle())))
                 .getPredicatePushdownController().apply(session, domain).getPushedDown();
     }
 
-    private List<String> toConjuncts(
+    protected List<String> toConjuncts(
             JdbcClient client,
             ConnectorSession session,
             Connection connection,
@@ -276,7 +276,7 @@ public class DefaultQueryBuilder
         return builder.build();
     }
 
-    private String toPredicate(JdbcClient client, ConnectorSession session, Connection connection, JdbcColumnHandle column, Domain domain, Consumer<QueryParameter> accumulator)
+    protected String toPredicate(JdbcClient client, ConnectorSession session, Connection connection, JdbcColumnHandle column, Domain domain, Consumer<QueryParameter> accumulator)
     {
         if (domain.getValues().isNone()) {
             return domain.isNullAllowed() ? client.quoted(column.getColumnName()) + " IS NULL" : ALWAYS_FALSE;
@@ -293,7 +293,7 @@ public class DefaultQueryBuilder
         return format("(%s OR %s IS NULL)", predicate, client.quoted(column.getColumnName()));
     }
 
-    private String toPredicate(JdbcClient client, ConnectorSession session, Connection connection, JdbcColumnHandle column, ValueSet valueSet, Consumer<QueryParameter> accumulator)
+    protected String toPredicate(JdbcClient client, ConnectorSession session, Connection connection, JdbcColumnHandle column, ValueSet valueSet, Consumer<QueryParameter> accumulator)
     {
         checkArgument(!valueSet.isNone(), "none values should be handled earlier");
 
@@ -353,22 +353,13 @@ public class DefaultQueryBuilder
         return "(" + Joiner.on(" OR ").join(disjuncts) + ")";
     }
 
-    private String toPredicate(JdbcClient client, JdbcColumnHandle column, JdbcTypeHandle jdbcType, Type type, WriteFunction writeFunction, String operator, Object value, Consumer<QueryParameter> accumulator)
+    protected String toPredicate(JdbcClient client, JdbcColumnHandle column, JdbcTypeHandle jdbcType, Type type, WriteFunction writeFunction, String operator, Object value, Consumer<QueryParameter> accumulator)
     {
         accumulator.accept(new QueryParameter(jdbcType, type, Optional.of(value)));
         return format("%s %s %s", client.quoted(column.getColumnName()), operator, writeFunction.getBindExpression());
     }
 
-    private WriteFunction getWriteFunction(JdbcClient client, ConnectorSession session, Connection connection, JdbcTypeHandle jdbcType, Type type)
-    {
-        WriteFunction writeFunction = client.toColumnMapping(session, connection, jdbcType)
-                .orElseThrow(() -> new VerifyException(format("Unsupported type %s with handle %s", type, jdbcType)))
-                .getWriteFunction();
-        verify(writeFunction.getJavaType() == type.getJavaType(), "Java type mismatch: %s, %s", writeFunction, type);
-        return writeFunction;
-    }
-
-    private String getGroupBy(JdbcClient client, Optional<List<List<JdbcColumnHandle>>> groupingSets)
+    protected String getGroupBy(JdbcClient client, Optional<List<List<JdbcColumnHandle>>> groupingSets)
     {
         if (groupingSets.isEmpty()) {
             return "";
@@ -393,5 +384,14 @@ public class DefaultQueryBuilder
                                 .map(client::quoted)
                                 .collect(joining(", ", "(", ")")))
                         .collect(joining(", ", "(", ")"));
+    }
+
+    private static WriteFunction getWriteFunction(JdbcClient client, ConnectorSession session, Connection connection, JdbcTypeHandle jdbcType, Type type)
+    {
+        WriteFunction writeFunction = client.toColumnMapping(session, connection, jdbcType)
+                .orElseThrow(() -> new VerifyException(format("Unsupported type %s with handle %s", type, jdbcType)))
+                .getWriteFunction();
+        verify(writeFunction.getJavaType() == type.getJavaType(), "Java type mismatch: %s, %s", writeFunction, type);
+        return writeFunction;
     }
 }
