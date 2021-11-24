@@ -377,7 +377,7 @@ public abstract class BaseJdbcClient
             throws SQLException
     {
         PreparedQuery preparedQuery = prepareQuery(session, connection, table, Optional.empty(), columns, ImmutableMap.of(), Optional.of(split));
-        return new QueryBuilder(this).prepareStatement(session, connection, preparedQuery);
+        return new QueryBuilder(this).prepareStatement(this, session, connection, preparedQuery);
     }
 
     protected PreparedQuery prepareQuery(
@@ -390,6 +390,7 @@ public abstract class BaseJdbcClient
             Optional<JdbcSplit> split)
     {
         return applyQueryTransformations(table, new QueryBuilder(this).prepareQuery(
+                this,
                 session,
                 connection,
                 table.getRelationHandle(),
@@ -419,6 +420,7 @@ public abstract class BaseJdbcClient
 
         QueryBuilder queryBuilder = new QueryBuilder(this);
         return Optional.of(queryBuilder.prepareJoinQuery(
+                this,
                 session,
                 joinType,
                 leftSource,
@@ -971,8 +973,8 @@ public abstract class BaseJdbcClient
         try (Connection connection = connectionFactory.openConnection(session)) {
             verify(connection.getAutoCommit());
             QueryBuilder queryBuilder = new QueryBuilder(this);
-            PreparedQuery preparedQuery = queryBuilder.prepareDelete(session, connection, handle.getRequiredNamedRelation(), handle.getConstraint());
-            try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(session, connection, preparedQuery)) {
+            PreparedQuery preparedQuery = queryBuilder.prepareDelete(this, session, connection, handle.getRequiredNamedRelation(), handle.getConstraint());
+            try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(this, session, connection, preparedQuery)) {
                 return OptionalLong.of(preparedStatement.executeUpdate());
             }
         }
