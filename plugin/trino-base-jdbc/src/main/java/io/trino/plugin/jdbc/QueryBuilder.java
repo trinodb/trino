@@ -61,6 +61,7 @@ public class QueryBuilder
     }
 
     public PreparedQuery prepareQuery(
+            JdbcClient client,
             ConnectorSession session,
             Connection connection,
             JdbcRelationHandle baseRelation,
@@ -101,6 +102,7 @@ public class QueryBuilder
     }
 
     public PreparedQuery prepareJoinQuery(
+            JdbcClient client,
             ConnectorSession session,
             JoinType joinType,
             PreparedQuery leftSource,
@@ -159,6 +161,7 @@ public class QueryBuilder
     }
 
     public PreparedQuery prepareDelete(
+            JdbcClient client,
             ConnectorSession session,
             Connection connection,
             JdbcNamedRelationHandle baseRelation,
@@ -176,6 +179,7 @@ public class QueryBuilder
     }
 
     public PreparedStatement prepareStatement(
+            JdbcClient client,
             ConnectorSession session,
             Connection connection,
             PreparedQuery preparedQuery)
