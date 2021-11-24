@@ -162,6 +162,7 @@ import io.trino.operator.scalar.VarbinaryFunctions;
 import io.trino.operator.scalar.VersionFunction;
 import io.trino.operator.scalar.WilsonInterval;
 import io.trino.operator.scalar.WordStemFunction;
+import io.trino.operator.scalar.XPathFunctions;
 import io.trino.operator.scalar.time.LocalTimeFunction;
 import io.trino.operator.scalar.time.TimeFunctions;
 import io.trino.operator.scalar.time.TimeOperators;
@@ -477,6 +478,7 @@ public class FunctionRegistry
                 .scalars(SequenceFunction.class)
                 .scalars(SessionFunctions.class)
                 .scalars(StringFunctions.class)
+                .scalars(XPathFunctions.class)
                 .scalars(WordStemFunction.class)
                 .scalar(SplitToMapFunction.class)
                 .scalar(SplitToMultimapFunction.class)

@@ -46,5 +46,6 @@ and the :doc:`SQL statement and syntax reference</sql>`.
     URL                 <functions/url>
     UUID                <functions/uuid>
     Window              <functions/window>
+    XML                 <functions/xml>
     functions/list
     functions/list-by-topic
