@@ -69,15 +69,6 @@ public final class SapHanaDataTypes
                 identity());
     }
 
-    public static DataType<BigDecimal> sapHanaSmalldecimalDataType()
-    {
-        return dataType(
-                "smalldecimal",
-                DOUBLE,
-                bigDecimal -> format("CAST('%s' AS SMALLDECIMAL)", bigDecimal),
-                BigDecimal::doubleValue); // The precision [..] can vary within the range 1-16
-    }
-
     public static DataType<BigDecimal> sapHanaDecimalDataType()
     {
         // If precision and scale are not specified, then DECIMAL becomes a floating-point decimal number.
