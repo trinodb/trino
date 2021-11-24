@@ -15,7 +15,6 @@ import com.google.common.collect.Multiset;
 import com.google.common.math.IntMath;
 import com.starburstdata.presto.license.LicenseManager;
 import io.trino.plugin.jdbc.ConnectionFactory;
-import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
@@ -81,7 +80,7 @@ public class OracleSplitManager
                 getParallelismType(session),
                 getMaxSplitsPerScan(session),
                 dynamicFilter.getCurrentPredicate()
-                        .filter((columnHandle, domain) -> isColumnEligibleForDynamicFilter((JdbcTableHandle) table, (JdbcColumnHandle) columnHandle))));
+                        .filter((columnHandle, domain) -> isColumnEligibleForDynamicFilter((JdbcTableHandle) table))));
     }
 
     private List<OracleSplit> listSplits(
