@@ -20,6 +20,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multiset;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.JoinCondition;
+import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
@@ -483,6 +485,38 @@ public class TestDefaultJdbcQueryBuilder
             assertContains(preparedStatement.toString(), "\"col_6\" > ?");
             assertContains(preparedStatement.toString(), "\"col_6\" <= ?");
             assertContains(preparedStatement.toString(), "\"col_6\" IN (?,?)");
+        }
+    }
+
+    @Test
+    public void testBuildJoinSql()
+            throws SQLException
+    {
+        Connection connection = database.getConnection();
+
+        PreparedQuery preparedQuery = queryBuilder.prepareJoinQuery(
+                jdbcClient,
+                SESSION,
+                JoinType.INNER,
+                new PreparedQuery("SELECT * FROM \"test_table\"", List.of()),
+                new PreparedQuery("SELECT * FROM \"test_table\"", List.of()),
+                List.of(new JdbcJoinCondition(columns.get(7), JoinCondition.Operator.EQUAL, columns.get(8))),
+                Map.of(columns.get(2), "name1"),
+                Map.of(columns.get(3), "name2"));
+        try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(jdbcClient, SESSION, connection, preparedQuery)) {
+            assertThat(preparedQuery.getQuery()).isEqualTo("" +
+                    "SELECT l.\"col_2\" AS \"name1\", r.\"col_3\" AS \"name2\" FROM " +
+                    "(SELECT * FROM \"test_table\") l " +
+                    "INNER JOIN " +
+                    "(SELECT * FROM \"test_table\") r " +
+                    "ON l.\"col_7\" = r.\"col_8\"");
+            long count = 0;
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                while (resultSet.next()) {
+                    count++;
+                }
+            }
+            assertEquals(count, 8);
         }
     }
 
