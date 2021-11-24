@@ -87,7 +87,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
-public class TestJdbcQueryBuilder
+public class TestDefaultJdbcQueryBuilder
 {
     private static final JdbcNamedRelationHandle TEST_TABLE = new JdbcNamedRelationHandle(new SchemaTableName(
             "some_test_schema", "test_table"),
@@ -98,6 +98,8 @@ public class TestJdbcQueryBuilder
 
     private TestingDatabase database;
     private JdbcClient jdbcClient;
+
+    private final QueryBuilder queryBuilder = new DefaultQueryBuilder();
 
     private List<JdbcColumnHandle> columns;
 
@@ -223,7 +225,7 @@ public class TestJdbcQueryBuilder
                 .buildOrThrow());
 
         Connection connection = database.getConnection();
-        QueryBuilder queryBuilder = new QueryBuilder(jdbcClient);
+
         PreparedQuery preparedQuery = queryBuilder.prepareQuery(jdbcClient, SESSION, connection, TEST_TABLE, Optional.empty(), columns, Map.of(), tupleDomain, Optional.empty());
         try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(jdbcClient, SESSION, connection, preparedQuery)) {
             assertThat(preparedQuery.getQuery()).isEqualTo("" +
@@ -265,7 +267,7 @@ public class TestJdbcQueryBuilder
                 .buildOrThrow());
 
         Connection connection = database.getConnection();
-        QueryBuilder queryBuilder = new QueryBuilder(jdbcClient);
+
         PreparedQuery preparedQuery = queryBuilder.prepareQuery(
                 jdbcClient,
                 SESSION,
@@ -306,7 +308,7 @@ public class TestJdbcQueryBuilder
                         false)));
 
         Connection connection = database.getConnection();
-        QueryBuilder queryBuilder = new QueryBuilder(jdbcClient);
+
         PreparedQuery preparedQuery = queryBuilder.prepareQuery(jdbcClient, SESSION, connection, TEST_TABLE, Optional.empty(), columns, Map.of(), tupleDomain, Optional.empty());
         try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(jdbcClient, SESSION, connection, preparedQuery)) {
             assertThat(preparedQuery.getQuery()).isEqualTo("" +
@@ -340,7 +342,7 @@ public class TestJdbcQueryBuilder
                         false)));
 
         Connection connection = database.getConnection();
-        QueryBuilder queryBuilder = new QueryBuilder(jdbcClient);
+
         PreparedQuery preparedQuery = queryBuilder.prepareQuery(jdbcClient, SESSION, connection, TEST_TABLE, Optional.empty(), columns, Map.of(), tupleDomain, Optional.empty());
         try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(jdbcClient, SESSION, connection, preparedQuery)) {
             assertThat(preparedQuery.getQuery()).isEqualTo("" +
@@ -376,7 +378,7 @@ public class TestJdbcQueryBuilder
                         false)));
 
         Connection connection = database.getConnection();
-        QueryBuilder queryBuilder = new QueryBuilder(jdbcClient);
+
         PreparedQuery preparedQuery = queryBuilder.prepareQuery(jdbcClient, SESSION, connection, TEST_TABLE, Optional.empty(), columns, Map.of(), tupleDomain, Optional.empty());
         try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(jdbcClient, SESSION, connection, preparedQuery)) {
             assertThat(preparedQuery.getQuery()).isEqualTo("" +
@@ -417,7 +419,7 @@ public class TestJdbcQueryBuilder
                         false)));
 
         Connection connection = database.getConnection();
-        QueryBuilder queryBuilder = new QueryBuilder(jdbcClient);
+
         PreparedQuery preparedQuery = queryBuilder.prepareQuery(jdbcClient, SESSION, connection, TEST_TABLE, Optional.empty(), columns, Map.of(), tupleDomain, Optional.empty());
         try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(jdbcClient, SESSION, connection, preparedQuery)) {
             assertThat(preparedQuery.getQuery()).isEqualTo("" +
@@ -458,7 +460,7 @@ public class TestJdbcQueryBuilder
                         false)));
 
         Connection connection = database.getConnection();
-        QueryBuilder queryBuilder = new QueryBuilder(jdbcClient);
+
         PreparedQuery preparedQuery = queryBuilder.prepareQuery(jdbcClient, SESSION, connection, TEST_TABLE, Optional.empty(), columns, Map.of(), tupleDomain, Optional.empty());
         try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(jdbcClient, SESSION, connection, preparedQuery)) {
             assertThat(preparedQuery.getQuery()).isEqualTo("" +
@@ -490,7 +492,7 @@ public class TestJdbcQueryBuilder
     {
         Connection connection = database.getConnection();
         Function<String, String> function = sql -> sql + " LIMIT 10";
-        QueryBuilder queryBuilder = new QueryBuilder(jdbcClient);
+
         PreparedQuery preparedQuery = queryBuilder.prepareQuery(jdbcClient, SESSION, connection, TEST_TABLE, Optional.empty(), columns, Map.of(), TupleDomain.all(), Optional.empty());
         preparedQuery = preparedQuery.transformQuery(function);
         try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(jdbcClient, SESSION, connection, preparedQuery)) {
@@ -518,7 +520,7 @@ public class TestJdbcQueryBuilder
                 columns.get(1), Domain.onlyNull(DOUBLE)));
 
         Connection connection = database.getConnection();
-        QueryBuilder queryBuilder = new QueryBuilder(jdbcClient);
+
         PreparedQuery preparedQuery = queryBuilder.prepareQuery(jdbcClient, SESSION, connection, TEST_TABLE, Optional.empty(), columns, Map.of(), tupleDomain, Optional.empty());
         try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(jdbcClient, SESSION, connection, preparedQuery)) {
             assertThat(preparedQuery.getQuery()).isEqualTo("" +
@@ -546,7 +548,7 @@ public class TestJdbcQueryBuilder
                         Optional.empty()));
 
         Connection connection = database.getConnection();
-        QueryBuilder queryBuilder = new QueryBuilder(jdbcClient);
+
         PreparedQuery preparedQuery = queryBuilder.prepareQuery(
                 jdbcClient,
                 SESSION,
@@ -590,7 +592,7 @@ public class TestJdbcQueryBuilder
                         Optional.empty()));
 
         Connection connection = database.getConnection();
-        QueryBuilder queryBuilder = new QueryBuilder(jdbcClient);
+
         PreparedQuery preparedQuery = queryBuilder.prepareQuery(
                 jdbcClient,
                 SESSION,
