@@ -497,6 +497,7 @@ public class TestDefaultJdbcQueryBuilder
         PreparedQuery preparedQuery = queryBuilder.prepareJoinQuery(
                 jdbcClient,
                 SESSION,
+                connection,
                 JoinType.INNER,
                 new PreparedQuery("SELECT * FROM \"test_table\"", List.of()),
                 new PreparedQuery("SELECT * FROM \"test_table\"", List.of()),
