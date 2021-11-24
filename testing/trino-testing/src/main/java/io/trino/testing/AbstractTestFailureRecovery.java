@@ -170,24 +170,28 @@ public abstract class AbstractTestFailureRecovery
                 .withSession(session)
                 .experiencing(TASK_MANAGEMENT_REQUEST_FAILURE)
                 .at(leafStage())
+                .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Error 500 Internal Server Error|Error closing remote buffer, expected 204 got 500"))
                 .finishesSuccessfully(queryAssertion);
 
         assertThatQuery(query)
                 .withSession(session)
                 .experiencing(TASK_GET_RESULTS_REQUEST_FAILURE)
                 .at(boundaryDistributedStage())
+                .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Error 500 Internal Server Error|Error closing remote buffer, expected 204 got 500"))
                 .finishesSuccessfully(queryAssertion);
 
         assertThatQuery(query)
                 .withSession(session)
                 .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
                 .at(leafStage())
+                .failsWithoutRetries(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE))
                 .finishesSuccessfully(queryAssertion);
 
         assertThatQuery(query)
                 .withSession(session)
                 .experiencing(TASK_FAILURE, Optional.of(ErrorType.EXTERNAL))
                 .at(intermediateDistributedStage())
+                .failsWithoutRetries(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE))
                 .finishesSuccessfully(queryAssertion);
     }
 
@@ -200,8 +204,7 @@ public abstract class AbstractTestFailureRecovery
         assertThatQuery("SELECT * FROM nation")
                 .experiencing(TASK_FAILURE, Optional.of(ErrorType.USER_ERROR))
                 .at(leafStage())
-                .failsWithErrorThat()
-                .hasMessageContaining(FAILURE_INJECTION_MESSAGE);
+                .failsAlways(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE));
     }
 
     @Test(invocationCount = INVOCATION_COUNT)
@@ -293,16 +296,19 @@ public abstract class AbstractTestFailureRecovery
         assertThatQuery("SELECT orderStatus, count(*) FROM orders GROUP BY orderStatus")
                 .experiencing(TASK_MANAGEMENT_REQUEST_TIMEOUT)
                 .at(intermediateDistributedStage())
+                .failsWithoutRetries(failure -> failure.hasMessageContaining("Encountered too many errors talking to a worker node"))
                 .finishesSuccessfully();
 
         assertThatQuery("SELECT * FROM nation")
                 .experiencing(TASK_MANAGEMENT_REQUEST_TIMEOUT)
                 .at(boundaryDistributedStage())
+                .failsWithoutRetries(failure -> failure.hasMessageContaining("Encountered too many errors talking to a worker node"))
                 .finishesSuccessfully();
 
         assertThatQuery("SELECT * FROM orders o, customer c WHERE o.custkey = c.custkey AND c.nationKey = 1")
                 .experiencing(TASK_GET_RESULTS_REQUEST_TIMEOUT)
                 .at(boundaryDistributedStage())
+                .failsWithoutRetries(failure -> failure.hasMessageContaining("Encountered too many errors talking to a worker node"))
                 .finishesSuccessfully();
 
         assertThatQuery("INSERT INTO <table> SELECT * FROM orders")
@@ -310,6 +316,7 @@ public abstract class AbstractTestFailureRecovery
                 .withCleanupQuery(Optional.of("DROP TABLE <table>"))
                 .experiencing(TASK_MANAGEMENT_REQUEST_TIMEOUT)
                 .at(boundaryDistributedStage())
+                .failsWithoutRetries(failure -> failure.hasMessageContaining("Encountered too many errors talking to a worker node"))
                 .finishesSuccessfully();
 
         assertThatQuery("INSERT INTO <table> SELECT * FROM orders")
@@ -317,6 +324,7 @@ public abstract class AbstractTestFailureRecovery
                 .withCleanupQuery(Optional.of("DROP TABLE <table>"))
                 .experiencing(TASK_GET_RESULTS_REQUEST_TIMEOUT)
                 .at(boundaryDistributedStage())
+                .failsWithoutRetries(failure -> failure.hasMessageContaining("Encountered too many errors talking to a worker node"))
                 .finishesSuccessfully();
     }
 
@@ -333,8 +341,7 @@ public abstract class AbstractTestFailureRecovery
                 .withCleanupQuery(cleanupQuery)
                 .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
                 .at(boundaryCoordinatorStage())
-                .failsWithErrorThat()
-                .hasMessageContaining(FAILURE_INJECTION_MESSAGE);
+                .failsAlways(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE));
 
         assertThatQuery(query)
                 .withSession(session)
@@ -342,8 +349,7 @@ public abstract class AbstractTestFailureRecovery
                 .withCleanupQuery(cleanupQuery)
                 .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
                 .at(rootStage())
-                .failsWithErrorThat()
-                .hasMessageContaining(FAILURE_INJECTION_MESSAGE);
+                .failsAlways(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE));
 
         assertThatQuery(query)
                 .withSession(session)
@@ -351,6 +357,7 @@ public abstract class AbstractTestFailureRecovery
                 .withCleanupQuery(cleanupQuery)
                 .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
                 .at(leafStage())
+                .failsWithoutRetries(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE))
                 .finishesSuccessfully();
 
         assertThatQuery(query)
@@ -359,6 +366,7 @@ public abstract class AbstractTestFailureRecovery
                 .withCleanupQuery(cleanupQuery)
                 .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
                 .at(boundaryDistributedStage())
+                .failsWithoutRetries(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE))
                 .finishesSuccessfully();
 
         assertThatQuery(query)
@@ -367,6 +375,7 @@ public abstract class AbstractTestFailureRecovery
                 .withCleanupQuery(cleanupQuery)
                 .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
                 .at(intermediateDistributedStage())
+                .failsWithoutRetries(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE))
                 .finishesSuccessfully();
 
         assertThatQuery(query)
@@ -375,6 +384,7 @@ public abstract class AbstractTestFailureRecovery
                 .withCleanupQuery(cleanupQuery)
                 .experiencing(TASK_MANAGEMENT_REQUEST_FAILURE)
                 .at(boundaryDistributedStage())
+                .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Error 500 Internal Server Error|Error closing remote buffer, expected 204 got 500"))
                 .finishesSuccessfully();
 
         assertThatQuery(query)
@@ -383,6 +393,7 @@ public abstract class AbstractTestFailureRecovery
                 .withCleanupQuery(cleanupQuery)
                 .experiencing(TASK_GET_RESULTS_REQUEST_FAILURE)
                 .at(boundaryDistributedStage())
+                .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Error 500 Internal Server Error|Error closing remote buffer, expected 204 got 500"))
                 .finishesSuccessfully();
     }
 
@@ -455,6 +466,16 @@ public abstract class AbstractTestFailureRecovery
         }
 
         private ExecutionResult executeActual(OptionalInt failureStageId)
+        {
+            return executeActual(session, failureStageId);
+        }
+
+        private ExecutionResult executeActualNoRetries(OptionalInt failureStageId)
+        {
+            return executeActual(noRetries(session), failureStageId);
+        }
+
+        private ExecutionResult executeActual(Session session, OptionalInt failureStageId)
         {
             String token = UUID.randomUUID().toString();
             if (failureType.isPresent()) {
@@ -561,11 +582,27 @@ public abstract class AbstractTestFailureRecovery
             queryAssertion.accept(actual.getQueryId());
         }
 
-        public AbstractThrowableAssert<?, ? extends Throwable> failsWithErrorThat()
+        public FailureRecoveryAssert failsAlways(Consumer<AbstractThrowableAssert> failureAssertion)
+        {
+            failsWithoutRetries(failureAssertion);
+            failsDespiteRetries(failureAssertion);
+            return this;
+        }
+
+        public FailureRecoveryAssert failsWithoutRetries(Consumer<AbstractThrowableAssert> failureAssertion)
         {
             verifyFailureTypeAndStageSelector();
             OptionalInt failureStageId = getFailureStageId(() -> executeExpected().getQueryResult());
-            return assertThatThrownBy(() -> executeActual(failureStageId));
+            failureAssertion.accept(assertThatThrownBy(() -> executeActualNoRetries(failureStageId)));
+            return this;
+        }
+
+        public FailureRecoveryAssert failsDespiteRetries(Consumer<AbstractThrowableAssert> failureAssertion)
+        {
+            verifyFailureTypeAndStageSelector();
+            OptionalInt failureStageId = getFailureStageId(() -> executeExpected().getQueryResult());
+            failureAssertion.accept(assertThatThrownBy(() -> executeActual(failureStageId)));
+            return this;
         }
 
         private void verifyFailureTypeAndStageSelector()
