@@ -120,17 +120,22 @@ public class DefaultQueryBuilder
                 formatJoinType(joinType),
                 rightSource.getQuery(),
                 joinConditions.stream()
-                        .map(condition -> format(
-                                "l.%s %s r.%s",
-                                client.quoted(condition.getLeftColumn().getColumnName()),
-                                condition.getOperator().getValue(),
-                                client.quoted(condition.getRightColumn().getColumnName())))
+                        .map(condition -> formatJoinCondition(client, condition))
                         .collect(joining(" AND ")));
         List<QueryParameter> parameters = ImmutableList.<QueryParameter>builder()
                 .addAll(leftSource.getParameters())
                 .addAll(rightSource.getParameters())
                 .build();
         return new PreparedQuery(query, parameters);
+    }
+
+    protected String formatJoinCondition(JdbcClient client, JdbcJoinCondition condition)
+    {
+        return format(
+                "l.%s %s r.%s",
+                client.quoted(condition.getLeftColumn().getColumnName()),
+                condition.getOperator().getValue(),
+                client.quoted(condition.getRightColumn().getColumnName()));
     }
 
     protected String formatAssignments(JdbcClient client, String relationAlias, Map<JdbcColumnHandle, String> assignments)
