@@ -423,15 +423,21 @@ public abstract class BaseJdbcClient
             }
         }
 
-        return Optional.of(queryBuilder.prepareJoinQuery(
-                this,
-                session,
-                joinType,
-                leftSource,
-                rightSource,
-                joinConditions,
-                leftAssignments,
-                rightAssignments));
+        try (Connection connection = this.connectionFactory.openConnection(session)) {
+            return Optional.of(queryBuilder.prepareJoinQuery(
+                    this,
+                    session,
+                    connection,
+                    joinType,
+                    leftSource,
+                    rightSource,
+                    joinConditions,
+                    leftAssignments,
+                    rightAssignments));
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
     }
 
     protected boolean isSupportedJoinCondition(JdbcJoinCondition joinCondition)

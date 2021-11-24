@@ -99,6 +99,7 @@ public class DefaultQueryBuilder
     public PreparedQuery prepareJoinQuery(
             JdbcClient client,
             ConnectorSession session,
+            Connection connection,
             JoinType joinType,
             PreparedQuery leftSource,
             PreparedQuery rightSource,
