@@ -112,15 +112,20 @@ public class DefaultQueryBuilder
         // Joins wih no conditions are not pushed down, so it is a same assumption and simplifies the code here
         verify(!joinConditions.isEmpty(), "joinConditions is empty");
 
+        String leftRelationAlias = "l";
+        String rightRelationAlias = "r";
+
         String query = format(
-                "SELECT %s, %s FROM (%s) l %s (%s) r ON %s",
-                formatAssignments(client, "l", leftAssignments),
-                formatAssignments(client, "r", rightAssignments),
+                "SELECT %s, %s FROM (%s) %s %s (%s) %s ON %s",
+                formatAssignments(client, leftRelationAlias, leftAssignments),
+                formatAssignments(client, rightRelationAlias, rightAssignments),
                 leftSource.getQuery(),
+                leftRelationAlias,
                 formatJoinType(joinType),
                 rightSource.getQuery(),
+                rightRelationAlias,
                 joinConditions.stream()
-                        .map(condition -> formatJoinCondition(client, condition))
+                        .map(condition -> formatJoinCondition(client, leftRelationAlias, rightRelationAlias, condition))
                         .collect(joining(" AND ")));
         List<QueryParameter> parameters = ImmutableList.<QueryParameter>builder()
                 .addAll(leftSource.getParameters())
@@ -129,12 +134,14 @@ public class DefaultQueryBuilder
         return new PreparedQuery(query, parameters);
     }
 
-    protected String formatJoinCondition(JdbcClient client, JdbcJoinCondition condition)
+    protected String formatJoinCondition(JdbcClient client, String leftRelationAlias, String rightRelationAlias, JdbcJoinCondition condition)
     {
         return format(
-                "l.%s %s r.%s",
+                "%s.%s %s %s.%s",
+                leftRelationAlias,
                 client.quoted(condition.getLeftColumn().getColumnName()),
                 condition.getOperator().getValue(),
+                rightRelationAlias,
                 client.quoted(condition.getRightColumn().getColumnName()));
     }
 
