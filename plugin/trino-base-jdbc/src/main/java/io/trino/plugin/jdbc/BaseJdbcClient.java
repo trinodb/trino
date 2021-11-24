@@ -89,6 +89,7 @@ public abstract class BaseJdbcClient
     private static final Logger log = Logger.get(BaseJdbcClient.class);
 
     protected final ConnectionFactory connectionFactory;
+    protected final QueryBuilder queryBuilder;
     protected final String identifierQuote;
     protected final Set<String> jdbcTypesMappedToVarchar;
     private final IdentifierMapping identifierMapping;
@@ -97,11 +98,13 @@ public abstract class BaseJdbcClient
             BaseJdbcConfig config,
             String identifierQuote,
             ConnectionFactory connectionFactory,
+            QueryBuilder queryBuilder,
             IdentifierMapping identifierMapping)
     {
         this(
                 identifierQuote,
                 connectionFactory,
+                queryBuilder,
                 config.getJdbcTypesMappedToVarchar(),
                 identifierMapping);
     }
@@ -109,11 +112,13 @@ public abstract class BaseJdbcClient
     public BaseJdbcClient(
             String identifierQuote,
             ConnectionFactory connectionFactory,
+            QueryBuilder queryBuilder,
             Set<String> jdbcTypesMappedToVarchar,
             IdentifierMapping identifierMapping)
     {
         this.identifierQuote = requireNonNull(identifierQuote, "identifierQuote is null");
         this.connectionFactory = requireNonNull(connectionFactory, "connectionFactory is null");
+        this.queryBuilder = requireNonNull(queryBuilder, "queryBuilder is null");
         this.jdbcTypesMappedToVarchar = ImmutableSortedSet.orderedBy(CASE_INSENSITIVE_ORDER)
                 .addAll(requireNonNull(jdbcTypesMappedToVarchar, "jdbcTypesMappedToVarchar is null"))
                 .build();
@@ -377,7 +382,7 @@ public abstract class BaseJdbcClient
             throws SQLException
     {
         PreparedQuery preparedQuery = prepareQuery(session, connection, table, Optional.empty(), columns, ImmutableMap.of(), Optional.of(split));
-        return new QueryBuilder(this).prepareStatement(this, session, connection, preparedQuery);
+        return queryBuilder.prepareStatement(this, session, connection, preparedQuery);
     }
 
     protected PreparedQuery prepareQuery(
@@ -389,7 +394,7 @@ public abstract class BaseJdbcClient
             Map<String, String> columnExpressions,
             Optional<JdbcSplit> split)
     {
-        return applyQueryTransformations(table, new QueryBuilder(this).prepareQuery(
+        return applyQueryTransformations(table, queryBuilder.prepareQuery(
                 this,
                 session,
                 connection,
@@ -418,7 +423,6 @@ public abstract class BaseJdbcClient
             }
         }
 
-        QueryBuilder queryBuilder = new QueryBuilder(this);
         return Optional.of(queryBuilder.prepareJoinQuery(
                 this,
                 session,
@@ -972,7 +976,6 @@ public abstract class BaseJdbcClient
         checkArgument(handle.getSortOrder().isEmpty(), "Unable to delete when sort order is set: %s", handle);
         try (Connection connection = connectionFactory.openConnection(session)) {
             verify(connection.getAutoCommit());
-            QueryBuilder queryBuilder = new QueryBuilder(this);
             PreparedQuery preparedQuery = queryBuilder.prepareDelete(this, session, connection, handle.getRequiredNamedRelation(), handle.getConstraint());
             try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(this, session, connection, preparedQuery)) {
                 return OptionalLong.of(preparedStatement.executeUpdate());
