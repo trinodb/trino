@@ -27,7 +27,7 @@ import java.util.Optional;
 
 public interface QueryBuilder
 {
-    PreparedQuery prepareQuery(
+    PreparedQuery prepareSelectQuery(
             JdbcClient client,
             ConnectorSession session,
             Connection connection,
@@ -48,7 +48,7 @@ public interface QueryBuilder
             Map<JdbcColumnHandle, String> leftAssignments,
             Map<JdbcColumnHandle, String> rightAssignments);
 
-    PreparedQuery prepareDelete(
+    PreparedQuery prepareDeleteQuery(
             JdbcClient client,
             ConnectorSession session,
             Connection connection,
