@@ -18,12 +18,15 @@ import com.google.api.gax.rpc.HeaderProvider;
 import com.google.auth.Credentials;
 import com.google.cloud.bigquery.storage.v1.BigQueryReadClient;
 import com.google.cloud.bigquery.storage.v1.BigQueryReadSettings;
+import io.trino.spi.connector.ConnectorSession;
 
 import javax.inject.Inject;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Optional;
+
+import static java.util.Objects.requireNonNull;
 
 /**
  * Since Guice recommends to avoid injecting closeable resources (see
@@ -32,26 +35,28 @@ import java.util.Optional;
  */
 public class BigQueryReadClientFactory
 {
-    private final Optional<Credentials> credentials;
+    private final BigQueryCredentialsSupplier credentialsSupplier;
     private final HeaderProvider headerProvider;
 
     @Inject
     public BigQueryReadClientFactory(BigQueryCredentialsSupplier bigQueryCredentialsSupplier, HeaderProvider headerProvider)
     {
-        this.credentials = bigQueryCredentialsSupplier.getCredentials();
-        this.headerProvider = headerProvider;
+        this.credentialsSupplier = requireNonNull(bigQueryCredentialsSupplier, "credentialsSupplier is null");
+        this.headerProvider = requireNonNull(headerProvider, "headerProvider is null");
     }
 
-    BigQueryReadClient createBigQueryReadClient()
+    BigQueryReadClient create(ConnectorSession session)
     {
+        Optional<Credentials> credentials = credentialsSupplier.getCredentials(session);
+
         try {
             BigQueryReadSettings.Builder clientSettings = BigQueryReadSettings.newBuilder()
                     .setTransportChannelProvider(
                             BigQueryReadSettings.defaultGrpcTransportProviderBuilder()
                                     .setHeaderProvider(headerProvider)
                                     .build());
-            credentials.ifPresent(credentials ->
-                    clientSettings.setCredentialsProvider(FixedCredentialsProvider.create(credentials)));
+            credentials.ifPresent(value ->
+                    clientSettings.setCredentialsProvider(FixedCredentialsProvider.create(value)));
             return BigQueryReadClient.create(clientSettings.build());
         }
         catch (IOException e) {
