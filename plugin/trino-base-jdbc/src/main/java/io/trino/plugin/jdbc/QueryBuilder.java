@@ -41,6 +41,7 @@ public interface QueryBuilder
     PreparedQuery prepareJoinQuery(
             JdbcClient client,
             ConnectorSession session,
+            Connection connection,
             JoinType joinType,
             PreparedQuery leftSource,
             PreparedQuery rightSource,
