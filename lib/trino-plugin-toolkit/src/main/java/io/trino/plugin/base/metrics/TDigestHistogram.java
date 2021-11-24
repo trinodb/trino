@@ -25,7 +25,10 @@ import io.trino.spi.metrics.Distribution;
 
 import java.util.Base64;
 
+import static com.google.common.base.MoreObjects.ToStringHelper;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static java.lang.String.format;
 
 public class TDigestHistogram
         implements Distribution<TDigestHistogram>
@@ -64,6 +67,16 @@ public class TDigestHistogram
     public double getPercentile(double percentile)
     {
         return digest.valueAt(percentile / 100.0);
+    }
+
+    @Override
+    public String toString()
+    {
+        ToStringHelper helper = toStringHelper(this).add("count", digest.getCount());
+        for (int q = 0; q <= 100; q += 10) {
+            helper.add(format("p%d", q), getPercentile(q));
+        }
+        return helper.toString();
     }
 
     public static class TDigestToBase64Converter
