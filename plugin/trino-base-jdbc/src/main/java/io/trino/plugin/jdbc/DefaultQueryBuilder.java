@@ -54,7 +54,7 @@ public class DefaultQueryBuilder
     private static final String ALWAYS_FALSE = "1=0";
 
     @Override
-    public PreparedQuery prepareQuery(
+    public PreparedQuery prepareSelectQuery(
             JdbcClient client,
             ConnectorSession session,
             Connection connection,
@@ -156,7 +156,7 @@ public class DefaultQueryBuilder
     }
 
     @Override
-    public PreparedQuery prepareDelete(
+    public PreparedQuery prepareDeleteQuery(
             JdbcClient client,
             ConnectorSession session,
             Connection connection,
