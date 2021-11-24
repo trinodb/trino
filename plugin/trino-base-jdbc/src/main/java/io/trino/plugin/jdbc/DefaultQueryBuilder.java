@@ -135,39 +135,6 @@ public class DefaultQueryBuilder
         return new PreparedQuery(query, parameters);
     }
 
-    protected String formatJoinCondition(JdbcClient client, String leftRelationAlias, String rightRelationAlias, JdbcJoinCondition condition)
-    {
-        return format(
-                "%s.%s %s %s.%s",
-                leftRelationAlias,
-                client.quoted(condition.getLeftColumn().getColumnName()),
-                condition.getOperator().getValue(),
-                rightRelationAlias,
-                client.quoted(condition.getRightColumn().getColumnName()));
-    }
-
-    protected String formatAssignments(JdbcClient client, String relationAlias, Map<JdbcColumnHandle, String> assignments)
-    {
-        return assignments.entrySet().stream()
-                .map(entry -> format("%s.%s AS %s", relationAlias, client.quoted(entry.getKey().getColumnName()), client.quoted(entry.getValue())))
-                .collect(joining(", "));
-    }
-
-    protected String formatJoinType(JoinType joinType)
-    {
-        switch (joinType) {
-            case INNER:
-                return "INNER JOIN";
-            case LEFT_OUTER:
-                return "LEFT JOIN";
-            case RIGHT_OUTER:
-                return "RIGHT JOIN";
-            case FULL_OUTER:
-                return "FULL JOIN";
-        }
-        throw new IllegalStateException("Unsupported join type: " + joinType);
-    }
-
     @Override
     public PreparedQuery prepareDeleteQuery(
             JdbcClient client,
@@ -226,6 +193,39 @@ public class DefaultQueryBuilder
         }
 
         return statement;
+    }
+
+    protected String formatJoinCondition(JdbcClient client, String leftRelationAlias, String rightRelationAlias, JdbcJoinCondition condition)
+    {
+        return format(
+                "%s.%s %s %s.%s",
+                leftRelationAlias,
+                client.quoted(condition.getLeftColumn().getColumnName()),
+                condition.getOperator().getValue(),
+                rightRelationAlias,
+                client.quoted(condition.getRightColumn().getColumnName()));
+    }
+
+    protected String formatAssignments(JdbcClient client, String relationAlias, Map<JdbcColumnHandle, String> assignments)
+    {
+        return assignments.entrySet().stream()
+                .map(entry -> format("%s.%s AS %s", relationAlias, client.quoted(entry.getKey().getColumnName()), client.quoted(entry.getValue())))
+                .collect(joining(", "));
+    }
+
+    protected String formatJoinType(JoinType joinType)
+    {
+        switch (joinType) {
+            case INNER:
+                return "INNER JOIN";
+            case LEFT_OUTER:
+                return "LEFT JOIN";
+            case RIGHT_OUTER:
+                return "RIGHT JOIN";
+            case FULL_OUTER:
+                return "FULL JOIN";
+        }
+        throw new IllegalStateException("Unsupported join type: " + joinType);
     }
 
     protected String getRelation(JdbcClient client, RemoteTableName remoteTableName)
