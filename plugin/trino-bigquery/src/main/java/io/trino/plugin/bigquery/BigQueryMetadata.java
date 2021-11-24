@@ -69,6 +69,7 @@ import java.util.stream.Stream;
 import static com.google.cloud.bigquery.TableDefinition.Type.TABLE;
 import static com.google.cloud.bigquery.TableDefinition.Type.VIEW;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_LISTING_DATASET_ERROR;
@@ -87,34 +88,45 @@ public class BigQueryMetadata
     static final String INFORMATION_SCHEMA = "information_schema";
     private static final String VIEW_DEFINITION_SYSTEM_TABLE_SUFFIX = "$view_definition";
 
-    private final BigQueryClient bigQueryClient;
-    private final String projectId;
+    private final BigQueryClientFactory bigQueryClientFactory;
+    private final Optional<String> configProjectId;
 
     @Inject
-    public BigQueryMetadata(BigQueryClient bigQueryClient, BigQueryConfig config)
+    public BigQueryMetadata(BigQueryClientFactory bigQueryClientFactory, BigQueryConfig config)
     {
-        this.bigQueryClient = requireNonNull(bigQueryClient, "bigQueryClient is null");
-        this.projectId = requireNonNull(config, "config is null").getProjectId().orElse(bigQueryClient.getProjectId());
+        this.bigQueryClientFactory = requireNonNull(bigQueryClientFactory, "bigQueryClientFactory is null");
+        this.configProjectId = requireNonNull(config, "config is null").getProjectId();
+    }
+
+    protected String getProjectId(BigQueryClient client)
+    {
+        String projectId = configProjectId.orElse(client.getProjectId());
+        checkState(projectId.toLowerCase(ENGLISH).equals(projectId), "projectId must be lowercase but it's " + projectId);
+        return projectId;
     }
 
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
         log.debug("listSchemaNames(session=%s)", session);
-        return listRemoteSchemaNames().stream()
+        return listRemoteSchemaNames(session).stream()
                 .map(schema -> schema.toLowerCase(ENGLISH))
                 .collect(toImmutableList());
     }
 
-    private List<String> listRemoteSchemaNames()
+    private List<String> listRemoteSchemaNames(ConnectorSession session)
     {
-        Stream<String> remoteSchemaNames = Streams.stream(bigQueryClient.listDatasets(projectId))
+        BigQueryClient client = bigQueryClientFactory.create(session);
+        String projectId = getProjectId(client);
+
+        Stream<String> remoteSchemaNames = Streams.stream(client.listDatasets(projectId))
                 .map(dataset -> dataset.getDatasetId().getDataset())
                 .filter(schemaName -> !schemaName.equalsIgnoreCase(INFORMATION_SCHEMA))
                 .distinct();
 
         // filter out all the ambiguous schemas to prevent failures if anyone tries to access the listed schemas
-        return remoteSchemaNames.map(remoteSchema -> bigQueryClient.toRemoteDataset(projectId, remoteSchema.toLowerCase(ENGLISH)))
+
+        return remoteSchemaNames.map(remoteSchema -> client.toRemoteDataset(projectId, remoteSchema.toLowerCase(ENGLISH)))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .filter(dataset -> !dataset.isAmbiguous())
@@ -125,24 +137,31 @@ public class BigQueryMetadata
     @Override
     public boolean schemaExists(ConnectorSession session, String schemaName)
     {
+        BigQueryClient client = bigQueryClientFactory.create(session);
+
         // Overridden to make sure an error message is returned in case of an ambiguous schema name
         log.debug("schemaExists(session=%s)", session);
-        return bigQueryClient.toRemoteDataset(projectId, schemaName)
+        String projectId = getProjectId(client);
+        return client.toRemoteDataset(projectId, schemaName)
                 .map(RemoteDatabaseObject::getOnlyRemoteName)
-                .filter(remoteSchema -> bigQueryClient.getDataset(DatasetId.of(projectId, remoteSchema)) != null)
+                .filter(remoteSchema -> client.getDataset(DatasetId.of(projectId, remoteSchema)) != null)
                 .isPresent();
     }
 
     @Override
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
+        BigQueryClient client = bigQueryClientFactory.create(session);
+
         log.debug("listTables(session=%s, schemaName=%s)", session, schemaName);
         if (schemaName.isPresent() && schemaName.get().equalsIgnoreCase(INFORMATION_SCHEMA)) {
             return ImmutableList.of();
         }
 
+        String projectId = getProjectId(client);
+
         // filter ambiguous schemas
-        Optional<String> remoteSchema = schemaName.flatMap(schema -> bigQueryClient.toRemoteDataset(projectId, schema)
+        Optional<String> remoteSchema = schemaName.flatMap(schema -> client.toRemoteDataset(projectId, schema)
                 .filter(dataset -> !dataset.isAmbiguous())
                 .map(RemoteDatabaseObject::getOnlyRemoteName));
         if (remoteSchema.isPresent() && remoteSchema.get().equalsIgnoreCase(INFORMATION_SCHEMA)) {
@@ -150,15 +169,15 @@ public class BigQueryMetadata
         }
 
         Set<String> remoteSchemaNames = remoteSchema.map(ImmutableSet::of)
-                .orElseGet(() -> ImmutableSet.copyOf(listRemoteSchemaNames()));
+                .orElseGet(() -> ImmutableSet.copyOf(listRemoteSchemaNames(session)));
 
         ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
         for (String remoteSchemaName : remoteSchemaNames) {
             try {
-                Iterable<Table> tables = bigQueryClient.listTables(DatasetId.of(projectId, remoteSchemaName), TABLE, VIEW);
+                Iterable<Table> tables = client.listTables(DatasetId.of(projectId, remoteSchemaName), TABLE, VIEW);
                 for (Table table : tables) {
                     // filter ambiguous tables
-                    bigQueryClient.toRemoteTable(projectId, remoteSchemaName, table.getTableId().getTable().toLowerCase(ENGLISH), tables)
+                    client.toRemoteTable(projectId, remoteSchemaName, table.getTableId().getTable().toLowerCase(ENGLISH), tables)
                             .filter(RemoteDatabaseObject::isAmbiguous)
                             .ifPresentOrElse(
                                     remoteTable -> log.debug("Filtered out [%s.%s] from list of tables due to ambiguous name", remoteSchemaName, table.getTableId().getTable()),
@@ -181,14 +200,16 @@ public class BigQueryMetadata
     @Override
     public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName schemaTableName)
     {
+        BigQueryClient client = bigQueryClientFactory.create(session);
+        String projectId = getProjectId(client);
         log.debug("getTableHandle(session=%s, schemaTableName=%s)", session, schemaTableName);
-        String remoteSchemaName = bigQueryClient.toRemoteDataset(projectId, schemaTableName.getSchemaName())
+        String remoteSchemaName = client.toRemoteDataset(projectId, schemaTableName.getSchemaName())
                 .map(RemoteDatabaseObject::getOnlyRemoteName)
                 .orElse(schemaTableName.getSchemaName());
-        String remoteTableName = bigQueryClient.toRemoteTable(projectId, remoteSchemaName, schemaTableName.getTableName())
+        String remoteTableName = client.toRemoteTable(projectId, remoteSchemaName, schemaTableName.getTableName())
                 .map(RemoteDatabaseObject::getOnlyRemoteName)
                 .orElse(schemaTableName.getTableName());
-        Optional<TableInfo> tableInfo = bigQueryClient.getTable(TableId.of(projectId, remoteSchemaName, remoteTableName));
+        Optional<TableInfo> tableInfo = client.getTable(TableId.of(projectId, remoteSchemaName, remoteTableName));
         if (tableInfo.isEmpty()) {
             log.debug("Table [%s.%s] was not found", schemaTableName.getSchemaName(), schemaTableName.getTableName());
             return null;
@@ -197,15 +218,17 @@ public class BigQueryMetadata
         return new BigQueryTableHandle(schemaTableName, new RemoteTableName(tableInfo.get().getTableId()), tableInfo.get());
     }
 
-    private ConnectorTableHandle getTableHandleIgnoringConflicts(SchemaTableName schemaTableName)
+    private ConnectorTableHandle getTableHandleIgnoringConflicts(ConnectorSession session, SchemaTableName schemaTableName)
     {
-        String remoteSchemaName = bigQueryClient.toRemoteDataset(projectId, schemaTableName.getSchemaName())
+        BigQueryClient client = bigQueryClientFactory.create(session);
+        String projectId = getProjectId(client);
+        String remoteSchemaName = client.toRemoteDataset(projectId, schemaTableName.getSchemaName())
                 .map(RemoteDatabaseObject::getAnyRemoteName)
                 .orElse(schemaTableName.getSchemaName());
-        String remoteTableName = bigQueryClient.toRemoteTable(projectId, remoteSchemaName, schemaTableName.getTableName())
+        String remoteTableName = client.toRemoteTable(projectId, remoteSchemaName, schemaTableName.getTableName())
                 .map(RemoteDatabaseObject::getAnyRemoteName)
                 .orElse(schemaTableName.getTableName());
-        Optional<TableInfo> tableInfo = bigQueryClient.getTable(TableId.of(projectId, remoteSchemaName, remoteTableName));
+        Optional<TableInfo> tableInfo = client.getTable(TableId.of(projectId, remoteSchemaName, remoteTableName));
         if (tableInfo.isEmpty()) {
             log.debug("Table [%s.%s] was not found", schemaTableName.getSchemaName(), schemaTableName.getTableName());
             return null;
@@ -217,11 +240,12 @@ public class BigQueryMetadata
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
+        BigQueryClient client = bigQueryClientFactory.create(session);
         log.debug("getTableMetadata(session=%s, tableHandle=%s)", session, tableHandle);
         BigQueryTableHandle handle = ((BigQueryTableHandle) tableHandle);
 
         ImmutableList.Builder<ColumnMetadata> columnMetadata = ImmutableList.builder();
-        for (BigQueryColumnHandle column : bigQueryClient.getColumns(handle)) {
+        for (BigQueryColumnHandle column : client.getColumns(handle)) {
             columnMetadata.add(column.getColumnMetadata());
         }
         return new ConnectorTableMetadata(handle.getSchemaTableName(), columnMetadata.build());
@@ -231,20 +255,22 @@ public class BigQueryMetadata
     public Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName)
     {
         if (isViewDefinitionSystemTable(tableName)) {
-            return getViewDefinitionSystemTable(tableName, getViewDefinitionSourceTableName(tableName));
+            return getViewDefinitionSystemTable(session, tableName, getViewDefinitionSourceTableName(tableName));
         }
         return Optional.empty();
     }
 
-    private Optional<SystemTable> getViewDefinitionSystemTable(SchemaTableName viewDefinitionTableName, SchemaTableName sourceTableName)
+    private Optional<SystemTable> getViewDefinitionSystemTable(ConnectorSession session, SchemaTableName viewDefinitionTableName, SchemaTableName sourceTableName)
     {
-        String remoteSchemaName = bigQueryClient.toRemoteDataset(projectId, sourceTableName.getSchemaName())
+        BigQueryClient client = bigQueryClientFactory.create(session);
+        String projectId = getProjectId(client);
+        String remoteSchemaName = client.toRemoteDataset(projectId, sourceTableName.getSchemaName())
                 .map(RemoteDatabaseObject::getOnlyRemoteName)
                 .orElseThrow(() -> new TableNotFoundException(viewDefinitionTableName));
-        String remoteTableName = bigQueryClient.toRemoteTable(projectId, remoteSchemaName, sourceTableName.getTableName())
+        String remoteTableName = client.toRemoteTable(projectId, remoteSchemaName, sourceTableName.getTableName())
                 .map(RemoteDatabaseObject::getOnlyRemoteName)
                 .orElseThrow(() -> new TableNotFoundException(viewDefinitionTableName));
-        TableInfo tableInfo = bigQueryClient.getTable(TableId.of(projectId, remoteSchemaName, remoteTableName))
+        TableInfo tableInfo = client.getTable(TableId.of(projectId, remoteSchemaName, remoteTableName))
                 .orElseThrow(() -> new TableNotFoundException(viewDefinitionTableName));
         if (!(tableInfo.getDefinition() instanceof ViewDefinition)) {
             throw new TableNotFoundException(viewDefinitionTableName);
@@ -263,8 +289,9 @@ public class BigQueryMetadata
     @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
+        BigQueryClient client = bigQueryClientFactory.create(session);
         log.debug("getColumnHandles(session=%s, tableHandle=%s)", session, tableHandle);
-        return bigQueryClient.getColumns((BigQueryTableHandle) tableHandle).stream()
+        return client.getColumns((BigQueryTableHandle) tableHandle).stream()
                 .collect(toImmutableMap(columnHandle -> columnHandle.getColumnMetadata().getName(), identity()));
     }
 
@@ -288,7 +315,7 @@ public class BigQueryMetadata
                 .orElseGet(() -> listTables(session, prefix.getSchema()));
         for (SchemaTableName tableName : tables) {
             try {
-                Optional.ofNullable(getTableHandleIgnoringConflicts(tableName))
+                Optional.ofNullable(getTableHandleIgnoringConflicts(session, tableName))
                         .ifPresent(tableHandle -> columns.put(tableName, getTableMetadata(session, tableHandle).getColumns()));
             }
             catch (TableNotFoundException e) {
@@ -314,25 +341,27 @@ public class BigQueryMetadata
     @Override
     public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, TrinoPrincipal owner)
     {
+        BigQueryClient client = bigQueryClientFactory.create(session);
         checkArgument(properties.isEmpty(), "Can't have properties for schema creation");
         DatasetInfo datasetInfo = DatasetInfo.newBuilder(schemaName).build();
-        bigQueryClient.createSchema(datasetInfo);
+        client.createSchema(datasetInfo);
     }
 
     @Override
     public void dropSchema(ConnectorSession session, String schemaName)
     {
-        String remoteSchemaName = bigQueryClient.toRemoteDataset(projectId, schemaName)
+        BigQueryClient client = bigQueryClientFactory.create(session);
+        String remoteSchemaName = client.toRemoteDataset(getProjectId(client), schemaName)
                 .map(RemoteDatabaseObject::getOnlyRemoteName)
                 .orElseThrow(() -> new SchemaNotFoundException(schemaName));
-        bigQueryClient.dropSchema(DatasetId.of(remoteSchemaName));
+        client.dropSchema(DatasetId.of(remoteSchemaName));
     }
 
     @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
     {
         try {
-            createTable(tableMetadata);
+            createTable(session, tableMetadata);
         }
         catch (BigQueryException e) {
             if (ignoreExisting && e.getCode() == 409) {
@@ -342,7 +371,7 @@ public class BigQueryMetadata
         }
     }
 
-    private void createTable(ConnectorTableMetadata tableMetadata)
+    private void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         SchemaTableName schemaTableName = tableMetadata.getTable();
         String schemaName = schemaTableName.getSchemaName();
@@ -355,15 +384,16 @@ public class BigQueryMetadata
         TableDefinition tableDefinition = StandardTableDefinition.of(Schema.of(fields));
         TableInfo tableInfo = TableInfo.newBuilder(tableId, tableDefinition).build();
 
-        bigQueryClient.createTable(tableInfo);
+        bigQueryClientFactory.create(session).createTable(tableInfo);
     }
 
     @Override
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
+        BigQueryClient client = bigQueryClientFactory.create(session);
         BigQueryTableHandle bigQueryTable = (BigQueryTableHandle) tableHandle;
         TableId tableId = bigQueryTable.getRemoteTableName().toTableId();
-        bigQueryClient.dropTable(tableId);
+        client.dropTable(tableId);
     }
 
     @Override

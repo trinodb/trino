@@ -78,8 +78,8 @@ public class BigQueryClient
 
     public BigQueryClient(BigQuery bigQuery, BigQueryConfig config)
     {
-        this.bigQuery = bigQuery;
-        this.viewMaterializationProject = config.getViewMaterializationProject();
+        this.bigQuery = requireNonNull(bigQuery, "bigQuery is null");
+        this.viewMaterializationProject = requireNonNull(config, "config is null").getViewMaterializationProject();
         this.viewMaterializationDataset = config.getViewMaterializationDataset();
         Duration caseInsensitiveNameMatchingCacheTtl = requireNonNull(config.getCaseInsensitiveNameMatchingCacheTtl(), "caseInsensitiveNameMatchingCacheTtl is null");
 

@@ -91,12 +91,12 @@ public class BigQueryResultPageSource
     private final Iterator<ReadRowsResponse> responses;
 
     public BigQueryResultPageSource(
-            BigQueryReadClientFactory bigQueryReadClientFactory,
+            BigQueryReadClient bigQueryReadClient,
             int maxReadRowsRetries,
             BigQuerySplit split,
             List<BigQueryColumnHandle> columns)
     {
-        this.bigQueryReadClient = requireNonNull(bigQueryReadClientFactory, "bigQueryReadClientFactory is null").createBigQueryReadClient();
+        this.bigQueryReadClient = requireNonNull(bigQueryReadClient, "bigQueryReadClient is null");
         this.split = requireNonNull(split, "split is null");
         this.readBytes = new AtomicLong();
         requireNonNull(columns, "columns is null");
