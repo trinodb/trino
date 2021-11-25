@@ -75,6 +75,9 @@ public class Metrics
 
         public Metrics get()
         {
+            if (merged.isEmpty()) {
+                return EMPTY;
+            }
             return new Metrics(merged);
         }
     }
