@@ -22,6 +22,10 @@ import io.trino.tests.product.launcher.testcontainers.SelectedPortWaitStrategy;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.containers.wait.strategy.WaitAllStrategy;
 
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.isPrestoContainer;
+import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
+import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
@@ -88,6 +92,19 @@ public class HydraIdentityProvider
         builder.containerDependsOn(hydra.getLogicalName(), hydraConsent.getLogicalName());
         builder.containerDependsOn(hydra.getLogicalName(), migrationContainer.getLogicalName());
         builder.containerDependsOn(hydra.getLogicalName(), databaseContainer.getLogicalName());
+
+        builder.configureContainers(dockerContainer -> {
+            if (isPrestoContainer(dockerContainer.getLogicalName())) {
+                dockerContainer
+                        .withCopyFileToContainer(
+                                forHostPath(configDir.getPath("cert")),
+                                CONTAINER_PRESTO_ETC + "/hydra/cert");
+            }
+        });
+
+        builder.configureContainer(TESTS, dockerContainer -> dockerContainer.withCopyFileToContainer(
+                forHostPath(configDir.getPath("tempto-configuration-for-docker-oauth2.yaml")),
+                CONTAINER_TEMPTO_PROFILE_CONFIG));
     }
 
     public DockerContainer createClient(
