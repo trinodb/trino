@@ -809,7 +809,7 @@ public class HiveMetadata
     @Override
     public void dropSchema(ConnectorSession session, String schemaName)
     {
-        metastore.dropDatabase(new HiveIdentity(session), schemaName);
+        metastore.dropDatabase(session, schemaName);
     }
 
     @Override

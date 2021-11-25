@@ -80,6 +80,7 @@ public class HiveConfig
     private boolean forceLocalScheduling;
     private boolean recursiveDirWalkerEnabled;
     private boolean ignoreAbsentPartitions;
+    private boolean ignoreSchemaLocationCleanupFailure;
 
     private int maxConcurrentFileRenames = 20;
     private int maxConcurrentMetastoreDrops = 20;
@@ -326,6 +327,19 @@ public class HiveConfig
     public HiveConfig setIgnoreAbsentPartitions(boolean ignoreAbsentPartitions)
     {
         this.ignoreAbsentPartitions = ignoreAbsentPartitions;
+        return this;
+    }
+
+    public boolean isIgnoreSchemaLocationCleanupFailure()
+    {
+        return ignoreSchemaLocationCleanupFailure;
+    }
+
+    @Config("hive.ignore-schema-location-cleanup-failure")
+    @ConfigDescription("Allows to ignore failures related to file system cleanup during DROP SCHEMA for situations when schema location is misconfigured or no longer reachable")
+    public HiveConfig setIgnoreSchemaLocationCleanupFailure(boolean ignoreSchemaLocationCleanupFailure)
+    {
+        this.ignoreSchemaLocationCleanupFailure = ignoreSchemaLocationCleanupFailure;
         return this;
     }
 
