@@ -19,7 +19,6 @@ import io.trino.tests.product.launcher.docker.DockerFiles.ResourceProvider;
 import io.trino.tests.product.launcher.env.DockerContainer;
 import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
-import io.trino.tests.product.launcher.env.common.EnvironmentExtender;
 import io.trino.tests.product.launcher.env.common.HydraIdentityProvider;
 import io.trino.tests.product.launcher.env.common.SeleniumChrome;
 import io.trino.tests.product.launcher.env.common.Standard;
@@ -27,8 +26,6 @@ import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
 
 import javax.inject.Inject;
-
-import java.util.List;
 
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_CONFIG_PROPERTIES;
@@ -75,11 +72,5 @@ public class EnvSinglenodeOauth2
                 "https://presto-master:7778/oauth2/callback,https://localhost:7778/oauth2/callback");
 
         builder.containerDependsOn(COORDINATOR, hydraClientConfig.getLogicalName());
-    }
-
-    @Override
-    public List<EnvironmentExtender> getDependencies()
-    {
-        return ImmutableList.of(hydraIdentityProvider);
     }
 }
