@@ -35,15 +35,22 @@ public class BigQueryClientFactory
     private final IdentityCacheMapping identityCacheMapping;
     private final BigQueryCredentialsSupplier credentialsSupplier;
     private final BigQueryConfig bigQueryConfig;
+    private final ViewMaterializationCache materializationCache;
     private final HeaderProvider headerProvider;
     private final Cache<IdentityCacheMapping.IdentityCacheKey, BigQueryClient> clientCache;
 
     @Inject
-    public BigQueryClientFactory(IdentityCacheMapping identityCacheMapping, BigQueryCredentialsSupplier credentialsSupplier, BigQueryConfig bigQueryConfig, HeaderProvider headerProvider)
+    public BigQueryClientFactory(
+            IdentityCacheMapping identityCacheMapping,
+            BigQueryCredentialsSupplier credentialsSupplier,
+            BigQueryConfig bigQueryConfig,
+            ViewMaterializationCache materializationCache,
+            HeaderProvider headerProvider)
     {
         this.identityCacheMapping = requireNonNull(identityCacheMapping, "identityCacheMaping is null");
         this.credentialsSupplier = requireNonNull(credentialsSupplier, "credentialsSupplier is null");
         this.bigQueryConfig = requireNonNull(bigQueryConfig, "bigQueryConfig is null");
+        this.materializationCache = requireNonNull(materializationCache, "materializationCache is null");
         this.headerProvider = requireNonNull(headerProvider, "headerProvider is null");
 
         CacheBuilder<Object, Object> cacheBuilder = CacheBuilder.newBuilder()
@@ -66,7 +73,7 @@ public class BigQueryClientFactory
 
     protected BigQueryClient createBigQueryClient(ConnectorSession session)
     {
-        return new BigQueryClient(createBigQuery(session), bigQueryConfig);
+        return new BigQueryClient(createBigQuery(session), bigQueryConfig, materializationCache);
     }
 
     protected BigQuery createBigQuery(ConnectorSession session)
