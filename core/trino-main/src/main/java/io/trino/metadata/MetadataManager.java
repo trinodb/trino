@@ -211,7 +211,6 @@ public final class MetadataManager
     private final FunctionRegistry functions;
     private final TypeOperators typeOperators;
     private final FunctionResolver functionResolver;
-    private final ProcedureRegistry procedures;
     private final TableProceduresRegistry tableProcedures;
     private final SessionPropertyManager sessionPropertyManager;
     private final SchemaPropertyManager schemaPropertyManager;
@@ -253,7 +252,6 @@ public final class MetadataManager
         functions = new FunctionRegistry(this::getBlockEncodingSerde, featuresConfig, typeOperators, blockTypeOperators, nodeVersion.getVersion());
         functionResolver = new FunctionResolver(this);
 
-        this.procedures = new ProcedureRegistry();
         this.tableProcedures = new TableProceduresRegistry();
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.schemaPropertyManager = requireNonNull(schemaPropertyManager, "schemaPropertyManager is null");
@@ -2801,12 +2799,6 @@ public final class MetadataManager
                 functionId,
                 functionSignature,
                 boundSignature);
-    }
-
-    @Override
-    public ProcedureRegistry getProcedureRegistry()
-    {
-        return procedures;
     }
 
     @Override

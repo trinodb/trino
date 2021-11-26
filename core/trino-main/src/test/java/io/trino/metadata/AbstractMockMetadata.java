@@ -859,12 +859,6 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public ProcedureRegistry getProcedureRegistry()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public TableProceduresRegistry getTableProcedureRegistry()
     {
         throw new UnsupportedOperationException();
