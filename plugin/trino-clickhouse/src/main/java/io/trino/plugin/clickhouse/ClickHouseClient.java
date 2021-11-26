@@ -15,31 +15,43 @@ package io.trino.plugin.clickhouse;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.log.Logger;
 import io.trino.plugin.base.expression.AggregateFunctionRewriter;
 import io.trino.plugin.base.expression.AggregateFunctionRule;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
+import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
+import io.trino.plugin.jdbc.JdbcNamedRelationHandle;
+import io.trino.plugin.jdbc.JdbcRelationHandle;
+import io.trino.plugin.jdbc.JdbcSplit;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
+import io.trino.plugin.jdbc.PreparedQuery;
+import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.SliceWriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
+import io.trino.plugin.jdbc.credential.CredentialProvider;
+import io.trino.plugin.jdbc.credential.StaticCredentialProvider;
 import io.trino.plugin.jdbc.expression.ImplementAvgFloatingPoint;
 import io.trino.plugin.jdbc.expression.ImplementCount;
 import io.trino.plugin.jdbc.expression.ImplementCountAll;
 import io.trino.plugin.jdbc.expression.ImplementMinMax;
 import io.trino.plugin.jdbc.expression.ImplementSum;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
+import io.trino.spi.HostAddress;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
@@ -54,17 +66,31 @@ import io.trino.spi.type.VarcharType;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
 
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
+import java.sql.Driver;
+import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.sql.Types;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -120,11 +146,20 @@ import static java.lang.String.join;
 public class ClickHouseClient
         extends BaseJdbcClient
 {
+    private static final Logger log = Logger.get(ClickHouseClient.class);
+
     static final int CLICKHOUSE_MAX_DECIMAL_PRECISION = 76;
 
     private final boolean mapStringAsVarchar;
+    private final int maxSplitsPerShard;
     private final AggregateFunctionRewriter<JdbcExpression> aggregateFunctionRewriter;
     private final Type uuidType;
+
+    private final BaseJdbcConfig config;
+    private final ClickHouseConfig clickHouseConfig;
+
+    // distributed engine format: https://clickhouse.com/docs/en/engines/table-engines/special/distributed/#distributed
+    private static final Pattern distributedEngine = Pattern.compile("^Distributed\\('([\\w-_]*)',\\s*'([\\w-_]*)',\\s*'([\\w-_]*)',\\s*(.*)\\)$");
 
     @Inject
     public ClickHouseClient(
@@ -135,9 +170,13 @@ public class ClickHouseClient
             IdentifierMapping identifierMapping)
     {
         super(config, "\"", connectionFactory, identifierMapping);
+        this.config = config;
+        this.clickHouseConfig = clickHouseConfig;
+
         this.uuidType = typeManager.getType(new TypeSignature(StandardTypes.UUID));
         // TODO (https://github.com/trinodb/trino/issues/7102) define session property
         this.mapStringAsVarchar = clickHouseConfig.isMapStringAsVarchar();
+        this.maxSplitsPerShard = clickHouseConfig.getMaxSplitsPerShard();
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(
                 this::quoted,
@@ -523,5 +562,258 @@ public class ClickHouseClient
     private static SliceWriteFunction uuidWriteFunction()
     {
         return (statement, index, value) -> statement.setObject(index, trinoUuidToJavaUuid(value), Types.OTHER);
+    }
+
+    private int getConnectionPort() throws URISyntaxException
+    {
+        String connectionUrl = this.config.getConnectionUrl();
+        URI uri = new URI(connectionUrl.substring("jdbc:".length()));
+        return uri.getPort();
+    }
+
+    @Override
+    public ConnectorSplitSource getSplits(ConnectorSession session, JdbcTableHandle tableHandle)
+    {
+        FixedSplitSource defaultResult = new FixedSplitSource(ImmutableList.of(new ClickHouseSplit(Optional.empty(), List.of(), Optional.empty())));
+        if (this.maxSplitsPerShard == 1) {
+            return defaultResult;
+        }
+        if (!tableHandle.isNamedRelation() || tableHandle.getLimit().isPresent()) {
+            return defaultResult;
+        }
+        RemoteTableName schemaTableName = tableHandle.getRequiredNamedRelation().getRemoteTableName();
+        if (schemaTableName.getSchemaName().isEmpty()) {
+            return defaultResult;
+        }
+
+        boolean isDistributedTable = false;
+        String localTable = "";
+        String cluster = "";
+        List<List<HostAddress>> hostList = new ArrayList<>();
+        try {
+            Connection connection = connectionFactory.openConnection(session);
+            Statement sts = connection.createStatement();
+            ResultSet rs = sts.executeQuery(format("SELECT engine,engine_full FROM system.tables WHERE database='%s' AND name='%s'",
+                    schemaTableName.getSchemaName().get(), schemaTableName.getTableName()));
+            while (rs.next()) {
+                if (rs.getString("engine").equals("Distributed")) {
+                    String engineFull = rs.getString("engine_full");
+                    Matcher m = distributedEngine.matcher(engineFull);
+                    if (!m.find()) {
+                        log.warn("parse engine_full[%s] failed", engineFull);
+                        return defaultResult;
+                    }
+                    isDistributedTable = true;
+                    localTable = m.group(3);
+                    cluster = m.group(1);
+                }
+            }
+        }
+        catch (SQLException e) {
+            log.error(e);
+            return defaultResult;
+        }
+        String table = localTable;
+        if (isDistributedTable) {
+            try {
+                int port = getConnectionPort();
+                Connection connection = connectionFactory.openConnection(session);
+                Statement sts = connection.createStatement();
+                HashMap<String, List<HostAddress>> shardNodeList = new HashMap<>();
+                ResultSet clusterRs = sts.executeQuery(format("SELECT shard_num,replica_num,host_address FROM system.clusters WHERE cluster='%s'", cluster));
+                while (clusterRs.next()) {
+                    String shardNum = format("%s", clusterRs.getInt("shard_num"));
+                    if (!shardNodeList.containsKey(shardNum)) {
+                        shardNodeList.put(shardNum, new ArrayList<>());
+                    }
+                    String host = clusterRs.getString("host_address");
+                    shardNodeList.get(shardNum).add(HostAddress.fromParts(host, port));
+                }
+                for (Map.Entry<String, List<HostAddress>> entry : shardNodeList.entrySet()) {
+                    hostList.add(entry.getValue());
+                }
+            }
+            catch (URISyntaxException | SQLException e) {
+                log.error(e);
+                return defaultResult;
+            }
+        }
+        else {
+            hostList.add(List.of());
+            table = schemaTableName.getTableName();
+        }
+
+        String sql = format("SELECT distinct(partition_id) AS partition_id FROM system.parts WHERE database='%s' and table='%s'",
+                schemaTableName.getSchemaName().get(), table);
+        ConcurrentHashMap<List<HostAddress>, List<String>> partitionMap = new ConcurrentHashMap<>();
+        AtomicBoolean hasException = new AtomicBoolean(false);
+        hostList.parallelStream().forEach((addresses) -> {
+            partitionMap.put(addresses, new ArrayList<>());
+            try {
+                Connection connection = getConnectionByAddress(session, addresses);
+                Statement sts = connection.createStatement();
+                ResultSet rs = sts.executeQuery(sql);
+                while (rs.next()) {
+                    String partitionId = rs.getString("partition_id");
+                    partitionMap.get(addresses).add(partitionId);
+                }
+            }
+            catch (SQLException e) {
+                log.error(e);
+                hasException.set(true);
+            }
+        });
+        if (hasException.get()) {
+            return defaultResult;
+        }
+
+        if (partitionMap.values().stream().mapToInt(List::size).sum() == 0) {
+            return defaultResult;
+        }
+
+        ArrayList<ClickHouseSplit> splitList = new ArrayList<>();
+        for (Map.Entry<List<HostAddress>, List<String>> entry : partitionMap.entrySet()) {
+            List<HostAddress> address = entry.getKey();
+            List<String> partitionList = entry.getValue();
+
+            if (partitionList.size() <= this.maxSplitsPerShard) {
+                for (String s : partitionList) {
+                    splitList.add(new ClickHouseSplit(
+                            Optional.of(format("_partition_id='%s'", s)),
+                            address,
+                            Optional.of(table)));
+                }
+            }
+            else {
+                List<List<String>> partitions = new ArrayList<>();
+                int splitLen = (int) Math.ceil(((double) partitionList.size()) / this.maxSplitsPerShard);
+                for (int i = 0; i < partitionList.size(); i += splitLen) {
+                    partitions.add(partitionList.subList(i,
+                            Math.min(i + splitLen, partitionList.size())));
+                }
+                for (List<String> partition : partitions) {
+                    String subParts = partition.stream()
+                            .map(n -> format("'%s'", n))
+                            .collect(Collectors.joining(","));
+                    splitList.add(new ClickHouseSplit(
+                            Optional.of(format("_partition_id in (%s)", subParts)),
+                            address,
+                            Optional.of(table)));
+                }
+            }
+        }
+        return new FixedSplitSource(Collections.unmodifiableList(splitList));
+    }
+
+    @Override
+    protected PreparedQuery prepareQuery(
+            ConnectorSession session,
+            Connection connection,
+            JdbcTableHandle table,
+            Optional<List<List<JdbcColumnHandle>>> groupingSets,
+            List<JdbcColumnHandle> columns,
+            Map<String, String> columnExpressions,
+            Optional<JdbcSplit> split)
+    {
+        JdbcRelationHandle baseRelation = table.getRelationHandle();
+
+        if (split.isPresent()) {
+            ClickHouseSplit chSplit = (ClickHouseSplit) split.get();
+            if (baseRelation instanceof JdbcNamedRelationHandle) {
+                Optional<String> tableName = chSplit.getTableName();
+                if (tableName.isPresent()) {
+                    RemoteTableName remoteTableName = ((JdbcNamedRelationHandle) baseRelation).getRemoteTableName();
+                    remoteTableName = new RemoteTableName(remoteTableName.getCatalogName(), remoteTableName.getSchemaName(), tableName.get());
+                    SchemaTableName schemaTableName = ((JdbcNamedRelationHandle) baseRelation).getSchemaTableName();
+                    log.debug("remoteTableName: %s", remoteTableName);
+                    baseRelation = new JdbcNamedRelationHandle(schemaTableName, remoteTableName);
+                }
+            }
+        }
+
+        return applyQueryTransformations(table, new QueryBuilder(this).prepareQuery(
+                session,
+                connection,
+                baseRelation,
+                groupingSets,
+                columns,
+                columnExpressions,
+                table.getConstraint(),
+                split.flatMap(JdbcSplit::getAdditionalPredicate)));
+    }
+
+    @Override
+    public Connection getConnection(ConnectorSession session, JdbcSplit split)
+            throws SQLException
+    {
+        if (!(split instanceof ClickHouseSplit)) {
+            return super.getConnection(session, split);
+        }
+        ClickHouseSplit clickHouseSplit = (ClickHouseSplit) split;
+        if (clickHouseSplit.getAddresses().isEmpty()) {
+            return super.getConnection(session, split);
+        }
+
+        return getConnectionByAddress(session, clickHouseSplit.getAddresses());
+    }
+
+    private Connection getConnectionByAddress(ConnectorSession session, List<HostAddress> addresses) throws SQLException
+    {
+        String connectionUrl = this.config.getConnectionUrl();
+        try {
+            connectionUrl = replaceConnectionUrl(connectionUrl, addresses);
+        }
+        catch (URISyntaxException e) {
+            log.error(e);
+            throw new SQLException(e);
+        }
+
+        Driver driver = DriverManager.getDriver(connectionUrl);
+        DriverConnectionFactory connectionFactory = new DriverConnectionFactory(
+                driver, copyConnectionConfig(connectionUrl), getCredentialProvider());
+        return connectionFactory.openConnection(session);
+    }
+
+    private CredentialProvider getCredentialProvider()
+    {
+        if (this.clickHouseConfig.getConnectionUser() == null) {
+            return StaticCredentialProvider.of("", "");
+        }
+        return StaticCredentialProvider.of(
+                this.clickHouseConfig.getConnectionUser(),
+                this.clickHouseConfig.getConnectionPassword());
+    }
+
+    private BaseJdbcConfig copyConnectionConfig(String connectionUrl)
+    {
+        BaseJdbcConfig newConfig = new BaseJdbcConfig();
+        newConfig.setConnectionUrl(connectionUrl);
+        newConfig.setCacheMaximumSize(newConfig.getCacheMaximumSize());
+        for (String typeName : newConfig.getJdbcTypesMappedToVarchar()) {
+            newConfig.setJdbcTypesMappedToVarchar(typeName);
+        }
+        newConfig.setMetadataCacheTtl(newConfig.getMetadataCacheTtl());
+        newConfig.setCacheMissing(newConfig.isCacheMissing());
+        return newConfig;
+    }
+
+    private String replaceConnectionUrl(String connectionUrl, List<HostAddress> addresses) throws URISyntaxException
+    {
+        if (!connectionUrl.startsWith("jdbc:clickhouse:")) {
+            throw new URISyntaxException(connectionUrl, "'jdbc:clickhouse:' prefix is mandatory");
+        }
+        if (addresses.isEmpty()) {
+            return connectionUrl;
+        }
+        log.debug("input connection-url:%s, address:%s", connectionUrl, addresses.toString());
+        int size = addresses.size();
+        int index = System.identityHashCode(this) % size;
+        String newAuthority = addresses.get(index).toString();
+        URI uri = new URI(connectionUrl.substring("jdbc:".length()));
+        uri = new URI(uri.getScheme().toLowerCase(Locale.US),
+                newAuthority, uri.getPath(), uri.getQuery(), uri.getFragment());
+
+        log.debug("output connection-url:%s", "jdbc:" + uri);
+        return "jdbc:" + uri;
     }
 }

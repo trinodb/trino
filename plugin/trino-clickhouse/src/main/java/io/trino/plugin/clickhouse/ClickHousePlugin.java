@@ -13,13 +13,35 @@
  */
 package io.trino.plugin.clickhouse;
 
-import io.trino.plugin.jdbc.JdbcPlugin;
+import com.google.common.collect.ImmutableList;
+import com.google.inject.Module;
+import io.trino.plugin.jdbc.ExtraCredentialsBasedIdentityCacheMappingModule;
+import io.trino.plugin.jdbc.credential.CredentialProviderModule;
+import io.trino.spi.Plugin;
+import io.trino.spi.connector.ConnectorFactory;
+
+import static io.airlift.configuration.ConfigurationAwareModule.combine;
 
 public class ClickHousePlugin
-        extends JdbcPlugin
+        implements Plugin
 {
+    private final String name;
+    private final Module module;
+
     public ClickHousePlugin()
     {
-        super("clickhouse", new ClickHouseClientModule());
+        this.name = "clickhouse";
+        this.module = new ClickHouseClientModule();
+    }
+
+    @Override
+    public Iterable<ConnectorFactory> getConnectorFactories()
+    {
+        return ImmutableList.of(new ClickHouseConnectorFactory(
+                name,
+                combine(
+                        new CredentialProviderModule(),
+                        new ExtraCredentialsBasedIdentityCacheMappingModule(),
+                        module)));
     }
 }
