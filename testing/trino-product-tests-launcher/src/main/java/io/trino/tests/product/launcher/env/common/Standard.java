@@ -50,6 +50,7 @@ import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.BindMode.READ_ONLY;
+import static org.testcontainers.containers.BindMode.READ_WRITE;
 import static org.testcontainers.containers.wait.strategy.Wait.forHealthcheck;
 import static org.testcontainers.containers.wait.strategy.Wait.forLogMessage;
 import static org.testcontainers.utility.MountableFile.forHostPath;
@@ -67,6 +68,7 @@ public final class Standard
 
     public static final String CONTAINER_HEALTH_D = "/etc/health.d/";
     public static final String CONTAINER_CONF_ROOT = "/docker/presto-product-tests/";
+    public static final String JACOCO_LOGS_LOCATION = "/tmp/trino-jacoco";
     public static final String CONTAINER_PRESTO_ETC = CONTAINER_CONF_ROOT + "conf/presto/etc";
     public static final String CONTAINER_PRESTO_JVM_CONFIG = CONTAINER_PRESTO_ETC + "/jvm.config";
     public static final String CONTAINER_PRESTO_ACCESS_CONTROL_PROPERTIES = CONTAINER_PRESTO_ETC + "/access-control.properties";
@@ -135,10 +137,14 @@ public final class Standard
     @SuppressWarnings("resource")
     public static DockerContainer createPrestoContainer(DockerFiles dockerFiles, File serverPackage, SupportedTrinoJdk jdkVersion, boolean debug, String dockerImageName, String logicalName)
     {
+        File jfrDir = new File(JACOCO_LOGS_LOCATION);
+        jfrDir.mkdir();
         DockerContainer container = new DockerContainer(dockerImageName, logicalName)
                 .withNetworkAliases(logicalName + ".docker.cluster")
+                .withFileSystemBind(JACOCO_LOGS_LOCATION, "/var/trino/var/jacoco", READ_WRITE)
                 .withExposedLogPaths("/var/trino/var/log", "/var/log/container-health.log")
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath()), "/docker/presto-product-tests")
+                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/presto/etc/jacocoagent.jar")), "/docker/jacocoagent.jar")
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/presto/etc/jvm.config")), CONTAINER_PRESTO_JVM_CONFIG)
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("health-checks/trino-health-check.sh")), CONTAINER_HEALTH_D + "trino-health-check.sh")
                 // the server package is hundreds MB and file system bind is much more efficient

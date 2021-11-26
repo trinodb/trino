@@ -608,6 +608,12 @@ jobs:
           testing/bin/ptl suite run \
             --suite ${{ matrix.suite }} --config config-${{ matrix.config }} --bind=off --logs-dir logs/ --timeout 2h \
             --trino-jdk-version zulu_${{ matrix.jdk }}
+      - name: Upload Jacoco results
+        uses: actions/upload-artifact@v2
+        with:
+          name: Uploading Jacoco report for (${{ matrix.config }}, ${{ matrix.suite }})
+          path: /tmp/trino-jacoco/*
+          retention-days: 5
       - name: Upload test logs and results
         uses: actions/upload-artifact@v2
         # Upload all test reports only on failure, because the artifacts are large
