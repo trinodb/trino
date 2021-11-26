@@ -103,7 +103,6 @@ public final class HiveSessionProperties
     private static final String TEMPORARY_STAGING_DIRECTORY_PATH = "temporary_staging_directory_path";
     private static final String DELEGATE_TRANSACTIONAL_MANAGED_TABLE_LOCATION_TO_METASTORE = "delegate_transactional_managed_table_location_to_metastore";
     private static final String IGNORE_ABSENT_PARTITIONS = "ignore_absent_partitions";
-    private static final String IGNORE_SCHEMA_LOCATION_CLEANUP_FAILURE = "ignore_schema_location_cleanup_failure";
     private static final String QUERY_PARTITION_FILTER_REQUIRED = "query_partition_filter_required";
     private static final String QUERY_PARTITION_FILTER_REQUIRED_SCHEMAS = "query_partition_filter_required_schemas";
     private static final String PROJECTION_PUSHDOWN_ENABLED = "projection_pushdown_enabled";
@@ -410,11 +409,6 @@ public final class HiveSessionProperties
                         IGNORE_ABSENT_PARTITIONS,
                         "Ignore partitions when the file system location does not exist rather than failing the query.",
                         hiveConfig.isIgnoreAbsentPartitions(),
-                        false),
-                booleanProperty(
-                        IGNORE_SCHEMA_LOCATION_CLEANUP_FAILURE,
-                        "Allows to ignore failures related to file system cleanup during DROP SCHEMA for situations when schema location is misconfigured or no longer reachable",
-                        hiveConfig.isIgnoreSchemaLocationCleanupFailure(),
                         false),
                 booleanProperty(
                         QUERY_PARTITION_FILTER_REQUIRED,
@@ -751,11 +745,6 @@ public final class HiveSessionProperties
     public static boolean isIgnoreAbsentPartitions(ConnectorSession session)
     {
         return session.getProperty(IGNORE_ABSENT_PARTITIONS, Boolean.class);
-    }
-
-    public static boolean isIgnoreSchemaLocationCleanupFailure(ConnectorSession session)
-    {
-        return session.getProperty(IGNORE_SCHEMA_LOCATION_CLEANUP_FAILURE, Boolean.class);
     }
 
     public static boolean isQueryPartitionFilterRequired(ConnectorSession session)
