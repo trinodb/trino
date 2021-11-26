@@ -195,6 +195,19 @@ public abstract class AbstractTestFailureRecovery
                 .at(intermediateDistributedStage())
                 .failsWithoutRetries(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE))
                 .finishesSuccessfully(queryAssertion);
+
+        assertThatQuery(query)
+                .experiencing(TASK_MANAGEMENT_REQUEST_TIMEOUT)
+                .at(intermediateDistributedStage())
+                .failsWithoutRetries(failure -> failure.hasMessageContaining("Encountered too many errors talking to a worker node"))
+                .finishesSuccessfully();
+
+        assertThatQuery(query)
+                .experiencing(TASK_GET_RESULTS_REQUEST_TIMEOUT)
+                // using boundary stage so we observe task failures
+                .at(boundaryDistributedStage())
+                .failsWithoutRetries(failure -> failure.hasMessageContaining("Encountered too many errors talking to a worker node"))
+                .finishesSuccessfully();
     }
 
     @Test(invocationCount = INVOCATION_COUNT)
@@ -297,9 +310,10 @@ public abstract class AbstractTestFailureRecovery
     @Test(invocationCount = INVOCATION_COUNT)
     public void testRequestTimeouts()
     {
-        assertThatQuery("SELECT orderStatus, count(*) FROM orders GROUP BY orderStatus")
+        // extra test cases not covered by general timeout cases scattered around
+        assertThatQuery("SELECT * FROM nation")
                 .experiencing(TASK_MANAGEMENT_REQUEST_TIMEOUT)
-                .at(intermediateDistributedStage())
+                .at(leafStage())
                 .failsWithoutRetries(failure -> failure.hasMessageContaining("Encountered too many errors talking to a worker node"))
                 .finishesSuccessfully();
 
@@ -309,28 +323,15 @@ public abstract class AbstractTestFailureRecovery
                 .failsWithoutRetries(failure -> failure.hasMessageContaining("Encountered too many errors talking to a worker node"))
                 .finishesSuccessfully();
 
-        assertThatQuery("SELECT * FROM orders o, customer c WHERE o.custkey = c.custkey AND c.nationKey = 1")
-                .experiencing(TASK_GET_RESULTS_REQUEST_TIMEOUT)
-                .at(boundaryDistributedStage())
-                .failsWithoutRetries(failure -> failure.hasMessageContaining("Encountered too many errors talking to a worker node"))
-                .finishesSuccessfully();
-
         if (areWriteRetriesSupported()) {
             assertThatQuery("INSERT INTO <table> SELECT * FROM orders")
                     .withSetupQuery(Optional.of("CREATE TABLE <table> AS SELECT * FROM orders WITH NO DATA"))
                     .withCleanupQuery(Optional.of("DROP TABLE <table>"))
-                    .experiencing(TASK_MANAGEMENT_REQUEST_TIMEOUT)
-                    .at(boundaryDistributedStage())
-                    .failsWithoutRetries(failure -> failure.hasMessageContaining("Encountered too many errors talking to a worker node"))
-                    .finishesSuccessfully();
-
-            assertThatQuery("INSERT INTO <table> SELECT * FROM orders")
-                    .withSetupQuery(Optional.of("CREATE TABLE <table> AS SELECT * FROM orders WITH NO DATA"))
-                    .withCleanupQuery(Optional.of("DROP TABLE <table>"))
                     .experiencing(TASK_GET_RESULTS_REQUEST_TIMEOUT)
-                    .at(boundaryDistributedStage())
+                    .at(leafStage())
                     .failsWithoutRetries(failure -> failure.hasMessageContaining("Encountered too many errors talking to a worker node"))
-                    .finishesSuccessfully();
+                    // get results timeout for leaf stage will not result in accounted task failure if failure recovery is enabled
+                    .finishesSuccessfullyWithoutTaskFailures();
         }
     }
 
@@ -415,6 +416,22 @@ public abstract class AbstractTestFailureRecovery
                 .experiencing(TASK_GET_RESULTS_REQUEST_FAILURE)
                 .at(boundaryDistributedStage())
                 .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Error 500 Internal Server Error|Error closing remote buffer, expected 204 got 500"))
+                .finishesSuccessfully();
+
+        assertThatQuery(query)
+                .withSetupQuery(setupQuery)
+                .withCleanupQuery(cleanupQuery)
+                .experiencing(TASK_MANAGEMENT_REQUEST_TIMEOUT)
+                .at(boundaryDistributedStage())
+                .failsWithoutRetries(failure -> failure.hasMessageContaining("Encountered too many errors talking to a worker node"))
+                .finishesSuccessfully();
+
+        assertThatQuery(query)
+                .withSetupQuery(setupQuery)
+                .withCleanupQuery(cleanupQuery)
+                .experiencing(TASK_GET_RESULTS_REQUEST_TIMEOUT)
+                .at(boundaryDistributedStage())
+                .failsWithoutRetries(failure -> failure.hasMessageContaining("Encountered too many errors talking to a worker node"))
                 .finishesSuccessfully();
     }
 
@@ -508,9 +525,7 @@ public abstract class AbstractTestFailureRecovery
                         failureType.get(),
                         errorType);
 
-                ExecutionResult actual = execute(session, query, Optional.of(token));
-                assertEquals(getStageStats(actual.getQueryResult(), failureStageId.getAsInt()).getFailedTasks(), 1);
-                return actual;
+                return execute(session, query, Optional.of(token));
             }
             // no failure injected
             return execute(session, query, Optional.of(token));
@@ -565,12 +580,24 @@ public abstract class AbstractTestFailureRecovery
             finishesSuccessfully(queryId -> {});
         }
 
-        public void finishesSuccessfully(Consumer<QueryId> queryAssertion)
+        public void finishesSuccessfullyWithoutTaskFailures()
+        {
+            finishesSuccessfully(queryId -> {}, false);
+        }
+
+        private void finishesSuccessfully(Consumer<QueryId> queryAssertion)
+        {
+            finishesSuccessfully(queryAssertion, true);
+        }
+
+        public void finishesSuccessfully(Consumer<QueryId> queryAssertion, boolean expectTaskFailures)
         {
             verifyFailureTypeAndStageSelector();
             ExecutionResult expected = executeExpected();
             MaterializedResult expectedQueryResult = expected.getQueryResult();
-            ExecutionResult actual = executeActual(getFailureStageId(() -> expectedQueryResult));
+            OptionalInt failureStageId = getFailureStageId(() -> expectedQueryResult);
+            ExecutionResult actual = executeActual(failureStageId);
+            assertEquals(getStageStats(actual.getQueryResult(), failureStageId.getAsInt()).getFailedTasks(), expectTaskFailures ? 1 : 0);
             MaterializedResult actualQueryResult = actual.getQueryResult();
 
             boolean isAnalyze = expectedQueryResult.getUpdateType().isPresent() && expectedQueryResult.getUpdateType().get().equals("ANALYZE");
