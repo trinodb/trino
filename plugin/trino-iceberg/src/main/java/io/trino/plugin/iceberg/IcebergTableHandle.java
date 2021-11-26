@@ -14,12 +14,17 @@
 package io.trino.plugin.iceberg;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.trino.plugin.iceberg.serdes.IcebergTableWrapper;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
+import org.apache.iceberg.Table;
 
+import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
@@ -33,6 +38,7 @@ public class IcebergTableHandle
     private final String schemaName;
     private final String tableName;
     private final TableType tableType;
+    private final IcebergTableWrapper tableWrapper;
     private final Optional<Long> snapshotId;
 
     // Filter used during split generation and table scan, but not required to be strictly enforced by Iceberg Connector
@@ -42,24 +48,33 @@ public class IcebergTableHandle
     private final TupleDomain<IcebergColumnHandle> enforcedPredicate;
 
     private final Set<IcebergColumnHandle> projectedColumns;
+    private final List<IcebergColumnHandle> updateColumns;
+
+    // cache table object from wrapper
+    private final Table table;
 
     @JsonCreator
     public IcebergTableHandle(
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("tableType") TableType tableType,
+            @JsonProperty("table") IcebergTableWrapper tableWrapper,
             @JsonProperty("snapshotId") Optional<Long> snapshotId,
             @JsonProperty("unenforcedPredicate") TupleDomain<IcebergColumnHandle> unenforcedPredicate,
             @JsonProperty("enforcedPredicate") TupleDomain<IcebergColumnHandle> enforcedPredicate,
-            @JsonProperty("projectedColumns") Set<IcebergColumnHandle> projectedColumns)
+            @JsonProperty("projectedColumns") Set<IcebergColumnHandle> projectedColumns,
+            @JsonProperty("updateColumns") List<IcebergColumnHandle> updateColumns)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.tableType = requireNonNull(tableType, "tableType is null");
+        this.tableWrapper = requireNonNull(tableWrapper, "tableWrapper is null");
+        this.table = tableWrapper.getTable();
         this.snapshotId = requireNonNull(snapshotId, "snapshotId is null");
         this.unenforcedPredicate = requireNonNull(unenforcedPredicate, "unenforcedPredicate is null");
         this.enforcedPredicate = requireNonNull(enforcedPredicate, "enforcedPredicate is null");
         this.projectedColumns = ImmutableSet.copyOf(requireNonNull(projectedColumns, "projectedColumns is null"));
+        this.updateColumns = ImmutableList.copyOf(requireNonNull(updateColumns, "updateColumns is null"));
     }
 
     @JsonProperty
@@ -78,6 +93,18 @@ public class IcebergTableHandle
     public TableType getTableType()
     {
         return tableType;
+    }
+
+    @JsonProperty
+    public IcebergTableWrapper getTableWrapper()
+    {
+        return tableWrapper;
+    }
+
+    @JsonIgnore
+    public Table getTable()
+    {
+        return table;
     }
 
     @JsonProperty
@@ -104,6 +131,12 @@ public class IcebergTableHandle
         return projectedColumns;
     }
 
+    @JsonProperty
+    public List<IcebergColumnHandle> getUpdateColumns()
+    {
+        return updateColumns;
+    }
+
     public SchemaTableName getSchemaTableName()
     {
         return new SchemaTableName(schemaName, tableName);
@@ -120,10 +153,40 @@ public class IcebergTableHandle
                 schemaName,
                 tableName,
                 tableType,
+                tableWrapper,
                 snapshotId,
                 unenforcedPredicate,
                 enforcedPredicate,
-                projectedColumns);
+                projectedColumns,
+                updateColumns);
+    }
+
+    public IcebergTableHandle withUpdateColumns(List<IcebergColumnHandle> updateColumns)
+    {
+        return new IcebergTableHandle(
+                schemaName,
+                tableName,
+                tableType,
+                tableWrapper,
+                snapshotId,
+                unenforcedPredicate,
+                enforcedPredicate,
+                projectedColumns,
+                updateColumns);
+    }
+
+    public IcebergTableHandle withPredicates(TupleDomain<IcebergColumnHandle> unenforcedPredicate, TupleDomain<IcebergColumnHandle> enforcedPredicate)
+    {
+        return new IcebergTableHandle(
+                schemaName,
+                tableName,
+                tableType,
+                tableWrapper,
+                snapshotId,
+                unenforcedPredicate,
+                enforcedPredicate,
+                projectedColumns,
+                updateColumns);
     }
 
     @Override

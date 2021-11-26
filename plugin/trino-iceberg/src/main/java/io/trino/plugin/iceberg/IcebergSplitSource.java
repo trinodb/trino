@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Streams;
 import io.airlift.units.Duration;
-import io.trino.spi.TrinoException;
+import io.trino.plugin.iceberg.serdes.IcebergFileScanTaskWrapper;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPartitionHandle;
 import io.trino.spi.connector.ConnectorSplit;
@@ -59,10 +59,8 @@ import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
 import static io.trino.plugin.iceberg.IcebergSplitManager.ICEBERG_DOMAIN_COMPACTION_THRESHOLD;
 import static io.trino.plugin.iceberg.IcebergTypes.convertIcebergValueToTrino;
 import static io.trino.plugin.iceberg.IcebergUtil.deserializePartitionValue;
-import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
 import static io.trino.plugin.iceberg.IcebergUtil.primitiveFieldTypes;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergType;
-import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -157,10 +155,6 @@ public class IcebergSplitSource
         ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
         while (fileScanTasks.hasNext()) {
             FileScanTask scanTask = fileScanTasks.next();
-            if (!scanTask.deletes().isEmpty()) {
-                throw new TrinoException(NOT_SUPPORTED, "Iceberg tables with delete files are not supported: " + tableHandle.getSchemaTableName());
-            }
-
             IcebergSplit icebergSplit = toIcebergSplit(scanTask);
 
             Supplier<Map<ColumnHandle, NullableValue>> partitionValues = memoize(() -> {
@@ -333,13 +327,6 @@ public class IcebergSplitSource
 
     private static IcebergSplit toIcebergSplit(FileScanTask task)
     {
-        return new IcebergSplit(
-                task.file().path().toString(),
-                task.start(),
-                task.length(),
-                task.file().fileSizeInBytes(),
-                task.file().format(),
-                ImmutableList.of(),
-                getPartitionKeys(task));
+        return new IcebergSplit(IcebergFileScanTaskWrapper.wrap(task), ImmutableList.of());
     }
 }

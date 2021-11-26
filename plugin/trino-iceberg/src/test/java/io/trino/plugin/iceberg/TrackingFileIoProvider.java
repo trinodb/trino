@@ -23,6 +23,11 @@ import org.apache.iceberg.io.SeekableInputStream;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.io.Externalizable;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import java.io.Serializable;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
@@ -40,7 +45,7 @@ import static io.trino.plugin.iceberg.TrackingFileIoProvider.OperationType.OUTPU
 import static java.util.Objects.requireNonNull;
 
 public class TrackingFileIoProvider
-        implements FileIoProvider
+        implements FileIoProvider, Externalizable
 {
     public enum OperationType
     {
@@ -84,7 +89,8 @@ public class TrackingFileIoProvider
     {
         return new TrackingFileIo(
                 delegate.createFileIo(hdfsContext, queryId),
-                this::increment);
+                this::increment,
+                fileId);
     }
 
     private interface Tracker
@@ -92,16 +98,18 @@ public class TrackingFileIoProvider
         void track(String path, int fileId, OperationType operationType);
     }
 
-    private class TrackingFileIo
-            implements FileIO
+    public static class TrackingFileIo
+            implements FileIO, Externalizable
     {
         private final FileIO delegate;
         private final Tracker tracker;
+        private final AtomicInteger fileId;
 
-        public TrackingFileIo(FileIO delegate, Tracker tracker)
+        public TrackingFileIo(FileIO delegate, Tracker tracker, AtomicInteger fieldId)
         {
             this.delegate = requireNonNull(delegate, "delegate is null");
             this.tracker = requireNonNull(tracker, "tracker is null");
+            this.fileId = requireNonNull(fieldId, "fieldId is null");
         }
 
         @Override
@@ -126,6 +134,25 @@ public class TrackingFileIoProvider
         public void deleteFile(String path)
         {
             delegate.deleteFile(path);  // TODO: track delete files calls
+        }
+
+        public TrackingFileIo()
+        {
+            this.delegate = null;
+            this.tracker = null;
+            this.fileId = null;
+        }
+
+        @Override
+        public void writeExternal(ObjectOutput out)
+                throws IOException
+        {
+        }
+
+        @Override
+        public void readExternal(ObjectInput in)
+                throws IOException, ClassNotFoundException
+        {
         }
     }
 
@@ -210,8 +237,26 @@ public class TrackingFileIoProvider
         }
     }
 
+    public TrackingFileIoProvider()
+    {
+        this.delegate = null;
+    }
+
+    @Override
+    public void writeExternal(ObjectOutput out)
+            throws IOException
+    {
+    }
+
+    @Override
+    public void readExternal(ObjectInput in)
+            throws IOException, ClassNotFoundException
+    {
+    }
+
     @Immutable
     public static class OperationContext
+            implements Serializable
     {
         private final String filePath;
         private final int fileId;

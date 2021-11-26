@@ -62,7 +62,7 @@ public class TestIcebergConnectorSmokeTest
     {
         // Deletes are covered AbstractTestIcebergConnectorTest
         assertThatThrownBy(super::testRowLevelDelete)
-                .hasStackTraceContaining("This connector only supports delete where one or more identity-transformed partitions are deleted entirely");
+                .hasStackTraceContaining("Row level delete and update are not supported for ORC type");
     }
 
     @Test

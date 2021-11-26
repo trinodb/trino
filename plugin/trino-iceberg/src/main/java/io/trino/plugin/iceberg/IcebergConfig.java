@@ -19,6 +19,7 @@ import io.airlift.units.Duration;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import org.apache.iceberg.FileFormat;
 
+import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
@@ -29,6 +30,9 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class IcebergConfig
 {
+    public static final int FORMAT_VERSION_SUPPORT_MIN = 1;
+    public static final int FORMAT_VERSION_SUPPORT_MAX = 2;
+
     private IcebergFileFormat fileFormat = ORC;
     private HiveCompressionCodec compressionCodec = GZIP;
     private boolean useFileSizeFromMetadata = true;
@@ -38,6 +42,7 @@ public class IcebergConfig
     private Duration dynamicFilteringWaitTimeout = new Duration(0, SECONDS);
     private boolean tableStatisticsEnabled = true;
     private boolean projectionPushdownEnabled = true;
+    private int formatVersion = FORMAT_VERSION_SUPPORT_MIN;
 
     public CatalogType getCatalogType()
     {
@@ -165,6 +170,21 @@ public class IcebergConfig
     public IcebergConfig setProjectionPushdownEnabled(boolean projectionPushdownEnabled)
     {
         this.projectionPushdownEnabled = projectionPushdownEnabled;
+        return this;
+    }
+
+    @Min(FORMAT_VERSION_SUPPORT_MIN)
+    @Max(FORMAT_VERSION_SUPPORT_MAX)
+    public int getFormatVersion()
+    {
+        return formatVersion;
+    }
+
+    @Config("iceberg.format-version")
+    @ConfigDescription("Iceberg table format version to use when creating a table")
+    public IcebergConfig setFormatVersion(int formatVersion)
+    {
+        this.formatVersion = formatVersion;
         return this;
     }
 }

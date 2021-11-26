@@ -25,11 +25,26 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import static io.trino.plugin.iceberg.ColumnIdentity.primitiveColumnIdentity;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.MetadataColumns.IS_DELETED;
+import static org.apache.iceberg.MetadataColumns.ROW_POSITION;
 
 public class IcebergColumnHandle
         implements ColumnHandle
 {
+    public static final IcebergColumnHandle ROW_POSITION_HANDLE = new IcebergColumnHandle(
+            primitiveColumnIdentity(ROW_POSITION.fieldId(), ROW_POSITION.name()),
+            BIGINT,
+            ImmutableList.of(),
+            BIGINT,
+            Optional.empty());
+
+    // use Integer.MIN_VALUE as $row_id field ID, which is currently not reserved by Iceberg
+    public static final int TRINO_ROW_ID_COLUMN_ID = Integer.MIN_VALUE;
+    public static final String TRINO_ROW_ID_COLUMN_NAME = "$row_id";
+
     private final ColumnIdentity baseColumnIdentity;
     private final Type baseType;
     // The list of field ids to indicate the projected part of the top-level column represented by baseColumnIdentity
@@ -136,6 +151,21 @@ public class IcebergColumnHandle
     public boolean isBaseColumn()
     {
         return path.isEmpty();
+    }
+
+    public boolean isIcebergRowPositionMetadataColumn()
+    {
+        return id == ROW_POSITION.fieldId();
+    }
+
+    public boolean isIcebergIsDeletedMetadataColumn()
+    {
+        return id == IS_DELETED.fieldId();
+    }
+
+    public boolean isTrinoRowIdColumn()
+    {
+        return id == TRINO_ROW_ID_COLUMN_ID;
     }
 
     @Override

@@ -101,7 +101,7 @@ public class TestIcebergV2
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation");
     }
 
-    @Test
+    @Test(enabled = false)
     public void testV2TableWithPositionDelete()
             throws Exception
     {
@@ -128,7 +128,7 @@ public class TestIcebergV2
         assertQueryFails("SELECT * FROM " + tableName, "Iceberg tables with delete files are not supported: tpch." + tableName);
     }
 
-    @Test
+    @Test(enabled = false)
     public void testV2TableWithEqualityDelete()
             throws Exception
     {
