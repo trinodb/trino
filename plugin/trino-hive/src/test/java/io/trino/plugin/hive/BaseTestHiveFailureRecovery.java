@@ -15,30 +15,22 @@ package io.trino.plugin.hive;
 
 import io.trino.Session;
 import io.trino.testing.AbstractTestFailureRecovery;
-import io.trino.testing.QueryRunner;
-import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestHiveFailureRecovery
+public abstract class BaseTestHiveFailureRecovery
         extends AbstractTestFailureRecovery
 {
     @Override
-    protected QueryRunner createQueryRunner(List<TpchTable<?>> requiredTpchTables, Map<String, String> configProperties, Map<String, String> coordinatorProperties)
-            throws Exception
+    protected boolean areWriteRetriesSupported()
     {
-        return HiveQueryRunner.builder()
-                .setInitialTables(requiredTpchTables)
-                .setCoordinatorProperties(coordinatorProperties)
-                .setExtraProperties(configProperties)
-                .build();
+        return true;
     }
 
     @Override
@@ -50,12 +42,6 @@ public class TestHiveFailureRecovery
                 partitionColumn,
                 String.join(",", columns));
         getQueryRunner().execute(sql);
-    }
-
-    @Override
-    protected boolean areWriteRetriesSupported()
-    {
-        return true;
     }
 
     @Override
