@@ -16,7 +16,6 @@ package io.trino.plugin.jdbc;
 import com.google.common.cache.CacheStats;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.jdbc.credential.ExtraCredentialConfig;
@@ -36,7 +35,6 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -632,19 +630,7 @@ public class TestCachingJdbcClient
     @Test
     public void testEverythingImplemented()
     {
-        assertAllMethodsOverridden(JdbcClient.class, CachingJdbcClient.class, nonOverriddenMethods());
-    }
-
-    private static Set<Method> nonOverriddenMethods()
-    {
-        try {
-            return ImmutableSet.<Method>builder()
-                    .add(JdbcClient.class.getMethod("schemaExists", ConnectorSession.class, String.class))
-                    .build();
-        }
-        catch (NoSuchMethodException e) {
-            throw new AssertionError(e);
-        }
+        assertAllMethodsOverridden(JdbcClient.class, CachingJdbcClient.class);
     }
 
     private static CacheStatsAssertions assertTableNamesCache(CachingJdbcClient cachingJdbcClient)
