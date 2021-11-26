@@ -61,7 +61,7 @@ public class TestProcedureCall
 
         // register procedures in the bogus testing catalog
         addTestingCatalog(getDistributedQueryRunner());
-        ProcedureRegistry procedureRegistry = coordinator.getMetadata().getProcedureRegistry();
+        ProcedureRegistry procedureRegistry = coordinator.getProcedureRegistry();
         TestingProcedures procedures = new TestingProcedures(coordinator.getProcedureTester());
         procedureRegistry.addProcedures(
                 new CatalogName(TESTING_CATALOG),

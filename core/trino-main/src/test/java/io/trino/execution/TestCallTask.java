@@ -21,6 +21,7 @@ import io.trino.connector.CatalogName;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.MetadataManager;
+import io.trino.metadata.ProcedureRegistry;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
 import io.trino.security.AccessControl;
 import io.trino.security.AllowAllAccessControl;
@@ -121,8 +122,8 @@ public class TestCallTask
     private void executeCallTask(MethodHandle methodHandle, Function<TransactionManager, AccessControl> accessControlProvider)
     {
         TransactionManager transactionManager = createTransactionManager();
-        MetadataManager metadata = createMetadataManager(
-                transactionManager,
+        MetadataManager metadata = createTestMetadataManager(transactionManager, new FeaturesConfig());
+        ProcedureRegistry procedureRegistry = createProcedureRegistry(
                 new Procedure(
                         "test",
                         "testing_procedure",
@@ -130,7 +131,7 @@ public class TestCallTask
                         methodHandle));
         AccessControl accessControl = accessControlProvider.apply(transactionManager);
 
-        new CallTask(transactionManager, metadata, accessControl)
+        new CallTask(transactionManager, metadata, accessControl, procedureRegistry)
                 .execute(
                         new Call(QualifiedName.of("testing_procedure"), ImmutableList.of()),
                         stateMachine(transactionManager, metadata, accessControl),
@@ -138,18 +139,18 @@ public class TestCallTask
                         WarningCollector.NOOP);
     }
 
-    private TransactionManager createTransactionManager()
+    private static TransactionManager createTransactionManager()
     {
         CatalogManager catalogManager = new CatalogManager();
         catalogManager.registerCatalog(createBogusTestingCatalog("test"));
         return createTestTransactionManager(catalogManager);
     }
 
-    private MetadataManager createMetadataManager(TransactionManager transactionManager, Procedure procedure)
+    private static ProcedureRegistry createProcedureRegistry(Procedure procedure)
     {
-        MetadataManager metadata = createTestMetadataManager(transactionManager, new FeaturesConfig());
-        metadata.getProcedureRegistry().addProcedures(new CatalogName("test"), ImmutableList.of(procedure));
-        return metadata;
+        ProcedureRegistry procedureRegistry = new ProcedureRegistry();
+        procedureRegistry.addProcedures(new CatalogName("test"), ImmutableList.of(procedure));
+        return procedureRegistry;
     }
 
     private QueryStateMachine stateMachine(TransactionManager transactionManager, MetadataManager metadata, AccessControl accessControl)

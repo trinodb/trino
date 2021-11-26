@@ -19,6 +19,7 @@ import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.ProcedureRegistry;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.security.AccessControl;
 import io.trino.security.InjectedConnectorAccessControl;
@@ -73,13 +74,15 @@ public class CallTask
     private final TransactionManager transactionManager;
     private final Metadata metadata;
     private final AccessControl accessControl;
+    private final ProcedureRegistry procedureRegistry;
 
     @Inject
-    public CallTask(TransactionManager transactionManager, Metadata metadata, AccessControl accessControl)
+    public CallTask(TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, ProcedureRegistry procedureRegistry)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
+        this.procedureRegistry = requireNonNull(procedureRegistry, "procedureRegistry is null");
     }
 
     @Override
@@ -103,7 +106,7 @@ public class CallTask
         QualifiedObjectName procedureName = createQualifiedObjectName(session, call, call.getName());
         CatalogName catalogName = metadata.getCatalogHandle(stateMachine.getSession(), procedureName.getCatalogName())
                 .orElseThrow(() -> semanticException(CATALOG_NOT_FOUND, call, "Catalog '%s' does not exist", procedureName.getCatalogName()));
-        Procedure procedure = metadata.getProcedureRegistry().resolve(catalogName, procedureName.asSchemaTableName());
+        Procedure procedure = procedureRegistry.resolve(catalogName, procedureName.asSchemaTableName());
 
         // map declared argument names to positions
         Map<String, Integer> positions = new HashMap<>();

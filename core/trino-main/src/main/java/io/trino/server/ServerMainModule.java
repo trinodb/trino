@@ -74,6 +74,7 @@ import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.MetadataManager;
+import io.trino.metadata.ProcedureRegistry;
 import io.trino.metadata.SchemaPropertyManager;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.StaticCatalogStore;
@@ -371,6 +372,7 @@ public class ServerMainModule
         newExporter(binder).export(TypeOperatorsCache.class).as(factory -> factory.generatedNameOf(TypeOperators.class));
         binder.bind(BlockTypeOperators.class).in(Scopes.SINGLETON);
         newExporter(binder).export(TypeOperatorsCache.class).withGeneratedName();
+        binder.bind(ProcedureRegistry.class).in(Scopes.SINGLETON);
 
         // type
         binder.bind(TypeAnalyzer.class).in(Scopes.SINGLETON);
