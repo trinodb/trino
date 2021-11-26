@@ -49,6 +49,8 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.io.File;
+import java.net.URISyntaxException;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
@@ -58,6 +60,7 @@ import java.util.concurrent.Executors;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.toOptional;
+import static com.google.common.io.Resources.getResource;
 import static com.google.common.util.concurrent.MoreExecutors.shutdownAndAwaitTermination;
 import static io.trino.execution.TestQueues.createResourceGroupId;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -180,7 +183,12 @@ public class TestEventListenerBasic
 
     private String getResourceFilePath(String fileName)
     {
-        return this.getClass().getClassLoader().getResource(fileName).getPath();
+        try {
+            return new File(getResource(fileName).toURI()).getPath();
+        }
+        catch (URISyntaxException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private MaterializedResult runQueryAndWaitForEvents(@Language("SQL") String sql, int numEventsExpected)
