@@ -185,7 +185,9 @@ public interface SystemAccessControl
      * will not be called when the current user is the query owner.
      *
      * @throws AccessDeniedException if not allowed
+     * @deprecated Implement {@link #checkCanKillQueryOwnedBy(SystemSecurityContext, Identity)} instead.
      */
+    @Deprecated
     default void checkCanKillQueryOwnedBy(SystemSecurityContext context, String queryOwner)
     {
         denyKillQuery();
