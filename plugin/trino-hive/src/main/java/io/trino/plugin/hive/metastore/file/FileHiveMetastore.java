@@ -215,8 +215,7 @@ public class FileHiveMetastore
             throw new TrinoException(HIVE_METASTORE_ERROR, "Database " + databaseName + " is not empty");
         }
 
-        // Only delete the metadata of the database, not any other files
-        deleteSchemaFile(DATABASE, getDatabaseMetadataDirectory(databaseName));
+        deleteMetadataDirectory(getDatabaseMetadataDirectory(databaseName));
     }
 
     @Override
