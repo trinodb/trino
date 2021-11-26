@@ -179,6 +179,9 @@ public class HdfsParquetDataSource
         ImmutableListMultimap.Builder<K, ChunkReader> slices = ImmutableListMultimap.builder();
         slices.putAll(readSmallDiskRanges(smallRanges));
         slices.putAll(readLargeDiskRanges(largeRanges));
+        // Re-order ChunkReaders by their DiskRange offsets as ParquetColumnChunk expects
+        // the input slices to be in the order that they're present in the file
+        slices.orderValuesBy(comparingLong(ChunkReader::getDiskOffset));
 
         return slices.build();
     }
@@ -202,6 +205,12 @@ public class HdfsParquetDataSource
 
                     slices.put(diskRangeEntry.getKey(), new ChunkReader()
                     {
+                        @Override
+                        public long getDiskOffset()
+                        {
+                            return diskRange.getOffset();
+                        }
+
                         @Override
                         public Slice read()
                         {
@@ -290,6 +299,12 @@ public class HdfsParquetDataSource
         {
             checkState(referenceCount > 0, "Chunk reader is already closed");
             referenceCount++;
+        }
+
+        @Override
+        public long getDiskOffset()
+        {
+            return range.getOffset();
         }
 
         @Override
