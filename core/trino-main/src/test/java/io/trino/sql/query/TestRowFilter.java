@@ -481,19 +481,19 @@ public class TestRowFilter
 
         // Outside allowed row filter
         assertThatThrownBy(() -> assertions.query("INSERT INTO mock.tiny.nation VALUES (26, 'POLAND', 0, 'No comment')"))
-                .hasMessage("Access Denied: Cannot insert into a table restricted with a row filter");
+                .hasMessage("Access Denied: Cannot insert row that does not match to a row filter");
         assertThatThrownBy(() -> assertions.query("INSERT INTO mock.tiny.nation VALUES "
                 + "(26, 'POLAND', 0, 'No comment'),"
                 + "(27, 'HOLLAND', 0, 'A comment')"))
-                .hasMessage("Access Denied: Cannot insert into a table restricted with a row filter");
+                .hasMessage("Access Denied: Cannot insert row that does not match to a row filter");
         assertThatThrownBy(() -> assertions.query("INSERT INTO mock.tiny.nation VALUES "
                 + "(26, 'POLAND', 0, 'No comment'),"
                 + "(27, 'HOLLAND', 0, 'A comment')"))
-                .hasMessage("Access Denied: Cannot insert into a table restricted with a row filter");
+                .hasMessage("Access Denied: Cannot insert row that does not match to a row filter");
         assertThatThrownBy(() -> assertions.query("INSERT INTO mock.tiny.nation(nationkey) VALUES (null)"))
-                .hasMessage("Access Denied: Cannot insert into a table restricted with a row filter");
+                .hasMessage("Access Denied: Cannot insert row that does not match to a row filter");
         assertThatThrownBy(() -> assertions.query("INSERT INTO mock.tiny.nation(regionkey) VALUES (0)"))
-                .hasMessage("Access Denied: Cannot insert into a table restricted with a row filter");
+                .hasMessage("Access Denied: Cannot insert row that does not match to a row filter");
     }
 
     @Test
@@ -511,7 +511,7 @@ public class TestRowFilter
                 .matches("VALUES (BIGINT '0', 'ALGERIA', BIGINT '0', ' haggle. carefully final deposits detect slyly agai')");
         assertThatThrownBy(() -> assertions.query("INSERT INTO mock.tiny.nation_with_hidden_column VALUES (101, 'POLAND', 0, 'No comment')"))
                 .isInstanceOf(TrinoException.class)
-                .hasMessage("Access Denied: Cannot insert into a table restricted with a row filter");
+                .hasMessage("Access Denied: Cannot insert row that does not match to a row filter");
         assertions.query("INSERT INTO mock.tiny.nation_with_hidden_column VALUES (0, 'POLAND', 0, 'No comment')")
                 .assertThat()
                 .skippingTypesCheck()
