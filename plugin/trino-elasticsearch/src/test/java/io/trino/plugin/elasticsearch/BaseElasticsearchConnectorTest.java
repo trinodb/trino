@@ -811,7 +811,8 @@ public abstract class BaseElasticsearchConnectorTest
         MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
                 .row("\"dGVzdA==\"", "true", "123", "123", "123", "123", "123.0", "123.0")
                 .build();
-        rows.getTypes().forEach(VarcharType.class::isInstance);
+        assertThat(rows.getTypes())
+                .hasOnlyElementsOfType(VarcharType.class);
 
         assertEquals(rows.getMaterializedRows(), expected.getMaterializedRows());
 
@@ -873,7 +874,8 @@ public abstract class BaseElasticsearchConnectorTest
                 .build();
 
         assertEquals(rows.getMaterializedRows(), expected.getMaterializedRows());
-        rows.getTypes().forEach(VarcharType.class::isInstance);
+        assertThat(rows.getTypes())
+                .hasOnlyElementsOfType(VarcharType.class);
 
         deleteIndex(indexName);
     }
