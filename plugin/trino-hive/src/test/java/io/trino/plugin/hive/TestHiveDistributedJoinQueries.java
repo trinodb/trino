@@ -13,11 +13,11 @@
  */
 package io.trino.plugin.hive;
 
+import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.execution.DynamicFilterConfig;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.operator.OperatorStats;
-import io.trino.sql.analyzer.FeaturesConfig;
 import io.trino.testing.AbstractTestJoinQueries;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;

@@ -14,12 +14,12 @@
 package io.trino.testing;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.execution.QueryStats;
 import io.trino.operator.OperatorStats;
 import io.trino.spi.type.Decimals;
-import io.trino.sql.analyzer.FeaturesConfig;
 import io.trino.tests.QueryTemplate;
 import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
