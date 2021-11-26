@@ -79,6 +79,7 @@ import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.MetadataManager;
 import io.trino.metadata.MetadataUtil;
+import io.trino.metadata.ProcedureRegistry;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.QualifiedTablePrefix;
 import io.trino.metadata.SchemaPropertyManager;
@@ -369,6 +370,7 @@ public class LocalQueryRunner
                 transactionManager,
                 eventListenerManager,
                 typeOperators,
+                new ProcedureRegistry(),
                 nodeSchedulerConfig);
 
         GlobalSystemConnectorFactory globalSystemConnectorFactory = new GlobalSystemConnectorFactory(ImmutableSet.of(

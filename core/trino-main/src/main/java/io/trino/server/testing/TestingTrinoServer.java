@@ -59,6 +59,7 @@ import io.trino.metadata.CatalogManager;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.ProcedureRegistry;
 import io.trino.security.AccessControl;
 import io.trino.security.AccessControlConfig;
 import io.trino.security.AccessControlManager;
@@ -148,6 +149,7 @@ public class TestingTrinoServer
     private final Metadata metadata;
     private final QueryExplainer queryExplainer;
     private final StatsCalculator statsCalculator;
+    private final ProcedureRegistry procedureRegistry;
     private final TestingAccessControlManager accessControl;
     private final TestingGroupProvider groupProvider;
     private final ProcedureTester procedureTester;
@@ -310,6 +312,7 @@ public class TestingTrinoServer
             nodePartitioningManager = injector.getInstance(NodePartitioningManager.class);
             clusterMemoryManager = injector.getInstance(ClusterMemoryManager.class);
             statsCalculator = injector.getInstance(StatsCalculator.class);
+            procedureRegistry = injector.getInstance(ProcedureRegistry.class);
             injector.getInstance(CertificateAuthenticatorManager.class).useDefaultAuthenticator();
         }
         else {
@@ -321,6 +324,7 @@ public class TestingTrinoServer
             nodePartitioningManager = null;
             clusterMemoryManager = null;
             statsCalculator = null;
+            procedureRegistry = null;
         }
         localMemoryManager = injector.getInstance(LocalMemoryManager.class);
         nodeManager = injector.getInstance(InternalNodeManager.class);
@@ -458,6 +462,11 @@ public class TestingTrinoServer
     {
         checkState(coordinator, "not a coordinator");
         return statsCalculator;
+    }
+
+    public ProcedureRegistry getProcedureRegistry()
+    {
+        return procedureRegistry;
     }
 
     public TestingAccessControlManager getAccessControl()
