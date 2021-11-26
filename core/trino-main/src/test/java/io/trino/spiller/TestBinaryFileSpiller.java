@@ -14,6 +14,7 @@
 package io.trino.spiller;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.FeaturesConfig;
 import io.trino.RowPagesBuilder;
 import io.trino.execution.buffer.PagesSerde;
 import io.trino.execution.buffer.PagesSerdeFactory;
@@ -22,7 +23,6 @@ import io.trino.metadata.Metadata;
 import io.trino.spi.Page;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
-import io.trino.sql.analyzer.FeaturesConfig;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;

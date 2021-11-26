@@ -14,10 +14,10 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.FeaturesConfig;
 import io.trino.metadata.Metadata;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.Type;
-import io.trino.sql.analyzer.FeaturesConfig;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeAnalyzer;

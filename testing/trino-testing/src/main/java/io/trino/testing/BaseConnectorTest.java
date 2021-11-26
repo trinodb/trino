@@ -13,11 +13,11 @@
  */
 package io.trino.testing;
 
+import io.trino.FeaturesConfig.JoinDistributionType;
 import io.trino.Session;
 import io.trino.cost.StatsAndCosts;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
-import io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.testing.sql.TestTable;

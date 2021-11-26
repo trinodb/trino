@@ -34,6 +34,8 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.FeaturesConfig.JoinDistributionType.PARTITIONED;
+import static io.trino.FeaturesConfig.JoinReorderingStrategy.NONE;
 import static io.trino.SystemSessionProperties.ENABLE_LARGE_DYNAMIC_FILTERS;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
@@ -41,8 +43,6 @@ import static io.trino.spi.predicate.Domain.none;
 import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.predicate.Range.range;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
-import static io.trino.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.tpch.TpchTable.LINE_ITEM;
 import static io.trino.tpch.TpchTable.ORDERS;

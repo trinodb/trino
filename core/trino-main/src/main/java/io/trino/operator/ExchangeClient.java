@@ -19,12 +19,12 @@ import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.http.client.HttpClient;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.FeaturesConfig.DataIntegrityVerification;
 import io.trino.execution.buffer.PageCodecMarker;
 import io.trino.execution.buffer.SerializedPage;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.HttpPageBufferClient.ClientCallback;
 import io.trino.operator.WorkProcessor.ProcessState;
-import io.trino.sql.analyzer.FeaturesConfig.DataIntegrityVerification;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;

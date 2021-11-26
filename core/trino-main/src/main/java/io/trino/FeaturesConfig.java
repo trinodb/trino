@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.sql.analyzer;
+package io.trino;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
@@ -23,6 +23,7 @@ import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
+import io.trino.sql.analyzer.RegexLibrary;
 
 import javax.validation.constraints.DecimalMax;
 import javax.validation.constraints.DecimalMin;
