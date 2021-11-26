@@ -250,6 +250,8 @@ public class OrcDeletedRows
      * Triggers loading of deleted rows ids. Single call to the method may load just part of ids.
      * If more ids to be loaded remain,  method returns false and should be called once again.
      * Final call will return true and the loaded ids can be consumed via {@link #getMaskDeletedRowsFunction(Page, OptionalLong)}
+     *
+     * @return true when fully loaded, and false if this method should be called again
      */
     public boolean loadOrYield()
     {
