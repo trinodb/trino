@@ -34,9 +34,11 @@ import java.math.RoundingMode;
 import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 
@@ -327,15 +329,24 @@ public final class StandardColumnMappings
         return (statement, index, value) -> statement.setBytes(index, value.getBytes());
     }
 
-    public static ColumnMapping dateColumnMapping()
+    /**
+     * @deprecated This method leads to incorrect result when the date value is before 1582 Oct 14.
+     * If driver supports {@link LocalDate}, use {@link #dateColumnMappingUsingLocalDate} instead.
+     */
+    @Deprecated
+    public static ColumnMapping dateColumnMappingUsingSqlDate()
     {
         return ColumnMapping.longMapping(
                 DATE,
-                dateReadFunction(),
-                dateWriteFunction());
+                dateReadFunctionUsingSqlDate(),
+                dateWriteFunctionUsingSqlDate());
     }
 
-    public static LongReadFunction dateReadFunction()
+    /**
+     * @deprecated If driver supports {@link LocalDate}, use {@link #dateReadFunctionUsingLocalDate} instead.
+     */
+    @Deprecated
+    public static LongReadFunction dateReadFunctionUsingSqlDate()
     {
         return (resultSet, columnIndex) -> {
             /*
@@ -354,13 +365,52 @@ public final class StandardColumnMappings
         };
     }
 
-    public static LongWriteFunction dateWriteFunction()
+    /**
+     * @deprecated If driver supports {@link LocalDate}, use {@link #dateWriteFunctionUsingLocalDate} instead.
+     */
+    @Deprecated
+    public static LongWriteFunction dateWriteFunctionUsingSqlDate()
     {
         return (statement, index, value) -> {
             // convert to midnight in default time zone
             long millis = DAYS.toMillis(value);
             statement.setDate(index, new Date(DateTimeZone.UTC.getMillisKeepLocal(DateTimeZone.getDefault(), millis)));
         };
+    }
+
+    public static ColumnMapping dateColumnMappingUsingLocalDate()
+    {
+        return ColumnMapping.longMapping(
+                DATE,
+                dateReadFunctionUsingLocalDate(),
+                dateWriteFunctionUsingLocalDate());
+    }
+
+    public static LongReadFunction dateReadFunctionUsingLocalDate()
+    {
+        return new LongReadFunction() {
+            @Override
+            public boolean isNull(ResultSet resultSet, int columnIndex)
+                    throws SQLException
+            {
+                // 'ResultSet.getObject' without class name may throw an exception
+                // e.g. in MySQL driver, rs.getObject(int) throws for dates between Oct 5 and 14, 1582
+                resultSet.getObject(columnIndex, LocalDate.class);
+                return resultSet.wasNull();
+            }
+
+            @Override
+            public long readLong(ResultSet resultSet, int columnIndex)
+                    throws SQLException
+            {
+                return resultSet.getObject(columnIndex, LocalDate.class).toEpochDay();
+            }
+        };
+    }
+
+    public static LongWriteFunction dateWriteFunctionUsingLocalDate()
+    {
+        return (statement, index, value) -> statement.setObject(index, LocalDate.ofEpochDay(value));
     }
 
     /**
