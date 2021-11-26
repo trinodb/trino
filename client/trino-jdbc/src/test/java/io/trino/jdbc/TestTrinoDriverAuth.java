@@ -79,7 +79,7 @@ public class TestTrinoDriverAuth
                         .put("http-server.authentication.type", "JWT")
                         .put("http-server.authentication.jwt.key-file", new File(keyDir, "${KID}.key").getPath())
                         .put("http-server.https.enabled", "true")
-                        .put("http-server.https.keystore.path", getResource("localhost.keystore").getPath())
+                        .put("http-server.https.keystore.path", new File(getResource("localhost.keystore").toURI()).getPath())
                         .put("http-server.https.keystore.key", "changeit")
                         .build())
                 .build();
@@ -324,13 +324,13 @@ public class TestTrinoDriverAuth
     }
 
     private Connection createConnection(Map<String, String> additionalProperties)
-            throws SQLException
+            throws Exception
     {
         String url = format("jdbc:trino://localhost:%s", server.getHttpsAddress().getPort());
         Properties properties = new Properties();
         properties.setProperty("user", "test");
         properties.setProperty("SSL", "true");
-        properties.setProperty("SSLTrustStorePath", getResource("localhost.truststore").getPath());
+        properties.setProperty("SSLTrustStorePath", new File(getResource("localhost.truststore").toURI()).getPath());
         properties.setProperty("SSLTrustStorePassword", "changeit");
         additionalProperties.forEach(properties::setProperty);
         return DriverManager.getConnection(url, properties);
