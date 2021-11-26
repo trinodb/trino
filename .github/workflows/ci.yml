@@ -608,6 +608,18 @@ jobs:
           testing/bin/ptl suite run \
             --suite ${{ matrix.suite }} --config config-${{ matrix.config }} --bind=off --logs-dir logs/ --timeout 2h \
             --trino-jdk-version zulu_${{ matrix.jdk }}
+      - name: Generate Jacoco report
+        run: |
+          export TRINO_VERSION=$(./mvnw help:evaluate -Dexpression=project.version -q -DforceStdout)
+          mkdir -p /tmp/trino-jacoco/reports
+          mkdir -p "core/trino-server/target/trino-server-${TRINO_VERSION}-trino-jars"
+          # copy only trino JARs, since we don't care about coverage of external dependencies
+          find "core/trino-server/target/trino-server-${TRINO_VERSION}-hardlinks" -name 'trino-*.jar' -print0 | xargs --null cp --link --no-clobber -t "core/trino-server/target/trino-server-${TRINO_VERSION}-trino-jars"
+          java -jar testing/trino-product-tests-launcher/target/org.jacoco.cli-0.8.6-nodeps.jar \
+            report /tmp/trino-jacoco/presto-master/*.exec \
+            --classfiles "core/trino-server/target/trino-server-${TRINO_VERSION}-trino-jars" \
+            --name "coverage pt (${{ matrix.config }}, ${{ matrix.suite }})" \
+            --csv /tmp/trino-jacoco/reports/jacoco-report.csv
       - name: Upload test logs and results
         uses: actions/upload-artifact@v2
         # Upload all test reports only on failure, because the artifacts are large
@@ -625,5 +637,7 @@ jobs:
         with:
           # Name prefix is checked in the `Annotate checks` workflow
           name: test report pt (${{ matrix.config }}, ${{ matrix.suite }}, ${{ matrix.jdk }})
-          path: testing/trino-product-tests/target/reports/**/testng-results.xml
+          path: |
+            testing/trino-product-tests/target/reports/**/testng-results.xml
+            /tmp/trino-jacoco/reports/jacoco-report.csv
           retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}

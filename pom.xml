@@ -43,6 +43,7 @@
         <project.build.targetJdk>11</project.build.targetJdk>
         <air.java.version>11.0.11</air.java.version>
         <air.modernizer.java-version>8</air.modernizer.java-version>
+        <air.jacoco.version>0.8.6</air.jacoco.version>
 
         <air.release.preparation-goals>clean verify -DskipTests</air.release.preparation-goals>
 
@@ -1444,6 +1445,20 @@
                 <groupId>org.flywaydb</groupId>
                 <artifactId>flyway-core</artifactId>
                 <version>7.15.0</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.jacoco</groupId>
+                <artifactId>org.jacoco.agent</artifactId>
+                <version>${air.jacoco.version}</version>
+                <classifier>runtime</classifier>
+            </dependency>
+
+            <dependency>
+                <groupId>org.jacoco</groupId>
+                <artifactId>org.jacoco.cli</artifactId>
+                <version>${air.jacoco.version}</version>
+                <classifier>nodeps</classifier>
             </dependency>
 
             <!-- force newer version to be used for dependencies -->
