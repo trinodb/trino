@@ -95,7 +95,6 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_TABLE_DROPPED_DURING_QUERY;
 import static io.trino.plugin.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
-import static io.trino.plugin.hive.HiveSessionProperties.isIgnoreSchemaLocationCleanupFailure;
 import static io.trino.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_NEW_DIRECTORY;
 import static io.trino.plugin.hive.ViewReaderUtil.isPrestoView;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
@@ -367,9 +366,8 @@ public class SemiTransactionalHiveMetastore
         setExclusive((delegate, hdfsEnvironment) -> delegate.createDatabase(identity, database));
     }
 
-    public synchronized void dropDatabase(ConnectorSession session, String schemaName)
+    public synchronized void dropDatabase(HiveIdentity identity, String schemaName)
     {
-        HiveIdentity identity = new HiveIdentity(session);
         HdfsContext context = new HdfsContext(
                 identity.getUsername()
                         .map(ConnectorIdentity::ofUser)
@@ -395,15 +393,10 @@ public class SemiTransactionalHiveMetastore
                         log.info("Skipped deleting schema location with external files (%s)", path);
                     }
                 }
-                catch (IOException | RuntimeException e) {
-                    if (isIgnoreSchemaLocationCleanupFailure(session)) {
-                        log.warn(e, "Failure when checking or deleting schema directory '%s'", path);
-                    }
-                    else {
-                        throw new TrinoException(
-                                HIVE_FILESYSTEM_ERROR,
-                                format("Error checking or deleting schema directory '%s'", path), e);
-                    }
+                catch (IOException e) {
+                    throw new TrinoException(
+                            HIVE_FILESYSTEM_ERROR,
+                            format("Error checking or deleting schema directory '%s'", path), e);
                 }
             });
         });
@@ -2253,7 +2246,7 @@ public class SemiTransactionalHiveMetastore
                                     .map(Column::getName)
                                     .collect(toImmutableList());
                             List<String> partitionNames = delegate.getPartitionNamesByFilter(
-                                            identity, schemaTableName.getSchemaName(), schemaTableName.getTableName(), partitionColumnNames, TupleDomain.all())
+                                    identity, schemaTableName.getSchemaName(), schemaTableName.getTableName(), partitionColumnNames, TupleDomain.all())
                                     .orElse(ImmutableList.of());
                             for (List<String> partitionNameBatch : Iterables.partition(partitionNames, 10)) {
                                 Collection<Optional<Partition>> partitions = delegate.getPartitionsByNames(identity, schemaTableName.getSchemaName(), schemaTableName.getTableName(), partitionNameBatch).values();
