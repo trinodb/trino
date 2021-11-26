@@ -14,12 +14,15 @@
 package io.trino.plugin.iceberg;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.SizeOf;
+import io.trino.plugin.iceberg.serdes.IcebergFileScanTaskWrapper;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
+import org.apache.iceberg.FileScanTask;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
@@ -43,6 +46,8 @@ public class IcebergSplit
     private final IcebergFileFormat fileFormat;
     private final List<HostAddress> addresses;
     private final Map<Integer, Optional<String>> partitionKeys;
+    private final IcebergFileScanTaskWrapper taskWrapper;
+    private final FileScanTask task;
 
     @JsonCreator
     public IcebergSplit(
@@ -52,7 +57,8 @@ public class IcebergSplit
             @JsonProperty("fileSize") long fileSize,
             @JsonProperty("fileFormat") IcebergFileFormat fileFormat,
             @JsonProperty("addresses") List<HostAddress> addresses,
-            @JsonProperty("partitionKeys") Map<Integer, Optional<String>> partitionKeys)
+            @JsonProperty("partitionKeys") Map<Integer, Optional<String>> partitionKeys,
+            @JsonProperty("taskWrapper") IcebergFileScanTaskWrapper taskWrapper)
     {
         this.path = requireNonNull(path, "path is null");
         this.start = start;
@@ -61,6 +67,8 @@ public class IcebergSplit
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
         this.addresses = ImmutableList.copyOf(requireNonNull(addresses, "addresses is null"));
         this.partitionKeys = ImmutableMap.copyOf(requireNonNull(partitionKeys, "partitionKeys is null"));
+        this.taskWrapper = requireNonNull(taskWrapper, "taskWrapper is null");
+        this.task = taskWrapper.getTask();
     }
 
     @Override
@@ -74,6 +82,18 @@ public class IcebergSplit
     public List<HostAddress> getAddresses()
     {
         return addresses;
+    }
+
+    @JsonProperty
+    public IcebergFileScanTaskWrapper getTaskWrapper()
+    {
+        return taskWrapper;
+    }
+
+    @JsonIgnore
+    public FileScanTask getTask()
+    {
+        return task;
     }
 
     @JsonProperty
@@ -125,6 +145,7 @@ public class IcebergSplit
     @Override
     public long getRetainedSizeInBytes()
     {
+        // TODO: Add size of FileScanTask
         return INSTANCE_SIZE
                 + estimatedSizeOf(path)
                 + estimatedSizeOf(addresses, HostAddress::getRetainedSizeInBytes)

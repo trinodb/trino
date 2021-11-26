@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.apache.iceberg.FileContent;
 
 import java.util.Optional;
 
@@ -27,18 +28,21 @@ public class CommitTaskData
     private final long fileSizeInBytes;
     private final MetricsWrapper metrics;
     private final Optional<String> partitionDataJson;
+    private final FileContent content;
 
     @JsonCreator
     public CommitTaskData(
             @JsonProperty("path") String path,
             @JsonProperty("fileSizeInBytes") long fileSizeInBytes,
             @JsonProperty("metrics") MetricsWrapper metrics,
-            @JsonProperty("partitionDataJson") Optional<String> partitionDataJson)
+            @JsonProperty("partitionDataJson") Optional<String> partitionDataJson,
+            @JsonProperty("content") FileContent content)
     {
         this.path = requireNonNull(path, "path is null");
         this.fileSizeInBytes = fileSizeInBytes;
         this.metrics = requireNonNull(metrics, "metrics is null");
         this.partitionDataJson = requireNonNull(partitionDataJson, "partitionDataJson is null");
+        this.content = requireNonNull(content, "content is null");
         checkArgument(fileSizeInBytes >= 0, "fileSizeInBytes is negative");
     }
 
@@ -64,5 +68,11 @@ public class CommitTaskData
     public Optional<String> getPartitionDataJson()
     {
         return partitionDataJson;
+    }
+
+    @JsonProperty
+    public FileContent getContent()
+    {
+        return content;
     }
 }

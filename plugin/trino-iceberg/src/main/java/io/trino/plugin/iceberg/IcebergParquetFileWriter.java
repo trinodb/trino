@@ -13,12 +13,14 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.trino.plugin.hive.parquet.ParquetFileWriter;
 import io.trino.spi.type.Type;
 import org.apache.hadoop.fs.Path;
+import org.apache.iceberg.FileContent;
 import org.apache.iceberg.Metrics;
 import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.parquet.ParquetUtil;
@@ -31,14 +33,18 @@ import java.util.Map;
 import java.util.concurrent.Callable;
 
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.TableProperties.DEFAULT_WRITE_METRICS_MODE;
 
 public class IcebergParquetFileWriter
         extends ParquetFileWriter
         implements IcebergFileWriter
 {
+    private static final MetricsConfig FULL_METRICS_CONFIG = MetricsConfig.fromProperties(ImmutableMap.of(DEFAULT_WRITE_METRICS_MODE, "full"));
+
     private final Path outputPath;
     private final HdfsEnvironment hdfsEnvironment;
     private final HdfsContext hdfsContext;
+    private final MetricsConfig metricsConfig;
 
     public IcebergParquetFileWriter(
             OutputStream outputStream,
@@ -52,7 +58,8 @@ public class IcebergParquetFileWriter
             String trinoVersion,
             Path outputPath,
             HdfsEnvironment hdfsEnvironment,
-            HdfsContext hdfsContext)
+            HdfsContext hdfsContext,
+            FileContent fileContent)
     {
         super(outputStream,
                 rollbackAction,
@@ -66,11 +73,14 @@ public class IcebergParquetFileWriter
         this.outputPath = requireNonNull(outputPath, "outputPath is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.hdfsContext = requireNonNull(hdfsContext, "hdfsContext is null");
+        requireNonNull(fileContent, "fileContent is null");
+        // TODO: initialize metrics config from Iceberg table properties
+        this.metricsConfig = fileContent == FileContent.POSITION_DELETES ? FULL_METRICS_CONFIG : MetricsConfig.getDefault();
     }
 
     @Override
     public Metrics getMetrics()
     {
-        return hdfsEnvironment.doAs(hdfsContext.getIdentity(), () -> ParquetUtil.fileMetrics(new HdfsInputFile(outputPath, hdfsEnvironment, hdfsContext), MetricsConfig.getDefault()));
+        return hdfsEnvironment.doAs(hdfsContext.getIdentity(), () -> ParquetUtil.fileMetrics(new HdfsInputFile(outputPath, hdfsEnvironment, hdfsContext), metricsConfig));
     }
 }

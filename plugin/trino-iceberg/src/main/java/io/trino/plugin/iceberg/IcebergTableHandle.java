@@ -18,10 +18,13 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
+import io.trino.plugin.iceberg.serdes.IcebergTableWrapper;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
+import org.apache.iceberg.Table;
 
+import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
@@ -35,6 +38,7 @@ public class IcebergTableHandle
     private final String schemaName;
     private final String tableName;
     private final TableType tableType;
+    private final IcebergTableWrapper tableWrapper;
     private final Optional<Long> snapshotId;
 
     // Filter used during split generation and table scan, but not required to be strictly enforced by Iceberg Connector
@@ -45,31 +49,39 @@ public class IcebergTableHandle
 
     private final Set<IcebergColumnHandle> projectedColumns;
     private final Optional<String> nameMappingJson;
+    private final List<IcebergColumnHandle> updateColumns;
 
     // OPTIMIZE only. Coordinator-only
     private final boolean recordScannedFiles;
     private final Optional<DataSize> maxScannedFileSize;
+
+    // cache table object from wrapper
+    private final Table table;
 
     @JsonCreator
     public IcebergTableHandle(
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("tableType") TableType tableType,
+            @JsonProperty("table") IcebergTableWrapper tableWrapper,
             @JsonProperty("snapshotId") Optional<Long> snapshotId,
             @JsonProperty("unenforcedPredicate") TupleDomain<IcebergColumnHandle> unenforcedPredicate,
             @JsonProperty("enforcedPredicate") TupleDomain<IcebergColumnHandle> enforcedPredicate,
             @JsonProperty("projectedColumns") Set<IcebergColumnHandle> projectedColumns,
-            @JsonProperty("nameMappingJson") Optional<String> nameMappingJson)
+            @JsonProperty("nameMappingJson") Optional<String> nameMappingJson,
+            @JsonProperty("updateColumns") List<IcebergColumnHandle> updateColumns)
     {
         this(
                 schemaName,
                 tableName,
                 tableType,
+                tableWrapper,
                 snapshotId,
                 unenforcedPredicate,
                 enforcedPredicate,
                 projectedColumns,
                 nameMappingJson,
+                updateColumns,
                 false,
                 Optional.empty());
     }
@@ -78,22 +90,27 @@ public class IcebergTableHandle
             String schemaName,
             String tableName,
             TableType tableType,
+            IcebergTableWrapper tableWrapper,
             Optional<Long> snapshotId,
             TupleDomain<IcebergColumnHandle> unenforcedPredicate,
             TupleDomain<IcebergColumnHandle> enforcedPredicate,
             Set<IcebergColumnHandle> projectedColumns,
             Optional<String> nameMappingJson,
+            List<IcebergColumnHandle> updateColumns,
             boolean recordScannedFiles,
             Optional<DataSize> maxScannedFileSize)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.tableType = requireNonNull(tableType, "tableType is null");
+        this.tableWrapper = requireNonNull(tableWrapper, "tableWrapper is null");
+        this.table = tableWrapper.getTable();
         this.snapshotId = requireNonNull(snapshotId, "snapshotId is null");
         this.unenforcedPredicate = requireNonNull(unenforcedPredicate, "unenforcedPredicate is null");
         this.enforcedPredicate = requireNonNull(enforcedPredicate, "enforcedPredicate is null");
         this.projectedColumns = ImmutableSet.copyOf(requireNonNull(projectedColumns, "projectedColumns is null"));
         this.nameMappingJson = requireNonNull(nameMappingJson, "nameMappingJson is null");
+        this.updateColumns = requireNonNull(updateColumns, "updateColumns is null");
         this.recordScannedFiles = recordScannedFiles;
         this.maxScannedFileSize = requireNonNull(maxScannedFileSize, "maxScannedFileSize is null");
     }
@@ -114,6 +131,18 @@ public class IcebergTableHandle
     public TableType getTableType()
     {
         return tableType;
+    }
+
+    @JsonProperty
+    public IcebergTableWrapper getTableWrapper()
+    {
+        return tableWrapper;
+    }
+
+    @JsonIgnore
+    public Table getTable()
+    {
+        return table;
     }
 
     @JsonProperty
@@ -146,6 +175,12 @@ public class IcebergTableHandle
         return nameMappingJson;
     }
 
+    @JsonProperty
+    public List<IcebergColumnHandle> getUpdateColumns()
+    {
+        return updateColumns;
+    }
+
     @JsonIgnore
     public boolean isRecordScannedFiles()
     {
@@ -174,11 +209,47 @@ public class IcebergTableHandle
                 schemaName,
                 tableName,
                 tableType,
+                tableWrapper,
                 snapshotId,
                 unenforcedPredicate,
                 enforcedPredicate,
                 projectedColumns,
                 nameMappingJson,
+                updateColumns,
+                recordScannedFiles,
+                maxScannedFileSize);
+    }
+
+    public IcebergTableHandle withUpdateColumns(List<IcebergColumnHandle> updateColumns)
+    {
+        return new IcebergTableHandle(
+                schemaName,
+                tableName,
+                tableType,
+                tableWrapper,
+                snapshotId,
+                unenforcedPredicate,
+                enforcedPredicate,
+                projectedColumns,
+                nameMappingJson,
+                updateColumns,
+                recordScannedFiles,
+                maxScannedFileSize);
+    }
+
+    public IcebergTableHandle withPredicates(TupleDomain<IcebergColumnHandle> unenforcedPredicate, TupleDomain<IcebergColumnHandle> enforcedPredicate)
+    {
+        return new IcebergTableHandle(
+                schemaName,
+                tableName,
+                tableType,
+                tableWrapper,
+                snapshotId,
+                unenforcedPredicate,
+                enforcedPredicate,
+                projectedColumns,
+                nameMappingJson,
+                updateColumns,
                 recordScannedFiles,
                 maxScannedFileSize);
     }
@@ -189,11 +260,13 @@ public class IcebergTableHandle
                 schemaName,
                 tableName,
                 tableType,
+                tableWrapper,
                 snapshotId,
                 unenforcedPredicate,
                 enforcedPredicate,
                 projectedColumns,
                 nameMappingJson,
+                updateColumns,
                 recordScannedFiles,
                 Optional.of(maxScannedFileSize));
     }

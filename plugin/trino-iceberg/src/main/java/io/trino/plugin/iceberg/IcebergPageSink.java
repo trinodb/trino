@@ -42,6 +42,7 @@ import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
+import org.apache.iceberg.FileContent;
 import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
@@ -314,7 +315,8 @@ public class IcebergPageSink
                 writeContext.getPath().toString(),
                 writeContext.getWriter().getWrittenBytes(),
                 new MetricsWrapper(writeContext.getWriter().getMetrics()),
-                writeContext.getPartitionData().map(PartitionData::toJson));
+                writeContext.getPartitionData().map(PartitionData::toJson),
+                FileContent.DATA);
 
         commitTasks.add(wrappedBuffer(jsonCodec.toJsonBytes(task)));
 
@@ -336,7 +338,8 @@ public class IcebergPageSink
                 session,
                 hdfsContext,
                 fileFormat,
-                metricsConfig);
+                metricsConfig,
+                FileContent.DATA);
 
         return new WriteContext(writer, outputPath, partitionData);
     }

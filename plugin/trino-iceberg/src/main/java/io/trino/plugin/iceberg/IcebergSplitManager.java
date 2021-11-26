@@ -38,13 +38,11 @@ public class IcebergSplitManager
 {
     public static final int ICEBERG_DOMAIN_COMPACTION_THRESHOLD = 1000;
 
-    private final IcebergTransactionManager transactionManager;
     private final TypeManager typeManager;
 
     @Inject
-    public IcebergSplitManager(IcebergTransactionManager transactionManager, TypeManager typeManager)
+    public IcebergSplitManager(TypeManager typeManager)
     {
-        this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
@@ -66,7 +64,7 @@ public class IcebergSplitManager
             return new FixedSplitSource(ImmutableList.of());
         }
 
-        Table icebergTable = transactionManager.get(transaction, session.getIdentity()).getIcebergTable(session, table.getSchemaTableName());
+        Table icebergTable = table.getTable();
         Duration dynamicFilteringWaitTimeout = getDynamicFilteringWaitTimeout(session);
 
         TableScan tableScan = icebergTable.newScan()

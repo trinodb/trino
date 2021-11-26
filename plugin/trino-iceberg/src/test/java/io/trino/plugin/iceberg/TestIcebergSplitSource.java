@@ -26,6 +26,7 @@ import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.file.FileMetastoreTableOperationsProvider;
+import io.trino.plugin.iceberg.serdes.IcebergTableWrapper;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.SchemaTableName;
@@ -104,16 +105,18 @@ public class TestIcebergSplitSource
     {
         long startMillis = System.currentTimeMillis();
         SchemaTableName schemaTableName = new SchemaTableName("tpch", "nation");
+        Table nationTable = loadIcebergTable(metastore, operationsProvider, SESSION, schemaTableName);
         IcebergTableHandle tableHandle = new IcebergTableHandle(
                 schemaTableName.getSchemaName(),
                 schemaTableName.getTableName(),
                 TableType.DATA,
+                IcebergTableWrapper.wrap(nationTable),
                 Optional.empty(),
                 TupleDomain.all(),
                 TupleDomain.all(),
                 ImmutableSet.of(),
-                Optional.empty());
-        Table nationTable = loadIcebergTable(metastore, operationsProvider, SESSION, schemaTableName);
+                Optional.empty(),
+                ImmutableList.of());
 
         IcebergSplitSource splitSource = new IcebergSplitSource(
                 tableHandle,

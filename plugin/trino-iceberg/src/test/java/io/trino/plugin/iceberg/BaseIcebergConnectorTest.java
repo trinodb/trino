@@ -134,7 +134,7 @@ public abstract class BaseIcebergConnectorTest
     {
         return createIcebergQueryRunner(
                 Map.of(),
-                Map.of("iceberg.file-format", format.name()),
+                Map.of("iceberg.file-format", format.name(), "iceberg.format-version", "2"),
                 ImmutableList.<TpchTable<?>>builder()
                         .addAll(REQUIRED_TPCH_TABLES)
                         .add(LINE_ITEM)
@@ -162,63 +162,6 @@ public abstract class BaseIcebergConnectorTest
             default:
                 return super.hasBehavior(connectorBehavior);
         }
-    }
-
-    @Test
-    @Override
-    public void testDelete()
-    {
-        // Deletes are covered with testMetadataDelete test methods
-        assertThatThrownBy(super::testDelete)
-                .hasStackTraceContaining("This connector only supports delete where one or more identity-transformed partitions are deleted entirely");
-    }
-
-    @Override
-    public void testDeleteWithComplexPredicate()
-    {
-        // Deletes are covered with testMetadataDelete test methods
-        assertThatThrownBy(super::testDeleteWithComplexPredicate)
-                .hasStackTraceContaining("This connector only supports delete where one or more identity-transformed partitions are deleted entirely");
-    }
-
-    @Override
-    public void testDeleteWithSemiJoin()
-    {
-        // Deletes are covered with testMetadataDelete test methods
-        assertThatThrownBy(super::testDeleteWithSemiJoin)
-                .hasStackTraceContaining("This connector only supports delete where one or more identity-transformed partitions are deleted entirely");
-    }
-
-    @Override
-    public void testDeleteWithSubquery()
-    {
-        // Deletes are covered with testMetadataDelete test methods
-        assertThatThrownBy(super::testDeleteWithSubquery)
-                .hasStackTraceContaining("This connector only supports delete where one or more identity-transformed partitions are deleted entirely");
-    }
-
-    @Override
-    public void testExplainAnalyzeWithDeleteWithSubquery()
-    {
-        // Deletes are covered with testMetadataDelete test methods
-        assertThatThrownBy(super::testExplainAnalyzeWithDeleteWithSubquery)
-                .hasStackTraceContaining("This connector only supports delete where one or more identity-transformed partitions are deleted entirely");
-    }
-
-    @Override
-    public void testDeleteWithVarcharPredicate()
-    {
-        // Deletes are covered with testMetadataDelete test methods
-        assertThatThrownBy(super::testDeleteWithVarcharPredicate)
-                .hasStackTraceContaining("This connector only supports delete where one or more identity-transformed partitions are deleted entirely");
-    }
-
-    @Override
-    public void testRowLevelDelete()
-    {
-        // Deletes are covered with testMetadataDelete test methods
-        assertThatThrownBy(super::testRowLevelDelete)
-                .hasStackTraceContaining("This connector only supports delete where one or more identity-transformed partitions are deleted entirely");
     }
 
     @Override
@@ -1789,9 +1732,6 @@ public abstract class BaseIcebergConnectorTest
     {
         assertUpdate("CREATE TABLE test_metadata_delete_simple (col1 BIGINT, col2 BIGINT) WITH (partitioning = ARRAY['col1'])");
         assertUpdate("INSERT INTO test_metadata_delete_simple VALUES(1, 100), (1, 101), (1, 102), (2, 200), (2, 201), (3, 300)", 6);
-        assertQueryFails(
-                "DELETE FROM test_metadata_delete_simple WHERE col1 = 1 AND col2 > 101",
-                "This connector only supports delete where one or more identity-transformed partitions are deleted entirely");
         assertQuery("SELECT sum(col2) FROM test_metadata_delete_simple", "SELECT 1004");
         assertQuery("SELECT count(*) FROM \"test_metadata_delete_simple$partitions\"", "SELECT 3");
         assertUpdate("DELETE FROM test_metadata_delete_simple WHERE col1 = 1");
@@ -1828,8 +1768,6 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("DELETE FROM test_metadata_delete WHERE linestatus='O'");
         assertQuery("SELECT count(*) FROM \"test_metadata_delete$partitions\"", "SELECT 6");
         assertQuery("SELECT * FROM test_metadata_delete", "SELECT orderkey, linenumber, linestatus FROM lineitem WHERE linestatus <> 'O' AND linenumber <> 3");
-
-        assertQueryFails("DELETE FROM test_metadata_delete WHERE orderkey=1", "This connector only supports delete where one or more identity-transformed partitions are deleted entirely");
 
         dropTable("test_metadata_delete");
     }
@@ -2392,7 +2330,7 @@ public abstract class BaseIcebergConnectorTest
                 .execute(getSession(), consumer);
     }
 
-    private void dropTable(String table)
+    void dropTable(String table)
     {
         Session session = getSession();
         assertUpdate(session, "DROP TABLE " + table);
@@ -3311,6 +3249,138 @@ public abstract class BaseIcebergConnectorTest
                     .filter(path -> !path.getFileName().toString().matches("\\..*\\.crc"))
                     .map(Path::toString)
                     .collect(toImmutableList());
+        }
+    }
+
+    @Override
+    @Test
+    public void testDeleteWithComplexPredicate()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_complex_", "AS SELECT * FROM orders")) {
+            // delete half the table, then delete the rest
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE orderkey % 2 = 0", "SELECT count(*) FROM orders WHERE orderkey % 2 = 0");
+            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM orders WHERE orderkey % 2 <> 0");
+
+            // TODO: support count for metadata delete
+            assertUpdate("DELETE FROM " + table.getName());
+            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM orders LIMIT 0");
+
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE rand() < 0", 0);
+        }
+    }
+
+    @Override
+    @Test
+    public void testDeleteWithSubquery()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_subquery", "AS SELECT * FROM nation")) {
+            // delete using a subquery
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE regionkey IN (SELECT regionkey FROM region WHERE name LIKE 'A%')", 15);
+            assertQuery(
+                    "SELECT * FROM " + table.getName(),
+                    "SELECT * FROM nation WHERE regionkey IN (SELECT regionkey FROM region WHERE name NOT LIKE 'A%')");
+        }
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_subquery", "AS SELECT * FROM orders")) {
+            // delete using a scalar and EXISTS subquery
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE orderkey = (SELECT orderkey FROM orders ORDER BY orderkey LIMIT 1)", 1);
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE orderkey = (SELECT orderkey FROM orders WHERE false)", 0);
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE EXISTS(SELECT 1 WHERE false)", 0);
+
+            // TODO: support count for metadata delete
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE EXISTS(SELECT 1)");
+            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM orders LIMIT 0");
+        }
+    }
+
+    @Test
+    public void testDeleteWithBigintEqualityPredicate()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_bigint", "AS SELECT * FROM region")) {
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE regionkey = 1", 1);
+            assertQuery(
+                    "SELECT regionkey, name FROM " + table.getName(),
+                    "VALUES "
+                            + "(0, 'AFRICA'),"
+                            + "(2, 'ASIA'),"
+                            + "(3, 'EUROPE'),"
+                            + "(4, 'MIDDLE EAST')");
+        }
+    }
+
+    @Test
+    public void testDeleteWithVarcharInequalityPredicate()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute,
+                "test_delete_varchar", "(col varchar(1))", ImmutableList.of("'a'", "'A'", "null"))) {
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE col != 'A'", 1);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES 'A', null");
+        }
+    }
+
+    @Test
+    public void testDeleteWithVarcharGreaterAndLowerPredicate()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute,
+                "test_delete_varchar", "(col varchar(1))", ImmutableList.of("'0'", "'a'", "'A'", "'b'", "null"))) {
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE col < 'A'", 1);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES 'a', 'A', 'b', null");
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE col > 'A'", 2);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES 'A', null");
+        }
+    }
+
+    @Test
+    public void testUpdateUnpartitionedTable()
+    {
+        testUpdate("");
+    }
+
+    @Test
+    public void testUpdatePartitionedTable()
+    {
+        testUpdate("WITH (partitioning = ARRAY['orderstatus'])");
+    }
+
+    @Test
+    public void testUpdatePartitionedBucketedTable()
+    {
+        testUpdate("WITH (partitioning = ARRAY['orderstatus', 'bucket(orderkey, 16)'])");
+    }
+
+    @Test
+    public void testUpdatePartitionedMonthlyTable()
+    {
+        testUpdate("WITH (partitioning = ARRAY['orderstatus', 'month(orderdate)'])");
+    }
+
+    private void testUpdate(String partitioning)
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_update_unpartitioned_",
+                partitioning + " AS SELECT * FROM orders")) {
+            assertUpdate("UPDATE " + table.getName() + " SET comment='updated' WHERE custkey <= 100",
+                    "SELECT count(*) FROM orders WHERE custkey <= 100");
+            assertQuery("SELECT custkey, orderkey, comment FROM " + table.getName() + " WHERE comment='updated'",
+                    "SELECT custkey, orderkey, 'updated' FROM orders WHERE custkey <= 100");
+
+            assertUpdate("UPDATE " + table.getName() + " SET totalprice=2.33 WHERE custkey > 100 AND custkey <= 300",
+                    "SELECT count(*) FROM orders WHERE custkey > 100 AND custkey <= 300");
+            assertQuery("SELECT custkey, orderkey, totalprice FROM " + table.getName() + " WHERE totalprice=2.33",
+                    "SELECT custkey, orderkey, 2.33 FROM orders WHERE custkey > 100 AND custkey <= 300");
+
+            assertUpdate("UPDATE " + table.getName() + " SET orderdate=CAST('3000-01-01' AS DATE) WHERE custkey > 300 AND custkey <= 500",
+                    "SELECT count(*) FROM orders WHERE custkey > 300 AND custkey <= 500");
+            assertQuery("SELECT custkey, orderkey, orderdate FROM " + table.getName() + " WHERE orderdate=CAST('3000-01-01' AS DATE)",
+                    "SELECT custkey, orderkey, CAST('3000-01-01' AS DATE) FROM orders WHERE custkey > 300 AND custkey <= 500");
+
+            assertUpdate("UPDATE " + table.getName() + " SET clerk='updated',orderstatus='updated' WHERE custkey > 1000 AND custkey <= 2000",
+                    "SELECT count(*) FROM orders WHERE custkey > 1000 AND custkey <= 2000");
+            assertQuery("SELECT custkey, orderkey, clerk, orderstatus FROM " + table.getName() + " WHERE clerk='updated'",
+                    "SELECT custkey, orderkey, 'updated', 'updated' FROM orders WHERE custkey > 1000 AND custkey <= 2000");
+            assertQuery("SELECT custkey, orderkey, clerk, orderstatus FROM " + table.getName() + " WHERE orderstatus='updated'",
+                    "SELECT custkey, orderkey, 'updated', 'updated' FROM orders WHERE custkey > 1000 AND custkey <= 2000");
+
+            assertExplainAnalyze("EXPLAIN ANALYZE UPDATE " + table.getName() + " SET comment='updated2' WHERE comment='update'");
         }
     }
 

@@ -27,13 +27,17 @@ import org.apache.hadoop.fs.permission.FsPermission;
 
 import javax.inject.Inject;
 
+import java.io.Externalizable;
 import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class HdfsEnvironment
+        implements Externalizable
 {
     static {
         HadoopNative.requireHadoopNative();
@@ -102,7 +106,29 @@ public class HdfsEnvironment
         hdfsAuthentication.doAs(identity, action);
     }
 
+    public HdfsEnvironment()
+    {
+        this.hdfsConfiguration = null;
+        this.hdfsAuthentication = null;
+        this.newDirectoryPermissions = null;
+        this.newFileInheritOwnership = false;
+        this.verifyChecksum = false;
+    }
+
+    @Override
+    public void writeExternal(ObjectOutput out)
+            throws IOException
+    {
+    }
+
+    @Override
+    public void readExternal(ObjectInput in)
+            throws IOException, ClassNotFoundException
+    {
+    }
+
     public static class HdfsContext
+            implements Externalizable
     {
         private final ConnectorIdentity identity;
 
@@ -129,6 +155,23 @@ public class HdfsEnvironment
                     .omitNullValues()
                     .add("user", identity)
                     .toString();
+        }
+
+        public HdfsContext()
+        {
+            identity = null;
+        }
+
+        @Override
+        public void writeExternal(ObjectOutput out)
+                throws IOException
+        {
+        }
+
+        @Override
+        public void readExternal(ObjectInput in)
+                throws IOException, ClassNotFoundException
+        {
         }
     }
 }

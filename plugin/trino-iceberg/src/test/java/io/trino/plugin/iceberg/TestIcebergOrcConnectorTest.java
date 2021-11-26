@@ -14,8 +14,10 @@
 package io.trino.plugin.iceberg;
 
 import io.trino.Session;
+import org.testng.annotations.Test;
 
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestIcebergOrcConnectorTest
         extends BaseIcebergConnectorTest
@@ -44,5 +46,117 @@ public class TestIcebergOrcConnectorTest
         return Session.builder(session)
                 .setCatalogSessionProperty("iceberg", "orc_writer_max_stripe_rows", "10")
                 .build();
+    }
+
+    @Override
+    @Test
+    public void testDeleteWithBigintEqualityPredicate()
+    {
+        assertThatThrownBy(super::testDeleteWithBigintEqualityPredicate)
+                .hasStackTraceContaining("Row level delete and update are not supported for ORC type");
+    }
+
+    @Override
+    @Test
+    public void testDeleteWithVarcharInequalityPredicate()
+    {
+        assertThatThrownBy(super::testDeleteWithVarcharInequalityPredicate)
+                .hasStackTraceContaining("Row level delete and update are not supported for ORC type");
+    }
+
+    @Override
+    @Test
+    public void testDeleteWithVarcharGreaterAndLowerPredicate()
+    {
+        assertThatThrownBy(super::testDeleteWithVarcharGreaterAndLowerPredicate)
+                .hasStackTraceContaining("Row level delete and update are not supported for ORC type");
+    }
+
+    @Override
+    @Test
+    public void testDeleteWithComplexPredicate()
+    {
+        assertThatThrownBy(super::testDeleteWithComplexPredicate)
+                .hasStackTraceContaining("Row level delete and update are not supported for ORC type");
+    }
+
+    @Override
+    @Test
+    public void testDeleteWithSubquery()
+    {
+        assertThatThrownBy(super::testDeleteWithSubquery)
+                .hasStackTraceContaining("Row level delete and update are not supported for ORC type");
+    }
+
+    @Override
+    @Test
+    public void testExplainAnalyzeWithDeleteWithSubquery()
+    {
+        assertThatThrownBy(super::testExplainAnalyzeWithDeleteWithSubquery)
+                .hasStackTraceContaining("Row level delete and update are not supported for ORC type");
+    }
+
+    @Override
+    @Test
+    public void testDeleteWithSemiJoin()
+    {
+        assertThatThrownBy(super::testDeleteWithSemiJoin)
+                .hasStackTraceContaining("Row level delete and update are not supported for ORC type");
+    }
+
+    @Override
+    @Test
+    public void testDeleteWithVarcharPredicate()
+    {
+        assertThatThrownBy(super::testDeleteWithVarcharPredicate)
+                .hasStackTraceContaining("Row level delete and update are not supported for ORC type");
+    }
+
+    @Override
+    @Test
+    public void testRowLevelDelete()
+    {
+        assertThatThrownBy(super::testRowLevelDelete)
+                .hasStackTraceContaining("Row level delete and update are not supported for ORC type");
+    }
+
+    @Override
+    @Test
+    public void testDelete()
+    {
+        assertThatThrownBy(super::testDelete)
+                .hasStackTraceContaining("Row level delete and update are not supported for ORC type");
+    }
+
+    @Override
+    @Test
+    public void testUpdateUnpartitionedTable()
+    {
+        assertThatThrownBy(super::testUpdateUnpartitionedTable)
+                .hasStackTraceContaining("Row level delete and update are not supported for ORC type");
+    }
+
+    @Override
+    @Test
+    public void testUpdatePartitionedTable()
+    {
+        assertThatThrownBy(super::testUpdatePartitionedTable)
+                .hasStackTraceContaining("Row level delete and update are not supported for ORC type");
+    }
+
+    @Override
+    @Test
+    public void testUpdatePartitionedBucketedTable()
+    {
+        assertThatThrownBy(super::testUpdatePartitionedBucketedTable)
+                .hasStackTraceContaining("Row level delete and update are not supported for ORC type");
+    }
+
+    @Override
+    @Test
+    public void testUpdatePartitionedMonthlyTable()
+    {
+        assertThatThrownBy(super::testUpdatePartitionedMonthlyTable)
+                .hasStackTraceContaining("Row level delete and update are not supported for ORC type");
     }
 }

@@ -35,6 +35,7 @@ import io.trino.spi.type.TypeManager;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
+import org.apache.iceberg.FileContent;
 import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.types.Types;
@@ -111,12 +112,13 @@ public class IcebergFileWriterFactory
             ConnectorSession session,
             HdfsContext hdfsContext,
             IcebergFileFormat fileFormat,
-            MetricsConfig metricsConfig)
+            MetricsConfig metricsConfig,
+            FileContent fileContent)
     {
         switch (fileFormat) {
             case PARQUET:
                 // TODO use metricsConfig
-                return createParquetWriter(outputPath, icebergSchema, jobConf, session, hdfsContext);
+                return createParquetWriter(outputPath, icebergSchema, jobConf, session, hdfsContext, fileContent);
             case ORC:
                 return createOrcWriter(metricsConfig, outputPath, icebergSchema, jobConf, session);
             default:
@@ -129,7 +131,8 @@ public class IcebergFileWriterFactory
             Schema icebergSchema,
             JobConf jobConf,
             ConnectorSession session,
-            HdfsContext hdfsContext)
+            HdfsContext hdfsContext,
+            FileContent fileContent)
     {
         List<String> fileColumnNames = icebergSchema.columns().stream()
                 .map(Types.NestedField::name)
@@ -164,7 +167,8 @@ public class IcebergFileWriterFactory
                     nodeVersion.toString(),
                     outputPath,
                     hdfsEnvironment,
-                    hdfsContext);
+                    hdfsContext,
+                    fileContent);
         }
         catch (IOException e) {
             throw new TrinoException(ICEBERG_WRITER_OPEN_ERROR, "Error creating Parquet file", e);

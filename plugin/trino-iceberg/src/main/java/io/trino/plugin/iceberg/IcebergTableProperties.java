@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.spi.TrinoException;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.ArrayType;
 
@@ -25,9 +26,14 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.iceberg.IcebergConfig.FORMAT_VERSION_SUPPORT_MAX;
+import static io.trino.plugin.iceberg.IcebergConfig.FORMAT_VERSION_SUPPORT_MIN;
+import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.session.PropertyMetadata.enumProperty;
+import static io.trino.spi.session.PropertyMetadata.integerProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 
 public class IcebergTableProperties
@@ -35,6 +41,7 @@ public class IcebergTableProperties
     public static final String FILE_FORMAT_PROPERTY = "format";
     public static final String PARTITIONING_PROPERTY = "partitioning";
     public static final String LOCATION_PROPERTY = "location";
+    public static final String FORMAT_VERSION_PROPERTY = "format_version";
 
     private final List<PropertyMetadata<?>> tableProperties;
 
@@ -64,6 +71,11 @@ public class IcebergTableProperties
                         "File system location URI for the table",
                         null,
                         false))
+                .add(integerProperty(
+                        FORMAT_VERSION_PROPERTY,
+                        "Iceberg table format version",
+                        icebergConfig.getFormatVersion(),
+                        false))
                 .build();
     }
 
@@ -87,5 +99,15 @@ public class IcebergTableProperties
     public static Optional<String> getTableLocation(Map<String, Object> tableProperties)
     {
         return Optional.ofNullable((String) tableProperties.get(LOCATION_PROPERTY));
+    }
+
+    public static int getFormatVersion(Map<String, Object> tableProperties)
+    {
+        int version = (int) tableProperties.get(FORMAT_VERSION_PROPERTY);
+        if (version < FORMAT_VERSION_SUPPORT_MIN || version > FORMAT_VERSION_SUPPORT_MAX) {
+            throw new TrinoException(INVALID_TABLE_PROPERTY,
+                    format("format_version must be between %d and %d", FORMAT_VERSION_SUPPORT_MIN, FORMAT_VERSION_SUPPORT_MAX));
+        }
+        return version;
     }
 }
