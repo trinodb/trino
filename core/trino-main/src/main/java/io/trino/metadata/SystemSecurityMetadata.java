@@ -127,7 +127,6 @@ public interface SystemSecurityMetadata
 
     /**
      * Get the identity to run the view as
-     * @return
      */
     Optional<Identity> getViewRunAsIdentity(Session session, CatalogSchemaTableName viewName);
 

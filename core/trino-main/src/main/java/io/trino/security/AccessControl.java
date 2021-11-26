@@ -87,7 +87,6 @@ public interface AccessControl
     /**
      * Filter the list of users to those the identity view query owned by the user.  The method
      * will not be called with the current user in the set.
-     * @return
      */
     Collection<Identity> filterQueriesOwnedBy(Identity identity, Collection<Identity> queryOwners);
 
