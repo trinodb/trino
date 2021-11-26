@@ -30,10 +30,12 @@ import org.testng.annotations.Test;
 import javax.security.auth.kerberos.KerberosPrincipal;
 
 import java.io.File;
+import java.net.URISyntaxException;
 import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.io.Files.copy;
+import static com.google.common.io.Resources.getResource;
 import static io.trino.plugin.base.security.FileBasedAccessControlConfig.SECURITY_CONFIG_FILE;
 import static io.trino.plugin.base.security.FileBasedAccessControlConfig.SECURITY_REFRESH_PERIOD;
 import static io.trino.spi.security.PrincipalType.USER;
@@ -827,7 +829,12 @@ public class TestFileBasedSystemAccessControl
 
     private String getResourcePath(String resourceName)
     {
-        return this.getClass().getClassLoader().getResource(resourceName).getPath();
+        try {
+            return new File(getResource(resourceName).toURI()).getPath();
+        }
+        catch (URISyntaxException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Test
