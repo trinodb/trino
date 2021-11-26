@@ -30,6 +30,10 @@ import javax.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import java.util.concurrent.TimeUnit;
 
+import static io.trino.util.MachineInfo.getAvailablePhysicalProcessorCount;
+import static it.unimi.dsi.fastutil.HashCommon.nextPowerOfTwo;
+import static java.lang.Math.min;
+
 @DefunctConfig({
         "experimental.big-query-max-task-memory",
         "task.max-memory",
@@ -66,7 +70,8 @@ public class TaskManagerConfig
     private Duration infoUpdateInterval = new Duration(3, TimeUnit.SECONDS);
 
     private int writerCount = 1;
-    private int taskConcurrency = 16;
+    // cap task concurrency to 32 in order to avoid small pages produced by local partitioning exchanges
+    private int taskConcurrency = min(nextPowerOfTwo(getAvailablePhysicalProcessorCount()), 32);
     private int httpResponseThreads = 100;
     private int httpTimeoutThreads = 3;
 
