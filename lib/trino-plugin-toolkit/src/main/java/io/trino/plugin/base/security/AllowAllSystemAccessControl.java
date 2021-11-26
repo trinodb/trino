@@ -19,6 +19,7 @@ import io.trino.spi.connector.CatalogSchemaRoutineName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.eventlistener.EventListener;
+import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.SystemAccessControl;
 import io.trino.spi.security.SystemAccessControlFactory;
@@ -28,6 +29,7 @@ import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.Type;
 
 import java.security.Principal;
+import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -86,13 +88,29 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
+    public void checkCanViewQueryOwnedBy(SystemSecurityContext context, Identity queryOwner)
+    {
+    }
+
+    @Override
     public void checkCanViewQueryOwnedBy(SystemSecurityContext context, String queryOwner)
+    {
+    }
+
+    @Override
+    public void checkCanKillQueryOwnedBy(SystemSecurityContext context, Identity queryOwner)
     {
     }
 
     @Override
     public void checkCanKillQueryOwnedBy(SystemSecurityContext context, String queryOwner)
     {
+    }
+
+    @Override
+    public Collection<Identity> filterViewQuery(SystemSecurityContext context, Collection<Identity> queryOwners)
+    {
+        return queryOwners;
     }
 
     @Override
