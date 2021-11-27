@@ -316,6 +316,7 @@ class StatementAnalyzer
 {
     private static final Set<String> WINDOW_VALUE_FUNCTIONS = ImmutableSet.of("lead", "lag", "first_value", "last_value", "nth_value");
 
+    private final StatementAnalyzerFactory statementAnalyzerFactory;
     private final Analysis analysis;
     private final Metadata metadata;
     private final TypeCoercion typeCoercion;
@@ -326,7 +327,8 @@ class StatementAnalyzer
     private final WarningCollector warningCollector;
     private final CorrelationSupport correlationSupport;
 
-    public StatementAnalyzer(
+    StatementAnalyzer(
+            StatementAnalyzerFactory statementAnalyzerFactory,
             Analysis analysis,
             Metadata metadata,
             SqlParser sqlParser,
@@ -336,6 +338,7 @@ class StatementAnalyzer
             WarningCollector warningCollector,
             CorrelationSupport correlationSupport)
     {
+        this.statementAnalyzerFactory = requireNonNull(statementAnalyzerFactory, "statementAnalyzerFactory is null");
         this.analysis = requireNonNull(analysis, "analysis is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.typeCoercion = new TypeCoercion(metadata::getType);
@@ -696,15 +699,9 @@ class StatementAnalyzer
 
             // Analyzer checks for select permissions but DELETE has a separate permission, so disable access checks
             // TODO: we shouldn't need to create a new analyzer. The access control should be carried in the context object
-            StatementAnalyzer analyzer = new StatementAnalyzer(
-                    analysis,
-                    metadata,
-                    sqlParser,
-                    groupProvider,
-                    new AllowAllAccessControl(),
-                    session,
-                    warningCollector,
-                    CorrelationSupport.ALLOWED);
+            StatementAnalyzer analyzer = statementAnalyzerFactory
+                    .withSpecializedAccessControl(new AllowAllAccessControl())
+                    .createStatementAnalyzer(analysis, session, warningCollector, CorrelationSupport.ALLOWED);
 
             Scope tableScope = analyzer.analyzeForUpdate(table, scope, UpdateKind.DELETE);
             node.getWhere().ifPresent(where -> analyzeWhere(node, tableScope, where));
@@ -875,7 +872,7 @@ class StatementAnalyzer
             QualifiedObjectName viewName = createQualifiedObjectName(session, node, node.getName());
 
             // analyze the query that creates the view
-            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, groupProvider, accessControl, session, warningCollector, CorrelationSupport.ALLOWED);
+            StatementAnalyzer analyzer = statementAnalyzerFactory.createStatementAnalyzer(analysis, session, warningCollector, CorrelationSupport.ALLOWED);
 
             Scope queryScope = analyzer.analyze(node.getQuery(), scope);
 
@@ -1220,7 +1217,7 @@ class StatementAnalyzer
             }
 
             // analyze the query that creates the view
-            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, groupProvider, accessControl, session, warningCollector, CorrelationSupport.ALLOWED);
+            StatementAnalyzer analyzer = statementAnalyzerFactory.createStatementAnalyzer(analysis, session, warningCollector, CorrelationSupport.ALLOWED);
 
             Scope queryScope = analyzer.analyze(node.getQuery(), scope);
 
@@ -1420,7 +1417,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitLateral(Lateral node, Optional<Scope> scope)
         {
-            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, groupProvider, accessControl, session, warningCollector, CorrelationSupport.ALLOWED);
+            StatementAnalyzer analyzer = statementAnalyzerFactory.createStatementAnalyzer(analysis, session, warningCollector, CorrelationSupport.ALLOWED);
             Scope queryScope = analyzer.analyze(node.getQuery(), scope);
             return createAndAssignScope(node, scope, queryScope.getRelationType());
         }
@@ -2004,10 +2001,8 @@ class StatementAnalyzer
 
             return ExpressionAnalyzer.analyzePatternRecognitionExpression(
                     session,
-                    metadata,
-                    groupProvider,
+                    statementAnalyzerFactory,
                     accessControl,
-                    sqlParser,
                     scope,
                     analysis,
                     expression,
@@ -2051,10 +2046,7 @@ class StatementAnalyzer
 
             Map<NodeRef<Expression>, Type> expressionTypes = ExpressionAnalyzer.analyzeExpressions(
                     session,
-                    metadata,
-                    groupProvider,
-                    accessControl,
-                    sqlParser,
+                    statementAnalyzerFactory,
                     TypeProvider.empty(),
                     ImmutableList.of(samplePercentage),
                     analysis.getParameters(),
@@ -2101,7 +2093,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitTableSubquery(TableSubquery node, Optional<Scope> scope)
         {
-            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, groupProvider, accessControl, session, warningCollector, CorrelationSupport.ALLOWED);
+            StatementAnalyzer analyzer = statementAnalyzerFactory.createStatementAnalyzer(analysis, session, warningCollector, CorrelationSupport.ALLOWED);
             Scope queryScope = analyzer.analyze(node.getQuery(), scope);
             return createAndAssignScope(node, scope, queryScope.getRelationType());
         }
@@ -2421,15 +2413,9 @@ class StatementAnalyzer
             analysis.setUpdatedColumns(updatedColumns);
 
             // Analyzer checks for select permissions but UPDATE has a separate permission, so disable access checks
-            StatementAnalyzer analyzer = new StatementAnalyzer(
-                    analysis,
-                    metadata,
-                    sqlParser,
-                    groupProvider,
-                    new AllowAllAccessControl(),
-                    session,
-                    warningCollector,
-                    CorrelationSupport.ALLOWED);
+            StatementAnalyzer analyzer = statementAnalyzerFactory
+                    .withSpecializedAccessControl(new AllowAllAccessControl())
+                    .createStatementAnalyzer(analysis, session, warningCollector, CorrelationSupport.ALLOWED);
 
             Scope tableScope = analyzer.analyzeForUpdate(table, scope, UpdateKind.UPDATE);
             update.getWhere().ifPresent(where -> analyzeWhere(update, tableScope, where));
@@ -2747,10 +2733,8 @@ class StatementAnalyzer
         {
             ExpressionAnalysis expressionAnalysis = ExpressionAnalyzer.analyzeWindow(
                     session,
-                    metadata,
-                    groupProvider,
+                    statementAnalyzerFactory,
                     accessControl,
-                    sqlParser,
                     scope,
                     analysis,
                     WarningCollector.NOOP,
@@ -3454,7 +3438,9 @@ class StatementAnalyzer
                 // TODO: record path in view definition (?) (check spec) and feed it into the session object we use to evaluate the query defined by the view
                 Session viewSession = createViewSession(catalog, schema, identity, session.getPath());
 
-                StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, groupProvider, viewAccessControl, viewSession, warningCollector, CorrelationSupport.ALLOWED);
+                StatementAnalyzer analyzer = statementAnalyzerFactory
+                        .withSpecializedAccessControl(viewAccessControl)
+                        .createStatementAnalyzer(analysis, viewSession, warningCollector, CorrelationSupport.ALLOWED);
                 Scope queryScope = analyzer.analyze(query, Scope.create());
                 return queryScope.getRelationType().withAlias(name.getObjectName(), null);
             }
@@ -3531,10 +3517,8 @@ class StatementAnalyzer
         {
             return ExpressionAnalyzer.analyzeExpression(
                     session,
-                    metadata,
-                    groupProvider,
+                    statementAnalyzerFactory,
                     accessControl,
-                    sqlParser,
                     scope,
                     analysis,
                     expression,
@@ -3546,10 +3530,8 @@ class StatementAnalyzer
         {
             return ExpressionAnalyzer.analyzeExpression(
                     session,
-                    metadata,
-                    groupProvider,
+                    statementAnalyzerFactory,
                     accessControl,
-                    sqlParser,
                     scope,
                     analysis,
                     expression,
@@ -3579,10 +3561,8 @@ class StatementAnalyzer
             try {
                 expressionAnalysis = ExpressionAnalyzer.analyzeExpression(
                         createViewSession(filter.getCatalog(), filter.getSchema(), Identity.forUser(filter.getIdentity()).build(), session.getPath()), // TODO: path should be included in row filter
-                        metadata,
-                        groupProvider,
+                        statementAnalyzerFactory,
                         accessControl,
-                        sqlParser,
                         scope,
                         analysis,
                         expression,
@@ -3635,10 +3615,8 @@ class StatementAnalyzer
             try {
                 expressionAnalysis = ExpressionAnalyzer.analyzeExpression(
                         createViewSession(mask.getCatalog(), mask.getSchema(), Identity.forUser(mask.getIdentity()).build(), session.getPath()), // TODO: path should be included in row filter
-                        metadata,
-                        groupProvider,
+                        statementAnalyzerFactory,
                         accessControl,
-                        sqlParser,
                         scope,
                         analysis,
                         expression,
@@ -4060,10 +4038,8 @@ class StatementAnalyzer
                 }
 
                 ExpressionAnalysis expressionAnalysis = ExpressionAnalyzer.analyzeExpression(session,
-                        metadata,
-                        groupProvider,
+                        statementAnalyzerFactory,
                         accessControl,
-                        sqlParser,
                         orderByScope,
                         analysis,
                         expression,

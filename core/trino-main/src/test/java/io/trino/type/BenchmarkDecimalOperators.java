@@ -26,7 +26,6 @@ import io.trino.spi.type.SqlDecimal;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.gen.PageFunctionCompiler;
-import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
@@ -64,6 +63,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.ExpressionTestUtils.createExpression;
+import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static java.lang.String.format;
 import static java.math.BigInteger.ONE;
@@ -550,7 +550,7 @@ public class BenchmarkDecimalOperators
     private static class BaseState
     {
         private final Metadata metadata = createTestMetadataManager();
-        private final TypeAnalyzer typeAnalyzer = new TypeAnalyzer(new SqlParser(), metadata);
+        private final TypeAnalyzer typeAnalyzer = createTestingTypeAnalyzer(metadata);
         private final Random random = new Random();
 
         protected final Map<String, Symbol> symbols = new HashMap<>();

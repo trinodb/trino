@@ -16,6 +16,7 @@ package io.trino.sql.planner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.PeekingIterator;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -23,6 +24,7 @@ import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.OperatorNotFoundException;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.predicate.DiscreteValues;
@@ -40,6 +42,7 @@ import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.ExpressionUtils;
 import io.trino.sql.InterpretedFunctionInvoker;
+import io.trino.sql.analyzer.StatementAnalyzerFactory;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.BetweenPredicate;
@@ -299,7 +302,13 @@ public final class DomainTranslator
             Expression predicate,
             TypeProvider types)
     {
-        return new Visitor(metadata, typeOperators, session, types, new TypeAnalyzer(new SqlParser(), metadata)).process(predicate, false);
+        // This is a limited type analyzer for the simple expressions used in this method
+        TypeAnalyzer typeAnalyzer = new TypeAnalyzer(new StatementAnalyzerFactory(
+                metadata,
+                new SqlParser(),
+                new AllowAllAccessControl(),
+                user -> ImmutableSet.of()));
+        return new Visitor(metadata, typeOperators, session, types, typeAnalyzer).process(predicate, false);
     }
 
     private static class Visitor

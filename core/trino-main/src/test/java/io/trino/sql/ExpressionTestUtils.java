@@ -25,7 +25,6 @@ import io.trino.sql.analyzer.Scope;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.DesugarArrayConstructorRewriter;
 import io.trino.sql.planner.DesugarLikeRewriter;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.assertions.ExpressionVerifier;
 import io.trino.sql.planner.assertions.SymbolAliases;
@@ -47,6 +46,7 @@ import static io.trino.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static io.trino.sql.ParsingUtil.createParsingOptions;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static org.testng.internal.EclipseInterface.ASSERT_LEFT;
 import static org.testng.internal.EclipseInterface.ASSERT_MIDDLE;
@@ -106,9 +106,9 @@ public final class ExpressionTestUtils
     private static Expression planExpressionInExistingTx(Metadata metadata, TypeProvider typeProvider, Expression expression, Session transactionSession)
     {
         Expression rewritten = rewriteIdentifiersToSymbolReferences(expression);
-        rewritten = DesugarLikeRewriter.rewrite(rewritten, transactionSession, metadata, new TypeAnalyzer(SQL_PARSER, metadata), typeProvider);
-        rewritten = DesugarArrayConstructorRewriter.rewrite(rewritten, transactionSession, metadata, new TypeAnalyzer(SQL_PARSER, metadata), typeProvider);
-        rewritten = CanonicalizeExpressionRewriter.rewrite(rewritten, transactionSession, metadata, new TypeAnalyzer(SQL_PARSER, metadata), typeProvider);
+        rewritten = DesugarLikeRewriter.rewrite(rewritten, transactionSession, metadata, createTestingTypeAnalyzer(metadata), typeProvider);
+        rewritten = DesugarArrayConstructorRewriter.rewrite(rewritten, transactionSession, metadata, createTestingTypeAnalyzer(metadata), typeProvider);
+        rewritten = CanonicalizeExpressionRewriter.rewrite(rewritten, transactionSession, metadata, createTestingTypeAnalyzer(metadata), typeProvider);
         return resolveFunctionCalls(metadata, transactionSession, typeProvider, rewritten);
     }
 
@@ -180,12 +180,12 @@ public final class ExpressionTestUtils
     public static Map<NodeRef<Expression>, Type> getTypes(Session session, Metadata metadata, TypeProvider typeProvider, Expression expression)
     {
         if (session.getTransactionId().isPresent()) {
-            return new TypeAnalyzer(SQL_PARSER, metadata).getTypes(session, typeProvider, expression);
+            return createTestingTypeAnalyzer(metadata).getTypes(session, typeProvider, expression);
         }
         return transaction(new TestingTransactionManager(), new AllowAllAccessControl())
                 .singleStatement()
                 .execute(session, transactionSession -> {
-                    return new TypeAnalyzer(SQL_PARSER, metadata).getTypes(transactionSession, typeProvider, expression);
+                    return createTestingTypeAnalyzer(metadata).getTypes(transactionSession, typeProvider, expression);
                 });
     }
 }

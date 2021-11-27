@@ -21,9 +21,7 @@ import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
-import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.tree.Expression;
 import io.trino.transaction.TestingTransactionManager;
@@ -32,6 +30,7 @@ import org.testng.annotations.Test;
 
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.sql.ExpressionTestUtils.planExpression;
+import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.transaction.TransactionBuilder.transaction;
@@ -154,7 +153,7 @@ public class TestFilterStatsCalculator
 
         session = testSessionBuilder().build();
         metadata = createTestMetadataManager();
-        statsCalculator = new FilterStatsCalculator(metadata, new ScalarStatsCalculator(metadata, new TypeAnalyzer(new SqlParser(), metadata)), new StatsNormalizer());
+        statsCalculator = new FilterStatsCalculator(metadata, new ScalarStatsCalculator(metadata, createTestingTypeAnalyzer(metadata)), new StatsNormalizer());
     }
 
     @Test

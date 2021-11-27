@@ -20,7 +20,6 @@ import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.FieldDereference;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.type.Type;
-import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.SubscriptExpression;
@@ -39,13 +38,14 @@ import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.RowType.rowType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.planner.ConnectorExpressionTranslator.translate;
+import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static org.testng.Assert.assertEquals;
 
 public class TestConnectorExpressionTranslator
 {
     private static final Session TEST_SESSION = TestingSession.testSessionBuilder().build();
     private static final Metadata METADATA = createTestMetadataManager();
-    private static final TypeAnalyzer TYPE_ANALYZER = new TypeAnalyzer(new SqlParser(), METADATA);
+    private static final TypeAnalyzer TYPE_ANALYZER = createTestingTypeAnalyzer(METADATA);
     private static final Type ROW_TYPE = rowType(field("int_symbol_1", INTEGER), field("varchar_symbol_1", createVarcharType(5)));
     private static final LiteralEncoder LITERAL_ENCODER = new LiteralEncoder(TEST_SESSION, METADATA);
 
