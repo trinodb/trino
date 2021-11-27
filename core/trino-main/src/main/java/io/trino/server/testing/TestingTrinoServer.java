@@ -146,7 +146,6 @@ public class TestingTrinoServer
     private final CatalogManager catalogManager;
     private final TransactionManager transactionManager;
     private final Metadata metadata;
-    private final AnalyzerFactory analyzerFactory;
     private final QueryExplainer queryExplainer;
     private final StatsCalculator statsCalculator;
     private final TestingAccessControlManager accessControl;
@@ -302,7 +301,6 @@ public class TestingTrinoServer
         splitManager = injector.getInstance(SplitManager.class);
         pageSourceManager = injector.getInstance(PageSourceManager.class);
         if (coordinator) {
-            analyzerFactory = injector.getInstance(AnalyzerFactory.class);
             dispatchManager = injector.getInstance(DispatchManager.class);
             queryManager = (SqlQueryManager) injector.getInstance(QueryManager.class);
             queryExplainer = injector.getInstance(QueryExplainerFactory.class)
@@ -315,7 +313,6 @@ public class TestingTrinoServer
             injector.getInstance(CertificateAuthenticatorManager.class).useDefaultAuthenticator();
         }
         else {
-            analyzerFactory = null;
             dispatchManager = null;
             queryManager = null;
             queryExplainer = null;
@@ -450,11 +447,6 @@ public class TestingTrinoServer
     public Metadata getMetadata()
     {
         return metadata;
-    }
-
-    public AnalyzerFactory getAnalyzerFactory()
-    {
-        return analyzerFactory;
     }
 
     public QueryExplainer getQueryExplainer()
