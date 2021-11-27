@@ -22,6 +22,7 @@ import com.google.common.primitives.Primitives;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.ColumnPropertyManager;
 import io.trino.metadata.FunctionKind;
 import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.MaterializedViewDefinition;
@@ -160,6 +161,7 @@ public final class ShowQueriesRewrite
     private final AccessControl accessControl;
     private final SessionPropertyManager sessionPropertyManager;
     private final SchemaPropertyManager schemaPropertyManager;
+    private final ColumnPropertyManager columnPropertyManager;
 
     @Inject
     public ShowQueriesRewrite(
@@ -167,13 +169,15 @@ public final class ShowQueriesRewrite
             SqlParser parser,
             AccessControl accessControl,
             SessionPropertyManager sessionPropertyManager,
-            SchemaPropertyManager schemaPropertyManager)
+            SchemaPropertyManager schemaPropertyManager,
+            ColumnPropertyManager columnPropertyManager)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.parser = requireNonNull(parser, "parser is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.schemaPropertyManager = requireNonNull(schemaPropertyManager, "schemaPropertyManager is null");
+        this.columnPropertyManager = requireNonNull(columnPropertyManager, "columnPropertyManager is null");
     }
 
     @Override
@@ -185,7 +189,7 @@ public final class ShowQueriesRewrite
             Map<NodeRef<Parameter>, Expression> parameterLookup,
             WarningCollector warningCollector)
     {
-        return (Statement) new Visitor(metadata, parser, session, accessControl, sessionPropertyManager, schemaPropertyManager).process(node, null);
+        return (Statement) new Visitor(metadata, parser, session, accessControl, sessionPropertyManager, schemaPropertyManager, columnPropertyManager).process(node, null);
     }
 
     private static class Visitor
@@ -197,6 +201,7 @@ public final class ShowQueriesRewrite
         private final AccessControl accessControl;
         private final SessionPropertyManager sessionPropertyManager;
         private final SchemaPropertyManager schemaPropertyManager;
+        private final ColumnPropertyManager columnPropertyManager;
 
         public Visitor(
                 Metadata metadata,
@@ -204,7 +209,8 @@ public final class ShowQueriesRewrite
                 Session session,
                 AccessControl accessControl,
                 SessionPropertyManager sessionPropertyManager,
-                SchemaPropertyManager schemaPropertyManager)
+                SchemaPropertyManager schemaPropertyManager,
+                ColumnPropertyManager columnPropertyManager)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
@@ -212,6 +218,7 @@ public final class ShowQueriesRewrite
             this.accessControl = requireNonNull(accessControl, "accessControl is null");
             this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
             this.schemaPropertyManager = requireNonNull(schemaPropertyManager, "schemaPropertyManager is null");
+            this.columnPropertyManager = requireNonNull(columnPropertyManager, "columnPropertyManager is null");
         }
 
         @Override
@@ -626,7 +633,7 @@ public final class ShowQueriesRewrite
                 accessControl.checkCanShowCreateTable(session.toSecurityContext(), targetTableName);
                 ConnectorTableMetadata connectorTableMetadata = metadata.getTableMetadata(session, tableHandle.get()).getMetadata();
 
-                Map<String, PropertyMetadata<?>> allColumnProperties = metadata.getColumnPropertyManager().getAllProperties().get(tableHandle.get().getCatalogName());
+                Map<String, PropertyMetadata<?>> allColumnProperties = columnPropertyManager.getAllProperties().get(tableHandle.get().getCatalogName());
 
                 List<TableElement> columns = connectorTableMetadata.getColumns().stream()
                         .filter(column -> !column.isHidden())

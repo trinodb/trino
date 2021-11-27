@@ -17,6 +17,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.ColumnPropertyManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
@@ -57,12 +58,14 @@ public class AddColumnTask
 {
     private final Metadata metadata;
     private final AccessControl accessControl;
+    private final ColumnPropertyManager columnPropertyManager;
 
     @Inject
-    public AddColumnTask(Metadata metadata, AccessControl accessControl)
+    public AddColumnTask(Metadata metadata, AccessControl accessControl, ColumnPropertyManager columnPropertyManager)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
+        this.columnPropertyManager = requireNonNull(columnPropertyManager, "columnPropertyManager is null");
     }
 
     @Override
@@ -116,7 +119,7 @@ public class AddColumnTask
         }
 
         Map<String, Expression> sqlProperties = mapFromProperties(element.getProperties());
-        Map<String, Object> columnProperties = metadata.getColumnPropertyManager().getProperties(
+        Map<String, Object> columnProperties = columnPropertyManager.getProperties(
                 catalogName,
                 tableName.getCatalogName(),
                 sqlProperties,
