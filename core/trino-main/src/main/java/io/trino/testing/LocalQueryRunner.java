@@ -326,7 +326,6 @@ public class LocalQueryRunner
 
         this.metadata = new MetadataManager(
                 featuresConfig,
-                new TableProceduresPropertyManager(),
                 new DisabledSystemSecurityMetadata(),
                 transactionManager,
                 typeOperators,
@@ -347,6 +346,7 @@ public class LocalQueryRunner
         this.tablePropertyManager = new TablePropertyManager();
         this.materializedViewPropertyManager = new MaterializedViewPropertyManager();
         AnalyzePropertyManager analyzePropertyManager = new AnalyzePropertyManager();
+        TableProceduresPropertyManager tableProceduresPropertyManager = new TableProceduresPropertyManager();
 
         this.statementAnalyzerFactory = new StatementAnalyzerFactory(
                 metadata,
@@ -356,7 +356,8 @@ public class LocalQueryRunner
                 tableProceduresRegistry,
                 sessionPropertyManager,
                 tablePropertyManager,
-                analyzePropertyManager);
+                analyzePropertyManager,
+                tableProceduresPropertyManager);
         this.statsCalculator = createNewStatsCalculator(metadata, new TypeAnalyzer(statementAnalyzerFactory));
         this.scalarStatsCalculator = new ScalarStatsCalculator(metadata, new TypeAnalyzer(statementAnalyzerFactory));
         this.taskCountEstimator = new TaskCountEstimator(() -> nodeCountForStats);
@@ -395,6 +396,7 @@ public class LocalQueryRunner
                 tablePropertyManager,
                 materializedViewPropertyManager,
                 analyzePropertyManager,
+                tableProceduresPropertyManager,
                 nodeSchedulerConfig);
 
         GlobalSystemConnectorFactory globalSystemConnectorFactory = new GlobalSystemConnectorFactory(ImmutableSet.of(

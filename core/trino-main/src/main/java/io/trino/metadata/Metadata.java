@@ -681,12 +681,6 @@ public interface Metadata
 
     BlockEncodingSerde getBlockEncodingSerde();
 
-    //
-    // Properties
-    //
-
-    TableProceduresPropertyManager getTableProceduresPropertyManager();
-
     /**
      * Creates the specified materialized view with the specified view definition.
      */
