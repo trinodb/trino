@@ -20,6 +20,7 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Catalog;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.security.AccessControl;
 import io.trino.security.AllowAllAccessControl;
@@ -75,6 +76,7 @@ public class TestSetSessionTask
     private final TransactionManager transactionManager;
     private final AccessControl accessControl;
     private final Metadata metadata;
+    private final SessionPropertyManager sessionPropertyManager;
 
     public TestSetSessionTask()
     {
@@ -83,8 +85,8 @@ public class TestSetSessionTask
         accessControl = new AllowAllAccessControl();
 
         metadata = createTestMetadataManager(transactionManager, new FeaturesConfig());
-
-        metadata.getSessionPropertyManager().addSystemSessionProperty(stringProperty(
+        sessionPropertyManager = new SessionPropertyManager();
+        sessionPropertyManager.addSystemSessionProperty(stringProperty(
                 CATALOG_NAME,
                 "test property",
                 null,
@@ -111,7 +113,7 @@ public class TestSetSessionTask
                         null,
                         false));
 
-        metadata.getSessionPropertyManager().addConnectorSessionProperties(bogusTestingCatalog.getConnectorCatalogName(), sessionProperties);
+        sessionPropertyManager.addConnectorSessionProperties(bogusTestingCatalog.getConnectorCatalogName(), sessionProperties);
 
         catalogManager.registerCatalog(bogusTestingCatalog);
     }
@@ -198,7 +200,7 @@ public class TestSetSessionTask
                 metadata,
                 WarningCollector.NOOP,
                 Optional.empty());
-        getFutureValue(new SetSessionTask(metadata, accessControl).execute(new SetSession(qualifiedPropName, expression), stateMachine, parameters, WarningCollector.NOOP));
+        getFutureValue(new SetSessionTask(metadata, accessControl, sessionPropertyManager).execute(new SetSession(qualifiedPropName, expression), stateMachine, parameters, WarningCollector.NOOP));
 
         Map<String, String> sessionProperties = stateMachine.getSetSessionProperties();
         assertEquals(sessionProperties, ImmutableMap.of(qualifiedPropName.toString(), expectedValue));

@@ -211,7 +211,6 @@ public final class MetadataManager
     private final FunctionRegistry functions;
     private final TypeOperators typeOperators;
     private final FunctionResolver functionResolver;
-    private final SessionPropertyManager sessionPropertyManager;
     private final SchemaPropertyManager schemaPropertyManager;
     private final TablePropertyManager tablePropertyManager;
     private final MaterializedViewPropertyManager materializedViewPropertyManager;
@@ -233,7 +232,6 @@ public final class MetadataManager
     @Inject
     public MetadataManager(
             FeaturesConfig featuresConfig,
-            SessionPropertyManager sessionPropertyManager,
             SchemaPropertyManager schemaPropertyManager,
             TablePropertyManager tablePropertyManager,
             MaterializedViewPropertyManager materializedViewPropertyManager,
@@ -251,7 +249,6 @@ public final class MetadataManager
         functions = new FunctionRegistry(this::getBlockEncodingSerde, featuresConfig, typeOperators, blockTypeOperators, nodeVersion.getVersion());
         functionResolver = new FunctionResolver(this);
 
-        this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.schemaPropertyManager = requireNonNull(schemaPropertyManager, "schemaPropertyManager is null");
         this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
         this.materializedViewPropertyManager = requireNonNull(materializedViewPropertyManager, "materializedViewPropertyManager is null");
@@ -317,7 +314,6 @@ public final class MetadataManager
         TypeOperators typeOperators = new TypeOperators();
         return new MetadataManager(
                 featuresConfig,
-                new SessionPropertyManager(),
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
                 new MaterializedViewPropertyManager(),
@@ -2826,12 +2822,6 @@ public final class MetadataManager
     //
     // Properties
     //
-
-    @Override
-    public SessionPropertyManager getSessionPropertyManager()
-    {
-        return sessionPropertyManager;
-    }
 
     @Override
     public SchemaPropertyManager getSchemaPropertyManager()

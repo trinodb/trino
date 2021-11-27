@@ -29,6 +29,7 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.MetadataUtil;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.RedirectionAwareTableHandle;
+import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.SessionPropertyManager.SessionPropertyValue;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.ViewDefinition;
@@ -156,13 +157,15 @@ public final class ShowQueriesRewrite
     private final Metadata metadata;
     private final SqlParser parser;
     private final AccessControl accessControl;
+    private final SessionPropertyManager sessionPropertyManager;
 
     @Inject
-    public ShowQueriesRewrite(Metadata metadata, SqlParser parser, AccessControl accessControl)
+    public ShowQueriesRewrite(Metadata metadata, SqlParser parser, AccessControl accessControl, SessionPropertyManager sessionPropertyManager)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.parser = requireNonNull(parser, "parser is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
+        this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
     }
 
     @Override
@@ -174,7 +177,7 @@ public final class ShowQueriesRewrite
             Map<NodeRef<Parameter>, Expression> parameterLookup,
             WarningCollector warningCollector)
     {
-        return (Statement) new Visitor(metadata, parser, session, accessControl).process(node, null);
+        return (Statement) new Visitor(metadata, parser, session, accessControl, sessionPropertyManager).process(node, null);
     }
 
     private static class Visitor
@@ -184,13 +187,15 @@ public final class ShowQueriesRewrite
         private final Session session;
         private final SqlParser sqlParser;
         private final AccessControl accessControl;
+        private final SessionPropertyManager sessionPropertyManager;
 
-        public Visitor(Metadata metadata, SqlParser sqlParser, Session session, AccessControl accessControl)
+        public Visitor(Metadata metadata, SqlParser sqlParser, Session session, AccessControl accessControl, SessionPropertyManager sessionPropertyManager)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
             this.session = requireNonNull(session, "session is null");
             this.accessControl = requireNonNull(accessControl, "accessControl is null");
+            this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         }
 
         @Override
@@ -768,12 +773,11 @@ public final class ShowQueriesRewrite
         }
 
         @Override
-
         protected Node visitShowSession(ShowSession node, Void context)
         {
             ImmutableList.Builder<Expression> rows = ImmutableList.builder();
             SortedMap<String, CatalogName> catalogNames = listCatalogs(session, metadata, accessControl);
-            List<SessionPropertyValue> sessionProperties = metadata.getSessionPropertyManager().getAllSessionProperties(session, catalogNames);
+            List<SessionPropertyValue> sessionProperties = sessionPropertyManager.getAllSessionProperties(session, catalogNames);
             for (SessionPropertyValue sessionProperty : sessionProperties) {
                 if (sessionProperty.isHidden()) {
                     continue;

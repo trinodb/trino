@@ -60,6 +60,7 @@ import io.trino.metadata.InternalNode;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ProcedureRegistry;
+import io.trino.metadata.SessionPropertyManager;
 import io.trino.security.AccessControl;
 import io.trino.security.AccessControlConfig;
 import io.trino.security.AccessControlManager;
@@ -148,6 +149,7 @@ public class TestingTrinoServer
     private final TransactionManager transactionManager;
     private final Metadata metadata;
     private final QueryExplainer queryExplainer;
+    private final SessionPropertyManager sessionPropertyManager;
     private final StatsCalculator statsCalculator;
     private final ProcedureRegistry procedureRegistry;
     private final TestingAccessControlManager accessControl;
@@ -302,6 +304,7 @@ public class TestingTrinoServer
         procedureTester = injector.getInstance(ProcedureTester.class);
         splitManager = injector.getInstance(SplitManager.class);
         pageSourceManager = injector.getInstance(PageSourceManager.class);
+        sessionPropertyManager = injector.getInstance(SessionPropertyManager.class);
         if (coordinator) {
             dispatchManager = injector.getInstance(DispatchManager.class);
             queryManager = (SqlQueryManager) injector.getInstance(QueryManager.class);
@@ -456,6 +459,11 @@ public class TestingTrinoServer
     public QueryExplainer getQueryExplainer()
     {
         return queryExplainer;
+    }
+
+    public SessionPropertyManager getSessionPropertyManager()
+    {
+        return sessionPropertyManager;
     }
 
     public StatsCalculator getStatsCalculator()

@@ -19,6 +19,7 @@ import io.trino.execution.FailureInjector.InjectedFailureType;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.SqlFunction;
 import io.trino.spi.ErrorType;
 import io.trino.spi.Plugin;
@@ -51,6 +52,8 @@ public interface QueryRunner
     Metadata getMetadata();
 
     QueryExplainer getQueryExplainer();
+
+    SessionPropertyManager getSessionPropertyManager();
 
     SplitManager getSplitManager();
 
