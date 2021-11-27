@@ -40,7 +40,6 @@ import io.trino.spi.ErrorType;
 import io.trino.spi.Plugin;
 import io.trino.split.PageSourceManager;
 import io.trino.split.SplitManager;
-import io.trino.sql.analyzer.AnalyzerFactory;
 import io.trino.sql.analyzer.QueryExplainer;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.testing.DistributedQueryRunner;
@@ -213,12 +212,6 @@ public final class ThriftQueryRunner
         public Metadata getMetadata()
         {
             return source.getMetadata();
-        }
-
-        @Override
-        public AnalyzerFactory getAnalyzerFactory()
-        {
-            return source.getAnalyzerFactory();
         }
 
         @Override
