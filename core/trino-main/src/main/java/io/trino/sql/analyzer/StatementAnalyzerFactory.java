@@ -16,6 +16,7 @@ package io.trino.sql.analyzer;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.TableProceduresRegistry;
@@ -38,6 +39,7 @@ public class StatementAnalyzerFactory
     private final TableProceduresRegistry tableProceduresRegistry;
     private final SessionPropertyManager sessionPropertyManager;
     private final TablePropertyManager tablePropertyManager;
+    private final AnalyzePropertyManager analyzePropertyManager;
 
     @Inject
     public StatementAnalyzerFactory(
@@ -47,7 +49,8 @@ public class StatementAnalyzerFactory
             GroupProvider groupProvider,
             TableProceduresRegistry tableProceduresRegistry,
             SessionPropertyManager sessionPropertyManager,
-            TablePropertyManager tablePropertyManager)
+            TablePropertyManager tablePropertyManager,
+            AnalyzePropertyManager analyzePropertyManager)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
@@ -56,11 +59,20 @@ public class StatementAnalyzerFactory
         this.tableProceduresRegistry = requireNonNull(tableProceduresRegistry, "tableProceduresRegistry is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
+        this.analyzePropertyManager = requireNonNull(analyzePropertyManager, "analyzePropertyManager is null");
     }
 
     public StatementAnalyzerFactory withSpecializedAccessControl(AccessControl accessControl)
     {
-        return new StatementAnalyzerFactory(metadata, sqlParser, accessControl, groupProvider, tableProceduresRegistry, sessionPropertyManager, tablePropertyManager);
+        return new StatementAnalyzerFactory(
+                metadata,
+                sqlParser,
+                accessControl,
+                groupProvider,
+                tableProceduresRegistry,
+                sessionPropertyManager,
+                tablePropertyManager,
+                analyzePropertyManager);
     }
 
     public StatementAnalyzer createStatementAnalyzer(
@@ -80,6 +92,7 @@ public class StatementAnalyzerFactory
                 tableProceduresRegistry,
                 sessionPropertyManager,
                 tablePropertyManager,
+                analyzePropertyManager,
                 warningCollector,
                 correlationSupport);
     }
@@ -108,7 +121,11 @@ public class StatementAnalyzerFactory
                 analysis::getWindow);
     }
 
-    public static StatementAnalyzerFactory createTestingStatementAnalyzerFactory(Metadata metadata, AccessControl accessControl, TablePropertyManager tablePropertyManager)
+    public static StatementAnalyzerFactory createTestingStatementAnalyzerFactory(
+            Metadata metadata,
+            AccessControl accessControl,
+            TablePropertyManager tablePropertyManager,
+            AnalyzePropertyManager analyzePropertyManager)
     {
         return new StatementAnalyzerFactory(
                 metadata,
@@ -117,6 +134,7 @@ public class StatementAnalyzerFactory
                 user -> ImmutableSet.of(),
                 new TableProceduresRegistry(),
                 new SessionPropertyManager(),
-                tablePropertyManager);
+                tablePropertyManager,
+                analyzePropertyManager);
     }
 }

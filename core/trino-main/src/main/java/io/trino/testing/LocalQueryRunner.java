@@ -326,7 +326,6 @@ public class LocalQueryRunner
 
         this.metadata = new MetadataManager(
                 featuresConfig,
-                new AnalyzePropertyManager(),
                 new TableProceduresPropertyManager(),
                 new DisabledSystemSecurityMetadata(),
                 transactionManager,
@@ -347,6 +346,7 @@ public class LocalQueryRunner
         this.columnPropertyManager = new ColumnPropertyManager();
         this.tablePropertyManager = new TablePropertyManager();
         this.materializedViewPropertyManager = new MaterializedViewPropertyManager();
+        AnalyzePropertyManager analyzePropertyManager = new AnalyzePropertyManager();
 
         this.statementAnalyzerFactory = new StatementAnalyzerFactory(
                 metadata,
@@ -355,7 +355,8 @@ public class LocalQueryRunner
                 groupProvider,
                 tableProceduresRegistry,
                 sessionPropertyManager,
-                tablePropertyManager);
+                tablePropertyManager,
+                analyzePropertyManager);
         this.statsCalculator = createNewStatsCalculator(metadata, new TypeAnalyzer(statementAnalyzerFactory));
         this.scalarStatsCalculator = new ScalarStatsCalculator(metadata, new TypeAnalyzer(statementAnalyzerFactory));
         this.taskCountEstimator = new TaskCountEstimator(() -> nodeCountForStats);
@@ -393,6 +394,7 @@ public class LocalQueryRunner
                 columnPropertyManager,
                 tablePropertyManager,
                 materializedViewPropertyManager,
+                analyzePropertyManager,
                 nodeSchedulerConfig);
 
         GlobalSystemConnectorFactory globalSystemConnectorFactory = new GlobalSystemConnectorFactory(ImmutableSet.of(
@@ -404,7 +406,7 @@ public class LocalQueryRunner
                 new TablePropertiesSystemTable(transactionManager, tablePropertyManager),
                 new MaterializedViewPropertiesSystemTable(transactionManager, materializedViewPropertyManager),
                 new ColumnPropertiesSystemTable(transactionManager, columnPropertyManager),
-                new AnalyzePropertiesSystemTable(transactionManager, metadata),
+                new AnalyzePropertiesSystemTable(transactionManager, analyzePropertyManager),
                 new TransactionsSystemTable(metadata, transactionManager)),
                 ImmutableSet.of());
 

@@ -211,7 +211,6 @@ public final class MetadataManager
     private final FunctionRegistry functions;
     private final TypeOperators typeOperators;
     private final FunctionResolver functionResolver;
-    private final AnalyzePropertyManager analyzePropertyManager;
     private final TableProceduresPropertyManager tableProceduresPropertyManager;
     private final SystemSecurityMetadata systemSecurityMetadata;
     private final TransactionManager transactionManager;
@@ -228,7 +227,6 @@ public final class MetadataManager
     @Inject
     public MetadataManager(
             FeaturesConfig featuresConfig,
-            AnalyzePropertyManager analyzePropertyManager,
             TableProceduresPropertyManager tableProceduresPropertyManager,
             SystemSecurityMetadata systemSecurityMetadata,
             TransactionManager transactionManager,
@@ -241,7 +239,6 @@ public final class MetadataManager
         functions = new FunctionRegistry(this::getBlockEncodingSerde, featuresConfig, typeOperators, blockTypeOperators, nodeVersion.getVersion());
         functionResolver = new FunctionResolver(this);
 
-        this.analyzePropertyManager = requireNonNull(analyzePropertyManager, "analyzePropertyManager is null");
         this.tableProceduresPropertyManager = requireNonNull(tableProceduresPropertyManager, "tableProceduresPropertyManager is null");
         this.systemSecurityMetadata = requireNonNull(systemSecurityMetadata, "systemSecurityMetadata is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
@@ -302,7 +299,6 @@ public final class MetadataManager
         TypeOperators typeOperators = new TypeOperators();
         return new MetadataManager(
                 featuresConfig,
-                new AnalyzePropertyManager(),
                 new TableProceduresPropertyManager(),
                 new DisabledSystemSecurityMetadata(),
                 transactionManager,
@@ -2806,12 +2802,6 @@ public final class MetadataManager
     //
     // Properties
     //
-
-    @Override
-    public AnalyzePropertyManager getAnalyzePropertyManager()
-    {
-        return analyzePropertyManager;
-    }
 
     @Override
     public TableProceduresPropertyManager getTableProceduresPropertyManager()
