@@ -28,6 +28,7 @@ import io.trino.SystemSessionProperties;
 import io.trino.connector.CatalogName;
 import io.trino.execution.Column;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.FunctionKind;
 import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.Metadata;
@@ -330,6 +331,7 @@ class StatementAnalyzer
     private final TableProceduresRegistry tableProceduresRegistry;
     private final SessionPropertyManager sessionPropertyManager;
     private final TablePropertyManager tablePropertyManager;
+    private final AnalyzePropertyManager analyzePropertyManager;
 
     private final WarningCollector warningCollector;
     private final CorrelationSupport correlationSupport;
@@ -345,6 +347,7 @@ class StatementAnalyzer
             TableProceduresRegistry tableProceduresRegistry,
             SessionPropertyManager sessionPropertyManager,
             TablePropertyManager tablePropertyManager,
+            AnalyzePropertyManager analyzePropertyManager,
             WarningCollector warningCollector,
             CorrelationSupport correlationSupport)
     {
@@ -359,6 +362,7 @@ class StatementAnalyzer
         this.tableProceduresRegistry = requireNonNull(tableProceduresRegistry, "tableProceduresRegistry is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
+        this.analyzePropertyManager = requireNonNull(analyzePropertyManager, "analyzePropertyManager is null");
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         this.correlationSupport = requireNonNull(correlationSupport, "correlationSupport is null");
     }
@@ -741,7 +745,7 @@ class StatementAnalyzer
             validateProperties(node.getProperties(), scope);
             CatalogName catalogName = getRequiredCatalogHandle(metadata, session, node, tableName.getCatalogName());
 
-            Map<String, Object> analyzeProperties = metadata.getAnalyzePropertyManager().getProperties(
+            Map<String, Object> analyzeProperties = analyzePropertyManager.getProperties(
                     catalogName,
                     catalogName.getCatalogName(),
                     mapFromProperties(node.getProperties()),
