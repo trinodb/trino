@@ -22,6 +22,7 @@ import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.ColumnPropertyManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.RedirectionAwareTableHandle;
@@ -86,13 +87,15 @@ public class CreateTableTask
 {
     private final Metadata metadata;
     private final AccessControl accessControl;
+    private final ColumnPropertyManager columnPropertyManager;
     private final boolean disableSetPropertiesSecurityCheckForCreateDdl;
 
     @Inject
-    public CreateTableTask(Metadata metadata, AccessControl accessControl, FeaturesConfig featuresConfig)
+    public CreateTableTask(Metadata metadata, AccessControl accessControl, ColumnPropertyManager columnPropertyManager, FeaturesConfig featuresConfig)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
+        this.columnPropertyManager = requireNonNull(columnPropertyManager, "columnPropertyManager is null");
         this.disableSetPropertiesSecurityCheckForCreateDdl = featuresConfig.isDisableSetPropertiesSecurityCheckForCreateDdl();
     }
 
@@ -154,7 +157,7 @@ public class CreateTableTask
                 }
 
                 Map<String, Expression> sqlProperties = mapFromProperties(column.getProperties());
-                Map<String, Object> columnProperties = metadata.getColumnPropertyManager().getProperties(
+                Map<String, Object> columnProperties = columnPropertyManager.getProperties(
                         catalogName,
                         tableName.getCatalogName(),
                         sqlProperties,

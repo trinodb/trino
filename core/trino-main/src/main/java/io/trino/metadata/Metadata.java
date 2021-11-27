@@ -689,8 +689,6 @@ public interface Metadata
 
     MaterializedViewPropertyManager getMaterializedViewPropertyManager();
 
-    ColumnPropertyManager getColumnPropertyManager();
-
     AnalyzePropertyManager getAnalyzePropertyManager();
 
     TableProceduresPropertyManager getTableProceduresPropertyManager();
