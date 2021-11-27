@@ -19,8 +19,10 @@ import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.OperatorNotFoundException;
+import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.Type;
 import io.trino.sql.DynamicFilters;
+import io.trino.sql.analyzer.StatementAnalyzerFactory;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
@@ -81,7 +83,8 @@ public class RemoveUnsupportedDynamicFilters
     public RemoveUnsupportedDynamicFilters(Metadata metadata)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
-        this.typeAnalyzer = new TypeAnalyzer(new SqlParser(), metadata);
+        // This is a limited type analyzer for the simple expressions used in dynamic filters
+        this.typeAnalyzer = new TypeAnalyzer(new StatementAnalyzerFactory(metadata, new SqlParser(), new AllowAllAccessControl(), user -> ImmutableSet.of()));
     }
 
     @Override

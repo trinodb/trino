@@ -23,12 +23,10 @@ import io.trino.metadata.TableHandle;
 import io.trino.plugin.tpch.TpchColumnHandle;
 import io.trino.plugin.tpch.TpchTableHandle;
 import io.trino.spi.type.TypeOperators;
-import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.PlanAssert;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
@@ -54,6 +52,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.DynamicFilters.createDynamicFilterExpression;
 import static io.trino.sql.ExpressionUtils.combineConjuncts;
 import static io.trino.sql.ExpressionUtils.combineDisjuncts;
+import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
@@ -484,7 +483,7 @@ public class TestRemoveUnsupportedDynamicFilters
                     session,
                     metadata,
                     typeOperators,
-                    new TypeAnalyzer(new SqlParser(), metadata),
+                    createTestingTypeAnalyzer(metadata),
                     builder.getTypes(),
                     WarningCollector.NOOP);
             return rewrittenPlan;

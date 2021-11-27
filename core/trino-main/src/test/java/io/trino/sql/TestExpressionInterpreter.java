@@ -29,7 +29,6 @@ import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.ExpressionInterpreter;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolResolver;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.assertions.SymbolAliases;
 import io.trino.sql.planner.iterative.rule.CanonicalizeExpressionRewriter;
@@ -75,6 +74,7 @@ import static io.trino.sql.ExpressionTestUtils.getTypes;
 import static io.trino.sql.ExpressionTestUtils.resolveFunctionCalls;
 import static io.trino.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static io.trino.sql.ParsingUtil.createParsingOptions;
+import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.type.DateTimes.scaleEpochMillisToMicros;
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
@@ -1944,7 +1944,7 @@ public class TestExpressionInterpreter
                             parsedExpression,
                             transactionSession,
                             METADATA,
-                            new TypeAnalyzer(SQL_PARSER, METADATA),
+                            createTestingTypeAnalyzer(METADATA),
                             SYMBOL_TYPES);
                     return parsedExpression;
                 });

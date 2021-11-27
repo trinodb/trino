@@ -18,7 +18,6 @@ import io.trino.FeaturesConfig;
 import io.trino.metadata.Metadata;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.Type;
-import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
@@ -35,6 +34,7 @@ import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.ExpressionTestUtils.assertExpressionEquals;
+import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.rewrite;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static io.trino.transaction.TransactionBuilder.transaction;
@@ -43,7 +43,7 @@ public class TestCanonicalizeExpressionRewriter
 {
     public static final TransactionManager TRANSACTION_MANAGER = createTestTransactionManager();
     private static final Metadata METADATA = createTestMetadataManager(TRANSACTION_MANAGER, new FeaturesConfig());
-    private static final TypeAnalyzer TYPE_ANALYZER = new TypeAnalyzer(new SqlParser(), METADATA);
+    private static final TypeAnalyzer TYPE_ANALYZER = createTestingTypeAnalyzer(METADATA);
     public static final AllowAllAccessControl ACCESS_CONTROL = new AllowAllAccessControl();
 
     @Test

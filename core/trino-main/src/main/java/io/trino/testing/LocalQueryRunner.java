@@ -133,6 +133,7 @@ import io.trino.sql.analyzer.Analyzer;
 import io.trino.sql.analyzer.AnalyzerFactory;
 import io.trino.sql.analyzer.QueryExplainer;
 import io.trino.sql.analyzer.QueryExplainerFactory;
+import io.trino.sql.analyzer.StatementAnalyzerFactory;
 import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.gen.JoinFilterFunctionCompiler;
@@ -256,6 +257,7 @@ public class LocalQueryRunner
     private final FeaturesConfig featuresConfig;
     private final PlanOptimizersProvider planOptimizersProvider;
     private final OperatorFactories operatorFactories;
+    private final StatementAnalyzerFactory statementAnalyzerFactory;
     private boolean printPlan;
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
@@ -333,14 +335,15 @@ public class LocalQueryRunner
         this.planFragmenter = new PlanFragmenter(this.metadata, this.nodePartitioningManager, new QueryManagerConfig());
         this.joinCompiler = new JoinCompiler(typeOperators);
         PageIndexerFactory pageIndexerFactory = new GroupByHashPageIndexerFactory(joinCompiler, blockTypeOperators);
-        this.statsCalculator = createNewStatsCalculator(metadata, new TypeAnalyzer(sqlParser, metadata));
-        this.scalarStatsCalculator = new ScalarStatsCalculator(metadata, new TypeAnalyzer(sqlParser, metadata));
-        this.taskCountEstimator = new TaskCountEstimator(() -> nodeCountForStats);
-        this.costCalculator = new CostCalculatorUsingExchanges(taskCountEstimator);
-        this.estimatedExchangesCostCalculator = new CostCalculatorWithEstimatedExchanges(costCalculator, taskCountEstimator);
         this.groupProvider = new TestingGroupProvider();
         this.accessControl = new TestingAccessControlManager(transactionManager, eventListenerManager);
         accessControl.loadSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
+        this.statementAnalyzerFactory = new StatementAnalyzerFactory(metadata, sqlParser, accessControl, groupProvider);
+        this.statsCalculator = createNewStatsCalculator(metadata, new TypeAnalyzer(statementAnalyzerFactory));
+        this.scalarStatsCalculator = new ScalarStatsCalculator(metadata, new TypeAnalyzer(statementAnalyzerFactory));
+        this.taskCountEstimator = new TaskCountEstimator(() -> nodeCountForStats);
+        this.costCalculator = new CostCalculatorUsingExchanges(taskCountEstimator);
+        this.estimatedExchangesCostCalculator = new CostCalculatorWithEstimatedExchanges(costCalculator, taskCountEstimator);
         this.pageSourceManager = new PageSourceManager();
 
         this.pageFunctionCompiler = new PageFunctionCompiler(metadata, 0);
@@ -781,7 +784,7 @@ public class LocalQueryRunner
         tableExecuteContextManager.registerTableExecuteContextForQuery(taskContext.getQueryContext().getQueryId());
         LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(
                 metadata,
-                new TypeAnalyzer(sqlParser, metadata),
+                new TypeAnalyzer(statementAnalyzerFactory),
                 Optional.empty(),
                 pageSourceManager,
                 indexManager,
@@ -901,7 +904,7 @@ public class LocalQueryRunner
         return planOptimizersProvider.getPlanOptimizers(
                 metadata,
                 typeOperators,
-                new TypeAnalyzer(sqlParser, metadata),
+                new TypeAnalyzer(statementAnalyzerFactory),
                 taskManagerConfig,
                 forceSingleNode,
                 splitManager,
@@ -943,7 +946,7 @@ public class LocalQueryRunner
                 idAllocator,
                 metadata,
                 typeOperators,
-                new TypeAnalyzer(sqlParser, metadata),
+                new TypeAnalyzer(statementAnalyzerFactory),
                 statsCalculator,
                 costCalculator,
                 warningCollector);
@@ -960,7 +963,7 @@ public class LocalQueryRunner
                 planFragmenter,
                 metadata,
                 typeOperators,
-                sqlParser,
+                statementAnalyzerFactory,
                 statsCalculator,
                 costCalculator);
     }
@@ -968,10 +971,7 @@ public class LocalQueryRunner
     private AnalyzerFactory createAnalyzerFactory(QueryExplainerFactory queryExplainerFactory)
     {
         return new AnalyzerFactory(
-                metadata,
-                sqlParser,
-                accessControl,
-                groupProvider,
+                statementAnalyzerFactory,
                 new StatementRewrite(ImmutableSet.of(
                         new DescribeInputRewrite(sqlParser),
                         new DescribeOutputRewrite(sqlParser),

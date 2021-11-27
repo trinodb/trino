@@ -43,7 +43,6 @@ import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.iterative.rule.test.RuleTester;
@@ -64,6 +63,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.ConnectorExpressionTranslator.translate;
+import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.TypeProvider.viewOf;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
@@ -127,7 +127,7 @@ public class TestPushProjectionIntoTableScan
             MockConnectorFactory factory = createMockFactory(ImmutableMap.of(columnName, columnHandle), Optional.of(this::mockApplyProjection));
             ruleTester.getQueryRunner().createCatalog(MOCK_CATALOG, factory, ImmutableMap.of());
 
-            TypeAnalyzer typeAnalyzer = new TypeAnalyzer(new SqlParser(), ruleTester.getMetadata());
+            TypeAnalyzer typeAnalyzer = createTestingTypeAnalyzer(ruleTester.getMetadata());
 
             // Prepare project node symbols and types
             Symbol identity = new Symbol("symbol_identity");
