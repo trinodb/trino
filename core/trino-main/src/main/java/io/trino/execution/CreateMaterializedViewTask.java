@@ -18,6 +18,7 @@ import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.MaterializedViewDefinition;
+import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.ViewColumn;
@@ -52,14 +53,21 @@ public class CreateMaterializedViewTask
     private final AccessControl accessControl;
     private final SqlParser sqlParser;
     private final AnalyzerFactory analyzerFactory;
+    private final MaterializedViewPropertyManager materializedViewPropertyManager;
 
     @Inject
-    public CreateMaterializedViewTask(Metadata metadata, AccessControl accessControl, SqlParser sqlParser, AnalyzerFactory analyzerFactory)
+    public CreateMaterializedViewTask(
+            Metadata metadata,
+            AccessControl accessControl,
+            SqlParser sqlParser,
+            AnalyzerFactory analyzerFactory,
+            MaterializedViewPropertyManager materializedViewPropertyManager)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.analyzerFactory = requireNonNull(analyzerFactory, "analyzerFactory is null");
+        this.materializedViewPropertyManager = requireNonNull(materializedViewPropertyManager, "materializedViewPropertyManager is null");
     }
 
     @Override
@@ -92,7 +100,7 @@ public class CreateMaterializedViewTask
         CatalogName catalogName = getRequiredCatalogHandle(metadata, session, statement, name.getCatalogName());
 
         Map<String, Expression> sqlProperties = mapFromProperties(statement.getProperties());
-        Map<String, Object> properties = metadata.getMaterializedViewPropertyManager().getProperties(
+        Map<String, Object> properties = materializedViewPropertyManager.getProperties(
                 catalogName,
                 name.getCatalogName(),
                 sqlProperties,

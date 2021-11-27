@@ -37,6 +37,7 @@ import io.trino.metadata.ColumnPropertyManager;
 import io.trino.metadata.InMemoryNodeManager;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.MaterializedViewDefinition;
+import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.SchemaPropertyManager;
@@ -5499,7 +5500,8 @@ public class TestAnalyzer
                 new SessionPropertyManager(),
                 new SchemaPropertyManager(),
                 new ColumnPropertyManager(),
-                tablePropertyManager)));
+                tablePropertyManager,
+                new MaterializedViewPropertyManager())));
         AnalyzerFactory analyzerFactory = new AnalyzerFactory(createTestingStatementAnalyzerFactory(metadata, accessControl, tablePropertyManager), statementRewrite);
         return analyzerFactory.createAnalyzer(
                 session,
