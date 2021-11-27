@@ -24,7 +24,6 @@ import io.trino.metadata.AbstractMockMetadata;
 import io.trino.metadata.Catalog;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.ColumnPropertyManager;
-import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.MetadataManager;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
@@ -116,22 +115,17 @@ public class TestCreateTableTask
         CatalogManager catalogManager = new CatalogManager();
         transactionManager = createTestTransactionManager(catalogManager);
         tablePropertyManager = new TablePropertyManager();
-        MaterializedViewPropertyManager materializedViewPropertyManager = new MaterializedViewPropertyManager();
         columnPropertyManager = new ColumnPropertyManager();
         Catalog testCatalog = createBogusTestingCatalog(CATALOG_NAME);
         catalogManager.registerCatalog(testCatalog);
         tablePropertyManager.addProperties(
                 testCatalog.getConnectorCatalogName(),
                 ImmutableList.of(stringProperty("baz", "test property", null, false)));
-        materializedViewPropertyManager.addProperties(
-                testCatalog.getConnectorCatalogName(),
-                ImmutableList.of(stringProperty("foo", "test materialized view property", null, false)));
         columnPropertyManager.addProperties(testCatalog.getConnectorCatalogName(), ImmutableList.of());
         testSession = testSessionBuilder()
                 .setTransactionId(transactionManager.beginTransaction(false))
                 .build();
         metadata = new MockMetadata(
-                materializedViewPropertyManager,
                 testCatalog.getConnectorCatalogName(),
                 emptySet());
     }
@@ -305,17 +299,12 @@ public class TestCreateTableTask
             extends AbstractMockMetadata
     {
         private final MetadataManager metadata;
-        private final MaterializedViewPropertyManager materializedViewPropertyManager;
         private final CatalogName catalogHandle;
         private final List<ConnectorTableMetadata> tables = new CopyOnWriteArrayList<>();
         private Set<ConnectorCapabilities> connectorCapabilities;
 
-        public MockMetadata(
-                MaterializedViewPropertyManager materializedViewPropertyManager,
-                CatalogName catalogHandle,
-                Set<ConnectorCapabilities> connectorCapabilities)
+        public MockMetadata(CatalogName catalogHandle, Set<ConnectorCapabilities> connectorCapabilities)
         {
-            this.materializedViewPropertyManager = requireNonNull(materializedViewPropertyManager, "materializedViewPropertyManager is null");
             this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
             this.connectorCapabilities = immutableEnumSet(requireNonNull(connectorCapabilities, "connectorCapabilities is null"));
             this.metadata = createTestMetadataManager();
@@ -328,12 +317,6 @@ public class TestCreateTableTask
             if (!ignoreExisting) {
                 throw new TrinoException(ALREADY_EXISTS, "Table already exists");
             }
-        }
-
-        @Override
-        public MaterializedViewPropertyManager getMaterializedViewPropertyManager()
-        {
-            return materializedViewPropertyManager;
         }
 
         @Override

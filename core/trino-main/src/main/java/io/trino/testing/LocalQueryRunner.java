@@ -249,6 +249,7 @@ public class LocalQueryRunner
     private final SchemaPropertyManager schemaPropertyManager;
     private final ColumnPropertyManager columnPropertyManager;
     private final TablePropertyManager tablePropertyManager;
+    private final MaterializedViewPropertyManager materializedViewPropertyManager;
 
     private final PageFunctionCompiler pageFunctionCompiler;
     private final ExpressionCompiler expressionCompiler;
@@ -325,7 +326,6 @@ public class LocalQueryRunner
 
         this.metadata = new MetadataManager(
                 featuresConfig,
-                new MaterializedViewPropertyManager(),
                 new AnalyzePropertyManager(),
                 new TableProceduresPropertyManager(),
                 new DisabledSystemSecurityMetadata(),
@@ -346,6 +346,7 @@ public class LocalQueryRunner
         this.schemaPropertyManager = new SchemaPropertyManager();
         this.columnPropertyManager = new ColumnPropertyManager();
         this.tablePropertyManager = new TablePropertyManager();
+        this.materializedViewPropertyManager = new MaterializedViewPropertyManager();
 
         this.statementAnalyzerFactory = new StatementAnalyzerFactory(
                 metadata,
@@ -391,6 +392,7 @@ public class LocalQueryRunner
                 schemaPropertyManager,
                 columnPropertyManager,
                 tablePropertyManager,
+                materializedViewPropertyManager,
                 nodeSchedulerConfig);
 
         GlobalSystemConnectorFactory globalSystemConnectorFactory = new GlobalSystemConnectorFactory(ImmutableSet.of(
@@ -400,7 +402,7 @@ public class LocalQueryRunner
                 new MaterializedViewSystemTable(metadata, accessControl),
                 new SchemaPropertiesSystemTable(transactionManager, schemaPropertyManager),
                 new TablePropertiesSystemTable(transactionManager, tablePropertyManager),
-                new MaterializedViewPropertiesSystemTable(transactionManager, metadata),
+                new MaterializedViewPropertiesSystemTable(transactionManager, materializedViewPropertyManager),
                 new ColumnPropertiesSystemTable(transactionManager, columnPropertyManager),
                 new AnalyzePropertiesSystemTable(transactionManager, metadata),
                 new TransactionsSystemTable(metadata, transactionManager)),
@@ -1003,7 +1005,15 @@ public class LocalQueryRunner
                 new StatementRewrite(ImmutableSet.of(
                         new DescribeInputRewrite(sqlParser),
                         new DescribeOutputRewrite(sqlParser),
-                        new ShowQueriesRewrite(metadata, sqlParser, accessControl, sessionPropertyManager, schemaPropertyManager, columnPropertyManager, tablePropertyManager),
+                        new ShowQueriesRewrite(
+                                metadata,
+                                sqlParser,
+                                accessControl,
+                                sessionPropertyManager,
+                                schemaPropertyManager,
+                                columnPropertyManager,
+                                tablePropertyManager,
+                                materializedViewPropertyManager),
                         new ShowStatsRewrite(queryExplainerFactory, statsCalculator),
                         new ExplainRewrite(queryExplainerFactory, new QueryPreparer(sqlParser)))));
     }

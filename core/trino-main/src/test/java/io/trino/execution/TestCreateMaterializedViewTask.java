@@ -104,13 +104,14 @@ public class TestCreateMaterializedViewTask
     private SqlParser parser;
     private QueryStateMachine queryStateMachine;
     private AnalyzerFactory analyzerFactory;
+    private MaterializedViewPropertyManager materializedViewPropertyManager;
 
     @BeforeMethod
     public void setUp()
     {
         CatalogManager catalogManager = new CatalogManager();
         transactionManager = createTestTransactionManager(catalogManager);
-        MaterializedViewPropertyManager materializedViewPropertyManager = new MaterializedViewPropertyManager();
+        materializedViewPropertyManager = new MaterializedViewPropertyManager();
         Catalog testCatalog = createBogusTestingCatalog(CATALOG_NAME);
         catalogManager.registerCatalog(testCatalog);
         materializedViewPropertyManager.addProperties(
@@ -119,9 +120,7 @@ public class TestCreateMaterializedViewTask
         testSession = testSessionBuilder()
                 .setTransactionId(transactionManager.beginTransaction(false))
                 .build();
-        metadata = new MockMetadata(
-                materializedViewPropertyManager,
-                testCatalog.getConnectorCatalogName());
+        metadata = new MockMetadata(testCatalog.getConnectorCatalogName());
         parser = new SqlParser();
         analyzerFactory = new AnalyzerFactory(createTestingStatementAnalyzerFactory(metadata, new AllowAllAccessControl(), new TablePropertyManager()), new StatementRewrite(ImmutableSet.of()));
         queryStateMachine = stateMachine(transactionManager, createTestMetadataManager(), new AllowAllAccessControl());
@@ -139,7 +138,7 @@ public class TestCreateMaterializedViewTask
                 ImmutableList.of(),
                 Optional.empty());
 
-        getFutureValue(new CreateMaterializedViewTask(metadata, new AllowAllAccessControl(), parser, analyzerFactory)
+        getFutureValue(new CreateMaterializedViewTask(metadata, new AllowAllAccessControl(), parser, analyzerFactory, materializedViewPropertyManager)
                 .execute(statement, queryStateMachine, ImmutableList.of(), WarningCollector.NOOP));
         assertEquals(metadata.getCreateMaterializedViewCallCount(), 1);
     }
@@ -156,7 +155,7 @@ public class TestCreateMaterializedViewTask
                 ImmutableList.of(),
                 Optional.empty());
 
-        assertTrinoExceptionThrownBy(() -> getFutureValue(new CreateMaterializedViewTask(metadata, new AllowAllAccessControl(), parser, analyzerFactory)
+        assertTrinoExceptionThrownBy(() -> getFutureValue(new CreateMaterializedViewTask(metadata, new AllowAllAccessControl(), parser, analyzerFactory, materializedViewPropertyManager)
                 .execute(statement, queryStateMachine, ImmutableList.of(), WarningCollector.NOOP)))
                 .hasErrorCode(ALREADY_EXISTS)
                 .hasMessage("Materialized view already exists");
@@ -176,7 +175,7 @@ public class TestCreateMaterializedViewTask
                 ImmutableList.of(new Property(new Identifier("baz"), new StringLiteral("abc"))),
                 Optional.empty());
 
-        assertTrinoExceptionThrownBy(() -> getFutureValue(new CreateMaterializedViewTask(metadata, new AllowAllAccessControl(), parser, analyzerFactory)
+        assertTrinoExceptionThrownBy(() -> getFutureValue(new CreateMaterializedViewTask(metadata, new AllowAllAccessControl(), parser, analyzerFactory, materializedViewPropertyManager)
                 .execute(statement, queryStateMachine, ImmutableList.of(), WarningCollector.NOOP)))
                 .hasErrorCode(INVALID_MATERIALIZED_VIEW_PROPERTY)
                 .hasMessage("Catalog 'catalog' does not support materialized view property 'baz'");
@@ -200,7 +199,7 @@ public class TestCreateMaterializedViewTask
         accessControl.deny(privilege("test_mv", CREATE_MATERIALIZED_VIEW));
 
         AnalyzerFactory analyzerFactory = new AnalyzerFactory(createTestingStatementAnalyzerFactory(metadata, accessControl, new TablePropertyManager()), new StatementRewrite(ImmutableSet.of()));
-        assertThatThrownBy(() -> getFutureValue(new CreateMaterializedViewTask(metadata, accessControl, parser, analyzerFactory)
+        assertThatThrownBy(() -> getFutureValue(new CreateMaterializedViewTask(metadata, accessControl, parser, analyzerFactory, materializedViewPropertyManager)
                 .execute(statement, queryStateMachine, ImmutableList.of(), WarningCollector.NOOP)))
                 .isInstanceOf(AccessDeniedException.class)
                 .hasMessageContaining("Cannot create materialized view catalog.schema.test_mv");
@@ -226,13 +225,11 @@ public class TestCreateMaterializedViewTask
     private static class MockMetadata
             extends AbstractMockMetadata
     {
-        private final MaterializedViewPropertyManager materializedViewPropertyManager;
         private final CatalogName catalogHandle;
         private final Map<SchemaTableName, MaterializedViewDefinition> materializedViews = new ConcurrentHashMap<>();
 
-        public MockMetadata(MaterializedViewPropertyManager materializedViewPropertyManager, CatalogName catalogHandle)
+        public MockMetadata(CatalogName catalogHandle)
         {
-            this.materializedViewPropertyManager = requireNonNull(materializedViewPropertyManager, "materializedViewPropertyManager is null");
             this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
         }
 
@@ -243,12 +240,6 @@ public class TestCreateMaterializedViewTask
             if (!ignoreExisting) {
                 throw new TrinoException(ALREADY_EXISTS, "Materialized view already exists");
             }
-        }
-
-        @Override
-        public MaterializedViewPropertyManager getMaterializedViewPropertyManager()
-        {
-            return materializedViewPropertyManager;
         }
 
         @Override

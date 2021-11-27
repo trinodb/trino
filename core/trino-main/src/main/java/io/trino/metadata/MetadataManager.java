@@ -211,7 +211,6 @@ public final class MetadataManager
     private final FunctionRegistry functions;
     private final TypeOperators typeOperators;
     private final FunctionResolver functionResolver;
-    private final MaterializedViewPropertyManager materializedViewPropertyManager;
     private final AnalyzePropertyManager analyzePropertyManager;
     private final TableProceduresPropertyManager tableProceduresPropertyManager;
     private final SystemSecurityMetadata systemSecurityMetadata;
@@ -229,7 +228,6 @@ public final class MetadataManager
     @Inject
     public MetadataManager(
             FeaturesConfig featuresConfig,
-            MaterializedViewPropertyManager materializedViewPropertyManager,
             AnalyzePropertyManager analyzePropertyManager,
             TableProceduresPropertyManager tableProceduresPropertyManager,
             SystemSecurityMetadata systemSecurityMetadata,
@@ -243,7 +241,6 @@ public final class MetadataManager
         functions = new FunctionRegistry(this::getBlockEncodingSerde, featuresConfig, typeOperators, blockTypeOperators, nodeVersion.getVersion());
         functionResolver = new FunctionResolver(this);
 
-        this.materializedViewPropertyManager = requireNonNull(materializedViewPropertyManager, "materializedViewPropertyManager is null");
         this.analyzePropertyManager = requireNonNull(analyzePropertyManager, "analyzePropertyManager is null");
         this.tableProceduresPropertyManager = requireNonNull(tableProceduresPropertyManager, "tableProceduresPropertyManager is null");
         this.systemSecurityMetadata = requireNonNull(systemSecurityMetadata, "systemSecurityMetadata is null");
@@ -305,7 +302,6 @@ public final class MetadataManager
         TypeOperators typeOperators = new TypeOperators();
         return new MetadataManager(
                 featuresConfig,
-                new MaterializedViewPropertyManager(),
                 new AnalyzePropertyManager(),
                 new TableProceduresPropertyManager(),
                 new DisabledSystemSecurityMetadata(),
@@ -2810,12 +2806,6 @@ public final class MetadataManager
     //
     // Properties
     //
-
-    @Override
-    public MaterializedViewPropertyManager getMaterializedViewPropertyManager()
-    {
-        return materializedViewPropertyManager;
-    }
 
     @Override
     public AnalyzePropertyManager getAnalyzePropertyManager()

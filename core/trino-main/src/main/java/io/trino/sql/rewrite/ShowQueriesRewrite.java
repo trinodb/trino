@@ -26,6 +26,7 @@ import io.trino.metadata.ColumnPropertyManager;
 import io.trino.metadata.FunctionKind;
 import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.MaterializedViewDefinition;
+import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.MetadataUtil;
 import io.trino.metadata.QualifiedObjectName;
@@ -164,6 +165,7 @@ public final class ShowQueriesRewrite
     private final SchemaPropertyManager schemaPropertyManager;
     private final ColumnPropertyManager columnPropertyManager;
     private final TablePropertyManager tablePropertyManager;
+    private final MaterializedViewPropertyManager materializedViewPropertyManager;
 
     @Inject
     public ShowQueriesRewrite(
@@ -173,7 +175,8 @@ public final class ShowQueriesRewrite
             SessionPropertyManager sessionPropertyManager,
             SchemaPropertyManager schemaPropertyManager,
             ColumnPropertyManager columnPropertyManager,
-            TablePropertyManager tablePropertyManager)
+            TablePropertyManager tablePropertyManager,
+            MaterializedViewPropertyManager materializedViewPropertyManager)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.parser = requireNonNull(parser, "parser is null");
@@ -182,6 +185,7 @@ public final class ShowQueriesRewrite
         this.schemaPropertyManager = requireNonNull(schemaPropertyManager, "schemaPropertyManager is null");
         this.columnPropertyManager = requireNonNull(columnPropertyManager, "columnPropertyManager is null");
         this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
+        this.materializedViewPropertyManager = requireNonNull(materializedViewPropertyManager, "materializedViewPropertyManager is null");
     }
 
     @Override
@@ -193,7 +197,16 @@ public final class ShowQueriesRewrite
             Map<NodeRef<Parameter>, Expression> parameterLookup,
             WarningCollector warningCollector)
     {
-        Visitor visitor = new Visitor(metadata, parser, session, accessControl, sessionPropertyManager, schemaPropertyManager, columnPropertyManager, tablePropertyManager);
+        Visitor visitor = new Visitor(
+                metadata,
+                parser,
+                session,
+                accessControl,
+                sessionPropertyManager,
+                schemaPropertyManager,
+                columnPropertyManager,
+                tablePropertyManager,
+                materializedViewPropertyManager);
         return (Statement) visitor.process(node, null);
     }
 
@@ -208,6 +221,7 @@ public final class ShowQueriesRewrite
         private final SchemaPropertyManager schemaPropertyManager;
         private final ColumnPropertyManager columnPropertyManager;
         private final TablePropertyManager tablePropertyManager;
+        private final MaterializedViewPropertyManager materializedViewPropertyManager;
 
         public Visitor(
                 Metadata metadata,
@@ -217,7 +231,8 @@ public final class ShowQueriesRewrite
                 SessionPropertyManager sessionPropertyManager,
                 SchemaPropertyManager schemaPropertyManager,
                 ColumnPropertyManager columnPropertyManager,
-                TablePropertyManager tablePropertyManager)
+                TablePropertyManager tablePropertyManager,
+                MaterializedViewPropertyManager materializedViewPropertyManager)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
@@ -227,6 +242,7 @@ public final class ShowQueriesRewrite
             this.schemaPropertyManager = requireNonNull(schemaPropertyManager, "schemaPropertyManager is null");
             this.columnPropertyManager = requireNonNull(columnPropertyManager, "columnPropertyManager is null");
             this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
+            this.materializedViewPropertyManager = requireNonNull(materializedViewPropertyManager, "materializedViewPropertyManager is null");
         }
 
         @Override
@@ -575,7 +591,7 @@ public final class ShowQueriesRewrite
                 accessControl.checkCanShowCreateTable(session.toSecurityContext(), new QualifiedObjectName(catalogName.getValue(), schemaName.getValue(), tableName.getValue()));
 
                 Map<String, Object> properties = viewDefinition.get().getProperties();
-                Map<String, PropertyMetadata<?>> allMaterializedViewProperties = metadata.getMaterializedViewPropertyManager()
+                Map<String, PropertyMetadata<?>> allMaterializedViewProperties = materializedViewPropertyManager
                         .getAllProperties()
                         .get(new CatalogName(catalogName.getValue()));
                 List<Property> propertyNodes = buildProperties(objectName, Optional.empty(), INVALID_MATERIALIZED_VIEW_PROPERTY, properties, allMaterializedViewProperties);
