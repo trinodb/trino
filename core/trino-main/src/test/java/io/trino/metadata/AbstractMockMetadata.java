@@ -885,12 +885,6 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public ColumnPropertyManager getColumnPropertyManager()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public AnalyzePropertyManager getAnalyzePropertyManager()
     {
         throw new UnsupportedOperationException();

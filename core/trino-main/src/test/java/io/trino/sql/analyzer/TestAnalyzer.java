@@ -33,6 +33,7 @@ import io.trino.memory.NodeMemoryConfig;
 import io.trino.metadata.Catalog;
 import io.trino.metadata.Catalog.SecurityManagement;
 import io.trino.metadata.CatalogManager;
+import io.trino.metadata.ColumnPropertyManager;
 import io.trino.metadata.InMemoryNodeManager;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.MaterializedViewDefinition;
@@ -5491,7 +5492,8 @@ public class TestAnalyzer
                 SQL_PARSER,
                 accessControl,
                 new SessionPropertyManager(),
-                new SchemaPropertyManager())));
+                new SchemaPropertyManager(),
+                new ColumnPropertyManager())));
         AnalyzerFactory analyzerFactory = new AnalyzerFactory(createTestingStatementAnalyzerFactory(metadata, accessControl), statementRewrite);
         return analyzerFactory.createAnalyzer(
                 session,

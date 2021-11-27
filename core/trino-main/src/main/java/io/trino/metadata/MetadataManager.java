@@ -213,7 +213,6 @@ public final class MetadataManager
     private final FunctionResolver functionResolver;
     private final TablePropertyManager tablePropertyManager;
     private final MaterializedViewPropertyManager materializedViewPropertyManager;
-    private final ColumnPropertyManager columnPropertyManager;
     private final AnalyzePropertyManager analyzePropertyManager;
     private final TableProceduresPropertyManager tableProceduresPropertyManager;
     private final SystemSecurityMetadata systemSecurityMetadata;
@@ -233,7 +232,6 @@ public final class MetadataManager
             FeaturesConfig featuresConfig,
             TablePropertyManager tablePropertyManager,
             MaterializedViewPropertyManager materializedViewPropertyManager,
-            ColumnPropertyManager columnPropertyManager,
             AnalyzePropertyManager analyzePropertyManager,
             TableProceduresPropertyManager tableProceduresPropertyManager,
             SystemSecurityMetadata systemSecurityMetadata,
@@ -249,7 +247,6 @@ public final class MetadataManager
 
         this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
         this.materializedViewPropertyManager = requireNonNull(materializedViewPropertyManager, "materializedViewPropertyManager is null");
-        this.columnPropertyManager = requireNonNull(columnPropertyManager, "columnPropertyManager is null");
         this.analyzePropertyManager = requireNonNull(analyzePropertyManager, "analyzePropertyManager is null");
         this.tableProceduresPropertyManager = requireNonNull(tableProceduresPropertyManager, "tableProceduresPropertyManager is null");
         this.systemSecurityMetadata = requireNonNull(systemSecurityMetadata, "systemSecurityMetadata is null");
@@ -313,7 +310,6 @@ public final class MetadataManager
                 featuresConfig,
                 new TablePropertyManager(),
                 new MaterializedViewPropertyManager(),
-                new ColumnPropertyManager(),
                 new AnalyzePropertyManager(),
                 new TableProceduresPropertyManager(),
                 new DisabledSystemSecurityMetadata(),
@@ -2829,12 +2825,6 @@ public final class MetadataManager
     public MaterializedViewPropertyManager getMaterializedViewPropertyManager()
     {
         return materializedViewPropertyManager;
-    }
-
-    @Override
-    public ColumnPropertyManager getColumnPropertyManager()
-    {
-        return columnPropertyManager;
     }
 
     @Override
