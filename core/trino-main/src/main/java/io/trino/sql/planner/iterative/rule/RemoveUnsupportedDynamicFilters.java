@@ -19,6 +19,7 @@ import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.OperatorNotFoundException;
+import io.trino.metadata.TableProceduresRegistry;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.Type;
 import io.trino.sql.DynamicFilters;
@@ -84,7 +85,12 @@ public class RemoveUnsupportedDynamicFilters
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         // This is a limited type analyzer for the simple expressions used in dynamic filters
-        this.typeAnalyzer = new TypeAnalyzer(new StatementAnalyzerFactory(metadata, new SqlParser(), new AllowAllAccessControl(), user -> ImmutableSet.of()));
+        this.typeAnalyzer = new TypeAnalyzer(new StatementAnalyzerFactory(
+                metadata,
+                new SqlParser(),
+                new AllowAllAccessControl(),
+                user -> ImmutableSet.of(),
+                new TableProceduresRegistry()));
     }
 
     @Override

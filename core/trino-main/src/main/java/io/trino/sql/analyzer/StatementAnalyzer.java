@@ -39,6 +39,7 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableExecuteHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
+import io.trino.metadata.TableProceduresRegistry;
 import io.trino.metadata.TableSchema;
 import io.trino.metadata.TableVersion;
 import io.trino.metadata.ViewColumn;
@@ -324,6 +325,7 @@ class StatementAnalyzer
     private final SqlParser sqlParser;
     private final GroupProvider groupProvider;
     private final AccessControl accessControl;
+    private final TableProceduresRegistry tableProceduresRegistry;
     private final WarningCollector warningCollector;
     private final CorrelationSupport correlationSupport;
 
@@ -335,6 +337,7 @@ class StatementAnalyzer
             GroupProvider groupProvider,
             AccessControl accessControl,
             Session session,
+            TableProceduresRegistry tableProceduresRegistry,
             WarningCollector warningCollector,
             CorrelationSupport correlationSupport)
     {
@@ -346,6 +349,7 @@ class StatementAnalyzer
         this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.session = requireNonNull(session, "session is null");
+        this.tableProceduresRegistry = requireNonNull(tableProceduresRegistry, "tableProceduresRegistry is null");
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         this.correlationSupport = requireNonNull(correlationSupport, "correlationSupport is null");
     }
@@ -1046,7 +1050,7 @@ class StatementAnalyzer
             Scope tableScope = analyze(table, scope);
 
             CatalogName catalogName = getRequiredCatalogHandle(metadata, session, node, tableName.getCatalogName());
-            TableProcedureMetadata procedureMetadata = metadata.getTableProcedureRegistry().resolve(catalogName, procedureName);
+            TableProcedureMetadata procedureMetadata = tableProceduresRegistry.resolve(catalogName, procedureName);
 
             // analyze WHERE
             if (!procedureMetadata.getExecutionMode().supportsFilter() && node.getWhere().isPresent()) {
