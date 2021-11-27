@@ -32,6 +32,7 @@ import io.trino.metadata.HandleResolver;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.MetadataManager;
 import io.trino.metadata.ProcedureRegistry;
+import io.trino.metadata.TableProceduresRegistry;
 import io.trino.security.AccessControlManager;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.PageSorter;
@@ -110,6 +111,7 @@ public class ConnectorManager
     private final EventListenerManager eventListenerManager;
     private final TypeOperators typeOperators;
     private final ProcedureRegistry procedureRegistry;
+    private final TableProceduresRegistry tableProceduresRegistry;
 
     private final boolean schedulerIncludeCoordinator;
 
@@ -141,6 +143,7 @@ public class ConnectorManager
             EventListenerManager eventListenerManager,
             TypeOperators typeOperators,
             ProcedureRegistry procedureRegistry,
+            TableProceduresRegistry tableProceduresRegistry,
             NodeSchedulerConfig nodeSchedulerConfig)
     {
         this.metadataManager = metadataManager;
@@ -161,6 +164,7 @@ public class ConnectorManager
         this.eventListenerManager = eventListenerManager;
         this.typeOperators = typeOperators;
         this.procedureRegistry = procedureRegistry;
+        this.tableProceduresRegistry = tableProceduresRegistry;
         this.schedulerIncludeCoordinator = nodeSchedulerConfig.isIncludeCoordinator();
     }
 
@@ -306,7 +310,7 @@ public class ConnectorManager
 
         procedureRegistry.addProcedures(catalogName, connector.getProcedures());
         Set<TableProcedureMetadata> tableProcedures = connector.getTableProcedures();
-        metadataManager.getTableProcedureRegistry().addTableProcedures(catalogName, tableProcedures);
+        tableProceduresRegistry.addTableProcedures(catalogName, tableProcedures);
 
         connector.getAccessControl()
                 .ifPresent(accessControl -> accessControlManager.addCatalogAccessControl(catalogName, accessControl));
@@ -343,7 +347,7 @@ public class ConnectorManager
         indexManager.removeIndexProvider(catalogName);
         nodePartitioningManager.removePartitioningProvider(catalogName);
         procedureRegistry.removeProcedures(catalogName);
-        metadataManager.getTableProcedureRegistry().removeProcedures(catalogName);
+        tableProceduresRegistry.removeProcedures(catalogName);
         accessControlManager.removeCatalogAccessControl(catalogName);
         metadataManager.getTablePropertyManager().removeProperties(catalogName);
         metadataManager.getMaterializedViewPropertyManager().removeProperties(catalogName);

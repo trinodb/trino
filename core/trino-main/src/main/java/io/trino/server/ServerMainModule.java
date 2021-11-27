@@ -81,6 +81,7 @@ import io.trino.metadata.StaticCatalogStore;
 import io.trino.metadata.StaticCatalogStoreConfig;
 import io.trino.metadata.SystemSecurityMetadata;
 import io.trino.metadata.TableProceduresPropertyManager;
+import io.trino.metadata.TableProceduresRegistry;
 import io.trino.metadata.TablePropertyManager;
 import io.trino.operator.ExchangeClientConfig;
 import io.trino.operator.ExchangeClientFactory;
@@ -373,6 +374,7 @@ public class ServerMainModule
         binder.bind(BlockTypeOperators.class).in(Scopes.SINGLETON);
         newExporter(binder).export(TypeOperatorsCache.class).withGeneratedName();
         binder.bind(ProcedureRegistry.class).in(Scopes.SINGLETON);
+        binder.bind(TableProceduresRegistry.class).in(Scopes.SINGLETON);
 
         // type
         binder.bind(TypeAnalyzer.class).in(Scopes.SINGLETON);
