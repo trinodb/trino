@@ -22,7 +22,6 @@ import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.DecimalLiteral;
@@ -43,6 +42,7 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.lang.Double.NEGATIVE_INFINITY;
@@ -59,7 +59,7 @@ public class TestScalarStatsCalculator
     public void setUp()
     {
         functionResolution = new TestingFunctionResolution();
-        calculator = new ScalarStatsCalculator(functionResolution.getMetadata(), new TypeAnalyzer(sqlParser, functionResolution.getMetadata()));
+        calculator = new ScalarStatsCalculator(functionResolution.getMetadata(), createTestingTypeAnalyzer(functionResolution.getMetadata()));
         session = testSessionBuilder().build();
     }
 

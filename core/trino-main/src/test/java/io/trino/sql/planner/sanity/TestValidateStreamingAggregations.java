@@ -36,6 +36,7 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -52,7 +53,7 @@ public class TestValidateStreamingAggregations
     public void setup()
     {
         metadata = getQueryRunner().getMetadata();
-        typeAnalyzer = new TypeAnalyzer(getQueryRunner().getSqlParser(), metadata);
+        typeAnalyzer = createTestingTypeAnalyzer(metadata);
 
         CatalogName catalogName = getCurrentConnectorId();
         nationTableHandle = new TableHandle(

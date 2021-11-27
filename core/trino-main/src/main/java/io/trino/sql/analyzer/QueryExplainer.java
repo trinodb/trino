@@ -21,7 +21,6 @@ import io.trino.metadata.Metadata;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.SqlFormatter;
-import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.LogicalPlanner;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.PlanFragmenter;
@@ -59,8 +58,8 @@ public class QueryExplainer
     private final PlanFragmenter planFragmenter;
     private final Metadata metadata;
     private final TypeOperators typeOperators;
-    private final SqlParser sqlParser;
     private final AnalyzerFactory analyzerFactory;
+    private final StatementAnalyzerFactory statementAnalyzerFactory;
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
 
@@ -69,8 +68,8 @@ public class QueryExplainer
             PlanFragmenter planFragmenter,
             Metadata metadata,
             TypeOperators typeOperators,
-            SqlParser sqlParser,
             AnalyzerFactory analyzerFactory,
+            StatementAnalyzerFactory statementAnalyzerFactory,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator)
     {
@@ -78,8 +77,8 @@ public class QueryExplainer
         this.planFragmenter = requireNonNull(planFragmenter, "planFragmenter is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
-        this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.analyzerFactory = requireNonNull(analyzerFactory, "analyzerFactory is null");
+        this.statementAnalyzerFactory = requireNonNull(statementAnalyzerFactory, "statementAnalyzerFactory is null");
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
     }
@@ -169,7 +168,7 @@ public class QueryExplainer
                 idAllocator,
                 metadata,
                 typeOperators,
-                new TypeAnalyzer(sqlParser, metadata),
+                new TypeAnalyzer(statementAnalyzerFactory),
                 statsCalculator,
                 costCalculator,
                 warningCollector);

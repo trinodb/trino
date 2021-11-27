@@ -17,7 +17,6 @@ import io.trino.cost.CostCalculator;
 import io.trino.cost.StatsCalculator;
 import io.trino.metadata.Metadata;
 import io.trino.spi.type.TypeOperators;
-import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.PlanFragmenter;
 import io.trino.sql.planner.PlanOptimizersFactory;
 
@@ -31,7 +30,7 @@ public class QueryExplainerFactory
     private final PlanFragmenter planFragmenter;
     private final Metadata metadata;
     private final TypeOperators typeOperators;
-    private final SqlParser sqlParser;
+    private final StatementAnalyzerFactory statementAnalyzerFactory;
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
 
@@ -41,7 +40,7 @@ public class QueryExplainerFactory
             PlanFragmenter planFragmenter,
             Metadata metadata,
             TypeOperators typeOperators,
-            SqlParser sqlParser,
+            StatementAnalyzerFactory statementAnalyzerFactory,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator)
     {
@@ -49,7 +48,7 @@ public class QueryExplainerFactory
         this.planFragmenter = requireNonNull(planFragmenter, "planFragmenter is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
-        this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
+        this.statementAnalyzerFactory = requireNonNull(statementAnalyzerFactory, "statementAnalyzerFactory is null");
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
     }
@@ -61,8 +60,8 @@ public class QueryExplainerFactory
                 planFragmenter,
                 metadata,
                 typeOperators,
-                sqlParser,
                 analyzerFactory,
+                statementAnalyzerFactory,
                 statsCalculator,
                 costCalculator);
     }

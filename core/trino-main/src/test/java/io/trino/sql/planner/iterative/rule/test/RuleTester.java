@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Objects.requireNonNull;
 
@@ -92,7 +93,7 @@ public class RuleTester
         this.splitManager = queryRunner.getSplitManager();
         this.pageSourceManager = queryRunner.getPageSourceManager();
         this.accessControl = queryRunner.getAccessControl();
-        this.typeAnalyzer = new TypeAnalyzer(queryRunner.getSqlParser(), metadata);
+        this.typeAnalyzer = createTestingTypeAnalyzer(metadata);
     }
 
     public RuleAssert assertThat(Rule<?> rule)

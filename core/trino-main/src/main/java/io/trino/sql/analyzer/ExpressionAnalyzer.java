@@ -36,7 +36,6 @@ import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.TrinoWarning;
 import io.trino.spi.function.OperatorType;
-import io.trino.spi.security.GroupProvider;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalParseResult;
@@ -55,7 +54,6 @@ import io.trino.sql.analyzer.Analysis.PredicateCoercions;
 import io.trino.sql.analyzer.Analysis.Range;
 import io.trino.sql.analyzer.Analysis.ResolvedWindow;
 import io.trino.sql.analyzer.PatternRecognitionAnalyzer.PatternRecognitionAnalysis;
-import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
@@ -298,7 +296,7 @@ public class ExpressionAnalyzer
     private final Function<Node, ResolvedWindow> getResolvedWindow;
     private final List<Field> sourceFields = new ArrayList<>();
 
-    public ExpressionAnalyzer(
+    ExpressionAnalyzer(
             Metadata metadata,
             AccessControl accessControl,
             BiFunction<Node, CorrelationSupport, StatementAnalyzer> statementAnalyzerFactory,
@@ -2666,17 +2664,15 @@ public class ExpressionAnalyzer
 
     public static ExpressionAnalysis analyzePatternRecognitionExpression(
             Session session,
-            Metadata metadata,
-            GroupProvider groupProvider,
+            StatementAnalyzerFactory statementAnalyzerFactory,
             AccessControl accessControl,
-            SqlParser sqlParser,
             Scope scope,
             Analysis analysis,
             Expression expression,
             WarningCollector warningCollector,
             Set<String> labels)
     {
-        ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, groupProvider, accessControl, TypeProvider.empty(), warningCollector);
+        ExpressionAnalyzer analyzer = statementAnalyzerFactory.createExpressionAnalyzer(analysis, session, TypeProvider.empty(), warningCollector);
         analyzer.analyze(expression, scope, labels);
 
         updateAnalysis(analysis, analyzer, session, accessControl);
@@ -2695,10 +2691,7 @@ public class ExpressionAnalyzer
 
     public static ExpressionAnalysis analyzeExpressions(
             Session session,
-            Metadata metadata,
-            GroupProvider groupProvider,
-            AccessControl accessControl,
-            SqlParser sqlParser,
+            StatementAnalyzerFactory statementAnalyzerFactory,
             TypeProvider types,
             Iterable<Expression> expressions,
             Map<NodeRef<Parameter>, Expression> parameters,
@@ -2706,7 +2699,7 @@ public class ExpressionAnalyzer
             QueryType queryType)
     {
         Analysis analysis = new Analysis(null, parameters, queryType);
-        ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, groupProvider, accessControl, types, warningCollector);
+        ExpressionAnalyzer analyzer = statementAnalyzerFactory.createExpressionAnalyzer(analysis, session, types, warningCollector);
         for (Expression expression : expressions) {
             analyzer.analyze(
                     expression,
@@ -2729,17 +2722,15 @@ public class ExpressionAnalyzer
 
     public static ExpressionAnalysis analyzeExpression(
             Session session,
-            Metadata metadata,
-            GroupProvider groupProvider,
+            StatementAnalyzerFactory statementAnalyzerFactory,
             AccessControl accessControl,
-            SqlParser sqlParser,
             Scope scope,
             Analysis analysis,
             Expression expression,
             WarningCollector warningCollector,
             CorrelationSupport correlationSupport)
     {
-        ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, groupProvider, accessControl, TypeProvider.empty(), warningCollector);
+        ExpressionAnalyzer analyzer = statementAnalyzerFactory.createExpressionAnalyzer(analysis, session, TypeProvider.empty(), warningCollector);
         analyzer.analyze(expression, scope, correlationSupport);
 
         updateAnalysis(analysis, analyzer, session, accessControl);
@@ -2759,10 +2750,8 @@ public class ExpressionAnalyzer
 
     public static ExpressionAnalysis analyzeWindow(
             Session session,
-            Metadata metadata,
-            GroupProvider groupProvider,
+            StatementAnalyzerFactory statementAnalyzerFactory,
             AccessControl accessControl,
-            SqlParser sqlParser,
             Scope scope,
             Analysis analysis,
             WarningCollector warningCollector,
@@ -2770,7 +2759,7 @@ public class ExpressionAnalyzer
             ResolvedWindow window,
             Node originalNode)
     {
-        ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, groupProvider, accessControl, TypeProvider.empty(), warningCollector);
+        ExpressionAnalyzer analyzer = statementAnalyzerFactory.createExpressionAnalyzer(analysis, session, TypeProvider.empty(), warningCollector);
         analyzer.analyzeWindow(window, scope, originalNode, correlationSupport);
 
         updateAnalysis(analysis, analyzer, session, accessControl);
@@ -2808,29 +2797,6 @@ public class ExpressionAnalyzer
         analysis.setMeasureDefinitions(analyzer.getMeasureDefinitions());
         analysis.setPatternAggregations(analyzer.getPatternAggregations());
         analysis.addPredicateCoercions(analyzer.getPredicateCoercions());
-    }
-
-    public static ExpressionAnalyzer create(
-            Analysis analysis,
-            Session session,
-            Metadata metadata,
-            SqlParser sqlParser,
-            GroupProvider groupProvider,
-            AccessControl accessControl,
-            TypeProvider types,
-            WarningCollector warningCollector)
-    {
-        return new ExpressionAnalyzer(
-                metadata,
-                accessControl,
-                (node, correlationSupport) -> new StatementAnalyzer(analysis, metadata, sqlParser, groupProvider, accessControl, session, warningCollector, correlationSupport),
-                session,
-                types,
-                analysis.getParameters(),
-                warningCollector,
-                analysis.isDescribe(),
-                analysis::getType,
-                analysis::getWindow);
     }
 
     public static ExpressionAnalyzer createConstantAnalyzer(

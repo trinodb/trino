@@ -47,6 +47,7 @@ import java.util.function.Function;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -188,7 +189,7 @@ public class TestValidateLimitWithPresortedInput
         queryRunner.inTransaction(session -> {
             // metadata.getCatalogHandle() registers the catalog for the transaction
             session.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(session, catalog));
-            TypeAnalyzer typeAnalyzer = new TypeAnalyzer(queryRunner.getSqlParser(), metadata);
+            TypeAnalyzer typeAnalyzer = createTestingTypeAnalyzer(metadata);
             new ValidateLimitWithPresortedInput().validate(planNode, session, metadata, queryRunner.getTypeOperators(), typeAnalyzer, types, WarningCollector.NOOP);
             return null;
         });

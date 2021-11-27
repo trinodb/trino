@@ -54,7 +54,6 @@ import io.trino.sql.tree.Property;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.testing.TestingAccessControlManager;
-import io.trino.testing.TestingGroupProvider;
 import io.trino.testing.TestingMetadata.TestingTableHandle;
 import io.trino.transaction.TransactionManager;
 import org.testng.annotations.BeforeMethod;
@@ -78,6 +77,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.sql.QueryUtil.selectList;
 import static io.trino.sql.QueryUtil.simpleQuery;
 import static io.trino.sql.QueryUtil.table;
+import static io.trino.sql.analyzer.StatementAnalyzerFactory.createTestingStatementAnalyzerFactory;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_MATERIALIZED_VIEW;
 import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingEventListenerManager.emptyEventListenerManager;
@@ -128,7 +128,7 @@ public class TestCreateMaterializedViewTask
                 materializedViewPropertyManager,
                 testCatalog.getConnectorCatalogName());
         parser = new SqlParser();
-        analyzerFactory = new AnalyzerFactory(metadata, parser, new AllowAllAccessControl(), new TestingGroupProvider(), new StatementRewrite(ImmutableSet.of()));
+        analyzerFactory = new AnalyzerFactory(createTestingStatementAnalyzerFactory(metadata, new AllowAllAccessControl()), new StatementRewrite(ImmutableSet.of()));
         queryStateMachine = stateMachine(transactionManager, createTestMetadataManager(), new AllowAllAccessControl());
     }
 
@@ -204,7 +204,7 @@ public class TestCreateMaterializedViewTask
         accessControl.loadSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
         accessControl.deny(privilege("test_mv", CREATE_MATERIALIZED_VIEW));
 
-        AnalyzerFactory analyzerFactory = new AnalyzerFactory(metadata, parser, accessControl, new TestingGroupProvider(), new StatementRewrite(ImmutableSet.of()));
+        AnalyzerFactory analyzerFactory = new AnalyzerFactory(createTestingStatementAnalyzerFactory(metadata, accessControl), new StatementRewrite(ImmutableSet.of()));
         assertThatThrownBy(() -> getFutureValue(new CreateMaterializedViewTask(metadata, accessControl, parser, analyzerFactory)
                 .execute(statement, queryStateMachine, ImmutableList.of(), WarningCollector.NOOP)))
                 .isInstanceOf(AccessDeniedException.class)

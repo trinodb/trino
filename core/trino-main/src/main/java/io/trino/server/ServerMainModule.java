@@ -120,6 +120,7 @@ import io.trino.split.PageSourceManager;
 import io.trino.split.PageSourceProvider;
 import io.trino.split.SplitManager;
 import io.trino.sql.SqlEnvironmentConfig;
+import io.trino.sql.analyzer.StatementAnalyzerFactory;
 import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.gen.JoinFilterFunctionCompiler;
@@ -211,6 +212,7 @@ public class ServerMainModule
         configBinder(binder).bindConfig(SqlEnvironmentConfig.class);
 
         newOptionalBinder(binder, ExplainAnalyzeContext.class);
+        binder.bind(StatementAnalyzerFactory.class).in(Scopes.SINGLETON);
 
         // GC Monitor
         binder.bind(GcMonitor.class).to(JmxGcMonitor.class).in(Scopes.SINGLETON);

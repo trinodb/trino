@@ -23,9 +23,7 @@ import io.trino.cost.SymbolStatsEstimate;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.type.Type;
-import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.RuleAssert;
 import io.trino.sql.planner.iterative.rule.test.RuleTester;
@@ -49,6 +47,7 @@ import static io.trino.SystemSessionProperties.JOIN_MAX_BROADCAST_TABLE_SIZE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
@@ -683,6 +682,6 @@ public class TestReorderJoins
 
     private RuleAssert assertReorderJoins()
     {
-        return tester.assertThat(new ReorderJoins(metadata, new CostComparator(1, 1, 1), new TypeAnalyzer(new SqlParser(), metadata)));
+        return tester.assertThat(new ReorderJoins(metadata, new CostComparator(1, 1, 1), createTestingTypeAnalyzer(metadata)));
     }
 }
