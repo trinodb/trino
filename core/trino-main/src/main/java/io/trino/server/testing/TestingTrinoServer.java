@@ -79,6 +79,8 @@ import io.trino.spi.security.SystemAccessControl;
 import io.trino.split.PageSourceManager;
 import io.trino.split.SplitManager;
 import io.trino.sql.analyzer.AnalyzerFactory;
+import io.trino.sql.analyzer.QueryExplainer;
+import io.trino.sql.analyzer.QueryExplainerFactory;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.sql.planner.Plan;
 import io.trino.testing.ProcedureTester;
@@ -145,6 +147,7 @@ public class TestingTrinoServer
     private final TransactionManager transactionManager;
     private final Metadata metadata;
     private final AnalyzerFactory analyzerFactory;
+    private final QueryExplainer queryExplainer;
     private final StatsCalculator statsCalculator;
     private final TestingAccessControlManager accessControl;
     private final TestingGroupProvider groupProvider;
@@ -302,6 +305,8 @@ public class TestingTrinoServer
             analyzerFactory = injector.getInstance(AnalyzerFactory.class);
             dispatchManager = injector.getInstance(DispatchManager.class);
             queryManager = (SqlQueryManager) injector.getInstance(QueryManager.class);
+            queryExplainer = injector.getInstance(QueryExplainerFactory.class)
+                    .createQueryExplainer(injector.getInstance(AnalyzerFactory.class));
             resourceGroupManager = Optional.of((InternalResourceGroupManager<?>) injector.getInstance(InternalResourceGroupManager.class));
             sessionPropertyDefaults = injector.getInstance(SessionPropertyDefaults.class);
             nodePartitioningManager = injector.getInstance(NodePartitioningManager.class);
@@ -313,6 +318,7 @@ public class TestingTrinoServer
             analyzerFactory = null;
             dispatchManager = null;
             queryManager = null;
+            queryExplainer = null;
             resourceGroupManager = Optional.empty();
             sessionPropertyDefaults = null;
             nodePartitioningManager = null;
@@ -449,6 +455,11 @@ public class TestingTrinoServer
     public AnalyzerFactory getAnalyzerFactory()
     {
         return analyzerFactory;
+    }
+
+    public QueryExplainer getQueryExplainer()
+    {
+        return queryExplainer;
     }
 
     public StatsCalculator getStatsCalculator()

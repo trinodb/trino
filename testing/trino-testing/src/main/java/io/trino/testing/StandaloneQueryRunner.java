@@ -29,6 +29,7 @@ import io.trino.spi.Plugin;
 import io.trino.split.PageSourceManager;
 import io.trino.split.SplitManager;
 import io.trino.sql.analyzer.AnalyzerFactory;
+import io.trino.sql.analyzer.QueryExplainer;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.transaction.TransactionManager;
 import org.intellij.lang.annotations.Language;
@@ -130,6 +131,12 @@ public final class StandaloneQueryRunner
     public AnalyzerFactory getAnalyzerFactory()
     {
         return server.getAnalyzerFactory();
+    }
+
+    @Override
+    public QueryExplainer getQueryExplainer()
+    {
+        return server.getQueryExplainer();
     }
 
     @Override

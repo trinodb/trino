@@ -131,6 +131,7 @@ import io.trino.split.SplitSource;
 import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.Analyzer;
 import io.trino.sql.analyzer.AnalyzerFactory;
+import io.trino.sql.analyzer.QueryExplainer;
 import io.trino.sql.analyzer.QueryExplainerFactory;
 import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.gen.JoinCompiler;
@@ -504,7 +505,15 @@ public class LocalQueryRunner
     @Override
     public AnalyzerFactory getAnalyzerFactory()
     {
-        return createAnalyzerFactory(getPlanOptimizers(false));
+        return createAnalyzerFactory(createQueryExplainerFactory(getPlanOptimizers(false)));
+    }
+
+    @Override
+    public QueryExplainer getQueryExplainer()
+    {
+        QueryExplainerFactory queryExplainerFactory = createQueryExplainerFactory(getPlanOptimizers(true));
+        AnalyzerFactory analyzerFactory = createAnalyzerFactory(queryExplainerFactory);
+        return queryExplainerFactory.createQueryExplainer(analyzerFactory);
     }
 
     public TypeOperators getTypeOperators()
@@ -926,7 +935,7 @@ public class LocalQueryRunner
 
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
 
-        AnalyzerFactory analyzerFactory = createAnalyzerFactory(optimizers);
+        AnalyzerFactory analyzerFactory = createAnalyzerFactory(createQueryExplainerFactory(optimizers));
         Analyzer analyzer = analyzerFactory.createAnalyzer(
                 session,
                 preparedQuery.getParameters(),
@@ -950,9 +959,9 @@ public class LocalQueryRunner
         return logicalPlanner.plan(analysis, stage);
     }
 
-    private AnalyzerFactory createAnalyzerFactory(List<PlanOptimizer> optimizers)
+    private QueryExplainerFactory createQueryExplainerFactory(List<PlanOptimizer> optimizers)
     {
-        QueryExplainerFactory queryExplainerFactory = new QueryExplainerFactory(
+        return new QueryExplainerFactory(
                 () -> optimizers,
                 planFragmenter,
                 metadata,
@@ -960,7 +969,10 @@ public class LocalQueryRunner
                 sqlParser,
                 statsCalculator,
                 costCalculator);
+    }
 
+    private AnalyzerFactory createAnalyzerFactory(QueryExplainerFactory queryExplainerFactory)
+    {
         return new AnalyzerFactory(
                 metadata,
                 sqlParser,
