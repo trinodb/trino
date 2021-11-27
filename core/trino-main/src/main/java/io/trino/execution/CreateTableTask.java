@@ -28,6 +28,7 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.RedirectionAwareTableHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
+import io.trino.metadata.TablePropertyManager;
 import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnMetadata;
@@ -88,14 +89,21 @@ public class CreateTableTask
     private final Metadata metadata;
     private final AccessControl accessControl;
     private final ColumnPropertyManager columnPropertyManager;
+    private final TablePropertyManager tablePropertyManager;
     private final boolean disableSetPropertiesSecurityCheckForCreateDdl;
 
     @Inject
-    public CreateTableTask(Metadata metadata, AccessControl accessControl, ColumnPropertyManager columnPropertyManager, FeaturesConfig featuresConfig)
+    public CreateTableTask(
+            Metadata metadata,
+            AccessControl accessControl,
+            ColumnPropertyManager columnPropertyManager,
+            TablePropertyManager tablePropertyManager,
+            FeaturesConfig featuresConfig)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.columnPropertyManager = requireNonNull(columnPropertyManager, "columnPropertyManager is null");
+        this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
         this.disableSetPropertiesSecurityCheckForCreateDdl = featuresConfig.isDisableSetPropertiesSecurityCheckForCreateDdl();
     }
 
@@ -241,7 +249,7 @@ public class CreateTableTask
         }
 
         Map<String, Expression> sqlProperties = mapFromProperties(statement.getProperties());
-        Map<String, Object> properties = metadata.getTablePropertyManager().getProperties(
+        Map<String, Object> properties = tablePropertyManager.getProperties(
                 catalogName,
                 tableName.getCatalogName(),
                 sqlProperties,

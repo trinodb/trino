@@ -211,7 +211,6 @@ public final class MetadataManager
     private final FunctionRegistry functions;
     private final TypeOperators typeOperators;
     private final FunctionResolver functionResolver;
-    private final TablePropertyManager tablePropertyManager;
     private final MaterializedViewPropertyManager materializedViewPropertyManager;
     private final AnalyzePropertyManager analyzePropertyManager;
     private final TableProceduresPropertyManager tableProceduresPropertyManager;
@@ -230,7 +229,6 @@ public final class MetadataManager
     @Inject
     public MetadataManager(
             FeaturesConfig featuresConfig,
-            TablePropertyManager tablePropertyManager,
             MaterializedViewPropertyManager materializedViewPropertyManager,
             AnalyzePropertyManager analyzePropertyManager,
             TableProceduresPropertyManager tableProceduresPropertyManager,
@@ -245,7 +243,6 @@ public final class MetadataManager
         functions = new FunctionRegistry(this::getBlockEncodingSerde, featuresConfig, typeOperators, blockTypeOperators, nodeVersion.getVersion());
         functionResolver = new FunctionResolver(this);
 
-        this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
         this.materializedViewPropertyManager = requireNonNull(materializedViewPropertyManager, "materializedViewPropertyManager is null");
         this.analyzePropertyManager = requireNonNull(analyzePropertyManager, "analyzePropertyManager is null");
         this.tableProceduresPropertyManager = requireNonNull(tableProceduresPropertyManager, "tableProceduresPropertyManager is null");
@@ -308,7 +305,6 @@ public final class MetadataManager
         TypeOperators typeOperators = new TypeOperators();
         return new MetadataManager(
                 featuresConfig,
-                new TablePropertyManager(),
                 new MaterializedViewPropertyManager(),
                 new AnalyzePropertyManager(),
                 new TableProceduresPropertyManager(),
@@ -2814,12 +2810,6 @@ public final class MetadataManager
     //
     // Properties
     //
-
-    @Override
-    public TablePropertyManager getTablePropertyManager()
-    {
-        return tablePropertyManager;
-    }
 
     @Override
     public MaterializedViewPropertyManager getMaterializedViewPropertyManager()

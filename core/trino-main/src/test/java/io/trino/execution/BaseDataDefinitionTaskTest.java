@@ -27,7 +27,6 @@ import io.trino.metadata.MetadataManager;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
-import io.trino.metadata.TablePropertyManager;
 import io.trino.metadata.TableSchema;
 import io.trino.metadata.ViewColumn;
 import io.trino.metadata.ViewDefinition;
@@ -86,17 +85,13 @@ public abstract class BaseDataDefinitionTaskTest
     {
         CatalogManager catalogManager = new CatalogManager();
         transactionManager = createTestTransactionManager(catalogManager);
-        TablePropertyManager tablePropertyManager = new TablePropertyManager();
         MaterializedViewPropertyManager materializedViewPropertyManager = new MaterializedViewPropertyManager();
         Catalog testCatalog = createBogusTestingCatalog(CATALOG_NAME);
         catalogManager.registerCatalog(testCatalog);
         testSession = testSessionBuilder()
                 .setTransactionId(transactionManager.beginTransaction(false))
                 .build();
-        metadata = new MockMetadata(
-                tablePropertyManager,
-                materializedViewPropertyManager,
-                testCatalog.getConnectorCatalogName());
+        metadata = new MockMetadata(materializedViewPropertyManager, testCatalog.getConnectorCatalogName());
         queryStateMachine = stateMachine(transactionManager, createTestMetadataManager(), new AllowAllAccessControl(), testSession);
     }
 
@@ -179,7 +174,6 @@ public abstract class BaseDataDefinitionTaskTest
     protected static class MockMetadata
             extends AbstractMockMetadata
     {
-        private final TablePropertyManager tablePropertyManager;
         private final MaterializedViewPropertyManager materializedViewPropertyManager;
         private final CatalogName catalogHandle;
         private final List<CatalogSchemaName> schemas = new CopyOnWriteArrayList<>();
@@ -188,20 +182,10 @@ public abstract class BaseDataDefinitionTaskTest
         private final Map<SchemaTableName, ViewDefinition> views = new ConcurrentHashMap<>();
         private final Map<SchemaTableName, MaterializedViewDefinition> materializedViews = new ConcurrentHashMap<>();
 
-        public MockMetadata(
-                TablePropertyManager tablePropertyManager,
-                MaterializedViewPropertyManager materializedViewPropertyManager,
-                CatalogName catalogHandle)
+        public MockMetadata(MaterializedViewPropertyManager materializedViewPropertyManager, CatalogName catalogHandle)
         {
-            this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
             this.materializedViewPropertyManager = requireNonNull(materializedViewPropertyManager, "materializedViewPropertyManager is null");
             this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
-        }
-
-        @Override
-        public TablePropertyManager getTablePropertyManager()
-        {
-            return tablePropertyManager;
         }
 
         @Override

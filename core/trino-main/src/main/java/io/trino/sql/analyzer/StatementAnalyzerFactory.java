@@ -19,6 +19,7 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.TableProceduresRegistry;
+import io.trino.metadata.TablePropertyManager;
 import io.trino.security.AccessControl;
 import io.trino.spi.security.GroupProvider;
 import io.trino.sql.parser.SqlParser;
@@ -36,6 +37,7 @@ public class StatementAnalyzerFactory
     private final GroupProvider groupProvider;
     private final TableProceduresRegistry tableProceduresRegistry;
     private final SessionPropertyManager sessionPropertyManager;
+    private final TablePropertyManager tablePropertyManager;
 
     @Inject
     public StatementAnalyzerFactory(
@@ -44,7 +46,8 @@ public class StatementAnalyzerFactory
             AccessControl accessControl,
             GroupProvider groupProvider,
             TableProceduresRegistry tableProceduresRegistry,
-            SessionPropertyManager sessionPropertyManager)
+            SessionPropertyManager sessionPropertyManager,
+            TablePropertyManager tablePropertyManager)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
@@ -52,11 +55,12 @@ public class StatementAnalyzerFactory
         this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
         this.tableProceduresRegistry = requireNonNull(tableProceduresRegistry, "tableProceduresRegistry is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
+        this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
     }
 
     public StatementAnalyzerFactory withSpecializedAccessControl(AccessControl accessControl)
     {
-        return new StatementAnalyzerFactory(metadata, sqlParser, accessControl, groupProvider, tableProceduresRegistry, sessionPropertyManager);
+        return new StatementAnalyzerFactory(metadata, sqlParser, accessControl, groupProvider, tableProceduresRegistry, sessionPropertyManager, tablePropertyManager);
     }
 
     public StatementAnalyzer createStatementAnalyzer(
@@ -75,6 +79,7 @@ public class StatementAnalyzerFactory
                 session,
                 tableProceduresRegistry,
                 sessionPropertyManager,
+                tablePropertyManager,
                 warningCollector,
                 correlationSupport);
     }
@@ -103,7 +108,7 @@ public class StatementAnalyzerFactory
                 analysis::getWindow);
     }
 
-    public static StatementAnalyzerFactory createTestingStatementAnalyzerFactory(Metadata metadata, AccessControl accessControl)
+    public static StatementAnalyzerFactory createTestingStatementAnalyzerFactory(Metadata metadata, AccessControl accessControl, TablePropertyManager tablePropertyManager)
     {
         return new StatementAnalyzerFactory(
                 metadata,
@@ -111,6 +116,7 @@ public class StatementAnalyzerFactory
                 accessControl,
                 user -> ImmutableSet.of(),
                 new TableProceduresRegistry(),
-                new SessionPropertyManager());
+                new SessionPropertyManager(),
+                tablePropertyManager);
     }
 }
