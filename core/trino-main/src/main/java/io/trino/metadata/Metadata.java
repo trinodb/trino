@@ -685,8 +685,6 @@ public interface Metadata
     // Properties
     //
 
-    SessionPropertyManager getSessionPropertyManager();
-
     SchemaPropertyManager getSchemaPropertyManager();
 
     TablePropertyManager getTablePropertyManager();

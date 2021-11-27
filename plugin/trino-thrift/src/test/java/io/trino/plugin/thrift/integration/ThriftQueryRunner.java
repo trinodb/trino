@@ -31,6 +31,7 @@ import io.trino.cost.StatsCalculator;
 import io.trino.execution.FailureInjector.InjectedFailureType;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.SqlFunction;
 import io.trino.plugin.thrift.ThriftPlugin;
 import io.trino.plugin.thrift.server.ThriftIndexedTpchService;
@@ -218,6 +219,12 @@ public final class ThriftQueryRunner
         public QueryExplainer getQueryExplainer()
         {
             return source.getQueryExplainer();
+        }
+
+        @Override
+        public SessionPropertyManager getSessionPropertyManager()
+        {
+            return source.getSessionPropertyManager();
         }
 
         @Override

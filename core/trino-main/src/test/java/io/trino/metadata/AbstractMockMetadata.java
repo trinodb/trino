@@ -873,12 +873,6 @@ public abstract class AbstractMockMetadata
     //
 
     @Override
-    public SessionPropertyManager getSessionPropertyManager()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public SchemaPropertyManager getSchemaPropertyManager()
     {
         throw new UnsupportedOperationException();

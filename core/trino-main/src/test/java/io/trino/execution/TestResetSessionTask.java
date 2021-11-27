@@ -21,6 +21,7 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Catalog;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.SessionPropertyManager;
 import io.trino.security.AccessControl;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.resourcegroups.ResourceGroupId;
@@ -53,6 +54,7 @@ public class TestResetSessionTask
     private final TransactionManager transactionManager;
     private final AccessControl accessControl;
     private final Metadata metadata;
+    private final SessionPropertyManager sessionPropertyManager;
 
     public TestResetSessionTask()
     {
@@ -61,15 +63,16 @@ public class TestResetSessionTask
         accessControl = new AllowAllAccessControl();
 
         metadata = createTestMetadataManager(transactionManager, new FeaturesConfig());
+        sessionPropertyManager = new SessionPropertyManager();
 
-        metadata.getSessionPropertyManager().addSystemSessionProperty(stringProperty(
+        sessionPropertyManager.addSystemSessionProperty(stringProperty(
                 "foo",
                 "test property",
                 null,
                 false));
 
         Catalog bogusTestingCatalog = createBogusTestingCatalog(CATALOG_NAME);
-        metadata.getSessionPropertyManager().addConnectorSessionProperties(bogusTestingCatalog.getConnectorCatalogName(), ImmutableList.of(stringProperty(
+        sessionPropertyManager.addConnectorSessionProperties(bogusTestingCatalog.getConnectorCatalogName(), ImmutableList.of(stringProperty(
                 "baz",
                 "test property",
                 null,
@@ -87,7 +90,7 @@ public class TestResetSessionTask
     @Test
     public void test()
     {
-        Session session = testSessionBuilder(metadata.getSessionPropertyManager())
+        Session session = testSessionBuilder(sessionPropertyManager)
                 .setSystemProperty("foo", "bar")
                 .setCatalogSessionProperty(CATALOG_NAME, "baz", "blah")
                 .build();
@@ -106,7 +109,7 @@ public class TestResetSessionTask
                 WarningCollector.NOOP,
                 Optional.empty());
 
-        getFutureValue(new ResetSessionTask(metadata).execute(
+        getFutureValue(new ResetSessionTask(metadata, sessionPropertyManager).execute(
                 new ResetSession(QualifiedName.of(CATALOG_NAME, "baz")),
                 stateMachine,
                 emptyList(),

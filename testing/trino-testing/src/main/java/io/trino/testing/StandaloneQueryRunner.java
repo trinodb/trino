@@ -22,6 +22,7 @@ import io.trino.metadata.AllNodes;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.SqlFunction;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.ErrorType;
@@ -130,6 +131,12 @@ public final class StandaloneQueryRunner
     public QueryExplainer getQueryExplainer()
     {
         return server.getQueryExplainer();
+    }
+
+    @Override
+    public SessionPropertyManager getSessionPropertyManager()
+    {
+        return server.getSessionPropertyManager();
     }
 
     @Override

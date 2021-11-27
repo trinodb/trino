@@ -36,6 +36,7 @@ import io.trino.metadata.OperatorNotFoundException;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.RedirectionAwareTableHandle;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.TableExecuteHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
@@ -326,6 +327,8 @@ class StatementAnalyzer
     private final GroupProvider groupProvider;
     private final AccessControl accessControl;
     private final TableProceduresRegistry tableProceduresRegistry;
+    private final SessionPropertyManager sessionPropertyManager;
+
     private final WarningCollector warningCollector;
     private final CorrelationSupport correlationSupport;
 
@@ -338,7 +341,7 @@ class StatementAnalyzer
             AccessControl accessControl,
             Session session,
             TableProceduresRegistry tableProceduresRegistry,
-            WarningCollector warningCollector,
+            SessionPropertyManager sessionPropertyManager, WarningCollector warningCollector,
             CorrelationSupport correlationSupport)
     {
         this.statementAnalyzerFactory = requireNonNull(statementAnalyzerFactory, "statementAnalyzerFactory is null");
@@ -350,6 +353,7 @@ class StatementAnalyzer
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.session = requireNonNull(session, "session is null");
         this.tableProceduresRegistry = requireNonNull(tableProceduresRegistry, "tableProceduresRegistry is null");
+        this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         this.correlationSupport = requireNonNull(correlationSupport, "correlationSupport is null");
     }
@@ -4306,7 +4310,7 @@ class StatementAnalyzer
 
     private Session createViewSession(Optional<String> catalog, Optional<String> schema, Identity identity, SqlPath path)
     {
-        return Session.builder(metadata.getSessionPropertyManager())
+        return Session.builder(sessionPropertyManager)
                 .setQueryId(session.getQueryId())
                 .setTransactionId(session.getTransactionId().orElse(null))
                 .setIdentity(identity)

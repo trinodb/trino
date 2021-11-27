@@ -67,7 +67,7 @@ public class TestDistributedEngineOnlyQueries
         Catalog bogusTestingCatalog = createBogusTestingCatalog(TESTING_CATALOG);
         server.getCatalogManager().registerCatalog(bogusTestingCatalog);
 
-        SessionPropertyManager sessionPropertyManager = server.getMetadata().getSessionPropertyManager();
+        SessionPropertyManager sessionPropertyManager = server.getSessionPropertyManager();
         sessionPropertyManager.addSystemSessionProperties(TEST_SYSTEM_PROPERTIES);
         sessionPropertyManager.addConnectorSessionProperties(bogusTestingCatalog.getConnectorCatalogName(), TEST_CATALOG_PROPERTIES);
     }

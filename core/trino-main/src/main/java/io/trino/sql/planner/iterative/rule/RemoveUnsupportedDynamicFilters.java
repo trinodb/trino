@@ -19,6 +19,7 @@ import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.OperatorNotFoundException;
+import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.TableProceduresRegistry;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.Type;
@@ -90,7 +91,8 @@ public class RemoveUnsupportedDynamicFilters
                 new SqlParser(),
                 new AllowAllAccessControl(),
                 user -> ImmutableSet.of(),
-                new TableProceduresRegistry()));
+                new TableProceduresRegistry(),
+                new SessionPropertyManager()));
     }
 
     @Override
