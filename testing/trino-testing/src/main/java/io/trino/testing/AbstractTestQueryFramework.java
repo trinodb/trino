@@ -14,25 +14,14 @@
 package io.trino.testing;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.MoreCollectors;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.units.Duration;
 import io.trino.FeaturesConfig;
 import io.trino.FeaturesConfig.JoinDistributionType;
 import io.trino.Session;
-import io.trino.cost.CostCalculator;
-import io.trino.cost.CostCalculatorUsingExchanges;
-import io.trino.cost.CostCalculatorWithEstimatedExchanges;
-import io.trino.cost.CostComparator;
-import io.trino.cost.ScalarStatsCalculator;
-import io.trino.cost.TaskCountEstimator;
-import io.trino.execution.QueryManagerConfig;
-import io.trino.execution.QueryPreparer;
 import io.trino.execution.QueryStats;
-import io.trino.execution.TaskManagerConfig;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
@@ -40,29 +29,15 @@ import io.trino.operator.OperatorStats;
 import io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import io.trino.spi.QueryId;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeOperators;
-import io.trino.sql.analyzer.AnalyzerFactory;
 import io.trino.sql.analyzer.QueryExplainer;
-import io.trino.sql.analyzer.QueryExplainerFactory;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.Plan;
-import io.trino.sql.planner.PlanFragmenter;
-import io.trino.sql.planner.PlanOptimizers;
-import io.trino.sql.planner.PlanOptimizersFactory;
-import io.trino.sql.planner.RuleStatsRecorder;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.optimizations.PlanNodeSearcher;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.query.QueryAssertions.QueryAssert;
-import io.trino.sql.rewrite.DescribeInputRewrite;
-import io.trino.sql.rewrite.DescribeOutputRewrite;
-import io.trino.sql.rewrite.ExplainRewrite;
-import io.trino.sql.rewrite.ShowQueriesRewrite;
-import io.trino.sql.rewrite.ShowStatsRewrite;
-import io.trino.sql.rewrite.StatementRewrite;
 import io.trino.sql.tree.ExplainType;
 import io.trino.testing.TestingAccessControlManager.TestingPrivilege;
 import io.trino.transaction.TransactionBuilder;
@@ -445,7 +420,7 @@ public abstract class AbstractTestQueryFramework
     //TODO: should WarningCollector be added?
     protected String getExplainPlan(String query, ExplainType.Type planType)
     {
-        QueryExplainer explainer = getQueryExplainer();
+        QueryExplainer explainer = queryRunner.getQueryExplainer();
         return newTransaction()
                 .singleStatement()
                 .execute(getSession(), session -> {
@@ -455,59 +430,12 @@ public abstract class AbstractTestQueryFramework
 
     protected String getGraphvizExplainPlan(String query, ExplainType.Type planType)
     {
-        QueryExplainer explainer = getQueryExplainer();
+        QueryExplainer explainer = queryRunner.getQueryExplainer();
         return newTransaction()
                 .singleStatement()
                 .execute(queryRunner.getDefaultSession(), session -> {
                     return explainer.getGraphvizPlan(session, sqlParser.createStatement(query, createParsingOptions(session)), planType, emptyList(), WarningCollector.NOOP);
                 });
-    }
-
-    private QueryExplainer getQueryExplainer()
-    {
-        Metadata metadata = queryRunner.getMetadata();
-        FeaturesConfig featuresConfig = new FeaturesConfig().setOptimizeHashGeneration(true);
-        boolean forceSingleNode = queryRunner.getNodeCount() == 1;
-        TaskCountEstimator taskCountEstimator = new TaskCountEstimator(queryRunner::getNodeCount);
-        CostCalculator costCalculator = new CostCalculatorUsingExchanges(taskCountEstimator);
-        TypeOperators typeOperators = new TypeOperators();
-        TypeAnalyzer typeAnalyzer = new TypeAnalyzer(sqlParser, metadata);
-        PlanOptimizersFactory planOptimizersFactory = new PlanOptimizers(
-                metadata,
-                typeOperators,
-                typeAnalyzer,
-                new TaskManagerConfig(),
-                forceSingleNode,
-                queryRunner.getSplitManager(),
-                queryRunner.getPageSourceManager(),
-                queryRunner.getStatsCalculator(),
-                new ScalarStatsCalculator(metadata, typeAnalyzer),
-                costCalculator,
-                new CostCalculatorWithEstimatedExchanges(costCalculator, taskCountEstimator),
-                new CostComparator(featuresConfig),
-                taskCountEstimator,
-                queryRunner.getNodePartitioningManager(),
-                new RuleStatsRecorder());
-        QueryExplainerFactory queryExplainerFactory = new QueryExplainerFactory(
-                planOptimizersFactory,
-                new PlanFragmenter(metadata, queryRunner.getNodePartitioningManager(), new QueryManagerConfig()),
-                metadata,
-                typeOperators,
-                sqlParser,
-                queryRunner.getStatsCalculator(),
-                costCalculator);
-        AnalyzerFactory analyzerFactory = new AnalyzerFactory(
-                metadata,
-                sqlParser,
-                queryRunner.getAccessControl(),
-                queryRunner.getGroupProvider(),
-                new StatementRewrite(ImmutableSet.of(
-                        new DescribeInputRewrite(sqlParser),
-                        new DescribeOutputRewrite(sqlParser),
-                        new ShowQueriesRewrite(metadata, sqlParser, queryRunner.getAccessControl()),
-                        new ShowStatsRewrite(queryExplainerFactory, queryRunner.getStatsCalculator()),
-                        new ExplainRewrite(queryExplainerFactory, new QueryPreparer(sqlParser)))));
-        return queryExplainerFactory.createQueryExplainer(analyzerFactory);
     }
 
     protected static void skipTestUnless(boolean requirement)
