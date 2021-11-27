@@ -248,6 +248,7 @@ public class LocalQueryRunner
     private final SessionPropertyManager sessionPropertyManager;
     private final SchemaPropertyManager schemaPropertyManager;
     private final ColumnPropertyManager columnPropertyManager;
+    private final TablePropertyManager tablePropertyManager;
 
     private final PageFunctionCompiler pageFunctionCompiler;
     private final ExpressionCompiler expressionCompiler;
@@ -324,7 +325,6 @@ public class LocalQueryRunner
 
         this.metadata = new MetadataManager(
                 featuresConfig,
-                new TablePropertyManager(),
                 new MaterializedViewPropertyManager(),
                 new AnalyzePropertyManager(),
                 new TableProceduresPropertyManager(),
@@ -345,8 +345,16 @@ public class LocalQueryRunner
         this.sessionPropertyManager = createSessionPropertyManager(extraSessionProperties, taskManagerConfig, featuresConfig);
         this.schemaPropertyManager = new SchemaPropertyManager();
         this.columnPropertyManager = new ColumnPropertyManager();
+        this.tablePropertyManager = new TablePropertyManager();
 
-        this.statementAnalyzerFactory = new StatementAnalyzerFactory(metadata, sqlParser, accessControl, groupProvider, tableProceduresRegistry, sessionPropertyManager);
+        this.statementAnalyzerFactory = new StatementAnalyzerFactory(
+                metadata,
+                sqlParser,
+                accessControl,
+                groupProvider,
+                tableProceduresRegistry,
+                sessionPropertyManager,
+                tablePropertyManager);
         this.statsCalculator = createNewStatsCalculator(metadata, new TypeAnalyzer(statementAnalyzerFactory));
         this.scalarStatsCalculator = new ScalarStatsCalculator(metadata, new TypeAnalyzer(statementAnalyzerFactory));
         this.taskCountEstimator = new TaskCountEstimator(() -> nodeCountForStats);
@@ -382,6 +390,7 @@ public class LocalQueryRunner
                 sessionPropertyManager,
                 schemaPropertyManager,
                 columnPropertyManager,
+                tablePropertyManager,
                 nodeSchedulerConfig);
 
         GlobalSystemConnectorFactory globalSystemConnectorFactory = new GlobalSystemConnectorFactory(ImmutableSet.of(
@@ -390,7 +399,7 @@ public class LocalQueryRunner
                 new TableCommentSystemTable(metadata, accessControl),
                 new MaterializedViewSystemTable(metadata, accessControl),
                 new SchemaPropertiesSystemTable(transactionManager, schemaPropertyManager),
-                new TablePropertiesSystemTable(transactionManager, metadata),
+                new TablePropertiesSystemTable(transactionManager, tablePropertyManager),
                 new MaterializedViewPropertiesSystemTable(transactionManager, metadata),
                 new ColumnPropertiesSystemTable(transactionManager, columnPropertyManager),
                 new AnalyzePropertiesSystemTable(transactionManager, metadata),
@@ -994,7 +1003,7 @@ public class LocalQueryRunner
                 new StatementRewrite(ImmutableSet.of(
                         new DescribeInputRewrite(sqlParser),
                         new DescribeOutputRewrite(sqlParser),
-                        new ShowQueriesRewrite(metadata, sqlParser, accessControl, sessionPropertyManager, schemaPropertyManager, columnPropertyManager),
+                        new ShowQueriesRewrite(metadata, sqlParser, accessControl, sessionPropertyManager, schemaPropertyManager, columnPropertyManager, tablePropertyManager),
                         new ShowStatsRewrite(queryExplainerFactory, statsCalculator),
                         new ExplainRewrite(queryExplainerFactory, new QueryPreparer(sqlParser)))));
     }

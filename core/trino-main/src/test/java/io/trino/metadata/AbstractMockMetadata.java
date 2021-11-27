@@ -873,12 +873,6 @@ public abstract class AbstractMockMetadata
     //
 
     @Override
-    public TablePropertyManager getTablePropertyManager()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public MaterializedViewPropertyManager getMaterializedViewPropertyManager()
     {
         throw new UnsupportedOperationException();
