@@ -675,8 +675,6 @@ public interface Metadata
 
     FunctionInvoker getScalarFunctionInvoker(ResolvedFunction resolvedFunction, InvocationConvention invocationConvention);
 
-    TableProceduresRegistry getTableProcedureRegistry();
-
     //
     // Blocks
     //

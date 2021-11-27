@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.TableProceduresRegistry;
 import io.trino.security.AccessControl;
 import io.trino.spi.security.GroupProvider;
 import io.trino.sql.parser.SqlParser;
@@ -32,23 +33,26 @@ public class StatementAnalyzerFactory
     private final SqlParser sqlParser;
     private final AccessControl accessControl;
     private final GroupProvider groupProvider;
+    private final TableProceduresRegistry tableProceduresRegistry;
 
     @Inject
     public StatementAnalyzerFactory(
             Metadata metadata,
             SqlParser sqlParser,
             AccessControl accessControl,
-            GroupProvider groupProvider)
+            GroupProvider groupProvider,
+            TableProceduresRegistry tableProceduresRegistry)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
+        this.tableProceduresRegistry = requireNonNull(tableProceduresRegistry, "tableProceduresRegistry is null");
     }
 
     public StatementAnalyzerFactory withSpecializedAccessControl(AccessControl accessControl)
     {
-        return new StatementAnalyzerFactory(metadata, sqlParser, accessControl, groupProvider);
+        return new StatementAnalyzerFactory(metadata, sqlParser, accessControl, groupProvider, tableProceduresRegistry);
     }
 
     public StatementAnalyzer createStatementAnalyzer(
@@ -57,7 +61,17 @@ public class StatementAnalyzerFactory
             WarningCollector warningCollector,
             CorrelationSupport correlationSupport)
     {
-        return new StatementAnalyzer(this, analysis, metadata, sqlParser, groupProvider, accessControl, session, warningCollector, correlationSupport);
+        return new StatementAnalyzer(
+                this,
+                analysis,
+                metadata,
+                sqlParser,
+                groupProvider,
+                accessControl,
+                session,
+                tableProceduresRegistry,
+                warningCollector,
+                correlationSupport);
     }
 
     // this is only for the static factory methods on ExpressionAnalyzer, and should not be used for any other purpose
@@ -90,6 +104,7 @@ public class StatementAnalyzerFactory
                 metadata,
                 new SqlParser(),
                 accessControl,
-                user -> ImmutableSet.of());
+                user -> ImmutableSet.of(),
+                new TableProceduresRegistry());
     }
 }

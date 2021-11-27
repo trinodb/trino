@@ -24,6 +24,7 @@ import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.OperatorNotFoundException;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TableProceduresRegistry;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.InvocationConvention;
@@ -307,7 +308,8 @@ public final class DomainTranslator
                 metadata,
                 new SqlParser(),
                 new AllowAllAccessControl(),
-                user -> ImmutableSet.of()));
+                user -> ImmutableSet.of(),
+                new TableProceduresRegistry()));
         return new Visitor(metadata, typeOperators, session, types, typeAnalyzer).process(predicate, false);
     }
 
