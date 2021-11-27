@@ -19,6 +19,7 @@ import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.SchemaPropertyManager;
 import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
@@ -50,12 +51,14 @@ public class CreateSchemaTask
 {
     private final Metadata metadata;
     private final AccessControl accessControl;
+    private final SchemaPropertyManager schemaPropertyManager;
 
     @Inject
-    public CreateSchemaTask(Metadata metadata, AccessControl accessControl)
+    public CreateSchemaTask(Metadata metadata, AccessControl accessControl, SchemaPropertyManager schemaPropertyManager)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
+        this.schemaPropertyManager = requireNonNull(schemaPropertyManager, "schemaPropertyManager is null");
     }
 
     @Override
@@ -71,11 +74,17 @@ public class CreateSchemaTask
             List<Expression> parameters,
             WarningCollector warningCollector)
     {
-        return internalExecute(statement, metadata, accessControl, stateMachine.getSession(), parameters);
+        return internalExecute(statement, metadata, accessControl, schemaPropertyManager, stateMachine.getSession(), parameters);
     }
 
     @VisibleForTesting
-    static ListenableFuture<Void> internalExecute(CreateSchema statement, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters)
+    static ListenableFuture<Void> internalExecute(
+            CreateSchema statement,
+            Metadata metadata,
+            AccessControl accessControl,
+            SchemaPropertyManager schemaPropertyManager,
+            Session session,
+            List<Expression> parameters)
     {
         CatalogSchemaName schema = createCatalogSchemaName(session, statement, Optional.of(statement.getSchemaName()));
 
@@ -92,7 +101,7 @@ public class CreateSchemaTask
 
         CatalogName catalogName = getRequiredCatalogHandle(metadata, session, statement, schema.getCatalogName());
 
-        Map<String, Object> properties = metadata.getSchemaPropertyManager().getProperties(
+        Map<String, Object> properties = schemaPropertyManager.getProperties(
                 catalogName,
                 schema.getCatalogName(),
                 mapFromProperties(statement.getProperties()),

@@ -246,6 +246,7 @@ public class LocalQueryRunner
     private final SpillerFactory spillerFactory;
     private final PartitioningSpillerFactory partitioningSpillerFactory;
     private final SessionPropertyManager sessionPropertyManager;
+    private final SchemaPropertyManager schemaPropertyManager;
 
     private final PageFunctionCompiler pageFunctionCompiler;
     private final ExpressionCompiler expressionCompiler;
@@ -322,7 +323,6 @@ public class LocalQueryRunner
 
         this.metadata = new MetadataManager(
                 featuresConfig,
-                new SchemaPropertyManager(),
                 new TablePropertyManager(),
                 new MaterializedViewPropertyManager(),
                 new ColumnPropertyManager(),
@@ -340,8 +340,11 @@ public class LocalQueryRunner
         this.groupProvider = new TestingGroupProvider();
         this.accessControl = new TestingAccessControlManager(transactionManager, eventListenerManager);
         accessControl.loadSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
+
         TableProceduresRegistry tableProceduresRegistry = new TableProceduresRegistry();
         this.sessionPropertyManager = createSessionPropertyManager(extraSessionProperties, taskManagerConfig, featuresConfig);
+        this.schemaPropertyManager = new SchemaPropertyManager();
+
         this.statementAnalyzerFactory = new StatementAnalyzerFactory(metadata, sqlParser, accessControl, groupProvider, tableProceduresRegistry, sessionPropertyManager);
         this.statsCalculator = createNewStatsCalculator(metadata, new TypeAnalyzer(statementAnalyzerFactory));
         this.scalarStatsCalculator = new ScalarStatsCalculator(metadata, new TypeAnalyzer(statementAnalyzerFactory));
@@ -376,6 +379,7 @@ public class LocalQueryRunner
                 new ProcedureRegistry(),
                 tableProceduresRegistry,
                 sessionPropertyManager,
+                schemaPropertyManager,
                 nodeSchedulerConfig);
 
         GlobalSystemConnectorFactory globalSystemConnectorFactory = new GlobalSystemConnectorFactory(ImmutableSet.of(
@@ -383,7 +387,7 @@ public class LocalQueryRunner
                 new CatalogSystemTable(metadata, accessControl),
                 new TableCommentSystemTable(metadata, accessControl),
                 new MaterializedViewSystemTable(metadata, accessControl),
-                new SchemaPropertiesSystemTable(transactionManager, metadata),
+                new SchemaPropertiesSystemTable(transactionManager, schemaPropertyManager),
                 new TablePropertiesSystemTable(transactionManager, metadata),
                 new MaterializedViewPropertiesSystemTable(transactionManager, metadata),
                 new ColumnPropertiesSystemTable(transactionManager, metadata),
@@ -988,7 +992,7 @@ public class LocalQueryRunner
                 new StatementRewrite(ImmutableSet.of(
                         new DescribeInputRewrite(sqlParser),
                         new DescribeOutputRewrite(sqlParser),
-                        new ShowQueriesRewrite(metadata, sqlParser, accessControl, sessionPropertyManager),
+                        new ShowQueriesRewrite(metadata, sqlParser, accessControl, sessionPropertyManager, schemaPropertyManager),
                         new ShowStatsRewrite(queryExplainerFactory, statsCalculator),
                         new ExplainRewrite(queryExplainerFactory, new QueryPreparer(sqlParser)))));
     }

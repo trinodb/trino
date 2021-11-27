@@ -38,6 +38,7 @@ import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.SchemaPropertyManager;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.ViewColumn;
@@ -5485,7 +5486,12 @@ public class TestAnalyzer
 
     private static Analyzer createAnalyzer(Session session, Metadata metadata, AccessControl accessControl)
     {
-        StatementRewrite statementRewrite = new StatementRewrite(ImmutableSet.of(new ShowQueriesRewrite(metadata, SQL_PARSER, accessControl, new SessionPropertyManager())));
+        StatementRewrite statementRewrite = new StatementRewrite(ImmutableSet.of(new ShowQueriesRewrite(
+                metadata,
+                SQL_PARSER,
+                accessControl,
+                new SessionPropertyManager(),
+                new SchemaPropertyManager())));
         AnalyzerFactory analyzerFactory = new AnalyzerFactory(createTestingStatementAnalyzerFactory(metadata, accessControl), statementRewrite);
         return analyzerFactory.createAnalyzer(
                 session,

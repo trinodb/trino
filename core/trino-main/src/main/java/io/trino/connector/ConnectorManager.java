@@ -32,6 +32,7 @@ import io.trino.metadata.HandleResolver;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.MetadataManager;
 import io.trino.metadata.ProcedureRegistry;
+import io.trino.metadata.SchemaPropertyManager;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.TableProceduresRegistry;
 import io.trino.security.AccessControlManager;
@@ -114,6 +115,7 @@ public class ConnectorManager
     private final ProcedureRegistry procedureRegistry;
     private final TableProceduresRegistry tableProceduresRegistry;
     private final SessionPropertyManager sessionPropertyManager;
+    private final SchemaPropertyManager schemaPropertyManager;
 
     private final boolean schedulerIncludeCoordinator;
 
@@ -147,6 +149,7 @@ public class ConnectorManager
             ProcedureRegistry procedureRegistry,
             TableProceduresRegistry tableProceduresRegistry,
             SessionPropertyManager sessionPropertyManager,
+            SchemaPropertyManager schemaPropertyManager,
             NodeSchedulerConfig nodeSchedulerConfig)
     {
         this.metadataManager = metadataManager;
@@ -169,6 +172,7 @@ public class ConnectorManager
         this.procedureRegistry = procedureRegistry;
         this.tableProceduresRegistry = tableProceduresRegistry;
         this.sessionPropertyManager = sessionPropertyManager;
+        this.schemaPropertyManager = schemaPropertyManager;
         this.schedulerIncludeCoordinator = nodeSchedulerConfig.isIncludeCoordinator();
     }
 
@@ -322,7 +326,7 @@ public class ConnectorManager
         metadataManager.getTablePropertyManager().addProperties(catalogName, connector.getTableProperties());
         metadataManager.getMaterializedViewPropertyManager().addProperties(catalogName, connector.getMaterializedViewProperties());
         metadataManager.getColumnPropertyManager().addProperties(catalogName, connector.getColumnProperties());
-        metadataManager.getSchemaPropertyManager().addProperties(catalogName, connector.getSchemaProperties());
+        schemaPropertyManager.addProperties(catalogName, connector.getSchemaProperties());
         metadataManager.getAnalyzePropertyManager().addProperties(catalogName, connector.getAnalyzeProperties());
         for (TableProcedureMetadata tableProcedure : tableProcedures) {
             metadataManager.getTableProceduresPropertyManager().addProperties(catalogName, tableProcedure.getName(), tableProcedure.getProperties());
@@ -356,7 +360,7 @@ public class ConnectorManager
         metadataManager.getTablePropertyManager().removeProperties(catalogName);
         metadataManager.getMaterializedViewPropertyManager().removeProperties(catalogName);
         metadataManager.getColumnPropertyManager().removeProperties(catalogName);
-        metadataManager.getSchemaPropertyManager().removeProperties(catalogName);
+        schemaPropertyManager.removeProperties(catalogName);
         metadataManager.getAnalyzePropertyManager().removeProperties(catalogName);
         metadataManager.getTableProceduresPropertyManager().removeProperties(catalogName);
         sessionPropertyManager.removeConnectorSessionProperties(catalogName);

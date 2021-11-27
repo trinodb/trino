@@ -685,8 +685,6 @@ public interface Metadata
     // Properties
     //
 
-    SchemaPropertyManager getSchemaPropertyManager();
-
     TablePropertyManager getTablePropertyManager();
 
     MaterializedViewPropertyManager getMaterializedViewPropertyManager();
