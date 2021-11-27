@@ -503,12 +503,6 @@ public class LocalQueryRunner
     }
 
     @Override
-    public AnalyzerFactory getAnalyzerFactory()
-    {
-        return createAnalyzerFactory(createQueryExplainerFactory(getPlanOptimizers(false)));
-    }
-
-    @Override
     public QueryExplainer getQueryExplainer()
     {
         QueryExplainerFactory queryExplainerFactory = createQueryExplainerFactory(getPlanOptimizers(true));
