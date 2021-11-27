@@ -204,7 +204,7 @@ public class ExpressionInterpreter
         return evaluateConstantExpression(expression, coercions, analyzer.getTypeOnlyCoercions(), metadata, session, accessControl, ImmutableSet.of(), parameters);
     }
 
-    private static Object evaluateConstantExpression(
+    public static Object evaluateConstantExpression(
             Expression expression,
             Map<NodeRef<Expression>, Type> coercions,
             Set<NodeRef<Expression>> typeOnlyCoercions,
