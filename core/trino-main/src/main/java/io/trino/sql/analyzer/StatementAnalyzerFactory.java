@@ -19,6 +19,7 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.SessionPropertyManager;
+import io.trino.metadata.TableProceduresPropertyManager;
 import io.trino.metadata.TableProceduresRegistry;
 import io.trino.metadata.TablePropertyManager;
 import io.trino.security.AccessControl;
@@ -40,6 +41,7 @@ public class StatementAnalyzerFactory
     private final SessionPropertyManager sessionPropertyManager;
     private final TablePropertyManager tablePropertyManager;
     private final AnalyzePropertyManager analyzePropertyManager;
+    private final TableProceduresPropertyManager tableProceduresPropertyManager;
 
     @Inject
     public StatementAnalyzerFactory(
@@ -50,7 +52,8 @@ public class StatementAnalyzerFactory
             TableProceduresRegistry tableProceduresRegistry,
             SessionPropertyManager sessionPropertyManager,
             TablePropertyManager tablePropertyManager,
-            AnalyzePropertyManager analyzePropertyManager)
+            AnalyzePropertyManager analyzePropertyManager,
+            TableProceduresPropertyManager tableProceduresPropertyManager)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
@@ -60,6 +63,7 @@ public class StatementAnalyzerFactory
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
         this.analyzePropertyManager = requireNonNull(analyzePropertyManager, "analyzePropertyManager is null");
+        this.tableProceduresPropertyManager = requireNonNull(tableProceduresPropertyManager, "tableProceduresPropertyManager is null");
     }
 
     public StatementAnalyzerFactory withSpecializedAccessControl(AccessControl accessControl)
@@ -72,7 +76,8 @@ public class StatementAnalyzerFactory
                 tableProceduresRegistry,
                 sessionPropertyManager,
                 tablePropertyManager,
-                analyzePropertyManager);
+                analyzePropertyManager,
+                tableProceduresPropertyManager);
     }
 
     public StatementAnalyzer createStatementAnalyzer(
@@ -93,6 +98,7 @@ public class StatementAnalyzerFactory
                 sessionPropertyManager,
                 tablePropertyManager,
                 analyzePropertyManager,
+                tableProceduresPropertyManager,
                 warningCollector,
                 correlationSupport);
     }
@@ -135,6 +141,7 @@ public class StatementAnalyzerFactory
                 new TableProceduresRegistry(),
                 new SessionPropertyManager(),
                 tablePropertyManager,
-                analyzePropertyManager);
+                analyzePropertyManager,
+                new TableProceduresPropertyManager());
     }
 }

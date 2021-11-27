@@ -41,6 +41,7 @@ import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.TableExecuteHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
+import io.trino.metadata.TableProceduresPropertyManager;
 import io.trino.metadata.TableProceduresRegistry;
 import io.trino.metadata.TablePropertyManager;
 import io.trino.metadata.TableSchema;
@@ -332,6 +333,7 @@ class StatementAnalyzer
     private final SessionPropertyManager sessionPropertyManager;
     private final TablePropertyManager tablePropertyManager;
     private final AnalyzePropertyManager analyzePropertyManager;
+    private final TableProceduresPropertyManager tableProceduresPropertyManager;
 
     private final WarningCollector warningCollector;
     private final CorrelationSupport correlationSupport;
@@ -348,6 +350,7 @@ class StatementAnalyzer
             SessionPropertyManager sessionPropertyManager,
             TablePropertyManager tablePropertyManager,
             AnalyzePropertyManager analyzePropertyManager,
+            TableProceduresPropertyManager tableProceduresPropertyManager,
             WarningCollector warningCollector,
             CorrelationSupport correlationSupport)
     {
@@ -363,6 +366,7 @@ class StatementAnalyzer
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
         this.analyzePropertyManager = requireNonNull(analyzePropertyManager, "analyzePropertyManager is null");
+        this.tableProceduresPropertyManager = tableProceduresPropertyManager;
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         this.correlationSupport = requireNonNull(correlationSupport, "correlationSupport is null");
     }
@@ -1074,7 +1078,7 @@ class StatementAnalyzer
             // analyze arguments
 
             Map<String, Expression> propertiesMap = processTableExecuteArguments(node, procedureMetadata, scope);
-            Map<String, Object> tableProperties = metadata.getTableProceduresPropertyManager().getProperties(
+            Map<String, Object> tableProperties = tableProceduresPropertyManager.getProperties(
                     catalogName,
                     procedureName,
                     catalogName.getCatalogName(),

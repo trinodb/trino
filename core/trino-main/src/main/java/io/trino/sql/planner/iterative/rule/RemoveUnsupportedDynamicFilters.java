@@ -21,6 +21,7 @@ import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.OperatorNotFoundException;
 import io.trino.metadata.SessionPropertyManager;
+import io.trino.metadata.TableProceduresPropertyManager;
 import io.trino.metadata.TableProceduresRegistry;
 import io.trino.metadata.TablePropertyManager;
 import io.trino.security.AllowAllAccessControl;
@@ -96,7 +97,8 @@ public class RemoveUnsupportedDynamicFilters
                 new TableProceduresRegistry(),
                 new SessionPropertyManager(),
                 new TablePropertyManager(),
-                new AnalyzePropertyManager()));
+                new AnalyzePropertyManager(),
+                new TableProceduresPropertyManager()));
     }
 
     @Override
