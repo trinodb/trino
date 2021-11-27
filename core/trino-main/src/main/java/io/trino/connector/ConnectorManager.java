@@ -31,6 +31,7 @@ import io.trino.metadata.CatalogManager;
 import io.trino.metadata.ColumnPropertyManager;
 import io.trino.metadata.HandleResolver;
 import io.trino.metadata.InternalNodeManager;
+import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.MetadataManager;
 import io.trino.metadata.ProcedureRegistry;
 import io.trino.metadata.SchemaPropertyManager;
@@ -120,6 +121,7 @@ public class ConnectorManager
     private final SchemaPropertyManager schemaPropertyManager;
     private final ColumnPropertyManager columnPropertyManager;
     private final TablePropertyManager tablePropertyManager;
+    private final MaterializedViewPropertyManager materializedViewPropertyManager;
 
     private final boolean schedulerIncludeCoordinator;
 
@@ -156,6 +158,7 @@ public class ConnectorManager
             SchemaPropertyManager schemaPropertyManager,
             ColumnPropertyManager columnPropertyManager,
             TablePropertyManager tablePropertyManager,
+            MaterializedViewPropertyManager materializedViewPropertyManager,
             NodeSchedulerConfig nodeSchedulerConfig)
     {
         this.metadataManager = metadataManager;
@@ -181,6 +184,7 @@ public class ConnectorManager
         this.schemaPropertyManager = schemaPropertyManager;
         this.columnPropertyManager = columnPropertyManager;
         this.tablePropertyManager = tablePropertyManager;
+        this.materializedViewPropertyManager = materializedViewPropertyManager;
         this.schedulerIncludeCoordinator = nodeSchedulerConfig.isIncludeCoordinator();
     }
 
@@ -332,7 +336,7 @@ public class ConnectorManager
                 .ifPresent(accessControl -> accessControlManager.addCatalogAccessControl(catalogName, accessControl));
 
         tablePropertyManager.addProperties(catalogName, connector.getTableProperties());
-        metadataManager.getMaterializedViewPropertyManager().addProperties(catalogName, connector.getMaterializedViewProperties());
+        materializedViewPropertyManager.addProperties(catalogName, connector.getMaterializedViewProperties());
         columnPropertyManager.addProperties(catalogName, connector.getColumnProperties());
         schemaPropertyManager.addProperties(catalogName, connector.getSchemaProperties());
         metadataManager.getAnalyzePropertyManager().addProperties(catalogName, connector.getAnalyzeProperties());
@@ -366,7 +370,7 @@ public class ConnectorManager
         tableProceduresRegistry.removeProcedures(catalogName);
         accessControlManager.removeCatalogAccessControl(catalogName);
         tablePropertyManager.removeProperties(catalogName);
-        metadataManager.getMaterializedViewPropertyManager().removeProperties(catalogName);
+        materializedViewPropertyManager.removeProperties(catalogName);
         columnPropertyManager.removeProperties(catalogName);
         schemaPropertyManager.removeProperties(catalogName);
         metadataManager.getAnalyzePropertyManager().removeProperties(catalogName);
