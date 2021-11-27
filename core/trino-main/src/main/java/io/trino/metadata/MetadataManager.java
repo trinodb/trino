@@ -211,7 +211,6 @@ public final class MetadataManager
     private final FunctionRegistry functions;
     private final TypeOperators typeOperators;
     private final FunctionResolver functionResolver;
-    private final SchemaPropertyManager schemaPropertyManager;
     private final TablePropertyManager tablePropertyManager;
     private final MaterializedViewPropertyManager materializedViewPropertyManager;
     private final ColumnPropertyManager columnPropertyManager;
@@ -232,7 +231,6 @@ public final class MetadataManager
     @Inject
     public MetadataManager(
             FeaturesConfig featuresConfig,
-            SchemaPropertyManager schemaPropertyManager,
             TablePropertyManager tablePropertyManager,
             MaterializedViewPropertyManager materializedViewPropertyManager,
             ColumnPropertyManager columnPropertyManager,
@@ -249,7 +247,6 @@ public final class MetadataManager
         functions = new FunctionRegistry(this::getBlockEncodingSerde, featuresConfig, typeOperators, blockTypeOperators, nodeVersion.getVersion());
         functionResolver = new FunctionResolver(this);
 
-        this.schemaPropertyManager = requireNonNull(schemaPropertyManager, "schemaPropertyManager is null");
         this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
         this.materializedViewPropertyManager = requireNonNull(materializedViewPropertyManager, "materializedViewPropertyManager is null");
         this.columnPropertyManager = requireNonNull(columnPropertyManager, "columnPropertyManager is null");
@@ -314,7 +311,6 @@ public final class MetadataManager
         TypeOperators typeOperators = new TypeOperators();
         return new MetadataManager(
                 featuresConfig,
-                new SchemaPropertyManager(),
                 new TablePropertyManager(),
                 new MaterializedViewPropertyManager(),
                 new ColumnPropertyManager(),
@@ -2822,12 +2818,6 @@ public final class MetadataManager
     //
     // Properties
     //
-
-    @Override
-    public SchemaPropertyManager getSchemaPropertyManager()
-    {
-        return schemaPropertyManager;
-    }
 
     @Override
     public TablePropertyManager getTablePropertyManager()

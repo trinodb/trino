@@ -29,6 +29,7 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.MetadataUtil;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.RedirectionAwareTableHandle;
+import io.trino.metadata.SchemaPropertyManager;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.SessionPropertyManager.SessionPropertyValue;
 import io.trino.metadata.TableHandle;
@@ -158,14 +159,21 @@ public final class ShowQueriesRewrite
     private final SqlParser parser;
     private final AccessControl accessControl;
     private final SessionPropertyManager sessionPropertyManager;
+    private final SchemaPropertyManager schemaPropertyManager;
 
     @Inject
-    public ShowQueriesRewrite(Metadata metadata, SqlParser parser, AccessControl accessControl, SessionPropertyManager sessionPropertyManager)
+    public ShowQueriesRewrite(
+            Metadata metadata,
+            SqlParser parser,
+            AccessControl accessControl,
+            SessionPropertyManager sessionPropertyManager,
+            SchemaPropertyManager schemaPropertyManager)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.parser = requireNonNull(parser, "parser is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
+        this.schemaPropertyManager = requireNonNull(schemaPropertyManager, "schemaPropertyManager is null");
     }
 
     @Override
@@ -177,7 +185,7 @@ public final class ShowQueriesRewrite
             Map<NodeRef<Parameter>, Expression> parameterLookup,
             WarningCollector warningCollector)
     {
-        return (Statement) new Visitor(metadata, parser, session, accessControl, sessionPropertyManager).process(node, null);
+        return (Statement) new Visitor(metadata, parser, session, accessControl, sessionPropertyManager, schemaPropertyManager).process(node, null);
     }
 
     private static class Visitor
@@ -188,14 +196,22 @@ public final class ShowQueriesRewrite
         private final SqlParser sqlParser;
         private final AccessControl accessControl;
         private final SessionPropertyManager sessionPropertyManager;
+        private final SchemaPropertyManager schemaPropertyManager;
 
-        public Visitor(Metadata metadata, SqlParser sqlParser, Session session, AccessControl accessControl, SessionPropertyManager sessionPropertyManager)
+        public Visitor(
+                Metadata metadata,
+                SqlParser sqlParser,
+                Session session,
+                AccessControl accessControl,
+                SessionPropertyManager sessionPropertyManager,
+                SchemaPropertyManager schemaPropertyManager)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
             this.session = requireNonNull(session, "session is null");
             this.accessControl = requireNonNull(accessControl, "accessControl is null");
             this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
+            this.schemaPropertyManager = requireNonNull(schemaPropertyManager, "schemaPropertyManager is null");
         }
 
         @Override
@@ -648,7 +664,7 @@ public final class ShowQueriesRewrite
                 accessControl.checkCanShowCreateSchema(session.toSecurityContext(), schemaName);
 
                 Map<String, Object> properties = metadata.getSchemaProperties(session, schemaName);
-                Map<String, PropertyMetadata<?>> allTableProperties = metadata.getSchemaPropertyManager().getAllProperties().get(new CatalogName(schemaName.getCatalogName()));
+                Map<String, PropertyMetadata<?>> allTableProperties = schemaPropertyManager.getAllProperties().get(new CatalogName(schemaName.getCatalogName()));
                 QualifiedName qualifiedSchemaName = QualifiedName.of(schemaName.getCatalogName(), schemaName.getSchemaName());
                 List<Property> propertyNodes = buildProperties(qualifiedSchemaName, Optional.empty(), INVALID_SCHEMA_PROPERTY, properties, allTableProperties);
 
