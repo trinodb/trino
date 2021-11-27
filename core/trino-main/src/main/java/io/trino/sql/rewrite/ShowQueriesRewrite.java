@@ -34,6 +34,7 @@ import io.trino.metadata.SchemaPropertyManager;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.SessionPropertyManager.SessionPropertyValue;
 import io.trino.metadata.TableHandle;
+import io.trino.metadata.TablePropertyManager;
 import io.trino.metadata.ViewDefinition;
 import io.trino.security.AccessControl;
 import io.trino.spi.StandardErrorCode;
@@ -162,6 +163,7 @@ public final class ShowQueriesRewrite
     private final SessionPropertyManager sessionPropertyManager;
     private final SchemaPropertyManager schemaPropertyManager;
     private final ColumnPropertyManager columnPropertyManager;
+    private final TablePropertyManager tablePropertyManager;
 
     @Inject
     public ShowQueriesRewrite(
@@ -170,7 +172,8 @@ public final class ShowQueriesRewrite
             AccessControl accessControl,
             SessionPropertyManager sessionPropertyManager,
             SchemaPropertyManager schemaPropertyManager,
-            ColumnPropertyManager columnPropertyManager)
+            ColumnPropertyManager columnPropertyManager,
+            TablePropertyManager tablePropertyManager)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.parser = requireNonNull(parser, "parser is null");
@@ -178,6 +181,7 @@ public final class ShowQueriesRewrite
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.schemaPropertyManager = requireNonNull(schemaPropertyManager, "schemaPropertyManager is null");
         this.columnPropertyManager = requireNonNull(columnPropertyManager, "columnPropertyManager is null");
+        this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
     }
 
     @Override
@@ -189,7 +193,8 @@ public final class ShowQueriesRewrite
             Map<NodeRef<Parameter>, Expression> parameterLookup,
             WarningCollector warningCollector)
     {
-        return (Statement) new Visitor(metadata, parser, session, accessControl, sessionPropertyManager, schemaPropertyManager, columnPropertyManager).process(node, null);
+        Visitor visitor = new Visitor(metadata, parser, session, accessControl, sessionPropertyManager, schemaPropertyManager, columnPropertyManager, tablePropertyManager);
+        return (Statement) visitor.process(node, null);
     }
 
     private static class Visitor
@@ -202,6 +207,7 @@ public final class ShowQueriesRewrite
         private final SessionPropertyManager sessionPropertyManager;
         private final SchemaPropertyManager schemaPropertyManager;
         private final ColumnPropertyManager columnPropertyManager;
+        private final TablePropertyManager tablePropertyManager;
 
         public Visitor(
                 Metadata metadata,
@@ -210,7 +216,8 @@ public final class ShowQueriesRewrite
                 AccessControl accessControl,
                 SessionPropertyManager sessionPropertyManager,
                 SchemaPropertyManager schemaPropertyManager,
-                ColumnPropertyManager columnPropertyManager)
+                ColumnPropertyManager columnPropertyManager,
+                TablePropertyManager tablePropertyManager)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
@@ -219,6 +226,7 @@ public final class ShowQueriesRewrite
             this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
             this.schemaPropertyManager = requireNonNull(schemaPropertyManager, "schemaPropertyManager is null");
             this.columnPropertyManager = requireNonNull(columnPropertyManager, "columnPropertyManager is null");
+            this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
         }
 
         @Override
@@ -649,7 +657,7 @@ public final class ShowQueriesRewrite
                         .collect(toImmutableList());
 
                 Map<String, Object> properties = connectorTableMetadata.getProperties();
-                Map<String, PropertyMetadata<?>> allTableProperties = metadata.getTablePropertyManager().getAllProperties().get(tableHandle.get().getCatalogName());
+                Map<String, PropertyMetadata<?>> allTableProperties = tablePropertyManager.getAllProperties().get(tableHandle.get().getCatalogName());
                 List<Property> propertyNodes = buildProperties(targetTableName, Optional.empty(), INVALID_TABLE_PROPERTY, properties, allTableProperties);
 
                 CreateTable createTable = new CreateTable(

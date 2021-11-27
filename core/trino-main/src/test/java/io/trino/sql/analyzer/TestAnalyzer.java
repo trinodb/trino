@@ -42,6 +42,7 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.SchemaPropertyManager;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.TableHandle;
+import io.trino.metadata.TablePropertyManager;
 import io.trino.metadata.ViewColumn;
 import io.trino.metadata.ViewDefinition;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
@@ -205,6 +206,7 @@ public class TestAnalyzer
     private TransactionManager transactionManager;
     private AccessControl accessControl;
     private Metadata metadata;
+    private TablePropertyManager tablePropertyManager;
 
     @Test
     public void testTooManyArguments()
@@ -5168,7 +5170,10 @@ public class TestAnalyzer
         Catalog tpchTestCatalog = createTestingCatalog(TPCH_CATALOG, TPCH_CATALOG_NAME);
         TestingMetadata testingConnectorMetadata = (TestingMetadata) tpchTestCatalog.getConnector(TPCH_CATALOG_NAME).getMetadata(null);
         catalogManager.registerCatalog(tpchTestCatalog);
-        metadata.getTablePropertyManager().addProperties(TPCH_CATALOG_NAME, tpchTestCatalog.getConnector(TPCH_CATALOG_NAME).getTableProperties());
+
+        tablePropertyManager = new TablePropertyManager();
+        tablePropertyManager.addProperties(TPCH_CATALOG_NAME, tpchTestCatalog.getConnector(TPCH_CATALOG_NAME).getTableProperties());
+
         metadata.getAnalyzePropertyManager().addProperties(TPCH_CATALOG_NAME, tpchTestCatalog.getConnector(TPCH_CATALOG_NAME).getAnalyzeProperties());
 
         catalogManager.registerCatalog(createTestingCatalog(SECOND_CATALOG, SECOND_CATALOG_NAME));
@@ -5485,7 +5490,7 @@ public class TestAnalyzer
                 .execute(SETUP_SESSION, consumer);
     }
 
-    private static Analyzer createAnalyzer(Session session, Metadata metadata, AccessControl accessControl)
+    private Analyzer createAnalyzer(Session session, AccessControl accessControl)
     {
         StatementRewrite statementRewrite = new StatementRewrite(ImmutableSet.of(new ShowQueriesRewrite(
                 metadata,
@@ -5493,8 +5498,9 @@ public class TestAnalyzer
                 accessControl,
                 new SessionPropertyManager(),
                 new SchemaPropertyManager(),
-                new ColumnPropertyManager())));
-        AnalyzerFactory analyzerFactory = new AnalyzerFactory(createTestingStatementAnalyzerFactory(metadata, accessControl), statementRewrite);
+                new ColumnPropertyManager(),
+                tablePropertyManager)));
+        AnalyzerFactory analyzerFactory = new AnalyzerFactory(createTestingStatementAnalyzerFactory(metadata, accessControl, tablePropertyManager), statementRewrite);
         return analyzerFactory.createAnalyzer(
                 session,
                 emptyList(),
@@ -5518,7 +5524,7 @@ public class TestAnalyzer
                 .singleStatement()
                 .readUncommitted()
                 .execute(clientSession, session -> {
-                    Analyzer analyzer = createAnalyzer(session, metadata, accessControl);
+                    Analyzer analyzer = createAnalyzer(session, accessControl);
                     Statement statement = SQL_PARSER.createStatement(query, new ParsingOptions(
                             new FeaturesConfig().isParseDecimalLiteralsAsDouble() ? AS_DOUBLE : AS_DECIMAL));
                     return analyzer.analyze(statement);

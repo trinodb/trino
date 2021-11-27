@@ -41,6 +41,7 @@ import io.trino.metadata.TableExecuteHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
 import io.trino.metadata.TableProceduresRegistry;
+import io.trino.metadata.TablePropertyManager;
 import io.trino.metadata.TableSchema;
 import io.trino.metadata.TableVersion;
 import io.trino.metadata.ViewColumn;
@@ -328,6 +329,7 @@ class StatementAnalyzer
     private final AccessControl accessControl;
     private final TableProceduresRegistry tableProceduresRegistry;
     private final SessionPropertyManager sessionPropertyManager;
+    private final TablePropertyManager tablePropertyManager;
 
     private final WarningCollector warningCollector;
     private final CorrelationSupport correlationSupport;
@@ -341,7 +343,9 @@ class StatementAnalyzer
             AccessControl accessControl,
             Session session,
             TableProceduresRegistry tableProceduresRegistry,
-            SessionPropertyManager sessionPropertyManager, WarningCollector warningCollector,
+            SessionPropertyManager sessionPropertyManager,
+            TablePropertyManager tablePropertyManager,
+            WarningCollector warningCollector,
             CorrelationSupport correlationSupport)
     {
         this.statementAnalyzerFactory = requireNonNull(statementAnalyzerFactory, "statementAnalyzerFactory is null");
@@ -354,6 +358,7 @@ class StatementAnalyzer
         this.session = requireNonNull(session, "session is null");
         this.tableProceduresRegistry = requireNonNull(tableProceduresRegistry, "tableProceduresRegistry is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
+        this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         this.correlationSupport = requireNonNull(correlationSupport, "correlationSupport is null");
     }
@@ -826,7 +831,7 @@ class StatementAnalyzer
             // create target table metadata
             CatalogName catalogName = getRequiredCatalogHandle(metadata, session, node, targetTable.getCatalogName());
 
-            Map<String, Object> properties = metadata.getTablePropertyManager().getProperties(
+            Map<String, Object> properties = tablePropertyManager.getProperties(
                     catalogName,
                     targetTable.getCatalogName(),
                     mapFromProperties(node.getProperties()),

@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.TablePropertyManager;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.StatementAnalyzerFactory;
@@ -72,6 +73,6 @@ public class TypeAnalyzer
 
     public static TypeAnalyzer createTestingTypeAnalyzer(Metadata metadata)
     {
-        return new TypeAnalyzer(createTestingStatementAnalyzerFactory(metadata, new AllowAllAccessControl()));
+        return new TypeAnalyzer(createTestingStatementAnalyzerFactory(metadata, new AllowAllAccessControl(), new TablePropertyManager()));
     }
 }

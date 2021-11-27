@@ -110,13 +110,9 @@ public class TestCreateMaterializedViewTask
     {
         CatalogManager catalogManager = new CatalogManager();
         transactionManager = createTestTransactionManager(catalogManager);
-        TablePropertyManager tablePropertyManager = new TablePropertyManager();
         MaterializedViewPropertyManager materializedViewPropertyManager = new MaterializedViewPropertyManager();
         Catalog testCatalog = createBogusTestingCatalog(CATALOG_NAME);
         catalogManager.registerCatalog(testCatalog);
-        tablePropertyManager.addProperties(
-                testCatalog.getConnectorCatalogName(),
-                ImmutableList.of(stringProperty("baz", "test property", null, false)));
         materializedViewPropertyManager.addProperties(
                 testCatalog.getConnectorCatalogName(),
                 ImmutableList.of(stringProperty("foo", "test materialized view property", null, false)));
@@ -124,11 +120,10 @@ public class TestCreateMaterializedViewTask
                 .setTransactionId(transactionManager.beginTransaction(false))
                 .build();
         metadata = new MockMetadata(
-                tablePropertyManager,
                 materializedViewPropertyManager,
                 testCatalog.getConnectorCatalogName());
         parser = new SqlParser();
-        analyzerFactory = new AnalyzerFactory(createTestingStatementAnalyzerFactory(metadata, new AllowAllAccessControl()), new StatementRewrite(ImmutableSet.of()));
+        analyzerFactory = new AnalyzerFactory(createTestingStatementAnalyzerFactory(metadata, new AllowAllAccessControl(), new TablePropertyManager()), new StatementRewrite(ImmutableSet.of()));
         queryStateMachine = stateMachine(transactionManager, createTestMetadataManager(), new AllowAllAccessControl());
     }
 
@@ -204,7 +199,7 @@ public class TestCreateMaterializedViewTask
         accessControl.loadSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
         accessControl.deny(privilege("test_mv", CREATE_MATERIALIZED_VIEW));
 
-        AnalyzerFactory analyzerFactory = new AnalyzerFactory(createTestingStatementAnalyzerFactory(metadata, accessControl), new StatementRewrite(ImmutableSet.of()));
+        AnalyzerFactory analyzerFactory = new AnalyzerFactory(createTestingStatementAnalyzerFactory(metadata, accessControl, new TablePropertyManager()), new StatementRewrite(ImmutableSet.of()));
         assertThatThrownBy(() -> getFutureValue(new CreateMaterializedViewTask(metadata, accessControl, parser, analyzerFactory)
                 .execute(statement, queryStateMachine, ImmutableList.of(), WarningCollector.NOOP)))
                 .isInstanceOf(AccessDeniedException.class)
@@ -231,17 +226,12 @@ public class TestCreateMaterializedViewTask
     private static class MockMetadata
             extends AbstractMockMetadata
     {
-        private final TablePropertyManager tablePropertyManager;
         private final MaterializedViewPropertyManager materializedViewPropertyManager;
         private final CatalogName catalogHandle;
         private final Map<SchemaTableName, MaterializedViewDefinition> materializedViews = new ConcurrentHashMap<>();
 
-        public MockMetadata(
-                TablePropertyManager tablePropertyManager,
-                MaterializedViewPropertyManager materializedViewPropertyManager,
-                CatalogName catalogHandle)
+        public MockMetadata(MaterializedViewPropertyManager materializedViewPropertyManager, CatalogName catalogHandle)
         {
-            this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
             this.materializedViewPropertyManager = requireNonNull(materializedViewPropertyManager, "materializedViewPropertyManager is null");
             this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
         }
@@ -253,12 +243,6 @@ public class TestCreateMaterializedViewTask
             if (!ignoreExisting) {
                 throw new TrinoException(ALREADY_EXISTS, "Materialized view already exists");
             }
-        }
-
-        @Override
-        public TablePropertyManager getTablePropertyManager()
-        {
-            return tablePropertyManager;
         }
 
         @Override

@@ -19,6 +19,7 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
+import io.trino.metadata.TablePropertyManager;
 import io.trino.security.AccessControl;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.SetProperties;
@@ -44,12 +45,14 @@ public class SetPropertiesTask
 {
     private final Metadata metadata;
     private final AccessControl accessControl;
+    private final TablePropertyManager tablePropertyManager;
 
     @Inject
-    public SetPropertiesTask(Metadata metadata, AccessControl accessControl)
+    public SetPropertiesTask(Metadata metadata, AccessControl accessControl, TablePropertyManager tablePropertyManager)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
+        this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
     }
 
     @Override
@@ -71,7 +74,7 @@ public class SetPropertiesTask
         Map<String, Expression> sqlProperties = mapFromProperties(statement.getProperties());
 
         if (statement.getType() == SetProperties.Type.TABLE) {
-            Map<String, Object> properties = metadata.getTablePropertyManager().getProperties(
+            Map<String, Object> properties = tablePropertyManager.getProperties(
                     getRequiredCatalogHandle(metadata, session, statement, tableName.getCatalogName()),
                     tableName.getCatalogName(),
                     sqlProperties,

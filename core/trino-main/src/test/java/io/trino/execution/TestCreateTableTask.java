@@ -108,13 +108,14 @@ public class TestCreateTableTask
     private MockMetadata metadata;
     private TransactionManager transactionManager;
     private ColumnPropertyManager columnPropertyManager;
+    private TablePropertyManager tablePropertyManager;
 
     @BeforeMethod
     public void setUp()
     {
         CatalogManager catalogManager = new CatalogManager();
         transactionManager = createTestTransactionManager(catalogManager);
-        TablePropertyManager tablePropertyManager = new TablePropertyManager();
+        tablePropertyManager = new TablePropertyManager();
         MaterializedViewPropertyManager materializedViewPropertyManager = new MaterializedViewPropertyManager();
         columnPropertyManager = new ColumnPropertyManager();
         Catalog testCatalog = createBogusTestingCatalog(CATALOG_NAME);
@@ -130,7 +131,6 @@ public class TestCreateTableTask
                 .setTransactionId(transactionManager.beginTransaction(false))
                 .build();
         metadata = new MockMetadata(
-                tablePropertyManager,
                 materializedViewPropertyManager,
                 testCatalog.getConnectorCatalogName(),
                 emptySet());
@@ -145,7 +145,8 @@ public class TestCreateTableTask
                 ImmutableList.of(),
                 Optional.empty());
 
-        getFutureValue(new CreateTableTask(metadata, new AllowAllAccessControl(), columnPropertyManager, new FeaturesConfig()).internalExecute(statement, testSession, emptyList(), output -> {}));
+        CreateTableTask createTableTask = new CreateTableTask(metadata, new AllowAllAccessControl(), columnPropertyManager, tablePropertyManager, new FeaturesConfig());
+        getFutureValue(createTableTask.internalExecute(statement, testSession, emptyList(), output -> {}));
         assertEquals(metadata.getCreateTableCallCount(), 1);
     }
 
@@ -158,7 +159,8 @@ public class TestCreateTableTask
                 ImmutableList.of(),
                 Optional.empty());
 
-        assertTrinoExceptionThrownBy(() -> getFutureValue(new CreateTableTask(metadata, new AllowAllAccessControl(), columnPropertyManager, new FeaturesConfig()).internalExecute(statement, testSession, emptyList(), output -> {})))
+        CreateTableTask createTableTask = new CreateTableTask(metadata, new AllowAllAccessControl(), columnPropertyManager, tablePropertyManager, new FeaturesConfig());
+        assertTrinoExceptionThrownBy(() -> getFutureValue(createTableTask.internalExecute(statement, testSession, emptyList(), output -> {})))
                 .hasErrorCode(ALREADY_EXISTS)
                 .hasMessage("Table already exists");
 
@@ -174,7 +176,8 @@ public class TestCreateTableTask
                 ImmutableList.of(new Property(new Identifier("foo"), new StringLiteral("bar"))),
                 Optional.empty());
 
-        assertTrinoExceptionThrownBy(() -> getFutureValue(new CreateTableTask(metadata, new AllowAllAccessControl(), columnPropertyManager, new FeaturesConfig()).internalExecute(statement, testSession, emptyList(), output -> {})))
+        CreateTableTask createTableTask = new CreateTableTask(metadata, new AllowAllAccessControl(), columnPropertyManager, tablePropertyManager, new FeaturesConfig());
+        assertTrinoExceptionThrownBy(() -> getFutureValue(createTableTask.internalExecute(statement, testSession, emptyList(), output -> {})))
                 .hasErrorCode(INVALID_TABLE_PROPERTY)
                 .hasMessage("Catalog 'catalog' does not support table property 'foo'");
 
@@ -191,7 +194,8 @@ public class TestCreateTableTask
                 new ColumnDefinition(identifier("c"), toSqlType(VARBINARY), false, emptyList(), Optional.empty()));
         CreateTable statement = new CreateTable(QualifiedName.of("test_table"), inputColumns, true, ImmutableList.of(), Optional.empty());
 
-        getFutureValue(new CreateTableTask(metadata, new AllowAllAccessControl(), columnPropertyManager, new FeaturesConfig()).internalExecute(statement, testSession, emptyList(), output -> {}));
+        CreateTableTask createTableTask = new CreateTableTask(metadata, new AllowAllAccessControl(), columnPropertyManager, tablePropertyManager, new FeaturesConfig());
+        getFutureValue(createTableTask.internalExecute(statement, testSession, emptyList(), output -> {}));
         assertEquals(metadata.getCreateTableCallCount(), 1);
         List<ColumnMetadata> columns = metadata.getReceivedTableMetadata().get(0).getColumns();
         assertEquals(columns.size(), 3);
@@ -223,8 +227,9 @@ public class TestCreateTableTask
                 ImmutableList.of(),
                 Optional.empty());
 
+        CreateTableTask createTableTask = new CreateTableTask(metadata, new AllowAllAccessControl(), columnPropertyManager, tablePropertyManager, new FeaturesConfig());
         assertTrinoExceptionThrownBy(() ->
-                getFutureValue(new CreateTableTask(metadata, new AllowAllAccessControl(), columnPropertyManager, new FeaturesConfig()).internalExecute(statement, testSession, emptyList(), output -> {})))
+                getFutureValue(createTableTask.internalExecute(statement, testSession, emptyList(), output -> {})))
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("Catalog 'catalog' does not support non-null column for column name 'b'");
     }
@@ -234,7 +239,8 @@ public class TestCreateTableTask
     {
         CreateTable statement = getCreatleLikeStatement(false);
 
-        getFutureValue(new CreateTableTask(metadata, new AllowAllAccessControl(), columnPropertyManager, new FeaturesConfig()).internalExecute(statement, testSession, List.of(), output -> {}));
+        CreateTableTask createTableTask = new CreateTableTask(metadata, new AllowAllAccessControl(), columnPropertyManager, tablePropertyManager, new FeaturesConfig());
+        getFutureValue(createTableTask.internalExecute(statement, testSession, List.of(), output -> {}));
         assertEquals(metadata.getCreateTableCallCount(), 1);
 
         assertThat(metadata.getReceivedTableMetadata().get(0).getColumns())
@@ -247,7 +253,8 @@ public class TestCreateTableTask
     {
         CreateTable statement = getCreatleLikeStatement(true);
 
-        getFutureValue(new CreateTableTask(metadata, new AllowAllAccessControl(), columnPropertyManager, new FeaturesConfig()).internalExecute(statement, testSession, List.of(), output -> {}));
+        CreateTableTask createTableTask = new CreateTableTask(metadata, new AllowAllAccessControl(), columnPropertyManager, tablePropertyManager, new FeaturesConfig());
+        getFutureValue(createTableTask.internalExecute(statement, testSession, List.of(), output -> {}));
         assertEquals(metadata.getCreateTableCallCount(), 1);
 
         assertThat(metadata.getReceivedTableMetadata().get(0).getColumns())
@@ -264,7 +271,8 @@ public class TestCreateTableTask
         TestingAccessControlManager accessControl = new TestingAccessControlManager(transactionManager, new EventListenerManager(new EventListenerConfig()));
         accessControl.deny(privilege("parent_table", SELECT_COLUMN));
 
-        assertThatThrownBy(() -> getFutureValue(new CreateTableTask(metadata, accessControl, columnPropertyManager, new FeaturesConfig()).internalExecute(statement, testSession, List.of(), output -> {})))
+        CreateTableTask createTableTask = new CreateTableTask(metadata, accessControl, columnPropertyManager, tablePropertyManager, new FeaturesConfig());
+        assertThatThrownBy(() -> getFutureValue(createTableTask.internalExecute(statement, testSession, List.of(), output -> {})))
                 .isInstanceOf(AccessDeniedException.class)
                 .hasMessageContaining("Cannot reference columns of table");
     }
@@ -277,7 +285,8 @@ public class TestCreateTableTask
         TestingAccessControlManager accessControl = new TestingAccessControlManager(transactionManager, new EventListenerManager(new EventListenerConfig()));
         accessControl.deny(privilege("parent_table", SHOW_CREATE_TABLE));
 
-        assertThatThrownBy(() -> getFutureValue(new CreateTableTask(metadata, accessControl, columnPropertyManager, new FeaturesConfig()).internalExecute(statement, testSession, List.of(), output -> {})))
+        CreateTableTask createTableTask = new CreateTableTask(metadata, accessControl, columnPropertyManager, tablePropertyManager, new FeaturesConfig());
+        assertThatThrownBy(() -> getFutureValue(createTableTask.internalExecute(statement, testSession, List.of(), output -> {})))
                 .isInstanceOf(AccessDeniedException.class)
                 .hasMessageContaining("Cannot reference properties of table");
     }
@@ -296,19 +305,16 @@ public class TestCreateTableTask
             extends AbstractMockMetadata
     {
         private final MetadataManager metadata;
-        private final TablePropertyManager tablePropertyManager;
         private final MaterializedViewPropertyManager materializedViewPropertyManager;
         private final CatalogName catalogHandle;
         private final List<ConnectorTableMetadata> tables = new CopyOnWriteArrayList<>();
         private Set<ConnectorCapabilities> connectorCapabilities;
 
         public MockMetadata(
-                TablePropertyManager tablePropertyManager,
                 MaterializedViewPropertyManager materializedViewPropertyManager,
                 CatalogName catalogHandle,
                 Set<ConnectorCapabilities> connectorCapabilities)
         {
-            this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
             this.materializedViewPropertyManager = requireNonNull(materializedViewPropertyManager, "materializedViewPropertyManager is null");
             this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
             this.connectorCapabilities = immutableEnumSet(requireNonNull(connectorCapabilities, "connectorCapabilities is null"));
@@ -322,12 +328,6 @@ public class TestCreateTableTask
             if (!ignoreExisting) {
                 throw new TrinoException(ALREADY_EXISTS, "Table already exists");
             }
-        }
-
-        @Override
-        public TablePropertyManager getTablePropertyManager()
-        {
-            return tablePropertyManager;
         }
 
         @Override

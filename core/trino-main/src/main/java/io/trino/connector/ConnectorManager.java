@@ -36,6 +36,7 @@ import io.trino.metadata.ProcedureRegistry;
 import io.trino.metadata.SchemaPropertyManager;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.TableProceduresRegistry;
+import io.trino.metadata.TablePropertyManager;
 import io.trino.security.AccessControlManager;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.PageSorter;
@@ -118,6 +119,7 @@ public class ConnectorManager
     private final SessionPropertyManager sessionPropertyManager;
     private final SchemaPropertyManager schemaPropertyManager;
     private final ColumnPropertyManager columnPropertyManager;
+    private final TablePropertyManager tablePropertyManager;
 
     private final boolean schedulerIncludeCoordinator;
 
@@ -153,6 +155,7 @@ public class ConnectorManager
             SessionPropertyManager sessionPropertyManager,
             SchemaPropertyManager schemaPropertyManager,
             ColumnPropertyManager columnPropertyManager,
+            TablePropertyManager tablePropertyManager,
             NodeSchedulerConfig nodeSchedulerConfig)
     {
         this.metadataManager = metadataManager;
@@ -177,6 +180,7 @@ public class ConnectorManager
         this.sessionPropertyManager = sessionPropertyManager;
         this.schemaPropertyManager = schemaPropertyManager;
         this.columnPropertyManager = columnPropertyManager;
+        this.tablePropertyManager = tablePropertyManager;
         this.schedulerIncludeCoordinator = nodeSchedulerConfig.isIncludeCoordinator();
     }
 
@@ -327,7 +331,7 @@ public class ConnectorManager
         connector.getAccessControl()
                 .ifPresent(accessControl -> accessControlManager.addCatalogAccessControl(catalogName, accessControl));
 
-        metadataManager.getTablePropertyManager().addProperties(catalogName, connector.getTableProperties());
+        tablePropertyManager.addProperties(catalogName, connector.getTableProperties());
         metadataManager.getMaterializedViewPropertyManager().addProperties(catalogName, connector.getMaterializedViewProperties());
         columnPropertyManager.addProperties(catalogName, connector.getColumnProperties());
         schemaPropertyManager.addProperties(catalogName, connector.getSchemaProperties());
@@ -361,7 +365,7 @@ public class ConnectorManager
         procedureRegistry.removeProcedures(catalogName);
         tableProceduresRegistry.removeProcedures(catalogName);
         accessControlManager.removeCatalogAccessControl(catalogName);
-        metadataManager.getTablePropertyManager().removeProperties(catalogName);
+        tablePropertyManager.removeProperties(catalogName);
         metadataManager.getMaterializedViewPropertyManager().removeProperties(catalogName);
         columnPropertyManager.removeProperties(catalogName);
         schemaPropertyManager.removeProperties(catalogName);
